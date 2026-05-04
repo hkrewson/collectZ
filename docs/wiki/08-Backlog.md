@@ -49,6 +49,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 31. The Kavita import/sync foundation, metadata mapping, and volume/chapter enrichment slices were promoted as `3.4.86`, `3.4.87`, and `3.4.88`; keep reader launch/progress discovery, metadata writeback, chapter-as-issue row fan-out, per-space Kavita administration, and shared provider abstractions as versionless backlog tasks until selected.
 32. `Kavita External Reader Launch Contract` was promoted as `3.4.89`; keep embedded iframe reading, page streaming, reading progress sync, metadata writeback, and per-space Kavita administration separate.
 33. `Kavita Reader and Progress Contract Discovery` was promoted as `3.4.91`; keep embedded iframe reading, page streaming, reading progress writeback, and per-space Kavita administration as separate backlog tasks until selected.
+34. `Kavita Chapter-as-Issue Row Fan-out` was promoted as `3.4.92`; keep implementation, embedded reading, progress sync, metadata writeback, per-space Kavita administration, and shared provider abstractions separate until selected.
 
 ### Backlog Item: Kavita Reader and Progress Contract Discovery
 
@@ -75,24 +76,8 @@ Promoted as `3.4.91`; keep embedded iframe reading, page streaming, reading prog
 - If writeback is accepted, the first milestone has a narrow field list, rollback story, and smoke coverage plan.
 
 ### Backlog Item: Kavita Chapter-as-Issue Row Fan-out
-**Type:** Deferred milestone
-**Tags:** `kavita`, `comics`, `chapters`, `issues`, `imports`
 
-**Goal:** Explore importing selected Kavita chapters/issues as individual collectZ comic rows instead of only enriching series-level rows.
-
-**Why this work exists**
-- Series-level import is useful for books and manga collections, but comic libraries may need individual issue rows.
-- Volume/chapter enrichment now preserves the source metadata needed to design a safer fan-out path.
-
-**Scope**
-- Define when a Kavita chapter should become a collectZ `comic_book` row.
-- Use stable provider identity such as Kavita chapter id without colliding with series-level rows.
-- Preserve non-Kavita/local metadata and existing duplicate guardrails.
-- Keep broad metadata writeback, embedded reading, and progress sync out of scope.
-
-**Acceptance Criteria**
-- The proposed identity model distinguishes `kavita:series:<id>` from chapter/issue-level Kavita rows.
-- A smoke plan proves repeat sync idempotency and avoids duplicate comic issues.
+Promoted as `3.4.92`; keep implementation, embedded reading, progress sync, metadata writeback, per-space Kavita administration, and shared provider abstractions separate until selected.
 
 ### Backlog Item: Kavita Cover Art Source Hardening
 

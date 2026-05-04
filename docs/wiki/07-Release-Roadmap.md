@@ -8778,6 +8778,42 @@ Historical note:
 - What remains in the milestone: no open `3.4.91` work remains.
 - Recommended commit message: `Release 3.4.91 Kavita reader and progress contract discovery`.
 
+## 3.4.92 — Kavita Chapter-as-Issue Row Fan-out Contract
+
+**Goal:** Define how selected Kavita comic/manga chapters can later become individual collectZ `comic_book` rows without colliding with the existing series-level import model.
+
+**Current Slice:** `Closed 2026-05-04`
+
+### Scope
+
+- Document the opt-in fan-out contract for Kavita comic/manga chapters.
+- Define provider identity for series rows and chapter/issue rows.
+- Define when a Kavita chapter is eligible to become a collectZ `comic_book` row.
+- Document duplicate handling and local metadata preservation rules.
+- Define smoke coverage for repeat sync idempotency and duplicate issue avoidance.
+- Keep implementation, embedded reading, reader page proxying, progress sync, metadata writeback, per-space Kavita administration, and shared provider abstraction cleanup out of this slice.
+
+### Acceptance Criteria
+
+- A dedicated chapter-as-issue fan-out contract doc exists.
+- The setup doc points to the fan-out contract and states fan-out remains off by default.
+- Unit/source assertions keep the `kavita:series:{seriesId}` versus `kavita:chapter:{chapterId}` identity boundary visible.
+- The smoke plan proves repeat sync idempotency, local metadata preservation, book-library exclusion, and secret-free launch/cover URLs.
+- Version metadata and Help > Releases are aligned to `3.4.92`.
+
+### Closeout Notes
+
+- Roadmap slice: `3.4.92 — Kavita Chapter-as-Issue Row Fan-out Contract`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/41-Kavita-Integration-Setup.md`, and `docs/wiki/43-Kavita-Chapter-Issue-Fanout-Contract.md`.
+- Runtime verification used: rebuilt Docker platform stack at `3.4.92`, `/api/health`, `/api/auth/config`, in-stack Help > Releases smoke, Kavita connection smoke, Kavita import/sync smoke proving default series-level import remains intact, isolated generated-compose homelab boundary stack, and live DB `events_enabled=true` readback before and after the slice.
+- CI/checks run locally: source syntax check for `backend/scripts/unit-tests.js`; local backend unit/source assertions (`240` passed); local OpenAPI validation; container backend unit/source assertions (`240` passed); container OpenAPI validation; container `test:kavita-connection-smoke`; container `test:kavita-import-sync-smoke`; container `test:help-releases-smoke` with `EXPECTED_RELEASE_VERSION=v3.4.92`; container `test:init-parity`; container `test:migration-rehearsal`; container `test:rbac-regression` rerun isolated after an initial concurrent fixture collision; container `test:platform-edition-boundary`; isolated generated-compose `test:homelab-edition-boundary`; API integration smoke; full browser regression (`58` passed, `4` skipped); `npm run validate:public-export`; `npm run compose:generate`; local release preflight; Docker Node 20 backend/frontend dependency audits; observability release evidence; release-artifact secret-pattern scan; and `git diff --check`.
+- Version closeout: `app-meta.json`, backend/frontend app metadata, backend/frontend package metadata, `docker-compose.yml`, `docs/releases/v3.4.92.md`, and `backend/release-feed.json` are aligned to `3.4.92`.
+- Release gate accounting: `compose-smoke` was locally covered by rebuilt stack health, `/api/health`, `/api/auth/config`, and compose config generation; `rbac-regression`, `browser-regression`, `homelab-edition-boundary`, `platform-edition-boundary`, and Docker Node 20 dependency audit passed locally; `secret-scan` and `image-security-and-sbom` remain CI-only locally because `gitleaks`, `trivy`, and SBOM tooling were not installed in the local shell.
+- Verified facts: current collectZ Kavita import still creates the canonical series rows only by default; the contract defines future opt-in chapter issue ids as `kavita:chapter:{chapterId}` while preserving existing series ids as `kavita:series:{seriesId}`; no fan-out implementation, reader embedding, reader proxying, progress sync, or metadata writeback was added in this slice.
+- Risks/follow-ups: implementing opt-in fan-out, UI/import controls for selected chapters, high-confidence local issue reuse, embedded reading, progress sync, metadata writeback, per-space Kavita administration, and shared provider abstraction cleanup remain out of scope and stay in backlog.
+- What remains in the milestone: no open `3.4.92` work remains.
+- Recommended commit message: `Release 3.4.92 Kavita chapter-as-issue row fan-out contract`.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

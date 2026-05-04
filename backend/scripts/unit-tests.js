@@ -120,6 +120,7 @@ const kavitaConnectionSmokeSource = fs.readFileSync(require.resolve('../scripts/
 const kavitaImportSyncSmokeSource = fs.readFileSync(require.resolve('../scripts/kavita-import-sync-smoke'), 'utf8');
 const kavitaSetupDocSource = fs.readFileSync(require.resolve('../../docs/wiki/41-Kavita-Integration-Setup.md'), 'utf8');
 const kavitaReaderProgressDocSource = fs.readFileSync(require.resolve('../../docs/wiki/42-Kavita-Reader-Progress-Contract.md'), 'utf8');
+const kavitaChapterFanoutDocSource = fs.readFileSync(require.resolve('../../docs/wiki/43-Kavita-Chapter-Issue-Fanout-Contract.md'), 'utf8');
 const schedIcsSyncSource = fs.readFileSync(require.resolve('../services/schedIcsSync'), 'utf8');
 const spacesServiceSource = fs.readFileSync(require.resolve('../services/spaces'), 'utf8');
 function readFrontendSource(relativePath) {
@@ -1856,6 +1857,17 @@ results.push(run('kavita reader and progress contract keeps collectZ link-out on
   assert.ok(kavitaReaderProgressDocSource.includes('`POST /api/Reader/progress`'));
   assert.ok(kavitaReaderProgressDocSource.includes('`GET /api/Koreader/{apiKey}/syncs/progress/{ebookHash}`'));
   assert.ok(kavitaReaderProgressDocSource.includes('Kavita auth keys remain backend-only integration secrets'));
+}));
+
+results.push(run('kavita chapter fan-out contract keeps series and issue identities distinct and opt-in', () => {
+  assert.ok(kavitaSetupDocSource.includes('43-Kavita-Chapter-Issue-Fanout-Contract.md'));
+  assert.ok(kavitaChapterFanoutDocSource.includes('Series row: `provider_item_id = kavita:series:{seriesId}`'));
+  assert.ok(kavitaChapterFanoutDocSource.includes('Chapter/issue row: `provider_item_id = kavita:chapter:{chapterId}`'));
+  assert.ok(kavitaChapterFanoutDocSource.includes('Chapter fan-out should be opt-in and comic-only'));
+  assert.ok(kavitaChapterFanoutDocSource.includes('Default Kavita import still creates only the series-level row'));
+  assert.ok(kavitaChapterFanoutDocSource.includes('Repeat fan-out sync reports no duplicate creation'));
+  assert.ok(kavitaChapterFanoutDocSource.includes('Book libraries do not fan out into comic issue rows'));
+  assert.ok(kavitaChapterFanoutDocSource.includes('No reader/progress endpoints are called as part of fan-out'));
 }));
 
 results.push(run('AppPrimitives keeps authenticated collectZ API image paths same-origin', () => {

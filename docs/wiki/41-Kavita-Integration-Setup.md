@@ -1,6 +1,6 @@
 # Kavita Integration Setup
 
-`3.4.85` added the first read-only Kavita connection foundation. Later Kavita slices add import/sync, metadata mapping, volume/chapter enrichment, secret-free launch links back to Kavita's native web UI, and a documented reader/progress boundary.
+`3.4.85` added the first read-only Kavita connection foundation. Later Kavita slices add import/sync, metadata mapping, volume/chapter enrichment, secret-free launch links back to Kavita's native web UI, a documented reader/progress boundary, and a chapter-as-issue fan-out contract.
 
 ## Requirements
 
@@ -51,9 +51,20 @@ Launch links remain native Kavita web URLs:
 
 Cover proxy URLs and launch URLs must not include API keys, OPDS keys, bearer tokens, or any other credential. Users still authenticate with Kavita in Kavita's own browser session for native reader launches.
 
+## Chapter-as-Issue Fan-out
+
+Current Kavita imports remain series-level by default. `docs/wiki/43-Kavita-Chapter-Issue-Fanout-Contract.md` defines the future opt-in shape for importing selected Kavita comic/manga chapters as individual `comic_book` rows.
+
+The identity boundary is:
+
+- Series row: `provider_item_id = kavita:series:{seriesId}`
+- Chapter row: `provider_item_id = kavita:chapter:{chapterId}`
+
+Fan-out must preserve the parent series row and keep repeat sync idempotent. It must not call Kavita reader/progress endpoints.
+
 ## Current Boundaries
 
-The Kavita integration remains read-only. It does not push metadata into Kavita, embed the Kavita reader, proxy reader pages, write reading progress, or create a shared Calibre/CWA/Kavita provider abstraction. The cover proxy is only for imported cover images and does not expose reader content.
+The Kavita integration remains read-only. It does not push metadata into Kavita, embed the Kavita reader, proxy reader pages, write reading progress, enable chapter-as-issue fan-out by default, or create a shared Calibre/CWA/Kavita provider abstraction. The cover proxy is only for imported cover images and does not expose reader content.
 
 Those are intentionally later milestones so the connection/auth contract can settle first. See `docs/wiki/42-Kavita-Reader-Progress-Contract.md` for the current reader/progress recommendation: link out to Kavita's native reader, do not iframe or proxy reader pages, and do not write progress from collectZ until a later opt-in contract exists.
 
