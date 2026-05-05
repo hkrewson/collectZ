@@ -713,8 +713,8 @@ export default function SpaceManagerView({
             endpointBase={`/spaces/${activeSpaceId}/integrations`}
             title="Integrations"
             includeRuntimeSections={false}
-            allowImports={false}
-            visibleSections={['audio', 'barcode', 'books', 'cwa', 'comics', 'games', 'plex', 'tmdb']}
+            allowImports
+            visibleSections={['audio', 'barcode', 'books', 'cwa', 'comics', 'games', 'kavita', 'plex', 'tmdb']}
           />
         ) : null}
 

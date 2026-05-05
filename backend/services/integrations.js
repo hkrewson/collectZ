@@ -231,6 +231,29 @@ const loadScopedIntegrationConfig = async (spaceId) => {
   return normalizeIntegrationRecord(row || null);
 };
 
+const loadWorkspaceKavitaIntegrationConfig = async (spaceId) => {
+  const row = await loadIntegrationConfigRow(spaceId, { allowFallback: false });
+  const normalized = normalizeIntegrationRecord(row || null);
+  const kavitaDecrypt = decryptSecretWithStatus(row?.kavita_api_key_encrypted, 'kavita_api_key_encrypted');
+  const decryptWarnings = (normalized.decryptWarnings || [])
+    .filter((warning) => warning?.provider !== 'kavita');
+  if (row?.kavita_api_key_encrypted && kavitaDecrypt.error) {
+    decryptWarnings.push({
+      provider: 'kavita',
+      field: 'kavita_api_key_encrypted',
+      code: 'decrypt_failed',
+      message: kavitaDecrypt.error
+    });
+  }
+  return {
+    ...normalized,
+    kavitaBaseUrl: normalizeKavitaBaseUrl(row?.kavita_base_url || ''),
+    kavitaApiKey: kavitaDecrypt.value || '',
+    kavitaTimeoutMs: Math.max(1000, normalizePositiveInteger(row?.kavita_timeout_ms, 20000)),
+    decryptWarnings
+  };
+};
+
 const loadGeneralSettings = async (spaceId = null) => {
   const result = await pool.query('SELECT * FROM app_settings WHERE id = 1');
   const row = result.rows[0] || {};
@@ -299,6 +322,7 @@ module.exports = {
   loadIntegrationConfigRow,
   loadAdminIntegrationConfig,
   loadScopedIntegrationConfig,
+  loadWorkspaceKavitaIntegrationConfig,
   loadGeneralSettings,
   updateScopedGeneralSettings
 };

@@ -317,6 +317,34 @@ async function cleanupTemporaryState({ userId, libraryId, spaceId }) {
   }
 }
 
+async function createDirectSpaceAndLibrary({ userId, suffix }) {
+  const space = await pool.query(
+    `INSERT INTO spaces (name, slug, description, created_by, is_personal)
+     VALUES ($1, $2, $3, $4, false)
+     RETURNING id`,
+    [`Kavita Workspace Smoke ${suffix}`, `kavita-workspace-smoke-${suffix}`, 'Kavita workspace isolation smoke', userId]
+  );
+  const spaceId = Number(space.rows[0]?.id || 0) || null;
+  await pool.query(
+    `INSERT INTO space_memberships (space_id, user_id, role, created_by)
+     VALUES ($1, $2, 'owner', $2)`,
+    [spaceId, userId]
+  );
+  const library = await pool.query(
+    `INSERT INTO libraries (space_id, name, description, created_by)
+     VALUES ($1, $2, $3, $4)
+     RETURNING id`,
+    [spaceId, 'Kavita Workspace Smoke Library', 'Kavita workspace isolation smoke', userId]
+  );
+  const libraryId = Number(library.rows[0]?.id || 0) || null;
+  await pool.query(
+    `INSERT INTO library_memberships (user_id, library_id, role)
+     VALUES ($1, $2, 'owner')`,
+    [userId, libraryId]
+  );
+  return { spaceId, libraryId };
+}
+
 async function readImportedProviderRow(libraryId, providerItemId) {
   const result = await pool.query(
     `SELECT id,
@@ -351,6 +379,8 @@ async function main() {
   let userId = null;
   let libraryId = null;
   let spaceId = null;
+  let secondLibraryId = null;
+  let secondSpaceId = null;
 
   try {
     userId = await createDirectUser({
@@ -402,7 +432,7 @@ async function main() {
       ]
     );
 
-    await client.request('/api/admin/settings/integrations', {
+    await client.request(`/api/spaces/${spaceId}/integrations`, {
       method: 'PUT',
       withCsrf: true,
       expectStatus: 200,
@@ -414,28 +444,43 @@ async function main() {
       headers: { 'Content-Type': 'application/json' }
     });
 
-    const firstImport = await client.request('/api/media/import-kavita?sync=1&pageSize=10&maxPages=2', {
+    const kavitaSettings = await client.request(`/api/spaces/${spaceId}/integrations`, { expectStatus: 200 });
+    assert(kavitaSettings.data?.kavitaBaseUrl === fake.baseUrl, `Expected workspace-owned Kavita URL readback, got ${JSON.stringify(kavitaSettings.data)}`);
+    assert(kavitaSettings.data?.kavitaApiKeySet === true, `Expected workspace-owned Kavita key-set readback, got ${JSON.stringify(kavitaSettings.data)}`);
+    assert(!Object.prototype.hasOwnProperty.call(kavitaSettings.data || {}, 'kavitaApiKey'), `Workspace Kavita readback must not expose raw API keys, got ${JSON.stringify(kavitaSettings.data)}`);
+
+    const kavitaTest = await client.request(`/api/spaces/${spaceId}/integrations/test-kavita`, {
       method: 'POST',
       withCsrf: true,
       expectStatus: 200,
       body: JSON.stringify({}),
       headers: { 'Content-Type': 'application/json' }
     });
-    const secondImport = await client.request('/api/media/import-kavita?sync=1&pageSize=10&maxPages=2', {
+    assert(kavitaTest.data?.ok === true, `Expected workspace-owned Kavita test to succeed, got ${JSON.stringify(kavitaTest.data)}`);
+
+    const scopeQuery = `space_id=${spaceId}&library_id=${libraryId}`;
+    const firstImport = await client.request(`/api/media/import-kavita?sync=1&pageSize=10&maxPages=2&${scopeQuery}`, {
       method: 'POST',
       withCsrf: true,
       expectStatus: 200,
       body: JSON.stringify({}),
       headers: { 'Content-Type': 'application/json' }
     });
-    const fanoutImport = await client.request('/api/media/import-kavita?sync=1&pageSize=10&maxPages=2&chapterFanout=1', {
+    const secondImport = await client.request(`/api/media/import-kavita?sync=1&pageSize=10&maxPages=2&${scopeQuery}`, {
       method: 'POST',
       withCsrf: true,
       expectStatus: 200,
       body: JSON.stringify({}),
       headers: { 'Content-Type': 'application/json' }
     });
-    const repeatFanoutImport = await client.request('/api/media/import-kavita?sync=1&pageSize=10&maxPages=2&chapterFanout=1', {
+    const fanoutImport = await client.request(`/api/media/import-kavita?sync=1&pageSize=10&maxPages=2&chapterFanout=1&${scopeQuery}`, {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 200,
+      body: JSON.stringify({}),
+      headers: { 'Content-Type': 'application/json' }
+    });
+    const repeatFanoutImport = await client.request(`/api/media/import-kavita?sync=1&pageSize=10&maxPages=2&chapterFanout=1&${scopeQuery}`, {
       method: 'POST',
       withCsrf: true,
       expectStatus: 200,
@@ -565,9 +610,37 @@ async function main() {
     assert(String(chapterTwoDetails.writer || '') === 'Existing Comic Writer', `Expected fan-out to preserve existing non-Kavita comic issue metadata, got ${JSON.stringify(chapterTwoDetails)}`);
     assert(!String(chapterOneDetails.kavita_launch_url || '').includes(KAVITA_SMOKE_KEY), `Kavita chapter launch URL must not include API keys, got ${JSON.stringify(chapterOneDetails)}`);
     assert(!String(chapterOneDetails.kavita_launch_url || '').includes(KAVITA_SMOKE_BEARER), `Kavita chapter launch URL must not include bearer tokens, got ${JSON.stringify(chapterOneDetails)}`);
-    const coverReadback = await client.requestRaw('/api/media/kavita-cover/8602', { expectStatus: 200 });
+    const coverReadback = await client.requestRaw(`/api/media/kavita-cover/8602?${scopeQuery}`, { expectStatus: 200 });
     assert(String(coverReadback.headers.get('content-type') || '').startsWith('image/png'), `Expected Kavita proxied cover content type, got ${coverReadback.headers.get('content-type')}`);
     assert(coverReadback.body.length > 0, 'Expected Kavita proxied cover body');
+
+    const secondScope = await createDirectSpaceAndLibrary({ userId, suffix });
+    secondSpaceId = secondScope.spaceId;
+    secondLibraryId = secondScope.libraryId;
+    await client.request(`/api/spaces/${secondSpaceId}/integrations`, {
+      method: 'PUT',
+      withCsrf: true,
+      expectStatus: 200,
+      body: JSON.stringify({
+        kavitaBaseUrl: fake.baseUrl,
+        kavitaApiKey: KAVITA_SMOKE_KEY,
+        kavitaTimeoutMs: 5000
+      }),
+      headers: { 'Content-Type': 'application/json' }
+    });
+    const secondWorkspaceImport = await client.request(`/api/media/import-kavita?sync=1&pageSize=10&maxPages=2&space_id=${secondSpaceId}&library_id=${secondLibraryId}`, {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 200,
+      body: JSON.stringify({}),
+      headers: { 'Content-Type': 'application/json' }
+    });
+    const secondWorkspaceSummary = secondWorkspaceImport.data?.summary || {};
+    assert(Number(secondWorkspaceSummary.created || 0) === 2, `Expected overlapping Kavita ids to create rows in the second workspace only, got ${JSON.stringify(secondWorkspaceSummary)}`);
+    assert((await readImportedProviderRow(libraryId, COMIC_PROVIDER_ITEM_ID)).length === 1, 'Expected original workspace Kavita comic row count to remain isolated after second workspace import');
+    assert((await readImportedProviderRow(secondLibraryId, COMIC_PROVIDER_ITEM_ID)).length === 1, 'Expected second workspace to own its own Kavita comic row with overlapping provider id');
+    const secondCoverReadback = await client.requestRaw(`/api/media/kavita-cover/8602?space_id=${secondSpaceId}&library_id=${secondLibraryId}`, { expectStatus: 200 });
+    assert(String(secondCoverReadback.headers.get('content-type') || '').startsWith('image/png'), `Expected second workspace Kavita cover content type, got ${secondCoverReadback.headers.get('content-type')}`);
 
     console.log(JSON.stringify({
       provider: 'kavita',
@@ -588,6 +661,10 @@ async function main() {
       specialFanoutRows: specialChapterRows.length,
       reusedExistingNonKavitaTitle: true,
       reusedExistingNonKavitaIssue: true,
+      workspaceOwnedSettings: true,
+      workspaceKavitaTestOk: true,
+      overlappingWorkspaceCreated: secondWorkspaceSummary.created,
+      overlappingWorkspaceComicRows: (await readImportedProviderRow(secondLibraryId, COMIC_PROVIDER_ITEM_ID)).length,
       comicClassifiedFromLibraryType: canonicalComic.media_type === 'comic_book',
       volumeDetailsFetched: firstSummary.volumeDetailsFetched,
       comicIssueNumber: canonicalComicDetails.issue_number,
@@ -600,12 +677,23 @@ async function main() {
       secretReturned: false
     }, null, 2));
   } finally {
-    await client.request('/api/admin/settings/integrations', {
-      method: 'PUT',
-      withCsrf: true,
-      body: JSON.stringify({ kavitaBaseUrl: '', clearKavitaApiKey: true }),
-      headers: { 'Content-Type': 'application/json' }
-    }).catch(() => {});
+    if (spaceId) {
+      await client.request(`/api/spaces/${spaceId}/integrations`, {
+        method: 'PUT',
+        withCsrf: true,
+        body: JSON.stringify({ kavitaBaseUrl: '', clearKavitaApiKey: true }),
+        headers: { 'Content-Type': 'application/json' }
+      }).catch(() => {});
+    }
+    if (secondSpaceId) {
+      await client.request(`/api/spaces/${secondSpaceId}/integrations`, {
+        method: 'PUT',
+        withCsrf: true,
+        body: JSON.stringify({ kavitaBaseUrl: '', clearKavitaApiKey: true }),
+        headers: { 'Content-Type': 'application/json' }
+      }).catch(() => {});
+    }
+    await cleanupTemporaryState({ userId: null, libraryId: secondLibraryId, spaceId: secondSpaceId });
     await cleanupTemporaryState({ userId, libraryId, spaceId });
     await new Promise((resolve) => fake.server.close(resolve)).catch(() => {});
     await pool.end().catch(() => {});

@@ -119,6 +119,8 @@ const adminRoutesSource = fs.readFileSync(require.resolve('../routes/admin'), 'u
 const eventsRoutesSource = fs.readFileSync(require.resolve('../routes/events'), 'utf8');
 const collectiblesRoutesSource = fs.readFileSync(require.resolve('../routes/collectibles'), 'utf8');
 const integrationsRoutesSource = fs.readFileSync(require.resolve('../routes/integrations'), 'utf8');
+const spaceIntegrationsRoutesSource = fs.readFileSync(require.resolve('../routes/spaceIntegrations'), 'utf8');
+const integrationsServiceSource = fs.readFileSync(require.resolve('../services/integrations'), 'utf8');
 const supportRoutesSource = fs.readFileSync(require.resolve('../routes/support'), 'utf8');
 const signaturesServiceSource = fs.readFileSync(require.resolve('../services/signatures'), 'utf8');
 const eventSocialPlanningSmokeSource = fs.readFileSync(require.resolve('../scripts/event-social-planning-smoke'), 'utf8');
@@ -154,6 +156,7 @@ const useApiClientSource = readFrontendSource(path.join('components', 'app', 'ho
 const helpViewSource = readFrontendSource(path.join('components', 'HelpView'));
 const adminActivityViewSource = readFrontendSource(path.join('components', 'AdminActivityView'));
 const adminUsersViewSource = readFrontendSource(path.join('components', 'AdminUsersView'));
+const spaceManagerViewSource = readFrontendSource(path.join('components', 'SpaceManagerView'));
 const libraryLoansViewSource = readFrontendSource(path.join('components', 'LibraryLoansView'));
 const adminMergeReviewViewSource = readFrontendSource(path.join('components', 'AdminMergeReviewView'));
 const libraryViewSource = readFrontendSource(path.join('components', 'LibraryView'));
@@ -1954,7 +1957,23 @@ results.push(run('kavita workspace-owned administration contract keeps tenancy b
   assert.ok(kavitaWorkspaceAdminDocSource.includes('Homelab keeps the same effective single-workspace behavior'));
   assert.ok(kavitaWorkspaceAdminDocSource.includes('Two workspaces may import from different Kavita servers that use the same Kavita series or chapter ids'));
   assert.ok(kavitaWorkspaceAdminDocSource.includes('Settings readback never returns raw API keys'));
-  assert.ok(kavitaWorkspaceAdminDocSource.includes('This contract does not implement the workspace-owned storage migration or UI'));
+  assert.ok(kavitaWorkspaceAdminDocSource.includes('3.4.95` implements the first workspace-owned administration path'));
+}));
+
+results.push(run('kavita workspace-owned administration implementation is wired through space integrations', () => {
+  assert.ok(integrationsServiceSource.includes('loadWorkspaceKavitaIntegrationConfig'));
+  assert.ok(integrationsServiceSource.includes("kavitaBaseUrl: normalizeKavitaBaseUrl(row?.kavita_base_url || '')"));
+  assert.ok(spaceIntegrationsRoutesSource.includes("router.post('/spaces/:spaceId/integrations/test-kavita'"));
+  assert.ok(spaceIntegrationsRoutesSource.includes('kavita_base_url, kavita_api_key_encrypted, kavita_timeout_ms'));
+  assert.ok(mediaRoutesSource.includes("Kavita import requires workspace admin access"));
+  assert.ok(mediaRoutesSource.includes("Kavita is not configured for the active workspace"));
+  assert.ok(mediaRoutesSource.includes('loadWorkspaceKavitaIntegrationConfig(row.space_id || scopeContext?.spaceId || null)'));
+  assert.ok(spaceManagerViewSource.includes("'kavita'"));
+  assert.ok(dashboardContentSource.includes("['audio', 'barcode', 'books', 'cwa', 'comics', 'pricecharting', 'ebay', 'games', 'plex', 'tmdb', 'logs', 'metrics']"));
+  assert.ok(openApiSource.includes('/api/spaces/{id}/integrations/test-kavita'));
+  assert.ok(kavitaImportSyncSmokeSource.includes('/integrations/test-kavita'));
+  assert.ok(kavitaImportSyncSmokeSource.includes('workspaceOwnedSettings: true'));
+  assert.ok(kavitaImportSyncSmokeSource.includes('overlapping Kavita ids to create rows in the second workspace only'));
 }));
 
 results.push(run('AppPrimitives keeps authenticated collectZ API image paths same-origin', () => {

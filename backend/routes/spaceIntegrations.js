@@ -13,6 +13,8 @@ const { resolveBooksPreset, searchBooksByTitle } = require('../services/books');
 const { resolveAudioPreset, searchAudioByTitle } = require('../services/audio');
 const { resolveGamesPreset, searchGamesByTitle } = require('../services/games');
 const { resolveComicsPreset, searchComicsByTitle, fetchMetronCollectionIssues } = require('../services/comics');
+const { normalizeKavitaBaseUrl, testKavitaConnection } = require('../services/kavita');
+const { normalizePositiveInteger } = require('../services/valuations');
 const { logActivity, logError } = require('../services/audit');
 const {
   getAccessibleSpaceForUser,
@@ -83,7 +85,8 @@ function resolveNextSpaceIntegrationState(body = {}, existing = null) {
     gamesApiKey, clearGamesApiKey, gamesClientSecret, clearGamesClientSecret,
     comicsPreset, comicsProvider, comicsApiUrl, comicsUsername,
     comicsApiKey, clearComicsApiKey,
-    cwaOpdsUrl, cwaUsername, cwaPassword, clearCwaPassword
+    cwaOpdsUrl, cwaUsername, cwaPassword, clearCwaPassword,
+    kavitaBaseUrl, kavitaApiKey, clearKavitaApiKey, kavitaTimeoutMs
   } = body;
 
   const pick = (incoming, existingValue, fallback) =>
@@ -124,9 +127,22 @@ function resolveNextSpaceIntegrationState(body = {}, existing = null) {
   const finalCwaPassword = clearCwaPassword
     ? null
     : (cwaPassword ? encryptSecret(cwaPassword) : existing?.cwa_password_encrypted || null);
+  const finalKavitaApiKey = clearKavitaApiKey
+    ? null
+    : (kavitaApiKey ? encryptSecret(kavitaApiKey) : existing?.kavita_api_key_encrypted || null);
 
   const resolvedCwaOpdsUrl = pick(cwaOpdsUrl, existing?.cwa_opds_url, '');
   const resolvedCwaBaseUrl = deriveCwaBaseUrl(resolvedCwaOpdsUrl);
+  const resolvedKavitaBaseUrl = kavitaBaseUrl !== undefined
+    ? normalizeKavitaBaseUrl(kavitaBaseUrl)
+    : (existing?.kavita_base_url || '');
+  const resolvedKavitaTimeoutMs = Math.max(
+    1000,
+    normalizePositiveInteger(
+      kavitaTimeoutMs !== undefined ? kavitaTimeoutMs : existing?.kavita_timeout_ms,
+      20000
+    )
+  );
 
   return {
     barcode_preset: pick(barcodePreset, existing?.barcode_preset, 'upcitemdb'),
@@ -180,6 +196,9 @@ function resolveNextSpaceIntegrationState(body = {}, existing = null) {
     cwa_username: pick(cwaUsername, existing?.cwa_username, ''),
     cwa_password_encrypted: finalCwaPassword,
     cwa_timeout_ms: 20000,
+    kavita_base_url: resolvedKavitaBaseUrl,
+    kavita_api_key_encrypted: finalKavitaApiKey,
+    kavita_timeout_ms: resolvedKavitaTimeoutMs,
     keyUpdates: {
       barcode: Boolean(barcodeApiKey),
       tmdb: Boolean(tmdbApiKey),
@@ -189,7 +208,8 @@ function resolveNextSpaceIntegrationState(body = {}, existing = null) {
       games: Boolean(gamesApiKey),
       gamesClientSecret: Boolean(gamesClientSecret),
       comics: Boolean(comicsApiKey),
-      cwaPassword: Boolean(cwaPassword)
+      cwaPassword: Boolean(cwaPassword),
+      kavita: Boolean(kavitaApiKey)
     },
     keyClears: {
       barcode: Boolean(clearBarcodeApiKey),
@@ -200,7 +220,8 @@ function resolveNextSpaceIntegrationState(body = {}, existing = null) {
       games: Boolean(clearGamesApiKey),
       gamesClientSecret: Boolean(clearGamesClientSecret),
       comics: Boolean(clearComicsApiKey),
-      cwaPassword: Boolean(clearCwaPassword)
+      cwaPassword: Boolean(clearCwaPassword),
+      kavita: Boolean(clearKavitaApiKey)
     }
   };
 }
@@ -217,7 +238,8 @@ async function upsertSpaceIntegrationState(client, spaceId, nextState) {
        audio_preset, audio_provider, audio_api_url, audio_api_key_encrypted, audio_api_key_header, audio_api_key_query_param,
        games_preset, games_provider, games_api_url, games_api_key_encrypted, games_api_key_header, games_api_key_query_param, games_client_id, games_client_secret_encrypted,
        comics_preset, comics_provider, comics_api_url, comics_api_key_encrypted, comics_api_key_header, comics_api_key_query_param, comics_username,
-       cwa_opds_url, cwa_base_url, cwa_username, cwa_password_encrypted, cwa_timeout_ms
+       cwa_opds_url, cwa_base_url, cwa_username, cwa_password_encrypted, cwa_timeout_ms,
+       kavita_base_url, kavita_api_key_encrypted, kavita_timeout_ms
      ) VALUES (
        $1,
        $2,$3,$4,$5,$6,$7,
@@ -227,7 +249,8 @@ async function upsertSpaceIntegrationState(client, spaceId, nextState) {
        $27,$28,$29,$30,$31,$32,
        $33,$34,$35,$36,$37,$38,$39,$40,
        $41,$42,$43,$44,$45,$46,$47,
-       $48,$49,$50,$51,$52
+       $48,$49,$50,$51,$52,
+       $53,$54,$55
      )
      ON CONFLICT (space_id) DO UPDATE SET
        barcode_preset = EXCLUDED.barcode_preset,
@@ -280,7 +303,10 @@ async function upsertSpaceIntegrationState(client, spaceId, nextState) {
        cwa_base_url = EXCLUDED.cwa_base_url,
        cwa_username = EXCLUDED.cwa_username,
        cwa_password_encrypted = EXCLUDED.cwa_password_encrypted,
-       cwa_timeout_ms = EXCLUDED.cwa_timeout_ms
+       cwa_timeout_ms = EXCLUDED.cwa_timeout_ms,
+       kavita_base_url = EXCLUDED.kavita_base_url,
+       kavita_api_key_encrypted = EXCLUDED.kavita_api_key_encrypted,
+       kavita_timeout_ms = EXCLUDED.kavita_timeout_ms
      RETURNING *`,
     [
       spaceId,
@@ -334,7 +360,10 @@ async function upsertSpaceIntegrationState(client, spaceId, nextState) {
       nextState.cwa_base_url,
       nextState.cwa_username,
       nextState.cwa_password_encrypted,
-      nextState.cwa_timeout_ms
+      nextState.cwa_timeout_ms,
+      nextState.kavita_base_url,
+      nextState.kavita_api_key_encrypted,
+      nextState.kavita_timeout_ms
     ]
   );
   return result.rows[0] || null;
@@ -385,6 +414,8 @@ router.put('/spaces/:spaceId/integrations', authenticateToken, requireSessionAut
       gamesPreset: config.gamesPreset,
       comicsPreset: config.comicsPreset,
       cwaEnabled: Boolean(config.cwaOpdsUrl),
+      kavitaEnabled: Boolean(config.kavitaBaseUrl),
+      kavitaTimeoutMs: config.kavitaTimeoutMs,
       keyUpdates: nextState.keyUpdates,
       keyClears: nextState.keyClears
     });
@@ -540,6 +571,37 @@ router.post('/spaces/:spaceId/integrations/test-comics', authenticateToken, requ
 router.post('/spaces/:spaceId/integrations/test-cwa', authenticateToken, requireSessionAuth, asyncHandler(async (req, res) => runManagedIntegrationTest(req, res, {
   section: 'cwa',
   handler: async () => res.status(410).json({ ok: false, authenticated: false, status: 410, provider: 'cwa_opds', detail: 'CWA OPDS integration testing is deferred and currently disabled.' })
+})));
+
+router.post('/spaces/:spaceId/integrations/test-kavita', authenticateToken, requireSessionAuth, asyncHandler(async (req, res) => runManagedIntegrationTest(req, res, {
+  section: 'kavita',
+  handler: async (storedConfig) => {
+    const config = {
+      ...storedConfig,
+      kavitaBaseUrl: req.body?.kavitaBaseUrl !== undefined
+        ? normalizeKavitaBaseUrl(req.body.kavitaBaseUrl)
+        : storedConfig.kavitaBaseUrl,
+      kavitaApiKey: req.body?.kavitaApiKey || storedConfig.kavitaApiKey,
+      kavitaTimeoutMs: Math.max(
+        1000,
+        normalizePositiveInteger(req.body?.kavitaTimeoutMs || storedConfig.kavitaTimeoutMs, 20000)
+      )
+    };
+    try {
+      const result = await testKavitaConnection(config);
+      return res.json(result);
+    } catch (error) {
+      logError('Test Kavita integration (space)', error);
+      const status = error.status || error.response?.status || 502;
+      return res.status(status >= 400 && status < 500 ? status : 200).json({
+        ok: false,
+        authenticated: status !== 401 && status !== 403,
+        status,
+        provider: 'kavita',
+        detail: error.response?.data?.message || error.response?.data?.error || error.message
+      });
+    }
+  }
 })));
 
 module.exports = router;

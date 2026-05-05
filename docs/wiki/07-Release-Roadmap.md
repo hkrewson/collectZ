@@ -8891,6 +8891,46 @@ Historical note:
 - What remains in the milestone: no open `3.4.94` contract work remains.
 - Recommended commit message: `Release 3.4.94 Kavita workspace-owned integration administration contract`.
 
+## 3.4.95 — Kavita Workspace-Owned Integration Administration Implementation
+
+**Goal:** Implement the `3.4.94` workspace-owned Kavita administration contract so workspace admins can own Kavita settings, testing, imports, fan-out, and cover readback without relying on platform-global Kavita configuration.
+
+**Current Slice:** `Closed 2026-05-04`
+
+### Scope
+
+- Add Kavita settings to the existing workspace integrations API and Space Manager integration surface.
+- Store workspace Kavita base URL, encrypted API key, and timeout on the workspace-scoped `app_integrations.space_id` row.
+- Add workspace-scoped Kavita connection testing.
+- Require workspace-admin access before Kavita import/fan-out can run.
+- Stop Kavita import and cover proxy execution from falling back to legacy platform-level Kavita credentials.
+- Keep Kavita settings readback redacted.
+- Extend the Kavita import smoke to prove workspace-owned save/test/import, overlapping provider ids across workspaces, scoped cover readback, and secret-free settings.
+- Keep embedded reading, page proxying, progress sync, metadata writeback, special-chapter import, and shared provider abstractions out of this slice.
+
+### Acceptance Criteria
+
+- Workspace admins can save, test, import from, fan out from, read back, and clear their workspace Kavita connection.
+- Workspace Kavita readback never returns raw API keys.
+- Kavita import requires workspace-admin access and uses only the active workspace's Kavita settings.
+- Two workspaces can import overlapping Kavita series/chapter ids without updating each other's rows.
+- Kavita cover proxy readback uses the row's workspace-owned Kavita settings.
+- The global Admin > Integrations surface no longer presents Kavita as a primary platform-owned integration.
+- Version metadata and Help > Releases are aligned to `3.4.95`.
+
+### Closeout Notes
+
+- Roadmap slice: `3.4.95 — Kavita Workspace-Owned Integration Administration Implementation`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/41-Kavita-Integration-Setup.md`, and `docs/wiki/44-Kavita-Workspace-Owned-Administration-Contract.md`.
+- Runtime verification used: rebuilt the Docker platform stack with `APP_VERSION=3.4.95`; verified healthy backend/frontend containers, `/api/health` serving `3.4.95`, `/api/auth/config` platform readback, live DB `events_enabled=true`, in-stack Help > Releases smoke for `v3.4.95`, Kavita connection smoke, and Kavita import/sync smoke with workspace-owned settings/test/import, chapter fan-out, overlapping workspace ids, scoped cover proxy readback, and secret-free readback.
+- CI/checks run locally: source syntax checks for touched backend routes/services/scripts; local OpenAPI validation; container backend unit/source assertions (`243` passed); container OpenAPI validation; container `test:kavita-connection-smoke`; container `test:kavita-import-sync-smoke` with `BASE_URL=http://127.0.0.1:3001`; container `test:help-releases-smoke` with `EXPECTED_RELEASE_VERSION=v3.4.95`; container `test:init-parity`; container `test:migration-rehearsal`; container `test:rbac-regression`; container `test:platform-edition-boundary`; full browser regression with bundled Node (`58` passed, `4` skipped); targeted admin/integrations/workspace browser rerun after updating platform-tab expectations; `npm run validate:public-export`; `npm run compose:generate`; release feed regeneration; observability release evidence refresh; local release preflight; release-artifact secret-pattern scan; and `git diff --check`.
+- Version closeout: `app-meta.json`, backend/frontend app metadata, backend/frontend package metadata and lockfiles, `docker-compose.yml`, `docs/releases/v3.4.95.md`, and `backend/release-feed.json` are aligned to `3.4.95`.
+- Release gate accounting: rebuilt stack health and runtime smokes locally covered compose basics except CI secure-cookie settings; `rbac-regression`, `browser-regression`, `platform-edition-boundary`, dependency-audit artifact checks, init parity, migration rehearsal, and observability evidence passed locally. Local release preflight still marks secure-cookie compose coverage blocked in the development stack (`SESSION_COOKIE_SECURE=false`, `NODE_ENV=development`), and CI must still rerun `compose-smoke`, `homelab-edition-boundary`, `secret-scan`, and `image-security-and-sbom`.
+- Verified facts: workspace integrations now persist Kavita URL, encrypted API key, and timeout on the workspace-scoped integration row; workspace Kavita readback remains redacted; workspace Kavita test is available at `/api/spaces/{id}/integrations/test-kavita`; Kavita import requires workspace-admin access and no longer falls back to platform Kavita settings; cover proxy fetches use the Kavita config for the row's workspace; the platform Admin integrations browser surface no longer presents Kavita as a primary platform-owned tab; Space Manager integrations exposes Kavita.
+- Risks/follow-ups: embedded reading, reader page proxying, progress sync, metadata writeback, special-chapter import, shared Calibre/CWA/Kavita provider abstractions, and any explicit one-time legacy platform Kavita migration helper remain separate.
+- What remains in the milestone: no planned implementation work remains after final verification.
+- Recommended commit message: `Release 3.4.95 Kavita workspace-owned integration administration implementation`.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

@@ -296,6 +296,9 @@ export default function DashboardContent({
           title="Integrations"
           includeRuntimeSections={productEdition !== 'homelab'}
           includeValuationSections={productEdition !== 'homelab'}
+          visibleSections={productEdition === 'homelab'
+            ? ['audio', 'barcode', 'books', 'cwa', 'comics', 'games', 'plex', 'tmdb']
+            : ['audio', 'barcode', 'books', 'cwa', 'comics', 'pricecharting', 'ebay', 'games', 'plex', 'tmdb', 'logs', 'metrics']}
         />
       );
     default:

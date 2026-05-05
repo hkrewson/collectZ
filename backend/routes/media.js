@@ -31,7 +31,7 @@ const {
   signatureRecordCreateSchema,
   signatureRecordUpdateSchema
 } = require('../middleware/validate');
-const { loadAdminIntegrationConfig, loadScopedIntegrationConfig } = require('../services/integrations');
+const { loadAdminIntegrationConfig, loadScopedIntegrationConfig, loadWorkspaceKavitaIntegrationConfig } = require('../services/integrations');
 const {
   searchTmdbMovie,
   searchTmdbMulti,
@@ -6824,6 +6824,23 @@ router.get('/feature-flags', asyncHandler(async (req, res) => {
   });
 }));
 
+async function canManageWorkspaceIntegration(req, spaceId) {
+  const numericSpaceId = Number(spaceId || 0) || null;
+  if (!numericSpaceId) return false;
+  if (req.user?.role === 'admin') return true;
+  const result = await pool.query(
+    `SELECT role
+       FROM space_memberships
+      WHERE user_id = $1
+        AND space_id = $2
+        AND suspended_at IS NULL
+        AND role IN ('owner', 'admin')
+      LIMIT 1`,
+    [req.user?.id || null, numericSpaceId]
+  );
+  return result.rows.length > 0;
+}
+
 router.get('/kavita-cover/:seriesId', asyncHandler(async (req, res) => {
   const scopeContext = resolveScopeContext(req);
   const seriesId = Number(req.params.seriesId || 0) || null;
@@ -6853,10 +6870,10 @@ router.get('/kavita-cover/:seriesId', asyncHandler(async (req, res) => {
   }
 
   const details = row.type_details || {};
-  const scopedConfig = await loadScopedIntegrationConfig(row.space_id || scopeContext?.spaceId || null);
-  const config = scopedConfig?.kavitaBaseUrl && scopedConfig?.kavitaApiKey
-    ? scopedConfig
-    : await loadAdminIntegrationConfig();
+  const config = await loadWorkspaceKavitaIntegrationConfig(row.space_id || scopeContext?.spaceId || null);
+  if (!config.kavitaBaseUrl || !config.kavitaApiKey) {
+    return res.status(404).json({ error: 'Kavita cover settings were not found for the active workspace' });
+  }
   const auth = await authenticateKavita(config);
   const cover = await fetchKavitaCoverImage(config, auth.token, details.kavita_cover_image);
   res.setHeader('Content-Type', cover.contentType);
@@ -10054,10 +10071,13 @@ router.post('/import-cwa', asyncHandler(async (req, res) => {
 router.post('/import-kavita', asyncHandler(async (req, res) => {
   const scopeContext = resolveScopeContext(req);
   const valuationMode = resolveValuationExecutionMode(req);
-  const scopedConfig = await loadScopedIntegrationConfig(scopeContext?.spaceId || null);
-  const config = scopedConfig?.kavitaBaseUrl && scopedConfig?.kavitaApiKey
-    ? scopedConfig
-    : await loadAdminIntegrationConfig();
+  if (!await canManageWorkspaceIntegration(req, scopeContext?.spaceId || null)) {
+    return res.status(403).json({ error: 'Kavita import requires workspace admin access' });
+  }
+  const config = await loadWorkspaceKavitaIntegrationConfig(scopeContext?.spaceId || null);
+  if (!config.kavitaBaseUrl || !config.kavitaApiKey) {
+    return res.status(400).json({ error: 'Kavita is not configured for the active workspace' });
+  }
   const maxPagesRaw = Number(req.body?.maxPages ?? req.query?.maxPages);
   const pageSizeRaw = Number(req.body?.pageSize ?? req.query?.pageSize);
   const maxPages = Number.isFinite(maxPagesRaw) ? Math.max(1, Math.min(100, maxPagesRaw)) : undefined;

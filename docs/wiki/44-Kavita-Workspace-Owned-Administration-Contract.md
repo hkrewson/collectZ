@@ -1,6 +1,6 @@
 # Kavita Workspace-Owned Administration Contract
 
-`3.4.94` defines the administration boundary for Kavita settings. Kavita should be owned by the active workspace, much like other user-facing integrations. This is a contract and smoke-plan slice, not the storage or UI implementation.
+`3.4.94` defines the administration boundary for Kavita settings. `3.4.95` implements the first workspace-owned administration path through Space Manager and scoped Kavita import/readback behavior.
 
 ## Ownership Model
 
@@ -11,11 +11,11 @@ Kavita connection settings are workspace-owned:
 - Platform admins can manage a workspace Kavita connection only while operating in that workspace context or through an explicit platform support/control-plane action.
 - Homelab keeps the same effective single-workspace behavior, but the contract still treats the Kavita connection as workspace-owned rather than global platform infrastructure.
 
-Kavita credentials are not platform-global defaults for all spaces. A later migration may preserve legacy platform Kavita settings as a bootstrap source for the default workspace, but new administration should be space scoped.
+Kavita credentials are not platform-global defaults for all spaces. The workspace-owned implementation stores Kavita settings on the `app_integrations.space_id` row and keeps legacy platform-level Kavita values out of workspace import and cover-proxy execution.
 
 ## Permission Boundary
 
-The implementation milestone should apply these rules:
+The implementation applies these rules:
 
 - `save`: workspace admin only for the target workspace.
 - `test`: workspace admin only for the target workspace, using that workspace's stored or submitted Kavita settings.
@@ -47,7 +47,7 @@ The implementation should avoid surprising existing installs:
 
 ## Smoke Plan
 
-The implementation milestone should add a workspace-owned Kavita administration smoke that proves:
+The workspace-owned Kavita administration smoke proves:
 
 - Workspace A admin can save, test, import, fan out, and clear Workspace A's Kavita settings.
 - Workspace B admin cannot read, test, import, or clear Workspace A's Kavita settings.
@@ -59,5 +59,4 @@ The implementation milestone should add a workspace-owned Kavita administration 
 
 ## Non-goals
 
-This contract does not implement the workspace-owned storage migration or UI. It also does not add embedded reading, reader page proxying, progress sync, metadata writeback, global reading/social graphs, special-chapter fan-out, or shared Calibre/CWA/Kavita provider abstractions.
-
+This contract and first implementation do not add embedded reading, reader page proxying, progress sync, metadata writeback, global reading/social graphs, special-chapter fan-out, or shared Calibre/CWA/Kavita provider abstractions.

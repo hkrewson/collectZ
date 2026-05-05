@@ -4622,6 +4622,49 @@
         }
       }
     },
+    "/api/spaces/{id}/integrations/test-kavita": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Test workspace-owned Kavita digital library connectivity",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "kavitaBaseUrl": { "type": "string" },
+                  "kavitaApiKey": { "type": "string" },
+                  "kavitaTimeoutMs": { "type": ["integer", "string"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Workspace Kavita connection test result",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/settings/integrations": {
       "get": {
         "tags": ["Admin"],

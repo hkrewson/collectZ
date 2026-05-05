@@ -1,6 +1,6 @@
 # Kavita Integration Setup
 
-`3.4.85` added the first read-only Kavita connection foundation. Later Kavita slices add import/sync, metadata mapping, volume/chapter enrichment, secret-free launch links back to Kavita's native web UI, a documented reader/progress boundary, a chapter-as-issue fan-out contract, and a workspace-owned administration contract.
+`3.4.85` added the first read-only Kavita connection foundation. Later Kavita slices add import/sync, metadata mapping, volume/chapter enrichment, secret-free launch links back to Kavita's native web UI, a documented reader/progress boundary, chapter-as-issue fan-out, and workspace-owned administration.
 
 ## Requirements
 
@@ -10,14 +10,14 @@
 
 ## Configuration
 
-1. Open `Admin` -> `Integrations` -> `Kavita`.
+1. Open `Workspace` -> `Integrations` -> `Kavita` for the active workspace.
 2. Enter the Kavita URL.
 3. Enter the API key.
 4. Keep the default timeout unless the Kavita host is slow through a reverse proxy.
 5. Save the settings.
 6. Run `Test`.
 
-The settings API stores the API key encrypted and only returns whether a key is set plus a masked value. The raw key is not returned in settings responses.
+The workspace settings API stores the API key encrypted and only returns whether a key is set plus a masked value. The raw key is not returned in settings responses. Legacy platform-level Kavita settings may still exist as compatibility data, but workspace imports and cover proxy reads use the active workspace's Kavita connection.
 
 ## What The Test Proves
 
@@ -66,7 +66,7 @@ Fan-out preserves the parent series row and keeps repeat sync idempotent. It doe
 
 ## Current Boundaries
 
-`docs/wiki/44-Kavita-Workspace-Owned-Administration-Contract.md` defines the target administration model: Kavita should be owned by the active workspace, with workspace admins controlling save/test/import/clear for their workspace only. The current implementation may still include legacy platform-admin surfaces until the implementation slice lands.
+`docs/wiki/44-Kavita-Workspace-Owned-Administration-Contract.md` defines the administration model: Kavita is owned by the active workspace, with workspace admins controlling save/test/import/clear for their workspace only. `3.4.95` implements that first workspace-owned administration path.
 
 The Kavita integration remains read-only. It does not push metadata into Kavita, embed the Kavita reader, proxy reader pages, write reading progress, enable chapter-as-issue fan-out by default, or create a shared Calibre/CWA/Kavita provider abstraction. The cover proxy is only for imported cover images and does not expose reader content.
 
