@@ -298,6 +298,28 @@ async function updateKavitaChapterMetadata(config = {}, token, body = {}) {
   return response.data && typeof response.data === 'object' ? response.data : {};
 }
 
+async function fetchKavitaReaderProgress(config = {}, token, chapterId) {
+  const baseUrl = normalizeKavitaBaseUrl(config.kavitaBaseUrl);
+  const id = Number(chapterId || 0) || null;
+  if (!id) {
+    const error = new Error('Kavita progress read requires a chapter id');
+    error.status = 400;
+    throw error;
+  }
+  const response = await axios.get(buildKavitaApiUrl(baseUrl, '/api/Reader/get-progress'), {
+    params: { chapterId: id },
+    headers: { Authorization: `Bearer ${token}` },
+    timeout: getKavitaTimeoutMs(config),
+    validateStatus: () => true
+  });
+  if (response.status < 200 || response.status >= 300) {
+    const error = new Error(response.data?.message || response.data?.error || `Kavita progress returned status ${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
+  return response.data && typeof response.data === 'object' ? response.data : {};
+}
+
 function firstString(...values) {
   for (const value of values) {
     const text = String(value || '').trim();
@@ -826,6 +848,7 @@ module.exports = {
   fetchKavitaSeriesMetadata,
   updateKavitaSeriesMetadata,
   updateKavitaChapterMetadata,
+  fetchKavitaReaderProgress,
   fetchKavitaImportItems,
   normalizeKavitaSeries,
   normalizeKavitaLibraryType,

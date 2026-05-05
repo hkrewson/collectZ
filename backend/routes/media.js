@@ -53,6 +53,7 @@ const {
   authenticateKavita,
   fetchKavitaCoverImage,
   fetchKavitaImportItems,
+  fetchKavitaReaderProgress,
   fetchKavitaSeriesMetadata,
   fetchKavitaSeriesVolumes,
   updateKavitaSeriesMetadata,
@@ -65,6 +66,9 @@ const {
   buildKavitaSeriesMetadataWritebackPayload,
   buildKavitaChapterMetadataWritebackPayload
 } = require('../services/kavitaWritebackContract');
+const {
+  normalizeKavitaProgressReadback
+} = require('../services/kavitaProgressContract');
 const { mapDeliciousItemTypeToMediaType } = require('../services/importMapping');
 const { normalizeDeliciousRow } = require('../services/deliciousNormalize');
 const { normalizeIdentifierSet, normalizeIsbn } = require('../services/importIdentifiers');
@@ -7043,6 +7047,66 @@ async function buildKavitaWritebackContext(req, mediaId) {
   };
 }
 
+function isKavitaChapterBackedDetails(details = {}) {
+  const providerItemId = String(details.provider_item_id || '').trim().toLowerCase();
+  const chapterProviderItemId = String(details.kavita_chapter_provider_item_id || '').trim().toLowerCase();
+  return providerItemId.startsWith('kavita:chapter:')
+    || chapterProviderItemId.startsWith('kavita:chapter:')
+    || String(details.kavita_chapter_fanout || '').trim().toLowerCase() === 'true';
+}
+
+async function buildKavitaProgressContext(req, mediaId) {
+  const scopeContext = resolveScopeContext(req);
+  const params = [mediaId];
+  const scopeClause = appendScopeSql(params, scopeContext, {
+    spaceColumn: 'space_id',
+    libraryColumn: 'library_id'
+  });
+  const result = await pool.query(
+    `SELECT id, title, media_type, space_id, library_id, type_details
+       FROM media
+      WHERE id = $1
+        ${scopeClause}
+      LIMIT 1`,
+    params
+  );
+  const row = result.rows[0] || null;
+  if (!row) {
+    const error = new Error('Media item was not found in the active scope');
+    error.status = 404;
+    throw error;
+  }
+
+  const details = row.type_details && typeof row.type_details === 'object' ? row.type_details : {};
+  if (String(details.provider_name || '').trim().toLowerCase() !== 'kavita') {
+    const error = new Error('Kavita progress read requires a Kavita-linked media row');
+    error.status = 400;
+    throw error;
+  }
+  const chapterId = Number(details.kavita_chapter_id || 0) || null;
+  if (!chapterId || !isKavitaChapterBackedDetails(details)) {
+    const error = new Error('Kavita progress read requires a Kavita chapter-backed media row');
+    error.status = 400;
+    throw error;
+  }
+
+  const config = await loadWorkspaceKavitaIntegrationConfig(row.space_id || scopeContext?.spaceId || null);
+  if (!config.kavitaBaseUrl || !config.kavitaApiKey) {
+    const error = new Error('Kavita is not configured for the active workspace');
+    error.status = 400;
+    throw error;
+  }
+  const auth = await authenticateKavita(config);
+  return {
+    scopeContext,
+    row,
+    details,
+    config,
+    auth,
+    chapterId
+  };
+}
+
 router.get('/kavita-cover/:seriesId', asyncHandler(async (req, res) => {
   const scopeContext = resolveScopeContext(req);
   const seriesId = Number(req.params.seriesId || 0) || null;
@@ -7220,6 +7284,46 @@ router.post('/:id/kavita-writeback-apply', requireSessionAuth, validate(kavitaMe
       applied: false
     });
   }
+}));
+
+router.get('/:id/kavita-progress', requireSessionAuth, asyncHandler(async (req, res) => {
+  const mediaId = Number(req.params.id || 0) || null;
+  if (!mediaId) {
+    return res.status(400).json({ error: 'Invalid media id' });
+  }
+
+  const {
+    row,
+    scopeContext,
+    config,
+    auth,
+    chapterId
+  } = await buildKavitaProgressContext(req, mediaId);
+  const rawProgress = await fetchKavitaReaderProgress(config, auth.token, chapterId);
+  const progress = normalizeKavitaProgressReadback(rawProgress);
+
+  await logActivity(req, 'media.kavita.progress.read', 'media', mediaId, {
+    workspaceId: row.space_id || scopeContext?.spaceId || null,
+    mediaId,
+    chapterId,
+    readOnly: true,
+    fields: Object.keys(progress)
+  });
+
+  res.json({
+    ok: true,
+    readOnly: true,
+    provider: 'kavita',
+    media: {
+      id: row.id,
+      title: row.title,
+      media_type: row.media_type
+    },
+    target: {
+      chapterId
+    },
+    progress
+  });
 }));
 
 // ── List / search ─────────────────────────────────────────────────────────────

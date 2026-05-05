@@ -637,6 +637,8 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   const [kavitaPreviewLoading, setKavitaPreviewLoading] = useState(false);
   const [kavitaApplyLoading, setKavitaApplyLoading] = useState(false);
   const [kavitaSelectedFields, setKavitaSelectedFields] = useState([]);
+  const [kavitaProgress, setKavitaProgress] = useState(null);
+  const [kavitaProgressLoading, setKavitaProgressLoading] = useState(false);
   const typeDetails = item?.type_details && typeof item.type_details === 'object' ? item.type_details : {};
   const isBook = item?.media_type === 'book';
   const isComic = item?.media_type === 'comic_book';
@@ -773,6 +775,9 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   })();
   const isKavitaLinked = String(typeDetails.provider_name || '').trim().toLowerCase() === 'kavita'
     || Boolean(typeDetails.kavita_series_id || typeDetails.kavita_chapter_id);
+  const isKavitaChapterBacked = String(typeDetails.provider_item_id || '').trim().toLowerCase().startsWith('kavita:chapter:')
+    || String(typeDetails.kavita_chapter_provider_item_id || '').trim().toLowerCase().startsWith('kavita:chapter:')
+    || String(typeDetails.kavita_chapter_fanout || '').trim().toLowerCase() === 'true';
   const formatValuation = (value) => {
     const numeric = Number(value);
     if (!Number.isFinite(numeric)) return null;
@@ -983,6 +988,38 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
         : [...prev, field]
     ));
   };
+
+  const loadKavitaProgress = async () => {
+    if (!item?.id || kavitaProgressLoading) return;
+    setKavitaProgressLoading(true);
+    try {
+      const payload = await apiCall('get', `/media/${item.id}/kavita-progress`);
+      setKavitaProgress(payload?.progress || null);
+      onToast?.('Kavita progress loaded');
+    } catch (error) {
+      setKavitaProgress(null);
+      onToast?.(error?.response?.data?.error || 'Failed to read Kavita progress', 'error');
+    } finally {
+      setKavitaProgressLoading(false);
+    }
+  };
+
+  const formatKavitaProgressTimestamp = (value) => {
+    const raw = String(value || '').trim();
+    if (!raw) return null;
+    const parsed = new Date(raw);
+    if (Number.isNaN(parsed.getTime())) return raw;
+    return parsed.toLocaleString();
+  };
+
+  const kavitaProgressRows = kavitaProgress ? [
+    ['Page', kavitaProgress.pageNum],
+    ['Chapter', kavitaProgress.chapterId],
+    ['Series', kavitaProgress.seriesId],
+    ['Volume', kavitaProgress.volumeId],
+    ['Scroll', kavitaProgress.bookScrollId],
+    ['Updated', formatKavitaProgressTimestamp(kavitaProgress.lastModifiedUtc)]
+  ].filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== '') : [];
 
   const markSeasonWatched = async (seasonNumber) => {
     if (!item?.id || !Number.isInteger(Number(seasonNumber))) return;
@@ -1735,6 +1772,38 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                   ) : null}
                 </div>
               ) : null}
+            </div>
+          ) : null}
+
+          {isKavitaLinked && isKavitaChapterBacked ? (
+            <div className="border-t border-edge/60 pt-5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="label">Kavita Progress</p>
+                  <p className="mt-1 text-sm text-ghost">Read-only progress from the linked Kavita chapter.</p>
+                </div>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={loadKavitaProgress}
+                  disabled={kavitaProgressLoading}
+                >
+                  {kavitaProgressLoading ? <Spinner size={14} /> : <Icons.Refresh />}
+                  {kavitaProgressLoading ? 'Loading…' : 'Read Progress'}
+                </button>
+              </div>
+              {kavitaProgressRows.length > 0 ? (
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  {kavitaProgressRows.map(([label, value]) => (
+                    <div key={label} className="rounded-md border border-edge bg-panel px-3 py-2">
+                      <p className="text-[11px] font-medium text-ghost">{label}</p>
+                      <p className="mt-1 break-words text-sm text-ink">{String(value)}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-3 text-sm text-ghost">No Kavita progress has been loaded for this chapter.</p>
+              )}
             </div>
           ) : null}
 

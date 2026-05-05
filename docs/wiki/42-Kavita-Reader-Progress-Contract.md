@@ -4,6 +4,8 @@
 
 `3.4.100` defines the first progress-sync contract without enabling runtime sync. Read-only progress visibility is the first viable implementation shape; progress writeback, embedded reading, reader page proxying, and KOReader sync remain out of scope.
 
+`3.4.101` implements the first read-only visibility step for Kavita chapter-backed collectZ rows. It adds a scoped collectZ read endpoint and a compact media-detail drawer panel, but still does not write progress, mark items read/unread, embed the Kavita reader, proxy reader pages, or poll in the background.
+
 ## Source Snapshot
 
 This discovery slice reviewed Kavita's upstream OpenAPI document from `https://raw.githubusercontent.com/Kareadita/Kavita/develop/openapi.json` on 2026-05-04. That document identifies itself as `0.9.0.0` and describes auth-key based API access through the `x-api-key` header.
@@ -75,6 +77,8 @@ The first implementation must not:
 - Known write endpoints are enumerated as prohibited.
 - Normalized readback excludes injected secret-like fields.
 - No native reader, page proxy, or progress write endpoint is exercised.
+
+`3.4.101` extends the running-stack Kavita import/sync smoke with a fake Kavita progress readback. The smoke imports chapter-as-issue rows, calls the collectZ media progress endpoint for the linked chapter row, verifies the only Kavita progress call is read-only, and confirms API-key/bearer-token fixture values are excluded from the browser-visible response.
 
 ## Security Boundary
 

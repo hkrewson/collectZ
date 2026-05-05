@@ -115,6 +115,7 @@ async function createDirectUser({ email, password, name, role = 'admin' }) {
 async function startFakeKavitaServer() {
   const seriesWritebacks = [];
   const chapterWritebacks = [];
+  const progressReads = [];
   const readJsonBody = (req) => new Promise((resolve) => {
     let raw = '';
     req.on('data', (chunk) => {
@@ -355,6 +356,29 @@ async function startFakeKavitaServer() {
       return;
     }
 
+    if (req.method === 'GET' && url.pathname === '/api/Reader/get-progress') {
+      const chapterId = Number(url.searchParams.get('chapterId') || 0);
+      progressReads.push({ chapterId });
+      if (chapterId === 9702) {
+        res.writeHead(200);
+        res.end(JSON.stringify({
+          libraryId: 87,
+          seriesId: 8602,
+          volumeId: 9602,
+          chapterId: 9702,
+          pageNum: 11,
+          bookScrollId: 'smoke-scroll-11',
+          lastModifiedUtc: '2026-05-05T05:00:00Z',
+          apiKey: KAVITA_SMOKE_KEY,
+          bearerToken: KAVITA_SMOKE_BEARER
+        }));
+        return;
+      }
+      res.writeHead(404);
+      res.end(JSON.stringify({ message: 'progress not found' }));
+      return;
+    }
+
     res.writeHead(404);
     res.end(JSON.stringify({ message: 'not found' }));
   });
@@ -369,7 +393,8 @@ async function startFakeKavitaServer() {
     server,
     baseUrl: `http://127.0.0.1:${address.port}`,
     seriesWritebacks,
-    chapterWritebacks
+    chapterWritebacks,
+    progressReads
   };
 }
 
@@ -751,6 +776,14 @@ async function main() {
     assert(Number(fake.chapterWritebacks[0]?.id || 0) === 9702, `Expected Kavita chapter apply payload id 9702, got ${JSON.stringify(fake.chapterWritebacks[0])}`);
     assert(String(fake.chapterWritebacks[0]?.releaseDate || '').startsWith('2023-03-04'), `Expected Kavita chapter apply releaseDate, got ${JSON.stringify(fake.chapterWritebacks[0])}`);
     assert(!JSON.stringify(kavitaChapterApply.data).includes(KAVITA_SMOKE_BEARER), `Kavita metadata apply must not expose bearer tokens, got ${JSON.stringify(kavitaChapterApply.data)}`);
+    const kavitaProgressReadback = await client.request(`/api/media/${chapterOne.id}/kavita-progress?${scopeQuery}`, {
+      expectStatus: 200
+    });
+    assert(kavitaProgressReadback.data?.readOnly === true, `Expected Kavita progress readback to stay read-only, got ${JSON.stringify(kavitaProgressReadback.data)}`);
+    assert(Number(kavitaProgressReadback.data?.progress?.chapterId || 0) === 9702, `Expected Kavita progress chapter id, got ${JSON.stringify(kavitaProgressReadback.data)}`);
+    assert(Number(kavitaProgressReadback.data?.progress?.pageNum || 0) === 11, `Expected Kavita progress page number, got ${JSON.stringify(kavitaProgressReadback.data)}`);
+    assert(!JSON.stringify(kavitaProgressReadback.data).includes(KAVITA_SMOKE_KEY), `Kavita progress readback must not expose API keys, got ${JSON.stringify(kavitaProgressReadback.data)}`);
+    assert(!JSON.stringify(kavitaProgressReadback.data).includes(KAVITA_SMOKE_BEARER), `Kavita progress readback must not expose bearer tokens, got ${JSON.stringify(kavitaProgressReadback.data)}`);
     const coverReadback = await client.requestRaw(`/api/media/kavita-cover/8602?${scopeQuery}`, { expectStatus: 200 });
     assert(String(coverReadback.headers.get('content-type') || '').startsWith('image/png'), `Expected Kavita proxied cover content type, got ${coverReadback.headers.get('content-type')}`);
     assert(coverReadback.body.length > 0, 'Expected Kavita proxied cover body');
@@ -813,6 +846,9 @@ async function main() {
       metadataApplyWrites: fake.seriesWritebacks.length,
       chapterMetadataApplyWrites: fake.chapterWritebacks.length,
       chapterMetadataPreviewTarget: kavitaChapterPreview.data?.preview?.target,
+      progressReadOnly: kavitaProgressReadback.data?.readOnly === true,
+      progressReadEndpointCalls: fake.progressReads.length,
+      progressReadPage: kavitaProgressReadback.data?.progress?.pageNum,
       comicClassifiedFromLibraryType: canonicalComic.media_type === 'comic_book',
       volumeDetailsFetched: firstSummary.volumeDetailsFetched,
       comicIssueNumber: canonicalComicDetails.issue_number,

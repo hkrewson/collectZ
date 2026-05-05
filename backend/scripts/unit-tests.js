@@ -1953,6 +1953,12 @@ results.push(run('kavita progress sync contract is read-only and forbids write e
   assert.ok(kavitaProgressContractProbeSource.includes('createFakeKavitaProgressServer'));
   assert.ok(kavitaProgressContractProbeSource.includes('progressSyncImplementationEnabled'));
   assert.ok(kavitaProgressContractProbeSource.includes('secretReturned'));
+  assert.ok(mediaRoutesSource.includes("router.get('/:id/kavita-progress'"));
+  assert.ok(mediaRoutesSource.includes('media.kavita.progress.read'));
+  assert.ok(kavitaImportSyncSmokeSource.includes('/kavita-progress'));
+  assert.ok(libraryViewSource.includes('Kavita Progress'));
+  assert.ok(libraryViewSource.includes('Read Progress'));
+  assert.ok(libraryViewSource.includes('kavitaProgressRows'));
 }));
 
 results.push(run('kavita chapter fan-out contract keeps series and issue identities distinct and opt-in', () => {
