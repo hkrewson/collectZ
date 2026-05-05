@@ -8931,6 +8931,45 @@ Historical note:
 - What remains in the milestone: no planned implementation work remains after final verification.
 - Recommended commit message: `Release 3.4.95 Kavita workspace-owned integration administration implementation`.
 
+## 3.4.96 — Kavita Metadata Writeback Contract and API Probe
+
+**Goal:** Decide whether collectZ should push metadata back into Kavita and define a conservative opt-in contract before any user-facing mutation workflow exists.
+
+**Current Slice:** `Closed 2026-05-04`
+
+### Scope
+
+- Review Kavita's current writable metadata API shape.
+- Document the first allowed series/chapter metadata fields and safety requirements.
+- Add pure backend payload builders for future writeback preview/apply work.
+- Add a Docker-friendly fake-server probe that verifies the intended payload shape without mutating a real Kavita server.
+- Keep the current Kavita runtime read-only and do not add a user-facing writeback action.
+- Keep embedded reading, reader page proxying, progress sync, external enrichment writeback, and shared provider abstractions out of this slice.
+
+### Acceptance Criteria
+
+- The writeback contract names the exact native Kavita endpoints considered viable.
+- The first field set is narrow and per-field selectable.
+- Locked fields are skipped by default.
+- The fake-server probe proves the planned series/chapter payload shape and secret-free behavior.
+- Version metadata and Help > Releases are aligned to `3.4.96`.
+
+### Closeout Notes
+
+- Roadmap slice: `3.4.96 — Kavita Metadata Writeback Contract and API Probe`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/41-Kavita-Integration-Setup.md`, and `docs/wiki/45-Kavita-Metadata-Writeback-Contract.md`.
+- Runtime verification used: rebuilt the Docker platform stack with `APP_VERSION=3.4.96`; verified healthy backend/frontend containers, `/api/health` serving `3.4.96`, `/api/auth/config` platform readback, live DB `events_enabled=true` at the start and after release evidence, in-stack Help > Releases smoke for `v3.4.96`, Kavita connection smoke, Kavita import/sync smoke, the fake-server metadata writeback probe, isolated homelab edition boundary stack, and restored platform stack health.
+- CI/checks run locally: source syntax checks for the new writeback contract/probe and unit test script; local metadata writeback probe; local OpenAPI validation; local backend unit/source assertions reached the new Kavita assertion but failed under the local Node runtime because `AbortController` is unavailable in the existing Sched ICS fetch test; container backend unit/source assertions (`244` passed); container OpenAPI validation; container `test:kavita-metadata-writeback-probe`; container `test:kavita-connection-smoke`; container `test:kavita-import-sync-smoke` rerun isolated after an initial fixture-state collision; container `test:help-releases-smoke` with `EXPECTED_RELEASE_VERSION=v3.4.96`; container `test:init-parity`; container `test:migration-rehearsal`; container `test:rbac-regression`; container `test:platform-edition-boundary`; isolated generated-compose `test:homelab-edition-boundary`; full browser regression with bundled Node (`58` passed, `4` skipped); `npm run validate:public-export`; `npm run compose:generate`; release feed regeneration; observability release evidence refresh (`9/9` passed); local release preflight; release-artifact secret-pattern scan; and `git diff --check`.
+- Version closeout: `app-meta.json`, backend/frontend app metadata, backend/frontend package metadata and lockfiles, `docker-compose.yml`, `docs/releases/v3.4.96.md`, and `backend/release-feed.json` are aligned to `3.4.96`.
+- Release gate accounting: rebuilt stack health and runtime smokes locally covered compose basics except CI secure-cookie settings; `rbac-regression`, `browser-regression`, `homelab-edition-boundary`, `platform-edition-boundary`, dependency-audit artifact checks, init parity, migration rehearsal, and observability evidence passed locally. Local release preflight still marks secure-cookie compose coverage blocked in the development stack (`SESSION_COOKIE_SECURE=false`, `NODE_ENV=development`), and CI must still rerun `compose-smoke`, `secret-scan`, and `image-security-and-sbom`.
+- Verified facts: Kavita's documented writable metadata targets for this contract are `POST /api/Series/metadata` and `POST /api/Chapter/update`; collectZ now has pure payload builders and a fake-server probe for those shapes; locked fields are skipped by default; no user-facing writeback action, real Kavita mutation call, reader/progress writeback, or external enrichment writeback was added.
+- Inference: the first writable field allowlist is intentionally limited to descriptive series/chapter metadata because it is straightforward to preview, audit, and skip when locked; broader writeback should wait for an explicit preview/apply UI.
+- Blocked/unverified items: local secure-cookie compose-smoke remains blocked by development runtime settings (`SESSION_COOKIE_SECURE=false`, `NODE_ENV=development`); `secret-scan` and `image-security-and-sbom` remain CI-only gates for the tagged release handoff; no real Kavita server mutation endpoint was exercised because this slice deliberately avoids writing to user Kavita data.
+- Files changed: `app-meta.json`, `backend/app-meta.json`, `frontend/src/app-meta.json`, `backend/package.json`, `frontend/package.json`, `backend/package-lock.json`, `frontend/package-lock.json`, `backend/services/kavitaWritebackContract.js`, `backend/scripts/kavita-metadata-writeback-probe.js`, `backend/scripts/unit-tests.js`, `docker-compose.yml`, `docs/releases/v3.4.96.md`, `docs/wiki/45-Kavita-Metadata-Writeback-Contract.md`, `docs/wiki/41-Kavita-Integration-Setup.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `backend/release-feed.json`, `artifacts/observability-evidence/observability-release-evidence.json`, and `preflight-go-no-go.md`.
+- Risks/follow-ups: actual Kavita metadata writeback still needs a workspace-admin preview endpoint, field-level diff UI, explicit apply endpoint, audit logging, failure readback, and locked-field override decision; embedded reading, progress sync, external enrichment writeback, and shared provider abstractions remain separate.
+- What remains in the milestone: no open `3.4.96` implementation work remains; CI-only release gates must pass before public tag/release publication.
+- Recommended commit message: `Release 3.4.96 Kavita metadata writeback contract and API probe`.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

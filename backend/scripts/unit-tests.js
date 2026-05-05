@@ -22,6 +22,11 @@ const {
   normalizeKavitaChapterIssueRows
 } = require('../services/kavita');
 const {
+  buildKavitaMetadataWritebackProbe,
+  buildKavitaSeriesMetadataWritebackPayload,
+  buildKavitaChapterMetadataWritebackPayload
+} = require('../services/kavitaWritebackContract');
+const {
   buildBookNormalizationIdentity,
   buildComicNormalizationIdentity,
   buildNormalizationMatchContract,
@@ -128,10 +133,12 @@ const eventPersonalIcsSyncSmokeSource = fs.readFileSync(require.resolve('../scri
 const eventCatalogIcsImportSmokeSource = fs.readFileSync(require.resolve('../scripts/event-catalog-ics-import-smoke'), 'utf8');
 const kavitaConnectionSmokeSource = fs.readFileSync(require.resolve('../scripts/kavita-connection-smoke'), 'utf8');
 const kavitaImportSyncSmokeSource = fs.readFileSync(require.resolve('../scripts/kavita-import-sync-smoke'), 'utf8');
+const kavitaMetadataWritebackProbeSource = fs.readFileSync(require.resolve('../scripts/kavita-metadata-writeback-probe'), 'utf8');
 const kavitaSetupDocSource = fs.readFileSync(require.resolve('../../docs/wiki/41-Kavita-Integration-Setup.md'), 'utf8');
 const kavitaReaderProgressDocSource = fs.readFileSync(require.resolve('../../docs/wiki/42-Kavita-Reader-Progress-Contract.md'), 'utf8');
 const kavitaChapterFanoutDocSource = fs.readFileSync(require.resolve('../../docs/wiki/43-Kavita-Chapter-Issue-Fanout-Contract.md'), 'utf8');
 const kavitaWorkspaceAdminDocSource = fs.readFileSync(require.resolve('../../docs/wiki/44-Kavita-Workspace-Owned-Administration-Contract.md'), 'utf8');
+const kavitaMetadataWritebackDocSource = fs.readFileSync(require.resolve('../../docs/wiki/45-Kavita-Metadata-Writeback-Contract.md'), 'utf8');
 const schedIcsSyncSource = fs.readFileSync(require.resolve('../services/schedIcsSync'), 'utf8');
 const spacesServiceSource = fs.readFileSync(require.resolve('../services/spaces'), 'utf8');
 function readFrontendSource(relativePath) {
@@ -1974,6 +1981,57 @@ results.push(run('kavita workspace-owned administration implementation is wired 
   assert.ok(kavitaImportSyncSmokeSource.includes('/integrations/test-kavita'));
   assert.ok(kavitaImportSyncSmokeSource.includes('workspaceOwnedSettings: true'));
   assert.ok(kavitaImportSyncSmokeSource.includes('overlapping Kavita ids to create rows in the second workspace only'));
+}));
+
+results.push(run('kavita metadata writeback contract remains opt-in and preview-first', () => {
+  assert.ok(backendPackageJson.scripts['test:kavita-metadata-writeback-probe']);
+  assert.ok(kavitaSetupDocSource.includes('45-Kavita-Metadata-Writeback-Contract.md'));
+  assert.ok(kavitaMetadataWritebackDocSource.includes('`POST /api/Series/metadata`'));
+  assert.ok(kavitaMetadataWritebackDocSource.includes('`POST /api/Chapter/update`'));
+  assert.ok(kavitaMetadataWritebackDocSource.includes('Writeback is disabled by default'));
+  assert.ok(kavitaMetadataWritebackDocSource.includes('preview diff'));
+  assert.ok(kavitaMetadataWritebackDocSource.includes('workspace-owned Kavita connection'));
+  assert.ok(kavitaMetadataWritebackDocSource.includes('Kavita credentials remain backend-only secrets'));
+  assert.ok(kavitaMetadataWritebackProbeSource.includes('createFakeKavitaWritebackServer'));
+  assert.ok(kavitaMetadataWritebackProbeSource.includes('writebackImplementationEnabled'));
+  const probe = buildKavitaMetadataWritebackProbe();
+  assert.strictEqual(probe.implementationEnabled, false);
+  assert.strictEqual(probe.endpoints.seriesMetadata.endpoint, '/api/Series/metadata');
+  assert.strictEqual(probe.endpoints.chapterMetadata.endpoint, '/api/Chapter/update');
+  const seriesPayload = buildKavitaSeriesMetadataWritebackPayload({
+    seriesId: 8602,
+    metadata: {
+      summary: 'Previewed summary',
+      tags: ['collectz'],
+      writersLocked: true,
+      writers: [{ name: 'Locked Writer' }],
+      apiKey: 'must-not-leak'
+    },
+    selectedFields: ['summary', 'tags', 'writers', 'apiKey']
+  });
+  assert.deepStrictEqual(seriesPayload.body, {
+    seriesMetadata: {
+      seriesId: 8602,
+      summary: 'Previewed summary',
+      tags: ['collectz']
+    }
+  });
+  assert.deepStrictEqual(seriesPayload.skippedFields, [{ field: 'writers', reason: 'locked' }]);
+  assert.ok(!JSON.stringify(seriesPayload).includes('must-not-leak'));
+  const chapterPayload = buildKavitaChapterMetadataWritebackPayload({
+    chapterId: 9702,
+    metadata: {
+      titleName: 'Issue 1',
+      releaseDate: '2024-05-01',
+      pages: 22
+    },
+    selectedFields: ['titleName', 'releaseDate', 'pages']
+  });
+  assert.deepStrictEqual(chapterPayload.body, {
+    id: 9702,
+    titleName: 'Issue 1',
+    releaseDate: '2024-05-01'
+  });
 }));
 
 results.push(run('AppPrimitives keeps authenticated collectZ API image paths same-origin', () => {

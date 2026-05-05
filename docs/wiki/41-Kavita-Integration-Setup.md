@@ -1,6 +1,6 @@
 # Kavita Integration Setup
 
-`3.4.85` added the first read-only Kavita connection foundation. Later Kavita slices add import/sync, metadata mapping, volume/chapter enrichment, secret-free launch links back to Kavita's native web UI, a documented reader/progress boundary, chapter-as-issue fan-out, and workspace-owned administration.
+`3.4.85` added the first read-only Kavita connection foundation. Later Kavita slices add import/sync, metadata mapping, volume/chapter enrichment, secret-free launch links back to Kavita's native web UI, a documented reader/progress boundary, chapter-as-issue fan-out, workspace-owned administration, and a metadata writeback contract.
 
 ## Requirements
 
@@ -68,7 +68,9 @@ Fan-out preserves the parent series row and keeps repeat sync idempotent. It doe
 
 `docs/wiki/44-Kavita-Workspace-Owned-Administration-Contract.md` defines the administration model: Kavita is owned by the active workspace, with workspace admins controlling save/test/import/clear for their workspace only. `3.4.95` implements that first workspace-owned administration path.
 
-The Kavita integration remains read-only. It does not push metadata into Kavita, embed the Kavita reader, proxy reader pages, write reading progress, enable chapter-as-issue fan-out by default, or create a shared Calibre/CWA/Kavita provider abstraction. The cover proxy is only for imported cover images and does not expose reader content.
+`docs/wiki/45-Kavita-Metadata-Writeback-Contract.md` defines the metadata writeback boundary. `3.4.96` confirms Kavita exposes native series/chapter metadata mutation endpoints and adds a fake-server payload probe, but collectZ still does not expose a writeback action or call real Kavita mutation endpoints.
+
+The Kavita integration remains read-only at runtime. It does not push metadata into Kavita, embed the Kavita reader, proxy reader pages, write reading progress, enable chapter-as-issue fan-out by default, or create a shared Calibre/CWA/Kavita provider abstraction. The cover proxy is only for imported cover images and does not expose reader content.
 
 Those are intentionally later milestones so the connection/auth contract can settle first. See `docs/wiki/42-Kavita-Reader-Progress-Contract.md` for the current reader/progress recommendation: link out to Kavita's native reader, do not iframe or proxy reader pages, and do not write progress from collectZ until a later opt-in contract exists.
 

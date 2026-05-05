@@ -53,30 +53,14 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 35. `Kavita Chapter-as-Issue Row Fan-out Implementation` was promoted as `3.4.93`; keep embedded reading, progress sync, metadata writeback, per-space Kavita administration, and shared provider abstractions separate.
 36. `Kavita Workspace-Owned Integration Administration Contract` was promoted as `3.4.94`; keep implementation, embedded reading, progress sync, metadata writeback, and shared provider abstractions separate.
 37. `Kavita Workspace-Owned Integration Administration Implementation` was promoted as `3.4.95`; keep embedded reading, progress sync, metadata writeback, special-chapter import, and shared provider abstractions separate.
+38. `Kavita Metadata Writeback Contract` was promoted as `3.4.96`; keep actual writeback preview/apply UI, progress sync, external enrichment writeback, and shared provider abstractions separate.
 
 ### Backlog Item: Kavita Reader and Progress Contract Discovery
 
 Promoted as `3.4.91`; keep embedded iframe reading, page streaming, reading progress writeback, and per-space Kavita administration as separate backlog tasks until selected.
 
 ### Backlog Item: Kavita Metadata Writeback Contract
-**Type:** Deferred milestone
-**Tags:** `kavita`, `metadata`, `writeback`, `sync`, `safety`
-
-**Goal:** Decide whether collectZ should ever push metadata back into Kavita, and define a conservative opt-in contract if it should.
-
-**Why this work exists**
-- Current Kavita work is intentionally read-only.
-- Writeback can overwrite a user's curated Kavita metadata and needs a stronger preview/audit model than import.
-
-**Scope**
-- Identify which Kavita metadata fields are writable and stable.
-- Define per-field ownership rules and conflict behavior.
-- Require preview, audit logging, and explicit opt-in before any writeback.
-- Keep reader/progress sync and cross-provider abstractions separate.
-
-**Acceptance Criteria**
-- The team has a documented go/no-go decision for Kavita metadata writeback.
-- If writeback is accepted, the first milestone has a narrow field list, rollback story, and smoke coverage plan.
+Promoted as `3.4.96`; keep actual writeback preview/apply UI, progress sync, external enrichment writeback, and shared provider abstractions separate.
 
 ### Backlog Item: Kavita Chapter-as-Issue Row Fan-out
 
