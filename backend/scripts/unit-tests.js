@@ -2001,6 +2001,9 @@ results.push(run('kavita metadata writeback contract remains opt-in and preview-
   assert.ok(mediaRoutesSource.includes('media.kavita.writeback.apply'));
   assert.ok(libraryViewSource.includes('Preview Diff'));
   assert.ok(libraryViewSource.includes('Apply to Kavita'));
+  assert.ok(libraryViewSource.includes('kavitaSelectedFields'));
+  assert.ok(libraryViewSource.includes('Apply ${entry.field} to Kavita'));
+  assert.ok(libraryViewSource.includes('selectedFields,'));
   assert.ok(kavitaImportSyncSmokeSource.includes('/kavita-writeback-preview'));
   assert.ok(kavitaImportSyncSmokeSource.includes('/kavita-writeback-apply'));
   const probe = buildKavitaMetadataWritebackProbe();

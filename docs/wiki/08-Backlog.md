@@ -56,13 +56,14 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 38. `Kavita Metadata Writeback Contract` was promoted as `3.4.96`; keep actual writeback preview/apply UI, progress sync, external enrichment writeback, and shared provider abstractions separate.
 39. `Kavita Metadata Writeback Preview and Diff` was promoted as `3.4.97`; keep actual writeback apply, progress sync, external enrichment writeback, locked-field override, and shared provider abstractions separate.
 40. `Kavita Metadata Writeback Apply` was promoted as `3.4.98`; keep background sync, progress sync, external enrichment writeback, locked-field override, and shared provider abstractions separate.
+41. `Kavita Writeback Field Selection UI` was promoted as `3.4.99`; keep background sync, progress sync, external enrichment writeback, locked-field override, and shared provider abstractions separate.
 
 ### Backlog Item: Kavita Reader and Progress Contract Discovery
 
 Promoted as `3.4.91`; keep embedded iframe reading, page streaming, reading progress writeback, and per-space Kavita administration as separate backlog tasks until selected.
 
 ### Backlog Item: Kavita Metadata Writeback Contract
-Promoted as `3.4.96`; the preview/diff implementation was promoted as `3.4.97`, and the first manual apply path was promoted as `3.4.98`. Keep background sync, progress sync, external enrichment writeback, locked-field override, and shared provider abstractions separate.
+Promoted as `3.4.96`; the preview/diff implementation was promoted as `3.4.97`, the first manual apply path was promoted as `3.4.98`, and field-level selection UI was promoted as `3.4.99`. Keep background sync, progress sync, external enrichment writeback, locked-field override, and shared provider abstractions separate.
 
 ### Backlog Item: Kavita Chapter-as-Issue Row Fan-out
 

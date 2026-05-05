@@ -636,6 +636,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   const [kavitaPreview, setKavitaPreview] = useState(null);
   const [kavitaPreviewLoading, setKavitaPreviewLoading] = useState(false);
   const [kavitaApplyLoading, setKavitaApplyLoading] = useState(false);
+  const [kavitaSelectedFields, setKavitaSelectedFields] = useState([]);
   const typeDetails = item?.type_details && typeof item.type_details === 'object' ? item.type_details : {};
   const isBook = item?.media_type === 'book';
   const isComic = item?.media_type === 'comic_book';
@@ -929,10 +930,13 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
     setKavitaPreviewLoading(true);
     try {
       const payload = await apiCall('post', `/media/${item.id}/kavita-writeback-preview`, { target: 'auto' });
-      setKavitaPreview(payload?.preview || null);
+      const preview = payload?.preview || null;
+      setKavitaPreview(preview);
+      setKavitaSelectedFields(Array.isArray(preview?.changedFields) ? preview.changedFields : []);
       onToast?.('Kavita preview loaded');
     } catch (error) {
       setKavitaPreview(null);
+      setKavitaSelectedFields([]);
       onToast?.(error?.response?.data?.error || 'Failed to preview Kavita metadata', 'error');
     } finally {
       setKavitaPreviewLoading(false);
@@ -941,20 +945,23 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
 
   const applyKavitaWriteback = async () => {
     if (!item?.id || kavitaApplyLoading) return;
-    const changedFields = Array.isArray(kavitaPreview?.changedFields) ? kavitaPreview.changedFields : [];
-    if (changedFields.length === 0) {
-      onToast?.('No changed Kavita fields to apply', 'error');
+    const changedFieldSet = new Set(Array.isArray(kavitaPreview?.changedFields) ? kavitaPreview.changedFields : []);
+    const selectedFields = kavitaSelectedFields.filter((field) => changedFieldSet.has(field));
+    if (selectedFields.length === 0) {
+      onToast?.('Select at least one changed Kavita field to apply', 'error');
       return;
     }
     setKavitaApplyLoading(true);
     try {
       const payload = await apiCall('post', `/media/${item.id}/kavita-writeback-apply`, {
         target: kavitaPreview?.target || 'auto',
-        selectedFields: changedFields,
+        selectedFields,
         confirm: true
       });
-      setKavitaPreview(payload?.preview || null);
-      onToast?.(`Applied ${changedFields.length} Kavita metadata field${changedFields.length === 1 ? '' : 's'}`);
+      const preview = payload?.preview || null;
+      setKavitaPreview(preview);
+      setKavitaSelectedFields(Array.isArray(preview?.changedFields) ? preview.changedFields : []);
+      onToast?.(`Applied ${selectedFields.length} Kavita metadata field${selectedFields.length === 1 ? '' : 's'}`);
     } catch (error) {
       onToast?.(error?.response?.data?.error || 'Failed to apply Kavita metadata', 'error');
     } finally {
@@ -967,6 +974,14 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
     if (Array.isArray(value)) return value.length ? value.map((entry) => String(entry)).join(', ') : '—';
     if (typeof value === 'object') return JSON.stringify(value);
     return String(value);
+  };
+
+  const toggleKavitaSelectedField = (field) => {
+    setKavitaSelectedFields((prev) => (
+      prev.includes(field)
+        ? prev.filter((entry) => entry !== field)
+        : [...prev, field]
+    ));
   };
 
   const markSeasonWatched = async (seasonNumber) => {
@@ -1660,7 +1675,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                       type="button"
                       className="btn-primary"
                       onClick={applyKavitaWriteback}
-                      disabled={kavitaApplyLoading || kavitaPreviewLoading || (kavitaPreview.changedFields || []).length === 0}
+                      disabled={kavitaApplyLoading || kavitaPreviewLoading || kavitaSelectedFields.length === 0}
                     >
                       {kavitaApplyLoading ? <Spinner size={14} /> : <Icons.Check />}
                       {kavitaApplyLoading ? 'Applying…' : 'Apply to Kavita'}
@@ -1673,6 +1688,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                   <div className="flex flex-wrap gap-2">
                     <span className="badge badge-dim">{kavitaPreview.target}</span>
                     <span className="badge badge-dim">{(kavitaPreview.changedFields || []).length} changed</span>
+                    <span className="badge badge-dim">{kavitaSelectedFields.length} selected</span>
                     {(kavitaPreview.skippedFields || []).length > 0 ? (
                       <span className="badge badge-dim">{kavitaPreview.skippedFields.length} skipped</span>
                     ) : null}
@@ -1680,10 +1696,21 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                   {Array.isArray(kavitaPreview.diff) && kavitaPreview.diff.length > 0 ? (
                     <div className="divide-y divide-edge/60 rounded-lg border border-edge bg-panel">
                       {kavitaPreview.diff.slice(0, 8).map((entry) => (
-                        <div key={entry.field} className="grid gap-2 px-3 py-3 text-sm sm:grid-cols-[120px,1fr]">
+                        <div key={entry.field} className="grid gap-2 px-3 py-3 text-sm sm:grid-cols-[150px,1fr]">
                           <div className="flex items-center gap-2">
+                            {entry.changed ? (
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 rounded border-edge bg-panel text-accent"
+                                checked={kavitaSelectedFields.includes(entry.field)}
+                                onChange={() => toggleKavitaSelectedField(entry.field)}
+                                aria-label={`Apply ${entry.field} to Kavita`}
+                              />
+                            ) : (
+                              <span className="h-4 w-4" aria-hidden="true" />
+                            )}
                             <span className={cx('h-2 w-2 rounded-full', entry.changed ? 'bg-gold' : 'bg-ok')} />
-                            <span className="font-medium text-ink">{entry.field}</span>
+                            <span className="min-w-0 break-words font-medium text-ink">{entry.field}</span>
                           </div>
                           <div className="grid gap-2 sm:grid-cols-2">
                             <div>

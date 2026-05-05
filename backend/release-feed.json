@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.99",
+      "version": "v3.4.99",
+      "date": "2026-05-05",
+      "status": "Ready for CI release gates",
+      "summary": "This patch makes Kavita metadata writeback more deliberate by letting workspace admins choose the exact changed fields to apply after preview.",
+      "details": [
+        {
+          "heading": "Shipped",
+          "bullets": [
+            "Added field-level checkboxes to the media-detail Kavita Metadata diff.",
+            "Default selected all changed unlocked fields after preview, while unchanged rows remain read-only.",
+            "Changed `Apply to Kavita` so it sends only the selected changed fields.",
+            "Added selected-field readback beside the existing changed/skipped counts."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.4.98",
       "version": "v3.4.98",
       "date": "2026-05-05",
@@ -100,14 +118,6 @@
     {
       "title": "collectZ v3.4.90",
       "version": "v3.4.90",
-      "date": null,
-      "status": null,
-      "summary": "",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.4.89",
-      "version": "v3.4.89",
       "date": null,
       "status": null,
       "summary": "",

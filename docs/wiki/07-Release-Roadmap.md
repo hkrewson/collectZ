@@ -9053,6 +9053,44 @@ Historical note:
 - What remains in the milestone: no open `3.4.98` implementation work remains; CI-only release gates must pass before public tag/release publication.
 - Recommended commit message: `Release 3.4.98 Kavita metadata writeback apply`.
 
+## 3.4.99 — Kavita Writeback Field Selection UI
+
+**Goal:** Make the manual Kavita writeback apply flow field-selectable so workspace admins can choose the exact changed fields to send after preview.
+
+**Current Slice:** `Active`
+
+### Scope
+
+- Add field-level selection controls to the Kavita metadata preview diff.
+- Select changed unlocked fields by default after preview.
+- Keep unchanged rows visible but not selectable for apply.
+- Send only selected changed fields to the existing apply endpoint.
+- Keep locked-field override, background sync, external enrichment writeback, reader/progress sync, and shared provider abstractions out of scope.
+
+### Acceptance Criteria
+
+- Preview readback shows changed, skipped, and selected field counts.
+- Apply is disabled when no changed fields are selected.
+- Apply payloads send only the selected changed fields.
+- Unchanged and skipped fields are not selectable.
+- Version metadata and Help > Releases are aligned to `3.4.99`.
+
+### Closeout Notes
+
+- Roadmap slice: `3.4.99 — Kavita Writeback Field Selection UI`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/41-Kavita-Integration-Setup.md`, and `docs/wiki/45-Kavita-Metadata-Writeback-Contract.md`.
+- Runtime verification used: rebuilt and restored the Docker platform stack with `APP_VERSION=3.4.99`; verified healthy backend/frontend containers, `/api/health` serving frontend/backend/build `3.4.99`, backend container env readback for `APP_VERSION=3.4.99`, `APP_EDITION=platform`, `NODE_ENV=development`, and `SESSION_COOKIE_SECURE=false`; verified live DB `feature_flags.events_enabled=true` at the start and after all evidence tooling; verified Help > Releases serves `v3.4.99`; ran the Kavita import/sync smoke against the running backend and fake Kavita-compatible server, proving selected-field apply still writes only `releaseYear` for the series metadata path and one chapter write for the chapter metadata path; temporarily swapped to generated public compose plus `.ci/docker-compose.build.yml` for homelab boundary verification, then restored the localhost platform stack and rechecked health.
+- CI/checks run locally: `node --check backend/scripts/unit-tests.js`; Docker frontend production build; container backend unit/source assertions (`244` passed); container OpenAPI validation; container `test:kavita-import-sync-smoke` with metadata field-selection apply coverage; container `test:help-releases-smoke` with `EXPECTED_RELEASE_VERSION=v3.4.99`; container `test:init-parity`; container `test:migration-rehearsal`; container `test:rbac-regression` rerun isolated after a parallel boundary-smoke fixture collision; container `test:platform-edition-boundary`; container API integration smoke; isolated generated-compose `test:homelab-edition-boundary`; full browser regression with bundled Node (`58` passed, `4` skipped); `npm run validate:public-export`; `npm run compose:generate`; release-feed regeneration; observability release evidence refresh (`9/9` passed); Node 20 container dependency audits for backend/frontend (`0` low, `0` moderate, `0` high, `0` critical); local release preflight; and `git diff --check`.
+- Version closeout: `app-meta.json`, backend/frontend app metadata, backend/frontend package metadata and lockfiles, `docker-compose.yml`, `docs/releases/v3.4.99.md`, and `backend/release-feed.json` are aligned to `3.4.99`.
+- Release gate accounting: rebuilt stack health and runtime smokes locally covered compose basics except CI secure-cookie settings; `rbac-regression`, `browser-regression`, `homelab-edition-boundary`, `platform-edition-boundary`, dependency-audit artifact checks, init parity, migration rehearsal, and observability evidence passed locally. Local release preflight marks secure-cookie compose coverage blocked in the development stack (`SESSION_COOKIE_SECURE=false`, `NODE_ENV=development`), and CI must still rerun `compose-smoke`, `secret-scan`, and `image-security-and-sbom`.
+- Verified facts: changed unlocked Kavita diff fields are selected by default after preview; unchanged rows remain visible but unselectable; selected-field count is shown beside changed/skipped readback; `Apply to Kavita` is disabled when no changed fields are selected; apply sends only selected changed fields; the running-stack Kavita smoke proved selected `releaseYear` series apply plus one chapter apply without returning Kavita secrets.
+- Inference: field-level checkboxes are the right next guardrail before expanding writeback coverage because they make the existing narrow allowlist explicit without changing the backend mutation contract.
+- Blocked/unverified items: local secure-cookie compose-smoke remains blocked by development runtime settings (`SESSION_COOKIE_SECURE=false`, `NODE_ENV=development`); `secret-scan` and `image-security-and-sbom` remain CI-only gates for the tagged release handoff; no real user Kavita server was mutated during local verification because the apply proof used a fake Kavita-compatible server.
+- Files changed: `app-meta.json`, `backend/app-meta.json`, `frontend/src/app-meta.json`, `backend/package.json`, `frontend/package.json`, `backend/package-lock.json`, `frontend/package-lock.json`, `backend/scripts/unit-tests.js`, `frontend/src/components/LibraryView.jsx`, `docker-compose.yml`, `docs/releases/v3.4.99.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/45-Kavita-Metadata-Writeback-Contract.md`, `backend/release-feed.json`, `artifacts/observability-evidence/observability-release-evidence.json`, and `preflight-go-no-go.md`.
+- Risks/follow-ups: locked-field override policy still needs an explicit future decision; real Kavita writeback validation should be run before relying on this for a personal production library; post-apply refresh/readback can get richer; reader/progress sync, external enrichment writeback, and shared provider abstractions remain separate future work.
+- What remains in the milestone: no open `3.4.99` implementation work remains; CI-only release gates must pass before public tag/release publication.
+- Recommended commit message: `Release 3.4.99 Kavita writeback field selection UI`.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

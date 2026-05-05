@@ -6,6 +6,8 @@
 
 `3.4.98` adds the first explicit apply step on top of that preview shape: workspace admins can manually send changed, unlocked collectZ fields to Kavita after preview. Automatic sync, locked-field override, external enrichment writeback, and reader/progress writeback remain out of scope.
 
+`3.4.99` adds field-level selection in the preview UI so apply requests send only the changed fields the workspace admin selected.
+
 ## Decision
 
 Kavita metadata writeback is viable, but it should be narrow, preview-first, and manually initiated. collectZ should not run automatic bidirectional sync and should not push enrichment from third-party providers back into Kavita without user review.
@@ -62,7 +64,7 @@ Cover images, page files, reading progress, bookmarks, library membership, serie
 
 This contract started with payload builders and a fake-server probe, then added preview and explicit apply slices. It does not create a background sync job and does not write fields that are locked or missing local values.
 
-`3.4.97` implements the workspace-admin-only preview endpoint and UI diff. `3.4.98` implements the separate apply endpoint, reusing the preview diff and writing only changed, unlocked fields.
+`3.4.97` implements the workspace-admin-only preview endpoint and UI diff. `3.4.98` implements the separate apply endpoint, reusing the preview diff and writing only changed, unlocked fields. `3.4.99` narrows the apply UI to selected changed fields.
 
 ## Non-Goals
 
