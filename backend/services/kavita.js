@@ -268,6 +268,36 @@ async function fetchKavitaSeriesMetadata(config = {}, token, seriesId) {
   return response.data && typeof response.data === 'object' ? response.data : {};
 }
 
+async function updateKavitaSeriesMetadata(config = {}, token, body = {}) {
+  const baseUrl = normalizeKavitaBaseUrl(config.kavitaBaseUrl);
+  const response = await axios.post(buildKavitaApiUrl(baseUrl, '/api/Series/metadata'), body, {
+    headers: { Authorization: `Bearer ${token}` },
+    timeout: getKavitaTimeoutMs(config),
+    validateStatus: () => true
+  });
+  if (response.status < 200 || response.status >= 300) {
+    const error = new Error(response.data?.message || response.data?.error || `Kavita series metadata update returned status ${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
+  return response.data && typeof response.data === 'object' ? response.data : {};
+}
+
+async function updateKavitaChapterMetadata(config = {}, token, body = {}) {
+  const baseUrl = normalizeKavitaBaseUrl(config.kavitaBaseUrl);
+  const response = await axios.post(buildKavitaApiUrl(baseUrl, '/api/Chapter/update'), body, {
+    headers: { Authorization: `Bearer ${token}` },
+    timeout: getKavitaTimeoutMs(config),
+    validateStatus: () => true
+  });
+  if (response.status < 200 || response.status >= 300) {
+    const error = new Error(response.data?.message || response.data?.error || `Kavita chapter metadata update returned status ${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
+  return response.data && typeof response.data === 'object' ? response.data : {};
+}
+
 function firstString(...values) {
   for (const value of values) {
     const text = String(value || '').trim();
@@ -794,6 +824,8 @@ module.exports = {
   fetchKavitaSeriesSample,
   fetchKavitaSeriesVolumes,
   fetchKavitaSeriesMetadata,
+  updateKavitaSeriesMetadata,
+  updateKavitaChapterMetadata,
   fetchKavitaImportItems,
   normalizeKavitaSeries,
   normalizeKavitaLibraryType,

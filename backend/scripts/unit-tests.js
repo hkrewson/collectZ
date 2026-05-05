@@ -1996,9 +1996,13 @@ results.push(run('kavita metadata writeback contract remains opt-in and preview-
   assert.ok(kavitaMetadataWritebackProbeSource.includes('createFakeKavitaWritebackServer'));
   assert.ok(kavitaMetadataWritebackProbeSource.includes('writebackImplementationEnabled'));
   assert.ok(mediaRoutesSource.includes("router.post('/:id/kavita-writeback-preview'"));
+  assert.ok(mediaRoutesSource.includes("router.post('/:id/kavita-writeback-apply'"));
   assert.ok(mediaRoutesSource.includes('media.kavita.writeback.preview'));
+  assert.ok(mediaRoutesSource.includes('media.kavita.writeback.apply'));
   assert.ok(libraryViewSource.includes('Preview Diff'));
+  assert.ok(libraryViewSource.includes('Apply to Kavita'));
   assert.ok(kavitaImportSyncSmokeSource.includes('/kavita-writeback-preview'));
+  assert.ok(kavitaImportSyncSmokeSource.includes('/kavita-writeback-apply'));
   const probe = buildKavitaMetadataWritebackProbe();
   assert.strictEqual(probe.implementationEnabled, false);
   assert.strictEqual(probe.endpoints.seriesMetadata.endpoint, '/api/Series/metadata');
@@ -2058,6 +2062,21 @@ results.push(run('kavita metadata writeback contract remains opt-in and preview-
   assert.strictEqual(preview.mutationEnabled, false);
   assert.deepStrictEqual(preview.changedFields, ['summary', 'releaseYear']);
   assert.deepStrictEqual(preview.skippedFields, [{ field: 'writers', reason: 'locked' }]);
+  const applyPayload = buildKavitaSeriesMetadataWritebackPayload({
+    seriesId: 8602,
+    metadata: {
+      releaseYear: 2024
+    },
+    selectedFields: ['releaseYear'],
+    implementationEnabled: true
+  });
+  assert.strictEqual(applyPayload.implementationEnabled, true);
+  assert.deepStrictEqual(applyPayload.body, {
+    seriesMetadata: {
+      seriesId: 8602,
+      releaseYear: 2024
+    }
+  });
 }));
 
 results.push(run('AppPrimitives keeps authenticated collectZ API image paths same-origin', () => {

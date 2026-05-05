@@ -7073,6 +7073,94 @@
         }
       }
     },
+    "/api/media/{id}/kavita-writeback-apply": {
+      "post": {
+        "tags": ["Media"],
+        "summary": "Apply selected collectZ metadata fields to a Kavita-linked row",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["confirm"],
+                "properties": {
+                  "target": {
+                    "type": "string",
+                    "enum": ["auto", "series", "chapter"],
+                    "default": "auto"
+                  },
+                  "selectedFields": {
+                    "type": "array",
+                    "maxItems": 24,
+                    "items": { "type": "string" }
+                  },
+                  "confirm": {
+                    "type": "boolean",
+                    "enum": [true]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Kavita accepted the selected metadata writeback",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": {
+            "description": "Kavita row or configuration error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "403": {
+            "description": "Workspace admin access required",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "409": {
+            "description": "No changed unlocked fields are available",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "502": {
+            "description": "Kavita rejected or failed the writeback request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/media/{id}": {
       "get": {
         "tags": ["Media"],

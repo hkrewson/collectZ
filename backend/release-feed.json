@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.98",
+      "version": "v3.4.98",
+      "date": "2026-05-05",
+      "status": "Ready for CI release gates",
+      "summary": "This patch adds the first explicit Kavita metadata writeback apply path. Workspace admins can review the Kavita preview diff and then manually write changed, unlocked collectZ metadata fields to the linked Kavita series or chapter.",
+      "details": [
+        {
+          "heading": "Shipped",
+          "bullets": [
+            "Added a workspace-admin-only Kavita metadata apply endpoint for Kavita-linked media rows.",
+            "Recompute the preview diff immediately before writing so locked, missing, and unchanged fields are not sent.",
+            "Added Kavita series and chapter metadata mutation helpers targeting `POST /api/Series/metadata` and `POST /api/Chapter/update`.",
+            "Added a guarded `Apply to Kavita` action beside the media-detail Kavita Metadata preview.",
+            "Extended the Kavita import/sync smoke fake server to prove series and chapter apply payloads without mutating a real Kavita server.",
+            "Added activity/audit events for applied, skipped, and failed writeback attempts."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.4.97",
       "version": "v3.4.97",
       "date": "2026-05-05",
@@ -88,14 +108,6 @@
     {
       "title": "collectZ v3.4.89",
       "version": "v3.4.89",
-      "date": null,
-      "status": null,
-      "summary": "",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.4.88",
-      "version": "v3.4.88",
       "date": null,
       "status": null,
       "summary": "",

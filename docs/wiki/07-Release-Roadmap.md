@@ -9010,6 +9010,49 @@ Historical note:
 - What remains in the milestone: no open `3.4.97` implementation work remains; CI-only release gates must pass before public tag/release publication.
 - Recommended commit message: `Release 3.4.97 Kavita metadata writeback preview and diff`.
 
+## 3.4.98 — Kavita Metadata Writeback Apply
+
+**Goal:** Add the first explicit Kavita metadata writeback apply path so workspace admins can send changed, unlocked collectZ metadata fields to Kavita after reviewing the preview diff.
+
+**Status:** Closed 2026-05-05.
+
+### Scope
+
+- Add a workspace-admin-only apply endpoint for Kavita-linked media rows.
+- Re-read current Kavita metadata before applying and reuse the preview diff contract.
+- Write only changed, unlocked fields from the existing allowlist.
+- Require explicit confirmation in the request body.
+- Add UI affordance beside the preview diff for applying the currently changed fields.
+- Add activity/audit events for applied, skipped, and failed attempts.
+- Extend the Kavita import/sync smoke fake server to prove series and chapter apply payloads without real-user Kavita mutation.
+- Keep background sync, locked-field override, external enrichment writeback, reader/progress sync, and shared provider abstractions out of scope.
+
+### Acceptance Criteria
+
+- Apply requires workspace-admin access and uses the row's workspace-owned Kavita connection.
+- Apply recomputes preview immediately before mutation.
+- Apply writes only changed fields and omits locked or missing fields.
+- Apply responses never expose Kavita API keys, bearer tokens, or browser-usable credential URLs.
+- Failed Kavita writeback does not update local collectZ metadata as if Kavita accepted the change.
+- Kavita import/sync smoke proves both series and chapter apply behavior against a fake Kavita-compatible server.
+- Version metadata and Help > Releases are aligned to `3.4.98`.
+
+### Closeout Notes
+
+- Roadmap slice: `3.4.98 — Kavita Metadata Writeback Apply`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/41-Kavita-Integration-Setup.md`, and `docs/wiki/45-Kavita-Metadata-Writeback-Contract.md`.
+- Runtime verification used: rebuilt and recreated the Docker platform stack with `APP_VERSION=3.4.98`; verified healthy backend/frontend containers, `/api/health` serving frontend/backend/build `3.4.98`, backend container env readback for `APP_VERSION=3.4.98`, `APP_EDITION=platform`, `NODE_ENV=development`, and `SESSION_COOKIE_SECURE=false`; verified the live DB `feature_flags.events_enabled=true` after evidence runs; verified Help > Releases serves `v3.4.98`; ran the Kavita import/sync smoke against the running backend and fake Kavita-compatible server, proving one series metadata write and one chapter metadata write; temporarily swapped to generated public compose plus `.ci/docker-compose.build.yml` for homelab boundary verification, then restored the platform stack and rechecked health.
+- CI/checks run locally: source syntax checks for `backend/routes/media.js`, `backend/services/kavita.js`, `backend/services/kavitaWritebackContract.js`, `backend/scripts/kavita-import-sync-smoke.js`, and `backend/scripts/unit-tests.js`; Docker frontend production build; container backend unit/source assertions (`244` passed); container OpenAPI validation; container `test:kavita-import-sync-smoke` with metadata apply coverage; container `test:help-releases-smoke` with `EXPECTED_RELEASE_VERSION=v3.4.98`; container `test:init-parity`; container `test:migration-rehearsal`; container `test:rbac-regression`; container `test:platform-edition-boundary`; container API integration smoke; isolated generated-compose `test:homelab-edition-boundary`; full browser regression with bundled Node (`58` passed, `4` skipped) after rerunning it without concurrent stack churn; `npm run validate:public-export`; `npm run compose:generate`; release-feed regeneration; observability release evidence refresh (`9/9` passed); Node 20 container dependency audits for backend/frontend (`0` low, `0` moderate, `0` high, `0` critical); local release preflight; and `git diff --check`.
+- Version closeout: `app-meta.json`, backend/frontend app metadata, backend/frontend package metadata and lockfiles, `docker-compose.yml`, `docs/releases/v3.4.98.md`, and `backend/release-feed.json` are aligned to `3.4.98`.
+- Release gate accounting: rebuilt stack health and runtime smokes locally covered compose basics except CI secure-cookie settings; `rbac-regression`, `browser-regression`, `homelab-edition-boundary`, `platform-edition-boundary`, dependency-audit artifact checks, init parity, migration rehearsal, and observability evidence passed locally. Local release preflight still marks secure-cookie compose coverage blocked in the development stack (`SESSION_COOKIE_SECURE=false`, `NODE_ENV=development`), and CI must still rerun `compose-smoke`, `secret-scan`, and `image-security-and-sbom`.
+- Verified facts: Kavita-linked media rows now expose a workspace-admin-only apply endpoint; apply requires `confirm: true`; apply re-reads current Kavita metadata and recomputes the preview diff before mutation; series apply calls `POST /api/Series/metadata`; chapter apply calls `POST /api/Chapter/update`; only changed unlocked fields are sent; locked writers were omitted in the fake-server proof; responses do not return Kavita API keys or bearer tokens; the media detail drawer exposes `Apply to Kavita` only after preview; failed attempts are logged and do not update local collectZ metadata as accepted.
+- Inference: the UI currently applies all changed fields from the preview rather than providing per-field checkboxes because the first writeback allowlist is narrow and locked/missing fields are already filtered server-side.
+- Blocked/unverified items: local secure-cookie compose-smoke remains blocked by development runtime settings (`SESSION_COOKIE_SECURE=false`, `NODE_ENV=development`); `secret-scan` and `image-security-and-sbom` remain CI-only gates for the tagged release handoff; no real user Kavita server was mutated during local verification because the apply proof used a fake Kavita-compatible server.
+- Files changed: `app-meta.json`, `backend/app-meta.json`, `frontend/src/app-meta.json`, `backend/package.json`, `frontend/package.json`, `backend/package-lock.json`, `frontend/package-lock.json`, `backend/middleware/validate.js`, `backend/openapi/openapi.yaml`, `backend/routes/media.js`, `backend/services/kavita.js`, `backend/services/kavitaWritebackContract.js`, `backend/scripts/kavita-import-sync-smoke.js`, `backend/scripts/unit-tests.js`, `frontend/src/components/LibraryView.jsx`, `docker-compose.yml`, `docs/releases/v3.4.98.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/45-Kavita-Metadata-Writeback-Contract.md`, `backend/release-feed.json`, `artifacts/dependency-audit/frontend-audit.json`, `artifacts/observability-evidence/observability-release-evidence.json`, and `preflight-go-no-go.md`.
+- Risks/follow-ups: add field-level selection UI before broader writeback use; decide whether locked-field override is ever allowed; add a richer post-apply refresh/readback state; keep external enrichment writeback, reader/progress sync, and shared provider abstractions as separate future milestones.
+- What remains in the milestone: no open `3.4.98` implementation work remains; CI-only release gates must pass before public tag/release publication.
+- Recommended commit message: `Release 3.4.98 Kavita metadata writeback apply`.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

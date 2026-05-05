@@ -122,7 +122,12 @@ function buildKavitaMetadataWritebackPreview({
   };
 }
 
-function buildKavitaSeriesMetadataWritebackPayload({ seriesId, metadata = {}, selectedFields = [] } = {}) {
+function buildKavitaSeriesMetadataWritebackPayload({
+  seriesId,
+  metadata = {},
+  selectedFields = [],
+  implementationEnabled = false
+} = {}) {
   const id = Number(seriesId || metadata.seriesId || 0) || null;
   if (!id) throw new Error('Kavita series metadata writeback requires a seriesId');
   const { picked, selectedFields: selected, skippedFields } = pickSelectedMetadata(
@@ -135,7 +140,7 @@ function buildKavitaSeriesMetadataWritebackPayload({ seriesId, metadata = {}, se
     provider: 'kavita',
     method: 'POST',
     endpoint: SERIES_METADATA_ENDPOINT,
-    implementationEnabled: false,
+    implementationEnabled: Boolean(implementationEnabled),
     body: {
       seriesMetadata: {
         seriesId: id,
@@ -147,7 +152,12 @@ function buildKavitaSeriesMetadataWritebackPayload({ seriesId, metadata = {}, se
   };
 }
 
-function buildKavitaChapterMetadataWritebackPayload({ chapterId, metadata = {}, selectedFields = [] } = {}) {
+function buildKavitaChapterMetadataWritebackPayload({
+  chapterId,
+  metadata = {},
+  selectedFields = [],
+  implementationEnabled = false
+} = {}) {
   const id = Number(chapterId || metadata.id || 0) || null;
   if (!id) throw new Error('Kavita chapter metadata writeback requires a chapterId');
   const { picked, selectedFields: selected, skippedFields } = pickSelectedMetadata(
@@ -160,7 +170,7 @@ function buildKavitaChapterMetadataWritebackPayload({ chapterId, metadata = {}, 
     provider: 'kavita',
     method: 'POST',
     endpoint: CHAPTER_METADATA_ENDPOINT,
-    implementationEnabled: false,
+    implementationEnabled: Boolean(implementationEnabled),
     body: {
       id,
       ...picked

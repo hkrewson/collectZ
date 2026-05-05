@@ -16,6 +16,7 @@ const {
   mediaLoanReminderSendSchema,
   mediaValuationRefreshSchema,
   kavitaMetadataWritebackPreviewSchema,
+  kavitaMetadataWritebackApplySchema,
   mediaMergePreviewSchema,
   mediaMergeApplySchema,
   mediaMergeRevertSchema,
@@ -48,11 +49,21 @@ const { searchGamesByTitle } = require('../services/games');
 const { searchComicsByTitle, fetchMetronCollectionIssues, fetchMetronIssueDetails, pushMetronCollectionIssue } = require('../services/comics');
 const { parseCsvText } = require('../services/csv');
 const { fetchCwaOpdsItems } = require('../services/cwa');
-const { authenticateKavita, fetchKavitaCoverImage, fetchKavitaImportItems, fetchKavitaSeriesMetadata, fetchKavitaSeriesVolumes } = require('../services/kavita');
+const {
+  authenticateKavita,
+  fetchKavitaCoverImage,
+  fetchKavitaImportItems,
+  fetchKavitaSeriesMetadata,
+  fetchKavitaSeriesVolumes,
+  updateKavitaSeriesMetadata,
+  updateKavitaChapterMetadata
+} = require('../services/kavita');
 const {
   SERIES_WRITEBACK_FIELDS,
   CHAPTER_WRITEBACK_FIELDS,
-  buildKavitaMetadataWritebackPreview
+  buildKavitaMetadataWritebackPreview,
+  buildKavitaSeriesMetadataWritebackPayload,
+  buildKavitaChapterMetadataWritebackPayload
 } = require('../services/kavitaWritebackContract');
 const { mapDeliciousItemTypeToMediaType } = require('../services/importMapping');
 const { normalizeDeliciousRow } = require('../services/deliciousNormalize');
@@ -6863,6 +6874,17 @@ function splitKavitaMetadataList(value) {
     .filter(Boolean);
 }
 
+function formatKavitaWritebackDate(...values) {
+  const value = firstNonEmptyString(...values);
+  if (!value) return '';
+  const text = String(value).trim();
+  const iso = text.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (iso) return iso[1];
+  const parsed = new Date(text);
+  if (Number.isFinite(parsed.getTime())) return parsed.toISOString().slice(0, 10);
+  return text;
+}
+
 function buildKavitaWebLinks(row = {}, details = {}) {
   return [
     row.external_url,
@@ -6885,7 +6907,7 @@ function buildKavitaProposedMetadata(row = {}, target = 'series') {
       writers: splitKavitaMetadataList(firstNonEmptyString(details.writer, details.author)),
       publishers: splitKavitaMetadataList(details.publisher),
       isbn: firstNonEmptyString(details.isbn),
-      releaseDate: firstNonEmptyString(row.release_date, details.kavita_chapter_release_date, details.cover_date),
+      releaseDate: formatKavitaWritebackDate(row.release_date, details.kavita_chapter_release_date, details.cover_date),
       titleName: firstNonEmptyString(details.kavita_chapter_title, row.title),
       webLinks
     };
@@ -6934,6 +6956,93 @@ function findKavitaChapterMetadata(volumes = [], chapterId = null) {
   return {};
 }
 
+async function buildKavitaWritebackContext(req, mediaId) {
+  const scopeContext = resolveScopeContext(req);
+  const params = [mediaId];
+  const scopeClause = appendScopeSql(params, scopeContext, {
+    spaceColumn: 'space_id',
+    libraryColumn: 'library_id'
+  });
+  const result = await pool.query(
+    `SELECT id, title, media_type, year, release_date, overview, genre, space_id, library_id, type_details
+       FROM media
+      WHERE id = $1
+        ${scopeClause}
+      LIMIT 1`,
+    params
+  );
+  const row = result.rows[0] || null;
+  if (!row) {
+    const error = new Error('Media item was not found in the active scope');
+    error.status = 404;
+    throw error;
+  }
+
+  const details = row.type_details && typeof row.type_details === 'object' ? row.type_details : {};
+  if (String(details.provider_name || '').trim().toLowerCase() !== 'kavita') {
+    const error = new Error('Kavita metadata writeback requires a Kavita-linked media row');
+    error.status = 400;
+    throw error;
+  }
+  if (!await canManageWorkspaceIntegration(req, row.space_id || scopeContext?.spaceId || null)) {
+    const error = new Error('Kavita metadata writeback requires workspace admin access');
+    error.status = 403;
+    throw error;
+  }
+
+  const config = await loadWorkspaceKavitaIntegrationConfig(row.space_id || scopeContext?.spaceId || null);
+  if (!config.kavitaBaseUrl || !config.kavitaApiKey) {
+    const error = new Error('Kavita is not configured for the active workspace');
+    error.status = 400;
+    throw error;
+  }
+
+  const requestedTarget = String(req.body?.target || 'auto').trim().toLowerCase();
+  const chapterId = Number(details.kavita_chapter_id || details.kavita_first_chapter_id || 0) || null;
+  const seriesId = Number(details.kavita_series_id || 0) || null;
+  const target = requestedTarget === 'chapter' || (requestedTarget === 'auto' && chapterId && details.kavita_chapter_fanout === 'true')
+    ? 'chapter'
+    : 'series';
+  const targetId = target === 'chapter' ? chapterId : seriesId;
+  if (!targetId || !seriesId) {
+    const error = new Error('Kavita metadata writeback requires stored Kavita series/chapter identifiers');
+    error.status = 400;
+    throw error;
+  }
+
+  const auth = await authenticateKavita(config);
+  const currentMetadata = target === 'chapter'
+    ? findKavitaChapterMetadata(await fetchKavitaSeriesVolumes(config, auth.token, seriesId), chapterId)
+    : await fetchKavitaSeriesMetadata(config, auth.token, seriesId);
+  const selectedFields = Array.isArray(req.body?.selectedFields) && req.body.selectedFields.length > 0
+    ? req.body.selectedFields
+    : (target === 'chapter' ? CHAPTER_WRITEBACK_FIELDS : SERIES_WRITEBACK_FIELDS);
+  const proposedMetadata = buildKavitaProposedMetadata(row, target);
+  const preview = buildKavitaMetadataWritebackPreview({
+    target,
+    targetId,
+    currentMetadata,
+    proposedMetadata,
+    selectedFields
+  });
+
+  return {
+    scopeContext,
+    row,
+    details,
+    config,
+    auth,
+    target,
+    targetId,
+    seriesId,
+    chapterId,
+    currentMetadata,
+    proposedMetadata,
+    selectedFields,
+    preview
+  };
+}
+
 router.get('/kavita-cover/:seriesId', asyncHandler(async (req, res) => {
   const scopeContext = resolveScopeContext(req);
   const seriesId = Number(req.params.seriesId || 0) || null;
@@ -6975,68 +7084,12 @@ router.get('/kavita-cover/:seriesId', asyncHandler(async (req, res) => {
 }));
 
 router.post('/:id/kavita-writeback-preview', requireSessionAuth, validate(kavitaMetadataWritebackPreviewSchema), asyncHandler(async (req, res) => {
-  const scopeContext = resolveScopeContext(req);
   const mediaId = Number(req.params.id || 0) || null;
   if (!mediaId) {
     return res.status(400).json({ error: 'Invalid media id' });
   }
 
-  const params = [mediaId];
-  const scopeClause = appendScopeSql(params, scopeContext, {
-    spaceColumn: 'space_id',
-    libraryColumn: 'library_id'
-  });
-  const result = await pool.query(
-    `SELECT id, title, media_type, year, release_date, overview, genre, space_id, library_id, type_details
-       FROM media
-      WHERE id = $1
-        ${scopeClause}
-      LIMIT 1`,
-    params
-  );
-  const row = result.rows[0] || null;
-  if (!row) {
-    return res.status(404).json({ error: 'Media item was not found in the active scope' });
-  }
-
-  const details = row.type_details && typeof row.type_details === 'object' ? row.type_details : {};
-  if (String(details.provider_name || '').trim().toLowerCase() !== 'kavita') {
-    return res.status(400).json({ error: 'Kavita metadata preview requires a Kavita-linked media row' });
-  }
-  if (!await canManageWorkspaceIntegration(req, row.space_id || scopeContext?.spaceId || null)) {
-    return res.status(403).json({ error: 'Kavita metadata preview requires workspace admin access' });
-  }
-
-  const config = await loadWorkspaceKavitaIntegrationConfig(row.space_id || scopeContext?.spaceId || null);
-  if (!config.kavitaBaseUrl || !config.kavitaApiKey) {
-    return res.status(400).json({ error: 'Kavita is not configured for the active workspace' });
-  }
-
-  const requestedTarget = String(req.body?.target || 'auto').trim().toLowerCase();
-  const chapterId = Number(details.kavita_chapter_id || details.kavita_first_chapter_id || 0) || null;
-  const seriesId = Number(details.kavita_series_id || 0) || null;
-  const target = requestedTarget === 'chapter' || (requestedTarget === 'auto' && chapterId && details.kavita_chapter_fanout === 'true')
-    ? 'chapter'
-    : 'series';
-  const targetId = target === 'chapter' ? chapterId : seriesId;
-  if (!targetId || !seriesId) {
-    return res.status(400).json({ error: 'Kavita metadata preview requires stored Kavita series/chapter identifiers' });
-  }
-
-  const auth = await authenticateKavita(config);
-  const currentMetadata = target === 'chapter'
-    ? findKavitaChapterMetadata(await fetchKavitaSeriesVolumes(config, auth.token, seriesId), chapterId)
-    : await fetchKavitaSeriesMetadata(config, auth.token, seriesId);
-  const selectedFields = Array.isArray(req.body?.selectedFields) && req.body.selectedFields.length > 0
-    ? req.body.selectedFields
-    : (target === 'chapter' ? CHAPTER_WRITEBACK_FIELDS : SERIES_WRITEBACK_FIELDS);
-  const preview = buildKavitaMetadataWritebackPreview({
-    target,
-    targetId,
-    currentMetadata,
-    proposedMetadata: buildKavitaProposedMetadata(row, target),
-    selectedFields
-  });
+  const { row, scopeContext, target, targetId, preview } = await buildKavitaWritebackContext(req, mediaId);
 
   await logActivity(req, 'media.kavita.writeback.preview', 'media', mediaId, {
     workspaceId: row.space_id || scopeContext?.spaceId || null,
@@ -7059,6 +7112,114 @@ router.post('/:id/kavita-writeback-preview', requireSessionAuth, validate(kavita
     },
     preview
   });
+}));
+
+router.post('/:id/kavita-writeback-apply', requireSessionAuth, validate(kavitaMetadataWritebackApplySchema), asyncHandler(async (req, res) => {
+  const mediaId = Number(req.params.id || 0) || null;
+  if (!mediaId) {
+    return res.status(400).json({ error: 'Invalid media id' });
+  }
+
+  const context = await buildKavitaWritebackContext(req, mediaId);
+  const {
+    row,
+    scopeContext,
+    config,
+    auth,
+    target,
+    targetId,
+    proposedMetadata,
+    preview
+  } = context;
+  const changedFields = Array.isArray(preview.changedFields) ? preview.changedFields : [];
+  if (changedFields.length === 0) {
+    await logActivity(req, 'media.kavita.writeback.apply.skipped', 'media', mediaId, {
+      workspaceId: row.space_id || scopeContext?.spaceId || null,
+      mediaId,
+      target,
+      targetId,
+      selectedFields: preview.selectedFields,
+      skippedFields: preview.skippedFields,
+      changedFields,
+      outcome: 'no_changes'
+    });
+    return res.status(409).json({
+      error: 'No changed unlocked Kavita metadata fields are available to write',
+      preview
+    });
+  }
+
+  const payload = target === 'chapter'
+    ? buildKavitaChapterMetadataWritebackPayload({
+      chapterId: targetId,
+      metadata: proposedMetadata,
+      selectedFields: changedFields,
+      implementationEnabled: true
+    })
+    : buildKavitaSeriesMetadataWritebackPayload({
+      seriesId: targetId,
+      metadata: proposedMetadata,
+      selectedFields: changedFields,
+      implementationEnabled: true
+    });
+
+  try {
+    const writebackResult = target === 'chapter'
+      ? await updateKavitaChapterMetadata(config, auth.token, payload.body)
+      : await updateKavitaSeriesMetadata(config, auth.token, payload.body);
+    await logActivity(req, 'media.kavita.writeback.apply', 'media', mediaId, {
+      workspaceId: row.space_id || scopeContext?.spaceId || null,
+      mediaId,
+      target,
+      targetId,
+      selectedFields: payload.selectedFields,
+      skippedFields: [...preview.skippedFields, ...payload.skippedFields],
+      changedFields,
+      outcome: 'applied'
+    });
+    return res.json({
+      ok: true,
+      previewOnly: false,
+      applied: true,
+      media: {
+        id: row.id,
+        title: row.title,
+        media_type: row.media_type
+      },
+      target,
+      targetId,
+      appliedFields: changedFields,
+      skippedFields: [...preview.skippedFields, ...payload.skippedFields],
+      preview: {
+        ...preview,
+        implementationEnabled: true,
+        mutationEnabled: true
+      },
+      kavita: {
+        status: 'accepted',
+        responseReturned: Boolean(writebackResult && Object.keys(writebackResult).length > 0)
+      }
+    });
+  } catch (error) {
+    await logActivity(req, 'media.kavita.writeback.apply.failed', 'media', mediaId, {
+      workspaceId: row.space_id || scopeContext?.spaceId || null,
+      mediaId,
+      target,
+      targetId,
+      selectedFields: payload.selectedFields,
+      skippedFields: [...preview.skippedFields, ...payload.skippedFields],
+      changedFields,
+      outcome: 'failed',
+      status: error.status || null,
+      message: error.message
+    });
+    const status = Number(error.status || 502);
+    return res.status(status >= 400 && status < 600 ? status : 502).json({
+      error: error.message || 'Kavita metadata writeback failed',
+      preview,
+      applied: false
+    });
+  }
 }));
 
 // ── List / search ─────────────────────────────────────────────────────────────

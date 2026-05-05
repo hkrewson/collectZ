@@ -635,6 +635,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   const [loanForm, setLoanForm] = useState(() => buildLoanFormState(item));
   const [kavitaPreview, setKavitaPreview] = useState(null);
   const [kavitaPreviewLoading, setKavitaPreviewLoading] = useState(false);
+  const [kavitaApplyLoading, setKavitaApplyLoading] = useState(false);
   const typeDetails = item?.type_details && typeof item.type_details === 'object' ? item.type_details : {};
   const isBook = item?.media_type === 'book';
   const isComic = item?.media_type === 'comic_book';
@@ -935,6 +936,29 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
       onToast?.(error?.response?.data?.error || 'Failed to preview Kavita metadata', 'error');
     } finally {
       setKavitaPreviewLoading(false);
+    }
+  };
+
+  const applyKavitaWriteback = async () => {
+    if (!item?.id || kavitaApplyLoading) return;
+    const changedFields = Array.isArray(kavitaPreview?.changedFields) ? kavitaPreview.changedFields : [];
+    if (changedFields.length === 0) {
+      onToast?.('No changed Kavita fields to apply', 'error');
+      return;
+    }
+    setKavitaApplyLoading(true);
+    try {
+      const payload = await apiCall('post', `/media/${item.id}/kavita-writeback-apply`, {
+        target: kavitaPreview?.target || 'auto',
+        selectedFields: changedFields,
+        confirm: true
+      });
+      setKavitaPreview(payload?.preview || null);
+      onToast?.(`Applied ${changedFields.length} Kavita metadata field${changedFields.length === 1 ? '' : 's'}`);
+    } catch (error) {
+      onToast?.(error?.response?.data?.error || 'Failed to apply Kavita metadata', 'error');
+    } finally {
+      setKavitaApplyLoading(false);
     }
   };
 
@@ -1619,17 +1643,30 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="label">Kavita Metadata</p>
-                  <p className="mt-1 text-sm text-ghost">Preview only. No fields are written back from this view.</p>
+                  <p className="mt-1 text-sm text-ghost">Review the diff before writing selected collectZ values to Kavita.</p>
                 </div>
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={loadKavitaWritebackPreview}
-                  disabled={kavitaPreviewLoading}
-                >
-                  {kavitaPreviewLoading ? <Spinner size={14} /> : <Icons.Refresh />}
-                  {kavitaPreviewLoading ? 'Loading…' : 'Preview Diff'}
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={loadKavitaWritebackPreview}
+                    disabled={kavitaPreviewLoading || kavitaApplyLoading}
+                  >
+                    {kavitaPreviewLoading ? <Spinner size={14} /> : <Icons.Refresh />}
+                    {kavitaPreviewLoading ? 'Loading…' : 'Preview Diff'}
+                  </button>
+                  {kavitaPreview ? (
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      onClick={applyKavitaWriteback}
+                      disabled={kavitaApplyLoading || kavitaPreviewLoading || (kavitaPreview.changedFields || []).length === 0}
+                    >
+                      {kavitaApplyLoading ? <Spinner size={14} /> : <Icons.Check />}
+                      {kavitaApplyLoading ? 'Applying…' : 'Apply to Kavita'}
+                    </button>
+                  ) : null}
+                </div>
               </div>
               {kavitaPreview ? (
                 <div className="mt-4 space-y-3">

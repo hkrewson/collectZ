@@ -113,6 +113,21 @@ async function createDirectUser({ email, password, name, role = 'admin' }) {
 }
 
 async function startFakeKavitaServer() {
+  const seriesWritebacks = [];
+  const chapterWritebacks = [];
+  const readJsonBody = (req) => new Promise((resolve) => {
+    let raw = '';
+    req.on('data', (chunk) => {
+      raw += chunk.toString('utf8');
+    });
+    req.on('end', () => {
+      try {
+        resolve(raw ? JSON.parse(raw) : {});
+      } catch {
+        resolve({});
+      }
+    });
+  });
   const server = http.createServer((req, res) => {
     const url = new URL(req.url || '/', 'http://127.0.0.1');
     res.setHeader('Content-Type', 'application/json');
@@ -322,6 +337,24 @@ async function startFakeKavitaServer() {
       return;
     }
 
+    if (req.method === 'POST' && url.pathname === '/api/Series/metadata') {
+      readJsonBody(req).then((body) => {
+        seriesWritebacks.push(body);
+        res.writeHead(200);
+        res.end(JSON.stringify({ accepted: true }));
+      });
+      return;
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/Chapter/update') {
+      readJsonBody(req).then((body) => {
+        chapterWritebacks.push(body);
+        res.writeHead(200);
+        res.end(JSON.stringify({ accepted: true }));
+      });
+      return;
+    }
+
     res.writeHead(404);
     res.end(JSON.stringify({ message: 'not found' }));
   });
@@ -334,7 +367,9 @@ async function startFakeKavitaServer() {
   if (!address || typeof address === 'string') throw new Error('Failed to start fake Kavita server');
   return {
     server,
-    baseUrl: `http://127.0.0.1:${address.port}`
+    baseUrl: `http://127.0.0.1:${address.port}`,
+    seriesWritebacks,
+    chapterWritebacks
   };
 }
 
@@ -356,6 +391,8 @@ async function cleanupTemporaryState({ userId, libraryId, spaceId }) {
 }
 
 async function createDirectSpaceAndLibrary({ userId, suffix }) {
+  await pool.query("SELECT setval('spaces_id_seq', GREATEST((SELECT COALESCE(MAX(id), 1) FROM spaces), 1), true)");
+  await pool.query("SELECT setval('libraries_id_seq', GREATEST((SELECT COALESCE(MAX(id), 1) FROM libraries), 1), true)");
   const space = await pool.query(
     `INSERT INTO spaces (name, slug, description, created_by, is_personal)
      VALUES ($1, $2, $3, $4, false)
@@ -453,10 +490,10 @@ async function main() {
     });
     client.csrfToken = '';
 
-    const scope = await client.request('/api/auth/scope', { expectStatus: 200 });
-    libraryId = Number(scope?.data?.active_library_id || 0) || null;
-    spaceId = Number(scope?.data?.active_space_id || 0) || null;
-    assert(libraryId, `Expected active library id, got ${JSON.stringify(scope.data)}`);
+    const firstScope = await createDirectSpaceAndLibrary({ userId, suffix });
+    spaceId = firstScope.spaceId;
+    libraryId = firstScope.libraryId;
+    assert(libraryId && spaceId, `Expected direct smoke scope, got ${JSON.stringify(firstScope)}`);
 
     await pool.query(
       `INSERT INTO media (title, media_type, year, release_date, format, owned_formats, type_details, library_id, space_id, added_by, import_source)
@@ -677,6 +714,21 @@ async function main() {
     assert((kavitaSeriesPreview.data?.preview?.changedFields || []).includes('releaseYear'), `Expected Kavita metadata preview diff to include releaseYear change, got ${JSON.stringify(kavitaSeriesPreview.data)}`);
     assert((kavitaSeriesPreview.data?.preview?.skippedFields || []).some((entry) => entry.field === 'writers' && entry.reason === 'locked'), `Expected Kavita metadata preview to skip locked writers, got ${JSON.stringify(kavitaSeriesPreview.data)}`);
     assert(!JSON.stringify(kavitaSeriesPreview.data).includes(KAVITA_SMOKE_KEY), `Kavita metadata preview must not expose API keys, got ${JSON.stringify(kavitaSeriesPreview.data)}`);
+    const kavitaSeriesApply = await client.request(`/api/media/${canonicalComic.id}/kavita-writeback-apply?${scopeQuery}`, {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 200,
+      body: JSON.stringify({ target: 'series', selectedFields: ['summary', 'releaseYear', 'writers'], confirm: true }),
+      headers: { 'Content-Type': 'application/json' }
+    });
+    assert(kavitaSeriesApply.data?.applied === true, `Expected Kavita metadata apply to succeed, got ${JSON.stringify(kavitaSeriesApply.data)}`);
+    assert(kavitaSeriesApply.data?.previewOnly === false, `Expected Kavita metadata apply not to be preview-only, got ${JSON.stringify(kavitaSeriesApply.data)}`);
+    assert((kavitaSeriesApply.data?.appliedFields || []).includes('releaseYear'), `Expected Kavita metadata apply to include releaseYear, got ${JSON.stringify(kavitaSeriesApply.data)}`);
+    assert(!JSON.stringify(kavitaSeriesApply.data).includes(KAVITA_SMOKE_KEY), `Kavita metadata apply must not expose API keys, got ${JSON.stringify(kavitaSeriesApply.data)}`);
+    assert(fake.seriesWritebacks.length === 1, `Expected one fake Kavita series metadata write, got ${JSON.stringify(fake.seriesWritebacks)}`);
+    assert(Number(fake.seriesWritebacks[0]?.seriesMetadata?.seriesId || 0) === 8602, `Expected Kavita series apply payload to target series 8602, got ${JSON.stringify(fake.seriesWritebacks[0])}`);
+    assert(Number(fake.seriesWritebacks[0]?.seriesMetadata?.releaseYear || 0) === 2023, `Expected Kavita series apply payload releaseYear 2023, got ${JSON.stringify(fake.seriesWritebacks[0])}`);
+    assert(fake.seriesWritebacks[0]?.seriesMetadata?.writers === undefined, `Expected locked writers to be omitted from Kavita series apply payload, got ${JSON.stringify(fake.seriesWritebacks[0])}`);
     const kavitaChapterPreview = await client.request(`/api/media/${chapterOne.id}/kavita-writeback-preview?${scopeQuery}`, {
       method: 'POST',
       withCsrf: true,
@@ -687,6 +739,18 @@ async function main() {
     assert(kavitaChapterPreview.data?.preview?.target === 'chapter', `Expected Kavita chapter metadata preview target, got ${JSON.stringify(kavitaChapterPreview.data)}`);
     assert(Array.isArray(kavitaChapterPreview.data?.preview?.diff), `Expected Kavita chapter preview diff, got ${JSON.stringify(kavitaChapterPreview.data)}`);
     assert(!JSON.stringify(kavitaChapterPreview.data).includes(KAVITA_SMOKE_BEARER), `Kavita metadata preview must not expose bearer tokens, got ${JSON.stringify(kavitaChapterPreview.data)}`);
+    const kavitaChapterApply = await client.request(`/api/media/${chapterOne.id}/kavita-writeback-apply?${scopeQuery}`, {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 200,
+      body: JSON.stringify({ target: 'chapter', selectedFields: ['titleName', 'releaseDate'], confirm: true }),
+      headers: { 'Content-Type': 'application/json' }
+    });
+    assert(kavitaChapterApply.data?.applied === true, `Expected Kavita chapter metadata apply to succeed, got ${JSON.stringify(kavitaChapterApply.data)}`);
+    assert(fake.chapterWritebacks.length === 1, `Expected one fake Kavita chapter metadata write, got ${JSON.stringify(fake.chapterWritebacks)}`);
+    assert(Number(fake.chapterWritebacks[0]?.id || 0) === 9702, `Expected Kavita chapter apply payload id 9702, got ${JSON.stringify(fake.chapterWritebacks[0])}`);
+    assert(String(fake.chapterWritebacks[0]?.releaseDate || '').startsWith('2023-03-04'), `Expected Kavita chapter apply releaseDate, got ${JSON.stringify(fake.chapterWritebacks[0])}`);
+    assert(!JSON.stringify(kavitaChapterApply.data).includes(KAVITA_SMOKE_BEARER), `Kavita metadata apply must not expose bearer tokens, got ${JSON.stringify(kavitaChapterApply.data)}`);
     const coverReadback = await client.requestRaw(`/api/media/kavita-cover/8602?${scopeQuery}`, { expectStatus: 200 });
     assert(String(coverReadback.headers.get('content-type') || '').startsWith('image/png'), `Expected Kavita proxied cover content type, got ${coverReadback.headers.get('content-type')}`);
     assert(coverReadback.body.length > 0, 'Expected Kavita proxied cover body');
@@ -745,6 +809,9 @@ async function main() {
       metadataPreviewOnly: kavitaSeriesPreview.data?.previewOnly === true,
       metadataPreviewChangedFields: kavitaSeriesPreview.data?.preview?.changedFields || [],
       metadataPreviewSkippedFields: kavitaSeriesPreview.data?.preview?.skippedFields || [],
+      metadataApplyFields: kavitaSeriesApply.data?.appliedFields || [],
+      metadataApplyWrites: fake.seriesWritebacks.length,
+      chapterMetadataApplyWrites: fake.chapterWritebacks.length,
       chapterMetadataPreviewTarget: kavitaChapterPreview.data?.preview?.target,
       comicClassifiedFromLibraryType: canonicalComic.media_type === 'comic_book',
       volumeDetailsFetched: firstSummary.volumeDetailsFetched,

@@ -248,6 +248,14 @@ const kavitaMetadataWritebackPreviewSchema = z.object({
   selectedFields: z.array(z.string().trim().min(1).max(64)).max(24).optional()
 }).optional().default({});
 
+const kavitaMetadataWritebackApplySchema = z.object({
+  target: z.enum(['auto', 'series', 'chapter']).optional(),
+  selectedFields: z.array(z.string().trim().min(1).max(64)).max(24).optional(),
+  confirm: z.literal(true, {
+    errorMap: () => ({ message: 'confirm must be true to apply Kavita metadata writeback' })
+  })
+}).strict();
+
 const mediaLoanBaseSchema = z.object({
   borrower_name: z.string().trim().min(1, 'borrower_name is required').max(255),
   borrower_email: z.preprocess(emptyStringToNull, z.string().email('Invalid borrower email address').max(255).optional().nullable()),
@@ -989,6 +997,7 @@ module.exports = {
   mediaLoanReminderSendSchema,
   mediaValuationRefreshSchema,
   kavitaMetadataWritebackPreviewSchema,
+  kavitaMetadataWritebackApplySchema,
   mediaMergePreviewSchema,
   mediaMergeApplySchema,
   mediaMergeRevertSchema,
