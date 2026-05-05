@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.100",
+      "version": "v3.4.100",
+      "date": "2026-05-05",
+      "status": "Ready for CI release gates",
+      "summary": "This patch defines the first safe Kavita reading-progress sync contract. The contract keeps collectZ link-out/native-reader-first, identifies read-only progress visibility as the next viable implementation, and explicitly keeps progress writeback and embedded reading out of scope.",
+      "details": [
+        {
+          "heading": "Shipped",
+          "bullets": [
+            "Rechecked Kavita's upstream OpenAPI progress endpoints and documented the read/write boundary.",
+            "Added a read-only Kavita progress contract helper.",
+            "Added a fake-server progress contract probe that calls only `GET /api/Reader/get-progress`.",
+            "Documented why chapter-as-issue rows are the first eligible progress rows.",
+            "Kept progress writeback, KOReader sync shortcuts, embedded reading, page proxying, and background polling out of scope."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.4.99",
       "version": "v3.4.99",
       "date": "2026-05-05",
@@ -110,14 +129,6 @@
     {
       "title": "collectZ v3.4.91",
       "version": "v3.4.91",
-      "date": null,
-      "status": null,
-      "summary": "",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.4.90",
-      "version": "v3.4.90",
       "date": null,
       "status": null,
       "summary": "",

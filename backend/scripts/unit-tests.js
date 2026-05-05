@@ -135,6 +135,7 @@ const eventCatalogIcsImportSmokeSource = fs.readFileSync(require.resolve('../scr
 const kavitaConnectionSmokeSource = fs.readFileSync(require.resolve('../scripts/kavita-connection-smoke'), 'utf8');
 const kavitaImportSyncSmokeSource = fs.readFileSync(require.resolve('../scripts/kavita-import-sync-smoke'), 'utf8');
 const kavitaMetadataWritebackProbeSource = fs.readFileSync(require.resolve('../scripts/kavita-metadata-writeback-probe'), 'utf8');
+const kavitaProgressContractProbeSource = fs.readFileSync(require.resolve('../scripts/kavita-progress-contract-probe'), 'utf8');
 const kavitaSetupDocSource = fs.readFileSync(require.resolve('../../docs/wiki/41-Kavita-Integration-Setup.md'), 'utf8');
 const kavitaReaderProgressDocSource = fs.readFileSync(require.resolve('../../docs/wiki/42-Kavita-Reader-Progress-Contract.md'), 'utf8');
 const kavitaChapterFanoutDocSource = fs.readFileSync(require.resolve('../../docs/wiki/43-Kavita-Chapter-Issue-Fanout-Contract.md'), 'utf8');
@@ -1940,6 +1941,18 @@ results.push(run('kavita reader and progress contract keeps collectZ link-out on
   assert.ok(kavitaReaderProgressDocSource.includes('`POST /api/Reader/progress`'));
   assert.ok(kavitaReaderProgressDocSource.includes('`GET /api/Koreader/{apiKey}/syncs/progress/{ebookHash}`'));
   assert.ok(kavitaReaderProgressDocSource.includes('Kavita auth keys remain backend-only integration secrets'));
+}));
+
+results.push(run('kavita progress sync contract is read-only and forbids write endpoints', () => {
+  assert.ok(backendPackageJson.scripts['test:kavita-progress-contract-probe']);
+  assert.ok(kavitaReaderProgressDocSource.includes('`3.4.100` defines the first progress-sync contract'));
+  assert.ok(kavitaReaderProgressDocSource.includes('Read-only progress visibility is the first viable implementation shape'));
+  assert.ok(kavitaReaderProgressDocSource.includes('Do not call `POST /api/Reader/progress`'));
+  assert.ok(kavitaReaderProgressDocSource.includes('Do not use KOReader sync endpoints as a shortcut'));
+  assert.ok(kavitaReaderProgressDocSource.includes('Workspace-owned Kavita credentials remain backend-only'));
+  assert.ok(kavitaProgressContractProbeSource.includes('createFakeKavitaProgressServer'));
+  assert.ok(kavitaProgressContractProbeSource.includes('progressSyncImplementationEnabled'));
+  assert.ok(kavitaProgressContractProbeSource.includes('secretReturned'));
 }));
 
 results.push(run('kavita chapter fan-out contract keeps series and issue identities distinct and opt-in', () => {
