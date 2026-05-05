@@ -1,6 +1,6 @@
 {
   "name": "mediavault-backend",
-  "version": "3.4.96",
+  "version": "3.4.97",
   "description": "collectZ Backend API",
   "main": "server.js",
   "scripts": {
@@ -89,8 +89,8 @@
     "test:kavita-metadata-writeback-probe": "node scripts/kavita-metadata-writeback-probe.js"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1014.0",
-    "axios": "^1.15.0",
+    "@aws-sdk/client-s3": "^3.1042.0",
+    "axios": "^1.16.0",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
@@ -98,7 +98,7 @@
     "express": "^4.18.2",
     "express-rate-limit": "^8.3.1",
     "express-session": "^1.17.3",
-    "fast-xml-parser": "^5.5.8",
+    "fast-xml-parser": "^5.7.3",
     "form-data": "^4.0.0",
     "helmet": "^8.1.0",
     "multer": "^2.1.1",

@@ -243,6 +243,11 @@ const mediaValuationRefreshSchema = z.object({
   mode: z.enum(['live', 'fixture']).optional()
 });
 
+const kavitaMetadataWritebackPreviewSchema = z.object({
+  target: z.enum(['auto', 'series', 'chapter']).optional(),
+  selectedFields: z.array(z.string().trim().min(1).max(64)).max(24).optional()
+}).optional().default({});
+
 const mediaLoanBaseSchema = z.object({
   borrower_name: z.string().trim().min(1, 'borrower_name is required').max(255),
   borrower_email: z.preprocess(emptyStringToNull, z.string().email('Invalid borrower email address').max(255).optional().nullable()),
@@ -983,6 +988,7 @@ module.exports = {
   mediaLoanReturnSchema,
   mediaLoanReminderSendSchema,
   mediaValuationRefreshSchema,
+  kavitaMetadataWritebackPreviewSchema,
   mediaMergePreviewSchema,
   mediaMergeApplySchema,
   mediaMergeRevertSchema,

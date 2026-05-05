@@ -55,6 +55,73 @@ function pickSelectedMetadata(metadata = {}, selectedFields = [], allowedFields 
   return { picked, selectedFields: selected, skippedFields };
 }
 
+function normalizePreviewValue(value) {
+  if (value === undefined || value === null) return null;
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => normalizePreviewValue(entry))
+      .filter((entry) => entry !== null && String(entry).trim() !== '');
+  }
+  if (typeof value === 'object') return value;
+  const text = String(value).trim();
+  return text === '' ? null : value;
+}
+
+function previewValuesEqual(left, right) {
+  return JSON.stringify(normalizePreviewValue(left)) === JSON.stringify(normalizePreviewValue(right));
+}
+
+function buildKavitaMetadataWritebackPreview({
+  target = 'series',
+  targetId = null,
+  currentMetadata = {},
+  proposedMetadata = {},
+  selectedFields = []
+} = {}) {
+  const normalizedTarget = target === 'chapter' ? 'chapter' : 'series';
+  const allowedFields = normalizedTarget === 'chapter' ? CHAPTER_WRITEBACK_FIELDS : SERIES_WRITEBACK_FIELDS;
+  const selected = normalizeFieldSelection(
+    selectedFields.length > 0 ? selectedFields : allowedFields,
+    allowedFields
+  );
+  const skippedFields = [];
+  const diff = [];
+
+  for (const field of selected) {
+    const lockField = `${field}${LOCK_FIELD_SUFFIX}`;
+    const currentValue = normalizePreviewValue(currentMetadata[field]);
+    const proposedValue = normalizePreviewValue(proposedMetadata[field]);
+    const locked = currentMetadata[lockField] === true;
+    if (locked) {
+      skippedFields.push({ field, reason: 'locked' });
+      continue;
+    }
+    if (proposedValue === null) {
+      skippedFields.push({ field, reason: 'missing_proposed_value' });
+      continue;
+    }
+    diff.push({
+      field,
+      currentValue,
+      proposedValue,
+      changed: !previewValuesEqual(currentValue, proposedValue)
+    });
+  }
+
+  return {
+    provider: 'kavita',
+    target: normalizedTarget,
+    targetId,
+    implementationEnabled: false,
+    mutationEnabled: false,
+    selectedFields: selected,
+    skippedFields,
+    diff,
+    changedFields: diff.filter((entry) => entry.changed).map((entry) => entry.field),
+    unchangedFields: diff.filter((entry) => !entry.changed).map((entry) => entry.field)
+  };
+}
+
 function buildKavitaSeriesMetadataWritebackPayload({ seriesId, metadata = {}, selectedFields = [] } = {}) {
   const id = Number(seriesId || metadata.seriesId || 0) || null;
   if (!id) throw new Error('Kavita series metadata writeback requires a seriesId');
@@ -146,6 +213,7 @@ module.exports = {
   CHAPTER_METADATA_ENDPOINT,
   SERIES_WRITEBACK_FIELDS,
   CHAPTER_WRITEBACK_FIELDS,
+  buildKavitaMetadataWritebackPreview,
   buildKavitaMetadataWritebackProbe,
   buildKavitaSeriesMetadataWritebackPayload,
   buildKavitaChapterMetadataWritebackPayload

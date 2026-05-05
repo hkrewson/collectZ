@@ -23,6 +23,7 @@ const {
 } = require('../services/kavita');
 const {
   buildKavitaMetadataWritebackProbe,
+  buildKavitaMetadataWritebackPreview,
   buildKavitaSeriesMetadataWritebackPayload,
   buildKavitaChapterMetadataWritebackPayload
 } = require('../services/kavitaWritebackContract');
@@ -1994,6 +1995,10 @@ results.push(run('kavita metadata writeback contract remains opt-in and preview-
   assert.ok(kavitaMetadataWritebackDocSource.includes('Kavita credentials remain backend-only secrets'));
   assert.ok(kavitaMetadataWritebackProbeSource.includes('createFakeKavitaWritebackServer'));
   assert.ok(kavitaMetadataWritebackProbeSource.includes('writebackImplementationEnabled'));
+  assert.ok(mediaRoutesSource.includes("router.post('/:id/kavita-writeback-preview'"));
+  assert.ok(mediaRoutesSource.includes('media.kavita.writeback.preview'));
+  assert.ok(libraryViewSource.includes('Preview Diff'));
+  assert.ok(kavitaImportSyncSmokeSource.includes('/kavita-writeback-preview'));
   const probe = buildKavitaMetadataWritebackProbe();
   assert.strictEqual(probe.implementationEnabled, false);
   assert.strictEqual(probe.endpoints.seriesMetadata.endpoint, '/api/Series/metadata');
@@ -2032,6 +2037,27 @@ results.push(run('kavita metadata writeback contract remains opt-in and preview-
     titleName: 'Issue 1',
     releaseDate: '2024-05-01'
   });
+  const preview = buildKavitaMetadataWritebackPreview({
+    target: 'series',
+    targetId: 8602,
+    currentMetadata: {
+      seriesId: 8602,
+      summary: 'Current',
+      releaseYear: 2020,
+      writers: ['Locked Writer'],
+      writersLocked: true
+    },
+    proposedMetadata: {
+      summary: 'Next',
+      releaseYear: 2024,
+      writers: ['New Writer']
+    },
+    selectedFields: ['summary', 'releaseYear', 'writers']
+  });
+  assert.strictEqual(preview.implementationEnabled, false);
+  assert.strictEqual(preview.mutationEnabled, false);
+  assert.deepStrictEqual(preview.changedFields, ['summary', 'releaseYear']);
+  assert.deepStrictEqual(preview.skippedFields, [{ field: 'writers', reason: 'locked' }]);
 }));
 
 results.push(run('AppPrimitives keeps authenticated collectZ API image paths same-origin', () => {

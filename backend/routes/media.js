@@ -15,6 +15,7 @@ const {
   mediaLoanReturnSchema,
   mediaLoanReminderSendSchema,
   mediaValuationRefreshSchema,
+  kavitaMetadataWritebackPreviewSchema,
   mediaMergePreviewSchema,
   mediaMergeApplySchema,
   mediaMergeRevertSchema,
@@ -47,7 +48,12 @@ const { searchGamesByTitle } = require('../services/games');
 const { searchComicsByTitle, fetchMetronCollectionIssues, fetchMetronIssueDetails, pushMetronCollectionIssue } = require('../services/comics');
 const { parseCsvText } = require('../services/csv');
 const { fetchCwaOpdsItems } = require('../services/cwa');
-const { authenticateKavita, fetchKavitaCoverImage, fetchKavitaImportItems } = require('../services/kavita');
+const { authenticateKavita, fetchKavitaCoverImage, fetchKavitaImportItems, fetchKavitaSeriesMetadata, fetchKavitaSeriesVolumes } = require('../services/kavita');
+const {
+  SERIES_WRITEBACK_FIELDS,
+  CHAPTER_WRITEBACK_FIELDS,
+  buildKavitaMetadataWritebackPreview
+} = require('../services/kavitaWritebackContract');
 const { mapDeliciousItemTypeToMediaType } = require('../services/importMapping');
 const { normalizeDeliciousRow } = require('../services/deliciousNormalize');
 const { normalizeIdentifierSet, normalizeIsbn } = require('../services/importIdentifiers');
@@ -6841,6 +6847,93 @@ async function canManageWorkspaceIntegration(req, spaceId) {
   return result.rows.length > 0;
 }
 
+function firstNonEmptyString(...values) {
+  for (const value of values) {
+    const text = String(value || '').trim();
+    if (text) return text;
+  }
+  return '';
+}
+
+function splitKavitaMetadataList(value) {
+  if (Array.isArray(value)) return value.filter((entry) => String(entry || '').trim() !== '');
+  return String(value || '')
+    .split(/[|,;]+/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function buildKavitaWebLinks(row = {}, details = {}) {
+  return [
+    row.external_url,
+    details.provider_external_url,
+    details.kavita_series_url,
+    details.kavita_launch_url
+  ]
+    .map((entry) => String(entry || '').trim())
+    .filter((entry, index, list) => entry && list.indexOf(entry) === index);
+}
+
+function buildKavitaProposedMetadata(row = {}, target = 'series') {
+  const details = row.type_details && typeof row.type_details === 'object' ? row.type_details : {};
+  const webLinks = buildKavitaWebLinks(row, details);
+  if (target === 'chapter') {
+    return {
+      summary: firstNonEmptyString(row.overview),
+      genres: splitKavitaMetadataList(row.genre),
+      tags: [],
+      writers: splitKavitaMetadataList(firstNonEmptyString(details.writer, details.author)),
+      publishers: splitKavitaMetadataList(details.publisher),
+      isbn: firstNonEmptyString(details.isbn),
+      releaseDate: firstNonEmptyString(row.release_date, details.kavita_chapter_release_date, details.cover_date),
+      titleName: firstNonEmptyString(details.kavita_chapter_title, row.title),
+      webLinks
+    };
+  }
+  return {
+    summary: firstNonEmptyString(row.overview),
+    genres: splitKavitaMetadataList(row.genre),
+    tags: [],
+    writers: splitKavitaMetadataList(firstNonEmptyString(details.writer, details.author)),
+    publishers: splitKavitaMetadataList(details.publisher),
+    releaseYear: row.year || null,
+    language: firstNonEmptyString(details.language),
+    webLinks
+  };
+}
+
+function findKavitaChapterMetadata(volumes = [], chapterId = null) {
+  const numericChapterId = Number(chapterId || 0) || null;
+  if (!numericChapterId) return {};
+  for (const volume of Array.isArray(volumes) ? volumes : []) {
+    for (const chapter of Array.isArray(volume?.chapters) ? volume.chapters : []) {
+      if (Number(chapter?.id || 0) !== numericChapterId) continue;
+      return {
+        id: numericChapterId,
+        titleName: firstNonEmptyString(chapter.titleName, chapter.title),
+        releaseDate: firstNonEmptyString(chapter.releaseDate, chapter.createdUtc, chapter.created),
+        summary: firstNonEmptyString(chapter.summary),
+        genres: Array.isArray(chapter.genres) ? chapter.genres : [],
+        tags: Array.isArray(chapter.tags) ? chapter.tags : [],
+        writers: Array.isArray(chapter.writers) ? chapter.writers : [],
+        publishers: Array.isArray(chapter.publishers) ? chapter.publishers : [],
+        isbn: firstNonEmptyString(chapter.isbn),
+        webLinks: Array.isArray(chapter.webLinks) ? chapter.webLinks : [],
+        titleNameLocked: chapter.titleNameLocked === true,
+        releaseDateLocked: chapter.releaseDateLocked === true,
+        summaryLocked: chapter.summaryLocked === true,
+        genresLocked: chapter.genresLocked === true,
+        tagsLocked: chapter.tagsLocked === true,
+        writersLocked: chapter.writersLocked === true,
+        publishersLocked: chapter.publishersLocked === true,
+        isbnLocked: chapter.isbnLocked === true,
+        webLinksLocked: chapter.webLinksLocked === true
+      };
+    }
+  }
+  return {};
+}
+
 router.get('/kavita-cover/:seriesId', asyncHandler(async (req, res) => {
   const scopeContext = resolveScopeContext(req);
   const seriesId = Number(req.params.seriesId || 0) || null;
@@ -6879,6 +6972,93 @@ router.get('/kavita-cover/:seriesId', asyncHandler(async (req, res) => {
   res.setHeader('Content-Type', cover.contentType);
   res.setHeader('Cache-Control', 'private, max-age=300');
   return res.send(cover.body);
+}));
+
+router.post('/:id/kavita-writeback-preview', requireSessionAuth, validate(kavitaMetadataWritebackPreviewSchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const mediaId = Number(req.params.id || 0) || null;
+  if (!mediaId) {
+    return res.status(400).json({ error: 'Invalid media id' });
+  }
+
+  const params = [mediaId];
+  const scopeClause = appendScopeSql(params, scopeContext, {
+    spaceColumn: 'space_id',
+    libraryColumn: 'library_id'
+  });
+  const result = await pool.query(
+    `SELECT id, title, media_type, year, release_date, overview, genre, space_id, library_id, type_details
+       FROM media
+      WHERE id = $1
+        ${scopeClause}
+      LIMIT 1`,
+    params
+  );
+  const row = result.rows[0] || null;
+  if (!row) {
+    return res.status(404).json({ error: 'Media item was not found in the active scope' });
+  }
+
+  const details = row.type_details && typeof row.type_details === 'object' ? row.type_details : {};
+  if (String(details.provider_name || '').trim().toLowerCase() !== 'kavita') {
+    return res.status(400).json({ error: 'Kavita metadata preview requires a Kavita-linked media row' });
+  }
+  if (!await canManageWorkspaceIntegration(req, row.space_id || scopeContext?.spaceId || null)) {
+    return res.status(403).json({ error: 'Kavita metadata preview requires workspace admin access' });
+  }
+
+  const config = await loadWorkspaceKavitaIntegrationConfig(row.space_id || scopeContext?.spaceId || null);
+  if (!config.kavitaBaseUrl || !config.kavitaApiKey) {
+    return res.status(400).json({ error: 'Kavita is not configured for the active workspace' });
+  }
+
+  const requestedTarget = String(req.body?.target || 'auto').trim().toLowerCase();
+  const chapterId = Number(details.kavita_chapter_id || details.kavita_first_chapter_id || 0) || null;
+  const seriesId = Number(details.kavita_series_id || 0) || null;
+  const target = requestedTarget === 'chapter' || (requestedTarget === 'auto' && chapterId && details.kavita_chapter_fanout === 'true')
+    ? 'chapter'
+    : 'series';
+  const targetId = target === 'chapter' ? chapterId : seriesId;
+  if (!targetId || !seriesId) {
+    return res.status(400).json({ error: 'Kavita metadata preview requires stored Kavita series/chapter identifiers' });
+  }
+
+  const auth = await authenticateKavita(config);
+  const currentMetadata = target === 'chapter'
+    ? findKavitaChapterMetadata(await fetchKavitaSeriesVolumes(config, auth.token, seriesId), chapterId)
+    : await fetchKavitaSeriesMetadata(config, auth.token, seriesId);
+  const selectedFields = Array.isArray(req.body?.selectedFields) && req.body.selectedFields.length > 0
+    ? req.body.selectedFields
+    : (target === 'chapter' ? CHAPTER_WRITEBACK_FIELDS : SERIES_WRITEBACK_FIELDS);
+  const preview = buildKavitaMetadataWritebackPreview({
+    target,
+    targetId,
+    currentMetadata,
+    proposedMetadata: buildKavitaProposedMetadata(row, target),
+    selectedFields
+  });
+
+  await logActivity(req, 'media.kavita.writeback.preview', 'media', mediaId, {
+    workspaceId: row.space_id || scopeContext?.spaceId || null,
+    mediaId,
+    target,
+    targetId,
+    selectedFields: preview.selectedFields,
+    skippedFields: preview.skippedFields,
+    changedFields: preview.changedFields,
+    mutationEnabled: false
+  });
+
+  res.json({
+    ok: true,
+    previewOnly: true,
+    media: {
+      id: row.id,
+      title: row.title,
+      media_type: row.media_type
+    },
+    preview
+  });
 }));
 
 // ── List / search ─────────────────────────────────────────────────────────────

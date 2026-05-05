@@ -246,6 +246,28 @@ async function fetchKavitaSeriesVolumes(config = {}, token, seriesId) {
   return Array.isArray(response.data) ? response.data : [];
 }
 
+async function fetchKavitaSeriesMetadata(config = {}, token, seriesId) {
+  const baseUrl = normalizeKavitaBaseUrl(config.kavitaBaseUrl);
+  const id = Number(seriesId || 0) || null;
+  if (!id) {
+    const error = new Error('Kavita series metadata requires a series id');
+    error.status = 400;
+    throw error;
+  }
+  const response = await axios.get(buildKavitaApiUrl(baseUrl, '/api/Series/metadata'), {
+    params: { seriesId: id },
+    headers: { Authorization: `Bearer ${token}` },
+    timeout: getKavitaTimeoutMs(config),
+    validateStatus: () => true
+  });
+  if (response.status < 200 || response.status >= 300) {
+    const error = new Error(response.data?.message || response.data?.error || `Kavita series metadata returned status ${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
+  return response.data && typeof response.data === 'object' ? response.data : {};
+}
+
 function firstString(...values) {
   for (const value of values) {
     const text = String(value || '').trim();
@@ -771,6 +793,7 @@ module.exports = {
   fetchKavitaLibraries,
   fetchKavitaSeriesSample,
   fetchKavitaSeriesVolumes,
+  fetchKavitaSeriesMetadata,
   fetchKavitaImportItems,
   normalizeKavitaSeries,
   normalizeKavitaLibraryType,

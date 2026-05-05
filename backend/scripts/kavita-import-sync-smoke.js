@@ -284,6 +284,44 @@ async function startFakeKavitaServer() {
       return;
     }
 
+    if (req.method === 'GET' && url.pathname === '/api/Series/metadata') {
+      const seriesId = Number(url.searchParams.get('seriesId') || 0);
+      if (seriesId === 8602) {
+        res.writeHead(200);
+        res.end(JSON.stringify({
+          seriesId: 8602,
+          summary: 'Current Kavita smoke summary',
+          releaseYear: 2022,
+          tags: ['kavita-current'],
+          genres: [],
+          writers: [],
+          publishers: [],
+          language: '',
+          webLinks: [],
+          writersLocked: true
+        }));
+        return;
+      }
+      if (seriesId === 8601) {
+        res.writeHead(200);
+        res.end(JSON.stringify({
+          seriesId: 8601,
+          summary: 'Current Kavita book summary',
+          releaseYear: 2024,
+          tags: [],
+          genres: [],
+          writers: [],
+          publishers: [],
+          language: '',
+          webLinks: []
+        }));
+        return;
+      }
+      res.writeHead(404);
+      res.end(JSON.stringify({ message: 'series metadata not found' }));
+      return;
+    }
+
     res.writeHead(404);
     res.end(JSON.stringify({ message: 'not found' }));
   });
@@ -381,8 +419,24 @@ async function main() {
   let spaceId = null;
   let secondLibraryId = null;
   let secondSpaceId = null;
+  let previousLogExport = null;
 
   try {
+    const logExportResult = await pool.query(
+      `SELECT log_export_backend, log_export_host, log_export_port
+         FROM app_integrations
+        WHERE id = 1
+        LIMIT 1`
+    ).catch(() => ({ rows: [] }));
+    previousLogExport = logExportResult.rows[0] || null;
+    await pool.query(
+      `UPDATE app_integrations
+          SET log_export_backend = 'off',
+              log_export_host = NULL,
+              log_export_port = NULL
+        WHERE id = 1`
+    ).catch(() => {});
+
     userId = await createDirectUser({
       email,
       password,
@@ -610,6 +664,29 @@ async function main() {
     assert(String(chapterTwoDetails.writer || '') === 'Existing Comic Writer', `Expected fan-out to preserve existing non-Kavita comic issue metadata, got ${JSON.stringify(chapterTwoDetails)}`);
     assert(!String(chapterOneDetails.kavita_launch_url || '').includes(KAVITA_SMOKE_KEY), `Kavita chapter launch URL must not include API keys, got ${JSON.stringify(chapterOneDetails)}`);
     assert(!String(chapterOneDetails.kavita_launch_url || '').includes(KAVITA_SMOKE_BEARER), `Kavita chapter launch URL must not include bearer tokens, got ${JSON.stringify(chapterOneDetails)}`);
+    const kavitaSeriesPreview = await client.request(`/api/media/${canonicalComic.id}/kavita-writeback-preview?${scopeQuery}`, {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 200,
+      body: JSON.stringify({ target: 'series', selectedFields: ['summary', 'releaseYear', 'writers'] }),
+      headers: { 'Content-Type': 'application/json' }
+    });
+    assert(kavitaSeriesPreview.data?.previewOnly === true, `Expected Kavita metadata preview to be preview-only, got ${JSON.stringify(kavitaSeriesPreview.data)}`);
+    assert(kavitaSeriesPreview.data?.preview?.mutationEnabled === false, `Expected Kavita metadata preview mutation to stay disabled, got ${JSON.stringify(kavitaSeriesPreview.data)}`);
+    assert(kavitaSeriesPreview.data?.preview?.target === 'series', `Expected Kavita series metadata preview target, got ${JSON.stringify(kavitaSeriesPreview.data)}`);
+    assert((kavitaSeriesPreview.data?.preview?.changedFields || []).includes('releaseYear'), `Expected Kavita metadata preview diff to include releaseYear change, got ${JSON.stringify(kavitaSeriesPreview.data)}`);
+    assert((kavitaSeriesPreview.data?.preview?.skippedFields || []).some((entry) => entry.field === 'writers' && entry.reason === 'locked'), `Expected Kavita metadata preview to skip locked writers, got ${JSON.stringify(kavitaSeriesPreview.data)}`);
+    assert(!JSON.stringify(kavitaSeriesPreview.data).includes(KAVITA_SMOKE_KEY), `Kavita metadata preview must not expose API keys, got ${JSON.stringify(kavitaSeriesPreview.data)}`);
+    const kavitaChapterPreview = await client.request(`/api/media/${chapterOne.id}/kavita-writeback-preview?${scopeQuery}`, {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 200,
+      body: JSON.stringify({ target: 'chapter', selectedFields: ['titleName', 'releaseDate'] }),
+      headers: { 'Content-Type': 'application/json' }
+    });
+    assert(kavitaChapterPreview.data?.preview?.target === 'chapter', `Expected Kavita chapter metadata preview target, got ${JSON.stringify(kavitaChapterPreview.data)}`);
+    assert(Array.isArray(kavitaChapterPreview.data?.preview?.diff), `Expected Kavita chapter preview diff, got ${JSON.stringify(kavitaChapterPreview.data)}`);
+    assert(!JSON.stringify(kavitaChapterPreview.data).includes(KAVITA_SMOKE_BEARER), `Kavita metadata preview must not expose bearer tokens, got ${JSON.stringify(kavitaChapterPreview.data)}`);
     const coverReadback = await client.requestRaw(`/api/media/kavita-cover/8602?${scopeQuery}`, { expectStatus: 200 });
     assert(String(coverReadback.headers.get('content-type') || '').startsWith('image/png'), `Expected Kavita proxied cover content type, got ${coverReadback.headers.get('content-type')}`);
     assert(coverReadback.body.length > 0, 'Expected Kavita proxied cover body');
@@ -665,6 +742,10 @@ async function main() {
       workspaceKavitaTestOk: true,
       overlappingWorkspaceCreated: secondWorkspaceSummary.created,
       overlappingWorkspaceComicRows: (await readImportedProviderRow(secondLibraryId, COMIC_PROVIDER_ITEM_ID)).length,
+      metadataPreviewOnly: kavitaSeriesPreview.data?.previewOnly === true,
+      metadataPreviewChangedFields: kavitaSeriesPreview.data?.preview?.changedFields || [],
+      metadataPreviewSkippedFields: kavitaSeriesPreview.data?.preview?.skippedFields || [],
+      chapterMetadataPreviewTarget: kavitaChapterPreview.data?.preview?.target,
       comicClassifiedFromLibraryType: canonicalComic.media_type === 'comic_book',
       volumeDetailsFetched: firstSummary.volumeDetailsFetched,
       comicIssueNumber: canonicalComicDetails.issue_number,
@@ -677,6 +758,20 @@ async function main() {
       secretReturned: false
     }, null, 2));
   } finally {
+    if (previousLogExport) {
+      await pool.query(
+        `UPDATE app_integrations
+            SET log_export_backend = $1,
+                log_export_host = $2,
+                log_export_port = $3
+          WHERE id = 1`,
+        [
+          previousLogExport.log_export_backend || null,
+          previousLogExport.log_export_host || null,
+          previousLogExport.log_export_port || null
+        ]
+      ).catch(() => {});
+    }
     if (spaceId) {
       await client.request(`/api/spaces/${spaceId}/integrations`, {
         method: 'PUT',

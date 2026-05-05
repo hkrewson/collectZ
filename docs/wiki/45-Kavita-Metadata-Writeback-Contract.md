@@ -2,6 +2,8 @@
 
 `3.4.96` confirms Kavita has native metadata mutation endpoints that collectZ can target later, but keeps collectZ writeback disabled until a separate implementation milestone adds UI review, audit logging, and explicit workspace opt-in.
 
+`3.4.97` adds the first preview-only implementation step: a workspace-admin-only collectZ endpoint and media-detail UI panel can read current Kavita metadata and show a field-level diff, but no Kavita mutation is sent.
+
 ## Decision
 
 Kavita metadata writeback is viable, but it should be narrow, preview-first, and manually initiated. collectZ should not run automatic bidirectional sync and should not push enrichment from third-party providers back into Kavita without user review.
@@ -58,7 +60,7 @@ Cover images, page files, reading progress, bookmarks, library membership, serie
 
 This contract only adds payload builders and a fake-server probe. It does not add a user-facing writeback action, does not call a real Kavita server's mutation endpoints, and does not create a background sync job.
 
-The next implementation slice should add a workspace-admin-only preview endpoint first, then a separate apply endpoint after the preview/audit shape is proven.
+`3.4.97` implements the workspace-admin-only preview endpoint and UI diff. The next implementation slice should add a separate apply endpoint only after the preview/audit shape is proven.
 
 ## Non-Goals
 

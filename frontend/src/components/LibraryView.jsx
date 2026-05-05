@@ -633,6 +633,8 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   const [showLoanItemDetails, setShowLoanItemDetails] = useState(false);
   const [loanFormOpen, setLoanFormOpen] = useState(false);
   const [loanForm, setLoanForm] = useState(() => buildLoanFormState(item));
+  const [kavitaPreview, setKavitaPreview] = useState(null);
+  const [kavitaPreviewLoading, setKavitaPreviewLoading] = useState(false);
   const typeDetails = item?.type_details && typeof item.type_details === 'object' ? item.type_details : {};
   const isBook = item?.media_type === 'book';
   const isComic = item?.media_type === 'comic_book';
@@ -767,6 +769,8 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
       return true;
     });
   })();
+  const isKavitaLinked = String(typeDetails.provider_name || '').trim().toLowerCase() === 'kavita'
+    || Boolean(typeDetails.kavita_series_id || typeDetails.kavita_chapter_id);
   const formatValuation = (value) => {
     const numeric = Number(value);
     if (!Number.isFinite(numeric)) return null;
@@ -917,6 +921,28 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
     } finally {
       setValuationRefreshing(false);
     }
+  };
+
+  const loadKavitaWritebackPreview = async () => {
+    if (!item?.id || kavitaPreviewLoading) return;
+    setKavitaPreviewLoading(true);
+    try {
+      const payload = await apiCall('post', `/media/${item.id}/kavita-writeback-preview`, { target: 'auto' });
+      setKavitaPreview(payload?.preview || null);
+      onToast?.('Kavita preview loaded');
+    } catch (error) {
+      setKavitaPreview(null);
+      onToast?.(error?.response?.data?.error || 'Failed to preview Kavita metadata', 'error');
+    } finally {
+      setKavitaPreviewLoading(false);
+    }
+  };
+
+  const formatKavitaPreviewValue = (value) => {
+    if (value === null || value === undefined || value === '') return '—';
+    if (Array.isArray(value)) return value.length ? value.map((entry) => String(entry)).join(', ') : '—';
+    if (typeof value === 'object') return JSON.stringify(value);
+    return String(value);
   };
 
   const markSeasonWatched = async (seasonNumber) => {
@@ -1587,6 +1613,66 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
               </div>
             </div>
           )}
+
+          {isKavitaLinked ? (
+            <div className="border-t border-edge/60 pt-5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="label">Kavita Metadata</p>
+                  <p className="mt-1 text-sm text-ghost">Preview only. No fields are written back from this view.</p>
+                </div>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={loadKavitaWritebackPreview}
+                  disabled={kavitaPreviewLoading}
+                >
+                  {kavitaPreviewLoading ? <Spinner size={14} /> : <Icons.Refresh />}
+                  {kavitaPreviewLoading ? 'Loading…' : 'Preview Diff'}
+                </button>
+              </div>
+              {kavitaPreview ? (
+                <div className="mt-4 space-y-3">
+                  <div className="flex flex-wrap gap-2">
+                    <span className="badge badge-dim">{kavitaPreview.target}</span>
+                    <span className="badge badge-dim">{(kavitaPreview.changedFields || []).length} changed</span>
+                    {(kavitaPreview.skippedFields || []).length > 0 ? (
+                      <span className="badge badge-dim">{kavitaPreview.skippedFields.length} skipped</span>
+                    ) : null}
+                  </div>
+                  {Array.isArray(kavitaPreview.diff) && kavitaPreview.diff.length > 0 ? (
+                    <div className="divide-y divide-edge/60 rounded-lg border border-edge bg-panel">
+                      {kavitaPreview.diff.slice(0, 8).map((entry) => (
+                        <div key={entry.field} className="grid gap-2 px-3 py-3 text-sm sm:grid-cols-[120px,1fr]">
+                          <div className="flex items-center gap-2">
+                            <span className={cx('h-2 w-2 rounded-full', entry.changed ? 'bg-gold' : 'bg-ok')} />
+                            <span className="font-medium text-ink">{entry.field}</span>
+                          </div>
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            <div>
+                              <p className="text-[11px] font-medium text-ghost">Kavita</p>
+                              <p className="mt-1 break-words text-dim">{formatKavitaPreviewValue(entry.currentValue)}</p>
+                            </div>
+                            <div>
+                              <p className="text-[11px] font-medium text-ghost">collectZ</p>
+                              <p className="mt-1 break-words text-dim">{formatKavitaPreviewValue(entry.proposedValue)}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-ghost">No writable fields have local values to preview.</p>
+                  )}
+                  {Array.isArray(kavitaPreview.skippedFields) && kavitaPreview.skippedFields.length > 0 ? (
+                    <p className="text-xs text-ghost">
+                      Skipped {kavitaPreview.skippedFields.map((entry) => `${entry.field}: ${entry.reason}`).join(', ')}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
 
           {!isBook && !isComic && (externalMediaUrl || item.trailer_url) && (
             <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">

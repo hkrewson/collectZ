@@ -8970,6 +8970,46 @@ Historical note:
 - What remains in the milestone: no open `3.4.96` implementation work remains; CI-only release gates must pass before public tag/release publication.
 - Recommended commit message: `Release 3.4.96 Kavita metadata writeback contract and API probe`.
 
+## 3.4.97 — Kavita Metadata Writeback Preview and Diff
+
+**Goal:** Add the first preview-only Kavita metadata writeback implementation step so workspace admins can compare current Kavita metadata with collectZ metadata for a Kavita-linked media row before any write/apply path exists.
+
+**Status:** Closed 2026-05-05.
+
+### Scope
+
+- Add a workspace-admin-only preview endpoint for Kavita-linked media rows.
+- Read current Kavita series metadata from `GET /api/Series/metadata`.
+- For chapter fan-out rows, read current chapter values from Kavita volume/chapter detail readback.
+- Build a field-level diff against collectZ metadata using the `3.4.96` allowlist and locked-field skip behavior.
+- Add a read-only media-detail UI panel for previewing the diff.
+- Keep apply/writeback mutation, locked-field override, reader/progress sync, external enrichment writeback, and shared provider abstractions out of scope.
+
+### Acceptance Criteria
+
+- Preview responses are marked preview-only and mutation-disabled.
+- Preview requires workspace-admin access and uses the row's workspace-owned Kavita connection.
+- Preview JSON never exposes Kavita API keys, bearer tokens, or browser-usable credential URLs.
+- Locked fields are skipped in preview readback.
+- Kavita import/sync smoke proves preview-only series/chapter diff behavior against a fake Kavita-compatible server.
+- Version metadata and Help > Releases are aligned to `3.4.97`.
+
+### Closeout Notes
+
+- Roadmap slice: `3.4.97 — Kavita Metadata Writeback Preview and Diff`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/41-Kavita-Integration-Setup.md`, and `docs/wiki/45-Kavita-Metadata-Writeback-Contract.md`.
+- Runtime verification used: rebuilt and recreated the Docker platform stack with `APP_VERSION=3.4.97`; verified healthy backend/frontend containers, `/api/health` serving frontend/backend/build `3.4.97`, backend container env readback for `APP_VERSION=3.4.97`, `APP_EDITION=platform`, `NODE_ENV=development`, and `SESSION_COOKIE_SECURE=false`; verified the live DB `feature_flags.events_enabled=true` after evidence runs; verified Help > Releases serves `v3.4.97`; ran the Kavita import/sync smoke against the running backend and fake Kavita-compatible server, proving preview-only series/chapter diff behavior; temporarily swapped to the generated public compose plus `.ci/docker-compose.build.yml` for homelab boundary verification, then restored the platform stack and rechecked health.
+- CI/checks run locally: source syntax checks for `backend/routes/media.js`, `backend/services/kavita.js`, `backend/services/kavitaWritebackContract.js`, `backend/scripts/kavita-import-sync-smoke.js`, and `backend/scripts/unit-tests.js`; bundled-Node frontend production build; container backend unit/source assertions (`244` passed); container OpenAPI validation; container `test:kavita-metadata-writeback-probe`; container `test:kavita-import-sync-smoke` with metadata preview coverage; container `test:help-releases-smoke` with `EXPECTED_RELEASE_VERSION=v3.4.97`; container `test:init-parity`; container `test:migration-rehearsal`; container `test:rbac-regression`; container `test:platform-edition-boundary`; container API integration smoke; isolated generated-compose `test:homelab-edition-boundary`; full browser regression with bundled Node (`58` passed, `4` skipped); `npm run validate:public-export`; `npm run compose:generate`; release-feed regeneration; observability release evidence refresh (`9/9` passed); Node 20 container dependency audits for backend/frontend (`0` low, `0` moderate, `0` high, `0` critical); local release preflight; and `git diff --check`.
+- Version closeout: `app-meta.json`, backend/frontend app metadata, backend/frontend package metadata and lockfiles, `docker-compose.yml`, `docs/releases/v3.4.97.md`, and `backend/release-feed.json` are aligned to `3.4.97`.
+- Release gate accounting: rebuilt stack health and runtime smokes locally covered compose basics except CI secure-cookie settings; `rbac-regression`, `browser-regression`, `homelab-edition-boundary`, `platform-edition-boundary`, dependency-audit artifact checks, init parity, migration rehearsal, and observability evidence passed locally. Local release preflight still marks secure-cookie compose coverage blocked in the development stack (`SESSION_COOKIE_SECURE=false`, `NODE_ENV=development`), and CI must still rerun `compose-smoke`, `secret-scan`, and `image-security-and-sbom`.
+- Verified facts: Kavita-linked media rows now expose a workspace-admin-only preview endpoint; preview uses the row's workspace-owned Kavita integration; series preview reads current Kavita metadata through `GET /api/Series/metadata`; chapter fan-out preview reads current chapter values through Kavita volume/chapter detail readback; responses are `previewOnly` and `mutationEnabled=false`; locked fields are skipped; preview responses do not return Kavita API keys or bearer tokens; the media detail drawer has a read-only Kavita Metadata panel and no apply/write action.
+- Inference: chapter current-value readback uses the volume/chapter detail shape because the documented Kavita write target is `POST /api/Chapter/update`, while the available read path for this slice is the existing volume/chapter detail response.
+- Blocked/unverified items: local secure-cookie compose-smoke remains blocked by development runtime settings (`SESSION_COOKIE_SECURE=false`, `NODE_ENV=development`); `secret-scan` and `image-security-and-sbom` remain CI-only gates for the tagged release handoff; no real Kavita mutation endpoint was exercised because this slice deliberately avoids writing to user Kavita data.
+- Files changed: `app-meta.json`, `backend/app-meta.json`, `frontend/src/app-meta.json`, `backend/package.json`, `frontend/package.json`, `backend/package-lock.json`, `frontend/package-lock.json`, `backend/middleware/validate.js`, `backend/openapi/openapi.yaml`, `backend/routes/media.js`, `backend/services/kavita.js`, `backend/services/kavitaWritebackContract.js`, `backend/scripts/kavita-import-sync-smoke.js`, `backend/scripts/unit-tests.js`, `frontend/src/components/LibraryView.jsx`, `docker-compose.yml`, `docs/releases/v3.4.97.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/45-Kavita-Metadata-Writeback-Contract.md`, `backend/release-feed.json`, `artifacts/dependency-audit/backend-audit.json`, `artifacts/observability-evidence/observability-release-evidence.json`, and `preflight-go-no-go.md`.
+- Risks/follow-ups: actual Kavita metadata apply/writeback still needs an explicit apply endpoint, audit log for attempted writes, failure readback, field-level selection UI, locked-field override decision, and operator confirmation copy; embedded reading, progress sync, external enrichment writeback, and shared provider abstractions remain separate future milestones.
+- What remains in the milestone: no open `3.4.97` implementation work remains; CI-only release gates must pass before public tag/release publication.
+- Recommended commit message: `Release 3.4.97 Kavita metadata writeback preview and diff`.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

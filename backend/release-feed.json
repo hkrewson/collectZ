@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.97",
+      "version": "v3.4.97",
+      "date": "2026-05-05",
+      "status": "Ready for CI release gates",
+      "summary": "This patch adds the first read-only Kavita metadata writeback preview path. Workspace admins can compare current Kavita metadata with collectZ metadata for a Kavita-linked row before any later apply/writeback milestone exists.",
+      "details": [
+        {
+          "heading": "Shipped",
+          "bullets": [
+            "Added a workspace-admin-only Kavita metadata preview endpoint for Kavita-linked media rows.",
+            "Added current Kavita series metadata readback through `GET /api/Series/metadata` and chapter preview readback through stored Kavita volume/chapter details.",
+            "Added field-level diff output with changed, unchanged, skipped, locked-field, and preview-only mutation-disabled readback.",
+            "Added a read-only Kavita Metadata panel in the media detail drawer so operators can inspect preview diffs without writing to Kavita.",
+            "Extended the Kavita import/sync smoke to prove preview-only behavior, locked-field skipping, workspace-scoped credentials, and secret-free preview responses."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.4.96",
       "version": "v3.4.96",
       "date": "2026-05-04",
@@ -77,14 +96,6 @@
     {
       "title": "collectZ v3.4.88",
       "version": "v3.4.88",
-      "date": null,
-      "status": null,
-      "summary": "",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.4.87",
-      "version": "v3.4.87",
       "date": null,
       "status": null,
       "summary": "",
