@@ -14,6 +14,10 @@
 
 `3.4.105` defines the chapter unread/read-state reversal contract without enabling runtime unread behavior. The checked Kavita OpenAPI still exposes no chapter-level mark-unread endpoint; collectZ must not use series, volume, multiple-volume, multiple-series, panel, or KOReader unread/progress endpoints as a shortcut. Resetting progress to page `0` remains discovery-only and must not be presented as true unread until proven against Kavita runtime behavior.
 
+`3.4.106` proves the reset-progress probe shape without exposing runtime reset or unread behavior. The fake Kavita-compatible runtime now accepts only a probe-only reset-progress payload through `POST /api/Reader/progress` with `pageNum: 0` and `bookScrollId: null`, confirms browser-visible readback stays secret-free, and confirms no bulk unread endpoint is called. This still does not prove true unread semantics against a real Kavita runtime, so no collectZ route or UI control is added.
+
+`3.4.107` enables explicit reset-progress runtime behavior for Kavita chapter-backed collectZ rows. collectZ may call `POST /api/Reader/progress` with `pageNum: 0` and `bookScrollId: null` only after a signed-in workspace admin explicitly clicks `Reset Progress`. This remains distinct from chapter-level mark-unread: Kavita's checked OpenAPI still exposes no chapter-level mark-unread endpoint, and collectZ still must not call series, volume, multiple-volume, multiple-series, panel, or KOReader unread/progress endpoints as a shortcut.
+
 ## Source Snapshot
 
 This discovery slice reviewed Kavita's upstream OpenAPI document from `https://raw.githubusercontent.com/Kareadita/Kavita/develop/openapi.json` on 2026-05-04. That document identifies itself as `0.9.0.0` and describes auth-key based API access through the `x-api-key` header.
@@ -70,6 +74,8 @@ Keep mark read/write behavior narrow in this contract:
 - Do not add chapter-level mark-unread until a later milestone defines how to handle Kavita's missing chapter-level mark-unread endpoint.
 - Do not call volume, multiple-volume, or multiple-series unread endpoints as a workaround for a single collectZ chapter row.
 - Do not label page `0` progress as unread unless a later runtime proof demonstrates that Kavita treats it as true unread.
+- `3.4.106` proves only the collectZ/fake-Kavita reset-progress probe payload shape for page `0`; it does not prove that real Kavita treats page `0` as unread.
+- Starting in `3.4.107`, page `0` progress may be written only as explicit `Reset Progress` behavior, not as `Mark unread`.
 - Do not add automatic read-state writes from page navigation, import/sync, progress readback, or progress save.
 - Do not claim this is per-collectZ-user state until a later milestone defines Kavita user identity instead of relying only on the workspace-owned service account.
 
@@ -137,10 +143,32 @@ This slice answers the immediate reversal question created by `3.4.104` without 
 
 - Kavita's checked OpenAPI snapshot does not expose `POST /api/Reader/mark-chapter-unread` or another chapter-scoped unread endpoint.
 - Series unread, volume unread, multiple-volume unread, and multiple-series unread endpoints are bulk mutations and remain prohibited for collectZ chapter rows.
-- `POST /api/Reader/progress` with `pageNum: 0` is only a reset-progress candidate. It may be useful later, but collectZ must not call it or describe it as unread until behavior is proven against a Kavita runtime.
+- `POST /api/Reader/progress` with `pageNum: 0` is a reset-progress candidate. Starting in `3.4.107`, collectZ may call it only as `Reset Progress`, not as `Mark unread`.
 - `POST /api/Panels/save-progress` and KOReader progress sync remain prohibited shortcuts.
 - No route, UI control, import/sync path, or background job performs unread/read-state reversal in this slice.
 - Future implementation copy should distinguish `Reset Kavita progress` from `Mark unread` unless Kavita provides or proves a true chapter-unread semantic.
+
+## `3.4.106` Reset Progress Runtime Proof
+
+This slice turns the `3.4.105` reset-progress candidate into a probe-only runtime proof:
+
+- The probe sends `POST /api/Reader/progress` with the same scoped chapter payload collectZ already uses for progress writeback, but with `pageNum: 0` and `bookScrollId: null`.
+- The fake Kavita-compatible runtime accepts only that reset-progress probe shape and returns normalized readback with `pageNum: 0`.
+- The probe confirms no series, volume, multiple-volume, multiple-series, panel, or KOReader unread/progress endpoint is called.
+- Browser-visible probe output remains secret-free even when the fake runtime injects secret-like fields.
+- No `kavita-reset-progress` route, drawer control, import/sync path, background job, or `Reset Kavita progress` UI copy is added in this slice.
+- Real Kavita unread semantics remain unverified. Future product copy should continue to say reset progress, not mark unread, unless a real Kavita runtime proves true chapter-unread behavior.
+
+## `3.4.107` Runtime Reset Progress Implementation
+
+This slice turns the reset-progress proof into a narrow runtime action:
+
+- `POST /api/media/:id/kavita-reset-progress` calls Kavita `POST /api/Reader/progress` with page `0` and `bookScrollId: null`.
+- The action is workspace-admin gated and requires an explicit confirmation payload.
+- The media detail drawer labels the action `Reset Progress`, not `Mark Unread`.
+- The response includes a caveat that Kavita exposes no chapter-level mark-unread endpoint.
+- The running-stack smoke proves the action writes page `0`, returns secret-free readback, and does not call series, volume, multiple-volume, multiple-series, panel, or KOReader unread/progress endpoints.
+- Chapter-level mark-read remains the only read-state endpoint collectZ calls; reset progress remains a progress write, not a true unread claim.
 
 ### Probe Evidence
 
@@ -151,7 +179,7 @@ This slice answers the immediate reversal question created by `3.4.104` without 
 - `POST /api/Reader/progress` is the only enabled write endpoint.
 - Mark-read/mark-unread, panel save-progress, and KOReader sync endpoints are enumerated as prohibited.
 - The write payload helper requires library, series, volume, chapter, and page fields.
-- `3.4.103` extends the probe with read-state contract evidence. `3.4.104` updates that evidence so `POST /api/Reader/mark-chapter-read` is enabled, while series-wide, volume-wide, panel, KOReader, and mark-unread endpoints remain disabled. `3.4.105` adds unread/reversal evidence: no chapter-unread endpoint is available, bulk unread endpoints stay prohibited, and progress page `0` remains a discovery-only reset candidate.
+- `3.4.103` extends the probe with read-state contract evidence. `3.4.104` updates that evidence so `POST /api/Reader/mark-chapter-read` is enabled, while series-wide, volume-wide, panel, KOReader, and mark-unread endpoints remain disabled. `3.4.105` adds unread/reversal evidence: no chapter-unread endpoint is available, bulk unread endpoints stay prohibited, and progress page `0` remains a reset-progress candidate. `3.4.106` adds a probe-only `pageNum: 0` write against the fake Kavita-compatible runtime and proves no bulk unread endpoint is called. `3.4.107` enables the same page `0` write as an explicit reset-progress action while continuing to prohibit bulk unread endpoints and `Mark unread` copy.
 - Normalized readback excludes injected secret-like fields.
 - No mark-read, KOReader, PDF, raw file, or broad reader endpoint is exercised.
 

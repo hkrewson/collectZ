@@ -30,6 +30,8 @@ const {
 } = require('../services/kavitaWritebackContract');
 const {
   buildKavitaProgressWritePayload,
+  buildKavitaResetProgressPayload,
+  buildKavitaResetProgressProbePayload,
   buildKavitaChapterReadStatePayload
 } = require('../services/kavitaProgressContract');
 const {
@@ -2021,7 +2023,7 @@ results.push(run('kavita chapter mark-read implementation stays chapter-scoped',
 results.push(run('kavita chapter unread contract keeps reversal disabled and avoids bulk endpoints', () => {
   assert.ok(kavitaReaderProgressDocSource.includes('`3.4.105` defines the chapter unread/read-state reversal contract'));
   assert.ok(kavitaReaderProgressDocSource.includes('No chapter-level mark-unread endpoint is present'));
-  assert.ok(kavitaReaderProgressDocSource.includes('`POST /api/Reader/progress` with `pageNum: 0` is only a reset-progress candidate'));
+  assert.ok(kavitaReaderProgressDocSource.includes('`POST /api/Reader/progress` with `pageNum: 0` is a reset-progress candidate'));
   assert.ok(kavitaReaderProgressDocSource.includes('Future implementation copy should distinguish `Reset Kavita progress` from `Mark unread`'));
   assert.ok(kavitaProgressContractProbeSource.includes('unreadContract'));
   assert.ok(kavitaProgressContractProbeSource.includes('chapterUnreadEndpointAvailable'));
@@ -2030,7 +2032,37 @@ results.push(run('kavita chapter unread contract keeps reversal disabled and avo
   assert.ok(kavitaProgressContractProbeSource.includes('/api/Reader/mark-multiple-series-unread'));
   assert.ok(!mediaRoutesSource.includes('mark_chapter_unread'));
   assert.ok(!libraryViewSource.includes('Mark Unread in Kavita'));
-  assert.ok(!libraryViewSource.includes('Reset Kavita progress'));
+  assert.ok(libraryViewSource.includes('Reset Progress'));
+}));
+
+results.push(run('kavita reset progress runtime uses page zero without claiming unread', () => {
+  assert.ok(kavitaReaderProgressDocSource.includes('`3.4.106` proves the reset-progress probe shape'));
+  assert.ok(kavitaReaderProgressDocSource.includes('`3.4.107` enables explicit reset-progress runtime behavior'));
+  assert.ok(kavitaProgressContractProbeSource.includes('resetProgressProbe'));
+  assert.ok(kavitaProgressContractProbeSource.includes('noBulkUnreadEndpointCalled'));
+  assert.ok(kavitaProgressContractProbeSource.includes('buildKavitaResetProgressPayload'));
+  assert.ok(kavitaProgressContractProbeSource.includes('buildKavitaResetProgressProbePayload'));
+  assert.ok(mediaRoutesSource.includes("router.post('/:id/kavita-reset-progress'"));
+  assert.ok(mediaRoutesSource.includes('media.kavita.progress.reset'));
+  assert.ok(mediaRoutesSource.includes('no chapter-level mark-unread endpoint'));
+  assert.ok(libraryViewSource.includes('/kavita-reset-progress'));
+  assert.ok(!libraryViewSource.includes('Mark Unread in Kavita'));
+  const resetPayload = buildKavitaResetProgressProbePayload({
+    libraryId: 87,
+    seriesId: 8602,
+    volumeId: 9602,
+    chapterId: 9702,
+    lastModifiedUtc: '2026-05-06T05:20:00Z'
+  });
+  assert.strictEqual(resetPayload.pageNum, 0);
+  assert.strictEqual(resetPayload.bookScrollId, null);
+  assert.deepStrictEqual(buildKavitaResetProgressPayload({
+    libraryId: 87,
+    seriesId: 8602,
+    volumeId: 9602,
+    chapterId: 9702,
+    lastModifiedUtc: '2026-05-06T05:20:00Z'
+  }), resetPayload);
 }));
 
 results.push(run('kavita chapter fan-out contract keeps series and issue identities distinct and opt-in', () => {

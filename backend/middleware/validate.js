@@ -273,6 +273,12 @@ const kavitaProgressWriteSchema = z.object({
   })
 }).strict();
 
+const kavitaProgressResetSchema = z.object({
+  confirm: z.literal(true, {
+    errorMap: () => ({ message: 'confirm must be true to reset Kavita progress' })
+  })
+}).strict();
+
 const kavitaChapterReadStateSchema = z.object({
   generateReadingSession: z.preprocess((value) => {
     if (typeof value === 'string') {
@@ -1030,6 +1036,7 @@ module.exports = {
   kavitaMetadataWritebackPreviewSchema,
   kavitaMetadataWritebackApplySchema,
   kavitaProgressWriteSchema,
+  kavitaProgressResetSchema,
   kavitaChapterReadStateSchema,
   mediaMergePreviewSchema,
   mediaMergeApplySchema,

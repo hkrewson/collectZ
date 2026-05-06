@@ -9236,7 +9236,7 @@ Historical note:
 
 **Goal:** Implement the narrow Kavita chapter mark-read action defined by `3.4.103` without enabling series-wide, volume-wide, automatic, or unread read-state writes.
 
-**Current Slice:** `Active`
+**Current Slice:** `Closed`
 
 ### Scope
 
@@ -9270,7 +9270,7 @@ Historical note:
 
 **Goal:** Define whether and how collectZ can safely reverse Kavita chapter read state after `3.4.104`, without adding a misleading or destructive unread action.
 
-**Current Slice:** `Active`
+**Status:** Completed.
 
 ### Scope
 
@@ -9299,6 +9299,77 @@ Historical note:
 - Risks/follow-ups: Kavita still offers no checked chapter-level mark-unread endpoint, so runtime unread/reset-progress remains intentionally out of product UI; progress page `0` needs real Kavita runtime proof before it can be described as unread or reset; CI-only secret scan and image security/SBOM must still pass before public tag/release publication.
 - What remains in the milestone: no open `3.4.105` implementation work remains; later Kavita work should stay separated into runtime unread discovery/implementation, richer embedded reader ownership, raw/PDF chapter proxying, KOReader/background sync, and shared provider abstractions.
 - Recommended commit message: `Release 3.4.105 Kavita chapter unread contract`.
+
+## 3.4.106 — Kavita Reset Progress Runtime Proof
+
+**Goal:** Prove the narrow Kavita reset-progress payload shape after `3.4.105` without exposing a misleading unread or reset-progress product control.
+
+**Current Slice:** `Active`
+
+### Scope
+
+- Extend the Kavita progress/read-state probe to exercise `POST /api/Reader/progress` with `pageNum: 0` against the fake Kavita-compatible runtime.
+- Keep the proof explicit that this is reset-progress probe evidence, not true chapter-unread semantics.
+- Confirm no series, volume, multiple-volume, multiple-series, panel, or KOReader unread/progress endpoint is called.
+- Keep runtime `kavita-reset-progress` routes, drawer controls, import/sync writes, background jobs, and `Reset Kavita progress` UI copy out of scope.
+- Preserve backend-only Kavita credentials and secret-free probe readback.
+
+### Acceptance Criteria
+
+- The Kavita progress/read-state probe reports a reset-progress probe payload with `pageNum: 0` and no bulk unread endpoint calls.
+- Contract docs distinguish probe-only reset-progress evidence from true unread behavior.
+- Source assertions prove no reset-progress route or UI control was introduced.
+- Version metadata and Help > Releases are aligned to `3.4.106`.
+
+### Closeout
+
+- Roadmap slice: `3.4.106 — Kavita Reset Progress Runtime Proof`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/42-Kavita-Reader-Progress-Contract.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, and `docs/wiki/10-CI-CD-and-Registry-Deploy.md`.
+- Runtime verification used: rebuilt and restored the Docker platform stack with `APP_VERSION=3.4.106`; verified `/api/health` serving frontend/backend/build `3.4.106`; verified Help > Releases serves `v3.4.106`; verified live DB `feature_flags.events_enabled=true`; ran the Kavita progress/read-state contract probe in the backend container, proving the reset-progress probe uses `POST /api/Reader/progress` with `pageNum=0`, no bulk unread endpoint is called, reset/unread implementation remains disabled, and `secretReturned=false`; temporarily swapped to generated public compose plus `.ci/docker-compose.build.yml` for homelab boundary verification with `APP_EDITION` unset, then restored the localhost platform stack and rechecked health.
+- CI/checks run locally: source syntax checks for `backend/services/kavitaProgressContract.js`, `backend/scripts/kavita-progress-contract-probe.js`, and `backend/scripts/unit-tests.js`; local Kavita progress/read-state contract probe; local unit/source assertions reached and passed the new Kavita assertions before the known host Node 14 `AbortController` gap; `git diff --check`; Docker backend/frontend build; container backend unit/source assertions (`248` passed); container OpenAPI validation; container Kavita progress/read-state contract probe; Help > Releases smoke with `EXPECTED_RELEASE_VERSION=v3.4.106`; API integration smoke; RBAC regression; platform edition boundary smoke; isolated generated-compose homelab edition boundary smoke; init parity; migration rehearsal; observability release evidence refresh (`9/9` passed); dependency audits via Node 20 containers (backend `0` low, `2` moderate, `0` high, `0` critical; frontend `0` vulnerabilities); full browser regression rerun after an initial concurrent observability/container churn failure (`58` passed, `4` skipped); `npm run compose:generate`; `npm run validate:public-export`; release-feed regeneration; and local release preflight.
+- Version closeout: `app-meta.json`, backend/frontend app metadata, backend/frontend package metadata and lockfiles, `docker-compose.yml`, `docs/releases/v3.4.106.md`, and `backend/release-feed.json` are aligned to `3.4.106`.
+- Release gate accounting: rebuilt stack health and runtime smokes locally covered compose basics except CI secure-cookie settings; `rbac-regression`, full local `browser-regression`, `homelab-edition-boundary`, `platform-edition-boundary`, dependency-audit artifact checks, init parity, migration rehearsal, and observability evidence passed locally. Local release preflight marks secure-cookie compose coverage blocked in the development stack (`SESSION_COOKIE_SECURE=false`, `NODE_ENV=development`), and CI must still rerun `compose-smoke`, `secret-scan`, and `image-security-and-sbom`.
+- Files changed: `app-meta.json`, `backend/app-meta.json`, `frontend/src/app-meta.json`, `backend/package.json`, `frontend/package.json`, `backend/package-lock.json`, `frontend/package-lock.json`, `backend/services/kavitaProgressContract.js`, `backend/scripts/kavita-progress-contract-probe.js`, `backend/scripts/unit-tests.js`, `docker-compose.yml`, `docs/releases/v3.4.106.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/42-Kavita-Reader-Progress-Contract.md`, `backend/release-feed.json`, `artifacts/observability-evidence/observability-release-evidence.json`, and `preflight-go-no-go.md`.
+- Risks/follow-ups: this proves only the collectZ/fake-Kavita reset-progress payload shape, not real Kavita unread semantics; no reset-progress UI or route is enabled; a future runtime implementation still needs real Kavita verification, copy that says reset progress rather than mark unread, and explicit user action.
+- What remains in the milestone: no open `3.4.106` implementation work remains; later Kavita work should stay separated into real runtime reset/unread implementation, richer embedded reader ownership, raw/PDF chapter proxying, KOReader/background sync, and shared provider abstractions.
+- Recommended commit message: `Release 3.4.106 Kavita reset progress runtime proof`.
+
+## 3.4.107 — Kavita Runtime Unread/Reset Implementation
+
+**Goal:** Enable the narrow Kavita reset-progress runtime action proven in `3.4.106` while keeping product copy and API behavior clear that this is not true chapter-level mark-unread.
+
+**Current Slice:** `Active`
+
+### Scope
+
+- Add an explicit Kavita chapter-backed reset-progress route using `POST /api/Reader/progress` with `pageNum: 0` and `bookScrollId: null`.
+- Add a media detail drawer control labeled `Reset Progress`.
+- Keep `Mark Unread in Kavita` copy out of the UI because Kavita still exposes no checked chapter-level mark-unread endpoint.
+- Preserve the existing `Mark Read in Kavita` action.
+- Prove the reset-progress runtime path through the fake Kavita-compatible running-stack smoke.
+- Keep series-wide unread, volume-wide unread, multiple-volume/multiple-series unread, panel progress, KOReader sync, background polling, and full embedded reader ownership out of scope.
+
+### Acceptance Criteria
+
+- Workspace admins can explicitly reset progress for a Kavita chapter-backed row.
+- The reset payload writes page `0` and clears `bookScrollId`.
+- Browser-visible reset readback remains secret-free.
+- Smoke coverage proves no bulk unread endpoint is called.
+- The UI and API copy distinguish reset progress from true mark-unread behavior.
+- Version metadata and Help > Releases are aligned to `3.4.107`.
+
+### Closeout
+
+- Roadmap slice: `3.4.107 — Kavita Runtime Unread/Reset Implementation`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/42-Kavita-Reader-Progress-Contract.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, and `docs/wiki/10-CI-CD-and-Registry-Deploy.md`.
+- Runtime verification used: rebuilt and restored the Docker platform stack with `APP_VERSION=3.4.107`; verified `/api/health` serving frontend/backend/build `3.4.107`; verified the running backend container reports `APP_VERSION=3.4.107`, `APP_EDITION=platform`, `NODE_ENV=development`, and `SESSION_COOKIE_SECURE=false`; verified live DB `feature_flags.events_enabled=true` before rebuild, after rebuild, after observability evidence, and after final platform restore; ran the Kavita progress/read-state contract probe in the backend container, proving reset-progress is runtime-enabled through `POST /api/Reader/progress` with `pageNum=0` while unread implementation stays false and `secretReturned=false`; ran the Kavita import/sync smoke in-stack with fake Kavita runtime, proving progress write page `1`, reset-progress page `0`, `bulkReadStateEndpointCalls=0`, secret-free responses, cover proxy readback, workspace-owned settings, and cross-workspace Kavita isolation; temporarily switched to generated public compose plus `.ci/docker-compose.build.yml` for homelab boundary verification, then restored the localhost platform stack and rechecked health.
+- CI/checks run locally: source syntax checks for `backend/routes/media.js`, `backend/services/kavitaProgressContract.js`, `backend/scripts/kavita-import-sync-smoke.js`, `backend/scripts/kavita-progress-contract-probe.js`, and `backend/scripts/unit-tests.js`; local OpenAPI validation; local Kavita progress/read-state contract probe; local unit/source assertions reached and passed the new Kavita assertions before the known host Node 14 `AbortController` gap; Docker backend/frontend build; container backend unit/source assertions (`248` passed); container OpenAPI validation; container Kavita progress/read-state contract probe; container Kavita import/sync smoke with `BASE_URL=http://frontend:3000`; Help > Releases smoke with `EXPECTED_RELEASE_VERSION=v3.4.107`; API integration smoke; RBAC regression; platform edition boundary smoke; isolated generated-compose homelab edition boundary smoke; init parity; migration rehearsal; observability release evidence refresh (`9/9` passed); local release preflight; full browser regression rerun after an initial concurrent observability/container churn failure (`58` passed, `4` skipped); `npm run compose:generate`; `npm run validate:public-export`; release-feed regeneration; release artifact secret-pattern grep over release note, release feed, preflight, migration/init evidence, and observability evidence; version metadata sync check; and `git diff --check`.
+- Version closeout: `app-meta.json`, backend/frontend app metadata, backend/frontend package metadata and lockfiles, `docker-compose.yml`, `docs/releases/v3.4.107.md`, and `backend/release-feed.json` are aligned to `3.4.107`; running Help > Releases serves `v3.4.107` first.
+- Release gate accounting: rebuilt stack health and runtime smokes locally covered compose basics except CI secure-cookie settings; `rbac-regression`, local `browser-regression`, `homelab-edition-boundary`, `platform-edition-boundary`, dependency-audit artifact checks, init parity, migration rehearsal, and observability evidence passed locally. Local release preflight marks secure-cookie compose coverage blocked in the development stack (`SESSION_COOKIE_SECURE=false`, `NODE_ENV=development`), and CI must still rerun `compose-smoke`, `secret-scan`, and `image-security-and-sbom`.
+- Files changed: `app-meta.json`, `backend/app-meta.json`, `frontend/src/app-meta.json`, `backend/package.json`, `frontend/package.json`, `backend/package-lock.json`, `frontend/package-lock.json`, `backend/middleware/validate.js`, `backend/openapi/openapi.yaml`, `backend/routes/media.js`, `backend/services/kavitaProgressContract.js`, `backend/scripts/kavita-import-sync-smoke.js`, `backend/scripts/kavita-progress-contract-probe.js`, `backend/scripts/unit-tests.js`, `frontend/src/components/LibraryView.jsx`, `docker-compose.yml`, `docs/releases/v3.4.107.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/42-Kavita-Reader-Progress-Contract.md`, `backend/release-feed.json`, `artifacts/dependency-audit/backend-audit.json`, `artifacts/dependency-audit/frontend-audit.json`, `artifacts/observability-evidence/observability-release-evidence.json`, and `preflight-go-no-go.md`.
+- Risks/follow-ups: Kavita still exposes no checked chapter-level mark-unread endpoint, so collectZ labels this action `Reset Progress` and keeps true chapter unread out of scope; reset progress represents the workspace-owned Kavita account, not a distinct collectZ-user Kavita identity; full embedded reader ownership, raw/PDF chapter proxying, background polling, KOReader sync, and shared provider abstractions remain separate future work.
+- What remains in the milestone: no open `3.4.107` implementation work remains; CI-only release gates must pass before public tag/release publication. Later Kavita work should stay separated into true chapter unread if Kavita exposes/proves a safe endpoint, richer embedded reader ownership, raw/PDF chapter proxying, KOReader/background sync, and shared provider abstractions.
+- Recommended commit message: `Release 3.4.107 Kavita runtime unread reset implementation`.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 

@@ -7333,6 +7333,74 @@
         }
       }
     },
+    "/api/media/{id}/kavita-reset-progress": {
+      "post": {
+        "tags": ["Media"],
+        "summary": "Reset a Kavita chapter-backed media row's progress to page zero",
+        "description": "This is an explicit reset-progress action, not a chapter-level mark-unread action. Kavita's checked API does not expose a chapter-scoped mark-unread endpoint.",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["confirm"],
+                "properties": {
+                  "confirm": { "type": "boolean", "enum": [true] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Kavita accepted the reset-progress action",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": {
+            "description": "Kavita row, payload, or configuration error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "403": {
+            "description": "Workspace admin access required for Kavita progress reset",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "502": {
+            "description": "Kavita rejected or failed the reset-progress action",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/media/{id}/kavita-reader-info": {
       "get": {
         "tags": ["Media"],

@@ -121,6 +121,17 @@ async function startFakeKavitaServer() {
   const bulkReadStateWrites = [];
   const readerInfoReads = [];
   const readerImageReads = [];
+  const progressByChapterId = new Map([[9702, {
+    libraryId: 87,
+    seriesId: 8602,
+    volumeId: 9602,
+    chapterId: 9702,
+    pageNum: 11,
+    bookScrollId: 'smoke-scroll-11',
+    lastModifiedUtc: '2026-05-05T05:00:00Z',
+    apiKey: KAVITA_SMOKE_KEY,
+    bearerToken: KAVITA_SMOKE_BEARER
+  }]]);
   const readJsonBody = (req) => new Promise((resolve) => {
     let raw = '';
     req.on('data', (chunk) => {
@@ -364,19 +375,10 @@ async function startFakeKavitaServer() {
     if (req.method === 'GET' && url.pathname === '/api/Reader/get-progress') {
       const chapterId = Number(url.searchParams.get('chapterId') || 0);
       progressReads.push({ chapterId });
-      if (chapterId === 9702) {
+      const progress = progressByChapterId.get(chapterId);
+      if (progress) {
         res.writeHead(200);
-        res.end(JSON.stringify({
-          libraryId: 87,
-          seriesId: 8602,
-          volumeId: 9602,
-          chapterId: 9702,
-          pageNum: 11,
-          bookScrollId: 'smoke-scroll-11',
-          lastModifiedUtc: '2026-05-05T05:00:00Z',
-          apiKey: KAVITA_SMOKE_KEY,
-          bearerToken: KAVITA_SMOKE_BEARER
-        }));
+        res.end(JSON.stringify(progress));
         return;
       }
       res.writeHead(404);
@@ -387,6 +389,19 @@ async function startFakeKavitaServer() {
     if (req.method === 'POST' && url.pathname === '/api/Reader/progress') {
       readJsonBody(req).then((body) => {
         progressWrites.push(body);
+        if (body?.chapterId) {
+          progressByChapterId.set(Number(body.chapterId), {
+            libraryId: body.libraryId,
+            seriesId: body.seriesId,
+            volumeId: body.volumeId,
+            chapterId: body.chapterId,
+            pageNum: body.pageNum,
+            bookScrollId: body.bookScrollId ?? null,
+            lastModifiedUtc: body.lastModifiedUtc || '2026-05-06T05:00:00Z',
+            apiKey: KAVITA_SMOKE_KEY,
+            bearerToken: KAVITA_SMOKE_BEARER
+          });
+        }
         res.writeHead(200);
         res.end(JSON.stringify({ accepted: true }));
       });
@@ -406,6 +421,9 @@ async function startFakeKavitaServer() {
       '/api/Reader/mark-read',
       '/api/Reader/mark-unread',
       '/api/Reader/mark-volume-read',
+      '/api/Reader/mark-volume-unread',
+      '/api/Reader/mark-multiple-unread',
+      '/api/Reader/mark-multiple-series-unread',
       '/api/Panels/save-progress',
       '/api/Koreader/smoke/syncs/progress'
     ].includes(url.pathname)) {
@@ -902,6 +920,21 @@ async function main() {
     assert(Number(fake.progressWrites[0]?.pageNum) === 1, `Expected Kavita progress write page 1, got ${JSON.stringify(fake.progressWrites[0])}`);
     assert(!JSON.stringify(kavitaProgressWriteback.data).includes(KAVITA_SMOKE_KEY), `Kavita progress writeback must not expose API keys, got ${JSON.stringify(kavitaProgressWriteback.data)}`);
     assert(!JSON.stringify(kavitaProgressWriteback.data).includes(KAVITA_SMOKE_BEARER), `Kavita progress writeback must not expose bearer tokens, got ${JSON.stringify(kavitaProgressWriteback.data)}`);
+    const kavitaProgressReset = await client.request(`/api/media/${chapterOne.id}/kavita-reset-progress?${scopeQuery}`, {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 200,
+      body: JSON.stringify({ confirm: true }),
+      headers: { 'Content-Type': 'application/json' }
+    });
+    assert(kavitaProgressReset.data?.action === 'reset_progress', `Expected Kavita reset-progress action, got ${JSON.stringify(kavitaProgressReset.data)}`);
+    assert(Number(kavitaProgressReset.data?.progress?.chapterId || 0) === 9702, `Expected Kavita reset-progress chapter id, got ${JSON.stringify(kavitaProgressReset.data)}`);
+    assert(Number(kavitaProgressReset.data?.progress?.pageNum) === 0, `Expected Kavita reset-progress readback page 0, got ${JSON.stringify(kavitaProgressReset.data)}`);
+    assert(fake.progressWrites.length === 2, `Expected save plus reset fake Kavita progress writes, got ${JSON.stringify(fake.progressWrites)}`);
+    assert(Number(fake.progressWrites[1]?.pageNum) === 0, `Expected reset progress write page 0, got ${JSON.stringify(fake.progressWrites[1])}`);
+    assert(String(kavitaProgressReset.data?.caveat || '').includes('no chapter-level mark-unread endpoint'), `Expected reset progress caveat, got ${JSON.stringify(kavitaProgressReset.data)}`);
+    assert(!JSON.stringify(kavitaProgressReset.data).includes(KAVITA_SMOKE_KEY), `Kavita reset-progress response must not expose API keys, got ${JSON.stringify(kavitaProgressReset.data)}`);
+    assert(!JSON.stringify(kavitaProgressReset.data).includes(KAVITA_SMOKE_BEARER), `Kavita reset-progress response must not expose bearer tokens, got ${JSON.stringify(kavitaProgressReset.data)}`);
     const kavitaMarkRead = await client.request(`/api/media/${chapterOne.id}/kavita-read-state?${scopeQuery}`, {
       method: 'POST',
       withCsrf: true,
@@ -995,6 +1028,7 @@ async function main() {
       progressReadPage: kavitaProgressReadback.data?.progress?.pageNum,
       progressWriteEndpointCalls: fake.progressWrites.length,
       progressWritePage: fake.progressWrites[0]?.pageNum,
+      progressResetPage: fake.progressWrites[1]?.pageNum,
       readStateEndpointCalls: fake.readStateWrites.length,
       bulkReadStateEndpointCalls: fake.bulkReadStateWrites.length,
       readerInfoEndpointCalls: fake.readerInfoReads.length,

@@ -107,6 +107,26 @@ function buildKavitaProgressWritePayload({
   return payload;
 }
 
+function buildKavitaResetProgressPayload({
+  libraryId,
+  seriesId,
+  volumeId,
+  chapterId,
+  lastModifiedUtc = null
+} = {}) {
+  return buildKavitaProgressWritePayload({
+    libraryId,
+    seriesId,
+    volumeId,
+    chapterId,
+    pageNum: 0,
+    bookScrollId: null,
+    lastModifiedUtc
+  });
+}
+
+const buildKavitaResetProgressProbePayload = buildKavitaResetProgressPayload;
+
 function buildKavitaChapterReadStatePayload({
   seriesId,
   chapterId,
@@ -236,8 +256,10 @@ function buildKavitaProgressContractProbe() {
       resetProgressCandidate: {
         endpoint: READER_SET_PROGRESS_ENDPOINT,
         body: ['libraryId', 'seriesId', 'volumeId', 'chapterId', 'pageNum'],
-        status: 'discovery_only',
-        caveat: 'page 0 may reset progress but is not treated as true unread until runtime behavior is proven against Kavita'
+        status: 'runtime_enabled',
+        provenPayload: { pageNum: 0, bookScrollId: null },
+      implementationEnabled: true,
+      caveat: 'page 0 is exposed only as Reset Kavita progress. It is not labeled as true unread because Kavita exposes no chapter-level mark-unread endpoint in the checked OpenAPI snapshot'
       }
     },
     readbackFields: [...PROGRESS_READ_FIELDS],
@@ -245,6 +267,7 @@ function buildKavitaProgressContractProbe() {
       'workspace-owned Kavita connection',
       'signed-in collectZ user ownership decision before persistence',
       'explicit user action before progress writeback',
+      'explicit user action before reset progress',
       'explicit user action before chapter mark-read',
       'backend-only credential use',
       'secret-free browser readback',
@@ -284,6 +307,8 @@ module.exports = {
   PROGRESS_READ_FIELDS,
   buildKavitaProgressReadRequest,
   buildKavitaProgressWritePayload,
+  buildKavitaResetProgressPayload,
+  buildKavitaResetProgressProbePayload,
   buildKavitaChapterReadStatePayload,
   normalizeKavitaProgressReadback,
   buildKavitaProgressContractProbe

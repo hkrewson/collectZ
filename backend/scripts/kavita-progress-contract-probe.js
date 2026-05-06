@@ -9,6 +9,8 @@ const {
   buildKavitaProgressContractProbe,
   buildKavitaProgressReadRequest,
   buildKavitaProgressWritePayload,
+  buildKavitaResetProgressPayload,
+  buildKavitaResetProgressProbePayload,
   buildKavitaChapterReadStatePayload,
   normalizeKavitaProgressReadback
 } = require('../services/kavitaProgressContract');
@@ -16,19 +18,50 @@ const {
 const ephemeralToken = `progress-probe-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
 function createFakeKavitaProgressServer() {
-  const requests = [];
-  const server = http.createServer((req, res) => {
-    const requestUrl = new URL(req.url, 'http://127.0.0.1');
-    requests.push({
+    const requests = [];
+    const server = http.createServer((req, res) => {
+      const requestUrl = new URL(req.url, 'http://127.0.0.1');
+    const record = {
       method: req.method,
       pathname: requestUrl.pathname,
       query: Object.fromEntries(requestUrl.searchParams.entries()),
-      authorizationSet: Boolean(req.headers.authorization)
-    });
+      authorizationSet: Boolean(req.headers.authorization),
+      body: null
+    };
+    requests.push(record);
 
     if (PROGRESS_UNSUPPORTED_WRITE_ENDPOINTS.includes(requestUrl.pathname)) {
       res.writeHead(500, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ accepted: false, error: 'unsupported write endpoint must not be called' }));
+      return;
+    }
+
+    if (req.method === 'POST' && requestUrl.pathname === '/api/Reader/progress') {
+      let requestBody = '';
+      req.setEncoding('utf8');
+      req.on('data', (chunk) => {
+        requestBody += chunk;
+      });
+      req.on('end', () => {
+        record.body = requestBody ? JSON.parse(requestBody) : {};
+        if (record.body.pageNum !== 0) {
+          res.writeHead(500, { 'content-type': 'application/json' });
+          res.end(JSON.stringify({ accepted: false, error: 'reset-progress probe must send pageNum 0' }));
+          return;
+        }
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({
+          accepted: true,
+          libraryId: record.body.libraryId,
+          seriesId: record.body.seriesId,
+          volumeId: record.body.volumeId,
+          chapterId: record.body.chapterId,
+          pageNum: 0,
+          bookScrollId: null,
+          apiKey: 'must-not-leak',
+          bearerToken: 'must-not-leak'
+        }));
+      });
       return;
     }
 
@@ -61,6 +94,33 @@ function createFakeKavitaProgressServer() {
     }),
     close: () => new Promise((resolve) => server.close(resolve))
   };
+}
+
+function postJson(baseUrl, payload) {
+  const url = new URL(payload.endpoint, baseUrl);
+  return new Promise((resolve, reject) => {
+    const req = http.request(url, {
+      method: payload.method,
+      headers: {
+        authorization: `Bearer ${ephemeralToken}`,
+        'content-type': 'application/json'
+      }
+    }, (res) => {
+      let responseBody = '';
+      res.setEncoding('utf8');
+      res.on('data', (chunk) => {
+        responseBody += chunk;
+      });
+      res.on('end', () => {
+        resolve({
+          status: res.statusCode,
+          body: responseBody ? JSON.parse(responseBody) : {}
+        });
+      });
+    });
+    req.on('error', reject);
+    req.end(JSON.stringify(payload.body || {}));
+  });
 }
 
 function getJson(baseUrl, payload) {
@@ -119,7 +179,9 @@ async function main() {
     assert.ok(probe.unreadContract.prohibitedUnreadEndpoints.includes('/api/Reader/mark-volume-unread'));
     assert.ok(probe.unreadContract.prohibitedUnreadEndpoints.includes('/api/Reader/mark-multiple-unread'));
     assert.ok(probe.unreadContract.prohibitedUnreadEndpoints.includes('/api/Reader/mark-multiple-series-unread'));
-    assert.strictEqual(probe.unreadContract.resetProgressCandidate.status, 'discovery_only');
+    assert.strictEqual(probe.unreadContract.resetProgressCandidate.status, 'runtime_enabled');
+    assert.strictEqual(probe.unreadContract.resetProgressCandidate.implementationEnabled, true);
+    assert.strictEqual(probe.unreadContract.resetProgressCandidate.provenPayload.pageNum, 0);
     assert.ok(probe.prohibitedWriteEndpoints.includes('/api/Koreader/{apiKey}/syncs/progress'));
     const writePayload = buildKavitaProgressWritePayload({
       libraryId: 44,
@@ -142,6 +204,22 @@ async function main() {
       chapterId: 9702,
       generateReadingSession: false
     });
+    const resetProgressPayload = buildKavitaResetProgressProbePayload({
+      libraryId: 44,
+      seriesId: 8602,
+      volumeId: 12,
+      chapterId: 9702,
+      lastModifiedUtc: '2026-05-06T05:10:00Z'
+    });
+    assert.strictEqual(resetProgressPayload.pageNum, 0);
+    assert.strictEqual(resetProgressPayload.bookScrollId, null);
+    assert.deepStrictEqual(buildKavitaResetProgressPayload({
+      libraryId: 44,
+      seriesId: 8602,
+      volumeId: 12,
+      chapterId: 9702,
+      lastModifiedUtc: '2026-05-06T05:10:00Z'
+    }), resetProgressPayload);
 
     const response = await getJson(baseUrl, readRequest);
     assert.strictEqual(response.status, 200);
@@ -153,6 +231,22 @@ async function main() {
     assert.strictEqual(fake.requests[0].method, 'GET');
     assert.strictEqual(fake.requests[0].pathname, READER_GET_PROGRESS_ENDPOINT);
     assert.ok(fake.requests[0].authorizationSet);
+
+    const resetResponse = await postJson(baseUrl, {
+      method: 'POST',
+      endpoint: '/api/Reader/progress',
+      body: resetProgressPayload
+    });
+    assert.strictEqual(resetResponse.status, 200);
+    const normalizedResetReadback = normalizeKavitaProgressReadback(resetResponse.body);
+    assert.strictEqual(normalizedResetReadback.pageNum, 0);
+    assert.ok(!Object.prototype.hasOwnProperty.call(normalizedResetReadback, 'bookScrollId'));
+    assert.ok(!JSON.stringify(normalizedResetReadback).includes('must-not-leak'));
+    assert.strictEqual(fake.requests.length, 2);
+    assert.strictEqual(fake.requests[1].method, 'POST');
+    assert.strictEqual(fake.requests[1].pathname, '/api/Reader/progress');
+    assert.strictEqual(fake.requests[1].body.pageNum, 0);
+    assert.ok(!fake.requests.some((request) => READ_STATE_DISABLED_WRITE_ENDPOINTS.includes(request.pathname)));
 
     console.log(JSON.stringify({
       provider: probe.provider,
@@ -167,8 +261,16 @@ async function main() {
       readOnlyRequest: readRequest.readOnly,
       writePayload,
       readStatePayload,
+      resetProgressProbe: {
+        implementationEnabled: probe.unreadContract.resetProgressCandidate.implementationEnabled,
+        endpoint: probe.unreadContract.resetProgressCandidate.endpoint,
+        payload: resetProgressPayload,
+        normalizedReadback: normalizedResetReadback,
+        noBulkUnreadEndpointCalled: !fake.requests.some((request) => probe.unreadContract.prohibitedUnreadEndpoints.includes(request.pathname))
+      },
       normalizedReadback: normalized,
       secretReturned: JSON.stringify(normalized).includes('must-not-leak')
+        || JSON.stringify(normalizedResetReadback).includes('must-not-leak')
     }, null, 2));
   } finally {
     await fake.close();

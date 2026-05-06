@@ -18,6 +18,7 @@ const {
   kavitaMetadataWritebackPreviewSchema,
   kavitaMetadataWritebackApplySchema,
   kavitaProgressWriteSchema,
+  kavitaProgressResetSchema,
   kavitaChapterReadStateSchema,
   mediaMergePreviewSchema,
   mediaMergeApplySchema,
@@ -74,6 +75,7 @@ const {
 } = require('../services/kavitaWritebackContract');
 const {
   buildKavitaProgressWritePayload,
+  buildKavitaResetProgressPayload,
   buildKavitaChapterReadStatePayload,
   normalizeKavitaProgressReadback
 } = require('../services/kavitaProgressContract');
@@ -7464,6 +7466,73 @@ router.post('/:id/kavita-progress', requireSessionAuth, validate(kavitaProgressW
     ok: true,
     readOnly: false,
     provider: 'kavita',
+    media: {
+      id: row.id,
+      title: row.title,
+      media_type: row.media_type
+    },
+    target: {
+      libraryId: payload.libraryId,
+      seriesId: payload.seriesId,
+      volumeId: payload.volumeId,
+      chapterId: payload.chapterId
+    },
+    progress
+  });
+}));
+
+router.post('/:id/kavita-reset-progress', requireSessionAuth, validate(kavitaProgressResetSchema), asyncHandler(async (req, res) => {
+  const mediaId = Number(req.params.id || 0) || null;
+  if (!mediaId) {
+    return res.status(400).json({ error: 'Invalid media id' });
+  }
+
+  const {
+    row,
+    scopeContext,
+    config,
+    auth,
+    libraryId,
+    seriesId,
+    volumeId,
+    chapterId
+  } = await buildKavitaProgressContext(req, mediaId);
+  if (!await canManageWorkspaceIntegration(req, row.space_id || scopeContext?.spaceId || null)) {
+    return res.status(403).json({ error: 'Kavita progress reset requires workspace admin access' });
+  }
+
+  let payload;
+  try {
+    payload = buildKavitaResetProgressPayload({
+      libraryId,
+      seriesId,
+      volumeId,
+      chapterId
+    });
+  } catch (error) {
+    return res.status(400).json({ error: error.message });
+  }
+
+  await updateKavitaReaderProgress(config, auth.token, payload);
+  const rawProgress = await fetchKavitaReaderProgress(config, auth.token, chapterId).catch(() => payload);
+  const progress = normalizeKavitaProgressReadback(rawProgress);
+
+  await logActivity(req, 'media.kavita.progress.reset', 'media', mediaId, {
+    workspaceId: row.space_id || scopeContext?.spaceId || null,
+    mediaId,
+    seriesId: payload.seriesId,
+    volumeId: payload.volumeId,
+    chapterId: payload.chapterId,
+    pageNum: payload.pageNum,
+    fields: Object.keys(progress)
+  });
+
+  res.json({
+    ok: true,
+    readOnly: false,
+    provider: 'kavita',
+    action: 'reset_progress',
+    caveat: 'Kavita exposes no chapter-level mark-unread endpoint; collectZ resets chapter progress to page 0 instead.',
     media: {
       id: row.id,
       title: row.title,

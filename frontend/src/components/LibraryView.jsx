@@ -640,6 +640,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   const [kavitaProgress, setKavitaProgress] = useState(null);
   const [kavitaProgressLoading, setKavitaProgressLoading] = useState(false);
   const [kavitaProgressSaving, setKavitaProgressSaving] = useState(false);
+  const [kavitaProgressResetting, setKavitaProgressResetting] = useState(false);
   const [kavitaMarkReadSaving, setKavitaMarkReadSaving] = useState(false);
   const [kavitaReaderInfo, setKavitaReaderInfo] = useState(null);
   const [kavitaReaderLoading, setKavitaReaderLoading] = useState(false);
@@ -1060,6 +1061,23 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
       onToast?.(error?.response?.data?.error || 'Failed to mark Kavita chapter read', 'error');
     } finally {
       setKavitaMarkReadSaving(false);
+    }
+  };
+
+  const resetKavitaProgress = async () => {
+    if (!item?.id || kavitaProgressResetting) return;
+    setKavitaProgressResetting(true);
+    try {
+      const payload = await apiCall('post', `/media/${item.id}/kavita-reset-progress`, {
+        confirm: true
+      });
+      setKavitaProgress(payload?.progress || null);
+      setKavitaReaderPage(0);
+      onToast?.('Kavita progress reset');
+    } catch (error) {
+      onToast?.(error?.response?.data?.error || 'Failed to reset Kavita progress', 'error');
+    } finally {
+      setKavitaProgressResetting(false);
     }
   };
 
@@ -1897,6 +1915,15 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                     >
                       {kavitaProgressSaving ? <Spinner size={14} /> : <Icons.Check />}
                       {kavitaProgressSaving ? 'Saving…' : 'Save Progress'}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-secondary btn-sm"
+                      onClick={resetKavitaProgress}
+                      disabled={kavitaProgressResetting}
+                    >
+                      {kavitaProgressResetting ? <Spinner size={14} /> : <Icons.Refresh />}
+                      {kavitaProgressResetting ? 'Resetting…' : 'Reset Progress'}
                     </button>
                     <button
                       type="button"

@@ -1,6 +1,43 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.107",
+      "version": "v3.4.107",
+      "date": "2026-05-06",
+      "status": "Ready for CI release gates",
+      "summary": "This patch enables an explicit Kavita reset-progress action for chapter-backed Kavita rows while keeping it separate from true chapter unread behavior.",
+      "details": [
+        {
+          "heading": "Shipped",
+          "bullets": [
+            "Added a scoped `POST /api/media/:id/kavita-reset-progress` endpoint for Kavita chapter-backed rows.",
+            "Reset Kavita progress by writing `pageNum: 0` and `bookScrollId: null` through Kavita's progress endpoint.",
+            "Added a media detail drawer `Reset Progress` action beside the existing read/progress controls.",
+            "Preserved chapter mark-read behavior and continued to prohibit bulk unread endpoints.",
+            "Updated Kavita smoke coverage to prove reset progress writes page `0`, returns secret-free readback, and avoids series/volume/multiple unread shortcuts."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "collectZ v3.4.106",
+      "version": "v3.4.106",
+      "date": "2026-05-06",
+      "status": "Ready for CI release gates",
+      "summary": "This patch proves the Kavita reset-progress payload shape in the existing fake Kavita-compatible runtime probe without exposing a user-facing reset or unread action.",
+      "details": [
+        {
+          "heading": "Shipped",
+          "bullets": [
+            "Extended the Kavita progress/read-state contract with a probe-only reset-progress payload.",
+            "Added fake-runtime proof for `POST /api/Reader/progress` with `pageNum: 0` and `bookScrollId: null`.",
+            "Confirmed the reset-progress probe does not call bulk unread endpoints.",
+            "Kept chapter unread and reset-progress UI/routes disabled until real Kavita runtime semantics are proven."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.4.105",
       "version": "v3.4.105",
       "date": "2026-05-06",
@@ -148,43 +185,6 @@
             "Added a guarded `Apply to Kavita` action beside the media-detail Kavita Metadata preview.",
             "Extended the Kavita import/sync smoke fake server to prove series and chapter apply payloads without mutating a real Kavita server.",
             "Added activity/audit events for applied, skipped, and failed writeback attempts."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.4.97",
-      "version": "v3.4.97",
-      "date": "2026-05-05",
-      "status": "Ready for CI release gates",
-      "summary": "This patch adds the first read-only Kavita metadata writeback preview path. Workspace admins can compare current Kavita metadata with collectZ metadata for a Kavita-linked row before any later apply/writeback milestone exists.",
-      "details": [
-        {
-          "heading": "Shipped",
-          "bullets": [
-            "Added a workspace-admin-only Kavita metadata preview endpoint for Kavita-linked media rows.",
-            "Added current Kavita series metadata readback through `GET /api/Series/metadata` and chapter preview readback through stored Kavita volume/chapter details.",
-            "Added field-level diff output with changed, unchanged, skipped, locked-field, and preview-only mutation-disabled readback.",
-            "Added a read-only Kavita Metadata panel in the media detail drawer so operators can inspect preview diffs without writing to Kavita.",
-            "Extended the Kavita import/sync smoke to prove preview-only behavior, locked-field skipping, workspace-scoped credentials, and secret-free preview responses."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.4.96",
-      "version": "v3.4.96",
-      "date": "2026-05-04",
-      "status": "Ready for CI release gates",
-      "summary": "This patch confirms Kavita exposes metadata mutation endpoints that collectZ can safely target in a later opt-in writeback implementation, while keeping the current Kavita integration read-only at runtime.",
-      "details": [
-        {
-          "heading": "Shipped",
-          "bullets": [
-            "Added a Kavita metadata writeback contract documenting the first writable series/chapter endpoints, the conservative field allowlist, and the required preview/audit/opt-in safety model.",
-            "Added pure backend payload builders for future series and chapter metadata writeback.",
-            "Added a fake-server probe proving the planned payload shape for `POST /api/Series/metadata` and `POST /api/Chapter/update` without calling a real Kavita mutation endpoint.",
-            "Updated Kavita setup documentation so operators can see writeback is feasible but still disabled until a later implementation milestone."
           ]
         }
       ]
