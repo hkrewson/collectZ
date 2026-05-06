@@ -107,7 +107,7 @@ function formatPrintEdition(item) {
   const printRun = item?.print_run;
   const hasPrintNumber = printNumber !== null && printNumber !== undefined && printNumber !== '';
   const hasPrintRun = printRun !== null && printRun !== undefined && printRun !== '';
-  if (hasPrintNumber && hasPrintRun) return `${printNumber}/${printRun}`;
+  if (hasPrintNumber && hasPrintRun) return `#${printNumber}/${printRun}`;
   if (hasPrintNumber) return `#${printNumber}`;
   if (hasPrintRun) return `Run ${printRun}`;
   return null;
@@ -115,8 +115,8 @@ function formatPrintEdition(item) {
 
 function ArtCard({ item, supportsHover, onOpen, onEdit, onDelete }) {
   const mediumLabel = ART_MEDIUM_OPTIONS.find((option) => option.value === item.medium)?.label || null;
-  const subtitle = [item.franchise, item.series, item.artist, mediumLabel, item.event_title].filter(Boolean).join(' · ');
   const printEdition = formatPrintEdition(item);
+  const subtitle = [printEdition, item.signed ? 'Signed' : null, mediumLabel].filter(Boolean).join(' ');
   return (
     <ObjectPosterCard
       title={item.title}
@@ -124,20 +124,7 @@ function ArtCard({ item, supportsHover, onOpen, onEdit, onDelete }) {
       fallbackIcon={<Icons.Library />}
       supportsHover={supportsHover}
       onOpen={() => onOpen(item)}
-      leftBadges={[`#${item.id}`, 'Art']}
-      rightBadge={item.signed ? <span className="badge badge-brand text-[10px] bg-brand/20 border-brand/30">Signed</span> : (item.exclusive ? <span className="badge badge-brand text-[10px] bg-brand/20 border-brand/30">Exclusive</span> : null)}
       subtitle={subtitle || 'Artwork'}
-      meta={
-        <>
-          {mediumLabel ? <FilterPill>{mediumLabel}</FilterPill> : null}
-          {item.franchise ? <FilterPill>{item.franchise}</FilterPill> : null}
-          {item.artist ? <FilterPill>{item.artist}</FilterPill> : null}
-          {item.series ? <FilterPill>{item.series}</FilterPill> : null}
-          {item.event_title ? <FilterPill>{item.event_title}</FilterPill> : null}
-          {printEdition ? <FilterPill tone="brand">{`Print ${printEdition}`}</FilterPill> : null}
-          {item.exclusive ? <FilterPill tone="brand">Exclusive</FilterPill> : null}
-        </>
-      }
       onEdit={() => onEdit(item)}
       onDelete={() => onDelete(item.id)}
     />

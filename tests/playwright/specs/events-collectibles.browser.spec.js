@@ -43,6 +43,34 @@ test.describe('events and collectibles browser regressions', () => {
     expect(await imageInputs.first().getAttribute('capture')).toBeNull();
   });
 
+  test('art poster card shows numbered signed medium subtitle without badges', async ({ page }) => {
+    const userCredentials = await createFreshUserCredentials();
+    const userRequestContext = await createAuthenticatedRequestContext(userCredentials);
+    const artTitle = `Playwright Minimal Art Poster ${Date.now()}`;
+
+    await deleteArtByExactTitle(userRequestContext, artTitle).catch(() => {});
+    try {
+      await postWithCsrf(userRequestContext, '/api/art', {
+        title: artTitle,
+        medium: 'print',
+        print_number: 150,
+        print_run: 200,
+        signed: true
+      }, 201);
+
+      await signInThroughUi(page, userCredentials);
+      await page.goto('/dashboard?tab=library-art');
+
+      const artCard = page.locator('article').filter({ hasText: artTitle }).first();
+      await expect(artCard).toBeVisible();
+      await expect(artCard.getByText('#150/200 Signed Print')).toBeVisible();
+      await expect(artCard.locator('.badge')).toHaveCount(0);
+    } finally {
+      await deleteArtByExactTitle(userRequestContext, artTitle).catch(() => {});
+      await userRequestContext.dispose();
+    }
+  });
+
   test('mobile event drawer shows a compact social overview before admin sections', async ({ page }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
     const adminRequestContext = await createAuthenticatedRequestContext(adminCredentials);

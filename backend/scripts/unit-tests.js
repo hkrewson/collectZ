@@ -4807,7 +4807,7 @@ results.push(run('Art dimension unit metadata is wired through native Art contra
   assert.ok(/"enum":\s*\[\s*"in",\s*"cm",\s*null\s*\]/.test(openApiSource));
 }));
 
-results.push(run('Art numbered print metadata and badge are wired through native Art contracts', () => {
+results.push(run('Art numbered print metadata and readback are wired through native Art contracts', () => {
   assert.ok(migrationsSource.includes('version: 95'));
   assert.ok(migrationsSource.includes('Add Art numbered print metadata'));
   assert.ok(initSqlSource.includes('print_number INTEGER CHECK'));
@@ -4820,6 +4820,10 @@ results.push(run('Art numbered print metadata and badge are wired through native
   assert.ok(artViewSource.includes('function formatPrintEdition'));
   assert.ok(artViewSource.includes('<span className="label">Print #</span>'));
   assert.ok(artViewSource.includes('<span className="label">Run</span>'));
+  assert.ok(artViewSource.includes("return `#${printNumber}/${printRun}`;"));
+  assert.ok(artViewSource.includes("const subtitle = [printEdition, item.signed ? 'Signed' : null, mediumLabel].filter(Boolean).join(' ');"));
+  assert.ok(!artViewSource.includes("leftBadges={[`#${item.id}`, 'Art']}"));
+  assert.ok(!artViewSource.includes('rightBadge={item.signed'));
   assert.ok(artViewSource.includes('{`Print ${printEdition}`}'));
   assert.ok(openApiSource.includes('"print_number"'));
   assert.ok(openApiSource.includes('"print_run"'));
