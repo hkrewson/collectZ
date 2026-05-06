@@ -117,6 +117,8 @@ async function startFakeKavitaServer() {
   const chapterWritebacks = [];
   const progressReads = [];
   const progressWrites = [];
+  const readStateWrites = [];
+  const bulkReadStateWrites = [];
   const readerInfoReads = [];
   const readerImageReads = [];
   const readJsonBody = (req) => new Promise((resolve) => {
@@ -391,6 +393,30 @@ async function startFakeKavitaServer() {
       return;
     }
 
+    if (req.method === 'POST' && url.pathname === '/api/Reader/mark-chapter-read') {
+      readJsonBody(req).then((body) => {
+        readStateWrites.push(body);
+        res.writeHead(200);
+        res.end(JSON.stringify({ accepted: true }));
+      });
+      return;
+    }
+
+    if (req.method === 'POST' && [
+      '/api/Reader/mark-read',
+      '/api/Reader/mark-unread',
+      '/api/Reader/mark-volume-read',
+      '/api/Panels/save-progress',
+      '/api/Koreader/smoke/syncs/progress'
+    ].includes(url.pathname)) {
+      readJsonBody(req).then((body) => {
+        bulkReadStateWrites.push({ path: url.pathname, body });
+        res.writeHead(500);
+        res.end(JSON.stringify({ message: 'bulk read-state endpoint must not be called' }));
+      });
+      return;
+    }
+
     if (req.method === 'GET' && url.pathname === '/api/Reader/chapter-info') {
       const chapterId = Number(url.searchParams.get('chapterId') || 0);
       readerInfoReads.push({
@@ -462,6 +488,8 @@ async function startFakeKavitaServer() {
     chapterWritebacks,
     progressReads,
     progressWrites,
+    readStateWrites,
+    bulkReadStateWrites,
     readerInfoReads,
     readerImageReads
   };
@@ -874,6 +902,20 @@ async function main() {
     assert(Number(fake.progressWrites[0]?.pageNum) === 1, `Expected Kavita progress write page 1, got ${JSON.stringify(fake.progressWrites[0])}`);
     assert(!JSON.stringify(kavitaProgressWriteback.data).includes(KAVITA_SMOKE_KEY), `Kavita progress writeback must not expose API keys, got ${JSON.stringify(kavitaProgressWriteback.data)}`);
     assert(!JSON.stringify(kavitaProgressWriteback.data).includes(KAVITA_SMOKE_BEARER), `Kavita progress writeback must not expose bearer tokens, got ${JSON.stringify(kavitaProgressWriteback.data)}`);
+    const kavitaMarkRead = await client.request(`/api/media/${chapterOne.id}/kavita-read-state?${scopeQuery}`, {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 200,
+      body: JSON.stringify({ generateReadingSession: false, confirm: true }),
+      headers: { 'Content-Type': 'application/json' }
+    });
+    assert(kavitaMarkRead.data?.action === 'mark_chapter_read', `Expected Kavita chapter mark-read action, got ${JSON.stringify(kavitaMarkRead.data)}`);
+    assert(fake.readStateWrites.length === 1, `Expected one fake Kavita chapter mark-read call, got ${JSON.stringify(fake.readStateWrites)}`);
+    assert(Number(fake.readStateWrites[0]?.seriesId || 0) === 8602, `Expected Kavita mark-read series id 8602, got ${JSON.stringify(fake.readStateWrites[0])}`);
+    assert(Number(fake.readStateWrites[0]?.chapterId || 0) === 9702, `Expected Kavita mark-read chapter id 9702, got ${JSON.stringify(fake.readStateWrites[0])}`);
+    assert(fake.bulkReadStateWrites.length === 0, `Expected no bulk Kavita read-state calls, got ${JSON.stringify(fake.bulkReadStateWrites)}`);
+    assert(!JSON.stringify(kavitaMarkRead.data).includes(KAVITA_SMOKE_KEY), `Kavita mark-read response must not expose API keys, got ${JSON.stringify(kavitaMarkRead.data)}`);
+    assert(!JSON.stringify(kavitaMarkRead.data).includes(KAVITA_SMOKE_BEARER), `Kavita mark-read response must not expose bearer tokens, got ${JSON.stringify(kavitaMarkRead.data)}`);
     const kavitaReaderInfo = await client.request(`/api/media/${chapterOne.id}/kavita-reader-info?includeDimensions=true&${scopeQuery}`, {
       expectStatus: 200
     });
@@ -953,6 +995,8 @@ async function main() {
       progressReadPage: kavitaProgressReadback.data?.progress?.pageNum,
       progressWriteEndpointCalls: fake.progressWrites.length,
       progressWritePage: fake.progressWrites[0]?.pageNum,
+      readStateEndpointCalls: fake.readStateWrites.length,
+      bulkReadStateEndpointCalls: fake.bulkReadStateWrites.length,
       readerInfoEndpointCalls: fake.readerInfoReads.length,
       readerImageEndpointCalls: fake.readerImageReads.length,
       comicClassifiedFromLibraryType: canonicalComic.media_type === 'comic_book',

@@ -640,6 +640,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   const [kavitaProgress, setKavitaProgress] = useState(null);
   const [kavitaProgressLoading, setKavitaProgressLoading] = useState(false);
   const [kavitaProgressSaving, setKavitaProgressSaving] = useState(false);
+  const [kavitaMarkReadSaving, setKavitaMarkReadSaving] = useState(false);
   const [kavitaReaderInfo, setKavitaReaderInfo] = useState(null);
   const [kavitaReaderLoading, setKavitaReaderLoading] = useState(false);
   const [kavitaReaderPage, setKavitaReaderPage] = useState(0);
@@ -1043,6 +1044,22 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
       onToast?.(error?.response?.data?.error || 'Failed to save Kavita progress', 'error');
     } finally {
       setKavitaProgressSaving(false);
+    }
+  };
+
+  const markKavitaChapterRead = async () => {
+    if (!item?.id || kavitaMarkReadSaving) return;
+    setKavitaMarkReadSaving(true);
+    try {
+      await apiCall('post', `/media/${item.id}/kavita-read-state`, {
+        generateReadingSession: false,
+        confirm: true
+      });
+      onToast?.('Kavita chapter marked read');
+    } catch (error) {
+      onToast?.(error?.response?.data?.error || 'Failed to mark Kavita chapter read', 'error');
+    } finally {
+      setKavitaMarkReadSaving(false);
     }
   };
 
@@ -1880,6 +1897,15 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                     >
                       {kavitaProgressSaving ? <Spinner size={14} /> : <Icons.Check />}
                       {kavitaProgressSaving ? 'Saving…' : 'Save Progress'}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-secondary btn-sm"
+                      onClick={markKavitaChapterRead}
+                      disabled={kavitaMarkReadSaving}
+                    >
+                      {kavitaMarkReadSaving ? <Spinner size={14} /> : <Icons.Check />}
+                      {kavitaMarkReadSaving ? 'Marking…' : 'Mark Read in Kavita'}
                     </button>
                   </div>
                 </div>

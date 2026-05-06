@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.104",
+      "version": "v3.4.104",
+      "date": "2026-05-06",
+      "status": "Ready for CI release gates",
+      "summary": "This patch adds the first runtime Kavita read-state action. Workspace admins can explicitly mark a linked Kavita chapter-backed row read in Kavita, using only Kavita's chapter-level mark-read endpoint.",
+      "details": [
+        {
+          "heading": "Shipped",
+          "bullets": [
+            "Added a scoped `POST /api/media/:id/kavita-read-state` endpoint for Kavita chapter-backed rows.",
+            "Calls only `POST /api/Reader/mark-chapter-read` with `seriesId`, `chapterId`, and `generateReadingSession`.",
+            "Added a `Mark Read in Kavita` drawer action beside the explicit page/progress controls.",
+            "Extended the fake-Kavita import/sync smoke to prove one chapter mark-read call and no bulk read-state calls.",
+            "Updated the read-state contract probe so chapter mark-read is enabled while series, volume, panel, KOReader, and unread endpoints remain prohibited."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.4.103",
       "version": "v3.4.103",
       "date": "2026-05-06",
@@ -154,14 +173,6 @@
     {
       "title": "collectZ v3.4.95",
       "version": "v3.4.95",
-      "date": null,
-      "status": null,
-      "summary": "",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.4.94",
-      "version": "v3.4.94",
       "date": null,
       "status": null,
       "summary": "",

@@ -18,6 +18,7 @@ const {
   kavitaMetadataWritebackPreviewSchema,
   kavitaMetadataWritebackApplySchema,
   kavitaProgressWriteSchema,
+  kavitaChapterReadStateSchema,
   mediaMergePreviewSchema,
   mediaMergeApplySchema,
   mediaMergeRevertSchema,
@@ -56,6 +57,7 @@ const {
   fetchKavitaImportItems,
   fetchKavitaReaderProgress,
   updateKavitaReaderProgress,
+  markKavitaReaderChapterRead,
   fetchKavitaReaderChapterInfo,
   fetchKavitaReaderImage,
   fetchKavitaSeriesMetadata,
@@ -72,6 +74,7 @@ const {
 } = require('../services/kavitaWritebackContract');
 const {
   buildKavitaProgressWritePayload,
+  buildKavitaChapterReadStatePayload,
   normalizeKavitaProgressReadback
 } = require('../services/kavitaProgressContract');
 const { mapDeliciousItemTypeToMediaType } = require('../services/importMapping');
@@ -7473,6 +7476,63 @@ router.post('/:id/kavita-progress', requireSessionAuth, validate(kavitaProgressW
       chapterId: payload.chapterId
     },
     progress
+  });
+}));
+
+router.post('/:id/kavita-read-state', requireSessionAuth, validate(kavitaChapterReadStateSchema), asyncHandler(async (req, res) => {
+  const mediaId = Number(req.params.id || 0) || null;
+  if (!mediaId) {
+    return res.status(400).json({ error: 'Invalid media id' });
+  }
+
+  const {
+    row,
+    scopeContext,
+    config,
+    auth,
+    seriesId,
+    chapterId
+  } = await buildKavitaProgressContext(req, mediaId);
+  if (!await canManageWorkspaceIntegration(req, row.space_id || scopeContext?.spaceId || null)) {
+    return res.status(403).json({ error: 'Kavita chapter mark-read requires workspace admin access' });
+  }
+
+  let payload;
+  try {
+    payload = buildKavitaChapterReadStatePayload({
+      seriesId,
+      chapterId,
+      generateReadingSession: req.body.generateReadingSession
+    });
+  } catch (error) {
+    return res.status(400).json({ error: error.message });
+  }
+
+  await markKavitaReaderChapterRead(config, auth.token, payload);
+
+  await logActivity(req, 'media.kavita.read_state.mark_chapter_read', 'media', mediaId, {
+    workspaceId: row.space_id || scopeContext?.spaceId || null,
+    mediaId,
+    seriesId: payload.seriesId,
+    chapterId: payload.chapterId,
+    generateReadingSession: payload.generateReadingSession
+  });
+
+  res.json({
+    ok: true,
+    readOnly: false,
+    provider: 'kavita',
+    action: 'mark_chapter_read',
+    media: {
+      id: row.id,
+      title: row.title,
+      media_type: row.media_type
+    },
+    target: {
+      seriesId: payload.seriesId,
+      chapterId: payload.chapterId
+    },
+    generateReadingSession: payload.generateReadingSession
   });
 }));
 

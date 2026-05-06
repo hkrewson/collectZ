@@ -26,7 +26,6 @@ const PROGRESS_WRITE_ENDPOINTS = Object.freeze([
 const PROGRESS_UNSUPPORTED_WRITE_ENDPOINTS = Object.freeze([
   READER_MARK_READ_ENDPOINT,
   READER_MARK_UNREAD_ENDPOINT,
-  READER_MARK_CHAPTER_READ_ENDPOINT,
   READER_MARK_VOLUME_READ_ENDPOINT,
   PANELS_SAVE_PROGRESS_ENDPOINT,
   KOREADER_PROGRESS_SYNC_ENDPOINT
@@ -35,7 +34,6 @@ const PROGRESS_UNSUPPORTED_WRITE_ENDPOINTS = Object.freeze([
 const READ_STATE_DISABLED_WRITE_ENDPOINTS = Object.freeze([
   READER_MARK_READ_ENDPOINT,
   READER_MARK_UNREAD_ENDPOINT,
-  READER_MARK_CHAPTER_READ_ENDPOINT,
   READER_MARK_VOLUME_READ_ENDPOINT,
   PANELS_SAVE_PROGRESS_ENDPOINT,
   KOREADER_PROGRESS_SYNC_ENDPOINT
@@ -128,7 +126,7 @@ function buildKavitaProgressContractProbe() {
   return {
     provider: 'kavita',
     progressSyncImplementationEnabled: true,
-    recommendation: 'explicit user-confirmed progress writeback with server-side page proxying',
+    recommendation: 'explicit user-confirmed progress writeback, chapter mark-read, and server-side page proxying',
     endpoints: {
       getProgress: {
         method: 'GET',
@@ -181,17 +179,16 @@ function buildKavitaProgressContractProbe() {
         body: ['seriesId', 'volumeId', 'generateReadingSession']
       }
     },
-    readStateImplementationEnabled: false,
-    enabledWriteEndpoints: [READER_SET_PROGRESS_ENDPOINT],
+    readStateImplementationEnabled: true,
+    enabledWriteEndpoints: [READER_SET_PROGRESS_ENDPOINT, READER_MARK_CHAPTER_READ_ENDPOINT],
     prohibitedWriteEndpoints: [...PROGRESS_UNSUPPORTED_WRITE_ENDPOINTS],
     readStateContract: {
-      firstCandidateEndpoint: READER_MARK_CHAPTER_READ_ENDPOINT,
-      firstCandidateBody: ['seriesId', 'chapterId', 'generateReadingSession'],
+      enabledEndpoint: READER_MARK_CHAPTER_READ_ENDPOINT,
+      enabledBody: ['seriesId', 'chapterId', 'generateReadingSession'],
       disabledWriteEndpoints: [...READ_STATE_DISABLED_WRITE_ENDPOINTS],
       disabledReasons: [
         'series-level mark read/unread mutates every volume and chapter',
         'volume-level mark read mutates all chapters in a volume',
-        'chapter-level mark read still needs explicit user copy and runtime proof',
         'Kavita exposes no matching chapter-level mark-unread endpoint in the checked OpenAPI snapshot',
         'collectZ has not defined per-user Kavita identity beyond the workspace-owned service account'
       ]
@@ -201,14 +198,16 @@ function buildKavitaProgressContractProbe() {
       'workspace-owned Kavita connection',
       'signed-in collectZ user ownership decision before persistence',
       'explicit user action before progress writeback',
+      'explicit user action before chapter mark-read',
       'backend-only credential use',
       'secret-free browser readback',
-      'audit log for progress writeback'
+      'audit log for progress writeback and chapter mark-read'
     ],
     nonGoals: [
       'iframe Kavita reader with browser-visible Kavita credentials',
       'automatic progress writeback',
-      'mark-read or mark-unread shortcuts',
+      'series or volume mark-read shortcuts',
+      'mark-unread shortcuts',
       'KOReader sync shortcut',
       'shared digital-library progress abstraction'
     ]

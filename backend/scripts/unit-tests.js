@@ -1989,17 +1989,23 @@ results.push(run('kavita progress sync contract supports explicit progress write
   assert.strictEqual(payload.chapterId, 9702);
 }));
 
-results.push(run('kavita mark read unread contract remains disabled and chapter-scoped first', () => {
+results.push(run('kavita chapter mark-read implementation stays chapter-scoped', () => {
   assert.ok(kavitaReaderProgressDocSource.includes('`3.4.103` defines the mark read/unread contract'));
+  assert.ok(kavitaReaderProgressDocSource.includes('`3.4.104` implements explicit chapter mark-read'));
   assert.ok(kavitaReaderProgressDocSource.includes('`POST /api/Reader/mark-read` and `POST /api/Reader/mark-unread` use `MarkReadDto`'));
   assert.ok(kavitaReaderProgressDocSource.includes('`POST /api/Reader/mark-chapter-read` uses `MarkChapterReadDto`'));
   assert.ok(kavitaReaderProgressDocSource.includes('does not expose a chapter-level mark-unread endpoint'));
-  assert.ok(kavitaReaderProgressDocSource.includes('runtime mark read/unread remains disabled'));
+  assert.ok(kavitaReaderProgressDocSource.includes('chapter mark-read is enabled only for explicit user action'));
   assert.ok(kavitaProgressContractProbeSource.includes('readStateImplementationEnabled'));
   assert.ok(kavitaProgressContractProbeSource.includes('READ_STATE_DISABLED_WRITE_ENDPOINTS'));
   assert.ok(kavitaProgressContractProbeSource.includes('/api/Reader/mark-chapter-read'));
-  assert.ok(!mediaRoutesSource.includes('kavita-read-state'));
-  assert.ok(!libraryViewSource.includes('Mark Read in Kavita'));
+  assert.ok(mediaRoutesSource.includes("router.post('/:id/kavita-read-state'"));
+  assert.ok(mediaRoutesSource.includes('media.kavita.read_state.mark_chapter_read'));
+  assert.ok(!mediaRoutesSource.includes('/api/Reader/mark-read'));
+  assert.ok(!mediaRoutesSource.includes('/api/Reader/mark-volume-read'));
+  assert.ok(kavitaImportSyncSmokeSource.includes('/kavita-read-state'));
+  assert.ok(kavitaImportSyncSmokeSource.includes('bulkReadStateWrites.length === 0'));
+  assert.ok(libraryViewSource.includes('Mark Read in Kavita'));
   const readStatePayload = buildKavitaChapterReadStatePayload({
     seriesId: 8602,
     chapterId: 9702,

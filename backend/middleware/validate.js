@@ -273,6 +273,20 @@ const kavitaProgressWriteSchema = z.object({
   })
 }).strict();
 
+const kavitaChapterReadStateSchema = z.object({
+  generateReadingSession: z.preprocess((value) => {
+    if (typeof value === 'string') {
+      const trimmed = value.trim().toLowerCase();
+      if (trimmed === 'true') return true;
+      if (trimmed === 'false' || trimmed === '') return false;
+    }
+    return value === undefined || value === null ? false : value;
+  }, z.boolean().default(false)),
+  confirm: z.literal(true, {
+    errorMap: () => ({ message: 'confirm must be true to mark a Kavita chapter read' })
+  })
+}).strict();
+
 const mediaLoanBaseSchema = z.object({
   borrower_name: z.string().trim().min(1, 'borrower_name is required').max(255),
   borrower_email: z.preprocess(emptyStringToNull, z.string().email('Invalid borrower email address').max(255).optional().nullable()),
@@ -1016,6 +1030,7 @@ module.exports = {
   kavitaMetadataWritebackPreviewSchema,
   kavitaMetadataWritebackApplySchema,
   kavitaProgressWriteSchema,
+  kavitaChapterReadStateSchema,
   mediaMergePreviewSchema,
   mediaMergeApplySchema,
   mediaMergeRevertSchema,

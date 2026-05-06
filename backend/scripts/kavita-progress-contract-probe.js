@@ -106,12 +106,13 @@ async function main() {
     assert.strictEqual(readRequest.implementationEnabled, true);
     assert.ok(probe.enabledWriteEndpoints.includes('/api/Reader/progress'));
     assert.ok(!probe.prohibitedWriteEndpoints.includes('/api/Reader/progress'));
-    assert.strictEqual(probe.readStateImplementationEnabled, false);
-    assert.strictEqual(probe.readStateContract.firstCandidateEndpoint, '/api/Reader/mark-chapter-read');
+    assert.strictEqual(probe.readStateImplementationEnabled, true);
+    assert.strictEqual(probe.readStateContract.enabledEndpoint, '/api/Reader/mark-chapter-read');
     assert.deepStrictEqual(probe.readStateContract.disabledWriteEndpoints, READ_STATE_DISABLED_WRITE_ENDPOINTS);
     assert.ok(probe.readStateContract.disabledWriteEndpoints.includes('/api/Reader/mark-read'));
     assert.ok(probe.readStateContract.disabledWriteEndpoints.includes('/api/Reader/mark-unread'));
-    assert.ok(probe.readStateContract.disabledWriteEndpoints.includes('/api/Reader/mark-chapter-read'));
+    assert.ok(!probe.readStateContract.disabledWriteEndpoints.includes('/api/Reader/mark-chapter-read'));
+    assert.ok(probe.enabledWriteEndpoints.includes('/api/Reader/mark-chapter-read'));
     assert.ok(probe.prohibitedWriteEndpoints.includes('/api/Koreader/{apiKey}/syncs/progress'));
     const writePayload = buildKavitaProgressWritePayload({
       libraryId: 44,
