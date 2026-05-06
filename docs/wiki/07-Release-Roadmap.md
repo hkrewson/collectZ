@@ -9304,7 +9304,7 @@ Historical note:
 
 **Goal:** Prove the narrow Kavita reset-progress payload shape after `3.4.105` without exposing a misleading unread or reset-progress product control.
 
-**Current Slice:** `Active`
+**Status:** Completed.
 
 ### Scope
 
@@ -9370,6 +9370,43 @@ Historical note:
 - Risks/follow-ups: Kavita still exposes no checked chapter-level mark-unread endpoint, so collectZ labels this action `Reset Progress` and keeps true chapter unread out of scope; reset progress represents the workspace-owned Kavita account, not a distinct collectZ-user Kavita identity; full embedded reader ownership, raw/PDF chapter proxying, background polling, KOReader sync, and shared provider abstractions remain separate future work.
 - What remains in the milestone: no open `3.4.107` implementation work remains; CI-only release gates must pass before public tag/release publication. Later Kavita work should stay separated into true chapter unread if Kavita exposes/proves a safe endpoint, richer embedded reader ownership, raw/PDF chapter proxying, KOReader/background sync, and shared provider abstractions.
 - Recommended commit message: `Release 3.4.107 Kavita runtime unread reset implementation`.
+
+## 3.4.108 — Kavita Embedded Reader Controls Polish
+
+**Goal:** Polish the existing Kavita chapter page-proxy controls so reader page preview, progress readback, save progress, reset progress, and mark-read actions feel cohesive without widening into full embedded reader ownership.
+
+**Current Slice:** `Active`
+
+### Scope
+
+- Improve the media drawer's Kavita chapter reader section layout and copy.
+- Present page controls as one-based user-facing page numbers while keeping the existing zero-based backend page parameter.
+- Add clearer reader loaded/error/loading states for the proxied page image.
+- Group `Load Reader`, `Save Progress`, `Reset Progress`, and `Mark Read in Kavita` as explicit actions.
+- Preserve the existing progress/read/reset endpoints and workspace-admin write boundaries.
+- Keep iframe reader ownership, raw/PDF chapter proxying, automatic progress writes, background polling, KOReader sync, and true mark-unread behavior out of scope.
+
+### Acceptance Criteria
+
+- Kavita chapter-backed rows show a cohesive `Kavita Reader` drawer section.
+- The drawer displays current page, total pages, saved progress, and reader/image loading state clearly.
+- Page entry uses one-based page numbers without changing backend API semantics.
+- Reader image failures surface a browser-visible error state.
+- Existing Kavita import/sync and progress contract smokes still pass.
+- Version metadata and Help > Releases are aligned to `3.4.108`.
+
+### Closeout
+
+- Roadmap slice: `3.4.108 — Kavita Embedded Reader Controls Polish`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/42-Kavita-Reader-Progress-Contract.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/08-Backlog.md`, and this roadmap.
+- Runtime verification used: rebuilt the Docker platform stack with `APP_VERSION=3.4.108`; verified `/api/health` reports frontend/backend/build `3.4.108`; verified the running backend container reports platform development runtime values; verified live DB `feature_flags.events_enabled=true` before the slice, after stack restore, after observability evidence, and after final checks; verified Help > Releases serves `v3.4.108` first; ran Kavita progress and import/sync smokes inside the stack with fake Kavita runtime, including reader info/image proxy calls, progress reset page `0`, progress write page `1`, no bulk read-state calls, secret-free responses, cover proxy readback, workspace-owned settings, cross-workspace isolation, and existing non-Kavita title reuse.
+- CI/checks run locally: changed-source unit assertions; Docker container `npm run test:unit` (`249` passed); Docker container OpenAPI validation; Docker container Kavita progress contract probe; Docker container Kavita import/sync smoke with `BASE_URL=http://frontend:3000`; Docker Help > Releases smoke with `EXPECTED_RELEASE_VERSION=v3.4.108`; Docker API integration smoke; Docker init parity; Docker migration rehearsal; Docker RBAC regression; Docker platform edition boundary; generated-compose homelab edition boundary; `npm run compose:generate`; `npm run validate:public-export`; observability release evidence (`9/9` passed); local release preflight; full Playwright browser regression (`58` passed, `4` skipped); version sync check; release artifact secret-pattern grep; and `git diff --check`.
+- Version closeout: `app-meta.json`, backend/frontend app metadata, backend/frontend package metadata and lockfiles, `docker-compose.yml`, `docs/releases/v3.4.108.md`, and `backend/release-feed.json` are aligned to `3.4.108`; running Help > Releases serves `v3.4.108` first.
+- Release gate accounting: rebuilt stack health, response headers, CSRF/auth basics, and integration smoke locally covered compose basics except the CI secure-cookie profile; `rbac-regression`, local `browser-regression`, `homelab-edition-boundary`, `platform-edition-boundary`, dependency-audit artifact checks, init parity, migration rehearsal, and observability evidence passed locally. Local release preflight marks secure-cookie compose coverage blocked in the development stack (`SESSION_COOKIE_SECURE=false`, `NODE_ENV=development`), and CI must still rerun `compose-smoke`, `secret-scan`, and `image-security-and-sbom`.
+- Files changed: `app-meta.json`, `backend/app-meta.json`, `frontend/src/app-meta.json`, `backend/package.json`, `frontend/package.json`, `backend/package-lock.json`, `frontend/package-lock.json`, `backend/scripts/unit-tests.js`, `frontend/src/components/LibraryView.jsx`, `docker-compose.yml`, `docs/releases/v3.4.108.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/42-Kavita-Reader-Progress-Contract.md`, `backend/release-feed.json`, `artifacts/observability-evidence/observability-release-evidence.json`, and `preflight-go-no-go.md`.
+- Risks or follow-ups: the UI polish remains a page-image preview rather than a full Kavita iframe/streaming reader; true unread, raw/PDF proxying, automatic progress writes, background polling, KOReader sync, and shared provider-reader abstractions remain intentionally out of scope. Local `gitleaks` and `trivy` binaries were not installed, so those scanner gates remain CI-only plus local release-artifact grep hygiene.
+- What remains in the milestone: no open `3.4.108` implementation work remains; CI-only release gates must pass before public tag/release publication.
+- Recommended commit message: `Release 3.4.108 Kavita embedded reader controls polish`.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 

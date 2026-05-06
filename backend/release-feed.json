@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.108",
+      "version": "v3.4.108",
+      "date": "2026-05-06",
+      "status": "Ready for CI release gates",
+      "summary": "This patch polishes the Kavita chapter reader controls so page preview, progress readback, save progress, mark read, and reset progress feel like one coherent drawer workflow.",
+      "details": [
+        {
+          "heading": "Shipped",
+          "bullets": [
+            "Renamed the drawer section to `Kavita Reader` for chapter-backed Kavita rows.",
+            "Added reader status badges for loaded state, current page, total pages, and saved progress.",
+            "Switched drawer page entry to user-facing one-based page numbers while preserving zero-based Kavita API calls behind the scenes.",
+            "Added page-image loading and error states for the proxied reader image.",
+            "Grouped `Load Reader`, `Save Progress`, `Reset Progress`, and `Mark Read in Kavita` beside the page preview.",
+            "Kept reset-progress copy separate from true unread behavior."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.4.107",
       "version": "v3.4.107",
       "date": "2026-05-06",
@@ -165,26 +185,6 @@
             "Default selected all changed unlocked fields after preview, while unchanged rows remain read-only.",
             "Changed `Apply to Kavita` so it sends only the selected changed fields.",
             "Added selected-field readback beside the existing changed/skipped counts."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.4.98",
-      "version": "v3.4.98",
-      "date": "2026-05-05",
-      "status": "Ready for CI release gates",
-      "summary": "This patch adds the first explicit Kavita metadata writeback apply path. Workspace admins can review the Kavita preview diff and then manually write changed, unlocked collectZ metadata fields to the linked Kavita series or chapter.",
-      "details": [
-        {
-          "heading": "Shipped",
-          "bullets": [
-            "Added a workspace-admin-only Kavita metadata apply endpoint for Kavita-linked media rows.",
-            "Recompute the preview diff immediately before writing so locked, missing, and unchanged fields are not sent.",
-            "Added Kavita series and chapter metadata mutation helpers targeting `POST /api/Series/metadata` and `POST /api/Chapter/update`.",
-            "Added a guarded `Apply to Kavita` action beside the media-detail Kavita Metadata preview.",
-            "Extended the Kavita import/sync smoke fake server to prove series and chapter apply payloads without mutating a real Kavita server.",
-            "Added activity/audit events for applied, skipped, and failed writeback attempts."
           ]
         }
       ]

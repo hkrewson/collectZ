@@ -1973,10 +1973,10 @@ results.push(run('kavita progress sync contract supports explicit progress write
   assert.ok(kavitaImportSyncSmokeSource.includes('/kavita-progress'));
   assert.ok(kavitaImportSyncSmokeSource.includes('/kavita-reader-info'));
   assert.ok(kavitaImportSyncSmokeSource.includes('/kavita-reader-page'));
-  assert.ok(libraryViewSource.includes('Kavita Progress'));
+  assert.ok(libraryViewSource.includes('Kavita Reader'));
   assert.ok(libraryViewSource.includes('Read Progress'));
   assert.ok(libraryViewSource.includes('Save Progress'));
-  assert.ok(libraryViewSource.includes('Reader page'));
+  assert.ok(libraryViewSource.includes('Page preview'));
   assert.ok(libraryViewSource.includes('kavitaProgressRows'));
   const payload = buildKavitaProgressWritePayload({
     libraryId: 87,
@@ -2063,6 +2063,23 @@ results.push(run('kavita reset progress runtime uses page zero without claiming 
     chapterId: 9702,
     lastModifiedUtc: '2026-05-06T05:20:00Z'
   }), resetPayload);
+}));
+
+results.push(run('kavita embedded reader controls stay explicit and one-based in the drawer', () => {
+  assert.ok(kavitaReaderProgressDocSource.includes('`3.4.108` polishes the existing Kavita chapter reader controls'));
+  assert.ok(kavitaReaderProgressDocSource.includes('Page entry is user-facing and one-based'));
+  assert.ok(kavitaReaderProgressDocSource.includes('No operation auto-saves progress when the user changes pages'));
+  assert.ok(libraryViewSource.includes('Kavita Reader'));
+  assert.ok(libraryViewSource.includes('Load Reader'));
+  assert.ok(libraryViewSource.includes('Page preview'));
+  assert.ok(libraryViewSource.includes('kavitaReaderImageStatus'));
+  assert.ok(libraryViewSource.includes('kavitaReaderDisplayPage = kavitaReaderPage + 1'));
+  assert.ok(libraryViewSource.includes('setKavitaReaderDisplayPage'));
+  assert.ok(libraryViewSource.includes('This Kavita page could not be loaded.'));
+  assert.ok(libraryViewSource.includes('Saved {kavitaProgressDisplayPage'));
+  assert.ok(libraryViewSource.includes('onLoad={() => setKavitaReaderImageStatus'));
+  assert.ok(libraryViewSource.includes('onError={() => setKavitaReaderImageStatus'));
+  assert.ok(!libraryViewSource.includes('Mark Unread in Kavita'));
 }));
 
 results.push(run('kavita chapter fan-out contract keeps series and issue identities distinct and opt-in', () => {

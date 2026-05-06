@@ -644,6 +644,8 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   const [kavitaMarkReadSaving, setKavitaMarkReadSaving] = useState(false);
   const [kavitaReaderInfo, setKavitaReaderInfo] = useState(null);
   const [kavitaReaderLoading, setKavitaReaderLoading] = useState(false);
+  const [kavitaReaderError, setKavitaReaderError] = useState('');
+  const [kavitaReaderImageStatus, setKavitaReaderImageStatus] = useState('idle');
   const [kavitaReaderPage, setKavitaReaderPage] = useState(0);
   const typeDetails = item?.type_details && typeof item.type_details === 'object' ? item.type_details : {};
   const isBook = item?.media_type === 'book';
@@ -1013,6 +1015,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   const loadKavitaReaderInfo = async () => {
     if (!item?.id || kavitaReaderLoading) return;
     setKavitaReaderLoading(true);
+    setKavitaReaderError('');
     try {
       const payload = await apiCall('get', `/media/${item.id}/kavita-reader-info?includeDimensions=true`);
       const reader = payload?.reader || null;
@@ -1024,7 +1027,9 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
       onToast?.('Kavita reader page loaded');
     } catch (error) {
       setKavitaReaderInfo(null);
-      onToast?.(error?.response?.data?.error || 'Failed to load Kavita reader page', 'error');
+      const message = error?.response?.data?.error || 'Failed to load Kavita reader page';
+      setKavitaReaderError(message);
+      onToast?.(message, 'error');
     } finally {
       setKavitaReaderLoading(false);
     }
@@ -1101,12 +1106,31 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   const kavitaReaderPageUrl = item?.id && kavitaReaderInfo
     ? `/api/media/${item.id}/kavita-reader-page?page=${encodeURIComponent(String(kavitaReaderPage))}`
     : '';
+  const kavitaReaderDisplayPage = kavitaReaderPage + 1;
+  const kavitaProgressPageNumber = Number(kavitaProgress?.pageNum);
+  const kavitaProgressDisplayPage = Number.isInteger(kavitaProgressPageNumber) && kavitaProgressPageNumber >= 0
+    ? kavitaProgressPageNumber + 1
+    : null;
+  const kavitaReaderTotalLabel = kavitaReaderTotalPages > 0 ? String(kavitaReaderTotalPages) : '—';
   const setBoundedKavitaReaderPage = (nextPage) => {
     const numeric = Number(nextPage);
     if (!Number.isInteger(numeric)) return;
     const maxPage = kavitaReaderTotalPages > 0 ? Math.max(0, kavitaReaderTotalPages - 1) : numeric;
     setKavitaReaderPage(Math.max(0, Math.min(maxPage, numeric)));
   };
+  const setKavitaReaderDisplayPage = (nextPage) => {
+    const numeric = Number(nextPage);
+    if (!Number.isInteger(numeric)) return;
+    setBoundedKavitaReaderPage(numeric - 1);
+  };
+
+  useEffect(() => {
+    if (!kavitaReaderPageUrl) {
+      setKavitaReaderImageStatus('idle');
+      return;
+    }
+    setKavitaReaderImageStatus('loading');
+  }, [kavitaReaderPageUrl]);
 
   const markSeasonWatched = async (seasonNumber) => {
     if (!item?.id || !Number.isInteger(Number(seasonNumber))) return;
@@ -1866,8 +1890,8 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
             <div className="border-t border-edge/60 pt-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="label">Kavita Progress</p>
-                  <p className="mt-1 text-sm text-ghost">Progress from the linked Kavita chapter.</p>
+                  <p className="label">Kavita Reader</p>
+                  <p className="mt-1 text-sm text-ghost">Chapter page, progress, and read-state controls for the linked Kavita row.</p>
                 </div>
                 <button
                   type="button"
@@ -1878,6 +1902,20 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                   {kavitaProgressLoading ? <Spinner size={14} /> : <Icons.Refresh />}
                   {kavitaProgressLoading ? 'Loading…' : 'Read Progress'}
                 </button>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2 text-xs">
+                <span className="badge badge-dim">
+                  Reader {kavitaReaderInfo ? 'ready' : 'not loaded'}
+                </span>
+                <span className="badge badge-dim">
+                  Page {kavitaReaderInfo ? kavitaReaderDisplayPage : '—'} / {kavitaReaderTotalLabel}
+                </span>
+                <span className="badge badge-dim">
+                  Saved {kavitaProgressDisplayPage ? `page ${kavitaProgressDisplayPage}` : 'not loaded'}
+                </span>
+                {kavitaReaderImageStatus === 'error' ? (
+                  <span className="badge border-err/40 bg-err/10 text-err">Page image failed</span>
+                ) : null}
               </div>
               {kavitaProgressRows.length > 0 ? (
                 <div className="mt-4 grid gap-3 sm:grid-cols-3">
@@ -1892,12 +1930,12 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                 <p className="mt-3 text-sm text-ghost">No Kavita progress has been loaded for this chapter.</p>
               )}
               <div className="mt-5 rounded-md border border-edge bg-panel/70 p-3">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                   <div>
-                    <p className="text-sm font-medium text-ink">Reader page</p>
-                    <p className="mt-1 text-xs text-ghost">Page images are proxied by collectZ; Kavita credentials stay server-side.</p>
+                    <p className="text-sm font-medium text-ink">Page preview</p>
+                    <p className="mt-1 text-xs text-ghost">Page images are proxied one at a time; Kavita credentials stay server-side.</p>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2 lg:justify-end">
                     <button
                       type="button"
                       className="btn-secondary btn-sm"
@@ -1905,7 +1943,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                       disabled={kavitaReaderLoading}
                     >
                       {kavitaReaderLoading ? <Spinner size={14} /> : <Icons.Eye />}
-                      {kavitaReaderLoading ? 'Loading…' : 'Load Page'}
+                      {kavitaReaderLoading ? 'Loading…' : 'Load Reader'}
                     </button>
                     <button
                       type="button"
@@ -1936,9 +1974,18 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                     </button>
                   </div>
                 </div>
+                {kavitaReaderError ? (
+                  <p className="mt-3 rounded-md border border-err/30 bg-err/10 px-3 py-2 text-sm text-err">{kavitaReaderError}</p>
+                ) : null}
                 {kavitaReaderInfo ? (
                   <div className="mt-4 space-y-3">
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-edge bg-raised/70 px-3 py-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs font-medium text-ghost">Page</span>
+                        <span className="text-sm font-semibold text-ink">{kavitaReaderDisplayPage}</span>
+                        <span className="text-xs text-ghost">of {kavitaReaderTotalLabel}</span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
                       <button
                         type="button"
                         className="btn-icon btn-sm"
@@ -1950,16 +1997,15 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                         <Icons.ChevronLeft />
                       </button>
                       <label className="flex items-center gap-2 text-xs text-ghost">
-                        <span>Page</span>
+                        <span>Go to</span>
                         <input
                           className="input h-8 w-20 px-2 py-1 text-sm"
                           type="number"
-                          min="0"
-                          max={kavitaReaderTotalPages > 0 ? Math.max(0, kavitaReaderTotalPages - 1) : undefined}
-                          value={kavitaReaderPage}
-                          onChange={(event) => setBoundedKavitaReaderPage(Number(event.target.value))}
+                          min="1"
+                          max={kavitaReaderTotalPages > 0 ? kavitaReaderTotalPages : undefined}
+                          value={kavitaReaderDisplayPage}
+                          onChange={(event) => setKavitaReaderDisplayPage(Number(event.target.value))}
                         />
-                        {kavitaReaderTotalPages > 0 ? <span>of {kavitaReaderTotalPages}</span> : null}
                       </label>
                       <button
                         type="button"
@@ -1971,13 +2017,27 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                       >
                         <Icons.ChevronRight />
                       </button>
+                      </div>
                     </div>
-                    <div className="overflow-hidden rounded-md border border-edge bg-black">
+                    <div className="relative min-h-[220px] overflow-hidden rounded-md border border-edge bg-black">
+                      {kavitaReaderImageStatus === 'loading' ? (
+                        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/70 text-sm text-white">
+                          <Spinner size={18} />
+                          <span className="ml-2">Loading page…</span>
+                        </div>
+                      ) : null}
+                      {kavitaReaderImageStatus === 'error' ? (
+                        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/85 px-4 text-center text-sm text-white">
+                          This Kavita page could not be loaded.
+                        </div>
+                      ) : null}
                       {kavitaReaderPageUrl ? (
                         <img
                           src={kavitaReaderPageUrl}
-                          alt={`${item.title || 'Kavita chapter'} page ${kavitaReaderPage}`}
+                          alt={`${item.title || 'Kavita chapter'} page ${kavitaReaderDisplayPage}`}
                           className="mx-auto max-h-[72vh] w-auto max-w-full object-contain"
+                          onLoad={() => setKavitaReaderImageStatus('loaded')}
+                          onError={() => setKavitaReaderImageStatus('error')}
                         />
                       ) : null}
                     </div>
