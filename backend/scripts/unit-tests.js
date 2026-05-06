@@ -993,6 +993,18 @@ Short release summary.
   assert.strictEqual(parsed.details.length, 2);
   assert.strictEqual(parsed.details[0].heading, 'Guidance');
   assert.strictEqual(parsed.details[0].bullets[0], 'Added a tabbed help center.');
+
+  const lowercaseParsed = parseReleaseMarkdown(`# v9.9.10
+
+## Summary
+Lowercase release summary.
+
+## What changed
+### Release
+- Kept CI release-note checks aligned with the Help release feed.
+`);
+  assert.strictEqual(lowercaseParsed.details[0].heading, 'Release');
+  assert.strictEqual(lowercaseParsed.details[0].bullets[0], 'Kept CI release-note checks aligned with the Help release feed.');
 }));
 
 results.push(run('releaseNotes.compareReleaseVersions sorts newest versions first', () => {

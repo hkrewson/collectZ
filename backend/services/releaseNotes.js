@@ -30,7 +30,7 @@ function extractSection(markdown, heading) {
 }
 
 function parseWhatChanged(markdown) {
-  const section = extractSection(markdown, 'What Changed');
+  const section = extractSection(markdown, 'What Changed') || extractSection(markdown, 'What changed');
   if (!section) return [];
 
   const lines = section.split('\n');

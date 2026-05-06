@@ -5,16 +5,37 @@
       "version": "v3.4.109",
       "date": "2026-05-06",
       "status": "Ready for CI release gates",
-      "summary": "This patch adds item-local numbered print metadata to Art so limited prints can show their specific edition signal while browsing and in the detail drawer.",
+      "summary": "This release adds item-local numbered print metadata to Art so limited prints can show their edition signal while browsing and in detail views. It also simplifies Art poster cards so signed numbered prints read like `#150/200 Signed Print` under the title instead of layering badges over and below the artwork.",
       "details": [
         {
-          "heading": "Shipped",
+          "heading": "Backend",
           "bullets": [
             "Added positive-integer Art metadata fields for print number and print run.",
-            "Added editor inputs for partial or complete numbered print values.",
-            "Added clean card subtitle readback plus list, mobile detail, and desktop detail readback for numbered prints.",
-            "Shows concise copy such as `#12/100 Signed Print`, `Print #12`, or `Print Run 100` when print metadata exists.",
-            "Preserved non-numbered artwork entry with no new required fields.",
+            "Added validation and API read/write support for partial or complete numbered print values.",
+            "Kept numbered print metadata item-local without adding reusable artist records, external print registries, or valuation enrichment."
+          ]
+        },
+        {
+          "heading": "Frontend",
+          "bullets": [
+            "Added Art editor inputs for print number and print run.",
+            "Added list, mobile detail, and desktop detail readback for numbered prints.",
+            "Simplified Art poster cards by removing the top `#ID`, `Art`, and `Signed` badges plus the lower metadata pills.",
+            "Shows concise Art poster subtitle copy such as `#150/200 Signed Print`.",
+            "Preserved non-numbered artwork entry with no new required fields."
+          ]
+        },
+        {
+          "heading": "Database",
+          "bullets": [
+            "Added `art_items.print_number` and `art_items.print_run` as nullable positive-integer metadata fields.",
+            "Updated bootstrap schema parity so fresh installs include the numbered print columns."
+          ]
+        },
+        {
+          "heading": "Docs/Ops",
+          "bullets": [
+            "Updated roadmap closeout and Help > Releases feed for `v3.4.109`.",
             "Reduced the local Graylog evidence stack's default journal size so release observability checks can run in constrained Docker Desktop storage."
           ]
         }
