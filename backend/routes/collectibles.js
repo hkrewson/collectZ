@@ -127,6 +127,8 @@ const serializeNativeArtRow = (row) => {
     width: row.width === null || row.width === undefined ? null : Number(row.width),
     dimension_unit: row.dimension_unit || null,
     framed: row.framed === true,
+    print_number: row.print_number === null || row.print_number === undefined ? null : Number(row.print_number),
+    print_run: row.print_run === null || row.print_run === undefined ? null : Number(row.print_run),
     artist: row.artist || null,
     vendor,
     booth,
@@ -425,6 +427,8 @@ const normalizeArtPayload = (payload = {}) => {
     width: payload.width ?? null,
     dimension_unit: payload.dimension_unit || null,
     framed: payload.framed === true,
+    print_number: payload.print_number ?? null,
+    print_run: payload.print_run ?? null,
     event_id: payload.event_id || null,
     vendor,
     booth,
@@ -730,6 +734,8 @@ const createArt = asyncHandler(async (req, res) => {
        width,
        dimension_unit,
        framed,
+       print_number,
+       print_run,
        vendor,
        booth,
        price,
@@ -737,7 +743,7 @@ const createArt = asyncHandler(async (req, res) => {
        signed,
        image_path,
        notes
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
      RETURNING *`,
     [
       libraryId,
@@ -752,6 +758,8 @@ const createArt = asyncHandler(async (req, res) => {
       payload.width,
       payload.dimension_unit,
       payload.framed,
+      payload.print_number,
+      payload.print_run,
       payload.vendor,
       payload.booth,
       payload.price,
@@ -934,7 +942,7 @@ const updateArt = asyncHandler(async (req, res) => {
     if (!eventRow) return res.status(404).json({ error: 'Linked event not found in scope' });
   }
 
-  const allowed = ['title', 'series', 'franchise', 'medium', 'height', 'width', 'dimension_unit', 'framed', 'vendor', 'booth', 'booth_or_vendor', 'artist', 'price', 'exclusive', 'signed', 'image_path', 'notes'];
+  const allowed = ['title', 'series', 'franchise', 'medium', 'height', 'width', 'dimension_unit', 'framed', 'print_number', 'print_run', 'vendor', 'booth', 'booth_or_vendor', 'artist', 'price', 'exclusive', 'signed', 'image_path', 'notes'];
   const payload = normalizeArtPayload({
     ...current,
     ...req.body

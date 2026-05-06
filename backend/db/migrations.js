@@ -4066,6 +4066,41 @@ const MIGRATIONS = [
         ADD COLUMN IF NOT EXISTS kavita_api_key_encrypted TEXT,
         ADD COLUMN IF NOT EXISTS kavita_timeout_ms INTEGER DEFAULT 20000;
     `
+  },
+  {
+    version: 95,
+    description: 'Add Art numbered print metadata',
+    up: `
+      ALTER TABLE art_items
+        ADD COLUMN IF NOT EXISTS print_number INTEGER,
+        ADD COLUMN IF NOT EXISTS print_run INTEGER;
+
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1
+          FROM pg_constraint
+          WHERE conname = 'art_items_print_number_check'
+            AND conrelid = 'art_items'::regclass
+        ) THEN
+          ALTER TABLE art_items
+            ADD CONSTRAINT art_items_print_number_check
+            CHECK (print_number IS NULL OR print_number > 0);
+        END IF;
+
+        IF NOT EXISTS (
+          SELECT 1
+          FROM pg_constraint
+          WHERE conname = 'art_items_print_run_check'
+            AND conrelid = 'art_items'::regclass
+        ) THEN
+          ALTER TABLE art_items
+            ADD CONSTRAINT art_items_print_run_check
+            CHECK (print_run IS NULL OR print_run > 0);
+        END IF;
+      END;
+      $$;
+    `
   }
 ];
 

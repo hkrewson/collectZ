@@ -964,6 +964,8 @@ const artBaseSchema = z.object({
   width: nullableNumberSchema(z.number().min(0).max(1000000)),
   dimension_unit: z.preprocess(emptyStringToNull, z.enum(artDimensionUnitValues).optional().nullable()),
   framed: z.boolean().optional().nullable(),
+  print_number: nullableNumberSchema(z.number().int().positive().max(1000000)),
+  print_run: nullableNumberSchema(z.number().int().positive().max(1000000)),
   event_id: nullableNumberSchema(z.number().int().positive()),
   vendor: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
   booth: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),

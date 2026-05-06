@@ -9338,7 +9338,7 @@ Historical note:
 
 **Goal:** Enable the narrow Kavita reset-progress runtime action proven in `3.4.106` while keeping product copy and API behavior clear that this is not true chapter-level mark-unread.
 
-**Current Slice:** `Active`
+**Status:** Completed.
 
 ### Scope
 
@@ -9375,7 +9375,7 @@ Historical note:
 
 **Goal:** Polish the existing Kavita chapter page-proxy controls so reader page preview, progress readback, save progress, reset progress, and mark-read actions feel cohesive without widening into full embedded reader ownership.
 
-**Current Slice:** `Active`
+**Status:** Completed.
 
 ### Scope
 
@@ -9407,6 +9407,42 @@ Historical note:
 - Risks or follow-ups: the UI polish remains a page-image preview rather than a full Kavita iframe/streaming reader; true unread, raw/PDF proxying, automatic progress writes, background polling, KOReader sync, and shared provider-reader abstractions remain intentionally out of scope. Local `gitleaks` and `trivy` binaries were not installed, so those scanner gates remain CI-only plus local release-artifact grep hygiene.
 - What remains in the milestone: no open `3.4.108` implementation work remains; CI-only release gates must pass before public tag/release publication.
 - Recommended commit message: `Release 3.4.108 Kavita embedded reader controls polish`.
+
+## 3.4.109 — Artwork Numbered Print Metadata and Badge
+
+**Goal:** Let artwork entries capture numbered print details, including the specific print number and total print run, and surface a clear numbered-print badge in artwork cards, rows, and detail views.
+
+**Current Slice:** `Active`
+
+### Scope
+
+- Add item-local Art metadata fields for print number and print run / edition size.
+- Support partial entry where only the print number or only the run size is known.
+- Validate positive integer values without making non-numbered artwork harder to create.
+- Show concise `Print 12/100`, `Print #12`, or `Print Run 100` readback in browse and detail surfaces when data exists.
+- Preserve existing Art type, provenance, signature, event purchase, image, artist, dimension, and framing fields.
+- Keep reusable artist records, valuation-provider enrichment, external print registries, certificate verification, and broad edition-series modeling out of scope.
+
+### Acceptance Criteria
+
+- Users can add or edit an artwork item with print number and print run values.
+- Non-numbered artwork can still be created and edited without extra required fields.
+- Artwork card, list, and detail surfaces show a numbered-print badge/readback when print metadata is present.
+- API, OpenAPI, migration, and browser coverage prove the fields round-trip and the badge/readback appears only when appropriate.
+- Version metadata and Help > Releases are aligned to `3.4.109`.
+
+### Closeout
+
+- Roadmap slice: `3.4.109 — Artwork Numbered Print Metadata and Badge`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, and the Art implementation contracts in `backend/openapi/openapi.yaml`.
+- Runtime verification used: rebuilt the Docker platform stack with `APP_VERSION=3.4.109`; verified `/api/health` reports frontend/backend/build `3.4.109`; verified the running backend container reports `APP_VERSION=3.4.109`, `APP_EDITION=platform`, `NODE_ENV=development`, and `SESSION_COOKIE_SECURE=false`; verified live DB `schema_migrations` includes version `95`; verified `art_items.print_number` and `art_items.print_run` exist as integer columns; verified live DB `feature_flags.events_enabled=true` before rebuild, after rebuild, after observability evidence, and after final stack restore; verified Help > Releases serves `v3.4.109` first.
+- CI/checks run locally: source syntax checks for `backend/db/migrations.js`, `backend/middleware/validate.js`, and `backend/routes/collectibles.js`; local backend unit/source assertions (`250` passed); local OpenAPI validation; local Vite build; Docker backend/frontend build; container backend unit/source assertions (`250` passed); container OpenAPI validation; Help > Releases smoke with `EXPECTED_RELEASE_VERSION=v3.4.109`; API integration smoke; init parity; migration rehearsal; RBAC regression; platform edition boundary smoke; generated-compose homelab edition boundary smoke; `npm run compose:generate`; `npm run validate:public-export`; full Playwright browser regression (`58` passed, `4` skipped) including Art print metadata API round-trip; observability release evidence (`9/9` passed after lowering the local Graylog evidence journal default); local release preflight; version sync check; release artifact secret-pattern grep; and `git diff --check`.
+- Version closeout: `app-meta.json`, backend/frontend app metadata, backend/frontend package metadata, `docker-compose.yml`, `docs/releases/v3.4.109.md`, and `backend/release-feed.json` are aligned to `3.4.109`; running Help > Releases serves `v3.4.109` first.
+- Release gate accounting: rebuilt stack health, response headers, `/api/auth/config`, unauthenticated `/api/auth/me`, and integration smoke locally covered compose basics except the CI secure-cookie profile; `rbac-regression`, local `browser-regression`, `homelab-edition-boundary`, `platform-edition-boundary`, dependency-audit artifact checks, init parity, migration rehearsal, and observability evidence passed locally. Local release preflight marks secure-cookie compose coverage blocked in the development stack (`SESSION_COOKIE_SECURE=false`, `NODE_ENV=development`), and CI must still rerun `compose-smoke`, `secret-scan`, and `image-security-and-sbom`.
+- Files changed: `app-meta.json`, `backend/app-meta.json`, `frontend/src/app-meta.json`, `backend/package.json`, `frontend/package.json`, `backend/db/migrations.js`, `backend/middleware/validate.js`, `backend/openapi/openapi.yaml`, `backend/routes/collectibles.js`, `backend/scripts/unit-tests.js`, `frontend/src/components/ArtView.jsx`, `init.sql`, `ops/logging/docker-compose.graylog.yml`, `docker-compose.yml`, `docs/releases/v3.4.109.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `backend/release-feed.json`, `artifacts/observability-evidence/observability-release-evidence.json`, `artifacts/init-parity-evidence/init-parity-evidence.json`, `artifacts/migration-rehearsal-evidence/migration-rehearsal-evidence.json`, `preflight-go-no-go.md`, and `tests/playwright/specs/events-collectibles.browser.spec.js`.
+- Risks or follow-ups: numbered print metadata is intentionally item-local; reusable artist records, valuation enrichment, external print registries, certificate verification, and broad edition-series modeling remain separate. Local `gitleaks` and `trivy` binaries were not installed, so `secret-scan` and `image-security-and-sbom` remain CI-only plus local release-artifact grep hygiene.
+- What remains in the milestone: no open `3.4.109` implementation work remains; CI-only release gates must pass before public tag/release publication.
+- Recommended commit message: `Release 3.4.109 Artwork numbered print metadata and badge`.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 

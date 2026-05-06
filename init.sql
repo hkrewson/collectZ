@@ -782,6 +782,8 @@ CREATE TABLE IF NOT EXISTS art_items (
     dimension_unit VARCHAR(10)
       CHECK (dimension_unit IS NULL OR dimension_unit IN ('in', 'cm')),
     framed BOOLEAN NOT NULL DEFAULT false,
+    print_number INTEGER CHECK (print_number IS NULL OR print_number > 0),
+    print_run INTEGER CHECK (print_run IS NULL OR print_run > 0),
     vendor VARCHAR(255),
     booth VARCHAR(255),
     price NUMERIC(10,2),
@@ -1550,5 +1552,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (91, 'Add event schedule notification recipient readback'),
     (92, 'Add user-linked event attendee identity'),
     (93, 'Add event schedule notification delivery attempts'),
-    (94, 'Add Kavita digital library integration settings')
+    (94, 'Add Kavita digital library integration settings'),
+    (95, 'Add Art numbered print metadata')
 ON CONFLICT (version) DO NOTHING;

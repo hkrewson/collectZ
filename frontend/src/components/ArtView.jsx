@@ -26,6 +26,8 @@ const DEFAULT_FORM = {
   width: '',
   dimension_unit: 'in',
   framed: false,
+  print_number: '',
+  print_run: '',
   event_id: '',
   vendor: '',
   booth: '',
@@ -100,9 +102,21 @@ function formatDimensionValue(value, unit) {
   return [value, unit].filter(Boolean).join(' ');
 }
 
+function formatPrintEdition(item) {
+  const printNumber = item?.print_number;
+  const printRun = item?.print_run;
+  const hasPrintNumber = printNumber !== null && printNumber !== undefined && printNumber !== '';
+  const hasPrintRun = printRun !== null && printRun !== undefined && printRun !== '';
+  if (hasPrintNumber && hasPrintRun) return `${printNumber}/${printRun}`;
+  if (hasPrintNumber) return `#${printNumber}`;
+  if (hasPrintRun) return `Run ${printRun}`;
+  return null;
+}
+
 function ArtCard({ item, supportsHover, onOpen, onEdit, onDelete }) {
   const mediumLabel = ART_MEDIUM_OPTIONS.find((option) => option.value === item.medium)?.label || null;
   const subtitle = [item.franchise, item.series, item.artist, mediumLabel, item.event_title].filter(Boolean).join(' · ');
+  const printEdition = formatPrintEdition(item);
   return (
     <ObjectPosterCard
       title={item.title}
@@ -120,6 +134,7 @@ function ArtCard({ item, supportsHover, onOpen, onEdit, onDelete }) {
           {item.artist ? <FilterPill>{item.artist}</FilterPill> : null}
           {item.series ? <FilterPill>{item.series}</FilterPill> : null}
           {item.event_title ? <FilterPill>{item.event_title}</FilterPill> : null}
+          {printEdition ? <FilterPill tone="brand">{`Print ${printEdition}`}</FilterPill> : null}
           {item.exclusive ? <FilterPill tone="brand">Exclusive</FilterPill> : null}
         </>
       }
@@ -131,6 +146,7 @@ function ArtCard({ item, supportsHover, onOpen, onEdit, onDelete }) {
 
 function ArtRow({ item, supportsHover, onOpen, onEdit, onDelete }) {
   const mediumLabel = ART_MEDIUM_OPTIONS.find((option) => option.value === item.medium)?.label || null;
+  const printEdition = formatPrintEdition(item);
   return (
     <article className="group flex items-center gap-4 rounded-xl border border-edge bg-surface p-3 hover:border-muted hover:bg-raised transition-colors duration-150 animate-fade-in cursor-pointer" onClick={() => onOpen(item)}>
       <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-edge bg-raised text-ghost"><Icons.Activity /></div>
@@ -143,6 +159,7 @@ function ArtRow({ item, supportsHover, onOpen, onEdit, onDelete }) {
           {item.series ? <FilterPill>{item.series}</FilterPill> : null}
           {item.artist ? <FilterPill>{item.artist}</FilterPill> : null}
           {item.event_title ? <FilterPill>{item.event_title}</FilterPill> : null}
+          {printEdition ? <FilterPill tone="brand">{`Print ${printEdition}`}</FilterPill> : null}
           {item.signed ? <FilterPill tone="brand">Signed</FilterPill> : null}
           {item.exclusive ? <FilterPill tone="brand">Exclusive</FilterPill> : null}
         </div>
@@ -189,7 +206,9 @@ function ArtDetailDrawer({ artId, apiCall, events, onClose, onEdit, onDeleted })
   const dimensionsSummary = [item?.height, item?.width].filter((value) => value !== null && value !== undefined && value !== '').length
     ? `${item?.height || '?'} × ${item?.width || '?'}${item?.dimension_unit ? ` ${item.dimension_unit}` : ''}`
     : null;
+  const printEdition = formatPrintEdition(item);
   const statusSummary = [
+    printEdition ? `Print ${printEdition}` : null,
     item?.signed ? 'Signed' : null,
     item?.framed ? 'Framed' : null,
     item?.exclusive ? 'Exclusive' : null
@@ -283,6 +302,7 @@ function ArtDetailDrawer({ artId, apiCall, events, onClose, onEdit, onDeleted })
               <DetailField label="Artist">{item.artist}</DetailField>
               <DetailField label="H">{formatDimensionValue(item.height, item.dimension_unit)}</DetailField>
               <DetailField label="W">{formatDimensionValue(item.width, item.dimension_unit)}</DetailField>
+              <DetailField label="Print">{printEdition}</DetailField>
               <DetailField label="Framed">{item.framed ? 'Yes' : 'No'}</DetailField>
               <DetailField label="Event">{resolvedEvent || 'None linked'}</DetailField>
               <DetailField label="Signed">{item.signed ? 'Yes' : 'No'}</DetailField>
@@ -365,6 +385,8 @@ function ArtDrawer({ initial, events, saving, error, notice, apiCall, onClose, o
     width: initial?.width ?? '',
     dimension_unit: initial?.dimension_unit || 'in',
     framed: Boolean(initial?.framed),
+    print_number: initial?.print_number ?? '',
+    print_run: initial?.print_run ?? '',
     vendor: initial?.vendor || '',
     booth: initial?.booth || ''
   }));
@@ -394,6 +416,8 @@ function ArtDrawer({ initial, events, saving, error, notice, apiCall, onClose, o
       width: initial?.width ?? '',
       dimension_unit: initial?.dimension_unit || 'in',
       framed: Boolean(initial?.framed),
+      print_number: initial?.print_number ?? '',
+      print_run: initial?.print_run ?? '',
       vendor: initial?.vendor || '',
       booth: initial?.booth || ''
     });
@@ -500,6 +524,8 @@ function ArtDrawer({ initial, events, saving, error, notice, apiCall, onClose, o
                 <label className="field"><span className="label">Price</span><input className="input" value={form.price ?? ''} onChange={(e) => setForm((p) => ({ ...p, price: e.target.value }))} /></label>
                 <label className="field"><span className="label">H</span><input className="input" type="number" min="0" step="0.01" value={form.height ?? ''} onChange={(e) => setForm((p) => ({ ...p, height: e.target.value }))} /></label>
                 <label className="field"><span className="label">W</span><input className="input" type="number" min="0" step="0.01" value={form.width ?? ''} onChange={(e) => setForm((p) => ({ ...p, width: e.target.value }))} /></label>
+                <label className="field"><span className="label">Print #</span><input className="input" type="number" min="1" step="1" value={form.print_number ?? ''} onChange={(e) => setForm((p) => ({ ...p, print_number: e.target.value }))} /></label>
+                <label className="field"><span className="label">Run</span><input className="input" type="number" min="1" step="1" value={form.print_run ?? ''} onChange={(e) => setForm((p) => ({ ...p, print_run: e.target.value }))} /></label>
                 <label className="field"><span className="label">Unit</span>
                   <select className="select" value={form.dimension_unit || 'in'} onChange={(e) => setForm((p) => ({ ...p, dimension_unit: e.target.value }))}>
                     {ART_DIMENSION_UNIT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
@@ -686,6 +712,8 @@ export default function ArtView({ apiCall, onToast }) {
         width: form.width === '' ? null : Number(form.width),
         dimension_unit: form.height === '' && form.width === '' ? null : (form.dimension_unit || 'in'),
         framed: Boolean(form.framed),
+        print_number: form.print_number === '' ? null : Number(form.print_number),
+        print_run: form.print_run === '' ? null : Number(form.print_run),
         subtype: 'art',
         event_id: form.event_id ? Number(form.event_id) : null,
         artist: form.artist || null,

@@ -153,29 +153,8 @@ Promoted as `3.4.94` for the workspace-owned administration contract and `3.4.95
 - The implementation clearly distinguishes reusable artist metadata from per-artwork provenance and item details.
 
 ### Backlog Item: Numbered Print Metadata and Badge for Artwork
-**Type:** Task
-**Tags:** `artwork`, `prints`, `metadata`, `badges`, `ux`
 
-**Goal:** Let artwork entries capture numbered print details, including the specific print number and total print run, and surface a clear numbered-print badge in artwork cards and detail views.
-
-**Why this work exists**
-- Limited and numbered prints are common artwork inventory metadata.
-- Users need to distinguish a generic print from a specific numbered edition such as `12/100`.
-- The signal should be visible while browsing without forcing users to open every artwork detail drawer.
-
-**Scope**
-- Add artwork metadata fields for print number and print run / edition size.
-- Support partial entry where only one side of the edition information is known.
-- Validate that numeric values are sensible without blocking non-numbered artwork entry.
-- Show a concise badge or chip for numbered prints in artwork cards, lists, and detail views.
-- Preserve existing artwork type, provenance, signature, event purchase, image, and artist fields.
-- Keep valuation-provider enrichment, external print registries, certificate verification, and broad edition-series modeling out of this first slice.
-
-**Acceptance Criteria**
-- Users can add or edit an artwork item with print number and print run values.
-- Non-numbered artwork can still be created and edited without extra required fields.
-- Artwork browse and detail surfaces show a numbered-print badge when print metadata is present.
-- API and browser coverage prove the fields round-trip and the badge appears only when appropriate.
+Promoted as `3.4.109`; keep valuation-provider enrichment, external print registries, certificate verification, and broad edition-series modeling separate.
 
 ### Backlog Item: Apple Platform App Contract Publishing
 **Type:** Deferred milestone

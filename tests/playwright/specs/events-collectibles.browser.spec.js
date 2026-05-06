@@ -1116,6 +1116,8 @@ test.describe('events and collectibles browser regressions', () => {
         width: 24,
         dimension_unit: 'cm',
         framed: true,
+        print_number: 12,
+        print_run: 100,
         signed: true,
         signer_name: 'Playwright Signer',
         signer_role: 'Artist',
@@ -1130,6 +1132,8 @@ test.describe('events and collectibles browser regressions', () => {
       expect(created.width).toBe(24);
       expect(created.dimension_unit).toBe('cm');
       expect(created.framed).toBe(true);
+      expect(created.print_number).toBe(12);
+      expect(created.print_run).toBe(100);
       expect(created.signer_name).toBe('Playwright Signer');
       expect(created.signatures?.[0]?.signer_name).toBe('Playwright Signer');
       expect(created.signatures?.[0]?.proof_path).toBe('https://example.test/signature-proof.jpg');
@@ -1142,6 +1146,8 @@ test.describe('events and collectibles browser regressions', () => {
         width: 30.25,
         dimension_unit: 'in',
         framed: false,
+        print_number: 13,
+        print_run: null,
         signed_on: '2026-04-27',
         signed_at: 'Updated Signing Table',
         signature_notes: 'Updated provenance note.'
@@ -1153,6 +1159,8 @@ test.describe('events and collectibles browser regressions', () => {
       expect(patched.width).toBe(30.25);
       expect(patched.dimension_unit).toBe('in');
       expect(patched.framed).toBe(false);
+      expect(patched.print_number).toBe(13);
+      expect(patched.print_run).toBeNull();
       expect(patched.signatures[0].signed_on).toBe('2026-04-27');
       expect(patched.signature_notes).toBe('Updated provenance note.');
 
@@ -1252,6 +1260,8 @@ test.describe('events and collectibles browser regressions', () => {
       expect(detail.width).toBe(30.25);
       expect(detail.dimension_unit).toBe('in');
       expect(detail.framed).toBe(false);
+      expect(detail.print_number).toBe(13);
+      expect(detail.print_run).toBeNull();
       expect(detail.signatures[0].owner_type).toBe('art');
       expect(detail.signatures[0].is_primary).toBe(true);
 

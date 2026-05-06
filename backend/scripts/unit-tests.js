@@ -4807,6 +4807,24 @@ results.push(run('Art dimension unit metadata is wired through native Art contra
   assert.ok(/"enum":\s*\[\s*"in",\s*"cm",\s*null\s*\]/.test(openApiSource));
 }));
 
+results.push(run('Art numbered print metadata and badge are wired through native Art contracts', () => {
+  assert.ok(migrationsSource.includes('version: 95'));
+  assert.ok(migrationsSource.includes('Add Art numbered print metadata'));
+  assert.ok(initSqlSource.includes('print_number INTEGER CHECK'));
+  assert.ok(initSqlSource.includes('print_run INTEGER CHECK'));
+  assert.ok(validateMiddlewareSource.includes('print_number: nullableNumberSchema'));
+  assert.ok(validateMiddlewareSource.includes('print_run: nullableNumberSchema'));
+  assert.ok(collectiblesRoutesSource.includes('print_number: row.print_number === null'));
+  assert.ok(collectiblesRoutesSource.includes('print_run: row.print_run === null'));
+  assert.ok(collectiblesRoutesSource.includes("'print_number', 'print_run'"));
+  assert.ok(artViewSource.includes('function formatPrintEdition'));
+  assert.ok(artViewSource.includes('<span className="label">Print #</span>'));
+  assert.ok(artViewSource.includes('<span className="label">Run</span>'));
+  assert.ok(artViewSource.includes('{`Print ${printEdition}`}'));
+  assert.ok(openApiSource.includes('"print_number"'));
+  assert.ok(openApiSource.includes('"print_run"'));
+}));
+
 results.push(run('library loans view exposes management-focused counts and due-soon emphasis', () => {
   assert.ok(libraryLoansViewSource.includes('Currently out'));
   assert.ok(libraryLoansViewSource.includes('Due soon'));

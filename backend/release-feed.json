@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.109",
+      "version": "v3.4.109",
+      "date": "2026-05-06",
+      "status": "Ready for CI release gates",
+      "summary": "This patch adds item-local numbered print metadata to Art so limited prints can show their specific edition signal while browsing and in the detail drawer.",
+      "details": [
+        {
+          "heading": "Shipped",
+          "bullets": [
+            "Added positive-integer Art metadata fields for print number and print run.",
+            "Added editor inputs for partial or complete numbered print values.",
+            "Added card, list, mobile detail, and desktop detail readback for numbered prints.",
+            "Shows concise badge copy such as `Print 12/100`, `Print #12`, or `Print Run 100` when print metadata exists.",
+            "Preserved non-numbered artwork entry with no new required fields.",
+            "Reduced the local Graylog evidence stack's default journal size so release observability checks can run in constrained Docker Desktop storage."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.4.108",
       "version": "v3.4.108",
       "date": "2026-05-06",
@@ -167,24 +187,6 @@
             "Added a fake-server progress contract probe that calls only `GET /api/Reader/get-progress`.",
             "Documented why chapter-as-issue rows are the first eligible progress rows.",
             "Kept progress writeback, KOReader sync shortcuts, embedded reading, page proxying, and background polling out of scope."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.4.99",
-      "version": "v3.4.99",
-      "date": "2026-05-05",
-      "status": "Ready for CI release gates",
-      "summary": "This patch makes Kavita metadata writeback more deliberate by letting workspace admins choose the exact changed fields to apply after preview.",
-      "details": [
-        {
-          "heading": "Shipped",
-          "bullets": [
-            "Added field-level checkboxes to the media-detail Kavita Metadata diff.",
-            "Default selected all changed unlocked fields after preview, while unchanged rows remain read-only.",
-            "Changed `Apply to Kavita` so it sends only the selected changed fields.",
-            "Added selected-field readback beside the existing changed/skipped counts."
           ]
         }
       ]
