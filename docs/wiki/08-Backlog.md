@@ -59,10 +59,12 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 41. `Kavita Writeback Field Selection UI` was promoted as `3.4.99`; keep background sync, progress sync, external enrichment writeback, locked-field override, and shared provider abstractions separate.
 42. `Kavita Reading Progress Sync Contract` was promoted as `3.4.100`; keep actual progress UI/read implementation, progress writeback, embedded reading, page proxying, and shared provider abstractions separate.
 43. `Kavita Read-Only Progress Visibility` was promoted as `3.4.101`; keep progress writeback, mark read/unread, embedded reading, page proxying, background polling, and shared provider abstractions separate.
+44. `Kavita Progress Writeback and Page Proxy Reader` was promoted as `3.4.102`; keep mark read/unread, iframe/full embedded reader ownership, PDF/raw chapter file proxying, background polling, KOReader sync, and shared provider abstractions separate.
+45. `Kavita Mark Read/Unread Contract` was promoted as `3.4.103`; keep runtime mark read/unread implementation, full embedded reader ownership, PDF/raw chapter file proxying, background polling, KOReader sync, and shared provider abstractions separate.
 
 ### Backlog Item: Kavita Reader and Progress Contract Discovery
 
-Promoted as `3.4.91`; the read-only progress sync contract follow-up was promoted as `3.4.100`, and the first read-only progress visibility implementation was promoted as `3.4.101`. Keep progress writeback, embedded iframe reading, page streaming, and per-space Kavita administration as separate backlog tasks until selected.
+Promoted as `3.4.91`; the read-only progress sync contract follow-up was promoted as `3.4.100`, the first read-only progress visibility implementation was promoted as `3.4.101`, the first explicit progress writeback/page proxy slice was promoted as `3.4.102`, and the mark read/unread contract was promoted as `3.4.103`. Keep runtime mark read/unread implementation, full iframe reader ownership, PDF/raw chapter file proxying, background polling, KOReader sync, and shared provider abstractions as separate backlog tasks until selected.
 
 ### Backlog Item: Kavita Metadata Writeback Contract
 Promoted as `3.4.96`; the preview/diff implementation was promoted as `3.4.97`, the first manual apply path was promoted as `3.4.98`, and field-level selection UI was promoted as `3.4.99`. Keep background sync, progress sync, external enrichment writeback, locked-field override, and shared provider abstractions separate.

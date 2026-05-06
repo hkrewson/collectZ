@@ -17,6 +17,7 @@ const {
   buildKavitaReaderWebUrl,
   buildKavitaCoverImageUrl,
   buildKavitaCoverProxyPath,
+  buildKavitaSeriesCoverImagePath,
   buildKavitaSeriesProviderItemId,
   buildKavitaChapterProviderItemId,
   normalizeKavitaChapterIssueRows
@@ -27,6 +28,10 @@ const {
   buildKavitaSeriesMetadataWritebackPayload,
   buildKavitaChapterMetadataWritebackPayload
 } = require('../services/kavitaWritebackContract');
+const {
+  buildKavitaProgressWritePayload,
+  buildKavitaChapterReadStatePayload
+} = require('../services/kavitaProgressContract');
 const {
   buildBookNormalizationIdentity,
   buildComicNormalizationIdentity,
@@ -1926,39 +1931,85 @@ results.push(run('kavita chapter fan-out rows stay comic-only and keep provider 
 
 results.push(run('kavita cover helpers preserve proxy base paths and reject cross-origin images', () => {
   assert.strictEqual(buildKavitaCoverProxyPath(8602), '/api/media/kavita-cover/8602');
+  assert.strictEqual(buildKavitaSeriesCoverImagePath(8602), '/api/Image/series-cover?seriesId=8602');
   assert.strictEqual(buildKavitaCoverImageUrl('https://kavita.example/root/', '/api/image/series-cover?seriesId=8602'), 'https://kavita.example/root/api/image/series-cover?seriesId=8602');
+  assert.strictEqual(buildKavitaCoverImageUrl('https://kavita.example/root/', buildKavitaSeriesCoverImagePath(8602)), 'https://kavita.example/root/api/Image/series-cover?seriesId=8602');
   assert.strictEqual(buildKavitaCoverImageUrl('https://kavita.example/root/', 'https://kavita.example/root/api/image/series-cover?seriesId=8602'), 'https://kavita.example/root/api/image/series-cover?seriesId=8602');
   assert.strictEqual(buildKavitaCoverImageUrl('https://kavita.example/root/', 'https://evil.example/root/api/image/series-cover?seriesId=8602'), '');
 }));
 
-results.push(run('kavita reader and progress contract keeps collectZ link-out only until a later opt-in milestone', () => {
+results.push(run('kavita reader and progress contract documents opt-in writeback and page proxying', () => {
   assert.ok(kavitaSetupDocSource.includes('42-Kavita-Reader-Progress-Contract.md'));
-  assert.ok(kavitaReaderProgressDocSource.includes('link-out only'));
+  assert.ok(kavitaReaderProgressDocSource.includes('`3.4.102` implements the first opt-in progress writeback and page-proxy reader slice'));
   assert.ok(kavitaReaderProgressDocSource.includes('Do not iframe Kavita'));
-  assert.ok(kavitaReaderProgressDocSource.includes('Do not proxy `/api/Reader/image`'));
-  assert.ok(kavitaReaderProgressDocSource.includes('Do not call progress write endpoints from collectZ'));
+  assert.ok(kavitaReaderProgressDocSource.includes('collectZ may proxy `/api/Reader/image` for a single authenticated chapter page'));
+  assert.ok(kavitaReaderProgressDocSource.includes('Progress writeback requires an explicit user action'));
   assert.ok(kavitaReaderProgressDocSource.includes('`GET /api/Reader/get-progress`'));
   assert.ok(kavitaReaderProgressDocSource.includes('`POST /api/Reader/progress`'));
+  assert.ok(kavitaReaderProgressDocSource.includes('`GET /api/Reader/image`'));
   assert.ok(kavitaReaderProgressDocSource.includes('`GET /api/Koreader/{apiKey}/syncs/progress/{ebookHash}`'));
   assert.ok(kavitaReaderProgressDocSource.includes('Kavita auth keys remain backend-only integration secrets'));
 }));
 
-results.push(run('kavita progress sync contract is read-only and forbids write endpoints', () => {
+results.push(run('kavita progress sync contract supports explicit progress writeback and reader proxy endpoints', () => {
   assert.ok(backendPackageJson.scripts['test:kavita-progress-contract-probe']);
   assert.ok(kavitaReaderProgressDocSource.includes('`3.4.100` defines the first progress-sync contract'));
   assert.ok(kavitaReaderProgressDocSource.includes('Read-only progress visibility is the first viable implementation shape'));
-  assert.ok(kavitaReaderProgressDocSource.includes('Do not call `POST /api/Reader/progress`'));
+  assert.ok(kavitaReaderProgressDocSource.includes('`3.4.102` implements the first opt-in progress writeback'));
   assert.ok(kavitaReaderProgressDocSource.includes('Do not use KOReader sync endpoints as a shortcut'));
   assert.ok(kavitaReaderProgressDocSource.includes('Workspace-owned Kavita credentials remain backend-only'));
   assert.ok(kavitaProgressContractProbeSource.includes('createFakeKavitaProgressServer'));
   assert.ok(kavitaProgressContractProbeSource.includes('progressSyncImplementationEnabled'));
   assert.ok(kavitaProgressContractProbeSource.includes('secretReturned'));
   assert.ok(mediaRoutesSource.includes("router.get('/:id/kavita-progress'"));
+  assert.ok(mediaRoutesSource.includes("router.post('/:id/kavita-progress'"));
+  assert.ok(mediaRoutesSource.includes("router.get('/:id/kavita-reader-info'"));
+  assert.ok(mediaRoutesSource.includes("router.get('/:id/kavita-reader-page'"));
   assert.ok(mediaRoutesSource.includes('media.kavita.progress.read'));
+  assert.ok(mediaRoutesSource.includes('media.kavita.progress.write'));
+  assert.ok(mediaRoutesSource.includes('media.kavita.reader.page'));
   assert.ok(kavitaImportSyncSmokeSource.includes('/kavita-progress'));
+  assert.ok(kavitaImportSyncSmokeSource.includes('/kavita-reader-info'));
+  assert.ok(kavitaImportSyncSmokeSource.includes('/kavita-reader-page'));
   assert.ok(libraryViewSource.includes('Kavita Progress'));
   assert.ok(libraryViewSource.includes('Read Progress'));
+  assert.ok(libraryViewSource.includes('Save Progress'));
+  assert.ok(libraryViewSource.includes('Reader page'));
   assert.ok(libraryViewSource.includes('kavitaProgressRows'));
+  const payload = buildKavitaProgressWritePayload({
+    libraryId: 87,
+    seriesId: 8602,
+    volumeId: 9602,
+    chapterId: 9702,
+    pageNum: 1,
+    bookScrollId: 'scroll-1',
+    lastModifiedUtc: '2026-05-06T01:00:00Z'
+  });
+  assert.strictEqual(payload.pageNum, 1);
+  assert.strictEqual(payload.chapterId, 9702);
+}));
+
+results.push(run('kavita mark read unread contract remains disabled and chapter-scoped first', () => {
+  assert.ok(kavitaReaderProgressDocSource.includes('`3.4.103` defines the mark read/unread contract'));
+  assert.ok(kavitaReaderProgressDocSource.includes('`POST /api/Reader/mark-read` and `POST /api/Reader/mark-unread` use `MarkReadDto`'));
+  assert.ok(kavitaReaderProgressDocSource.includes('`POST /api/Reader/mark-chapter-read` uses `MarkChapterReadDto`'));
+  assert.ok(kavitaReaderProgressDocSource.includes('does not expose a chapter-level mark-unread endpoint'));
+  assert.ok(kavitaReaderProgressDocSource.includes('runtime mark read/unread remains disabled'));
+  assert.ok(kavitaProgressContractProbeSource.includes('readStateImplementationEnabled'));
+  assert.ok(kavitaProgressContractProbeSource.includes('READ_STATE_DISABLED_WRITE_ENDPOINTS'));
+  assert.ok(kavitaProgressContractProbeSource.includes('/api/Reader/mark-chapter-read'));
+  assert.ok(!mediaRoutesSource.includes('kavita-read-state'));
+  assert.ok(!libraryViewSource.includes('Mark Read in Kavita'));
+  const readStatePayload = buildKavitaChapterReadStatePayload({
+    seriesId: 8602,
+    chapterId: 9702,
+    generateReadingSession: false
+  });
+  assert.deepStrictEqual(readStatePayload, {
+    seriesId: 8602,
+    chapterId: 9702,
+    generateReadingSession: false
+  });
 }));
 
 results.push(run('kavita chapter fan-out contract keeps series and issue identities distinct and opt-in', () => {
@@ -1996,7 +2047,8 @@ results.push(run('kavita workspace-owned administration implementation is wired 
   assert.ok(mediaRoutesSource.includes("Kavita is not configured for the active workspace"));
   assert.ok(mediaRoutesSource.includes('loadWorkspaceKavitaIntegrationConfig(row.space_id || scopeContext?.spaceId || null)'));
   assert.ok(spaceManagerViewSource.includes("'kavita'"));
-  assert.ok(dashboardContentSource.includes("['audio', 'barcode', 'books', 'cwa', 'comics', 'pricecharting', 'ebay', 'games', 'plex', 'tmdb', 'logs', 'metrics']"));
+  assert.ok(dashboardContentSource.includes("['audio', 'barcode', 'books', 'cwa', 'comics', 'games', 'kavita', 'plex', 'tmdb']"));
+  assert.ok(dashboardContentSource.includes("['audio', 'barcode', 'books', 'cwa', 'comics', 'pricecharting', 'ebay', 'games', 'kavita', 'plex', 'tmdb', 'logs', 'metrics']"));
   assert.ok(openApiSource.includes('/api/spaces/{id}/integrations/test-kavita'));
   assert.ok(kavitaImportSyncSmokeSource.includes('/integrations/test-kavita'));
   assert.ok(kavitaImportSyncSmokeSource.includes('workspaceOwnedSettings: true'));

@@ -1,14 +1,68 @@
 {
   "auditReportVersion": 2,
-  "vulnerabilities": {},
+  "vulnerabilities": {
+    "express-rate-limit": {
+      "name": "express-rate-limit",
+      "severity": "moderate",
+      "isDirect": true,
+      "via": [
+        "ip-address"
+      ],
+      "effects": [],
+      "range": ">=8.0.1",
+      "nodes": [
+        "node_modules/express-rate-limit"
+      ],
+      "fixAvailable": {
+        "name": "express-rate-limit",
+        "version": "8.0.0",
+        "isSemVerMajor": true
+      }
+    },
+    "ip-address": {
+      "name": "ip-address",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1117683,
+          "name": "ip-address",
+          "dependency": "ip-address",
+          "title": "ip-address has XSS in Address6 HTML-emitting methods",
+          "url": "https://github.com/advisories/GHSA-v2v4-37r5-5v8g",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-79"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": null
+          },
+          "range": "<=10.1.0"
+        }
+      ],
+      "effects": [
+        "express-rate-limit"
+      ],
+      "range": "<=10.1.0",
+      "nodes": [
+        "node_modules/ip-address"
+      ],
+      "fixAvailable": {
+        "name": "express-rate-limit",
+        "version": "8.0.0",
+        "isSemVerMajor": true
+      }
+    }
+  },
   "metadata": {
     "vulnerabilities": {
       "info": 0,
       "low": 0,
-      "moderate": 0,
+      "moderate": 2,
       "high": 0,
       "critical": 0,
-      "total": 0
+      "total": 2
     },
     "dependencies": {
       "prod": 229,

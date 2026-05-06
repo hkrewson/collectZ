@@ -9057,7 +9057,7 @@ Historical note:
 
 **Goal:** Make the manual Kavita writeback apply flow field-selectable so workspace admins can choose the exact changed fields to send after preview.
 
-**Current Slice:** `Active`
+**Current Slice:** `Closed 2026-05-06`
 
 ### Scope
 
@@ -9095,7 +9095,7 @@ Historical note:
 
 **Goal:** Define the first safe Kavita reading-progress sync contract so collectZ can later show read-only Kavita progress without embedding the reader, proxying pages, or writing progress.
 
-**Current Slice:** `Active`
+**Current Slice:** `Closed 2026-05-06`
 
 ### Scope
 
@@ -9164,6 +9164,73 @@ Historical note:
 - Risks/follow-ups: real Kavita validation should be run before relying on this against a personal production library; per-user Kavita identity remains unresolved; progress writeback, mark read/unread, embedded reading, page proxying, background polling, external enrichment writeback, and shared provider abstractions remain separate future milestones.
 - What remains in the milestone: no open `3.4.101` implementation work remains; CI-only release gates must pass before public tag/release publication.
 - Recommended commit message: `Release 3.4.101 Kavita read-only progress visibility`.
+
+## 3.4.102 — Kavita Progress Writeback and Page Proxy Reader
+
+**Goal:** Implement the first explicit Kavita progress writeback and page-proxy reader path for chapter-backed Kavita rows while keeping Kavita credentials server-side and avoiding full iframe/native-reader ownership.
+
+**Current Slice:** `Active`
+
+### Scope
+
+- Add a scoped backend endpoint for Kavita chapter-backed media rows to write selected page progress through `POST /api/Reader/progress`.
+- Add scoped reader metadata and single-page image proxy endpoints for Kavita chapter-backed rows.
+- Add compact media-detail drawer controls to load one proxied Kavita reader page, move page-by-page, and explicitly save progress.
+- Extend fake-Kavita smoke coverage to prove progress writeback, page proxying, and secret-free browser responses.
+- Keep mark read/unread, automatic/background progress sync, iframe embedding, PDF/raw chapter file proxying, KOReader sync, and shared provider abstractions out of scope.
+
+### Acceptance Criteria
+
+- Chapter-backed Kavita rows can explicitly save a selected page number back to Kavita from the running stack.
+- Chapter-backed Kavita rows can load sanitized reader metadata and a proxied reader image page through collectZ.
+- Browser-visible responses and page URLs never include Kavita API keys, bearer tokens, OPDS keys, or Kavita file names.
+- Fake-Kavita smoke proves `POST /api/Reader/progress`, `GET /api/Reader/chapter-info`, and `GET /api/Reader/image` are called only through backend-owned credentials.
+- Version metadata and Help > Releases are aligned to `3.4.102`.
+
+### Closeout
+
+- Roadmap slice: `3.4.102 — Kavita Progress Writeback and Page Proxy Reader`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/42-Kavita-Reader-Progress-Contract.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, and `docs/wiki/10-CI-CD-and-Registry-Deploy.md`.
+- Runtime verification used: rebuilt the Docker platform stack with `APP_VERSION=3.4.102`; verified `/api/health` serving frontend/backend/build `3.4.102`; verified Help > Releases serves `v3.4.102`; verified live DB `feature_flags.events_enabled=true`; ran the running-stack Kavita import/sync smoke with explicit progress writeback, reader-info, reader-image, and secret-free response coverage; and reran the Kavita progress contract probe after the final backend rebuild.
+- CI/checks run locally: source syntax checks for the changed backend files and smoke/unit scripts; `git diff --check`; `npm run compose:generate`; `npm run validate:public-export`; backend unit/source assertions (`245` passed); OpenAPI validation; Kavita import/sync smoke; Kavita progress contract probe; Help > Releases smoke; RBAC regression; platform edition boundary smoke; init parity; migration rehearsal; observability release evidence refresh (`9/9` passed); dependency audits via Node 20 containers (backend `0` low, `2` moderate, `0` high, `0` critical; frontend `0` vulnerabilities); local release preflight; targeted Playwright integrations browser regression (`3` passed); and Docker health checks. The local homelab edition boundary run was blocked by using the platform/localhost stack, where platform-only admin email settings are intentionally mounted; rerun the homelab gate from the generated public compose stack before a public release tag. CI-only gates still required before tag publication: `secret-scan`, full CI `compose-smoke` secure-cookie path, `image-security-and-sbom`, and the complete CI browser regression.
+- Version closeout: `app-meta.json`, backend/frontend app metadata, backend/frontend package metadata and lockfiles, `docker-compose.yml`, `docs/releases/v3.4.102.md`, and `backend/release-feed.json` are aligned to `3.4.102`.
+- Files changed: `app-meta.json`, `backend/app-meta.json`, `frontend/src/app-meta.json`, `backend/package.json`, `frontend/package.json`, `backend/package-lock.json`, `frontend/package-lock.json`, `backend/middleware/validate.js`, `backend/routes/media.js`, `backend/services/kavita.js`, `backend/services/kavitaProgressContract.js`, `backend/scripts/kavita-import-sync-smoke.js`, `backend/scripts/kavita-progress-contract-probe.js`, `backend/scripts/unit-tests.js`, `backend/openapi/openapi.yaml`, `frontend/src/components/LibraryView.jsx`, `docker-compose.yml`, `docs/releases/v3.4.102.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/42-Kavita-Reader-Progress-Contract.md`, `backend/release-feed.json`, `artifacts/dependency-audit/backend-audit.json`, `artifacts/dependency-audit/frontend-audit.json`, `artifacts/init-parity-evidence/init-parity-evidence.json`, `artifacts/migration-rehearsal-evidence/migration-rehearsal-evidence.json`, `artifacts/observability-evidence/observability-release-evidence.json`, and `preflight-go-no-go.md`.
+- Risks/follow-ups: progress writes represent the workspace-owned Kavita account, so the UI keeps them explicit and workspace-admin gated; mark read/unread, full iframe/native reader ownership, PDF/raw chapter proxying, automatic/background sync, KOReader sync, and shared digital progress abstractions remain future backlog work.
+- What remains in the milestone: no open `3.4.102` implementation work remains; CI-only and homelab-runtime release gates must pass before public tag/release publication.
+- Recommended commit message: `Release 3.4.102 Kavita progress writeback and page proxy reader`.
+
+## 3.4.103 — Kavita Mark Read/Unread Contract
+
+**Goal:** Define the safe Kavita read-state boundary before collectZ exposes any mark read/unread action, preserving the explicit workspace-owned account model from `3.4.102`.
+
+**Current Slice:** `Active`
+
+### Scope
+
+- Recheck Kavita's native mark read/unread API shapes against the upstream OpenAPI source.
+- Document why series-wide mark read/unread and volume-wide mark read remain out of scope for the first implementation.
+- Identify chapter-level mark-read as the only first-candidate future endpoint.
+- Extend the Kavita progress/read-state contract probe with disabled mark endpoint evidence.
+- Keep runtime mark read/unread routes, UI controls, import-triggered read-state changes, background polling, KOReader sync, and shared provider abstractions out of scope.
+
+### Acceptance Criteria
+
+- Contract docs identify `POST /api/Reader/mark-read`, `POST /api/Reader/mark-unread`, `POST /api/Reader/mark-chapter-read`, and `POST /api/Reader/mark-volume-read` with their current request shapes.
+- The probe reports read-state implementation disabled and proves mark endpoints are not called.
+- The first future implementation candidate is explicitly limited to chapter-backed rows and `POST /api/Reader/mark-chapter-read`.
+- Version metadata and Help > Releases are aligned to `3.4.103`.
+
+### Closeout
+
+- Roadmap slice: `3.4.103 — Kavita Mark Read/Unread Contract`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/42-Kavita-Reader-Progress-Contract.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, and `docs/wiki/10-CI-CD-and-Registry-Deploy.md`.
+- Runtime verification used: rebuilt the Docker platform stack with `APP_VERSION=3.4.103`; verified `/api/health` serving frontend/backend/build `3.4.103`; verified Help > Releases serves `v3.4.103`; verified live DB `feature_flags.events_enabled=true`; and ran the Kavita progress/read-state contract probe in the backend container, proving `readStateImplementationEnabled=false`, `POST /api/Reader/mark-chapter-read` as the first future candidate, disabled series/volume/panel/KOReader read-state endpoints, and `secretReturned=false`.
+- CI/checks run locally: source syntax checks for `backend/services/kavitaProgressContract.js`, `backend/scripts/kavita-progress-contract-probe.js`, and `backend/scripts/unit-tests.js`; local OpenAPI validation; local Kavita progress/read-state contract probe; local unit/source assertions reached and passed the new Kavita assertions before the known host Node 14 `AbortController` gap; `git diff --check`; `npm run compose:generate`; `npm run validate:public-export`; Docker backend/frontend build; container backend unit/source assertions (`246` passed); container OpenAPI validation; container Kavita progress/read-state contract probe; Help > Releases smoke; RBAC regression; platform edition boundary smoke; init parity; migration rehearsal; observability release evidence refresh (`9/9` passed); dependency audits via Node 20 containers (backend `0` low, `2` moderate, `0` high, `0` critical; frontend `0` vulnerabilities); targeted Playwright integrations browser regression (`3` passed); and local release preflight. Local preflight still blocks the full compose-smoke secure-cookie path because the dev stack has `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`; `secret-scan`, full CI browser regression, homelab generated-compose boundary, and `image-security-and-sbom` remain CI/release-handoff gates before a public tag.
+- Version closeout: `app-meta.json`, backend/frontend app metadata, backend/frontend package metadata and lockfiles, `docker-compose.yml`, `docs/releases/v3.4.103.md`, and `backend/release-feed.json` are aligned to `3.4.103`.
+- Files changed: `app-meta.json`, `backend/app-meta.json`, `frontend/src/app-meta.json`, `backend/package.json`, `frontend/package.json`, `backend/package-lock.json`, `frontend/package-lock.json`, `backend/services/kavitaProgressContract.js`, `backend/scripts/kavita-progress-contract-probe.js`, `backend/scripts/unit-tests.js`, `docker-compose.yml`, `docs/releases/v3.4.103.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/42-Kavita-Reader-Progress-Contract.md`, `backend/release-feed.json`, `artifacts/dependency-audit/backend-audit.json`, `artifacts/dependency-audit/frontend-audit.json`, `artifacts/init-parity-evidence/init-parity-evidence.json`, `artifacts/migration-rehearsal-evidence/migration-rehearsal-evidence.json`, `artifacts/observability-evidence/observability-release-evidence.json`, and `preflight-go-no-go.md`.
+- Risks/follow-ups: no runtime mark read/unread behavior exists yet; a future implementation should start with explicit chapter-level mark-read only, handle the missing chapter-level mark-unread API shape, and avoid series/volume bulk mutations until product copy and ownership are clear.
+- What remains in the milestone: no open `3.4.103` implementation work remains; CI-only and homelab-runtime release gates must pass before public tag/release publication.
+- Recommended commit message: `Release 3.4.103 Kavita mark read unread contract`.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 

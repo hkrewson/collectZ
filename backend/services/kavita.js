@@ -95,6 +95,12 @@ function buildKavitaCoverProxyPath(seriesId = null) {
   return `/api/media/kavita-cover/${id}`;
 }
 
+function buildKavitaSeriesCoverImagePath(seriesId = null) {
+  const id = Number(seriesId || 0) || null;
+  if (!id) return '';
+  return `/api/Image/series-cover?seriesId=${encodeURIComponent(String(id))}`;
+}
+
 function buildKavitaCoverImageUrl(baseUrl = '', coverImage = '') {
   const normalizedBase = normalizeKavitaBaseUrl(baseUrl);
   const raw = String(coverImage || '').trim();
@@ -113,28 +119,40 @@ function buildKavitaCoverImageUrl(baseUrl = '', coverImage = '') {
   return buildKavitaWebUrl(normalizedBase, raw);
 }
 
-async function fetchKavitaCoverImage(config = {}, token, coverImage = '') {
-  const imageUrl = buildKavitaCoverImageUrl(config.kavitaBaseUrl, coverImage);
-  if (!imageUrl) {
+async function fetchKavitaCoverImage(config = {}, token, coverImage = '', options = {}) {
+  const primaryUrl = buildKavitaCoverImageUrl(config.kavitaBaseUrl, coverImage);
+  const fallbackUrl = buildKavitaCoverImageUrl(
+    config.kavitaBaseUrl,
+    buildKavitaSeriesCoverImagePath(options.seriesId)
+  );
+  const imageUrls = [...new Set([primaryUrl, fallbackUrl].filter(Boolean))];
+  if (imageUrls.length === 0) {
     const error = new Error('Kavita cover image path is not available');
     error.status = 404;
     throw error;
   }
-  const response = await axios.get(imageUrl, {
-    headers: { Authorization: `Bearer ${token}` },
-    responseType: 'arraybuffer',
-    timeout: getKavitaTimeoutMs(config),
-    validateStatus: () => true
-  });
-  if (response.status < 200 || response.status >= 300) {
-    const error = new Error(`Kavita cover image returned status ${response.status}`);
-    error.status = response.status;
-    throw error;
+
+  let lastResponse = null;
+  for (const imageUrl of imageUrls) {
+    const response = await axios.get(imageUrl, {
+      headers: { Authorization: `Bearer ${token}` },
+      params: { apiKey: config.kavitaApiKey },
+      responseType: 'arraybuffer',
+      timeout: getKavitaTimeoutMs(config),
+      validateStatus: () => true
+    });
+    if (response.status >= 200 && response.status < 300) {
+      return {
+        body: Buffer.from(response.data || []),
+        contentType: String(response.headers?.['content-type'] || 'image/jpeg').split(';')[0].trim() || 'image/jpeg'
+      };
+    }
+    lastResponse = response;
   }
-  return {
-    body: Buffer.from(response.data || []),
-    contentType: String(response.headers?.['content-type'] || 'image/jpeg').split(';')[0].trim() || 'image/jpeg'
-  };
+
+  const error = new Error(`Kavita cover image returned status ${lastResponse?.status || 404}`);
+  error.status = lastResponse?.status || 404;
+  throw error;
 }
 
 function getKavitaTimeoutMs(config = {}) {
@@ -318,6 +336,79 @@ async function fetchKavitaReaderProgress(config = {}, token, chapterId) {
     throw error;
   }
   return response.data && typeof response.data === 'object' ? response.data : {};
+}
+
+async function updateKavitaReaderProgress(config = {}, token, body = {}) {
+  const baseUrl = normalizeKavitaBaseUrl(config.kavitaBaseUrl);
+  const response = await axios.post(buildKavitaApiUrl(baseUrl, '/api/Reader/progress'), body, {
+    headers: { Authorization: `Bearer ${token}` },
+    timeout: getKavitaTimeoutMs(config),
+    validateStatus: () => true
+  });
+  if (response.status < 200 || response.status >= 300) {
+    const error = new Error(response.data?.message || response.data?.error || `Kavita progress update returned status ${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
+  return response.data && typeof response.data === 'object' ? response.data : {};
+}
+
+async function fetchKavitaReaderChapterInfo(config = {}, token, chapterId, options = {}) {
+  const baseUrl = normalizeKavitaBaseUrl(config.kavitaBaseUrl);
+  const id = Number(chapterId || 0) || null;
+  if (!id) {
+    const error = new Error('Kavita reader chapter info requires a chapter id');
+    error.status = 400;
+    throw error;
+  }
+  const response = await axios.get(buildKavitaApiUrl(baseUrl, '/api/Reader/chapter-info'), {
+    params: {
+      chapterId: id,
+      extractPdf: Boolean(options.extractPdf),
+      includeDimensions: Boolean(options.includeDimensions)
+    },
+    headers: { Authorization: `Bearer ${token}` },
+    timeout: getKavitaTimeoutMs(config),
+    validateStatus: () => true
+  });
+  if (response.status < 200 || response.status >= 300) {
+    const error = new Error(response.data?.message || response.data?.error || `Kavita reader chapter info returned status ${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
+  return response.data && typeof response.data === 'object' ? response.data : {};
+}
+
+async function fetchKavitaReaderImage(config = {}, token, chapterId, page, options = {}) {
+  const baseUrl = normalizeKavitaBaseUrl(config.kavitaBaseUrl);
+  const id = Number(chapterId || 0) || null;
+  const pageNumber = Number(page);
+  if (!id || !Number.isInteger(pageNumber) || pageNumber < 0) {
+    const error = new Error('Kavita reader image requires a chapter id and page number');
+    error.status = 400;
+    throw error;
+  }
+  const response = await axios.get(buildKavitaApiUrl(baseUrl, '/api/Reader/image'), {
+    params: {
+      chapterId: id,
+      page: pageNumber,
+      apiKey: config.kavitaApiKey,
+      extractPdf: Boolean(options.extractPdf)
+    },
+    headers: { Authorization: `Bearer ${token}` },
+    responseType: 'arraybuffer',
+    timeout: getKavitaTimeoutMs(config),
+    validateStatus: () => true
+  });
+  if (response.status < 200 || response.status >= 300) {
+    const error = new Error(response.data?.message || response.data?.error || `Kavita reader image returned status ${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
+  return {
+    body: Buffer.from(response.data || []),
+    contentType: String(response.headers?.['content-type'] || 'image/jpeg').split(';')[0].trim() || 'image/jpeg'
+  };
 }
 
 function firstString(...values) {
@@ -624,7 +715,8 @@ function normalizeKavitaSeries(series = {}, library = {}, config = {}) {
   const providerItemId = buildKavitaSeriesProviderItemId(id);
   const openUrl = buildKavitaSeriesWebUrl(config.kavitaBaseUrl, libraryId, id);
   const summary = firstString(series.summary, series.localizedSummary, series.description);
-  const coverImage = firstString(series.coverImage, series.coverImageLocked ? '' : series.cover);
+  const rawCoverImage = firstString(series.coverImage, series.coverImageLocked ? '' : series.cover);
+  const coverImage = buildKavitaSeriesCoverImagePath(id) || rawCoverImage;
   const coverUrl = buildKavitaCoverImageUrl(config.kavitaBaseUrl, coverImage);
   const coverProxyUrl = buildKavitaCoverProxyPath(id);
   const seriesName = firstString(series.name, title);
@@ -839,6 +931,7 @@ module.exports = {
   buildKavitaChapterProviderItemId,
   buildKavitaReaderWebUrl,
   buildKavitaCoverProxyPath,
+  buildKavitaSeriesCoverImagePath,
   buildKavitaCoverImageUrl,
   fetchKavitaCoverImage,
   authenticateKavita,
@@ -849,6 +942,9 @@ module.exports = {
   updateKavitaSeriesMetadata,
   updateKavitaChapterMetadata,
   fetchKavitaReaderProgress,
+  updateKavitaReaderProgress,
+  fetchKavitaReaderChapterInfo,
+  fetchKavitaReaderImage,
   fetchKavitaImportItems,
   normalizeKavitaSeries,
   normalizeKavitaLibraryType,

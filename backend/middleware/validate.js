@@ -256,6 +256,23 @@ const kavitaMetadataWritebackApplySchema = z.object({
   })
 }).strict();
 
+const kavitaProgressWriteSchema = z.object({
+  pageNum: z.preprocess((value) => {
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed === '') return null;
+      const numeric = Number(trimmed);
+      if (!Number.isNaN(numeric)) return numeric;
+    }
+    return value;
+  }, z.number().int().min(0).max(100000)),
+  bookScrollId: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
+  lastModifiedUtc: z.preprocess(emptyStringToNull, z.string().datetime().optional().nullable()),
+  confirm: z.literal(true, {
+    errorMap: () => ({ message: 'confirm must be true to write Kavita progress' })
+  })
+}).strict();
+
 const mediaLoanBaseSchema = z.object({
   borrower_name: z.string().trim().min(1, 'borrower_name is required').max(255),
   borrower_email: z.preprocess(emptyStringToNull, z.string().email('Invalid borrower email address').max(255).optional().nullable()),
@@ -998,6 +1015,7 @@ module.exports = {
   mediaValuationRefreshSchema,
   kavitaMetadataWritebackPreviewSchema,
   kavitaMetadataWritebackApplySchema,
+  kavitaProgressWriteSchema,
   mediaMergePreviewSchema,
   mediaMergeApplySchema,
   mediaMergeRevertSchema,

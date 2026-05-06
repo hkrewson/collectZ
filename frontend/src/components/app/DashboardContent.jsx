@@ -297,8 +297,8 @@ export default function DashboardContent({
           includeRuntimeSections={productEdition !== 'homelab'}
           includeValuationSections={productEdition !== 'homelab'}
           visibleSections={productEdition === 'homelab'
-            ? ['audio', 'barcode', 'books', 'cwa', 'comics', 'games', 'plex', 'tmdb']
-            : ['audio', 'barcode', 'books', 'cwa', 'comics', 'pricecharting', 'ebay', 'games', 'plex', 'tmdb', 'logs', 'metrics']}
+            ? ['audio', 'barcode', 'books', 'cwa', 'comics', 'games', 'kavita', 'plex', 'tmdb']
+            : ['audio', 'barcode', 'books', 'cwa', 'comics', 'pricecharting', 'ebay', 'games', 'kavita', 'plex', 'tmdb', 'logs', 'metrics']}
         />
       );
     default:

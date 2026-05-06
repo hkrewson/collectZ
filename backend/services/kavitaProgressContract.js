@@ -1,17 +1,44 @@
 'use strict';
 
 const READER_GET_PROGRESS_ENDPOINT = '/api/Reader/get-progress';
+const READER_SET_PROGRESS_ENDPOINT = '/api/Reader/progress';
+const READER_CHAPTER_INFO_ENDPOINT = '/api/Reader/chapter-info';
+const READER_IMAGE_ENDPOINT = '/api/Reader/image';
 const READER_HAS_PROGRESS_ENDPOINT = '/api/Reader/has-progress';
 const READER_CONTINUE_POINT_ENDPOINT = '/api/Reader/continue-point';
+const READER_MARK_READ_ENDPOINT = '/api/Reader/mark-read';
+const READER_MARK_UNREAD_ENDPOINT = '/api/Reader/mark-unread';
+const READER_MARK_CHAPTER_READ_ENDPOINT = '/api/Reader/mark-chapter-read';
+const READER_MARK_VOLUME_READ_ENDPOINT = '/api/Reader/mark-volume-read';
+const PANELS_SAVE_PROGRESS_ENDPOINT = '/api/Panels/save-progress';
+const KOREADER_PROGRESS_SYNC_ENDPOINT = '/api/Koreader/{apiKey}/syncs/progress';
 
 const PROGRESS_WRITE_ENDPOINTS = Object.freeze([
-  '/api/Reader/progress',
-  '/api/Reader/mark-read',
-  '/api/Reader/mark-unread',
-  '/api/Reader/mark-chapter-read',
-  '/api/Reader/mark-volume-read',
-  '/api/Panels/save-progress',
-  '/api/Koreader/{apiKey}/syncs/progress'
+  READER_SET_PROGRESS_ENDPOINT,
+  READER_MARK_READ_ENDPOINT,
+  READER_MARK_UNREAD_ENDPOINT,
+  READER_MARK_CHAPTER_READ_ENDPOINT,
+  READER_MARK_VOLUME_READ_ENDPOINT,
+  PANELS_SAVE_PROGRESS_ENDPOINT,
+  KOREADER_PROGRESS_SYNC_ENDPOINT
+]);
+
+const PROGRESS_UNSUPPORTED_WRITE_ENDPOINTS = Object.freeze([
+  READER_MARK_READ_ENDPOINT,
+  READER_MARK_UNREAD_ENDPOINT,
+  READER_MARK_CHAPTER_READ_ENDPOINT,
+  READER_MARK_VOLUME_READ_ENDPOINT,
+  PANELS_SAVE_PROGRESS_ENDPOINT,
+  KOREADER_PROGRESS_SYNC_ENDPOINT
+]);
+
+const READ_STATE_DISABLED_WRITE_ENDPOINTS = Object.freeze([
+  READER_MARK_READ_ENDPOINT,
+  READER_MARK_UNREAD_ENDPOINT,
+  READER_MARK_CHAPTER_READ_ENDPOINT,
+  READER_MARK_VOLUME_READ_ENDPOINT,
+  PANELS_SAVE_PROGRESS_ENDPOINT,
+  KOREADER_PROGRESS_SYNC_ENDPOINT
 ]);
 
 const PROGRESS_READ_FIELDS = Object.freeze([
@@ -38,8 +65,54 @@ function buildKavitaProgressReadRequest({ chapterId } = {}) {
     endpoint: READER_GET_PROGRESS_ENDPOINT,
     query: { chapterId: id },
     readOnly: true,
-    implementationEnabled: false
+    implementationEnabled: true
   };
+}
+
+function buildKavitaProgressWritePayload({
+  libraryId,
+  seriesId,
+  volumeId,
+  chapterId,
+  pageNum,
+  bookScrollId = null,
+  lastModifiedUtc = null
+} = {}) {
+  const payload = {
+    libraryId: normalizePositiveInt(libraryId),
+    seriesId: normalizePositiveInt(seriesId),
+    volumeId: normalizePositiveInt(volumeId),
+    chapterId: normalizePositiveInt(chapterId),
+    pageNum: Number.isInteger(Number(pageNum)) && Number(pageNum) >= 0 ? Number(pageNum) : null,
+    bookScrollId: bookScrollId === undefined || bookScrollId === null || String(bookScrollId).trim() === ''
+      ? null
+      : String(bookScrollId).trim(),
+    lastModifiedUtc: lastModifiedUtc || new Date().toISOString()
+  };
+  const missing = ['libraryId', 'seriesId', 'volumeId', 'chapterId', 'pageNum']
+    .filter((field) => payload[field] === null || payload[field] === undefined);
+  if (missing.length > 0) {
+    throw new Error(`Kavita progress write requires ${missing.join(', ')}`);
+  }
+  return payload;
+}
+
+function buildKavitaChapterReadStatePayload({
+  seriesId,
+  chapterId,
+  generateReadingSession = false
+} = {}) {
+  const payload = {
+    seriesId: normalizePositiveInt(seriesId),
+    chapterId: normalizePositiveInt(chapterId),
+    generateReadingSession: Boolean(generateReadingSession)
+  };
+  const missing = ['seriesId', 'chapterId']
+    .filter((field) => payload[field] === null || payload[field] === undefined);
+  if (missing.length > 0) {
+    throw new Error(`Kavita chapter read-state write requires ${missing.join(', ')}`);
+  }
+  return payload;
 }
 
 function normalizeKavitaProgressReadback(progress = {}) {
@@ -54,13 +127,28 @@ function normalizeKavitaProgressReadback(progress = {}) {
 function buildKavitaProgressContractProbe() {
   return {
     provider: 'kavita',
-    progressSyncImplementationEnabled: false,
-    recommendation: 'read-only progress visibility before any writeback',
+    progressSyncImplementationEnabled: true,
+    recommendation: 'explicit user-confirmed progress writeback with server-side page proxying',
     endpoints: {
       getProgress: {
         method: 'GET',
         endpoint: READER_GET_PROGRESS_ENDPOINT,
         query: ['chapterId']
+      },
+      setProgress: {
+        method: 'POST',
+        endpoint: READER_SET_PROGRESS_ENDPOINT,
+        body: ['libraryId', 'seriesId', 'volumeId', 'chapterId', 'pageNum', 'bookScrollId', 'lastModifiedUtc']
+      },
+      chapterInfo: {
+        method: 'GET',
+        endpoint: READER_CHAPTER_INFO_ENDPOINT,
+        query: ['chapterId', 'extractPdf', 'includeDimensions']
+      },
+      readerImage: {
+        method: 'GET',
+        endpoint: READER_IMAGE_ENDPOINT,
+        query: ['chapterId', 'page', 'apiKey', 'extractPdf']
       },
       hasProgress: {
         method: 'GET',
@@ -71,23 +159,56 @@ function buildKavitaProgressContractProbe() {
         method: 'GET',
         endpoint: READER_CONTINUE_POINT_ENDPOINT,
         query: ['seriesId']
+      },
+      markSeriesRead: {
+        method: 'POST',
+        endpoint: READER_MARK_READ_ENDPOINT,
+        body: ['seriesId', 'generateReadingSession']
+      },
+      markSeriesUnread: {
+        method: 'POST',
+        endpoint: READER_MARK_UNREAD_ENDPOINT,
+        body: ['seriesId', 'generateReadingSession']
+      },
+      markChapterRead: {
+        method: 'POST',
+        endpoint: READER_MARK_CHAPTER_READ_ENDPOINT,
+        body: ['seriesId', 'chapterId', 'generateReadingSession']
+      },
+      markVolumeRead: {
+        method: 'POST',
+        endpoint: READER_MARK_VOLUME_READ_ENDPOINT,
+        body: ['seriesId', 'volumeId', 'generateReadingSession']
       }
     },
-    prohibitedWriteEndpoints: [...PROGRESS_WRITE_ENDPOINTS],
+    readStateImplementationEnabled: false,
+    enabledWriteEndpoints: [READER_SET_PROGRESS_ENDPOINT],
+    prohibitedWriteEndpoints: [...PROGRESS_UNSUPPORTED_WRITE_ENDPOINTS],
+    readStateContract: {
+      firstCandidateEndpoint: READER_MARK_CHAPTER_READ_ENDPOINT,
+      firstCandidateBody: ['seriesId', 'chapterId', 'generateReadingSession'],
+      disabledWriteEndpoints: [...READ_STATE_DISABLED_WRITE_ENDPOINTS],
+      disabledReasons: [
+        'series-level mark read/unread mutates every volume and chapter',
+        'volume-level mark read mutates all chapters in a volume',
+        'chapter-level mark read still needs explicit user copy and runtime proof',
+        'Kavita exposes no matching chapter-level mark-unread endpoint in the checked OpenAPI snapshot',
+        'collectZ has not defined per-user Kavita identity beyond the workspace-owned service account'
+      ]
+    },
     readbackFields: [...PROGRESS_READ_FIELDS],
     safetyRequirements: [
       'workspace-owned Kavita connection',
       'signed-in collectZ user ownership decision before persistence',
-      'read-only progress preview before writeback',
-      'no progress write endpoints in the first implementation',
+      'explicit user action before progress writeback',
       'backend-only credential use',
       'secret-free browser readback',
-      'audit log before any later writeback'
+      'audit log for progress writeback'
     ],
     nonGoals: [
-      'embedded Kavita reader',
-      'reader page proxying',
+      'iframe Kavita reader with browser-visible Kavita credentials',
       'automatic progress writeback',
+      'mark-read or mark-unread shortcuts',
       'KOReader sync shortcut',
       'shared digital-library progress abstraction'
     ]
@@ -96,11 +217,24 @@ function buildKavitaProgressContractProbe() {
 
 module.exports = {
   READER_GET_PROGRESS_ENDPOINT,
+  READER_SET_PROGRESS_ENDPOINT,
+  READER_CHAPTER_INFO_ENDPOINT,
+  READER_IMAGE_ENDPOINT,
   READER_HAS_PROGRESS_ENDPOINT,
   READER_CONTINUE_POINT_ENDPOINT,
+  READER_MARK_READ_ENDPOINT,
+  READER_MARK_UNREAD_ENDPOINT,
+  READER_MARK_CHAPTER_READ_ENDPOINT,
+  READER_MARK_VOLUME_READ_ENDPOINT,
+  PANELS_SAVE_PROGRESS_ENDPOINT,
+  KOREADER_PROGRESS_SYNC_ENDPOINT,
   PROGRESS_WRITE_ENDPOINTS,
+  PROGRESS_UNSUPPORTED_WRITE_ENDPOINTS,
+  READ_STATE_DISABLED_WRITE_ENDPOINTS,
   PROGRESS_READ_FIELDS,
   buildKavitaProgressReadRequest,
+  buildKavitaProgressWritePayload,
+  buildKavitaChapterReadStatePayload,
   normalizeKavitaProgressReadback,
   buildKavitaProgressContractProbe
 };

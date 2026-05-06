@@ -4,9 +4,12 @@ const assert = require('assert');
 const http = require('http');
 const {
   READER_GET_PROGRESS_ENDPOINT,
-  PROGRESS_WRITE_ENDPOINTS,
+  READ_STATE_DISABLED_WRITE_ENDPOINTS,
+  PROGRESS_UNSUPPORTED_WRITE_ENDPOINTS,
   buildKavitaProgressContractProbe,
   buildKavitaProgressReadRequest,
+  buildKavitaProgressWritePayload,
+  buildKavitaChapterReadStatePayload,
   normalizeKavitaProgressReadback
 } = require('../services/kavitaProgressContract');
 
@@ -23,9 +26,9 @@ function createFakeKavitaProgressServer() {
       authorizationSet: Boolean(req.headers.authorization)
     });
 
-    if (PROGRESS_WRITE_ENDPOINTS.includes(requestUrl.pathname)) {
+    if (PROGRESS_UNSUPPORTED_WRITE_ENDPOINTS.includes(requestUrl.pathname)) {
       res.writeHead(500, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ accepted: false, error: 'write endpoint must not be called' }));
+      res.end(JSON.stringify({ accepted: false, error: 'unsupported write endpoint must not be called' }));
       return;
     }
 
@@ -98,11 +101,39 @@ async function main() {
     const probe = buildKavitaProgressContractProbe();
     const readRequest = buildKavitaProgressReadRequest({ chapterId: 9702 });
 
-    assert.strictEqual(probe.progressSyncImplementationEnabled, false);
+    assert.strictEqual(probe.progressSyncImplementationEnabled, true);
     assert.strictEqual(readRequest.readOnly, true);
-    assert.strictEqual(readRequest.implementationEnabled, false);
-    assert.ok(probe.prohibitedWriteEndpoints.includes('/api/Reader/progress'));
+    assert.strictEqual(readRequest.implementationEnabled, true);
+    assert.ok(probe.enabledWriteEndpoints.includes('/api/Reader/progress'));
+    assert.ok(!probe.prohibitedWriteEndpoints.includes('/api/Reader/progress'));
+    assert.strictEqual(probe.readStateImplementationEnabled, false);
+    assert.strictEqual(probe.readStateContract.firstCandidateEndpoint, '/api/Reader/mark-chapter-read');
+    assert.deepStrictEqual(probe.readStateContract.disabledWriteEndpoints, READ_STATE_DISABLED_WRITE_ENDPOINTS);
+    assert.ok(probe.readStateContract.disabledWriteEndpoints.includes('/api/Reader/mark-read'));
+    assert.ok(probe.readStateContract.disabledWriteEndpoints.includes('/api/Reader/mark-unread'));
+    assert.ok(probe.readStateContract.disabledWriteEndpoints.includes('/api/Reader/mark-chapter-read'));
     assert.ok(probe.prohibitedWriteEndpoints.includes('/api/Koreader/{apiKey}/syncs/progress'));
+    const writePayload = buildKavitaProgressWritePayload({
+      libraryId: 44,
+      seriesId: 8602,
+      volumeId: 12,
+      chapterId: 9702,
+      pageNum: 18,
+      bookScrollId: 'scroll-pos-18',
+      lastModifiedUtc: '2026-05-06T05:00:00Z'
+    });
+    assert.strictEqual(writePayload.chapterId, 9702);
+    assert.strictEqual(writePayload.pageNum, 18);
+    const readStatePayload = buildKavitaChapterReadStatePayload({
+      seriesId: 8602,
+      chapterId: 9702,
+      generateReadingSession: false
+    });
+    assert.deepStrictEqual(readStatePayload, {
+      seriesId: 8602,
+      chapterId: 9702,
+      generateReadingSession: false
+    });
 
     const response = await getJson(baseUrl, readRequest);
     assert.strictEqual(response.status, 200);
@@ -120,8 +151,13 @@ async function main() {
       progressSyncImplementationEnabled: probe.progressSyncImplementationEnabled,
       readEndpoint: probe.endpoints.getProgress.endpoint,
       readQuery: probe.endpoints.getProgress.query,
+      enabledWriteEndpoints: probe.enabledWriteEndpoints,
       prohibitedWriteEndpoints: probe.prohibitedWriteEndpoints,
+      readStateImplementationEnabled: probe.readStateImplementationEnabled,
+      readStateContract: probe.readStateContract,
       readOnlyRequest: readRequest.readOnly,
+      writePayload,
+      readStatePayload,
       normalizedReadback: normalized,
       secretReturned: JSON.stringify(normalized).includes('must-not-leak')
     }, null, 2));

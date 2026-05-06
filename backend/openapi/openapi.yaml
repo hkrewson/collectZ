@@ -7161,6 +7161,196 @@
         }
       }
     },
+    "/api/media/{id}/kavita-progress": {
+      "get": {
+        "tags": ["Media"],
+        "summary": "Read Kavita progress for a chapter-backed media row",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Normalized Kavita progress readback",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": {
+            "description": "Kavita row or configuration error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Media"],
+        "summary": "Write explicit Kavita page progress for a chapter-backed media row",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["pageNum", "confirm"],
+                "properties": {
+                  "pageNum": { "type": "integer", "minimum": 0 },
+                  "bookScrollId": { "type": "string", "nullable": true, "maxLength": 255 },
+                  "lastModifiedUtc": { "type": "string", "format": "date-time", "nullable": true },
+                  "confirm": { "type": "boolean", "enum": [true] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Kavita accepted the explicit progress write",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": {
+            "description": "Kavita row, payload, or configuration error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "403": {
+            "description": "Workspace admin access required for progress writeback",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "502": {
+            "description": "Kavita rejected or failed the progress write",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/media/{id}/kavita-reader-info": {
+      "get": {
+        "tags": ["Media"],
+        "summary": "Read sanitized Kavita chapter reader metadata for a chapter-backed row",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          },
+          {
+            "in": "query",
+            "name": "includeDimensions",
+            "schema": { "type": "boolean", "default": false }
+          },
+          {
+            "in": "query",
+            "name": "extractPdf",
+            "schema": { "type": "boolean", "default": false }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sanitized Kavita reader metadata",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/media/{id}/kavita-reader-page": {
+      "get": {
+        "tags": ["Media"],
+        "summary": "Proxy one Kavita reader image page for a chapter-backed row",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 0 }
+          },
+          {
+            "in": "query",
+            "name": "extractPdf",
+            "schema": { "type": "boolean", "default": false }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Kavita reader page image",
+            "content": {
+              "image/jpeg": { "schema": { "type": "string", "format": "binary" } },
+              "image/png": { "schema": { "type": "string", "format": "binary" } },
+              "image/webp": { "schema": { "type": "string", "format": "binary" } },
+              "image/gif": { "schema": { "type": "string", "format": "binary" } }
+            }
+          },
+          "400": {
+            "description": "Kavita row, page, or configuration error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/media/{id}": {
       "get": {
         "tags": ["Media"],

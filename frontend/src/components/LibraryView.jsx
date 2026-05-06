@@ -639,6 +639,10 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   const [kavitaSelectedFields, setKavitaSelectedFields] = useState([]);
   const [kavitaProgress, setKavitaProgress] = useState(null);
   const [kavitaProgressLoading, setKavitaProgressLoading] = useState(false);
+  const [kavitaProgressSaving, setKavitaProgressSaving] = useState(false);
+  const [kavitaReaderInfo, setKavitaReaderInfo] = useState(null);
+  const [kavitaReaderLoading, setKavitaReaderLoading] = useState(false);
+  const [kavitaReaderPage, setKavitaReaderPage] = useState(0);
   const typeDetails = item?.type_details && typeof item.type_details === 'object' ? item.type_details : {};
   const isBook = item?.media_type === 'book';
   const isComic = item?.media_type === 'comic_book';
@@ -1004,6 +1008,44 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
     }
   };
 
+  const loadKavitaReaderInfo = async () => {
+    if (!item?.id || kavitaReaderLoading) return;
+    setKavitaReaderLoading(true);
+    try {
+      const payload = await apiCall('get', `/media/${item.id}/kavita-reader-info?includeDimensions=true`);
+      const reader = payload?.reader || null;
+      setKavitaReaderInfo(reader);
+      const progressPage = Number(kavitaProgress?.pageNum);
+      if (Number.isInteger(progressPage) && progressPage >= 0) {
+        setKavitaReaderPage(progressPage);
+      }
+      onToast?.('Kavita reader page loaded');
+    } catch (error) {
+      setKavitaReaderInfo(null);
+      onToast?.(error?.response?.data?.error || 'Failed to load Kavita reader page', 'error');
+    } finally {
+      setKavitaReaderLoading(false);
+    }
+  };
+
+  const saveKavitaProgress = async () => {
+    if (!item?.id || kavitaProgressSaving) return;
+    setKavitaProgressSaving(true);
+    try {
+      const payload = await apiCall('post', `/media/${item.id}/kavita-progress`, {
+        pageNum: kavitaReaderPage,
+        bookScrollId: kavitaProgress?.bookScrollId || null,
+        confirm: true
+      });
+      setKavitaProgress(payload?.progress || null);
+      onToast?.('Kavita progress saved');
+    } catch (error) {
+      onToast?.(error?.response?.data?.error || 'Failed to save Kavita progress', 'error');
+    } finally {
+      setKavitaProgressSaving(false);
+    }
+  };
+
   const formatKavitaProgressTimestamp = (value) => {
     const raw = String(value || '').trim();
     if (!raw) return null;
@@ -1020,6 +1062,16 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
     ['Scroll', kavitaProgress.bookScrollId],
     ['Updated', formatKavitaProgressTimestamp(kavitaProgress.lastModifiedUtc)]
   ].filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== '') : [];
+  const kavitaReaderTotalPages = Number(kavitaReaderInfo?.pages || 0);
+  const kavitaReaderPageUrl = item?.id && kavitaReaderInfo
+    ? `/api/media/${item.id}/kavita-reader-page?page=${encodeURIComponent(String(kavitaReaderPage))}`
+    : '';
+  const setBoundedKavitaReaderPage = (nextPage) => {
+    const numeric = Number(nextPage);
+    if (!Number.isInteger(numeric)) return;
+    const maxPage = kavitaReaderTotalPages > 0 ? Math.max(0, kavitaReaderTotalPages - 1) : numeric;
+    setKavitaReaderPage(Math.max(0, Math.min(maxPage, numeric)));
+  };
 
   const markSeasonWatched = async (seasonNumber) => {
     if (!item?.id || !Number.isInteger(Number(seasonNumber))) return;
@@ -1780,7 +1832,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="label">Kavita Progress</p>
-                  <p className="mt-1 text-sm text-ghost">Read-only progress from the linked Kavita chapter.</p>
+                  <p className="mt-1 text-sm text-ghost">Progress from the linked Kavita chapter.</p>
                 </div>
                 <button
                   type="button"
@@ -1804,6 +1856,81 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
               ) : (
                 <p className="mt-3 text-sm text-ghost">No Kavita progress has been loaded for this chapter.</p>
               )}
+              <div className="mt-5 rounded-md border border-edge bg-panel/70 p-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-ink">Reader page</p>
+                    <p className="mt-1 text-xs text-ghost">Page images are proxied by collectZ; Kavita credentials stay server-side.</p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      className="btn-secondary btn-sm"
+                      onClick={loadKavitaReaderInfo}
+                      disabled={kavitaReaderLoading}
+                    >
+                      {kavitaReaderLoading ? <Spinner size={14} /> : <Icons.Eye />}
+                      {kavitaReaderLoading ? 'Loading…' : 'Load Page'}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-secondary btn-sm"
+                      onClick={saveKavitaProgress}
+                      disabled={kavitaProgressSaving || !kavitaReaderInfo}
+                    >
+                      {kavitaProgressSaving ? <Spinner size={14} /> : <Icons.Check />}
+                      {kavitaProgressSaving ? 'Saving…' : 'Save Progress'}
+                    </button>
+                  </div>
+                </div>
+                {kavitaReaderInfo ? (
+                  <div className="mt-4 space-y-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        className="btn-icon btn-sm"
+                        onClick={() => setBoundedKavitaReaderPage(kavitaReaderPage - 1)}
+                        disabled={kavitaReaderPage <= 0}
+                        aria-label="Previous Kavita page"
+                        title="Previous page"
+                      >
+                        <Icons.ChevronLeft />
+                      </button>
+                      <label className="flex items-center gap-2 text-xs text-ghost">
+                        <span>Page</span>
+                        <input
+                          className="input h-8 w-20 px-2 py-1 text-sm"
+                          type="number"
+                          min="0"
+                          max={kavitaReaderTotalPages > 0 ? Math.max(0, kavitaReaderTotalPages - 1) : undefined}
+                          value={kavitaReaderPage}
+                          onChange={(event) => setBoundedKavitaReaderPage(Number(event.target.value))}
+                        />
+                        {kavitaReaderTotalPages > 0 ? <span>of {kavitaReaderTotalPages}</span> : null}
+                      </label>
+                      <button
+                        type="button"
+                        className="btn-icon btn-sm"
+                        onClick={() => setBoundedKavitaReaderPage(kavitaReaderPage + 1)}
+                        disabled={kavitaReaderTotalPages > 0 && kavitaReaderPage >= kavitaReaderTotalPages - 1}
+                        aria-label="Next Kavita page"
+                        title="Next page"
+                      >
+                        <Icons.ChevronRight />
+                      </button>
+                    </div>
+                    <div className="overflow-hidden rounded-md border border-edge bg-black">
+                      {kavitaReaderPageUrl ? (
+                        <img
+                          src={kavitaReaderPageUrl}
+                          alt={`${item.title || 'Kavita chapter'} page ${kavitaReaderPage}`}
+                          className="mx-auto max-h-[72vh] w-auto max-w-full object-contain"
+                        />
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
             </div>
           ) : null}
 

@@ -17,6 +17,7 @@ const {
   mediaValuationRefreshSchema,
   kavitaMetadataWritebackPreviewSchema,
   kavitaMetadataWritebackApplySchema,
+  kavitaProgressWriteSchema,
   mediaMergePreviewSchema,
   mediaMergeApplySchema,
   mediaMergeRevertSchema,
@@ -54,6 +55,9 @@ const {
   fetchKavitaCoverImage,
   fetchKavitaImportItems,
   fetchKavitaReaderProgress,
+  updateKavitaReaderProgress,
+  fetchKavitaReaderChapterInfo,
+  fetchKavitaReaderImage,
   fetchKavitaSeriesMetadata,
   fetchKavitaSeriesVolumes,
   updateKavitaSeriesMetadata,
@@ -67,6 +71,7 @@ const {
   buildKavitaChapterMetadataWritebackPayload
 } = require('../services/kavitaWritebackContract');
 const {
+  buildKavitaProgressWritePayload,
   normalizeKavitaProgressReadback
 } = require('../services/kavitaProgressContract');
 const { mapDeliciousItemTypeToMediaType } = require('../services/importMapping');
@@ -4137,6 +4142,24 @@ function buildNormalizationReviewCandidatesForRows({
   });
 }
 
+function shouldRefreshKavitaSeriesImportTitle({
+  itemTitle = '',
+  normalizedTypeDetails = {},
+  currentRow = {}
+} = {}) {
+  const incomingTitle = String(itemTitle || '').trim();
+  const currentTitle = String(currentRow?.title || '').trim();
+  const details = normalizedTypeDetails && typeof normalizedTypeDetails === 'object'
+    ? normalizedTypeDetails
+    : {};
+  if (!incomingTitle || !currentTitle) return false;
+  if (normalizeText(incomingTitle) === normalizeText(currentTitle)) return false;
+  if (String(details.provider_name || '').trim().toLowerCase() !== 'kavita') return false;
+  if (String(details.kavita_chapter_fanout || '').trim().toLowerCase() === 'true') return false;
+  if (!String(details.provider_item_id || '').trim().startsWith('kavita:series:')) return false;
+  return true;
+}
+
 async function findNormalizationReviewCandidates({
   normalizedMediaType,
   normalizationIdentity,
@@ -4395,7 +4418,7 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
 
     if (existingRow) {
       const currentFormatStateResult = await pool.query(
-        'SELECT media_type, format, owned_formats FROM media WHERE id = $1 LIMIT 1',
+        'SELECT title, media_type, format, owned_formats, import_source, type_details FROM media WHERE id = $1 LIMIT 1',
         [existingRow.id]
       );
       const currentFormatState = currentFormatStateResult.rows[0] || {};
@@ -4482,6 +4505,20 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
          RETURNING id, genre, director, cast_members AS cast`,
         updateParams
       );
+      if (shouldRefreshKavitaSeriesImportTitle({
+        itemTitle: title,
+        normalizedTypeDetails,
+        currentRow: currentFormatState
+      })) {
+        const titleParams = [title, existingRow.id];
+        const titleScopeClause = appendScopeSql(titleParams, scopeContext);
+        await pool.query(
+          `UPDATE media
+              SET title = $1
+            WHERE id = $2${titleScopeClause}`,
+          titleParams
+        );
+      }
       const refreshed = await pool.query('SELECT id, genre, director, cast_members AS cast FROM media WHERE id = $1', [existingRow.id]);
       const updatedRow = refreshed.rows[0] || { id: existingRow.id, genre: item.genre || null, director: item.director || null, cast: item.cast || null };
       await syncNormalizedMetadataForMedia({
@@ -7083,6 +7120,9 @@ async function buildKavitaProgressContext(req, mediaId) {
     error.status = 400;
     throw error;
   }
+  const libraryId = Number(details.kavita_library_id || 0) || null;
+  const seriesId = Number(details.kavita_series_id || 0) || null;
+  const volumeId = Number(details.kavita_volume_id || 0) || null;
   const chapterId = Number(details.kavita_chapter_id || 0) || null;
   if (!chapterId || !isKavitaChapterBackedDetails(details)) {
     const error = new Error('Kavita progress read requires a Kavita chapter-backed media row');
@@ -7103,8 +7143,69 @@ async function buildKavitaProgressContext(req, mediaId) {
     details,
     config,
     auth,
+    libraryId,
+    seriesId,
+    volumeId,
     chapterId
   };
+}
+
+async function findKavitaCoverRow(req, seriesId, scopeContext = null) {
+  const scopedParams = [String(seriesId)];
+  const scopedClause = appendScopeSql(scopedParams, scopeContext, {
+    spaceColumn: 'space_id',
+    libraryColumn: 'library_id'
+  });
+  const baseWhere = `
+      WHERE type_details->>'provider_name' = 'kavita'
+        AND type_details->>'kavita_series_id' = $1`;
+  const scopedResult = await pool.query(
+    `SELECT id, space_id, library_id, type_details
+       FROM media
+       ${baseWhere}
+        ${scopedClause}
+      ORDER BY id ASC
+      LIMIT 1`,
+    scopedParams
+  );
+  if (scopedResult.rows[0]) return scopedResult.rows[0];
+
+  const userId = Number(req.user?.id || 0) || null;
+  const role = String(req.user?.role || '').trim();
+  if (!userId) return null;
+
+  const fallbackParams = [String(seriesId)];
+  let accessJoin = '';
+  let accessClause = '';
+  if (role === 'admin') {
+    accessClause = '';
+  } else if (role === 'support_admin' && Number(req.user?.supportSpaceId || 0) > 0) {
+    fallbackParams.push(Number(req.user.supportSpaceId));
+    accessClause = ` AND media.space_id = $${fallbackParams.length}`;
+  } else {
+    fallbackParams.push(userId);
+    accessJoin = `
+      JOIN library_memberships lm
+        ON lm.library_id = media.library_id
+       AND lm.user_id = $${fallbackParams.length}
+      JOIN space_memberships sm
+        ON sm.space_id = media.space_id
+       AND sm.user_id = lm.user_id
+       AND sm.suspended_at IS NULL`;
+  }
+
+  const fallbackResult = await pool.query(
+    `SELECT media.id, media.space_id, media.library_id, media.type_details
+       FROM media
+       ${accessJoin}
+      WHERE media.type_details->>'provider_name' = 'kavita'
+        AND media.type_details->>'kavita_series_id' = $1
+        ${accessClause}
+      ORDER BY media.id ASC
+      LIMIT 1`,
+    fallbackParams
+  );
+  return fallbackResult.rows[0] || null;
 }
 
 router.get('/kavita-cover/:seriesId', asyncHandler(async (req, res) => {
@@ -7114,23 +7215,7 @@ router.get('/kavita-cover/:seriesId', asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'Invalid Kavita series id' });
   }
 
-  const params = [String(seriesId)];
-  const scopeClause = appendScopeSql(params, scopeContext, {
-    spaceColumn: 'space_id',
-    libraryColumn: 'library_id'
-  });
-  const result = await pool.query(
-    `SELECT id, space_id, type_details
-       FROM media
-      WHERE type_details->>'provider_name' = 'kavita'
-        AND type_details->>'kavita_series_id' = $1
-        AND COALESCE(type_details->>'kavita_cover_image', '') <> ''
-        ${scopeClause}
-      ORDER BY id ASC
-      LIMIT 1`,
-    params
-  );
-  const row = result.rows[0] || null;
+  const row = await findKavitaCoverRow(req, seriesId, scopeContext);
   if (!row) {
     return res.status(404).json({ error: 'Kavita cover was not found in the active scope' });
   }
@@ -7141,7 +7226,7 @@ router.get('/kavita-cover/:seriesId', asyncHandler(async (req, res) => {
     return res.status(404).json({ error: 'Kavita cover settings were not found for the active workspace' });
   }
   const auth = await authenticateKavita(config);
-  const cover = await fetchKavitaCoverImage(config, auth.token, details.kavita_cover_image);
+  const cover = await fetchKavitaCoverImage(config, auth.token, details.kavita_cover_image, { seriesId });
   res.setHeader('Content-Type', cover.contentType);
   res.setHeader('Cache-Control', 'private, max-age=300');
   return res.send(cover.body);
@@ -7324,6 +7409,163 @@ router.get('/:id/kavita-progress', requireSessionAuth, asyncHandler(async (req, 
     },
     progress
   });
+}));
+
+router.post('/:id/kavita-progress', requireSessionAuth, validate(kavitaProgressWriteSchema), asyncHandler(async (req, res) => {
+  const mediaId = Number(req.params.id || 0) || null;
+  if (!mediaId) {
+    return res.status(400).json({ error: 'Invalid media id' });
+  }
+
+  const {
+    row,
+    scopeContext,
+    config,
+    auth,
+    libraryId,
+    seriesId,
+    volumeId,
+    chapterId
+  } = await buildKavitaProgressContext(req, mediaId);
+  if (!await canManageWorkspaceIntegration(req, row.space_id || scopeContext?.spaceId || null)) {
+    return res.status(403).json({ error: 'Kavita progress writeback requires workspace admin access' });
+  }
+  let payload;
+  try {
+    payload = buildKavitaProgressWritePayload({
+      libraryId,
+      seriesId,
+      volumeId,
+      chapterId,
+      pageNum: req.body.pageNum,
+      bookScrollId: req.body.bookScrollId,
+      lastModifiedUtc: req.body.lastModifiedUtc
+    });
+  } catch (error) {
+    return res.status(400).json({ error: error.message });
+  }
+
+  await updateKavitaReaderProgress(config, auth.token, payload);
+  const rawProgress = await fetchKavitaReaderProgress(config, auth.token, chapterId).catch(() => payload);
+  const progress = normalizeKavitaProgressReadback(rawProgress);
+
+  await logActivity(req, 'media.kavita.progress.write', 'media', mediaId, {
+    workspaceId: row.space_id || scopeContext?.spaceId || null,
+    mediaId,
+    chapterId,
+    pageNum: payload.pageNum,
+    fields: Object.keys(progress)
+  });
+
+  res.json({
+    ok: true,
+    readOnly: false,
+    provider: 'kavita',
+    media: {
+      id: row.id,
+      title: row.title,
+      media_type: row.media_type
+    },
+    target: {
+      libraryId: payload.libraryId,
+      seriesId: payload.seriesId,
+      volumeId: payload.volumeId,
+      chapterId: payload.chapterId
+    },
+    progress
+  });
+}));
+
+router.get('/:id/kavita-reader-info', requireSessionAuth, asyncHandler(async (req, res) => {
+  const mediaId = Number(req.params.id || 0) || null;
+  if (!mediaId) {
+    return res.status(400).json({ error: 'Invalid media id' });
+  }
+
+  const {
+    row,
+    scopeContext,
+    config,
+    auth,
+    chapterId
+  } = await buildKavitaProgressContext(req, mediaId);
+  const info = await fetchKavitaReaderChapterInfo(config, auth.token, chapterId, {
+    extractPdf: String(req.query.extractPdf || '').trim().toLowerCase() === 'true',
+    includeDimensions: String(req.query.includeDimensions || '').trim().toLowerCase() === 'true'
+  });
+  const normalizedInfo = {
+    chapterId,
+    chapterNumber: info.chapterNumber ?? null,
+    volumeNumber: info.volumeNumber ?? null,
+    volumeId: info.volumeId ?? null,
+    seriesName: info.seriesName ?? null,
+    seriesId: info.seriesId ?? null,
+    libraryId: info.libraryId ?? null,
+    libraryType: info.libraryType ?? null,
+    chapterTitle: info.chapterTitle ?? null,
+    pages: info.pages ?? null,
+    title: info.title ?? null,
+    subtitle: info.subtitle ?? null,
+    seriesTotalPages: info.seriesTotalPages ?? null,
+    seriesTotalPagesRead: info.seriesTotalPagesRead ?? null,
+    pageDimensions: Array.isArray(info.pageDimensions)
+      ? info.pageDimensions.slice(0, 500).map((entry) => ({
+        width: entry?.width ?? null,
+        height: entry?.height ?? null,
+        pageNumber: entry?.pageNumber ?? null,
+        isWide: entry?.isWide === true
+      }))
+      : []
+  };
+
+  await logActivity(req, 'media.kavita.reader.info', 'media', mediaId, {
+    workspaceId: row.space_id || scopeContext?.spaceId || null,
+    mediaId,
+    chapterId,
+    pages: normalizedInfo.pages
+  });
+
+  res.json({
+    ok: true,
+    provider: 'kavita',
+    media: {
+      id: row.id,
+      title: row.title,
+      media_type: row.media_type
+    },
+    reader: normalizedInfo
+  });
+}));
+
+router.get('/:id/kavita-reader-page', requireSessionAuth, asyncHandler(async (req, res) => {
+  const mediaId = Number(req.params.id || 0) || null;
+  const page = Number(req.query.page || 0);
+  if (!mediaId) {
+    return res.status(400).json({ error: 'Invalid media id' });
+  }
+  if (!Number.isInteger(page) || page < 0) {
+    return res.status(400).json({ error: 'Invalid Kavita reader page' });
+  }
+
+  const {
+    row,
+    scopeContext,
+    config,
+    auth,
+    chapterId
+  } = await buildKavitaProgressContext(req, mediaId);
+  const image = await fetchKavitaReaderImage(config, auth.token, chapterId, page, {
+    extractPdf: String(req.query.extractPdf || '').trim().toLowerCase() === 'true'
+  });
+  await logActivity(req, 'media.kavita.reader.page', 'media', mediaId, {
+    workspaceId: row.space_id || scopeContext?.spaceId || null,
+    mediaId,
+    chapterId,
+    page
+  });
+  res.setHeader('Content-Type', image.contentType);
+  res.setHeader('Cache-Control', 'private, max-age=60');
+  return res.send(image.body);
 }));
 
 // ── List / search ─────────────────────────────────────────────────────────────
