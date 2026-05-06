@@ -10,6 +10,9 @@ const READER_MARK_READ_ENDPOINT = '/api/Reader/mark-read';
 const READER_MARK_UNREAD_ENDPOINT = '/api/Reader/mark-unread';
 const READER_MARK_CHAPTER_READ_ENDPOINT = '/api/Reader/mark-chapter-read';
 const READER_MARK_VOLUME_READ_ENDPOINT = '/api/Reader/mark-volume-read';
+const READER_MARK_VOLUME_UNREAD_ENDPOINT = '/api/Reader/mark-volume-unread';
+const READER_MARK_MULTIPLE_UNREAD_ENDPOINT = '/api/Reader/mark-multiple-unread';
+const READER_MARK_MULTIPLE_SERIES_UNREAD_ENDPOINT = '/api/Reader/mark-multiple-series-unread';
 const PANELS_SAVE_PROGRESS_ENDPOINT = '/api/Panels/save-progress';
 const KOREADER_PROGRESS_SYNC_ENDPOINT = '/api/Koreader/{apiKey}/syncs/progress';
 
@@ -19,6 +22,9 @@ const PROGRESS_WRITE_ENDPOINTS = Object.freeze([
   READER_MARK_UNREAD_ENDPOINT,
   READER_MARK_CHAPTER_READ_ENDPOINT,
   READER_MARK_VOLUME_READ_ENDPOINT,
+  READER_MARK_VOLUME_UNREAD_ENDPOINT,
+  READER_MARK_MULTIPLE_UNREAD_ENDPOINT,
+  READER_MARK_MULTIPLE_SERIES_UNREAD_ENDPOINT,
   PANELS_SAVE_PROGRESS_ENDPOINT,
   KOREADER_PROGRESS_SYNC_ENDPOINT
 ]);
@@ -27,6 +33,9 @@ const PROGRESS_UNSUPPORTED_WRITE_ENDPOINTS = Object.freeze([
   READER_MARK_READ_ENDPOINT,
   READER_MARK_UNREAD_ENDPOINT,
   READER_MARK_VOLUME_READ_ENDPOINT,
+  READER_MARK_VOLUME_UNREAD_ENDPOINT,
+  READER_MARK_MULTIPLE_UNREAD_ENDPOINT,
+  READER_MARK_MULTIPLE_SERIES_UNREAD_ENDPOINT,
   PANELS_SAVE_PROGRESS_ENDPOINT,
   KOREADER_PROGRESS_SYNC_ENDPOINT
 ]);
@@ -35,6 +44,9 @@ const READ_STATE_DISABLED_WRITE_ENDPOINTS = Object.freeze([
   READER_MARK_READ_ENDPOINT,
   READER_MARK_UNREAD_ENDPOINT,
   READER_MARK_VOLUME_READ_ENDPOINT,
+  READER_MARK_VOLUME_UNREAD_ENDPOINT,
+  READER_MARK_MULTIPLE_UNREAD_ENDPOINT,
+  READER_MARK_MULTIPLE_SERIES_UNREAD_ENDPOINT,
   PANELS_SAVE_PROGRESS_ENDPOINT,
   KOREADER_PROGRESS_SYNC_ENDPOINT
 ]);
@@ -177,6 +189,21 @@ function buildKavitaProgressContractProbe() {
         method: 'POST',
         endpoint: READER_MARK_VOLUME_READ_ENDPOINT,
         body: ['seriesId', 'volumeId', 'generateReadingSession']
+      },
+      markVolumeUnread: {
+        method: 'POST',
+        endpoint: READER_MARK_VOLUME_UNREAD_ENDPOINT,
+        body: ['seriesId', 'volumeId', 'generateReadingSession']
+      },
+      markMultipleUnread: {
+        method: 'POST',
+        endpoint: READER_MARK_MULTIPLE_UNREAD_ENDPOINT,
+        body: ['seriesId', 'volumeIds', 'generateReadingSession']
+      },
+      markMultipleSeriesUnread: {
+        method: 'POST',
+        endpoint: READER_MARK_MULTIPLE_SERIES_UNREAD_ENDPOINT,
+        body: ['seriesIds', 'generateReadingSession']
       }
     },
     readStateImplementationEnabled: true,
@@ -188,10 +215,30 @@ function buildKavitaProgressContractProbe() {
       disabledWriteEndpoints: [...READ_STATE_DISABLED_WRITE_ENDPOINTS],
       disabledReasons: [
         'series-level mark read/unread mutates every volume and chapter',
-        'volume-level mark read mutates all chapters in a volume',
+        'volume-level mark read/unread mutates all chapters in a volume',
+        'multiple-volume and multiple-series unread endpoints are bulk mutations',
         'Kavita exposes no matching chapter-level mark-unread endpoint in the checked OpenAPI snapshot',
+        'progress page 0 has not been proven equivalent to unread',
         'collectZ has not defined per-user Kavita identity beyond the workspace-owned service account'
       ]
+    },
+    unreadContract: {
+      implementationEnabled: false,
+      chapterUnreadEndpointAvailable: false,
+      prohibitedUnreadEndpoints: [
+        READER_MARK_UNREAD_ENDPOINT,
+        READER_MARK_VOLUME_UNREAD_ENDPOINT,
+        READER_MARK_MULTIPLE_UNREAD_ENDPOINT,
+        READER_MARK_MULTIPLE_SERIES_UNREAD_ENDPOINT,
+        PANELS_SAVE_PROGRESS_ENDPOINT,
+        KOREADER_PROGRESS_SYNC_ENDPOINT
+      ],
+      resetProgressCandidate: {
+        endpoint: READER_SET_PROGRESS_ENDPOINT,
+        body: ['libraryId', 'seriesId', 'volumeId', 'chapterId', 'pageNum'],
+        status: 'discovery_only',
+        caveat: 'page 0 may reset progress but is not treated as true unread until runtime behavior is proven against Kavita'
+      }
     },
     readbackFields: [...PROGRESS_READ_FIELDS],
     safetyRequirements: [
@@ -207,6 +254,7 @@ function buildKavitaProgressContractProbe() {
       'iframe Kavita reader with browser-visible Kavita credentials',
       'automatic progress writeback',
       'series or volume mark-read shortcuts',
+      'chapter unread without a Kavita chapter-unread endpoint',
       'mark-unread shortcuts',
       'KOReader sync shortcut',
       'shared digital-library progress abstraction'
@@ -225,6 +273,9 @@ module.exports = {
   READER_MARK_UNREAD_ENDPOINT,
   READER_MARK_CHAPTER_READ_ENDPOINT,
   READER_MARK_VOLUME_READ_ENDPOINT,
+  READER_MARK_VOLUME_UNREAD_ENDPOINT,
+  READER_MARK_MULTIPLE_UNREAD_ENDPOINT,
+  READER_MARK_MULTIPLE_SERIES_UNREAD_ENDPOINT,
   PANELS_SAVE_PROGRESS_ENDPOINT,
   KOREADER_PROGRESS_SYNC_ENDPOINT,
   PROGRESS_WRITE_ENDPOINTS,

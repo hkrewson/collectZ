@@ -113,6 +113,13 @@ async function main() {
     assert.ok(probe.readStateContract.disabledWriteEndpoints.includes('/api/Reader/mark-unread'));
     assert.ok(!probe.readStateContract.disabledWriteEndpoints.includes('/api/Reader/mark-chapter-read'));
     assert.ok(probe.enabledWriteEndpoints.includes('/api/Reader/mark-chapter-read'));
+    assert.strictEqual(probe.unreadContract.implementationEnabled, false);
+    assert.strictEqual(probe.unreadContract.chapterUnreadEndpointAvailable, false);
+    assert.ok(probe.unreadContract.prohibitedUnreadEndpoints.includes('/api/Reader/mark-unread'));
+    assert.ok(probe.unreadContract.prohibitedUnreadEndpoints.includes('/api/Reader/mark-volume-unread'));
+    assert.ok(probe.unreadContract.prohibitedUnreadEndpoints.includes('/api/Reader/mark-multiple-unread'));
+    assert.ok(probe.unreadContract.prohibitedUnreadEndpoints.includes('/api/Reader/mark-multiple-series-unread'));
+    assert.strictEqual(probe.unreadContract.resetProgressCandidate.status, 'discovery_only');
     assert.ok(probe.prohibitedWriteEndpoints.includes('/api/Koreader/{apiKey}/syncs/progress'));
     const writePayload = buildKavitaProgressWritePayload({
       libraryId: 44,
@@ -156,6 +163,7 @@ async function main() {
       prohibitedWriteEndpoints: probe.prohibitedWriteEndpoints,
       readStateImplementationEnabled: probe.readStateImplementationEnabled,
       readStateContract: probe.readStateContract,
+      unreadContract: probe.unreadContract,
       readOnlyRequest: readRequest.readOnly,
       writePayload,
       readStatePayload,

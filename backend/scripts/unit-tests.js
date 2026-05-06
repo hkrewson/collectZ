@@ -2018,6 +2018,21 @@ results.push(run('kavita chapter mark-read implementation stays chapter-scoped',
   });
 }));
 
+results.push(run('kavita chapter unread contract keeps reversal disabled and avoids bulk endpoints', () => {
+  assert.ok(kavitaReaderProgressDocSource.includes('`3.4.105` defines the chapter unread/read-state reversal contract'));
+  assert.ok(kavitaReaderProgressDocSource.includes('No chapter-level mark-unread endpoint is present'));
+  assert.ok(kavitaReaderProgressDocSource.includes('`POST /api/Reader/progress` with `pageNum: 0` is only a reset-progress candidate'));
+  assert.ok(kavitaReaderProgressDocSource.includes('Future implementation copy should distinguish `Reset Kavita progress` from `Mark unread`'));
+  assert.ok(kavitaProgressContractProbeSource.includes('unreadContract'));
+  assert.ok(kavitaProgressContractProbeSource.includes('chapterUnreadEndpointAvailable'));
+  assert.ok(kavitaProgressContractProbeSource.includes('/api/Reader/mark-volume-unread'));
+  assert.ok(kavitaProgressContractProbeSource.includes('/api/Reader/mark-multiple-unread'));
+  assert.ok(kavitaProgressContractProbeSource.includes('/api/Reader/mark-multiple-series-unread'));
+  assert.ok(!mediaRoutesSource.includes('mark_chapter_unread'));
+  assert.ok(!libraryViewSource.includes('Mark Unread in Kavita'));
+  assert.ok(!libraryViewSource.includes('Reset Kavita progress'));
+}));
+
 results.push(run('kavita chapter fan-out contract keeps series and issue identities distinct and opt-in', () => {
   assert.ok(kavitaSetupDocSource.includes('43-Kavita-Chapter-Issue-Fanout-Contract.md'));
   assert.ok(kavitaChapterFanoutDocSource.includes('Series row: `provider_item_id = kavita:series:{seriesId}`'));

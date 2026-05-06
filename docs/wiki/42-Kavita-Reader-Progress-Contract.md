@@ -12,6 +12,8 @@
 
 `3.4.104` implements explicit chapter mark-read for Kavita chapter-backed collectZ rows. collectZ may call `POST /api/Reader/mark-chapter-read` after a signed-in workspace admin explicitly clicks `Mark Read in Kavita`. Series-wide mark read/unread, volume-wide mark read, panel save-progress, KOReader sync, automatic read-state updates, and chapter-level mark-unread remain out of scope.
 
+`3.4.105` defines the chapter unread/read-state reversal contract without enabling runtime unread behavior. The checked Kavita OpenAPI still exposes no chapter-level mark-unread endpoint; collectZ must not use series, volume, multiple-volume, multiple-series, panel, or KOReader unread/progress endpoints as a shortcut. Resetting progress to page `0` remains discovery-only and must not be presented as true unread until proven against Kavita runtime behavior.
+
 ## Source Snapshot
 
 This discovery slice reviewed Kavita's upstream OpenAPI document from `https://raw.githubusercontent.com/Kareadita/Kavita/develop/openapi.json` on 2026-05-04. That document identifies itself as `0.9.0.0` and describes auth-key based API access through the `x-api-key` header.
@@ -20,13 +22,15 @@ The `3.4.100` follow-up rechecked the same upstream OpenAPI document on 2026-05-
 
 The `3.4.103` follow-up rechecked the upstream OpenAPI document on 2026-05-06. It still identifies as `0.9.0.0`; `POST /api/Reader/mark-read` and `POST /api/Reader/mark-unread` use `MarkReadDto` with `seriesId` and `generateReadingSession`, `POST /api/Reader/mark-chapter-read` uses `MarkChapterReadDto` with `seriesId`, `chapterId`, and `generateReadingSession`, and `POST /api/Reader/mark-volume-read` uses `MarkVolumeReadDto` with `seriesId`, `volumeId`, and `generateReadingSession`. The checked OpenAPI snapshot does not expose a chapter-level mark-unread endpoint.
 
+The `3.4.105` follow-up rechecked the upstream OpenAPI document on 2026-05-06. It still identifies as `0.9.0.0`; the unread-capable endpoints are bulk mutations: `POST /api/Reader/mark-unread` for a series, `POST /api/Reader/mark-volume-unread` for a whole volume, `POST /api/Reader/mark-multiple-unread` for multiple volumes, and `POST /api/Reader/mark-multiple-series-unread` for multiple series. No chapter-level mark-unread endpoint is present in the checked snapshot.
+
 The relevant reader/progress paths include:
 
 - Read/session visibility: `GET /api/Activity/current`
 - Reader content and metadata: `GET /api/Reader/chapter-info`, `GET /api/Reader/image`, `GET /api/Reader/pdf`, `GET /api/Reader/thumbnail`, `GET /api/Reader/file-dimensions`
 - Reader navigation: `GET /api/Reader/continue-point`, `GET /api/Reader/next-chapter`, `GET /api/Reader/prev-chapter`
 - Progress reads: `GET /api/Reader/get-progress`, `GET /api/Reader/has-progress`, `GET /api/Reader/first-progress-date`, `GET /api/Reader/time-left`, `GET /api/Reader/time-left-for-chapter`, `GET /api/Panels/get-progress`
-- Progress writes: `POST /api/Reader/progress`, `POST /api/Reader/mark-read`, `POST /api/Reader/mark-unread`, `POST /api/Reader/mark-chapter-read`, `POST /api/Reader/mark-volume-read`, `POST /api/Panels/save-progress`
+- Progress writes: `POST /api/Reader/progress`, `POST /api/Reader/mark-read`, `POST /api/Reader/mark-unread`, `POST /api/Reader/mark-chapter-read`, `POST /api/Reader/mark-volume-read`, `POST /api/Reader/mark-volume-unread`, `POST /api/Reader/mark-multiple-unread`, `POST /api/Reader/mark-multiple-series-unread`, `POST /api/Panels/save-progress`
 - Bookmark and personal reader state: `POST /api/Reader/bookmark`, `POST /api/Reader/unbookmark`, `POST /api/Reader/create-ptoc`, `GET /api/Reader/ptoc`
 - KOReader sync: `GET /api/Koreader/{apiKey}/syncs/progress/{ebookHash}`, `PUT /api/Koreader/{apiKey}/syncs/progress`
 
@@ -64,6 +68,8 @@ Keep mark read/write behavior narrow in this contract:
 - Treat `POST /api/Reader/mark-volume-read` as a bulk volume mutation because it marks every chapter in the volume.
 - Do not call series-wide or volume-wide read-state endpoints from collectZ.
 - Do not add chapter-level mark-unread until a later milestone defines how to handle Kavita's missing chapter-level mark-unread endpoint.
+- Do not call volume, multiple-volume, or multiple-series unread endpoints as a workaround for a single collectZ chapter row.
+- Do not label page `0` progress as unread unless a later runtime proof demonstrates that Kavita treats it as true unread.
 - Do not add automatic read-state writes from page navigation, import/sync, progress readback, or progress save.
 - Do not claim this is per-collectZ-user state until a later milestone defines Kavita user identity instead of relying only on the workspace-owned service account.
 
@@ -125,6 +131,17 @@ This slice enables the narrow first runtime read-state action defined by `3.4.10
 - The drawer UI exposes a `Mark Read in Kavita` button beside the explicit page/progress controls.
 - The action does not write collectZ-owned read state, does not infer a collectZ user's Kavita identity, and does not call series-wide, volume-wide, panel, KOReader, or mark-unread endpoints.
 
+## `3.4.105` Chapter Unread / Read-State Reversal Contract
+
+This slice answers the immediate reversal question created by `3.4.104` without enabling a runtime unread action:
+
+- Kavita's checked OpenAPI snapshot does not expose `POST /api/Reader/mark-chapter-unread` or another chapter-scoped unread endpoint.
+- Series unread, volume unread, multiple-volume unread, and multiple-series unread endpoints are bulk mutations and remain prohibited for collectZ chapter rows.
+- `POST /api/Reader/progress` with `pageNum: 0` is only a reset-progress candidate. It may be useful later, but collectZ must not call it or describe it as unread until behavior is proven against a Kavita runtime.
+- `POST /api/Panels/save-progress` and KOReader progress sync remain prohibited shortcuts.
+- No route, UI control, import/sync path, or background job performs unread/read-state reversal in this slice.
+- Future implementation copy should distinguish `Reset Kavita progress` from `Mark unread` unless Kavita provides or proves a true chapter-unread semantic.
+
 ### Probe Evidence
 
 `3.4.100` added `npm run test:kavita-progress-contract-probe`, which uses a fake Kavita-compatible progress server to prove the progress contract shape. In `3.4.102`, the probe reflects the opt-in writeback contract:
@@ -134,7 +151,7 @@ This slice enables the narrow first runtime read-state action defined by `3.4.10
 - `POST /api/Reader/progress` is the only enabled write endpoint.
 - Mark-read/mark-unread, panel save-progress, and KOReader sync endpoints are enumerated as prohibited.
 - The write payload helper requires library, series, volume, chapter, and page fields.
-- `3.4.103` extends the probe with read-state contract evidence. `3.4.104` updates that evidence so `POST /api/Reader/mark-chapter-read` is enabled, while series-wide, volume-wide, panel, KOReader, and mark-unread endpoints remain disabled.
+- `3.4.103` extends the probe with read-state contract evidence. `3.4.104` updates that evidence so `POST /api/Reader/mark-chapter-read` is enabled, while series-wide, volume-wide, panel, KOReader, and mark-unread endpoints remain disabled. `3.4.105` adds unread/reversal evidence: no chapter-unread endpoint is available, bulk unread endpoints stay prohibited, and progress page `0` remains a discovery-only reset candidate.
 - Normalized readback excludes injected secret-like fields.
 - No mark-read, KOReader, PDF, raw file, or broad reader endpoint is exercised.
 

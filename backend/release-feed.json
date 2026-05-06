@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.105",
+      "version": "v3.4.105",
+      "date": "2026-05-06",
+      "status": "Ready for CI release gates",
+      "summary": "This patch defines the Kavita chapter unread/read-state reversal boundary after the chapter mark-read implementation. It keeps runtime unread behavior disabled because the checked Kavita OpenAPI snapshot does not expose a chapter-level mark-unread endpoint.",
+      "details": [
+        {
+          "heading": "Shipped",
+          "bullets": [
+            "Rechecked Kavita's upstream OpenAPI reader/progress surface for unread and reset-progress options.",
+            "Documented that series, volume, multiple-volume, and multiple-series unread endpoints are bulk mutations.",
+            "Kept progress page `0` as a discovery-only reset-progress candidate, not a true unread action.",
+            "Extended the Kavita progress/read-state probe with unread/reversal contract evidence.",
+            "Added source assertions to ensure no runtime unread route or UI control was introduced."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.4.104",
       "version": "v3.4.104",
       "date": "2026-05-06",
@@ -169,14 +188,6 @@
           ]
         }
       ]
-    },
-    {
-      "title": "collectZ v3.4.95",
-      "version": "v3.4.95",
-      "date": null,
-      "status": null,
-      "summary": "",
-      "details": []
     }
   ]
 }
