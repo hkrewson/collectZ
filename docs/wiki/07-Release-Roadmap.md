@@ -9412,7 +9412,7 @@ Historical note:
 
 **Goal:** Let artwork entries capture numbered print details, including the specific print number and total print run, and surface a clear numbered-print badge in artwork cards, rows, and detail views.
 
-**Current Slice:** `Active`
+**Current Slice:** `Closed`
 
 ### Scope
 
@@ -9443,6 +9443,40 @@ Historical note:
 - Risks or follow-ups: numbered print metadata is intentionally item-local; Art poster cards now keep edition/signed/medium as a quiet subtitle and leave fuller series/artist/purchase context to list and detail views; reusable artist records, valuation enrichment, external print registries, certificate verification, and broad edition-series modeling remain separate. Local `gitleaks` and `trivy` binaries were not installed, so `secret-scan` and `image-security-and-sbom` remain CI-only plus local release-artifact grep hygiene.
 - What remains in the milestone: no open `3.4.109` implementation work remains; CI-only release gates must pass before public tag/release publication.
 - Recommended commit message: `Release 3.4.109 Artwork numbered print metadata and badge`.
+
+## 3.4.110 — Release Channel Automation and Stable Promotion
+
+**Goal:** Define the collectZ `latest` and `stable` release channels for homelab users and automate stable promotion as a deliberate maintainer action.
+
+**Current Slice:** `Active`
+
+### Scope
+
+- Add a GitHub security policy that states supported release channels.
+- Document `latest`, `stable`, exact semver tags, and moving minor tags.
+- Keep `latest` as the automatic publish output for green releases.
+- Add a manual stable-promotion workflow that retags existing exact-version images instead of rebuilding.
+- Add release/source assertions so channel policy, docs, and workflow do not drift silently.
+
+### Acceptance Criteria
+
+- The repository documents `latest` as the newest release and `stable` as the recommended homelab channel.
+- The repository documents a weekly `latest` cadence plus manual `stable` promotion after at least seven days of clean maintainer homelab use and no known blocker.
+- Maintainers can run a manual workflow with an exact version to promote backend/frontend images to `stable` and `stable-<major.minor>`.
+- Stable promotion verifies the git tag, release note, successful release workflow, and exact backend/frontend images before retagging.
+- Version metadata and Help > Releases are aligned to `3.4.110`.
+
+### Closeout
+
+- Roadmap slice: `3.4.110 — Release Channel Automation and Stable Promotion`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, and release note workflow via `docs/releases/v3.4.110.md` plus `backend/release-feed.json`.
+- Runtime verification used: rebuilt the Docker platform stack with `APP_VERSION=3.4.110`; verified `/api/health` reports frontend/backend/build `3.4.110`; verified running backend `APP_VERSION=3.4.110`; verified Help > Releases serves `v3.4.110` first; verified live DB writeability with a temp-table insert after Docker cache cleanup; verified live DB `feature_flags.events_enabled=true` and `feature_flags.collectibles_enabled=true`; temporarily switched to generated homelab compose with `.ci/docker-compose.build.yml` for the homelab boundary gate, then restored the localhost platform stack.
+- CI/checks run locally: workflow YAML parse for `.github/workflows/*.yml`; local backend unit/source assertions (`251` passed); Docker backend unit/source assertions (`251` passed); local frontend Vite build; Docker backend/frontend build; Docker OpenAPI validation; Docker Help > Releases smoke with `EXPECTED_RELEASE_VERSION=v3.4.110`; Docker RBAC regression; Docker platform edition boundary; generated-compose homelab edition boundary; `npm run validate:public-export`; version metadata sync check; release-note section check; `git diff --check`; full browser regression after Docker storage cleanup (`58` passed, `4` skipped, with one transient miss rerun targeted and passing); local release preflight.
+- Release gate accounting: release-channel workflow behavior is source-verified locally, but the actual `Promote Stable Images` workflow must run in GitHub because it requires GHCR package write permissions and GitHub Actions run history. Local release preflight passed version sync, release note presence, dependency-audit artifact checks, and migration evidence checks; it still marks compose secure-cookie coverage blocked in the development stack (`SESSION_COOKIE_SECURE=false`, `NODE_ENV=development`), and marks observability evidence failed because the existing artifact is stale at `3.4.109` and the local refresh was blocked by Docker Desktop storage exhaustion (`No space left on device`) while starting Graylog/MongoDB/OpenSearch. CI must still rerun `compose-smoke`, `browser-regression`, `secret-scan`, `image-security-and-sbom`, and release publish checks.
+- Files changed: `SECURITY.md`, `.github/workflows/promote-stable.yml`, `README.md`, `env.example`, `app-meta.json`, `backend/app-meta.json`, `frontend/src/app-meta.json`, backend/frontend package manifests and lockfiles, `docker-compose.yml`, `backend/scripts/unit-tests.js`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/releases/v3.4.110.md`, `backend/release-feed.json`, `preflight-go-no-go.md`, and this roadmap.
+- Risks or follow-ups: stable promotion remains a maintainer judgment call after at least seven days of clean homelab use; rollback protection depends on image version labels being available and otherwise warns rather than blocking; local observability evidence needs rerun after Docker storage is cleaned further or in CI/release evidence infrastructure.
+- What remains in the milestone: no open `3.4.110` implementation work remains; CI-only and locally blocked release gates must pass before public tag/release publication, and stable promotion should only be run after the chosen latest release has soaked.
+- Recommended commit message: `Release 3.4.110 release channel automation and stable promotion`.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 

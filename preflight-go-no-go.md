@@ -1,17 +1,17 @@
 # Local Release Go/No-Go Preflight
 
-- Version: `3.4.109`
-- Generated: `2026-05-06T23:39:00.721Z`
+- Version: `3.4.110`
+- Generated: `2026-05-07T00:56:37.915Z`
 - Base URL: `http://localhost:3000`
 
 ## Gate Results
 
-- Version metadata sync: PASS — all manifests aligned on 3.4.109
-- Release note presence: PASS — docs/releases/v3.4.109.md
+- Version metadata sync: PASS — all manifests aligned on 3.4.110
+- Release note presence: PASS — docs/releases/v3.4.110.md
 - Backend dependency audit: PASS — using existing audit artifact; low=0 moderate=2 high=0 critical=0
 - Frontend dependency audit: PASS — using existing audit artifact; low=0 moderate=0 high=0 critical=0
 - Migration evidence presence: PASS — init parity and migration rehearsal evidence are present
-- Observability release evidence: PASS — observability artifact present for 3.4.109 with 9/9 checks passed
+- Observability release evidence: FAIL — observability artifact missing, stale, or contains failed/blocked checks
 - Compose smoke basics: BLOCKED — current local stack is not running with CI secure-cookie settings (SESSION_COOKIE_SECURE=false, NODE_ENV=development)
 - Secret scan: BLOCKED — CI-only gitleaks gate
 - Browser regression: BLOCKED — not run by this local preflight helper
@@ -28,7 +28,7 @@
 
 ## Release Note
 
-- `docs/releases/v3.4.109.md`: present
+- `docs/releases/v3.4.110.md`: present
 - Security triage markers: present
 
 ## Blocking Criteria

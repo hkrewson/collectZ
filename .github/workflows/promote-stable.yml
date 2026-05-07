@@ -1,0 +1,180 @@
+name: Promote Stable Images
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Exact release version to promote, without leading v (example: 3.4.110)"
+        required: true
+        type: string
+      allow_rollback:
+        description: "Allow promoting a version lower than the current stable tag"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  packages: write
+  actions: read
+
+jobs:
+  promote-stable:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Lowercase owner
+        id: owner
+        run: |
+          echo "owner_lc=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      - name: Validate requested release
+        id: release
+        env:
+          VERSION: ${{ inputs.version }}
+          ALLOW_ROLLBACK: ${{ inputs.allow_rollback }}
+        run: |
+          set -euo pipefail
+
+          if ! echo "${VERSION}" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$'; then
+            echo "Invalid version input: ${VERSION}"
+            exit 1
+          fi
+
+          TAG="v${VERSION}"
+          NOTE_FILE="docs/releases/${TAG}.md"
+          if [ ! -f "${NOTE_FILE}" ]; then
+            echo "Missing release note: ${NOTE_FILE}"
+            exit 1
+          fi
+
+          if ! git ls-remote --exit-code --tags origin "refs/tags/${TAG}" >/dev/null 2>&1; then
+            echo "Missing git release tag: ${TAG}"
+            exit 1
+          fi
+
+          MAJOR_MINOR="$(echo "${VERSION}" | awk -F. '{print $1 "." $2}')"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "major_minor=${MAJOR_MINOR}" >> "$GITHUB_OUTPUT"
+
+          if [ "${ALLOW_ROLLBACK}" != "true" ]; then
+            echo "Rollback protection enabled. Manual stable rollback requires allow_rollback=true."
+          fi
+
+      - name: Log in to GHCR
+        run: |
+          set -euo pipefail
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Verify release images exist
+        env:
+          OWNER_LC: ${{ steps.owner.outputs.owner_lc }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          docker buildx imagetools inspect "ghcr.io/${OWNER_LC}/collectz-backend:${VERSION}" >/dev/null
+          docker buildx imagetools inspect "ghcr.io/${OWNER_LC}/collectz-frontend:${VERSION}" >/dev/null
+
+      - name: Verify release workflow succeeded
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const { execFileSync } = require('child_process');
+          const tag = process.env.TAG;
+          const raw = execFileSync('gh', [
+            'run',
+            'list',
+            '--workflow',
+            'Build and Publish Images',
+            '--json',
+            'conclusion,headBranch,event,status',
+            '--limit',
+            '100'
+          ], { encoding: 'utf8' });
+          const runs = JSON.parse(raw);
+          const matched = runs.find((run) => run.headBranch === tag && run.event === 'push');
+          if (!matched) {
+            throw new Error(`No Build and Publish Images workflow run found for ${tag}`);
+          }
+          if (matched.status !== 'completed' || matched.conclusion !== 'success') {
+            throw new Error(`Release workflow for ${tag} is not successful: status=${matched.status} conclusion=${matched.conclusion}`);
+          }
+          console.log(`Release workflow verified for ${tag}.`);
+          NODE
+
+      - name: Prevent accidental stable rollback
+        if: ${{ !inputs.allow_rollback }}
+        env:
+          OWNER_LC: ${{ steps.owner.outputs.owner_lc }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if ! docker buildx imagetools inspect "ghcr.io/${OWNER_LC}/collectz-backend:stable" >/tmp/stable-backend.txt 2>/dev/null; then
+            echo "No existing backend stable tag found; first promotion allowed."
+            exit 0
+          fi
+
+          CURRENT="$(grep -Eo 'org.opencontainers.image.version=[0-9][0-9A-Za-z_.-]*' /tmp/stable-backend.txt | head -1 | cut -d= -f2 || true)"
+          if [ -z "${CURRENT}" ]; then
+            echo "Existing stable tag has no version label; continuing after image-existence checks."
+            exit 0
+          fi
+
+          CURRENT="${CURRENT}" VERSION="${VERSION}" node <<'NODE'
+          const current = process.env.CURRENT;
+          const next = process.env.VERSION;
+          const parse = (value) => String(value).split(/[.-]/).map((part) => Number(part) || 0);
+          const a = parse(current);
+          const b = parse(next);
+          for (let index = 0; index < Math.max(a.length, b.length); index += 1) {
+            if ((b[index] || 0) < (a[index] || 0)) {
+              console.error(`Refusing stable rollback from ${current} to ${next}; rerun with allow_rollback=true if intentional.`);
+              process.exit(1);
+            }
+            if ((b[index] || 0) > (a[index] || 0)) break;
+          }
+          NODE
+
+      - name: Promote backend stable tags
+        env:
+          OWNER_LC: ${{ steps.owner.outputs.owner_lc }}
+          VERSION: ${{ inputs.version }}
+          MAJOR_MINOR: ${{ steps.release.outputs.major_minor }}
+        run: |
+          set -euo pipefail
+          docker buildx imagetools create \
+            -t "ghcr.io/${OWNER_LC}/collectz-backend:stable" \
+            -t "ghcr.io/${OWNER_LC}/collectz-backend:stable-${MAJOR_MINOR}" \
+            "ghcr.io/${OWNER_LC}/collectz-backend:${VERSION}"
+
+      - name: Promote frontend stable tags
+        env:
+          OWNER_LC: ${{ steps.owner.outputs.owner_lc }}
+          VERSION: ${{ inputs.version }}
+          MAJOR_MINOR: ${{ steps.release.outputs.major_minor }}
+        run: |
+          set -euo pipefail
+          docker buildx imagetools create \
+            -t "ghcr.io/${OWNER_LC}/collectz-frontend:stable" \
+            -t "ghcr.io/${OWNER_LC}/collectz-frontend:stable-${MAJOR_MINOR}" \
+            "ghcr.io/${OWNER_LC}/collectz-frontend:${VERSION}"
+
+      - name: Summarize stable promotion
+        env:
+          VERSION: ${{ inputs.version }}
+          MAJOR_MINOR: ${{ steps.release.outputs.major_minor }}
+        run: |
+          {
+            echo "## Stable promotion"
+            echo
+            echo "- Promoted version: \`${VERSION}\`"
+            echo "- Stable tags: \`stable\`, \`stable-${MAJOR_MINOR}\`"
+            echo "- Images were retagged from the existing exact-version release images; no rebuild was performed."
+          } >> "$GITHUB_STEP_SUMMARY"

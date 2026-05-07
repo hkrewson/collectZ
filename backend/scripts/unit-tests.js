@@ -204,11 +204,17 @@ const homelabSharedBrowserSpecSource = fs.readFileSync(require.resolve('../../te
 const homelabEditionBoundarySmokeSource = fs.readFileSync(require.resolve('../scripts/homelab-edition-boundary-smoke'), 'utf8');
 const platformEditionBoundarySmokeSource = fs.readFileSync(require.resolve('../scripts/platform-edition-boundary-smoke'), 'utf8');
 const dockerPublishWorkflowSource = fs.readFileSync(require.resolve('../../.github/workflows/docker-publish.yml'), 'utf8');
+const stablePromotionWorkflowSource = fs.readFileSync(require.resolve('../../.github/workflows/promote-stable.yml'), 'utf8');
 const browserCapturesWorkflowSource = fs.readFileSync(require.resolve('../../.github/workflows/browser-captures.yml'), 'utf8');
 const dockerComposeSource = fs.readFileSync(require.resolve('../../docker-compose.yml'), 'utf8');
 const publicComposeGeneratorSource = fs.readFileSync(require.resolve('../../scripts/generate-public-compose'), 'utf8');
 const publicExportValidatorSource = fs.readFileSync(require.resolve('../../scripts/validate-public-export-surface'), 'utf8');
 const releaseRoadmapSource = fs.readFileSync(require.resolve('../../docs/wiki/07-Release-Roadmap.md'), 'utf8');
+const ciCdDeployDocSource = fs.readFileSync(require.resolve('../../docs/wiki/10-CI-CD-and-Registry-Deploy.md'), 'utf8');
+const securityPolicyPath = path.resolve(__dirname, '..', '..', 'SECURITY.md');
+const securityPolicySource = fs.existsSync(securityPolicyPath)
+  ? fs.readFileSync(securityPolicyPath, 'utf8')
+  : '';
 const collectiblesNamingDecisionSource = fs.readFileSync(require.resolve('../../docs/wiki/39-Collectibles-Naming-Decision.md'), 'utf8');
 const eventSocialPlanningFoundationSource = fs.readFileSync(require.resolve('../../docs/wiki/40-Event-Social-Planning-Foundation.md'), 'utf8');
 const personalSchedIcsSyncSource = fs.readFileSync(require.resolve('../../docs/wiki/41-Personal-Sched-ICS-Sync.md'), 'utf8');
@@ -1534,6 +1540,26 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(rootPackageJson.scripts['stack:ps:homelab']);
   assert.ok(rootPackageJson.scripts['stack:ps:platform']);
   assert.ok(rootPackageJson.scripts['test:edition-boundaries:local']);
+}));
+
+results.push(run('release channel automation documents latest stable and manual promotion boundaries', () => {
+  assert.ok(dockerPublishWorkflowSource.includes('type=raw,value=${{ needs.prepare.outputs.major_minor }}'));
+  assert.ok(dockerPublishWorkflowSource.includes('type=raw,value=latest,enable={{is_default_branch}}'));
+  assert.ok(stablePromotionWorkflowSource.includes('name: Promote Stable Images'));
+  assert.ok(stablePromotionWorkflowSource.includes('workflow_dispatch'));
+  assert.ok(stablePromotionWorkflowSource.includes('docker buildx imagetools inspect "ghcr.io/${OWNER_LC}/collectz-backend:${VERSION}"'));
+  assert.ok(stablePromotionWorkflowSource.includes('docker buildx imagetools create'));
+  assert.ok(stablePromotionWorkflowSource.includes('collectz-backend:stable'));
+  assert.ok(stablePromotionWorkflowSource.includes('collectz-frontend:stable'));
+  assert.ok(stablePromotionWorkflowSource.includes('stable-${MAJOR_MINOR}'));
+  assert.ok(stablePromotionWorkflowSource.includes('Release workflow verified for ${tag}.'));
+  if (securityPolicySource) {
+    assert.ok(securityPolicySource.includes('| Latest | Yes |'));
+    assert.ok(securityPolicySource.includes('| Stable | Yes |'));
+    assert.ok(securityPolicySource.includes('at least seven days'));
+  }
+  assert.ok(ciCdDeployDocSource.includes('Release Cadence and Stable Promotion'));
+  assert.ok(ciCdDeployDocSource.includes('Stable promotion retags existing image digests; it does not rebuild images.'));
 }));
 
 results.push(run('repo includes 2.9.4 Playwright browser regression foundation harness', () => {

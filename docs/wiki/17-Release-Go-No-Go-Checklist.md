@@ -34,7 +34,14 @@ Minimum closeout expectation:
 10. Confirm the Playwright browser-regression gate is green and its artifacts are available when failures occur.
 11. Confirm the homelab edition boundary gate is green so the live `homelab` stack still exposes only the shared mounted surfaces and keeps platform-only APIs unmounted.
 12. Confirm the platform edition boundary gate is green so the live `platform` stack still preserves invite-based registration and the tenant/admin control-plane APIs that must remain mounted.
-13. When any of `rbac-regression`, `browser-regression`, `homelab-edition-boundary`, or `platform-edition-boundary` fail, inspect the exact failing artifact or step log and repair the concrete runtime/spec assumption locally before calling the release push-ready.
+13. Confirm `latest` and moving minor tags are release-publish outputs, while `stable` remains a separate manual promotion decision.
+14. When any of `rbac-regression`, `browser-regression`, `homelab-edition-boundary`, or `platform-edition-boundary` fail, inspect the exact failing artifact or step log and repair the concrete runtime/spec assumption locally before calling the release push-ready.
+
+Stable promotion expectation:
+
+- Promote `stable` only from an already-published exact version.
+- Require at least seven days of clean maintainer homelab use unless the promotion is an urgent security/runtime fix.
+- Use `.github/workflows/promote-stable.yml` so the exact-version backend/frontend image digests are retagged without a rebuild.
 
 If any of these are skipped locally because the shell environment is restricted, the release stays pending until CI or an unrestricted maintainer shell confirms them.
 

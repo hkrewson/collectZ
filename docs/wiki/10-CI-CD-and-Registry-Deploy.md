@@ -33,6 +33,12 @@ Pipeline behavior:
   - `<major.minor>` (example `1.6`)
   - `sha-<commit>`
   - `latest` (default branch only)
+- Release channel meaning:
+  - Exact semver tags such as `3.4.110` are immutable release pins.
+  - Moving minor tags such as `3.4` point to the newest published release in that minor line.
+  - `latest` points to the newest published release overall.
+  - `stable` points to the recommended homelab release after maintainer promotion.
+  - `stable-<major.minor>` points to the promoted stable release for that minor line.
 - Injects build metadata during build:
   - backend image: `APP_VERSION` and `GIT_SHA`
   - frontend image: `VITE_APP_VERSION`, `VITE_GIT_SHA`, and `VITE_BUILD_DATE`
@@ -121,7 +127,9 @@ cp env.example .env
 
 - `IMAGE_REGISTRY=ghcr.io`
 - `IMAGE_NAMESPACE=hkrewson`
-- `IMAGE_TAG=1.6.5-r1`
+- `IMAGE_TAG=stable` for the recommended homelab release
+- `IMAGE_TAG=latest` for the newest release
+- `IMAGE_TAG=1.6.5-r1` to pin an exact release
 
 4. Deploy:
 
@@ -134,7 +142,7 @@ docker compose --env-file .env up -d
 
 ```bash
 # update repo files
-# set IMAGE_TAG in .env to target version
+# set IMAGE_TAG in .env to stable, latest, or an exact target version
 
 docker compose --env-file .env pull
 docker compose --env-file .env up -d
@@ -149,6 +157,14 @@ docker compose --env-file .env up -d
 5. Commit and push.
 6. CI builds and publishes images with embedded build metadata.
 7. Optionally create git tag `vX.Y.Z` (or pre-release like `v1.6.5-r1`).
+
+## Release Cadence and Stable Promotion
+
+- `latest` is published at least weekly when `main` is green, typically as the Sunday release train.
+- Additional `latest` releases may be cut during the week for security fixes, important runtime fixes, or completed feature slices.
+- `stable` is promoted manually from an already-published exact release after at least seven days of clean maintainer homelab use and no known blocker.
+- Stable promotion is handled by `.github/workflows/promote-stable.yml`. It verifies the git tag, release note, successful release workflow, and backend/frontend exact-version images before retagging those images as `stable` and `stable-<major.minor>`.
+- Stable promotion retags existing image digests; it does not rebuild images.
 
 Browser-regression expectation:
 

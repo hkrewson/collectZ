@@ -109,8 +109,10 @@ After CSV imports, use **Download Audit CSV** to get per-row results (`created`,
 The public compose file uses prebuilt images from GHCR:
 
 1. Configure `.env`
-2. Set your tag (example):
-  - `IMAGE_TAG=3.4.20`
+2. Set your release channel or exact tag:
+  - `IMAGE_TAG=stable` for the recommended homelab release
+  - `IMAGE_TAG=latest` for the newest release
+  - `IMAGE_TAG=3.4.110` to pin an exact release
 3. Deploy:
    - `docker compose --env-file .env pull`
    - `docker compose --env-file .env up -d`

@@ -1,6 +1,44 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.110",
+      "version": "v3.4.110",
+      "date": "2026-05-07",
+      "status": "Ready for CI release gates",
+      "summary": "This release formalizes the collectZ release cadence for homelab users. `latest` remains the fast-moving release channel, while `stable` becomes an intentional maintainer-promoted channel after a release has passed CI, soaked in real homelab use, and has no known blocker open.",
+      "details": [
+        {
+          "heading": "Backend",
+          "bullets": [
+            "No backend runtime API behavior changed.",
+            "Added source assertions that keep release-channel automation, security policy wording, and release-channel docs aligned."
+          ]
+        },
+        {
+          "heading": "Frontend",
+          "bullets": [
+            "No frontend runtime UI behavior changed.",
+            "Version metadata now points Help and health surfaces at `v3.4.110`."
+          ]
+        },
+        {
+          "heading": "Database",
+          "bullets": [
+            "No schema or data migration changes."
+          ]
+        },
+        {
+          "heading": "Docs/Ops",
+          "bullets": [
+            "Added `SECURITY.md` with supported release channels and vulnerability reporting guidance.",
+            "Documented `latest`, `stable`, exact semver pins, moving minor tags, and stable promotion rules.",
+            "Added a manual `Promote Stable Images` workflow that verifies the requested release tag, release note, successful publish workflow, and backend/frontend exact-version images before retagging existing image digests as `stable` and `stable-<major.minor>`.",
+            "Updated homelab deployment docs to recommend `IMAGE_TAG=stable` for the safest channel, `IMAGE_TAG=latest` for newest releases, or exact semver tags for pinned deployments."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.4.109",
       "version": "v3.4.109",
       "date": "2026-05-06",
@@ -189,25 +227,6 @@
             "Normalized progress readback to page/chapter/series/volume/scroll/timestamp fields.",
             "Added a compact read-only Kavita Progress panel to the media detail drawer for chapter-backed rows.",
             "Extended the fake-Kavita import/sync smoke to prove read-only progress readback and secret-free browser responses."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.4.100",
-      "version": "v3.4.100",
-      "date": "2026-05-05",
-      "status": "Ready for CI release gates",
-      "summary": "This patch defines the first safe Kavita reading-progress sync contract. The contract keeps collectZ link-out/native-reader-first, identifies read-only progress visibility as the next viable implementation, and explicitly keeps progress writeback and embedded reading out of scope.",
-      "details": [
-        {
-          "heading": "Shipped",
-          "bullets": [
-            "Rechecked Kavita's upstream OpenAPI progress endpoints and documented the read/write boundary.",
-            "Added a read-only Kavita progress contract helper.",
-            "Added a fake-server progress contract probe that calls only `GET /api/Reader/get-progress`.",
-            "Documented why chapter-as-issue rows are the first eligible progress rows.",
-            "Kept progress writeback, KOReader sync shortcuts, embedded reading, page proxying, and background polling out of scope."
           ]
         }
       ]
