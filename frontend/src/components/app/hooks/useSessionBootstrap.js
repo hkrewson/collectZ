@@ -5,7 +5,7 @@ export default function useSessionBootstrap({ route, apiCall, setRoute }) {
   const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
-    if (route !== 'dashboard') {
+    if (route !== 'dashboard' && route !== 'now-playing') {
       setAuthChecked(true);
       return;
     }

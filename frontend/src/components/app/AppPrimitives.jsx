@@ -5,6 +5,7 @@ export function routeFromPath(p) {
   if (p === '/forgot-password') return 'forgot';
   if (p === '/reset-password') return 'reset';
   if (p === '/verify-email') return 'verify';
+  if (p === '/now-playing') return 'now-playing';
   if (
     p === '/dashboard' ||
     p.startsWith('/dashboard/') ||

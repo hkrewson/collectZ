@@ -63,7 +63,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 45. `Kavita Mark Read/Unread Contract` was promoted as `3.4.103`; keep runtime mark read/unread implementation, full embedded reader ownership, PDF/raw chapter file proxying, background polling, KOReader sync, and shared provider abstractions separate.
 46. `Kavita Chapter Mark-Read Implementation` was promoted as `3.4.104`; keep series-wide mark read/unread, volume-wide mark read, chapter unread, full embedded reader ownership, PDF/raw chapter file proxying, background polling, KOReader sync, and shared provider abstractions separate.
 47. `Kavita Chapter Unread Contract` was promoted as `3.4.105`; the reset-progress runtime proof was promoted as `3.4.106`; the explicit reset-progress implementation was promoted as `3.4.107`; reader-control polish was promoted as `3.4.108`; keep true chapter unread, full embedded reader ownership, PDF/raw chapter file proxying, background polling, KOReader sync, and shared provider abstractions separate.
-48. `Plex PMS API Modernization Foundation` was promoted as `3.4.111`; the provider-discovery runtime proof was promoted as `3.4.112`; real-server provider discovery readback was promoted as `3.4.113`; Now Playing provider proof was promoted as `3.4.114`; Now Playing readback endpoint was promoted as `3.4.115`; Now Playing UI readback was promoted as `3.4.116`; real PMS Now Playing runtime proof was promoted as `3.4.117`; keep Plex webhooks, scheduled sync cadence, and broad import rewrites separate.
+48. `Plex PMS API Modernization Foundation` was promoted as `3.4.111`; the provider-discovery runtime proof was promoted as `3.4.112`; real-server provider discovery readback was promoted as `3.4.113`; Now Playing provider proof was promoted as `3.4.114`; Now Playing readback endpoint was promoted as `3.4.115`; Now Playing UI readback was promoted as `3.4.116`; real PMS Now Playing runtime proof was promoted as `3.4.117`; Now Playing Viewer was promoted as `3.4.118`; keep Plex webhooks, scheduled sync cadence, and broad import rewrites separate.
 
 ### Backlog Item: Kavita True Chapter Unread Runtime Support
 **Type:** Task
@@ -356,24 +356,6 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - Update cadence can be described and configured for Plex, Calibre, Kavita, and Metron sources.
 - Plex import uses the actual API path.
 - New-title checks, watch-status checks, and webhooks are all represented in the import design.
-
-### Backlog Item: Now Playing Viewer
-**Type:** Task
-**Tags:** `plex`, `now-playing`, `display`, `kiosk`, `ui`
-
-**Goal:** Add a dedicated Now Playing viewer for a display-driven device such as an SBC.
-
-**Scope**
-- Create a unique page that can be opened on an SBC or similar display device.
-- Show a full-sized Plex poster for either:
-  - the next queued title
-  - the title currently playing
-- Keep the page simple enough for passive viewing on a dedicated screen.
-
-**Acceptance Criteria**
-- The viewer can be opened independently from the main app shell.
-- The page shows a full-sized poster for the current or next queued title.
-- The display experience is readable from across a room.
 
 ### Backlog Item: Support Metrics and Satisfaction Surveys
 **Type:** Task

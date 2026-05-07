@@ -395,7 +395,7 @@ const normalizePlexVariant = (item, sectionId) => {
   };
 };
 
-const plexRequest = async (config, path, params = {}) => {
+const plexRequest = async (config, path, params = {}, options = {}) => {
   const urlBase = String(config.plexApiUrl || '').replace(/\/+$/, '');
   const queryParam = config.plexApiKeyQueryParam || 'X-Plex-Token';
   const reqParams = { ...params, [queryParam]: config.plexApiKey };
@@ -406,6 +406,7 @@ const plexRequest = async (config, path, params = {}) => {
         Accept: 'application/json'
       },
       timeout: 25000,
+      responseType: options.responseType || 'json',
       validateStatus: () => true
     });
     const status = Number(response?.status || 0);
@@ -459,6 +460,25 @@ const fetchPlexNowPlayingSessions = async (config) => {
   return parsePlexNowPlayingSessions(response.data)
     .map(normalizePlexNowPlayingSession)
     .filter(Boolean);
+};
+
+const fetchPlexImageAsset = async (config, key) => {
+  const imageKey = sanitizePlexRelativeKey(key);
+  if (!imageKey) {
+    const error = new Error('Plex image key is not available');
+    error.status = 400;
+    throw error;
+  }
+  const response = await plexRequest(config, imageKey, {}, { responseType: 'arraybuffer' });
+  if (response.status >= 400) {
+    const error = new Error(`Plex image request failed (${response.status})`);
+    error.status = response.status;
+    throw error;
+  }
+  return {
+    body: Buffer.from(response.data || []),
+    contentType: String(response.headers?.['content-type'] || 'image/jpeg').split(';')[0].trim() || 'image/jpeg'
+  };
 };
 
 const fetchPlexLibraryItems = async (config, sectionIds = []) => {
@@ -644,6 +664,7 @@ module.exports = {
   fetchPlexSections,
   fetchPlexMediaProviders,
   fetchPlexNowPlayingSessions,
+  fetchPlexImageAsset,
   fetchPlexLibraryItems,
   fetchPlexShowSeasons,
   fetchPlexShowSeasonVariants,

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import appMeta from './app-meta.json';
 import AuthPageView from './components/AuthPage';
 import DashboardShell from './components/app/DashboardShell';
+import NowPlayingView from './components/NowPlayingView';
 import { routeFromPath, Spinner, Icons, cx } from './components/app/AppPrimitives';
 import {
   dashboardUrl,
@@ -115,7 +116,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (route !== 'dashboard' && user) {
+    if (route !== 'dashboard' && route !== 'now-playing' && user) {
       window.history.replaceState({}, '', dashboardUrl(activeTab, activeIntegrationSection));
       setRoute('dashboard');
     }
@@ -432,6 +433,39 @@ export default function App() {
     supportSessionActiveInEdition,
     user?.role
   ]);
+
+  if (route === 'now-playing') {
+    if (!authChecked) {
+      return (
+        <div className="min-h-screen bg-void flex items-center justify-center text-dim">
+          <div className="flex items-center gap-3"><Spinner size={18} />Checking session...</div>
+        </div>
+      );
+    }
+
+    if (!user) {
+      return (
+        <AuthPageView
+          route="login"
+          onNavigate={navigate}
+          onAuth={handleAuth}
+          apiUrl={apiUrl}
+          appVersion={APP_VERSION}
+          Icons={Icons}
+          Spinner={Spinner}
+          cx={cx}
+        />
+      );
+    }
+
+    return (
+      <NowPlayingView
+        apiCall={apiCall}
+        apiUrl={apiUrl}
+        onBack={() => navigate('dashboard')}
+      />
+    );
+  }
 
   if (route !== 'dashboard') {
     return (

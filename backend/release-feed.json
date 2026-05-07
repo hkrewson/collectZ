@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.118",
+      "version": "v3.4.118",
+      "date": null,
+      "status": null,
+      "summary": "This release adds a standalone Plex Now Playing page. Authenticated admins can open `/now-playing` for a passive display view backed by the saved Plex now-playing readback and an app-owned image proxy.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added the `/now-playing` frontend route outside the dashboard shell.",
+            "Added a read-only backend viewer endpoint for sanitized active-session display data.",
+            "Added an authenticated Plex image proxy for Plex-relative poster/art keys.",
+            "Shows current title, show/season context, player state/platform, progress, and poster/art when Plex exposes usable image keys.",
+            "Added empty and unavailable states for no active sessions or unreachable Plex settings."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.4.117",
       "version": "v3.4.117",
       "date": null,
@@ -227,26 +246,6 @@
           "bullets": [
             "Updated roadmap closeout and Help > Releases feed for `v3.4.109`.",
             "Reduced the local Graylog evidence stack's default journal size so release observability checks can run in constrained Docker Desktop storage."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.4.108",
-      "version": "v3.4.108",
-      "date": "2026-05-06",
-      "status": "Ready for CI release gates",
-      "summary": "This patch polishes the Kavita chapter reader controls so page preview, progress readback, save progress, mark read, and reset progress feel like one coherent drawer workflow.",
-      "details": [
-        {
-          "heading": "Shipped",
-          "bullets": [
-            "Renamed the drawer section to `Kavita Reader` for chapter-backed Kavita rows.",
-            "Added reader status badges for loaded state, current page, total pages, and saved progress.",
-            "Switched drawer page entry to user-facing one-based page numbers while preserving zero-based Kavita API calls behind the scenes.",
-            "Added page-image loading and error states for the proxied reader image.",
-            "Grouped `Load Reader`, `Save Progress`, `Reset Progress`, and `Mark Read in Kavita` beside the page preview.",
-            "Kept reset-progress copy separate from true unread behavior."
           ]
         }
       ]

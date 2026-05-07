@@ -4866,6 +4866,72 @@
         }
       }
     },
+    "/api/plex/now-playing-viewer": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Read sanitized Plex now-playing display data",
+        "security": [
+          { "cookieSession": [] }
+        ],
+        "responses": {
+          "200": {
+            "description": "Plex now-playing viewer payload",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Plex configuration",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "403": {
+            "description": "Admin role required"
+          }
+        }
+      }
+    },
+    "/api/plex/now-playing-image": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Proxy a Plex-relative now-playing poster or art image",
+        "security": [
+          { "cookieSession": [] }
+        ],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Plex image bytes",
+            "content": {
+              "image/jpeg": {
+                "schema": { "type": "string", "format": "binary" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid Plex image key"
+          },
+          "403": {
+            "description": "Admin role required"
+          },
+          "404": {
+            "description": "Plex image unavailable"
+          }
+        }
+      }
+    },
     "/api/admin/settings/integrations/test-kavita": {
       "post": {
         "tags": ["Admin"],

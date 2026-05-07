@@ -9698,6 +9698,40 @@ Historical note:
 - What remains in the milestone: no open `3.4.117` implementation work remains; CI-only `secret-scan` and `image-security-and-sbom` must still pass in CI before public release publication.
 - Recommended commit message: `Release 3.4.117 Plex real PMS now playing runtime proof`.
 
+## 3.4.118 — Plex Now Playing Viewer
+
+**Goal:** Add a standalone authenticated Plex Now Playing display page that can be opened on a passive display, using the proven `/status/sessions` readback and a safe app-owned image proxy.
+
+**Current Slice:** `Closed 2026-05-07`
+
+### Scope
+
+- Add an authenticated `/now-playing` frontend route outside the dashboard shell.
+- Add a read-only backend viewer endpoint that returns sanitized active-session display data.
+- Add an authenticated Plex image proxy for Plex-relative poster/art keys without exposing Plex base URLs, tokens, file paths, IP addresses, machine identifiers, or raw PMS payloads.
+- Refresh the viewer automatically while the browser tab is visible.
+- Build v1 around the current playing or paused session only; keep next-queue behavior out of scope because `3.4.117` did not prove queue hints.
+
+### Acceptance Criteria
+
+- `/now-playing` renders a full-screen display page for authenticated admins.
+- The viewer shows the current title, parent/show context, player state/platform, progress, and poster/art when Plex exposes usable keys.
+- The viewer has explicit unavailable and nothing-playing states.
+- `npm run test:plex-now-playing-viewer-smoke` passes inside the backend container against a fake PMS and proves both viewer JSON and proxied image readback.
+- Existing Plex provider proof, real-PMS proof, readback endpoint, and Integrations UI behavior remain intact.
+- Running-stack verification proves the app serves `3.4.118` and Help > Releases contains the release.
+
+### Closeout
+
+- Roadmap slice: `3.4.118 — Plex Now Playing Viewer`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`, and `docs/releases/v3.4.118.md`.
+- Runtime verification used: rebuilt backend/frontend containers with `APP_VERSION=3.4.118`; verified `/api/health` reports frontend/backend/build `3.4.118`; verified Help > Releases serves `v3.4.118`; verified live DB `feature_flags.events_enabled=true` and `feature_flags.collectibles_enabled=true`; verified authenticated `/api/plex/now-playing-viewer` plus `/api/plex/now-playing-image` against a fake PMS; verified saved real Plex settings reach `/status/sessions` and return sanitized active-session coverage with title, progress, player state, and Plex-relative image keys; verified homelab and platform edition runtime boundaries.
+- CI/checks run: `node --check backend/services/plex.js`, `node --check backend/routes/integrations.js`, `node --check backend/scripts/plex-now-playing-viewer-smoke.js`, `npm --prefix backend run test:unit`, `npm --prefix backend run test:openapi`, `npm --prefix frontend run build:vite`, Docker `backend npm run test:unit`, Docker `backend npm run test:openapi`, Docker `backend npm run test:plex-now-playing-viewer-smoke`, Docker `backend npm run test:plex-now-playing-readback-smoke`, Docker `backend npm run test:plex-real-now-playing-runtime-proof`, targeted Playwright `tests/playwright/specs/now-playing-viewer.browser.spec.js`, full `npm run test:browser` (`60 passed`, `4 skipped`), Docker `backend npm run test:init-parity`, Docker `backend npm run test:migration-rehearsal`, Docker `backend npm run test:rbac-regression`, Docker `backend npm run test:platform-edition-boundary`, `npm run validate:public-export`, Docker homelab `backend npm run test:homelab-edition-boundary`, `npm --prefix backend run test:observability-evidence`, production-shaped `npm --prefix backend run test:release-preflight-local`, generated-artifact secret-pattern scan, and `git diff --check`.
+- Files changed: `README.md`, `app-meta.json`, `backend/app-meta.json`, `backend/openapi/openapi.yaml`, `backend/package.json`, `backend/package-lock.json`, `backend/release-feed.json`, `backend/routes/integrations.js`, `backend/scripts/plex-now-playing-viewer-smoke.js`, `backend/scripts/unit-tests.js`, `backend/services/plex.js`, `docker-compose.yml`, `docs/releases/v3.4.118.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`, `env.example`, `frontend/package.json`, `frontend/package-lock.json`, `frontend/src/App.jsx`, `frontend/src/app-meta.json`, `frontend/src/components/NowPlayingView.jsx`, `frontend/src/components/app/AppPrimitives.jsx`, `frontend/src/components/app/hooks/useSessionBootstrap.js`, `preflight-go-no-go.md`, and `tests/playwright/specs/now-playing-viewer.browser.spec.js`.
+- Risks or follow-ups: v1 is admin-authenticated only, not a shareable display-token route; queue/next-up remains out of scope because the real PMS proof still reports no queue item hint; image proxy intentionally accepts only Plex-relative keys and does not expose raw PMS assets; `secret-scan` and `image-security-and-sbom` remain CI-only locally because `gitleaks` and `trivy` are not installed.
+- What remains in the milestone: none for `3.4.118`; future Plex slices can add display-token mode, richer layout options, or queue handling if a PMS response proves those fields.
+- Recommended commit message: `Release 3.4.118 with Plex Now Playing viewer and authenticated image proxy`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

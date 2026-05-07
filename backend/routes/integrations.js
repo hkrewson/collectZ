@@ -19,7 +19,7 @@ const {
 } = require('../services/valuations');
 const { resolveBarcodePreset } = require('../services/barcode');
 const { resolveTmdbPreset, searchTmdbMovie } = require('../services/tmdb');
-const { resolvePlexPreset, fetchPlexSections, fetchPlexMediaProviders, fetchPlexNowPlayingSessions } = require('../services/plex');
+const { resolvePlexPreset, fetchPlexSections, fetchPlexMediaProviders, fetchPlexNowPlayingSessions, fetchPlexImageAsset } = require('../services/plex');
 const { resolveBooksPreset, searchBooksByTitle } = require('../services/books');
 const { resolveAudioPreset, searchAudioByTitle } = require('../services/audio');
 const { resolveGamesPreset, searchGamesByTitle } = require('../services/games');
@@ -32,6 +32,34 @@ const { resolveScopeContext } = require('../db/scopeContext');
 const sharedRouter = express.Router();
 const platformRouter = express.Router();
 const HOMELAB_EDITION = isHomelabEdition();
+
+function buildNowPlayingImagePath(key) {
+  const value = String(key || '').trim();
+  if (!value) return null;
+  return `/api/plex/now-playing-image?key=${encodeURIComponent(value)}`;
+}
+
+function shapeNowPlayingViewerSession(session) {
+  const posterKey = session?.thumbKey || session?.artKey || null;
+  const backdropKey = session?.artKey || session?.thumbKey || null;
+  return {
+    sessionKey: session?.sessionKey || null,
+    ratingKey: session?.ratingKey || null,
+    title: session?.title || 'Unknown title',
+    type: session?.type || null,
+    grandparentTitle: session?.grandparentTitle || null,
+    parentTitle: session?.parentTitle || null,
+    year: session?.year || null,
+    durationMs: session?.durationMs || null,
+    viewOffsetMs: session?.viewOffsetMs || null,
+    progressPercent: session?.progressPercent ?? null,
+    player: session?.player || null,
+    user: session?.user || null,
+    hasQueueItem: Boolean(session?.hasQueueItem),
+    posterImagePath: buildNowPlayingImagePath(posterKey),
+    backdropImagePath: buildNowPlayingImagePath(backdropKey)
+  };
+}
 
 async function buildSharedIntegrationPayload(config) {
   return {
@@ -218,6 +246,37 @@ sharedRouter.get('/settings/general', authenticateToken, asyncHandler(async (req
   const scopeContext = resolveScopeContext(req);
   const settings = await loadGeneralSettings(scopeContext?.spaceId || null);
   res.json(settings);
+}));
+
+sharedRouter.get('/plex/now-playing-viewer', authenticateToken, requireRole('admin'), asyncHandler(async (_req, res) => {
+  const config = await loadAdminIntegrationConfig();
+  if (!config.plexApiUrl) {
+    return res.status(400).json({ ok: false, authenticated: false, detail: 'Plex API URL is not configured' });
+  }
+  if (!config.plexApiKey) {
+    return res.status(400).json({ ok: false, authenticated: false, detail: 'Plex API key is not configured' });
+  }
+
+  const sessions = await fetchPlexNowPlayingSessions(config);
+  return res.json({
+    ok: true,
+    path: '/status/sessions',
+    sessionCount: sessions.length,
+    generatedAt: new Date().toISOString(),
+    sessions: sessions.map(shapeNowPlayingViewerSession)
+  });
+}));
+
+sharedRouter.get('/plex/now-playing-image', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
+  const key = String(req.query.key || '').trim();
+  const config = await loadAdminIntegrationConfig();
+  if (!config.plexApiUrl || !config.plexApiKey) {
+    return res.status(404).json({ error: 'Plex image settings were not found' });
+  }
+  const image = await fetchPlexImageAsset(config, key);
+  res.setHeader('Content-Type', image.contentType);
+  res.setHeader('Cache-Control', 'private, max-age=60');
+  return res.send(image.body);
 }));
 
 // ── Integration settings (admin only) ─────────────────────────────────────────

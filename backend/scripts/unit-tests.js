@@ -187,6 +187,8 @@ const libraryLoansViewSource = readFrontendSource(path.join('components', 'Libra
 const adminMergeReviewViewSource = readFrontendSource(path.join('components', 'AdminMergeReviewView'));
 const libraryViewSource = readFrontendSource(path.join('components', 'LibraryView'));
 const appPrimitivesSource = readFrontendSource(path.join('components', 'app', 'AppPrimitives'));
+const useSessionBootstrapSource = readFrontendSource(path.join('components', 'app', 'hooks', 'useSessionBootstrap'));
+const nowPlayingViewSource = readFrontendSource(path.join('components', 'NowPlayingView'));
 const eventsViewSource = readFrontendSource(path.join('components', 'EventsView'));
 const artViewSource = readFrontendSource(path.join('components', 'ArtView'));
 const signatureManagerSource = readFrontendSource(path.join('components', 'app', 'SignatureManager'));
@@ -216,6 +218,7 @@ const platformEditionBoundarySmokeSource = fs.readFileSync(require.resolve('../s
 const dockerPublishWorkflowSource = fs.readFileSync(require.resolve('../../.github/workflows/docker-publish.yml'), 'utf8');
 const stablePromotionWorkflowSource = fs.readFileSync(require.resolve('../../.github/workflows/promote-stable.yml'), 'utf8');
 const browserCapturesWorkflowSource = fs.readFileSync(require.resolve('../../.github/workflows/browser-captures.yml'), 'utf8');
+const nowPlayingViewerBrowserSpecSource = fs.readFileSync(require.resolve('../../tests/playwright/specs/now-playing-viewer.browser.spec.js'), 'utf8');
 const dockerComposeSource = fs.readFileSync(require.resolve('../../docker-compose.yml'), 'utf8');
 const publicComposeGeneratorSource = fs.readFileSync(require.resolve('../../scripts/generate-public-compose'), 'utf8');
 const publicExportValidatorSource = fs.readFileSync(require.resolve('../../scripts/validate-public-export-surface'), 'utf8');
@@ -227,6 +230,7 @@ const plexProviderReadbackSmokeSource = fs.readFileSync(require.resolve('../scri
 const plexNowPlayingProviderProofSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-now-playing-provider-proof-smoke'), 'utf8');
 const plexNowPlayingReadbackSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-now-playing-readback-smoke'), 'utf8');
 const plexRealNowPlayingRuntimeProofSource = fs.readFileSync(require.resolve('../scripts/plex-real-now-playing-runtime-proof'), 'utf8');
+const plexNowPlayingViewerSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-now-playing-viewer-smoke'), 'utf8');
 const ciCdDeployDocSource = fs.readFileSync(require.resolve('../../docs/wiki/10-CI-CD-and-Registry-Deploy.md'), 'utf8');
 const securityPolicyPath = path.resolve(__dirname, '..', '..', 'SECURITY.md');
 const securityPolicySource = fs.existsSync(securityPolicyPath)
@@ -1337,6 +1341,28 @@ results.push(run('plex real PMS now-playing runtime proof captures viewer field 
   assert.ok(plexRealNowPlayingRuntimeProofSource.includes('assertSecretFree'));
   assert.ok(plexRealNowPlayingRuntimeProofSource.includes('existing Plex import paths were not called'));
   assert.ok(releaseRoadmapSource.includes('3.4.117 — Plex Real PMS Now Playing Runtime Proof'));
+}));
+
+results.push(run('plex now-playing viewer is wired through a standalone authenticated display route', () => {
+  assert.ok(backendPackageJson.scripts['test:plex-now-playing-viewer-smoke']);
+  assert.ok(integrationsRoutesSource.includes("sharedRouter.get('/plex/now-playing-viewer'"));
+  assert.ok(integrationsRoutesSource.includes("sharedRouter.get('/plex/now-playing-image'"));
+  assert.ok(integrationsRoutesSource.includes('fetchPlexImageAsset'));
+  assert.ok(integrationsRoutesSource.includes('posterImagePath'));
+  assert.ok(openApiSource.includes('/api/plex/now-playing-viewer'));
+  assert.ok(openApiSource.includes('/api/plex/now-playing-image'));
+  assert.ok(plexNowPlayingViewerSmokeSource.includes('/api/plex/now-playing-viewer'));
+  assert.ok(plexNowPlayingViewerSmokeSource.includes('/api/plex/now-playing-image'));
+  assert.ok(plexNowPlayingViewerSmokeSource.includes('Viewer response must not contain raw Plex token'));
+  assert.ok(frontendAppSource.includes("route === 'now-playing'"));
+  assert.ok(appPrimitivesSource.includes("if (p === '/now-playing') return 'now-playing';"));
+  assert.ok(useSessionBootstrapSource.includes("route !== 'dashboard' && route !== 'now-playing'"));
+  assert.ok(nowPlayingViewSource.includes('/plex/now-playing-viewer'));
+  assert.ok(nowPlayingViewSource.includes('posterImagePath'));
+  assert.ok(nowPlayingViewSource.includes('Updates every 15 seconds'));
+  assert.ok(nowPlayingViewerBrowserSpecSource.includes("page.goto('/now-playing')"));
+  assert.ok(nowPlayingViewerBrowserSpecSource.includes('Viewer Safe Payload'));
+  assert.ok(releaseRoadmapSource.includes('3.4.118 — Plex Now Playing Viewer'));
 }));
 
 results.push(run('media route source includes tmdb trace-match endpoint', () => {
