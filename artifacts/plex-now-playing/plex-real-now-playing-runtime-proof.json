@@ -1,0 +1,51 @@
+{
+  "generatedAt": "2026-05-07T05:15:04.639Z",
+  "mode": "real-pms",
+  "ok": true,
+  "status": "passed",
+  "scope": "admin",
+  "path": "/status/sessions",
+  "configured": true,
+  "reachable": true,
+  "sessionCount": 1,
+  "types": [
+    "episode"
+  ],
+  "playerStates": [
+    "paused"
+  ],
+  "sessionsWithMetadataKey": 1,
+  "sessionsWithThumbKey": 1,
+  "sessionsWithArtKey": 1,
+  "sessionsWithProgress": 1,
+  "sessionsWithQueueItem": 0,
+  "sampleSessions": [
+    {
+      "title": "Island Hopping",
+      "type": "episode",
+      "grandparentTitle": "The Curse of Oak Island",
+      "parentTitle": "Season 13",
+      "year": 2026,
+      "progressPercent": 44,
+      "hasMetadataKey": true,
+      "hasThumbKey": true,
+      "hasArtKey": true,
+      "hasQueueItem": false,
+      "playerState": "paused",
+      "playerPlatform": "Chrome"
+    }
+  ],
+  "viewerReadiness": {
+    "canShowCurrentTitle": true,
+    "canShowProgress": true,
+    "canUsePlexRelativePosterKey": true,
+    "canInferQueuePresence": false,
+    "note": "Real PMS returned active sessions. Poster keys are represented only as Plex-relative keys for a future authenticated proxy."
+  },
+  "assertions": [
+    "real saved Plex settings reached PMS /status/sessions",
+    "evidence contains only sanitized session shape and field-coverage counts",
+    "no Plex token, provider URL, player IP, machine identifier, or media file path was written",
+    "existing Plex import paths were not called"
+  ]
+}

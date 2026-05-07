@@ -112,7 +112,7 @@ The public compose file uses prebuilt images from GHCR:
 2. Set your release channel or exact tag:
   - `IMAGE_TAG=stable` for the recommended homelab release
   - `IMAGE_TAG=latest` for the newest release
-  - `IMAGE_TAG=3.4.116` to pin an exact release
+  - `IMAGE_TAG=3.4.117` to pin an exact release
 3. Deploy:
    - `docker compose --env-file .env pull`
    - `docker compose --env-file .env up -d`

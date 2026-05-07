@@ -9663,6 +9663,41 @@ Historical note:
 - Release gate accounting: `compose-smoke`, `rbac-regression`, `browser-regression`, `homelab-edition-boundary`, `platform-edition-boundary`, and dependency-audit preflight passed locally. `secret-scan` and `image-security-and-sbom` remain CI-only because local `gitleaks` and `trivy` binaries are not installed; local artifact secret-pattern inspection passed.
 - Remaining Plex PMS work: real-user/manual PMS now-playing proof, dashboard/widget decisions, webhook ingestion, scheduled sync cadence, watch-state writeback, and broad import modernization remain separate follow-up slices.
 
+## 3.4.117 — Plex Real PMS Now Playing Runtime Proof
+
+**Goal:** Prove the saved real Plex PMS `/status/sessions` runtime shape before building a dedicated Now Playing viewer, while keeping the evidence read-only and secret-free.
+
+**Current Slice:** `Closed 2026-05-07`
+
+### Scope
+
+- Add a Docker-runnable proof script that uses saved Plex settings from the running stack instead of a fake PMS.
+- Capture only sanitized field-coverage evidence for active sessions: title/type context, progress availability, player state/platform, Plex-relative poster/art key availability, and queue-presence hints.
+- Extend the normalized now-playing session contract with Plex-relative `metadataKey`, `thumbKey`, `artKey`, and `hasQueueItem` readback for future authenticated viewer/proxy work.
+- Keep evidence free of Plex tokens, provider URLs, player IP addresses, machine identifiers, media file paths, and raw PMS payloads.
+- Keep imports, webhooks, scheduled sync, watch-state writes, and the dedicated viewer out of scope.
+
+### Acceptance Criteria
+
+- `npm run test:plex-real-now-playing-runtime-proof` runs inside the backend container and writes `artifacts/plex-now-playing/plex-real-now-playing-runtime-proof.json`.
+- If saved Plex settings are unavailable, the proof exits cleanly with explicit skipped evidence instead of fabricating a result.
+- If saved Plex settings are configured, the proof reaches `/status/sessions` and records sanitized viewer-readiness field coverage.
+- Existing fake-PMS now-playing proof/readback smokes and UI readback continue to pass.
+- Running-stack verification proves the app serves `3.4.117` and Help > Releases contains the release.
+
+### Closeout
+
+- Version: `3.4.117`.
+- Release note: `docs/releases/v3.4.117.md`.
+- Release feed: regenerated with `backend/scripts/export-release-feed.js`; running Help > Releases smoke served `v3.4.117` as latest.
+- Runtime evidence: Docker health reported frontend/backend/build `3.4.117`; live DB kept `events_enabled=true` and `collectibles_enabled=true`; the real-PMS proof used saved admin Plex settings, reached `/status/sessions`, found one paused episode session, confirmed title/progress/player-state readback, confirmed Plex-relative metadata/thumb/art key availability, and confirmed no queue item hint was present.
+- Verification: syntax checks for `backend/services/plex.js` and `backend/scripts/plex-real-now-playing-runtime-proof.js`; container unit tests (`261` passed); OpenAPI validation; real Plex now-playing runtime proof; fake-PMS now-playing provider proof; now-playing endpoint readback smoke; Help Releases smoke; init parity; migration rehearsal; RBAC regression; platform edition boundary; homelab edition boundary; browser regression (`59` passed, `4` skipped); observability evidence; release preflight; public export validation; release artifact secret-pattern inspection; and `git diff --check` all passed locally.
+- Release gate accounting: `compose-smoke`, `rbac-regression`, `browser-regression`, `homelab-edition-boundary`, `platform-edition-boundary`, and dependency-audit preflight passed locally. `secret-scan` and `image-security-and-sbom` remain CI-only because local `gitleaks` and `trivy` binaries are not installed; local artifact secret-pattern inspection passed.
+- Files changed: `app-meta.json`, `backend/app-meta.json`, `frontend/src/app-meta.json`, `backend/package.json`, `frontend/package.json`, `backend/package-lock.json`, `frontend/package-lock.json`, `backend/services/plex.js`, `backend/scripts/plex-real-now-playing-runtime-proof.js`, `backend/scripts/unit-tests.js`, `docker-compose.yml`, `env.example`, `README.md`, `docs/releases/v3.4.117.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`, `backend/release-feed.json`, `artifacts/plex-now-playing/plex-real-now-playing-runtime-proof.json`, `artifacts/observability-evidence/observability-release-evidence.json`, and `preflight-go-no-go.md`.
+- Risks/follow-ups: the proof depends on whatever Plex is playing at run time, so queue behavior remains unproven when Plex does not expose a queue item in the active session; poster/art values are Plex-relative keys and still need an authenticated image proxy before a public viewer can display them; webhooks, scheduled sync cadence, watch-state writeback, and broad import modernization remain intentionally out of scope.
+- What remains in the milestone: no open `3.4.117` implementation work remains; CI-only `secret-scan` and `image-security-and-sbom` must still pass in CI before public release publication.
+- Recommended commit message: `Release 3.4.117 Plex real PMS now playing runtime proof`.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

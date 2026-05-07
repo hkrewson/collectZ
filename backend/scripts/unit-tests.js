@@ -226,6 +226,7 @@ const plexProviderDiscoverySmokeSource = fs.readFileSync(require.resolve('../scr
 const plexProviderReadbackSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-provider-readback-smoke'), 'utf8');
 const plexNowPlayingProviderProofSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-now-playing-provider-proof-smoke'), 'utf8');
 const plexNowPlayingReadbackSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-now-playing-readback-smoke'), 'utf8');
+const plexRealNowPlayingRuntimeProofSource = fs.readFileSync(require.resolve('../scripts/plex-real-now-playing-runtime-proof'), 'utf8');
 const ciCdDeployDocSource = fs.readFileSync(require.resolve('../../docs/wiki/10-CI-CD-and-Registry-Deploy.md'), 'utf8');
 const securityPolicyPath = path.resolve(__dirname, '..', '..', 'SECURITY.md');
 const securityPolicySource = fs.existsSync(securityPolicyPath)
@@ -1211,6 +1212,10 @@ results.push(run('plex now-playing parser normalizes JSON and XML session payloa
         type: 'episode',
         title: 'Pilot',
         grandparentTitle: 'Example Show',
+        key: '/library/metadata/123',
+        thumb: '/library/metadata/123/thumb/1700000000',
+        art: 'https://plex.example.invalid/library/metadata/123/art/1700000000?X-Plex-Token=must-not-surface',
+        playQueueItemID: '42',
         duration: 1000,
         viewOffset: 250,
         User: { title: 'Viewer', token: 'must-not-surface' },
@@ -1225,6 +1230,10 @@ results.push(run('plex now-playing parser normalizes JSON and XML session payloa
   assert.strictEqual(normalizedJson.type, 'episode');
   assert.strictEqual(normalizedJson.grandparentTitle, 'Example Show');
   assert.strictEqual(normalizedJson.progressPercent, 25);
+  assert.strictEqual(normalizedJson.metadataKey, '/library/metadata/123');
+  assert.strictEqual(normalizedJson.thumbKey, '/library/metadata/123/thumb/1700000000');
+  assert.strictEqual(normalizedJson.artKey, null);
+  assert.strictEqual(normalizedJson.hasQueueItem, true);
   assert.deepStrictEqual(normalizedJson.user, { title: 'Viewer', username: null, id: null });
   assert.deepStrictEqual(normalizedJson.player, { title: 'Living Room', product: null, state: 'playing', platform: null });
   assert.ok(!JSON.stringify(normalizedJson).includes('/private/example.mkv'));
@@ -1317,6 +1326,17 @@ results.push(run('plex now-playing UI readback is wired as a read-only integrati
   assert.ok(adminIntegrationsViewSource.includes('Active Sessions'));
   assert.ok(!adminIntegrationsViewSource.includes('runPlexNowPlaying'));
   assert.ok(releaseRoadmapSource.includes('3.4.116 — Plex Now Playing UI Readback'));
+}));
+
+results.push(run('plex real PMS now-playing runtime proof captures viewer field coverage without secrets', () => {
+  assert.ok(backendPackageJson.scripts['test:plex-real-now-playing-runtime-proof']);
+  assert.ok(plexRealNowPlayingRuntimeProofSource.includes('fetchPlexNowPlayingSessions'));
+  assert.ok(plexRealNowPlayingRuntimeProofSource.includes("artifacts', 'plex-now-playing', 'plex-real-now-playing-runtime-proof.json"));
+  assert.ok(plexRealNowPlayingRuntimeProofSource.includes('sessionsWithThumbKey'));
+  assert.ok(plexRealNowPlayingRuntimeProofSource.includes('canUsePlexRelativePosterKey'));
+  assert.ok(plexRealNowPlayingRuntimeProofSource.includes('assertSecretFree'));
+  assert.ok(plexRealNowPlayingRuntimeProofSource.includes('existing Plex import paths were not called'));
+  assert.ok(releaseRoadmapSource.includes('3.4.117 — Plex Real PMS Now Playing Runtime Proof'));
 }));
 
 results.push(run('media route source includes tmdb trace-match endpoint', () => {

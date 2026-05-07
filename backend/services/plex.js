@@ -205,6 +205,12 @@ const toFiniteNumber = (value) => {
   return Number.isFinite(num) ? num : null;
 };
 
+const sanitizePlexRelativeKey = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw || !raw.startsWith('/') || raw.includes('X-Plex-Token=')) return null;
+  return raw;
+};
+
 const normalizePlexNowPlayingSession = (session) => {
   if (!session || typeof session !== 'object') return null;
   const user = firstObject(session.User);
@@ -227,6 +233,10 @@ const normalizePlexNowPlayingSession = (session) => {
     grandparentTitle,
     parentTitle,
     year: toFiniteNumber(session.year),
+    metadataKey: sanitizePlexRelativeKey(session.key),
+    thumbKey: sanitizePlexRelativeKey(session.thumb),
+    artKey: sanitizePlexRelativeKey(session.art),
+    hasQueueItem: Boolean(session.playQueueItemID || session.playQueueID),
     durationMs,
     viewOffsetMs,
     progressPercent,

@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.117",
+      "version": "v3.4.117",
+      "date": null,
+      "status": null,
+      "summary": "This release adds a real Plex PMS now-playing proof path. collectZ can now use saved Plex settings from the running stack to probe `/status/sessions` and write secret-free evidence about what a future Now Playing viewer can rely on.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added a backend proof script for saved real Plex now-playing readback.",
+            "Captured viewer-readiness field coverage for active sessions, including progress, player state, Plex-relative poster/art key availability, and queue-presence hints.",
+            "Extended sanitized now-playing session readback with Plex-relative `metadataKey`, `thumbKey`, `artKey`, and `hasQueueItem` fields.",
+            "Kept the proof read-only and separate from imports, webhooks, scheduled sync, watch-state writes, and the dedicated viewer."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.4.116",
       "version": "v3.4.116",
       "date": null,
@@ -229,25 +247,6 @@
             "Added page-image loading and error states for the proxied reader image.",
             "Grouped `Load Reader`, `Save Progress`, `Reset Progress`, and `Mark Read in Kavita` beside the page preview.",
             "Kept reset-progress copy separate from true unread behavior."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.4.107",
-      "version": "v3.4.107",
-      "date": "2026-05-06",
-      "status": "Ready for CI release gates",
-      "summary": "This patch enables an explicit Kavita reset-progress action for chapter-backed Kavita rows while keeping it separate from true chapter unread behavior.",
-      "details": [
-        {
-          "heading": "Shipped",
-          "bullets": [
-            "Added a scoped `POST /api/media/:id/kavita-reset-progress` endpoint for Kavita chapter-backed rows.",
-            "Reset Kavita progress by writing `pageNum: 0` and `bookScrollId: null` through Kavita's progress endpoint.",
-            "Added a media detail drawer `Reset Progress` action beside the existing read/progress controls.",
-            "Preserved chapter mark-read behavior and continued to prohibit bulk unread endpoints.",
-            "Updated Kavita smoke coverage to prove reset progress writes page `0`, returns secret-free readback, and avoids series/volume/multiple unread shortcuts."
           ]
         }
       ]
