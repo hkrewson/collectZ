@@ -10,6 +10,29 @@ const PLEX_PRESETS = {
   }
 };
 
+const PLEX_PMS_MODERNIZATION_CONTRACT = Object.freeze({
+  currentMode: 'legacy-library-paths',
+  nextMode: 'provider-oriented-pms-api',
+  providerDiscoveryPath: '/media/providers',
+  legacyImportPaths: Object.freeze([
+    '/library/sections',
+    '/library/sections/:sectionId/all',
+    '/library/metadata/:ratingKey/children',
+    '/library/metadata/:ratingKey/allLeaves'
+  ]),
+  migrationRules: Object.freeze([
+    'Keep existing Plex import and duplicate-avoidance behavior on legacy library paths until a provider endpoint proves the same identity and metadata coverage.',
+    'Use provider discovery for new Plex-facing features before adding more hard-coded library-section assumptions.',
+    'Prefer JSON responses for new PMS API calls while preserving XML parsing for existing import compatibility.',
+    'Do not expose Plex tokens, provider URLs, file paths, or raw download locations in browser-visible payloads.'
+  ]),
+  candidateProofSlices: Object.freeze([
+    'Now Playing Viewer',
+    'Plex import provider discovery probe',
+    'Plex watch-state sync cadence'
+  ])
+});
+
 const resolvePlexPreset = (presetName = 'plex') =>
   PLEX_PRESETS[presetName] || PLEX_PRESETS.plex;
 
@@ -84,6 +107,69 @@ const parsePlexDirectoriesInSection = (xml) => {
   }
   return entries;
 };
+
+const asArray = (value) => {
+  if (!value) return [];
+  return Array.isArray(value) ? value : [value];
+};
+
+const parsePlexMediaProviders = (payload) => {
+  if (!payload) return [];
+  if (typeof payload === 'object' && !Buffer.isBuffer(payload)) {
+    const candidates = [
+      ...asArray(payload?.MediaContainer?.MediaProvider),
+      ...asArray(payload?.MediaContainer?.Provider),
+      ...asArray(payload?.MediaProvider),
+      ...asArray(payload?.Provider)
+    ];
+    return candidates.map((provider) => ({ ...provider }));
+  }
+
+  const source = Buffer.isBuffer(payload) ? payload.toString('utf8') : String(payload);
+  const providers = [];
+  const re = /<(?:MediaProvider|Provider)\b([^>]*?)\/?>/gi;
+  let match = re.exec(source);
+  while (match) {
+    providers.push(parseAttributes(match[1]));
+    match = re.exec(source);
+  }
+  return providers;
+};
+
+const normalizePlexMediaProvider = (provider) => {
+  if (!provider || typeof provider !== 'object') return null;
+  const rawKey = provider.key || provider.identifier || provider.id || provider.uuid || null;
+  const key = rawKey ? String(rawKey) : null;
+  const title = provider.title || provider.name || provider.displayName || provider.type || null;
+  const features = [
+    ...asArray(provider.Feature),
+    ...asArray(provider.features)
+  ]
+    .map((feature) => {
+      if (typeof feature === 'string') return feature;
+      return feature?.key || feature?.id || feature?.type || feature?.name || null;
+    })
+    .filter(Boolean)
+    .map(String);
+
+  return {
+    key,
+    title: title ? String(title) : (key ? `Provider ${key}` : 'Plex provider'),
+    type: provider.type ? String(provider.type) : null,
+    protocol: provider.protocol ? String(provider.protocol) : null,
+    identifier: provider.identifier ? String(provider.identifier) : null,
+    featureKeys: [...new Set(features)].sort()
+  };
+};
+
+const buildPlexPmsModernizationContract = () => ({
+  currentMode: PLEX_PMS_MODERNIZATION_CONTRACT.currentMode,
+  nextMode: PLEX_PMS_MODERNIZATION_CONTRACT.nextMode,
+  providerDiscoveryPath: PLEX_PMS_MODERNIZATION_CONTRACT.providerDiscoveryPath,
+  legacyImportPaths: [...PLEX_PMS_MODERNIZATION_CONTRACT.legacyImportPaths],
+  migrationRules: [...PLEX_PMS_MODERNIZATION_CONTRACT.migrationRules],
+  candidateProofSlices: [...PLEX_PMS_MODERNIZATION_CONTRACT.candidateProofSlices]
+});
 
 const parseTmdbIdFromGuid = (guidRaw) => {
   if (!guidRaw) return null;
@@ -254,6 +340,19 @@ const fetchPlexSections = async (config) => {
       title: d.title || `Section ${d.key}`,
       type: String(d.type || '').trim().toLowerCase() || 'unknown'
     }));
+};
+
+const fetchPlexMediaProviders = async (config) => {
+  const response = await plexRequest(config, PLEX_PMS_MODERNIZATION_CONTRACT.providerDiscoveryPath);
+  if (response.status >= 400) {
+    const message = typeof response.data === 'string'
+      ? response.data.slice(0, 200)
+      : response.data?.error || response.statusText;
+    throw new Error(`Plex media providers request failed (${response.status}): ${message}`);
+  }
+  return parsePlexMediaProviders(response.data)
+    .map(normalizePlexMediaProvider)
+    .filter(Boolean);
 };
 
 const fetchPlexLibraryItems = async (config, sectionIds = []) => {
@@ -433,12 +532,17 @@ const fetchPlexShowSeasonVariants = async (config, ratingKey, sectionId) => {
 };
 
 module.exports = {
+  PLEX_PMS_MODERNIZATION_CONTRACT,
   resolvePlexPreset,
+  buildPlexPmsModernizationContract,
   fetchPlexSections,
+  fetchPlexMediaProviders,
   fetchPlexLibraryItems,
   fetchPlexShowSeasons,
   fetchPlexShowSeasonVariants,
   fetchPlexSeasonEpisodeStates,
+  parsePlexMediaProviders,
+  normalizePlexMediaProvider,
   shouldIncludePlexEntry,
   normalizePlexItem,
   normalizePlexVariant

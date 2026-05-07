@@ -1,6 +1,45 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.111",
+      "version": "v3.4.111",
+      "date": "2026-05-07",
+      "status": "Ready for CI release gates",
+      "summary": "This release starts the Plex PMS modernization path without changing existing Plex import behavior. The current Plex sync remains on the proven legacy library paths, while new Plex-facing work now has a documented provider-oriented contract and a small `/media/providers` discovery parser to build on.",
+      "details": [
+        {
+          "heading": "Backend",
+          "bullets": [
+            "Added a Plex PMS modernization contract that records current legacy import paths and the intended provider-oriented discovery seam.",
+            "Added lightweight parser/normalizer support for PMS media-provider discovery payloads.",
+            "Added source assertions for the contract, parser behavior, docs, and backlog promotion.",
+            "Preserved existing Plex import, duplicate-avoidance, TV season, and provider identity behavior."
+          ]
+        },
+        {
+          "heading": "Frontend",
+          "bullets": [
+            "No frontend runtime UI behavior changed.",
+            "Version metadata now points Help and health surfaces at `v3.4.111`."
+          ]
+        },
+        {
+          "heading": "Database",
+          "bullets": [
+            "No schema or data migration changes."
+          ]
+        },
+        {
+          "heading": "Docs/Ops",
+          "bullets": [
+            "Added `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`.",
+            "Promoted the Plex PMS backlog item into the `3.4.111` roadmap slice and removed the backlog item section.",
+            "Updated release/version artifacts and Help > Releases feed for `v3.4.111`."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.4.110",
       "version": "v3.4.110",
       "date": "2026-05-07",
@@ -208,25 +247,6 @@
             "Added media drawer controls to load a Kavita page image, step through pages, and explicitly save progress.",
             "Kept Kavita credentials server-side for reader page and progress calls.",
             "Extended the fake-Kavita import/sync smoke to prove progress writeback, reader metadata readback, page image proxying, and secret-free browser responses."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.4.101",
-      "version": "v3.4.101",
-      "date": "2026-05-05",
-      "status": "Ready for CI release gates",
-      "summary": "This patch adds the first read-only Kavita progress visibility path. Chapter-backed Kavita rows can ask collectZ to read current Kavita chapter progress and show a small progress panel in the media detail drawer.",
-      "details": [
-        {
-          "heading": "Shipped",
-          "bullets": [
-            "Added a scoped backend read endpoint for Kavita chapter-backed media rows.",
-            "Read progress through the workspace-owned Kavita connection using `GET /api/Reader/get-progress`.",
-            "Normalized progress readback to page/chapter/series/volume/scroll/timestamp fields.",
-            "Added a compact read-only Kavita Progress panel to the media detail drawer for chapter-backed rows.",
-            "Extended the fake-Kavita import/sync smoke to prove read-only progress readback and secret-free browser responses."
           ]
         }
       ]

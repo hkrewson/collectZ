@@ -63,44 +63,96 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 45. `Kavita Mark Read/Unread Contract` was promoted as `3.4.103`; keep runtime mark read/unread implementation, full embedded reader ownership, PDF/raw chapter file proxying, background polling, KOReader sync, and shared provider abstractions separate.
 46. `Kavita Chapter Mark-Read Implementation` was promoted as `3.4.104`; keep series-wide mark read/unread, volume-wide mark read, chapter unread, full embedded reader ownership, PDF/raw chapter file proxying, background polling, KOReader sync, and shared provider abstractions separate.
 47. `Kavita Chapter Unread Contract` was promoted as `3.4.105`; the reset-progress runtime proof was promoted as `3.4.106`; the explicit reset-progress implementation was promoted as `3.4.107`; reader-control polish was promoted as `3.4.108`; keep true chapter unread, full embedded reader ownership, PDF/raw chapter file proxying, background polling, KOReader sync, and shared provider abstractions separate.
+48. `Plex PMS API Modernization Foundation` was promoted as `3.4.111`; keep Now Playing UI, Plex webhooks, scheduled sync cadence, and broad import rewrites separate.
 
-### Backlog Item: Kavita Reader and Progress Contract Discovery
-
-Promoted as `3.4.91`; the read-only progress sync contract follow-up was promoted as `3.4.100`, the first read-only progress visibility implementation was promoted as `3.4.101`, the first explicit progress writeback/page proxy slice was promoted as `3.4.102`, the mark read/unread contract was promoted as `3.4.103`, the chapter mark-read implementation was promoted as `3.4.104`, the chapter unread contract was promoted as `3.4.105`, the reset-progress runtime proof was promoted as `3.4.106`, the explicit reset-progress implementation was promoted as `3.4.107`, and reader-control polish was promoted as `3.4.108`. Keep true chapter unread, full iframe reader ownership, PDF/raw chapter file proxying, background polling, KOReader sync, and shared provider abstractions as separate backlog tasks until selected.
-
-### Backlog Item: Kavita Metadata Writeback Contract
-Promoted as `3.4.96`; the preview/diff implementation was promoted as `3.4.97`, the first manual apply path was promoted as `3.4.98`, and field-level selection UI was promoted as `3.4.99`. Keep background sync, progress sync, external enrichment writeback, locked-field override, and shared provider abstractions separate.
-
-### Backlog Item: Kavita Chapter-as-Issue Row Fan-out
-
-Promoted as `3.4.92`; the first opt-in implementation was promoted as `3.4.93`. Keep embedded reading, progress sync, metadata writeback, per-space Kavita administration, and shared provider abstractions separate until selected.
-
-### Backlog Item: Kavita Cover Art Source Hardening
-
-Promoted as `3.4.90`; keep fallback enrichment from Metron, Google Books, or Open Library-style sources as separate future work after Kavita-owned cover display is proven.
-
-### Backlog Item: Kavita Per-Space Administration
+### Backlog Item: Kavita True Chapter Unread Runtime Support
 **Type:** Task
-**Tags:** `kavita`, `spaces`, `integrations`, `tenancy`
+**Tags:** `kavita`, `reading-progress`, `read-state`, `comics`
 
-Promoted as `3.4.94` for the workspace-owned administration contract and `3.4.95` for the first implementation; keep embedded reading, progress sync, metadata writeback, special-chapter import, and shared provider abstractions separate.
-
-**Goal:** Implement how Kavita settings work for workspace-owned libraries instead of only platform/admin-owned configuration.
+**Goal:** Add real chapter unread behavior only if Kavita exposes a safe runtime contract for reversing chapter read state.
 
 **Why this work exists**
-- Current Kavita setup started from the platform integration surface.
-- Space-owned Kavita behavior needs a deliberate tenancy model before exposing it broadly.
+- The first Kavita read-state work proved chapter mark-read and reset-progress behavior.
+- True unread remains separate because the available runtime behavior needs proof before exposing UI that claims to reverse read state.
 
 **Scope**
-- Define whether Kavita credentials are platform-wide, space-owned, or both.
-- Add role/permission rules for saving, testing, importing, and clearing Kavita settings.
-- Keep provider identity scoped so one workspace's Kavita server cannot collide with another's rows.
-- Keep global friend/social reading and reader/progress sync out of scope.
+- Re-probe Kavita runtime behavior for chapter unread or equivalent reverse-read semantics.
+- Add backend support only for a verified, chapter-scoped operation.
+- Keep reset-progress behavior distinct from true unread in API and UI copy.
+- Preserve workspace-owned Kavita credential boundaries and secret-free readback.
 
 **Acceptance Criteria**
-- Space admins can manage only the Kavita connection they are allowed to own.
-- Platform and homelab edition boundaries remain explicit.
-- Runtime smoke proves cross-space isolation for Kavita import/settings.
+- Runtime smoke proves the exact Kavita call used for unread behavior.
+- The UI does not label reset-progress as unread.
+- If Kavita does not expose a safe operation, the slice closes with documented unsupported behavior instead of adding a misleading control.
+
+### Backlog Item: Kavita Embedded Reader Ownership and File Proxying
+**Type:** Deferred milestone
+**Tags:** `kavita`, `reader`, `proxy`, `pdf`, `comics`, `books`
+
+**Goal:** Decide whether collectZ should own a fuller embedded Kavita reading experience beyond current launch/page-control behavior.
+
+**Scope**
+- Evaluate full iframe ownership, chapter page proxying, PDF/raw chapter file proxying, and browser security constraints.
+- Keep external Kavita launch behavior intact.
+- Keep reading progress writeback explicit and user-controlled.
+- Avoid exposing Kavita credentials, download URLs, or raw file paths to the frontend.
+
+**Acceptance Criteria**
+- The reader ownership boundary is documented.
+- Any proxy endpoint is authenticated, workspace-scoped, and secret-free in browser-visible payloads.
+- Existing external launch and page-control behavior keep working.
+
+### Backlog Item: Kavita Background Progress Polling and KOReader Sync
+**Type:** Deferred milestone
+**Tags:** `kavita`, `sync`, `progress`, `koreader`, `background-jobs`
+
+**Goal:** Explore recurring read-progress sync from Kavita and possible KOReader interoperability without making foreground import flows heavier.
+
+**Scope**
+- Define safe polling cadence and workspace ownership rules.
+- Track progress changes without creating noisy writeback loops.
+- Evaluate KOReader sync inputs and conflict behavior separately from Kavita-native progress.
+- Keep manual import/sync and explicit progress writeback behavior intact.
+
+**Acceptance Criteria**
+- Background polling has clear cadence, ownership, and failure behavior.
+- Progress conflicts are observable and do not silently overwrite newer user state.
+- KOReader sync is represented as a separate provider path if it proves viable.
+
+### Backlog Item: Kavita External Enrichment Writeback and Locked-Field Overrides
+**Type:** Deferred milestone
+**Tags:** `kavita`, `metadata`, `writeback`, `metron`, `google-books`, `enrichment`
+
+**Goal:** Extend Kavita metadata writeback beyond manual field selection by safely using external enrichment sources and explicit locked-field decisions.
+
+**Scope**
+- Compare collectZ-enriched metadata from comics/books providers against Kavita fields.
+- Add explicit locked-field override decisions before changing Kavita-owned metadata.
+- Keep preview/diff and manual apply behavior as the required safety layer.
+- Avoid automatic background writeback until conflicts and ownership are well understood.
+
+**Acceptance Criteria**
+- External enrichment candidates are shown with provenance before writeback.
+- Locked Kavita fields require an explicit user override.
+- Writeback remains auditable and workspace-scoped.
+
+### Backlog Item: Kavita Special-Chapter Import Handling
+**Type:** Task
+**Tags:** `kavita`, `imports`, `comics`, `metadata`
+
+**Goal:** Handle Kavita special chapters, annuals, one-shots, and non-standard issue numbering without corrupting normal series or chapter-as-issue rows.
+
+**Scope**
+- Identify Kavita chapter records that do not map cleanly to ordinary issue numbers.
+- Preserve source identity and title metadata for specials.
+- Keep normal series-level and opt-in chapter-as-issue imports stable.
+- Avoid broad external comic registry matching in this first slice.
+
+**Acceptance Criteria**
+- Special chapters can be imported or skipped with clear readback.
+- Non-standard numbering does not collapse into issue `1` or overwrite standard issue rows.
+- Repeat sync remains idempotent.
 
 ### Backlog Item: Shared Digital Library Provider Abstractions
 **Type:** Deferred milestone
@@ -152,9 +204,23 @@ Promoted as `3.4.94` for the workspace-owned administration contract and `3.4.95
 - Artwork detail views can show linked artist information and navigate to other works by the same artist.
 - The implementation clearly distinguishes reusable artist metadata from per-artwork provenance and item details.
 
-### Backlog Item: Numbered Print Metadata and Badge for Artwork
+### Backlog Item: Artwork Edition Registry and Valuation Enrichment
+**Type:** Deferred milestone
+**Tags:** `artwork`, `prints`, `valuation`, `edition-series`, `metadata`
 
-Promoted as `3.4.109`; keep valuation-provider enrichment, external print registries, certificate verification, and broad edition-series modeling separate.
+**Goal:** Build on item-local numbered print metadata with optional enrichment for edition-series details, external registries, certificates, and valuation providers.
+
+**Scope**
+- Explore whether numbered print runs can be linked to a reusable edition-series concept without making manual art entry heavier.
+- Evaluate external print registries or certificate/provenance sources where available.
+- Add valuation-provider enrichment only when provenance and confidence can be shown clearly.
+- Keep current per-item print number, print run, signed state, and medium entry intact.
+
+**Acceptance Criteria**
+- Existing item-local print metadata continues to work without external enrichment.
+- Any external edition or valuation data includes source/provenance readback.
+- Certificate or registry data never silently overwrites user-entered art details.
+
 
 ### Backlog Item: Apple Platform App Contract Publishing
 **Type:** Deferred milestone
@@ -308,35 +374,6 @@ Promoted as `3.4.109`; keep valuation-provider enrichment, external print regist
 - The viewer can be opened independently from the main app shell.
 - The page shows a full-sized poster for the current or next queued title.
 - The display experience is readable from across a room.
-
-### Backlog Item: Plex PMS API Modernization Foundation
-**Type:** Deferred milestone
-**Tags:** `plex`, `api`, `pms`, `integration`, `modernization`
-
-**Goal:** Gradually move Plex integration work toward the Plex Media Server API model documented in the official PMS API guide instead of continuing to hardwire older library-section request paths everywhere.
-
-**Why this work exists**
-- The current Plex integration in this repo still centers on direct library endpoints such as `/library/sections` and `/library/metadata/...`.
-- The official Plex PMS guidance for new applications recommends JSON responses and a provider-oriented approach centered on `/media/providers`.
-- New Plex-facing features such as a future Now Playing viewer are a good opportunity to adopt the newer contract intentionally instead of expanding older assumptions further.
-
-**Scope**
-- Audit the current Plex service layer and identify where it still hard-codes legacy library-section and metadata paths.
-- Define a provider-oriented Plex client contract aligned with the official PMS API guidance:
-  - prefer JSON,
-  - prefer `/media/providers` and feature discovery where practical,
-  - reduce reliance on hard-coded library-path assumptions for new work.
-- Keep existing import and dedupe behavior stable while adding the newer Plex contract alongside the current one.
-- Use one narrow Plex-facing feature to prove the newer contract before considering broader migration of existing import flows.
-- Document migration boundaries clearly so future Plex milestones can choose whether they are:
-  - legacy-path maintenance,
-  - or new-contract adoption.
-
-**Acceptance Criteria**
-- The current legacy Plex-path usage is documented clearly enough to distinguish maintenance work from modernization work.
-- A provider-oriented Plex client contract is defined for new Plex-facing features.
-- At least one future Plex milestone can adopt the newer PMS model without forcing an all-at-once rewrite of import behavior.
-- The roadmap has a clean versionless backlog task available when the team decides to begin the migration.
 
 ### Backlog Item: Support Metrics and Satisfaction Surveys
 **Type:** Task

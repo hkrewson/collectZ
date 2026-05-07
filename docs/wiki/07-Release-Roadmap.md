@@ -9448,7 +9448,7 @@ Historical note:
 
 **Goal:** Define the collectZ `latest` and `stable` release channels for homelab users and automate stable promotion as a deliberate maintainer action.
 
-**Current Slice:** `Active`
+**Current Slice:** `Closed`
 
 ### Scope
 
@@ -9477,6 +9477,37 @@ Historical note:
 - Risks or follow-ups: stable promotion remains a maintainer judgment call after at least seven days of clean homelab use; rollback protection depends on image version labels being available and otherwise warns rather than blocking; local observability evidence needs rerun after Docker storage is cleaned further or in CI/release evidence infrastructure.
 - What remains in the milestone: no open `3.4.110` implementation work remains; CI-only and locally blocked release gates must pass before public tag/release publication, and stable promotion should only be run after the chosen latest release has soaked.
 - Recommended commit message: `Release 3.4.110 release channel automation and stable promotion`.
+
+## 3.4.111 — Plex PMS API Modernization Foundation
+
+**Goal:** Establish a provider-oriented Plex PMS API contract for future Plex features without changing the current legacy-path import behavior.
+
+**Current Slice:** `Active`
+
+### Scope
+
+- Audit and document the current Plex legacy import paths.
+- Add a provider-oriented PMS modernization contract in the Plex service layer.
+- Add lightweight `/media/providers` discovery parsing for future Plex-facing slices.
+- Preserve existing Plex import, duplicate-avoidance, TV season, and metadata behavior.
+- Remove the promoted Plex PMS item from the backlog.
+
+### Acceptance Criteria
+
+- Existing Plex import paths remain stable and documented as current behavior.
+- A provider-oriented modernization contract identifies `/media/providers` as the next discovery seam.
+- Source assertions cover the contract and provider parsing for JSON/XML-shaped PMS payloads.
+- No Now Playing UI, Plex webhook, scheduled sync, or broad import rewrite is introduced in this slice.
+
+### Closeout
+
+- Version: `3.4.111`
+- Release note: `docs/releases/v3.4.111.md`
+- Release feed: regenerated with `backend/scripts/export-release-feed.js`; running Help > Releases smoke served `v3.4.111` as latest.
+- Runtime evidence: Docker stack health reported frontend/backend/build `3.4.111`; live DB kept `events_enabled=true`; Help > Releases smoke passed.
+- Verification: backend unit tests, OpenAPI validation, init parity, migration rehearsal, release preflight local, observability release evidence, RBAC regression, browser regression, homelab edition boundary, platform edition boundary, public export validation, and diff whitespace checks passed locally.
+- CI-only follow-up: `secret-scan` and `image-security-and-sbom` still require the GitHub Actions scanners.
+- Remaining Plex PMS work: Now Playing UI, webhook handling, scheduled sync cadence, and any broad import rewrite remain separate future slices.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 

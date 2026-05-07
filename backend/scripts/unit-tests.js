@@ -5,7 +5,14 @@ const fs = require('fs');
 const path = require('path');
 const { parseCsvText } = require('../services/csv');
 const { normalizeBarcodeMatches } = require('../services/barcode');
-const { normalizePlexItem, normalizePlexVariant, shouldIncludePlexEntry } = require('../services/plex');
+const {
+  buildPlexPmsModernizationContract,
+  normalizePlexItem,
+  normalizePlexVariant,
+  parsePlexMediaProviders,
+  normalizePlexMediaProvider,
+  shouldIncludePlexEntry
+} = require('../services/plex');
 const { wrapTmdbRequestError } = require('../services/tmdb');
 const { mapDeliciousItemTypeToMediaType } = require('../services/importMapping');
 const { normalizeDeliciousRow } = require('../services/deliciousNormalize');
@@ -210,6 +217,8 @@ const dockerComposeSource = fs.readFileSync(require.resolve('../../docker-compos
 const publicComposeGeneratorSource = fs.readFileSync(require.resolve('../../scripts/generate-public-compose'), 'utf8');
 const publicExportValidatorSource = fs.readFileSync(require.resolve('../../scripts/validate-public-export-surface'), 'utf8');
 const releaseRoadmapSource = fs.readFileSync(require.resolve('../../docs/wiki/07-Release-Roadmap.md'), 'utf8');
+const backlogSource = fs.readFileSync(require.resolve('../../docs/wiki/08-Backlog.md'), 'utf8');
+const plexPmsModernizationDocSource = fs.readFileSync(require.resolve('../../docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md'), 'utf8');
 const ciCdDeployDocSource = fs.readFileSync(require.resolve('../../docs/wiki/10-CI-CD-and-Registry-Deploy.md'), 'utf8');
 const securityPolicyPath = path.resolve(__dirname, '..', '..', 'SECURITY.md');
 const securityPolicySource = fs.existsSync(securityPolicyPath)
@@ -1144,6 +1153,55 @@ results.push(run('plex.shouldIncludePlexEntry keeps TV imports at show level onl
   assert.strictEqual(shouldIncludePlexEntry('show', 'season'), false);
   assert.strictEqual(shouldIncludePlexEntry('show', 'episode'), false);
   assert.strictEqual(shouldIncludePlexEntry('', 'episode'), false);
+}));
+
+results.push(run('plex PMS modernization contract keeps provider discovery separate from legacy import paths', () => {
+  const contract = buildPlexPmsModernizationContract();
+  assert.strictEqual(contract.currentMode, 'legacy-library-paths');
+  assert.strictEqual(contract.nextMode, 'provider-oriented-pms-api');
+  assert.strictEqual(contract.providerDiscoveryPath, '/media/providers');
+  assert.ok(contract.legacyImportPaths.includes('/library/sections/:sectionId/all'));
+  assert.ok(contract.legacyImportPaths.includes('/library/metadata/:ratingKey/allLeaves'));
+  assert.ok(contract.migrationRules.some((rule) => rule.includes('Keep existing Plex import')));
+  assert.ok(contract.migrationRules.some((rule) => rule.includes('Prefer JSON')));
+  assert.ok(contract.candidateProofSlices.includes('Now Playing Viewer'));
+}));
+
+results.push(run('plex media provider parser normalizes JSON and XML provider discovery payloads', () => {
+  const jsonProviders = parsePlexMediaProviders({
+    MediaContainer: {
+      MediaProvider: [
+        {
+          key: 'com.plexapp.plugins.library',
+          title: 'Library',
+          type: 'library',
+          protocol: 'plex',
+          Feature: [{ key: 'browse' }, { key: 'timeline' }]
+        }
+      ]
+    }
+  });
+  assert.strictEqual(jsonProviders.length, 1);
+  const normalizedJson = normalizePlexMediaProvider(jsonProviders[0]);
+  assert.strictEqual(normalizedJson.key, 'com.plexapp.plugins.library');
+  assert.strictEqual(normalizedJson.title, 'Library');
+  assert.deepStrictEqual(normalizedJson.featureKeys, ['browse', 'timeline']);
+
+  const xmlProviders = parsePlexMediaProviders('<MediaContainer><MediaProvider key="epg" title="Guide" type="epg" protocol="plex" /></MediaContainer>');
+  assert.strictEqual(xmlProviders.length, 1);
+  const normalizedXml = normalizePlexMediaProvider(xmlProviders[0]);
+  assert.strictEqual(normalizedXml.key, 'epg');
+  assert.strictEqual(normalizedXml.title, 'Guide');
+  assert.strictEqual(normalizedXml.type, 'epg');
+}));
+
+results.push(run('plex PMS modernization foundation is promoted and documented without replacing legacy imports', () => {
+  assert.ok(releaseRoadmapSource.includes('3.4.111 — Plex PMS API Modernization Foundation'));
+  assert.ok(!backlogSource.includes('### Backlog Item: Plex PMS API Modernization Foundation'));
+  assert.ok(plexPmsModernizationDocSource.includes('/media/providers'));
+  assert.ok(plexPmsModernizationDocSource.includes('/library/sections/:sectionId/all'));
+  assert.ok(plexPmsModernizationDocSource.includes('Keep existing Plex import'));
+  assert.ok(plexPmsModernizationDocSource.includes('Now Playing Viewer provider proof'));
 }));
 
 results.push(run('media route source includes tmdb trace-match endpoint', () => {
