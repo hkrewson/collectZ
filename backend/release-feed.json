@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.116",
+      "version": "v3.4.116",
+      "date": null,
+      "status": null,
+      "summary": "This release adds a read-only Plex now-playing view inside Integrations. The Plex settings panel can now call the saved now-playing readback endpoint and show sanitized active-session rows without adding webhooks, scheduled sync, watch-state writes, or import changes.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added an `Active Sessions` action to the Plex Integrations panel.",
+            "Displayed sanitized Plex session rows with title, type, progress, user label, and player state/platform.",
+            "Added an explicit `No active Plex sessions.` empty state after checking now-playing readback.",
+            "Reused the same platform/workspace endpoint-base wiring as the existing Plex diagnostics.",
+            "Preserved existing Plex provider discovery, section discovery, imports, and now-playing endpoint behavior."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.4.115",
       "version": "v3.4.115",
       "date": null,
@@ -229,24 +248,6 @@
             "Added a media detail drawer `Reset Progress` action beside the existing read/progress controls.",
             "Preserved chapter mark-read behavior and continued to prohibit bulk unread endpoints.",
             "Updated Kavita smoke coverage to prove reset progress writes page `0`, returns secret-free readback, and avoids series/volume/multiple unread shortcuts."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.4.106",
-      "version": "v3.4.106",
-      "date": "2026-05-06",
-      "status": "Ready for CI release gates",
-      "summary": "This patch proves the Kavita reset-progress payload shape in the existing fake Kavita-compatible runtime probe without exposing a user-facing reset or unread action.",
-      "details": [
-        {
-          "heading": "Shipped",
-          "bullets": [
-            "Extended the Kavita progress/read-state contract with a probe-only reset-progress payload.",
-            "Added fake-runtime proof for `POST /api/Reader/progress` with `pageNum: 0` and `bookScrollId: null`.",
-            "Confirmed the reset-progress probe does not call bulk unread endpoints.",
-            "Kept chapter unread and reset-progress UI/routes disabled until real Kavita runtime semantics are proven."
           ]
         }
       ]

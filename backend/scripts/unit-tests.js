@@ -1307,6 +1307,18 @@ results.push(run('plex now-playing readback endpoint is wired as sanitized admin
   assert.ok(releaseRoadmapSource.includes('3.4.115 — Plex Now Playing Readback Endpoint'));
 }));
 
+results.push(run('plex now-playing UI readback is wired as a read-only integrations diagnostic', () => {
+  assert.ok(adminIntegrationsViewSource.includes('testPlexNowPlaying'));
+  assert.ok(adminIntegrationsViewSource.includes('test-plex-now-playing'));
+  assert.ok(adminIntegrationsViewSource.includes('Active Plex Sessions'));
+  assert.ok(adminIntegrationsViewSource.includes('No active Plex sessions.'));
+  assert.ok(adminIntegrationsViewSource.includes('plexNowPlayingSessions'));
+  assert.ok(adminIntegrationsViewSource.includes('plexNowPlayingChecked'));
+  assert.ok(adminIntegrationsViewSource.includes('Active Sessions'));
+  assert.ok(!adminIntegrationsViewSource.includes('runPlexNowPlaying'));
+  assert.ok(releaseRoadmapSource.includes('3.4.116 — Plex Now Playing UI Readback'));
+}));
+
 results.push(run('media route source includes tmdb trace-match endpoint', () => {
   assert.ok(mediaRoutesSource.includes("router.post('/tmdb/trace-match'"));
   assert.ok(mediaRoutesSource.includes('scoreTmdbMatchCandidate'));

@@ -40,6 +40,7 @@ Use this for feature discovery and future new Plex surfaces where possible. The 
 - Real-server Plex provider discovery readback. Promoted as `3.4.113`.
 - Now Playing provider proof. Promoted as `3.4.114`.
 - Now Playing readback endpoint. Promoted as `3.4.115`.
+- Now Playing UI readback. Promoted as `3.4.116`.
 - Plex watch-state sync cadence.
 - Plex webhook ingestion contract.
 

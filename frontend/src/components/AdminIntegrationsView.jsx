@@ -248,6 +248,8 @@ export default function AdminIntegrationsView({
   const [kavitaChapterFanout, setKavitaChapterFanout] = useState(false);
   const [plexAvailableSections, setPlexAvailableSections] = useState([]);
   const [plexProviders, setPlexProviders] = useState([]);
+  const [plexNowPlayingSessions, setPlexNowPlayingSessions] = useState([]);
+  const [plexNowPlayingChecked, setPlexNowPlayingChecked] = useState(false);
   const [featureFlags, setFeatureFlags] = useState([]);
   const [featureFlagsLoading, setFeatureFlagsLoading] = useState(true);
   const [featureFlagsReadOnly, setFeatureFlagsReadOnly] = useState(false);
@@ -637,6 +639,25 @@ export default function AdminIntegrationsView({
     } catch (err) {
       setPlexProviders([]);
       setTestMsg(err.response?.data?.detail || 'Plex provider discovery failed');
+    } finally {
+      setTestLoading('');
+    }
+  };
+
+  const testPlexNowPlaying = async () => {
+    setTestLoading('plex-now-playing');
+    setTestMsg('');
+    setPlexNowPlayingChecked(false);
+    try {
+      const result = await apiCall('post', `${endpointBase}/test-plex-now-playing`, {});
+      setStatus((s) => ({ ...s, plex: result.authenticated ? 'ok' : 'auth_failed' }));
+      setPlexNowPlayingSessions(Array.isArray(result.sessions) ? result.sessions : []);
+      setPlexNowPlayingChecked(true);
+      setTestMsg(`PLEX NOW PLAYING: ${result.authenticated ? 'Connected' : 'Auth failed'} — ${result.detail}`);
+    } catch (err) {
+      setPlexNowPlayingSessions([]);
+      setPlexNowPlayingChecked(true);
+      setTestMsg(err.response?.data?.detail || 'Plex now playing readback failed');
     } finally {
       setTestLoading('');
     }
@@ -1049,6 +1070,40 @@ export default function AdminIntegrationsView({
               </div>
             </div>
           )}
+          {section === 'plex' && plexNowPlayingChecked && (
+            <div className="rounded-xl border border-edge bg-raised/60 px-3 py-3 space-y-2">
+              <p className="text-xs text-ghost">Active Plex Sessions</p>
+              {plexNowPlayingSessions.length === 0 ? (
+                <p className="text-sm text-dim">No active Plex sessions.</p>
+              ) : (
+                <div className="space-y-2">
+                  {plexNowPlayingSessions.map((session) => {
+                    const key = session.sessionKey || session.ratingKey || `${session.title}-${session.player?.title || 'player'}`;
+                    const progress = Number.isFinite(Number(session.progressPercent)) ? Number(session.progressPercent) : null;
+                    const playerBits = [
+                      session.player?.state,
+                      session.player?.platform,
+                      session.player?.title
+                    ].filter(Boolean);
+                    return (
+                      <div key={key} className="rounded-md border border-edge/70 px-3 py-2">
+                        <div className="flex flex-wrap items-center gap-2 text-sm">
+                          <span className="font-medium text-ink">{session.title || 'Unknown title'}</span>
+                          {session.type && <span className="text-xs text-ghost">{session.type}</span>}
+                          {progress !== null && <span className="text-xs text-ghost">{progress}%</span>}
+                        </div>
+                        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-ghost">
+                          {session.grandparentTitle && <span>{session.grandparentTitle}</span>}
+                          {session.user?.title && <span>{session.user.title}</span>}
+                          {playerBits.length > 0 && <span>{playerBits.join(' · ')}</span>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
           <LabeledField label={`Plex API Key ${meta.plexApiKeySet ? `(set: ${meta.plexApiKeyMasked})` : '(not set)'}`} cx={cx}>
             <input className="input font-mono" type="password" placeholder="Enter new key to update" value={form.plexApiKey} onChange={(e) => setForm((f) => ({ ...f, plexApiKey: e.target.value }))} />
           </LabeledField>
@@ -1269,6 +1324,11 @@ export default function AdminIntegrationsView({
             {section === 'plex' && (
               <button onClick={testPlexProviders} disabled={testLoading === 'plex-providers'} className="btn-secondary btn-sm">
                 {testLoading === 'plex-providers' ? <Spinner size={14} /> : 'Probe Providers'}
+              </button>
+            )}
+            {section === 'plex' && (
+              <button onClick={testPlexNowPlaying} disabled={testLoading === 'plex-now-playing'} className="btn-secondary btn-sm">
+                {testLoading === 'plex-now-playing' ? <Spinner size={14} /> : 'Active Sessions'}
               </button>
             )}
             {allowImports && section === 'kavita' && (

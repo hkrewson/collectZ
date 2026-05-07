@@ -9630,7 +9630,38 @@ Historical note:
 - Runtime evidence: Docker stack health reported frontend/backend/build `3.4.115`; live DB kept `events_enabled=true` and `collectibles_enabled=true`; `test:plex-now-playing-readback-smoke` passed inside the backend container and proved the collectZ admin endpoint calls a fake PMS `GET /status/sessions` with saved temporary Plex settings while returning only sanitized session readback; production-shaped compose smoke preflight passed in-stack health, headers, CSRF cookie, unauthenticated `401`, and integration smoke.
 - Verification: backend unit tests, OpenAPI validation, init parity, migration rehearsal, release preflight local, observability release evidence, RBAC regression, browser regression, homelab edition boundary, platform edition boundary, public export validation, Plex now-playing readback smoke, Help > Releases smoke, and diff whitespace checks passed locally.
 - Release gate accounting: `compose-smoke`, `rbac-regression`, `browser-regression`, `homelab-edition-boundary`, `platform-edition-boundary`, dependency-audit checks, init parity, migration rehearsal, and observability evidence passed locally. `secret-scan` and `image-security-and-sbom` still require GitHub Actions because local `gitleaks` and `trivy` binaries are not installed.
-- Remaining Plex PMS work: Now Playing UI, real-user/manual PMS now-playing probe use, webhook ingestion, scheduled sync cadence, watch-state writeback, and any broad import rewrite remain separate future slices.
+- Remaining Plex PMS work: Now Playing UI readback, real-user/manual PMS now-playing probe use, webhook ingestion, scheduled sync cadence, watch-state writeback, and any broad import rewrite remain separate future slices.
+
+## 3.4.116 — Plex Now Playing UI Readback
+
+**Goal:** Make the saved Plex now-playing readback endpoint visible as a compact read-only Integrations diagnostic without adding a dashboard surface, webhook behavior, scheduled sync, watch-state writes, or import changes.
+
+**Current Slice:** `Closed 2026-05-06`
+
+### Scope
+
+- Add an `Active Sessions` action to the Plex Integrations action row.
+- Call the existing admin/workspace `test-plex-now-playing` endpoints.
+- Display sanitized session rows inside the existing Plex settings panel: title, type, progress, series/parent context, user label, and player state/platform/title.
+- Show an explicit `No active Plex sessions.` empty state after a successful or failed checked readback with no sessions.
+- Keep the surface read-only and diagnostic-only.
+
+### Acceptance Criteria
+
+- Plex Integrations can fetch and display now-playing sessions without exposing tokens, player IP addresses, machine identifiers, media file paths, provider URLs, or raw PMS payloads.
+- Workspace and platform integrations both use the same endpoint-base wiring.
+- Existing Plex provider discovery/readback, section discovery, imports, and now-playing endpoint behavior remain intact.
+- Running-stack verification proves the app serves `3.4.116` and Help > Releases contains the release.
+
+### Closeout
+
+- Version: `3.4.116`.
+- Release note: `docs/releases/v3.4.116.md`.
+- Release feed: regenerated with `backend/scripts/export-release-feed.js`; running Help > Releases smoke served `v3.4.116` as latest.
+- Runtime evidence: Docker health reported frontend/backend/build `3.4.116`; live DB kept `events_enabled=true` and `collectibles_enabled=true`; the containerized Plex now-playing readback smoke fetched one fake active session through `/status/sessions` and returned sanitized title readback; production-shaped preflight passed compose-smoke basics.
+- Verification: container unit tests, OpenAPI validation, Plex now-playing readback smoke, Help Releases smoke, init parity, migration rehearsal, RBAC regression, platform edition boundary, homelab edition boundary, browser regression, observability evidence, release preflight, public export validation, integration smoke, secret-pattern artifact inspection, and `git diff --check` all passed locally.
+- Release gate accounting: `compose-smoke`, `rbac-regression`, `browser-regression`, `homelab-edition-boundary`, `platform-edition-boundary`, and dependency-audit preflight passed locally. `secret-scan` and `image-security-and-sbom` remain CI-only because local `gitleaks` and `trivy` binaries are not installed; local artifact secret-pattern inspection passed.
+- Remaining Plex PMS work: real-user/manual PMS now-playing proof, dashboard/widget decisions, webhook ingestion, scheduled sync cadence, watch-state writeback, and broad import modernization remain separate follow-up slices.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
