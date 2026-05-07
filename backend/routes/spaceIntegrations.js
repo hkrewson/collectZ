@@ -8,7 +8,7 @@ const { encryptSecret } = require('../services/crypto');
 const { buildIntegrationResponse } = require('../services/integrationResponse');
 const { resolveBarcodePreset } = require('../services/barcode');
 const { resolveTmdbPreset, searchTmdbMovie } = require('../services/tmdb');
-const { resolvePlexPreset, fetchPlexSections, fetchPlexMediaProviders } = require('../services/plex');
+const { resolvePlexPreset, fetchPlexSections, fetchPlexMediaProviders, fetchPlexNowPlayingSessions } = require('../services/plex');
 const { resolveBooksPreset, searchBooksByTitle } = require('../services/books');
 const { resolveAudioPreset, searchAudioByTitle } = require('../services/audio');
 const { resolveGamesPreset, searchGamesByTitle } = require('../services/games');
@@ -525,6 +525,38 @@ router.post('/spaces/:spaceId/integrations/test-plex-providers', authenticateTok
         status,
         provider: config.plexProvider || 'plex',
         path: '/media/providers',
+        detail: error.message
+      });
+    }
+  }
+})));
+
+router.post('/spaces/:spaceId/integrations/test-plex-now-playing', authenticateToken, requireSessionAuth, asyncHandler(async (req, res) => runManagedIntegrationTest(req, res, {
+  section: 'plex',
+  handler: async (config) => {
+    if (!config.plexApiUrl) return res.status(400).json({ ok: false, authenticated: false, detail: 'Plex API URL is not configured' });
+    if (!config.plexApiKey) return res.status(400).json({ ok: false, authenticated: false, detail: 'Plex API key is not configured' });
+    try {
+      const sessions = await fetchPlexNowPlayingSessions(config);
+      return res.json({
+        ok: true,
+        authenticated: true,
+        status: 200,
+        provider: config.plexProvider || 'plex',
+        path: '/status/sessions',
+        sessionCount: sessions.length,
+        detail: `Connected. Found ${sessions.length} active Plex session(s).`,
+        sessions
+      });
+    } catch (error) {
+      logError('Test Plex now playing readback (space)', error);
+      const status = error.response?.status || 502;
+      return res.json({
+        ok: false,
+        authenticated: status !== 401 && status !== 403,
+        status,
+        provider: config.plexProvider || 'plex',
+        path: '/status/sessions',
         detail: error.message
       });
     }

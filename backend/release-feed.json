@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.115",
+      "version": "v3.4.115",
+      "date": null,
+      "status": null,
+      "summary": "This release exposes the proven Plex now-playing parser through read-only admin and workspace integration endpoints. collectZ can now call saved Plex settings for `/status/sessions` and return sanitized active-session readback without adding UI, webhooks, sync behavior, or import changes.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added admin and workspace Plex now-playing readback endpoints.",
+            "Reused saved Plex API URL and token settings server-side.",
+            "Returned only sanitized session fields such as title, type, progress, user label, and player state.",
+            "Added a Docker-runnable fake PMS smoke that exercises the collectZ endpoint path.",
+            "Preserved existing Plex provider discovery, section discovery, and import behavior."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.4.114",
       "version": "v3.4.114",
       "date": null,
@@ -228,25 +247,6 @@
             "Added fake-runtime proof for `POST /api/Reader/progress` with `pageNum: 0` and `bookScrollId: null`.",
             "Confirmed the reset-progress probe does not call bulk unread endpoints.",
             "Kept chapter unread and reset-progress UI/routes disabled until real Kavita runtime semantics are proven."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.4.105",
-      "version": "v3.4.105",
-      "date": "2026-05-06",
-      "status": "Ready for CI release gates",
-      "summary": "This patch defines the Kavita chapter unread/read-state reversal boundary after the chapter mark-read implementation. It keeps runtime unread behavior disabled because the checked Kavita OpenAPI snapshot does not expose a chapter-level mark-unread endpoint.",
-      "details": [
-        {
-          "heading": "Shipped",
-          "bullets": [
-            "Rechecked Kavita's upstream OpenAPI reader/progress surface for unread and reset-progress options.",
-            "Documented that series, volume, multiple-volume, and multiple-series unread endpoints are bulk mutations.",
-            "Kept progress page `0` as a discovery-only reset-progress candidate, not a true unread action.",
-            "Extended the Kavita progress/read-state probe with unread/reversal contract evidence.",
-            "Added source assertions to ensure no runtime unread route or UI control was introduced."
           ]
         }
       ]

@@ -225,6 +225,7 @@ const plexPmsModernizationDocSource = fs.readFileSync(require.resolve('../../doc
 const plexProviderDiscoverySmokeSource = fs.readFileSync(require.resolve('../scripts/plex-provider-discovery-smoke'), 'utf8');
 const plexProviderReadbackSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-provider-readback-smoke'), 'utf8');
 const plexNowPlayingProviderProofSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-now-playing-provider-proof-smoke'), 'utf8');
+const plexNowPlayingReadbackSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-now-playing-readback-smoke'), 'utf8');
 const ciCdDeployDocSource = fs.readFileSync(require.resolve('../../docs/wiki/10-CI-CD-and-Registry-Deploy.md'), 'utf8');
 const securityPolicyPath = path.resolve(__dirname, '..', '..', 'SECURITY.md');
 const securityPolicySource = fs.existsSync(securityPolicyPath)
@@ -1287,6 +1288,23 @@ results.push(run('plex now-playing provider proof keeps sessions read-only and s
   assert.ok(plexNowPlayingProviderProofSmokeSource.includes('existing Plex import paths were not called'));
   assert.ok(plexNowPlayingProviderProofSmokeSource.includes("artifacts', 'plex-now-playing', 'plex-now-playing-provider-proof-smoke.json"));
   assert.ok(releaseRoadmapSource.includes('3.4.114 — Plex Now Playing Provider Proof'));
+}));
+
+results.push(run('plex now-playing readback endpoint is wired as sanitized admin and workspace probes', () => {
+  assert.ok(backendPackageJson.scripts['test:plex-now-playing-readback-smoke']);
+  assert.ok(integrationsRoutesSource.includes("fetchPlexMediaProviders, fetchPlexNowPlayingSessions"));
+  assert.ok(integrationsRoutesSource.includes("sharedRouter.post('/admin/settings/integrations/test-plex-now-playing'"));
+  assert.ok(integrationsRoutesSource.includes("path: '/status/sessions'"));
+  assert.ok(integrationsRoutesSource.includes('sessionCount: sessions.length'));
+  assert.ok(spaceIntegrationsRoutesSource.includes("router.post('/spaces/:spaceId/integrations/test-plex-now-playing'"));
+  assert.ok(spaceIntegrationsRoutesSource.includes("fetchPlexMediaProviders, fetchPlexNowPlayingSessions"));
+  assert.ok(openApiSource.includes('/api/admin/settings/integrations/test-plex-now-playing'));
+  assert.ok(openApiSource.includes('/api/spaces/{id}/integrations/test-plex-now-playing'));
+  assert.ok(plexNowPlayingReadbackSmokeSource.includes('/api/admin/settings/integrations/test-plex-now-playing'));
+  assert.ok(plexNowPlayingReadbackSmokeSource.includes('restorePlexSettings'));
+  assert.ok(plexNowPlayingReadbackSmokeSource.includes('Response must not contain raw Plex token'));
+  assert.ok(plexNowPlayingReadbackSmokeSource.includes('Response must not contain media file paths'));
+  assert.ok(releaseRoadmapSource.includes('3.4.115 — Plex Now Playing Readback Endpoint'));
 }));
 
 results.push(run('media route source includes tmdb trace-match endpoint', () => {

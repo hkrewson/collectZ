@@ -4663,6 +4663,41 @@
         }
       }
     },
+    "/api/spaces/{id}/integrations/test-plex-now-playing": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Probe workspace Plex PMS now-playing sessions with sanitized readback",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Plex now-playing session readback result",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Plex configuration",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/spaces/{id}/integrations/test-kavita": {
       "post": {
         "tags": ["Auth"],
@@ -4787,6 +4822,33 @@
         "responses": {
           "200": {
             "description": "Plex provider discovery result",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Plex configuration",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/settings/integrations/test-plex-now-playing": {
+      "post": {
+        "tags": ["Admin"],
+        "summary": "Probe Plex PMS now-playing sessions with sanitized readback",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "responses": {
+          "200": {
+            "description": "Plex now-playing session readback result",
             "content": {
               "application/json": {
                 "schema": { "type": "object", "additionalProperties": true }

@@ -39,6 +39,7 @@ Use this for feature discovery and future new Plex surfaces where possible. The 
 - Plex provider-discovery runtime smoke against a fake PMS payload. Promoted as `3.4.112`.
 - Real-server Plex provider discovery readback. Promoted as `3.4.113`.
 - Now Playing provider proof. Promoted as `3.4.114`.
+- Now Playing readback endpoint. Promoted as `3.4.115`.
 - Plex watch-state sync cadence.
 - Plex webhook ingestion contract.
 
