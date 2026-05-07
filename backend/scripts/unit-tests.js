@@ -219,6 +219,7 @@ const publicExportValidatorSource = fs.readFileSync(require.resolve('../../scrip
 const releaseRoadmapSource = fs.readFileSync(require.resolve('../../docs/wiki/07-Release-Roadmap.md'), 'utf8');
 const backlogSource = fs.readFileSync(require.resolve('../../docs/wiki/08-Backlog.md'), 'utf8');
 const plexPmsModernizationDocSource = fs.readFileSync(require.resolve('../../docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md'), 'utf8');
+const plexProviderDiscoverySmokeSource = fs.readFileSync(require.resolve('../scripts/plex-provider-discovery-smoke'), 'utf8');
 const ciCdDeployDocSource = fs.readFileSync(require.resolve('../../docs/wiki/10-CI-CD-and-Registry-Deploy.md'), 'utf8');
 const securityPolicyPath = path.resolve(__dirname, '..', '..', 'SECURITY.md');
 const securityPolicySource = fs.existsSync(securityPolicyPath)
@@ -1202,6 +1203,16 @@ results.push(run('plex PMS modernization foundation is promoted and documented w
   assert.ok(plexPmsModernizationDocSource.includes('/library/sections/:sectionId/all'));
   assert.ok(plexPmsModernizationDocSource.includes('Keep existing Plex import'));
   assert.ok(plexPmsModernizationDocSource.includes('Now Playing Viewer provider proof'));
+}));
+
+results.push(run('plex provider discovery runtime proof keeps fake PMS smoke scoped and secret-free', () => {
+  assert.ok(backendPackageJson.scripts['test:plex-provider-discovery-smoke']);
+  assert.ok(plexProviderDiscoverySmokeSource.includes("fetchPlexMediaProviders"));
+  assert.ok(plexProviderDiscoverySmokeSource.includes("url.pathname !== '/media/providers'"));
+  assert.ok(plexProviderDiscoverySmokeSource.includes("token and provider URL fields were not surfaced"));
+  assert.ok(plexProviderDiscoverySmokeSource.includes("existing Plex import paths were not called"));
+  assert.ok(plexProviderDiscoverySmokeSource.includes("artifacts', 'plex-provider-discovery', 'plex-provider-discovery-smoke.json"));
+  assert.ok(releaseRoadmapSource.includes('3.4.112 — Plex Provider Discovery Runtime Proof'));
 }));
 
 results.push(run('media route source includes tmdb trace-match endpoint', () => {

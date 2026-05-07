@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.112",
+      "version": "v3.4.112",
+      "date": null,
+      "status": null,
+      "summary": "This release proves the new Plex `/media/providers` discovery path against a PMS-shaped runtime response without changing the existing Plex import flow. The smoke starts a fake Plex Media Server, calls the real provider-discovery fetch path, and writes secret-free evidence showing the normalized provider readback.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added a backend Plex provider-discovery smoke that exercises `fetchPlexMediaProviders()` against a fake PMS server.",
+            "Wrote provider-discovery evidence to `artifacts/plex-provider-discovery/plex-provider-discovery-smoke.json`.",
+            "Verified the provider readback only exposes safe fields: provider key, title, type, protocol, identifier, and feature keys.",
+            "Kept Plex tokens, provider URLs, file paths, and raw locations out of smoke output and browser-visible contracts.",
+            "Preserved the current legacy Plex import paths; this release does not rewrite imports."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.4.111",
       "version": "v3.4.111",
       "date": "2026-05-07",
@@ -228,25 +247,6 @@
             "Extended the Kavita progress/read-state probe with disabled mark endpoint evidence.",
             "Added source assertions for the read-state contract and chapter-scoped payload shape.",
             "Kept runtime routes, drawer controls, import/sync read-state writes, background polling, KOReader sync, and shared provider abstractions out of scope."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.4.102",
-      "version": "v3.4.102",
-      "date": "2026-05-06",
-      "status": "Ready for CI release gates",
-      "summary": "This patch adds the first explicit Kavita progress writeback and page-proxy reader slice. Chapter-backed Kavita rows can now load a proxied reader page, then save a selected page number back to Kavita without exposing Kavita API keys or bearer tokens to the browser.",
-      "details": [
-        {
-          "heading": "Shipped",
-          "bullets": [
-            "Added a scoped progress write endpoint for Kavita chapter-backed media rows using `POST /api/Reader/progress`.",
-            "Added scoped reader metadata and single-page image proxy endpoints for Kavita chapter-backed rows.",
-            "Added media drawer controls to load a Kavita page image, step through pages, and explicitly save progress.",
-            "Kept Kavita credentials server-side for reader page and progress calls.",
-            "Extended the fake-Kavita import/sync smoke to prove progress writeback, reader metadata readback, page image proxying, and secret-free browser responses."
           ]
         }
       ]

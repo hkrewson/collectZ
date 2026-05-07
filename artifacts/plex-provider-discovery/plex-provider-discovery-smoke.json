@@ -1,0 +1,45 @@
+{
+  "generatedAt": "2026-05-07T02:31:52.275Z",
+  "mode": "fake-pms",
+  "path": "/media/providers",
+  "providerCount": 2,
+  "providers": [
+    {
+      "key": "com.plexapp.plugins.library",
+      "title": "Library",
+      "type": "library",
+      "protocol": "plex",
+      "identifier": "com.plexapp.plugins.library",
+      "featureKeys": [
+        "browse",
+        "metadata",
+        "timeline"
+      ]
+    },
+    {
+      "key": "system",
+      "title": "System",
+      "type": "server",
+      "protocol": "plex",
+      "identifier": null,
+      "featureKeys": [
+        "status"
+      ]
+    }
+  ],
+  "requests": [
+    {
+      "method": "GET",
+      "pathname": "/media/providers",
+      "hasToken": true,
+      "tokenMatched": true,
+      "accept": "application/json"
+    }
+  ],
+  "assertions": [
+    "fake PMS received GET /media/providers",
+    "provider payload normalized into safe readback fields",
+    "token and provider URL fields were not surfaced",
+    "existing Plex import paths were not called"
+  ]
+}

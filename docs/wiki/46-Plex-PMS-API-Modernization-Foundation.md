@@ -36,7 +36,7 @@ Use this for feature discovery and future new Plex surfaces where possible. The 
 ## Candidate Follow-ups
 
 - Now Playing Viewer provider proof.
-- Plex provider-discovery runtime smoke against a fake PMS payload.
+- Plex provider-discovery runtime smoke against a fake PMS payload. Promoted as `3.4.112`.
 - Plex watch-state sync cadence.
 - Plex webhook ingestion contract.
 

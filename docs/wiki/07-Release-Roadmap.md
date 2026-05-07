@@ -9482,7 +9482,7 @@ Historical note:
 
 **Goal:** Establish a provider-oriented Plex PMS API contract for future Plex features without changing the current legacy-path import behavior.
 
-**Current Slice:** `Active`
+**Current Slice:** `Closed`
 
 ### Scope
 
@@ -9508,6 +9508,36 @@ Historical note:
 - Verification: backend unit tests, OpenAPI validation, init parity, migration rehearsal, release preflight local, observability release evidence, RBAC regression, browser regression, homelab edition boundary, platform edition boundary, public export validation, and diff whitespace checks passed locally.
 - CI-only follow-up: `secret-scan` and `image-security-and-sbom` still require the GitHub Actions scanners.
 - Remaining Plex PMS work: Now Playing UI, webhook handling, scheduled sync cadence, and any broad import rewrite remain separate future slices.
+
+## 3.4.112 — Plex Provider Discovery Runtime Proof
+
+**Goal:** Prove the new Plex `/media/providers` discovery path against a PMS-shaped runtime response before changing import behavior.
+
+**Current Slice:** `Active`
+
+### Scope
+
+- Add a Docker-runnable backend smoke that starts a fake PMS server and exercises the real Plex provider-discovery fetch path.
+- Verify the fake PMS receives `GET /media/providers` with token-bearing auth while the evidence output stays secret-free.
+- Persist lightweight runtime evidence for provider keys, titles, types, protocols, and feature keys.
+- Keep existing Plex import paths and Now Playing, webhook, scheduled sync, and broad import rewrite work out of scope.
+
+### Acceptance Criteria
+
+- `npm run test:plex-provider-discovery-smoke` passes inside the backend container.
+- The smoke writes `artifacts/plex-provider-discovery/plex-provider-discovery-smoke.json`.
+- The evidence proves normalized provider readback without returning Plex tokens, provider URLs, file paths, or raw locations.
+- Existing Plex import tests and release gates continue to pass.
+
+### Closeout
+
+- Version: `3.4.112`
+- Release note: `docs/releases/v3.4.112.md`
+- Release feed: regenerated with `backend/scripts/export-release-feed.js`; running Help > Releases smoke served `v3.4.112` as latest.
+- Runtime evidence: Docker stack health reported frontend/backend/build `3.4.112`; live DB kept `events_enabled=true`; `test:plex-provider-discovery-smoke` passed inside the backend container and proved a fake PMS `GET /media/providers` request plus safe normalized provider readback.
+- Verification: backend unit tests, OpenAPI validation, init parity, migration rehearsal, release preflight local, observability release evidence, RBAC regression, browser regression, homelab edition boundary, platform edition boundary, provider-discovery smoke, and diff whitespace checks passed locally.
+- CI-only follow-up: `secret-scan` and `image-security-and-sbom` still require the GitHub Actions scanners because local `gitleaks` and `trivy` binaries are not installed.
+- Remaining Plex PMS work: Now Playing UI, webhook ingestion, scheduled sync cadence, real-server provider discovery readback, and any broad import rewrite remain separate future slices.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
