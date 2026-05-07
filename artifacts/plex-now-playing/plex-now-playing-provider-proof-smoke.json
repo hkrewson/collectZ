@@ -1,0 +1,46 @@
+{
+  "generatedAt": "2026-05-07T04:26:37.478Z",
+  "mode": "fake-pms",
+  "path": "/status/sessions",
+  "sessionCount": 1,
+  "sessions": [
+    {
+      "sessionKey": "987",
+      "ratingKey": "12345",
+      "title": "The One With a Safe Payload",
+      "type": "episode",
+      "grandparentTitle": "Example Show",
+      "parentTitle": "Season 2",
+      "year": 2026,
+      "durationMs": 1800000,
+      "viewOffsetMs": 450000,
+      "progressPercent": 25,
+      "user": {
+        "title": "Local Viewer",
+        "username": "viewer@example.com",
+        "id": "42"
+      },
+      "player": {
+        "title": "Living Room",
+        "product": "Plex Web",
+        "state": "playing",
+        "platform": "Chrome"
+      }
+    }
+  ],
+  "requests": [
+    {
+      "method": "GET",
+      "pathname": "/status/sessions",
+      "hasToken": true,
+      "tokenMatched": true,
+      "accept": "application/json"
+    }
+  ],
+  "assertions": [
+    "fake PMS received GET /status/sessions",
+    "now-playing payload normalized into safe readback fields",
+    "token, player IP, machine identifier, and media file paths were not surfaced",
+    "existing Plex import paths were not called"
+  ]
+}

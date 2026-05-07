@@ -1,6 +1,6 @@
 {
   "name": "mediavault-backend",
-  "version": "3.4.113",
+  "version": "3.4.114",
   "description": "collectZ Backend API",
   "main": "server.js",
   "scripts": {
@@ -89,7 +89,8 @@
     "test:kavita-metadata-writeback-probe": "node scripts/kavita-metadata-writeback-probe.js",
     "test:kavita-progress-contract-probe": "node scripts/kavita-progress-contract-probe.js",
     "test:plex-provider-discovery-smoke": "node scripts/plex-provider-discovery-smoke.js",
-    "test:plex-provider-readback-smoke": "node scripts/plex-provider-readback-smoke.js"
+    "test:plex-provider-readback-smoke": "node scripts/plex-provider-readback-smoke.js",
+    "test:plex-now-playing-provider-proof-smoke": "node scripts/plex-now-playing-provider-proof-smoke.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1042.0",

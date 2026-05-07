@@ -11,6 +11,8 @@ const {
   normalizePlexVariant,
   parsePlexMediaProviders,
   normalizePlexMediaProvider,
+  parsePlexNowPlayingSessions,
+  normalizePlexNowPlayingSession,
   shouldIncludePlexEntry
 } = require('../services/plex');
 const { wrapTmdbRequestError } = require('../services/tmdb');
@@ -222,6 +224,7 @@ const backlogSource = fs.readFileSync(require.resolve('../../docs/wiki/08-Backlo
 const plexPmsModernizationDocSource = fs.readFileSync(require.resolve('../../docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md'), 'utf8');
 const plexProviderDiscoverySmokeSource = fs.readFileSync(require.resolve('../scripts/plex-provider-discovery-smoke'), 'utf8');
 const plexProviderReadbackSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-provider-readback-smoke'), 'utf8');
+const plexNowPlayingProviderProofSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-now-playing-provider-proof-smoke'), 'utf8');
 const ciCdDeployDocSource = fs.readFileSync(require.resolve('../../docs/wiki/10-CI-CD-and-Registry-Deploy.md'), 'utf8');
 const securityPolicyPath = path.resolve(__dirname, '..', '..', 'SECURITY.md');
 const securityPolicySource = fs.existsSync(securityPolicyPath)
@@ -1167,7 +1170,7 @@ results.push(run('plex PMS modernization contract keeps provider discovery separ
   assert.ok(contract.legacyImportPaths.includes('/library/metadata/:ratingKey/allLeaves'));
   assert.ok(contract.migrationRules.some((rule) => rule.includes('Keep existing Plex import')));
   assert.ok(contract.migrationRules.some((rule) => rule.includes('Prefer JSON')));
-  assert.ok(contract.candidateProofSlices.includes('Now Playing Viewer'));
+  assert.ok(contract.candidateProofSlices.includes('Now Playing Viewer provider proof'));
 }));
 
 results.push(run('plex media provider parser normalizes JSON and XML provider discovery payloads', () => {
@@ -1196,6 +1199,44 @@ results.push(run('plex media provider parser normalizes JSON and XML provider di
   assert.strictEqual(normalizedXml.key, 'epg');
   assert.strictEqual(normalizedXml.title, 'Guide');
   assert.strictEqual(normalizedXml.type, 'epg');
+}));
+
+results.push(run('plex now-playing parser normalizes JSON and XML session payloads safely', () => {
+  const jsonSessions = parsePlexNowPlayingSessions({
+    MediaContainer: {
+      Metadata: [{
+        ratingKey: '123',
+        sessionKey: 'abc',
+        type: 'episode',
+        title: 'Pilot',
+        grandparentTitle: 'Example Show',
+        duration: 1000,
+        viewOffset: 250,
+        User: { title: 'Viewer', token: 'must-not-surface' },
+        Player: { title: 'Living Room', state: 'playing', address: '192.168.1.10' },
+        Media: [{ Part: [{ file: '/private/example.mkv' }] }]
+      }]
+    }
+  });
+  assert.strictEqual(jsonSessions.length, 1);
+  const normalizedJson = normalizePlexNowPlayingSession(jsonSessions[0]);
+  assert.strictEqual(normalizedJson.title, 'Pilot');
+  assert.strictEqual(normalizedJson.type, 'episode');
+  assert.strictEqual(normalizedJson.grandparentTitle, 'Example Show');
+  assert.strictEqual(normalizedJson.progressPercent, 25);
+  assert.deepStrictEqual(normalizedJson.user, { title: 'Viewer', username: null, id: null });
+  assert.deepStrictEqual(normalizedJson.player, { title: 'Living Room', product: null, state: 'playing', platform: null });
+  assert.ok(!JSON.stringify(normalizedJson).includes('/private/example.mkv'));
+  assert.ok(!JSON.stringify(normalizedJson).includes('192.168.1.10'));
+  assert.ok(!JSON.stringify(normalizedJson).includes('must-not-surface'));
+
+  const xmlSessions = parsePlexNowPlayingSessions('<MediaContainer><Video ratingKey="456" sessionKey="def" type="movie" title="Example Movie" duration="2000" viewOffset="500"><User title="Viewer" /><Player title="Web" state="paused" /></Video></MediaContainer>');
+  assert.strictEqual(xmlSessions.length, 1);
+  const normalizedXml = normalizePlexNowPlayingSession(xmlSessions[0]);
+  assert.strictEqual(normalizedXml.ratingKey, '456');
+  assert.strictEqual(normalizedXml.type, 'movie');
+  assert.strictEqual(normalizedXml.progressPercent, 25);
+  assert.strictEqual(normalizedXml.player.state, 'paused');
 }));
 
 results.push(run('plex PMS modernization foundation is promoted and documented without replacing legacy imports', () => {
@@ -1234,6 +1275,18 @@ results.push(run('plex real-server provider discovery readback is wired as sanit
   assert.ok(plexProviderReadbackSmokeSource.includes('restorePlexSettings'));
   assert.ok(plexProviderReadbackSmokeSource.includes('Response must not contain raw Plex token'));
   assert.ok(releaseRoadmapSource.includes('3.4.113 — Plex Real-Server Provider Discovery Readback'));
+}));
+
+results.push(run('plex now-playing provider proof keeps sessions read-only and secret-free', () => {
+  const contract = buildPlexPmsModernizationContract();
+  assert.strictEqual(contract.nowPlayingPath, '/status/sessions');
+  assert.ok(backendPackageJson.scripts['test:plex-now-playing-provider-proof-smoke']);
+  assert.ok(plexNowPlayingProviderProofSmokeSource.includes('fetchPlexNowPlayingSessions'));
+  assert.ok(plexNowPlayingProviderProofSmokeSource.includes("url.pathname !== '/status/sessions'"));
+  assert.ok(plexNowPlayingProviderProofSmokeSource.includes('token, player IP, machine identifier, and media file paths were not surfaced'));
+  assert.ok(plexNowPlayingProviderProofSmokeSource.includes('existing Plex import paths were not called'));
+  assert.ok(plexNowPlayingProviderProofSmokeSource.includes("artifacts', 'plex-now-playing', 'plex-now-playing-provider-proof-smoke.json"));
+  assert.ok(releaseRoadmapSource.includes('3.4.114 — Plex Now Playing Provider Proof'));
 }));
 
 results.push(run('media route source includes tmdb trace-match endpoint', () => {

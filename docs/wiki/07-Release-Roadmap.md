@@ -9568,7 +9568,38 @@ Historical note:
 - Runtime evidence: Docker stack health reported frontend/backend/build `3.4.113`; live DB kept `events_enabled=true` and `collectibles_enabled=true`; `test:plex-provider-readback-smoke` passed inside the backend container and proved the saved-settings probe calls a fake PMS `/media/providers` endpoint while returning only sanitized provider readback; production-shaped compose smoke preflight passed in-stack health, headers, CSRF cookie, unauthenticated `401`, and integration smoke.
 - Verification: backend unit tests, OpenAPI validation, init parity, migration rehearsal, release preflight local, observability release evidence, RBAC regression, browser regression, homelab edition boundary, platform edition boundary, public export validation, Plex provider readback smoke, Help > Releases smoke, and diff whitespace checks passed locally.
 - Release gate accounting: `compose-smoke`, `rbac-regression`, `browser-regression`, `homelab-edition-boundary`, `platform-edition-boundary`, dependency-audit checks, init parity, migration rehearsal, and observability evidence passed locally. `secret-scan` and `image-security-and-sbom` still require GitHub Actions because local `gitleaks` and `trivy` binaries are not installed.
-- Remaining Plex PMS work: Now Playing UI, webhook ingestion, scheduled sync cadence, real-user/manual PMS provider probe use, and any broad import rewrite remain separate future slices.
+- Remaining Plex PMS work: Now Playing provider proof, Now Playing UI, webhook ingestion, scheduled sync cadence, real-user/manual PMS provider probe use, and any broad import rewrite remain separate future slices.
+
+## 3.4.114 — Plex Now Playing Provider Proof
+
+**Goal:** Prove the Plex PMS now-playing sessions surface with a safe read-only parser and Docker-runnable fake PMS smoke before adding any Now Playing UI or changing import behavior.
+
+**Current Slice:** `Closed`
+
+### Scope
+
+- Add a provider-oriented `/status/sessions` contract to the Plex service layer.
+- Add lightweight now-playing session parsing for JSON/XML-shaped PMS payloads.
+- Normalize only safe readback fields: session key, rating key, title, type, series/parent title, year, duration, view offset, progress, user label/id, and player label/product/state/platform.
+- Add a Docker-runnable fake PMS smoke that proves token-authenticated `/status/sessions` access and writes secret-free evidence.
+- Keep Now Playing UI, webhooks, scheduled sync, watch-state writes, and import behavior changes out of scope.
+
+### Acceptance Criteria
+
+- `npm run test:plex-now-playing-provider-proof-smoke` passes inside the backend container.
+- The smoke writes `artifacts/plex-now-playing/plex-now-playing-provider-proof-smoke.json`.
+- The evidence proves safe session readback without Plex tokens, player IP addresses, machine identifiers, media file paths, provider URLs, or raw PMS payloads.
+- Existing Plex provider discovery/readback and import paths remain unchanged.
+
+### Closeout
+
+- Version: `3.4.114`
+- Release note: `docs/releases/v3.4.114.md`
+- Release feed: regenerated with `backend/scripts/export-release-feed.js`; running Help > Releases smoke served `v3.4.114` as latest.
+- Runtime evidence: Docker stack health reported frontend/backend/build `3.4.114`; live DB kept `events_enabled=true` and `collectibles_enabled=true`; `test:plex-now-playing-provider-proof-smoke` passed inside the backend container and proved a fake PMS `GET /status/sessions` request plus safe normalized session readback with no token, player IP, machine identifier, or media file path surfaced; production-shaped compose smoke preflight passed in-stack health, headers, CSRF cookie, unauthenticated `401`, and integration smoke.
+- Verification: backend unit tests, OpenAPI validation, init parity, migration rehearsal, release preflight local, observability release evidence, RBAC regression, browser regression, homelab edition boundary, platform edition boundary, public export validation, Plex now-playing provider proof smoke, Help > Releases smoke, and diff whitespace checks passed locally.
+- Release gate accounting: `compose-smoke`, `rbac-regression`, `browser-regression`, `homelab-edition-boundary`, `platform-edition-boundary`, dependency-audit checks, init parity, migration rehearsal, and observability evidence passed locally. `secret-scan` and `image-security-and-sbom` still require GitHub Actions because local `gitleaks` and `trivy` binaries are not installed.
+- Remaining Plex PMS work: Now Playing UI, webhook ingestion, scheduled sync cadence, real-user/manual PMS now-playing probe use, watch-state writeback, and any broad import rewrite remain separate future slices.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 

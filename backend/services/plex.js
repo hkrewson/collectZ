@@ -14,6 +14,7 @@ const PLEX_PMS_MODERNIZATION_CONTRACT = Object.freeze({
   currentMode: 'legacy-library-paths',
   nextMode: 'provider-oriented-pms-api',
   providerDiscoveryPath: '/media/providers',
+  nowPlayingPath: '/status/sessions',
   legacyImportPaths: Object.freeze([
     '/library/sections',
     '/library/sections/:sectionId/all',
@@ -27,7 +28,7 @@ const PLEX_PMS_MODERNIZATION_CONTRACT = Object.freeze({
     'Do not expose Plex tokens, provider URLs, file paths, or raw download locations in browser-visible payloads.'
   ]),
   candidateProofSlices: Object.freeze([
-    'Now Playing Viewer',
+    'Now Playing Viewer provider proof',
     'Plex import provider discovery probe',
     'Plex watch-state sync cadence'
   ])
@@ -162,10 +163,92 @@ const normalizePlexMediaProvider = (provider) => {
   };
 };
 
+const parsePlexNowPlayingSessions = (payload) => {
+  if (!payload) return [];
+  if (typeof payload === 'object' && !Buffer.isBuffer(payload)) {
+    const metadata = [
+      ...asArray(payload?.MediaContainer?.Metadata),
+      ...asArray(payload?.MediaContainer?.Video),
+      ...asArray(payload?.MediaContainer?.Track),
+      ...asArray(payload?.Metadata),
+      ...asArray(payload?.Video),
+      ...asArray(payload?.Track)
+    ];
+    return metadata.map((entry) => ({ ...entry }));
+  }
+
+  const source = Buffer.isBuffer(payload) ? payload.toString('utf8') : String(payload);
+  const sessions = [];
+  const blockRe = /<(Video|Track|Metadata)\b([^>]*?)(?:\/>|>([\s\S]*?)<\/\1>)/gi;
+  let match = blockRe.exec(source);
+  while (match) {
+    const session = parseAttributes(match[2]);
+    const body = match[3] || '';
+    const userMatch = body.match(/<User\b([^>]*?)\/?>/i);
+    const playerMatch = body.match(/<Player\b([^>]*?)\/?>/i);
+    if (userMatch) session.User = parseAttributes(userMatch[1]);
+    if (playerMatch) session.Player = parseAttributes(playerMatch[1]);
+    sessions.push(session);
+    match = blockRe.exec(source);
+  }
+  return sessions;
+};
+
+const firstObject = (value) => {
+  const arr = asArray(value);
+  const found = arr.find((entry) => entry && typeof entry === 'object');
+  return found || null;
+};
+
+const toFiniteNumber = (value) => {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+};
+
+const normalizePlexNowPlayingSession = (session) => {
+  if (!session || typeof session !== 'object') return null;
+  const user = firstObject(session.User);
+  const player = firstObject(session.Player);
+  const durationMs = toFiniteNumber(session.duration);
+  const viewOffsetMs = toFiniteNumber(session.viewOffset);
+  const progressPercent = durationMs && durationMs > 0 && Number.isFinite(viewOffsetMs)
+    ? Math.max(0, Math.min(100, Math.round((viewOffsetMs / durationMs) * 100)))
+    : null;
+  const type = session.type ? String(session.type) : null;
+  const grandparentTitle = session.grandparentTitle ? String(session.grandparentTitle) : null;
+  const parentTitle = session.parentTitle ? String(session.parentTitle) : null;
+  const title = session.title || session.originalTitle || grandparentTitle || parentTitle || null;
+
+  return {
+    sessionKey: session.sessionKey ? String(session.sessionKey) : null,
+    ratingKey: session.ratingKey ? String(session.ratingKey) : null,
+    title: title ? String(title) : 'Unknown title',
+    type,
+    grandparentTitle,
+    parentTitle,
+    year: toFiniteNumber(session.year),
+    durationMs,
+    viewOffsetMs,
+    progressPercent,
+    user: user?.title || user?.username || user?.id ? {
+      title: user.title ? String(user.title) : null,
+      username: user.username ? String(user.username) : null,
+      id: user.id ? String(user.id) : null
+    } : null,
+    player: player?.title || player?.product || player?.state || player?.platform ? {
+      title: player.title ? String(player.title) : null,
+      product: player.product ? String(player.product) : null,
+      state: player.state ? String(player.state) : null,
+      platform: player.platform ? String(player.platform) : null
+    } : null
+  };
+};
+
 const buildPlexPmsModernizationContract = () => ({
   currentMode: PLEX_PMS_MODERNIZATION_CONTRACT.currentMode,
   nextMode: PLEX_PMS_MODERNIZATION_CONTRACT.nextMode,
   providerDiscoveryPath: PLEX_PMS_MODERNIZATION_CONTRACT.providerDiscoveryPath,
+  nowPlayingPath: PLEX_PMS_MODERNIZATION_CONTRACT.nowPlayingPath,
   legacyImportPaths: [...PLEX_PMS_MODERNIZATION_CONTRACT.legacyImportPaths],
   migrationRules: [...PLEX_PMS_MODERNIZATION_CONTRACT.migrationRules],
   candidateProofSlices: [...PLEX_PMS_MODERNIZATION_CONTRACT.candidateProofSlices]
@@ -355,6 +438,19 @@ const fetchPlexMediaProviders = async (config) => {
     .filter(Boolean);
 };
 
+const fetchPlexNowPlayingSessions = async (config) => {
+  const response = await plexRequest(config, PLEX_PMS_MODERNIZATION_CONTRACT.nowPlayingPath);
+  if (response.status >= 400) {
+    const message = typeof response.data === 'string'
+      ? response.data.slice(0, 200)
+      : response.data?.error || response.statusText;
+    throw new Error(`Plex now playing request failed (${response.status}): ${message}`);
+  }
+  return parsePlexNowPlayingSessions(response.data)
+    .map(normalizePlexNowPlayingSession)
+    .filter(Boolean);
+};
+
 const fetchPlexLibraryItems = async (config, sectionIds = []) => {
   const sections = sectionIds.length > 0 ? sectionIds : (config.plexLibrarySections || []);
   const uniqueSections = [...new Set(sections.map(String).filter(Boolean))];
@@ -537,12 +633,15 @@ module.exports = {
   buildPlexPmsModernizationContract,
   fetchPlexSections,
   fetchPlexMediaProviders,
+  fetchPlexNowPlayingSessions,
   fetchPlexLibraryItems,
   fetchPlexShowSeasons,
   fetchPlexShowSeasonVariants,
   fetchPlexSeasonEpisodeStates,
   parsePlexMediaProviders,
   normalizePlexMediaProvider,
+  parsePlexNowPlayingSessions,
+  normalizePlexNowPlayingSession,
   shouldIncludePlexEntry,
   normalizePlexItem,
   normalizePlexVariant
