@@ -16,6 +16,7 @@ const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
 const PLAYWRIGHT_BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000';
 const PLAYWRIGHT_E2E_BYPASS_TOKEN = String(process.env.PLAYWRIGHT_E2E_BYPASS_TOKEN || '').trim();
 const PLAYWRIGHT_E2E_BYPASS_COOKIE = 'playwright_e2e_bypass';
+const SESSION_COOKIE_NAME = process.env.SESSION_COOKIE_NAME || 'session_token';
 const PLAYWRIGHT_COMPOSE_ENV_FILE = String(process.env.PLAYWRIGHT_COMPOSE_ENV_FILE || '.env').trim() || '.env';
 const PLAYWRIGHT_COMPOSE_PROJECT = String(process.env.PLAYWRIGHT_COMPOSE_PROJECT || '').trim();
 const PLAYWRIGHT_DOCKER_COMPOSE_BIN = String(process.env.PLAYWRIGHT_DOCKER_COMPOSE_BIN || 'docker').trim() || 'docker';
@@ -73,6 +74,18 @@ async function addPlaywrightBypassCookie(target) {
   const cookie = buildPlaywrightBypassCookie();
   if (!cookie || typeof target?.addCookies !== 'function') return;
   await target.addCookies([cookie]);
+}
+
+async function addSessionCookie(target, value) {
+  if (!value || typeof target?.addCookies !== 'function') return;
+  const parsed = new URL(PLAYWRIGHT_BASE_URL);
+  await target.addCookies([{
+    name: SESSION_COOKIE_NAME,
+    value,
+    url: PLAYWRIGHT_BASE_URL,
+    sameSite: 'Lax',
+    secure: parsed.protocol === 'https:'
+  }]);
 }
 
 async function ensurePlaywrightBypassStorageState(storageStatePath) {
@@ -544,11 +557,14 @@ module.exports = {
   PLAYWRIGHT_STATE_DIR,
   AUTH_STATE_PATH,
   AUTH_CREDENTIALS_PATH,
+  PLAYWRIGHT_BASE_URL,
   PLAYWRIGHT_E2E_BYPASS_TOKEN,
   PLAYWRIGHT_E2E_BYPASS_COOKIE,
+  SESSION_COOKIE_NAME,
   getPlaywrightBypassToken,
   getPlaywrightBypassHeaders,
   addPlaywrightBypassCookie,
+  addSessionCookie,
   fetchCsrfToken,
   requestWithCsrf,
   postWithCsrf,

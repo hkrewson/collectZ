@@ -6,6 +6,7 @@ const {
   createFreshUserCredentials,
   createAuthenticatedRequestContext,
   addPlaywrightBypassCookie,
+  addSessionCookie,
   fetchCsrfToken,
   requestWithCsrf,
   postWithCsrf,
@@ -26,30 +27,55 @@ test.use({ storageState: { cookies: [], origins: [] } });
 
 test.describe('events and collectibles browser regressions', () => {
   test('mobile art image control uses the core-tab native source picker', async ({ page }) => {
+    const adminCredentials = await ensureSavedAdminCredentials();
+    const adminRequestContext = await createAuthenticatedRequestContext(adminCredentials);
     const userCredentials = await createFreshUserCredentials();
+    const originalFlagsPayload = await getFeatureFlags(adminRequestContext);
+    const originalFlags = Array.isArray(originalFlagsPayload?.flags) ? originalFlagsPayload.flags : [];
+    const originalCollectiblesEnabled = Boolean(originalFlags.find((flag) => flag?.key === 'collectibles_enabled')?.enabled);
 
-    await page.setViewportSize({ width: 390, height: 844 });
-    await signInThroughUi(page, userCredentials);
-    await page.goto('/dashboard?tab=library-art');
-    await expect(page.getByRole('heading', { name: 'Art' })).toBeVisible();
-    await page.getByRole('button', { name: 'Add' }).click();
-    await expect(page.getByRole('heading', { name: 'Add Art' })).toBeVisible();
-    await expect(page.getByText('Artwork image')).toBeVisible();
-    await expect(page.getByRole('button', { name: /Add image/i })).toBeVisible();
-    await expect(page.getByText('Photo library, camera, or file')).toBeVisible();
+    try {
+      if (!originalCollectiblesEnabled) {
+        await updateFeatureFlag(adminRequestContext, 'collectibles_enabled', true);
+      }
 
-    const imageInputs = page.locator('input[type="file"][accept="image/*"]');
-    await expect(imageInputs).toHaveCount(1);
-    expect(await imageInputs.first().getAttribute('capture')).toBeNull();
+      await page.setViewportSize({ width: 390, height: 844 });
+      await signInThroughUi(page, userCredentials);
+      await page.goto('/dashboard?tab=library-art');
+      await expect(page.getByRole('heading', { name: 'Art' })).toBeVisible();
+      await page.getByRole('button', { name: 'Add' }).click();
+      await expect(page.getByRole('heading', { name: 'Add Art' })).toBeVisible();
+      await expect(page.getByText('Artwork image')).toBeVisible();
+      await expect(page.getByRole('button', { name: /Add image/i })).toBeVisible();
+      await expect(page.getByText('Photo library, camera, or file')).toBeVisible();
+
+      const imageInputs = page.locator('input[type="file"][accept="image/*"]');
+      await expect(imageInputs).toHaveCount(1);
+      expect(await imageInputs.first().getAttribute('capture')).toBeNull();
+    } finally {
+      if (!originalCollectiblesEnabled) {
+        await updateFeatureFlag(adminRequestContext, 'collectibles_enabled', false).catch(() => {});
+      }
+      await adminRequestContext.dispose();
+    }
   });
 
   test('art poster card shows numbered signed medium subtitle without badges', async ({ page }) => {
+    const adminCredentials = await ensureSavedAdminCredentials();
+    const adminRequestContext = await createAuthenticatedRequestContext(adminCredentials);
     const userCredentials = await createFreshUserCredentials();
     const userRequestContext = await createAuthenticatedRequestContext(userCredentials);
     const artTitle = `Playwright Minimal Art Poster ${Date.now()}`;
+    const originalFlagsPayload = await getFeatureFlags(adminRequestContext);
+    const originalFlags = Array.isArray(originalFlagsPayload?.flags) ? originalFlagsPayload.flags : [];
+    const originalCollectiblesEnabled = Boolean(originalFlags.find((flag) => flag?.key === 'collectibles_enabled')?.enabled);
 
     await deleteArtByExactTitle(userRequestContext, artTitle).catch(() => {});
     try {
+      if (!originalCollectiblesEnabled) {
+        await updateFeatureFlag(adminRequestContext, 'collectibles_enabled', true);
+      }
+
       await postWithCsrf(userRequestContext, '/api/art', {
         title: artTitle,
         medium: 'print',
@@ -67,7 +93,11 @@ test.describe('events and collectibles browser regressions', () => {
       await expect(artCard.locator('.badge')).toHaveCount(0);
     } finally {
       await deleteArtByExactTitle(userRequestContext, artTitle).catch(() => {});
+      if (!originalCollectiblesEnabled) {
+        await updateFeatureFlag(adminRequestContext, 'collectibles_enabled', false).catch(() => {});
+      }
       await userRequestContext.dispose();
+      await adminRequestContext.dispose();
     }
   });
 
@@ -144,12 +174,7 @@ test.describe('events and collectibles browser regressions', () => {
 
       await page.setViewportSize({ width: 390, height: 844 });
       await addPlaywrightBypassCookie(page.context());
-      await page.context().addCookies([{
-        name: 'session_token',
-        value: sessionToken,
-        url: 'http://localhost:3000',
-        sameSite: 'Lax'
-      }]);
+      await addSessionCookie(page.context(), sessionToken);
       await page.goto('/dashboard?tab=library-events');
       await expect(page.getByRole('heading', { name: 'Events' })).toBeVisible();
       await page.getByPlaceholder('Search title or location…').fill(eventTitle);
@@ -239,12 +264,7 @@ test.describe('events and collectibles browser regressions', () => {
 
       await page.setViewportSize({ width: 390, height: 844 });
       await addPlaywrightBypassCookie(page.context());
-      await page.context().addCookies([{
-        name: 'session_token',
-        value: sessionToken,
-        url: 'http://localhost:3000',
-        sameSite: 'Lax'
-      }]);
+      await addSessionCookie(page.context(), sessionToken);
       await page.goto('/dashboard?tab=library-events');
       await expect(page.getByRole('heading', { name: 'Events' })).toBeVisible();
       await page.getByRole('button', { name: 'List' }).click();
@@ -358,12 +378,7 @@ test.describe('events and collectibles browser regressions', () => {
 
       await page.setViewportSize({ width: 390, height: 844 });
       await addPlaywrightBypassCookie(page.context());
-      await page.context().addCookies([{
-        name: 'session_token',
-        value: sessionToken,
-        url: 'http://localhost:3000',
-        sameSite: 'Lax'
-      }]);
+      await addSessionCookie(page.context(), sessionToken);
       await page.goto('/dashboard?tab=library-events');
       await expect(page.getByRole('heading', { name: 'Events' })).toBeVisible();
       await page.getByRole('button', { name: 'List' }).click();
