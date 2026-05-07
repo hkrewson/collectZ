@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.113",
+      "version": "v3.4.113",
+      "date": null,
+      "status": null,
+      "summary": "This release adds a read-only Plex provider discovery probe for saved Plex integrations. Admin and workspace integration screens can now ask the configured Plex Media Server for `/media/providers` and show sanitized capability readback without exposing tokens or changing Plex import behavior.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added admin and workspace Plex provider discovery probe endpoints.",
+            "Reused saved Plex API URL and token settings server-side.",
+            "Returned only sanitized provider fields: key, title, type, protocol, identifier, and feature keys.",
+            "Added a Plex Integrations action to probe providers and display the sanitized readback.",
+            "Preserved existing Plex section test and import behavior."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.4.112",
       "version": "v3.4.112",
       "date": null,
@@ -228,25 +247,6 @@
             "Added a `Mark Read in Kavita` drawer action beside the explicit page/progress controls.",
             "Extended the fake-Kavita import/sync smoke to prove one chapter mark-read call and no bulk read-state calls.",
             "Updated the read-state contract probe so chapter mark-read is enabled while series, volume, panel, KOReader, and unread endpoints remain prohibited."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.4.103",
-      "version": "v3.4.103",
-      "date": "2026-05-06",
-      "status": "Ready for CI release gates",
-      "summary": "This patch defines the Kavita read-state boundary before collectZ exposes any mark read/unread action. The contract documents Kavita's series, volume, and chapter mark endpoints, keeps runtime mark actions disabled, and identifies chapter-level mark-read as the only first candidate for a future implementation.",
-      "details": [
-        {
-          "heading": "Shipped",
-          "bullets": [
-            "Rechecked Kavita's upstream OpenAPI mark read/unread endpoint shapes.",
-            "Documented why series-wide mark read/unread and volume-wide mark read are too broad for the first collectZ action.",
-            "Extended the Kavita progress/read-state probe with disabled mark endpoint evidence.",
-            "Added source assertions for the read-state contract and chapter-scoped payload shape.",
-            "Kept runtime routes, drawer controls, import/sync read-state writes, background polling, KOReader sync, and shared provider abstractions out of scope."
           ]
         }
       ]

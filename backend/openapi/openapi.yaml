@@ -4628,6 +4628,41 @@
         }
       }
     },
+    "/api/spaces/{id}/integrations/test-plex-providers": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Probe workspace Plex PMS media provider discovery with sanitized readback",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Plex provider discovery result",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Plex configuration",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/spaces/{id}/integrations/test-kavita": {
       "post": {
         "tags": ["Auth"],
@@ -4736,6 +4771,33 @@
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/IntegrationSettingsResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/settings/integrations/test-plex-providers": {
+      "post": {
+        "tags": ["Admin"],
+        "summary": "Probe Plex PMS media provider discovery with sanitized readback",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "responses": {
+          "200": {
+            "description": "Plex provider discovery result",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Plex configuration",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
               }
             }
           }

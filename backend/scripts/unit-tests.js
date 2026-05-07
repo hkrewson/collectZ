@@ -179,6 +179,7 @@ const useApiClientSource = readFrontendSource(path.join('components', 'app', 'ho
 const helpViewSource = readFrontendSource(path.join('components', 'HelpView'));
 const adminActivityViewSource = readFrontendSource(path.join('components', 'AdminActivityView'));
 const adminUsersViewSource = readFrontendSource(path.join('components', 'AdminUsersView'));
+const adminIntegrationsViewSource = readFrontendSource(path.join('components', 'AdminIntegrationsView'));
 const spaceManagerViewSource = readFrontendSource(path.join('components', 'SpaceManagerView'));
 const libraryLoansViewSource = readFrontendSource(path.join('components', 'LibraryLoansView'));
 const adminMergeReviewViewSource = readFrontendSource(path.join('components', 'AdminMergeReviewView'));
@@ -220,6 +221,7 @@ const releaseRoadmapSource = fs.readFileSync(require.resolve('../../docs/wiki/07
 const backlogSource = fs.readFileSync(require.resolve('../../docs/wiki/08-Backlog.md'), 'utf8');
 const plexPmsModernizationDocSource = fs.readFileSync(require.resolve('../../docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md'), 'utf8');
 const plexProviderDiscoverySmokeSource = fs.readFileSync(require.resolve('../scripts/plex-provider-discovery-smoke'), 'utf8');
+const plexProviderReadbackSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-provider-readback-smoke'), 'utf8');
 const ciCdDeployDocSource = fs.readFileSync(require.resolve('../../docs/wiki/10-CI-CD-and-Registry-Deploy.md'), 'utf8');
 const securityPolicyPath = path.resolve(__dirname, '..', '..', 'SECURITY.md');
 const securityPolicySource = fs.existsSync(securityPolicyPath)
@@ -1213,6 +1215,25 @@ results.push(run('plex provider discovery runtime proof keeps fake PMS smoke sco
   assert.ok(plexProviderDiscoverySmokeSource.includes("existing Plex import paths were not called"));
   assert.ok(plexProviderDiscoverySmokeSource.includes("artifacts', 'plex-provider-discovery', 'plex-provider-discovery-smoke.json"));
   assert.ok(releaseRoadmapSource.includes('3.4.112 — Plex Provider Discovery Runtime Proof'));
+}));
+
+results.push(run('plex real-server provider discovery readback is wired as sanitized admin and workspace probes', () => {
+  assert.ok(backendPackageJson.scripts['test:plex-provider-readback-smoke']);
+  assert.ok(integrationsRoutesSource.includes("fetchPlexSections, fetchPlexMediaProviders"));
+  assert.ok(integrationsRoutesSource.includes("sharedRouter.post('/admin/settings/integrations/test-plex-providers'"));
+  assert.ok(integrationsRoutesSource.includes("path: '/media/providers'"));
+  assert.ok(integrationsRoutesSource.includes('providerCount: providers.length'));
+  assert.ok(spaceIntegrationsRoutesSource.includes("router.post('/spaces/:spaceId/integrations/test-plex-providers'"));
+  assert.ok(spaceIntegrationsRoutesSource.includes("fetchPlexSections, fetchPlexMediaProviders"));
+  assert.ok(adminIntegrationsViewSource.includes("testPlexProviders"));
+  assert.ok(adminIntegrationsViewSource.includes("Probe Providers"));
+  assert.ok(adminIntegrationsViewSource.includes("Detected Plex Providers"));
+  assert.ok(openApiSource.includes('/api/admin/settings/integrations/test-plex-providers'));
+  assert.ok(openApiSource.includes('/api/spaces/{id}/integrations/test-plex-providers'));
+  assert.ok(plexProviderReadbackSmokeSource.includes('/api/admin/settings/integrations/test-plex-providers'));
+  assert.ok(plexProviderReadbackSmokeSource.includes('restorePlexSettings'));
+  assert.ok(plexProviderReadbackSmokeSource.includes('Response must not contain raw Plex token'));
+  assert.ok(releaseRoadmapSource.includes('3.4.113 — Plex Real-Server Provider Discovery Readback'));
 }));
 
 results.push(run('media route source includes tmdb trace-match endpoint', () => {

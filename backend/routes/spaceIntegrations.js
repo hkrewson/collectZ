@@ -8,7 +8,7 @@ const { encryptSecret } = require('../services/crypto');
 const { buildIntegrationResponse } = require('../services/integrationResponse');
 const { resolveBarcodePreset } = require('../services/barcode');
 const { resolveTmdbPreset, searchTmdbMovie } = require('../services/tmdb');
-const { resolvePlexPreset, fetchPlexSections } = require('../services/plex');
+const { resolvePlexPreset, fetchPlexSections, fetchPlexMediaProviders } = require('../services/plex');
 const { resolveBooksPreset, searchBooksByTitle } = require('../services/books');
 const { resolveAudioPreset, searchAudioByTitle } = require('../services/audio');
 const { resolveGamesPreset, searchGamesByTitle } = require('../services/games');
@@ -495,6 +495,38 @@ router.post('/spaces/:spaceId/integrations/test-plex', authenticateToken, requir
       logError('Test Plex integration (space)', error);
       const status = error.response?.status || 502;
       return res.json({ ok: false, authenticated: status !== 401 && status !== 403, status, provider: config.plexProvider || 'plex', detail: error.message });
+    }
+  }
+})));
+
+router.post('/spaces/:spaceId/integrations/test-plex-providers', authenticateToken, requireSessionAuth, asyncHandler(async (req, res) => runManagedIntegrationTest(req, res, {
+  section: 'plex',
+  handler: async (config) => {
+    if (!config.plexApiUrl) return res.status(400).json({ ok: false, authenticated: false, detail: 'Plex API URL is not configured' });
+    if (!config.plexApiKey) return res.status(400).json({ ok: false, authenticated: false, detail: 'Plex API key is not configured' });
+    try {
+      const providers = await fetchPlexMediaProviders(config);
+      return res.json({
+        ok: true,
+        authenticated: true,
+        status: 200,
+        provider: config.plexProvider || 'plex',
+        path: '/media/providers',
+        providerCount: providers.length,
+        detail: `Connected. Found ${providers.length} Plex media provider(s).`,
+        providers
+      });
+    } catch (error) {
+      logError('Test Plex provider discovery (space)', error);
+      const status = error.response?.status || 502;
+      return res.json({
+        ok: false,
+        authenticated: status !== 401 && status !== 403,
+        status,
+        provider: config.plexProvider || 'plex',
+        path: '/media/providers',
+        detail: error.message
+      });
     }
   }
 })));

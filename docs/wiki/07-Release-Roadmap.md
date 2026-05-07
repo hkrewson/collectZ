@@ -9513,7 +9513,7 @@ Historical note:
 
 **Goal:** Prove the new Plex `/media/providers` discovery path against a PMS-shaped runtime response before changing import behavior.
 
-**Current Slice:** `Active`
+**Current Slice:** `Closed`
 
 ### Scope
 
@@ -9538,6 +9538,37 @@ Historical note:
 - Verification: backend unit tests, OpenAPI validation, init parity, migration rehearsal, release preflight local, observability release evidence, RBAC regression, browser regression, homelab edition boundary, platform edition boundary, provider-discovery smoke, and diff whitespace checks passed locally.
 - CI-only follow-up: `secret-scan` and `image-security-and-sbom` still require the GitHub Actions scanners because local `gitleaks` and `trivy` binaries are not installed.
 - Remaining Plex PMS work: Now Playing UI, webhook ingestion, scheduled sync cadence, real-server provider discovery readback, and any broad import rewrite remain separate future slices.
+
+## 3.4.113 — Plex Real-Server Provider Discovery Readback
+
+**Goal:** Let admins probe the real saved Plex PMS `/media/providers` endpoint from collectZ without exposing secrets or changing import behavior.
+
+**Current Slice:** `Closed`
+
+### Scope
+
+- Add read-only admin and workspace integration probe endpoints for Plex provider discovery.
+- Reuse saved Plex API URL/token settings server-side.
+- Return only sanitized provider capability fields: key, title, type, protocol, identifier, and feature keys.
+- Add a Plex Integrations UI action to run the provider probe and display sanitized readback.
+- Keep existing Plex import paths, Now Playing, webhook ingestion, scheduled sync, and import rewrites out of scope.
+
+### Acceptance Criteria
+
+- Admin/global and workspace integrations can call a Plex provider probe without returning tokens, raw URLs, file paths, or raw PMS payloads.
+- Existing Plex library-section test/import behavior remains intact.
+- OpenAPI, source assertions, and release docs describe the probe as read-only.
+- Running-stack verification proves the app serves `3.4.113` and Help > Releases contains the release.
+
+### Closeout
+
+- Version: `3.4.113`
+- Release note: `docs/releases/v3.4.113.md`
+- Release feed: regenerated with `backend/scripts/export-release-feed.js`; running Help > Releases smoke served `v3.4.113` as latest.
+- Runtime evidence: Docker stack health reported frontend/backend/build `3.4.113`; live DB kept `events_enabled=true` and `collectibles_enabled=true`; `test:plex-provider-readback-smoke` passed inside the backend container and proved the saved-settings probe calls a fake PMS `/media/providers` endpoint while returning only sanitized provider readback; production-shaped compose smoke preflight passed in-stack health, headers, CSRF cookie, unauthenticated `401`, and integration smoke.
+- Verification: backend unit tests, OpenAPI validation, init parity, migration rehearsal, release preflight local, observability release evidence, RBAC regression, browser regression, homelab edition boundary, platform edition boundary, public export validation, Plex provider readback smoke, Help > Releases smoke, and diff whitespace checks passed locally.
+- Release gate accounting: `compose-smoke`, `rbac-regression`, `browser-regression`, `homelab-edition-boundary`, `platform-edition-boundary`, dependency-audit checks, init parity, migration rehearsal, and observability evidence passed locally. `secret-scan` and `image-security-and-sbom` still require GitHub Actions because local `gitleaks` and `trivy` binaries are not installed.
+- Remaining Plex PMS work: Now Playing UI, webhook ingestion, scheduled sync cadence, real-user/manual PMS provider probe use, and any broad import rewrite remain separate future slices.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 

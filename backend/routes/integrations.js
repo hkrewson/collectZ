@@ -19,7 +19,7 @@ const {
 } = require('../services/valuations');
 const { resolveBarcodePreset } = require('../services/barcode');
 const { resolveTmdbPreset, searchTmdbMovie } = require('../services/tmdb');
-const { resolvePlexPreset, fetchPlexSections } = require('../services/plex');
+const { resolvePlexPreset, fetchPlexSections, fetchPlexMediaProviders } = require('../services/plex');
 const { resolveBooksPreset, searchBooksByTitle } = require('../services/books');
 const { resolveAudioPreset, searchAudioByTitle } = require('../services/audio');
 const { resolveGamesPreset, searchGamesByTitle } = require('../services/games');
@@ -549,6 +549,41 @@ sharedRouter.post('/admin/settings/integrations/test-plex', authenticateToken, r
       authenticated: status !== 401 && status !== 403,
       status,
       provider: config.plexProvider || 'plex',
+      detail: error.message
+    });
+  }
+}));
+
+sharedRouter.post('/admin/settings/integrations/test-plex-providers', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
+  const config = await loadAdminIntegrationConfig();
+  if (!config.plexApiUrl) {
+    return res.status(400).json({ ok: false, authenticated: false, detail: 'Plex API URL is not configured' });
+  }
+  if (!config.plexApiKey) {
+    return res.status(400).json({ ok: false, authenticated: false, detail: 'Plex API key is not configured' });
+  }
+
+  try {
+    const providers = await fetchPlexMediaProviders(config);
+    res.json({
+      ok: true,
+      authenticated: true,
+      status: 200,
+      provider: config.plexProvider || 'plex',
+      path: '/media/providers',
+      providerCount: providers.length,
+      detail: `Connected. Found ${providers.length} Plex media provider(s).`,
+      providers
+    });
+  } catch (error) {
+    logError('Test Plex provider discovery', error);
+    const status = error.response?.status || 502;
+    res.json({
+      ok: false,
+      authenticated: status !== 401 && status !== 403,
+      status,
+      provider: config.plexProvider || 'plex',
+      path: '/media/providers',
       detail: error.message
     });
   }

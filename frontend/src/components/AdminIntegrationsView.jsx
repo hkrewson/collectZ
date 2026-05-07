@@ -247,6 +247,7 @@ export default function AdminIntegrationsView({
   const [importingKavita, setImportingKavita] = useState(false);
   const [kavitaChapterFanout, setKavitaChapterFanout] = useState(false);
   const [plexAvailableSections, setPlexAvailableSections] = useState([]);
+  const [plexProviders, setPlexProviders] = useState([]);
   const [featureFlags, setFeatureFlags] = useState([]);
   const [featureFlagsLoading, setFeatureFlagsLoading] = useState(true);
   const [featureFlagsReadOnly, setFeatureFlagsReadOnly] = useState(false);
@@ -620,6 +621,22 @@ export default function AdminIntegrationsView({
       if (sec === 'plex') setPlexAvailableSections(Array.isArray(result.sections) ? result.sections : []);
     } catch (err) {
       setTestMsg(err.response?.data?.detail || `${sec} test failed`);
+    } finally {
+      setTestLoading('');
+    }
+  };
+
+  const testPlexProviders = async () => {
+    setTestLoading('plex-providers');
+    setTestMsg('');
+    try {
+      const result = await apiCall('post', `${endpointBase}/test-plex-providers`, {});
+      setStatus((s) => ({ ...s, plex: result.authenticated ? 'ok' : 'auth_failed' }));
+      setPlexProviders(Array.isArray(result.providers) ? result.providers : []);
+      setTestMsg(`PLEX PROVIDERS: ${result.authenticated ? 'Connected' : 'Auth failed'} — ${result.detail}`);
+    } catch (err) {
+      setPlexProviders([]);
+      setTestMsg(err.response?.data?.detail || 'Plex provider discovery failed');
     } finally {
       setTestLoading('');
     }
@@ -1008,6 +1025,30 @@ export default function AdminIntegrationsView({
               </div>
             </div>
           )}
+          {plexProviders.length > 0 && (
+            <div className="rounded-xl border border-edge bg-raised/60 px-3 py-3 space-y-2">
+              <p className="text-xs text-ghost">Detected Plex Providers</p>
+              <div className="space-y-2">
+                {plexProviders.map((provider) => (
+                  <div key={`${provider.key || provider.title}-${provider.type || 'provider'}`} className="rounded-md border border-edge/70 px-3 py-2">
+                    <div className="flex flex-wrap items-center gap-2 text-sm">
+                      <span className="font-medium text-ink">{provider.title || provider.key || 'Plex provider'}</span>
+                      {provider.type && <span className="text-xs text-ghost">{provider.type}</span>}
+                      {provider.protocol && <span className="text-xs text-ghost">{provider.protocol}</span>}
+                    </div>
+                    <div className="mt-1 font-mono text-xs text-ghost">{provider.key || provider.identifier || 'no key'}</div>
+                    {Array.isArray(provider.featureKeys) && provider.featureKeys.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {provider.featureKeys.map((feature) => (
+                          <span key={feature} className="rounded border border-edge/70 px-1.5 py-0.5 text-[11px] text-dim">{feature}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           <LabeledField label={`Plex API Key ${meta.plexApiKeySet ? `(set: ${meta.plexApiKeyMasked})` : '(not set)'}`} cx={cx}>
             <input className="input font-mono" type="password" placeholder="Enter new key to update" value={form.plexApiKey} onChange={(e) => setForm((f) => ({ ...f, plexApiKey: e.target.value }))} />
           </LabeledField>
@@ -1223,6 +1264,11 @@ export default function AdminIntegrationsView({
             {allowImports && section === 'plex' && (
               <button onClick={runPlexImport} disabled={importingPlex} className="btn-secondary btn-sm">
                 {importingPlex ? <Spinner size={14} /> : 'Import from Plex'}
+              </button>
+            )}
+            {section === 'plex' && (
+              <button onClick={testPlexProviders} disabled={testLoading === 'plex-providers'} className="btn-secondary btn-sm">
+                {testLoading === 'plex-providers' ? <Spinner size={14} /> : 'Probe Providers'}
               </button>
             )}
             {allowImports && section === 'kavita' && (
