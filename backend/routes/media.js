@@ -45,7 +45,13 @@ const {
   fetchTmdbTvSeasonDetails
 } = require('../services/tmdb');
 const { normalizeBarcodeMatches } = require('../services/barcode');
-const { fetchPlexLibraryItems, fetchPlexShowSeasons, fetchPlexShowSeasonVariants, fetchPlexSeasonEpisodeStates } = require('../services/plex');
+const {
+  fetchPlexLibraryItems,
+  fetchPlexMetadataItem,
+  fetchPlexShowSeasons,
+  fetchPlexShowSeasonVariants,
+  fetchPlexSeasonEpisodeStates
+} = require('../services/plex');
 const { searchBooksByTitle, searchBooksByIsbn } = require('../services/books');
 const { searchAudioByTitle } = require('../services/audio');
 const { searchGamesByTitle } = require('../services/games');
@@ -5131,7 +5137,7 @@ async function addCollectionItem({
   return inserted.rows[0]?.id || null;
 }
 
-async function runPlexImport({ req, config, sectionIds = [], scopeContext = null, onProgress = null }) {
+async function runPlexImport({ req, config, sectionIds = [], scopeContext = null, onProgress = null, itemsOverride = null }) {
   const summary = {
     created: 0,
     updated: 0,
@@ -5437,7 +5443,9 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
     }
   };
 
-  items = await fetchPlexLibraryItems(config, sectionIds);
+  items = Array.isArray(itemsOverride)
+    ? itemsOverride
+    : await fetchPlexLibraryItems(config, sectionIds);
   await updateProgress({
     total: items.length,
     processed: 0,
@@ -5822,6 +5830,72 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
     variantsUpdated,
     seasonsCreated,
     seasonsUpdated
+  };
+}
+
+async function claimQueuedPlexWebhookImportHint({ jobId = null, ratingKey = null } = {}) {
+  const filters = [
+    "job_type = 'plex_webhook_import_hint'",
+    "provider = 'plex'",
+    "status = 'queued'"
+  ];
+  const params = [];
+  const numericJobId = Number(jobId);
+  if (Number.isFinite(numericJobId) && numericJobId > 0) {
+    params.push(numericJobId);
+    filters.push(`id = $${params.length}`);
+  }
+  const normalizedRatingKey = String(ratingKey || '').trim();
+  if (normalizedRatingKey) {
+    params.push(normalizedRatingKey);
+    filters.push(`scope->>'ratingKey' = $${params.length}`);
+  }
+
+  const result = await pool.query(
+    `WITH candidate AS (
+       SELECT id
+         FROM sync_jobs
+        WHERE ${filters.join(' AND ')}
+        ORDER BY created_at ASC
+        LIMIT 1
+     )
+     UPDATE sync_jobs
+        SET status = 'running',
+            started_at = COALESCE(started_at, NOW()),
+            error = NULL
+      WHERE id = (SELECT id FROM candidate)
+      RETURNING id, job_type, provider, status, created_by, scope, progress, summary, error,
+                started_at, finished_at, created_at, updated_at`,
+    params
+  );
+  return result.rows[0] || null;
+}
+
+function buildPlexWebhookHintJobSummary(result = {}, extras = {}) {
+  const summary = result.summary || {};
+  return {
+    processingMode: 'single_rating_key_import',
+    ratingKey: extras.ratingKey || null,
+    metadataReadbackPath: extras.ratingKey ? `/library/metadata/${encodeURIComponent(extras.ratingKey)}` : null,
+    targetScope: {
+      spaceId: extras.scopeContext?.spaceId ?? null,
+      libraryId: extras.scopeContext?.libraryId ?? null
+    },
+    imported: result.imported || 0,
+    created: summary.created || 0,
+    updated: summary.updated || 0,
+    skipped: summary.skipped || 0,
+    errorCount: (summary.errors || []).length,
+    tmdbPosterEnriched: result.tmdbPosterEnriched || 0,
+    tmdbPosterLookupMisses: result.tmdbPosterLookupMisses || 0,
+    variantsCreated: result.variantsCreated || 0,
+    variantsUpdated: result.variantsUpdated || 0,
+    seasonsCreated: result.seasonsCreated || 0,
+    seasonsUpdated: result.seasonsUpdated || 0,
+    valuationRefresh: extras.valuationRefresh || null,
+    enrichmentErrors: summary.enrichmentErrors || [],
+    enrichmentMisses: summary.enrichmentMisses || [],
+    errorsSample: (summary.errors || []).slice(0, 50)
   };
 }
 
@@ -11470,6 +11544,180 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
       detail: error.message || 'Plex import failed'
     });
     return res.status(502).json({ error: error.message || 'Plex import failed' });
+  }
+}));
+
+router.post('/process-plex-webhook-import-hints', asyncHandler(async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Only admins can process Plex webhook import hints' });
+  }
+
+  const scopeContext = resolveScopeContext(req);
+  const valuationMode = resolveValuationExecutionMode(req);
+  const ensuredScope = scopeContext?.libraryId
+    ? { spaceId: scopeContext?.spaceId || null, libraryId: scopeContext.libraryId }
+    : await ensureUserDefaultScope(req.user.id);
+  const effectiveScopeContext = {
+    ...scopeContext,
+    spaceId: scopeContext?.spaceId ?? ensuredScope.spaceId ?? null,
+    libraryId: ensuredScope.libraryId || null
+  };
+  if (!effectiveScopeContext.libraryId) {
+    return res.status(400).json({ error: 'Active library is required before Plex webhook import hint processing' });
+  }
+
+  const job = await claimQueuedPlexWebhookImportHint({
+    jobId: req.body?.jobId,
+    ratingKey: req.body?.ratingKey
+  });
+  if (!job) {
+    return res.status(404).json({ error: 'No queued Plex webhook import hint job found' });
+  }
+
+  const jobScope = job.scope && typeof job.scope === 'object' ? job.scope : {};
+  const ratingKey = String(jobScope.ratingKey || req.body?.ratingKey || '').trim();
+  if (!ratingKey) {
+    const failed = await updateSyncJob(job.id, {
+      status: 'failed',
+      error: 'Queued Plex webhook import hint is missing a ratingKey',
+      finished_at: new Date()
+    });
+    return res.status(400).json({ error: 'Queued Plex webhook import hint is missing a ratingKey', job: formatSyncJob(failed) });
+  }
+
+  let config = await loadScopedIntegrationConfig(effectiveScopeContext.spaceId || null);
+  if ((!config.plexApiUrl || !config.plexApiKey) && effectiveScopeContext.spaceId) {
+    const adminConfig = await loadAdminIntegrationConfig();
+    if (adminConfig.plexApiUrl || adminConfig.plexApiKey) {
+      config = {
+        ...config,
+        plexApiUrl: config.plexApiUrl || adminConfig.plexApiUrl,
+        plexApiKey: config.plexApiKey || adminConfig.plexApiKey,
+        plexLibrarySections: (Array.isArray(config.plexLibrarySections) && config.plexLibrarySections.length > 0)
+          ? config.plexLibrarySections
+          : adminConfig.plexLibrarySections
+      };
+    }
+  }
+  if (!config.plexApiUrl || !config.plexApiKey) {
+    const failed = await updateSyncJob(job.id, {
+      status: 'failed',
+      error: 'Plex API URL and key are required before webhook import hint processing',
+      finished_at: new Date()
+    });
+    return res.status(400).json({ error: 'Plex API URL and key are required before webhook import hint processing', job: formatSyncJob(failed) });
+  }
+
+  const auditReq = {
+    user: req.user,
+    headers: req.headers,
+    ip: req.ip,
+    socket: req.socket
+  };
+  const sectionId = String(
+    jobScope.librarySectionId
+    || (Array.isArray(config.plexLibrarySections) && config.plexLibrarySections.length === 1 ? config.plexLibrarySections[0] : '')
+    || ''
+  ).trim();
+
+  try {
+    const item = await fetchPlexMetadataItem(config, ratingKey, { sectionId });
+    const itemSectionId = String(item.sectionId || sectionId || '').trim();
+    const sectionIds = itemSectionId ? [itemSectionId] : [];
+    const mergedScope = {
+      ...jobScope,
+      ...jobScopePayload(effectiveScopeContext, sectionIds),
+      ratingKey,
+      metadataReadbackPath: `/library/metadata/${encodeURIComponent(ratingKey)}`,
+      processingMode: 'single_rating_key_import'
+    };
+    await updateSyncJob(job.id, {
+      scope: mergedScope,
+      progress: {
+        total: 1,
+        processed: 0,
+        created: 0,
+        updated: 0,
+        skipped: 0,
+        errorCount: 0
+      }
+    });
+    const result = await runPlexImport({
+      req: auditReq,
+      config,
+      sectionIds,
+      scopeContext: effectiveScopeContext,
+      itemsOverride: [{ ...item, sectionId: itemSectionId }],
+      onProgress: async (progress) => {
+        await updateSyncJob(job.id, { progress });
+      }
+    });
+    const valuationRefresh = await queueImportedValuationRefresh({
+      mediaIds: result.createdMediaIds,
+      userId: req.user.id,
+      scopeContext: effectiveScopeContext,
+      mode: valuationMode,
+      auditReq,
+      importSource: 'plex_webhook'
+    });
+    const finalSummary = buildPlexWebhookHintJobSummary(result, {
+      ratingKey,
+      scopeContext: effectiveScopeContext,
+      valuationRefresh
+    });
+    const importErrorCount = finalSummary.errorCount;
+    const changedRows = finalSummary.created + finalSummary.updated;
+    const status = importErrorCount > 0 && changedRows === 0 ? 'failed' : 'succeeded';
+    const updatedJob = await updateSyncJob(job.id, {
+      status,
+      summary: finalSummary,
+      error: status === 'failed' ? 'Plex webhook import hint processing did not import a title' : null,
+      progress: {
+        total: result.imported,
+        processed: result.imported,
+        created: finalSummary.created,
+        updated: finalSummary.updated,
+        skipped: finalSummary.skipped,
+        errorCount: importErrorCount
+      },
+      finished_at: new Date()
+    });
+    recordImportJobEvent('plex_webhook', status);
+    recordPlexEnrichmentMetrics(result);
+    await logActivity(auditReq, status === 'succeeded' ? 'media.import.plex_webhook_hint' : 'media.import.plex_webhook_hint.failed', 'sync_jobs', job.id, {
+      ratingKey,
+      imported: finalSummary.imported,
+      created: finalSummary.created,
+      updated: finalSummary.updated,
+      skipped: finalSummary.skipped,
+      errorCount: finalSummary.errorCount,
+      valuationRefresh
+    });
+    return res.status(status === 'succeeded' ? 200 : 502).json({
+      ok: status === 'succeeded',
+      processed: true,
+      provider: 'plex',
+      processingMode: 'single_rating_key_import',
+      ratingKey,
+      job: formatSyncJob(updatedJob, { includeFullSummary: true }),
+      result: finalSummary
+    });
+  } catch (error) {
+    logError('Plex webhook import hint processing failed', error);
+    recordImportJobEvent('plex_webhook', 'failed');
+    const failed = await updateSyncJob(job.id, {
+      status: 'failed',
+      error: error.message || 'Plex webhook import hint processing failed',
+      finished_at: new Date()
+    });
+    await logActivity(auditReq, 'media.import.plex_webhook_hint.failed', 'sync_jobs', job.id, {
+      ratingKey,
+      detail: error.message || 'Plex webhook import hint processing failed'
+    });
+    return res.status(error.status && error.status < 500 ? error.status : 502).json({
+      error: error.message || 'Plex webhook import hint processing failed',
+      job: formatSyncJob(failed, { includeFullSummary: true })
+    });
   }
 }));
 

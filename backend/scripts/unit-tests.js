@@ -1333,6 +1333,7 @@ results.push(run('plex webhook and ratings sync contract smoke stays scoped and 
 
 results.push(run('plex webhook receiver administration contract is token-scoped and queues library-new import hints only', () => {
   assert.ok(backendPackageJson.scripts['test:plex-webhook-receiver-admin-smoke']);
+  assert.ok(backendPackageJson.scripts['test:plex-webhook-import-hint-processing-smoke']);
   assert.ok(integrationsRoutesSource.includes("sharedRouter.post('/plex/webhooks/:token'"));
   assert.ok(integrationsRoutesSource.includes("plex-webhook-receiver-token'"));
   assert.ok(integrationsRoutesSource.includes('hashPlexWebhookReceiverToken'));
@@ -1341,17 +1342,25 @@ results.push(run('plex webhook receiver administration contract is token-scoped 
   assert.ok(integrationsRoutesSource.includes("'plex_webhook_import_hint'"));
   assert.ok(integrationsRoutesSource.includes("'queued_import_hint'"));
   assert.ok(integrationsRoutesSource.includes("'pending_future_slice'"));
+  assert.ok(mediaRoutesSource.includes("router.post('/process-plex-webhook-import-hints'"));
+  assert.ok(mediaRoutesSource.includes('claimQueuedPlexWebhookImportHint'));
+  assert.ok(mediaRoutesSource.includes('fetchPlexMetadataItem'));
+  assert.ok(mediaRoutesSource.includes("processingMode: 'single_rating_key_import'"));
   assert.ok(integrationsServiceSource.includes('plexWebhookReceiverTokenHash'));
   assert.ok(migrationsSource.includes('version: 98'));
   assert.ok(migrationsSource.includes('plex_webhook_receiver_token_hash'));
   assert.ok(initSqlSource.includes('plex_webhook_receiver_token_hash TEXT'));
   assert.ok(openApiSource.includes('/api/plex/webhooks/{token}'));
   assert.ok(openApiSource.includes('/api/admin/settings/integrations/plex-webhook-receiver-token'));
+  assert.ok(openApiSource.includes('/api/media/process-plex-webhook-import-hints'));
   assert.ok(plexWebhookReceiverAdminSmokeSource.includes('/api/plex/webhooks/czpw_invalid_receiver_token'));
   assert.ok(plexWebhookReceiverAdminSmokeSource.includes("event: 'library.new'"));
   assert.ok(plexWebhookReceiverAdminSmokeSource.includes('import_enqueue_hint'));
   assert.ok(plexWebhookReceiverAdminSmokeSource.includes('watchedStateStayedReadOnly'));
   assert.ok(plexWebhookReceiverAdminSmokeSource.includes('duplicateWebhookReusedExistingJob'));
+  assert.ok(plexWebhookReceiverAdminSmokeSource.includes('/api/media/process-plex-webhook-import-hints'));
+  assert.ok(plexWebhookReceiverAdminSmokeSource.includes('singleRatingKeyImportProcessed'));
+  assert.ok(plexWebhookReceiverAdminSmokeSource.includes('startFakePmsServer'));
   assert.ok(plexWebhookReceiverAdminSmokeSource.includes('assertSecretFree'));
   assert.ok(plexWebhookReceiverAdminSmokeSource.includes("'plex-webhooks'"));
   assert.ok(plexWebhookReceiverAdminSmokeSource.includes('plex-webhook-receiver-admin-smoke.json'));

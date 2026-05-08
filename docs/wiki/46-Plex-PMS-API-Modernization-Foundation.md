@@ -49,8 +49,8 @@ Use this for feature discovery and future new Plex surfaces where possible. The 
 - Plex Webhook and Ratings Sync Contract. Promoted as `3.4.122`.
 - Plex Webhook Receiver Administration Contract. Promoted as `3.4.123`.
 - Plex Webhook Receiver Processing and Import Enqueue Contract. Promoted as `3.4.124`.
+- Plex Single-Rating-Key Import Processing from Webhook Hints. Promoted as `3.4.125`.
 - Plex watch-state sync cadence.
-- Plex single-rating-key import processing from queued webhook hints.
 
 ## Acceptance Criteria
 

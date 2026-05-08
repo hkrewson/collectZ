@@ -4,11 +4,14 @@
 
 const crypto = require('crypto');
 const fs = require('fs');
+const http = require('http');
 const path = require('path');
 const bcrypt = require('bcrypt');
 const pool = require('../db/pool');
+const { encryptSecret } = require('../services/crypto');
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
+const fakePlexToken = `plex-smoke-${crypto.randomBytes(6).toString('hex')}`;
 const ARTIFACT_PATH = path.resolve(
   __dirname,
   '..',
@@ -110,11 +113,36 @@ async function snapshotPlexWebhookSettings() {
             plex_webhook_receiver_token_created_at,
             plex_webhook_receiver_token_last_rotated_at,
             plex_webhook_receiver_last_received_at,
-            plex_webhook_receiver_last_event
+            plex_webhook_receiver_last_event,
+            plex_preset,
+            plex_provider,
+            plex_api_url,
+            plex_api_key_encrypted,
+            plex_library_sections,
+            tmdb_api_key_encrypted
        FROM app_integrations
       WHERE id = 1`
   );
   return result.rows[0] || null;
+}
+
+async function applyFakePlexSettings(baseUrl) {
+  await pool.query(
+    `INSERT INTO app_integrations (
+       id, plex_preset, plex_provider, plex_api_url, plex_api_key_encrypted,
+       plex_library_sections, tmdb_api_key_encrypted, updated_at
+     )
+     VALUES (1, 'plex', 'plex', $1, $2, $3::jsonb, NULL, NOW())
+     ON CONFLICT (id) DO UPDATE SET
+       plex_preset = EXCLUDED.plex_preset,
+       plex_provider = EXCLUDED.plex_provider,
+       plex_api_url = EXCLUDED.plex_api_url,
+       plex_api_key_encrypted = EXCLUDED.plex_api_key_encrypted,
+       plex_library_sections = EXCLUDED.plex_library_sections,
+       tmdb_api_key_encrypted = NULL,
+       updated_at = NOW()`,
+    [baseUrl, encryptSecret(fakePlexToken), JSON.stringify(['1'])]
+  );
 }
 
 async function restorePlexWebhookSettings(snapshot) {
@@ -125,7 +153,13 @@ async function restorePlexWebhookSettings(snapshot) {
               plex_webhook_receiver_token_created_at = NULL,
               plex_webhook_receiver_token_last_rotated_at = NULL,
               plex_webhook_receiver_last_received_at = NULL,
-              plex_webhook_receiver_last_event = NULL
+              plex_webhook_receiver_last_event = NULL,
+              plex_preset = 'plex',
+              plex_provider = 'plex',
+              plex_api_url = NULL,
+              plex_api_key_encrypted = NULL,
+              plex_library_sections = '[]'::jsonb,
+              tmdb_api_key_encrypted = NULL
         WHERE id = 1`
     ).catch(() => {});
     return;
@@ -136,14 +170,26 @@ async function restorePlexWebhookSettings(snapshot) {
             plex_webhook_receiver_token_created_at = $2,
             plex_webhook_receiver_token_last_rotated_at = $3,
             plex_webhook_receiver_last_received_at = $4,
-            plex_webhook_receiver_last_event = $5
+            plex_webhook_receiver_last_event = $5,
+            plex_preset = $6,
+            plex_provider = $7,
+            plex_api_url = $8,
+            plex_api_key_encrypted = $9,
+            plex_library_sections = $10::jsonb,
+            tmdb_api_key_encrypted = $11
       WHERE id = 1`,
     [
       snapshot.plex_webhook_receiver_token_hash,
       snapshot.plex_webhook_receiver_token_created_at,
       snapshot.plex_webhook_receiver_token_last_rotated_at,
       snapshot.plex_webhook_receiver_last_received_at,
-      snapshot.plex_webhook_receiver_last_event
+      snapshot.plex_webhook_receiver_last_event,
+      snapshot.plex_preset,
+      snapshot.plex_provider,
+      snapshot.plex_api_url,
+      snapshot.plex_api_key_encrypted,
+      JSON.stringify(snapshot.plex_library_sections || []),
+      snapshot.tmdb_api_key_encrypted
     ]
   ).catch(() => {});
 }
@@ -165,17 +211,80 @@ async function cleanupWebhookJobs(ratingKey) {
   ).catch(() => {});
 }
 
+async function cleanupImportedMedia(ratingKey, title) {
+  const key = String(ratingKey || '').trim();
+  const mediaTitle = String(title || '').trim();
+  const params = [];
+  const clauses = [];
+  if (key) {
+    params.push(`%:${key}`);
+    clauses.push(`id IN (
+      SELECT media_id
+        FROM media_metadata
+       WHERE "key" = 'plex_item_key'
+         AND "value" LIKE $${params.length}
+    )`);
+  }
+  if (mediaTitle) {
+    params.push(mediaTitle);
+    clauses.push(`title = $${params.length}`);
+  }
+  if (clauses.length === 0) return;
+  await pool.query(`DELETE FROM media WHERE ${clauses.join(' OR ')}`, params).catch(() => {});
+}
+
+async function startFakePmsServer(ratingKey, title) {
+  const requests = [];
+  const server = http.createServer((req, res) => {
+    const url = new URL(req.url || '/', 'http://127.0.0.1');
+    requests.push({
+      method: req.method,
+      pathname: url.pathname,
+      hasToken: url.searchParams.has('X-Plex-Token'),
+      tokenMatched: url.searchParams.get('X-Plex-Token') === fakePlexToken
+    });
+
+    res.setHeader('Content-Type', 'application/xml');
+    if (req.method === 'GET' && url.pathname === '/library/metadata/receiver-admin-token') {
+      res.writeHead(404);
+      res.end('<MediaContainer size="0"></MediaContainer>');
+      return;
+    }
+    if (req.method !== 'GET' || url.pathname !== `/library/metadata/${encodeURIComponent(ratingKey)}`) {
+      res.writeHead(404);
+      res.end('<MediaContainer size="0"></MediaContainer>');
+      return;
+    }
+    res.writeHead(200);
+    res.end(`<?xml version="1.0" encoding="UTF-8"?>
+<MediaContainer size="1">
+  <Video ratingKey="${ratingKey}" key="/library/metadata/${ratingKey}" type="movie" title="${title}" year="2026" librarySectionID="1" duration="7200000" originallyAvailableAt="2026-05-08" thumb="https://images.example.invalid/plex-webhook-poster.jpg" />
+</MediaContainer>`);
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const address = server.address();
+  return {
+    baseUrl: `http://127.0.0.1:${address.port}`,
+    requests,
+    close: () => new Promise((resolve) => server.close(resolve))
+  };
+}
+
 async function main() {
   const suffix = crypto.randomBytes(6).toString('hex');
   const email = `plex-webhook-admin-${suffix}@example.com`;
   const password = `PlexWebhookAdmin-${suffix}!`;
   const ratingKey = `receiver-admin-${suffix}`;
+  const importedTitle = `Receiver Admin New Movie ${suffix}`;
   const admin = new HttpClient('plex-webhook-admin-smoke');
   const snapshot = await snapshotPlexWebhookSettings();
   let userId = null;
   let rawToken = '';
+  let fakePms = null;
 
   try {
+    fakePms = await startFakePmsServer(ratingKey, importedTitle);
+    await applyFakePlexSettings(fakePms.baseUrl);
     userId = await createDirectUser({ email, password, name: 'Plex Webhook Admin Smoke', role: 'admin' });
     await admin.fetchCsrfToken();
     await admin.request('/api/auth/login', {
@@ -220,7 +329,8 @@ async function main() {
         Metadata: {
           ratingKey,
           type: 'movie',
-          title: 'Receiver Admin New Movie',
+          title: importedTitle,
+          librarySectionID: '1',
           thumb: 'https://plex.example.invalid/thumb?X-Plex-Token=receiver-admin-token',
           Media: [{ Part: [{ file: '/mnt/plex-media/Receiver Admin New Movie.mkv' }] }]
         },
@@ -244,7 +354,7 @@ async function main() {
       expectStatus: 200,
       body: {
         event: 'library.new',
-        Metadata: { ratingKey, type: 'movie', title: 'Receiver Admin New Movie' }
+        Metadata: { ratingKey, type: 'movie', title: importedTitle, librarySectionID: '1' }
       }
     });
     assert(duplicate.data?.importEnqueue?.queued === true, `Expected duplicate webhook import hint to remain queued: ${JSON.stringify(duplicate.data)}`);
@@ -253,7 +363,7 @@ async function main() {
     const watched = await webhook.request(`/api/plex/webhooks/${encodeURIComponent(rawToken)}`, {
       method: 'POST',
       expectStatus: 200,
-      body: { event: 'media.scrobble', Metadata: { ratingKey, title: 'Receiver Admin New Movie' } }
+      body: { event: 'media.scrobble', Metadata: { ratingKey, title: importedTitle } }
     });
     assert(watched.data?.processingMode === 'read_only', `Expected watched-state event to stay read-only: ${JSON.stringify(watched.data)}`);
     assert(watched.data?.importEnqueue?.queued === false, `Expected watched-state event not to enqueue import: ${JSON.stringify(watched.data)}`);
@@ -279,6 +389,32 @@ async function main() {
     assert(queuedJobs.rows[0]?.status === 'queued', `Expected queued webhook import hint job: ${JSON.stringify(queuedJobs.rows[0])}`);
     assert(queuedJobs.rows[0]?.scope?.processingMode === 'queued_import_hint', `Expected queued import hint scope: ${JSON.stringify(queuedJobs.rows[0])}`);
     assert(queuedJobs.rows[0]?.summary?.processor === 'pending_future_slice', `Expected no silent processor claim: ${JSON.stringify(queuedJobs.rows[0])}`);
+
+    const processed = await admin.request('/api/media/process-plex-webhook-import-hints', {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 200,
+      body: { ratingKey }
+    });
+    assert(processed.data?.processingMode === 'single_rating_key_import', `Expected single-rating-key processing mode: ${JSON.stringify(processed.data)}`);
+    assert(processed.data?.job?.status === 'succeeded', `Expected processed webhook import job to succeed: ${JSON.stringify(processed.data)}`);
+    assert(processed.data?.result?.imported === 1, `Expected one processed Plex metadata item: ${JSON.stringify(processed.data)}`);
+    assert((processed.data?.result?.created || 0) + (processed.data?.result?.updated || 0) >= 1, `Expected processed hint to create or update a media row: ${JSON.stringify(processed.data)}`);
+    assert(fakePms.requests.some((request) => request.pathname === `/library/metadata/${ratingKey}` && request.tokenMatched), `Expected fake PMS metadata readback with Plex token: ${JSON.stringify(fakePms.requests)}`);
+    assertSecretFree(processed.data, 'processed webhook response', rawToken);
+
+    const imported = await pool.query(
+      `SELECT m.id, m.title, m.import_source, mm.value AS plex_item_key
+         FROM media m
+         JOIN media_metadata mm ON mm.media_id = m.id
+        WHERE mm."key" = 'plex_item_key'
+          AND mm."value" = $1
+        LIMIT 1`,
+      [`1:${ratingKey}`]
+    );
+    assert(imported.rowCount === 1, `Expected imported media row keyed by Plex item key, got ${imported.rowCount}`);
+    assert(imported.rows[0]?.title === importedTitle, `Expected imported title readback: ${JSON.stringify(imported.rows[0])}`);
+    assert(imported.rows[0]?.import_source === 'plex', `Expected Plex import source: ${JSON.stringify(imported.rows[0])}`);
 
     const revoked = await admin.request('/api/admin/settings/integrations/plex-webhook-receiver-token', {
       method: 'DELETE',
@@ -320,6 +456,13 @@ async function main() {
       },
       duplicateWebhookReusedExistingJob: duplicate.data.importEnqueue.job.existing,
       watchedStateStayedReadOnly: watched.data.importEnqueue.queued === false,
+      singleRatingKeyImportProcessed: {
+        status: processed.data.job.status,
+        processingMode: processed.data.processingMode,
+        imported: processed.data.result.imported,
+        changed: (processed.data.result.created || 0) + (processed.data.result.updated || 0),
+        metadataReadbackCalled: fakePms.requests.some((request) => request.pathname === `/library/metadata/${ratingKey}` && request.tokenMatched)
+      },
       revokeRejectedPreviousToken: true
     };
     assertSecretFree(evidence, 'webhook receiver evidence', rawToken);
@@ -327,7 +470,9 @@ async function main() {
     fs.writeFileSync(ARTIFACT_PATH, `${JSON.stringify(evidence, null, 2)}\n`, 'utf8');
     console.log(JSON.stringify(evidence, null, 2));
   } finally {
+    await cleanupImportedMedia(ratingKey, importedTitle);
     await cleanupWebhookJobs(ratingKey);
+    if (fakePms) await fakePms.close().catch(() => {});
     await restorePlexWebhookSettings(snapshot);
     await cleanupUser(userId);
     await pool.end().catch(() => {});

@@ -9931,6 +9931,38 @@ Historical note:
 - What remains in the milestone: none for `3.4.124`; next Plex slices can implement single-rating-key processing for queued webhook import hints, watched-state sync/writeback, ratings writeback apply, scheduled sync cadence, or deeper provider-oriented import modernization.
 - Recommended commit message: `Release 3.4.124 with Plex webhook import hint enqueue contract`
 
+## 3.4.125 — Plex Single-Rating-Key Import Processing from Webhook Hints
+
+**Goal:** Process queued Plex `library.new` webhook import hints by fetching exactly one PMS metadata item and reusing the existing Plex import behavior for that title.
+
+### Scope
+
+- Add admin-only processing for one queued `plex_webhook_import_hint` job.
+- Fetch Plex metadata from `/library/metadata/:ratingKey` using saved Plex settings.
+- Reuse the current Plex import path for the fetched item so duplicate protection, Plex metadata aliases, scoped library ownership, and media updates stay consistent.
+- Preserve the `3.4.124` receiver enqueue behavior and duplicate queued-job guard.
+- Keep watched-state writeback, rating writeback apply behavior, scheduled sync cadence, and broad Plex import rewrites out of scope.
+
+### Acceptance Criteria
+
+- A queued `plex_webhook_import_hint` job can be claimed and processed through `single_rating_key_import`.
+- Processing fetches only the hinted `ratingKey` metadata item from PMS.
+- The processed item creates or updates a scoped media row through the existing Plex import machinery.
+- Job readback clearly reports imported, created, updated, skipped, and error counts.
+- Smoke evidence proves queueing, duplicate reuse, metadata readback, media-row persistence, revoke behavior, and no receiver token or Plex secret leakage.
+- Running-stack verification proves the app serves `3.4.125`, Help > Releases contains the release, and `events_enabled` remains on.
+
+### Closeout
+
+- Roadmap slice: `3.4.125 — Plex Single-Rating-Key Import Processing from Webhook Hints`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`, and `docs/releases/v3.4.125.md`.
+- Runtime verification used: rebuilt the local platform backend/frontend stack with `APP_VERSION=3.4.125`; verified backend container `APP_EDITION=platform` and `APP_VERSION=3.4.125`; verified `/api/health` reports frontend/backend/build `3.4.125`; verified `/api/auth/config` reports `product_edition=platform`; verified live DB `feature_flags.events_enabled=true` and `feature_flags.collectibles_enabled=true`; verified Help > Releases serves `v3.4.125`; verified Docker Plex webhook import-hint processing smoke queues a `plex_webhook_import_hint`, reuses the duplicate queued job, fetches fake PMS `/library/metadata/:ratingKey`, imports/updates one media row through the Plex path, keeps watched-state read-only, writes redacted evidence, and rejects the token after revoke; verified homelab edition boundary in an isolated temporary compose project without changing the active platform stack.
+- CI/checks run: `node --check backend/services/plex.js`, `node --check backend/routes/media.js`, `node --check backend/scripts/plex-webhook-receiver-admin-smoke.js`, `node --check backend/scripts/unit-tests.js`, Docker Node 20 `backend npm run test:unit` (`265` passed), Docker `backend npm run test:openapi`, Docker `backend npm run test:integration-smoke`, Docker `backend npm run test:plex-webhook-import-hint-processing-smoke`, Docker `backend npm run test:help-releases-smoke` with `EXPECTED_RELEASE_VERSION=v3.4.125`, Docker `backend npm run test:init-parity`, Docker `backend npm run test:migration-rehearsal`, platform-mode Docker `backend npm run test:rbac-regression`, platform-mode Docker `backend npm run test:platform-edition-boundary`, isolated homelab Docker `backend npm run test:homelab-edition-boundary`, host Playwright browser regression with bundled Node (`62` passed, `4` skipped), `npm run validate:public-export`, `npm --prefix backend run test:observability-evidence`, `npm --prefix backend run test:release-preflight-local`, generated-artifact secret-pattern scan, and `git diff --check`.
+- Files changed: `app-meta.json`, `backend/app-meta.json`, `backend/openapi/openapi.yaml`, `backend/package.json`, `backend/release-feed.json`, `backend/routes/media.js`, `backend/scripts/plex-webhook-receiver-admin-smoke.js`, `backend/scripts/unit-tests.js`, `backend/services/plex.js`, `docker-compose.yml`, `docs/releases/v3.4.125.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`, `frontend/package.json`, `frontend/src/app-meta.json`, `artifacts/observability-evidence/observability-release-evidence.json`, `artifacts/plex-webhooks/plex-webhook-receiver-admin-smoke.json`, and `preflight-go-no-go.md`.
+- Risks or follow-ups: processing is admin-triggered for one queued hint at a time; automatic scheduling, watched-state sync/writeback, rating writeback apply behavior, and broad provider-oriented import rewrites remain future slices; app-level webhook hints use saved global Plex settings when the active workspace does not have its own Plex settings; local `compose-smoke` secure-cookie parity, CI `secret-scan`, and `image-security-and-sbom` remain CI-only or blocked locally as documented in `preflight-go-no-go.md`.
+- What remains in the milestone: none for `3.4.125`; next Plex slices can add scheduled processing cadence, watched-state sync/writeback, rating writeback apply behavior, or deeper provider-oriented import modernization.
+- Recommended commit message: `Release 3.4.125 with Plex single-rating-key webhook import processing`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

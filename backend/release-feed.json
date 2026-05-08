@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.125",
+      "version": "v3.4.125",
+      "date": null,
+      "status": null,
+      "summary": "This patch processes queued Plex `library.new` webhook import hints by fetching the single PMS metadata item and running it through the existing Plex import path.",
+      "details": []
+    },
+    {
       "title": "collectZ v3.4.124",
       "version": "v3.4.124",
       "date": null,
@@ -100,25 +108,6 @@
             "Added an explicit `No active Plex sessions.` empty state after checking now-playing readback.",
             "Reused the same platform/workspace endpoint-base wiring as the existing Plex diagnostics.",
             "Preserved existing Plex provider discovery, section discovery, imports, and now-playing endpoint behavior."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.4.115",
-      "version": "v3.4.115",
-      "date": null,
-      "status": null,
-      "summary": "This release exposes the proven Plex now-playing parser through read-only admin and workspace integration endpoints. collectZ can now call saved Plex settings for `/status/sessions` and return sanitized active-session readback without adding UI, webhooks, sync behavior, or import changes.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added admin and workspace Plex now-playing readback endpoints.",
-            "Reused saved Plex API URL and token settings server-side.",
-            "Returned only sanitized session fields such as title, type, progress, user label, and player state.",
-            "Added a Docker-runnable fake PMS smoke that exercises the collectZ endpoint path.",
-            "Preserved existing Plex provider discovery, section discovery, and import behavior."
           ]
         }
       ]

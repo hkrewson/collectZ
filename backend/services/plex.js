@@ -684,6 +684,47 @@ const fetchPlexLibraryItems = async (config, sectionIds = []) => {
   return items;
 };
 
+const fetchPlexMetadataItem = async (config, ratingKey, options = {}) => {
+  const key = String(ratingKey || '').trim();
+  if (!key) {
+    const error = new Error('Plex ratingKey is required for metadata readback');
+    error.status = 400;
+    throw error;
+  }
+  const response = await plexRequest(config, `/library/metadata/${encodeURIComponent(key)}`);
+  if (response.status >= 400) {
+    const message = typeof response.data === 'string'
+      ? response.data.slice(0, 200)
+      : response.data?.error || response.statusText;
+    throw new Error(`Plex metadata ${key} failed (${response.status}): ${message}`);
+  }
+  const candidates = [
+    ...parsePlexVideos(response.data),
+    ...parsePlexDirectoriesInSection(response.data)
+  ].filter((entry) => entry.title || entry.originalTitle || entry.grandparentTitle || entry.parentTitle);
+  const item = candidates[0] || null;
+  if (!item) {
+    const error = new Error(`Plex metadata ${key} did not include an importable item`);
+    error.status = 404;
+    throw error;
+  }
+  const sectionId = String(
+    options.sectionId
+    || item.librarySectionID
+    || item.librarySectionId
+    || item.sectionID
+    || item.sectionId
+    || (Array.isArray(config.plexLibrarySections) && config.plexLibrarySections.length === 1 ? config.plexLibrarySections[0] : '')
+    || ''
+  ).trim();
+  return {
+    sectionId,
+    raw: item,
+    normalized: normalizePlexItem(item),
+    variant: normalizePlexVariant(item, sectionId)
+  };
+};
+
 const fetchPlexShowSeasons = async (config, ratingKey) => {
   if (!ratingKey) return [];
   const response = await plexRequest(config, `/library/metadata/${String(ratingKey)}/children`);
@@ -830,6 +871,7 @@ module.exports = {
   fetchPlexNowPlayingSessions,
   fetchPlexImageAsset,
   fetchPlexLibraryItems,
+  fetchPlexMetadataItem,
   fetchPlexShowSeasons,
   fetchPlexShowSeasonVariants,
   fetchPlexSeasonEpisodeStates,

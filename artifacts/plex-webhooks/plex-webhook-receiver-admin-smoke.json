@@ -22,19 +22,26 @@
     "event": "library.new",
     "supported": true,
     "action": "sync_new_title_hint",
-    "ratingKey": "receiver-admin-81db8ce2dd85",
-    "metadataReadbackPath": "/library/metadata/receiver-admin-81db8ce2dd85",
+    "ratingKey": "receiver-admin-2ca263d72f17",
+    "metadataReadbackPath": "/library/metadata/receiver-admin-2ca263d72f17",
     "processingMode": "import_enqueue_hint",
     "importEnqueue": {
       "queued": true,
       "jobType": "plex_webhook_import_hint",
       "provider": "plex",
       "status": "queued",
-      "ratingKey": "receiver-admin-81db8ce2dd85",
+      "ratingKey": "receiver-admin-2ca263d72f17",
       "processingMode": "queued_import_hint"
     }
   },
   "duplicateWebhookReusedExistingJob": true,
   "watchedStateStayedReadOnly": true,
+  "singleRatingKeyImportProcessed": {
+    "status": "succeeded",
+    "processingMode": "single_rating_key_import",
+    "imported": 1,
+    "changed": 1,
+    "metadataReadbackCalled": true
+  },
   "revokeRejectedPreviousToken": true
 }
