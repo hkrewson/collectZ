@@ -70,6 +70,9 @@ const RATE_LIMIT_EXTERNAL_API_MAX = Math.max(5, Number(process.env.RATE_LIMIT_EX
 const PLAYWRIGHT_E2E_BYPASS_TOKEN = String(process.env.PLAYWRIGHT_E2E_BYPASS_TOKEN || '').trim();
 const PLAYWRIGHT_E2E_BYPASS_COOKIE = 'playwright_e2e_bypass';
 const AUTO_LOAN_REMINDER_RUNTIME = getAutomaticLoanReminderRuntimeConfig();
+const PLEX_WEBHOOK_IMPORT_RUNTIME = typeof mediaRouter.getPlexWebhookImportAutoProcessorRuntimeConfig === 'function'
+  ? mediaRouter.getPlexWebhookImportAutoProcessorRuntimeConfig()
+  : { enabled: false };
 const parseBoolean = (value, fallback = false) => {
   if (value === undefined || value === null || value === '') return fallback;
   return ['1', 'true', 'yes', 'on'].includes(String(value).toLowerCase().trim());
@@ -305,7 +308,8 @@ const startServer = async () => {
        SET status = 'failed',
            error = COALESCE(error, 'Process restarted before job completion'),
            finished_at = COALESCE(finished_at, NOW())
-       WHERE status IN ('queued', 'running')
+       WHERE status = 'running'
+          OR (status = 'queued' AND job_type <> 'plex_webhook_import_hint')
        RETURNING id`
     );
     if (staleJobs.rowCount > 0) {
@@ -322,6 +326,9 @@ const startServer = async () => {
     }, SESSION_CLEANUP_INTERVAL_MINUTES * 60 * 1000);
     cleanupTimer.unref();
     startAutomaticLoanReminderScheduler();
+    if (typeof mediaRouter.startPlexWebhookImportHintAutoProcessor === 'function') {
+      mediaRouter.startPlexWebhookImportHintAutoProcessor();
+    }
     app.listen(PORT, '0.0.0.0', () => {
       console.log(
         `collectZ backend ${BUILD_LABEL} listening on port ${PORT} (audit=${getMode()}, ` +
@@ -329,6 +336,7 @@ const startServer = async () => {
         `sessionCleanupMinutes=${SESSION_CLEANUP_INTERVAL_MINUTES}, ` +
         `rateWindowMin=${RATE_LIMIT_WINDOW_MINUTES}, globalMax=${RATE_LIMIT_GLOBAL_MAX}, ` +
         `autoLoanReminders=${AUTO_LOAN_REMINDER_RUNTIME.enabled ? `on/${AUTO_LOAN_REMINDER_RUNTIME.intervalMinutes}m` : 'off'}, ` +
+        `plexWebhookImportAuto=${PLEX_WEBHOOK_IMPORT_RUNTIME.enabled ? `on/${PLEX_WEBHOOK_IMPORT_RUNTIME.intervalSeconds}s` : 'off'}, ` +
         `externalApiMax=${RATE_LIMIT_EXTERNAL_API_MAX})`
       );
     });

@@ -9963,6 +9963,38 @@ Historical note:
 - What remains in the milestone: none for `3.4.125`; next Plex slices can add scheduled processing cadence, watched-state sync/writeback, rating writeback apply behavior, or deeper provider-oriented import modernization.
 - Recommended commit message: `Release 3.4.125 with Plex single-rating-key webhook import processing`
 
+## 3.4.126 — Plex Webhook Import Hint Auto-Processor
+
+**Goal:** Let collectZ automatically process queued Plex `library.new` webhook import hints using the single-rating-key import path from `3.4.125`.
+
+### Scope
+
+- Add a lightweight backend cadence for queued `plex_webhook_import_hint` jobs.
+- Process a small batch per sweep and avoid overlapping auto-runs.
+- Preserve queued Plex webhook hints across backend restarts.
+- Add admin readback for runtime settings and last-run status.
+- Reuse the existing single-rating-key processor, duplicate protection, scoped media ownership, and redacted evidence.
+- Keep watched-state sync/writeback, rating writeback apply behavior, scheduled full-library reconciliation, and broad Plex import rewrites out of scope.
+
+### Acceptance Criteria
+
+- A queued Plex webhook import hint is automatically processed without an admin clicking the manual processor endpoint.
+- The auto-processor reports enabled state, interval, batch size, and last-run counters.
+- Backend restart cleanup does not fail queued Plex import hints before the processor can run.
+- Smoke evidence proves webhook enqueue, duplicate reuse, auto-processing, PMS metadata readback, media-row persistence, revoke behavior, and no receiver token or Plex secret leakage.
+- Running-stack verification proves the app serves `3.4.126`, Help > Releases contains the release, and `events_enabled` remains on.
+
+### Closeout
+
+- Roadmap slice: `3.4.126 — Plex Webhook Import Hint Auto-Processor`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`, and `docs/releases/v3.4.126.md`.
+- Runtime verification used: rebuilt the local platform backend/frontend stack with `APP_VERSION=3.4.126` and `PLEX_WEBHOOK_IMPORT_AUTO_PROCESSOR_INTERVAL_SECONDS=5`; verified backend container `APP_EDITION=platform`, `APP_VERSION=3.4.126`, `PLEX_WEBHOOK_IMPORT_AUTO_PROCESSOR_ENABLED=true`, and interval `5`; verified `/api/health` reports frontend/backend/build `3.4.126`; verified `/api/auth/config` reports `product_edition=platform`; verified live DB `feature_flags.events_enabled=true` and `feature_flags.collectibles_enabled=true` after active-stack and temporary homelab checks; verified Help > Releases serves `v3.4.126`; verified Docker Plex webhook receiver admin smoke queues a `plex_webhook_import_hint`, reuses the duplicate queued job, keeps watched-state read-only, auto-processes the hint without the manual endpoint, reads back fake PMS metadata, imports one media row, writes redacted evidence, and rejects the previous receiver token after revoke; verified homelab edition boundary in an isolated temporary compose project without changing the active platform stack.
+- CI/checks run: `node --check backend/routes/media.js`, `node --check backend/server.js`, `node --check backend/scripts/plex-webhook-receiver-admin-smoke.js`, `node --check backend/scripts/unit-tests.js`, local Node 20 `npm --prefix backend run test:unit` (`265` passed), local `npm --prefix backend run test:openapi`, Docker `backend npm run test:unit` (`265` passed), Docker `backend npm run test:openapi`, Docker `backend npm run test:integration-smoke`, Docker `backend npm run test:plex-webhook-import-auto-processor-smoke`, Docker `backend npm run test:help-releases-smoke` with `EXPECTED_RELEASE_VERSION=v3.4.126`, Docker `backend npm run test:init-parity`, Docker `backend npm run test:migration-rehearsal`, platform-mode Docker `backend npm run test:rbac-regression`, platform-mode Docker `backend npm run test:platform-edition-boundary`, isolated homelab Docker `backend npm run test:homelab-edition-boundary`, targeted Playwright rerun for the initially timed-out homelab/now-playing browser specs, full host Playwright browser regression with bundled Node (`62` passed, `4` skipped), `npm run validate:public-export`, `npm --prefix backend run test:observability-evidence`, `npm --prefix backend run test:release-preflight-local`, generated-artifact secret-pattern scan, and `git diff --check`.
+- Files changed: `app-meta.json`, `backend/app-meta.json`, `backend/openapi/openapi.yaml`, `backend/package.json`, `backend/release-feed.json`, `backend/routes/media.js`, `backend/scripts/plex-webhook-receiver-admin-smoke.js`, `backend/scripts/unit-tests.js`, `backend/server.js`, `docker-compose.yml`, `docs/releases/v3.4.126.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`, `env.example`, `frontend/package.json`, `frontend/src/app-meta.json`, `scripts/generate-public-compose.js`, `artifacts/observability-evidence/observability-release-evidence.json`, `artifacts/plex-webhooks/plex-webhook-receiver-admin-smoke.json`, and `preflight-go-no-go.md`.
+- Risks or follow-ups: app-level Plex webhook hints fall back to global/admin Plex settings when no creator or scoped owner is available; the auto-processor is intentionally lightweight and still does not implement watched-state sync/writeback, rating writeback apply behavior, scheduled full-library reconciliation, or broad Plex import rewrites; local `compose-smoke` secure-cookie parity, CI `secret-scan`, and `image-security-and-sbom` remain CI-only or blocked locally as documented in `preflight-go-no-go.md`.
+- What remains in the milestone: none for `3.4.126`; future Plex slices can implement watched-state processing, rating read/write flows, scheduled reconciliation, and deeper workspace-owned provider administration.
+- Recommended commit message: `Release 3.4.126 with Plex webhook import hint auto-processing`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

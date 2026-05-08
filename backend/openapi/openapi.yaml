@@ -9099,6 +9099,76 @@
         }
       }
     },
+    "/api/media/plex-webhook-import-hints/auto-processor": {
+      "get": {
+        "tags": ["Media"],
+        "summary": "Read Plex webhook import auto-processor status",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "responses": {
+          "200": {
+            "description": "Auto-processor runtime and last-run status",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/media/plex-webhook-import-hints/auto-processor/run": {
+      "post": {
+        "tags": ["Media"],
+        "summary": "Run one Plex webhook import auto-processor sweep",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "batchSize": { "type": "integer", "minimum": 1, "maximum": 25 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Auto-processor sweep result",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/media/import-kavita": {
       "post": {
         "tags": ["Media"],

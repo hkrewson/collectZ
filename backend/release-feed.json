@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.126",
+      "version": "v3.4.126",
+      "date": null,
+      "status": null,
+      "summary": "This patch lets collectZ automatically process queued Plex `library.new` webhook import hints on a lightweight backend cadence.",
+      "details": []
+    },
+    {
       "title": "collectZ v3.4.125",
       "version": "v3.4.125",
       "date": null,
@@ -89,25 +97,6 @@
             "Captured viewer-readiness field coverage for active sessions, including progress, player state, Plex-relative poster/art key availability, and queue-presence hints.",
             "Extended sanitized now-playing session readback with Plex-relative `metadataKey`, `thumbKey`, `artKey`, and `hasQueueItem` fields.",
             "Kept the proof read-only and separate from imports, webhooks, scheduled sync, watch-state writes, and the dedicated viewer."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.4.116",
-      "version": "v3.4.116",
-      "date": null,
-      "status": null,
-      "summary": "This release adds a read-only Plex now-playing view inside Integrations. The Plex settings panel can now call the saved now-playing readback endpoint and show sanitized active-session rows without adding webhooks, scheduled sync, watch-state writes, or import changes.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added an `Active Sessions` action to the Plex Integrations panel.",
-            "Displayed sanitized Plex session rows with title, type, progress, user label, and player state/platform.",
-            "Added an explicit `No active Plex sessions.` empty state after checking now-playing readback.",
-            "Reused the same platform/workspace endpoint-base wiring as the existing Plex diagnostics.",
-            "Preserved existing Plex provider discovery, section discovery, imports, and now-playing endpoint behavior."
           ]
         }
       ]

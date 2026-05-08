@@ -87,6 +87,8 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 function assertSecretFree(value, label = 'payload', rawToken = '') {
   const text = JSON.stringify(value);
   if (rawToken) assert(!text.includes(rawToken), `${label} surfaced raw webhook receiver token`);
@@ -270,6 +272,27 @@ async function startFakePmsServer(ratingKey, title) {
   };
 }
 
+async function waitForProcessedWebhookJob(ratingKey, timeoutMs = 30000) {
+  const deadline = Date.now() + timeoutMs;
+  let last = null;
+  while (Date.now() < deadline) {
+    const readback = await pool.query(
+      `SELECT id, job_type, provider, status, scope, progress, summary, error
+         FROM sync_jobs
+        WHERE provider = 'plex'
+          AND job_type = 'plex_webhook_import_hint'
+          AND scope->>'ratingKey' = $1
+        ORDER BY updated_at DESC
+        LIMIT 1`,
+      [ratingKey]
+    );
+    last = readback.rows[0] || null;
+    if (last && ['succeeded', 'failed'].includes(String(last.status))) return last;
+    await sleep(500);
+  }
+  throw new Error(`Timed out waiting for Plex webhook import auto-processing: ${JSON.stringify(last)}`);
+}
+
 async function main() {
   const suffix = crypto.randomBytes(6).toString('hex');
   const email = `plex-webhook-admin-${suffix}@example.com`;
@@ -390,18 +413,19 @@ async function main() {
     assert(queuedJobs.rows[0]?.scope?.processingMode === 'queued_import_hint', `Expected queued import hint scope: ${JSON.stringify(queuedJobs.rows[0])}`);
     assert(queuedJobs.rows[0]?.summary?.processor === 'pending_future_slice', `Expected no silent processor claim: ${JSON.stringify(queuedJobs.rows[0])}`);
 
-    const processed = await admin.request('/api/media/process-plex-webhook-import-hints', {
-      method: 'POST',
-      withCsrf: true,
-      expectStatus: 200,
-      body: { ratingKey }
+    const autoStatus = await admin.request('/api/media/plex-webhook-import-hints/auto-processor', {
+      expectStatus: 200
     });
-    assert(processed.data?.processingMode === 'single_rating_key_import', `Expected single-rating-key processing mode: ${JSON.stringify(processed.data)}`);
-    assert(processed.data?.job?.status === 'succeeded', `Expected processed webhook import job to succeed: ${JSON.stringify(processed.data)}`);
-    assert(processed.data?.result?.imported === 1, `Expected one processed Plex metadata item: ${JSON.stringify(processed.data)}`);
-    assert((processed.data?.result?.created || 0) + (processed.data?.result?.updated || 0) >= 1, `Expected processed hint to create or update a media row: ${JSON.stringify(processed.data)}`);
+    assert(autoStatus.data?.runtime?.enabled === true, `Expected webhook import auto-processor enabled: ${JSON.stringify(autoStatus.data)}`);
+    assert(autoStatus.data?.processingMode === 'auto_single_rating_key_import', `Expected auto processor readback: ${JSON.stringify(autoStatus.data)}`);
+
+    const processedJob = await waitForProcessedWebhookJob(ratingKey);
+    assert(processedJob?.status === 'succeeded', `Expected processed webhook import job to succeed: ${JSON.stringify(processedJob)}`);
+    assert(processedJob?.summary?.processingMode === 'single_rating_key_import', `Expected single-rating-key processing mode: ${JSON.stringify(processedJob)}`);
+    assert(processedJob?.summary?.imported === 1, `Expected one processed Plex metadata item: ${JSON.stringify(processedJob)}`);
+    assert((processedJob?.summary?.created || 0) + (processedJob?.summary?.updated || 0) >= 1, `Expected processed hint to create or update a media row: ${JSON.stringify(processedJob)}`);
     assert(fakePms.requests.some((request) => request.pathname === `/library/metadata/${ratingKey}` && request.tokenMatched), `Expected fake PMS metadata readback with Plex token: ${JSON.stringify(fakePms.requests)}`);
-    assertSecretFree(processed.data, 'processed webhook response', rawToken);
+    assertSecretFree(processedJob, 'processed webhook job readback', rawToken);
 
     const imported = await pool.query(
       `SELECT m.id, m.title, m.import_source, mm.value AS plex_item_key
@@ -457,10 +481,10 @@ async function main() {
       duplicateWebhookReusedExistingJob: duplicate.data.importEnqueue.job.existing,
       watchedStateStayedReadOnly: watched.data.importEnqueue.queued === false,
       singleRatingKeyImportProcessed: {
-        status: processed.data.job.status,
-        processingMode: processed.data.processingMode,
-        imported: processed.data.result.imported,
-        changed: (processed.data.result.created || 0) + (processed.data.result.updated || 0),
+        status: processedJob.status,
+        processingMode: processedJob.summary.processingMode,
+        imported: processedJob.summary.imported,
+        changed: (processedJob.summary.created || 0) + (processedJob.summary.updated || 0),
         metadataReadbackCalled: fakePms.requests.some((request) => request.pathname === `/library/metadata/${ratingKey}` && request.tokenMatched)
       },
       revokeRejectedPreviousToken: true

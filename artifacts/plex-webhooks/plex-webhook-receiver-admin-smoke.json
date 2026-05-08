@@ -22,15 +22,15 @@
     "event": "library.new",
     "supported": true,
     "action": "sync_new_title_hint",
-    "ratingKey": "receiver-admin-2ca263d72f17",
-    "metadataReadbackPath": "/library/metadata/receiver-admin-2ca263d72f17",
+    "ratingKey": "receiver-admin-1991dd15199a",
+    "metadataReadbackPath": "/library/metadata/receiver-admin-1991dd15199a",
     "processingMode": "import_enqueue_hint",
     "importEnqueue": {
       "queued": true,
       "jobType": "plex_webhook_import_hint",
       "provider": "plex",
       "status": "queued",
-      "ratingKey": "receiver-admin-2ca263d72f17",
+      "ratingKey": "receiver-admin-1991dd15199a",
       "processingMode": "queued_import_hint"
     }
   },
