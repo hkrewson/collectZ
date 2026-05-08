@@ -15,15 +15,26 @@
       "media.stop",
       "playback.started"
     ],
-    "processingMode": "contract_only"
+    "processingMode": "library_new_import_enqueue_only"
   },
   "invalidTokenRejected": true,
   "validWebhookAccepted": {
     "event": "library.new",
     "supported": true,
     "action": "sync_new_title_hint",
-    "ratingKey": "12345",
-    "metadataReadbackPath": "/library/metadata/12345"
+    "ratingKey": "receiver-admin-81db8ce2dd85",
+    "metadataReadbackPath": "/library/metadata/receiver-admin-81db8ce2dd85",
+    "processingMode": "import_enqueue_hint",
+    "importEnqueue": {
+      "queued": true,
+      "jobType": "plex_webhook_import_hint",
+      "provider": "plex",
+      "status": "queued",
+      "ratingKey": "receiver-admin-81db8ce2dd85",
+      "processingMode": "queued_import_hint"
+    }
   },
+  "duplicateWebhookReusedExistingJob": true,
+  "watchedStateStayedReadOnly": true,
   "revokeRejectedPreviousToken": true
 }

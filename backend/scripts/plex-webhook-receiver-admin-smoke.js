@@ -153,10 +153,23 @@ async function cleanupUser(userId) {
   await pool.query('DELETE FROM users WHERE id = $1', [Number(userId)]).catch(() => {});
 }
 
+async function cleanupWebhookJobs(ratingKey) {
+  const key = String(ratingKey || '').trim();
+  if (!key) return;
+  await pool.query(
+    `DELETE FROM sync_jobs
+      WHERE provider = 'plex'
+        AND job_type = 'plex_webhook_import_hint'
+        AND scope->>'ratingKey' = $1`,
+    [key]
+  ).catch(() => {});
+}
+
 async function main() {
   const suffix = crypto.randomBytes(6).toString('hex');
   const email = `plex-webhook-admin-${suffix}@example.com`;
   const password = `PlexWebhookAdmin-${suffix}!`;
+  const ratingKey = `receiver-admin-${suffix}`;
   const admin = new HttpClient('plex-webhook-admin-smoke');
   const snapshot = await snapshotPlexWebhookSettings();
   let userId = null;
@@ -205,7 +218,7 @@ async function main() {
       body: {
         event: 'library.new',
         Metadata: {
-          ratingKey: '12345',
+          ratingKey,
           type: 'movie',
           title: 'Receiver Admin New Movie',
           thumb: 'https://plex.example.invalid/thumb?X-Plex-Token=receiver-admin-token',
@@ -214,12 +227,36 @@ async function main() {
         Server: { title: 'Home Plex', uuid: 'server-uuid-secret' }
       }
     });
-    assert(accepted.data?.processingMode === 'contract_only', `Expected contract-only mode: ${JSON.stringify(accepted.data)}`);
+    assert(accepted.data?.processingMode === 'import_enqueue_hint', `Expected import enqueue mode: ${JSON.stringify(accepted.data)}`);
     assert(accepted.data?.event === 'library.new', `Expected library.new event: ${JSON.stringify(accepted.data)}`);
     assert(accepted.data?.supported === true, `Expected supported webhook event: ${JSON.stringify(accepted.data)}`);
     assert(accepted.data?.action === 'sync_new_title_hint', `Expected new-title hint action: ${JSON.stringify(accepted.data)}`);
-    assert(accepted.data?.metadataReadbackPath === '/library/metadata/12345', `Expected metadata readback path: ${JSON.stringify(accepted.data)}`);
+    assert(accepted.data?.metadataReadbackPath === `/library/metadata/${encodeURIComponent(ratingKey)}`, `Expected metadata readback path: ${JSON.stringify(accepted.data)}`);
+    assert(accepted.data?.importEnqueue?.queued === true, `Expected webhook import job enqueue: ${JSON.stringify(accepted.data)}`);
+    assert(accepted.data?.importEnqueue?.job?.jobType === 'plex_webhook_import_hint', `Expected webhook import hint job: ${JSON.stringify(accepted.data)}`);
+    assert(accepted.data?.importEnqueue?.job?.provider === 'plex', `Expected Plex job provider: ${JSON.stringify(accepted.data)}`);
+    assert(accepted.data?.importEnqueue?.job?.ratingKey === ratingKey, `Expected queued job rating key: ${JSON.stringify(accepted.data)}`);
+    assert(accepted.data?.importEnqueue?.job?.processingMode === 'queued_import_hint', `Expected queued import hint mode: ${JSON.stringify(accepted.data)}`);
     assertSecretFree(accepted.data, 'accepted webhook response', rawToken);
+
+    const duplicate = await webhook.request(`/api/plex/webhooks/${encodeURIComponent(rawToken)}`, {
+      method: 'POST',
+      expectStatus: 200,
+      body: {
+        event: 'library.new',
+        Metadata: { ratingKey, type: 'movie', title: 'Receiver Admin New Movie' }
+      }
+    });
+    assert(duplicate.data?.importEnqueue?.queued === true, `Expected duplicate webhook import hint to remain queued: ${JSON.stringify(duplicate.data)}`);
+    assert(duplicate.data?.importEnqueue?.job?.existing === true, `Expected duplicate webhook import hint to reuse existing job: ${JSON.stringify(duplicate.data)}`);
+
+    const watched = await webhook.request(`/api/plex/webhooks/${encodeURIComponent(rawToken)}`, {
+      method: 'POST',
+      expectStatus: 200,
+      body: { event: 'media.scrobble', Metadata: { ratingKey, title: 'Receiver Admin New Movie' } }
+    });
+    assert(watched.data?.processingMode === 'read_only', `Expected watched-state event to stay read-only: ${JSON.stringify(watched.data)}`);
+    assert(watched.data?.importEnqueue?.queued === false, `Expected watched-state event not to enqueue import: ${JSON.stringify(watched.data)}`);
 
     const dbReadback = await pool.query(
       `SELECT plex_webhook_receiver_last_received_at, plex_webhook_receiver_last_event
@@ -227,7 +264,21 @@ async function main() {
         WHERE id = 1`
     );
     assert(dbReadback.rows[0]?.plex_webhook_receiver_last_received_at, 'Expected last received timestamp');
-    assert(dbReadback.rows[0]?.plex_webhook_receiver_last_event === 'library.new', 'Expected last received event readback');
+    assert(dbReadback.rows[0]?.plex_webhook_receiver_last_event === 'media.scrobble', 'Expected last received event readback');
+
+    const queuedJobs = await pool.query(
+      `SELECT id, job_type, provider, status, scope, progress, summary
+         FROM sync_jobs
+        WHERE provider = 'plex'
+          AND job_type = 'plex_webhook_import_hint'
+          AND scope->>'ratingKey' = $1
+        ORDER BY created_at DESC`,
+      [ratingKey]
+    );
+    assert(queuedJobs.rowCount === 1, `Expected one deduped webhook import hint job, got ${queuedJobs.rowCount}`);
+    assert(queuedJobs.rows[0]?.status === 'queued', `Expected queued webhook import hint job: ${JSON.stringify(queuedJobs.rows[0])}`);
+    assert(queuedJobs.rows[0]?.scope?.processingMode === 'queued_import_hint', `Expected queued import hint scope: ${JSON.stringify(queuedJobs.rows[0])}`);
+    assert(queuedJobs.rows[0]?.summary?.processor === 'pending_future_slice', `Expected no silent processor claim: ${JSON.stringify(queuedJobs.rows[0])}`);
 
     const revoked = await admin.request('/api/admin/settings/integrations/plex-webhook-receiver-token', {
       method: 'DELETE',
@@ -238,7 +289,7 @@ async function main() {
     await webhook.request(`/api/plex/webhooks/${encodeURIComponent(rawToken)}`, {
       method: 'POST',
       expectStatus: 401,
-      body: { event: 'media.rate', Metadata: { ratingKey: '12345', userRating: 8 } }
+      body: { event: 'media.rate', Metadata: { ratingKey, userRating: 8 } }
     });
 
     const evidence = {
@@ -256,8 +307,19 @@ async function main() {
         supported: accepted.data.supported,
         action: accepted.data.action,
         ratingKey: accepted.data.ratingKey,
-        metadataReadbackPath: accepted.data.metadataReadbackPath
+        metadataReadbackPath: accepted.data.metadataReadbackPath,
+        processingMode: accepted.data.processingMode,
+        importEnqueue: {
+          queued: accepted.data.importEnqueue.queued,
+          jobType: accepted.data.importEnqueue.job.jobType,
+          provider: accepted.data.importEnqueue.job.provider,
+          status: accepted.data.importEnqueue.job.status,
+          ratingKey: accepted.data.importEnqueue.job.ratingKey,
+          processingMode: accepted.data.importEnqueue.job.processingMode
+        }
       },
+      duplicateWebhookReusedExistingJob: duplicate.data.importEnqueue.job.existing,
+      watchedStateStayedReadOnly: watched.data.importEnqueue.queued === false,
       revokeRejectedPreviousToken: true
     };
     assertSecretFree(evidence, 'webhook receiver evidence', rawToken);
@@ -265,6 +327,7 @@ async function main() {
     fs.writeFileSync(ARTIFACT_PATH, `${JSON.stringify(evidence, null, 2)}\n`, 'utf8');
     console.log(JSON.stringify(evidence, null, 2));
   } finally {
+    await cleanupWebhookJobs(ratingKey);
     await restorePlexWebhookSettings(snapshot);
     await cleanupUser(userId);
     await pool.end().catch(() => {});

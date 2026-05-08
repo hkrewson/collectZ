@@ -9899,6 +9899,38 @@ Historical note:
 - What remains in the milestone: none for `3.4.123`; next Plex slices can implement webhook processing/import enqueue, watched-state sync/writeback, ratings writeback apply, scheduled sync cadence, or deeper provider-oriented import modernization.
 - Recommended commit message: `Release 3.4.123 with Plex webhook receiver administration contract`
 
+## 3.4.124 — Plex Webhook Receiver Processing and Import Enqueue Contract
+
+**Goal:** Let valid Plex `library.new` webhooks create a durable import hint job without silently running a full Plex import or mutating watched/rating state.
+
+### Scope
+
+- On valid `library.new` webhook events with a `ratingKey`, create a queued `plex_webhook_import_hint` sync job.
+- Include sanitized job scope for the webhook event, `ratingKey`, metadata readback path, title/type hints, and future single-rating-key import processing.
+- Reuse an existing queued/running import hint job for duplicate `library.new` events with the same `ratingKey`.
+- Keep `media.scrobble`, `media.rate`, and playback observation events read-only.
+- Keep full Plex import execution, watched-state writeback, rating writeback apply, and scheduled sync cadence out of scope.
+
+### Acceptance Criteria
+
+- Valid `library.new` webhook posts return `processingMode=import_enqueue_hint`.
+- The response includes a redacted import enqueue readback with queued job id, status, provider, job type, and `ratingKey`.
+- Duplicate `library.new` webhook posts for the same queued/running `ratingKey` reuse the existing job instead of creating a second row.
+- `media.scrobble` and `media.rate` webhook posts do not enqueue import jobs.
+- Smoke evidence proves queueing, duplicate reuse, read-only watched-state behavior, revoke behavior, and no receiver token or Plex secret leakage.
+- Running-stack verification proves the app serves `3.4.124`, Help > Releases contains the release, and `events_enabled` remains on.
+
+### Closeout
+
+- Roadmap slice: `3.4.124 — Plex Webhook Receiver Processing and Import Enqueue Contract`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`, and `docs/releases/v3.4.124.md`.
+- Runtime verification used: rebuilt the local platform backend/frontend stack with `APP_VERSION=3.4.124`; verified backend container `APP_EDITION=platform` and `APP_VERSION=3.4.124`; verified `/api/health` reports frontend/backend/build `3.4.124`; verified `/api/auth/config` reports `product_edition=platform`; verified live DB `feature_flags.events_enabled=true` and `feature_flags.collectibles_enabled=true`; verified Help > Releases serves `v3.4.124`; verified Docker Plex webhook receiver admin smoke creates a queued `plex_webhook_import_hint` job for `library.new`, reuses that job for a duplicate `ratingKey`, keeps `media.scrobble` read-only, writes redacted evidence, and rejects the same token after revoke.
+- CI/checks run: `node --check backend/routes/integrations.js`, `node --check backend/scripts/plex-webhook-receiver-admin-smoke.js`, `node --check backend/scripts/unit-tests.js`, Docker Node 20 `backend npm run test:unit` (`265` passed), Docker `backend npm run test:openapi`, Docker `backend npm run test:integration-smoke`, Docker `backend npm run test:plex-webhook-receiver-admin-smoke`, Docker `backend npm run test:help-releases-smoke`, full Playwright browser regression in the official Playwright container (`62` passed, `4` skipped), Docker `backend npm run test:init-parity`, Docker `backend npm run test:migration-rehearsal`, platform-mode Docker `backend npm run test:rbac-regression`, platform-mode Docker `backend npm run test:platform-edition-boundary`, `npm run validate:public-export`, `npm --prefix backend run test:observability-evidence`, `npm --prefix backend run test:release-preflight-local`, generated-artifact secret-pattern scan, and `git diff --check`.
+- Files changed: `README.md`, `app-meta.json`, `backend/app-meta.json`, `backend/openapi/openapi.yaml`, `backend/package.json`, `backend/package-lock.json`, `backend/release-feed.json`, `backend/routes/integrations.js`, `backend/scripts/plex-webhook-receiver-admin-smoke.js`, `backend/scripts/unit-tests.js`, `docker-compose.yml`, `docs/releases/v3.4.124.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`, `env.example`, `frontend/package.json`, `frontend/package-lock.json`, `frontend/src/app-meta.json`, `artifacts/init-parity-evidence/init-parity-evidence.json`, `artifacts/migration-rehearsal-evidence/migration-rehearsal-evidence.json`, `artifacts/observability-evidence/observability-release-evidence.json`, `artifacts/plex-webhooks/plex-webhook-receiver-admin-smoke.json`, and `preflight-go-no-go.md`.
+- Risks or follow-ups: this slice queues import hints only; actual single-rating-key Plex metadata fetch/import processing, watched-state writeback, rating writeback apply behavior, scheduled sync cadence, and broad Plex import modernization remain separate future slices; local `compose-smoke` secure-cookie parity, `secret-scan`, and `image-security-and-sbom` remain CI-only or blocked locally as documented in `preflight-go-no-go.md`; homelab edition boundary was not rerun locally for this slice because the live stack was intentionally preserved in platform mode, while source assertions and full browser coverage still exercised homelab boundary contracts where available.
+- What remains in the milestone: none for `3.4.124`; next Plex slices can implement single-rating-key processing for queued webhook import hints, watched-state sync/writeback, ratings writeback apply, scheduled sync cadence, or deeper provider-oriented import modernization.
+- Recommended commit message: `Release 3.4.124 with Plex webhook import hint enqueue contract`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

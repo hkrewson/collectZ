@@ -48,8 +48,9 @@ Use this for feature discovery and future new Plex surfaces where possible. The 
 - Now Playing Vertical Poster Display. Promoted as `3.4.121`.
 - Plex Webhook and Ratings Sync Contract. Promoted as `3.4.122`.
 - Plex Webhook Receiver Administration Contract. Promoted as `3.4.123`.
+- Plex Webhook Receiver Processing and Import Enqueue Contract. Promoted as `3.4.124`.
 - Plex watch-state sync cadence.
-- Plex webhook receiver processing and import enqueue contract.
+- Plex single-rating-key import processing from queued webhook hints.
 
 ## Acceptance Criteria
 

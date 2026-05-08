@@ -152,7 +152,7 @@ function shapePlexWebhookReceiverStatus(config, req = null) {
     receiverUrlTemplate: req ? `${getRequestOrigin(req)}${buildPlexWebhookReceiverPath()}` : null,
     supportedEvents: ['library.new', 'media.scrobble', 'media.rate'],
     observedOnlyEvents: ['media.play', 'media.pause', 'media.resume', 'media.stop', 'playback.started'],
-    processingMode: 'contract_only'
+    processingMode: 'library_new_import_enqueue_only'
   };
 }
 
@@ -183,6 +183,83 @@ async function loadConfigForPlexWebhookReceiverToken(token) {
   const actualHash = hashPlexWebhookReceiverToken(rawToken);
   if (!safeEqualHash(actualHash, expectedHash)) return null;
   return config;
+}
+
+function shapePlexWebhookImportJob(job = null, { existing = false } = {}) {
+  if (!job) return null;
+  return {
+    id: job.id,
+    status: job.status,
+    existing: Boolean(existing),
+    jobType: job.job_type,
+    provider: job.provider,
+    ratingKey: job.scope?.ratingKey || null,
+    metadataReadbackPath: job.scope?.metadataReadbackPath || null,
+    processingMode: job.scope?.processingMode || null,
+    createdAt: job.created_at || null
+  };
+}
+
+async function enqueuePlexWebhookImportHint(normalizedEvent) {
+  if (!normalizedEvent || normalizedEvent.action !== 'sync_new_title_hint' || !normalizedEvent.ratingKey) {
+    return { queued: false, reason: 'not_import_hint', job: null };
+  }
+
+  const existing = await pool.query(
+    `SELECT id, job_type, provider, status, created_by, scope, progress, summary, error,
+            started_at, finished_at, created_at, updated_at
+       FROM sync_jobs
+      WHERE job_type = 'plex_webhook_import_hint'
+        AND provider = 'plex'
+        AND status IN ('queued', 'running')
+        AND scope->>'trigger' = 'plex_webhook'
+        AND scope->>'event' = 'library.new'
+        AND scope->>'ratingKey' = $1
+      ORDER BY created_at DESC
+      LIMIT 1`,
+    [normalizedEvent.ratingKey]
+  );
+  if (existing.rows[0]) {
+    return { queued: true, existing: true, job: existing.rows[0] };
+  }
+
+  const scope = {
+    trigger: 'plex_webhook',
+    event: normalizedEvent.event,
+    action: normalizedEvent.action,
+    ratingKey: normalizedEvent.ratingKey,
+    metadataReadbackPath: normalizedEvent.metadataReadbackPath,
+    metadataTitle: normalizedEvent.metadata?.title || null,
+    metadataType: normalizedEvent.metadata?.type || null,
+    librarySectionId: normalizedEvent.metadata?.librarySectionId || null,
+    processingMode: 'queued_import_hint',
+    importMode: 'single_rating_key'
+  };
+  const progress = {
+    total: 1,
+    processed: 0,
+    created: 0,
+    updated: 0,
+    skipped: 0,
+    errorCount: 0
+  };
+  const summary = {
+    queuedFromWebhook: true,
+    event: normalizedEvent.event,
+    action: normalizedEvent.action,
+    ratingKey: normalizedEvent.ratingKey,
+    metadataReadbackPath: normalizedEvent.metadataReadbackPath,
+    processingMode: 'queued_import_hint',
+    processor: 'pending_future_slice'
+  };
+  const result = await pool.query(
+    `INSERT INTO sync_jobs (job_type, provider, status, created_by, scope, progress, summary)
+     VALUES ('plex_webhook_import_hint', 'plex', 'queued', NULL, $1::jsonb, $2::jsonb, $3::jsonb)
+     RETURNING id, job_type, provider, status, created_by, scope, progress, summary, error,
+               started_at, finished_at, created_at, updated_at`,
+    [JSON.stringify(scope), JSON.stringify(progress), JSON.stringify(summary)]
+  );
+  return { queued: true, existing: false, job: result.rows[0] || null };
 }
 
 async function buildSharedIntegrationPayload(config) {
@@ -466,16 +543,36 @@ sharedRouter.post('/plex/webhooks/:token', asyncHandler(async (req, res) => {
         AND plex_webhook_receiver_token_hash = $2`,
     [normalizedEvent.event, config.plexWebhookReceiverTokenHash]
   );
+  const importEnqueue = await enqueuePlexWebhookImportHint(normalizedEvent);
+  if (importEnqueue.queued && importEnqueue.job && !importEnqueue.existing) {
+    await logActivity({
+      user: null,
+      headers: req.headers,
+      ip: req.ip,
+      socket: req.socket
+    }, 'plex.webhook.import_hint.queued', 'sync_jobs', importEnqueue.job.id, {
+      event: normalizedEvent.event,
+      action: normalizedEvent.action,
+      ratingKey: normalizedEvent.ratingKey,
+      metadataReadbackPath: normalizedEvent.metadataReadbackPath,
+      jobId: importEnqueue.job.id
+    });
+  }
 
   return res.json({
     ok: true,
     accepted: true,
-    processingMode: 'contract_only',
+    processingMode: importEnqueue.queued ? 'import_enqueue_hint' : 'read_only',
     event: normalizedEvent.event,
     supported: normalizedEvent.supported,
     action: normalizedEvent.action,
     ratingKey: normalizedEvent.ratingKey,
     metadataReadbackPath: normalizedEvent.metadataReadbackPath,
+    importEnqueue: {
+      queued: Boolean(importEnqueue.queued),
+      reason: importEnqueue.reason || null,
+      job: shapePlexWebhookImportJob(importEnqueue.job, { existing: importEnqueue.existing })
+    },
     normalizedEvent
   });
 }));

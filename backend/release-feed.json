@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.124",
+      "version": "v3.4.124",
+      "date": null,
+      "status": null,
+      "summary": "This patch lets Plex `library.new` webhooks create a safe import hint job without silently running a full Plex import.",
+      "details": []
+    },
+    {
       "title": "collectZ v3.4.123",
       "version": "v3.4.123",
       "date": null,
@@ -110,25 +118,6 @@
             "Reused saved Plex API URL and token settings server-side.",
             "Returned only sanitized session fields such as title, type, progress, user label, and player state.",
             "Added a Docker-runnable fake PMS smoke that exercises the collectZ endpoint path.",
-            "Preserved existing Plex provider discovery, section discovery, and import behavior."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.4.114",
-      "version": "v3.4.114",
-      "date": null,
-      "status": null,
-      "summary": "This release adds a read-only Plex now-playing provider proof. collectZ can now parse the PMS `/status/sessions` shape into a safe internal readback contract, backed by a fake-PMS runtime smoke, before any Now Playing UI, webhook, sync, or import behavior is added.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added Plex `/status/sessions` to the provider-oriented PMS modernization contract.",
-            "Added safe JSON/XML parsing for now-playing session payloads.",
-            "Normalized only non-sensitive readback fields such as title, type, progress, user label, and player state.",
-            "Added a Docker-runnable fake PMS smoke that writes secret-free now-playing evidence.",
             "Preserved existing Plex provider discovery, section discovery, and import behavior."
           ]
         }

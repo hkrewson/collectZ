@@ -5017,7 +5017,7 @@
         },
         "responses": {
           "200": {
-            "description": "Webhook event accepted in contract-only mode",
+            "description": "Webhook event accepted; library.new may enqueue a Plex import hint job",
             "content": {
               "application/json": {
                 "schema": { "type": "object", "additionalProperties": true }
