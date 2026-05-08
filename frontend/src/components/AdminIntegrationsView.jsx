@@ -1277,13 +1277,25 @@ export default function AdminIntegrationsView({
             <div className="grid gap-2 text-xs text-ghost sm:grid-cols-2">
               <span>Mode: {plexWebhookReceiver.processingMode === 'contract_only' ? 'Contract only' : (plexWebhookReceiver.processingMode || 'Read-only')}</span>
               <span>Last event: {plexWebhookReceiver.lastEvent || 'None yet'}</span>
+              {plexWebhookReceiver.enabled && (
+                <>
+                  <span>Token fingerprint: {plexWebhookReceiver.tokenFingerprint || 'Unavailable'}</span>
+                  <span>Rotated: {plexWebhookReceiver.lastRotatedAt ? new Date(plexWebhookReceiver.lastRotatedAt).toLocaleString() : 'Never'}</span>
+                </>
+              )}
             </div>
             {plexWebhookReceiverLink ? (
               <input className="input font-mono text-xs" readOnly value={plexWebhookReceiverLink} onFocus={(event) => event.target.select()} />
+            ) : plexWebhookReceiver.enabled && (plexWebhookReceiver.receiverUrlMasked || plexWebhookReceiver.receiverPathMasked) ? (
+              <input className="input font-mono text-xs" readOnly value={plexWebhookReceiver.receiverUrlMasked || plexWebhookReceiver.receiverPathMasked} onFocus={(event) => event.target.select()} />
             ) : (
               <input className="input font-mono text-xs" readOnly value={plexWebhookReceiver.receiverUrlTemplate || plexWebhookReceiver.receiverPath || '/api/plex/webhooks/[token]'} onFocus={(event) => event.target.select()} />
             )}
-            <p className="text-xs text-ghost">Accepts Plex webhook hints for newly added media, watched state, and ratings. Import and writeback actions remain manual until a later slice.</p>
+            <p className="text-xs text-ghost">
+              {plexWebhookReceiver.enabled && !plexWebhookReceiverLink
+                ? 'Existing receiver shown with a masked token. Regenerate if Plex needs the full URL again.'
+                : 'Accepts Plex webhook hints for newly added media, watched state, and ratings. Import and writeback actions remain manual until a later slice.'}
+            </p>
           </div>
           <div className="rounded-xl border border-edge bg-raised/60 px-3 py-3 space-y-3">
             <div className="flex flex-wrap items-start justify-between gap-3">

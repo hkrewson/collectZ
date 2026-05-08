@@ -51,6 +51,7 @@ Use this for feature discovery and future new Plex surfaces where possible. The 
 - Plex Webhook Receiver Processing and Import Enqueue Contract. Promoted as `3.4.124`.
 - Plex Single-Rating-Key Import Processing from Webhook Hints. Promoted as `3.4.125`.
 - Plex Webhook Import Hint Auto-Processor. Promoted as `3.4.126`.
+- Plex Webhook Existing Receiver Readback. Promoted as `3.4.127`.
 - Plex watch-state sync cadence.
 
 ## Acceptance Criteria

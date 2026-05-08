@@ -141,14 +141,28 @@ function buildPlexWebhookReceiverUrl(req, token) {
   return `${getRequestOrigin(req)}${buildPlexWebhookReceiverPath(token)}`;
 }
 
+function buildPlexWebhookReceiverTokenFingerprint(config) {
+  const hash = String(config?.plexWebhookReceiverTokenHash || '').trim();
+  return hash ? hash.slice(0, 10) : null;
+}
+
+function buildMaskedPlexWebhookReceiverPath(config) {
+  const fingerprint = buildPlexWebhookReceiverTokenFingerprint(config);
+  return fingerprint ? buildPlexWebhookReceiverPath(`${PLEX_WEBHOOK_RECEIVER_TOKEN_PREFIX}${fingerprint}...`) : null;
+}
+
 function shapePlexWebhookReceiverStatus(config, req = null) {
+  const maskedPath = buildMaskedPlexWebhookReceiverPath(config);
   return {
     enabled: Boolean(config?.plexWebhookReceiverTokenHash),
     createdAt: config?.plexWebhookReceiverTokenCreatedAt || null,
     lastRotatedAt: config?.plexWebhookReceiverTokenLastRotatedAt || null,
     lastReceivedAt: config?.plexWebhookReceiverLastReceivedAt || null,
     lastEvent: config?.plexWebhookReceiverLastEvent || null,
+    tokenFingerprint: buildPlexWebhookReceiverTokenFingerprint(config),
     receiverPath: buildPlexWebhookReceiverPath(),
+    receiverPathMasked: maskedPath,
+    receiverUrlMasked: req && maskedPath ? `${getRequestOrigin(req)}${maskedPath}` : null,
     receiverUrlTemplate: req ? `${getRequestOrigin(req)}${buildPlexWebhookReceiverPath()}` : null,
     supportedEvents: ['library.new', 'media.scrobble', 'media.rate'],
     observedOnlyEvents: ['media.play', 'media.pause', 'media.resume', 'media.stop', 'playback.started'],
@@ -262,7 +276,7 @@ async function enqueuePlexWebhookImportHint(normalizedEvent) {
   return { queued: true, existing: false, job: result.rows[0] || null };
 }
 
-async function buildSharedIntegrationPayload(config) {
+async function buildSharedIntegrationPayload(config, req = null) {
   return {
     barcodePreset: config?.barcodePreset || 'upcitemdb',
     barcodeProvider: config?.barcodeProvider || resolveBarcodePreset(config).provider,
@@ -282,7 +296,7 @@ async function buildSharedIntegrationPayload(config) {
     plexApiKeyMasked: maskSecret(config?.plexApiKey || ''),
     plexNowPlayingDisplayToken: shapeNowPlayingDisplayTokenStatus(config),
     plexNowPlayingDisplayPreferences: normalizeNowPlayingDisplayPreferences(config?.plexNowPlayingDisplayPreferences),
-    plexWebhookReceiver: shapePlexWebhookReceiverStatus(config),
+    plexWebhookReceiver: shapePlexWebhookReceiverStatus(config, req),
     booksPreset: config?.booksPreset || 'googlebooks',
     booksProvider: config?.booksProvider || resolveBooksPreset(config).provider,
     booksApiUrl: config?.booksApiUrl || '',
@@ -323,10 +337,10 @@ async function buildSharedIntegrationPayload(config) {
   };
 }
 
-async function buildPlatformIntegrationPayload(config) {
+async function buildPlatformIntegrationPayload(config, req = null) {
   const resolvedExportConfig = await resolveExportConfig({ forceRefresh: true });
   return {
-    ...(await buildSharedIntegrationPayload(config)),
+    ...(await buildSharedIntegrationPayload(config, req)),
     valuationProviders: {
       pricecharting: {
         enabled: Boolean(config?.priceChartingEnabled),
@@ -370,8 +384,8 @@ async function buildPlatformIntegrationPayload(config) {
   };
 }
 
-function buildHomelabIntegrationPayload(config) {
-  return buildSharedIntegrationPayload(config);
+function buildHomelabIntegrationPayload(config, req = null) {
+  return buildSharedIntegrationPayload(config, req);
 }
 
 function resolveNextAdminValuationState(body = {}, existing = null) {
@@ -581,7 +595,7 @@ sharedRouter.post('/plex/webhooks/:token', asyncHandler(async (req, res) => {
 
 sharedRouter.get('/admin/settings/integrations', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
   const config = await loadAdminIntegrationConfig();
-  res.json(await (HOMELAB_EDITION ? buildHomelabIntegrationPayload(config) : buildPlatformIntegrationPayload(config)));
+  res.json(await (HOMELAB_EDITION ? buildHomelabIntegrationPayload(config, req) : buildPlatformIntegrationPayload(config, req)));
 }));
 
 sharedRouter.post('/admin/settings/integrations/plex-now-playing-display-token', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
@@ -934,7 +948,7 @@ sharedRouter.put('/admin/settings/integrations', authenticateToken, requireRole(
       : null
   });
 
-  res.json(await (HOMELAB_EDITION ? buildHomelabIntegrationPayload(config) : buildPlatformIntegrationPayload(config)));
+  res.json(await (HOMELAB_EDITION ? buildHomelabIntegrationPayload(config, req) : buildPlatformIntegrationPayload(config, req)));
 }));
 
 platformRouter.post('/admin/settings/integrations/test-pricecharting', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
@@ -1415,7 +1429,7 @@ platformRouter.post('/admin/settings/integrations/test-logs', authenticateToken,
       })
     },
     observabilityRuntime: await buildObservabilityRuntimeDiagnostics(),
-    config: await buildPlatformIntegrationPayload(config)
+    config: await buildPlatformIntegrationPayload(config, req)
   });
 }));
 

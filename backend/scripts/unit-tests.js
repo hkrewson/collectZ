@@ -1339,6 +1339,8 @@ results.push(run('plex webhook receiver administration contract is token-scoped 
   assert.ok(integrationsRoutesSource.includes("plex-webhook-receiver-token'"));
   assert.ok(integrationsRoutesSource.includes('hashPlexWebhookReceiverToken'));
   assert.ok(integrationsRoutesSource.includes('shapePlexWebhookReceiverStatus'));
+  assert.ok(integrationsRoutesSource.includes('buildPlexWebhookReceiverTokenFingerprint'));
+  assert.ok(integrationsRoutesSource.includes('receiverUrlMasked'));
   assert.ok(integrationsRoutesSource.includes('enqueuePlexWebhookImportHint'));
   assert.ok(integrationsRoutesSource.includes("'plex_webhook_import_hint'"));
   assert.ok(integrationsRoutesSource.includes("'queued_import_hint'"));
@@ -1369,6 +1371,8 @@ results.push(run('plex webhook receiver administration contract is token-scoped 
   assert.ok(plexWebhookReceiverAdminSmokeSource.includes('waitForProcessedWebhookJob'));
   assert.ok(plexWebhookReceiverAdminSmokeSource.includes('/api/media/plex-webhook-import-hints/auto-processor'));
   assert.ok(plexWebhookReceiverAdminSmokeSource.includes('singleRatingKeyImportProcessed'));
+  assert.ok(plexWebhookReceiverAdminSmokeSource.includes('receiverPathMasked'));
+  assert.ok(plexWebhookReceiverAdminSmokeSource.includes('tokenFingerprint'));
   assert.ok(plexWebhookReceiverAdminSmokeSource.includes('startFakePmsServer'));
   assert.ok(plexWebhookReceiverAdminSmokeSource.includes('assertSecretFree'));
   assert.ok(plexWebhookReceiverAdminSmokeSource.includes("'plex-webhooks'"));
@@ -1377,6 +1381,8 @@ results.push(run('plex webhook receiver administration contract is token-scoped 
   assert.ok(adminIntegrationsViewSource.includes('generatePlexWebhookReceiverToken'));
   assert.ok(adminIntegrationsViewSource.includes('revokePlexWebhookReceiverToken'));
   assert.ok(adminIntegrationsViewSource.includes('Webhook receiver'));
+  assert.ok(adminIntegrationsViewSource.includes('receiverUrlMasked'));
+  assert.ok(adminIntegrationsViewSource.includes('Token fingerprint'));
   assert.strictEqual(sanitizeRequestUrl('/api/plex/webhooks/czpw_secret-token_123'), '/api/plex/webhooks/[REDACTED]');
   assert.strictEqual(sanitizeRequestUrl('/api/plex/webhooks/not-a-receiver-token'), '/api/plex/webhooks/not-a-receiver-token');
   assert.strictEqual(sanitizeRequestUrl('/api/thing?token=czpw_secret-token_123'), '/api/thing?token=[REDACTED]');

@@ -9995,6 +9995,37 @@ Historical note:
 - What remains in the milestone: none for `3.4.126`; future Plex slices can implement watched-state processing, rating read/write flows, scheduled reconciliation, and deeper workspace-owned provider administration.
 - Recommended commit message: `Release 3.4.126 with Plex webhook import hint auto-processing`
 
+## 3.4.127 — Plex Webhook Existing Receiver Readback
+
+**Goal:** Make existing Plex webhook receivers visible in Integrations after refresh without exposing raw receiver tokens.
+
+### Scope
+
+- Show existing Plex webhook receiver state with masked URL readback.
+- Add a stable token fingerprint so admins can identify the saved receiver.
+- Keep full receiver tokens one-time only and hash-only at rest.
+- Preserve generate, regenerate, revoke, webhook enqueue, and auto-processing behavior.
+- Keep watched-state writeback, rating writeback apply behavior, scheduled full-library reconciliation, and broad Plex import rewrites out of scope.
+
+### Acceptance Criteria
+
+- Integrations > Plex shows that an existing receiver is active after refresh.
+- Existing receiver readback includes masked URL, token fingerprint, last event, last received time, and rotation time.
+- The raw receiver token remains visible only immediately after generation.
+- Smoke/source evidence proves existing receiver readback stays token-safe.
+- Running-stack verification proves the app serves `3.4.127`, Help > Releases contains the release, and `events_enabled` remains on.
+
+### Closeout
+
+- Roadmap slice: `3.4.127 — Plex Webhook Existing Receiver Readback`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`, and `docs/releases/v3.4.127.md`.
+- Runtime verification used: rebuilt the local platform backend/frontend stack with `APP_VERSION=3.4.127` and `PLEX_WEBHOOK_IMPORT_AUTO_PROCESSOR_INTERVAL_SECONDS=5`; verified backend container `APP_EDITION=platform`, `APP_VERSION=3.4.127`, and `PLEX_WEBHOOK_IMPORT_AUTO_PROCESSOR_ENABLED=true`; verified `/api/health` reports frontend/backend/build `3.4.127`; verified `/api/auth/config` reports `product_edition=platform`; verified live DB `feature_flags.events_enabled=true` and `feature_flags.collectibles_enabled=true` after active-stack and temporary homelab checks; verified Help > Releases serves `v3.4.127`; verified Docker Plex webhook smoke returns `receiverPathMasked` and token fingerprint readback for an existing receiver, rejects invalid tokens, queues and auto-processes a `library.new` import hint, keeps watched-state read-only, writes redacted evidence, and rejects the previous receiver token after revoke; verified homelab edition boundary in an isolated temporary compose project without changing the active platform stack.
+- CI/checks run: `node --check backend/routes/integrations.js`, `node --check backend/scripts/plex-webhook-receiver-admin-smoke.js`, `node --check backend/scripts/unit-tests.js`, local Node 20 `npm --prefix backend run test:unit` (`265` passed), local `npm --prefix backend run test:openapi`, Docker `backend npm run test:unit` (`265` passed), Docker `backend npm run test:openapi`, Docker `backend npm run test:integration-smoke`, Docker `backend npm run test:plex-webhook-import-auto-processor-smoke` with `BASE_URL=http://frontend:3000`, Docker `backend npm run test:help-releases-smoke` with `EXPECTED_RELEASE_VERSION=v3.4.127`, Docker `backend npm run test:init-parity`, Docker `backend npm run test:migration-rehearsal`, platform-mode Docker `backend npm run test:rbac-regression`, platform-mode Docker `backend npm run test:platform-edition-boundary`, isolated homelab Docker `backend npm run test:homelab-edition-boundary`, full host Playwright browser regression with bundled Node (`62` passed, `4` skipped), `npm run validate:public-export`, `npm --prefix backend run test:observability-evidence`, `npm --prefix backend run test:release-preflight-local`, generated-artifact secret-pattern scan, and `git diff --check`.
+- Files changed: `app-meta.json`, `backend/app-meta.json`, `backend/package.json`, `backend/release-feed.json`, `backend/routes/integrations.js`, `backend/scripts/plex-webhook-receiver-admin-smoke.js`, `backend/scripts/unit-tests.js`, `docker-compose.yml`, `docs/releases/v3.4.127.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`, `frontend/package.json`, `frontend/src/app-meta.json`, `frontend/src/components/AdminIntegrationsView.jsx`, `artifacts/observability-evidence/observability-release-evidence.json`, `artifacts/plex-webhooks/plex-webhook-receiver-admin-smoke.json`, and `preflight-go-no-go.md`.
+- Risks or follow-ups: existing receiver readback intentionally cannot reconstruct the real token because tokens remain hash-only at rest; admins must regenerate when Plex needs the full receiver URL again; watched-state sync/writeback, rating writeback apply behavior, scheduled full-library reconciliation, and broad Plex import rewrites remain future slices; local `compose-smoke` secure-cookie parity, CI `secret-scan`, and `image-security-and-sbom` remain CI-only or blocked locally as documented in `preflight-go-no-go.md`.
+- What remains in the milestone: none for `3.4.127`; future Plex slices can implement watched-state processing, rating read/write flows, scheduled reconciliation, and deeper workspace-owned provider administration.
+- Recommended commit message: `Release 3.4.127 with Plex webhook existing receiver readback`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

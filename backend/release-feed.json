@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.127",
+      "version": "v3.4.127",
+      "date": null,
+      "status": null,
+      "summary": "This patch makes saved Plex webhook receivers visible again after refresh without exposing the raw receiver token.",
+      "details": []
+    },
+    {
       "title": "collectZ v3.4.126",
       "version": "v3.4.126",
       "date": null,
@@ -79,24 +87,6 @@
             "Added an authenticated Plex image proxy for Plex-relative poster/art keys.",
             "Shows current title, show/season context, player state/platform, progress, and poster/art when Plex exposes usable image keys.",
             "Added empty and unavailable states for no active sessions or unreachable Plex settings."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.4.117",
-      "version": "v3.4.117",
-      "date": null,
-      "status": null,
-      "summary": "This release adds a real Plex PMS now-playing proof path. collectZ can now use saved Plex settings from the running stack to probe `/status/sessions` and write secret-free evidence about what a future Now Playing viewer can rely on.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added a backend proof script for saved real Plex now-playing readback.",
-            "Captured viewer-readiness field coverage for active sessions, including progress, player state, Plex-relative poster/art key availability, and queue-presence hints.",
-            "Extended sanitized now-playing session readback with Plex-relative `metadataKey`, `thumbKey`, `artKey`, and `hasQueueItem` fields.",
-            "Kept the proof read-only and separate from imports, webhooks, scheduled sync, watch-state writes, and the dedicated viewer."
           ]
         }
       ]

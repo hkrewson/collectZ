@@ -3,6 +3,8 @@
   "receiverStatus": {
     "enabled": true,
     "receiverPath": "/api/plex/webhooks/[token]",
+    "receiverPathMasked": "/api/plex/webhooks/czpw_c85379dc84...",
+    "tokenFingerprintPresent": true,
     "supportedEvents": [
       "library.new",
       "media.scrobble",
@@ -22,15 +24,15 @@
     "event": "library.new",
     "supported": true,
     "action": "sync_new_title_hint",
-    "ratingKey": "receiver-admin-1991dd15199a",
-    "metadataReadbackPath": "/library/metadata/receiver-admin-1991dd15199a",
+    "ratingKey": "receiver-admin-41d5273613fd",
+    "metadataReadbackPath": "/library/metadata/receiver-admin-41d5273613fd",
     "processingMode": "import_enqueue_hint",
     "importEnqueue": {
       "queued": true,
       "jobType": "plex_webhook_import_hint",
       "provider": "plex",
       "status": "queued",
-      "ratingKey": "receiver-admin-1991dd15199a",
+      "ratingKey": "receiver-admin-41d5273613fd",
       "processingMode": "queued_import_hint"
     }
   },

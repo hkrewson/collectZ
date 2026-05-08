@@ -334,6 +334,9 @@ async function main() {
     const settings = await admin.request('/api/admin/settings/integrations', { expectStatus: 200 });
     assert(settings.data?.plexWebhookReceiver?.enabled === true, `Expected settings receiver enabled: ${JSON.stringify(settings.data?.plexWebhookReceiver)}`);
     assert(settings.data?.plexWebhookReceiver?.receiverPath === '/api/plex/webhooks/[token]', 'Expected redacted receiver path template');
+    assert(String(settings.data?.plexWebhookReceiver?.receiverPathMasked || '').includes('/api/plex/webhooks/czpw_'), 'Expected masked receiver path for existing receiver');
+    assert(String(settings.data?.plexWebhookReceiver?.receiverUrlMasked || '').includes('/api/plex/webhooks/czpw_'), 'Expected masked receiver URL for existing receiver');
+    assert(String(settings.data?.plexWebhookReceiver?.tokenFingerprint || '').length >= 8, 'Expected stable token fingerprint readback');
     assert(!JSON.stringify(settings.data?.plexWebhookReceiver || {}).includes(rawToken), 'Settings readback must not include raw token');
 
     const invalid = new HttpClient('plex-webhook-invalid-smoke');
@@ -457,6 +460,8 @@ async function main() {
       receiverStatus: {
         enabled: generated.data.plexWebhookReceiver.enabled,
         receiverPath: generated.data.plexWebhookReceiver.receiverPath,
+        receiverPathMasked: settings.data.plexWebhookReceiver.receiverPathMasked,
+        tokenFingerprintPresent: Boolean(settings.data.plexWebhookReceiver.tokenFingerprint),
         supportedEvents: generated.data.plexWebhookReceiver.supportedEvents,
         observedOnlyEvents: generated.data.plexWebhookReceiver.observedOnlyEvents,
         processingMode: generated.data.plexWebhookReceiver.processingMode
