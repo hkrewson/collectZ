@@ -1,0 +1,141 @@
+{
+  "ok": true,
+  "contract": {
+    "inboundEvents": [
+      "library.new",
+      "media.scrobble",
+      "media.rate"
+    ],
+    "observedPlaybackEvents": [
+      "media.play",
+      "media.pause",
+      "media.resume",
+      "media.stop",
+      "playback.started"
+    ],
+    "metadataReadbackPath": "/library/metadata/:ratingKey",
+    "ratingWriteback": {
+      "method": "PUT",
+      "path": "/:/rate",
+      "identifier": "com.plexapp.plugins.library",
+      "ratingRange": {
+        "min": 0,
+        "max": 10
+      }
+    },
+    "watchedStateWriteback": {
+      "scrobblePath": "/:/scrobble",
+      "unscrobblePath": "/:/unscrobble",
+      "status": "future_explicit_opt_in"
+    },
+    "rules": [
+      "Treat Plex webhooks as event hints; query PMS metadata by ratingKey before mutating collectZ rows.",
+      "Use library.new to enqueue or prompt title sync rather than silently changing import behavior.",
+      "Use media.scrobble for watched-state readback; keep collectZ-to-Plex watched-state writes as a later explicit opt-in milestone.",
+      "Use media.rate to refresh rating readback and prove collectZ-to-Plex rating writeback with PUT /:/rate before adding an apply UI.",
+      "Do not expose Plex tokens, provider URLs, file paths, raw payloads, IP addresses, or machine identifiers in browser-visible webhook readback."
+    ]
+  },
+  "supportedEvents": [
+    {
+      "event": "library.new",
+      "supported": true,
+      "action": "sync_new_title_hint",
+      "ratingKey": "12345",
+      "metadata": {
+        "type": "movie",
+        "title": "Webhook New Movie",
+        "grandparentTitle": null,
+        "parentTitle": null,
+        "year": 2026,
+        "librarySectionId": "1",
+        "guid": "plex://movie/example?guid=tmdb://777",
+        "userRating": null
+      },
+      "account": null,
+      "server": {
+        "title": "Home Plex",
+        "uuid": "[redacted]"
+      },
+      "player": null,
+      "metadataReadbackPath": "/library/metadata/12345"
+    },
+    {
+      "event": "media.scrobble",
+      "supported": true,
+      "action": "refresh_watched_state",
+      "ratingKey": "23456",
+      "metadata": {
+        "type": "episode",
+        "title": "Watched Episode",
+        "grandparentTitle": "Webhook Show",
+        "parentTitle": "Season 1",
+        "year": null,
+        "librarySectionId": null,
+        "guid": null,
+        "userRating": null
+      },
+      "account": {
+        "id": "42",
+        "title": "Viewer"
+      },
+      "server": null,
+      "player": null,
+      "metadataReadbackPath": "/library/metadata/23456"
+    },
+    {
+      "event": "media.rate",
+      "supported": true,
+      "action": "refresh_rating",
+      "ratingKey": "34567",
+      "metadata": {
+        "type": "movie",
+        "title": "Rated Movie",
+        "grandparentTitle": null,
+        "parentTitle": null,
+        "year": null,
+        "librarySectionId": null,
+        "guid": null,
+        "userRating": 8.5
+      },
+      "account": null,
+      "server": null,
+      "player": null,
+      "metadataReadbackPath": "/library/metadata/34567"
+    }
+  ],
+  "observedOnlyEvent": {
+    "event": "media.pause",
+    "supported": false,
+    "action": "observe_playback_only",
+    "ratingKey": "45678",
+    "metadata": {
+      "type": null,
+      "title": "Paused Movie",
+      "grandparentTitle": null,
+      "parentTitle": null,
+      "year": null,
+      "librarySectionId": null,
+      "guid": null,
+      "userRating": null
+    },
+    "account": null,
+    "server": null,
+    "player": {
+      "title": "Living Room",
+      "product": "Plex Web",
+      "platform": "Chrome"
+    },
+    "metadataReadbackPath": "/library/metadata/45678"
+  },
+  "ratingWriteback": {
+    "method": "PUT",
+    "path": "/:/rate",
+    "params": {
+      "identifier": "com.plexapp.plugins.library",
+      "key": "34567",
+      "rating": 8.5,
+      "ratedAt": 1778211000
+    }
+  }
+}

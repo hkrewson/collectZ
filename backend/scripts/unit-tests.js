@@ -13,6 +13,9 @@ const {
   normalizePlexMediaProvider,
   parsePlexNowPlayingSessions,
   normalizePlexNowPlayingSession,
+  buildPlexWebhookAndRatingsContract,
+  normalizePlexWebhookEvent,
+  buildPlexRatingWritebackRequest,
   shouldIncludePlexEntry
 } = require('../services/plex');
 const { wrapTmdbRequestError } = require('../services/tmdb');
@@ -231,6 +234,7 @@ const plexNowPlayingProviderProofSmokeSource = fs.readFileSync(require.resolve('
 const plexNowPlayingReadbackSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-now-playing-readback-smoke'), 'utf8');
 const plexRealNowPlayingRuntimeProofSource = fs.readFileSync(require.resolve('../scripts/plex-real-now-playing-runtime-proof'), 'utf8');
 const plexNowPlayingViewerSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-now-playing-viewer-smoke'), 'utf8');
+const plexWebhookRatingsContractSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-webhook-ratings-contract-smoke'), 'utf8');
 const ciCdDeployDocSource = fs.readFileSync(require.resolve('../../docs/wiki/10-CI-CD-and-Registry-Deploy.md'), 'utf8');
 const securityPolicyPath = path.resolve(__dirname, '..', '..', 'SECURITY.md');
 const securityPolicySource = fs.existsSync(securityPolicyPath)
@@ -1253,6 +1257,55 @@ results.push(run('plex now-playing parser normalizes JSON and XML session payloa
   assert.strictEqual(normalizedXml.player.state, 'paused');
 }));
 
+results.push(run('plex webhook and ratings contract normalizes event hints and writeback shape safely', () => {
+  const contract = buildPlexWebhookAndRatingsContract();
+  assert.ok(contract.inboundEvents.includes('library.new'));
+  assert.ok(contract.inboundEvents.includes('media.scrobble'));
+  assert.ok(contract.inboundEvents.includes('media.rate'));
+  assert.strictEqual(contract.ratingWriteback.path, '/:/rate');
+  assert.strictEqual(contract.watchedStateWriteback.status, 'future_explicit_opt_in');
+
+  const normalized = normalizePlexWebhookEvent({
+    event: 'media.rate',
+    Metadata: {
+      ratingKey: '789',
+      title: 'Rated Example',
+      userRating: 9,
+      thumb: 'https://plex.example.invalid/thumb?X-Plex-Token=must-not-surface',
+      Media: [{ Part: [{ file: '/mnt/plex-media/Rated Example.mkv' }] }]
+    },
+    Server: { title: 'Home Plex', uuid: 'server-uuid-secret' }
+  });
+  assert.strictEqual(normalized.supported, true);
+  assert.strictEqual(normalized.action, 'refresh_rating');
+  assert.strictEqual(normalized.ratingKey, '789');
+  assert.strictEqual(normalized.metadata.userRating, 9);
+  assert.strictEqual(normalized.metadataReadbackPath, '/library/metadata/789');
+  assert.ok(!JSON.stringify(normalized).includes('must-not-surface'));
+  assert.ok(!JSON.stringify(normalized).includes('/mnt/plex-media'));
+  assert.ok(!JSON.stringify(normalized).includes('server-uuid-secret'));
+
+  const scrobble = normalizePlexWebhookEvent({
+    payload: JSON.stringify({
+      event: 'media.scrobble',
+      Metadata: { ratingKey: '456', title: 'Watched Example' }
+    })
+  });
+  assert.strictEqual(scrobble.action, 'refresh_watched_state');
+
+  const writeback = buildPlexRatingWritebackRequest({ ratingKey: '789', rating: 9, ratedAt: '2026-05-08T03:30:00.000Z' });
+  assert.deepStrictEqual(writeback, {
+    method: 'PUT',
+    path: '/:/rate',
+    params: {
+      identifier: 'com.plexapp.plugins.library',
+      key: '789',
+      rating: 9,
+      ratedAt: 1778211000
+    }
+  });
+}));
+
 results.push(run('plex PMS modernization foundation is promoted and documented without replacing legacy imports', () => {
   assert.ok(releaseRoadmapSource.includes('3.4.111 — Plex PMS API Modernization Foundation'));
   assert.ok(!backlogSource.includes('### Backlog Item: Plex PMS API Modernization Foundation'));
@@ -1260,6 +1313,20 @@ results.push(run('plex PMS modernization foundation is promoted and documented w
   assert.ok(plexPmsModernizationDocSource.includes('/library/sections/:sectionId/all'));
   assert.ok(plexPmsModernizationDocSource.includes('Keep existing Plex import'));
   assert.ok(plexPmsModernizationDocSource.includes('Now Playing Viewer provider proof'));
+}));
+
+results.push(run('plex webhook and ratings sync contract smoke stays scoped and secret-free', () => {
+  assert.ok(backendPackageJson.scripts['test:plex-webhook-ratings-contract-smoke']);
+  assert.ok(plexWebhookRatingsContractSmokeSource.includes('normalizePlexWebhookEvent'));
+  assert.ok(plexWebhookRatingsContractSmokeSource.includes('buildPlexRatingWritebackRequest'));
+  assert.ok(plexWebhookRatingsContractSmokeSource.includes("event: 'library.new'"));
+  assert.ok(plexWebhookRatingsContractSmokeSource.includes("event: 'media.scrobble'"));
+  assert.ok(plexWebhookRatingsContractSmokeSource.includes("event: 'media.rate'"));
+  assert.ok(plexWebhookRatingsContractSmokeSource.includes('/:/rate'));
+  assert.ok(plexWebhookRatingsContractSmokeSource.includes('assertSecretFree'));
+  assert.ok(plexWebhookRatingsContractSmokeSource.includes("artifacts', 'plex-webhooks'"));
+  assert.ok(plexWebhookRatingsContractSmokeSource.includes('plex-webhook-ratings-contract-smoke.json'));
+  assert.ok(releaseRoadmapSource.includes('3.4.122 — Plex Webhook and Ratings Sync Contract'));
 }));
 
 results.push(run('plex provider discovery runtime proof keeps fake PMS smoke scoped and secret-free', () => {

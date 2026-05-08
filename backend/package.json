@@ -1,6 +1,6 @@
 {
   "name": "mediavault-backend",
-  "version": "3.4.121",
+  "version": "3.4.122",
   "description": "collectZ Backend API",
   "main": "server.js",
   "scripts": {
@@ -93,7 +93,8 @@
     "test:plex-now-playing-provider-proof-smoke": "node scripts/plex-now-playing-provider-proof-smoke.js",
     "test:plex-now-playing-readback-smoke": "node scripts/plex-now-playing-readback-smoke.js",
     "test:plex-real-now-playing-runtime-proof": "node scripts/plex-real-now-playing-runtime-proof.js",
-    "test:plex-now-playing-viewer-smoke": "node scripts/plex-now-playing-viewer-smoke.js"
+    "test:plex-now-playing-viewer-smoke": "node scripts/plex-now-playing-viewer-smoke.js",
+    "test:plex-webhook-ratings-contract-smoke": "node scripts/plex-webhook-ratings-contract-smoke.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1042.0",

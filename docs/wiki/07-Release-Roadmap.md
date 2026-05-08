@@ -9833,6 +9833,40 @@ Historical note:
 - What remains in the milestone: none for `3.4.121`; future Plex slices can add named display devices, token expiration, webhooks, scheduled sync cadence, or watch-state sync as separate milestones.
 - Recommended commit message: `Release 3.4.121 with Plex Now Playing vertical poster display`
 
+## 3.4.122 — Plex Webhook and Ratings Sync Contract
+
+**Goal:** Define and prove the safe Plex webhook and rating-sync contract before enabling automatic inbound webhook processing or collectZ-to-Plex writes.
+
+**Current Slice:** `Closed 2026-05-07`
+
+### Scope
+
+- Normalize Plex webhook event hints for `library.new`, `media.scrobble`, and `media.rate`.
+- Treat playback webhooks (`media.play`, `media.pause`, `media.resume`, `media.stop`, `playback.started`) as observed-only events for later activity/progress slices.
+- Define PMS metadata readback by `ratingKey` as the required next step before collectZ mutates local titles.
+- Define collectZ-to-Plex rating writeback using Plex `PUT /:/rate`.
+- Keep real webhook receiver URLs, webhook secret/token management, automatic import updates, scheduled polling cadence, watched-state writeback, and actual rating writeback apply UI out of scope.
+
+### Acceptance Criteria
+
+- The Plex service exposes a versioned contract for supported inbound webhook hints and rating writeback shape.
+- Normalized webhook readback preserves useful fields such as event, action, rating key, title, type, library section, watched/rating intent, and metadata readback path.
+- Normalized webhook readback does not expose Plex tokens, provider URLs, raw file paths, server UUIDs, IP addresses, or raw payloads.
+- Rating writeback contract builds a `PUT /:/rate` request with `identifier`, `key`, `rating`, and optional `ratedAt`.
+- A Docker-runnable fake webhook smoke proves `library.new`, `media.scrobble`, `media.rate`, playback observation, and rating writeback request shape.
+- Running-stack verification proves the app serves `3.4.122`, Help > Releases contains the release, and `events_enabled` remains on.
+
+### Closeout
+
+- Roadmap slice: `3.4.122 — Plex Webhook and Ratings Sync Contract`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`, and `docs/releases/v3.4.122.md`.
+- Runtime verification used: rebuilt local platform backend/frontend images with `APP_VERSION=3.4.122`; verified backend container `APP_EDITION=platform` and `APP_VERSION=3.4.122`; verified `/api/health` reports frontend/backend/build `3.4.122`; verified live DB `feature_flags.events_enabled=true` and `feature_flags.collectibles_enabled=true`; verified Help > Releases serves `v3.4.122`; verified Docker Plex webhook/rating contract smoke writes secret-free evidence for `library.new`, `media.scrobble`, `media.rate`, playback observation, and `PUT /:/rate` writeback request shape.
+- CI/checks run: `node --check backend/services/plex.js`, `node --check backend/scripts/plex-webhook-ratings-contract-smoke.js`, `node --check backend/scripts/unit-tests.js`, Docker Node 20 `backend npm run test:unit` (`264` passed), Docker `backend npm run test:openapi`, Docker `backend npm run test:integration-smoke`, Docker `backend npm run test:plex-webhook-ratings-contract-smoke`, Docker `backend npm run test:help-releases-smoke`, full Playwright browser regression in the official Playwright container (`62` passed, `4` skipped), Docker `backend npm run test:init-parity`, Docker `backend npm run test:migration-rehearsal`, platform-mode Docker `backend npm run test:rbac-regression`, platform-mode Docker `backend npm run test:platform-edition-boundary`, `npm run validate:public-export`, `npm --prefix backend run test:observability-evidence`, `npm --prefix backend run test:release-preflight-local`, generated-artifact secret-pattern scan, and `git diff --check`.
+- Files changed: `README.md`, `app-meta.json`, `backend/app-meta.json`, `backend/package.json`, `backend/package-lock.json`, `backend/release-feed.json`, `backend/scripts/plex-webhook-ratings-contract-smoke.js`, `backend/scripts/unit-tests.js`, `backend/services/plex.js`, `docker-compose.yml`, `docs/releases/v3.4.122.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`, `env.example`, `frontend/package.json`, `frontend/package-lock.json`, `frontend/src/app-meta.json`, `artifacts/plex-webhooks/plex-webhook-ratings-contract-smoke.json`, `artifacts/observability-evidence/observability-release-evidence.json`, and `preflight-go-no-go.md`.
+- Risks or follow-ups: this is contract/proof only; actual webhook receiver URLs, webhook secret/token management, event persistence, import enqueueing, rating writeback apply UI, watched-state writeback, scheduled polling cadence, and broad Plex import modernization remain separate future slices; local `compose-smoke` secure-cookie parity, `secret-scan`, and `image-security-and-sbom` remain CI-only or blocked locally as documented in `preflight-go-no-go.md`; homelab edition boundary was not rerun locally for this slice because the live stack was preserved in platform mode.
+- What remains in the milestone: none for `3.4.122`; next Plex slices can implement webhook receiver administration, ratings read/write runtime proof, watch-state cadence, or webhook-triggered import/update processing.
+- Recommended commit message: `Release 3.4.122 with Plex webhook and ratings sync contract`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

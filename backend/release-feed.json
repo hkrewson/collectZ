@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.122",
+      "version": "v3.4.122",
+      "date": null,
+      "status": null,
+      "summary": "This patch adds the first Plex webhook and ratings sync contract. It does not enable automatic Plex webhook ingestion yet; it defines and proves the safe event/readback/writeback shape first.",
+      "details": []
+    },
+    {
       "title": "collectZ v3.4.121",
       "version": "v3.4.121",
       "date": null,
@@ -133,25 +141,6 @@
             "Returned only sanitized provider fields: key, title, type, protocol, identifier, and feature keys.",
             "Added a Plex Integrations action to probe providers and display the sanitized readback.",
             "Preserved existing Plex section test and import behavior."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.4.112",
-      "version": "v3.4.112",
-      "date": null,
-      "status": null,
-      "summary": "This release proves the new Plex `/media/providers` discovery path against a PMS-shaped runtime response without changing the existing Plex import flow. The smoke starts a fake Plex Media Server, calls the real provider-discovery fetch path, and writes secret-free evidence showing the normalized provider readback.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added a backend Plex provider-discovery smoke that exercises `fetchPlexMediaProviders()` against a fake PMS server.",
-            "Wrote provider-discovery evidence to `artifacts/plex-provider-discovery/plex-provider-discovery-smoke.json`.",
-            "Verified the provider readback only exposes safe fields: provider key, title, type, protocol, identifier, and feature keys.",
-            "Kept Plex tokens, provider URLs, file paths, and raw locations out of smoke output and browser-visible contracts.",
-            "Preserved the current legacy Plex import paths; this release does not rewrite imports."
           ]
         }
       ]

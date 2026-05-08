@@ -30,7 +30,42 @@ const PLEX_PMS_MODERNIZATION_CONTRACT = Object.freeze({
   candidateProofSlices: Object.freeze([
     'Now Playing Viewer provider proof',
     'Plex import provider discovery probe',
-    'Plex watch-state sync cadence'
+    'Plex watch-state sync cadence',
+    'Plex webhook and ratings sync contract'
+  ])
+});
+
+const PLEX_WEBHOOK_AND_RATINGS_CONTRACT = Object.freeze({
+  inboundEvents: Object.freeze([
+    'library.new',
+    'media.scrobble',
+    'media.rate'
+  ]),
+  observedPlaybackEvents: Object.freeze([
+    'media.play',
+    'media.pause',
+    'media.resume',
+    'media.stop',
+    'playback.started'
+  ]),
+  metadataReadbackPath: '/library/metadata/:ratingKey',
+  ratingWriteback: Object.freeze({
+    method: 'PUT',
+    path: '/:/rate',
+    identifier: 'com.plexapp.plugins.library',
+    ratingRange: Object.freeze({ min: 0, max: 10 })
+  }),
+  watchedStateWriteback: Object.freeze({
+    scrobblePath: '/:/scrobble',
+    unscrobblePath: '/:/unscrobble',
+    status: 'future_explicit_opt_in'
+  }),
+  rules: Object.freeze([
+    'Treat Plex webhooks as event hints; query PMS metadata by ratingKey before mutating collectZ rows.',
+    'Use library.new to enqueue or prompt title sync rather than silently changing import behavior.',
+    'Use media.scrobble for watched-state readback; keep collectZ-to-Plex watched-state writes as a later explicit opt-in milestone.',
+    'Use media.rate to refresh rating readback and prove collectZ-to-Plex rating writeback with PUT /:/rate before adding an apply UI.',
+    'Do not expose Plex tokens, provider URLs, file paths, raw payloads, IP addresses, or machine identifiers in browser-visible webhook readback.'
   ])
 });
 
@@ -251,6 +286,133 @@ const normalizePlexNowPlayingSession = (session) => {
       state: player.state ? String(player.state) : null,
       platform: player.platform ? String(player.platform) : null
     } : null
+  };
+};
+
+const buildPlexWebhookAndRatingsContract = () => ({
+  inboundEvents: [...PLEX_WEBHOOK_AND_RATINGS_CONTRACT.inboundEvents],
+  observedPlaybackEvents: [...PLEX_WEBHOOK_AND_RATINGS_CONTRACT.observedPlaybackEvents],
+  metadataReadbackPath: PLEX_WEBHOOK_AND_RATINGS_CONTRACT.metadataReadbackPath,
+  ratingWriteback: {
+    method: PLEX_WEBHOOK_AND_RATINGS_CONTRACT.ratingWriteback.method,
+    path: PLEX_WEBHOOK_AND_RATINGS_CONTRACT.ratingWriteback.path,
+    identifier: PLEX_WEBHOOK_AND_RATINGS_CONTRACT.ratingWriteback.identifier,
+    ratingRange: { ...PLEX_WEBHOOK_AND_RATINGS_CONTRACT.ratingWriteback.ratingRange }
+  },
+  watchedStateWriteback: { ...PLEX_WEBHOOK_AND_RATINGS_CONTRACT.watchedStateWriteback },
+  rules: [...PLEX_WEBHOOK_AND_RATINGS_CONTRACT.rules]
+});
+
+const parsePlexWebhookPayload = (payload) => {
+  if (!payload) return null;
+  if (typeof payload === 'object' && !Buffer.isBuffer(payload)) {
+    if (payload.payload !== undefined) return parsePlexWebhookPayload(payload.payload);
+    return payload;
+  }
+  const source = Buffer.isBuffer(payload) ? payload.toString('utf8') : String(payload);
+  if (!source.trim()) return null;
+  try {
+    return JSON.parse(source);
+  } catch (_error) {
+    return null;
+  }
+};
+
+const safeString = (value) => {
+  const raw = String(value ?? '').trim();
+  if (!raw) return null;
+  if (/x-plex-token=/i.test(raw)) return null;
+  if (/^https?:\/\//i.test(raw)) return null;
+  if (/^\/(?:Volumes|mnt|media|storage|data|Users)\//i.test(raw)) return null;
+  return raw;
+};
+
+const normalizePlexWebhookEvent = (payload) => {
+  const eventPayload = parsePlexWebhookPayload(payload);
+  if (!eventPayload || typeof eventPayload !== 'object') return null;
+  const metadata = eventPayload.Metadata && typeof eventPayload.Metadata === 'object' ? eventPayload.Metadata : {};
+  const account = eventPayload.Account && typeof eventPayload.Account === 'object' ? eventPayload.Account : {};
+  const server = eventPayload.Server && typeof eventPayload.Server === 'object' ? eventPayload.Server : {};
+  const player = eventPayload.Player && typeof eventPayload.Player === 'object' ? eventPayload.Player : {};
+  const event = safeString(eventPayload.event);
+  if (!event) return null;
+  const normalizedRating = toFiniteNumber(metadata.userRating ?? metadata.rating);
+  const rating = normalizedRating !== null
+    ? Math.max(0, Math.min(10, normalizedRating))
+    : null;
+  const ratingKey = safeString(metadata.ratingKey || metadata.key);
+  const parentRatingKey = safeString(metadata.parentRatingKey);
+  const grandparentRatingKey = safeString(metadata.grandparentRatingKey);
+  const effectiveRatingKey = ratingKey || parentRatingKey || grandparentRatingKey;
+
+  const action = PLEX_WEBHOOK_AND_RATINGS_CONTRACT.inboundEvents.includes(event)
+    ? (event === 'library.new'
+      ? 'sync_new_title_hint'
+      : (event === 'media.scrobble' ? 'refresh_watched_state' : 'refresh_rating'))
+    : (PLEX_WEBHOOK_AND_RATINGS_CONTRACT.observedPlaybackEvents.includes(event) ? 'observe_playback_only' : 'ignore_unknown_event');
+
+  return {
+    event,
+    supported: PLEX_WEBHOOK_AND_RATINGS_CONTRACT.inboundEvents.includes(event),
+    action,
+    ratingKey: effectiveRatingKey,
+    metadata: {
+      type: safeString(metadata.type),
+      title: safeString(metadata.title || metadata.originalTitle || metadata.grandparentTitle),
+      grandparentTitle: safeString(metadata.grandparentTitle),
+      parentTitle: safeString(metadata.parentTitle),
+      year: toFiniteNumber(metadata.year),
+      librarySectionId: safeString(metadata.librarySectionID || metadata.librarySectionId),
+      guid: safeString(metadata.guid),
+      userRating: rating
+    },
+    account: account.title || account.id ? {
+      id: safeString(account.id),
+      title: safeString(account.title)
+    } : null,
+    server: server.title || server.uuid ? {
+      title: safeString(server.title),
+      uuid: server.uuid ? '[redacted]' : null
+    } : null,
+    player: player.title || player.product || player.platform ? {
+      title: safeString(player.title),
+      product: safeString(player.product),
+      platform: safeString(player.platform)
+    } : null,
+    metadataReadbackPath: effectiveRatingKey
+      ? `/library/metadata/${encodeURIComponent(effectiveRatingKey)}`
+      : null
+  };
+};
+
+const buildPlexRatingWritebackRequest = ({ ratingKey, rating, ratedAt } = {}) => {
+  const key = safeString(ratingKey);
+  const normalizedRating = toFiniteNumber(rating);
+  if (!key) {
+    const error = new Error('Plex ratingKey is required for rating writeback');
+    error.status = 400;
+    throw error;
+  }
+  if (normalizedRating === null || normalizedRating < 0 || normalizedRating > 10) {
+    const error = new Error('Plex rating writeback requires a rating from 0 to 10');
+    error.status = 400;
+    throw error;
+  }
+  const params = {
+    identifier: PLEX_WEBHOOK_AND_RATINGS_CONTRACT.ratingWriteback.identifier,
+    key,
+    rating: normalizedRating
+  };
+  if (ratedAt) {
+    const parsed = new Date(ratedAt);
+    if (!Number.isNaN(parsed.getTime())) {
+      params.ratedAt = Math.floor(parsed.getTime() / 1000);
+    }
+  }
+  return {
+    method: PLEX_WEBHOOK_AND_RATINGS_CONTRACT.ratingWriteback.method,
+    path: PLEX_WEBHOOK_AND_RATINGS_CONTRACT.ratingWriteback.path,
+    params
   };
 };
 
@@ -659,8 +821,10 @@ const fetchPlexShowSeasonVariants = async (config, ratingKey, sectionId) => {
 
 module.exports = {
   PLEX_PMS_MODERNIZATION_CONTRACT,
+  PLEX_WEBHOOK_AND_RATINGS_CONTRACT,
   resolvePlexPreset,
   buildPlexPmsModernizationContract,
+  buildPlexWebhookAndRatingsContract,
   fetchPlexSections,
   fetchPlexMediaProviders,
   fetchPlexNowPlayingSessions,
@@ -673,6 +837,9 @@ module.exports = {
   normalizePlexMediaProvider,
   parsePlexNowPlayingSessions,
   normalizePlexNowPlayingSession,
+  parsePlexWebhookPayload,
+  normalizePlexWebhookEvent,
+  buildPlexRatingWritebackRequest,
   shouldIncludePlexEntry,
   normalizePlexItem,
   normalizePlexVariant
