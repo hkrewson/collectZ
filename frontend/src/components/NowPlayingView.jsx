@@ -2,6 +2,33 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Spinner, cx } from './app/AppPrimitives';
 
 const REFRESH_MS = 15000;
+const DEFAULT_DISPLAY_PREFERENCES = {
+  layoutMode: 'standard',
+  showPoster: true,
+  showBackdrop: true,
+  showContext: true,
+  showPlayer: true,
+  showProgress: true,
+  showUpdatedAt: true,
+  showPausedSessions: true,
+  textScale: 'standard'
+};
+
+function normalizeDisplayPreferences(raw = {}) {
+  const value = raw && typeof raw === 'object' ? raw : {};
+  const layoutMode = ['standard', 'poster_only'].includes(value.layoutMode) ? value.layoutMode : 'standard';
+  const textScale = ['compact', 'standard', 'large'].includes(value.textScale) ? value.textScale : 'standard';
+  return {
+    ...DEFAULT_DISPLAY_PREFERENCES,
+    ...Object.fromEntries(
+      ['showPoster', 'showBackdrop', 'showContext', 'showPlayer', 'showProgress', 'showUpdatedAt', 'showPausedSessions']
+        .filter((key) => value[key] !== undefined)
+        .map((key) => [key, Boolean(value[key])])
+    ),
+    layoutMode,
+    textScale
+  };
+}
 
 function formatProgress(session) {
   const progress = Number(session?.progressPercent);
@@ -9,15 +36,22 @@ function formatProgress(session) {
   return `${Math.max(0, Math.min(100, Math.round(progress)))}%`;
 }
 
-function buildImageUrl(path, apiUrl) {
+function buildImageUrl(path, apiUrl, displayToken = '') {
   const value = String(path || '').trim();
   if (!value) return '';
-  if (value.startsWith('http')) return value;
+  const token = String(displayToken || '').trim();
+  const withDisplayToken = (urlValue) => {
+    if (!token || !urlValue.includes('/plex/now-playing-display-image')) return urlValue;
+    const url = new URL(urlValue, window.location.origin);
+    url.searchParams.set('token', token);
+    return urlValue.startsWith('http') ? url.toString() : `${url.pathname}${url.search}`;
+  };
+  if (value.startsWith('http')) return withDisplayToken(value);
   if (value.startsWith('/api/')) {
     const base = String(apiUrl || '/api').replace(/\/api\/?$/, '');
-    return `${base}${value}`;
+    return withDisplayToken(`${base}${value}`);
   }
-  return value;
+  return withDisplayToken(value);
 }
 
 function sessionSubtitle(session) {
@@ -29,7 +63,7 @@ function sessionSubtitle(session) {
   return pieces.join(' · ');
 }
 
-export default function NowPlayingView({ apiCall, apiUrl, onBack }) {
+export default function NowPlayingView({ apiCall, apiUrl, displayToken = '', onBack }) {
   const [payload, setPayload] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -37,7 +71,9 @@ export default function NowPlayingView({ apiCall, apiUrl, onBack }) {
   const loadNowPlaying = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
     try {
-      const data = await apiCall('get', '/plex/now-playing-viewer');
+      const data = displayToken
+        ? await apiCall('get', '/plex/now-playing-display', null, { params: { token: displayToken } })
+        : await apiCall('get', '/plex/now-playing-viewer');
       setPayload(data);
       setError('');
     } catch (err) {
@@ -45,7 +81,7 @@ export default function NowPlayingView({ apiCall, apiUrl, onBack }) {
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [apiCall]);
+  }, [apiCall, displayToken]);
 
   useEffect(() => {
     loadNowPlaying();
@@ -60,17 +96,53 @@ export default function NowPlayingView({ apiCall, apiUrl, onBack }) {
   }, [loadNowPlaying]);
 
   const session = payload?.sessions?.[0] || null;
-  const posterUrl = useMemo(() => buildImageUrl(session?.posterImagePath || session?.backdropImagePath, apiUrl), [apiUrl, session]);
-  const backdropUrl = useMemo(() => buildImageUrl(session?.backdropImagePath || session?.posterImagePath, apiUrl), [apiUrl, session]);
-  const progress = formatProgress(session);
-  const subtitle = sessionSubtitle(session);
-  const player = [session?.player?.state, session?.player?.platform].filter(Boolean).join(' · ');
+  const displayPreferences = useMemo(() => normalizeDisplayPreferences(payload?.displayPreferences), [payload?.displayPreferences]);
+  const posterOnlyMode = displayPreferences.layoutMode === 'poster_only';
+  const posterUrl = useMemo(
+    () => (displayPreferences.showPoster || posterOnlyMode) ? buildImageUrl(session?.posterImagePath || session?.backdropImagePath, apiUrl, displayToken) : '',
+    [apiUrl, displayPreferences.showPoster, displayToken, posterOnlyMode, session]
+  );
+  const backdropUrl = useMemo(
+    () => displayPreferences.showBackdrop ? buildImageUrl(session?.backdropImagePath || session?.posterImagePath, apiUrl, displayToken) : '',
+    [apiUrl, displayPreferences.showBackdrop, displayToken, session]
+  );
+  const progress = displayPreferences.showProgress ? formatProgress(session) : null;
+  const subtitle = displayPreferences.showContext ? sessionSubtitle(session) : '';
+  const player = displayPreferences.showPlayer ? [session?.player?.state, session?.player?.platform].filter(Boolean).join(' · ') : '';
+  const updatedTime = displayPreferences.showUpdatedAt && payload?.generatedAt
+    ? new Date(payload.generatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+    : '';
+  const titleClass = displayPreferences.textScale === 'large'
+    ? 'text-[clamp(3rem,8vw,7rem)]'
+    : displayPreferences.textScale === 'compact'
+      ? 'text-[clamp(2rem,5.5vw,4.5rem)]'
+      : 'text-[clamp(2.4rem,7vw,6rem)]';
 
   if (loading && !payload) {
     return (
       <div className="min-h-screen bg-void text-dim flex items-center justify-center">
         <div className="flex items-center gap-3"><Spinner size={18} />Loading Now Playing...</div>
       </div>
+    );
+  }
+
+  if (!error && session && posterOnlyMode) {
+    return (
+      <main className="min-h-screen overflow-hidden bg-black text-ink">
+        <section className="flex min-h-screen items-center justify-center p-3 sm:p-5">
+          {posterUrl ? (
+            <img
+              src={posterUrl}
+              alt=""
+              className="h-[calc(100vh-1.5rem)] max-h-[calc(100vh-1.5rem)] w-auto max-w-full rounded-md object-contain sm:h-[calc(100vh-2.5rem)] sm:max-h-[calc(100vh-2.5rem)]"
+            />
+          ) : (
+            <div className="flex aspect-[2/3] h-[calc(100vh-1.5rem)] max-h-[calc(100vh-1.5rem)] max-w-full items-center justify-center rounded-md border border-edge bg-surface px-6 text-center text-ghost sm:h-[calc(100vh-2.5rem)] sm:max-h-[calc(100vh-2.5rem)]">
+              {session.title || 'No poster'}
+            </div>
+          )}
+        </section>
+      </main>
     );
   }
 
@@ -87,7 +159,7 @@ export default function NowPlayingView({ apiCall, apiUrl, onBack }) {
 
       <div className="relative z-10 flex min-h-screen flex-col">
         <header className="flex items-center justify-between gap-4 border-b border-edge/70 bg-void/70 px-5 py-3">
-          <button type="button" className="btn-ghost btn-sm" onClick={onBack}>Dashboard</button>
+          {onBack ? <button type="button" className="btn-ghost btn-sm" onClick={onBack}>Dashboard</button> : <span />}
           <div className="text-sm text-ghost">Plex Now Playing</div>
         </header>
 
@@ -102,30 +174,32 @@ export default function NowPlayingView({ apiCall, apiUrl, onBack }) {
             </div>
           </section>
         ) : session ? (
-          <section className="grid flex-1 grid-cols-1 gap-0 lg:grid-cols-[minmax(320px,44vw)_1fr]">
-            <div className="flex items-center justify-center border-b border-edge/70 bg-abyss/70 p-5 lg:border-b-0 lg:border-r">
-              {posterUrl ? (
-                <img
-                  src={posterUrl}
-                  alt=""
-                  className="max-h-[74vh] w-auto max-w-full rounded-md border border-edge object-contain"
-                />
-              ) : (
-                <div className="flex aspect-[2/3] w-full max-w-sm items-center justify-center rounded-md border border-edge bg-surface text-ghost">
-                  No image
-                </div>
-              )}
-            </div>
+          <section className={cx('grid flex-1 grid-cols-1 gap-0', displayPreferences.showPoster ? 'lg:grid-cols-[minmax(320px,44vw)_1fr]' : '')}>
+            {displayPreferences.showPoster ? (
+              <div className="flex items-center justify-center border-b border-edge/70 bg-abyss/70 p-5 lg:border-b-0 lg:border-r">
+                {posterUrl ? (
+                  <img
+                    src={posterUrl}
+                    alt=""
+                    className="max-h-[74vh] w-auto max-w-full rounded-md border border-edge object-contain"
+                  />
+                ) : (
+                  <div className="flex aspect-[2/3] w-full max-w-sm items-center justify-center rounded-md border border-edge bg-surface text-ghost">
+                    No image
+                  </div>
+                )}
+              </div>
+            ) : null}
             <div className="flex min-h-[50vh] items-center px-6 py-10 sm:px-10 lg:px-14">
               <div className="w-full max-w-3xl">
-                <h1 className="text-[clamp(2.4rem,7vw,6rem)] font-display leading-none text-ink">
+                <h1 className={cx(titleClass, 'font-display leading-none text-ink')}>
                   {session.title}
                 </h1>
                 {subtitle ? <p className="mt-4 text-xl text-dim sm:text-2xl">{subtitle}</p> : null}
                 <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3 text-base text-ghost sm:text-lg">
                   {player ? <span>{player}</span> : null}
                   {progress ? <span>{progress}</span> : null}
-                  {payload?.generatedAt ? <span>{new Date(payload.generatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span> : null}
+                  {updatedTime ? <span>{updatedTime}</span> : null}
                 </div>
                 {progress ? (
                   <div className="mt-8 h-2 w-full overflow-hidden rounded-sm bg-surface">

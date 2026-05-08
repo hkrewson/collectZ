@@ -43,6 +43,9 @@ Use this for feature discovery and future new Plex surfaces where possible. The 
 - Now Playing UI readback. Promoted as `3.4.116`.
 - Real PMS Now Playing runtime proof. Promoted as `3.4.117`.
 - Now Playing Viewer. Promoted as `3.4.118`.
+- Now Playing Display Token. Promoted as `3.4.119`.
+- Now Playing Display Preferences. Promoted as `3.4.120`.
+- Now Playing Vertical Poster Display. Promoted as `3.4.121`.
 - Plex watch-state sync cadence.
 - Plex webhook ingestion contract.
 

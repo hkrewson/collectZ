@@ -88,6 +88,9 @@ export default function App() {
   const supportHelpEnabled = isSupportHelpEnabled(productEdition);
   const supportStaffInEdition = supportHelpEnabled && ['admin', 'support_admin'].includes(String(user?.role || ''));
   const supportSessionActiveInEdition = supportHelpEnabled && Boolean(supportSession?.active);
+  const nowPlayingDisplayToken = route === 'now-playing'
+    ? new URLSearchParams(window.location.search).get('token') || ''
+    : '';
   const navigate = useCallback((nextRoute) => {
     window.history.pushState(
       {},
@@ -443,7 +446,7 @@ export default function App() {
       );
     }
 
-    if (!user) {
+    if (!user && !nowPlayingDisplayToken) {
       return (
         <AuthPageView
           route="login"
@@ -462,7 +465,8 @@ export default function App() {
       <NowPlayingView
         apiCall={apiCall}
         apiUrl={apiUrl}
-        onBack={() => navigate('dashboard')}
+        displayToken={nowPlayingDisplayToken}
+        onBack={user ? () => navigate('dashboard') : null}
       />
     );
   }

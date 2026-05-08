@@ -4101,6 +4101,24 @@ const MIGRATIONS = [
       END;
       $$;
     `
+  },
+  {
+    version: 96,
+    description: 'Add Plex now playing display token metadata',
+    up: `
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS plex_now_playing_display_token_hash TEXT,
+        ADD COLUMN IF NOT EXISTS plex_now_playing_display_token_created_at TIMESTAMP,
+        ADD COLUMN IF NOT EXISTS plex_now_playing_display_token_last_used_at TIMESTAMP;
+    `
+  },
+  {
+    version: 97,
+    description: 'Add Plex now playing display preferences',
+    up: `
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS plex_now_playing_display_preferences JSONB NOT NULL DEFAULT '{}'::jsonb;
+    `
   }
 ];
 

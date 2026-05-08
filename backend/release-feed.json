@@ -1,6 +1,30 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.121",
+      "version": "v3.4.121",
+      "date": null,
+      "status": null,
+      "summary": "This release adds a vertical poster-only layout option for Plex Now Playing displays. It keeps the existing saved display preferences and display-token flow intact while giving passive screens a clean full-height poster mode.",
+      "details": []
+    },
+    {
+      "title": "collectZ v3.4.120",
+      "version": "v3.4.120",
+      "date": null,
+      "status": null,
+      "summary": "This release adds saved Plex Now Playing display preferences. Admins can tune the passive display surface for `/now-playing` and display-token links without changing Plex imports, webhooks, scheduled sync, or watch-state behavior.",
+      "details": []
+    },
+    {
+      "title": "collectZ v3.4.119",
+      "version": "v3.4.119",
+      "date": null,
+      "status": null,
+      "summary": "This release adds a revocable Plex Now Playing display link. Admins can generate a limited token for `/now-playing?token=...` so a passive display can show the sanitized Plex Now Playing viewer without an admin browser session.",
+      "details": []
+    },
+    {
       "title": "collectZ v3.4.118",
       "version": "v3.4.118",
       "date": null,
@@ -128,124 +152,6 @@
             "Verified the provider readback only exposes safe fields: provider key, title, type, protocol, identifier, and feature keys.",
             "Kept Plex tokens, provider URLs, file paths, and raw locations out of smoke output and browser-visible contracts.",
             "Preserved the current legacy Plex import paths; this release does not rewrite imports."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.4.111",
-      "version": "v3.4.111",
-      "date": "2026-05-07",
-      "status": "Ready for CI release gates",
-      "summary": "This release starts the Plex PMS modernization path without changing existing Plex import behavior. The current Plex sync remains on the proven legacy library paths, while new Plex-facing work now has a documented provider-oriented contract and a small `/media/providers` discovery parser to build on.",
-      "details": [
-        {
-          "heading": "Backend",
-          "bullets": [
-            "Added a Plex PMS modernization contract that records current legacy import paths and the intended provider-oriented discovery seam.",
-            "Added lightweight parser/normalizer support for PMS media-provider discovery payloads.",
-            "Added source assertions for the contract, parser behavior, docs, and backlog promotion.",
-            "Preserved existing Plex import, duplicate-avoidance, TV season, and provider identity behavior."
-          ]
-        },
-        {
-          "heading": "Frontend",
-          "bullets": [
-            "No frontend runtime UI behavior changed.",
-            "Version metadata now points Help and health surfaces at `v3.4.111`."
-          ]
-        },
-        {
-          "heading": "Database",
-          "bullets": [
-            "No schema or data migration changes."
-          ]
-        },
-        {
-          "heading": "Docs/Ops",
-          "bullets": [
-            "Added `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`.",
-            "Promoted the Plex PMS backlog item into the `3.4.111` roadmap slice and removed the backlog item section.",
-            "Updated release/version artifacts and Help > Releases feed for `v3.4.111`."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.4.110",
-      "version": "v3.4.110",
-      "date": "2026-05-07",
-      "status": "Ready for CI release gates",
-      "summary": "This release formalizes the collectZ release cadence for homelab users. `latest` remains the fast-moving release channel, while `stable` becomes an intentional maintainer-promoted channel after a release has passed CI, soaked in real homelab use, and has no known blocker open.",
-      "details": [
-        {
-          "heading": "Backend",
-          "bullets": [
-            "No backend runtime API behavior changed.",
-            "Added source assertions that keep release-channel automation, security policy wording, and release-channel docs aligned."
-          ]
-        },
-        {
-          "heading": "Frontend",
-          "bullets": [
-            "No frontend runtime UI behavior changed.",
-            "Version metadata now points Help and health surfaces at `v3.4.110`."
-          ]
-        },
-        {
-          "heading": "Database",
-          "bullets": [
-            "No schema or data migration changes."
-          ]
-        },
-        {
-          "heading": "Docs/Ops",
-          "bullets": [
-            "Added `SECURITY.md` with supported release channels and vulnerability reporting guidance.",
-            "Documented `latest`, `stable`, exact semver pins, moving minor tags, and stable promotion rules.",
-            "Added a manual `Promote Stable Images` workflow that verifies the requested release tag, release note, successful publish workflow, and backend/frontend exact-version images before retagging existing image digests as `stable` and `stable-<major.minor>`.",
-            "Updated homelab deployment docs to recommend `IMAGE_TAG=stable` for the safest channel, `IMAGE_TAG=latest` for newest releases, or exact semver tags for pinned deployments."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.4.109",
-      "version": "v3.4.109",
-      "date": "2026-05-06",
-      "status": "Ready for CI release gates",
-      "summary": "This release adds item-local numbered print metadata to Art so limited prints can show their edition signal while browsing and in detail views. It also simplifies Art poster cards so signed numbered prints read like `#150/200 Signed Print` under the title instead of layering badges over and below the artwork.",
-      "details": [
-        {
-          "heading": "Backend",
-          "bullets": [
-            "Added positive-integer Art metadata fields for print number and print run.",
-            "Added validation and API read/write support for partial or complete numbered print values.",
-            "Kept numbered print metadata item-local without adding reusable artist records, external print registries, or valuation enrichment."
-          ]
-        },
-        {
-          "heading": "Frontend",
-          "bullets": [
-            "Added Art editor inputs for print number and print run.",
-            "Added list, mobile detail, and desktop detail readback for numbered prints.",
-            "Simplified Art poster cards by removing the top `#ID`, `Art`, and `Signed` badges plus the lower metadata pills.",
-            "Shows concise Art poster subtitle copy such as `#150/200 Signed Print`.",
-            "Preserved non-numbered artwork entry with no new required fields."
-          ]
-        },
-        {
-          "heading": "Database",
-          "bullets": [
-            "Added `art_items.print_number` and `art_items.print_run` as nullable positive-integer metadata fields.",
-            "Updated bootstrap schema parity so fresh installs include the numbered print columns."
-          ]
-        },
-        {
-          "heading": "Docs/Ops",
-          "bullets": [
-            "Updated roadmap closeout and Help > Releases feed for `v3.4.109`.",
-            "Reduced the local Graylog evidence stack's default journal size so release observability checks can run in constrained Docker Desktop storage."
           ]
         }
       ]

@@ -23,6 +23,17 @@ const LOG_EXPORT_BACKEND_OPTIONS = [
   { value: 'syslog_udp', label: 'Syslog UDP' },
   { value: 'syslog_tcp', label: 'Syslog TCP' }
 ];
+const DEFAULT_PLEX_DISPLAY_PREFERENCES = {
+  layoutMode: 'standard',
+  showPoster: true,
+  showBackdrop: true,
+  showContext: true,
+  showPlayer: true,
+  showProgress: true,
+  showUpdatedAt: true,
+  showPausedSessions: true,
+  textScale: 'standard'
+};
 const INTEGRATION_VISIBLE_FLAGS = new Set(Object.keys(INTEGRATION_FEATURE_LABELS));
 const SETTINGS_SECTION_FEATURES = {
   metrics: 'metrics_enabled',
@@ -250,6 +261,10 @@ export default function AdminIntegrationsView({
   const [plexProviders, setPlexProviders] = useState([]);
   const [plexNowPlayingSessions, setPlexNowPlayingSessions] = useState([]);
   const [plexNowPlayingChecked, setPlexNowPlayingChecked] = useState(false);
+  const [plexDisplayToken, setPlexDisplayToken] = useState({ enabled: false, createdAt: null, lastUsedAt: null });
+  const [plexDisplayLink, setPlexDisplayLink] = useState('');
+  const [plexDisplayPreferences, setPlexDisplayPreferences] = useState(DEFAULT_PLEX_DISPLAY_PREFERENCES);
+  const [savingPlexDisplayPreferences, setSavingPlexDisplayPreferences] = useState(false);
   const [featureFlags, setFeatureFlags] = useState([]);
   const [featureFlagsLoading, setFeatureFlagsLoading] = useState(true);
   const [featureFlagsReadOnly, setFeatureFlagsReadOnly] = useState(false);
@@ -321,6 +336,11 @@ export default function AdminIntegrationsView({
       });
       setObservabilityRuntime(data.observabilityRuntime || { logs: null, metrics: null });
       setLogExportControl(data.logExportControl || null);
+      setPlexDisplayToken(data.plexNowPlayingDisplayToken || { enabled: false, createdAt: null, lastUsedAt: null });
+      setPlexDisplayPreferences({
+        ...DEFAULT_PLEX_DISPLAY_PREFERENCES,
+        ...(data.plexNowPlayingDisplayPreferences || {})
+      });
       setStatus({
         barcode: data.barcodeApiKeySet ? 'configured' : 'missing',
         tmdb: data.tmdbApiKeySet ? 'configured' : 'missing',
@@ -490,6 +510,13 @@ export default function AdminIntegrationsView({
       });
       setObservabilityRuntime(updated.observabilityRuntime || { logs: null, metrics: null });
       setLogExportControl(updated.logExportControl || null);
+      if (updated.plexNowPlayingDisplayToken) setPlexDisplayToken(updated.plexNowPlayingDisplayToken);
+      if (updated.plexNowPlayingDisplayPreferences) {
+        setPlexDisplayPreferences({
+          ...DEFAULT_PLEX_DISPLAY_PREFERENCES,
+          ...updated.plexNowPlayingDisplayPreferences
+        });
+      }
       setStatus((s) => ({
         ...s,
         [sec]: sec === 'games'
@@ -660,6 +687,67 @@ export default function AdminIntegrationsView({
       setTestMsg(err.response?.data?.detail || 'Plex now playing readback failed');
     } finally {
       setTestLoading('');
+    }
+  };
+
+  const generatePlexDisplayToken = async () => {
+    setTestLoading('plex-display-token');
+    setTestMsg('');
+    try {
+      const result = await apiCall('post', '/admin/settings/integrations/plex-now-playing-display-token', {});
+      setPlexDisplayToken(result.plexNowPlayingDisplayToken || { enabled: true, createdAt: null, lastUsedAt: null });
+      const path = result.displayPath || (result.token ? `/now-playing?token=${encodeURIComponent(result.token)}` : '');
+      const link = path ? `${window.location.origin}${path}` : '';
+      setPlexDisplayLink(link);
+      setTestMsg('PLEX DISPLAY: Display link generated. This is the only time the token is shown.');
+      onToast('Plex Now Playing display link generated');
+    } catch (err) {
+      setTestMsg(err.response?.data?.error || 'Plex display link could not be generated');
+    } finally {
+      setTestLoading('');
+    }
+  };
+
+  const revokePlexDisplayToken = async () => {
+    setTestLoading('plex-display-token');
+    setTestMsg('');
+    try {
+      const result = await apiCall('delete', '/admin/settings/integrations/plex-now-playing-display-token');
+      setPlexDisplayToken(result.plexNowPlayingDisplayToken || { enabled: false, createdAt: null, lastUsedAt: null });
+      setPlexDisplayLink('');
+      setTestMsg('PLEX DISPLAY: Display link revoked.');
+      onToast('Plex Now Playing display link revoked');
+    } catch (err) {
+      setTestMsg(err.response?.data?.error || 'Plex display link could not be revoked');
+    } finally {
+      setTestLoading('');
+    }
+  };
+
+  const updatePlexDisplayPreference = (key, value) => {
+    setPlexDisplayPreferences((current) => ({
+      ...current,
+      [key]: value
+    }));
+  };
+
+  const savePlexDisplayPreferences = async () => {
+    setSavingPlexDisplayPreferences(true);
+    setTestMsg('');
+    try {
+      const result = await apiCall('put', '/admin/settings/integrations/plex-now-playing-display-preferences', {
+        preferences: plexDisplayPreferences
+      });
+      setPlexDisplayPreferences({
+        ...DEFAULT_PLEX_DISPLAY_PREFERENCES,
+        ...(result.plexNowPlayingDisplayPreferences || {})
+      });
+      setTestMsg('PLEX DISPLAY: Display preferences saved.');
+      onToast('Plex Now Playing display preferences saved');
+    } catch (err) {
+      setTestMsg(err.response?.data?.error || 'Plex display preferences could not be saved');
+    } finally {
+      setSavingPlexDisplayPreferences(false);
     }
   };
 
@@ -1104,6 +1192,83 @@ export default function AdminIntegrationsView({
               )}
             </div>
           )}
+          <div className="rounded-xl border border-edge bg-raised/60 px-3 py-3 space-y-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium text-ink">Now Playing display link</p>
+                <p className="mt-1 text-xs text-ghost">
+                  {plexDisplayToken.enabled
+                    ? `Enabled${plexDisplayToken.lastUsedAt ? ` · last used ${new Date(plexDisplayToken.lastUsedAt).toLocaleString()}` : ''}`
+                    : 'No active display link'}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={generatePlexDisplayToken} disabled={testLoading === 'plex-display-token'} className="btn-secondary btn-sm">
+                  {testLoading === 'plex-display-token' ? <Spinner size={14} /> : (plexDisplayToken.enabled ? 'Regenerate' : 'Generate')}
+                </button>
+                {plexDisplayToken.enabled && (
+                  <button type="button" onClick={revokePlexDisplayToken} disabled={testLoading === 'plex-display-token'} className="btn-secondary btn-sm">
+                    Revoke
+                  </button>
+                )}
+              </div>
+            </div>
+            {plexDisplayLink && (
+              <input className="input font-mono text-xs" readOnly value={plexDisplayLink} onFocus={(event) => event.target.select()} />
+            )}
+          </div>
+          <div className="rounded-xl border border-edge bg-raised/60 px-3 py-3 space-y-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium text-ink">Now Playing display preferences</p>
+                <p className="mt-1 text-xs text-ghost">Controls what the admin view and display link show on the passive Plex screen.</p>
+              </div>
+              <button type="button" onClick={savePlexDisplayPreferences} disabled={savingPlexDisplayPreferences} className="btn-secondary btn-sm">
+                {savingPlexDisplayPreferences ? <Spinner size={14} /> : 'Save display'}
+              </button>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {[
+                ['showPoster', 'Poster'],
+                ['showBackdrop', 'Backdrop'],
+                ['showContext', 'Series / context'],
+                ['showPlayer', 'Player'],
+                ['showProgress', 'Progress'],
+                ['showUpdatedAt', 'Refresh time'],
+                ['showPausedSessions', 'Paused sessions']
+              ].map(([key, label]) => (
+                <CheckboxControl
+                  key={key}
+                  id={`plex-display-${key}`}
+                  checked={Boolean(plexDisplayPreferences[key])}
+                  onChange={(event) => updatePlexDisplayPreference(key, event.target.checked)}
+                >
+                  {label}
+                </CheckboxControl>
+              ))}
+            </div>
+            <LabeledField label="Text Scale" cx={cx}>
+              <select
+                className="select"
+                value={plexDisplayPreferences.textScale || 'standard'}
+                onChange={(event) => updatePlexDisplayPreference('textScale', event.target.value)}
+              >
+                <option value="compact">Compact</option>
+                <option value="standard">Standard</option>
+                <option value="large">Large</option>
+              </select>
+            </LabeledField>
+            <LabeledField label="Display Layout" cx={cx}>
+              <select
+                className="select"
+                value={plexDisplayPreferences.layoutMode || 'standard'}
+                onChange={(event) => updatePlexDisplayPreference('layoutMode', event.target.value)}
+              >
+                <option value="standard">Standard</option>
+                <option value="poster_only">Vertical poster only</option>
+              </select>
+            </LabeledField>
+          </div>
           <LabeledField label={`Plex API Key ${meta.plexApiKeySet ? `(set: ${meta.plexApiKeyMasked})` : '(not set)'}`} cx={cx}>
             <input className="input font-mono" type="password" placeholder="Enter new key to update" value={form.plexApiKey} onChange={(e) => setForm((f) => ({ ...f, plexApiKey: e.target.value }))} />
           </LabeledField>

@@ -90,7 +90,15 @@ async function createDirectUser({ email, password, name, role = 'admin' }) {
 
 async function snapshotPlexSettings() {
   const result = await pool.query(
-    `SELECT plex_preset, plex_provider, plex_api_url, plex_api_key_encrypted, plex_library_sections
+    `SELECT plex_preset,
+            plex_provider,
+            plex_api_url,
+            plex_api_key_encrypted,
+            plex_library_sections,
+            plex_now_playing_display_token_hash,
+            plex_now_playing_display_token_created_at,
+            plex_now_playing_display_token_last_used_at,
+            plex_now_playing_display_preferences
        FROM app_integrations
       WHERE id = 1`
   );
@@ -121,6 +129,10 @@ async function restorePlexSettings(snapshot) {
               plex_api_url = NULL,
               plex_api_key_encrypted = NULL,
               plex_library_sections = '[]'::jsonb,
+              plex_now_playing_display_token_hash = NULL,
+              plex_now_playing_display_token_created_at = NULL,
+              plex_now_playing_display_token_last_used_at = NULL,
+              plex_now_playing_display_preferences = '{}'::jsonb,
               updated_at = NOW()
         WHERE id = 1`
     ).catch(() => {});
@@ -134,6 +146,10 @@ async function restorePlexSettings(snapshot) {
             plex_api_url = $3,
             plex_api_key_encrypted = $4,
             plex_library_sections = $5,
+            plex_now_playing_display_token_hash = $6,
+            plex_now_playing_display_token_created_at = $7,
+            plex_now_playing_display_token_last_used_at = $8,
+            plex_now_playing_display_preferences = $9::jsonb,
             updated_at = NOW()
       WHERE id = 1`,
     [
@@ -141,7 +157,11 @@ async function restorePlexSettings(snapshot) {
       snapshot.plex_provider,
       snapshot.plex_api_url,
       snapshot.plex_api_key_encrypted,
-      JSON.stringify(snapshot.plex_library_sections || [])
+      JSON.stringify(snapshot.plex_library_sections || []),
+      snapshot.plex_now_playing_display_token_hash,
+      snapshot.plex_now_playing_display_token_created_at,
+      snapshot.plex_now_playing_display_token_last_used_at,
+      JSON.stringify(snapshot.plex_now_playing_display_preferences || {})
     ]
   ).catch(() => {});
 }
@@ -231,6 +251,7 @@ async function main() {
       body: JSON.stringify({ email, password }),
       headers: { 'Content-Type': 'application/json' }
     });
+    client.csrfToken = '';
 
     const viewer = await client.request('/api/plex/now-playing-viewer', { expectStatus: 200 });
     assert(viewer.data?.ok === true, `Expected viewer response: ${JSON.stringify(viewer.data)}`);
@@ -248,10 +269,68 @@ async function main() {
     assert(String(image.headers.get('content-type') || '').includes('image/jpeg'), 'Expected proxied image content type');
     assert(image.buffer.length === imageBody.length, `Expected proxied image body length ${imageBody.length}, got ${image.buffer.length}`);
 
+    const generated = await client.request('/api/admin/settings/integrations/plex-now-playing-display-token', {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 200,
+      body: JSON.stringify({}),
+      headers: { 'Content-Type': 'application/json' }
+    });
+    const displayToken = generated.data?.token;
+    assert(typeof displayToken === 'string' && displayToken.startsWith('cznp_'), 'Expected one-time display token');
+    assert(generated.data?.displayPath?.startsWith('/now-playing?token='), `Expected display path: ${JSON.stringify(generated.data)}`);
+    assert(!generated.data?.plexNowPlayingDisplayToken?.token, 'Display token status must not echo token');
+
+    const preferences = await client.request('/api/admin/settings/integrations/plex-now-playing-display-preferences', {
+      method: 'PUT',
+      withCsrf: true,
+      expectStatus: 200,
+      body: JSON.stringify({
+        preferences: {
+          showPoster: false,
+          showBackdrop: false,
+          showContext: false,
+          showPlayer: false,
+          showProgress: false,
+          showUpdatedAt: false,
+          showPausedSessions: false,
+          textScale: 'large',
+          layoutMode: 'poster_only'
+        }
+      }),
+      headers: { 'Content-Type': 'application/json' }
+    });
+    assert(preferences.data?.plexNowPlayingDisplayPreferences?.showPoster === false, `Expected saved display preferences: ${JSON.stringify(preferences.data)}`);
+    assert(preferences.data?.plexNowPlayingDisplayPreferences?.textScale === 'large', `Expected saved text scale: ${JSON.stringify(preferences.data)}`);
+    assert(preferences.data?.plexNowPlayingDisplayPreferences?.layoutMode === 'poster_only', `Expected saved layout mode: ${JSON.stringify(preferences.data)}`);
+
+    const displayClient = new HttpClient('plex-now-playing-display-token-smoke');
+    const displayViewer = await displayClient.request(`/api/plex/now-playing-display?token=${encodeURIComponent(displayToken)}`, { expectStatus: 200 });
+    assert(displayViewer.data?.access === 'display_token', `Expected display token access: ${JSON.stringify(displayViewer.data)}`);
+    assert(displayViewer.data?.displayPreferences?.showPoster === false, `Expected display preference readback: ${JSON.stringify(displayViewer.data)}`);
+    assert(displayViewer.data?.displayPreferences?.textScale === 'large', `Expected display text scale readback: ${JSON.stringify(displayViewer.data)}`);
+    assert(displayViewer.data?.displayPreferences?.layoutMode === 'poster_only', `Expected display layout readback: ${JSON.stringify(displayViewer.data)}`);
+    assert(displayViewer.data?.sessions?.[0]?.title === 'Viewer Safe Payload', `Expected display viewer title: ${JSON.stringify(displayViewer.data)}`);
+    assert(displayViewer.data?.sessions?.[0]?.posterImagePath?.startsWith('/api/plex/now-playing-display-image?key='), `Expected display image path: ${JSON.stringify(displayViewer.data)}`);
+    assert(!JSON.stringify(displayViewer.data).includes(displayToken), 'Display viewer payload must not echo display token');
+
+    const displayImagePath = `${displayViewer.data.sessions[0].posterImagePath}&token=${encodeURIComponent(displayToken)}`;
+    const displayImage = await displayClient.request(displayImagePath, { expectStatus: 200 });
+    assert(String(displayImage.headers.get('content-type') || '').includes('image/jpeg'), 'Expected display proxied image content type');
+
+    await client.request('/api/admin/settings/integrations/plex-now-playing-display-token', {
+      method: 'DELETE',
+      withCsrf: true,
+      expectStatus: 200
+    });
+    await displayClient.request(`/api/plex/now-playing-display?token=${encodeURIComponent(displayToken)}`, { expectStatus: 401 });
+
     console.log(JSON.stringify({
       ok: true,
       viewerPath: '/api/plex/now-playing-viewer',
+      displayPath: '/api/plex/now-playing-display',
       imagePath: '/api/plex/now-playing-image',
+      displayImagePath: '/api/plex/now-playing-display-image',
       sessionCount: viewer.data.sessionCount,
       requests: fake.requests.map((entry) => ({
         method: entry.method,

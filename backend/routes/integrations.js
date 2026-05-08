@@ -1,5 +1,6 @@
 const express = require('express');
 const axios = require('axios');
+const crypto = require('crypto');
 const pool = require('../db/pool');
 const { asyncHandler } = require('../middleware/errors');
 const { authenticateToken, requireRole } = require('../middleware/auth');
@@ -32,14 +33,64 @@ const { resolveScopeContext } = require('../db/scopeContext');
 const sharedRouter = express.Router();
 const platformRouter = express.Router();
 const HOMELAB_EDITION = isHomelabEdition();
+const NOW_PLAYING_DISPLAY_TOKEN_PREFIX = 'cznp_';
+const NOW_PLAYING_TEXT_SCALES = new Set(['compact', 'standard', 'large']);
+const NOW_PLAYING_LAYOUT_MODES = new Set(['standard', 'poster_only']);
+const DEFAULT_NOW_PLAYING_DISPLAY_PREFERENCES = Object.freeze({
+  layoutMode: 'standard',
+  showPoster: true,
+  showBackdrop: true,
+  showContext: true,
+  showPlayer: true,
+  showProgress: true,
+  showUpdatedAt: true,
+  showPausedSessions: true,
+  textScale: 'standard'
+});
 
-function buildNowPlayingImagePath(key) {
-  const value = String(key || '').trim();
-  if (!value) return null;
-  return `/api/plex/now-playing-image?key=${encodeURIComponent(value)}`;
+function normalizeNowPlayingDisplayPreferences(input = {}) {
+  const raw = input && typeof input === 'object' ? input : {};
+  const normalized = { ...DEFAULT_NOW_PLAYING_DISPLAY_PREFERENCES };
+  const layoutMode = String(raw.layoutMode || '').trim().toLowerCase();
+  if (NOW_PLAYING_LAYOUT_MODES.has(layoutMode)) normalized.layoutMode = layoutMode;
+  for (const key of ['showPoster', 'showBackdrop', 'showContext', 'showPlayer', 'showProgress', 'showUpdatedAt', 'showPausedSessions']) {
+    if (raw[key] !== undefined) normalized[key] = Boolean(raw[key]);
+  }
+  const textScale = String(raw.textScale || '').trim().toLowerCase();
+  if (NOW_PLAYING_TEXT_SCALES.has(textScale)) normalized.textScale = textScale;
+  return normalized;
 }
 
-function shapeNowPlayingViewerSession(session) {
+function filterNowPlayingSessionsForPreferences(sessions, preferences) {
+  const values = Array.isArray(sessions) ? sessions : [];
+  if (preferences.showPausedSessions) return values;
+  return values.filter((session) => String(session?.player?.state || '').toLowerCase() !== 'paused');
+}
+
+function generateNowPlayingDisplayToken() {
+  return `${NOW_PLAYING_DISPLAY_TOKEN_PREFIX}${crypto.randomBytes(32).toString('base64url')}`;
+}
+
+function hashNowPlayingDisplayToken(token) {
+  const value = String(token || '').trim();
+  if (!value) return '';
+  return crypto.createHash('sha256').update(value).digest('hex');
+}
+
+function safeEqualHash(a, b) {
+  const left = Buffer.from(String(a || ''), 'hex');
+  const right = Buffer.from(String(b || ''), 'hex');
+  return left.length > 0 && left.length === right.length && crypto.timingSafeEqual(left, right);
+}
+
+function buildNowPlayingImagePath(key, { display = false } = {}) {
+  const value = String(key || '').trim();
+  if (!value) return null;
+  const basePath = display ? '/api/plex/now-playing-display-image' : '/api/plex/now-playing-image';
+  return `${basePath}?key=${encodeURIComponent(value)}`;
+}
+
+function shapeNowPlayingViewerSession(session, options = {}) {
   const posterKey = session?.thumbKey || session?.artKey || null;
   const backdropKey = session?.artKey || session?.thumbKey || null;
   return {
@@ -56,9 +107,36 @@ function shapeNowPlayingViewerSession(session) {
     player: session?.player || null,
     user: session?.user || null,
     hasQueueItem: Boolean(session?.hasQueueItem),
-    posterImagePath: buildNowPlayingImagePath(posterKey),
-    backdropImagePath: buildNowPlayingImagePath(backdropKey)
+    posterImagePath: buildNowPlayingImagePath(posterKey, options),
+    backdropImagePath: buildNowPlayingImagePath(backdropKey, options)
   };
+}
+
+function shapeNowPlayingDisplayTokenStatus(config) {
+  return {
+    enabled: Boolean(config?.plexNowPlayingDisplayTokenHash),
+    createdAt: config?.plexNowPlayingDisplayTokenCreatedAt || null,
+    lastUsedAt: config?.plexNowPlayingDisplayTokenLastUsedAt || null
+  };
+}
+
+async function loadConfigForNowPlayingDisplayToken(token, { touch = false } = {}) {
+  const rawToken = String(token || '').trim();
+  if (!rawToken || !rawToken.startsWith(NOW_PLAYING_DISPLAY_TOKEN_PREFIX)) return null;
+  const config = await loadAdminIntegrationConfig();
+  const expectedHash = config?.plexNowPlayingDisplayTokenHash || '';
+  const actualHash = hashNowPlayingDisplayToken(rawToken);
+  if (!safeEqualHash(actualHash, expectedHash)) return null;
+  if (touch) {
+    await pool.query(
+      `UPDATE app_integrations
+          SET plex_now_playing_display_token_last_used_at = NOW()
+        WHERE id = 1
+          AND plex_now_playing_display_token_hash = $1`,
+      [expectedHash]
+    ).catch(() => {});
+  }
+  return config;
 }
 
 async function buildSharedIntegrationPayload(config) {
@@ -79,6 +157,8 @@ async function buildSharedIntegrationPayload(config) {
     plexLibrarySections: Array.isArray(config?.plexLibrarySections) ? config.plexLibrarySections : [],
     plexApiKeySet: Boolean(config?.plexApiKey),
     plexApiKeyMasked: maskSecret(config?.plexApiKey || ''),
+    plexNowPlayingDisplayToken: shapeNowPlayingDisplayTokenStatus(config),
+    plexNowPlayingDisplayPreferences: normalizeNowPlayingDisplayPreferences(config?.plexNowPlayingDisplayPreferences),
     booksPreset: config?.booksPreset || 'googlebooks',
     booksProvider: config?.booksProvider || resolveBooksPreset(config).provider,
     booksApiUrl: config?.booksApiUrl || '',
@@ -258,12 +338,41 @@ sharedRouter.get('/plex/now-playing-viewer', authenticateToken, requireRole('adm
   }
 
   const sessions = await fetchPlexNowPlayingSessions(config);
+  const displayPreferences = normalizeNowPlayingDisplayPreferences(config.plexNowPlayingDisplayPreferences);
+  const visibleSessions = filterNowPlayingSessionsForPreferences(sessions, displayPreferences);
   return res.json({
     ok: true,
     path: '/status/sessions',
-    sessionCount: sessions.length,
+    sessionCount: visibleSessions.length,
     generatedAt: new Date().toISOString(),
-    sessions: sessions.map(shapeNowPlayingViewerSession)
+    displayPreferences,
+    sessions: visibleSessions.map(shapeNowPlayingViewerSession)
+  });
+}));
+
+sharedRouter.get('/plex/now-playing-display', asyncHandler(async (req, res) => {
+  const config = await loadConfigForNowPlayingDisplayToken(req.query.token, { touch: true });
+  if (!config) {
+    return res.status(401).json({ ok: false, error: 'Invalid or revoked Now Playing display token' });
+  }
+  if (!config.plexApiUrl) {
+    return res.status(400).json({ ok: false, authenticated: false, detail: 'Plex API URL is not configured' });
+  }
+  if (!config.plexApiKey) {
+    return res.status(400).json({ ok: false, authenticated: false, detail: 'Plex API key is not configured' });
+  }
+
+  const sessions = await fetchPlexNowPlayingSessions(config);
+  const displayPreferences = normalizeNowPlayingDisplayPreferences(config.plexNowPlayingDisplayPreferences);
+  const visibleSessions = filterNowPlayingSessionsForPreferences(sessions, displayPreferences);
+  return res.json({
+    ok: true,
+    path: '/status/sessions',
+    access: 'display_token',
+    sessionCount: visibleSessions.length,
+    generatedAt: new Date().toISOString(),
+    displayPreferences,
+    sessions: visibleSessions.map((session) => shapeNowPlayingViewerSession(session, { display: true }))
   });
 }));
 
@@ -279,11 +388,97 @@ sharedRouter.get('/plex/now-playing-image', authenticateToken, requireRole('admi
   return res.send(image.body);
 }));
 
+sharedRouter.get('/plex/now-playing-display-image', asyncHandler(async (req, res) => {
+  const key = String(req.query.key || '').trim();
+  const config = await loadConfigForNowPlayingDisplayToken(req.query.token, { touch: true });
+  if (!config || !config.plexApiUrl || !config.plexApiKey) {
+    return res.status(404).json({ error: 'Plex image settings were not found' });
+  }
+  const image = await fetchPlexImageAsset(config, key);
+  res.setHeader('Content-Type', image.contentType);
+  res.setHeader('Cache-Control', 'private, max-age=60');
+  return res.send(image.body);
+}));
+
 // ── Integration settings (admin only) ─────────────────────────────────────────
 
 sharedRouter.get('/admin/settings/integrations', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
   const config = await loadAdminIntegrationConfig();
   res.json(await (HOMELAB_EDITION ? buildHomelabIntegrationPayload(config) : buildPlatformIntegrationPayload(config)));
+}));
+
+sharedRouter.post('/admin/settings/integrations/plex-now-playing-display-token', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
+  const token = generateNowPlayingDisplayToken();
+  const tokenHash = hashNowPlayingDisplayToken(token);
+  const result = await pool.query(
+    `INSERT INTO app_integrations (
+       id,
+       plex_now_playing_display_token_hash,
+       plex_now_playing_display_token_created_at,
+       plex_now_playing_display_token_last_used_at
+     ) VALUES (1, $1, NOW(), NULL)
+     ON CONFLICT (id) DO UPDATE SET
+       plex_now_playing_display_token_hash = EXCLUDED.plex_now_playing_display_token_hash,
+       plex_now_playing_display_token_created_at = EXCLUDED.plex_now_playing_display_token_created_at,
+       plex_now_playing_display_token_last_used_at = NULL
+     RETURNING plex_now_playing_display_token_created_at`,
+    [tokenHash]
+  );
+  await logActivity(req, 'admin.settings.integrations.plex_now_playing_display_token.generate', 'app_integrations', 1, {
+    tokenCreated: true
+  });
+  return res.json({
+    ok: true,
+    token,
+    displayPath: `/now-playing?token=${encodeURIComponent(token)}`,
+    displayApiPath: '/api/plex/now-playing-display',
+    plexNowPlayingDisplayToken: {
+      enabled: true,
+      createdAt: result.rows[0]?.plex_now_playing_display_token_created_at || null,
+      lastUsedAt: null
+    }
+  });
+}));
+
+sharedRouter.delete('/admin/settings/integrations/plex-now-playing-display-token', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
+  await pool.query(
+    `UPDATE app_integrations
+        SET plex_now_playing_display_token_hash = NULL,
+            plex_now_playing_display_token_created_at = NULL,
+            plex_now_playing_display_token_last_used_at = NULL
+      WHERE id = 1`
+  );
+  await logActivity(req, 'admin.settings.integrations.plex_now_playing_display_token.revoke', 'app_integrations', 1, {
+    tokenRevoked: true
+  });
+  return res.json({
+    ok: true,
+    plexNowPlayingDisplayToken: {
+      enabled: false,
+      createdAt: null,
+      lastUsedAt: null
+    }
+  });
+}));
+
+sharedRouter.put('/admin/settings/integrations/plex-now-playing-display-preferences', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
+  const preferences = normalizeNowPlayingDisplayPreferences(req.body?.preferences || req.body || {});
+  await pool.query(
+    `INSERT INTO app_integrations (
+       id,
+       plex_now_playing_display_preferences
+     ) VALUES (1, $1::jsonb)
+     ON CONFLICT (id) DO UPDATE SET
+       plex_now_playing_display_preferences = EXCLUDED.plex_now_playing_display_preferences`,
+    [JSON.stringify(preferences)]
+  );
+  await logActivity(req, 'admin.settings.integrations.plex_now_playing_display_preferences.update', 'app_integrations', 1, {
+    preferences
+  });
+  return res.json({
+    ok: true,
+    plexNowPlayingDisplayPreferences: preferences
+  });
 }));
 
 sharedRouter.put('/admin/settings/integrations', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {

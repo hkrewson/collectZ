@@ -182,6 +182,10 @@ const normalizeIntegrationRecord = (row) => {
     kavitaBaseUrl,
     kavitaApiKey,
     kavitaTimeoutMs: Math.max(1000, normalizePositiveInteger(row?.kavita_timeout_ms || process.env.KAVITA_TIMEOUT_MS, 20000)),
+    plexNowPlayingDisplayTokenHash: row?.plex_now_playing_display_token_hash || '',
+    plexNowPlayingDisplayTokenCreatedAt: row?.plex_now_playing_display_token_created_at || null,
+    plexNowPlayingDisplayTokenLastUsedAt: row?.plex_now_playing_display_token_last_used_at || null,
+    plexNowPlayingDisplayPreferences: row?.plex_now_playing_display_preferences || {},
     logExportLastValidation: row?.log_export_last_validation_status
       ? {
         status: String(row.log_export_last_validation_status).trim().toLowerCase(),

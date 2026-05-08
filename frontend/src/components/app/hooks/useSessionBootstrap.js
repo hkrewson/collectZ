@@ -5,6 +5,13 @@ export default function useSessionBootstrap({ route, apiCall, setRoute }) {
   const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
+    const hasNowPlayingDisplayToken = route === 'now-playing' && new URLSearchParams(window.location.search).has('token');
+    if (hasNowPlayingDisplayToken) {
+      setAuthChecked(true);
+      setUser(null);
+      return;
+    }
+
     if (route !== 'dashboard' && route !== 'now-playing') {
       setAuthChecked(true);
       return;

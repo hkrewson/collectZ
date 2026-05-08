@@ -4932,6 +4932,161 @@
         }
       }
     },
+    "/api/plex/now-playing-display": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Read sanitized Plex now-playing display data with a limited display token",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Plex now-playing viewer payload",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or revoked display token"
+          }
+        }
+      }
+    },
+    "/api/plex/now-playing-display-image": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Proxy a Plex-relative now-playing image with a limited display token",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Plex image bytes",
+            "content": {
+              "image/jpeg": {
+                "schema": { "type": "string", "format": "binary" }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or revoked display token"
+          },
+          "404": {
+            "description": "Plex image unavailable"
+          }
+        }
+      }
+    },
+    "/api/admin/settings/integrations/plex-now-playing-display-token": {
+      "post": {
+        "tags": ["Admin"],
+        "summary": "Generate a revocable Plex Now Playing display token",
+        "security": [
+          { "cookieSession": [] }
+        ],
+        "responses": {
+          "200": {
+            "description": "One-time display token and display path",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "403": {
+            "description": "Admin role required"
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Admin"],
+        "summary": "Revoke the Plex Now Playing display token",
+        "security": [
+          { "cookieSession": [] }
+        ],
+        "responses": {
+          "200": {
+            "description": "Display token revoked",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "403": {
+            "description": "Admin role required"
+          }
+        }
+      }
+    },
+    "/api/admin/settings/integrations/plex-now-playing-display-preferences": {
+      "put": {
+        "tags": ["Admin"],
+        "summary": "Update Plex Now Playing display preferences",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "properties": {
+                  "preferences": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "showPoster": { "type": "boolean" },
+                      "showBackdrop": { "type": "boolean" },
+                      "showContext": { "type": "boolean" },
+                      "showPlayer": { "type": "boolean" },
+                      "showProgress": { "type": "boolean" },
+                      "showUpdatedAt": { "type": "boolean" },
+                      "showPausedSessions": { "type": "boolean" },
+                      "textScale": { "type": "string", "enum": ["compact", "standard", "large"] },
+                      "layoutMode": { "type": "string", "enum": ["standard", "poster_only"] }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Display preferences saved",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "403": {
+            "description": "Admin role required"
+          }
+        }
+      }
+    },
     "/api/admin/settings/integrations/test-kavita": {
       "post": {
         "tags": ["Admin"],

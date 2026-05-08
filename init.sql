@@ -575,6 +575,10 @@ CREATE TABLE IF NOT EXISTS app_integrations (
     kavita_base_url TEXT,
     kavita_api_key_encrypted TEXT,
     kavita_timeout_ms INTEGER DEFAULT 20000,
+    plex_now_playing_display_token_hash TEXT,
+    plex_now_playing_display_token_created_at TIMESTAMP,
+    plex_now_playing_display_token_last_used_at TIMESTAMP,
+    plex_now_playing_display_preferences JSONB NOT NULL DEFAULT '{}'::jsonb,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT app_integrations_space_id_key UNIQUE (space_id)
@@ -1553,5 +1557,7 @@ INSERT INTO schema_migrations (version, description) VALUES
     (92, 'Add user-linked event attendee identity'),
     (93, 'Add event schedule notification delivery attempts'),
     (94, 'Add Kavita digital library integration settings'),
-    (95, 'Add Art numbered print metadata')
+    (95, 'Add Art numbered print metadata'),
+    (96, 'Add Plex now playing display token metadata'),
+    (97, 'Add Plex now playing display preferences')
 ON CONFLICT (version) DO NOTHING;

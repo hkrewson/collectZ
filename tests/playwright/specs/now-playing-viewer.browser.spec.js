@@ -54,4 +54,109 @@ test.describe('Plex now-playing viewer browser regressions', () => {
     await expect(page.getByRole('button', { name: 'Dashboard' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Library' })).toHaveCount(0);
   });
+
+  test('display token can open now-playing without an admin session', async ({ page }) => {
+    const displayToken = 'cznp_browser_display_token';
+    await page.route('**/api/auth/me', async (route) => {
+      await route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ error: 'Access denied' }) });
+    });
+    await page.route('**/api/plex/now-playing-display?**', async (route) => {
+      const url = new URL(route.request().url());
+      expect(url.searchParams.get('token')).toBe(displayToken);
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ok: true,
+          access: 'display_token',
+          sessionCount: 1,
+          generatedAt: '2026-05-07T12:00:00.000Z',
+          sessions: [{
+            title: 'Token Viewer',
+            type: 'movie',
+            year: 2026,
+            progressPercent: 50,
+            player: { state: 'playing', platform: 'TV' },
+            posterImagePath: '/api/plex/now-playing-display-image?key=%2Flibrary%2Fmetadata%2F456%2Fthumb'
+          }]
+        })
+      });
+    });
+    await page.route('**/api/plex/now-playing-display-image?**', async (route) => {
+      const url = new URL(route.request().url());
+      expect(url.searchParams.get('token')).toBe(displayToken);
+      await route.fulfill({
+        status: 200,
+        contentType: 'image/svg+xml',
+        body: '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="300"><rect width="200" height="300" fill="#111827"/></svg>'
+      });
+    });
+
+    await page.goto(`/now-playing?token=${displayToken}`);
+
+    await expect(page.getByText('Plex Now Playing')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Token Viewer' })).toBeVisible();
+    await expect(page.getByText('playing · TV')).toBeVisible();
+    await expect(page.getByText('50%')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Dashboard' })).toHaveCount(0);
+  });
+
+  test('display token can render the vertical poster-only layout', async ({ page }) => {
+    const displayToken = 'cznp_browser_poster_only_token';
+    await page.route('**/api/auth/me', async (route) => {
+      await route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ error: 'Access denied' }) });
+    });
+    await page.route('**/api/plex/now-playing-display?**', async (route) => {
+      const url = new URL(route.request().url());
+      expect(url.searchParams.get('token')).toBe(displayToken);
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ok: true,
+          access: 'display_token',
+          sessionCount: 1,
+          generatedAt: '2026-05-07T12:30:00.000Z',
+          displayPreferences: {
+            layoutMode: 'poster_only',
+            showPoster: false,
+            showBackdrop: false,
+            showLogo: false,
+            showTitle: true,
+            showTypeYear: true,
+            showProgress: true,
+            showPlayer: true,
+            showGeneratedAt: true,
+            showFooter: true,
+            textScale: 'medium'
+          },
+          sessions: [{
+            title: 'Poster Only Viewer',
+            type: 'movie',
+            year: 2026,
+            progressPercent: 50,
+            player: { state: 'playing', platform: 'TV' },
+            posterImagePath: '/api/plex/now-playing-display-image?key=%2Flibrary%2Fmetadata%2F789%2Fthumb'
+          }]
+        })
+      });
+    });
+    await page.route('**/api/plex/now-playing-display-image?**', async (route) => {
+      const url = new URL(route.request().url());
+      expect(url.searchParams.get('token')).toBe(displayToken);
+      await route.fulfill({
+        status: 200,
+        contentType: 'image/svg+xml',
+        body: '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="300"><rect width="200" height="300" fill="#111827"/></svg>'
+      });
+    });
+
+    await page.goto(`/now-playing?token=${displayToken}`);
+
+    await expect(page.locator('main img')).toBeVisible();
+    await expect(page.getByText('Plex Now Playing')).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Poster Only Viewer' })).toHaveCount(0);
+    await expect(page.getByText('playing · TV')).toHaveCount(0);
+    await expect(page.getByText('50%')).toHaveCount(0);
+  });
 });

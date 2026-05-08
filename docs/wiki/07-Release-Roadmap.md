@@ -9732,6 +9732,107 @@ Historical note:
 - What remains in the milestone: none for `3.4.118`; future Plex slices can add display-token mode, richer layout options, or queue handling if a PMS response proves those fields.
 - Recommended commit message: `Release 3.4.118 with Plex Now Playing viewer and authenticated image proxy`
 
+## 3.4.119 — Plex Now Playing Display Token
+
+**Goal:** Let admins generate a revocable, limited Plex Now Playing display link so a passive display can open `/now-playing` without an admin browser session.
+
+**Current Slice:** `Closed 2026-05-07`
+
+### Scope
+
+- Store only a hashed Plex Now Playing display token on the admin Plex integration row.
+- Add admin generate and revoke actions for the display token.
+- Add token-only read endpoints for sanitized Now Playing viewer data and proxied Plex-relative images.
+- Update `/now-playing?token=...` to use the display-token endpoints without redirecting to login.
+- Keep the existing admin-session `/now-playing` behavior intact.
+- Keep Plex imports, webhooks, watch-state writes, queue/next-up behavior, and broad import modernization out of scope.
+
+### Acceptance Criteria
+
+- Admins can generate a display link and revoke it from Plex Integrations.
+- The raw display token is returned only at generation time; subsequent settings readback exposes only enabled/created/last-used metadata.
+- `/now-playing?token=...` renders the viewer without an admin session.
+- Display-token viewer and image routes reject missing, invalid, or revoked tokens.
+- Display-token routes return only the same sanitized viewer data and app-owned image proxy paths as the authenticated viewer.
+- Running-stack verification proves the app serves `3.4.119`, Help > Releases contains the release, and `events_enabled` remains on.
+
+### Closeout
+
+- Roadmap slice: `3.4.119 — Plex Now Playing Display Token`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`, and `docs/releases/v3.4.119.md`.
+- Runtime verification used: rebuilt backend/frontend containers with `APP_VERSION=3.4.119`; verified `/api/health` reports frontend/backend/build `3.4.119`; verified live DB migration `96`; verified Help > Releases serves `v3.4.119`; verified live DB `feature_flags.events_enabled=true` and `feature_flags.collectibles_enabled=true`; verified the Plex Now Playing viewer smoke inside Docker against a fake PMS, including admin-session viewer readback, admin-session image proxy, display-token generation, unauthenticated display-token viewer readback, display-token image proxy, revoke, and post-revoke `401`; verified homelab and platform edition runtime boundaries.
+- CI/checks run: `node --check backend/routes/integrations.js`, `node --check backend/scripts/plex-now-playing-viewer-smoke.js`, `npm --prefix backend run test:unit`, `npm --prefix backend run test:openapi`, `npm --prefix frontend run build:vite`, Docker `backend npm run test:unit`, Docker `backend npm run test:openapi`, Docker `backend npm run test:plex-now-playing-viewer-smoke`, targeted Playwright `tests/playwright/specs/now-playing-viewer.browser.spec.js`, full `npm run test:browser` (`61 passed`, `4 skipped`), Docker `backend npm run test:init-parity`, Docker `backend npm run test:migration-rehearsal`, Docker `backend npm run test:rbac-regression`, Docker `backend npm run test:platform-edition-boundary`, `npm run validate:public-export`, Docker homelab `backend npm run test:homelab-edition-boundary`, `npm --prefix backend run test:observability-evidence`, production-shaped `npm --prefix backend run test:release-preflight-local`, generated-artifact secret-pattern scan, and `git diff --check`.
+- Files changed: `README.md`, `app-meta.json`, `backend/app-meta.json`, `backend/db/migrations.js`, `backend/openapi/openapi.yaml`, `backend/package.json`, `backend/package-lock.json`, `backend/release-feed.json`, `backend/routes/integrations.js`, `backend/scripts/plex-now-playing-viewer-smoke.js`, `backend/scripts/unit-tests.js`, `backend/services/integrations.js`, `docker-compose.yml`, `docs/releases/v3.4.119.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`, `env.example`, `frontend/package.json`, `frontend/package-lock.json`, `frontend/src/App.jsx`, `frontend/src/app-meta.json`, `frontend/src/components/AdminIntegrationsView.jsx`, `frontend/src/components/NowPlayingView.jsx`, `frontend/src/components/app/hooks/useSessionBootstrap.js`, `init.sql`, `preflight-go-no-go.md`, and `tests/playwright/specs/now-playing-viewer.browser.spec.js`.
+- Risks or follow-ups: display links are bearer-style URLs and should be treated as secrets; token expiration and multiple named display devices remain future work; queue/next-up remains out of scope because PMS proof still has no usable queue hint; `secret-scan` and `image-security-and-sbom` remain CI-only locally because `gitleaks` and `trivy` are not installed.
+- What remains in the milestone: none for `3.4.119`; future Plex slices can add named display devices, token expiration, richer viewer layout controls, webhooks, scheduled sync cadence, or watch-state sync as separate milestones.
+- Recommended commit message: `Release 3.4.119 with Plex Now Playing display token links`
+
+## 3.4.120 — Plex Now Playing Display Preferences
+
+**Goal:** Let admins control the passive Plex Now Playing display surface without changing Plex imports, webhooks, scheduled sync, or watch-state behavior.
+
+**Current Slice:** `Closed 2026-05-07`
+
+### Scope
+
+- Add saved Plex Now Playing display preferences on the app integration row.
+- Let admins toggle poster, backdrop, context, player, progress, refresh time, paused sessions, and display text scale.
+- Return normalized display preferences from both the authenticated admin viewer endpoint and the limited display-token endpoint.
+- Apply the preferences in `/now-playing` for both admin-session and display-token modes.
+- Keep the existing display token, image proxy, Plex imports, PMS parser behavior, webhooks, scheduled sync cadence, and watch-state work unchanged.
+
+### Acceptance Criteria
+
+- Plex Integrations can save display preferences without exposing Plex credentials or display tokens.
+- `/api/plex/now-playing-viewer` and `/api/plex/now-playing-display` return normalized `displayPreferences`.
+- `/now-playing` hides or shows the selected display elements and respects compact/standard/large text scale.
+- Paused sessions can be excluded from the viewer payload before the frontend chooses the first session.
+- Docker runtime smoke proves preference save and token viewer readback against a fake PMS.
+- Running-stack verification proves the app serves `3.4.120`, Help > Releases contains the release, and `events_enabled` remains on.
+
+### Closeout
+
+- Roadmap slice: `3.4.120 — Plex Now Playing Display Preferences`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`, and `docs/releases/v3.4.120.md`.
+- Runtime verification used: rebuilt local backend/frontend images tagged `3.4.120`; verified `/api/health` reports frontend/backend/build `3.4.120`; verified live DB migration `97`; verified live DB `feature_flags.events_enabled=true` and `feature_flags.collectibles_enabled=true`; verified Help > Releases serves `v3.4.120`; verified Docker Plex Now Playing viewer smoke against a fake PMS, including display preference save/readback through the display-token endpoint; verified Plex readback and real now-playing runtime proof still return sanitized data; restored the running stack to `ghcr.io/hkrewson/collectz-backend:3.4.120` and `ghcr.io/hkrewson/collectz-frontend:3.4.120`.
+- CI/checks run: `node --check backend/routes/integrations.js`, `node --check backend/scripts/plex-now-playing-viewer-smoke.js`, Docker Node 20 `npm run test:unit` (`262` passed), Docker `backend npm run test:openapi`, Docker `backend npm run test:plex-now-playing-viewer-smoke`, Docker `backend npm run test:plex-now-playing-readback-smoke`, Docker `backend npm run test:plex-real-now-playing-runtime-proof`, targeted Playwright Now Playing spec in the official Playwright container (`3` passed), full Playwright browser regression in the official Playwright container (`61` passed, `4` skipped), Docker `backend npm run test:init-parity`, Docker `backend npm run test:migration-rehearsal`, platform-mode Docker `backend npm run test:rbac-regression`, platform-mode Docker `backend npm run test:platform-edition-boundary`, Docker `backend npm run test:homelab-edition-boundary`, `npm run validate:public-export`, `npm --prefix backend run test:observability-evidence`, `npm --prefix backend run test:release-preflight-local`, generated-artifact secret-pattern scan, and `git diff --check`.
+- Files changed: `README.md`, `app-meta.json`, `backend/app-meta.json`, `backend/db/migrations.js`, `backend/openapi/openapi.yaml`, `backend/package.json`, `backend/package-lock.json`, `backend/release-feed.json`, `backend/routes/integrations.js`, `backend/scripts/plex-now-playing-viewer-smoke.js`, `backend/scripts/unit-tests.js`, `backend/services/integrations.js`, `docker-compose.yml`, `docs/releases/v3.4.120.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`, `env.example`, `frontend/package.json`, `frontend/package-lock.json`, `frontend/src/app-meta.json`, `frontend/src/components/AdminIntegrationsView.jsx`, `frontend/src/components/NowPlayingView.jsx`, `init.sql`, `artifacts/observability-evidence/observability-release-evidence.json`, and `preflight-go-no-go.md`.
+- Risks or follow-ups: preferences are global to the single saved display token rather than per named display device; token expiration and multiple named display devices remain future work; queue/next-up remains out of scope because PMS proof still has no usable queue hint; local `compose-smoke` secure-cookie parity, `secret-scan`, and `image-security-and-sbom` remain CI-only or blocked locally as documented in `preflight-go-no-go.md`.
+- What remains in the milestone: none for `3.4.120`; future Plex slices can add named display devices, token expiration, webhooks, scheduled sync cadence, or watch-state sync as separate milestones.
+- Recommended commit message: `Release 3.4.120 with Plex Now Playing display preferences`
+
+## 3.4.121 — Plex Now Playing Vertical Poster Display
+
+**Goal:** Add a saved vertical poster-only layout option for passive Plex Now Playing displays without changing Plex imports, display-token ownership, webhooks, scheduled sync, or watch-state behavior.
+
+**Current Slice:** `Closed 2026-05-07`
+
+### Scope
+
+- Add a saved display layout mode to the existing Plex Now Playing display preferences.
+- Let admins choose `Standard` or `Vertical poster only` in Plex Integrations.
+- Render `/now-playing` in poster-only mode as a full-height vertical poster surface for both admin-session and display-token modes.
+- Keep the existing field visibility toggles, text scale, display-token behavior, and image proxy behavior intact.
+
+### Acceptance Criteria
+
+- The admin settings payload persists and reads back `layoutMode`.
+- `/api/plex/now-playing-viewer` and `/api/plex/now-playing-display` return normalized `layoutMode`.
+- `/now-playing` respects `layoutMode: poster_only` and hides standard text/header/progress chrome.
+- Docker runtime smoke proves poster-only preference save and display-token readback against a fake PMS.
+- Running-stack verification proves the app serves `3.4.121`, Help > Releases contains the release, and `events_enabled` remains on.
+
+### Closeout
+
+- Roadmap slice: `3.4.121 — Plex Now Playing Vertical Poster Display`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`, and `docs/releases/v3.4.121.md`.
+- Runtime verification used: rebuilt local platform backend/frontend images with `APP_VERSION=3.4.121`; verified backend container `APP_EDITION=platform` and `APP_VERSION=3.4.121`; verified `/api/health` reports frontend/backend/build `3.4.121`; verified `/api/auth/config` reports `product_edition=platform`; verified live DB `feature_flags.events_enabled=true` and `feature_flags.collectibles_enabled=true`; verified served frontend assets contain `poster_only`, `posterOnlyMode`, `displayPreferences`, and `VITE_APP_VERSION=3.4.121`; verified Help > Releases serves `v3.4.121`; verified Plex Now Playing viewer smoke inside Docker against a fake PMS, including poster-only preference save/readback through the display-token endpoint.
+- CI/checks run: `node --check backend/routes/integrations.js`, `node --check backend/scripts/plex-now-playing-viewer-smoke.js`, `node --check tests/playwright/specs/now-playing-viewer.browser.spec.js`, Docker `backend npm run test:unit` (`262` passed), Docker `backend npm run test:openapi`, Docker `backend npm run test:integration-smoke`, Docker `backend npm run test:plex-now-playing-viewer-smoke`, Docker `backend npm run test:help-releases-smoke`, targeted Playwright Now Playing spec in the official Playwright container (`4` passed), full Playwright browser regression in the official Playwright container (`62` passed, `4` skipped), Docker `backend npm run test:init-parity`, Docker `backend npm run test:migration-rehearsal`, platform-mode Docker `backend npm run test:rbac-regression`, platform-mode Docker `backend npm run test:platform-edition-boundary`, `npm run validate:public-export`, `npm --prefix backend run test:observability-evidence`, `npm --prefix backend run test:release-preflight-local`, generated-artifact secret-pattern scan, and `git diff --check`.
+- Files changed: `README.md`, `app-meta.json`, `backend/app-meta.json`, `backend/openapi/openapi.yaml`, `backend/package.json`, `backend/package-lock.json`, `backend/release-feed.json`, `backend/routes/integrations.js`, `backend/scripts/plex-now-playing-viewer-smoke.js`, `backend/scripts/unit-tests.js`, `docker-compose.yml`, `docs/releases/v3.4.121.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`, `env.example`, `frontend/package.json`, `frontend/package-lock.json`, `frontend/src/app-meta.json`, `frontend/src/components/AdminIntegrationsView.jsx`, `frontend/src/components/NowPlayingView.jsx`, `artifacts/observability-evidence/observability-release-evidence.json`, `preflight-go-no-go.md`, and `tests/playwright/specs/now-playing-viewer.browser.spec.js`.
+- Risks or follow-ups: poster-only mode currently uses the first active Plex session and the existing single display-token preferences; named display devices, per-display layouts, token expiration, queue/next-up, webhooks, scheduled sync cadence, and watch-state sync remain future Plex work; local `compose-smoke` secure-cookie parity, `secret-scan`, and `image-security-and-sbom` remain CI-only or blocked locally as documented in `preflight-go-no-go.md`; homelab edition boundary was not rerun locally for this slice because the live stack was preserved in platform mode.
+- What remains in the milestone: none for `3.4.121`; future Plex slices can add named display devices, token expiration, webhooks, scheduled sync cadence, or watch-state sync as separate milestones.
+- Recommended commit message: `Release 3.4.121 with Plex Now Playing vertical poster display`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.
