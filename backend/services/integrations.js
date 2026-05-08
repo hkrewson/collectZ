@@ -186,6 +186,11 @@ const normalizeIntegrationRecord = (row) => {
     plexNowPlayingDisplayTokenCreatedAt: row?.plex_now_playing_display_token_created_at || null,
     plexNowPlayingDisplayTokenLastUsedAt: row?.plex_now_playing_display_token_last_used_at || null,
     plexNowPlayingDisplayPreferences: row?.plex_now_playing_display_preferences || {},
+    plexWebhookReceiverTokenHash: row?.plex_webhook_receiver_token_hash || '',
+    plexWebhookReceiverTokenCreatedAt: row?.plex_webhook_receiver_token_created_at || null,
+    plexWebhookReceiverTokenLastRotatedAt: row?.plex_webhook_receiver_token_last_rotated_at || null,
+    plexWebhookReceiverLastReceivedAt: row?.plex_webhook_receiver_last_received_at || null,
+    plexWebhookReceiverLastEvent: row?.plex_webhook_receiver_last_event || null,
     logExportLastValidation: row?.log_export_last_validation_status
       ? {
         status: String(row.log_export_last_validation_status).trim().toLowerCase(),

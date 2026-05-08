@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.123",
+      "version": "v3.4.123",
+      "date": null,
+      "status": null,
+      "summary": "This patch adds Plex webhook receiver administration. Admins can generate, rotate, and revoke a receiver URL for Plex webhooks while the receiver remains contract-only.",
+      "details": []
+    },
+    {
       "title": "collectZ v3.4.122",
       "version": "v3.4.122",
       "date": null,
@@ -122,25 +130,6 @@
             "Normalized only non-sensitive readback fields such as title, type, progress, user label, and player state.",
             "Added a Docker-runnable fake PMS smoke that writes secret-free now-playing evidence.",
             "Preserved existing Plex provider discovery, section discovery, and import behavior."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.4.113",
-      "version": "v3.4.113",
-      "date": null,
-      "status": null,
-      "summary": "This release adds a read-only Plex provider discovery probe for saved Plex integrations. Admin and workspace integration screens can now ask the configured Plex Media Server for `/media/providers` and show sanitized capability readback without exposing tokens or changing Plex import behavior.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added admin and workspace Plex provider discovery probe endpoints.",
-            "Reused saved Plex API URL and token settings server-side.",
-            "Returned only sanitized provider fields: key, title, type, protocol, identifier, and feature keys.",
-            "Added a Plex Integrations action to probe providers and display the sanitized readback.",
-            "Preserved existing Plex section test and import behavior."
           ]
         }
       ]

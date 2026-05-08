@@ -109,6 +109,7 @@ const {
 } = require('../services/loanReminders');
 const metricsModule = require('../services/metrics');
 const { shouldEnforceCsrf } = require('../middleware/csrf');
+const { sanitizeRequestUrl } = require('../middleware/errors');
 const observabilityRuntimeSource = fs.readFileSync(require.resolve('../services/observabilityRuntime'), 'utf8');
 const releasePreflightLocalSource = fs.readFileSync(require.resolve('../scripts/release-preflight-local'), 'utf8');
 const artMigrationBackfillSmokeSource = fs.readFileSync(require.resolve('../scripts/art-migration-backfill-smoke'), 'utf8');
@@ -235,6 +236,7 @@ const plexNowPlayingReadbackSmokeSource = fs.readFileSync(require.resolve('../sc
 const plexRealNowPlayingRuntimeProofSource = fs.readFileSync(require.resolve('../scripts/plex-real-now-playing-runtime-proof'), 'utf8');
 const plexNowPlayingViewerSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-now-playing-viewer-smoke'), 'utf8');
 const plexWebhookRatingsContractSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-webhook-ratings-contract-smoke'), 'utf8');
+const plexWebhookReceiverAdminSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-webhook-receiver-admin-smoke'), 'utf8');
 const ciCdDeployDocSource = fs.readFileSync(require.resolve('../../docs/wiki/10-CI-CD-and-Registry-Deploy.md'), 'utf8');
 const securityPolicyPath = path.resolve(__dirname, '..', '..', 'SECURITY.md');
 const securityPolicySource = fs.existsSync(securityPolicyPath)
@@ -1327,6 +1329,35 @@ results.push(run('plex webhook and ratings sync contract smoke stays scoped and 
   assert.ok(plexWebhookRatingsContractSmokeSource.includes("artifacts', 'plex-webhooks'"));
   assert.ok(plexWebhookRatingsContractSmokeSource.includes('plex-webhook-ratings-contract-smoke.json'));
   assert.ok(releaseRoadmapSource.includes('3.4.122 — Plex Webhook and Ratings Sync Contract'));
+}));
+
+results.push(run('plex webhook receiver administration contract is token-scoped and contract-only', () => {
+  assert.ok(backendPackageJson.scripts['test:plex-webhook-receiver-admin-smoke']);
+  assert.ok(integrationsRoutesSource.includes("sharedRouter.post('/plex/webhooks/:token'"));
+  assert.ok(integrationsRoutesSource.includes("plex-webhook-receiver-token'"));
+  assert.ok(integrationsRoutesSource.includes('hashPlexWebhookReceiverToken'));
+  assert.ok(integrationsRoutesSource.includes('shapePlexWebhookReceiverStatus'));
+  assert.ok(integrationsRoutesSource.includes("processingMode: 'contract_only'"));
+  assert.ok(integrationsServiceSource.includes('plexWebhookReceiverTokenHash'));
+  assert.ok(migrationsSource.includes('version: 98'));
+  assert.ok(migrationsSource.includes('plex_webhook_receiver_token_hash'));
+  assert.ok(initSqlSource.includes('plex_webhook_receiver_token_hash TEXT'));
+  assert.ok(openApiSource.includes('/api/plex/webhooks/{token}'));
+  assert.ok(openApiSource.includes('/api/admin/settings/integrations/plex-webhook-receiver-token'));
+  assert.ok(plexWebhookReceiverAdminSmokeSource.includes('/api/plex/webhooks/czpw_invalid_receiver_token'));
+  assert.ok(plexWebhookReceiverAdminSmokeSource.includes("event: 'library.new'"));
+  assert.ok(plexWebhookReceiverAdminSmokeSource.includes('contract_only'));
+  assert.ok(plexWebhookReceiverAdminSmokeSource.includes('assertSecretFree'));
+  assert.ok(plexWebhookReceiverAdminSmokeSource.includes("'plex-webhooks'"));
+  assert.ok(plexWebhookReceiverAdminSmokeSource.includes('plex-webhook-receiver-admin-smoke.json'));
+  assert.ok(plexWebhookReceiverAdminSmokeSource.includes('revokeRejectedPreviousToken'));
+  assert.ok(adminIntegrationsViewSource.includes('generatePlexWebhookReceiverToken'));
+  assert.ok(adminIntegrationsViewSource.includes('revokePlexWebhookReceiverToken'));
+  assert.ok(adminIntegrationsViewSource.includes('Webhook receiver'));
+  assert.strictEqual(sanitizeRequestUrl('/api/plex/webhooks/czpw_secret-token_123'), '/api/plex/webhooks/[REDACTED]');
+  assert.strictEqual(sanitizeRequestUrl('/api/plex/webhooks/not-a-receiver-token'), '/api/plex/webhooks/not-a-receiver-token');
+  assert.strictEqual(sanitizeRequestUrl('/api/thing?token=czpw_secret-token_123'), '/api/thing?token=[REDACTED]');
+  assert.ok(releaseRoadmapSource.includes('3.4.123 — Plex Webhook Receiver Administration Contract'));
 }));
 
 results.push(run('plex provider discovery runtime proof keeps fake PMS smoke scoped and secret-free', () => {

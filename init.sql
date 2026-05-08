@@ -579,6 +579,11 @@ CREATE TABLE IF NOT EXISTS app_integrations (
     plex_now_playing_display_token_created_at TIMESTAMP,
     plex_now_playing_display_token_last_used_at TIMESTAMP,
     plex_now_playing_display_preferences JSONB NOT NULL DEFAULT '{}'::jsonb,
+    plex_webhook_receiver_token_hash TEXT,
+    plex_webhook_receiver_token_created_at TIMESTAMP,
+    plex_webhook_receiver_token_last_rotated_at TIMESTAMP,
+    plex_webhook_receiver_last_received_at TIMESTAMP,
+    plex_webhook_receiver_last_event TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT app_integrations_space_id_key UNIQUE (space_id)
@@ -1559,5 +1564,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (94, 'Add Kavita digital library integration settings'),
     (95, 'Add Art numbered print metadata'),
     (96, 'Add Plex now playing display token metadata'),
-    (97, 'Add Plex now playing display preferences')
+    (97, 'Add Plex now playing display preferences'),
+    (98, 'Add Plex webhook receiver token metadata')
 ON CONFLICT (version) DO NOTHING;

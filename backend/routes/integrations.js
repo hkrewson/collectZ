@@ -20,7 +20,7 @@ const {
 } = require('../services/valuations');
 const { resolveBarcodePreset } = require('../services/barcode');
 const { resolveTmdbPreset, searchTmdbMovie } = require('../services/tmdb');
-const { resolvePlexPreset, fetchPlexSections, fetchPlexMediaProviders, fetchPlexNowPlayingSessions, fetchPlexImageAsset } = require('../services/plex');
+const { resolvePlexPreset, fetchPlexSections, fetchPlexMediaProviders, fetchPlexNowPlayingSessions, fetchPlexImageAsset, normalizePlexWebhookEvent } = require('../services/plex');
 const { resolveBooksPreset, searchBooksByTitle } = require('../services/books');
 const { resolveAudioPreset, searchAudioByTitle } = require('../services/audio');
 const { resolveGamesPreset, searchGamesByTitle } = require('../services/games');
@@ -29,11 +29,13 @@ const { normalizeKavitaBaseUrl, testKavitaConnection } = require('../services/ka
 const { logActivity, logError } = require('../services/audit');
 const { DECRYPT_REMEDIATION } = require('../services/integrationResponse');
 const { resolveScopeContext } = require('../db/scopeContext');
+const { getRequestOrigin } = require('../services/requestOrigin');
 
 const sharedRouter = express.Router();
 const platformRouter = express.Router();
 const HOMELAB_EDITION = isHomelabEdition();
 const NOW_PLAYING_DISPLAY_TOKEN_PREFIX = 'cznp_';
+const PLEX_WEBHOOK_RECEIVER_TOKEN_PREFIX = 'czpw_';
 const NOW_PLAYING_TEXT_SCALES = new Set(['compact', 'standard', 'large']);
 const NOW_PLAYING_LAYOUT_MODES = new Set(['standard', 'poster_only']);
 const DEFAULT_NOW_PLAYING_DISPLAY_PREFERENCES = Object.freeze({
@@ -71,7 +73,17 @@ function generateNowPlayingDisplayToken() {
   return `${NOW_PLAYING_DISPLAY_TOKEN_PREFIX}${crypto.randomBytes(32).toString('base64url')}`;
 }
 
+function generatePlexWebhookReceiverToken() {
+  return `${PLEX_WEBHOOK_RECEIVER_TOKEN_PREFIX}${crypto.randomBytes(32).toString('base64url')}`;
+}
+
 function hashNowPlayingDisplayToken(token) {
+  const value = String(token || '').trim();
+  if (!value) return '';
+  return crypto.createHash('sha256').update(value).digest('hex');
+}
+
+function hashPlexWebhookReceiverToken(token) {
   const value = String(token || '').trim();
   if (!value) return '';
   return crypto.createHash('sha256').update(value).digest('hex');
@@ -120,6 +132,30 @@ function shapeNowPlayingDisplayTokenStatus(config) {
   };
 }
 
+function buildPlexWebhookReceiverPath(token = null) {
+  const suffix = token ? `/${encodeURIComponent(token)}` : '/[token]';
+  return `/api/plex/webhooks${suffix}`;
+}
+
+function buildPlexWebhookReceiverUrl(req, token) {
+  return `${getRequestOrigin(req)}${buildPlexWebhookReceiverPath(token)}`;
+}
+
+function shapePlexWebhookReceiverStatus(config, req = null) {
+  return {
+    enabled: Boolean(config?.plexWebhookReceiverTokenHash),
+    createdAt: config?.plexWebhookReceiverTokenCreatedAt || null,
+    lastRotatedAt: config?.plexWebhookReceiverTokenLastRotatedAt || null,
+    lastReceivedAt: config?.plexWebhookReceiverLastReceivedAt || null,
+    lastEvent: config?.plexWebhookReceiverLastEvent || null,
+    receiverPath: buildPlexWebhookReceiverPath(),
+    receiverUrlTemplate: req ? `${getRequestOrigin(req)}${buildPlexWebhookReceiverPath()}` : null,
+    supportedEvents: ['library.new', 'media.scrobble', 'media.rate'],
+    observedOnlyEvents: ['media.play', 'media.pause', 'media.resume', 'media.stop', 'playback.started'],
+    processingMode: 'contract_only'
+  };
+}
+
 async function loadConfigForNowPlayingDisplayToken(token, { touch = false } = {}) {
   const rawToken = String(token || '').trim();
   if (!rawToken || !rawToken.startsWith(NOW_PLAYING_DISPLAY_TOKEN_PREFIX)) return null;
@@ -136,6 +172,16 @@ async function loadConfigForNowPlayingDisplayToken(token, { touch = false } = {}
       [expectedHash]
     ).catch(() => {});
   }
+  return config;
+}
+
+async function loadConfigForPlexWebhookReceiverToken(token) {
+  const rawToken = String(token || '').trim();
+  if (!rawToken || !rawToken.startsWith(PLEX_WEBHOOK_RECEIVER_TOKEN_PREFIX)) return null;
+  const config = await loadAdminIntegrationConfig();
+  const expectedHash = config?.plexWebhookReceiverTokenHash || '';
+  const actualHash = hashPlexWebhookReceiverToken(rawToken);
+  if (!safeEqualHash(actualHash, expectedHash)) return null;
   return config;
 }
 
@@ -159,6 +205,7 @@ async function buildSharedIntegrationPayload(config) {
     plexApiKeyMasked: maskSecret(config?.plexApiKey || ''),
     plexNowPlayingDisplayToken: shapeNowPlayingDisplayTokenStatus(config),
     plexNowPlayingDisplayPreferences: normalizeNowPlayingDisplayPreferences(config?.plexNowPlayingDisplayPreferences),
+    plexWebhookReceiver: shapePlexWebhookReceiverStatus(config),
     booksPreset: config?.booksPreset || 'googlebooks',
     booksProvider: config?.booksProvider || resolveBooksPreset(config).provider,
     booksApiUrl: config?.booksApiUrl || '',
@@ -400,6 +447,39 @@ sharedRouter.get('/plex/now-playing-display-image', asyncHandler(async (req, res
   return res.send(image.body);
 }));
 
+sharedRouter.post('/plex/webhooks/:token', asyncHandler(async (req, res) => {
+  const config = await loadConfigForPlexWebhookReceiverToken(req.params.token);
+  if (!config) {
+    return res.status(401).json({ ok: false, error: 'Invalid or revoked Plex webhook receiver token' });
+  }
+
+  const normalizedEvent = normalizePlexWebhookEvent(req.body || {});
+  if (!normalizedEvent) {
+    return res.status(400).json({ ok: false, error: 'Plex webhook payload was not recognized' });
+  }
+
+  await pool.query(
+    `UPDATE app_integrations
+        SET plex_webhook_receiver_last_received_at = NOW(),
+            plex_webhook_receiver_last_event = $1
+      WHERE id = 1
+        AND plex_webhook_receiver_token_hash = $2`,
+    [normalizedEvent.event, config.plexWebhookReceiverTokenHash]
+  );
+
+  return res.json({
+    ok: true,
+    accepted: true,
+    processingMode: 'contract_only',
+    event: normalizedEvent.event,
+    supported: normalizedEvent.supported,
+    action: normalizedEvent.action,
+    ratingKey: normalizedEvent.ratingKey,
+    metadataReadbackPath: normalizedEvent.metadataReadbackPath,
+    normalizedEvent
+  });
+}));
+
 // ── Integration settings (admin only) ─────────────────────────────────────────
 
 sharedRouter.get('/admin/settings/integrations', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
@@ -458,6 +538,59 @@ sharedRouter.delete('/admin/settings/integrations/plex-now-playing-display-token
       createdAt: null,
       lastUsedAt: null
     }
+  });
+}));
+
+sharedRouter.post('/admin/settings/integrations/plex-webhook-receiver-token', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
+  const token = generatePlexWebhookReceiverToken();
+  const tokenHash = hashPlexWebhookReceiverToken(token);
+  const result = await pool.query(
+    `INSERT INTO app_integrations (
+       id,
+       plex_webhook_receiver_token_hash,
+       plex_webhook_receiver_token_created_at,
+       plex_webhook_receiver_token_last_rotated_at,
+       plex_webhook_receiver_last_received_at,
+       plex_webhook_receiver_last_event
+     ) VALUES (1, $1, NOW(), NOW(), NULL, NULL)
+     ON CONFLICT (id) DO UPDATE SET
+       plex_webhook_receiver_token_hash = EXCLUDED.plex_webhook_receiver_token_hash,
+       plex_webhook_receiver_token_created_at = COALESCE(app_integrations.plex_webhook_receiver_token_created_at, EXCLUDED.plex_webhook_receiver_token_created_at),
+       plex_webhook_receiver_token_last_rotated_at = EXCLUDED.plex_webhook_receiver_token_last_rotated_at,
+       plex_webhook_receiver_last_received_at = NULL,
+       plex_webhook_receiver_last_event = NULL
+     RETURNING *`,
+    [tokenHash]
+  );
+  const config = normalizeIntegrationRecord(result.rows[0]);
+  await logActivity(req, 'admin.settings.integrations.plex_webhook_receiver_token.generate', 'app_integrations', 1, {
+    tokenCreated: true
+  });
+  return res.json({
+    ok: true,
+    token,
+    webhookPath: buildPlexWebhookReceiverPath(token),
+    webhookUrl: buildPlexWebhookReceiverUrl(req, token),
+    plexWebhookReceiver: shapePlexWebhookReceiverStatus(config, req)
+  });
+}));
+
+sharedRouter.delete('/admin/settings/integrations/plex-webhook-receiver-token', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
+  await pool.query(
+    `UPDATE app_integrations
+        SET plex_webhook_receiver_token_hash = NULL,
+            plex_webhook_receiver_token_created_at = NULL,
+            plex_webhook_receiver_token_last_rotated_at = NULL,
+            plex_webhook_receiver_last_received_at = NULL,
+            plex_webhook_receiver_last_event = NULL
+      WHERE id = 1`
+  );
+  await logActivity(req, 'admin.settings.integrations.plex_webhook_receiver_token.revoke', 'app_integrations', 1, {
+    tokenRevoked: true
+  });
+  return res.json({
+    ok: true,
+    plexWebhookReceiver: shapePlexWebhookReceiverStatus(null, req)
   });
 }));
 

@@ -9867,6 +9867,38 @@ Historical note:
 - What remains in the milestone: none for `3.4.122`; next Plex slices can implement webhook receiver administration, ratings read/write runtime proof, watch-state cadence, or webhook-triggered import/update processing.
 - Recommended commit message: `Release 3.4.122 with Plex webhook and ratings sync contract`
 
+## 3.4.123 — Plex Webhook Receiver Administration Contract
+
+**Goal:** Add the admin contract for generating, rotating, revoking, and proving a Plex webhook receiver URL without enabling automatic import or watched/rating mutation behavior yet.
+
+### Scope
+
+- Add a token-scoped Plex webhook receiver endpoint for supported Plex webhook hint events.
+- Add admin integration controls and API routes for generating, rotating, and revoking receiver URLs.
+- Store receiver tokens only as hashes and return raw receiver URLs only at generation time.
+- Keep receiver processing contract-only: accept/normalize/read back events, but do not enqueue imports, update watched state, or write ratings.
+- Redact receiver tokens from request/error logs.
+
+### Acceptance Criteria
+
+- Admins can generate/regenerate and revoke a Plex webhook receiver URL from integration settings.
+- Invalid receiver tokens are rejected and revoked tokens stop working.
+- Valid receiver webhook posts accept supported fake Plex events and report `processingMode=contract_only`.
+- Receiver status readback shows enabled state, last received timestamp, and last event without exposing the raw token.
+- Logs and smoke artifacts do not expose generated receiver tokens.
+- Running-stack verification proves the app serves `3.4.123`, Help > Releases contains the release, and `events_enabled` remains on.
+
+### Closeout
+
+- Roadmap slice: `3.4.123 — Plex Webhook Receiver Administration Contract`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`, and `docs/releases/v3.4.123.md`.
+- Runtime verification used: rebuilt the local platform backend/frontend stack with `APP_VERSION=3.4.123`; verified backend container `APP_EDITION=platform` and `APP_VERSION=3.4.123`; verified `/api/health` reports frontend/backend/build `3.4.123`; verified `/api/auth/config` reports `product_edition=platform`; verified live DB `feature_flags.events_enabled=true` and `feature_flags.collectibles_enabled=true`; verified Help > Releases serves `v3.4.123`; verified Docker Plex webhook receiver admin smoke rejects invalid tokens, accepts a valid `library.new` webhook in `contract_only` mode, persists redacted evidence, and rejects the same token after revoke.
+- CI/checks run: `node --check backend/routes/integrations.js`, `node --check backend/middleware/errors.js`, `node --check backend/db/migrations.js`, `node --check backend/scripts/plex-webhook-receiver-admin-smoke.js`, `node --check backend/scripts/unit-tests.js`, Docker Node 20 `backend npm run test:unit` (`265` passed), Docker `backend npm run test:openapi`, Docker `backend npm run test:integration-smoke`, Docker `backend npm run test:plex-webhook-receiver-admin-smoke`, Docker `backend npm run test:help-releases-smoke`, full Playwright browser regression in the official Playwright container (`62` passed, `4` skipped), Docker `backend npm run test:init-parity`, Docker `backend npm run test:migration-rehearsal`, platform-mode Docker `backend npm run test:rbac-regression`, platform-mode Docker `backend npm run test:platform-edition-boundary`, `npm run validate:public-export`, `npm --prefix backend run test:observability-evidence`, `npm --prefix backend run test:release-preflight-local`, generated-artifact secret-pattern scan, and `git diff --check`.
+- Files changed: `README.md`, `app-meta.json`, `backend/app-meta.json`, `backend/db/migrations.js`, `backend/middleware/errors.js`, `backend/openapi/openapi.yaml`, `backend/package.json`, `backend/package-lock.json`, `backend/release-feed.json`, `backend/routes/integrations.js`, `backend/scripts/plex-webhook-receiver-admin-smoke.js`, `backend/scripts/unit-tests.js`, `backend/services/integrations.js`, `docker-compose.yml`, `docs/releases/v3.4.123.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`, `env.example`, `frontend/package.json`, `frontend/package-lock.json`, `frontend/src/app-meta.json`, `frontend/src/components/AdminIntegrationsView.jsx`, `init.sql`, `artifacts/plex-webhooks/plex-webhook-receiver-admin-smoke.json`, `artifacts/observability-evidence/observability-release-evidence.json`, and `preflight-go-no-go.md`.
+- Risks or follow-ups: this is receiver administration plus contract-only acceptance; webhook-triggered import enqueueing, watched-state writeback, rating writeback apply behavior, scheduled sync cadence, and broad Plex import rewrites remain separate future slices; local `compose-smoke` secure-cookie parity, `secret-scan`, and `image-security-and-sbom` remain CI-only or blocked locally as documented in `preflight-go-no-go.md`; homelab edition boundary was not rerun locally for this slice because the live stack was intentionally preserved in platform mode, while source assertions and full browser coverage still exercised homelab boundary contracts where available.
+- What remains in the milestone: none for `3.4.123`; next Plex slices can implement webhook processing/import enqueue, watched-state sync/writeback, ratings writeback apply, scheduled sync cadence, or deeper provider-oriented import modernization.
+- Recommended commit message: `Release 3.4.123 with Plex webhook receiver administration contract`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

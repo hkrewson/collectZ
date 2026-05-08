@@ -4119,6 +4119,18 @@ const MIGRATIONS = [
       ALTER TABLE app_integrations
         ADD COLUMN IF NOT EXISTS plex_now_playing_display_preferences JSONB NOT NULL DEFAULT '{}'::jsonb;
     `
+  },
+  {
+    version: 98,
+    description: 'Add Plex webhook receiver token metadata',
+    up: `
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS plex_webhook_receiver_token_hash TEXT,
+        ADD COLUMN IF NOT EXISTS plex_webhook_receiver_token_created_at TIMESTAMP,
+        ADD COLUMN IF NOT EXISTS plex_webhook_receiver_token_last_rotated_at TIMESTAMP,
+        ADD COLUMN IF NOT EXISTS plex_webhook_receiver_last_received_at TIMESTAMP,
+        ADD COLUMN IF NOT EXISTS plex_webhook_receiver_last_event TEXT;
+    `
   }
 ];
 

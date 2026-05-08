@@ -4995,6 +4995,44 @@
         }
       }
     },
+    "/api/plex/webhooks/{token}": {
+      "post": {
+        "tags": ["Admin"],
+        "summary": "Accept a Plex webhook event using the generated receiver token",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "additionalProperties": true }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Webhook event accepted in contract-only mode",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": {
+            "description": "Webhook payload was not recognized"
+          },
+          "401": {
+            "description": "Invalid or revoked receiver token"
+          }
+        }
+      }
+    },
     "/api/admin/settings/integrations/plex-now-playing-display-token": {
       "post": {
         "tags": ["Admin"],
@@ -5025,6 +5063,48 @@
         "responses": {
           "200": {
             "description": "Display token revoked",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "403": {
+            "description": "Admin role required"
+          }
+        }
+      }
+    },
+    "/api/admin/settings/integrations/plex-webhook-receiver-token": {
+      "post": {
+        "tags": ["Admin"],
+        "summary": "Generate or rotate a Plex webhook receiver token",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "responses": {
+          "200": {
+            "description": "One-time Plex webhook receiver token and URL",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "403": {
+            "description": "Admin role required"
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Admin"],
+        "summary": "Revoke the Plex webhook receiver token",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "responses": {
+          "200": {
+            "description": "Plex webhook receiver token revoked",
             "content": {
               "application/json": {
                 "schema": { "type": "object", "additionalProperties": true }

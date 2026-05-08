@@ -9,6 +9,12 @@
 const asyncHandler = (fn) => (req, res, next) =>
   Promise.resolve(fn(req, res, next)).catch(next);
 
+function sanitizeRequestUrl(url = '') {
+  return String(url || '')
+    .replace(/(\/api\/plex\/webhooks\/)czpw_[A-Za-z0-9_-]+/g, '$1[REDACTED]')
+    .replace(/([?&]token=)czpw_[A-Za-z0-9_-]+/g, '$1[REDACTED]');
+}
+
 /**
  * Centralized error handler middleware.
  * Must be registered LAST in the Express app, after all routes.
@@ -20,7 +26,7 @@ const errorHandler = (err, req, res, _next) => {
     : 'Internal server error';
 
   if (status >= 500) {
-    console.error(`[ERROR] ${req.method} ${req.originalUrl} — ${err.message}`);
+    console.error(`[ERROR] ${req.method} ${sanitizeRequestUrl(req.originalUrl)} — ${err.message}`);
     if (err.stack) console.error(err.stack);
   }
 
@@ -36,12 +42,13 @@ const requestLogger = (req, _res, next) => {
   const startedAt = Date.now();
   const res = _res;
   const requestId = req.requestId || req.headers['x-request-id'] || '-';
-  console.log(`${ts} ${req.method} ${req.originalUrl} origin:${req.headers.origin || '-'} req:${requestId}`);
+  const safeUrl = sanitizeRequestUrl(req.originalUrl);
+  console.log(`${ts} ${req.method} ${safeUrl} origin:${req.headers.origin || '-'} req:${requestId}`);
   res.on('finish', () => {
     const durationMs = Date.now() - startedAt;
-    console.log(`${new Date().toISOString()} ${req.method} ${req.originalUrl} -> ${res.statusCode} (${durationMs}ms) req:${requestId}`);
+    console.log(`${new Date().toISOString()} ${req.method} ${safeUrl} -> ${res.statusCode} (${durationMs}ms) req:${requestId}`);
   });
   next();
 };
 
-module.exports = { asyncHandler, errorHandler, requestLogger };
+module.exports = { asyncHandler, errorHandler, requestLogger, sanitizeRequestUrl };

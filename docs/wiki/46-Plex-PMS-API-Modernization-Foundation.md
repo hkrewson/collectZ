@@ -47,8 +47,9 @@ Use this for feature discovery and future new Plex surfaces where possible. The 
 - Now Playing Display Preferences. Promoted as `3.4.120`.
 - Now Playing Vertical Poster Display. Promoted as `3.4.121`.
 - Plex Webhook and Ratings Sync Contract. Promoted as `3.4.122`.
+- Plex Webhook Receiver Administration Contract. Promoted as `3.4.123`.
 - Plex watch-state sync cadence.
-- Plex webhook ingestion contract.
+- Plex webhook receiver processing and import enqueue contract.
 
 ## Acceptance Criteria
 

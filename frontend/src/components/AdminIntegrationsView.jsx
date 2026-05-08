@@ -265,6 +265,8 @@ export default function AdminIntegrationsView({
   const [plexDisplayLink, setPlexDisplayLink] = useState('');
   const [plexDisplayPreferences, setPlexDisplayPreferences] = useState(DEFAULT_PLEX_DISPLAY_PREFERENCES);
   const [savingPlexDisplayPreferences, setSavingPlexDisplayPreferences] = useState(false);
+  const [plexWebhookReceiver, setPlexWebhookReceiver] = useState({ enabled: false, lastReceivedAt: null, lastEvent: null, receiverPath: '/api/plex/webhooks/[token]' });
+  const [plexWebhookReceiverLink, setPlexWebhookReceiverLink] = useState('');
   const [featureFlags, setFeatureFlags] = useState([]);
   const [featureFlagsLoading, setFeatureFlagsLoading] = useState(true);
   const [featureFlagsReadOnly, setFeatureFlagsReadOnly] = useState(false);
@@ -337,6 +339,7 @@ export default function AdminIntegrationsView({
       setObservabilityRuntime(data.observabilityRuntime || { logs: null, metrics: null });
       setLogExportControl(data.logExportControl || null);
       setPlexDisplayToken(data.plexNowPlayingDisplayToken || { enabled: false, createdAt: null, lastUsedAt: null });
+      setPlexWebhookReceiver(data.plexWebhookReceiver || { enabled: false, lastReceivedAt: null, lastEvent: null, receiverPath: '/api/plex/webhooks/[token]' });
       setPlexDisplayPreferences({
         ...DEFAULT_PLEX_DISPLAY_PREFERENCES,
         ...(data.plexNowPlayingDisplayPreferences || {})
@@ -511,6 +514,7 @@ export default function AdminIntegrationsView({
       setObservabilityRuntime(updated.observabilityRuntime || { logs: null, metrics: null });
       setLogExportControl(updated.logExportControl || null);
       if (updated.plexNowPlayingDisplayToken) setPlexDisplayToken(updated.plexNowPlayingDisplayToken);
+      if (updated.plexWebhookReceiver) setPlexWebhookReceiver(updated.plexWebhookReceiver);
       if (updated.plexNowPlayingDisplayPreferences) {
         setPlexDisplayPreferences({
           ...DEFAULT_PLEX_DISPLAY_PREFERENCES,
@@ -719,6 +723,38 @@ export default function AdminIntegrationsView({
       onToast('Plex Now Playing display link revoked');
     } catch (err) {
       setTestMsg(err.response?.data?.error || 'Plex display link could not be revoked');
+    } finally {
+      setTestLoading('');
+    }
+  };
+
+  const generatePlexWebhookReceiverToken = async () => {
+    setTestLoading('plex-webhook-receiver-token');
+    setTestMsg('');
+    try {
+      const result = await apiCall('post', '/admin/settings/integrations/plex-webhook-receiver-token', {});
+      setPlexWebhookReceiver(result.plexWebhookReceiver || { enabled: true, lastReceivedAt: null, lastEvent: null });
+      setPlexWebhookReceiverLink(result.webhookUrl || result.webhookPath || '');
+      setTestMsg('PLEX WEBHOOKS: Receiver URL generated. This is the only time the token is shown.');
+      onToast('Plex webhook receiver URL generated');
+    } catch (err) {
+      setTestMsg(err.response?.data?.error || 'Plex webhook receiver URL could not be generated');
+    } finally {
+      setTestLoading('');
+    }
+  };
+
+  const revokePlexWebhookReceiverToken = async () => {
+    setTestLoading('plex-webhook-receiver-token');
+    setTestMsg('');
+    try {
+      const result = await apiCall('delete', '/admin/settings/integrations/plex-webhook-receiver-token');
+      setPlexWebhookReceiver(result.plexWebhookReceiver || { enabled: false, lastReceivedAt: null, lastEvent: null, receiverPath: '/api/plex/webhooks/[token]' });
+      setPlexWebhookReceiverLink('');
+      setTestMsg('PLEX WEBHOOKS: Receiver URL revoked.');
+      onToast('Plex webhook receiver URL revoked');
+    } catch (err) {
+      setTestMsg(err.response?.data?.error || 'Plex webhook receiver URL could not be revoked');
     } finally {
       setTestLoading('');
     }
@@ -1216,6 +1252,38 @@ export default function AdminIntegrationsView({
             {plexDisplayLink && (
               <input className="input font-mono text-xs" readOnly value={plexDisplayLink} onFocus={(event) => event.target.select()} />
             )}
+          </div>
+          <div className="rounded-xl border border-edge bg-raised/60 px-3 py-3 space-y-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium text-ink">Webhook receiver</p>
+                <p className="mt-1 text-xs text-ghost">
+                  {plexWebhookReceiver.enabled
+                    ? `Enabled${plexWebhookReceiver.lastReceivedAt ? ` · last received ${new Date(plexWebhookReceiver.lastReceivedAt).toLocaleString()}` : ''}`
+                    : 'No active receiver URL'}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={generatePlexWebhookReceiverToken} disabled={testLoading === 'plex-webhook-receiver-token'} className="btn-secondary btn-sm">
+                  {testLoading === 'plex-webhook-receiver-token' ? <Spinner size={14} /> : (plexWebhookReceiver.enabled ? 'Regenerate' : 'Generate')}
+                </button>
+                {plexWebhookReceiver.enabled && (
+                  <button type="button" onClick={revokePlexWebhookReceiverToken} disabled={testLoading === 'plex-webhook-receiver-token'} className="btn-secondary btn-sm">
+                    Revoke
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="grid gap-2 text-xs text-ghost sm:grid-cols-2">
+              <span>Mode: {plexWebhookReceiver.processingMode === 'contract_only' ? 'Contract only' : (plexWebhookReceiver.processingMode || 'Read-only')}</span>
+              <span>Last event: {plexWebhookReceiver.lastEvent || 'None yet'}</span>
+            </div>
+            {plexWebhookReceiverLink ? (
+              <input className="input font-mono text-xs" readOnly value={plexWebhookReceiverLink} onFocus={(event) => event.target.select()} />
+            ) : (
+              <input className="input font-mono text-xs" readOnly value={plexWebhookReceiver.receiverUrlTemplate || plexWebhookReceiver.receiverPath || '/api/plex/webhooks/[token]'} onFocus={(event) => event.target.select()} />
+            )}
+            <p className="text-xs text-ghost">Accepts Plex webhook hints for newly added media, watched state, and ratings. Import and writeback actions remain manual until a later slice.</p>
           </div>
           <div className="rounded-xl border border-edge bg-raised/60 px-3 py-3 space-y-3">
             <div className="flex flex-wrap items-start justify-between gap-3">

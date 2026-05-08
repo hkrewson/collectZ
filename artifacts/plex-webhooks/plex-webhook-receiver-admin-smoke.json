@@ -1,0 +1,29 @@
+{
+  "ok": true,
+  "receiverStatus": {
+    "enabled": true,
+    "receiverPath": "/api/plex/webhooks/[token]",
+    "supportedEvents": [
+      "library.new",
+      "media.scrobble",
+      "media.rate"
+    ],
+    "observedOnlyEvents": [
+      "media.play",
+      "media.pause",
+      "media.resume",
+      "media.stop",
+      "playback.started"
+    ],
+    "processingMode": "contract_only"
+  },
+  "invalidTokenRejected": true,
+  "validWebhookAccepted": {
+    "event": "library.new",
+    "supported": true,
+    "action": "sync_new_title_hint",
+    "ratingKey": "12345",
+    "metadataReadbackPath": "/library/metadata/12345"
+  },
+  "revokeRejectedPreviousToken": true
+}
