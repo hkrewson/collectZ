@@ -6412,6 +6412,206 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
   };
 }
 
+function buildPlexReconciliationItemIdentity(item = {}) {
+  const media = item.normalized || {};
+  const plexGuid = media.plex_guid || null;
+  const rawPlexRatingKey = media.plex_rating_key || item.raw?.ratingKey || item.raw?.key || null;
+  const plexRatingKey = parsePlexRatingKeyFromItemKey(rawPlexRatingKey);
+  const rawPlexItemKey = rawPlexRatingKey ? `${item.sectionId}:${rawPlexRatingKey}` : null;
+  const plexItemKey = plexRatingKey ? `${item.sectionId}:${plexRatingKey}` : rawPlexItemKey;
+  return {
+    plexGuid,
+    rawPlexRatingKey: rawPlexRatingKey ? String(rawPlexRatingKey) : null,
+    plexRatingKey,
+    rawPlexItemKey,
+    plexItemKey
+  };
+}
+
+function formatPlexReconciliationMediaRow(row = null) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    title: row.title || null,
+    media_type: row.media_type || null,
+    year: row.year || null,
+    tmdb_id: row.tmdb_id || null,
+    import_source: row.import_source || null
+  };
+}
+
+function formatPlexReconciliationItem(item = {}, identity = {}) {
+  const media = item.normalized || {};
+  return {
+    title: media.title || null,
+    media_type: normalizeMediaType(media.media_type || 'movie', 'movie'),
+    year: media.year || null,
+    tmdb_id: media.tmdb_id || null,
+    tmdb_media_type: media.tmdb_media_type || null,
+    sectionId: item.sectionId ? String(item.sectionId) : null,
+    plex_item_key: identity.plexItemKey || null,
+    plex_guid: identity.plexGuid || null
+  };
+}
+
+async function findPlexReconciliationMatch(item = {}, scopeContext = null) {
+  const media = item.normalized || {};
+  const identity = buildPlexReconciliationItemIdentity(item);
+  const mediaType = normalizeMediaType(media.media_type || 'movie', 'movie');
+
+  const selectColumns = 'm.id, m.title, m.media_type, m.year, m.tmdb_id, m.import_source, m.type_details, m.upc';
+
+  if (identity.plexGuid) {
+    const plexGuidAliasKey = buildMediaIdentityAliasKey('plexGuid', identity.plexGuid);
+    const params = [identity.plexGuid];
+    const scopeClause = appendScopeSql(params, scopeContext, {
+      spaceColumn: 'm.space_id',
+      libraryColumn: 'm.library_id'
+    });
+    const result = await pool.query(
+      `SELECT ${selectColumns}
+         FROM media m
+         JOIN media_metadata mm ON mm.media_id = m.id
+        WHERE ((mm."key" = 'plex_guid' AND mm."value" = $1)${plexGuidAliasKey ? ` OR mm."key" = '${plexGuidAliasKey.replace(/'/g, "''")}'` : ''})
+          ${scopeClause}
+        ORDER BY m.created_at DESC
+        LIMIT 1`,
+      params
+    );
+    if (result.rows[0]) {
+      return { bucket: 'alreadyLinked', matchedBy: 'plex_guid', row: result.rows[0], identity };
+    }
+  }
+
+  const plexItemKeyCandidates = [...new Set([identity.plexItemKey, identity.rawPlexItemKey].filter(Boolean))];
+  if (plexItemKeyCandidates.length > 0) {
+    const plexItemAliasKeys = plexItemKeyCandidates
+      .map((value) => buildMediaIdentityAliasKey('plexItemKey', value))
+      .filter(Boolean);
+    const params = [plexItemKeyCandidates];
+    const scopeClause = appendScopeSql(params, scopeContext, {
+      spaceColumn: 'm.space_id',
+      libraryColumn: 'm.library_id'
+    });
+    const result = await pool.query(
+      `SELECT ${selectColumns}
+         FROM media m
+         JOIN media_metadata mm ON mm.media_id = m.id
+        WHERE ((mm."key" = 'plex_item_key' AND mm."value" = ANY($1::text[]))${plexItemAliasKeys.length ? ` OR mm."key" = ANY(ARRAY[${plexItemAliasKeys.map((key) => `'${key.replace(/'/g, "''")}'`).join(', ')}]::text[])` : ''})
+          ${scopeClause}
+        ORDER BY m.created_at DESC
+        LIMIT 1`,
+      params
+    );
+    if (result.rows[0]) {
+      return { bucket: 'alreadyLinked', matchedBy: 'plex_item_key', row: result.rows[0], identity };
+    }
+  }
+
+  if (media.tmdb_id) {
+    const params = [media.tmdb_id, media.tmdb_media_type || 'movie', mediaType];
+    const scopeClause = appendScopeSql(params, scopeContext);
+    const result = await pool.query(
+      `SELECT id, title, media_type, year, tmdb_id, import_source, type_details, upc
+         FROM media
+        WHERE tmdb_id = $1
+          AND COALESCE(tmdb_media_type, 'movie') = COALESCE($2, COALESCE(tmdb_media_type, 'movie'))
+          AND COALESCE(media_type, 'movie') = $3
+          ${scopeClause}
+        ORDER BY created_at DESC
+        LIMIT 1`,
+      params
+    );
+    if (result.rows[0]) {
+      return { bucket: 'wouldUpdate', matchedBy: 'tmdb_id', row: result.rows[0], identity };
+    }
+  }
+
+  if (media.title) {
+    const params = [media.title, media.year || null, mediaType];
+    const scopeClause = appendScopeSql(params, scopeContext);
+    const result = await pool.query(
+      `SELECT id, title, media_type, year, tmdb_id, import_source, type_details, upc
+         FROM media
+        WHERE LOWER(TRIM(title)) = LOWER(TRIM($1))
+          AND COALESCE(media_type, 'movie') = $3
+          AND (($2::int IS NOT NULL AND year = $2::int) OR $2::int IS NULL)
+          ${scopeClause}
+        ORDER BY created_at DESC
+        LIMIT 5`,
+      params
+    );
+    const candidates = result.rows || [];
+    const safeCandidate = candidates.find((candidate) => assessTitleFallbackStrongIdentifierConflicts({
+      item: media,
+      normalizedTypeDetails: media.type_details,
+      resolvedIdentifiers: { isbn: '', eanUpc: '', asin: '' },
+      candidateRow: candidate
+    }).length === 0);
+    if (safeCandidate) {
+      return { bucket: 'wouldUpdate', matchedBy: 'title_year', row: safeCandidate, identity };
+    }
+    if (candidates.length > 0) {
+      return {
+        bucket: 'conflict',
+        matchedBy: 'title_year_conflict',
+        row: candidates[0],
+        identity,
+        reason: 'A same-title row exists, but strong identifiers disagree.'
+      };
+    }
+  }
+
+  return { bucket: 'wouldCreate', matchedBy: null, row: null, identity };
+}
+
+async function buildPlexFullLibraryReconciliationPreview({ config, sectionIds = [], scopeContext = null, limit = null } = {}) {
+  const fetchedItems = await fetchPlexLibraryItems(config, sectionIds);
+  const items = Number.isInteger(limit) && limit > 0 ? fetchedItems.slice(0, limit) : fetchedItems;
+  const summary = {
+    scanned: items.length,
+    alreadyLinked: 0,
+    wouldUpdate: 0,
+    wouldCreate: 0,
+    conflict: 0
+  };
+  const buckets = {
+    alreadyLinked: [],
+    wouldUpdate: [],
+    wouldCreate: [],
+    conflict: []
+  };
+
+  for (const item of items) {
+    const match = await findPlexReconciliationMatch(item, scopeContext);
+    const bucket = buckets[match.bucket] ? match.bucket : 'conflict';
+    summary[bucket] += 1;
+    buckets[bucket].push({
+      item: formatPlexReconciliationItem(item, match.identity),
+      existing: formatPlexReconciliationMediaRow(match.row),
+      matchedBy: match.matchedBy,
+      reason: match.reason || null
+    });
+  }
+
+  return {
+    provider: 'plex',
+    processingMode: 'full_library_reconciliation_preview',
+    readOnly: true,
+    plexWriteback: false,
+    importMutation: false,
+    paths: [
+      '/library/sections',
+      '/library/sections/:sectionId/all'
+    ],
+    sectionIds: [...new Set((sectionIds.length > 0 ? sectionIds : config.plexLibrarySections || []).map(String).filter(Boolean))],
+    fetched: fetchedItems.length,
+    limited: items.length !== fetchedItems.length,
+    summary,
+    buckets
+  };
+}
+
 async function claimQueuedPlexWebhookImportHint({ jobId = null, ratingKey = null } = {}) {
   const filters = [
     "job_type = 'plex_webhook_import_hint'",
@@ -12454,6 +12654,61 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
       detail: error.message || 'Plex import failed'
     });
     return res.status(502).json({ error: error.message || 'Plex import failed' });
+  }
+}));
+
+router.post('/plex-reconciliation-preview', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Only admins can preview Plex reconciliation' });
+  }
+  const ensuredScope = scopeContext?.libraryId
+    ? { spaceId: scopeContext?.spaceId || null, libraryId: scopeContext.libraryId }
+    : await ensureUserDefaultScope(req.user.id);
+  const effectiveScopeContext = {
+    ...scopeContext,
+    spaceId: scopeContext?.spaceId ?? ensuredScope.spaceId ?? null,
+    libraryId: ensuredScope.libraryId || null
+  };
+  if (!effectiveScopeContext.libraryId) {
+    return res.status(400).json({ error: 'Active library is required before Plex reconciliation preview' });
+  }
+
+  const sectionIds = Array.isArray(req.body?.sectionIds) ? req.body.sectionIds : [];
+  const limitRaw = Number(req.body?.limit ?? req.query?.limit);
+  const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(1000, Math.floor(limitRaw))) : null;
+  const config = await loadPlexWebhookImportConfig(effectiveScopeContext);
+  if (!config.plexApiUrl) {
+    return res.status(400).json({ error: 'Plex API URL is not configured' });
+  }
+  if (!config.plexApiKey) {
+    return res.status(400).json({ error: 'Plex API key is not configured' });
+  }
+
+  try {
+    const preview = await buildPlexFullLibraryReconciliationPreview({
+      config,
+      sectionIds,
+      scopeContext: effectiveScopeContext,
+      limit
+    });
+    await logActivity(req, 'media.plex.reconciliation.preview', 'media', null, {
+      sectionIds: preview.sectionIds,
+      scanned: preview.summary.scanned,
+      alreadyLinked: preview.summary.alreadyLinked,
+      wouldUpdate: preview.summary.wouldUpdate,
+      wouldCreate: preview.summary.wouldCreate,
+      conflict: preview.summary.conflict,
+      limited: preview.limited
+    });
+    return res.json({ ok: true, ...preview });
+  } catch (error) {
+    logError('Plex reconciliation preview failed', error);
+    await logActivity(req, 'media.plex.reconciliation.preview.failed', 'media', null, {
+      sectionIds,
+      detail: error.message || 'Plex reconciliation preview failed'
+    });
+    return res.status(502).json({ error: error.message || 'Plex reconciliation preview failed' });
   }
 }));
 

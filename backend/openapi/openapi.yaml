@@ -9032,6 +9032,95 @@
         }
       }
     },
+    "/api/media/plex-reconciliation-preview": {
+      "post": {
+        "tags": ["Media"],
+        "summary": "Preview read-only Plex full-library reconciliation buckets",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "sectionIds": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Read-only reconciliation preview",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "provider": { "type": "string", "example": "plex" },
+                    "processingMode": { "type": "string", "example": "full_library_reconciliation_preview" },
+                    "readOnly": { "type": "boolean" },
+                    "plexWriteback": { "type": "boolean" },
+                    "importMutation": { "type": "boolean" },
+                    "summary": {
+                      "type": "object",
+                      "properties": {
+                        "scanned": { "type": "integer" },
+                        "alreadyLinked": { "type": "integer" },
+                        "wouldUpdate": { "type": "integer" },
+                        "wouldCreate": { "type": "integer" },
+                        "conflict": { "type": "integer" }
+                      }
+                    },
+                    "buckets": {
+                      "type": "object",
+                      "description": "Sanitized bucket samples grouped by alreadyLinked, wouldUpdate, wouldCreate, and conflict."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Integration configuration or active library error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "502": {
+            "description": "Plex reconciliation preview failed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/media/process-plex-webhook-import-hints": {
       "post": {
         "tags": ["Media"],

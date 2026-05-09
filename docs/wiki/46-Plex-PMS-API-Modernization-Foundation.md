@@ -60,6 +60,7 @@ Use this for feature discovery and future new Plex surfaces where possible. The 
 - Plex Watched-State Writeback Implementation. Promoted as `3.4.133`.
 - Plex Rating Writeback to Plex. Promoted as `3.4.134`.
 - Plex Writeback UI Controls. Promoted as `3.4.135`.
+- Plex Full-Library Reconciliation Contract. Promoted as `3.4.136`.
 
 ## Acceptance Criteria
 

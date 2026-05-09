@@ -10280,6 +10280,37 @@ Historical note:
 - What remains in the milestone: no implementation work remains for `3.4.135`; CI must still confirm the CI-only `secret-scan` and `image-security-and-sbom` gates.
 - Recommended commit message: `Release 3.4.135 with Plex writeback UI controls`.
 
+## 3.4.136 — Plex Full-Library Reconciliation Contract
+
+**Goal:** Add a read-only Plex full-library reconciliation preview that classifies what an import or scheduled reconciliation would do before any collectZ rows are created, updated, or linked.
+
+### Scope
+
+- Add an admin-only reconciliation preview endpoint for Plex library sections.
+- Fetch Plex sections and selected section items through the current maintained legacy library paths.
+- Compare Plex items to existing collectZ rows by Plex GUID, Plex item key, TMDB identity, and safe title/year fallback.
+- Return sanitized buckets for `alreadyLinked`, `wouldUpdate`, `wouldCreate`, and `conflict`.
+- Keep scheduled automation, automatic imports, row mutation, writeback, and broad Plex import rewrites out of scope.
+
+### Acceptance Criteria
+
+- The preview requires admin access, active library scope, and saved Plex configuration.
+- The preview response is explicit about `readOnly`, `plexWriteback`, and `importMutation` state.
+- The fake PMS smoke proves linked, update, create, and conflict buckets without creating or updating media rows.
+- The route response and smoke evidence do not surface Plex token values, token query strings, private IPs, or raw media file paths.
+- Running-stack verification proves the app serves `3.4.136`, Help > Releases contains the release, and `events_enabled` remains on.
+
+### Closeout
+
+- Roadmap slice: `3.4.136 — Plex Full-Library Reconciliation Contract`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`; `docs/wiki/08-Backlog.md`; `docs/releases/v3.4.136.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild with `APP_VERSION=3.4.136`; live `/api/health` returned frontend/backend/build `3.4.136`; live backend container env was restored to `APP_EDITION=platform`, `APP_VERSION=3.4.136`, `NODE_ENV=development`, and `SESSION_COOKIE_SECURE=false`; live DB feature flags showed `events_enabled=true` and `collectibles_enabled=true`; Docker Plex full-library reconciliation smoke hit the running stack via `BASE_URL=http://frontend:3000` and proved one `alreadyLinked`, one `wouldUpdate`, one `wouldCreate`, and one `conflict` bucket with `mediaCountBefore=3` and `mediaCountAfter=3`; Docker Help > Releases smoke served `v3.4.136`; direct compose health/header checks returned `200` with security headers and unauthenticated `/api/auth/me` returned `401`; homelab boundary was verified by temporarily applying a local homelab compose override, then the active stack was restored to platform and rechecked.
+- CI/checks run: `node --check backend/routes/media.js`; `node --check backend/scripts/plex-full-library-reconciliation-smoke.js`; `node --check backend/scripts/unit-tests.js`; local OpenAPI validation; Docker `npm run test:unit`; Docker `npm run test:openapi`; Docker `npm run test:integration-smoke`; Docker `npm run test:plex-full-library-reconciliation-smoke`; Docker Help > Releases smoke; Docker init parity; Docker migration rehearsal; Docker `npm run test:rbac-regression`; Docker `npm run test:platform-edition-boundary`; Docker `npm run test:homelab-edition-boundary`; bundled-runtime `npm run test:browser`; `npm --prefix backend run test:observability-evidence`; `npm --prefix backend run test:release-preflight-local`; dependency-audit artifact readback showed backend/frontend low/moderate/high/critical counts all zero; `git diff --check`; targeted artifact/docs secret pattern scan.
+- Files changed: `app-meta.json`; `backend/app-meta.json`; `backend/openapi/openapi.yaml`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/routes/media.js`; `backend/scripts/plex-full-library-reconciliation-smoke.js`; `backend/scripts/unit-tests.js`; `docker-compose.yml`; `docs/releases/v3.4.136.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`; `frontend/package.json`; `frontend/src/app-meta.json`; `artifacts/plex-reconciliation/plex-full-library-reconciliation-smoke.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `preflight-go-no-go.md`.
+- Risks or follow-ups: this is intentionally a read-only preview and does not schedule reconciliation, mutate collectZ rows, add UI controls, or rewrite the broad Plex import path; title/year fallback remains conservative and reports strong-ID conflicts instead of silently attaching. Local `gitleaks`, `trivy`, and `syft` CLIs are not installed, so CI must still confirm the full `secret-scan` and `image-security-and-sbom` gates. Local preflight still marks secure-cookie compose conditions blocked because the dev stack runs with `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`; direct compose health/header checks, runtime smokes, and browser regression passed locally.
+- What remains in the milestone: no implementation work remains for `3.4.136`; CI must still confirm the CI-only `secret-scan` and `image-security-and-sbom` gates.
+- Recommended commit message: `Release 3.4.136 with Plex full-library reconciliation preview`.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

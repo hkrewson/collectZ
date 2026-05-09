@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.136",
+      "version": "v3.4.136",
+      "date": null,
+      "status": null,
+      "summary": "This patch adds a read-only Plex full-library reconciliation preview.",
+      "details": []
+    },
+    {
       "title": "collectZ v3.4.135",
       "version": "v3.4.135",
       "date": null,
@@ -70,14 +78,6 @@
       "date": null,
       "status": null,
       "summary": "This patch makes saved Plex webhook receivers visible again after refresh without exposing the raw receiver token.",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.4.126",
-      "version": "v3.4.126",
-      "date": null,
-      "status": null,
-      "summary": "This patch lets collectZ automatically process queued Plex `library.new` webhook import hints on a lightweight backend cadence.",
       "details": []
     }
   ]
