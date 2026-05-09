@@ -317,6 +317,65 @@ const extractPlexProviderItemListingCandidates = (providers = []) => {
   return candidates;
 };
 
+const fetchPlexProviderItemRows = async (config, candidates = [], options = {}) => {
+  const maxCandidates = Number.isFinite(Number(options.maxCandidates)) ? Math.max(1, Number(options.maxCandidates)) : 3;
+  const containerSize = Number.isFinite(Number(options.containerSize)) ? Math.max(1, Number(options.containerSize)) : 5;
+  const readbacks = [];
+  const items = [];
+
+  for (const candidate of asArray(candidates).slice(0, maxCandidates)) {
+    const key = sanitizeProviderDirectoryKey(candidate?.key);
+    if (!key || !key.startsWith('/')) continue;
+    const response = await plexRequest(config, key, {
+      'X-Plex-Container-Start': 0,
+      'X-Plex-Container-Size': containerSize
+    });
+    if (response.status >= 400) {
+      const message = typeof response.data === 'string'
+        ? response.data.slice(0, 200)
+        : response.data?.error || response.statusText;
+      readbacks.push({
+        key,
+        providerKey: candidate?.providerKey || null,
+        featureKey: candidate?.featureKey || null,
+        type: candidate?.type || null,
+        status: response.status,
+        ok: false,
+        detail: String(message || '').slice(0, 120)
+      });
+      continue;
+    }
+
+    const parsed = [
+      ...parsePlexVideos(response.data),
+      ...parsePlexDirectoriesInSection(response.data)
+    ].filter((entry) => entry.title || entry.originalTitle || entry.grandparentTitle || entry.parentTitle);
+    const sectionId = String(key.match(/\/library\/sections\/([^/]+)\/all/)?.[1] || '').trim();
+    const normalizedItems = parsed.map((entry) => ({
+      candidateKey: key,
+      providerKey: candidate?.providerKey || null,
+      featureKey: candidate?.featureKey || null,
+      candidateType: candidate?.type || null,
+      sectionId,
+      raw: entry,
+      normalized: normalizePlexItem(entry),
+      variant: normalizePlexVariant(entry, sectionId)
+    }));
+    items.push(...normalizedItems);
+    readbacks.push({
+      key,
+      providerKey: candidate?.providerKey || null,
+      featureKey: candidate?.featureKey || null,
+      type: candidate?.type || null,
+      status: response.status,
+      ok: true,
+      rowCount: normalizedItems.length
+    });
+  }
+
+  return { readbacks, items };
+};
+
 const parsePlexNowPlayingSessions = (payload) => {
   if (!payload) return [];
   if (typeof payload === 'object' && !Buffer.isBuffer(payload)) {
@@ -1284,6 +1343,7 @@ module.exports = {
   normalizePlexMediaProvider,
   normalizePlexProviderFeatureDirectory,
   extractPlexProviderItemListingCandidates,
+  fetchPlexProviderItemRows,
   parsePlexNowPlayingSessions,
   normalizePlexNowPlayingSession,
   parsePlexWatchStateEntries,

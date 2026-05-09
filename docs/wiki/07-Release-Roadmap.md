@@ -10626,6 +10626,36 @@ Historical note:
 - What remains in the milestone: Nothing for `3.4.146`; CI-only release gates still need their normal GitHub run.
 - Recommended commit message: `Release 3.4.146 with Plex provider item-listing discovery proof`
 
+## 3.4.147 — Plex Real PMS Provider Item-Row Parity Proof
+
+**Goal:** Use the saved Plex integration against a real PMS to determine whether provider-advertised item listing candidates return enough row data to consider a future import migration.
+
+### Scope
+
+- Load the saved admin or first configured workspace Plex settings from the running stack.
+- Fetch `/media/providers`, extract provider-advertised content listing candidates, and probe a small read-only page from those candidates.
+- Record sanitized field-coverage counts for Plex rating keys, provider GUIDs, TMDB IDs, artwork keys, variant resolution, season counts, watched state, and user ratings.
+- Keep Plex import, reconciliation, watched-state writeback, rating writeback, and automatic sync behavior unchanged.
+
+### Acceptance Criteria
+
+- Docker runtime proof uses saved Plex settings when configured and writes secret-free evidence.
+- Evidence reports whether real provider candidate rows are reachable and which parity fields are present.
+- Evidence contains no Plex tokens, provider URLs, private IPs, machine identifiers, media paths, or raw PMS payloads.
+- Evidence states legacy import remains current until full field parity and repeat-sync safety are proven.
+- Version metadata, release note, release feed, and Help > Releases include `3.4.147`.
+
+### Closeout
+
+- Roadmap slice: `3.4.147 — Plex Real PMS Provider Item-Row Parity Proof`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`; `docs/wiki/08-Backlog.md`; `docs/releases/v3.4.147.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild with `APP_VERSION=3.4.147`; `/api/health` served frontend/backend/build `3.4.147`; running backend env reported `APP_VERSION=3.4.147`, `NODE_ENV=development`, and `SESSION_COOKIE_SECURE=false`; live DB feature flags kept `events_enabled=true` and `collectibles_enabled=true` with schema migrations at version `100`; Docker Plex real PMS provider item-row parity proof reached saved admin PMS settings, fetched `/media/providers`, found `providerCount=2`, found `candidateCount=0`, wrote sanitized evidence, and kept `readOnly=true`, `importMutation=false`, `plexWriteback=false`, and `importMigrationReady=false`; Docker Help > Releases smoke served `v3.4.147`; homelab boundary passed under a temporary local homelab override, then the stack was restored to platform.
+- CI/checks run: `node --check backend/services/plex.js`; `node --check backend/scripts/plex-real-provider-item-row-parity-proof.js`; host `backend/scripts/unit-tests.js` (`281` tests); Docker `npm run test:plex-real-provider-item-row-parity-proof`; Docker `npm run test:unit`; Docker `npm run test:openapi`; Docker `npm run test:integration-smoke`; Docker `npm run test:help-releases-smoke`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; Docker `npm run test:rbac-regression`; Docker `npm run test:platform-edition-boundary`; Docker `npm run test:homelab-edition-boundary`; Playwright browser regression (`64` passed, `4` skipped); `npm --prefix backend run test:observability-evidence`; `npm --prefix backend run test:release-preflight-local`; `git diff --check`; targeted secret-adjacent artifact scan. Local preflight still marks secure-cookie compose smoke, gitleaks secret scan, and Trivy/SBOM as CI-only or stricter-CI follow-through.
+- Files changed: `app-meta.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `artifacts/plex-provider-item-row-parity/plex-real-provider-item-row-parity-proof.json`; `backend/app-meta.json`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/scripts/plex-real-provider-item-row-parity-proof.js`; `backend/scripts/unit-tests.js`; `backend/services/plex.js`; `docker-compose.yml`; `docs/releases/v3.4.147.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `preflight-go-no-go.md`.
+- Risks or follow-ups: the saved real PMS is reachable but does not expose usable provider item-listing candidates through `/media/providers`, so provider-API import migration is not currently viable from this path; legacy Plex import remains current. If Plex exposes richer provider rows in a later server/API shape, repeat the proof before changing import behavior.
+- What remains in the milestone: Nothing for `3.4.147`; CI-only release gates still need their normal GitHub run.
+- Recommended commit message: `Release 3.4.147 with Plex real provider item-row parity proof`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

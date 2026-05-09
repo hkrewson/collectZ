@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.147",
+      "version": "3.4.147",
+      "date": null,
+      "status": "released",
+      "summary": "This patch adds a read-only real Plex Media Server provider item-row parity proof. It uses saved Plex settings, probes provider-advertised item listing candidates with small page limits, and records whether those rows carry enough metadata to consider a future import migration.",
+      "details": []
+    },
+    {
       "title": "collectZ v3.4.146",
       "version": "3.4.146",
       "date": null,
@@ -70,14 +78,6 @@
       "date": null,
       "status": null,
       "summary": "This patch normalizes collectZ user ratings to a 0-10 internal scale while preserving the existing 5-star UI.",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.4.137",
-      "version": "v3.4.137",
-      "date": null,
-      "status": null,
-      "summary": "This patch adds a queued Plex reconciliation preview job.",
       "details": []
     }
   ]

@@ -1,0 +1,55 @@
+{
+  "generatedAt": "2026-05-09T22:03:26.932Z",
+  "provider": "plex",
+  "mode": "real-pms",
+  "processingMode": "provider_item_row_parity_proof",
+  "ok": true,
+  "status": "passed",
+  "configured": true,
+  "reachable": true,
+  "scope": "admin",
+  "readOnly": true,
+  "importMutation": false,
+  "plexWriteback": false,
+  "providerDiscovery": {
+    "path": "/media/providers",
+    "providerCount": 2,
+    "candidateCount": 0
+  },
+  "probedCandidates": [],
+  "readbacks": [],
+  "fieldCoverage": {
+    "rowCount": 0,
+    "mediaTypes": [],
+    "rowsWithPlexRatingKey": 0,
+    "rowsWithPlexGuid": 0,
+    "rowsWithTmdbId": 0,
+    "rowsWithPosterKey": 0,
+    "rowsWithVariantResolution": 0,
+    "rowsWithWatchState": 0,
+    "rowsWithUserRating": 0,
+    "rowsWithSeasonCounts": 0,
+    "sampleRows": []
+  },
+  "parityDecision": {
+    "realServerRowsReturned": false,
+    "candidateRowsHaveStrongIdentity": false,
+    "candidateRowsHaveArtworkKeys": false,
+    "candidateRowsHaveVariantResolution": false,
+    "candidateRowsHaveWatchOrRatingState": false,
+    "importMigrationReady": false,
+    "decision": "real_provider_candidate_rows_not_available_so_legacy_import_remains_current"
+  },
+  "nextProofNeeded": [
+    "Compare real provider item rows against legacy import rows for the same libraries.",
+    "Prove repeat-sync duplicate safety before using provider-advertised keys for import.",
+    "Prove TV season and episode leaf parity before replacing legacy TV import paths."
+  ],
+  "assertions": [
+    "real saved Plex settings reached PMS /media/providers",
+    "provider-advertised candidate keys were probed read-only with small container limits",
+    "evidence contains only sanitized field-coverage counts and boolean samples",
+    "no Plex token, provider URL, private IP, machine identifier, or media file path was written",
+    "legacy import behavior was not changed"
+  ]
+}

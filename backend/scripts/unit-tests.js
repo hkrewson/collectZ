@@ -241,6 +241,7 @@ const plexProviderDiscoverySmokeSource = fs.readFileSync(require.resolve('../scr
 const plexProviderReadbackSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-provider-readback-smoke'), 'utf8');
 const plexProviderImportParitySmokeSource = fs.readFileSync(require.resolve('../scripts/plex-provider-import-parity-smoke'), 'utf8');
 const plexProviderItemListingDiscoverySmokeSource = fs.readFileSync(require.resolve('../scripts/plex-provider-item-listing-discovery-smoke'), 'utf8');
+const plexRealProviderItemRowParityProofSource = fs.readFileSync(require.resolve('../scripts/plex-real-provider-item-row-parity-proof'), 'utf8');
 const plexNowPlayingProviderProofSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-now-playing-provider-proof-smoke'), 'utf8');
 const plexNowPlayingReadbackSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-now-playing-readback-smoke'), 'utf8');
 const plexRealNowPlayingRuntimeProofSource = fs.readFileSync(require.resolve('../scripts/plex-real-now-playing-runtime-proof'), 'utf8');
@@ -1799,6 +1800,7 @@ results.push(run('plex provider import parity proof keeps current import path re
 results.push(run('plex provider item listing discovery extracts advertised candidates without changing imports', () => {
   assert.ok(backendPackageJson.scripts['test:plex-provider-item-listing-discovery-smoke']);
   assert.ok(plexServiceSource.includes('extractPlexProviderItemListingCandidates'));
+  assert.ok(plexServiceSource.includes('fetchPlexProviderItemRows'));
   assert.ok(plexServiceSource.includes('featureDirectories'));
   assert.ok(plexProviderItemListingDiscoverySmokeSource.includes('provider_item_listing_discovery_contract'));
   assert.ok(plexProviderItemListingDiscoverySmokeSource.includes('provider_advertised_item_listing_candidates_found_but_import_behavior_remains_legacy_until_real_server_field_parity_is_proven'));
@@ -1808,6 +1810,19 @@ results.push(run('plex provider item listing discovery extracts advertised candi
   assert.ok(plexProviderItemListingDiscoverySmokeSource.includes('assertSecretFree'));
   assert.ok(plexPmsModernizationDocSource.includes('Plex Provider Item-Listing API Discovery. Promoted as `3.4.146`.'));
   assert.ok(releaseRoadmapSource.includes('3.4.146 — Plex Provider Item-Listing API Discovery'));
+}));
+
+results.push(run('plex real PMS provider item-row parity proof stays read-only and sanitized', () => {
+  assert.ok(backendPackageJson.scripts['test:plex-real-provider-item-row-parity-proof']);
+  assert.ok(plexRealProviderItemRowParityProofSource.includes('fetchPlexProviderItemRows'));
+  assert.ok(plexRealProviderItemRowParityProofSource.includes('provider_item_row_parity_proof'));
+  assert.ok(plexRealProviderItemRowParityProofSource.includes('real_provider_candidate_rows_returned_but_import_behavior_remains_legacy_until_full_field_parity_and_repeat_sync_safety_are_proven'));
+  assert.ok(plexRealProviderItemRowParityProofSource.includes('Compare real provider item rows against legacy import rows for the same libraries.'));
+  assert.ok(plexRealProviderItemRowParityProofSource.includes('fieldCoverage'));
+  assert.ok(plexRealProviderItemRowParityProofSource.includes('assertSecretFree'));
+  assert.ok(plexRealProviderItemRowParityProofSource.includes("artifacts', 'plex-provider-item-row-parity', 'plex-real-provider-item-row-parity-proof.json"));
+  assert.ok(plexPmsModernizationDocSource.includes('Plex Real PMS Provider Item-Row Parity Proof. Promoted as `3.4.147`.'));
+  assert.ok(releaseRoadmapSource.includes('3.4.147 — Plex Real PMS Provider Item-Row Parity Proof'));
 }));
 
 results.push(run('plex real-server provider discovery readback is wired as sanitized admin and workspace probes', () => {
