@@ -1619,6 +1619,9 @@ results.push(run('plex full-library reconciliation preview stays read-only and c
   assert.ok(mediaRoutesSource.includes("router.post('/plex-reconciliation-preview'"));
   assert.ok(mediaRoutesSource.includes("router.post('/plex-reconciliation-preview/run'"));
   assert.ok(mediaRoutesSource.includes("router.post('/plex-reconciliation-sync/run'"));
+  assert.ok(mediaRoutesSource.includes("router.get('/plex-reconciliation-conflicts'"));
+  assert.ok(mediaRoutesSource.includes("router.post('/plex-reconciliation-conflicts/:id/resolve'"));
+  assert.ok(mediaRoutesSource.includes('persistPlexReconciliationConflictReviews'));
   assert.ok(mediaRoutesSource.includes('buildPlexFullLibraryReconciliationPreview'));
   assert.ok(mediaRoutesSource.includes('runPlexReconciliationPreviewJob'));
   assert.ok(mediaRoutesSource.includes('runPlexReconciliationSyncJob'));
@@ -1640,6 +1643,8 @@ results.push(run('plex full-library reconciliation preview stays read-only and c
   assert.ok(openApiSource.includes('/api/media/plex-reconciliation-preview'));
   assert.ok(openApiSource.includes('/api/media/plex-reconciliation-preview/run'));
   assert.ok(openApiSource.includes('/api/media/plex-reconciliation-sync/run'));
+  assert.ok(openApiSource.includes('/api/media/plex-reconciliation-conflicts'));
+  assert.ok(openApiSource.includes('/api/media/plex-reconciliation-conflicts/{id}/resolve'));
   assert.ok(openApiSource.includes('/api/media/plex-reconciliation-sync/scheduler'));
   assert.ok(openApiSource.includes('/api/media/plex-reconciliation-sync/scheduler/run'));
   assert.ok(dockerComposeSource.includes('PLEX_RECONCILIATION_SYNC_ENABLED'));
@@ -1662,6 +1667,9 @@ results.push(run('plex full-library reconciliation preview stays read-only and c
   assert.ok(plexReconciliationSyncSmokeSource.includes('Expected one auto-created row'));
   assert.ok(plexReconciliationSyncSmokeSource.includes('Expected one strong-ID update'));
   assert.ok(plexReconciliationSyncSmokeSource.includes('Expected one conflict for review'));
+  assert.ok(plexReconciliationSyncSmokeSource.includes('/api/media/plex-reconciliation-conflicts?status=open'));
+  assert.ok(plexReconciliationSyncSmokeSource.includes("action: 'create_separate'"));
+  assert.ok(plexReconciliationSyncSmokeSource.includes('Conflict review can create a separate local Plex-linked title without Plex writeback'));
   assert.ok(plexReconciliationSyncSmokeSource.includes('plex-reconciliation-sync-smoke.json'));
   assert.ok(adminIntegrationsViewSource.includes('Plex library sync'));
   assert.ok(adminIntegrationsViewSource.includes('runPlexReconciliationSyncJob'));
@@ -1670,11 +1678,16 @@ results.push(run('plex full-library reconciliation preview stays read-only and c
   assert.ok(adminIntegrationsViewSource.includes('Scan Limit'));
   assert.ok(adminIntegrationsViewSource.includes('Sync Plex Library'));
   assert.ok(adminIntegrationsViewSource.includes('Sync Issues'));
+  assert.ok(adminIntegrationsViewSource.includes('PlexConflictReviewQueue'));
+  assert.ok(adminIntegrationsViewSource.includes('Create separate title'));
+  assert.ok(adminIntegrationsViewSource.includes('resolvePlexConflictReview'));
   assert.ok(adminIntegrationsViewSource.includes('runPlexReconciliationPreview'));
   assert.ok(adminIntegrationsViewSource.includes('runPlexReconciliationPreviewJob'));
   assert.ok(adminIntegrationsViewSource.includes('PlexReconciliationPreview'));
   assert.ok(adminIntegrationsViewSource.includes('Plex writeback stays manual.'));
-  assert.ok(integrationsBrowserSpecSource.includes('Plex reconciliation sync surface displays review buckets without apply controls'));
+  assert.ok(integrationsBrowserSpecSource.includes('Plex reconciliation sync surface displays durable conflict review actions'));
+  assert.ok(integrationsBrowserSpecSource.includes('/api/media/plex-reconciliation-conflicts?status=open'));
+  assert.ok(integrationsBrowserSpecSource.includes('/api/media/plex-reconciliation-conflicts/77/resolve'));
   assert.ok(integrationsBrowserSpecSource.includes('/api/media/plex-reconciliation-preview'));
   assert.ok(integrationsBrowserSpecSource.includes('/api/media/plex-reconciliation-sync/run'));
   assert.ok(integrationsBrowserSpecSource.includes('toHaveCount(0)'));
@@ -1682,6 +1695,7 @@ results.push(run('plex full-library reconciliation preview stays read-only and c
   assert.ok(releaseRoadmapSource.includes('3.4.139 — Plex Temporary Reconciliation Review UI'));
   assert.ok(releaseRoadmapSource.includes('3.4.140 — Plex Reconciliation Auto-Sync and Conflict Review'));
   assert.ok(releaseRoadmapSource.includes('3.4.141 — Plex Reconciliation Full-Scan and Scheduler Automation'));
+  assert.ok(releaseRoadmapSource.includes('3.4.143 — Plex Reconciliation Conflict Review and Resolution'));
 }));
 
 results.push(run('plex webhook receiver administration contract is token-scoped and queues library-new import hints only', () => {

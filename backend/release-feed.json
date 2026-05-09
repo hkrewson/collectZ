@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.143",
+      "version": "3.4.143",
+      "date": null,
+      "status": "released",
+      "summary": "This patch adds a durable Plex reconciliation conflict review queue so unsafe Plex sync matches can be resolved intentionally after automated sync.",
+      "details": []
+    },
+    {
       "title": "collectZ v3.4.142",
       "version": "3.4.142",
       "date": null,
@@ -70,14 +78,6 @@
       "date": null,
       "status": null,
       "summary": "This patch adds explicit Plex rating writeback for one existing Plex-linked collectZ row.",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.4.133",
-      "version": "v3.4.133",
-      "date": null,
-      "status": null,
-      "summary": "This patch adds explicit Plex watched-state writeback for one existing Plex-linked collectZ row.",
       "details": []
     }
   ]

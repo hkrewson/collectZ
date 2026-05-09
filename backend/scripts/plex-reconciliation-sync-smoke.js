@@ -387,6 +387,30 @@ async function main() {
     mediaIds.push(Number(newRow.rows[0].id));
     const updatedRow = await pool.query(`SELECT import_source FROM media WHERE title = 'Existing TMDB Movie' AND library_id = $1`, [libraryId]);
     assert(updatedRow.rows[0]?.import_source === 'plex', 'Expected Existing TMDB Movie to be updated from Plex');
+    const conflicts = await client.request('/api/media/plex-reconciliation-conflicts?status=open', { expectStatus: 200 });
+    assert(conflicts.data?.processingMode === 'plex_reconciliation_conflict_review', `Unexpected conflict review mode: ${JSON.stringify(conflicts.data)}`);
+    assert(conflicts.data?.count === 1, `Expected one open conflict review row: ${JSON.stringify(conflicts.data)}`);
+    assert(conflicts.data?.reviews?.[0]?.item?.title === 'Conflict Movie', `Expected Conflict Movie review row: ${JSON.stringify(conflicts.data)}`);
+    assert(!Object.prototype.hasOwnProperty.call(conflicts.data.reviews[0], 'sourceItem'), 'Conflict review readback must not expose raw source item payloads');
+    const reviewId = Number(conflicts.data.reviews[0]?.id || 0);
+    const resolved = await client.request(`/api/media/plex-reconciliation-conflicts/${reviewId}/resolve`, {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 200,
+      body: { action: 'create_separate', notes: 'smoke create separate' }
+    });
+    assert(resolved.data?.processingMode === 'plex_reconciliation_conflict_resolution', `Unexpected conflict resolution mode: ${JSON.stringify(resolved.data)}`);
+    assert(resolved.data?.plexWriteback === false, 'Expected conflict resolution to keep Plex writeback disabled');
+    assert(resolved.data?.importMutation === true, 'Expected create_separate conflict resolution to mutate local import state');
+    assert(resolved.data?.review?.status === 'resolved', `Expected resolved review row: ${JSON.stringify(resolved.data)}`);
+    assert(resolved.data?.review?.resolution === 'create_separate', `Expected create_separate resolution: ${JSON.stringify(resolved.data)}`);
+    const resolvedMediaId = Number(resolved.data?.review?.resolvedMediaId || 0);
+    assert(resolvedMediaId > 0, `Expected resolved media id: ${JSON.stringify(resolved.data)}`);
+    mediaIds.push(resolvedMediaId);
+    const resolvedConflicts = await client.request('/api/media/plex-reconciliation-conflicts?status=open', { expectStatus: 200 });
+    assert(resolvedConflicts.data?.count === 0, `Expected no open conflict review rows after resolution: ${JSON.stringify(resolvedConflicts.data)}`);
+    const afterResolutionCount = await pool.query('SELECT COUNT(*)::int AS count FROM media WHERE library_id = $1', [libraryId]);
+    assert(afterResolutionCount.rows[0].count === beforeCount.rows[0].count + 2, `Expected conflict resolution to create one more media row, before=${beforeCount.rows[0].count} after=${afterResolutionCount.rows[0].count}`);
     assert(fake.requests.some((entry) => entry.pathname === '/library/sections'), 'Expected sections readback');
     assert(fake.requests.some((entry) => entry.pathname === '/library/sections/1/all'), 'Expected section library readback');
     assert(fake.requests.every((entry) => entry.hasToken && entry.tokenMatched), 'Expected fake PMS requests to authenticate');
@@ -401,11 +425,17 @@ async function main() {
       schedulerDefaultEnabled: schedulerStatus.data.runtime.enabled,
       schedulerIntervalMinutes: schedulerStatus.data.runtime.intervalMinutes,
       mediaCountBefore: beforeCount.rows[0].count,
-      mediaCountAfter: afterCount.rows[0].count,
+      mediaCountAfter: afterResolutionCount.rows[0].count,
       fullScanExceededOldCap: job.summary.scanned > 1000,
       previewSummary: preview.data.summary,
       autoApplied: job.summary.autoApplied,
       conflictReviewCount: job.summary.conflictReviewCount,
+      conflictResolution: {
+        openBefore: conflicts.data.count,
+        action: resolved.data.review.resolution,
+        resolvedMediaId: resolved.data.review.resolvedMediaId,
+        openAfter: resolvedConflicts.data.count
+      },
       queuedJob: {
         id: jobId,
         status: job.status,
@@ -441,6 +471,7 @@ async function main() {
         'Reconciliation sync scanned more than 1000 Plex rows when no diagnostic limit was supplied',
         'Queued reconciliation sync job created one safe missing row and updated one strong TMDB match',
         'Already-linked rows stayed no-op and conflicting rows were stored for review',
+        'Conflict review can create a separate local Plex-linked title without Plex writeback',
         'Sync evidence did not surface Plex tokens, token query strings, private IPs, or media file paths'
       ]
     };

@@ -10504,6 +10504,37 @@ Historical note:
 - What remains in the milestone: Nothing for `3.4.142`; CI-only release gates still need their normal GitHub run.
 - Recommended commit message: `Release 3.4.142 with Plex episode-aware TV watched-state writeback`
 
+## 3.4.143 — Plex Reconciliation Conflict Review and Resolution
+
+**Goal:** Turn Plex reconciliation conflict readback into a durable admin review queue with explicit local resolution actions.
+
+### Scope
+
+- Persist unsafe Plex reconciliation matches in a first-class review table keyed by Plex source identity and active library.
+- Add admin readback for open and resolved Plex reconciliation review rows.
+- Add explicit local resolution actions for creating a separate Plex-linked title or dismissing the conflict.
+- Show the open conflict queue in the Plex integrations panel.
+- Keep Plex writeback, automatic conflict resolution, broad import rewrites, and provider API migration out of scope.
+
+### Acceptance Criteria
+
+- Reconciliation sync stores conflict review rows outside transient job summary JSON.
+- Conflict review readback returns sanitized item/existing snapshots without raw Plex source payloads.
+- Creating a separate title resolves the review row, creates one local Plex-linked media row, and does not call Plex writeback APIs.
+- Dismissing a conflict resolves the review row without media mutation.
+- Version metadata, release note, release feed, and Help > Releases include `3.4.143`.
+
+### Closeout
+
+- Roadmap slice: `3.4.143 — Plex Reconciliation Conflict Review and Resolution`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`; `docs/wiki/08-Backlog.md`; `docs/releases/v3.4.143.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild with `APP_VERSION=3.4.143`; `/api/health` served frontend/backend/build `3.4.143`; running DB schema migrations reached version `100`; live backend env reported `APP_EDITION=platform`, `APP_VERSION=3.4.143`, `NODE_ENV=development`, `SESSION_COOKIE_SECURE=false`, `PLEX_RECONCILIATION_SYNC_ENABLED=false`, `PLEX_RECONCILIATION_SYNC_INTERVAL_MINUTES=360`, and no scheduled scan limit; live DB kept `events_enabled=true` and `collectibles_enabled=true`; Docker Plex reconciliation sync smoke proved full-scan reconciliation, one stored open conflict review row, sanitized conflict readback without raw source payloads, `create_separate` resolution creating one additional local Plex-linked media row, open review count returning to zero, and Plex writeback remaining false; Help > Releases served `3.4.143`; homelab boundary passed under a temporary local homelab override, then the stack was restored to platform.
+- CI/checks run: `node --check backend/routes/media.js`; `node --check backend/db/migrations.js`; `node --check backend/scripts/plex-reconciliation-sync-smoke.js`; local OpenAPI validation; Docker backend/frontend build; Docker `npm run test:unit`; Docker `npm run test:openapi`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; Docker `npm run test:integration-smoke`; Docker `npm run test:plex-reconciliation-sync-smoke`; Docker Help > Releases smoke; Docker `npm run test:rbac-regression` with `BASE_URL=http://frontend:3000`; Docker `npm run test:platform-edition-boundary` with `BASE_URL=http://frontend:3000`; Docker `npm run test:homelab-edition-boundary` with `BASE_URL=http://frontend:3000`; targeted integrations browser spec; full Playwright browser regression passed `64 passed, 4 skipped`; `npm --prefix backend run test:observability-evidence`; `npm --prefix backend run test:release-preflight-local`; `git diff --check`; targeted secret scan over new release/evidence artifacts. Local preflight still marks CI-only `secret-scan` and `image-security-and-sbom` blocked for CI follow-through, and secure-cookie compose-smoke blocked in the dev stack because `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`.
+- Files changed: `app-meta.json`; `backend/app-meta.json`; `backend/db/migrations.js`; `backend/openapi/openapi.yaml`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/routes/media.js`; `backend/scripts/plex-reconciliation-sync-smoke.js`; `backend/scripts/unit-tests.js`; `docker-compose.yml`; `docs/releases/v3.4.143.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/AdminIntegrationsView.jsx`; `init.sql`; `preflight-go-no-go.md`; `tests/playwright/specs/integrations.browser.spec.js`; generated evidence under `artifacts/observability-evidence/`.
+- Risks/follow-ups: conflict resolution currently supports create-separate and dismiss only; attaching a Plex identity to an existing conflicting row remains intentionally out of scope because it can corrupt strong identifiers. Automatic conflict resolution, Plex writeback, provider API import migration, and broader TV episode row modeling remain future work.
+- What remains in the milestone: Nothing for `3.4.143`; CI-only release gates still need their normal GitHub run.
+- Recommended commit message: `Release 3.4.143 with Plex reconciliation conflict review and resolution`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

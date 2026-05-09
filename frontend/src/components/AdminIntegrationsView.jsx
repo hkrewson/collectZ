@@ -194,7 +194,7 @@ function normalizePlexReconciliationResult(result = null) {
   };
 }
 
-function PlexReconciliationRow({ row }) {
+function PlexReconciliationRow({ row, children }) {
   const item = row?.item || {};
   const existing = row?.existing || null;
   const title = item.title || existing?.title || 'Untitled Plex item';
@@ -222,6 +222,48 @@ function PlexReconciliationRow({ row }) {
       {itemBits.length > 0 && <p className="mt-1 text-xs text-ghost">{itemBits.join(' · ')}</p>}
       {existingBits.length > 0 && <p className="mt-1 text-xs text-dim">Existing: {existingBits.join(' · ')}</p>}
       {row?.reason && <p className="mt-1 text-xs text-warn">{row.reason}</p>}
+      {children}
+    </div>
+  );
+}
+
+function PlexConflictReviewQueue({ reviews = [], loading = '', onResolve }) {
+  return (
+    <div className="rounded-md border border-edge/70">
+      <div className="flex items-center justify-between gap-3 border-b border-edge/70 px-3 py-2">
+        <div>
+          <p className="text-sm font-medium text-ink">Conflict review</p>
+          <p className="text-xs text-ghost">Resolve rows that automatic Plex sync could not safely attach.</p>
+        </div>
+        <span className="text-sm text-dim">{reviews.length}</span>
+      </div>
+      <div className="space-y-2 p-3">
+        {reviews.length === 0 ? (
+          <p className="text-sm text-dim">No open Plex conflicts.</p>
+        ) : reviews.slice(0, 25).map((review) => (
+          <PlexReconciliationRow key={review.id} row={review}>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="btn-secondary btn-sm"
+                disabled={loading === `plex-conflict-create-${review.id}` || loading === `plex-conflict-dismiss-${review.id}`}
+                onClick={() => onResolve?.(review.id, 'create_separate')}
+              >
+                Create separate title
+              </button>
+              <button
+                type="button"
+                className="btn-secondary btn-sm"
+                disabled={loading === `plex-conflict-create-${review.id}` || loading === `plex-conflict-dismiss-${review.id}`}
+                onClick={() => onResolve?.(review.id, 'dismiss')}
+              >
+                Dismiss
+              </button>
+            </div>
+          </PlexReconciliationRow>
+        ))}
+        {reviews.length > 25 && <p className="text-xs text-ghost">Showing 25 of {reviews.length} rows.</p>}
+      </div>
     </div>
   );
 }
@@ -391,6 +433,7 @@ export default function AdminIntegrationsView({
   const [plexReconciliationResult, setPlexReconciliationResult] = useState(null);
   const [plexReconciliationJob, setPlexReconciliationJob] = useState(null);
   const [plexReconciliationScheduler, setPlexReconciliationScheduler] = useState(null);
+  const [plexConflictReviews, setPlexConflictReviews] = useState([]);
   const [featureFlags, setFeatureFlags] = useState([]);
   const [featureFlagsLoading, setFeatureFlagsLoading] = useState(true);
   const [featureFlagsReadOnly, setFeatureFlagsReadOnly] = useState(false);
@@ -517,6 +560,7 @@ export default function AdminIntegrationsView({
   useEffect(() => {
     if (section !== 'plex') return;
     refreshPlexReconciliationScheduler();
+    refreshPlexConflictReviews();
   }, [section]);
 
   const applyBarcodePreset = (p) => setForm((f) => ({ ...f, ...(BARCODE_PRESETS[p] || {}) }));
@@ -954,6 +998,33 @@ export default function AdminIntegrationsView({
     }
   };
 
+  const refreshPlexConflictReviews = async () => {
+    try {
+      const result = await apiCall('get', '/media/plex-reconciliation-conflicts?status=open');
+      setPlexConflictReviews(Array.isArray(result?.reviews) ? result.reviews : []);
+    } catch (_) {
+      setPlexConflictReviews([]);
+    }
+  };
+
+  const resolvePlexConflictReview = async (reviewId, action) => {
+    const loadingKey = action === 'create_separate' ? `plex-conflict-create-${reviewId}` : `plex-conflict-dismiss-${reviewId}`;
+    setTestLoading(loadingKey);
+    setTestMsg('');
+    try {
+      const result = await apiCall('post', `/media/plex-reconciliation-conflicts/${reviewId}/resolve`, { action });
+      await refreshPlexConflictReviews();
+      const label = action === 'create_separate' ? 'created a separate title' : 'dismissed the conflict';
+      setTestMsg(`PLEX CONFLICT: ${label}.`);
+      onToast(result?.review?.item?.title ? `Plex conflict resolved for ${result.review.item.title}` : 'Plex conflict resolved');
+    } catch (err) {
+      setTestMsg(err.response?.data?.error || 'Plex conflict resolution failed');
+      onToast(err.response?.data?.error || 'Plex conflict resolution failed', 'error');
+    } finally {
+      setTestLoading('');
+    }
+  };
+
   const runPlexReconciliationPreview = async () => {
     setTestLoading('plex-reconciliation-preview');
     setTestMsg('');
@@ -1035,6 +1106,7 @@ export default function AdminIntegrationsView({
         const summary = latest?.summary || {};
         setTestMsg(`PLEX SYNC: job #${jobId} created ${Number(summary?.autoApplied?.created || 0)}, updated ${Number(summary?.autoApplied?.updated || 0)}, review ${Number(summary?.conflictReviewCount || 0)}.`);
         refreshPlexReconciliationScheduler();
+        refreshPlexConflictReviews();
       } else if (latest?.status === 'failed') {
         setTestMsg(latest?.error || `Plex reconciliation sync job #${jobId} failed`);
       } else {
@@ -1582,6 +1654,11 @@ export default function AdminIntegrationsView({
               </div>
             </div>
             <PlexReconciliationPreview result={plexReconciliationResult} />
+            <PlexConflictReviewQueue
+              reviews={plexConflictReviews}
+              loading={testLoading}
+              onResolve={resolvePlexConflictReview}
+            />
           </div>
           <div className="rounded-xl border border-edge bg-raised/60 px-3 py-3 space-y-3">
             <div className="flex flex-wrap items-start justify-between gap-3">

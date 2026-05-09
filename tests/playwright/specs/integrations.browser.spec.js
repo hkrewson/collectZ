@@ -142,8 +142,9 @@ test.describe('integrations browser regressions', () => {
     }
   });
 
-  test('Plex reconciliation sync surface displays review buckets without apply controls', async ({ page }) => {
+  test('Plex reconciliation sync surface displays durable conflict review actions', async ({ page }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
+    let conflictOpen = true;
     await page.route('**/api/media/plex-reconciliation-sync/scheduler', async (route) => {
       await route.fulfill({
         status: 200,
@@ -245,6 +246,46 @@ test.describe('integrations browser regressions', () => {
         })
       });
     });
+    await page.route('**/api/media/plex-reconciliation-conflicts?status=open', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ok: true,
+          provider: 'plex',
+          processingMode: 'plex_reconciliation_conflict_review',
+          status: 'open',
+          count: conflictOpen ? 1 : 0,
+          reviews: conflictOpen ? [{
+            id: 77,
+            item: { title: 'Conflict Movie', media_type: 'movie', year: 2021, sectionId: '1', plex_item_key: '1:1004' },
+            existing: { id: 104, title: 'Conflict Movie', media_type: 'movie', year: 2021, import_source: 'manual' },
+            matchedBy: 'title_year_conflict',
+            reason: 'A same-title row exists, but strong identifiers disagree.'
+          }] : []
+        })
+      });
+    });
+    await page.route('**/api/media/plex-reconciliation-conflicts/77/resolve', async (route) => {
+      conflictOpen = false;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ok: true,
+          provider: 'plex',
+          processingMode: 'plex_reconciliation_conflict_resolution',
+          plexWriteback: false,
+          importMutation: false,
+          review: {
+            id: 77,
+            status: 'resolved',
+            resolution: 'dismiss',
+            item: { title: 'Conflict Movie', media_type: 'movie', year: 2021 }
+          }
+        })
+      });
+    });
 
     await signInThroughUi(page, adminCredentials);
     await page.goto('/dashboard?tab=admin-integrations&integration=plex');
@@ -261,7 +302,7 @@ test.describe('integrations browser regressions', () => {
     await activeSectionRoot(page).locator('details').filter({ hasText: 'Creates' }).first().locator('summary').click();
     await expect(page.getByText('Linked Movie', { exact: true })).toBeVisible();
     await expect(page.getByText('New Plex Movie')).toBeVisible();
-    await expect(page.getByText('A same-title row exists, but strong identifiers disagree.')).toBeVisible();
+    await expect(page.getByText('A same-title row exists, but strong identifiers disagree.').first()).toBeVisible();
 
     await page.getByRole('button', { name: 'Sync Plex Library' }).click();
     await expect(page.getByText('PLEX SYNC: job #901 created 1, updated 1, review 1.')).toBeVisible();
@@ -269,6 +310,11 @@ test.describe('integrations browser regressions', () => {
     await expect(page.getByText('Created', { exact: true })).toBeVisible();
     await expect(page.getByText('Updated', { exact: true })).toBeVisible();
     await expect(page.getByText('Needs review', { exact: true })).toBeVisible();
+    await expect(page.getByText('Conflict review')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Create separate title' })).toBeVisible();
+    await page.getByRole('button', { name: 'Dismiss' }).click();
+    await expect(page.getByText('PLEX CONFLICT: dismissed the conflict.')).toBeVisible();
+    await expect(page.getByText('No open Plex conflicts.')).toBeVisible();
     await expect(page.getByRole('button', { name: /apply/i })).toHaveCount(0);
   });
 });

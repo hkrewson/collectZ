@@ -6743,6 +6743,91 @@ function stripPlexReconciliationSourceItems(entries = []) {
   }));
 }
 
+function getPlexReconciliationReviewSourceKey(entry = {}) {
+  const item = entry?.item || {};
+  if (item.plex_item_key) return `plex_item_key:${item.plex_item_key}`;
+  if (item.plex_guid) return `plex_guid:${item.plex_guid}`;
+  return `title:${normalizeText(item.title || '')}|year:${item.year || ''}|type:${item.media_type || ''}|section:${item.sectionId || ''}`;
+}
+
+function formatPlexReconciliationReview(row = {}) {
+  return {
+    id: Number(row.id),
+    provider: row.provider || 'plex',
+    sourceKey: row.source_key || null,
+    status: row.status || 'open',
+    resolution: row.resolution || null,
+    reason: row.reason || null,
+    matchedBy: row.matched_by || null,
+    item: row.item_snapshot || null,
+    existing: row.existing_snapshot || null,
+    existingMediaId: row.existing_media_id ? Number(row.existing_media_id) : null,
+    resolvedMediaId: row.resolved_media_id ? Number(row.resolved_media_id) : null,
+    jobId: row.job_id ? Number(row.job_id) : null,
+    libraryId: row.library_id ? Number(row.library_id) : null,
+    spaceId: row.space_id ? Number(row.space_id) : null,
+    notes: row.notes || null,
+    createdAt: row.created_at || null,
+    updatedAt: row.updated_at || null,
+    resolvedAt: row.resolved_at || null
+  };
+}
+
+async function persistPlexReconciliationConflictReviews({
+  jobId = null,
+  entries = [],
+  scopeContext = null,
+  createdBy = null
+} = {}) {
+  const reviews = Array.isArray(entries) ? entries : [];
+  for (const entry of reviews) {
+    const sourceKey = getPlexReconciliationReviewSourceKey(entry);
+    await pool.query(
+      `INSERT INTO plex_reconciliation_reviews (
+         provider, source_key, status, resolution, reason, matched_by,
+         item_snapshot, existing_snapshot, source_item_snapshot,
+         job_id, existing_media_id, library_id, space_id, created_by,
+         resolved_by, resolved_at, notes
+       )
+       VALUES (
+         'plex', $1, 'open', NULL, $2, $3,
+         $4::jsonb, $5::jsonb, $6::jsonb,
+         $7, $8, $9, $10, $11,
+         NULL, NULL, NULL
+       )
+       ON CONFLICT (provider, library_id, source_key)
+       DO UPDATE SET
+         status = 'open',
+         resolution = NULL,
+         reason = EXCLUDED.reason,
+         matched_by = EXCLUDED.matched_by,
+         item_snapshot = EXCLUDED.item_snapshot,
+         existing_snapshot = EXCLUDED.existing_snapshot,
+         source_item_snapshot = EXCLUDED.source_item_snapshot,
+         job_id = EXCLUDED.job_id,
+         existing_media_id = EXCLUDED.existing_media_id,
+         space_id = EXCLUDED.space_id,
+         resolved_media_id = NULL,
+         resolved_by = NULL,
+         resolved_at = NULL,
+         notes = NULL`,
+      [
+        sourceKey,
+        entry?.reason || null,
+        entry?.matchedBy || null,
+        JSON.stringify(entry?.item || {}),
+        JSON.stringify(entry?.existing || null),
+        JSON.stringify(entry?.sourceItem || null),
+        jobId,
+        entry?.existing?.id || null,
+        scopeContext?.libraryId || null,
+        scopeContext?.spaceId || null,
+        createdBy || null
+      ]
+    );
+  }
+}
+
 function buildPlexReconciliationJobSummary(preview = {}) {
   const buckets = preview.buckets || {};
   return {
@@ -6975,6 +7060,12 @@ async function runPlexReconciliationSyncJob({
       };
 
     const summary = buildPlexReconciliationSyncSummary({ preview, plan, importResult });
+    await persistPlexReconciliationConflictReviews({
+      jobId,
+      entries: plan.conflictReview,
+      scopeContext,
+      createdBy: req?.user?.id || null
+    });
     await updateSyncJob(jobId, {
       status: 'succeeded',
       summary,
@@ -13559,6 +13650,159 @@ router.post('/plex-reconciliation-sync/run', asyncHandler(async (req, res) => {
     readOnly: false,
     plexWriteback: false,
     importMutation: true
+  });
+}));
+
+router.get('/plex-reconciliation-conflicts', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Only admins can review Plex reconciliation conflicts' });
+  }
+  const ensuredScope = scopeContext?.libraryId
+    ? { spaceId: scopeContext?.spaceId || null, libraryId: scopeContext.libraryId }
+    : await ensureUserDefaultScope(req.user.id);
+  const effectiveScopeContext = {
+    ...scopeContext,
+    spaceId: scopeContext?.spaceId ?? ensuredScope.spaceId ?? null,
+    libraryId: ensuredScope.libraryId || null
+  };
+  if (!effectiveScopeContext.libraryId) {
+    return res.status(400).json({ error: 'Active library is required before Plex conflict review' });
+  }
+
+  const status = String(req.query?.status || 'open').trim().toLowerCase();
+  const normalizedStatus = status === 'resolved' ? 'resolved' : 'open';
+  const limitRaw = Number(req.query?.limit);
+  const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(100, Math.floor(limitRaw))) : 50;
+  const result = await pool.query(
+    `SELECT id, provider, source_key, status, resolution, reason, matched_by,
+            item_snapshot, existing_snapshot, job_id, existing_media_id, resolved_media_id,
+            library_id, space_id, notes, created_at, updated_at, resolved_at
+       FROM plex_reconciliation_reviews
+      WHERE provider = 'plex'
+        AND library_id = $1
+        AND status = $2
+      ORDER BY updated_at DESC, created_at DESC
+      LIMIT $3`,
+    [effectiveScopeContext.libraryId, normalizedStatus, limit]
+  );
+  res.json({
+    ok: true,
+    provider: 'plex',
+    processingMode: 'plex_reconciliation_conflict_review',
+    status: normalizedStatus,
+    count: result.rows.length,
+    reviews: result.rows.map(formatPlexReconciliationReview)
+  });
+}));
+
+router.post('/plex-reconciliation-conflicts/:id/resolve', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Only admins can resolve Plex reconciliation conflicts' });
+  }
+  const ensuredScope = scopeContext?.libraryId
+    ? { spaceId: scopeContext?.spaceId || null, libraryId: scopeContext.libraryId }
+    : await ensureUserDefaultScope(req.user.id);
+  const effectiveScopeContext = {
+    ...scopeContext,
+    spaceId: scopeContext?.spaceId ?? ensuredScope.spaceId ?? null,
+    libraryId: ensuredScope.libraryId || null
+  };
+  if (!effectiveScopeContext.libraryId) {
+    return res.status(400).json({ error: 'Active library is required before Plex conflict resolution' });
+  }
+
+  const reviewId = Number(req.params.id);
+  if (!Number.isFinite(reviewId) || reviewId <= 0) {
+    return res.status(400).json({ error: 'Invalid Plex conflict review id' });
+  }
+  const action = String(req.body?.action || '').trim().toLowerCase();
+  if (!['create_separate', 'dismiss'].includes(action)) {
+    return res.status(400).json({ error: 'action must be create_separate or dismiss' });
+  }
+  const notes = String(req.body?.notes || '').trim().slice(0, 1000) || null;
+  const reviewResult = await pool.query(
+    `SELECT id, provider, source_key, status, resolution, reason, matched_by,
+            item_snapshot, existing_snapshot, source_item_snapshot, job_id, existing_media_id,
+            resolved_media_id, library_id, space_id, notes, created_at, updated_at, resolved_at
+       FROM plex_reconciliation_reviews
+      WHERE id = $1
+        AND provider = 'plex'
+        AND library_id = $2
+      LIMIT 1`,
+    [reviewId, effectiveScopeContext.libraryId]
+  );
+  const review = reviewResult.rows[0] || null;
+  if (!review) {
+    return res.status(404).json({ error: 'Plex conflict review row not found' });
+  }
+  if (review.status === 'resolved') {
+    return res.status(409).json({ error: 'Plex conflict review row is already resolved' });
+  }
+
+  let resolvedMediaId = null;
+  let importResult = null;
+  if (action === 'create_separate') {
+    const sourceItem = review.source_item_snapshot || null;
+    if (!sourceItem) {
+      return res.status(400).json({ error: 'This Plex conflict does not have enough source data to create a separate row' });
+    }
+    const config = await loadPlexWebhookImportConfig(effectiveScopeContext);
+    importResult = await runPlexImport({
+      req,
+      config,
+      sectionIds: sourceItem.sectionId ? [String(sourceItem.sectionId)] : [],
+      scopeContext: effectiveScopeContext,
+      itemsOverride: [sourceItem]
+    });
+    resolvedMediaId = Number(importResult?.createdMediaIds?.[0] || 0) || null;
+    if (!resolvedMediaId) {
+      const sourceKey = String(review.source_key || '');
+      const itemKey = sourceKey.startsWith('plex_item_key:') ? sourceKey.slice('plex_item_key:'.length) : null;
+      if (itemKey) {
+        const lookup = await pool.query(
+          `SELECT media_id FROM media_metadata
+            WHERE "key" = 'plex_item_key'
+              AND "value" = $1
+            ORDER BY media_id DESC
+            LIMIT 1`,
+          [itemKey]
+        );
+        resolvedMediaId = Number(lookup.rows[0]?.media_id || 0) || null;
+      }
+    }
+  }
+
+  const updated = await pool.query(
+    `UPDATE plex_reconciliation_reviews
+        SET status = 'resolved',
+            resolution = $1,
+            resolved_media_id = $2,
+            resolved_by = $3,
+            resolved_at = NOW(),
+            notes = $4
+      WHERE id = $5
+      RETURNING id, provider, source_key, status, resolution, reason, matched_by,
+                item_snapshot, existing_snapshot, job_id, existing_media_id, resolved_media_id,
+                library_id, space_id, notes, created_at, updated_at, resolved_at`,
+    [action, resolvedMediaId, req.user.id, notes, reviewId]
+  );
+  await logActivity(req, 'media.plex.reconciliation.conflict_resolved', 'plex_reconciliation_reviews', reviewId, {
+    action,
+    resolvedMediaId,
+    existingMediaId: review.existing_media_id || null,
+    plexWriteback: false,
+    importMutation: action === 'create_separate'
+  });
+  res.json({
+    ok: true,
+    provider: 'plex',
+    processingMode: 'plex_reconciliation_conflict_resolution',
+    plexWriteback: false,
+    importMutation: action === 'create_separate',
+    review: formatPlexReconciliationReview(updated.rows[0]),
+    importSummary: importResult?.summary || null
   });
 }));
 

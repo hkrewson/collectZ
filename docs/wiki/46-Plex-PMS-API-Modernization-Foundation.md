@@ -67,6 +67,7 @@ Use this for feature discovery and future new Plex surfaces where possible. The 
 - Plex Reconciliation Auto-Sync and Conflict Review. Promoted as `3.4.140`.
 - Plex Reconciliation Full-Scan and Scheduler Automation. Promoted as `3.4.141`.
 - Plex Episode-Aware TV Sync and Writeback. Promoted as `3.4.142`.
+- Plex Reconciliation Conflict Review and Resolution. Promoted as `3.4.143`.
 
 ## Acceptance Criteria
 

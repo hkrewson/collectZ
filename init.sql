@@ -631,6 +631,30 @@ CREATE TABLE IF NOT EXISTS sync_jobs (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS plex_reconciliation_reviews (
+    id SERIAL PRIMARY KEY,
+    provider VARCHAR(50) NOT NULL DEFAULT 'plex',
+    source_key TEXT NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'resolved')),
+    resolution VARCHAR(50),
+    reason TEXT,
+    matched_by VARCHAR(100),
+    item_snapshot JSONB NOT NULL DEFAULT '{}'::jsonb,
+    existing_snapshot JSONB,
+    source_item_snapshot JSONB,
+    job_id INTEGER REFERENCES sync_jobs(id) ON DELETE SET NULL,
+    existing_media_id INTEGER REFERENCES media(id) ON DELETE SET NULL,
+    resolved_media_id INTEGER REFERENCES media(id) ON DELETE SET NULL,
+    library_id INTEGER REFERENCES libraries(id) ON DELETE CASCADE,
+    space_id INTEGER,
+    notes TEXT,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    resolved_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    resolved_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Import review queue and collection scaffolding
 CREATE TABLE IF NOT EXISTS collections (
     id SERIAL PRIMARY KEY,
@@ -1193,6 +1217,8 @@ CREATE INDEX IF NOT EXISTS idx_library_memberships_user_id ON library_membership
 CREATE INDEX IF NOT EXISTS idx_library_memberships_library_id ON library_memberships(library_id);
 CREATE INDEX IF NOT EXISTS idx_sync_jobs_status_created_at ON sync_jobs(status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sync_jobs_created_by_created_at ON sync_jobs(created_by, created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_plex_reconciliation_reviews_source ON plex_reconciliation_reviews(provider, library_id, source_key);
+CREATE INDEX IF NOT EXISTS idx_plex_reconciliation_reviews_status_library ON plex_reconciliation_reviews(status, library_id, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_collections_library_created_at ON collections(library_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_collection_items_collection_position ON collection_items(collection_id, position);
 CREATE INDEX IF NOT EXISTS idx_collection_items_media_id ON collection_items(media_id);
@@ -1325,6 +1351,10 @@ BEGIN
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_sync_jobs_updated_at') THEN
         CREATE TRIGGER update_sync_jobs_updated_at BEFORE UPDATE ON sync_jobs
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_plex_reconciliation_reviews_updated_at') THEN
+        CREATE TRIGGER update_plex_reconciliation_reviews_updated_at BEFORE UPDATE ON plex_reconciliation_reviews
             FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_feature_flags_updated_at') THEN
@@ -1566,5 +1596,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (96, 'Add Plex now playing display token metadata'),
     (97, 'Add Plex now playing display preferences'),
     (98, 'Add Plex webhook receiver token metadata'),
-    (99, 'Normalize user ratings to 0-10 provider scale')
+    (99, 'Normalize user ratings to 0-10 provider scale'),
+    (100, 'Add Plex reconciliation conflict reviews')
 ON CONFLICT (version) DO NOTHING;
