@@ -54,7 +54,8 @@ Use this for feature discovery and future new Plex surfaces where possible. The 
 - Plex Webhook Existing Receiver Readback. Promoted as `3.4.127`.
 - Plex Watch-State Sync Cadence Contract. Promoted as `3.4.128`.
 - Plex Watched-State Apply Implementation. Promoted as `3.4.129`.
-- Plex watched-state scheduled refresh.
+- Plex Watched-State Scheduled Refresh. Promoted as `3.4.130`.
+- Plex watched-state writeback.
 
 ## Acceptance Criteria
 

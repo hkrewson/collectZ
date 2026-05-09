@@ -10090,6 +10090,38 @@ Historical note:
 - What remains in the milestone: no implementation work remains for `3.4.129`; CI must still confirm `secret-scan` and `image-security-and-sbom` because the local tooling is not installed.
 - Recommended commit message: `Release 3.4.129 with Plex watched-state apply implementation`.
 
+## 3.4.130 — Plex Watched-State Scheduled Refresh
+
+**Goal:** Let collectZ refresh Plex watched-state readbacks for existing Plex-linked rows on demand and through an opt-in scheduler without importing new rows or writing watched state back to Plex.
+
+### Scope
+
+- Add a Plex watched-state refresh scheduler runtime with status and manual-run endpoints.
+- Discover existing Plex-linked collectZ rows by `plex_item_key` and group them by library scope.
+- Reuse the `3.4.129` watched-state apply path so matched movies and TV seasons update consistently.
+- Keep the timer opt-in by environment variable to avoid unexpected Plex polling on upgrade.
+- Prove the scheduler sweep against a fake PMS with an existing movie and TV series.
+- Keep Plex scrobble/unscrobble writeback, rating writeback apply behavior, full-library reconciliation, and broad Plex import rewrites out of scope.
+
+### Acceptance Criteria
+
+- The scheduler status and manual-run endpoints require admin access.
+- The scheduler reports runtime config and last-run state without surfacing Plex secrets.
+- A manual scheduler sweep updates existing movie and TV season watched state without creating media rows.
+- Smoke evidence proves no Plex scrobble/unscrobble writeback paths were called and no Plex secrets or file paths are surfaced.
+- Running-stack verification proves the app serves `3.4.130`, Help > Releases contains the release, and `events_enabled` remains on.
+
+### Closeout
+
+- Roadmap slice: `3.4.130 — Plex Watched-State Scheduled Refresh`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.4.130.md`.
+- Runtime verification used: Docker-first stack rebuilt with `APP_VERSION=3.4.130`; `/api/health` served backend/frontend/build `3.4.130`; running backend container reported `APP_EDITION=platform`, `APP_VERSION=3.4.130`, and `PLEX_WATCH_STATE_REFRESH_ENABLED=false`; live DB kept `events_enabled=true` and `collectibles_enabled=true`; Help > Releases smoke served `v3.4.130`; Plex watched-state refresh scheduler smoke used a fake PMS to prove the timer defaults off, a manual sweep updates an existing movie and TV season, no media rows are created, and Plex scrobble/unscrobble writeback paths are not called.
+- CI/checks run: `node --check backend/routes/media.js`; `node --check backend/server.js`; `node --check backend/scripts/plex-watch-state-refresh-scheduler-smoke.js`; `node --check backend/scripts/unit-tests.js`; local backend unit tests (`269` passed); local OpenAPI validation; Docker backend unit tests (`269` passed); Docker OpenAPI validation; Docker integration smoke; Docker Plex watched-state refresh scheduler smoke; Docker Help > Releases smoke; Docker init parity; Docker migration rehearsal; local compose-smoke health/header/CSRF/auth checks; Docker RBAC regression; Docker platform edition boundary; isolated Docker Homelab edition boundary; public export validation; observability release evidence; local release preflight; Playwright browser regression (`62` passed, `4` skipped); `git diff --check`; targeted generated-artifact secret hygiene scan. Backend production dependency audit in Docker showed `0` critical and `0` high findings with `2` moderate findings; frontend production dependency audit in a Node container showed `0` findings. Local `gitleaks`, `trivy`, and SBOM tooling were unavailable, so `secret-scan` and `image-security-and-sbom` still require CI confirmation.
+- Files changed: `app-meta.json`; `backend/app-meta.json`; `backend/openapi/openapi.yaml`; `backend/package.json`; `backend/release-feed.json`; `backend/routes/media.js`; `backend/scripts/plex-watch-state-refresh-scheduler-smoke.js`; `backend/scripts/unit-tests.js`; `backend/server.js`; `docker-compose.yml`; `docs/releases/v3.4.130.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`; `env.example`; `frontend/package.json`; `frontend/src/app-meta.json`; `scripts/generate-public-compose.js`; `artifacts/observability-evidence/observability-release-evidence.json`; `artifacts/plex-watch-state/plex-watch-state-refresh-scheduler-smoke.json`; `preflight-go-no-go.md`.
+- Risks or follow-ups: the scheduler is intentionally opt-in and defaults off to avoid unexpected Plex polling; refresh matching depends on existing `plex_item_key` metadata and season numbers; Plex watched-state writeback, Plex rating writeback apply behavior, scheduled full-library reconciliation, and broad Plex import rewrites remain separate milestones.
+- What remains in the milestone: no implementation work remains for `3.4.130`; CI must still confirm `secret-scan` and `image-security-and-sbom` because the local tooling is not installed.
+- Recommended commit message: `Release 3.4.130 with Plex watched-state scheduled refresh`.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

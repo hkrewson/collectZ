@@ -4770,6 +4770,223 @@ async function applyPlexWatchStateEntries({ entries = [], scopeContext = {} } = 
   return summary;
 }
 
+function getPlexWatchStateRefreshRuntimeConfig() {
+  const enabledRaw = String(process.env.PLEX_WATCH_STATE_REFRESH_ENABLED ?? 'false').trim().toLowerCase();
+  const intervalMinutes = Math.max(15, Number(process.env.PLEX_WATCH_STATE_REFRESH_INTERVAL_MINUTES || 60));
+  const maxItems = Math.max(1, Math.min(500, Number(process.env.PLEX_WATCH_STATE_REFRESH_MAX_ITEMS || 100)));
+  return {
+    enabled: ['1', 'true', 'on', 'yes'].includes(enabledRaw),
+    intervalMinutes,
+    maxItems
+  };
+}
+
+const plexWatchStateRefreshState = {
+  enabled: false,
+  intervalMinutes: 0,
+  maxItems: 0,
+  running: false,
+  lastStartedAt: null,
+  lastFinishedAt: null,
+  lastScopeCount: 0,
+  lastReadEntries: 0,
+  lastMediaMatched: 0,
+  lastUpdated: 0,
+  lastSkippedNoMatch: 0,
+  lastError: null
+};
+
+function normalizePlexRatingKeyValue(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const parts = raw.split(':').map((part) => part.trim()).filter(Boolean);
+  return parts.length > 0 ? parts[parts.length - 1] : raw;
+}
+
+async function collectPlexWatchStateRefreshTargets({ maxItems = 100 } = {}) {
+  const limit = Math.max(1, Math.min(500, Number(maxItems || 100)));
+  const result = await pool.query(
+    `SELECT m.id, m.media_type, m.library_id, m.space_id, mm."value" AS plex_item_key
+       FROM media m
+       JOIN media_metadata mm ON mm.media_id = m.id
+      WHERE mm."key" = 'plex_item_key'
+        AND COALESCE(mm."value", '') <> ''
+        AND m.library_id IS NOT NULL
+      ORDER BY m.updated_at DESC, m.created_at DESC, m.id DESC
+      LIMIT $1`,
+    [limit]
+  );
+  const groups = new Map();
+  let skippedNoRatingKey = 0;
+
+  for (const row of result.rows) {
+    const ratingKey = normalizePlexRatingKeyValue(row.plex_item_key);
+    if (!ratingKey) {
+      skippedNoRatingKey += 1;
+      continue;
+    }
+    const scopeContext = {
+      spaceId: row.space_id ? Number(row.space_id) : null,
+      libraryId: Number(row.library_id)
+    };
+    const groupKey = `${scopeContext.spaceId || 'global'}:${scopeContext.libraryId}`;
+    const group = groups.get(groupKey) || {
+      scopeContext,
+      ratingKeys: new Set(),
+      leafRatingKeys: new Set()
+    };
+    if (row.media_type === 'tv_series') group.leafRatingKeys.add(ratingKey);
+    else group.ratingKeys.add(ratingKey);
+    groups.set(groupKey, group);
+  }
+
+  return {
+    scannedRows: result.rows.length,
+    skippedNoRatingKey,
+    scopes: Array.from(groups.values()).map((group) => ({
+      scopeContext: group.scopeContext,
+      ratingKeys: Array.from(group.ratingKeys),
+      leafRatingKeys: Array.from(group.leafRatingKeys)
+    }))
+  };
+}
+
+function mergePlexWatchStateApplySummary(target, applySummary = {}) {
+  target.readEntries += Number(applySummary.readEntries || 0);
+  target.mediaMatched += Number(applySummary.mediaMatched || 0);
+  target.mediaMetadataUpdated += Number(applySummary.mediaMetadataUpdated || 0);
+  target.seasonsCreated += Number(applySummary.seasonsCreated || 0);
+  target.seasonsUpdated += Number(applySummary.seasonsUpdated || 0);
+  target.skippedNoMatch += Number(applySummary.skippedNoMatch || 0);
+  target.skippedNoSeason += Number(applySummary.skippedNoSeason || 0);
+  target.skippedUnsupported += Number(applySummary.skippedUnsupported || 0);
+}
+
+async function runPlexWatchStateRefreshOnce({ reason = 'manual', maxItems = null } = {}) {
+  const runtimeConfig = getPlexWatchStateRefreshRuntimeConfig();
+  const targetReadback = await collectPlexWatchStateRefreshTargets({
+    maxItems: maxItems || runtimeConfig.maxItems
+  });
+  const summary = {
+    reason,
+    enabled: runtimeConfig.enabled,
+    maxItems: maxItems || runtimeConfig.maxItems,
+    readOnlyPlex: true,
+    plexWriteback: false,
+    scopeCount: targetReadback.scopes.length,
+    scannedRows: targetReadback.scannedRows,
+    skippedNoRatingKey: targetReadback.skippedNoRatingKey,
+    configMissing: 0,
+    scopesProcessed: 0,
+    readbacks: 0,
+    readEntries: 0,
+    mediaMatched: 0,
+    mediaMetadataUpdated: 0,
+    seasonsCreated: 0,
+    seasonsUpdated: 0,
+    skippedNoMatch: 0,
+    skippedNoSeason: 0,
+    skippedUnsupported: 0,
+    errorsSample: []
+  };
+
+  for (const target of targetReadback.scopes) {
+    try {
+      const config = await loadPlexWebhookImportConfig(target.scopeContext);
+      if (!config.plexApiUrl || !config.plexApiKey) {
+        summary.configMissing += 1;
+        continue;
+      }
+      const snapshot = await fetchPlexWatchStateSnapshot(config, {
+        ratingKeys: target.ratingKeys,
+        leafRatingKeys: target.leafRatingKeys
+      });
+      const applySummary = await applyPlexWatchStateEntries({
+        entries: snapshot.entries,
+        scopeContext: target.scopeContext
+      });
+      summary.scopesProcessed += 1;
+      summary.readbacks += Array.isArray(snapshot.readbacks) ? snapshot.readbacks.length : 0;
+      mergePlexWatchStateApplySummary(summary, applySummary);
+    } catch (error) {
+      if (summary.errorsSample.length < 10) {
+        summary.errorsSample.push({
+          scope: {
+            spaceId: target.scopeContext.spaceId || null,
+            libraryId: target.scopeContext.libraryId || null
+          },
+          error: error.message || 'Plex watched-state refresh failed'
+        });
+      }
+    }
+  }
+
+  if (summary.scopeCount > 0 || reason !== 'scheduled') {
+    await logActivity({
+      user: { id: null, role: 'system', email: 'system@collectz.local', name: 'collectZ system' },
+      headers: {},
+      ip: 'system',
+      socket: null
+    }, 'media.plex.watch_state.refresh', 'media', null, {
+      reason,
+      scopeCount: summary.scopeCount,
+      scopesProcessed: summary.scopesProcessed,
+      scannedRows: summary.scannedRows,
+      readEntries: summary.readEntries,
+      mediaMatched: summary.mediaMatched,
+      mediaMetadataUpdated: summary.mediaMetadataUpdated,
+      seasonsCreated: summary.seasonsCreated,
+      seasonsUpdated: summary.seasonsUpdated,
+      skippedNoMatch: summary.skippedNoMatch,
+      errorCount: summary.errorsSample.length
+    });
+  }
+
+  return summary;
+}
+
+function startPlexWatchStateRefreshScheduler() {
+  const runtimeConfig = getPlexWatchStateRefreshRuntimeConfig();
+  Object.assign(plexWatchStateRefreshState, {
+    enabled: runtimeConfig.enabled,
+    intervalMinutes: runtimeConfig.intervalMinutes,
+    maxItems: runtimeConfig.maxItems
+  });
+  if (!runtimeConfig.enabled) return null;
+
+  const runSweep = async () => {
+    if (plexWatchStateRefreshState.running) return;
+    plexWatchStateRefreshState.running = true;
+    plexWatchStateRefreshState.lastStartedAt = new Date().toISOString();
+    plexWatchStateRefreshState.lastError = null;
+    try {
+      const summary = await runPlexWatchStateRefreshOnce({
+        reason: 'scheduled',
+        maxItems: runtimeConfig.maxItems
+      });
+      plexWatchStateRefreshState.lastScopeCount = summary.scopeCount;
+      plexWatchStateRefreshState.lastReadEntries = summary.readEntries;
+      plexWatchStateRefreshState.lastMediaMatched = summary.mediaMatched;
+      plexWatchStateRefreshState.lastUpdated = summary.mediaMetadataUpdated + summary.seasonsCreated + summary.seasonsUpdated;
+      plexWatchStateRefreshState.lastSkippedNoMatch = summary.skippedNoMatch;
+      if (summary.errorsSample.length > 0) {
+        plexWatchStateRefreshState.lastError = summary.errorsSample[0].error;
+      }
+    } catch (error) {
+      plexWatchStateRefreshState.lastError = error.message || 'Plex watched-state refresh scheduler failed';
+      logError('Plex watched-state refresh scheduler failed', error);
+    } finally {
+      plexWatchStateRefreshState.running = false;
+      plexWatchStateRefreshState.lastFinishedAt = new Date().toISOString();
+    }
+  };
+
+  const timer = setInterval(runSweep, runtimeConfig.intervalMinutes * 60 * 1000);
+  timer.unref();
+  setTimeout(runSweep, Math.min(5000, runtimeConfig.intervalMinutes * 60 * 1000)).unref();
+  return timer;
+}
+
 const TMDB_IMPORT_MIN_INTERVAL_MS = Math.max(0, Number(process.env.TMDB_IMPORT_MIN_INTERVAL_MS || 50));
 const PLEX_JOB_PROGRESS_BATCH_SIZE = Math.max(1, Number(process.env.PLEX_JOB_PROGRESS_BATCH_SIZE || 25));
 const CSV_JOB_PROGRESS_BATCH_SIZE = Math.max(1, Number(process.env.CSV_JOB_PROGRESS_BATCH_SIZE || 25));
@@ -12105,6 +12322,37 @@ router.post('/apply-plex-watch-state', asyncHandler(async (req, res) => {
   }
 }));
 
+router.get('/plex-watch-state/refresh-scheduler', asyncHandler(async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Only admins can inspect Plex watched-state refresh automation' });
+  }
+  const runtimeConfig = getPlexWatchStateRefreshRuntimeConfig();
+  res.json({
+    ok: true,
+    processingMode: 'scheduled_watch_state_refresh',
+    runtime: runtimeConfig,
+    state: { ...plexWatchStateRefreshState }
+  });
+}));
+
+router.post('/plex-watch-state/refresh-scheduler/run', asyncHandler(async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Only admins can run Plex watched-state refresh automation' });
+  }
+  const summary = await runPlexWatchStateRefreshOnce({
+    reason: 'admin_requested',
+    maxItems: req.body?.maxItems
+  });
+  res.json({
+    ok: true,
+    provider: 'plex',
+    processingMode: 'scheduled_watch_state_refresh',
+    readOnlyPlex: true,
+    plexWriteback: false,
+    summary
+  });
+}));
+
 router.get('/plex-webhook-import-hints/auto-processor', asyncHandler(async (req, res) => {
   if (req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Only admins can inspect Plex webhook import automation' });
@@ -13240,5 +13488,8 @@ router.delete('/:id', asyncHandler(async (req, res) => {
 router.startPlexWebhookImportHintAutoProcessor = startPlexWebhookImportHintAutoProcessor;
 router.getPlexWebhookImportAutoProcessorRuntimeConfig = getPlexWebhookImportAutoProcessorRuntimeConfig;
 router.runPlexWebhookImportHintAutoProcessorOnce = runPlexWebhookImportHintAutoProcessorOnce;
+router.startPlexWatchStateRefreshScheduler = startPlexWatchStateRefreshScheduler;
+router.getPlexWatchStateRefreshRuntimeConfig = getPlexWatchStateRefreshRuntimeConfig;
+router.runPlexWatchStateRefreshOnce = runPlexWatchStateRefreshOnce;
 
 module.exports = router;

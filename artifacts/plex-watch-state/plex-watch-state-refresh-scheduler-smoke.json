@@ -1,0 +1,52 @@
+{
+  "ok": true,
+  "provider": "plex",
+  "processingMode": "scheduled_watch_state_refresh",
+  "schedulerDefaultEnabled": false,
+  "mediaCountBefore": 2,
+  "mediaCountAfter": 2,
+  "summary": {
+    "reason": "admin_requested",
+    "enabled": false,
+    "maxItems": 2,
+    "readOnlyPlex": true,
+    "plexWriteback": false,
+    "scopeCount": 1,
+    "scannedRows": 2,
+    "skippedNoRatingKey": 0,
+    "configMissing": 0,
+    "scopesProcessed": 1,
+    "readbacks": 2,
+    "readEntries": 3,
+    "mediaMatched": 2,
+    "mediaMetadataUpdated": 1,
+    "seasonsCreated": 0,
+    "seasonsUpdated": 1,
+    "skippedNoMatch": 0,
+    "skippedNoSeason": 0,
+    "skippedUnsupported": 0,
+    "errorsSample": []
+  },
+  "movieWatchState": "completed",
+  "seasonWatchState": "in_progress",
+  "requests": [
+    {
+      "method": "GET",
+      "pathname": "/library/metadata/3001",
+      "hasToken": true,
+      "tokenMatched": true
+    },
+    {
+      "method": "GET",
+      "pathname": "/library/metadata/4001/allLeaves",
+      "hasToken": true,
+      "tokenMatched": true
+    }
+  ],
+  "assertions": [
+    "Plex watched-state refresh scheduler defaults the timer off",
+    "Manual scheduler sweep reused the watched-state apply path",
+    "No new media rows were created during watched-state refresh",
+    "Plex scrobble and unscrobble writeback paths were not called"
+  ]
+}

@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.130",
+      "version": "v3.4.130",
+      "date": null,
+      "status": null,
+      "summary": "This patch adds an opt-in Plex watched-state refresh scheduler for existing Plex-linked collectZ rows.",
+      "details": []
+    },
+    {
       "title": "collectZ v3.4.129",
       "version": "v3.4.129",
       "date": null,
@@ -70,14 +78,6 @@
       "date": null,
       "status": null,
       "summary": "This release adds a vertical poster-only layout option for Plex Now Playing displays. It keeps the existing saved display preferences and display-token flow intact while giving passive screens a clean full-height poster mode.",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.4.120",
-      "version": "v3.4.120",
-      "date": null,
-      "status": null,
-      "summary": "This release adds saved Plex Now Playing display preferences. Admins can tune the passive display surface for `/now-playing` and display-token links without changing Plex imports, webhooks, scheduled sync, or watch-state behavior.",
       "details": []
     }
   ]

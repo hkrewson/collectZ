@@ -21,7 +21,7 @@ services:
       retries: 5
 
   backend:
-    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-hkrewson}/collectz-backend:${IMAGE_TAG:-3.4.129}
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-hkrewson}/collectz-backend:${IMAGE_TAG:-3.4.130}
     restart: unless-stopped
     environment:
       NODE_ENV: ${NODE_ENV:-production}
@@ -41,7 +41,7 @@ services:
       LOG_EXPORT_DEBUG: ${LOG_EXPORT_DEBUG:-false}
       LOG_EXPORT_MAX_DETAIL_BYTES: ${LOG_EXPORT_MAX_DETAIL_BYTES:-16384}
       GIT_SHA: ${GIT_SHA:-}
-      APP_VERSION: ${APP_VERSION:-3.4.129}
+      APP_VERSION: ${APP_VERSION:-3.4.130}
       SESSION_SECRET: ${SESSION_SECRET}
       SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-session_token}
       CSRF_COOKIE_NAME: ${CSRF_COOKIE_NAME:-csrf_token}
@@ -67,6 +67,9 @@ services:
       PLEX_WEBHOOK_IMPORT_AUTO_PROCESSOR_ENABLED: ${PLEX_WEBHOOK_IMPORT_AUTO_PROCESSOR_ENABLED:-true}
       PLEX_WEBHOOK_IMPORT_AUTO_PROCESSOR_INTERVAL_SECONDS: ${PLEX_WEBHOOK_IMPORT_AUTO_PROCESSOR_INTERVAL_SECONDS:-15}
       PLEX_WEBHOOK_IMPORT_AUTO_PROCESSOR_BATCH_SIZE: ${PLEX_WEBHOOK_IMPORT_AUTO_PROCESSOR_BATCH_SIZE:-3}
+      PLEX_WATCH_STATE_REFRESH_ENABLED: ${PLEX_WATCH_STATE_REFRESH_ENABLED:-false}
+      PLEX_WATCH_STATE_REFRESH_INTERVAL_MINUTES: ${PLEX_WATCH_STATE_REFRESH_INTERVAL_MINUTES:-60}
+      PLEX_WATCH_STATE_REFRESH_MAX_ITEMS: ${PLEX_WATCH_STATE_REFRESH_MAX_ITEMS:-100}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
       PLAYWRIGHT_E2E_BYPASS_TOKEN: ${PLAYWRIGHT_E2E_BYPASS_TOKEN:-}
     volumes:
@@ -83,7 +86,7 @@ services:
       retries: 3
 
   frontend:
-    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-hkrewson}/collectz-frontend:${IMAGE_TAG:-3.4.129}
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-hkrewson}/collectz-frontend:${IMAGE_TAG:-3.4.130}
     restart: unless-stopped
     depends_on:
       - backend

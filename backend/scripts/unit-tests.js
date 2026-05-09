@@ -242,6 +242,7 @@ const plexWebhookRatingsContractSmokeSource = fs.readFileSync(require.resolve('.
 const plexWebhookReceiverAdminSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-webhook-receiver-admin-smoke'), 'utf8');
 const plexWatchStateSyncCadenceSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-watch-state-sync-cadence-smoke'), 'utf8');
 const plexWatchStateApplySmokeSource = fs.readFileSync(require.resolve('../scripts/plex-watch-state-apply-smoke'), 'utf8');
+const plexWatchStateRefreshSchedulerSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-watch-state-refresh-scheduler-smoke'), 'utf8');
 const ciCdDeployDocSource = fs.readFileSync(require.resolve('../../docs/wiki/10-CI-CD-and-Registry-Deploy.md'), 'utf8');
 const securityPolicyPath = path.resolve(__dirname, '..', '..', 'SECURITY.md');
 const securityPolicySource = fs.existsSync(securityPolicyPath)
@@ -1416,6 +1417,31 @@ results.push(run('plex watched-state apply smoke updates existing rows without P
   assert.ok(plexWatchStateApplySmokeSource.includes('assertSecretFree'));
   assert.ok(plexWatchStateApplySmokeSource.includes('plex-watch-state-apply-smoke.json'));
   assert.ok(releaseRoadmapSource.includes('3.4.129 — Plex Watched-State Apply Implementation'));
+}));
+
+results.push(run('plex watched-state refresh scheduler reuses apply path without Plex writeback', () => {
+  assert.ok(backendPackageJson.scripts['test:plex-watch-state-refresh-scheduler-smoke']);
+  assert.ok(mediaRoutesSource.includes('getPlexWatchStateRefreshRuntimeConfig'));
+  assert.ok(mediaRoutesSource.includes('PLEX_WATCH_STATE_REFRESH_ENABLED'));
+  assert.ok(mediaRoutesSource.includes('collectPlexWatchStateRefreshTargets'));
+  assert.ok(mediaRoutesSource.includes('runPlexWatchStateRefreshOnce'));
+  assert.ok(mediaRoutesSource.includes('startPlexWatchStateRefreshScheduler'));
+  assert.ok(mediaRoutesSource.includes("router.get('/plex-watch-state/refresh-scheduler'"));
+  assert.ok(mediaRoutesSource.includes("router.post('/plex-watch-state/refresh-scheduler/run'"));
+  assert.ok(mediaRoutesSource.includes("'media.plex.watch_state.refresh'"));
+  assert.ok(serverSource.includes('startPlexWatchStateRefreshScheduler'));
+  assert.ok(serverSource.includes('plexWatchRefresh='));
+  assert.ok(openApiSource.includes('/api/media/plex-watch-state/refresh-scheduler'));
+  assert.ok(openApiSource.includes('/api/media/plex-watch-state/refresh-scheduler/run'));
+  assert.ok(dockerComposeSource.includes('PLEX_WATCH_STATE_REFRESH_ENABLED'));
+  assert.ok(plexWatchStateRefreshSchedulerSmokeSource.includes('/api/media/plex-watch-state/refresh-scheduler'));
+  assert.ok(plexWatchStateRefreshSchedulerSmokeSource.includes('/api/media/plex-watch-state/refresh-scheduler/run'));
+  assert.ok(plexWatchStateRefreshSchedulerSmokeSource.includes('schedulerDefaultEnabled'));
+  assert.ok(plexWatchStateRefreshSchedulerSmokeSource.includes('No new media rows were created during watched-state refresh'));
+  assert.ok(plexWatchStateRefreshSchedulerSmokeSource.includes('/:/scrobble'));
+  assert.ok(plexWatchStateRefreshSchedulerSmokeSource.includes('assertSecretFree'));
+  assert.ok(plexWatchStateRefreshSchedulerSmokeSource.includes('plex-watch-state-refresh-scheduler-smoke.json'));
+  assert.ok(releaseRoadmapSource.includes('3.4.130 — Plex Watched-State Scheduled Refresh'));
 }));
 
 results.push(run('plex webhook receiver administration contract is token-scoped and queues library-new import hints only', () => {
