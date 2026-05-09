@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.137",
+      "version": "v3.4.137",
+      "date": null,
+      "status": null,
+      "summary": "This patch adds a queued Plex reconciliation preview job.",
+      "details": []
+    },
+    {
       "title": "collectZ v3.4.136",
       "version": "v3.4.136",
       "date": null,
@@ -70,14 +78,6 @@
       "date": null,
       "status": null,
       "summary": "This patch adds the read-only Plex watch-state sync contract that future watched/progress automation will build on.",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.4.127",
-      "version": "v3.4.127",
-      "date": null,
-      "status": null,
-      "summary": "This patch makes saved Plex webhook receivers visible again after refresh without exposing the raw receiver token.",
       "details": []
     }
   ]

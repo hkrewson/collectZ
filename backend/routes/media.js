@@ -6612,6 +6612,110 @@ async function buildPlexFullLibraryReconciliationPreview({ config, sectionIds = 
   };
 }
 
+function buildPlexReconciliationJobSummary(preview = {}) {
+  const buckets = preview.buckets || {};
+  return {
+    provider: 'plex',
+    processingMode: preview.processingMode || 'full_library_reconciliation_preview',
+    readOnly: preview.readOnly === true,
+    plexWriteback: preview.plexWriteback === true,
+    importMutation: preview.importMutation === true,
+    paths: Array.isArray(preview.paths) ? preview.paths : [],
+    sectionIds: Array.isArray(preview.sectionIds) ? preview.sectionIds : [],
+    fetched: Number(preview.fetched || 0),
+    limited: Boolean(preview.limited),
+    scanned: Number(preview.summary?.scanned || 0),
+    alreadyLinked: Number(preview.summary?.alreadyLinked || 0),
+    wouldUpdate: Number(preview.summary?.wouldUpdate || 0),
+    wouldCreate: Number(preview.summary?.wouldCreate || 0),
+    conflict: Number(preview.summary?.conflict || 0),
+    buckets: {
+      alreadyLinked: Array.isArray(buckets.alreadyLinked) ? buckets.alreadyLinked : [],
+      wouldUpdate: Array.isArray(buckets.wouldUpdate) ? buckets.wouldUpdate : [],
+      wouldCreate: Array.isArray(buckets.wouldCreate) ? buckets.wouldCreate : [],
+      conflict: Array.isArray(buckets.conflict) ? buckets.conflict : []
+    }
+  };
+}
+
+async function runPlexReconciliationPreviewJob({
+  jobId,
+  req,
+  config,
+  sectionIds = [],
+  scopeContext = null,
+  limit = null
+}) {
+  await updateSyncJob(jobId, {
+    status: 'running',
+    started_at: new Date(),
+    progress: {
+      total: 0,
+      processed: 0,
+      alreadyLinked: 0,
+      wouldUpdate: 0,
+      wouldCreate: 0,
+      conflict: 0,
+      errorCount: 0
+    }
+  });
+
+  try {
+    const preview = await buildPlexFullLibraryReconciliationPreview({
+      config,
+      sectionIds,
+      scopeContext,
+      limit
+    });
+    const summary = buildPlexReconciliationJobSummary(preview);
+    await updateSyncJob(jobId, {
+      status: 'succeeded',
+      summary,
+      progress: {
+        total: summary.scanned,
+        processed: summary.scanned,
+        alreadyLinked: summary.alreadyLinked,
+        wouldUpdate: summary.wouldUpdate,
+        wouldCreate: summary.wouldCreate,
+        conflict: summary.conflict,
+        errorCount: 0
+      },
+      finished_at: new Date()
+    });
+    await logActivity(req, 'media.plex.reconciliation.preview_job', 'sync_jobs', jobId, {
+      sectionIds: summary.sectionIds,
+      scanned: summary.scanned,
+      alreadyLinked: summary.alreadyLinked,
+      wouldUpdate: summary.wouldUpdate,
+      wouldCreate: summary.wouldCreate,
+      conflict: summary.conflict,
+      limited: summary.limited
+    });
+    return { ok: true, summary };
+  } catch (error) {
+    logError('Plex reconciliation preview job failed', error);
+    await updateSyncJob(jobId, {
+      status: 'failed',
+      error: error.message || 'Plex reconciliation preview job failed',
+      progress: {
+        total: 0,
+        processed: 0,
+        alreadyLinked: 0,
+        wouldUpdate: 0,
+        wouldCreate: 0,
+        conflict: 0,
+        errorCount: 1
+      },
+      finished_at: new Date()
+    });
+    await logActivity(req, 'media.plex.reconciliation.preview_job.failed', 'sync_jobs', jobId, {
+      sectionIds,
+      detail: error.message || 'Plex reconciliation preview job failed'
+    });
+    return { ok: false, error: error.message || 'Plex reconciliation preview job failed' };
+  }
+}
+
 async function claimQueuedPlexWebhookImportHint({ jobId = null, ratingKey = null } = {}) {
   const filters = [
     "job_type = 'plex_webhook_import_hint'",
@@ -12710,6 +12814,87 @@ router.post('/plex-reconciliation-preview', asyncHandler(async (req, res) => {
     });
     return res.status(502).json({ error: error.message || 'Plex reconciliation preview failed' });
   }
+}));
+
+router.post('/plex-reconciliation-preview/run', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Only admins can run Plex reconciliation preview jobs' });
+  }
+  const ensuredScope = scopeContext?.libraryId
+    ? { spaceId: scopeContext?.spaceId || null, libraryId: scopeContext.libraryId }
+    : await ensureUserDefaultScope(req.user.id);
+  const effectiveScopeContext = {
+    ...scopeContext,
+    spaceId: scopeContext?.spaceId ?? ensuredScope.spaceId ?? null,
+    libraryId: ensuredScope.libraryId || null
+  };
+  if (!effectiveScopeContext.libraryId) {
+    return res.status(400).json({ error: 'Active library is required before Plex reconciliation preview jobs' });
+  }
+
+  const sectionIds = Array.isArray(req.body?.sectionIds) ? req.body.sectionIds : [];
+  const limitRaw = Number(req.body?.limit ?? req.query?.limit);
+  const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(1000, Math.floor(limitRaw))) : null;
+  const config = await loadPlexWebhookImportConfig(effectiveScopeContext);
+  if (!config.plexApiUrl) {
+    return res.status(400).json({ error: 'Plex API URL is not configured' });
+  }
+  if (!config.plexApiKey) {
+    return res.status(400).json({ error: 'Plex API key is not configured' });
+  }
+
+  const requestedSections = [...new Set((sectionIds.length > 0 ? sectionIds : config.plexLibrarySections || []).map(String).filter(Boolean))];
+  const job = await createSyncJob({
+    userId: req.user.id,
+    jobType: 'plex_reconciliation_preview',
+    provider: 'plex',
+    scope: {
+      ...jobScopePayload(effectiveScopeContext, requestedSections),
+      processingMode: 'full_library_reconciliation_preview',
+      readOnly: true,
+      plexWriteback: false,
+      importMutation: false,
+      limit
+    },
+    progress: {
+      total: 0,
+      processed: 0,
+      alreadyLinked: 0,
+      wouldUpdate: 0,
+      wouldCreate: 0,
+      conflict: 0,
+      errorCount: 0
+    }
+  });
+
+  const auditReq = {
+    user: req.user,
+    headers: req.headers,
+    ip: req.ip,
+    socket: req.socket
+  };
+
+  setImmediate(() => {
+    runPlexReconciliationPreviewJob({
+      jobId: job.id,
+      req: auditReq,
+      config,
+      sectionIds,
+      scopeContext: effectiveScopeContext,
+      limit
+    }).catch((error) => {
+      logError('Unhandled Plex reconciliation preview job failure', error);
+    });
+  });
+
+  return res.status(202).json({
+    ...buildQueuedJobResponse(job, 'plex'),
+    processingMode: 'full_library_reconciliation_preview',
+    readOnly: true,
+    plexWriteback: false,
+    importMutation: false
+  });
 }));
 
 router.post('/process-plex-webhook-import-hints', asyncHandler(async (req, res) => {

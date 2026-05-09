@@ -247,6 +247,21 @@ async function startFakePmsServer() {
   };
 }
 
+async function waitForJobResult(client, jobId) {
+  const deadline = Date.now() + 15000;
+  let last = null;
+  while (Date.now() < deadline) {
+    last = await client.request(`/api/media/sync-jobs/${jobId}/result`, { expectStatus: 200 });
+    const status = String(last.data?.status || '').toLowerCase();
+    if (status === 'succeeded') return last.data;
+    if (status === 'failed') {
+      throw new Error(`Plex reconciliation preview job failed: ${JSON.stringify(last.data)}`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  throw new Error(`Timed out waiting for Plex reconciliation preview job: ${JSON.stringify(last?.data)}`);
+}
+
 async function main() {
   const snapshot = await snapshotPlexSettings();
   const fake = await startFakePmsServer();
@@ -305,6 +320,32 @@ async function main() {
     assert(preview.data?.summary?.wouldCreate === 1, `Expected one wouldCreate row: ${JSON.stringify(preview.data?.summary)}`);
     assert(preview.data?.summary?.conflict === 1, `Expected one conflict row: ${JSON.stringify(preview.data?.summary)}`);
 
+    const queued = await client.request('/api/media/plex-reconciliation-preview/run', {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 202,
+      body: { sectionIds: ['1'] }
+    });
+    const jobId = Number(queued.data?.job?.id || queued.data?.id || 0);
+    assert(Number.isFinite(jobId) && jobId > 0, `Expected queued reconciliation preview job id: ${JSON.stringify(queued.data)}`);
+    assert(queued.data?.processingMode === 'full_library_reconciliation_preview', `Unexpected queued processing mode: ${JSON.stringify(queued.data)}`);
+    assert(queued.data?.readOnly === true, 'Expected queued reconciliation preview to be read-only');
+    assert(queued.data?.plexWriteback === false, 'Expected queued reconciliation preview to keep Plex writeback disabled');
+    assert(queued.data?.importMutation === false, 'Expected queued reconciliation preview to keep import mutation disabled');
+
+    const job = await waitForJobResult(client, jobId);
+    assert(job?.status === 'succeeded', `Expected reconciliation preview job to succeed: ${JSON.stringify(job)}`);
+    assert(job?.job_type === 'plex_reconciliation_preview', `Unexpected job type: ${JSON.stringify(job)}`);
+    assert(job?.summary?.processingMode === 'full_library_reconciliation_preview', `Unexpected job summary: ${JSON.stringify(job?.summary)}`);
+    assert(job?.summary?.readOnly === true, 'Expected job summary to be read-only');
+    assert(job?.summary?.plexWriteback === false, 'Expected job summary Plex writeback to be false');
+    assert(job?.summary?.importMutation === false, 'Expected job summary import mutation to be false');
+    assert(job?.summary?.scanned === 4, `Expected job to scan four items: ${JSON.stringify(job?.summary)}`);
+    assert(job?.summary?.alreadyLinked === 1, `Expected job one already linked row: ${JSON.stringify(job?.summary)}`);
+    assert(job?.summary?.wouldUpdate === 1, `Expected job one wouldUpdate row: ${JSON.stringify(job?.summary)}`);
+    assert(job?.summary?.wouldCreate === 1, `Expected job one wouldCreate row: ${JSON.stringify(job?.summary)}`);
+    assert(job?.summary?.conflict === 1, `Expected job one conflict row: ${JSON.stringify(job?.summary)}`);
+
     const afterCount = await pool.query('SELECT COUNT(*)::int AS count FROM media WHERE library_id = $1', [libraryId]);
     assert(beforeCount.rows[0].count === afterCount.rows[0].count, `Expected no media rows to be created, before=${beforeCount.rows[0].count} after=${afterCount.rows[0].count}`);
     assert(fake.requests.some((entry) => entry.pathname === '/library/sections'), 'Expected sections readback');
@@ -321,6 +362,22 @@ async function main() {
       mediaCountBefore: beforeCount.rows[0].count,
       mediaCountAfter: afterCount.rows[0].count,
       summary: preview.data.summary,
+      queuedJob: {
+        id: jobId,
+        status: job.status,
+        jobType: job.job_type,
+        processingMode: job.summary.processingMode,
+        readOnly: job.summary.readOnly,
+        plexWriteback: job.summary.plexWriteback,
+        importMutation: job.summary.importMutation,
+        summary: {
+          scanned: job.summary.scanned,
+          alreadyLinked: job.summary.alreadyLinked,
+          wouldUpdate: job.summary.wouldUpdate,
+          wouldCreate: job.summary.wouldCreate,
+          conflict: job.summary.conflict
+        }
+      },
       bucketSamples: {
         alreadyLinked: preview.data.buckets.alreadyLinked.map((entry) => entry.matchedBy),
         wouldUpdate: preview.data.buckets.wouldUpdate.map((entry) => entry.matchedBy),
@@ -335,11 +392,14 @@ async function main() {
       })),
       assertions: [
         'Full-library reconciliation preview classified linked, update, create, and conflict rows',
+        'Queued reconciliation preview job stored the same read-only bucket summary in sync job history',
         'No collectZ media rows were created or updated by the preview',
         'Preview evidence did not surface Plex tokens, token query strings, private IPs, or media file paths'
       ]
     };
     assertSecretFree(preview.data, 'reconciliation preview response');
+    assertSecretFree(queued.data, 'reconciliation queued response');
+    assertSecretFree(job, 'reconciliation job result');
     assertSecretFree(evidence, 'reconciliation evidence');
     fs.mkdirSync(path.dirname(ARTIFACT_PATH), { recursive: true });
     fs.writeFileSync(ARTIFACT_PATH, JSON.stringify(evidence, null, 2));

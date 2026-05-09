@@ -1591,19 +1591,28 @@ results.push(run('plex writeback controls are admin-only and scoped to Plex-link
 
 results.push(run('plex full-library reconciliation preview stays read-only and classifies match buckets', () => {
   assert.ok(backendPackageJson.scripts['test:plex-full-library-reconciliation-smoke']);
+  assert.ok(backendPackageJson.scripts['test:plex-reconciliation-preview-job-smoke']);
   assert.ok(mediaRoutesSource.includes("router.post('/plex-reconciliation-preview'"));
+  assert.ok(mediaRoutesSource.includes("router.post('/plex-reconciliation-preview/run'"));
   assert.ok(mediaRoutesSource.includes('buildPlexFullLibraryReconciliationPreview'));
+  assert.ok(mediaRoutesSource.includes('runPlexReconciliationPreviewJob'));
+  assert.ok(mediaRoutesSource.includes("jobType: 'plex_reconciliation_preview'"));
   assert.ok(mediaRoutesSource.includes('full_library_reconciliation_preview'));
   assert.ok(openApiSource.includes('/api/media/plex-reconciliation-preview'));
+  assert.ok(openApiSource.includes('/api/media/plex-reconciliation-preview/run'));
   assert.ok(plexFullLibraryReconciliationSmokeSource.includes('/api/media/plex-reconciliation-preview'));
+  assert.ok(plexFullLibraryReconciliationSmokeSource.includes('/api/media/plex-reconciliation-preview/run'));
+  assert.ok(plexFullLibraryReconciliationSmokeSource.includes('/api/media/sync-jobs/${jobId}/result'));
+  assert.ok(plexFullLibraryReconciliationSmokeSource.includes('plex_reconciliation_preview'));
   assert.ok(plexFullLibraryReconciliationSmokeSource.includes('alreadyLinked'));
   assert.ok(plexFullLibraryReconciliationSmokeSource.includes('wouldUpdate'));
   assert.ok(plexFullLibraryReconciliationSmokeSource.includes('wouldCreate'));
   assert.ok(plexFullLibraryReconciliationSmokeSource.includes('conflict'));
+  assert.ok(plexFullLibraryReconciliationSmokeSource.includes('Queued reconciliation preview job stored the same read-only bucket summary in sync job history'));
   assert.ok(plexFullLibraryReconciliationSmokeSource.includes('No collectZ media rows were created or updated by the preview'));
   assert.ok(plexFullLibraryReconciliationSmokeSource.includes('assertSecretFree'));
   assert.ok(plexFullLibraryReconciliationSmokeSource.includes('plex-full-library-reconciliation-smoke.json'));
-  assert.ok(releaseRoadmapSource.includes('3.4.136 — Plex Full-Library Reconciliation Contract'));
+  assert.ok(releaseRoadmapSource.includes('3.4.137 — Plex Scheduled Reconciliation Preview Job'));
 }));
 
 results.push(run('plex webhook receiver administration contract is token-scoped and queues library-new import hints only', () => {

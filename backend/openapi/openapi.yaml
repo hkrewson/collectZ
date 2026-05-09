@@ -9121,6 +9121,63 @@
         }
       }
     },
+    "/api/media/plex-reconciliation-preview/run": {
+      "post": {
+        "tags": ["Media"],
+        "summary": "Queue a read-only Plex full-library reconciliation preview job",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "sectionIds": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Read-only reconciliation preview job queued",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/QueuedJobResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Integration configuration or active library error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/media/process-plex-webhook-import-hints": {
       "post": {
         "tags": ["Media"],
