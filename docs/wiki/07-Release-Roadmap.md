@@ -10566,6 +10566,36 @@ Historical note:
 - What remains in the milestone: Nothing for `3.4.144`; CI-only release gates still need their normal GitHub run.
 - Recommended commit message: `Release 3.4.144 with Plex attach-existing conflict resolution guardrails`
 
+## 3.4.145 — Plex Provider/API Import Parity Contract
+
+**Goal:** Prove whether the provider-oriented Plex PMS API can replace the current legacy library-section import path before changing import behavior.
+
+### Scope
+
+- Add a read-only fake-PMS parity proof comparing `/media/providers` discovery with the current legacy import readbacks.
+- Record which fields are available from provider discovery versus legacy import paths: item rows, strong identities, artwork keys, variants, season/episode counts, watch state, and ratings.
+- Keep `POST /api/media/import-plex`, reconciliation sync, watched-state writeback, rating writeback, and automatic import behavior unchanged.
+- Produce secret-safe evidence that documents the current migration decision.
+
+### Acceptance Criteria
+
+- Docker smoke proves provider discovery can identify library capabilities but does not provide item-listing parity by itself.
+- Docker smoke proves the current legacy import paths still provide duplicate-safe identities, item rows, media variants, and TV season/episode coverage.
+- Evidence states that legacy import remains current until a provider/API item listing endpoint reaches field parity.
+- Evidence does not expose Plex tokens, provider URLs, private IPs, or media file paths.
+- Version metadata, release note, release feed, and Help > Releases include `3.4.145`.
+
+### Closeout
+
+- Roadmap slice: `3.4.145 — Plex Provider/API Import Parity Contract`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`; `docs/wiki/08-Backlog.md`; `docs/releases/v3.4.145.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild with `APP_VERSION=3.4.145`; `/api/health` served frontend/backend/build `3.4.145`; running backend env reported `APP_EDITION=platform`; live DB kept `events_enabled=true` and `collectibles_enabled=true` with schema migrations at version `100`; Docker Plex provider import parity smoke proved read-only provider capability discovery, legacy import field coverage, `importMutation=false`, `plexWriteback=false`, and the decision to keep legacy import current until provider/API item listing reaches field parity; Help > Releases served `3.4.145`; homelab boundary passed under a temporary local homelab override, then the stack was restored to platform.
+- CI/checks run: `node --check backend/scripts/plex-provider-import-parity-smoke.js`; `node --check backend/services/plex.js`; host `node backend/scripts/plex-provider-import-parity-smoke.js`; Docker `npm run test:plex-provider-import-parity-smoke`; Docker `npm run test:unit`; Docker `npm run test:openapi`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; Docker `npm run test:integration-smoke`; Docker `npm run test:help-releases-smoke`; Docker `npm run test:rbac-regression`; Docker `npm run test:platform-edition-boundary`; Docker `npm run test:homelab-edition-boundary`; local Playwright browser regression (`64 passed`, `4 skipped`); `npm --prefix backend run test:observability-evidence`; `npm --prefix backend run test:release-preflight-local`; `git diff --check`; targeted release/artifact secret scan. Local preflight still marks CI secure-cookie compose smoke, gitleaks secret scan, and Trivy/SBOM image security as CI-only because the local dev stack runs `SESSION_COOKIE_SECURE=false`/`NODE_ENV=development` and `gitleaks`/`trivy` are not installed locally.
+- Files changed: `app-meta.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `artifacts/plex-provider-import-parity/plex-provider-import-parity-smoke.json`; `backend/app-meta.json`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/scripts/plex-provider-import-parity-smoke.js`; `backend/scripts/unit-tests.js`; `docker-compose.yml`; `docs/releases/v3.4.145.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `preflight-go-no-go.md`.
+- Risks or follow-ups: provider discovery is not an import replacement yet; a future Plex slice still needs to prove an item-listing API endpoint with identities, artwork keys, variants, episode leaves, watched state, and rating parity before changing import behavior.
+- What remains in the milestone: Nothing for `3.4.145`; CI-only release gates still need their normal GitHub run.
+- Recommended commit message: `Release 3.4.145 with Plex provider import parity proof`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.145",
+      "version": "3.4.145",
+      "date": null,
+      "status": "released",
+      "summary": "This patch adds a read-only Plex provider/API import parity proof before any future migration away from the current library-section import path.",
+      "details": []
+    },
+    {
       "title": "collectZ v3.4.144",
       "version": "3.4.144",
       "date": null,
@@ -70,14 +78,6 @@
       "date": null,
       "status": null,
       "summary": "This patch adds a read-only Plex full-library reconciliation preview.",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.4.135",
-      "version": "v3.4.135",
-      "date": null,
-      "status": null,
-      "summary": "This patch adds explicit Plex writeback controls to Plex-linked media detail drawers.",
       "details": []
     }
   ]

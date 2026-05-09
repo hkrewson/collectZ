@@ -69,6 +69,7 @@ Use this for feature discovery and future new Plex surfaces where possible. The 
 - Plex Episode-Aware TV Sync and Writeback. Promoted as `3.4.142`.
 - Plex Reconciliation Conflict Review and Resolution. Promoted as `3.4.143`.
 - Plex Attach-Existing Conflict Resolution Contract. Promoted as `3.4.144`.
+- Plex Provider/API Import Parity Contract. Promoted as `3.4.145`.
 
 ## Acceptance Criteria
 

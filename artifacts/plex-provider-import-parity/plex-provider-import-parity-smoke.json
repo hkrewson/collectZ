@@ -1,0 +1,120 @@
+{
+  "generatedAt": "2026-05-09T21:10:20.655Z",
+  "provider": "plex",
+  "processingMode": "provider_import_parity_contract",
+  "readOnly": true,
+  "importMutation": false,
+  "plexWriteback": false,
+  "decision": "legacy_import_remains_current_until_provider_api_item_listing_reaches_field_parity",
+  "providerDiscovery": {
+    "path": "/media/providers",
+    "providerCount": 1,
+    "featureKeys": [
+      "browse",
+      "metadata",
+      "timeline"
+    ],
+    "covers": {
+      "capabilityDiscovery": true,
+      "importableItemRows": false,
+      "itemStrongIdentity": false,
+      "posterOrArtworkKeys": false,
+      "variantResolution": false,
+      "seasonEpisodeCounts": false,
+      "watchState": false,
+      "userRating": false
+    }
+  },
+  "legacyImportReadback": {
+    "paths": [
+      "/library/sections",
+      "/library/sections/:sectionId/all",
+      "/library/metadata/:ratingKey/children",
+      "/library/metadata/:ratingKey/allLeaves"
+    ],
+    "sectionCount": 2,
+    "itemCount": 2,
+    "covers": {
+      "importableItemRows": true,
+      "itemStrongIdentity": true,
+      "posterOrArtworkKeys": true,
+      "variantResolution": true,
+      "seasonEpisodeCounts": true,
+      "watchState": true,
+      "userRating": false
+    },
+    "samples": {
+      "movie": {
+        "mediaType": "movie",
+        "hasTitle": true,
+        "hasTmdbId": true,
+        "hasPlexGuid": true,
+        "hasPlexRatingKey": true,
+        "hasVariantResolution": true
+      },
+      "show": {
+        "mediaType": "tv_series",
+        "hasTitle": true,
+        "hasTmdbId": true,
+        "seasonCount": 1,
+        "hasEpisodeResolutionRollup": true
+      }
+    }
+  },
+  "parityGaps": [
+    "Provider discovery identifies PMS capabilities but does not enumerate importable library items.",
+    "Provider discovery does not expose item-level TMDB/Plex identities needed for duplicate-safe imports.",
+    "Provider discovery does not expose poster/artwork keys, media variants, season counts, episode leaves, watched state, or user ratings by itself.",
+    "A future provider/API import migration needs a proven item listing endpoint before replacing /library/sections/:sectionId/all."
+  ],
+  "requests": [
+    {
+      "method": "GET",
+      "pathname": "/media/providers",
+      "hasToken": true,
+      "tokenMatched": true,
+      "accept": "application/json"
+    },
+    {
+      "method": "GET",
+      "pathname": "/library/sections",
+      "hasToken": true,
+      "tokenMatched": true,
+      "accept": "application/json"
+    },
+    {
+      "method": "GET",
+      "pathname": "/library/sections/1/all",
+      "hasToken": true,
+      "tokenMatched": true,
+      "accept": "application/json"
+    },
+    {
+      "method": "GET",
+      "pathname": "/library/sections/2/all",
+      "hasToken": true,
+      "tokenMatched": true,
+      "accept": "application/json"
+    },
+    {
+      "method": "GET",
+      "pathname": "/library/metadata/3001/children",
+      "hasToken": true,
+      "tokenMatched": true,
+      "accept": "application/json"
+    },
+    {
+      "method": "GET",
+      "pathname": "/library/metadata/3001/allLeaves",
+      "hasToken": true,
+      "tokenMatched": true,
+      "accept": "application/json"
+    }
+  ],
+  "assertions": [
+    "fake PMS provider discovery was read without changing import behavior",
+    "legacy import endpoints still provide duplicate-safe item identities and media details",
+    "provider discovery alone is not field-equivalent to the current import path",
+    "evidence omits Plex tokens, provider URLs, private IPs, and media file paths"
+  ]
+}
