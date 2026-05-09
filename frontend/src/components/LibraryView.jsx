@@ -105,6 +105,48 @@ function OwnedFormatPicker({ mediaType, value = [], onChange }) {
   );
 }
 
+function PlexWritebackControls({ item, loading, onWriteRating, onWriteWatchState }) {
+  const isTvSeries = item?.media_type === 'tv_series';
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-2" data-testid="plex-writeback-controls">
+      <button
+        type="button"
+        className="btn-secondary btn-sm"
+        onClick={onWriteRating}
+        disabled={Boolean(loading)}
+        data-testid="plex-rating-writeback-button"
+      >
+        {loading === 'rating' ? <Spinner size={14} /> : <Icons.Star />}
+        Push rating to Plex
+      </button>
+      {!isTvSeries ? (
+        <>
+          <button
+            type="button"
+            className="btn-secondary btn-sm"
+            onClick={() => onWriteWatchState('scrobble')}
+            disabled={Boolean(loading)}
+            data-testid="plex-watch-scrobble-button"
+          >
+            {loading === 'scrobble' ? <Spinner size={14} /> : <Icons.Check />}
+            Mark watched in Plex
+          </button>
+          <button
+            type="button"
+            className="btn-secondary btn-sm"
+            onClick={() => onWriteWatchState('unscrobble')}
+            disabled={Boolean(loading)}
+            data-testid="plex-watch-unscrobble-button"
+          >
+            {loading === 'unscrobble' ? <Spinner size={14} /> : <Icons.Refresh />}
+            Mark unwatched in Plex
+          </button>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
 function normalizeDateInput(value) {
   if (!value) return '';
   const raw = String(value).trim();
@@ -613,7 +655,7 @@ function MergeEvidenceSection({
   );
 }
 
-function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onValuationUpdated, onToast, onFindPossibleDuplicates }) {
+function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onValuationUpdated, onToast, onFindPossibleDuplicates, canWritePlex = false }) {
   const [variants, setVariants] = useState([]);
   const [variantLoading, setVariantLoading] = useState(false);
   const [mergeDetails, setMergeDetails] = useState(null);
@@ -647,6 +689,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   const [kavitaReaderError, setKavitaReaderError] = useState('');
   const [kavitaReaderImageStatus, setKavitaReaderImageStatus] = useState('idle');
   const [kavitaReaderPage, setKavitaReaderPage] = useState(0);
+  const [plexWritebackLoading, setPlexWritebackLoading] = useState('');
   const typeDetails = item?.type_details && typeof item.type_details === 'object' ? item.type_details : {};
   const isBook = item?.media_type === 'book';
   const isComic = item?.media_type === 'comic_book';
@@ -783,6 +826,10 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   })();
   const isKavitaLinked = String(typeDetails.provider_name || '').trim().toLowerCase() === 'kavita'
     || Boolean(typeDetails.kavita_series_id || typeDetails.kavita_chapter_id);
+  const isPlexLinked = Boolean(item?.plex_linked)
+    || String(item?.import_source || '').trim().toLowerCase().includes('plex')
+    || String(typeDetails.provider_name || '').trim().toLowerCase().includes('plex');
+  const showPlexWritebackControls = canWritePlex && isPlexLinked;
   const isKavitaChapterBacked = String(typeDetails.provider_item_id || '').trim().toLowerCase().startsWith('kavita:chapter:')
     || String(typeDetails.kavita_chapter_provider_item_id || '').trim().toLowerCase().startsWith('kavita:chapter:')
     || String(typeDetails.kavita_chapter_fanout || '').trim().toLowerCase() === 'true';
@@ -935,6 +982,40 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
       onToast?.(error?.response?.data?.error || error?.message || 'Valuation refresh failed', 'error');
     } finally {
       setValuationRefreshing(false);
+    }
+  };
+
+  const writePlexRating = async () => {
+    if (!item?.id || plexWritebackLoading) return;
+    setPlexWritebackLoading('rating');
+    try {
+      const numericRating = Number(item.user_rating);
+      const payload = { mediaId: item.id };
+      if (Number.isFinite(numericRating)) payload.rating = numericRating;
+      await apiCall('post', '/media/write-plex-rating', payload);
+      await onValuationUpdated?.(item.id);
+      onToast?.('Plex rating updated');
+    } catch (error) {
+      onToast?.(error?.response?.data?.error || 'Failed to update Plex rating', 'error');
+    } finally {
+      setPlexWritebackLoading('');
+    }
+  };
+
+  const writePlexWatchState = async (action) => {
+    if (!item?.id || plexWritebackLoading) return;
+    setPlexWritebackLoading(action);
+    try {
+      await apiCall('post', '/media/write-plex-watch-state', {
+        mediaId: item.id,
+        action
+      });
+      await onValuationUpdated?.(item.id);
+      onToast?.(action === 'scrobble' ? 'Marked watched in Plex' : 'Marked unwatched in Plex');
+    } catch (error) {
+      onToast?.(error?.response?.data?.error || 'Failed to update Plex watched state', 'error');
+    } finally {
+      setPlexWritebackLoading('');
     }
   };
 
@@ -2101,6 +2182,14 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                 <div>
                   <p className="label mb-2">Your Rating</p>
                   <StarRating value={item.user_rating || 0} onChange={(r) => onRating(item.id, r)} />
+                  {showPlexWritebackControls ? (
+                    <PlexWritebackControls
+                      item={item}
+                      loading={plexWritebackLoading}
+                      onWriteRating={writePlexRating}
+                      onWriteWatchState={writePlexWatchState}
+                    />
+                  ) : null}
                 </div>
                 {item.notes ? (
                   <div>
@@ -2239,6 +2328,14 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
               <div>
                 <p className="label mb-2">Your Rating</p>
                 <StarRating value={item.user_rating || 0} onChange={(r) => onRating(item.id, r)} />
+                {showPlexWritebackControls ? (
+                  <PlexWritebackControls
+                    item={item}
+                    loading={plexWritebackLoading}
+                    onWriteRating={writePlexRating}
+                    onWriteWatchState={writePlexWatchState}
+                  />
+                ) : null}
               </div>
             </>
           )}
@@ -4048,7 +4145,8 @@ export default function LibraryView({
   onRating,
   apiCall,
   forcedMediaType,
-  onFindPossibleDuplicates = null
+  onFindPossibleDuplicates = null,
+  canWritePlex = false
 }) {
   const PAGE_SIZE_STORAGE_KEY = 'collectz_library_page_size';
   const VIEW_MODE_STORAGE_KEY = 'collectz_library_view_mode';
@@ -5096,6 +5194,7 @@ export default function LibraryView({
           onValuationUpdated={refreshDetailItem}
           onToast={onToast}
           onFindPossibleDuplicates={onFindPossibleDuplicates}
+          canWritePlex={canWritePlex}
         />
       )}
       {viewingCollectionId && (

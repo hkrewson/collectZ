@@ -280,6 +280,79 @@ test.describe('library multi-format browser regressions', () => {
     }
   });
 
+  test('admin sees explicit Plex writeback controls on Plex-linked media detail', async ({ page }) => {
+    const credentials = await createFreshUserCredentials({ role: 'admin', noCache: true });
+    const requestContext = await createAuthenticatedRequestContext(credentials);
+    const title = `Playwright Plex Writeback ${Date.now()}`;
+    let mediaId = null;
+    let ratingPayload = null;
+    let watchPayload = null;
+
+    await deleteMediaByExactTitle(requestContext, title).catch(() => {});
+
+    try {
+      const createResponse = await postWithCsrf(requestContext, '/api/media', {
+        title,
+        media_type: 'movie',
+        format: 'Digital',
+        owned_formats: ['digital'],
+        user_rating: 4,
+        year: 2026,
+        type_details: {
+          provider_name: 'plex',
+          provider_item_id: 'playwright-plex-writeback'
+        },
+        import_source: 'plex'
+      }, 201);
+      const created = await createResponse.json();
+      mediaId = Number(created?.id || 0) || null;
+      expect(mediaId).toBeTruthy();
+
+      await page.route('**/api/media/write-plex-rating', async (route) => {
+        ratingPayload = route.request().postDataJSON();
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ ok: true })
+        });
+      });
+      await page.route('**/api/media/write-plex-watch-state', async (route) => {
+        watchPayload = route.request().postDataJSON();
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ ok: true })
+        });
+      });
+
+      const storageState = await requestContext.storageState();
+      await page.context().addCookies(storageState.cookies || []);
+      await page.goto('/dashboard?tab=library-movies');
+
+      await page.getByPlaceholder('Search title, director…').fill(title);
+      const resultCard = page.locator('article').filter({
+        has: page.getByText(title, { exact: true })
+      }).first();
+      await expect(resultCard).toBeVisible();
+      await resultCard.click();
+
+      await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
+      await expect(page.getByTestId('plex-writeback-controls')).toBeVisible();
+      await expect(page.getByTestId('plex-rating-writeback-button')).toBeVisible();
+      await expect(page.getByTestId('plex-watch-scrobble-button')).toBeVisible();
+      await expect(page.getByTestId('plex-watch-unscrobble-button')).toBeVisible();
+
+      await page.getByTestId('plex-rating-writeback-button').click();
+      await expect.poll(() => ratingPayload).toMatchObject({ mediaId, rating: 4 });
+
+      await page.getByTestId('plex-watch-scrobble-button').click();
+      await expect.poll(() => watchPayload).toMatchObject({ mediaId, action: 'scrobble' });
+    } finally {
+      await deleteMediaByExactTitle(requestContext, title).catch(() => {});
+      await requestContext.dispose();
+    }
+  });
+
   test('poster cards stay browse-first and open detail without inline action chrome', async ({ page }) => {
     const credentials = await createFreshUserCredentials();
     const requestContext = await createAuthenticatedRequestContext(credentials);

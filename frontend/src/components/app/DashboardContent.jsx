@@ -173,6 +173,7 @@ export default function DashboardContent({
                 setActiveTab('admin-merges');
               }
             : null}
+          canWritePlex={user?.role === 'admin'}
         />
       );
     }

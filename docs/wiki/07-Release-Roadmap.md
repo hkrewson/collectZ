@@ -10248,6 +10248,38 @@ Historical note:
 - What remains in the milestone: no implementation work remains for `3.4.134`; CI must still confirm `secret-scan` and `image-security-and-sbom` because the local tools are not installed.
 - Recommended commit message: `Release 3.4.134 with Plex rating writeback to Plex`.
 
+## 3.4.135 — Plex Writeback UI Controls
+
+**Goal:** Give admins explicit Plex-linked detail drawer controls for pushing collectZ ratings and watched-state changes back to Plex, without adding automatic writeback or broad import behavior changes.
+
+### Scope
+
+- Expose Plex-linked state on media list/detail readbacks.
+- Show admin-only Plex writeback controls in the media detail drawer when the row is linked to Plex.
+- Wire rating writeback to the existing `POST /api/media/write-plex-rating` endpoint.
+- Wire movie/non-TV watched and unwatched actions to the existing `POST /api/media/write-plex-watch-state` endpoint.
+- Keep TV-series watched-state writeback blocked until an episode-aware slice.
+- Keep scheduled writeback, automatic sync, full-library reconciliation, and broad Plex import rewrites out of scope.
+
+### Acceptance Criteria
+
+- Non-admin users do not receive Plex writeback controls.
+- Non-Plex-linked rows do not show Plex writeback controls.
+- Rating writeback uses the current collectZ row rating unless the backend rejects missing/invalid ratings.
+- Movie/non-TV watched-state buttons call only explicit `scrobble` and `unscrobble` actions.
+- Running-stack verification proves the app serves `3.4.135`, Help > Releases contains the release, and `events_enabled` remains on.
+
+### Closeout
+
+- Roadmap slice: `3.4.135 — Plex Writeback UI Controls`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`; `docs/wiki/08-Backlog.md`; `docs/releases/v3.4.135.md`.
+- Runtime verification used: Docker-first rebuild of backend/frontend with `APP_VERSION=3.4.135`; live `/api/health` returned frontend/backend/build `3.4.135`; live backend container env remained `APP_EDITION=platform`, `NODE_ENV=development`, and `SESSION_COOKIE_SECURE=false`; live DB feature flags showed `events_enabled=true` and `collectibles_enabled=true`; Docker Help > Releases served `v3.4.135`; Docker Plex rating and watched-state writeback smokes passed sequentially against fake PMS responses with no media row creation; Playwright browser regression opened a real Plex-linked movie drawer in the running stack and proved admin controls post explicit rating and `scrobble` actions; isolated homelab stack boundary passed and was torn down before rechecking the active platform stack.
+- CI/checks run: `node --check backend/routes/media.js`; `node --check backend/scripts/unit-tests.js`; bundled-runtime local `npm --prefix backend run test:unit`; local `npm --prefix backend run test:openapi`; local `npm --prefix frontend run build`; Docker `npm run test:unit`; Docker `npm run test:openapi`; Docker `npm run test:integration-smoke`; Docker `npm run test:plex-rating-writeback-smoke`; Docker `npm run test:plex-watched-state-writeback-smoke`; Docker Help > Releases smoke; Docker init parity; Docker migration rehearsal; Docker `npm run test:rbac-regression`; Docker `npm run test:platform-edition-boundary`; isolated Docker `npm run test:homelab-edition-boundary`; bundled-runtime `npm run test:browser`; backend and frontend production dependency audits in disposable Node 20 containers; `npm --prefix backend run test:observability-evidence`; `npm --prefix backend run test:release-preflight-local`; `git diff --check`; targeted artifact/docs secret pattern scan.
+- Files changed: `app-meta.json`; `backend/app-meta.json`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/routes/media.js`; `backend/scripts/unit-tests.js`; `docker-compose.yml`; `docs/releases/v3.4.135.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`; `frontend/package.json`; `frontend/src/app-meta.json`; `frontend/src/components/LibraryView.jsx`; `frontend/src/components/app/DashboardContent.jsx`; `tests/playwright/specs/library-multiformat.browser.spec.js`; `artifacts/dependency-audit/backend-audit.json`; `artifacts/dependency-audit/frontend-audit.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `preflight-go-no-go.md`.
+- Risks or follow-ups: Plex writeback remains explicit/admin-only and still depends on existing Plex linkage metadata; TV-series watched-state controls remain hidden until an episode-aware writeback slice; full-library reconciliation, automatic writeback, and broad import rewrites remain separate. Local `gitleaks`, `trivy`, and `syft` CLIs are not installed, so CI must still confirm `secret-scan` and `image-security-and-sbom`; local preflight still marks secure-cookie compose conditions blocked because the dev stack runs with `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`, while direct compose health/header checks and runtime smokes passed locally.
+- What remains in the milestone: no implementation work remains for `3.4.135`; CI must still confirm the CI-only `secret-scan` and `image-security-and-sbom` gates.
+- Recommended commit message: `Release 3.4.135 with Plex writeback UI controls`.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

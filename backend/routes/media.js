@@ -624,7 +624,8 @@ function normalizeMediaRecord(row = {}) {
     ...row,
     owned_formats: payload.ownedFormats,
     format: payload.format,
-    cast: row.cast || row.cast_members || null
+    cast: row.cast || row.cast_members || null,
+    plex_linked: Boolean(row.plex_linked)
   };
 }
 
@@ -2947,6 +2948,13 @@ async function loadScopedMediaItem(mediaId, scopeContext = null) {
   const scopeClause = appendScopeSql(params, scopeContext);
   const result = await pool.query(
     `SELECT media.*,
+            EXISTS (
+              SELECT 1
+              FROM media_metadata pm
+              WHERE pm.media_id = media.id
+                AND pm."key" = 'plex_item_key'
+                AND COALESCE(pm."value", '') <> ''
+            ) AS plex_linked,
             COALESCE(season_stats.season_count, 0) AS tv_season_count,
             COALESCE(season_stats.completed_count, 0) AS tv_completed_season_count,
             CASE
@@ -8911,6 +8919,13 @@ router.get('/', asyncHandler(async (req, res) => {
   params.push(offset);
   const result = await pool.query(
     `SELECT media.*,
+            EXISTS (
+              SELECT 1
+              FROM media_metadata pm
+              WHERE pm.media_id = media.id
+                AND pm."key" = 'plex_item_key'
+                AND COALESCE(pm."value", '') <> ''
+            ) AS plex_linked,
             COALESCE(season_stats.season_count, 0) AS tv_season_count,
             COALESCE(season_stats.completed_count, 0) AS tv_completed_season_count,
             CASE
@@ -9194,6 +9209,13 @@ router.get('/comic-series/issues', asyncHandler(async (req, res) => {
   params.push(offset);
   const result = await pool.query(
     `SELECT media.*,
+            EXISTS (
+              SELECT 1
+              FROM media_metadata pm
+              WHERE pm.media_id = media.id
+                AND pm."key" = 'plex_item_key'
+                AND COALESCE(pm."value", '') <> ''
+            ) AS plex_linked,
             COALESCE(season_stats.season_count, 0) AS tv_season_count,
             COALESCE(season_stats.completed_count, 0) AS tv_completed_season_count,
             CASE

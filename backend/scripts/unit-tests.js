@@ -1569,6 +1569,25 @@ results.push(run('plex rating writeback implementation stays explicit and single
   assert.ok(releaseRoadmapSource.includes('3.4.134 — Plex Rating Writeback to Plex'));
 }));
 
+results.push(run('plex writeback controls are admin-only and scoped to Plex-linked detail rows', () => {
+  assert.ok(libraryViewSource.includes('function PlexWritebackControls'));
+  assert.ok(libraryViewSource.includes('data-testid="plex-writeback-controls"'));
+  assert.ok(libraryViewSource.includes('data-testid="plex-rating-writeback-button"'));
+  assert.ok(libraryViewSource.includes('data-testid="plex-watch-scrobble-button"'));
+  assert.ok(libraryViewSource.includes('data-testid="plex-watch-unscrobble-button"'));
+  assert.ok(libraryViewSource.includes("apiCall('post', '/media/write-plex-rating'"));
+  assert.ok(libraryViewSource.includes("apiCall('post', '/media/write-plex-watch-state'"));
+  assert.ok(libraryViewSource.includes('const showPlexWritebackControls = canWritePlex && isPlexLinked;'));
+  assert.ok(libraryViewSource.includes("const isTvSeries = item?.media_type === 'tv_series';"));
+  assert.ok(libraryViewSource.includes('canWritePlex={canWritePlex}'));
+  assert.ok(dashboardContentSource.includes("canWritePlex={user?.role === 'admin'}"));
+  assert.ok(mediaRoutesSource.includes('AS plex_linked'));
+  assert.ok(mediaRoutesSource.includes('plex_linked: Boolean(row.plex_linked)'));
+  assert.ok(libraryMultiFormatBrowserSpecSource.includes('admin sees explicit Plex writeback controls on Plex-linked media detail'));
+  assert.ok(libraryMultiFormatBrowserSpecSource.includes('plex-rating-writeback-button'));
+  assert.ok(releaseRoadmapSource.includes('3.4.135 — Plex Writeback UI Controls'));
+}));
+
 results.push(run('plex webhook receiver administration contract is token-scoped and queues library-new import hints only', () => {
   assert.ok(backendPackageJson.scripts['test:plex-webhook-receiver-admin-smoke']);
   assert.ok(backendPackageJson.scripts['test:plex-webhook-import-hint-processing-smoke']);

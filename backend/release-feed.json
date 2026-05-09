@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.135",
+      "version": "v3.4.135",
+      "date": null,
+      "status": null,
+      "summary": "This patch adds explicit Plex writeback controls to Plex-linked media detail drawers.",
+      "details": []
+    },
+    {
       "title": "collectZ v3.4.134",
       "version": "v3.4.134",
       "date": null,
@@ -70,14 +78,6 @@
       "date": null,
       "status": null,
       "summary": "This patch lets collectZ automatically process queued Plex `library.new` webhook import hints on a lightweight backend cadence.",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.4.125",
-      "version": "v3.4.125",
-      "date": null,
-      "status": null,
-      "summary": "This patch processes queued Plex `library.new` webhook import hints by fetching the single PMS metadata item and running it through the existing Plex import path.",
       "details": []
     }
   ]
