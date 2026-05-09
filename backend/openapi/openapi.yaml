@@ -9168,6 +9168,78 @@
         }
       }
     },
+    "/api/media/write-plex-watch-state": {
+      "post": {
+        "tags": ["Media"],
+        "summary": "Write an explicit watched-state action back to Plex for one existing Plex-linked row",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["action"],
+                "properties": {
+                  "mediaId": { "type": "integer", "minimum": 1 },
+                  "ratingKey": { "type": "string", "minLength": 1 },
+                  "action": {
+                    "type": "string",
+                    "enum": ["scrobble", "unscrobble"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Watched-state action was written to Plex",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": {
+            "description": "Configuration, scope, unsupported media, or input error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "404": {
+            "description": "No existing Plex-linked row matched the request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "502": {
+            "description": "Plex watched-state writeback failed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/media/apply-plex-ratings": {
       "post": {
         "tags": ["Media"],

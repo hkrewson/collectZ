@@ -1,0 +1,33 @@
+{
+  "ok": true,
+  "provider": "plex",
+  "processingMode": "watch_state_writeback",
+  "mediaCountBefore": 1,
+  "mediaCountAfter": 1,
+  "mediaId": 25472,
+  "finalWatchState": "unwatched",
+  "lastAction": "unscrobble",
+  "requests": [
+    {
+      "method": "PUT",
+      "pathname": "/:/scrobble",
+      "key": "6201",
+      "identifier": "com.plexapp.plugins.library",
+      "hasToken": true,
+      "tokenMatched": true
+    },
+    {
+      "method": "PUT",
+      "pathname": "/:/unscrobble",
+      "key": "6201",
+      "identifier": "com.plexapp.plugins.library",
+      "hasToken": true,
+      "tokenMatched": true
+    }
+  ],
+  "assertions": [
+    "Explicit watched-state writeback called Plex scrobble and unscrobble",
+    "No new media rows were created during watched-state writeback",
+    "Writeback response and evidence stayed token-safe"
+  ]
+}

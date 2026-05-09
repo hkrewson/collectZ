@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.133",
+      "version": "v3.4.133",
+      "date": null,
+      "status": null,
+      "summary": "This patch adds explicit Plex watched-state writeback for one existing Plex-linked collectZ row.",
+      "details": []
+    },
+    {
       "title": "collectZ v3.4.132",
       "version": "v3.4.132",
       "date": null,
@@ -70,14 +78,6 @@
       "date": null,
       "status": null,
       "summary": "This patch lets Plex `library.new` webhooks create a safe import hint job without silently running a full Plex import.",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.4.123",
-      "version": "v3.4.123",
-      "date": null,
-      "status": null,
-      "summary": "This patch adds Plex webhook receiver administration. Admins can generate, rotate, and revoke a receiver URL for Plex webhooks while the receiver remains contract-only.",
       "details": []
     }
   ]

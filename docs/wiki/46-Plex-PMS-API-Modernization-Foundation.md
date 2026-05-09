@@ -57,7 +57,8 @@ Use this for feature discovery and future new Plex surfaces where possible. The 
 - Plex Watched-State Scheduled Refresh. Promoted as `3.4.130`.
 - Plex Rating Readback Apply Implementation. Promoted as `3.4.131`.
 - Plex Watched-State Writeback Contract. Promoted as `3.4.132`.
-- Plex watched-state writeback implementation.
+- Plex Watched-State Writeback Implementation. Promoted as `3.4.133`.
+- Plex rating writeback to Plex.
 
 ## Acceptance Criteria
 
