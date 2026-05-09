@@ -9054,7 +9054,8 @@
                   "limit": {
                     "type": "integer",
                     "minimum": 1,
-                    "maximum": 1000
+                    "maximum": 50000,
+                    "description": "Optional diagnostic scan limit. Omit to scan all fetched Plex rows."
                   }
                 }
               }
@@ -9143,7 +9144,8 @@
                   "limit": {
                     "type": "integer",
                     "minimum": 1,
-                    "maximum": 1000
+                    "maximum": 50000,
+                    "description": "Optional diagnostic scan limit. Omit to scan all fetched Plex rows."
                   }
                 }
               }
@@ -9201,7 +9203,8 @@
                   "limit": {
                     "type": "integer",
                     "minimum": 1,
-                    "maximum": 1000
+                    "maximum": 50000,
+                    "description": "Optional diagnostic scan limit. Omit to scan all fetched Plex rows."
                   }
                 }
               }
@@ -9222,6 +9225,99 @@
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/media/plex-reconciliation-sync/scheduler": {
+      "get": {
+        "tags": ["Media"],
+        "summary": "Read Plex reconciliation sync automation status",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "responses": {
+          "200": {
+            "description": "Plex reconciliation sync automation status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "processingMode": { "type": "string", "example": "scheduled_full_library_reconciliation_sync" },
+                    "runtime": { "type": "object" },
+                    "state": { "type": "object" }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/media/plex-reconciliation-sync/scheduler/run": {
+      "post": {
+        "tags": ["Media"],
+        "summary": "Run one Plex reconciliation sync automation sweep",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 50000,
+                    "description": "Optional diagnostic scan limit for this automation sweep. Omit to scan all fetched Plex rows."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Plex reconciliation sync automation sweep completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "provider": { "type": "string", "example": "plex" },
+                    "processingMode": { "type": "string", "example": "scheduled_full_library_reconciliation_sync" },
+                    "readOnly": { "type": "boolean" },
+                    "plexWriteback": { "type": "boolean" },
+                    "importMutation": { "type": "boolean" },
+                    "summary": { "type": "object" }
+                  }
+                }
               }
             }
           },

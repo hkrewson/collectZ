@@ -387,9 +387,10 @@ export default function AdminIntegrationsView({
   const [savingPlexDisplayPreferences, setSavingPlexDisplayPreferences] = useState(false);
   const [plexWebhookReceiver, setPlexWebhookReceiver] = useState({ enabled: false, lastReceivedAt: null, lastEvent: null, receiverPath: '/api/plex/webhooks/[token]' });
   const [plexWebhookReceiverLink, setPlexWebhookReceiverLink] = useState('');
-  const [plexReconciliationLimit, setPlexReconciliationLimit] = useState('100');
+  const [plexReconciliationLimit, setPlexReconciliationLimit] = useState('');
   const [plexReconciliationResult, setPlexReconciliationResult] = useState(null);
   const [plexReconciliationJob, setPlexReconciliationJob] = useState(null);
+  const [plexReconciliationScheduler, setPlexReconciliationScheduler] = useState(null);
   const [featureFlags, setFeatureFlags] = useState([]);
   const [featureFlagsLoading, setFeatureFlagsLoading] = useState(true);
   const [featureFlagsReadOnly, setFeatureFlagsReadOnly] = useState(false);
@@ -512,6 +513,11 @@ export default function AdminIntegrationsView({
       active = false;
     };
   }, [apiCall, featureFlagsEndpoint, includeRuntimeSections]);
+
+  useEffect(() => {
+    if (section !== 'plex') return;
+    refreshPlexReconciliationScheduler();
+  }, [section]);
 
   const applyBarcodePreset = (p) => setForm((f) => ({ ...f, ...(BARCODE_PRESETS[p] || {}) }));
   const applyComicsPreset = (p) => setForm((f) => ({ ...f, ...(COMICS_PRESETS[p] || {}) }));
@@ -935,8 +941,17 @@ export default function AdminIntegrationsView({
     const limit = Number(plexReconciliationLimit);
     return {
       sectionIds: plexSectionIds,
-      ...(Number.isFinite(limit) && limit > 0 ? { limit: Math.min(1000, Math.floor(limit)) } : {})
+      ...(Number.isFinite(limit) && limit > 0 ? { limit: Math.min(50000, Math.floor(limit)) } : {})
     };
+  };
+
+  const refreshPlexReconciliationScheduler = async () => {
+    try {
+      const result = await apiCall('get', '/media/plex-reconciliation-sync/scheduler');
+      setPlexReconciliationScheduler(result);
+    } catch (_) {
+      setPlexReconciliationScheduler(null);
+    }
   };
 
   const runPlexReconciliationPreview = async () => {
@@ -1019,6 +1034,7 @@ export default function AdminIntegrationsView({
         setPlexReconciliationResult(normalizePlexReconciliationResult(latest));
         const summary = latest?.summary || {};
         setTestMsg(`PLEX SYNC: job #${jobId} created ${Number(summary?.autoApplied?.created || 0)}, updated ${Number(summary?.autoApplied?.updated || 0)}, review ${Number(summary?.conflictReviewCount || 0)}.`);
+        refreshPlexReconciliationScheduler();
       } else if (latest?.status === 'failed') {
         setTestMsg(latest?.error || `Plex reconciliation sync job #${jobId} failed`);
       } else {
@@ -1525,7 +1541,7 @@ export default function AdminIntegrationsView({
               <div>
                 <p className="text-sm font-medium text-ink">Plex library sync</p>
                 <p className="mt-1 text-xs text-ghost">
-                  Creates missing Plex titles and updates strong TMDB matches. Title conflicts are kept here for review, and Plex writeback stays manual.
+                  Creates missing Plex titles and updates strong TMDB matches. Automatic sync uses the same policy; Plex writeback stays manual.
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -1541,16 +1557,27 @@ export default function AdminIntegrationsView({
               </div>
             </div>
             <div className="grid gap-3 sm:grid-cols-[10rem_minmax(0,1fr)]">
-              <LabeledField label="Preview Limit" cx={cx}>
+              <LabeledField label="Scan Limit" cx={cx}>
                 <input
                   className="input font-mono"
                   inputMode="numeric"
+                  placeholder="All"
                   value={plexReconciliationLimit}
-                  onChange={(event) => setPlexReconciliationLimit(event.target.value.replace(/[^\d]/g, '').slice(0, 4))}
+                  onChange={(event) => setPlexReconciliationLimit(event.target.value.replace(/[^\d]/g, '').slice(0, 5))}
                 />
               </LabeledField>
               <div className="flex flex-wrap items-end gap-2 pb-1 text-xs text-ghost">
                 <span>Sections: <span className="font-mono text-dim">{plexSectionIds.length ? plexSectionIds.join(',') : 'saved defaults'}</span></span>
+                <span>
+                  Automatic: <span className="font-mono text-dim">
+                    {plexReconciliationScheduler?.runtime?.enabled
+                      ? `on/${plexReconciliationScheduler.runtime.intervalMinutes}m`
+                      : 'off'}
+                  </span>
+                </span>
+                {plexReconciliationScheduler?.state?.lastFinishedAt && (
+                  <span>Last auto: {new Date(plexReconciliationScheduler.state.lastFinishedAt).toLocaleString()}</span>
+                )}
                 {plexReconciliationJob?.id && <span>Job #{plexReconciliationJob.id}: {plexReconciliationJob.status}</span>}
               </div>
             </div>

@@ -189,6 +189,17 @@ async function startFakePmsServer() {
       return;
     }
     if (req.method === 'GET' && url.pathname === '/library/sections/1/all') {
+      const bulkLinked = Array.from({ length: 1001 }, (_, index) => {
+        const number = index + 1;
+        return {
+          ratingKey: String(9100 + number),
+          type: 'movie',
+          title: `Bulk Linked Movie ${number}`,
+          year: 2010,
+          guid: `tmdb://${900000 + number}`,
+          Media: [{ Part: [{ file: `/mnt/plex-media/bulk-linked-${number}.mkv` }] }]
+        };
+      });
       res.writeHead(200);
       res.end(JSON.stringify({
         MediaContainer: {
@@ -224,7 +235,8 @@ async function startFakePmsServer() {
               year: 2004,
               guid: 'tmdb://8004',
               Media: [{ Part: [{ file: '/mnt/plex-media/new.mkv' }] }]
-            }
+            },
+            ...bulkLinked
           ]
         }
       }));
@@ -284,6 +296,9 @@ async function main() {
     const libraryId = Number(scope.data?.active_library_id || 0) || null;
     const spaceId = Number(scope.data?.active_space_id || 0) || null;
     assert(libraryId, 'Expected active library for smoke user');
+    const schedulerStatus = await client.request('/api/media/plex-reconciliation-sync/scheduler', { expectStatus: 200 });
+    assert(schedulerStatus.data?.processingMode === 'scheduled_full_library_reconciliation_sync', `Unexpected scheduler status mode: ${JSON.stringify(schedulerStatus.data)}`);
+    assert(schedulerStatus.data?.runtime?.enabled === false, 'Expected reconciliation scheduler to default off until explicitly enabled');
 
     const seedRows = await pool.query(
       `INSERT INTO media (title, media_type, format, library_id, space_id, added_by, import_source, year, tmdb_id, tmdb_media_type)
@@ -301,6 +316,19 @@ async function main() {
        VALUES ($1, 'plex_item_key', '1:9001')`,
       [linkedId]
     );
+    await pool.query(
+      `WITH inserted AS (
+         INSERT INTO media (title, media_type, format, library_id, space_id, added_by, import_source, year, tmdb_id, tmdb_media_type)
+         SELECT 'Bulk Linked Movie ' || g, 'movie', 'Digital', $1, $2, $3, 'plex', 2010, 900000 + g, 'movie'
+           FROM generate_series(1, 1001) AS g
+         RETURNING id, title
+       )
+       INSERT INTO media_metadata (media_id, "key", "value")
+       SELECT id, 'plex_item_key', '1:' || (9100 + regexp_replace(title, '^Bulk Linked Movie ', '')::int)
+         FROM inserted
+       RETURNING media_id`,
+      [libraryId, spaceId, userId]
+    );
 
     const beforeCount = await pool.query('SELECT COUNT(*)::int AS count FROM media WHERE library_id = $1', [libraryId]);
     const preview = await client.request('/api/media/plex-reconciliation-preview', {
@@ -314,8 +342,8 @@ async function main() {
     assert(preview.data?.readOnly === true, 'Expected reconciliation preview to be read-only');
     assert(preview.data?.plexWriteback === false, 'Expected Plex writeback to stay disabled');
     assert(preview.data?.importMutation === false, 'Expected import mutation to stay disabled');
-    assert(preview.data?.summary?.scanned === 4, `Expected four scanned items: ${JSON.stringify(preview.data?.summary)}`);
-    assert(preview.data?.summary?.alreadyLinked === 1, `Expected one already linked row: ${JSON.stringify(preview.data?.summary)}`);
+    assert(preview.data?.summary?.scanned === 1005, `Expected full scan beyond the old 1000-row cap: ${JSON.stringify(preview.data?.summary)}`);
+    assert(preview.data?.summary?.alreadyLinked === 1002, `Expected linked rows beyond the old 1000-row cap: ${JSON.stringify(preview.data?.summary)}`);
     assert(preview.data?.summary?.wouldUpdate === 1, `Expected one wouldUpdate row: ${JSON.stringify(preview.data?.summary)}`);
     assert(preview.data?.summary?.wouldCreate === 1, `Expected one wouldCreate row: ${JSON.stringify(preview.data?.summary)}`);
     assert(preview.data?.summary?.conflict === 1, `Expected one conflict row: ${JSON.stringify(preview.data?.summary)}`);
@@ -340,15 +368,15 @@ async function main() {
     assert(job?.summary?.readOnly === false, 'Expected job summary to be mutating');
     assert(job?.summary?.plexWriteback === false, 'Expected job summary Plex writeback to be false');
     assert(job?.summary?.importMutation === true, 'Expected job summary import mutation to be true');
-    assert(job?.summary?.scanned === 4, `Expected job to scan four items: ${JSON.stringify(job?.summary)}`);
-    assert(job?.summary?.alreadyLinked === 1, `Expected job one already linked row: ${JSON.stringify(job?.summary)}`);
+    assert(job?.summary?.scanned === 1005, `Expected job to scan beyond the old 1000-row cap: ${JSON.stringify(job?.summary)}`);
+    assert(job?.summary?.alreadyLinked === 1002, `Expected job linked rows beyond the old 1000-row cap: ${JSON.stringify(job?.summary)}`);
     assert(job?.summary?.wouldUpdate === 1, `Expected job one wouldUpdate row: ${JSON.stringify(job?.summary)}`);
     assert(job?.summary?.wouldCreate === 1, `Expected job one wouldCreate row: ${JSON.stringify(job?.summary)}`);
     assert(job?.summary?.conflict === 1, `Expected job one conflict row: ${JSON.stringify(job?.summary)}`);
 
     assert(job?.summary?.autoApplied?.created === 1, `Expected one auto-created row: ${JSON.stringify(job?.summary)}`);
     assert(job?.summary?.autoApplied?.updated === 1, `Expected one strong-ID update: ${JSON.stringify(job?.summary)}`);
-    assert(job?.summary?.autoApplied?.skippedAlreadyLinked === 1, `Expected one already-linked no-op: ${JSON.stringify(job?.summary)}`);
+    assert(job?.summary?.autoApplied?.skippedAlreadyLinked === 1002, `Expected all already-linked rows to stay no-op: ${JSON.stringify(job?.summary)}`);
     assert(job?.summary?.conflictReviewCount === 1, `Expected one conflict for review: ${JSON.stringify(job?.summary)}`);
     assert(Array.isArray(job?.summary?.conflictReview) && job.summary.conflictReview.length === 1, `Expected stored conflict review row: ${JSON.stringify(job?.summary)}`);
     assert(job.summary.conflictReview[0]?.reason === 'A same-title row exists, but strong identifiers disagree.', `Unexpected conflict reason: ${JSON.stringify(job.summary.conflictReview)}`);
@@ -370,8 +398,11 @@ async function main() {
       readOnly: job.summary.readOnly,
       plexWriteback: job.summary.plexWriteback,
       importMutation: job.summary.importMutation,
+      schedulerDefaultEnabled: schedulerStatus.data.runtime.enabled,
+      schedulerIntervalMinutes: schedulerStatus.data.runtime.intervalMinutes,
       mediaCountBefore: beforeCount.rows[0].count,
       mediaCountAfter: afterCount.rows[0].count,
+      fullScanExceededOldCap: job.summary.scanned > 1000,
       previewSummary: preview.data.summary,
       autoApplied: job.summary.autoApplied,
       conflictReviewCount: job.summary.conflictReviewCount,
@@ -393,7 +424,7 @@ async function main() {
         }
       },
       bucketSamples: {
-        alreadyLinked: preview.data.buckets.alreadyLinked.map((entry) => entry.matchedBy),
+        alreadyLinked: preview.data.buckets.alreadyLinked.slice(0, 5).map((entry) => entry.matchedBy),
         wouldUpdate: preview.data.buckets.wouldUpdate.map((entry) => entry.matchedBy),
         wouldCreate: preview.data.buckets.wouldCreate.map((entry) => entry.item.title),
         conflict: preview.data.buckets.conflict.map((entry) => entry.reason)
@@ -406,6 +437,8 @@ async function main() {
       })),
       assertions: [
         'Full-library reconciliation preview classified linked, update, create, and conflict rows before sync',
+        'Plex reconciliation scheduler status is visible and defaults off until enabled',
+        'Reconciliation sync scanned more than 1000 Plex rows when no diagnostic limit was supplied',
         'Queued reconciliation sync job created one safe missing row and updated one strong TMDB match',
         'Already-linked rows stayed no-op and conflicting rows were stored for review',
         'Sync evidence did not surface Plex tokens, token query strings, private IPs, or media file paths'

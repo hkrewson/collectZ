@@ -1615,14 +1615,27 @@ results.push(run('plex full-library reconciliation preview stays read-only and c
   assert.ok(mediaRoutesSource.includes('buildPlexFullLibraryReconciliationPreview'));
   assert.ok(mediaRoutesSource.includes('runPlexReconciliationPreviewJob'));
   assert.ok(mediaRoutesSource.includes('runPlexReconciliationSyncJob'));
+  assert.ok(mediaRoutesSource.includes('getPlexReconciliationSyncRuntimeConfig'));
+  assert.ok(mediaRoutesSource.includes('startPlexReconciliationSyncScheduler'));
+  assert.ok(mediaRoutesSource.includes('runPlexReconciliationSyncSchedulerOnce'));
+  assert.ok(mediaRoutesSource.includes('parsePlexReconciliationLimit'));
+  assert.ok(mediaRoutesSource.includes('PLEX_RECONCILIATION_SYNC_ENABLED'));
+  assert.ok(mediaRoutesSource.includes("router.get('/plex-reconciliation-sync/scheduler'"));
+  assert.ok(mediaRoutesSource.includes("router.post('/plex-reconciliation-sync/scheduler/run'"));
   assert.ok(mediaRoutesSource.includes('buildPlexReconciliationSyncPlan'));
   assert.ok(mediaRoutesSource.includes("processingMode: 'full_library_reconciliation_sync'"));
+  assert.ok(mediaRoutesSource.includes("processingMode: 'scheduled_full_library_reconciliation_sync'"));
   assert.ok(mediaRoutesSource.includes("jobType: 'plex_reconciliation_preview'"));
   assert.ok(mediaRoutesSource.includes("jobType: 'plex_reconciliation_sync'"));
   assert.ok(mediaRoutesSource.includes('full_library_reconciliation_preview'));
+  assert.ok(serverSource.includes('startPlexReconciliationSyncScheduler'));
+  assert.ok(serverSource.includes('plexReconciliationSync='));
   assert.ok(openApiSource.includes('/api/media/plex-reconciliation-preview'));
   assert.ok(openApiSource.includes('/api/media/plex-reconciliation-preview/run'));
   assert.ok(openApiSource.includes('/api/media/plex-reconciliation-sync/run'));
+  assert.ok(openApiSource.includes('/api/media/plex-reconciliation-sync/scheduler'));
+  assert.ok(openApiSource.includes('/api/media/plex-reconciliation-sync/scheduler/run'));
+  assert.ok(dockerComposeSource.includes('PLEX_RECONCILIATION_SYNC_ENABLED'));
   assert.ok(plexFullLibraryReconciliationSmokeSource.includes('/api/media/plex-reconciliation-preview'));
   assert.ok(plexFullLibraryReconciliationSmokeSource.includes('/api/media/plex-reconciliation-preview/run'));
   assert.ok(plexFullLibraryReconciliationSmokeSource.includes('/api/media/sync-jobs/${jobId}/result'));
@@ -1637,12 +1650,17 @@ results.push(run('plex full-library reconciliation preview stays read-only and c
   assert.ok(plexFullLibraryReconciliationSmokeSource.includes('plex-full-library-reconciliation-smoke.json'));
   assert.ok(plexReconciliationSyncSmokeSource.includes('/api/media/plex-reconciliation-sync/run'));
   assert.ok(plexReconciliationSyncSmokeSource.includes('plex_reconciliation_sync'));
+  assert.ok(plexReconciliationSyncSmokeSource.includes('fullScanExceededOldCap'));
+  assert.ok(plexReconciliationSyncSmokeSource.includes('Expected full scan beyond the old 1000-row cap'));
   assert.ok(plexReconciliationSyncSmokeSource.includes('Expected one auto-created row'));
   assert.ok(plexReconciliationSyncSmokeSource.includes('Expected one strong-ID update'));
   assert.ok(plexReconciliationSyncSmokeSource.includes('Expected one conflict for review'));
   assert.ok(plexReconciliationSyncSmokeSource.includes('plex-reconciliation-sync-smoke.json'));
   assert.ok(adminIntegrationsViewSource.includes('Plex library sync'));
   assert.ok(adminIntegrationsViewSource.includes('runPlexReconciliationSyncJob'));
+  assert.ok(adminIntegrationsViewSource.includes('refreshPlexReconciliationScheduler'));
+  assert.ok(adminIntegrationsViewSource.includes('Automatic sync uses the same policy'));
+  assert.ok(adminIntegrationsViewSource.includes('Scan Limit'));
   assert.ok(adminIntegrationsViewSource.includes('Sync Plex Library'));
   assert.ok(adminIntegrationsViewSource.includes('Sync Issues'));
   assert.ok(adminIntegrationsViewSource.includes('runPlexReconciliationPreview'));
@@ -1656,6 +1674,7 @@ results.push(run('plex full-library reconciliation preview stays read-only and c
   assert.ok(releaseRoadmapSource.includes('3.4.137 — Plex Scheduled Reconciliation Preview Job'));
   assert.ok(releaseRoadmapSource.includes('3.4.139 — Plex Temporary Reconciliation Review UI'));
   assert.ok(releaseRoadmapSource.includes('3.4.140 — Plex Reconciliation Auto-Sync and Conflict Review'));
+  assert.ok(releaseRoadmapSource.includes('3.4.141 — Plex Reconciliation Full-Scan and Scheduler Automation'));
 }));
 
 results.push(run('plex webhook receiver administration contract is token-scoped and queues library-new import hints only', () => {

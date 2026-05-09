@@ -76,6 +76,9 @@ const PLEX_WEBHOOK_IMPORT_RUNTIME = typeof mediaRouter.getPlexWebhookImportAutoP
 const PLEX_WATCH_STATE_REFRESH_RUNTIME = typeof mediaRouter.getPlexWatchStateRefreshRuntimeConfig === 'function'
   ? mediaRouter.getPlexWatchStateRefreshRuntimeConfig()
   : { enabled: false };
+const PLEX_RECONCILIATION_SYNC_RUNTIME = typeof mediaRouter.getPlexReconciliationSyncRuntimeConfig === 'function'
+  ? mediaRouter.getPlexReconciliationSyncRuntimeConfig()
+  : { enabled: false };
 const parseBoolean = (value, fallback = false) => {
   if (value === undefined || value === null || value === '') return fallback;
   return ['1', 'true', 'yes', 'on'].includes(String(value).toLowerCase().trim());
@@ -335,6 +338,9 @@ const startServer = async () => {
     if (typeof mediaRouter.startPlexWatchStateRefreshScheduler === 'function') {
       mediaRouter.startPlexWatchStateRefreshScheduler();
     }
+    if (typeof mediaRouter.startPlexReconciliationSyncScheduler === 'function') {
+      mediaRouter.startPlexReconciliationSyncScheduler();
+    }
     app.listen(PORT, '0.0.0.0', () => {
       console.log(
         `collectZ backend ${BUILD_LABEL} listening on port ${PORT} (audit=${getMode()}, ` +
@@ -344,6 +350,7 @@ const startServer = async () => {
         `autoLoanReminders=${AUTO_LOAN_REMINDER_RUNTIME.enabled ? `on/${AUTO_LOAN_REMINDER_RUNTIME.intervalMinutes}m` : 'off'}, ` +
         `plexWebhookImportAuto=${PLEX_WEBHOOK_IMPORT_RUNTIME.enabled ? `on/${PLEX_WEBHOOK_IMPORT_RUNTIME.intervalSeconds}s` : 'off'}, ` +
         `plexWatchRefresh=${PLEX_WATCH_STATE_REFRESH_RUNTIME.enabled ? `on/${PLEX_WATCH_STATE_REFRESH_RUNTIME.intervalMinutes}m` : 'off'}, ` +
+        `plexReconciliationSync=${PLEX_RECONCILIATION_SYNC_RUNTIME.enabled ? `on/${PLEX_RECONCILIATION_SYNC_RUNTIME.intervalMinutes}m` : 'off'}, ` +
         `externalApiMax=${RATE_LIMIT_EXTERNAL_API_MAX})`
       );
     });

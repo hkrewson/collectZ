@@ -5015,6 +5015,14 @@ const plexWatchStateRefreshState = {
   lastError: null
 };
 
+function parsePlexReconciliationLimit(value) {
+  const raw = String(value ?? '').trim();
+  if (!raw) return null;
+  const numeric = Number(raw);
+  if (!Number.isFinite(numeric) || numeric <= 0) return null;
+  return Math.max(1, Math.min(50000, Math.floor(numeric)));
+}
+
 function normalizePlexRatingKeyValue(value) {
   const raw = String(value || '').trim();
   if (!raw) return '';
@@ -7204,6 +7212,287 @@ async function processPlexWebhookImportHintJob({ jobId = null, ratingKey = null,
     });
     return { processed: true, ok: false, status: 'failed', ratingKey: normalizedRatingKey, error: error.message || 'Plex webhook import hint processing failed', job: failed };
   }
+}
+
+function getPlexReconciliationSyncRuntimeConfig() {
+  const enabledRaw = String(process.env.PLEX_RECONCILIATION_SYNC_ENABLED ?? 'false').trim().toLowerCase();
+  const intervalMinutes = Math.max(60, Number(process.env.PLEX_RECONCILIATION_SYNC_INTERVAL_MINUTES || 360));
+  const limit = parsePlexReconciliationLimit(process.env.PLEX_RECONCILIATION_SYNC_LIMIT);
+  return {
+    enabled: ['1', 'true', 'on', 'yes'].includes(enabledRaw),
+    intervalMinutes,
+    limit
+  };
+}
+
+const plexReconciliationSyncState = {
+  enabled: false,
+  intervalMinutes: 0,
+  limit: null,
+  running: false,
+  lastStartedAt: null,
+  lastFinishedAt: null,
+  lastTargetCount: 0,
+  lastJobsQueued: 0,
+  lastJobsSucceeded: 0,
+  lastJobsFailed: 0,
+  lastScanned: 0,
+  lastCreated: 0,
+  lastUpdated: 0,
+  lastConflictReviewCount: 0,
+  lastError: null
+};
+
+async function findFirstAdminUser() {
+  const result = await pool.query(
+    `SELECT id, role, email, name
+       FROM users
+      WHERE role = 'admin'
+      ORDER BY id ASC
+      LIMIT 1`
+  );
+  return result.rows[0] || null;
+}
+
+async function findSpaceAutomationUser(spaceId) {
+  const result = await pool.query(
+    `SELECT u.id, u.role, u.email, u.name
+       FROM users u
+       JOIN space_memberships sm ON sm.user_id = u.id
+      WHERE sm.space_id = $1
+        AND sm.role IN ('owner', 'admin')
+      ORDER BY CASE sm.role WHEN 'owner' THEN 0 ELSE 1 END, u.id ASC
+      LIMIT 1`,
+    [spaceId]
+  );
+  if (result.rows[0]) return result.rows[0];
+  const fallback = await pool.query(
+    `SELECT u.id, u.role, u.email, u.name
+       FROM users u
+       JOIN spaces s ON s.created_by = u.id
+      WHERE s.id = $1
+      LIMIT 1`,
+    [spaceId]
+  );
+  return fallback.rows[0] || null;
+}
+
+async function findFirstLibraryForSpace(spaceId) {
+  const result = await pool.query(
+    `SELECT id
+       FROM libraries
+      WHERE space_id = $1
+      ORDER BY id ASC
+      LIMIT 1`,
+    [spaceId]
+  );
+  return Number(result.rows[0]?.id || 0) || null;
+}
+
+async function collectPlexReconciliationSyncTargets() {
+  const targets = [];
+  const seen = new Set();
+  const firstAdmin = await findFirstAdminUser();
+
+  if (firstAdmin) {
+    const defaultScope = await ensureUserDefaultScope(firstAdmin.id);
+    const config = await loadPlexWebhookImportConfig({
+      spaceId: defaultScope.spaceId || null,
+      libraryId: defaultScope.libraryId || null
+    });
+    if (config.plexApiUrl && config.plexApiKey && defaultScope.libraryId) {
+      const key = `${defaultScope.spaceId || 'global'}:${defaultScope.libraryId}`;
+      seen.add(key);
+      targets.push({
+        user: firstAdmin,
+        config,
+        scopeContext: {
+          spaceId: defaultScope.spaceId || null,
+          libraryId: defaultScope.libraryId
+        },
+        source: 'first_admin_default_scope'
+      });
+    }
+  }
+
+  const scoped = await pool.query(
+    `SELECT DISTINCT space_id
+       FROM app_integrations
+      WHERE space_id IS NOT NULL
+        AND plex_api_url IS NOT NULL
+        AND plex_api_key_encrypted IS NOT NULL
+      ORDER BY space_id ASC`
+  );
+  for (const row of scoped.rows) {
+    const spaceId = Number(row.space_id || 0) || null;
+    if (!spaceId) continue;
+    const libraryId = await findFirstLibraryForSpace(spaceId);
+    if (!libraryId) continue;
+    const key = `${spaceId}:${libraryId}`;
+    if (seen.has(key)) continue;
+    const user = await findSpaceAutomationUser(spaceId) || firstAdmin;
+    if (!user) continue;
+    const config = await loadPlexWebhookImportConfig({ spaceId, libraryId });
+    if (!config.plexApiUrl || !config.plexApiKey) continue;
+    seen.add(key);
+    targets.push({
+      user,
+      config,
+      scopeContext: { spaceId, libraryId },
+      source: 'workspace_integration'
+    });
+  }
+
+  return targets;
+}
+
+async function runPlexReconciliationSyncSchedulerOnce({ reason = 'manual', limit = null } = {}) {
+  const runtimeConfig = getPlexReconciliationSyncRuntimeConfig();
+  const effectiveLimit = parsePlexReconciliationLimit(limit) || runtimeConfig.limit || null;
+  const targets = await collectPlexReconciliationSyncTargets();
+  const summary = {
+    reason,
+    enabled: runtimeConfig.enabled,
+    limit: effectiveLimit,
+    targetCount: targets.length,
+    jobsQueued: 0,
+    jobsSucceeded: 0,
+    jobsFailed: 0,
+    scanned: 0,
+    created: 0,
+    updated: 0,
+    conflictReviewCount: 0,
+    errorsSample: []
+  };
+
+  for (const target of targets) {
+    const sectionIds = Array.isArray(target.config.plexLibrarySections) ? target.config.plexLibrarySections : [];
+    const requestedSections = [...new Set(sectionIds.map(String).filter(Boolean))];
+    const job = await createSyncJob({
+      userId: target.user.id,
+      jobType: 'plex_reconciliation_sync',
+      provider: 'plex',
+      scope: {
+        ...jobScopePayload(target.scopeContext, requestedSections),
+        processingMode: 'full_library_reconciliation_sync',
+        readOnly: false,
+        plexWriteback: false,
+        importMutation: true,
+        automation: true,
+        reason,
+        limit: effectiveLimit
+      },
+      progress: {
+        total: 0,
+        processed: 0,
+        created: 0,
+        updated: 0,
+        conflictReview: 0,
+        errorCount: 0
+      }
+    });
+    summary.jobsQueued += 1;
+    const auditReq = {
+      user: target.user,
+      headers: {},
+      ip: 'system',
+      socket: null
+    };
+    const result = await runPlexReconciliationSyncJob({
+      jobId: job.id,
+      req: auditReq,
+      config: target.config,
+      sectionIds,
+      scopeContext: target.scopeContext,
+      limit: effectiveLimit
+    });
+    if (result.ok) {
+      summary.jobsSucceeded += 1;
+      summary.scanned += Number(result.summary?.scanned || 0);
+      summary.created += Number(result.summary?.autoApplied?.created || 0);
+      summary.updated += Number(result.summary?.autoApplied?.updated || 0);
+      summary.conflictReviewCount += Number(result.summary?.conflictReviewCount || 0);
+    } else {
+      summary.jobsFailed += 1;
+      if (summary.errorsSample.length < 10) {
+        summary.errorsSample.push({
+          jobId: job.id,
+          scope: {
+            spaceId: target.scopeContext.spaceId || null,
+            libraryId: target.scopeContext.libraryId || null
+          },
+          error: result.error || 'Plex reconciliation sync failed'
+        });
+      }
+    }
+  }
+
+  if (summary.jobsQueued > 0 || reason !== 'scheduled') {
+    await logActivity({
+      user: { id: null, role: 'system', email: 'system@collectz.local', name: 'collectZ system' },
+      headers: {},
+      ip: 'system',
+      socket: null
+    }, 'media.plex.reconciliation.sync_scheduler', 'sync_jobs', null, {
+      reason,
+      targetCount: summary.targetCount,
+      jobsQueued: summary.jobsQueued,
+      jobsSucceeded: summary.jobsSucceeded,
+      jobsFailed: summary.jobsFailed,
+      scanned: summary.scanned,
+      created: summary.created,
+      updated: summary.updated,
+      conflictReviewCount: summary.conflictReviewCount,
+      limit: summary.limit
+    });
+  }
+
+  return summary;
+}
+
+function startPlexReconciliationSyncScheduler() {
+  const runtimeConfig = getPlexReconciliationSyncRuntimeConfig();
+  Object.assign(plexReconciliationSyncState, {
+    enabled: runtimeConfig.enabled,
+    intervalMinutes: runtimeConfig.intervalMinutes,
+    limit: runtimeConfig.limit
+  });
+  if (!runtimeConfig.enabled) return null;
+
+  const runSweep = async () => {
+    if (plexReconciliationSyncState.running) return;
+    plexReconciliationSyncState.running = true;
+    plexReconciliationSyncState.lastStartedAt = new Date().toISOString();
+    plexReconciliationSyncState.lastError = null;
+    try {
+      const summary = await runPlexReconciliationSyncSchedulerOnce({
+        reason: 'scheduled',
+        limit: runtimeConfig.limit
+      });
+      plexReconciliationSyncState.lastTargetCount = summary.targetCount;
+      plexReconciliationSyncState.lastJobsQueued = summary.jobsQueued;
+      plexReconciliationSyncState.lastJobsSucceeded = summary.jobsSucceeded;
+      plexReconciliationSyncState.lastJobsFailed = summary.jobsFailed;
+      plexReconciliationSyncState.lastScanned = summary.scanned;
+      plexReconciliationSyncState.lastCreated = summary.created;
+      plexReconciliationSyncState.lastUpdated = summary.updated;
+      plexReconciliationSyncState.lastConflictReviewCount = summary.conflictReviewCount;
+      if (summary.errorsSample.length > 0) {
+        plexReconciliationSyncState.lastError = summary.errorsSample[0].error;
+      }
+    } catch (error) {
+      plexReconciliationSyncState.lastError = error.message || 'Plex reconciliation sync scheduler failed';
+      logError('Plex reconciliation sync scheduler failed', error);
+    } finally {
+      plexReconciliationSyncState.running = false;
+      plexReconciliationSyncState.lastFinishedAt = new Date().toISOString();
+    }
+  };
+
+  const timer = setInterval(runSweep, runtimeConfig.intervalMinutes * 60 * 1000);
+  timer.unref();
+  setTimeout(runSweep, Math.min(5000, runtimeConfig.intervalMinutes * 60 * 1000)).unref();
+  return timer;
 }
 
 async function runPlexWebhookImportHintAutoProcessorOnce({ reason = 'manual', batchSize = null } = {}) {
@@ -12966,8 +13255,7 @@ router.post('/plex-reconciliation-preview', asyncHandler(async (req, res) => {
   }
 
   const sectionIds = Array.isArray(req.body?.sectionIds) ? req.body.sectionIds : [];
-  const limitRaw = Number(req.body?.limit ?? req.query?.limit);
-  const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(1000, Math.floor(limitRaw))) : null;
+  const limit = parsePlexReconciliationLimit(req.body?.limit ?? req.query?.limit);
   const config = await loadPlexWebhookImportConfig(effectiveScopeContext);
   if (!config.plexApiUrl) {
     return res.status(400).json({ error: 'Plex API URL is not configured' });
@@ -13021,8 +13309,7 @@ router.post('/plex-reconciliation-preview/run', asyncHandler(async (req, res) =>
   }
 
   const sectionIds = Array.isArray(req.body?.sectionIds) ? req.body.sectionIds : [];
-  const limitRaw = Number(req.body?.limit ?? req.query?.limit);
-  const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(1000, Math.floor(limitRaw))) : null;
+  const limit = parsePlexReconciliationLimit(req.body?.limit ?? req.query?.limit);
   const config = await loadPlexWebhookImportConfig(effectiveScopeContext);
   if (!config.plexApiUrl) {
     return res.status(400).json({ error: 'Plex API URL is not configured' });
@@ -13102,8 +13389,7 @@ router.post('/plex-reconciliation-sync/run', asyncHandler(async (req, res) => {
   }
 
   const sectionIds = Array.isArray(req.body?.sectionIds) ? req.body.sectionIds : [];
-  const limitRaw = Number(req.body?.limit ?? req.query?.limit);
-  const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(1000, Math.floor(limitRaw))) : null;
+  const limit = parsePlexReconciliationLimit(req.body?.limit ?? req.query?.limit);
   const config = await loadPlexWebhookImportConfig(effectiveScopeContext);
   if (!config.plexApiUrl) {
     return res.status(400).json({ error: 'Plex API URL is not configured' });
@@ -13161,6 +13447,38 @@ router.post('/plex-reconciliation-sync/run', asyncHandler(async (req, res) => {
     readOnly: false,
     plexWriteback: false,
     importMutation: true
+  });
+}));
+
+router.get('/plex-reconciliation-sync/scheduler', asyncHandler(async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Only admins can inspect Plex reconciliation sync automation' });
+  }
+  const runtimeConfig = getPlexReconciliationSyncRuntimeConfig();
+  res.json({
+    ok: true,
+    processingMode: 'scheduled_full_library_reconciliation_sync',
+    runtime: runtimeConfig,
+    state: { ...plexReconciliationSyncState }
+  });
+}));
+
+router.post('/plex-reconciliation-sync/scheduler/run', asyncHandler(async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Only admins can run Plex reconciliation sync automation' });
+  }
+  const summary = await runPlexReconciliationSyncSchedulerOnce({
+    reason: 'admin_requested',
+    limit: req.body?.limit
+  });
+  res.json({
+    ok: true,
+    provider: 'plex',
+    processingMode: 'scheduled_full_library_reconciliation_sync',
+    readOnly: false,
+    plexWriteback: false,
+    importMutation: true,
+    summary
   });
 }));
 
@@ -14622,5 +14940,8 @@ router.runPlexWebhookImportHintAutoProcessorOnce = runPlexWebhookImportHintAutoP
 router.startPlexWatchStateRefreshScheduler = startPlexWatchStateRefreshScheduler;
 router.getPlexWatchStateRefreshRuntimeConfig = getPlexWatchStateRefreshRuntimeConfig;
 router.runPlexWatchStateRefreshOnce = runPlexWatchStateRefreshOnce;
+router.startPlexReconciliationSyncScheduler = startPlexReconciliationSyncScheduler;
+router.getPlexReconciliationSyncRuntimeConfig = getPlexReconciliationSyncRuntimeConfig;
+router.runPlexReconciliationSyncSchedulerOnce = runPlexReconciliationSyncSchedulerOnce;
 
 module.exports = router;

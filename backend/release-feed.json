@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.141",
+      "version": "v3.4.141",
+      "date": null,
+      "status": null,
+      "summary": "This patch removes the confusing 1000-title Plex reconciliation cap and adds scheduled reconciliation sync automation.",
+      "details": []
+    },
+    {
       "title": "collectZ v3.4.140",
       "version": "v3.4.140",
       "date": null,
@@ -70,14 +78,6 @@
       "date": null,
       "status": null,
       "summary": "This patch proves the Plex watched-state writeback contract before enabling any real app-driven Plex mutation.",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.4.131",
-      "version": "v3.4.131",
-      "date": null,
-      "status": null,
-      "summary": "This patch adds a safe Plex rating readback apply path for existing collectZ rows.",
       "details": []
     }
   ]

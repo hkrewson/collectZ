@@ -65,6 +65,7 @@ Use this for feature discovery and future new Plex surfaces where possible. The 
 - User Rating Scale Normalization. Promoted as `3.4.138`.
 - Temporary Reconciliation Review UI. Promoted as `3.4.139`.
 - Plex Reconciliation Auto-Sync and Conflict Review. Promoted as `3.4.140`.
+- Plex Reconciliation Full-Scan and Scheduler Automation. Promoted as `3.4.141`.
 
 ## Acceptance Criteria
 

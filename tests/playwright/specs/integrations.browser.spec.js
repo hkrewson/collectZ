@@ -144,6 +144,18 @@ test.describe('integrations browser regressions', () => {
 
   test('Plex reconciliation sync surface displays review buckets without apply controls', async ({ page }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
+    await page.route('**/api/media/plex-reconciliation-sync/scheduler', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ok: true,
+          processingMode: 'scheduled_full_library_reconciliation_sync',
+          runtime: { enabled: true, intervalMinutes: 360, limit: null },
+          state: { lastFinishedAt: '2026-05-09T17:00:00.000Z', lastScanned: 1005, lastCreated: 1, lastUpdated: 1 }
+        })
+      });
+    });
     await page.route('**/api/media/plex-reconciliation-preview', async (route) => {
       await route.fulfill({
         status: 200,
@@ -238,6 +250,9 @@ test.describe('integrations browser regressions', () => {
     await page.goto('/dashboard?tab=admin-integrations&integration=plex');
     await expect(page.getByRole('heading', { name: 'Integrations' })).toBeVisible();
     await expect(page.getByText('Plex library sync')).toBeVisible();
+    await expect(page.getByText('Automatic:')).toBeVisible();
+    await expect(page.getByText('on/360m')).toBeVisible();
+    await expect(page.getByPlaceholder('All')).toBeVisible();
 
     await page.getByRole('button', { name: 'Preview now' }).click();
 

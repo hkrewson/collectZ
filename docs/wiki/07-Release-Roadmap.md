@@ -10440,6 +10440,39 @@ Historical note:
 - What remains in the milestone: no implementation work remains for `3.4.140`; CI must still confirm the CI-only `secret-scan` and `image-security-and-sbom` gates and stricter secure-cookie compose-smoke conditions.
 - Recommended commit message: `Release 3.4.140 with Plex reconciliation auto-sync and conflict review`.
 
+## 3.4.141 — Plex Reconciliation Full-Scan and Scheduler Automation
+
+**Goal:** Let large Plex libraries reconcile beyond the old 1000-row diagnostic ceiling and make reconciliation sync capable of running automatically on a schedule.
+
+### Scope
+
+- Remove the hard 1000-title cap from Plex reconciliation preview and sync when no limit is requested.
+- Keep an optional diagnostic scan limit with a higher safety ceiling.
+- Add runtime-controlled scheduled Plex reconciliation sync automation.
+- Add scheduler status and manual sweep endpoints.
+- Show automatic reconciliation status in the Plex integrations panel.
+- Preserve the conservative sync policy from `3.4.140`: safe creates, strong-ID updates only, conflict review, and no Plex writeback.
+
+### Acceptance Criteria
+
+- Empty scan limit means all fetched Plex rows are scanned.
+- Numeric scan limit remains available for troubleshooting and is capped at 50000.
+- The fake PMS sync smoke proves more than 1000 rows are scanned.
+- The backend exposes reconciliation scheduler readback and manual sweep endpoints.
+- The running stack reports whether reconciliation automation is on or off.
+- Version metadata, release note, release feed, and Help > Releases include `3.4.141`.
+
+### Closeout
+
+- Roadmap slice: `3.4.141 — Plex Reconciliation Full-Scan and Scheduler Automation`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`; `docs/wiki/08-Backlog.md`; `docs/releases/v3.4.141.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild with `APP_VERSION=3.4.141`; `/api/health` returned frontend/backend/build `3.4.141`; running backend env was restored to `APP_EDITION=platform`, `APP_VERSION=3.4.141`, `NODE_ENV=development`, `SESSION_COOKIE_SECURE=false`, `PLEX_RECONCILIATION_SYNC_ENABLED=false`, `PLEX_RECONCILIATION_SYNC_INTERVAL_MINUTES=360`, and no scheduled scan limit; live DB global feature flags showed `events_enabled=true` and `collectibles_enabled=true`; Docker Plex reconciliation sync smoke proved `scanned=1005`, `alreadyLinked=1002`, `fullScanExceededOldCap=true`, one safe create, one strong-ID update, one conflict-review row, and scheduler status readback with the scheduler defaulting off until enabled; Docker Help > Releases smoke served `v3.4.141`; direct compose `/api/auth/me` returned `401`; homelab boundary was verified under a temporary local homelab override and the stack was restored to platform.
+- CI/checks run: `node --check backend/routes/media.js`; `node --check backend/server.js`; `node --check backend/scripts/plex-reconciliation-sync-smoke.js`; local `npm --prefix backend run test:openapi`; Docker backend/frontend build; Docker `npm run test:unit`; Docker `npm run test:openapi`; Docker `npm run test:integration-smoke`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; Docker `npm run test:rbac-regression`; Docker `npm run test:platform-edition-boundary`; isolated Docker `npm run test:homelab-edition-boundary`; Docker `npm run test:plex-reconciliation-sync-smoke`; Docker Help > Releases smoke; targeted `integrations.browser.spec.js`; full browser regression; `npm --prefix backend run test:observability-evidence`; `npm --prefix backend run test:release-preflight-local`; dependency audit artifact readback showed backend/frontend low/moderate/high/critical counts all zero; `git diff --check`; targeted artifact/docs secret pattern scan.
+- Files changed: `app-meta.json`; `backend/app-meta.json`; `backend/openapi/openapi.yaml`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/routes/media.js`; `backend/scripts/plex-reconciliation-sync-smoke.js`; `backend/scripts/unit-tests.js`; `backend/server.js`; `docker-compose.yml`; `env.example`; `docs/releases/v3.4.141.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/AdminIntegrationsView.jsx`; `tests/playwright/specs/integrations.browser.spec.js`; `artifacts/observability-evidence/observability-release-evidence.json`; `preflight-go-no-go.md`.
+- Risks or follow-ups: scheduled reconciliation is runtime/env opt-in because it can create rows automatically; conflict review remains readback-only; automatic sync uses the first configured library for each configured workspace integration and the first admin default scope for global fallback, so richer per-workspace scheduling controls can be a later slice; local `gitleaks`, `trivy`, and `syft` CLIs were not installed, so CI must still confirm full `secret-scan` and `image-security-and-sbom`; local preflight still marks secure-cookie compose conditions blocked because this dev stack runs with `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`, though direct compose health/header/auth checks passed locally.
+- What remains in the milestone: no implementation work remains for `3.4.141`; CI must still confirm the CI-only `secret-scan` and `image-security-and-sbom` gates and stricter secure-cookie compose-smoke conditions.
+- Recommended commit message: `Release 3.4.141 with Plex reconciliation full-scan and scheduler automation`.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.
