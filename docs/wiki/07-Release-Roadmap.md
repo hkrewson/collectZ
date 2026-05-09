@@ -10216,6 +10216,38 @@ Historical note:
 - What remains in the milestone: no implementation work remains for `3.4.133`; CI must still confirm `secret-scan` and `image-security-and-sbom` because the local tools are not installed.
 - Recommended commit message: `Release 3.4.133 with Plex watched-state writeback implementation`.
 
+## 3.4.134 — Plex Rating Writeback to Plex
+
+**Goal:** Add an explicit admin-only rating writeback path for one existing Plex-linked collectZ row, using the proven `/:/rate` request shape without enabling automatic or scheduled Plex rating mutation.
+
+### Scope
+
+- Add an admin-only manual endpoint for Plex rating writeback.
+- Resolve the target from an existing Plex-linked `media` row by `mediaId` or `ratingKey`.
+- Accept an explicit rating from 0 to 10, or use the matched row's existing `user_rating` when no rating is supplied.
+- Call Plex through `PUT /:/rate` with `identifier=com.plexapp.plugins.library`, the Plex rating key, and the collectZ rating.
+- Record lightweight writeback provenance metadata on the collectZ row.
+- Keep UI auto-sync, scheduled rating writeback, scheduled full-library reconciliation, and broad Plex import rewrites out of scope.
+
+### Acceptance Criteria
+
+- The endpoint requires admin access, active library scope, saved Plex configuration, and one existing Plex-linked media row.
+- The endpoint rejects missing/invalid ratings when no collectZ rating exists on the matched row.
+- The fake PMS smoke proves `PUT /:/rate` is called with the expected key/rating and no media rows are created.
+- The route response and smoke evidence do not surface Plex token values, token query strings, private IPs, or raw file paths.
+- Running-stack verification proves the app serves `3.4.134`, Help > Releases contains the release, and `events_enabled` remains on.
+
+### Closeout
+
+- Roadmap slice: `3.4.134 — Plex Rating Writeback to Plex`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`; `docs/wiki/08-Backlog.md`; `docs/releases/v3.4.134.md`.
+- Runtime verification used: Docker-first rebuild of backend/frontend with `APP_VERSION=3.4.134`; live `/api/health` returned frontend/backend/build `3.4.134`; live backend container env remained `APP_EDITION=platform`; live DB feature flags showed `events_enabled=true` and `collectibles_enabled=true`; Docker Plex rating writeback smoke proved admin-only single-row rating writeback against a fake PMS with `PUT /:/rate`, `identifier=com.plexapp.plugins.library`, rating key, and collectZ rating, with no media row creation and sanitized evidence; Docker Help > Releases served `v3.4.134`; isolated homelab stack boundary passed and was torn down before rechecking the active platform stack.
+- CI/checks run: `node --check backend/routes/media.js`; `node --check backend/services/plex.js`; `node --check backend/scripts/plex-rating-writeback-smoke.js`; `node --check backend/scripts/unit-tests.js`; local and Docker `npm run test:unit`; local and Docker `npm run test:openapi`; Docker `npm run test:integration-smoke`; Docker `npm run test:plex-rating-writeback-smoke`; Docker Help > Releases smoke; Docker init parity; Docker migration rehearsal; Docker `npm run test:rbac-regression`; Docker `npm run test:platform-edition-boundary`; isolated Docker `npm run test:homelab-edition-boundary`; direct compose smoke; public export validation; `npm --prefix backend run test:observability-evidence`; `npm --prefix backend run test:release-preflight-local`; bundled-runtime `npm run test:browser`; backend production dependency audit; frontend production dependency audit in disposable Node container; `git diff --check`; targeted artifact/docs secret scan.
+- Files changed: `app-meta.json`; `backend/app-meta.json`; `backend/openapi/openapi.yaml`; `backend/package.json`; `backend/release-feed.json`; `backend/routes/media.js`; `backend/scripts/plex-rating-writeback-smoke.js`; `backend/scripts/unit-tests.js`; `backend/services/plex.js`; `docker-compose.yml`; `docs/releases/v3.4.134.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`; `frontend/package.json`; `frontend/src/app-meta.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `artifacts/plex-ratings/plex-rating-writeback-smoke.json`; `preflight-go-no-go.md`.
+- Risks or follow-ups: rating writeback is intentionally explicit/admin-only and does not add UI auto-sync, scheduled writeback, full-library reconciliation, or broad Plex import rewrites; existing row matching still depends on `plex_item_key` metadata. Local `gitleaks`, `trivy`, and `syft` CLIs are not installed, so CI must still confirm the full `secret-scan` and `image-security-and-sbom` gates. Local preflight still marks CI secure-cookie compose conditions blocked because the dev stack runs with `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`; direct compose smoke passed locally.
+- What remains in the milestone: no implementation work remains for `3.4.134`; CI must still confirm `secret-scan` and `image-security-and-sbom` because the local tools are not installed.
+- Recommended commit message: `Release 3.4.134 with Plex rating writeback to Plex`.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

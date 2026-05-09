@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.134",
+      "version": "v3.4.134",
+      "date": null,
+      "status": null,
+      "summary": "This patch adds explicit Plex rating writeback for one existing Plex-linked collectZ row.",
+      "details": []
+    },
+    {
       "title": "collectZ v3.4.133",
       "version": "v3.4.133",
       "date": null,
@@ -70,14 +78,6 @@
       "date": null,
       "status": null,
       "summary": "This patch processes queued Plex `library.new` webhook import hints by fetching the single PMS metadata item and running it through the existing Plex import path.",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.4.124",
-      "version": "v3.4.124",
-      "date": null,
-      "status": null,
-      "summary": "This patch lets Plex `library.new` webhooks create a safe import hint job without silently running a full Plex import.",
       "details": []
     }
   ]

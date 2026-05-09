@@ -794,6 +794,31 @@ const sendPlexWatchedStateWriteback = async (config, options = {}) => {
   };
 };
 
+const sendPlexRatingWriteback = async (config, options = {}) => {
+  const request = buildPlexRatingWritebackRequest(options);
+  const response = await plexRequest(config, request.path, request.params, { method: request.method });
+  if (response.status >= 400) {
+    const message = typeof response.data === 'string'
+      ? response.data.slice(0, 200)
+      : response.data?.error || response.statusText;
+    throw new Error(`Plex rating writeback failed (${response.status}): ${message}`);
+  }
+  return {
+    ok: true,
+    provider: 'plex',
+    processingMode: 'rating_writeback',
+    request: {
+      method: request.method,
+      path: request.path,
+      rating: request.params.rating,
+      hasKey: Boolean(request.params.key),
+      hasRatedAt: Boolean(request.params.ratedAt),
+      identifier: request.params.identifier
+    },
+    status: response.status
+  };
+};
+
 const fetchPlexSections = async (config) => {
   const response = await plexRequest(config, '/library/sections');
   if (response.status >= 400) {
@@ -1201,6 +1226,7 @@ module.exports = {
   normalizePlexWebhookEvent,
   buildPlexRatingWritebackRequest,
   buildPlexWatchedStateWritebackRequest,
+  sendPlexRatingWriteback,
   sendPlexWatchedStateWriteback,
   shouldIncludePlexEntry,
   normalizePlexItem,

@@ -249,6 +249,7 @@ const plexWatchStateSyncCadenceSmokeSource = fs.readFileSync(require.resolve('..
 const plexWatchStateApplySmokeSource = fs.readFileSync(require.resolve('../scripts/plex-watch-state-apply-smoke'), 'utf8');
 const plexWatchStateRefreshSchedulerSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-watch-state-refresh-scheduler-smoke'), 'utf8');
 const plexRatingApplySmokeSource = fs.readFileSync(require.resolve('../scripts/plex-rating-apply-smoke'), 'utf8');
+const plexRatingWritebackSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-rating-writeback-smoke'), 'utf8');
 const plexWatchedStateWritebackContractSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-watched-state-writeback-contract-smoke'), 'utf8');
 const plexWatchedStateWritebackSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-watched-state-writeback-smoke'), 'utf8');
 const ciCdDeployDocSource = fs.readFileSync(require.resolve('../../docs/wiki/10-CI-CD-and-Registry-Deploy.md'), 'utf8');
@@ -1548,6 +1549,24 @@ results.push(run('plex rating apply smoke updates existing user rating without P
   assert.ok(plexRatingApplySmokeSource.includes('assertSecretFree'));
   assert.ok(plexRatingApplySmokeSource.includes('plex-rating-apply-smoke.json'));
   assert.ok(releaseRoadmapSource.includes('3.4.131 — Plex Rating Readback Apply Implementation'));
+}));
+
+results.push(run('plex rating writeback implementation stays explicit and single-row scoped', () => {
+  assert.ok(backendPackageJson.scripts['test:plex-rating-writeback-smoke']);
+  assert.ok(plexServiceSource.includes('sendPlexRatingWriteback'));
+  assert.ok(plexServiceSource.includes('buildPlexRatingWritebackRequest'));
+  assert.ok(mediaRoutesSource.includes("router.post('/write-plex-rating'"));
+  assert.ok(mediaRoutesSource.includes('writePlexRatingForMedia'));
+  assert.ok(mediaRoutesSource.includes("'media.plex.rating.writeback'"));
+  assert.ok(mediaRoutesSource.includes("'plex_rating_writeback_rating'"));
+  assert.ok(openApiSource.includes('/api/media/write-plex-rating'));
+  assert.ok(plexRatingWritebackSmokeSource.includes('/api/media/write-plex-rating'));
+  assert.ok(plexRatingWritebackSmokeSource.includes('/:/rate'));
+  assert.ok(plexRatingWritebackSmokeSource.includes("method === 'PUT'"));
+  assert.ok(plexRatingWritebackSmokeSource.includes('No new media rows were created during rating writeback'));
+  assert.ok(plexRatingWritebackSmokeSource.includes('assertSecretFree'));
+  assert.ok(plexRatingWritebackSmokeSource.includes('plex-rating-writeback-smoke.json'));
+  assert.ok(releaseRoadmapSource.includes('3.4.134 — Plex Rating Writeback to Plex'));
 }));
 
 results.push(run('plex webhook receiver administration contract is token-scoped and queues library-new import hints only', () => {

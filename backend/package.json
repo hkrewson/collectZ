@@ -1,6 +1,6 @@
 {
   "name": "mediavault-backend",
-  "version": "3.4.133",
+  "version": "3.4.134",
   "description": "collectZ Backend API",
   "main": "server.js",
   "scripts": {
@@ -102,6 +102,7 @@
     "test:plex-watch-state-apply-smoke": "node scripts/plex-watch-state-apply-smoke.js",
     "test:plex-watch-state-refresh-scheduler-smoke": "node scripts/plex-watch-state-refresh-scheduler-smoke.js",
     "test:plex-rating-apply-smoke": "node scripts/plex-rating-apply-smoke.js",
+    "test:plex-rating-writeback-smoke": "node scripts/plex-rating-writeback-smoke.js",
     "test:plex-watched-state-writeback-contract-smoke": "node scripts/plex-watched-state-writeback-contract-smoke.js",
     "test:plex-watched-state-writeback-smoke": "node scripts/plex-watched-state-writeback-smoke.js"
   },

@@ -9240,6 +9240,74 @@
         }
       }
     },
+    "/api/media/write-plex-rating": {
+      "post": {
+        "tags": ["Media"],
+        "summary": "Write a collectZ rating back to Plex for one existing Plex-linked row",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "mediaId": { "type": "integer", "minimum": 1 },
+                  "ratingKey": { "type": "string", "minLength": 1 },
+                  "rating": { "type": "number", "minimum": 0, "maximum": 10 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Rating was written to Plex",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": {
+            "description": "Configuration, scope, rating, or input error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "404": {
+            "description": "No existing Plex-linked row matched the request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "502": {
+            "description": "Plex rating writeback failed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/media/apply-plex-ratings": {
       "post": {
         "tags": ["Media"],

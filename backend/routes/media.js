@@ -50,6 +50,7 @@ const {
   fetchPlexMetadataItem,
   fetchPlexWatchStateSnapshot,
   fetchPlexRatingSnapshot,
+  sendPlexRatingWriteback,
   sendPlexWatchedStateWriteback,
   fetchPlexShowSeasons,
   fetchPlexShowSeasonVariants,
@@ -4652,7 +4653,7 @@ async function findMediaByPlexRatingKey(ratingKey, scopeContext = {}) {
   return result.rows[0] || null;
 }
 
-async function findPlexLinkedMediaForWatchStateWriteback({ mediaId = null, ratingKey = null, scopeContext = {} } = {}) {
+async function findPlexLinkedMediaForWriteback({ mediaId = null, ratingKey = null, scopeContext = {} } = {}) {
   const params = [];
   const scopeClause = appendScopeSql(params, scopeContext, {
     spaceColumn: 'm.space_id',
@@ -4662,7 +4663,7 @@ async function findPlexLinkedMediaForWatchStateWriteback({ mediaId = null, ratin
   if (Number.isInteger(id) && id > 0) {
     params.push(id);
     const result = await pool.query(
-      `SELECT m.id, m.title, m.media_type, mm."value" AS plex_item_key
+      `SELECT m.id, m.title, m.media_type, m.user_rating, mm."value" AS plex_item_key
          FROM media m
          JOIN media_metadata mm ON mm.media_id = m.id
         WHERE m.id = $${params.length}
@@ -4679,7 +4680,7 @@ async function findPlexLinkedMediaForWatchStateWriteback({ mediaId = null, ratin
   if (!key) return null;
   params.push(key, `%:${key}`);
   const result = await pool.query(
-    `SELECT m.id, m.title, m.media_type, mm."value" AS plex_item_key
+    `SELECT m.id, m.title, m.media_type, m.user_rating, mm."value" AS plex_item_key
        FROM media m
        JOIN media_metadata mm ON mm.media_id = m.id
       WHERE mm."key" = 'plex_item_key'
@@ -4690,6 +4691,10 @@ async function findPlexLinkedMediaForWatchStateWriteback({ mediaId = null, ratin
     params
   );
   return result.rows[0] || null;
+}
+
+async function findPlexLinkedMediaForWatchStateWriteback({ mediaId = null, ratingKey = null, scopeContext = {} } = {}) {
+  return findPlexLinkedMediaForWriteback({ mediaId, ratingKey, scopeContext });
 }
 
 async function writePlexWatchStateForMedia({ mediaId = null, ratingKey = null, action, scopeContext = {} } = {}) {
@@ -4747,6 +4752,71 @@ async function writePlexWatchStateForMedia({ mediaId = null, ratingKey = null, a
     ratingKey: resolvedRatingKey,
     action: normalizedAction,
     watched: writeback.request.watched,
+    writeback
+  };
+}
+
+async function writePlexRatingForMedia({ mediaId = null, ratingKey = null, rating = null, scopeContext = {} } = {}) {
+  const media = await findPlexLinkedMediaForWriteback({ mediaId, ratingKey, scopeContext });
+  if (!media) {
+    const error = new Error('No existing Plex-linked media row matched this rating writeback request');
+    error.status = 404;
+    throw error;
+  }
+
+  const resolvedRatingKey = normalizePlexRatingKeyValue(ratingKey || media.plex_item_key);
+  if (!resolvedRatingKey) {
+    const error = new Error('Matched media row does not have a usable Plex rating key');
+    error.status = 400;
+    throw error;
+  }
+
+  const effectiveRating = rating === null || rating === undefined || rating === ''
+    ? Number(media.user_rating)
+    : Number(rating);
+  if (!Number.isFinite(effectiveRating) || effectiveRating < 0 || effectiveRating > 10) {
+    const error = new Error('Plex rating writeback requires a collectZ rating from 0 to 10');
+    error.status = 400;
+    throw error;
+  }
+
+  const config = await loadPlexWebhookImportConfig(scopeContext);
+  if (!config.plexApiUrl || !config.plexApiKey) {
+    const error = new Error('Plex API URL and key are required before rating writeback');
+    error.status = 400;
+    throw error;
+  }
+
+  const updatedAt = new Date().toISOString();
+  const writeback = await sendPlexRatingWriteback(config, {
+    ratingKey: resolvedRatingKey,
+    rating: effectiveRating,
+    ratedAt: updatedAt
+  });
+
+  await pool.query(
+    `UPDATE media
+        SET user_rating = $1,
+            updated_at = NOW()
+      WHERE id = $2`,
+    [effectiveRating, media.id]
+  );
+  await upsertMediaMetadataEntry(media.id, 'plex_rating_writeback_rating_key', resolvedRatingKey);
+  await upsertMediaMetadataEntry(media.id, 'plex_rating_writeback_rating', String(effectiveRating));
+  await upsertMediaMetadataEntry(media.id, 'plex_rating_writeback_updated_at', updatedAt);
+  await upsertMediaMetadataEntry(media.id, 'plex_rating_writeback_status', 'success');
+  await upsertMediaMetadataEntry(media.id, 'plex_user_rating', String(effectiveRating));
+  await upsertMediaMetadataEntry(media.id, 'plex_rating_source_rating_key', resolvedRatingKey);
+  await upsertMediaMetadataEntry(media.id, 'plex_rating_updated_at', updatedAt);
+
+  return {
+    media: {
+      id: Number(media.id),
+      title: media.title || null,
+      mediaType: media.media_type
+    },
+    ratingKey: resolvedRatingKey,
+    rating: effectiveRating,
     writeback
   };
 }
@@ -12524,6 +12594,68 @@ router.post('/write-plex-watch-state', asyncHandler(async (req, res) => {
       detail: error.message || 'Plex watched-state writeback failed'
     });
     return res.status(error.status || 502).json({ error: error.message || 'Plex watched-state writeback failed' });
+  }
+}));
+
+router.post('/write-plex-rating', asyncHandler(async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Only admins can write ratings back to Plex' });
+  }
+
+  const scopeContext = resolveScopeContext(req);
+  const ensuredScope = scopeContext?.libraryId
+    ? { spaceId: scopeContext?.spaceId || null, libraryId: scopeContext.libraryId }
+    : await ensureUserDefaultScope(req.user.id);
+  const effectiveScopeContext = {
+    ...scopeContext,
+    spaceId: scopeContext?.spaceId ?? ensuredScope.spaceId ?? null,
+    libraryId: ensuredScope.libraryId || null
+  };
+  if (!effectiveScopeContext.libraryId) {
+    return res.status(400).json({ error: 'Active library is required before Plex rating writeback' });
+  }
+
+  const mediaId = req.body?.mediaId;
+  const ratingKey = req.body?.ratingKey;
+  const rating = req.body?.rating;
+  if (!mediaId && !ratingKey) {
+    return res.status(400).json({ error: 'Provide mediaId or ratingKey for Plex rating writeback' });
+  }
+
+  try {
+    const result = await writePlexRatingForMedia({
+      mediaId,
+      ratingKey,
+      rating,
+      scopeContext: effectiveScopeContext
+    });
+    await logActivity(req, 'media.plex.rating.writeback', 'media', result.media.id, {
+      mediaId: result.media.id,
+      rating: result.rating,
+      ratingKey: result.ratingKey,
+      method: result.writeback.request.method,
+      path: result.writeback.request.path
+    });
+    return res.json({
+      ok: true,
+      provider: 'plex',
+      processingMode: 'rating_writeback',
+      readOnlyPlex: false,
+      plexWriteback: true,
+      media: result.media,
+      rating: result.rating,
+      ratingKey: result.ratingKey,
+      request: result.writeback.request
+    });
+  } catch (error) {
+    logError('Plex rating writeback failed', error);
+    await logActivity(req, 'media.plex.rating.writeback.failed', 'media', null, {
+      mediaId: mediaId || null,
+      ratingKey: ratingKey || null,
+      rating: rating ?? null,
+      detail: error.message || 'Plex rating writeback failed'
+    });
+    return res.status(error.status || 502).json({ error: error.message || 'Plex rating writeback failed' });
   }
 }));
 

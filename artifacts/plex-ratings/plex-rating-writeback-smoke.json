@@ -1,0 +1,27 @@
+{
+  "ok": true,
+  "provider": "plex",
+  "processingMode": "rating_writeback",
+  "mediaCountBefore": 1,
+  "mediaCountAfter": 1,
+  "mediaId": 25581,
+  "userRating": 9,
+  "metadataRating": "9",
+  "requests": [
+    {
+      "method": "PUT",
+      "pathname": "/:/rate",
+      "key": "7101",
+      "rating": "9",
+      "identifier": "com.plexapp.plugins.library",
+      "hasRatedAt": true,
+      "hasToken": true,
+      "tokenMatched": true
+    }
+  ],
+  "assertions": [
+    "Explicit rating writeback called Plex /:/rate with PUT",
+    "No new media rows were created during rating writeback",
+    "Writeback response and evidence stayed token-safe"
+  ]
+}
