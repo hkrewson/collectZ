@@ -241,6 +241,7 @@ const plexNowPlayingViewerSmokeSource = fs.readFileSync(require.resolve('../scri
 const plexWebhookRatingsContractSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-webhook-ratings-contract-smoke'), 'utf8');
 const plexWebhookReceiverAdminSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-webhook-receiver-admin-smoke'), 'utf8');
 const plexWatchStateSyncCadenceSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-watch-state-sync-cadence-smoke'), 'utf8');
+const plexWatchStateApplySmokeSource = fs.readFileSync(require.resolve('../scripts/plex-watch-state-apply-smoke'), 'utf8');
 const ciCdDeployDocSource = fs.readFileSync(require.resolve('../../docs/wiki/10-CI-CD-and-Registry-Deploy.md'), 'utf8');
 const securityPolicyPath = path.resolve(__dirname, '..', '..', 'SECURITY.md');
 const securityPolicySource = fs.existsSync(securityPolicyPath)
@@ -1397,6 +1398,24 @@ results.push(run('plex watch-state sync cadence smoke stays read-only and secret
   assert.ok(plexWatchStateSyncCadenceSmokeSource.includes("'plex-watch-state'"));
   assert.ok(plexWatchStateSyncCadenceSmokeSource.includes('plex-watch-state-sync-cadence-smoke.json'));
   assert.ok(releaseRoadmapSource.includes('3.4.128 — Plex Watch-State Sync Cadence Contract'));
+}));
+
+results.push(run('plex watched-state apply smoke updates existing rows without Plex writeback', () => {
+  assert.ok(backendPackageJson.scripts['test:plex-watch-state-apply-smoke']);
+  assert.ok(mediaRoutesSource.includes("router.post('/apply-plex-watch-state'"));
+  assert.ok(mediaRoutesSource.includes('fetchPlexWatchStateSnapshot'));
+  assert.ok(mediaRoutesSource.includes('applyPlexWatchStateEntries'));
+  assert.ok(mediaRoutesSource.includes("'plex_watch_state'"));
+  assert.ok(mediaRoutesSource.includes("'media.plex.watch_state.apply'"));
+  assert.ok(openApiSource.includes('/api/media/apply-plex-watch-state'));
+  assert.ok(plexWatchStateApplySmokeSource.includes('/api/media/apply-plex-watch-state'));
+  assert.ok(plexWatchStateApplySmokeSource.includes('mediaCountBefore'));
+  assert.ok(plexWatchStateApplySmokeSource.includes('mediaCountAfter'));
+  assert.ok(plexWatchStateApplySmokeSource.includes('No new media rows were created during watched-state apply'));
+  assert.ok(plexWatchStateApplySmokeSource.includes('/:/scrobble'));
+  assert.ok(plexWatchStateApplySmokeSource.includes('assertSecretFree'));
+  assert.ok(plexWatchStateApplySmokeSource.includes('plex-watch-state-apply-smoke.json'));
+  assert.ok(releaseRoadmapSource.includes('3.4.129 — Plex Watched-State Apply Implementation'));
 }));
 
 results.push(run('plex webhook receiver administration contract is token-scoped and queues library-new import hints only', () => {

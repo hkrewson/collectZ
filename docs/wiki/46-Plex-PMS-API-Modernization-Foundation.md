@@ -53,7 +53,8 @@ Use this for feature discovery and future new Plex surfaces where possible. The 
 - Plex Webhook Import Hint Auto-Processor. Promoted as `3.4.126`.
 - Plex Webhook Existing Receiver Readback. Promoted as `3.4.127`.
 - Plex Watch-State Sync Cadence Contract. Promoted as `3.4.128`.
-- Plex watched-state apply implementation.
+- Plex Watched-State Apply Implementation. Promoted as `3.4.129`.
+- Plex watched-state scheduled refresh.
 
 ## Acceptance Criteria
 

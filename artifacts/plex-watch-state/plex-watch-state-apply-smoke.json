@@ -1,0 +1,39 @@
+{
+  "ok": true,
+  "provider": "plex",
+  "processingMode": "watch_state_apply",
+  "mediaCountBefore": 2,
+  "mediaCountAfter": 2,
+  "summary": {
+    "readEntries": 3,
+    "mediaMatched": 2,
+    "mediaMetadataUpdated": 1,
+    "seasonsCreated": 0,
+    "seasonsUpdated": 1,
+    "skippedNoMatch": 0,
+    "skippedNoSeason": 0,
+    "skippedUnsupported": 0
+  },
+  "movieWatchState": "completed",
+  "seasonWatchState": "in_progress",
+  "requests": [
+    {
+      "method": "GET",
+      "pathname": "/library/metadata/1001",
+      "hasToken": true,
+      "tokenMatched": true
+    },
+    {
+      "method": "GET",
+      "pathname": "/library/metadata/2001/allLeaves",
+      "hasToken": true,
+      "tokenMatched": true
+    }
+  ],
+  "assertions": [
+    "Plex watched-state readback updated existing movie metadata",
+    "Plex episode leaf readback updated existing TV season state",
+    "No new media rows were created during watched-state apply",
+    "Plex scrobble and unscrobble writeback paths were not called"
+  ]
+}

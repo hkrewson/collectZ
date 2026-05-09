@@ -10057,6 +10057,39 @@ Historical note:
 - What remains in the milestone: none for `3.4.128`; future Plex slices can implement watched-state apply/writeback, rating writeback apply behavior, scheduled reconciliation, and deeper workspace-owned provider administration.
 - Recommended commit message: `Release 3.4.128 with Plex watch-state sync cadence contract`
 
+## 3.4.129 — Plex Watched-State Apply Implementation
+
+**Goal:** Apply proven Plex watched-state readback to existing collectZ rows without importing new media rows or writing watched state back to Plex.
+
+### Scope
+
+- Add an explicit admin-only Plex watched-state apply endpoint.
+- Read Plex watched/progress fields via the contract from `3.4.128`.
+- Update matching movie/media rows through safe Plex watch-state metadata.
+- Update matching TV series season rows through `media_seasons` when episode leaf readback includes a linked series rating key and season number.
+- Prove the apply path against a fake PMS with an existing movie and TV series.
+- Keep scheduled refresh, Plex scrobble/unscrobble writeback, rating writeback apply behavior, full-library reconciliation, and broad Plex import rewrites out of scope.
+
+### Acceptance Criteria
+
+- The apply endpoint requires admin access and existing Plex configuration.
+- Plex watched-state readback updates existing collectZ rows but does not create media rows.
+- Movie watched state is stored as Plex-derived metadata on the existing row.
+- TV episode leaf readback updates existing `media_seasons` state.
+- Smoke evidence proves no Plex scrobble/unscrobble writeback paths were called and no Plex secrets or file paths are surfaced.
+- Running-stack verification proves the app serves `3.4.129`, Help > Releases contains the release, and `events_enabled` remains on.
+
+### Closeout
+
+- Roadmap slice: `3.4.129 — Plex Watched-State Apply Implementation`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`.
+- Runtime verification used: Docker-first stack rebuilt with `APP_VERSION=3.4.129`; `/api/health` served backend/frontend/build `3.4.129`; running backend container reported `APP_EDITION=platform` and `APP_VERSION=3.4.129`; live DB kept `events_enabled=true` and `collectibles_enabled=true`; Help > Releases smoke served `v3.4.129`; Plex watched-state apply smoke used a fake PMS to update an existing movie and TV season without creating media rows or calling Plex scrobble/unscrobble writeback paths.
+- CI/checks run: `node --check backend/routes/media.js`; `node --check backend/scripts/plex-watch-state-apply-smoke.js`; `node --check backend/scripts/unit-tests.js`; backend unit tests; OpenAPI validation; Docker Plex watched-state apply smoke; Docker integration smoke; Docker init parity; Docker migration rehearsal; local compose-smoke health/header/CSRF/auth checks; Docker RBAC regression; Docker platform edition boundary; isolated Docker Homelab edition boundary; public export validation; observability release evidence; local release preflight; Help > Releases smoke; Playwright browser regression (`62 passed`, `4 skipped`); `git diff --check`; targeted generated-artifact secret hygiene scan. Backend production dependency audit in Docker showed `0` critical and `0` high findings with `2` moderate findings; frontend production dependency audit in a Node container showed `0` findings. Local `gitleaks`, `trivy`, and SBOM tooling were unavailable, so `secret-scan` and `image-security-and-sbom` still require CI confirmation.
+- Files changed: `app-meta.json`; `backend/app-meta.json`; `backend/openapi/openapi.yaml`; `backend/package.json`; `backend/release-feed.json`; `backend/routes/media.js`; `backend/scripts/plex-watch-state-apply-smoke.js`; `backend/scripts/unit-tests.js`; `docker-compose.yml`; `docs/releases/v3.4.129.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`; `frontend/package.json`; `frontend/src/app-meta.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `artifacts/plex-watch-state/plex-watch-state-apply-smoke.json`; `preflight-go-no-go.md`.
+- Risks or follow-ups: apply behavior depends on existing Plex rating-key metadata and season numbers, so unmatched Plex rows are skipped rather than imported; scheduled watched-state refresh, Plex scrobble/unscrobble writeback, rating writeback apply, and broader Plex import reconciliation remain separate milestones.
+- What remains in the milestone: no implementation work remains for `3.4.129`; CI must still confirm `secret-scan` and `image-security-and-sbom` because the local tooling is not installed.
+- Recommended commit message: `Release 3.4.129 with Plex watched-state apply implementation`.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

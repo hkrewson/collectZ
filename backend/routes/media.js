@@ -48,6 +48,7 @@ const { normalizeBarcodeMatches } = require('../services/barcode');
 const {
   fetchPlexLibraryItems,
   fetchPlexMetadataItem,
+  fetchPlexWatchStateSnapshot,
   fetchPlexShowSeasons,
   fetchPlexShowSeasonVariants,
   fetchPlexSeasonEpisodeStates
@@ -4625,6 +4626,148 @@ async function upsertMediaMetadataEntry(mediaId, key, value) {
      DO UPDATE SET "value" = EXCLUDED."value"`,
     [mediaId, String(key), String(value)]
   );
+}
+
+async function findMediaByPlexRatingKey(ratingKey, scopeContext = {}) {
+  const key = String(ratingKey || '').trim();
+  if (!key) return null;
+  const params = [key, `%:${key}`];
+  const scopeClause = appendScopeSql(params, scopeContext, {
+    spaceColumn: 'm.space_id',
+    libraryColumn: 'm.library_id'
+  });
+  const result = await pool.query(
+    `SELECT m.id, m.title, m.media_type
+       FROM media m
+       JOIN media_metadata mm ON mm.media_id = m.id
+      WHERE mm."key" = 'plex_item_key'
+        AND (mm."value" = $1 OR mm."value" LIKE $2)
+        ${scopeClause}
+      ORDER BY m.updated_at DESC, m.created_at DESC
+      LIMIT 1`,
+    params
+  );
+  return result.rows[0] || null;
+}
+
+function maxIsoTimestamp(values = []) {
+  let max = null;
+  for (const value of values) {
+    if (!value) continue;
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) continue;
+    if (!max || parsed.getTime() > max.getTime()) max = parsed;
+  }
+  return max ? max.toISOString() : null;
+}
+
+function deriveSeasonWatchState(entries = []) {
+  const validEntries = entries.filter(Boolean);
+  if (validEntries.length === 0) return 'unwatched';
+  const completed = validEntries.filter((entry) => entry.watchState === 'completed').length;
+  const inProgress = validEntries.some((entry) => entry.watchState === 'in_progress');
+  if (completed > 0 && completed >= validEntries.length) return 'completed';
+  if (completed > 0 || inProgress) return 'in_progress';
+  return 'unwatched';
+}
+
+async function applyPlexWatchStateEntries({ entries = [], scopeContext = {} } = {}) {
+  const summary = {
+    readEntries: Array.isArray(entries) ? entries.length : 0,
+    mediaMatched: 0,
+    mediaMetadataUpdated: 0,
+    seasonsCreated: 0,
+    seasonsUpdated: 0,
+    skippedNoMatch: 0,
+    skippedNoSeason: 0,
+    skippedUnsupported: 0
+  };
+  const matchedMediaIds = new Set();
+  const seasonGroups = new Map();
+
+  for (const entry of entries || []) {
+    const type = String(entry?.type || '').trim().toLowerCase();
+    if (type === 'episode') {
+      const seriesRatingKey = entry.grandparentRatingKey || entry.parentRatingKey || null;
+      const seasonNumber = Number(entry.seasonNumber);
+      if (!Number.isInteger(seasonNumber) || seasonNumber <= 0) {
+        summary.skippedNoSeason += 1;
+        continue;
+      }
+      const media = await findMediaByPlexRatingKey(seriesRatingKey, scopeContext);
+      if (!media) {
+        summary.skippedNoMatch += 1;
+        continue;
+      }
+      if (media.media_type !== 'tv_series') {
+        summary.skippedUnsupported += 1;
+        continue;
+      }
+      matchedMediaIds.add(Number(media.id));
+      const key = `${media.id}:${seasonNumber}`;
+      const group = seasonGroups.get(key) || { media, seasonNumber, entries: [] };
+      group.entries.push(entry);
+      seasonGroups.set(key, group);
+      continue;
+    }
+
+    const media = await findMediaByPlexRatingKey(entry.ratingKey, scopeContext);
+    if (!media) {
+      summary.skippedNoMatch += 1;
+      continue;
+    }
+    if (media.media_type === 'tv_series') {
+      summary.skippedNoSeason += 1;
+      continue;
+    }
+    matchedMediaIds.add(Number(media.id));
+    await upsertMediaMetadataEntry(media.id, 'plex_watch_state', entry.watchState || 'unwatched');
+    await upsertMediaMetadataEntry(media.id, 'plex_watch_progress_percent', Number.isFinite(Number(entry.progressPercent)) ? String(entry.progressPercent) : '0');
+    await upsertMediaMetadataEntry(media.id, 'plex_watch_last_viewed_at', entry.lastViewedAt || 'none');
+    await upsertMediaMetadataEntry(media.id, 'plex_watch_view_count', Number.isFinite(Number(entry.viewCount)) ? String(entry.viewCount) : '0');
+    await upsertMediaMetadataEntry(media.id, 'plex_watch_view_offset_ms', Number.isFinite(Number(entry.viewOffsetMs)) ? String(entry.viewOffsetMs) : '0');
+    await upsertMediaMetadataEntry(media.id, 'plex_watch_duration_ms', Number.isFinite(Number(entry.durationMs)) ? String(entry.durationMs) : '0');
+    await upsertMediaMetadataEntry(media.id, 'plex_watch_state_updated_at', new Date().toISOString());
+    summary.mediaMetadataUpdated += 1;
+  }
+
+  for (const group of seasonGroups.values()) {
+    const availableEpisodes = group.entries.length;
+    const watchState = deriveSeasonWatchState(group.entries);
+    const lastWatchedAt = maxIsoTimestamp(group.entries.map((entry) => entry.lastViewedAt));
+    const existing = await pool.query(
+      `SELECT id FROM media_seasons WHERE media_id = $1 AND season_number = $2`,
+      [group.media.id, group.seasonNumber]
+    );
+    const updated = await pool.query(
+      `INSERT INTO media_seasons (
+         media_id, season_number, source, available_episodes, watch_state, last_watched_at, is_complete
+       )
+       VALUES ($1, $2, 'plex_watch_state', $3, $4, $5, FALSE)
+       ON CONFLICT (media_id, season_number)
+       DO UPDATE SET
+         source = 'plex_watch_state',
+         available_episodes = GREATEST(COALESCE(media_seasons.available_episodes, 0), EXCLUDED.available_episodes),
+         watch_state = EXCLUDED.watch_state,
+         last_watched_at = COALESCE(EXCLUDED.last_watched_at, media_seasons.last_watched_at),
+         is_complete = CASE
+           WHEN media_seasons.expected_episodes IS NOT NULL
+            AND media_seasons.expected_episodes > 0
+            AND GREATEST(COALESCE(media_seasons.available_episodes, 0), EXCLUDED.available_episodes) >= media_seasons.expected_episodes
+             THEN TRUE
+           ELSE media_seasons.is_complete
+         END
+       RETURNING id`,
+      [group.media.id, group.seasonNumber, availableEpisodes, watchState, lastWatchedAt]
+    );
+    if (updated.rows[0]) {
+      if (existing.rows[0]) summary.seasonsUpdated += 1;
+      else summary.seasonsCreated += 1;
+    }
+  }
+
+  summary.mediaMatched = matchedMediaIds.size;
+  return summary;
 }
 
 const TMDB_IMPORT_MIN_INTERVAL_MS = Math.max(0, Number(process.env.TMDB_IMPORT_MIN_INTERVAL_MS || 50));
@@ -11890,6 +12033,76 @@ router.post('/process-plex-webhook-import-hints', asyncHandler(async (req, res) 
     result: result.result || null,
     error: result.error || null
   });
+}));
+
+router.post('/apply-plex-watch-state', asyncHandler(async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Only admins can apply Plex watched-state readback' });
+  }
+
+  const scopeContext = resolveScopeContext(req);
+  const ensuredScope = scopeContext?.libraryId
+    ? { spaceId: scopeContext?.spaceId || null, libraryId: scopeContext.libraryId }
+    : await ensureUserDefaultScope(req.user.id);
+  const effectiveScopeContext = {
+    ...scopeContext,
+    spaceId: scopeContext?.spaceId ?? ensuredScope.spaceId ?? null,
+    libraryId: ensuredScope.libraryId || null
+  };
+  if (!effectiveScopeContext.libraryId) {
+    return res.status(400).json({ error: 'Active library is required before Plex watched-state apply' });
+  }
+
+  const ratingKeys = Array.isArray(req.body?.ratingKeys) ? req.body.ratingKeys : [];
+  const leafRatingKeys = Array.isArray(req.body?.leafRatingKeys) ? req.body.leafRatingKeys : [];
+  const sectionIds = Array.isArray(req.body?.sectionIds) ? req.body.sectionIds : [];
+  if (ratingKeys.length === 0 && leafRatingKeys.length === 0 && sectionIds.length === 0) {
+    return res.status(400).json({ error: 'Provide ratingKeys, leafRatingKeys, or sectionIds for Plex watched-state apply' });
+  }
+
+  const config = await loadPlexWebhookImportConfig(effectiveScopeContext);
+  if (!config.plexApiUrl || !config.plexApiKey) {
+    return res.status(400).json({ error: 'Plex API URL and key are required before watched-state apply' });
+  }
+
+  try {
+    const snapshot = await fetchPlexWatchStateSnapshot(config, { ratingKeys, leafRatingKeys, sectionIds });
+    const summary = await applyPlexWatchStateEntries({
+      entries: snapshot.entries,
+      scopeContext: effectiveScopeContext
+    });
+    await logActivity(req, 'media.plex.watch_state.apply', 'media', null, {
+      ratingKeyCount: ratingKeys.length,
+      leafRatingKeyCount: leafRatingKeys.length,
+      sectionIdCount: sectionIds.length,
+      readEntries: summary.readEntries,
+      mediaMatched: summary.mediaMatched,
+      mediaMetadataUpdated: summary.mediaMetadataUpdated,
+      seasonsCreated: summary.seasonsCreated,
+      seasonsUpdated: summary.seasonsUpdated,
+      skippedNoMatch: summary.skippedNoMatch,
+      skippedNoSeason: summary.skippedNoSeason,
+      skippedUnsupported: summary.skippedUnsupported
+    });
+    return res.json({
+      ok: true,
+      provider: 'plex',
+      processingMode: 'watch_state_apply',
+      readOnlyPlex: true,
+      plexWriteback: false,
+      readbacks: snapshot.readbacks,
+      summary
+    });
+  } catch (error) {
+    logError('Plex watched-state apply failed', error);
+    await logActivity(req, 'media.plex.watch_state.apply.failed', 'media', null, {
+      ratingKeyCount: ratingKeys.length,
+      leafRatingKeyCount: leafRatingKeys.length,
+      sectionIdCount: sectionIds.length,
+      detail: error.message || 'Plex watched-state apply failed'
+    });
+    return res.status(502).json({ error: error.message || 'Plex watched-state apply failed' });
+  }
 }));
 
 router.get('/plex-webhook-import-hints/auto-processor', asyncHandler(async (req, res) => {
