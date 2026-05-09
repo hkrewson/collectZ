@@ -1,0 +1,30 @@
+{
+  "ok": true,
+  "provider": "plex",
+  "processingMode": "rating_apply",
+  "mediaCountBefore": 1,
+  "mediaCountAfter": 1,
+  "summary": {
+    "readEntries": 1,
+    "mediaMatched": 1,
+    "ratingsUpdated": 1,
+    "skippedNoRating": 0,
+    "skippedNoMatch": 0,
+    "skippedUnsupported": 0
+  },
+  "userRating": 8.5,
+  "metadataRating": "8.5",
+  "requests": [
+    {
+      "method": "GET",
+      "pathname": "/library/metadata/5101",
+      "hasToken": true,
+      "tokenMatched": true
+    }
+  ],
+  "assertions": [
+    "Plex rating readback updated existing collectZ user_rating",
+    "No new media rows were created during rating apply",
+    "Plex /:/rate writeback path was not called"
+  ]
+}

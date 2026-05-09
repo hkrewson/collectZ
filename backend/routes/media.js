@@ -49,6 +49,7 @@ const {
   fetchPlexLibraryItems,
   fetchPlexMetadataItem,
   fetchPlexWatchStateSnapshot,
+  fetchPlexRatingSnapshot,
   fetchPlexShowSeasons,
   fetchPlexShowSeasonVariants,
   fetchPlexSeasonEpisodeStates
@@ -4764,6 +4765,46 @@ async function applyPlexWatchStateEntries({ entries = [], scopeContext = {} } = 
       if (existing.rows[0]) summary.seasonsUpdated += 1;
       else summary.seasonsCreated += 1;
     }
+  }
+
+  summary.mediaMatched = matchedMediaIds.size;
+  return summary;
+}
+
+async function applyPlexRatingEntries({ entries = [], scopeContext = {} } = {}) {
+  const summary = {
+    readEntries: Array.isArray(entries) ? entries.length : 0,
+    mediaMatched: 0,
+    ratingsUpdated: 0,
+    skippedNoRating: 0,
+    skippedNoMatch: 0,
+    skippedUnsupported: 0
+  };
+  const matchedMediaIds = new Set();
+
+  for (const entry of entries || []) {
+    const rating = Number(entry?.userRating);
+    if (!Number.isFinite(rating) || rating < 0 || rating > 10) {
+      summary.skippedNoRating += 1;
+      continue;
+    }
+    const media = await findMediaByPlexRatingKey(entry.ratingKey, scopeContext);
+    if (!media) {
+      summary.skippedNoMatch += 1;
+      continue;
+    }
+    matchedMediaIds.add(Number(media.id));
+    await pool.query(
+      `UPDATE media
+          SET user_rating = $1,
+              updated_at = NOW()
+        WHERE id = $2`,
+      [rating, media.id]
+    );
+    await upsertMediaMetadataEntry(media.id, 'plex_user_rating', String(rating));
+    await upsertMediaMetadataEntry(media.id, 'plex_rating_source_rating_key', entry.ratingKey);
+    await upsertMediaMetadataEntry(media.id, 'plex_rating_updated_at', new Date().toISOString());
+    summary.ratingsUpdated += 1;
   }
 
   summary.mediaMatched = matchedMediaIds.size;
@@ -12319,6 +12360,71 @@ router.post('/apply-plex-watch-state', asyncHandler(async (req, res) => {
       detail: error.message || 'Plex watched-state apply failed'
     });
     return res.status(502).json({ error: error.message || 'Plex watched-state apply failed' });
+  }
+}));
+
+router.post('/apply-plex-ratings', asyncHandler(async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Only admins can apply Plex rating readback' });
+  }
+
+  const scopeContext = resolveScopeContext(req);
+  const ensuredScope = scopeContext?.libraryId
+    ? { spaceId: scopeContext?.spaceId || null, libraryId: scopeContext.libraryId }
+    : await ensureUserDefaultScope(req.user.id);
+  const effectiveScopeContext = {
+    ...scopeContext,
+    spaceId: scopeContext?.spaceId ?? ensuredScope.spaceId ?? null,
+    libraryId: ensuredScope.libraryId || null
+  };
+  if (!effectiveScopeContext.libraryId) {
+    return res.status(400).json({ error: 'Active library is required before Plex rating apply' });
+  }
+
+  const ratingKeys = Array.isArray(req.body?.ratingKeys) ? req.body.ratingKeys : [];
+  const sectionIds = Array.isArray(req.body?.sectionIds) ? req.body.sectionIds : [];
+  if (ratingKeys.length === 0 && sectionIds.length === 0) {
+    return res.status(400).json({ error: 'Provide ratingKeys or sectionIds for Plex rating apply' });
+  }
+
+  const config = await loadPlexWebhookImportConfig(effectiveScopeContext);
+  if (!config.plexApiUrl || !config.plexApiKey) {
+    return res.status(400).json({ error: 'Plex API URL and key are required before rating apply' });
+  }
+
+  try {
+    const snapshot = await fetchPlexRatingSnapshot(config, { ratingKeys, sectionIds });
+    const summary = await applyPlexRatingEntries({
+      entries: snapshot.entries,
+      scopeContext: effectiveScopeContext
+    });
+    await logActivity(req, 'media.plex.rating.apply', 'media', null, {
+      ratingKeyCount: ratingKeys.length,
+      sectionIdCount: sectionIds.length,
+      readEntries: summary.readEntries,
+      mediaMatched: summary.mediaMatched,
+      ratingsUpdated: summary.ratingsUpdated,
+      skippedNoRating: summary.skippedNoRating,
+      skippedNoMatch: summary.skippedNoMatch,
+      skippedUnsupported: summary.skippedUnsupported
+    });
+    return res.json({
+      ok: true,
+      provider: 'plex',
+      processingMode: 'rating_apply',
+      readOnlyPlex: true,
+      plexWriteback: false,
+      readbacks: snapshot.readbacks,
+      summary
+    });
+  } catch (error) {
+    logError('Plex rating apply failed', error);
+    await logActivity(req, 'media.plex.rating.apply.failed', 'media', null, {
+      ratingKeyCount: ratingKeys.length,
+      sectionIdCount: sectionIds.length,
+      detail: error.message || 'Plex rating apply failed'
+    });
+    return res.status(502).json({ error: error.message || 'Plex rating apply failed' });
   }
 }));
 

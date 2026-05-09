@@ -10122,6 +10122,37 @@ Historical note:
 - What remains in the milestone: no implementation work remains for `3.4.130`; CI must still confirm `secret-scan` and `image-security-and-sbom` because the local tooling is not installed.
 - Recommended commit message: `Release 3.4.130 with Plex watched-state scheduled refresh`.
 
+## 3.4.131 — Plex Rating Readback Apply Implementation
+
+**Goal:** Apply Plex user-rating readback to existing collectZ rows without importing new rows or writing ratings back to Plex.
+
+### Scope
+
+- Add a read-only Plex rating snapshot parser for `userRating`.
+- Add an admin-only rating apply endpoint for explicit rating-key or section readback.
+- Update matching collectZ `user_rating` values and store lightweight Plex rating metadata.
+- Prove the apply path against a fake PMS with an existing movie row.
+- Keep collectZ-to-Plex `/:/rate` writeback, watched-state writeback, scheduled rating refresh, full-library reconciliation, and broad Plex import rewrites out of scope.
+
+### Acceptance Criteria
+
+- The apply endpoint requires admin access and existing Plex configuration.
+- Plex rating readback updates existing collectZ rows but does not create media rows.
+- Plex provider `rating` is not treated as the user's rating when `userRating` is absent.
+- Smoke evidence proves `/:/rate` writeback was not called and no Plex secrets or file paths are surfaced.
+- Running-stack verification proves the app serves `3.4.131`, Help > Releases contains the release, and `events_enabled` remains on.
+
+### Closeout
+
+- Roadmap slice: `3.4.131 — Plex Rating Readback Apply Implementation`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`; `docs/wiki/08-Backlog.md`.
+- Runtime verification used: Docker-first rebuild of backend/frontend with `APP_VERSION=3.4.131`; live `/api/health` returned frontend/backend/build `3.4.131`; live backend container env remained `APP_EDITION=platform`; live DB feature flags showed `events_enabled=true` and `collectibles_enabled=true`; Docker Plex rating apply smoke updated an existing movie from Plex `userRating=8.5`, stored `plex_user_rating`, did not create new media rows, and proved fake PMS `/:/rate` writeback was not called; Docker Help > Releases served `v3.4.131`; isolated homelab stack boundary passed and was torn down before rechecking the active platform stack.
+- CI/checks run: `node --check backend/services/plex.js`; `node --check backend/routes/media.js`; `node --check backend/scripts/plex-rating-apply-smoke.js`; `node --check backend/scripts/unit-tests.js`; local backend unit tests (`271` passed); local OpenAPI validation; Docker backend unit tests (`271` passed); Docker OpenAPI validation; Docker integration smoke; Docker Plex rating apply smoke; Docker Help > Releases smoke; Docker init parity; Docker migration rehearsal; local compose-smoke health/header/CSRF/auth checks; Docker RBAC regression; Docker platform edition boundary; isolated Docker Homelab edition boundary; public export validation; observability release evidence; local release preflight; Playwright browser regression (`62` passed, `4` skipped); `git diff --check`; targeted generated-artifact secret hygiene scan. Backend production dependency audit in Docker showed `0` critical and `0` high findings with `2` moderate findings; frontend production dependency audit in a Node container showed `0` findings. Local `gitleaks`, `trivy`, and `syft` were unavailable, so `secret-scan` and `image-security-and-sbom` still require CI confirmation.
+- Files changed: `app-meta.json`; `backend/app-meta.json`; `backend/openapi/openapi.yaml`; `backend/package.json`; `backend/release-feed.json`; `backend/routes/media.js`; `backend/scripts/plex-rating-apply-smoke.js`; `backend/scripts/unit-tests.js`; `backend/services/plex.js`; `docker-compose.yml`; `docs/releases/v3.4.131.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`; `frontend/package.json`; `frontend/src/app-meta.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `artifacts/plex-ratings/plex-rating-apply-smoke.json`; `preflight-go-no-go.md`.
+- Risks or follow-ups: rating apply only updates existing rows matched by Plex rating key metadata; it does not import missing rows, schedule recurring rating refreshes, or write collectZ ratings back to Plex. Plex provider `rating` is intentionally ignored unless `userRating` is present.
+- What remains in the milestone: no implementation work remains for `3.4.131`; CI must still confirm `secret-scan` and `image-security-and-sbom` because the local tools are not installed.
+- Recommended commit message: `Release 3.4.131 with Plex rating readback apply implementation`.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

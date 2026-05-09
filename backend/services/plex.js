@@ -384,11 +384,40 @@ const normalizePlexWatchedStateEntry = (entry) => {
   };
 };
 
+const normalizePlexRatingEntry = (entry) => {
+  if (!entry || typeof entry !== 'object') return null;
+  const ratingKey = safeString(entry.ratingKey || entry.key);
+  if (!ratingKey) return null;
+  const normalizedRating = toFiniteNumber(entry.userRating);
+  const userRating = normalizedRating !== null
+    ? Math.max(0, Math.min(10, normalizedRating))
+    : null;
+  return {
+    ratingKey,
+    type: safeString(entry.type),
+    title: safeString(entry.title || entry.originalTitle || entry.grandparentTitle),
+    grandparentTitle: safeString(entry.grandparentTitle),
+    parentTitle: safeString(entry.parentTitle),
+    parentRatingKey: safeString(entry.parentRatingKey),
+    grandparentRatingKey: safeString(entry.grandparentRatingKey),
+    librarySectionId: safeString(entry.librarySectionID || entry.librarySectionId),
+    userRating,
+    source: 'plex'
+  };
+};
+
 const parsePlexWatchStateEntries = (payload) => [
   ...parsePlexVideos(payload),
   ...parsePlexDirectoriesInSection(payload)
 ]
   .map(normalizePlexWatchedStateEntry)
+  .filter(Boolean);
+
+const parsePlexRatingEntries = (payload) => [
+  ...parsePlexVideos(payload),
+  ...parsePlexDirectoriesInSection(payload)
+]
+  .map(normalizePlexRatingEntry)
   .filter(Boolean);
 
 const parsePlexWebhookPayload = (payload) => {
@@ -767,6 +796,47 @@ const fetchPlexWatchStateSnapshot = async (config, options = {}) => {
   };
 };
 
+const fetchPlexRatingSnapshot = async (config, options = {}) => {
+  const ratingKeys = [...new Set(asArray(options.ratingKeys).map((key) => String(key || '').trim()).filter(Boolean))];
+  const sectionIds = [...new Set(asArray(options.sectionIds).map((key) => String(key || '').trim()).filter(Boolean))];
+  const entries = [];
+  const readbacks = [];
+
+  for (const ratingKey of ratingKeys) {
+    const path = `/library/metadata/${encodeURIComponent(ratingKey)}`;
+    const response = await plexRequest(config, path);
+    if (response.status >= 400) {
+      const message = typeof response.data === 'string'
+        ? response.data.slice(0, 200)
+        : response.data?.error || response.statusText;
+      throw new Error(`Plex rating metadata ${ratingKey} failed (${response.status}): ${message}`);
+    }
+    const parsed = parsePlexRatingEntries(response.data);
+    entries.push(...parsed);
+    readbacks.push({ pathTemplate: '/library/metadata/:ratingKey', ratingKey, entryCount: parsed.length });
+  }
+
+  for (const sectionId of sectionIds) {
+    const path = `/library/sections/${encodeURIComponent(sectionId)}/all`;
+    const response = await plexRequest(config, path);
+    if (response.status >= 400) {
+      const message = typeof response.data === 'string'
+        ? response.data.slice(0, 200)
+        : response.data?.error || response.statusText;
+      throw new Error(`Plex rating section ${sectionId} failed (${response.status}): ${message}`);
+    }
+    const parsed = parsePlexRatingEntries(response.data);
+    entries.push(...parsed);
+    readbacks.push({ pathTemplate: '/library/sections/:sectionId/all', sectionId, entryCount: parsed.length });
+  }
+
+  return {
+    contract: buildPlexWebhookAndRatingsContract(),
+    readbacks,
+    entries
+  };
+};
+
 const fetchPlexImageAsset = async (config, key) => {
   const imageKey = sanitizePlexRelativeKey(key);
   if (!imageKey) {
@@ -1015,6 +1085,7 @@ module.exports = {
   fetchPlexMediaProviders,
   fetchPlexNowPlayingSessions,
   fetchPlexWatchStateSnapshot,
+  fetchPlexRatingSnapshot,
   fetchPlexImageAsset,
   fetchPlexLibraryItems,
   fetchPlexMetadataItem,
@@ -1027,6 +1098,8 @@ module.exports = {
   normalizePlexNowPlayingSession,
   parsePlexWatchStateEntries,
   normalizePlexWatchedStateEntry,
+  parsePlexRatingEntries,
+  normalizePlexRatingEntry,
   parsePlexWebhookPayload,
   normalizePlexWebhookEvent,
   buildPlexRatingWritebackRequest,

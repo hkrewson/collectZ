@@ -19,6 +19,8 @@ const {
   buildPlexRatingWritebackRequest,
   parsePlexWatchStateEntries,
   normalizePlexWatchedStateEntry,
+  parsePlexRatingEntries,
+  normalizePlexRatingEntry,
   shouldIncludePlexEntry
 } = require('../services/plex');
 const { wrapTmdbRequestError } = require('../services/tmdb');
@@ -232,6 +234,7 @@ const publicExportValidatorSource = fs.readFileSync(require.resolve('../../scrip
 const releaseRoadmapSource = fs.readFileSync(require.resolve('../../docs/wiki/07-Release-Roadmap.md'), 'utf8');
 const backlogSource = fs.readFileSync(require.resolve('../../docs/wiki/08-Backlog.md'), 'utf8');
 const plexPmsModernizationDocSource = fs.readFileSync(require.resolve('../../docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md'), 'utf8');
+const plexServiceSource = fs.readFileSync(require.resolve('../services/plex'), 'utf8');
 const plexProviderDiscoverySmokeSource = fs.readFileSync(require.resolve('../scripts/plex-provider-discovery-smoke'), 'utf8');
 const plexProviderReadbackSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-provider-readback-smoke'), 'utf8');
 const plexNowPlayingProviderProofSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-now-playing-provider-proof-smoke'), 'utf8');
@@ -243,6 +246,7 @@ const plexWebhookReceiverAdminSmokeSource = fs.readFileSync(require.resolve('../
 const plexWatchStateSyncCadenceSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-watch-state-sync-cadence-smoke'), 'utf8');
 const plexWatchStateApplySmokeSource = fs.readFileSync(require.resolve('../scripts/plex-watch-state-apply-smoke'), 'utf8');
 const plexWatchStateRefreshSchedulerSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-watch-state-refresh-scheduler-smoke'), 'utf8');
+const plexRatingApplySmokeSource = fs.readFileSync(require.resolve('../scripts/plex-rating-apply-smoke'), 'utf8');
 const ciCdDeployDocSource = fs.readFileSync(require.resolve('../../docs/wiki/10-CI-CD-and-Registry-Deploy.md'), 'utf8');
 const securityPolicyPath = path.resolve(__dirname, '..', '..', 'SECURITY.md');
 const securityPolicySource = fs.existsSync(securityPolicyPath)
@@ -1314,6 +1318,28 @@ results.push(run('plex webhook and ratings contract normalizes event hints and w
   });
 }));
 
+results.push(run('plex rating readback normalizes user ratings without treating provider rating as user rating', () => {
+  const entry = normalizePlexRatingEntry({
+    ratingKey: '321',
+    type: 'movie',
+    title: 'Rated Example',
+    userRating: '8.5',
+    rating: '6.2'
+  });
+  assert.strictEqual(entry.ratingKey, '321');
+  assert.strictEqual(entry.userRating, 8.5);
+  const noUserRating = normalizePlexRatingEntry({
+    ratingKey: '322',
+    type: 'movie',
+    title: 'Provider Rated Only',
+    rating: '9.1'
+  });
+  assert.strictEqual(noUserRating.userRating, null);
+  const xmlEntries = parsePlexRatingEntries('<MediaContainer><Video ratingKey="323" type="movie" title="XML Rated" userRating="7" rating="5.5" /></MediaContainer>');
+  assert.strictEqual(xmlEntries.length, 1);
+  assert.strictEqual(xmlEntries[0].userRating, 7);
+}));
+
 results.push(run('plex watch-state sync contract normalizes read-only watched progress safely', () => {
   const contract = buildPlexWatchStateSyncContract();
   assert.strictEqual(contract.status, 'read_only_contract');
@@ -1442,6 +1468,24 @@ results.push(run('plex watched-state refresh scheduler reuses apply path without
   assert.ok(plexWatchStateRefreshSchedulerSmokeSource.includes('assertSecretFree'));
   assert.ok(plexWatchStateRefreshSchedulerSmokeSource.includes('plex-watch-state-refresh-scheduler-smoke.json'));
   assert.ok(releaseRoadmapSource.includes('3.4.130 — Plex Watched-State Scheduled Refresh'));
+}));
+
+results.push(run('plex rating apply smoke updates existing user rating without Plex writeback', () => {
+  assert.ok(backendPackageJson.scripts['test:plex-rating-apply-smoke']);
+  assert.ok(plexServiceSource.includes('fetchPlexRatingSnapshot'));
+  assert.ok(plexServiceSource.includes('normalizePlexRatingEntry'));
+  assert.ok(mediaRoutesSource.includes("router.post('/apply-plex-ratings'"));
+  assert.ok(mediaRoutesSource.includes('applyPlexRatingEntries'));
+  assert.ok(mediaRoutesSource.includes("'media.plex.rating.apply'"));
+  assert.ok(mediaRoutesSource.includes("'plex_user_rating'"));
+  assert.ok(openApiSource.includes('/api/media/apply-plex-ratings'));
+  assert.ok(plexRatingApplySmokeSource.includes('/api/media/apply-plex-ratings'));
+  assert.ok(plexRatingApplySmokeSource.includes('user_rating'));
+  assert.ok(plexRatingApplySmokeSource.includes('No new media rows were created during rating apply'));
+  assert.ok(plexRatingApplySmokeSource.includes('/:/rate'));
+  assert.ok(plexRatingApplySmokeSource.includes('assertSecretFree'));
+  assert.ok(plexRatingApplySmokeSource.includes('plex-rating-apply-smoke.json'));
+  assert.ok(releaseRoadmapSource.includes('3.4.131 — Plex Rating Readback Apply Implementation'));
 }));
 
 results.push(run('plex webhook receiver administration contract is token-scoped and queues library-new import hints only', () => {

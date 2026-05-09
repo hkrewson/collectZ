@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.131",
+      "version": "v3.4.131",
+      "date": null,
+      "status": null,
+      "summary": "This patch adds a safe Plex rating readback apply path for existing collectZ rows.",
+      "details": []
+    },
+    {
       "title": "collectZ v3.4.130",
       "version": "v3.4.130",
       "date": null,
@@ -70,14 +78,6 @@
       "date": null,
       "status": null,
       "summary": "This patch adds the first Plex webhook and ratings sync contract. It does not enable automatic Plex webhook ingestion yet; it defines and proves the safe event/readback/writeback shape first.",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.4.121",
-      "version": "v3.4.121",
-      "date": null,
-      "status": null,
-      "summary": "This release adds a vertical poster-only layout option for Plex Now Playing displays. It keeps the existing saved display preferences and display-token flow intact while giving passive screens a clean full-height poster mode.",
       "details": []
     }
   ]
