@@ -10153,6 +10153,37 @@ Historical note:
 - What remains in the milestone: no implementation work remains for `3.4.131`; CI must still confirm `secret-scan` and `image-security-and-sbom` because the local tools are not installed.
 - Recommended commit message: `Release 3.4.131 with Plex rating readback apply implementation`.
 
+## 3.4.132 — Plex Watched-State Writeback Contract
+
+**Goal:** Prove the collectZ-to-Plex watched-state writeback request shape before adding any UI-driven, scheduled, or user-action-triggered Plex mutation.
+
+### Scope
+
+- Add an explicit watched-state writeback contract for Plex `scrobble` and `unscrobble`.
+- Use `PUT /:/scrobble` and `PUT /:/unscrobble` with `identifier=com.plexapp.plugins.library` and a Plex rating key.
+- Add a service-level fake-PMS smoke that proves both writeback calls without adding an admin route or automatic writeback behavior.
+- Keep the existing readback apply and scheduled readback refresh behavior intact.
+- Keep watched-state writeback implementation, rating writeback to Plex, scheduled full-library reconciliation, and broad Plex import rewrites out of scope.
+
+### Acceptance Criteria
+
+- The contract documents action, method, path, identifier, and supported key/URI input shape.
+- The request builder rejects missing rating keys/URIs and unknown actions.
+- The fake-PMS smoke proves collectZ sends `PUT` to both `/:/scrobble` and `/:/unscrobble`.
+- No Plex token values, token query strings, private IPs, or raw file paths appear in smoke evidence.
+- Running-stack verification proves the app serves `3.4.132`, Help > Releases contains the release, and `events_enabled` remains on.
+
+### Closeout
+
+- Roadmap slice: `3.4.132 — Plex Watched-State Writeback Contract`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`; `docs/wiki/08-Backlog.md`; `docs/releases/v3.4.132.md`.
+- Runtime verification used: Docker-first rebuild of backend/frontend with `APP_VERSION=3.4.132`; live `/api/health` returned frontend/backend/build `3.4.132`; live backend container env remained `APP_EDITION=platform`; live DB feature flags showed `events_enabled=true` and `collectibles_enabled=true`; Docker Plex watched-state writeback contract smoke proved service-level `PUT /:/scrobble` and `PUT /:/unscrobble` requests against a fake PMS with sanitized evidence; Docker Help > Releases served `v3.4.132`; isolated homelab stack boundary passed and was torn down before rechecking the active platform stack.
+- CI/checks run: `node --check backend/services/plex.js`; `node --check backend/scripts/plex-watched-state-writeback-contract-smoke.js`; `node --check backend/scripts/unit-tests.js`; local backend unit tests (`273` passed); local Plex watched-state writeback contract smoke; Docker backend unit tests (`273` passed); Docker OpenAPI validation; Docker integration smoke; Docker Plex watched-state writeback contract smoke; Docker Help > Releases smoke; Docker init parity; Docker migration rehearsal; local compose-smoke health/header/CSRF/auth checks; Docker RBAC regression; Docker platform edition boundary; isolated Docker Homelab edition boundary; public export validation; observability release evidence; local release preflight; Playwright browser regression (`62` passed, `4` skipped); `git diff --check`; targeted generated-artifact secret hygiene scan. Backend production dependency audit in Docker showed `0` critical and `0` high findings with `2` moderate findings; frontend production dependency audit in a Node container showed `0` findings. Local `gitleaks`, `trivy`, and `syft` were unavailable, so `secret-scan` and `image-security-and-sbom` still require CI confirmation.
+- Files changed: `app-meta.json`; `backend/app-meta.json`; `backend/package.json`; `backend/release-feed.json`; `backend/scripts/plex-watched-state-writeback-contract-smoke.js`; `backend/scripts/unit-tests.js`; `backend/services/plex.js`; `docker-compose.yml`; `docs/releases/v3.4.132.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`; `frontend/package.json`; `frontend/src/app-meta.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `artifacts/plex-watch-state/plex-watched-state-writeback-contract-smoke.json`; `preflight-go-no-go.md`.
+- Risks or follow-ups: this slice proves the watched-state writeback request shape only; it does not add a route, UI action, scheduled writeback, or normal media-action mutation against Plex. The next watched-state slice should decide where explicit admin/user intent lives and how collectZ state changes map to scrobble/unscrobble safely.
+- What remains in the milestone: no implementation work remains for `3.4.132`; CI must still confirm `secret-scan` and `image-security-and-sbom` because the local tools are not installed.
+- Recommended commit message: `Release 3.4.132 with Plex watched-state writeback contract`.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

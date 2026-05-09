@@ -1,0 +1,55 @@
+{
+  "ok": true,
+  "provider": "plex",
+  "processingMode": "watched_state_writeback_contract",
+  "contract": {
+    "status": "contract_proof_only",
+    "method": "PUT",
+    "identifier": "com.plexapp.plugins.library",
+    "actions": {
+      "scrobble": {
+        "path": "/:/scrobble",
+        "watched": true
+      },
+      "unscrobble": {
+        "path": "/:/unscrobble",
+        "watched": false
+      }
+    }
+  },
+  "requests": [
+    {
+      "method": "PUT",
+      "pathname": "/:/scrobble",
+      "key": "5001",
+      "identifier": "com.plexapp.plugins.library",
+      "hasToken": true
+    },
+    {
+      "method": "PUT",
+      "pathname": "/:/unscrobble",
+      "key": "5001",
+      "identifier": "com.plexapp.plugins.library",
+      "hasToken": true
+    }
+  ],
+  "readbacks": [
+    {
+      "action": "scrobble",
+      "path": "/:/scrobble",
+      "watched": true,
+      "status": 200
+    },
+    {
+      "action": "unscrobble",
+      "path": "/:/unscrobble",
+      "watched": false,
+      "status": 200
+    }
+  ],
+  "notes": [
+    "Plex watched-state writeback contract uses PUT for scrobble and unscrobble.",
+    "The proof is service-level only and does not add UI-driven or scheduled Plex mutation.",
+    "Evidence records only sanitized request shape and token presence, not token values."
+  ]
+}

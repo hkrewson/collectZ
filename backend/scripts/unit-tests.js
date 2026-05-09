@@ -15,8 +15,10 @@ const {
   normalizePlexNowPlayingSession,
   buildPlexWebhookAndRatingsContract,
   buildPlexWatchStateSyncContract,
+  buildPlexWatchedStateWritebackContract,
   normalizePlexWebhookEvent,
   buildPlexRatingWritebackRequest,
+  buildPlexWatchedStateWritebackRequest,
   parsePlexWatchStateEntries,
   normalizePlexWatchedStateEntry,
   parsePlexRatingEntries,
@@ -247,6 +249,7 @@ const plexWatchStateSyncCadenceSmokeSource = fs.readFileSync(require.resolve('..
 const plexWatchStateApplySmokeSource = fs.readFileSync(require.resolve('../scripts/plex-watch-state-apply-smoke'), 'utf8');
 const plexWatchStateRefreshSchedulerSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-watch-state-refresh-scheduler-smoke'), 'utf8');
 const plexRatingApplySmokeSource = fs.readFileSync(require.resolve('../scripts/plex-rating-apply-smoke'), 'utf8');
+const plexWatchedStateWritebackContractSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-watched-state-writeback-contract-smoke'), 'utf8');
 const ciCdDeployDocSource = fs.readFileSync(require.resolve('../../docs/wiki/10-CI-CD-and-Registry-Deploy.md'), 'utf8');
 const securityPolicyPath = path.resolve(__dirname, '..', '..', 'SECURITY.md');
 const securityPolicySource = fs.existsSync(securityPolicyPath)
@@ -1390,6 +1393,33 @@ results.push(run('plex watch-state sync contract normalizes read-only watched pr
   assert.strictEqual(normalizePlexWatchedStateEntry({ title: 'Missing Rating Key' }), null);
 }));
 
+results.push(run('plex watched-state writeback contract builds PUT scrobble and unscrobble requests safely', () => {
+  const contract = buildPlexWatchedStateWritebackContract();
+  assert.strictEqual(contract.status, 'contract_proof_only');
+  assert.strictEqual(contract.method, 'PUT');
+  assert.strictEqual(contract.identifier, 'com.plexapp.plugins.library');
+  assert.strictEqual(contract.actions.scrobble.path, '/:/scrobble');
+  assert.strictEqual(contract.actions.unscrobble.path, '/:/unscrobble');
+
+  const scrobble = buildPlexWatchedStateWritebackRequest({ ratingKey: '5001', action: 'scrobble' });
+  assert.deepStrictEqual(scrobble, {
+    method: 'PUT',
+    path: '/:/scrobble',
+    action: 'scrobble',
+    watched: true,
+    params: {
+      identifier: 'com.plexapp.plugins.library',
+      key: '5001'
+    }
+  });
+
+  const unscrobble = buildPlexWatchedStateWritebackRequest({ ratingKey: '5001', watched: false });
+  assert.strictEqual(unscrobble.method, 'PUT');
+  assert.strictEqual(unscrobble.path, '/:/unscrobble');
+  assert.strictEqual(unscrobble.action, 'unscrobble');
+  assert.strictEqual(unscrobble.watched, false);
+}));
+
 results.push(run('plex PMS modernization foundation is promoted and documented without replacing legacy imports', () => {
   assert.ok(releaseRoadmapSource.includes('3.4.111 — Plex PMS API Modernization Foundation'));
   assert.ok(!backlogSource.includes('### Backlog Item: Plex PMS API Modernization Foundation'));
@@ -1468,6 +1498,18 @@ results.push(run('plex watched-state refresh scheduler reuses apply path without
   assert.ok(plexWatchStateRefreshSchedulerSmokeSource.includes('assertSecretFree'));
   assert.ok(plexWatchStateRefreshSchedulerSmokeSource.includes('plex-watch-state-refresh-scheduler-smoke.json'));
   assert.ok(releaseRoadmapSource.includes('3.4.130 — Plex Watched-State Scheduled Refresh'));
+}));
+
+results.push(run('plex watched-state writeback contract smoke proves PUT scrobble and unscrobble only against fake PMS', () => {
+  assert.ok(backendPackageJson.scripts['test:plex-watched-state-writeback-contract-smoke']);
+  assert.ok(plexWatchedStateWritebackContractSmokeSource.includes('buildPlexWatchedStateWritebackContract'));
+  assert.ok(plexWatchedStateWritebackContractSmokeSource.includes('sendPlexWatchedStateWriteback'));
+  assert.ok(plexWatchedStateWritebackContractSmokeSource.includes('/:/scrobble'));
+  assert.ok(plexWatchedStateWritebackContractSmokeSource.includes('/:/unscrobble'));
+  assert.ok(plexWatchedStateWritebackContractSmokeSource.includes("method === 'PUT'"));
+  assert.ok(plexWatchedStateWritebackContractSmokeSource.includes('assertSecretFree'));
+  assert.ok(plexWatchedStateWritebackContractSmokeSource.includes('plex-watched-state-writeback-contract-smoke.json'));
+  assert.ok(releaseRoadmapSource.includes('3.4.132 — Plex Watched-State Writeback Contract'));
 }));
 
 results.push(run('plex rating apply smoke updates existing user rating without Plex writeback', () => {

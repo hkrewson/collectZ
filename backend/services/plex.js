@@ -102,6 +102,26 @@ const PLEX_WATCH_STATE_SYNC_CONTRACT = Object.freeze({
   ])
 });
 
+const PLEX_WATCHED_STATE_WRITEBACK_CONTRACT = Object.freeze({
+  status: 'contract_proof_only',
+  identifier: 'com.plexapp.plugins.library',
+  method: 'PUT',
+  actions: Object.freeze({
+    scrobble: Object.freeze({ path: '/:/scrobble', watched: true }),
+    unscrobble: Object.freeze({ path: '/:/unscrobble', watched: false })
+  }),
+  acceptedInput: Object.freeze({
+    key: 'Plex ratingKey for the media item',
+    uri: 'Future alternative when collectZ stores provider URIs'
+  }),
+  rules: Object.freeze([
+    'Use PUT even though PMS still responds to GET for compatibility.',
+    'Require an explicit scrobble or unscrobble action before any Plex mutation.',
+    'Send only identifier plus key or uri; never surface Plex token-bearing URLs in evidence.',
+    'Keep UI-driven and scheduled watched-state writeback behind a later opt-in implementation milestone.'
+  ])
+});
+
 const resolvePlexPreset = (presetName = 'plex') =>
   PLEX_PRESETS[presetName] || PLEX_PRESETS.plex;
 
@@ -345,6 +365,18 @@ const buildPlexWatchStateSyncContract = () => ({
   rules: [...PLEX_WATCH_STATE_SYNC_CONTRACT.rules]
 });
 
+const buildPlexWatchedStateWritebackContract = () => ({
+  status: PLEX_WATCHED_STATE_WRITEBACK_CONTRACT.status,
+  identifier: PLEX_WATCHED_STATE_WRITEBACK_CONTRACT.identifier,
+  method: PLEX_WATCHED_STATE_WRITEBACK_CONTRACT.method,
+  actions: Object.fromEntries(
+    Object.entries(PLEX_WATCHED_STATE_WRITEBACK_CONTRACT.actions)
+      .map(([key, value]) => [key, { ...value }])
+  ),
+  acceptedInput: { ...PLEX_WATCHED_STATE_WRITEBACK_CONTRACT.acceptedInput },
+  rules: [...PLEX_WATCHED_STATE_WRITEBACK_CONTRACT.rules]
+});
+
 const normalizePlexWatchedStateEntry = (entry) => {
   if (!entry || typeof entry !== 'object') return null;
   const ratingKey = safeString(entry.ratingKey || entry.key);
@@ -533,6 +565,41 @@ const buildPlexRatingWritebackRequest = ({ ratingKey, rating, ratedAt } = {}) =>
   };
 };
 
+const buildPlexWatchedStateWritebackRequest = ({ ratingKey, uri, action, watched } = {}) => {
+  const normalizedAction = safeString(action)?.toLowerCase() || (watched === true ? 'scrobble' : (watched === false ? 'unscrobble' : null));
+  const contractAction = normalizedAction ? PLEX_WATCHED_STATE_WRITEBACK_CONTRACT.actions[normalizedAction] : null;
+  if (!contractAction) {
+    const error = new Error('Plex watched-state writeback requires action scrobble or unscrobble');
+    error.status = 400;
+    throw error;
+  }
+
+  const key = safeString(ratingKey);
+  const normalizedUri = safeString(uri);
+  if (!key && !normalizedUri) {
+    const error = new Error('Plex watched-state writeback requires ratingKey or uri');
+    error.status = 400;
+    throw error;
+  }
+
+  const params = {
+    identifier: PLEX_WATCHED_STATE_WRITEBACK_CONTRACT.identifier
+  };
+  if (key) {
+    params.key = key;
+  } else {
+    params.uri = normalizedUri;
+  }
+
+  return {
+    method: PLEX_WATCHED_STATE_WRITEBACK_CONTRACT.method,
+    path: contractAction.path,
+    action: normalizedAction,
+    watched: contractAction.watched,
+    params
+  };
+};
+
 const buildPlexPmsModernizationContract = () => ({
   currentMode: PLEX_PMS_MODERNIZATION_CONTRACT.currentMode,
   nextMode: PLEX_PMS_MODERNIZATION_CONTRACT.nextMode,
@@ -679,7 +746,9 @@ const plexRequest = async (config, path, params = {}, options = {}) => {
   const queryParam = config.plexApiKeyQueryParam || 'X-Plex-Token';
   const reqParams = { ...params, [queryParam]: config.plexApiKey };
   try {
-    const response = await axios.get(`${urlBase}${path}`, {
+    const response = await axios.request({
+      method: options.method || 'GET',
+      url: `${urlBase}${path}`,
       params: reqParams,
       headers: {
         Accept: 'application/json'
@@ -697,6 +766,32 @@ const plexRequest = async (config, path, params = {}, options = {}) => {
     recordProviderRequestEvent('plex', path, outcome);
     throw error;
   }
+};
+
+const sendPlexWatchedStateWriteback = async (config, options = {}) => {
+  const request = buildPlexWatchedStateWritebackRequest(options);
+  const response = await plexRequest(config, request.path, request.params, { method: request.method });
+  if (response.status >= 400) {
+    const message = typeof response.data === 'string'
+      ? response.data.slice(0, 200)
+      : response.data?.error || response.statusText;
+    throw new Error(`Plex watched-state writeback ${request.action} failed (${response.status}): ${message}`);
+  }
+  return {
+    ok: true,
+    provider: 'plex',
+    processingMode: 'watched_state_writeback_contract',
+    request: {
+      method: request.method,
+      path: request.path,
+      action: request.action,
+      watched: request.watched,
+      hasKey: Boolean(request.params.key),
+      hasUri: Boolean(request.params.uri),
+      identifier: request.params.identifier
+    },
+    status: response.status
+  };
 };
 
 const fetchPlexSections = async (config) => {
@@ -1077,10 +1172,12 @@ module.exports = {
   PLEX_PMS_MODERNIZATION_CONTRACT,
   PLEX_WEBHOOK_AND_RATINGS_CONTRACT,
   PLEX_WATCH_STATE_SYNC_CONTRACT,
+  PLEX_WATCHED_STATE_WRITEBACK_CONTRACT,
   resolvePlexPreset,
   buildPlexPmsModernizationContract,
   buildPlexWebhookAndRatingsContract,
   buildPlexWatchStateSyncContract,
+  buildPlexWatchedStateWritebackContract,
   fetchPlexSections,
   fetchPlexMediaProviders,
   fetchPlexNowPlayingSessions,
@@ -1103,6 +1200,8 @@ module.exports = {
   parsePlexWebhookPayload,
   normalizePlexWebhookEvent,
   buildPlexRatingWritebackRequest,
+  buildPlexWatchedStateWritebackRequest,
+  sendPlexWatchedStateWriteback,
   shouldIncludePlexEntry,
   normalizePlexItem,
   normalizePlexVariant

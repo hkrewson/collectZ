@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.132",
+      "version": "v3.4.132",
+      "date": null,
+      "status": null,
+      "summary": "This patch proves the Plex watched-state writeback contract before enabling any real app-driven Plex mutation.",
+      "details": []
+    },
+    {
       "title": "collectZ v3.4.131",
       "version": "v3.4.131",
       "date": null,
@@ -70,14 +78,6 @@
       "date": null,
       "status": null,
       "summary": "This patch adds Plex webhook receiver administration. Admins can generate, rotate, and revoke a receiver URL for Plex webhooks while the receiver remains contract-only.",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.4.122",
-      "version": "v3.4.122",
-      "date": null,
-      "status": null,
-      "summary": "This patch adds the first Plex webhook and ratings sync contract. It does not enable automatic Plex webhook ingestion yet; it defines and proves the safe event/readback/writeback shape first.",
       "details": []
     }
   ]
