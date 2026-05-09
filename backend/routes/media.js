@@ -6565,7 +6565,7 @@ async function findPlexReconciliationMatch(item = {}, scopeContext = null) {
   return { bucket: 'wouldCreate', matchedBy: null, row: null, identity };
 }
 
-async function buildPlexFullLibraryReconciliationPreview({ config, sectionIds = [], scopeContext = null, limit = null } = {}) {
+async function buildPlexFullLibraryReconciliationPreview({ config, sectionIds = [], scopeContext = null, limit = null, includeSourceItem = false } = {}) {
   const fetchedItems = await fetchPlexLibraryItems(config, sectionIds);
   const items = Number.isInteger(limit) && limit > 0 ? fetchedItems.slice(0, limit) : fetchedItems;
   const summary = {
@@ -6586,12 +6586,14 @@ async function buildPlexFullLibraryReconciliationPreview({ config, sectionIds = 
     const match = await findPlexReconciliationMatch(item, scopeContext);
     const bucket = buckets[match.bucket] ? match.bucket : 'conflict';
     summary[bucket] += 1;
-    buckets[bucket].push({
+    const entry = {
       item: formatPlexReconciliationItem(item, match.identity),
       existing: formatPlexReconciliationMediaRow(match.row),
       matchedBy: match.matchedBy,
       reason: match.reason || null
-    });
+    };
+    if (includeSourceItem) entry.sourceItem = item;
+    buckets[bucket].push(entry);
   }
 
   return {
@@ -6612,6 +6614,15 @@ async function buildPlexFullLibraryReconciliationPreview({ config, sectionIds = 
   };
 }
 
+function stripPlexReconciliationSourceItems(entries = []) {
+  return (Array.isArray(entries) ? entries : []).map((entry) => ({
+    item: entry?.item || null,
+    existing: entry?.existing || null,
+    matchedBy: entry?.matchedBy || null,
+    reason: entry?.reason || null
+  }));
+}
+
 function buildPlexReconciliationJobSummary(preview = {}) {
   const buckets = preview.buckets || {};
   return {
@@ -6630,11 +6641,76 @@ function buildPlexReconciliationJobSummary(preview = {}) {
     wouldCreate: Number(preview.summary?.wouldCreate || 0),
     conflict: Number(preview.summary?.conflict || 0),
     buckets: {
-      alreadyLinked: Array.isArray(buckets.alreadyLinked) ? buckets.alreadyLinked : [],
-      wouldUpdate: Array.isArray(buckets.wouldUpdate) ? buckets.wouldUpdate : [],
-      wouldCreate: Array.isArray(buckets.wouldCreate) ? buckets.wouldCreate : [],
-      conflict: Array.isArray(buckets.conflict) ? buckets.conflict : []
+      alreadyLinked: stripPlexReconciliationSourceItems(buckets.alreadyLinked),
+      wouldUpdate: stripPlexReconciliationSourceItems(buckets.wouldUpdate),
+      wouldCreate: stripPlexReconciliationSourceItems(buckets.wouldCreate),
+      conflict: stripPlexReconciliationSourceItems(buckets.conflict)
     }
+  };
+}
+
+function buildPlexReconciliationSyncPlan(preview = {}) {
+  const buckets = preview.buckets || {};
+  const strongUpdateMatches = new Set(['tmdb_id']);
+  const wouldCreate = Array.isArray(buckets.wouldCreate) ? buckets.wouldCreate : [];
+  const wouldUpdate = Array.isArray(buckets.wouldUpdate) ? buckets.wouldUpdate : [];
+  const alreadyLinked = Array.isArray(buckets.alreadyLinked) ? buckets.alreadyLinked : [];
+  const conflicts = Array.isArray(buckets.conflict) ? buckets.conflict : [];
+  const safeUpdates = wouldUpdate.filter((entry) => strongUpdateMatches.has(entry?.matchedBy));
+  const reviewUpdates = wouldUpdate
+    .filter((entry) => !strongUpdateMatches.has(entry?.matchedBy))
+    .map((entry) => ({
+      ...entry,
+      reason: entry?.reason || 'Title/year match requires review before automated sync.'
+    }));
+  const applyItems = [...safeUpdates, ...wouldCreate]
+    .map((entry) => entry?.sourceItem)
+    .filter(Boolean);
+
+  return {
+    applyItems,
+    safeUpdates,
+    wouldCreate,
+    alreadyLinked,
+    conflictReview: [...conflicts, ...reviewUpdates]
+  };
+}
+
+function buildPlexReconciliationSyncSummary({ preview = {}, plan = {}, importResult = null } = {}) {
+  const previewSummary = buildPlexReconciliationJobSummary(preview);
+  const importSummary = importResult?.summary || {};
+  const autoApplied = {
+    created: Number(importSummary.created || 0),
+    updated: Number(importSummary.updated || 0),
+    skippedAlreadyLinked: Array.isArray(plan.alreadyLinked) ? plan.alreadyLinked.length : 0,
+    skippedUnsafeUpdate: (Array.isArray(plan.conflictReview) ? plan.conflictReview : [])
+      .filter((entry) => entry?.matchedBy === 'title_year')
+      .length
+  };
+  const conflictReview = stripPlexReconciliationSourceItems(plan.conflictReview || []);
+  return {
+    ...previewSummary,
+    processingMode: 'full_library_reconciliation_sync',
+    readOnly: false,
+    plexWriteback: false,
+    importMutation: true,
+    autoApplyPolicy: {
+      create: 'enabled',
+      update: 'strong_identity_only',
+      alreadyLinked: 'no_op',
+      conflicts: 'review_required',
+      plexWriteback: 'disabled'
+    },
+    autoApplied,
+    conflictReviewCount: conflictReview.length,
+    conflictReview,
+    importSummary: {
+      created: Number(importSummary.created || 0),
+      updated: Number(importSummary.updated || 0),
+      skipped: Number(importSummary.skipped || 0),
+      errorCount: Array.isArray(importSummary.errors) ? importSummary.errors.length : 0
+    },
+    createdMediaIds: Array.isArray(importResult?.createdMediaIds) ? importResult.createdMediaIds : []
   };
 }
 
@@ -6713,6 +6789,117 @@ async function runPlexReconciliationPreviewJob({
       detail: error.message || 'Plex reconciliation preview job failed'
     });
     return { ok: false, error: error.message || 'Plex reconciliation preview job failed' };
+  }
+}
+
+async function runPlexReconciliationSyncJob({
+  jobId,
+  req,
+  config,
+  sectionIds = [],
+  scopeContext = null,
+  limit = null
+}) {
+  await updateSyncJob(jobId, {
+    status: 'running',
+    started_at: new Date(),
+    progress: {
+      total: 0,
+      processed: 0,
+      created: 0,
+      updated: 0,
+      conflictReview: 0,
+      errorCount: 0
+    }
+  });
+
+  try {
+    const preview = await buildPlexFullLibraryReconciliationPreview({
+      config,
+      sectionIds,
+      scopeContext,
+      limit,
+      includeSourceItem: true
+    });
+    const plan = buildPlexReconciliationSyncPlan(preview);
+    await updateSyncJob(jobId, {
+      progress: {
+        total: Number(preview.summary?.scanned || 0),
+        processed: Number(preview.summary?.scanned || 0),
+        created: 0,
+        updated: 0,
+        conflictReview: plan.conflictReview.length,
+        errorCount: 0
+      }
+    });
+
+    const importResult = plan.applyItems.length > 0
+      ? await runPlexImport({
+        req,
+        config,
+        sectionIds,
+        scopeContext,
+        itemsOverride: plan.applyItems,
+        onProgress: async (progress) => updateSyncJob(jobId, {
+          progress: {
+            ...progress,
+            total: Number(preview.summary?.scanned || progress.total || 0),
+            conflictReview: plan.conflictReview.length
+          }
+        })
+      })
+      : {
+        imported: 0,
+        createdMediaIds: [],
+        summary: { created: 0, updated: 0, skipped: 0, errors: [] }
+      };
+
+    const summary = buildPlexReconciliationSyncSummary({ preview, plan, importResult });
+    await updateSyncJob(jobId, {
+      status: 'succeeded',
+      summary,
+      progress: {
+        total: summary.scanned,
+        processed: summary.scanned,
+        created: summary.autoApplied.created,
+        updated: summary.autoApplied.updated,
+        conflictReview: summary.conflictReviewCount,
+        errorCount: summary.importSummary.errorCount
+      },
+      finished_at: new Date()
+    });
+    await logActivity(req, 'media.plex.reconciliation.sync_job', 'sync_jobs', jobId, {
+      sectionIds: summary.sectionIds,
+      scanned: summary.scanned,
+      created: summary.autoApplied.created,
+      updated: summary.autoApplied.updated,
+      skippedAlreadyLinked: summary.autoApplied.skippedAlreadyLinked,
+      conflictReviewCount: summary.conflictReviewCount,
+      plexWriteback: false,
+      importMutation: true,
+      limited: summary.limited
+    });
+    return { ok: true, summary };
+  } catch (error) {
+    logError('Plex reconciliation sync job failed', error);
+    await updateSyncJob(jobId, {
+      status: 'failed',
+      error: error.message || 'Plex reconciliation sync job failed',
+      progress: {
+        total: 0,
+        processed: 0,
+        created: 0,
+        updated: 0,
+        conflictReview: 0,
+        errorCount: 1
+      },
+      finished_at: new Date()
+    });
+    await logActivity(req, 'media.plex.reconciliation.sync_job.failed', 'sync_jobs', jobId, {
+      sectionIds,
+      detail: error.message || 'Plex reconciliation sync job failed'
+    });
+    return { ok: false, error: error.message || 'Plex reconciliation sync job failed' };
   }
 }
 
@@ -12894,6 +13081,86 @@ router.post('/plex-reconciliation-preview/run', asyncHandler(async (req, res) =>
     readOnly: true,
     plexWriteback: false,
     importMutation: false
+  });
+}));
+
+router.post('/plex-reconciliation-sync/run', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Only admins can run Plex reconciliation sync jobs' });
+  }
+  const ensuredScope = scopeContext?.libraryId
+    ? { spaceId: scopeContext?.spaceId || null, libraryId: scopeContext.libraryId }
+    : await ensureUserDefaultScope(req.user.id);
+  const effectiveScopeContext = {
+    ...scopeContext,
+    spaceId: scopeContext?.spaceId ?? ensuredScope.spaceId ?? null,
+    libraryId: ensuredScope.libraryId || null
+  };
+  if (!effectiveScopeContext.libraryId) {
+    return res.status(400).json({ error: 'Active library is required before Plex reconciliation sync jobs' });
+  }
+
+  const sectionIds = Array.isArray(req.body?.sectionIds) ? req.body.sectionIds : [];
+  const limitRaw = Number(req.body?.limit ?? req.query?.limit);
+  const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(1000, Math.floor(limitRaw))) : null;
+  const config = await loadPlexWebhookImportConfig(effectiveScopeContext);
+  if (!config.plexApiUrl) {
+    return res.status(400).json({ error: 'Plex API URL is not configured' });
+  }
+  if (!config.plexApiKey) {
+    return res.status(400).json({ error: 'Plex API key is not configured' });
+  }
+
+  const requestedSections = [...new Set((sectionIds.length > 0 ? sectionIds : config.plexLibrarySections || []).map(String).filter(Boolean))];
+  const job = await createSyncJob({
+    userId: req.user.id,
+    jobType: 'plex_reconciliation_sync',
+    provider: 'plex',
+    scope: {
+      ...jobScopePayload(effectiveScopeContext, requestedSections),
+      processingMode: 'full_library_reconciliation_sync',
+      readOnly: false,
+      plexWriteback: false,
+      importMutation: true,
+      limit
+    },
+    progress: {
+      total: 0,
+      processed: 0,
+      created: 0,
+      updated: 0,
+      conflictReview: 0,
+      errorCount: 0
+    }
+  });
+
+  const auditReq = {
+    user: req.user,
+    headers: req.headers,
+    ip: req.ip,
+    socket: req.socket
+  };
+
+  setImmediate(() => {
+    runPlexReconciliationSyncJob({
+      jobId: job.id,
+      req: auditReq,
+      config,
+      sectionIds,
+      scopeContext: effectiveScopeContext,
+      limit
+    }).catch((error) => {
+      logError('Unhandled Plex reconciliation sync job failure', error);
+    });
+  });
+
+  return res.status(202).json({
+    ...buildQueuedJobResponse(job, 'plex'),
+    processingMode: 'full_library_reconciliation_sync',
+    readOnly: false,
+    plexWriteback: false,
+    importMutation: true
   });
 }));
 

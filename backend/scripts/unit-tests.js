@@ -251,6 +251,7 @@ const plexWatchStateRefreshSchedulerSmokeSource = fs.readFileSync(require.resolv
 const plexRatingApplySmokeSource = fs.readFileSync(require.resolve('../scripts/plex-rating-apply-smoke'), 'utf8');
 const plexRatingWritebackSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-rating-writeback-smoke'), 'utf8');
 const plexFullLibraryReconciliationSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-full-library-reconciliation-smoke'), 'utf8');
+const plexReconciliationSyncSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-reconciliation-sync-smoke'), 'utf8');
 const plexWatchedStateWritebackContractSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-watched-state-writeback-contract-smoke'), 'utf8');
 const plexWatchedStateWritebackSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-watched-state-writeback-smoke'), 'utf8');
 const ciCdDeployDocSource = fs.readFileSync(require.resolve('../../docs/wiki/10-CI-CD-and-Registry-Deploy.md'), 'utf8');
@@ -1607,14 +1608,21 @@ results.push(run('plex writeback controls are admin-only and scoped to Plex-link
 results.push(run('plex full-library reconciliation preview stays read-only and classifies match buckets', () => {
   assert.ok(backendPackageJson.scripts['test:plex-full-library-reconciliation-smoke']);
   assert.ok(backendPackageJson.scripts['test:plex-reconciliation-preview-job-smoke']);
+  assert.ok(backendPackageJson.scripts['test:plex-reconciliation-sync-smoke']);
   assert.ok(mediaRoutesSource.includes("router.post('/plex-reconciliation-preview'"));
   assert.ok(mediaRoutesSource.includes("router.post('/plex-reconciliation-preview/run'"));
+  assert.ok(mediaRoutesSource.includes("router.post('/plex-reconciliation-sync/run'"));
   assert.ok(mediaRoutesSource.includes('buildPlexFullLibraryReconciliationPreview'));
   assert.ok(mediaRoutesSource.includes('runPlexReconciliationPreviewJob'));
+  assert.ok(mediaRoutesSource.includes('runPlexReconciliationSyncJob'));
+  assert.ok(mediaRoutesSource.includes('buildPlexReconciliationSyncPlan'));
+  assert.ok(mediaRoutesSource.includes("processingMode: 'full_library_reconciliation_sync'"));
   assert.ok(mediaRoutesSource.includes("jobType: 'plex_reconciliation_preview'"));
+  assert.ok(mediaRoutesSource.includes("jobType: 'plex_reconciliation_sync'"));
   assert.ok(mediaRoutesSource.includes('full_library_reconciliation_preview'));
   assert.ok(openApiSource.includes('/api/media/plex-reconciliation-preview'));
   assert.ok(openApiSource.includes('/api/media/plex-reconciliation-preview/run'));
+  assert.ok(openApiSource.includes('/api/media/plex-reconciliation-sync/run'));
   assert.ok(plexFullLibraryReconciliationSmokeSource.includes('/api/media/plex-reconciliation-preview'));
   assert.ok(plexFullLibraryReconciliationSmokeSource.includes('/api/media/plex-reconciliation-preview/run'));
   assert.ok(plexFullLibraryReconciliationSmokeSource.includes('/api/media/sync-jobs/${jobId}/result'));
@@ -1627,18 +1635,27 @@ results.push(run('plex full-library reconciliation preview stays read-only and c
   assert.ok(plexFullLibraryReconciliationSmokeSource.includes('No collectZ media rows were created or updated by the preview'));
   assert.ok(plexFullLibraryReconciliationSmokeSource.includes('assertSecretFree'));
   assert.ok(plexFullLibraryReconciliationSmokeSource.includes('plex-full-library-reconciliation-smoke.json'));
-  assert.ok(adminIntegrationsViewSource.includes('Temporary reconciliation preview'));
+  assert.ok(plexReconciliationSyncSmokeSource.includes('/api/media/plex-reconciliation-sync/run'));
+  assert.ok(plexReconciliationSyncSmokeSource.includes('plex_reconciliation_sync'));
+  assert.ok(plexReconciliationSyncSmokeSource.includes('Expected one auto-created row'));
+  assert.ok(plexReconciliationSyncSmokeSource.includes('Expected one strong-ID update'));
+  assert.ok(plexReconciliationSyncSmokeSource.includes('Expected one conflict for review'));
+  assert.ok(plexReconciliationSyncSmokeSource.includes('plex-reconciliation-sync-smoke.json'));
+  assert.ok(adminIntegrationsViewSource.includes('Plex library sync'));
+  assert.ok(adminIntegrationsViewSource.includes('runPlexReconciliationSyncJob'));
+  assert.ok(adminIntegrationsViewSource.includes('Sync Plex Library'));
+  assert.ok(adminIntegrationsViewSource.includes('Sync Issues'));
   assert.ok(adminIntegrationsViewSource.includes('runPlexReconciliationPreview'));
   assert.ok(adminIntegrationsViewSource.includes('runPlexReconciliationPreviewJob'));
   assert.ok(adminIntegrationsViewSource.includes('PlexReconciliationPreview'));
-  assert.ok(adminIntegrationsViewSource.includes('Preview now'));
-  assert.ok(adminIntegrationsViewSource.includes('Queue preview'));
-  assert.ok(adminIntegrationsViewSource.includes('It does not apply import changes or write back to Plex.'));
-  assert.ok(integrationsBrowserSpecSource.includes('Plex temporary reconciliation preview displays read-only buckets'));
+  assert.ok(adminIntegrationsViewSource.includes('Plex writeback stays manual.'));
+  assert.ok(integrationsBrowserSpecSource.includes('Plex reconciliation sync surface displays review buckets without apply controls'));
   assert.ok(integrationsBrowserSpecSource.includes('/api/media/plex-reconciliation-preview'));
+  assert.ok(integrationsBrowserSpecSource.includes('/api/media/plex-reconciliation-sync/run'));
   assert.ok(integrationsBrowserSpecSource.includes('toHaveCount(0)'));
   assert.ok(releaseRoadmapSource.includes('3.4.137 — Plex Scheduled Reconciliation Preview Job'));
   assert.ok(releaseRoadmapSource.includes('3.4.139 — Plex Temporary Reconciliation Review UI'));
+  assert.ok(releaseRoadmapSource.includes('3.4.140 — Plex Reconciliation Auto-Sync and Conflict Review'));
 }));
 
 results.push(run('plex webhook receiver administration contract is token-scoped and queues library-new import hints only', () => {

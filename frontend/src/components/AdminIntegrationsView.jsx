@@ -230,9 +230,25 @@ function PlexReconciliationPreview({ result }) {
   const normalized = normalizePlexReconciliationResult(result);
   if (!normalized) return null;
   const summary = normalized.summary || {};
+  const autoApplied = summary.autoApplied || {};
+  const isSyncResult = summary.processingMode === 'full_library_reconciliation_sync' || normalized.processingMode === 'full_library_reconciliation_sync';
 
   return (
     <div className="space-y-3">
+      {isSyncResult && (
+        <div className="grid gap-2 sm:grid-cols-3">
+          {[
+            ['Created', autoApplied.created],
+            ['Updated', autoApplied.updated],
+            ['Needs review', summary.conflictReviewCount]
+          ].map(([label, value]) => (
+            <div key={label} className="rounded-md border border-edge/70 px-3 py-2">
+              <p className="text-xs text-ghost">{label}</p>
+              <p className="mt-1 text-lg font-semibold text-ink">{Number(value || 0)}</p>
+            </div>
+          ))}
+        </div>
+      )}
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
         {[
           ['Scanned', summary.scanned],
@@ -248,10 +264,13 @@ function PlexReconciliationPreview({ result }) {
         ))}
       </div>
       <div className="space-y-2">
-        {PLEX_RECONCILIATION_BUCKETS.map(([key, label]) => {
-          const rows = normalized.buckets[key] || [];
+        {(isSyncResult
+          ? [['conflictReview', 'Sync Issues']]
+          : PLEX_RECONCILIATION_BUCKETS
+        ).map(([key, label]) => {
+          const rows = key === 'conflictReview' ? (summary.conflictReview || []) : (normalized.buckets[key] || []);
           return (
-            <details key={key} className="rounded-md border border-edge/70" open={key === 'conflict' && rows.length > 0}>
+            <details key={key} className="rounded-md border border-edge/70" open={(key === 'conflict' || key === 'conflictReview') && rows.length > 0}>
               <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-3 py-2 text-sm">
                 <span className="font-medium text-ink">{label}</span>
                 <span className="text-dim">{rows.length}</span>
@@ -973,6 +992,45 @@ export default function AdminIntegrationsView({
     }
   };
 
+  const runPlexReconciliationSyncJob = async () => {
+    setTestLoading('plex-reconciliation-sync');
+    setTestMsg('');
+    try {
+      const queued = await apiCall('post', '/media/plex-reconciliation-sync/run', buildPlexReconciliationPayload());
+      const jobId = queued?.job?.id || queued?.id;
+      if (!jobId) throw new Error('Missing reconciliation sync job id');
+      setPlexReconciliationJob({ id: jobId, status: queued?.job?.status || 'queued' });
+      onQueueJob?.({
+        id: jobId,
+        provider: 'plex',
+        status: queued?.job?.status || 'queued',
+        progress: queued?.job?.progress || null
+      });
+
+      let latest = null;
+      for (let attempt = 0; attempt < 30; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, attempt === 0 ? 500 : 1000));
+        latest = await apiCall('get', `/media/sync-jobs/${jobId}/result`);
+        setPlexReconciliationJob({ id: jobId, status: latest?.status || 'unknown' });
+        if (latest?.status === 'succeeded' || latest?.status === 'failed') break;
+      }
+
+      if (latest?.status === 'succeeded') {
+        setPlexReconciliationResult(normalizePlexReconciliationResult(latest));
+        const summary = latest?.summary || {};
+        setTestMsg(`PLEX SYNC: job #${jobId} created ${Number(summary?.autoApplied?.created || 0)}, updated ${Number(summary?.autoApplied?.updated || 0)}, review ${Number(summary?.conflictReviewCount || 0)}.`);
+      } else if (latest?.status === 'failed') {
+        setTestMsg(latest?.error || `Plex reconciliation sync job #${jobId} failed`);
+      } else {
+        setTestMsg(`PLEX SYNC: job #${jobId} is still running.`);
+      }
+    } catch (err) {
+      setTestMsg(err.response?.data?.error || err.message || 'Plex reconciliation sync job failed');
+    } finally {
+      setTestLoading('');
+    }
+  };
+
   const runKavitaImport = async () => {
     setImportingKavita(true);
     try {
@@ -1465,16 +1523,19 @@ export default function AdminIntegrationsView({
           <div className="rounded-xl border border-edge bg-raised/60 px-3 py-3 space-y-3">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="text-sm font-medium text-ink">Temporary reconciliation preview</p>
+                <p className="text-sm font-medium text-ink">Plex library sync</p>
                 <p className="mt-1 text-xs text-ghost">
-                  Read-only review for linked, update, create, and conflict buckets. It does not apply import changes or write back to Plex.
+                  Creates missing Plex titles and updates strong TMDB matches. Title conflicts are kept here for review, and Plex writeback stays manual.
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={runPlexReconciliationPreview} disabled={testLoading === 'plex-reconciliation-preview' || testLoading === 'plex-reconciliation-job'} className="btn-secondary btn-sm">
+                <button type="button" onClick={runPlexReconciliationPreview} disabled={testLoading === 'plex-reconciliation-preview' || testLoading === 'plex-reconciliation-job' || testLoading === 'plex-reconciliation-sync'} className="btn-secondary btn-sm">
                   {testLoading === 'plex-reconciliation-preview' ? <Spinner size={14} /> : 'Preview now'}
                 </button>
-                <button type="button" onClick={runPlexReconciliationPreviewJob} disabled={testLoading === 'plex-reconciliation-preview' || testLoading === 'plex-reconciliation-job'} className="btn-secondary btn-sm">
+                <button type="button" onClick={runPlexReconciliationSyncJob} disabled={testLoading === 'plex-reconciliation-preview' || testLoading === 'plex-reconciliation-job' || testLoading === 'plex-reconciliation-sync'} className="btn-primary btn-sm">
+                  {testLoading === 'plex-reconciliation-sync' ? <Spinner size={14} /> : 'Sync Plex Library'}
+                </button>
+                <button type="button" onClick={runPlexReconciliationPreviewJob} disabled={testLoading === 'plex-reconciliation-preview' || testLoading === 'plex-reconciliation-job' || testLoading === 'plex-reconciliation-sync'} className="btn-secondary btn-sm">
                   {testLoading === 'plex-reconciliation-job' ? <Spinner size={14} /> : 'Queue preview'}
                 </button>
               </div>

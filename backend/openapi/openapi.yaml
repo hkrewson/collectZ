@@ -9178,6 +9178,64 @@
         }
       }
     },
+    "/api/media/plex-reconciliation-sync/run": {
+      "post": {
+        "tags": ["Media"],
+        "summary": "Queue a Plex reconciliation sync job for safe import mutations",
+        "description": "Creates missing Plex titles and updates strong-identity matches while storing conflicts for review. Plex writeback remains disabled.",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "sectionIds": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Plex reconciliation sync job queued",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/QueuedJobResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Integration configuration or active library error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/media/process-plex-webhook-import-hints": {
       "post": {
         "tags": ["Media"],

@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.140",
+      "version": "v3.4.140",
+      "date": null,
+      "status": null,
+      "summary": "This patch turns the Plex reconciliation proof into a conservative one-way sync job.",
+      "details": []
+    },
+    {
       "title": "collectZ v3.4.139",
       "version": "v3.4.139",
       "date": null,
@@ -70,14 +78,6 @@
       "date": null,
       "status": null,
       "summary": "This patch adds a safe Plex rating readback apply path for existing collectZ rows.",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.4.130",
-      "version": "v3.4.130",
-      "date": null,
-      "status": null,
-      "summary": "This patch adds an opt-in Plex watched-state refresh scheduler for existing Plex-linked collectZ rows.",
       "details": []
     }
   ]

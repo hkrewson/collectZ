@@ -10406,6 +10406,40 @@ Historical note:
 - What remains in the milestone: no implementation work remains for `3.4.139`; CI must still confirm the CI-only `secret-scan` and `image-security-and-sbom` gates.
 - Recommended commit message: `Release 3.4.139 with temporary Plex reconciliation review UI`.
 
+## 3.4.140 — Plex Reconciliation Auto-Sync and Conflict Review
+
+**Goal:** Let admins run a conservative one-way Plex library sync that applies safe reconciliation buckets and stores conflicts for review.
+
+### Scope
+
+- Add a queued Plex reconciliation sync endpoint.
+- Reuse the existing reconciliation classifier before applying mutations.
+- Automatically create rows from `wouldCreate`.
+- Automatically update only strong-identity matches from `wouldUpdate`.
+- Keep already-linked rows as no-op readback.
+- Store conflicts and unsafe title/year-only matches in the sync job result for review.
+- Update the Plex integrations panel from temporary preview-first language toward a sync action with sync issue readback.
+- Keep Plex writeback, recurring scheduling, conflict apply/resolve controls, and broad import rewrites out of scope.
+
+### Acceptance Criteria
+
+- The sync job reports `processingMode=full_library_reconciliation_sync`, `importMutation=true`, and `plexWriteback=false`.
+- A fake PMS smoke proves one safe create, one strong-ID update, one already-linked no-op, and one stored conflict.
+- The UI exposes `Sync Plex Library` and shows sync issue readback without an apply action.
+- The sync job result remains sanitized and does not expose Plex tokens, raw Plex URLs, private IPs, or media file paths.
+- Running-stack verification proves the app serves `3.4.140`, Help > Releases contains the release, and `events_enabled` remains on.
+
+### Closeout
+
+- Roadmap slice: `3.4.140 — Plex Reconciliation Auto-Sync and Conflict Review`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`; `docs/wiki/08-Backlog.md`; `docs/releases/v3.4.140.md`.
+- Runtime verification used: Docker-first backend/frontend stack rebuilt and run with `APP_VERSION=3.4.140`; `/api/health` returned frontend/backend/build `3.4.140`; running backend env was restored to `APP_EDITION=platform`, `APP_VERSION=3.4.140`, `NODE_ENV=development`, `SESSION_COOKIE_SECURE=false`; live DB global feature flags showed `events_enabled=true` and `collectibles_enabled=true`; Docker Plex reconciliation sync smoke proved one create, one strong-ID update, one already-linked no-op, and one conflict-review row without leaking Plex tokens, raw URLs, private IPs, or file paths; Docker Help > Releases smoke served `v3.4.140`; direct compose `/api/auth/me` returned `401`; homelab boundary was verified under a temporary local homelab override and the stack was restored to platform.
+- CI/checks run: `node --check backend/routes/media.js`; `node --check backend/scripts/plex-reconciliation-sync-smoke.js`; Docker `npm run test:unit`; Docker `npm run test:openapi`; Docker `npm run test:integration-smoke`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; Docker `npm run test:rbac-regression`; Docker `npm run test:platform-edition-boundary`; isolated Docker `npm run test:homelab-edition-boundary`; Docker `npm run test:plex-reconciliation-sync-smoke`; Docker Help > Releases smoke; targeted `integrations.browser.spec.js`; full browser regression; `npm --prefix backend run test:observability-evidence`; `npm --prefix backend run test:release-preflight-local`; dependency audit artifact readback showed backend/frontend low/moderate/high/critical counts all zero; `git diff --check`; targeted artifact/docs secret pattern scan.
+- Files changed: `app-meta.json`; `backend/app-meta.json`; `backend/openapi/openapi.yaml`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/routes/media.js`; `backend/scripts/plex-reconciliation-sync-smoke.js`; `backend/scripts/unit-tests.js`; `docker-compose.yml`; `docs/releases/v3.4.140.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/AdminIntegrationsView.jsx`; `tests/playwright/specs/integrations.browser.spec.js`; `artifacts/observability-evidence/observability-release-evidence.json`; `preflight-go-no-go.md`.
+- Risks or follow-ups: conflict review is readback-only for now; unsafe title/year matches are kept out of automatic mutation; recurring automation remains separate from this manual sync action; local `gitleaks`, `trivy`, and `syft` CLIs were not installed, so CI must still confirm full `secret-scan` and `image-security-and-sbom`; local preflight still marks secure-cookie compose conditions blocked because this dev stack runs with `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`, though direct compose health/header/auth checks passed locally.
+- What remains in the milestone: no implementation work remains for `3.4.140`; CI must still confirm the CI-only `secret-scan` and `image-security-and-sbom` gates and stricter secure-cookie compose-smoke conditions.
+- Recommended commit message: `Release 3.4.140 with Plex reconciliation auto-sync and conflict review`.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.
