@@ -1563,11 +1563,26 @@ results.push(run('plex rating writeback implementation stays explicit and single
   assert.ok(openApiSource.includes('/api/media/write-plex-rating'));
   assert.ok(plexRatingWritebackSmokeSource.includes('/api/media/write-plex-rating'));
   assert.ok(plexRatingWritebackSmokeSource.includes('/:/rate'));
+  assert.ok(plexRatingWritebackSmokeSource.includes("Number(url.searchParams.get('rating')) === 7"));
   assert.ok(plexRatingWritebackSmokeSource.includes("method === 'PUT'"));
   assert.ok(plexRatingWritebackSmokeSource.includes('No new media rows were created during rating writeback'));
   assert.ok(plexRatingWritebackSmokeSource.includes('assertSecretFree'));
   assert.ok(plexRatingWritebackSmokeSource.includes('plex-rating-writeback-smoke.json'));
   assert.ok(releaseRoadmapSource.includes('3.4.134 — Plex Rating Writeback to Plex'));
+}));
+
+results.push(run('media user ratings are stored on a 0-10 provider scale while UI keeps five stars', () => {
+  assert.ok(validateMiddlewareSource.includes('user_rating: nullableNumberSchema(z.number().min(0).max(10))'));
+  assert.ok(migrationsSource.includes('version: 99'));
+  assert.ok(migrationsSource.includes("description: 'Normalize user ratings to 0-10 provider scale'"));
+  assert.ok(migrationsSource.includes('SET user_rating = ROUND((user_rating * 2)::numeric, 1)'));
+  assert.ok(initSqlSource.includes('user_rating DECIMAL(3,1) CHECK'));
+  assert.ok(initSqlSource.includes("(99, 'Normalize user ratings to 0-10 provider scale')"));
+  assert.ok(libraryViewSource.includes('function userRatingToStars'));
+  assert.ok(libraryViewSource.includes('function starsToUserRating'));
+  assert.ok(libraryViewSource.includes('rating / 2'));
+  assert.ok(libraryViewSource.includes('* 2).toFixed(1)'));
+  assert.ok(libraryMultiFormatBrowserSpecSource.includes('rating: 8'));
 }));
 
 results.push(run('plex writeback controls are admin-only and scoped to Plex-linked detail rows', () => {

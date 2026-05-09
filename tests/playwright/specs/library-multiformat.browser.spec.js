@@ -296,7 +296,7 @@ test.describe('library multi-format browser regressions', () => {
         media_type: 'movie',
         format: 'Digital',
         owned_formats: ['digital'],
-        user_rating: 4,
+        user_rating: 8,
         year: 2026,
         type_details: {
           provider_name: 'plex',
@@ -343,7 +343,7 @@ test.describe('library multi-format browser regressions', () => {
       await expect(page.getByTestId('plex-watch-unscrobble-button')).toBeVisible();
 
       await page.getByTestId('plex-rating-writeback-button').click();
-      await expect.poll(() => ratingPayload).toMatchObject({ mediaId, rating: 4 });
+      await expect.poll(() => ratingPayload).toMatchObject({ mediaId, rating: 8 });
 
       await page.getByTestId('plex-watch-scrobble-button').click();
       await expect.poll(() => watchPayload).toMatchObject({ mediaId, action: 'scrobble' });

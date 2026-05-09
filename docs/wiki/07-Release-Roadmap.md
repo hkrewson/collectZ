@@ -10342,6 +10342,39 @@ Historical note:
 - What remains in the milestone: no implementation work remains for `3.4.137`; CI must still confirm the CI-only `secret-scan` and `image-security-and-sbom` gates.
 - Recommended commit message: `Release 3.4.137 with Plex reconciliation preview sync jobs`.
 
+## 3.4.138 — User Rating Scale Normalization
+
+**Goal:** Fix the Plex rating writeback scale mismatch by making collectZ `user_rating` canonical on a 0-10 provider-compatible scale while preserving the existing 0-5 star UI.
+
+### Scope
+
+- Convert the stored `media.user_rating` field from 0-5 star values to 0-10 values.
+- Keep star controls visually and interactively 0-5 stars with half-star selection.
+- Convert between star display and stored rating only at the frontend boundary.
+- Let Plex writeback send the stored 0-10 value directly to Plex.
+- Keep Plex rating readback as 0-10 internal data instead of dividing it into stars at storage time.
+- Add migration/init parity and update the Plex writeback/browser coverage for the 3.5-star to Plex 7/10 case.
+
+### Acceptance Criteria
+
+- Existing 0-5 `user_rating` values migrate once to 0-10 values.
+- A user selecting 3.5 stars saves `user_rating = 7`.
+- Plex rating writeback sends `rating=7` for a 3.5-star collectZ title.
+- Plex rating readback stores Plex `userRating` without converting it down to star scale.
+- The visible star UI remains 0-5 stars.
+- Running-stack verification proves the app serves `3.4.138`, Help > Releases contains the release, and `events_enabled` remains on.
+
+### Closeout
+
+- Roadmap slice: `3.4.138 — User Rating Scale Normalization`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`; `docs/wiki/08-Backlog.md`; `docs/releases/v3.4.138.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild with `APP_VERSION=3.4.138`; live `/api/health` returned frontend/backend/build `3.4.138`; live backend container env was restored to `APP_EDITION=platform`, `APP_VERSION=3.4.138`, `NODE_ENV=development`, and `SESSION_COOKIE_SECURE=false`; live DB feature flags showed `events_enabled=true` and `collectibles_enabled=true`; live DB schema showed `schema_migrations.max=99` and `media.user_rating numeric(3,1)`; Docker Plex rating writeback smoke proved `rating=7` for the collectZ 3.5-star equivalent; Docker Plex rating apply smoke proved Plex `userRating=8.5` stores as `user_rating=8.5` without calling `/:/rate`; Docker Help > Releases smoke served `v3.4.138`; direct compose health/header checks returned `200` with security headers and unauthenticated `/api/auth/me` returned `401`; homelab boundary was verified by temporarily applying a local homelab compose override, then the active stack was restored to platform and rechecked.
+- CI/checks run: `node --check backend/routes/media.js`; `node --check backend/middleware/validate.js`; `node --check backend/db/migrations.js`; `node --check backend/scripts/plex-rating-writeback-smoke.js`; `node --check backend/scripts/unit-tests.js`; local OpenAPI validation; Docker `npm run test:unit`; Docker `npm run test:openapi`; Docker `npm run test:integration-smoke`; Docker `npm run test:plex-rating-writeback-smoke`; Docker `npm run test:plex-rating-apply-smoke`; Docker Help > Releases smoke; Docker init parity; Docker migration rehearsal; Docker `npm run test:rbac-regression`; Docker `npm run test:platform-edition-boundary`; Docker `npm run test:homelab-edition-boundary`; bundled-runtime `npm run test:browser`; `npm --prefix backend run test:observability-evidence`; `npm --prefix backend run test:release-preflight-local`; dependency-audit artifact readback showed backend/frontend low/moderate/high/critical counts all zero; `git diff --check`; targeted artifact/docs secret pattern scan.
+- Files changed: `app-meta.json`; `backend/app-meta.json`; `backend/db/migrations.js`; `backend/middleware/validate.js`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/scripts/plex-rating-writeback-smoke.js`; `backend/scripts/unit-tests.js`; `docker-compose.yml`; `docs/releases/v3.4.138.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/LibraryView.jsx`; `init.sql`; `tests/playwright/specs/library-multiformat.browser.spec.js`; `artifacts/plex-ratings/plex-rating-writeback-smoke.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `preflight-go-no-go.md`.
+- Risks or follow-ups: the migration assumes existing `user_rating <= 5` values are legacy star-scale values and converts them to 0-10 once; this matches the current UI history and leaves any already-provider-scale values above 5 unchanged. The star UI remains 0-5, but CSV/API callers now need to treat `user_rating` as 0-10. Local `gitleaks`, `trivy`, and `syft` CLIs are not installed, so CI must still confirm the full `secret-scan` and `image-security-and-sbom` gates. Local preflight still marks secure-cookie compose conditions blocked because the dev stack runs with `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`; direct compose health/header checks, runtime smokes, and browser regression passed locally.
+- What remains in the milestone: no implementation work remains for `3.4.138`; CI must still confirm the CI-only `secret-scan` and `image-security-and-sbom` gates.
+- Recommended commit message: `Release 3.4.138 with user rating scale normalization for Plex writeback`.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

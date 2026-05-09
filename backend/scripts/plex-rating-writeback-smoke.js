@@ -189,7 +189,7 @@ async function startFakePmsServer() {
       && req.method === 'PUT'
       && url.searchParams.get('identifier') === 'com.plexapp.plugins.library'
       && url.searchParams.get('key') === '7101'
-      && url.searchParams.get('rating') === '9') {
+      && Number(url.searchParams.get('rating')) === 7) {
       res.writeHead(200);
       res.end(JSON.stringify({ ok: true }));
       return;
@@ -236,7 +236,7 @@ async function main() {
 
     const movie = await pool.query(
       `INSERT INTO media (title, media_type, format, library_id, space_id, added_by, import_source, user_rating)
-       VALUES ('Rating Writeback Movie', 'movie', 'Digital', $1, $2, $3, 'manual', 4)
+       VALUES ('Rating Writeback Movie', 'movie', 'Digital', $1, $2, $3, 'manual', 7)
        RETURNING id`,
       [libraryId, spaceId, userId]
     );
@@ -253,17 +253,17 @@ async function main() {
       method: 'POST',
       withCsrf: true,
       expectStatus: 200,
-      body: { mediaId: movieId, rating: 9 }
+      body: { mediaId: movieId, rating: 7 }
     });
 
     assert(writeback.data?.processingMode === 'rating_writeback', `Unexpected mode: ${JSON.stringify(writeback.data)}`);
     assert(writeback.data?.plexWriteback === true && writeback.data?.readOnlyPlex === false, 'Expected explicit Plex writeback flags');
     assert(writeback.data?.request?.method === 'PUT', `Expected PUT request: ${JSON.stringify(writeback.data)}`);
     assert(writeback.data?.request?.path === '/:/rate', `Expected rate path: ${JSON.stringify(writeback.data)}`);
-    assert(writeback.data?.request?.rating === 9, `Expected rating 9: ${JSON.stringify(writeback.data)}`);
+    assert(writeback.data?.request?.rating === 7, `Expected rating 7: ${JSON.stringify(writeback.data)}`);
 
     const updated = await pool.query('SELECT user_rating FROM media WHERE id = $1', [movieId]);
-    assert(Number(updated.rows[0]?.user_rating) === 9, `Expected user_rating 9: ${JSON.stringify(updated.rows[0])}`);
+    assert(Number(updated.rows[0]?.user_rating) === 7, `Expected user_rating 7: ${JSON.stringify(updated.rows[0])}`);
 
     const afterCount = await pool.query('SELECT COUNT(*)::int AS count FROM media WHERE library_id = $1', [libraryId]);
     assert(beforeCount.rows[0].count === afterCount.rows[0].count, `Expected no media rows created, before=${beforeCount.rows[0].count} after=${afterCount.rows[0].count}`);
@@ -276,15 +276,15 @@ async function main() {
       [movieId]
     );
     const metadataMap = new Map(metadata.rows.map((row) => [row.key, row.value]));
-    assert(metadataMap.get('plex_rating_writeback_rating') === '9', `Expected rating metadata: ${JSON.stringify(metadata.rows)}`);
+    assert(metadataMap.get('plex_rating_writeback_rating') === '7', `Expected rating metadata: ${JSON.stringify(metadata.rows)}`);
     assert(metadataMap.get('plex_rating_writeback_rating_key') === '7101', `Expected rating key metadata: ${JSON.stringify(metadata.rows)}`);
     assert(metadataMap.get('plex_rating_writeback_status') === 'success', `Expected success metadata: ${JSON.stringify(metadata.rows)}`);
-    assert(metadataMap.get('plex_user_rating') === '9', `Expected plex_user_rating metadata: ${JSON.stringify(metadata.rows)}`);
+    assert(metadataMap.get('plex_user_rating') === '7', `Expected plex_user_rating metadata: ${JSON.stringify(metadata.rows)}`);
     assert(fake.requests.length === 1, `Expected one fake PMS writeback: ${JSON.stringify(fake.requests)}`);
     assert(fake.requests[0].method === 'PUT', `Expected PUT request: ${JSON.stringify(fake.requests)}`);
     assert(fake.requests[0].pathname === '/:/rate', `Expected /:/rate request: ${JSON.stringify(fake.requests)}`);
     assert(fake.requests[0].key === '7101', `Expected key 7101: ${JSON.stringify(fake.requests)}`);
-    assert(fake.requests[0].rating === '9', `Expected rating 9: ${JSON.stringify(fake.requests)}`);
+    assert(Number(fake.requests[0].rating) === 7, `Expected rating 7: ${JSON.stringify(fake.requests)}`);
     assert(fake.requests[0].identifier === 'com.plexapp.plugins.library', `Expected identifier: ${JSON.stringify(fake.requests)}`);
     assert(fake.requests[0].hasToken && fake.requests[0].tokenMatched, 'Expected fake PMS request to authenticate');
 
@@ -308,7 +308,7 @@ async function main() {
         tokenMatched: entry.tokenMatched
       })),
       assertions: [
-        'Explicit rating writeback called Plex /:/rate with PUT',
+        'Explicit rating writeback called Plex /:/rate with PUT using collectZ 3.5-star value as Plex 7/10',
         'No new media rows were created during rating writeback',
         'Writeback response and evidence stayed token-safe'
       ]

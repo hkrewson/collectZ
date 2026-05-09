@@ -49,7 +49,7 @@ const MIGRATIONS = [
         genre VARCHAR(100),
         director VARCHAR(255),
         rating DECIMAL(3,1),
-        user_rating DECIMAL(2,1),
+        user_rating DECIMAL(3,1),
         tmdb_id INTEGER,
         tmdb_url TEXT,
         poster_path TEXT,
@@ -4130,6 +4130,35 @@ const MIGRATIONS = [
         ADD COLUMN IF NOT EXISTS plex_webhook_receiver_token_last_rotated_at TIMESTAMP,
         ADD COLUMN IF NOT EXISTS plex_webhook_receiver_last_received_at TIMESTAMP,
         ADD COLUMN IF NOT EXISTS plex_webhook_receiver_last_event TEXT;
+    `
+  },
+  {
+    version: 99,
+    description: 'Normalize user ratings to 0-10 provider scale',
+    up: `
+      ALTER TABLE media
+        ALTER COLUMN user_rating TYPE DECIMAL(3,1);
+
+      UPDATE media
+         SET user_rating = ROUND((user_rating * 2)::numeric, 1)
+       WHERE user_rating IS NOT NULL
+         AND user_rating >= 0
+         AND user_rating <= 5;
+
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1
+          FROM pg_constraint
+          WHERE conname = 'media_user_rating_scale_check'
+            AND conrelid = 'media'::regclass
+        ) THEN
+          ALTER TABLE media
+            ADD CONSTRAINT media_user_rating_scale_check
+            CHECK (user_rating IS NULL OR (user_rating >= 0 AND user_rating <= 10));
+        END IF;
+      END;
+      $$;
     `
   }
 ];

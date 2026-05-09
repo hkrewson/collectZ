@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.138",
+      "version": "v3.4.138",
+      "date": null,
+      "status": null,
+      "summary": "This patch normalizes collectZ user ratings to a 0-10 internal scale while preserving the existing 5-star UI.",
+      "details": []
+    },
+    {
       "title": "collectZ v3.4.137",
       "version": "v3.4.137",
       "date": null,
@@ -70,14 +78,6 @@
       "date": null,
       "status": null,
       "summary": "This patch adds the first explicit Plex watched-state apply path for existing collectZ rows.",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.4.128",
-      "version": "v3.4.128",
-      "date": null,
-      "status": null,
-      "summary": "This patch adds the read-only Plex watch-state sync contract that future watched/progress automation will build on.",
       "details": []
     }
   ]

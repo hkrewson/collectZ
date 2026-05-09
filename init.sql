@@ -62,7 +62,7 @@ CREATE TABLE IF NOT EXISTS media (
     director VARCHAR(255),
     cast_members VARCHAR(1000),
     rating DECIMAL(3,1),
-    user_rating DECIMAL(2,1),
+    user_rating DECIMAL(3,1) CHECK (user_rating IS NULL OR (user_rating >= 0 AND user_rating <= 10)),
     tmdb_id INTEGER,
     tmdb_media_type VARCHAR(20),
     tmdb_url TEXT,
@@ -1565,5 +1565,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (95, 'Add Art numbered print metadata'),
     (96, 'Add Plex now playing display token metadata'),
     (97, 'Add Plex now playing display preferences'),
-    (98, 'Add Plex webhook receiver token metadata')
+    (98, 'Add Plex webhook receiver token metadata'),
+    (99, 'Normalize user ratings to 0-10 provider scale')
 ON CONFLICT (version) DO NOTHING;

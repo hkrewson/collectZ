@@ -238,11 +238,11 @@ function ReminderHistorySummary({ events = [], className = '' }) {
 }
 
 function StarRating({ value = 0, onChange, readOnly = false }) {
-  const safe = Number(value) || 0;
+  const safe = Math.max(0, Math.min(5, Number(value) || 0));
   return (
     <div className="star-wrap">
       {[1, 2, 3, 4, 5].map((star) => {
-        const fill = safe >= star ? 1 : safe >= star - 0.5 ? 0.5 : 0;
+        const fill = Math.max(0, Math.min(1, safe - (star - 1)));
         return (
           <button
             key={star}
@@ -263,6 +263,18 @@ function StarRating({ value = 0, onChange, readOnly = false }) {
       <span className="ml-1.5 text-xs text-ghost font-mono">{safe.toFixed(1)}</span>
     </div>
   );
+}
+
+function userRatingToStars(value) {
+  const rating = Number(value);
+  if (!Number.isFinite(rating)) return 0;
+  return Math.max(0, Math.min(5, rating / 2));
+}
+
+function starsToUserRating(value) {
+  const stars = Number(value);
+  if (!Number.isFinite(stars)) return null;
+  return Number((Math.max(0, Math.min(5, stars)) * 2).toFixed(1));
 }
 
 function BookCaptureStatusCard({ state }) {
@@ -449,7 +461,7 @@ function MediaCard({ item, onOpen, onEdit, onDelete, onRating, supportsHover, se
       subtitle={`${item.year || '—'}${item.director ? ` · ${item.director}` : ''}${item.media_type === 'tv_series' && item.tv_all_seasons_completed ? ' · Completed' : ''}`}
       meta={
         <div onClick={(e) => e.stopPropagation()}>
-          <StarRating value={item.user_rating || 0} onChange={(r) => onRating(item.id, r)} />
+          <StarRating value={userRatingToStars(item.user_rating)} onChange={(r) => onRating(item.id, starsToUserRating(r))} />
         </div>
       }
     />
@@ -531,7 +543,7 @@ function MediaListRow({ item, onOpen, onEdit, onDelete, onRating, supportsHover,
         )}
         {item.genre && <p className="text-xs text-ghost/70 mt-0.5 truncate">{item.genre}</p>}
       </div>
-      <div onClick={(e) => e.stopPropagation()} className="sm:shrink-0"><StarRating value={item.user_rating || 0} onChange={(r) => onRating(item.id, r)} /></div>
+      <div onClick={(e) => e.stopPropagation()} className="sm:shrink-0"><StarRating value={userRatingToStars(item.user_rating)} onChange={(r) => onRating(item.id, starsToUserRating(r))} /></div>
       <div className={cx('flex flex-wrap gap-2 transition-opacity duration-150 sm:shrink-0', supportsHover ? 'opacity-100 sm:opacity-0 sm:group-hover:opacity-100' : 'opacity-100')}>
         <button onClick={(e) => { e.stopPropagation(); onEdit(item); }} className="btn-ghost btn-sm"><Icons.Edit /></button>
         <button onClick={(e) => { e.stopPropagation(); onDelete(item.id); }} className="btn-ghost btn-sm text-err hover:bg-err/10"><Icons.Trash /></button>
@@ -2181,7 +2193,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
               <div className="space-y-5">
                 <div>
                   <p className="label mb-2">Your Rating</p>
-                  <StarRating value={item.user_rating || 0} onChange={(r) => onRating(item.id, r)} />
+                  <StarRating value={userRatingToStars(item.user_rating)} onChange={(r) => onRating(item.id, starsToUserRating(r))} />
                   {showPlexWritebackControls ? (
                     <PlexWritebackControls
                       item={item}
@@ -2327,7 +2339,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
 
               <div>
                 <p className="label mb-2">Your Rating</p>
-                <StarRating value={item.user_rating || 0} onChange={(r) => onRating(item.id, r)} />
+                <StarRating value={userRatingToStars(item.user_rating)} onChange={(r) => onRating(item.id, starsToUserRating(r))} />
                 {showPlexWritebackControls ? (
                   <PlexWritebackControls
                     item={item}
@@ -3951,7 +3963,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
                     </>
                   )}
 
-                  {!isMovieOrTv && <LabeledField label="Your Rating" className="md:col-span-2"><StarRating value={form.user_rating || 0} onChange={(v) => set({ user_rating: v })} /></LabeledField>}
+                  {!isMovieOrTv && <LabeledField label="Your Rating" className="md:col-span-2"><StarRating value={userRatingToStars(form.user_rating)} onChange={(v) => set({ user_rating: starsToUserRating(v) })} /></LabeledField>}
                 </div>
 
                 {isMovieOrTv && (
@@ -3965,7 +3977,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
                       <input className="input" inputMode="decimal" placeholder="0.0 – 10.0" value={form.rating} onChange={(e) => set({ rating: e.target.value })} />
                     </LabeledField>
                     <LabeledField label="Your Rating">
-                      <StarRating value={form.user_rating || 0} onChange={(v) => set({ user_rating: v })} />
+                      <StarRating value={userRatingToStars(form.user_rating)} onChange={(v) => set({ user_rating: starsToUserRating(v) })} />
                     </LabeledField>
                   </div>
                 )}

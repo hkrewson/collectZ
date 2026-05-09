@@ -119,7 +119,7 @@ const mediaBaseSchema = z.object({
   director: z.string().max(255).optional().nullable(),
   cast: z.string().max(1000).optional().nullable(),
   rating: nullableNumberSchema(z.number().min(0).max(10)),
-  user_rating: nullableNumberSchema(z.number().min(0).max(5)),
+  user_rating: nullableNumberSchema(z.number().min(0).max(10)),
   runtime: nullableNumberSchema(z.number().int().min(1).max(9999)),
   upc: z.string().max(50).optional().nullable(),
   signed_by: z.string().max(255).optional().nullable(),
