@@ -1,6 +1,6 @@
 {
   "name": "mediavault-backend",
-  "version": "3.4.145",
+  "version": "3.4.146",
   "description": "collectZ Backend API",
   "main": "server.js",
   "scripts": {
@@ -91,6 +91,7 @@
     "test:plex-provider-discovery-smoke": "node scripts/plex-provider-discovery-smoke.js",
     "test:plex-provider-readback-smoke": "node scripts/plex-provider-readback-smoke.js",
     "test:plex-provider-import-parity-smoke": "node scripts/plex-provider-import-parity-smoke.js",
+    "test:plex-provider-item-listing-discovery-smoke": "node scripts/plex-provider-item-listing-discovery-smoke.js",
     "test:plex-now-playing-provider-proof-smoke": "node scripts/plex-now-playing-provider-proof-smoke.js",
     "test:plex-now-playing-readback-smoke": "node scripts/plex-now-playing-readback-smoke.js",
     "test:plex-real-now-playing-runtime-proof": "node scripts/plex-real-now-playing-runtime-proof.js",

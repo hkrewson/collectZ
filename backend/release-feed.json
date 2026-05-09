@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.146",
+      "version": "3.4.146",
+      "date": null,
+      "status": "released",
+      "summary": "This patch adds a read-only Plex provider item-listing discovery proof. It checks whether `/media/providers` can expose safe content listing candidates before any future migration away from the current legacy section import path.",
+      "details": []
+    },
+    {
       "title": "collectZ v3.4.145",
       "version": "3.4.145",
       "date": null,
@@ -70,14 +78,6 @@
       "date": null,
       "status": null,
       "summary": "This patch adds a queued Plex reconciliation preview job.",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.4.136",
-      "version": "v3.4.136",
-      "date": null,
-      "status": null,
-      "summary": "This patch adds a read-only Plex full-library reconciliation preview.",
       "details": []
     }
   ]

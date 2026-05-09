@@ -1,0 +1,52 @@
+{
+  "generatedAt": "2026-05-09T21:34:12.045Z",
+  "provider": "plex",
+  "processingMode": "provider_item_listing_discovery_contract",
+  "readOnly": true,
+  "importMutation": false,
+  "plexWriteback": false,
+  "discoverySource": {
+    "path": "/media/providers",
+    "providerCount": 1,
+    "candidateCount": 2
+  },
+  "providerItemListingCandidates": [
+    {
+      "providerKey": "com.plexapp.plugins.library",
+      "featureKey": "content",
+      "key": "/library/sections/1/all",
+      "title": "Movies",
+      "type": "movie",
+      "content": true
+    },
+    {
+      "providerKey": "com.plexapp.plugins.library",
+      "featureKey": "content",
+      "key": "/library/sections/2/all",
+      "title": "TV Shows",
+      "type": "show",
+      "content": true
+    }
+  ],
+  "decision": "provider_advertised_item_listing_candidates_found_but_import_behavior_remains_legacy_until_real_server_field_parity_is_proven",
+  "nextProofNeeded": [
+    "Probe the saved real PMS provider directories and confirm candidate item rows include Plex rating keys.",
+    "Confirm candidate item rows include strong external identities such as TMDB GUIDs where Plex exposes them.",
+    "Confirm candidate item rows preserve poster/artwork keys, media variants, season/episode counts, watched state, and user ratings before replacing legacy section imports."
+  ],
+  "requests": [
+    {
+      "method": "GET",
+      "pathname": "/media/providers",
+      "hasToken": true,
+      "tokenMatched": true,
+      "accept": "application/json"
+    }
+  ],
+  "assertions": [
+    "provider feature directories can advertise content listing keys",
+    "unsafe absolute provider URLs and token-bearing keys are ignored",
+    "the proof does not call import endpoints or mutate collectZ rows",
+    "legacy import remains current until real-server provider item rows prove field parity"
+  ]
+}

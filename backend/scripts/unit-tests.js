@@ -240,6 +240,7 @@ const plexServiceSource = fs.readFileSync(require.resolve('../services/plex'), '
 const plexProviderDiscoverySmokeSource = fs.readFileSync(require.resolve('../scripts/plex-provider-discovery-smoke'), 'utf8');
 const plexProviderReadbackSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-provider-readback-smoke'), 'utf8');
 const plexProviderImportParitySmokeSource = fs.readFileSync(require.resolve('../scripts/plex-provider-import-parity-smoke'), 'utf8');
+const plexProviderItemListingDiscoverySmokeSource = fs.readFileSync(require.resolve('../scripts/plex-provider-item-listing-discovery-smoke'), 'utf8');
 const plexNowPlayingProviderProofSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-now-playing-provider-proof-smoke'), 'utf8');
 const plexNowPlayingReadbackSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-now-playing-readback-smoke'), 'utf8');
 const plexRealNowPlayingRuntimeProofSource = fs.readFileSync(require.resolve('../scripts/plex-real-now-playing-runtime-proof'), 'utf8');
@@ -1793,6 +1794,20 @@ results.push(run('plex provider import parity proof keeps current import path re
   assert.ok(plexProviderImportParitySmokeSource.includes('assertSecretFree'));
   assert.ok(plexPmsModernizationDocSource.includes('Plex Provider/API Import Parity Contract. Promoted as `3.4.145`.'));
   assert.ok(releaseRoadmapSource.includes('3.4.145 — Plex Provider/API Import Parity Contract'));
+}));
+
+results.push(run('plex provider item listing discovery extracts advertised candidates without changing imports', () => {
+  assert.ok(backendPackageJson.scripts['test:plex-provider-item-listing-discovery-smoke']);
+  assert.ok(plexServiceSource.includes('extractPlexProviderItemListingCandidates'));
+  assert.ok(plexServiceSource.includes('featureDirectories'));
+  assert.ok(plexProviderItemListingDiscoverySmokeSource.includes('provider_item_listing_discovery_contract'));
+  assert.ok(plexProviderItemListingDiscoverySmokeSource.includes('provider_advertised_item_listing_candidates_found_but_import_behavior_remains_legacy_until_real_server_field_parity_is_proven'));
+  assert.ok(plexProviderItemListingDiscoverySmokeSource.includes('/library/sections/1/all'));
+  assert.ok(plexProviderItemListingDiscoverySmokeSource.includes('unsafe absolute provider URLs and token-bearing keys are ignored'));
+  assert.ok(plexProviderItemListingDiscoverySmokeSource.includes("artifacts', 'plex-provider-item-listing-discovery', 'plex-provider-item-listing-discovery-smoke.json"));
+  assert.ok(plexProviderItemListingDiscoverySmokeSource.includes('assertSecretFree'));
+  assert.ok(plexPmsModernizationDocSource.includes('Plex Provider Item-Listing API Discovery. Promoted as `3.4.146`.'));
+  assert.ok(releaseRoadmapSource.includes('3.4.146 — Plex Provider Item-Listing API Discovery'));
 }));
 
 results.push(run('plex real-server provider discovery readback is wired as sanitized admin and workspace probes', () => {

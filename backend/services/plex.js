@@ -230,16 +230,25 @@ const normalizePlexMediaProvider = (provider) => {
   const rawKey = provider.key || provider.identifier || provider.id || provider.uuid || null;
   const key = rawKey ? String(rawKey) : null;
   const title = provider.title || provider.name || provider.displayName || provider.type || null;
-  const features = [
+  const rawFeatures = [
     ...asArray(provider.Feature),
     ...asArray(provider.features)
-  ]
+  ];
+  const features = rawFeatures
     .map((feature) => {
       if (typeof feature === 'string') return feature;
       return feature?.key || feature?.id || feature?.type || feature?.name || null;
     })
     .filter(Boolean)
     .map(String);
+  const featureDirectories = rawFeatures.flatMap((feature) => {
+    if (!feature || typeof feature !== 'object' || typeof feature === 'string') return [];
+    const featureKey = feature.key || feature.id || feature.type || feature.name || null;
+    return [
+      ...asArray(feature.Directory),
+      ...asArray(feature.directories)
+    ].map((directory) => normalizePlexProviderFeatureDirectory(directory, featureKey, key)).filter(Boolean);
+  });
 
   return {
     key,
@@ -247,8 +256,65 @@ const normalizePlexMediaProvider = (provider) => {
     type: provider.type ? String(provider.type) : null,
     protocol: provider.protocol ? String(provider.protocol) : null,
     identifier: provider.identifier ? String(provider.identifier) : null,
-    featureKeys: [...new Set(features)].sort()
+    featureKeys: [...new Set(features)].sort(),
+    featureDirectories
   };
+};
+
+const normalizeProviderBoolean = (value) => {
+  if (value === true || value === 1) return true;
+  if (typeof value === 'string') return ['1', 'true', 'yes'].includes(value.trim().toLowerCase());
+  return false;
+};
+
+const sanitizeProviderDirectoryKey = (value) => {
+  const key = value ? String(value).trim() : '';
+  if (!key) return null;
+  if (/^https?:\/\//i.test(key)) return null;
+  if (/X-Plex-Token=/i.test(key)) return null;
+  return key;
+};
+
+const normalizePlexProviderFeatureDirectory = (directory, featureKey, providerKey) => {
+  if (!directory || typeof directory !== 'object') return null;
+  const key = sanitizeProviderDirectoryKey(directory.key || directory.path || directory.uri);
+  if (!key) return null;
+  return {
+    providerKey: providerKey ? String(providerKey) : null,
+    featureKey: featureKey ? String(featureKey) : null,
+    key,
+    title: directory.title ? String(directory.title) : null,
+    type: directory.type ? String(directory.type) : null,
+    content: normalizeProviderBoolean(directory.content),
+    hubKey: sanitizeProviderDirectoryKey(directory.hubKey),
+    identifier: directory.identifier ? String(directory.identifier) : null,
+    filter: directory.filter ? String(directory.filter) : null
+  };
+};
+
+const extractPlexProviderItemListingCandidates = (providers = []) => {
+  const candidates = [];
+  const seen = new Set();
+  for (const provider of asArray(providers)) {
+    for (const directory of asArray(provider?.featureDirectories)) {
+      const key = sanitizeProviderDirectoryKey(directory?.key);
+      if (!key || !key.startsWith('/')) continue;
+      const looksLikeItemListing = directory.content === true || /\/library\/sections\/[^/]+\/all(?:$|[?#])/.test(key);
+      if (!looksLikeItemListing) continue;
+      const uniqueKey = `${provider?.key || ''}:${key}`;
+      if (seen.has(uniqueKey)) continue;
+      seen.add(uniqueKey);
+      candidates.push({
+        providerKey: provider?.key || directory.providerKey || null,
+        featureKey: directory.featureKey || null,
+        key,
+        title: directory.title || null,
+        type: directory.type || null,
+        content: directory.content === true
+      });
+    }
+  }
+  return candidates;
 };
 
 const parsePlexNowPlayingSessions = (payload) => {
@@ -1216,6 +1282,8 @@ module.exports = {
   fetchPlexSeasonEpisodeStates,
   parsePlexMediaProviders,
   normalizePlexMediaProvider,
+  normalizePlexProviderFeatureDirectory,
+  extractPlexProviderItemListingCandidates,
   parsePlexNowPlayingSessions,
   normalizePlexNowPlayingSession,
   parsePlexWatchStateEntries,
