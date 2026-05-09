@@ -4705,7 +4705,61 @@ async function findPlexLinkedMediaForWatchStateWriteback({ mediaId = null, ratin
   return findPlexLinkedMediaForWriteback({ mediaId, ratingKey, scopeContext });
 }
 
-async function writePlexWatchStateForMedia({ mediaId = null, ratingKey = null, action, scopeContext = {} } = {}) {
+function normalizePositiveInteger(value) {
+  const numeric = Number(value);
+  return Number.isInteger(numeric) && numeric > 0 ? numeric : null;
+}
+
+async function applyPlexTvEpisodeWritebackState({ media, entries = [], action, seasonNumber = null } = {}) {
+  const groupedBySeason = new Map();
+  for (const entry of entries) {
+    const entrySeason = normalizePositiveInteger(entry?.seasonNumber);
+    if (!entrySeason) continue;
+    const group = groupedBySeason.get(entrySeason) || [];
+    group.push(entry);
+    groupedBySeason.set(entrySeason, group);
+  }
+
+  const updatedAt = new Date().toISOString();
+  const watchState = action === 'scrobble' ? 'completed' : 'unwatched';
+  for (const [entrySeason, seasonEntries] of groupedBySeason.entries()) {
+    if (seasonNumber && entrySeason !== seasonNumber) continue;
+    const availableEpisodes = seasonEntries.length;
+    await pool.query(
+      `INSERT INTO media_seasons (
+         media_id, season_number, source, available_episodes, watch_state, last_watched_at, is_complete
+       )
+       VALUES ($1, $2, 'plex_watch_writeback', $3, $4, $5, $6)
+       ON CONFLICT (media_id, season_number)
+       DO UPDATE SET
+         source = 'plex_watch_writeback',
+         available_episodes = GREATEST(COALESCE(media_seasons.available_episodes, 0), EXCLUDED.available_episodes),
+         watch_state = EXCLUDED.watch_state,
+         last_watched_at = COALESCE(EXCLUDED.last_watched_at, media_seasons.last_watched_at),
+         is_complete = CASE
+           WHEN EXCLUDED.watch_state = 'completed' THEN TRUE
+           WHEN EXCLUDED.watch_state = 'unwatched' THEN FALSE
+           ELSE media_seasons.is_complete
+         END`,
+      [
+        media.id,
+        entrySeason,
+        availableEpisodes,
+        watchState,
+        action === 'scrobble' ? updatedAt : null,
+        action === 'scrobble'
+      ]
+    );
+  }
+
+  return {
+    updatedAt,
+    watchState,
+    seasonCount: groupedBySeason.size
+  };
+}
+
+async function writePlexWatchStateForMedia({ mediaId = null, ratingKey = null, action, seasonNumber = null, scopeContext = {} } = {}) {
   const normalizedAction = String(action || '').trim().toLowerCase();
   if (!['scrobble', 'unscrobble'].includes(normalizedAction)) {
     const error = new Error('action must be scrobble or unscrobble');
@@ -4717,11 +4771,6 @@ async function writePlexWatchStateForMedia({ mediaId = null, ratingKey = null, a
   if (!media) {
     const error = new Error('No existing Plex-linked media row matched this watched-state writeback request');
     error.status = 404;
-    throw error;
-  }
-  if (media.media_type === 'tv_series') {
-    const error = new Error('Plex watched-state writeback for TV series requires a later episode-aware slice');
-    error.status = 400;
     throw error;
   }
 
@@ -4737,6 +4786,69 @@ async function writePlexWatchStateForMedia({ mediaId = null, ratingKey = null, a
     const error = new Error('Plex API URL and key are required before watched-state writeback');
     error.status = 400;
     throw error;
+  }
+
+  const requestedSeasonNumber = normalizePositiveInteger(seasonNumber);
+  if (media.media_type === 'tv_series') {
+    const snapshot = await fetchPlexWatchStateSnapshot(config, {
+      leafRatingKeys: [resolvedRatingKey]
+    });
+    const episodeEntries = (snapshot.entries || []).filter((entry) => {
+      if (String(entry?.type || '').trim().toLowerCase() !== 'episode') return false;
+      if (!normalizePlexRatingKeyValue(entry.ratingKey)) return false;
+      if (!requestedSeasonNumber) return true;
+      return normalizePositiveInteger(entry.seasonNumber) === requestedSeasonNumber;
+    });
+    if (episodeEntries.length === 0) {
+      const error = new Error(requestedSeasonNumber
+        ? `Plex did not return episode keys for season ${requestedSeasonNumber}; TV watched-state writeback needs episode-level Plex rows`
+        : 'Plex did not return episode keys for this series; TV watched-state writeback needs episode-level Plex rows');
+      error.status = 400;
+      throw error;
+    }
+
+    const writebacks = [];
+    for (const entry of episodeEntries) {
+      writebacks.push(await sendPlexWatchedStateWriteback(config, {
+        ratingKey: normalizePlexRatingKeyValue(entry.ratingKey),
+        action: normalizedAction
+      }));
+    }
+    const stateUpdate = await applyPlexTvEpisodeWritebackState({
+      media,
+      entries: episodeEntries,
+      action: normalizedAction,
+      seasonNumber: requestedSeasonNumber
+    });
+    const updatedAt = stateUpdate.updatedAt;
+    await upsertMediaMetadataEntry(media.id, 'plex_watch_writeback_last_action', normalizedAction);
+    await upsertMediaMetadataEntry(media.id, 'plex_watch_writeback_rating_key', resolvedRatingKey);
+    await upsertMediaMetadataEntry(media.id, 'plex_watch_writeback_episode_count', String(episodeEntries.length));
+    await upsertMediaMetadataEntry(media.id, 'plex_watch_writeback_updated_at', updatedAt);
+    await upsertMediaMetadataEntry(media.id, 'plex_watch_writeback_status', 'success');
+    if (!requestedSeasonNumber) {
+      await upsertMediaMetadataEntry(media.id, 'plex_watch_state', stateUpdate.watchState);
+    }
+    await upsertMediaMetadataEntry(media.id, 'plex_watch_state_updated_at', updatedAt);
+
+    return {
+      media: {
+        id: Number(media.id),
+        title: media.title || null,
+        mediaType: media.media_type
+      },
+      ratingKey: resolvedRatingKey,
+      action: normalizedAction,
+      watched: normalizedAction === 'scrobble',
+      episodeWriteback: {
+        episodeCount: episodeEntries.length,
+        seasonNumber: requestedSeasonNumber,
+        seasonCount: stateUpdate.seasonCount,
+        readbacks: snapshot.readbacks || []
+      },
+      writeback: writebacks[0],
+      writebacks
+    };
   }
 
   const writeback = await sendPlexWatchedStateWriteback(config, {
@@ -13600,6 +13712,7 @@ router.post('/write-plex-watch-state', asyncHandler(async (req, res) => {
 
   const mediaId = req.body?.mediaId;
   const ratingKey = req.body?.ratingKey;
+  const seasonNumber = req.body?.seasonNumber;
   const action = String(req.body?.action || '').trim().toLowerCase();
   if (!mediaId && !ratingKey) {
     return res.status(400).json({ error: 'Provide mediaId or ratingKey for Plex watched-state writeback' });
@@ -13610,6 +13723,7 @@ router.post('/write-plex-watch-state', asyncHandler(async (req, res) => {
       mediaId,
       ratingKey,
       action,
+      seasonNumber,
       scopeContext: effectiveScopeContext
     });
     await logActivity(req, 'media.plex.watch_state.writeback', 'media', result.media.id, {
@@ -13617,6 +13731,8 @@ router.post('/write-plex-watch-state', asyncHandler(async (req, res) => {
       action: result.action,
       watched: result.watched,
       ratingKey: result.ratingKey,
+      seasonNumber: result.episodeWriteback?.seasonNumber || null,
+      episodeCount: result.episodeWriteback?.episodeCount || null,
       method: result.writeback.request.method,
       path: result.writeback.request.path
     });
@@ -13630,6 +13746,7 @@ router.post('/write-plex-watch-state', asyncHandler(async (req, res) => {
       action: result.action,
       watched: result.watched,
       ratingKey: result.ratingKey,
+      episodeWriteback: result.episodeWriteback || null,
       request: result.writeback.request
     });
   } catch (error) {

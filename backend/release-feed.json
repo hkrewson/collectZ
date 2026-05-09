@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.142",
+      "version": "3.4.142",
+      "date": null,
+      "status": "released",
+      "summary": "This patch makes Plex TV watched-state writeback episode-aware instead of blocking TV series outright.",
+      "details": []
+    },
+    {
       "title": "collectZ v3.4.141",
       "version": "v3.4.141",
       "date": null,
@@ -70,14 +78,6 @@
       "date": null,
       "status": null,
       "summary": "This patch adds explicit Plex watched-state writeback for one existing Plex-linked collectZ row.",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.4.132",
-      "version": "v3.4.132",
-      "date": null,
-      "status": null,
-      "summary": "This patch proves the Plex watched-state writeback contract before enabling any real app-driven Plex mutation.",
       "details": []
     }
   ]

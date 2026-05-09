@@ -10473,6 +10473,37 @@ Historical note:
 - What remains in the milestone: no implementation work remains for `3.4.141`; CI must still confirm the CI-only `secret-scan` and `image-security-and-sbom` gates and stricter secure-cookie compose-smoke conditions.
 - Recommended commit message: `Release 3.4.141 with Plex reconciliation full-scan and scheduler automation`.
 
+## 3.4.142 — Plex Episode-Aware TV Sync and Writeback
+
+**Goal:** Allow explicit Plex watched-state writeback for TV seasons by resolving episode-level Plex keys first, instead of treating a series row as a single watched-state target.
+
+### Scope
+
+- Remove the hard backend block that prevented Plex watched-state writeback for `tv_series`.
+- Resolve TV writeback through Plex `/library/metadata/:ratingKey/allLeaves` and send scrobble/unscrobble only for concrete episode rating keys.
+- Add season-scoped watched/unwatched Plex controls in the TV season detail area.
+- Update local `media_seasons` watch state after successful episode writeback.
+- Keep automatic Plex watched-state writeback, broad TV import rewrites, episode-row fan-out, and reconciliation conflict resolution out of scope.
+
+### Acceptance Criteria
+
+- Movie watched-state writeback still uses the existing single item path.
+- TV season writeback fails clearly when Plex does not return episode leaves.
+- Season-scoped TV writeback only sends Plex mutation calls for episodes in the selected season.
+- Runtime smoke proves fake PMS episode leaf readback plus episode-key scrobble without creating new media rows.
+- Version metadata, release note, release feed, and Help > Releases include `3.4.142`.
+
+### Closeout
+
+- Roadmap slice: `3.4.142 — Plex Episode-Aware TV Sync and Writeback`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`; `docs/wiki/08-Backlog.md`; `docs/releases/v3.4.142.md`.
+- Runtime verification used: Docker-first stack rebuilt/restored with `APP_VERSION=3.4.142`; `/api/health` served backend/frontend/build `3.4.142`; running backend env reported `APP_EDITION=platform`, `APP_VERSION=3.4.142`, `PLEX_RECONCILIATION_SYNC_ENABLED=false`, `PLEX_RECONCILIATION_SYNC_INTERVAL_MINUTES=360`, empty `PLEX_RECONCILIATION_SYNC_LIMIT`, and `PLEX_WATCH_STATE_REFRESH_ENABLED=false`; live DB kept `events_enabled=true` and `collectibles_enabled=true`; Plex watched-state writeback smoke used a fake PMS to prove movie scrobble/unscrobble, TV season `allLeaves` readback, two episode-key scrobbles for season 1, no new media rows, no whole-series watched marker for a season writeback, and token-safe evidence; Help > Releases served `3.4.142`; homelab boundary passed under a temporary local homelab override, then the stack was restored to platform.
+- CI/checks run: `node --check backend/routes/media.js`; `node --check backend/scripts/plex-watched-state-writeback-smoke.js`; Docker `npm run test:unit`; Docker `npm run test:openapi`; Docker `npm run test:init-parity`; Docker `npm run test:integration-smoke`; Docker `npm run test:plex-watched-state-writeback-smoke`; Docker `npm run test:help-releases-smoke`; Docker `npm run test:rbac-regression` with `BASE_URL=http://frontend:3000`; Docker `npm run test:platform-edition-boundary` with `BASE_URL=http://frontend:3000`; Docker `npm run test:homelab-edition-boundary` with `BASE_URL=http://frontend:3000`; Playwright browser regression via bundled Node passed `64 passed, 4 skipped`; `npm --prefix backend run test:observability-evidence`; `npm --prefix backend run test:release-preflight-local`; `git diff --check`; targeted secret scan over new release/evidence artifacts. Local preflight marked CI-only `secret-scan` and `image-security-and-sbom` blocked for CI follow-through, and compose-smoke secure-cookie conditions blocked in the dev stack.
+- Files changed: `app-meta.json`; `backend/app-meta.json`; `backend/openapi/openapi.yaml`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/routes/media.js`; `backend/scripts/plex-watched-state-writeback-smoke.js`; `backend/scripts/unit-tests.js`; `docker-compose.yml`; `docs/releases/v3.4.142.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/LibraryView.jsx`; `preflight-go-no-go.md`; `scripts/generate-public-compose.js`; generated evidence under `artifacts/observability-evidence/`.
+- Risks/follow-ups: TV writeback now has safe season-level mutation, but automatic TV watched-state writeback remains intentionally out of scope; broader conflict automation and episode-row fan-out remain separate Plex/Kavita-style follow-up work.
+- What remains in the milestone: Nothing for `3.4.142`; CI-only release gates still need their normal GitHub run.
+- Recommended commit message: `Release 3.4.142 with Plex episode-aware TV watched-state writeback`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

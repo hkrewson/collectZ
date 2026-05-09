@@ -9471,7 +9471,7 @@
     "/api/media/write-plex-watch-state": {
       "post": {
         "tags": ["Media"],
-        "summary": "Write an explicit watched-state action back to Plex for one existing Plex-linked row",
+        "summary": "Write an explicit watched-state action back to Plex for one existing Plex-linked row or TV season",
         "security": [
           { "cookieSession": [], "csrfHeader": [] },
           { "bearerAuth": [] }
@@ -9487,6 +9487,11 @@
                 "properties": {
                   "mediaId": { "type": "integer", "minimum": 1 },
                   "ratingKey": { "type": "string", "minLength": 1 },
+                  "seasonNumber": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Optional TV season number. For Plex-linked TV series, collectZ resolves episode leaves and writes each episode key."
+                  },
                   "action": {
                     "type": "string",
                     "enum": ["scrobble", "unscrobble"]
@@ -9506,7 +9511,7 @@
             }
           },
           "400": {
-            "description": "Configuration, scope, unsupported media, or input error",
+            "description": "Configuration, scope, episode-resolution, or input error",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/Error" }

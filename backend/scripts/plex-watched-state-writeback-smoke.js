@@ -190,10 +190,50 @@ async function startFakePmsServer() {
       res.end(JSON.stringify({ error: 'unauthorized' }));
       return;
     }
+    if (url.pathname === '/library/metadata/7200/allLeaves' && req.method === 'GET') {
+      res.writeHead(200);
+      res.end(JSON.stringify({
+        MediaContainer: {
+          Metadata: [
+            {
+              ratingKey: '7201',
+              type: 'episode',
+              title: 'Episode One',
+              grandparentTitle: 'Watch Writeback Show',
+              grandparentRatingKey: '7200',
+              parentIndex: 1,
+              index: 1,
+              duration: 1800000
+            },
+            {
+              ratingKey: '7202',
+              type: 'episode',
+              title: 'Episode Two',
+              grandparentTitle: 'Watch Writeback Show',
+              grandparentRatingKey: '7200',
+              parentIndex: 1,
+              index: 2,
+              duration: 1800000
+            },
+            {
+              ratingKey: '7301',
+              type: 'episode',
+              title: 'Other Season Episode',
+              grandparentTitle: 'Watch Writeback Show',
+              grandparentRatingKey: '7200',
+              parentIndex: 2,
+              index: 1,
+              duration: 1800000
+            }
+          ]
+        }
+      }));
+      return;
+    }
     if ((url.pathname === '/:/scrobble' || url.pathname === '/:/unscrobble')
       && req.method === 'PUT'
       && url.searchParams.get('identifier') === 'com.plexapp.plugins.library'
-      && url.searchParams.get('key') === '6201') {
+      && ['6201', '7201', '7202'].includes(url.searchParams.get('key'))) {
       res.writeHead(200);
       res.end(JSON.stringify({ ok: true }));
       return;
@@ -247,6 +287,24 @@ async function main() {
        VALUES ($1, 'plex_item_key', '1:6201')`,
       [movieId]
     );
+    const show = await pool.query(
+      `INSERT INTO media (title, media_type, format, library_id, space_id, added_by, import_source)
+       VALUES ('Watch Writeback Show', 'tv_series', 'Digital', $1, $2, $3, 'manual')
+       RETURNING id`,
+      [libraryId, spaceId, userId]
+    );
+    const showId = Number(show.rows[0].id);
+    mediaIds.push(showId);
+    await pool.query(
+      `INSERT INTO media_metadata (media_id, "key", "value")
+       VALUES ($1, 'plex_item_key', '1:7200')`,
+      [showId]
+    );
+    await pool.query(
+      `INSERT INTO media_seasons (media_id, season_number, expected_episodes, available_episodes, watch_state, source)
+       VALUES ($1, 1, 2, 2, 'unwatched', 'manual_tv_season')`,
+      [showId]
+    );
 
     const beforeCount = await pool.query('SELECT COUNT(*)::int AS count FROM media WHERE library_id = $1', [libraryId]);
     const scrobble = await client.request('/api/media/write-plex-watch-state', {
@@ -261,13 +319,24 @@ async function main() {
       expectStatus: 200,
       body: { ratingKey: '6201', action: 'unscrobble' }
     });
+    const seasonScrobble = await client.request('/api/media/write-plex-watch-state', {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 200,
+      body: { mediaId: showId, action: 'scrobble', seasonNumber: 1 }
+    });
 
     assert(scrobble.data?.processingMode === 'watch_state_writeback', `Unexpected scrobble mode: ${JSON.stringify(scrobble.data)}`);
     assert(unscrobble.data?.processingMode === 'watch_state_writeback', `Unexpected unscrobble mode: ${JSON.stringify(unscrobble.data)}`);
+    assert(seasonScrobble.data?.processingMode === 'watch_state_writeback', `Unexpected season scrobble mode: ${JSON.stringify(seasonScrobble.data)}`);
     assert(scrobble.data?.request?.method === 'PUT', `Expected scrobble PUT: ${JSON.stringify(scrobble.data)}`);
     assert(unscrobble.data?.request?.method === 'PUT', `Expected unscrobble PUT: ${JSON.stringify(unscrobble.data)}`);
+    assert(seasonScrobble.data?.request?.method === 'PUT', `Expected season scrobble PUT: ${JSON.stringify(seasonScrobble.data)}`);
     assert(scrobble.data?.request?.path === '/:/scrobble', `Expected scrobble path: ${JSON.stringify(scrobble.data)}`);
     assert(unscrobble.data?.request?.path === '/:/unscrobble', `Expected unscrobble path: ${JSON.stringify(unscrobble.data)}`);
+    assert(seasonScrobble.data?.request?.path === '/:/scrobble', `Expected season scrobble path: ${JSON.stringify(seasonScrobble.data)}`);
+    assert(Number(seasonScrobble.data?.episodeWriteback?.episodeCount || 0) === 2, `Expected two season episodes: ${JSON.stringify(seasonScrobble.data)}`);
+    assert(Number(seasonScrobble.data?.episodeWriteback?.seasonNumber || 0) === 1, `Expected season one writeback: ${JSON.stringify(seasonScrobble.data)}`);
     assert(scrobble.data?.plexWriteback === true && scrobble.data?.readOnlyPlex === false, 'Expected explicit Plex writeback flags');
 
     const afterCount = await pool.query('SELECT COUNT(*)::int AS count FROM media WHERE library_id = $1', [libraryId]);
@@ -285,8 +354,25 @@ async function main() {
     assert(metadataMap.get('plex_watch_writeback_rating_key') === '6201', `Expected rating key metadata: ${JSON.stringify(metadata.rows)}`);
     assert(metadataMap.get('plex_watch_writeback_status') === 'success', `Expected success metadata: ${JSON.stringify(metadata.rows)}`);
     assert(metadataMap.get('plex_watch_state') === 'unwatched', `Expected final watch state metadata: ${JSON.stringify(metadata.rows)}`);
-    assert(fake.requests.length === 2, `Expected two fake PMS writebacks: ${JSON.stringify(fake.requests)}`);
-    assert(fake.requests.every((entry) => entry.method === 'PUT'), `Expected PUT requests: ${JSON.stringify(fake.requests)}`);
+    const season = await pool.query(
+      `SELECT season_number, watch_state, available_episodes, is_complete, source
+       FROM media_seasons
+       WHERE media_id = $1 AND season_number = 1`,
+      [showId]
+    );
+    assert(season.rows[0]?.watch_state === 'completed', `Expected season completed state: ${JSON.stringify(season.rows[0])}`);
+    assert(season.rows[0]?.is_complete === true, `Expected season complete flag: ${JSON.stringify(season.rows[0])}`);
+    assert(Number(season.rows[0]?.available_episodes) === 2, `Expected season available episode count: ${JSON.stringify(season.rows[0])}`);
+    const seriesState = await pool.query(
+      `SELECT "key", "value" FROM media_metadata
+       WHERE media_id = $1 AND "key" = 'plex_watch_state'`,
+      [showId]
+    );
+    assert(seriesState.rowCount === 0, `Season writeback should not mark the whole series watched: ${JSON.stringify(seriesState.rows)}`);
+
+    const writebackRequests = fake.requests.filter((entry) => entry.pathname === '/:/scrobble' || entry.pathname === '/:/unscrobble');
+    assert(writebackRequests.length === 4, `Expected four fake PMS writebacks: ${JSON.stringify(fake.requests)}`);
+    assert(writebackRequests.every((entry) => entry.method === 'PUT'), `Expected PUT requests: ${JSON.stringify(writebackRequests)}`);
     assert(fake.requests.some((entry) => entry.pathname === '/:/scrobble'), `Expected scrobble request: ${JSON.stringify(fake.requests)}`);
     assert(fake.requests.some((entry) => entry.pathname === '/:/unscrobble'), `Expected unscrobble request: ${JSON.stringify(fake.requests)}`);
     assert(fake.requests.every((entry) => entry.hasToken && entry.tokenMatched), 'Expected fake PMS requests to authenticate');
@@ -300,6 +386,13 @@ async function main() {
       mediaId: movieId,
       finalWatchState: metadataMap.get('plex_watch_state'),
       lastAction: metadataMap.get('plex_watch_writeback_last_action'),
+      tvSeries: {
+        mediaId: showId,
+        seasonNumber: Number(season.rows[0]?.season_number || 0),
+        seasonWatchState: season.rows[0]?.watch_state || null,
+        seriesWatchStateMetadata: null,
+        episodeWritebackCount: seasonScrobble.data?.episodeWriteback?.episodeCount || 0
+      },
       requests: fake.requests.map((entry) => ({
         method: entry.method,
         pathname: entry.pathname,
@@ -310,6 +403,8 @@ async function main() {
       })),
       assertions: [
         'Explicit watched-state writeback called Plex scrobble and unscrobble',
+        'TV season writeback resolved Plex episode leaves before scrobbling episode keys',
+        'TV season writeback did not mark the whole series watched',
         'No new media rows were created during watched-state writeback',
         'Writeback response and evidence stayed token-safe'
       ]

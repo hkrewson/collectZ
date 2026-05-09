@@ -106,7 +106,6 @@ function OwnedFormatPicker({ mediaType, value = [], onChange }) {
 }
 
 function PlexWritebackControls({ item, loading, onWriteRating, onWriteWatchState }) {
-  const isTvSeries = item?.media_type === 'tv_series';
   return (
     <div className="mt-3 flex flex-wrap items-center gap-2" data-testid="plex-writeback-controls">
       <button
@@ -119,7 +118,7 @@ function PlexWritebackControls({ item, loading, onWriteRating, onWriteWatchState
         {loading === 'rating' ? <Spinner size={14} /> : <Icons.Star />}
         Push rating to Plex
       </button>
-      {!isTvSeries ? (
+      {item?.media_type !== 'tv_series' ? (
         <>
           <button
             type="button"
@@ -1014,16 +1013,26 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
     }
   };
 
-  const writePlexWatchState = async (action) => {
+  const writePlexWatchState = async (action, options = {}) => {
     if (!item?.id || plexWritebackLoading) return;
-    setPlexWritebackLoading(action);
+    const seasonNumber = Number(options.seasonNumber);
+    const loadingKey = Number.isInteger(seasonNumber) && seasonNumber > 0
+      ? `${action}:season:${seasonNumber}`
+      : action;
+    setPlexWritebackLoading(loadingKey);
     try {
-      await apiCall('post', '/media/write-plex-watch-state', {
+      const payload = {
         mediaId: item.id,
         action
-      });
+      };
+      if (Number.isInteger(seasonNumber) && seasonNumber > 0) payload.seasonNumber = seasonNumber;
+      const response = await apiCall('post', '/media/write-plex-watch-state', payload);
       await onValuationUpdated?.(item.id);
-      onToast?.(action === 'scrobble' ? 'Marked watched in Plex' : 'Marked unwatched in Plex');
+      const episodeCount = Number(response?.episodeWriteback?.episodeCount || 0);
+      const seasonLabel = Number.isInteger(seasonNumber) && seasonNumber > 0 ? ` season ${seasonNumber}` : '';
+      onToast?.(episodeCount > 0
+        ? `${episodeCount} Plex episode${episodeCount === 1 ? '' : 's'} updated for${seasonLabel || ' this series'}`
+        : (action === 'scrobble' ? 'Marked watched in Plex' : 'Marked unwatched in Plex'));
     } catch (error) {
       onToast?.(error?.response?.data?.error || 'Failed to update Plex watched state', 'error');
     } finally {
@@ -2281,15 +2290,41 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                                   ].filter(Boolean).join(' · ') || 'No TMDB season metadata available'}
                                 </p>
                               </div>
-                              <button
-                                type="button"
-                                className="text-sm font-medium text-dim transition-colors hover:text-ink disabled:cursor-default disabled:opacity-50"
-                                onClick={() => markSeasonWatched(key)}
-                                disabled={Boolean(seasonSaving[key]) || activeSeasonVariant.watch_state === 'completed'}
-                              >
-                                {seasonSaving[key] ? <Spinner size={14} /> : null}
-                                {seasonSaving[key] ? 'Saving…' : 'Mark season watched'}
-                              </button>
+                              <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                                <button
+                                  type="button"
+                                  className="text-sm font-medium text-dim transition-colors hover:text-ink disabled:cursor-default disabled:opacity-50"
+                                  onClick={() => markSeasonWatched(key)}
+                                  disabled={Boolean(seasonSaving[key]) || activeSeasonVariant.watch_state === 'completed'}
+                                >
+                                  {seasonSaving[key] ? <Spinner size={14} /> : null}
+                                  {seasonSaving[key] ? 'Saving…' : 'Mark season watched'}
+                                </button>
+                                {showPlexWritebackControls ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      className="btn-secondary btn-sm"
+                                      onClick={() => writePlexWatchState('scrobble', { seasonNumber: key })}
+                                      disabled={Boolean(plexWritebackLoading)}
+                                      data-testid="plex-season-watch-scrobble-button"
+                                    >
+                                      {plexWritebackLoading === `scrobble:season:${key}` ? <Spinner size={14} /> : <Icons.Check />}
+                                      Plex watched
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="btn-secondary btn-sm"
+                                      onClick={() => writePlexWatchState('unscrobble', { seasonNumber: key })}
+                                      disabled={Boolean(plexWritebackLoading)}
+                                      data-testid="plex-season-watch-unscrobble-button"
+                                    >
+                                      {plexWritebackLoading === `unscrobble:season:${key}` ? <Spinner size={14} /> : <Icons.Refresh />}
+                                      Plex unwatched
+                                    </button>
+                                  </>
+                                ) : null}
+                              </div>
                             </div>
                             {seasonDetailLoading[key] && (
                               <p className="text-xs text-ghost">Loading season metadata…</p>

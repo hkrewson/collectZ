@@ -1516,23 +1516,29 @@ results.push(run('plex watched-state writeback contract smoke proves PUT scrobbl
   assert.ok(releaseRoadmapSource.includes('3.4.132 — Plex Watched-State Writeback Contract'));
 }));
 
-results.push(run('plex watched-state writeback implementation stays explicit and single-row scoped', () => {
+results.push(run('plex watched-state writeback implementation stays explicit and episode-aware for TV', () => {
   assert.ok(backendPackageJson.scripts['test:plex-watched-state-writeback-smoke']);
   assert.ok(plexServiceSource.includes('sendPlexWatchedStateWriteback'));
   assert.ok(mediaRoutesSource.includes("router.post('/write-plex-watch-state'"));
   assert.ok(mediaRoutesSource.includes('writePlexWatchStateForMedia'));
   assert.ok(mediaRoutesSource.includes("'media.plex.watch_state.writeback'"));
   assert.ok(mediaRoutesSource.includes("'plex_watch_writeback_last_action'"));
-  assert.ok(mediaRoutesSource.includes('TV series requires a later episode-aware slice'));
+  assert.ok(mediaRoutesSource.includes('episodeWriteback'));
+  assert.ok(mediaRoutesSource.includes('fetchPlexWatchStateSnapshot(config'));
+  assert.ok(mediaRoutesSource.includes('plex_watch_writeback_episode_count'));
   assert.ok(openApiSource.includes('/api/media/write-plex-watch-state'));
+  assert.ok(openApiSource.includes('"seasonNumber"'));
   assert.ok(plexWatchedStateWritebackSmokeSource.includes('/api/media/write-plex-watch-state'));
   assert.ok(plexWatchedStateWritebackSmokeSource.includes('/:/scrobble'));
   assert.ok(plexWatchedStateWritebackSmokeSource.includes('/:/unscrobble'));
+  assert.ok(plexWatchedStateWritebackSmokeSource.includes('/library/metadata/7200/allLeaves'));
+  assert.ok(plexWatchedStateWritebackSmokeSource.includes('TV season writeback resolved Plex episode leaves before scrobbling episode keys'));
   assert.ok(plexWatchedStateWritebackSmokeSource.includes("method === 'PUT'"));
   assert.ok(plexWatchedStateWritebackSmokeSource.includes('No new media rows were created during watched-state writeback'));
   assert.ok(plexWatchedStateWritebackSmokeSource.includes('assertSecretFree'));
   assert.ok(plexWatchedStateWritebackSmokeSource.includes('plex-watched-state-writeback-smoke.json'));
   assert.ok(releaseRoadmapSource.includes('3.4.133 — Plex Watched-State Writeback Implementation'));
+  assert.ok(releaseRoadmapSource.includes('3.4.142 — Plex Episode-Aware TV Sync and Writeback'));
 }));
 
 results.push(run('plex rating apply smoke updates existing user rating without Plex writeback', () => {
@@ -1595,7 +1601,8 @@ results.push(run('plex writeback controls are admin-only and scoped to Plex-link
   assert.ok(libraryViewSource.includes("apiCall('post', '/media/write-plex-rating'"));
   assert.ok(libraryViewSource.includes("apiCall('post', '/media/write-plex-watch-state'"));
   assert.ok(libraryViewSource.includes('const showPlexWritebackControls = canWritePlex && isPlexLinked;'));
-  assert.ok(libraryViewSource.includes("const isTvSeries = item?.media_type === 'tv_series';"));
+  assert.ok(libraryViewSource.includes('plex-season-watch-scrobble-button'));
+  assert.ok(libraryViewSource.includes('seasonNumber'));
   assert.ok(libraryViewSource.includes('canWritePlex={canWritePlex}'));
   assert.ok(dashboardContentSource.includes("canWritePlex={user?.role === 'admin'}"));
   assert.ok(mediaRoutesSource.includes('AS plex_linked'));
