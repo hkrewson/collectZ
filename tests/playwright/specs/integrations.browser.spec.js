@@ -141,4 +141,67 @@ test.describe('integrations browser regressions', () => {
       await requestContext.dispose();
     }
   });
+
+  test('Plex temporary reconciliation preview displays read-only buckets', async ({ page }) => {
+    const adminCredentials = await ensureSavedAdminCredentials();
+    await page.route('**/api/media/plex-reconciliation-preview', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ok: true,
+          provider: 'plex',
+          processingMode: 'full_library_reconciliation_preview',
+          readOnly: true,
+          plexWriteback: false,
+          importMutation: false,
+          summary: {
+            scanned: 4,
+            alreadyLinked: 1,
+            wouldUpdate: 1,
+            wouldCreate: 1,
+            conflict: 1
+          },
+          buckets: {
+            alreadyLinked: [{
+              item: { title: 'Linked Movie', media_type: 'movie', year: 2024, sectionId: '1', plex_item_key: '1:1001' },
+              existing: { id: 101, title: 'Linked Movie', media_type: 'movie', year: 2024, import_source: 'plex' },
+              matchedBy: 'plex_item_key'
+            }],
+            wouldUpdate: [{
+              item: { title: 'TMDB Movie', media_type: 'movie', year: 2023, tmdb_id: 12345, sectionId: '1', plex_item_key: '1:1002' },
+              existing: { id: 102, title: 'TMDB Movie', media_type: 'movie', year: 2023, tmdb_id: 12345, import_source: 'tmdb' },
+              matchedBy: 'tmdb_id'
+            }],
+            wouldCreate: [{
+              item: { title: 'New Plex Movie', media_type: 'movie', year: 2022, sectionId: '1', plex_item_key: '1:1003' },
+              existing: null,
+              matchedBy: null
+            }],
+            conflict: [{
+              item: { title: 'Conflict Movie', media_type: 'movie', year: 2021, sectionId: '1', plex_item_key: '1:1004' },
+              existing: { id: 104, title: 'Conflict Movie', media_type: 'movie', year: 2021, import_source: 'manual' },
+              matchedBy: 'title_year_conflict',
+              reason: 'A same-title row exists, but strong identifiers disagree.'
+            }]
+          }
+        })
+      });
+    });
+
+    await signInThroughUi(page, adminCredentials);
+    await page.goto('/dashboard?tab=admin-integrations&integration=plex');
+    await expect(page.getByRole('heading', { name: 'Integrations' })).toBeVisible();
+    await expect(page.getByText('Temporary reconciliation preview')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Preview now' }).click();
+
+    await expect(page.getByText('PLEX RECONCILIATION: preview scanned 4 item(s).')).toBeVisible();
+    await activeSectionRoot(page).locator('details').filter({ hasText: 'Linked' }).first().locator('summary').click();
+    await activeSectionRoot(page).locator('details').filter({ hasText: 'Creates' }).first().locator('summary').click();
+    await expect(page.getByText('Linked Movie', { exact: true })).toBeVisible();
+    await expect(page.getByText('New Plex Movie')).toBeVisible();
+    await expect(page.getByText('A same-title row exists, but strong identifiers disagree.')).toBeVisible();
+    await expect(page.getByRole('button', { name: /apply/i })).toHaveCount(0);
+  });
 });

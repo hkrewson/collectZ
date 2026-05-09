@@ -63,6 +63,7 @@ Use this for feature discovery and future new Plex surfaces where possible. The 
 - Plex Full-Library Reconciliation Contract. Promoted as `3.4.136`.
 - Plex Scheduled Reconciliation Preview Job. Promoted as `3.4.137`.
 - User Rating Scale Normalization. Promoted as `3.4.138`.
+- Temporary Reconciliation Review UI. Promoted as `3.4.139`.
 
 ## Acceptance Criteria
 

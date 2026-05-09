@@ -171,6 +171,107 @@ function DisclosureSection({ title, summary, children, defaultOpen = false }) {
   );
 }
 
+const PLEX_RECONCILIATION_BUCKETS = [
+  ['alreadyLinked', 'Linked'],
+  ['wouldUpdate', 'Updates'],
+  ['wouldCreate', 'Creates'],
+  ['conflict', 'Conflicts']
+];
+
+function normalizePlexReconciliationResult(result = null) {
+  if (!result) return null;
+  const summary = result.summary || {};
+  const buckets = summary.buckets || result.buckets || {};
+  return {
+    ...result,
+    summary,
+    buckets: {
+      alreadyLinked: Array.isArray(buckets.alreadyLinked) ? buckets.alreadyLinked : [],
+      wouldUpdate: Array.isArray(buckets.wouldUpdate) ? buckets.wouldUpdate : [],
+      wouldCreate: Array.isArray(buckets.wouldCreate) ? buckets.wouldCreate : [],
+      conflict: Array.isArray(buckets.conflict) ? buckets.conflict : []
+    }
+  };
+}
+
+function PlexReconciliationRow({ row }) {
+  const item = row?.item || {};
+  const existing = row?.existing || null;
+  const title = item.title || existing?.title || 'Untitled Plex item';
+  const itemBits = [
+    item.media_type,
+    item.year,
+    item.tmdb_id ? `TMDB ${item.tmdb_id}` : null,
+    item.sectionId ? `Section ${item.sectionId}` : null
+  ].filter(Boolean);
+  const existingBits = existing
+    ? [
+      existing.title,
+      existing.year,
+      existing.import_source ? `Source ${existing.import_source}` : null,
+      existing.id ? `collectZ #${existing.id}` : null
+    ].filter(Boolean)
+    : [];
+
+  return (
+    <div className="rounded-md border border-edge/70 px-3 py-2">
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <span className="font-medium text-ink">{title}</span>
+        {row?.matchedBy && <span className="text-xs text-ghost">{row.matchedBy}</span>}
+      </div>
+      {itemBits.length > 0 && <p className="mt-1 text-xs text-ghost">{itemBits.join(' · ')}</p>}
+      {existingBits.length > 0 && <p className="mt-1 text-xs text-dim">Existing: {existingBits.join(' · ')}</p>}
+      {row?.reason && <p className="mt-1 text-xs text-warn">{row.reason}</p>}
+    </div>
+  );
+}
+
+function PlexReconciliationPreview({ result }) {
+  const normalized = normalizePlexReconciliationResult(result);
+  if (!normalized) return null;
+  const summary = normalized.summary || {};
+
+  return (
+    <div className="space-y-3">
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+        {[
+          ['Scanned', summary.scanned],
+          ['Linked', summary.alreadyLinked],
+          ['Updates', summary.wouldUpdate],
+          ['Creates', summary.wouldCreate],
+          ['Conflicts', summary.conflict]
+        ].map(([label, value]) => (
+          <div key={label} className="rounded-md border border-edge/70 px-3 py-2">
+            <p className="text-xs text-ghost">{label}</p>
+            <p className="mt-1 text-lg font-semibold text-ink">{Number(value || 0)}</p>
+          </div>
+        ))}
+      </div>
+      <div className="space-y-2">
+        {PLEX_RECONCILIATION_BUCKETS.map(([key, label]) => {
+          const rows = normalized.buckets[key] || [];
+          return (
+            <details key={key} className="rounded-md border border-edge/70" open={key === 'conflict' && rows.length > 0}>
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-3 py-2 text-sm">
+                <span className="font-medium text-ink">{label}</span>
+                <span className="text-dim">{rows.length}</span>
+              </summary>
+              <div className="space-y-2 border-t border-edge/70 p-3">
+                {rows.length === 0 ? (
+                  <p className="text-sm text-dim">No rows in this bucket.</p>
+                ) : rows.slice(0, 25).map((row, index) => (
+                  <PlexReconciliationRow key={`${key}-${row?.item?.plex_item_key || row?.existing?.id || index}`} row={row} />
+                ))}
+                {rows.length > 25 && <p className="text-xs text-ghost">Showing 25 of {rows.length} rows.</p>}
+              </div>
+            </details>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminIntegrationsView({
   apiCall,
   onToast,
@@ -267,6 +368,9 @@ export default function AdminIntegrationsView({
   const [savingPlexDisplayPreferences, setSavingPlexDisplayPreferences] = useState(false);
   const [plexWebhookReceiver, setPlexWebhookReceiver] = useState({ enabled: false, lastReceivedAt: null, lastEvent: null, receiverPath: '/api/plex/webhooks/[token]' });
   const [plexWebhookReceiverLink, setPlexWebhookReceiverLink] = useState('');
+  const [plexReconciliationLimit, setPlexReconciliationLimit] = useState('100');
+  const [plexReconciliationResult, setPlexReconciliationResult] = useState(null);
+  const [plexReconciliationJob, setPlexReconciliationJob] = useState(null);
   const [featureFlags, setFeatureFlags] = useState([]);
   const [featureFlagsLoading, setFeatureFlagsLoading] = useState(true);
   const [featureFlagsReadOnly, setFeatureFlagsReadOnly] = useState(false);
@@ -808,6 +912,67 @@ export default function AdminIntegrationsView({
     }
   };
 
+  const buildPlexReconciliationPayload = () => {
+    const limit = Number(plexReconciliationLimit);
+    return {
+      sectionIds: plexSectionIds,
+      ...(Number.isFinite(limit) && limit > 0 ? { limit: Math.min(1000, Math.floor(limit)) } : {})
+    };
+  };
+
+  const runPlexReconciliationPreview = async () => {
+    setTestLoading('plex-reconciliation-preview');
+    setTestMsg('');
+    setPlexReconciliationJob(null);
+    try {
+      const result = await apiCall('post', '/media/plex-reconciliation-preview', buildPlexReconciliationPayload());
+      setPlexReconciliationResult(normalizePlexReconciliationResult(result));
+      setTestMsg(`PLEX RECONCILIATION: preview scanned ${Number(result?.summary?.scanned || 0)} item(s).`);
+    } catch (err) {
+      setTestMsg(err.response?.data?.error || 'Plex reconciliation preview failed');
+    } finally {
+      setTestLoading('');
+    }
+  };
+
+  const runPlexReconciliationPreviewJob = async () => {
+    setTestLoading('plex-reconciliation-job');
+    setTestMsg('');
+    try {
+      const queued = await apiCall('post', '/media/plex-reconciliation-preview/run', buildPlexReconciliationPayload());
+      const jobId = queued?.job?.id || queued?.id;
+      if (!jobId) throw new Error('Missing reconciliation job id');
+      setPlexReconciliationJob({ id: jobId, status: queued?.job?.status || 'queued' });
+      onQueueJob?.({
+        id: jobId,
+        provider: 'plex',
+        status: queued?.job?.status || 'queued',
+        progress: queued?.job?.progress || null
+      });
+
+      let latest = null;
+      for (let attempt = 0; attempt < 20; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, attempt === 0 ? 400 : 1000));
+        latest = await apiCall('get', `/media/sync-jobs/${jobId}/result`);
+        setPlexReconciliationJob({ id: jobId, status: latest?.status || 'unknown' });
+        if (latest?.status === 'succeeded' || latest?.status === 'failed') break;
+      }
+
+      if (latest?.status === 'succeeded') {
+        setPlexReconciliationResult(normalizePlexReconciliationResult(latest));
+        setTestMsg(`PLEX RECONCILIATION: preview job #${jobId} scanned ${Number(latest?.summary?.scanned || 0)} item(s).`);
+      } else if (latest?.status === 'failed') {
+        setTestMsg(latest?.error || `Plex reconciliation preview job #${jobId} failed`);
+      } else {
+        setTestMsg(`PLEX RECONCILIATION: preview job #${jobId} is still running.`);
+      }
+    } catch (err) {
+      setTestMsg(err.response?.data?.error || err.message || 'Plex reconciliation preview job failed');
+    } finally {
+      setTestLoading('');
+    }
+  };
+
   const runKavitaImport = async () => {
     setImportingKavita(true);
     try {
@@ -1296,6 +1461,39 @@ export default function AdminIntegrationsView({
                 ? 'Existing receiver shown with a masked token. Regenerate if Plex needs the full URL again.'
                 : 'Accepts Plex webhook hints for newly added media, watched state, and ratings. Import and writeback actions remain manual until a later slice.'}
             </p>
+          </div>
+          <div className="rounded-xl border border-edge bg-raised/60 px-3 py-3 space-y-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium text-ink">Temporary reconciliation preview</p>
+                <p className="mt-1 text-xs text-ghost">
+                  Read-only review for linked, update, create, and conflict buckets. It does not apply import changes or write back to Plex.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={runPlexReconciliationPreview} disabled={testLoading === 'plex-reconciliation-preview' || testLoading === 'plex-reconciliation-job'} className="btn-secondary btn-sm">
+                  {testLoading === 'plex-reconciliation-preview' ? <Spinner size={14} /> : 'Preview now'}
+                </button>
+                <button type="button" onClick={runPlexReconciliationPreviewJob} disabled={testLoading === 'plex-reconciliation-preview' || testLoading === 'plex-reconciliation-job'} className="btn-secondary btn-sm">
+                  {testLoading === 'plex-reconciliation-job' ? <Spinner size={14} /> : 'Queue preview'}
+                </button>
+              </div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-[10rem_minmax(0,1fr)]">
+              <LabeledField label="Preview Limit" cx={cx}>
+                <input
+                  className="input font-mono"
+                  inputMode="numeric"
+                  value={plexReconciliationLimit}
+                  onChange={(event) => setPlexReconciliationLimit(event.target.value.replace(/[^\d]/g, '').slice(0, 4))}
+                />
+              </LabeledField>
+              <div className="flex flex-wrap items-end gap-2 pb-1 text-xs text-ghost">
+                <span>Sections: <span className="font-mono text-dim">{plexSectionIds.length ? plexSectionIds.join(',') : 'saved defaults'}</span></span>
+                {plexReconciliationJob?.id && <span>Job #{plexReconciliationJob.id}: {plexReconciliationJob.status}</span>}
+              </div>
+            </div>
+            <PlexReconciliationPreview result={plexReconciliationResult} />
           </div>
           <div className="rounded-xl border border-edge bg-raised/60 px-3 py-3 space-y-3">
             <div className="flex flex-wrap items-start justify-between gap-3">

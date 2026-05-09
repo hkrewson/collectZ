@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.139",
+      "version": "v3.4.139",
+      "date": null,
+      "status": null,
+      "summary": "This patch adds a temporary read-only Plex reconciliation review UI.",
+      "details": []
+    },
+    {
       "title": "collectZ v3.4.138",
       "version": "v3.4.138",
       "date": null,
@@ -70,14 +78,6 @@
       "date": null,
       "status": null,
       "summary": "This patch adds an opt-in Plex watched-state refresh scheduler for existing Plex-linked collectZ rows.",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.4.129",
-      "version": "v3.4.129",
-      "date": null,
-      "status": null,
-      "summary": "This patch adds the first explicit Plex watched-state apply path for existing collectZ rows.",
       "details": []
     }
   ]

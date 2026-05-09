@@ -1627,7 +1627,18 @@ results.push(run('plex full-library reconciliation preview stays read-only and c
   assert.ok(plexFullLibraryReconciliationSmokeSource.includes('No collectZ media rows were created or updated by the preview'));
   assert.ok(plexFullLibraryReconciliationSmokeSource.includes('assertSecretFree'));
   assert.ok(plexFullLibraryReconciliationSmokeSource.includes('plex-full-library-reconciliation-smoke.json'));
+  assert.ok(adminIntegrationsViewSource.includes('Temporary reconciliation preview'));
+  assert.ok(adminIntegrationsViewSource.includes('runPlexReconciliationPreview'));
+  assert.ok(adminIntegrationsViewSource.includes('runPlexReconciliationPreviewJob'));
+  assert.ok(adminIntegrationsViewSource.includes('PlexReconciliationPreview'));
+  assert.ok(adminIntegrationsViewSource.includes('Preview now'));
+  assert.ok(adminIntegrationsViewSource.includes('Queue preview'));
+  assert.ok(adminIntegrationsViewSource.includes('It does not apply import changes or write back to Plex.'));
+  assert.ok(integrationsBrowserSpecSource.includes('Plex temporary reconciliation preview displays read-only buckets'));
+  assert.ok(integrationsBrowserSpecSource.includes('/api/media/plex-reconciliation-preview'));
+  assert.ok(integrationsBrowserSpecSource.includes('toHaveCount(0)'));
   assert.ok(releaseRoadmapSource.includes('3.4.137 — Plex Scheduled Reconciliation Preview Job'));
+  assert.ok(releaseRoadmapSource.includes('3.4.139 — Plex Temporary Reconciliation Review UI'));
 }));
 
 results.push(run('plex webhook receiver administration contract is token-scoped and queues library-new import hints only', () => {
