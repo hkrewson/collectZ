@@ -69,6 +69,39 @@ const PLEX_WEBHOOK_AND_RATINGS_CONTRACT = Object.freeze({
   ])
 });
 
+const PLEX_WATCH_STATE_SYNC_CONTRACT = Object.freeze({
+  status: 'read_only_contract',
+  cadence: Object.freeze({
+    defaultIntervalMinutes: 60,
+    minimumIntervalMinutes: 15,
+    mode: 'future_configurable_scheduler'
+  }),
+  readPaths: Object.freeze([
+    '/library/metadata/:ratingKey',
+    '/library/metadata/:ratingKey/allLeaves',
+    '/library/sections/:sectionId/all'
+  ]),
+  supportedStateFields: Object.freeze([
+    'ratingKey',
+    'type',
+    'viewCount',
+    'viewedAt',
+    'lastViewedAt',
+    'viewOffset',
+    'duration'
+  ]),
+  applyBehavior: Object.freeze({
+    collectzMutation: 'future_explicit_opt_in',
+    plexWriteback: 'future_explicit_opt_in'
+  }),
+  rules: Object.freeze([
+    'Read Plex watched-state fields on a cadence before mutating collectZ rows.',
+    'Treat media.scrobble webhooks as hints that a watched-state refresh is useful.',
+    'Keep collectZ watched-state mutation and collectZ-to-Plex scrobble writes as later opt-in milestones.',
+    'Do not expose Plex tokens, provider URLs, raw file paths, raw payloads, IP addresses, or machine identifiers in watched-state readback.'
+  ])
+});
+
 const resolvePlexPreset = (presetName = 'plex') =>
   PLEX_PRESETS[presetName] || PLEX_PRESETS.plex;
 
@@ -302,6 +335,61 @@ const buildPlexWebhookAndRatingsContract = () => ({
   watchedStateWriteback: { ...PLEX_WEBHOOK_AND_RATINGS_CONTRACT.watchedStateWriteback },
   rules: [...PLEX_WEBHOOK_AND_RATINGS_CONTRACT.rules]
 });
+
+const buildPlexWatchStateSyncContract = () => ({
+  status: PLEX_WATCH_STATE_SYNC_CONTRACT.status,
+  cadence: { ...PLEX_WATCH_STATE_SYNC_CONTRACT.cadence },
+  readPaths: [...PLEX_WATCH_STATE_SYNC_CONTRACT.readPaths],
+  supportedStateFields: [...PLEX_WATCH_STATE_SYNC_CONTRACT.supportedStateFields],
+  applyBehavior: { ...PLEX_WATCH_STATE_SYNC_CONTRACT.applyBehavior },
+  rules: [...PLEX_WATCH_STATE_SYNC_CONTRACT.rules]
+});
+
+const normalizePlexWatchedStateEntry = (entry) => {
+  if (!entry || typeof entry !== 'object') return null;
+  const ratingKey = safeString(entry.ratingKey || entry.key);
+  if (!ratingKey) return null;
+  const durationMs = toFiniteNumber(entry.duration);
+  const viewOffsetMs = toFiniteNumber(entry.viewOffset);
+  const viewCount = Math.max(0, Math.floor(toFiniteNumber(entry.viewCount) || 0));
+  const viewedAtSeconds = toFiniteNumber(entry.lastViewedAt || entry.viewedAt);
+  const lastViewedAt = viewedAtSeconds
+    ? new Date(viewedAtSeconds * 1000).toISOString()
+    : null;
+  const progressPercent = durationMs && durationMs > 0 && Number.isFinite(viewOffsetMs)
+    ? Math.max(0, Math.min(100, Math.round((viewOffsetMs / durationMs) * 100)))
+    : null;
+  const watchState = viewCount > 0
+    ? 'completed'
+    : (progressPercent && progressPercent > 0 ? 'in_progress' : 'unwatched');
+
+  return {
+    ratingKey,
+    type: safeString(entry.type),
+    title: safeString(entry.title || entry.originalTitle || entry.grandparentTitle),
+    grandparentTitle: safeString(entry.grandparentTitle),
+    parentTitle: safeString(entry.parentTitle),
+    parentRatingKey: safeString(entry.parentRatingKey),
+    grandparentRatingKey: safeString(entry.grandparentRatingKey),
+    librarySectionId: safeString(entry.librarySectionID || entry.librarySectionId),
+    seasonNumber: toFiniteNumber(entry.parentIndex),
+    episodeNumber: toFiniteNumber(entry.index),
+    viewCount,
+    lastViewedAt,
+    durationMs,
+    viewOffsetMs,
+    progressPercent,
+    watchState,
+    source: 'plex'
+  };
+};
+
+const parsePlexWatchStateEntries = (payload) => [
+  ...parsePlexVideos(payload),
+  ...parsePlexDirectoriesInSection(payload)
+]
+  .map(normalizePlexWatchedStateEntry)
+  .filter(Boolean);
 
 const parsePlexWebhookPayload = (payload) => {
   if (!payload) return null;
@@ -624,6 +712,61 @@ const fetchPlexNowPlayingSessions = async (config) => {
     .filter(Boolean);
 };
 
+const fetchPlexWatchStateSnapshot = async (config, options = {}) => {
+  const ratingKeys = [...new Set(asArray(options.ratingKeys).map((key) => String(key || '').trim()).filter(Boolean))];
+  const sectionIds = [...new Set(asArray(options.sectionIds).map((key) => String(key || '').trim()).filter(Boolean))];
+  const entries = [];
+  const readbacks = [];
+
+  for (const ratingKey of ratingKeys) {
+    const path = `/library/metadata/${encodeURIComponent(ratingKey)}`;
+    const response = await plexRequest(config, path);
+    if (response.status >= 400) {
+      const message = typeof response.data === 'string'
+        ? response.data.slice(0, 200)
+        : response.data?.error || response.statusText;
+      throw new Error(`Plex watched-state metadata ${ratingKey} failed (${response.status}): ${message}`);
+    }
+    const parsed = parsePlexWatchStateEntries(response.data);
+    entries.push(...parsed);
+    readbacks.push({ pathTemplate: '/library/metadata/:ratingKey', ratingKey, entryCount: parsed.length });
+  }
+
+  for (const ratingKey of asArray(options.leafRatingKeys).map((key) => String(key || '').trim()).filter(Boolean)) {
+    const path = `/library/metadata/${encodeURIComponent(ratingKey)}/allLeaves`;
+    const response = await plexRequest(config, path);
+    if (response.status >= 400) {
+      const message = typeof response.data === 'string'
+        ? response.data.slice(0, 200)
+        : response.data?.error || response.statusText;
+      throw new Error(`Plex watched-state leaves ${ratingKey} failed (${response.status}): ${message}`);
+    }
+    const parsed = parsePlexWatchStateEntries(response.data);
+    entries.push(...parsed);
+    readbacks.push({ pathTemplate: '/library/metadata/:ratingKey/allLeaves', ratingKey, entryCount: parsed.length });
+  }
+
+  for (const sectionId of sectionIds) {
+    const path = `/library/sections/${encodeURIComponent(sectionId)}/all`;
+    const response = await plexRequest(config, path);
+    if (response.status >= 400) {
+      const message = typeof response.data === 'string'
+        ? response.data.slice(0, 200)
+        : response.data?.error || response.statusText;
+      throw new Error(`Plex watched-state section ${sectionId} failed (${response.status}): ${message}`);
+    }
+    const parsed = parsePlexWatchStateEntries(response.data);
+    entries.push(...parsed);
+    readbacks.push({ pathTemplate: '/library/sections/:sectionId/all', sectionId, entryCount: parsed.length });
+  }
+
+  return {
+    contract: buildPlexWatchStateSyncContract(),
+    readbacks,
+    entries
+  };
+};
+
 const fetchPlexImageAsset = async (config, key) => {
   const imageKey = sanitizePlexRelativeKey(key);
   if (!imageKey) {
@@ -863,12 +1006,15 @@ const fetchPlexShowSeasonVariants = async (config, ratingKey, sectionId) => {
 module.exports = {
   PLEX_PMS_MODERNIZATION_CONTRACT,
   PLEX_WEBHOOK_AND_RATINGS_CONTRACT,
+  PLEX_WATCH_STATE_SYNC_CONTRACT,
   resolvePlexPreset,
   buildPlexPmsModernizationContract,
   buildPlexWebhookAndRatingsContract,
+  buildPlexWatchStateSyncContract,
   fetchPlexSections,
   fetchPlexMediaProviders,
   fetchPlexNowPlayingSessions,
+  fetchPlexWatchStateSnapshot,
   fetchPlexImageAsset,
   fetchPlexLibraryItems,
   fetchPlexMetadataItem,
@@ -879,6 +1025,8 @@ module.exports = {
   normalizePlexMediaProvider,
   parsePlexNowPlayingSessions,
   normalizePlexNowPlayingSession,
+  parsePlexWatchStateEntries,
+  normalizePlexWatchedStateEntry,
   parsePlexWebhookPayload,
   normalizePlexWebhookEvent,
   buildPlexRatingWritebackRequest,

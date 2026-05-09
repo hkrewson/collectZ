@@ -14,8 +14,11 @@ const {
   parsePlexNowPlayingSessions,
   normalizePlexNowPlayingSession,
   buildPlexWebhookAndRatingsContract,
+  buildPlexWatchStateSyncContract,
   normalizePlexWebhookEvent,
   buildPlexRatingWritebackRequest,
+  parsePlexWatchStateEntries,
+  normalizePlexWatchedStateEntry,
   shouldIncludePlexEntry
 } = require('../services/plex');
 const { wrapTmdbRequestError } = require('../services/tmdb');
@@ -237,6 +240,7 @@ const plexRealNowPlayingRuntimeProofSource = fs.readFileSync(require.resolve('..
 const plexNowPlayingViewerSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-now-playing-viewer-smoke'), 'utf8');
 const plexWebhookRatingsContractSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-webhook-ratings-contract-smoke'), 'utf8');
 const plexWebhookReceiverAdminSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-webhook-receiver-admin-smoke'), 'utf8');
+const plexWatchStateSyncCadenceSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-watch-state-sync-cadence-smoke'), 'utf8');
 const ciCdDeployDocSource = fs.readFileSync(require.resolve('../../docs/wiki/10-CI-CD-and-Registry-Deploy.md'), 'utf8');
 const securityPolicyPath = path.resolve(__dirname, '..', '..', 'SECURITY.md');
 const securityPolicySource = fs.existsSync(securityPolicyPath)
@@ -1308,6 +1312,56 @@ results.push(run('plex webhook and ratings contract normalizes event hints and w
   });
 }));
 
+results.push(run('plex watch-state sync contract normalizes read-only watched progress safely', () => {
+  const contract = buildPlexWatchStateSyncContract();
+  assert.strictEqual(contract.status, 'read_only_contract');
+  assert.strictEqual(contract.cadence.defaultIntervalMinutes, 60);
+  assert.strictEqual(contract.cadence.minimumIntervalMinutes, 15);
+  assert.ok(contract.readPaths.includes('/library/metadata/:ratingKey'));
+  assert.ok(contract.readPaths.includes('/library/metadata/:ratingKey/allLeaves'));
+  assert.strictEqual(contract.applyBehavior.collectzMutation, 'future_explicit_opt_in');
+  assert.strictEqual(contract.applyBehavior.plexWriteback, 'future_explicit_opt_in');
+
+  const jsonEntries = parsePlexWatchStateEntries({
+    MediaContainer: {
+      Metadata: [
+        {
+          ratingKey: '1001',
+          type: 'movie',
+          title: 'Watched Movie',
+          viewCount: 1,
+          lastViewedAt: 1778250000,
+          duration: 7200000,
+          viewOffset: 0,
+          Media: [{ Part: [{ file: '/mnt/plex-media/Watched Movie.mkv' }] }]
+        },
+        {
+          ratingKey: '1002',
+          type: 'movie',
+          title: 'Paused Movie',
+          viewCount: 0,
+          duration: 7200000,
+          viewOffset: 1800000,
+          thumb: 'https://plex.example.invalid/thumb?X-Plex-Token=must-not-surface'
+        }
+      ]
+    }
+  });
+  assert.strictEqual(jsonEntries.length, 2);
+  assert.strictEqual(jsonEntries[0].watchState, 'completed');
+  assert.strictEqual(jsonEntries[1].watchState, 'in_progress');
+  assert.strictEqual(jsonEntries[1].progressPercent, 25);
+  assert.ok(!JSON.stringify(jsonEntries).includes('/mnt/plex-media'));
+  assert.ok(!JSON.stringify(jsonEntries).includes('must-not-surface'));
+
+  const xmlEntries = parsePlexWatchStateEntries('<MediaContainer><Video ratingKey="1003" type="episode" title="Unwatched Episode" viewCount="0" duration="1800000" viewOffset="0" parentIndex="1" index="2" /></MediaContainer>');
+  assert.strictEqual(xmlEntries.length, 1);
+  assert.strictEqual(xmlEntries[0].watchState, 'unwatched');
+  assert.strictEqual(xmlEntries[0].seasonNumber, 1);
+  assert.strictEqual(xmlEntries[0].episodeNumber, 2);
+  assert.strictEqual(normalizePlexWatchedStateEntry({ title: 'Missing Rating Key' }), null);
+}));
+
 results.push(run('plex PMS modernization foundation is promoted and documented without replacing legacy imports', () => {
   assert.ok(releaseRoadmapSource.includes('3.4.111 — Plex PMS API Modernization Foundation'));
   assert.ok(!backlogSource.includes('### Backlog Item: Plex PMS API Modernization Foundation'));
@@ -1329,6 +1383,20 @@ results.push(run('plex webhook and ratings sync contract smoke stays scoped and 
   assert.ok(plexWebhookRatingsContractSmokeSource.includes("artifacts', 'plex-webhooks'"));
   assert.ok(plexWebhookRatingsContractSmokeSource.includes('plex-webhook-ratings-contract-smoke.json'));
   assert.ok(releaseRoadmapSource.includes('3.4.122 — Plex Webhook and Ratings Sync Contract'));
+}));
+
+results.push(run('plex watch-state sync cadence smoke stays read-only and secret-free', () => {
+  assert.ok(backendPackageJson.scripts['test:plex-watch-state-sync-cadence-smoke']);
+  assert.ok(plexWatchStateSyncCadenceSmokeSource.includes('buildPlexWatchStateSyncContract'));
+  assert.ok(plexWatchStateSyncCadenceSmokeSource.includes('fetchPlexWatchStateSnapshot'));
+  assert.ok(plexWatchStateSyncCadenceSmokeSource.includes("watchState === 'completed'"));
+  assert.ok(plexWatchStateSyncCadenceSmokeSource.includes("watchState === 'in_progress'"));
+  assert.ok(plexWatchStateSyncCadenceSmokeSource.includes("watchState === 'unwatched'"));
+  assert.ok(plexWatchStateSyncCadenceSmokeSource.includes('/library/metadata/2001/allLeaves'));
+  assert.ok(plexWatchStateSyncCadenceSmokeSource.includes('assertSecretFree'));
+  assert.ok(plexWatchStateSyncCadenceSmokeSource.includes("'plex-watch-state'"));
+  assert.ok(plexWatchStateSyncCadenceSmokeSource.includes('plex-watch-state-sync-cadence-smoke.json'));
+  assert.ok(releaseRoadmapSource.includes('3.4.128 — Plex Watch-State Sync Cadence Contract'));
 }));
 
 results.push(run('plex webhook receiver administration contract is token-scoped and queues library-new import hints only', () => {

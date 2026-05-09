@@ -1,0 +1,122 @@
+{
+  "generatedAt": "2026-05-09T02:41:59.275Z",
+  "mode": "fake-pms",
+  "contract": {
+    "status": "read_only_contract",
+    "cadence": {
+      "defaultIntervalMinutes": 60,
+      "minimumIntervalMinutes": 15,
+      "mode": "future_configurable_scheduler"
+    },
+    "readPaths": [
+      "/library/metadata/:ratingKey",
+      "/library/metadata/:ratingKey/allLeaves",
+      "/library/sections/:sectionId/all"
+    ],
+    "supportedStateFields": [
+      "ratingKey",
+      "type",
+      "viewCount",
+      "viewedAt",
+      "lastViewedAt",
+      "viewOffset",
+      "duration"
+    ],
+    "applyBehavior": {
+      "collectzMutation": "future_explicit_opt_in",
+      "plexWriteback": "future_explicit_opt_in"
+    },
+    "rules": [
+      "Read Plex watched-state fields on a cadence before mutating collectZ rows.",
+      "Treat media.scrobble webhooks as hints that a watched-state refresh is useful.",
+      "Keep collectZ watched-state mutation and collectZ-to-Plex scrobble writes as later opt-in milestones.",
+      "Do not expose Plex tokens, provider URLs, raw file paths, raw payloads, IP addresses, or machine identifiers in watched-state readback."
+    ]
+  },
+  "entryCounts": {
+    "total": 4,
+    "completed": 2,
+    "inProgress": 1,
+    "unwatched": 1
+  },
+  "readbacks": [
+    {
+      "pathTemplate": "/library/metadata/:ratingKey",
+      "ratingKey": "1001",
+      "entryCount": 1
+    },
+    {
+      "pathTemplate": "/library/metadata/:ratingKey",
+      "ratingKey": "1002",
+      "entryCount": 1
+    },
+    {
+      "pathTemplate": "/library/metadata/:ratingKey/allLeaves",
+      "ratingKey": "2001",
+      "entryCount": 2
+    }
+  ],
+  "sampleStates": [
+    {
+      "ratingKey": "1001",
+      "type": "movie",
+      "title": "Completed Movie",
+      "watchState": "completed",
+      "progressPercent": 0,
+      "lastViewedAt": "2026-05-08T14:20:00.000Z"
+    },
+    {
+      "ratingKey": "1002",
+      "type": "movie",
+      "title": "Paused Movie",
+      "watchState": "in_progress",
+      "progressPercent": 25,
+      "lastViewedAt": null
+    },
+    {
+      "ratingKey": "2001-1",
+      "type": "episode",
+      "title": "Watched Episode",
+      "watchState": "completed",
+      "progressPercent": 0,
+      "lastViewedAt": "2026-05-08T15:20:00.000Z"
+    },
+    {
+      "ratingKey": "2001-2",
+      "type": "episode",
+      "title": "Unwatched Episode",
+      "watchState": "unwatched",
+      "progressPercent": 0,
+      "lastViewedAt": null
+    }
+  ],
+  "requests": [
+    {
+      "method": "GET",
+      "pathname": "/library/metadata/1001",
+      "hasToken": true,
+      "tokenMatched": true,
+      "accept": "application/json"
+    },
+    {
+      "method": "GET",
+      "pathname": "/library/metadata/1002",
+      "hasToken": true,
+      "tokenMatched": true,
+      "accept": "application/json"
+    },
+    {
+      "method": "GET",
+      "pathname": "/library/metadata/2001/allLeaves",
+      "hasToken": true,
+      "tokenMatched": true,
+      "accept": "application/json"
+    }
+  ],
+  "assertions": [
+    "fake PMS exposed completed, in-progress, and unwatched states",
+    "watched-state readback used metadata and allLeaves paths only",
+    "collectZ mutation and Plex scrobble writeback stayed future opt-in",
+    "token, provider URL, private IP, and media file paths were not surfaced"
+  ]
+}

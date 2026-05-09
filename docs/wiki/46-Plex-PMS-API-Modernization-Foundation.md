@@ -52,7 +52,8 @@ Use this for feature discovery and future new Plex surfaces where possible. The 
 - Plex Single-Rating-Key Import Processing from Webhook Hints. Promoted as `3.4.125`.
 - Plex Webhook Import Hint Auto-Processor. Promoted as `3.4.126`.
 - Plex Webhook Existing Receiver Readback. Promoted as `3.4.127`.
-- Plex watch-state sync cadence.
+- Plex Watch-State Sync Cadence Contract. Promoted as `3.4.128`.
+- Plex watched-state apply implementation.
 
 ## Acceptance Criteria
 

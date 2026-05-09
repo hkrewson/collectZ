@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.128",
+      "version": "v3.4.128",
+      "date": null,
+      "status": null,
+      "summary": "This patch adds the read-only Plex watch-state sync contract that future watched/progress automation will build on.",
+      "details": []
+    },
+    {
       "title": "collectZ v3.4.127",
       "version": "v3.4.127",
       "date": null,
@@ -71,25 +79,6 @@
       "status": null,
       "summary": "This release adds a revocable Plex Now Playing display link. Admins can generate a limited token for `/now-playing?token=...` so a passive display can show the sanitized Plex Now Playing viewer without an admin browser session.",
       "details": []
-    },
-    {
-      "title": "collectZ v3.4.118",
-      "version": "v3.4.118",
-      "date": null,
-      "status": null,
-      "summary": "This release adds a standalone Plex Now Playing page. Authenticated admins can open `/now-playing` for a passive display view backed by the saved Plex now-playing readback and an app-owned image proxy.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added the `/now-playing` frontend route outside the dashboard shell.",
-            "Added a read-only backend viewer endpoint for sanitized active-session display data.",
-            "Added an authenticated Plex image proxy for Plex-relative poster/art keys.",
-            "Shows current title, show/season context, player state/platform, progress, and poster/art when Plex exposes usable image keys.",
-            "Added empty and unavailable states for no active sessions or unreachable Plex settings."
-          ]
-        }
-      ]
     }
   ]
 }

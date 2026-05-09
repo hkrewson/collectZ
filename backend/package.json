@@ -1,6 +1,6 @@
 {
   "name": "mediavault-backend",
-  "version": "3.4.127",
+  "version": "3.4.128",
   "description": "collectZ Backend API",
   "main": "server.js",
   "scripts": {
@@ -97,7 +97,8 @@
     "test:plex-webhook-ratings-contract-smoke": "node scripts/plex-webhook-ratings-contract-smoke.js",
     "test:plex-webhook-receiver-admin-smoke": "node scripts/plex-webhook-receiver-admin-smoke.js",
     "test:plex-webhook-import-hint-processing-smoke": "node scripts/plex-webhook-receiver-admin-smoke.js",
-    "test:plex-webhook-import-auto-processor-smoke": "node scripts/plex-webhook-receiver-admin-smoke.js"
+    "test:plex-webhook-import-auto-processor-smoke": "node scripts/plex-webhook-receiver-admin-smoke.js",
+    "test:plex-watch-state-sync-cadence-smoke": "node scripts/plex-watch-state-sync-cadence-smoke.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1042.0",

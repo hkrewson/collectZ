@@ -10026,6 +10026,37 @@ Historical note:
 - What remains in the milestone: none for `3.4.127`; future Plex slices can implement watched-state processing, rating read/write flows, scheduled reconciliation, and deeper workspace-owned provider administration.
 - Recommended commit message: `Release 3.4.127 with Plex webhook existing receiver readback`
 
+## 3.4.128 — Plex Watch-State Sync Cadence Contract
+
+**Goal:** Define and prove the read-only Plex watched-state readback surface before adding any scheduled mutation or Plex scrobble writeback behavior.
+
+### Scope
+
+- Add a read-only watch-state sync contract for Plex `viewCount`, `viewedAt`/`lastViewedAt`, `viewOffset`, and `duration` fields.
+- Normalize watched-state readbacks into `completed`, `in_progress`, and `unwatched` states for future scheduler/apply work.
+- Add fake-PMS smoke evidence for `/library/metadata/:ratingKey` and `/library/metadata/:ratingKey/allLeaves` watched-state reads.
+- Preserve `media.scrobble` webhook behavior as a refresh hint only.
+- Keep collectZ watched-state mutation, Plex scrobble/unscrobble writeback, rating writeback apply behavior, scheduled full-library reconciliation, and broad Plex import rewrites out of scope.
+
+### Acceptance Criteria
+
+- Contract exposes default/minimum cadence expectations and the supported read paths.
+- Smoke evidence proves completed, in-progress, and unwatched Plex states without calling Plex writeback paths.
+- Watch-state evidence redacts Plex tokens, provider URLs, private IPs, and media file paths.
+- Source assertions keep the read-only contract, parser, fake-PMS smoke, and roadmap promotion wired.
+- Running-stack verification proves the app serves `3.4.128`, Help > Releases contains the release, and `events_enabled` remains on.
+
+### Closeout
+
+- Roadmap slice: `3.4.128 — Plex Watch-State Sync Cadence Contract`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`, and `docs/releases/v3.4.128.md`.
+- Runtime verification used: rebuilt the local platform backend/frontend stack with `APP_VERSION=3.4.128` and `PLEX_WEBHOOK_IMPORT_AUTO_PROCESSOR_INTERVAL_SECONDS=5`; verified backend container `APP_EDITION=platform` and `APP_VERSION=3.4.128`; verified `/api/health` reports frontend/backend/build `3.4.128`; verified `/api/auth/config` reports `product_edition=platform`; verified live DB `feature_flags.events_enabled=true` and `feature_flags.collectibles_enabled=true` after active-stack and temporary homelab checks; verified Help > Releases serves `v3.4.128`; verified Docker Plex watch-state smoke reads fake PMS metadata and allLeaves watched-state fields for completed, in-progress, and unwatched entries, does not call scrobble/unscrobble writeback paths, and writes redacted evidence; verified homelab edition boundary in an isolated temporary compose project on port `3199` without changing the active platform stack.
+- CI/checks run: `node --check backend/services/plex.js`, `node --check backend/scripts/plex-watch-state-sync-cadence-smoke.js`, `node --check backend/scripts/unit-tests.js`, local bundled Node `npm --prefix backend run test:unit` (`267` passed), local `npm --prefix backend run test:openapi`, local `npm --prefix backend run test:plex-watch-state-sync-cadence-smoke`, Docker `backend npm run test:unit` (`267` passed), Docker `backend npm run test:openapi`, Docker `backend npm run test:integration-smoke`, Docker `backend npm run test:plex-watch-state-sync-cadence-smoke`, Docker `backend npm run test:help-releases-smoke` with `BASE_URL=http://frontend:3000` and `EXPECTED_RELEASE_VERSION=v3.4.128`, Docker `backend npm run test:init-parity`, Docker `backend npm run test:migration-rehearsal`, platform-mode Docker `backend npm run test:rbac-regression`, platform-mode Docker `backend npm run test:platform-edition-boundary`, isolated homelab Docker `backend npm run test:homelab-edition-boundary`, full host Playwright browser regression with bundled Node (`62` passed, `4` skipped), `npm run validate:public-export`, `npm --prefix backend run test:observability-evidence`, `npm --prefix backend run test:release-preflight-local`, generated-artifact secret-pattern scan, and `git diff --check`.
+- Files changed: `app-meta.json`, `artifacts/observability-evidence/observability-release-evidence.json`, `artifacts/plex-watch-state/plex-watch-state-sync-cadence-smoke.json`, `backend/app-meta.json`, `backend/package.json`, `backend/release-feed.json`, `backend/scripts/plex-watch-state-sync-cadence-smoke.js`, `backend/scripts/unit-tests.js`, `backend/services/plex.js`, `docker-compose.yml`, `docs/releases/v3.4.128.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`, `frontend/package.json`, `frontend/src/app-meta.json`, and `preflight-go-no-go.md`.
+- Risks or follow-ups: this slice is intentionally read-only and does not yet mutate collectZ watched state or write watched state back to Plex; rating writeback apply behavior, scheduled full-library reconciliation, and broad Plex import rewrites remain future slices; local `compose-smoke` secure-cookie parity, CI `secret-scan`, and `image-security-and-sbom` remain CI-only or blocked locally as documented in `preflight-go-no-go.md`.
+- What remains in the milestone: none for `3.4.128`; future Plex slices can implement watched-state apply/writeback, rating writeback apply behavior, scheduled reconciliation, and deeper workspace-owned provider administration.
+- Recommended commit message: `Release 3.4.128 with Plex watch-state sync cadence contract`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.
