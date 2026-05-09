@@ -31,6 +31,12 @@ test.describe('Plex now-playing viewer browser regressions', () => {
             player: { state: 'playing', platform: 'Chrome' },
             posterImagePath: '/api/plex/now-playing-image?key=%2Flibrary%2Fmetadata%2F123%2Fthumb',
             backdropImagePath: '/api/plex/now-playing-image?key=%2Flibrary%2Fmetadata%2F123%2Fart'
+          }, {
+            title: 'Second Active Session',
+            type: 'movie',
+            year: 2025,
+            progressPercent: 62,
+            player: { state: 'paused', platform: 'Apple TV' }
           }]
         })
       });
@@ -51,6 +57,9 @@ test.describe('Plex now-playing viewer browser regressions', () => {
     await expect(page.getByText('Example Show · Season 2')).toBeVisible();
     await expect(page.getByText('playing · Chrome')).toBeVisible();
     await expect(page.getByText('25%')).toBeVisible();
+    await expect(page.getByText('Other active sessions')).toBeVisible();
+    await expect(page.getByText('Second Active Session')).toBeVisible();
+    await expect(page.getByText('2025 · paused · Apple TV · 62%')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Dashboard' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Library' })).toHaveCount(0);
   });

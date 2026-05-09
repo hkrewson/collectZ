@@ -294,6 +294,7 @@ async function main() {
           showProgress: false,
           showUpdatedAt: false,
           showPausedSessions: false,
+          showSessionList: false,
           textScale: 'large',
           layoutMode: 'poster_only'
         }
@@ -308,6 +309,7 @@ async function main() {
     const displayViewer = await displayClient.request(`/api/plex/now-playing-display?token=${encodeURIComponent(displayToken)}`, { expectStatus: 200 });
     assert(displayViewer.data?.access === 'display_token', `Expected display token access: ${JSON.stringify(displayViewer.data)}`);
     assert(displayViewer.data?.displayPreferences?.showPoster === false, `Expected display preference readback: ${JSON.stringify(displayViewer.data)}`);
+    assert(displayViewer.data?.displayPreferences?.showSessionList === false, `Expected session-list preference readback: ${JSON.stringify(displayViewer.data)}`);
     assert(displayViewer.data?.displayPreferences?.textScale === 'large', `Expected display text scale readback: ${JSON.stringify(displayViewer.data)}`);
     assert(displayViewer.data?.displayPreferences?.layoutMode === 'poster_only', `Expected display layout readback: ${JSON.stringify(displayViewer.data)}`);
     assert(displayViewer.data?.sessions?.[0]?.title === 'Viewer Safe Payload', `Expected display viewer title: ${JSON.stringify(displayViewer.data)}`);

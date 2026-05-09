@@ -5143,6 +5143,7 @@
                       "showProgress": { "type": "boolean" },
                       "showUpdatedAt": { "type": "boolean" },
                       "showPausedSessions": { "type": "boolean" },
+                      "showSessionList": { "type": "boolean" },
                       "textScale": { "type": "string", "enum": ["compact", "standard", "large"] },
                       "layoutMode": { "type": "string", "enum": ["standard", "poster_only"] }
                     }

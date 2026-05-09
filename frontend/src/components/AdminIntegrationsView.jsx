@@ -32,6 +32,7 @@ const DEFAULT_PLEX_DISPLAY_PREFERENCES = {
   showProgress: true,
   showUpdatedAt: true,
   showPausedSessions: true,
+  showSessionList: true,
   textScale: 'standard'
 };
 const INTEGRATION_VISIBLE_FLAGS = new Set(Object.keys(INTEGRATION_FEATURE_LABELS));
@@ -1697,7 +1698,8 @@ export default function AdminIntegrationsView({
                 ['showPlayer', 'Player'],
                 ['showProgress', 'Progress'],
                 ['showUpdatedAt', 'Refresh time'],
-                ['showPausedSessions', 'Paused sessions']
+                ['showPausedSessions', 'Paused sessions'],
+                ['showSessionList', 'Other sessions']
               ].map(([key, label]) => (
                 <CheckboxControl
                   key={key}

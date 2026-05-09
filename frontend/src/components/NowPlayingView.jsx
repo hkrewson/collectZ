@@ -11,6 +11,7 @@ const DEFAULT_DISPLAY_PREFERENCES = {
   showProgress: true,
   showUpdatedAt: true,
   showPausedSessions: true,
+  showSessionList: true,
   textScale: 'standard'
 };
 
@@ -21,7 +22,7 @@ function normalizeDisplayPreferences(raw = {}) {
   return {
     ...DEFAULT_DISPLAY_PREFERENCES,
     ...Object.fromEntries(
-      ['showPoster', 'showBackdrop', 'showContext', 'showPlayer', 'showProgress', 'showUpdatedAt', 'showPausedSessions']
+      ['showPoster', 'showBackdrop', 'showContext', 'showPlayer', 'showProgress', 'showUpdatedAt', 'showPausedSessions', 'showSessionList']
         .filter((key) => value[key] !== undefined)
         .map((key) => [key, Boolean(value[key])])
     ),
@@ -63,6 +64,23 @@ function sessionSubtitle(session) {
   return pieces.join(' · ');
 }
 
+function sessionMetaLine(session, preferences) {
+  const pieces = [];
+  if (preferences.showContext) {
+    const subtitle = sessionSubtitle(session);
+    if (subtitle) pieces.push(subtitle);
+  }
+  if (preferences.showPlayer) {
+    const player = [session?.player?.state, session?.player?.platform].filter(Boolean).join(' · ');
+    if (player) pieces.push(player);
+  }
+  if (preferences.showProgress) {
+    const progress = formatProgress(session);
+    if (progress) pieces.push(progress);
+  }
+  return pieces.join(' · ');
+}
+
 export default function NowPlayingView({ apiCall, apiUrl, displayToken = '', onBack }) {
   const [payload, setPayload] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -95,9 +113,11 @@ export default function NowPlayingView({ apiCall, apiUrl, displayToken = '', onB
     return () => window.clearInterval(intervalId);
   }, [loadNowPlaying]);
 
-  const session = payload?.sessions?.[0] || null;
+  const sessions = Array.isArray(payload?.sessions) ? payload.sessions : [];
+  const session = sessions[0] || null;
   const displayPreferences = useMemo(() => normalizeDisplayPreferences(payload?.displayPreferences), [payload?.displayPreferences]);
   const posterOnlyMode = displayPreferences.layoutMode === 'poster_only';
+  const otherSessions = displayPreferences.showSessionList && !posterOnlyMode ? sessions.slice(1, 5) : [];
   const posterUrl = useMemo(
     () => (displayPreferences.showPoster || posterOnlyMode) ? buildImageUrl(session?.posterImagePath || session?.backdropImagePath, apiUrl, displayToken) : '',
     [apiUrl, displayPreferences.showPoster, displayToken, posterOnlyMode, session]
@@ -207,6 +227,22 @@ export default function NowPlayingView({ apiCall, apiUrl, displayToken = '', onB
                       className="h-full bg-gold"
                       style={{ width: progress }}
                     />
+                  </div>
+                ) : null}
+                {otherSessions.length ? (
+                  <div className="mt-10 border-t border-edge pt-5">
+                    <p className="text-sm font-medium text-dim">Other active sessions</p>
+                    <div className="mt-3 space-y-3">
+                      {otherSessions.map((item, index) => {
+                        const meta = sessionMetaLine(item, displayPreferences);
+                        return (
+                          <div key={`${item.metadataKey || item.title || 'session'}-${index}`} className="border-l border-edge pl-4">
+                            <p className="text-base font-medium text-ink">{item.title || 'Untitled session'}</p>
+                            {meta ? <p className="mt-1 text-sm text-ghost">{meta}</p> : null}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 ) : null}
               </div>

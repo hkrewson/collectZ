@@ -10656,6 +10656,36 @@ Historical note:
 - What remains in the milestone: Nothing for `3.4.147`; CI-only release gates still need their normal GitHub run.
 - Recommended commit message: `Release 3.4.147 with Plex real provider item-row parity proof`
 
+## 3.4.148 — Plex Now Playing Multi-Session Display Polish
+
+**Goal:** Make the Plex Now Playing display more useful when Plex reports multiple active sessions, without changing imports, reconciliation, webhooks, writeback, or automatic sync.
+
+### Scope
+
+- Add a saved `Other sessions` display preference to the Plex integration settings.
+- Render a compact additional-session list on the standard `/now-playing` display when multiple sessions are returned.
+- Keep vertical poster-only mode poster-only.
+- Keep Plex import, reconciliation, watched-state writeback, rating writeback, webhooks, and provider API migration unchanged.
+
+### Acceptance Criteria
+
+- Standard Now Playing display still focuses on the primary active session.
+- When more sessions are present and the preference is enabled, the display shows a compact `Other active sessions` list with sanitized title/context/player/progress readback.
+- The display preference is normalized server-side, saved in the existing JSON preferences column, documented in OpenAPI, and visible in Integrations.
+- Poster-only mode does not show the additional-session list.
+- Version metadata, release note, release feed, and Help > Releases include `3.4.148`.
+
+### Closeout
+
+- Roadmap slice: `3.4.148 — Plex Now Playing Multi-Session Display Polish`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`; `docs/wiki/08-Backlog.md`; `docs/releases/v3.4.148.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild with `APP_VERSION=3.4.148`; `/api/health` served frontend/backend/build `3.4.148`; running backend env reported `APP_EDITION=platform`, `APP_VERSION=3.4.148`, `NODE_ENV=development`, and `SESSION_COOKIE_SECURE=false`; live DB feature flags kept `events_enabled=true` and `collectibles_enabled=true` with schema migrations at version `100`; Docker Plex Now Playing viewer smoke proved admin and display-token readback, display preferences including `showSessionList`, image proxy behavior, and token-safe payloads; focused Playwright Now Playing regression proved the standard display renders `Other active sessions` while poster-only mode still hides non-poster chrome; Docker Help > Releases smoke served `v3.4.148`; homelab boundary passed under a temporary local homelab override, then the stack was restored to platform and rechecked.
+- CI/checks run: `node --check backend/routes/integrations.js`; `node --check backend/scripts/plex-now-playing-viewer-smoke.js`; host `backend/scripts/unit-tests.js` (`281` tests); host `npm --prefix frontend run build:vite` with Node 24; Docker backend/frontend build; Docker `npm run test:unit`; Docker `npm run test:openapi`; Docker `npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:plex-now-playing-viewer-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:help-releases-smoke`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`; focused Playwright Now Playing regression (`4` passed); full Playwright browser regression rerun after observability (`64` passed, `4` skipped); `npm --prefix backend run test:observability-evidence`; `npm --prefix backend run test:release-preflight-local`; `git diff --check`; targeted release/artifact secret-adjacent scan. Local preflight still marks secure-cookie compose smoke, gitleaks secret scan, and Trivy/SBOM as CI-only or stricter-CI follow-through.
+- Files changed: `app-meta.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `backend/app-meta.json`; `backend/openapi/openapi.yaml`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/routes/integrations.js`; `backend/scripts/plex-now-playing-viewer-smoke.js`; `backend/scripts/unit-tests.js`; `docker-compose.yml`; `docs/releases/v3.4.148.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/AdminIntegrationsView.jsx`; `frontend/src/components/NowPlayingView.jsx`; `preflight-go-no-go.md`; `tests/playwright/specs/now-playing-viewer.browser.spec.js`.
+- Risks or follow-ups: the additional-session list intentionally uses only the already-sanitized Now Playing session readback and is capped to four secondary sessions; it does not add per-session layout selection, richer kiosk profiles, or any Plex writeback/import behavior. CI still needs to run its normal secret scan, image security, SBOM, and stricter secure-cookie compose-smoke context.
+- What remains in the milestone: Nothing for `3.4.148`; CI-only release gates still need their normal GitHub run.
+- Recommended commit message: `Release 3.4.148 with Plex Now Playing multi-session display polish`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

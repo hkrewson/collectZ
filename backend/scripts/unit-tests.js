@@ -1934,6 +1934,8 @@ results.push(run('plex now-playing viewer is wired through a standalone authenti
   assert.ok(nowPlayingViewSource.includes('showPoster'));
   assert.ok(nowPlayingViewSource.includes('showBackdrop'));
   assert.ok(nowPlayingViewSource.includes('posterOnlyMode'));
+  assert.ok(nowPlayingViewSource.includes('showSessionList'));
+  assert.ok(nowPlayingViewSource.includes('Other active sessions'));
   assert.ok(nowPlayingViewSource.includes('poster_only'));
   assert.ok(nowPlayingViewSource.includes('posterImagePath'));
   assert.ok(nowPlayingViewSource.includes('Updates every 15 seconds'));
@@ -1942,10 +1944,14 @@ results.push(run('plex now-playing viewer is wired through a standalone authenti
   assert.ok(adminIntegrationsViewSource.includes('savePlexDisplayPreferences'));
   assert.ok(adminIntegrationsViewSource.includes('DEFAULT_PLEX_DISPLAY_PREFERENCES'));
   assert.ok(adminIntegrationsViewSource.includes('layoutMode'));
+  assert.ok(adminIntegrationsViewSource.includes('Other sessions'));
   assert.ok(adminIntegrationsViewSource.includes('Vertical poster only'));
+  assert.ok(openApiSource.includes('showSessionList'));
+  assert.ok(plexNowPlayingViewerSmokeSource.includes('showSessionList'));
   assert.ok(nowPlayingViewerBrowserSpecSource.includes("page.goto('/now-playing')"));
   assert.ok(nowPlayingViewerBrowserSpecSource.includes('/now-playing?token='));
   assert.ok(nowPlayingViewerBrowserSpecSource.includes('Viewer Safe Payload'));
+  assert.ok(nowPlayingViewerBrowserSpecSource.includes('Second Active Session'));
   assert.ok(releaseRoadmapSource.includes('3.4.118 — Plex Now Playing Viewer'));
   assert.ok(releaseRoadmapSource.includes('3.4.120 — Plex Now Playing Display Preferences'));
 }));

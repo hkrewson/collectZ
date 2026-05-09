@@ -72,6 +72,7 @@ Use this for feature discovery and future new Plex surfaces where possible. The 
 - Plex Provider/API Import Parity Contract. Promoted as `3.4.145`.
 - Plex Provider Item-Listing API Discovery. Promoted as `3.4.146`.
 - Plex Real PMS Provider Item-Row Parity Proof. Promoted as `3.4.147`.
+- Plex Now Playing Multi-Session Display Polish. Promoted as `3.4.148`.
 
 ## Acceptance Criteria
 

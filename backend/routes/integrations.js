@@ -47,6 +47,7 @@ const DEFAULT_NOW_PLAYING_DISPLAY_PREFERENCES = Object.freeze({
   showProgress: true,
   showUpdatedAt: true,
   showPausedSessions: true,
+  showSessionList: true,
   textScale: 'standard'
 });
 
@@ -55,7 +56,7 @@ function normalizeNowPlayingDisplayPreferences(input = {}) {
   const normalized = { ...DEFAULT_NOW_PLAYING_DISPLAY_PREFERENCES };
   const layoutMode = String(raw.layoutMode || '').trim().toLowerCase();
   if (NOW_PLAYING_LAYOUT_MODES.has(layoutMode)) normalized.layoutMode = layoutMode;
-  for (const key of ['showPoster', 'showBackdrop', 'showContext', 'showPlayer', 'showProgress', 'showUpdatedAt', 'showPausedSessions']) {
+  for (const key of ['showPoster', 'showBackdrop', 'showContext', 'showPlayer', 'showProgress', 'showUpdatedAt', 'showPausedSessions', 'showSessionList']) {
     if (raw[key] !== undefined) normalized[key] = Boolean(raw[key]);
   }
   const textScale = String(raw.textScale || '').trim().toLowerCase();

@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.148",
+      "version": "3.4.148",
+      "date": null,
+      "status": "released",
+      "summary": "This patch polishes the Plex Now Playing display for homes with more than one active Plex session. The main display still focuses on the first active session, and can now show a compact readback of other active sessions when that display preference is enabled.",
+      "details": []
+    },
+    {
       "title": "collectZ v3.4.147",
       "version": "3.4.147",
       "date": null,
@@ -70,14 +78,6 @@
       "date": null,
       "status": null,
       "summary": "This patch adds a temporary read-only Plex reconciliation review UI.",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.4.138",
-      "version": "v3.4.138",
-      "date": null,
-      "status": null,
-      "summary": "This patch normalizes collectZ user ratings to a 0-10 internal scale while preserving the existing 5-star UI.",
       "details": []
     }
   ]
