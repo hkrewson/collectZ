@@ -6828,6 +6828,81 @@ async function persistPlexReconciliationConflictReviews({
   }
 }
 
+async function validatePlexAttachExistingTarget({ review = {}, targetMediaId = null, scopeContext = null } = {}) {
+  const numericTargetId = Number(targetMediaId || review.existing_media_id || 0);
+  if (!Number.isFinite(numericTargetId) || numericTargetId <= 0) {
+    const error = new Error('targetMediaId is required for attach_existing conflict resolution');
+    error.status = 400;
+    throw error;
+  }
+  const item = review.item_snapshot || {};
+  if (!item.plex_item_key && !item.plex_guid) {
+    const error = new Error('Cannot attach Plex identity because the conflict review does not include a Plex item key or GUID');
+    error.status = 400;
+    throw error;
+  }
+  const params = [numericTargetId];
+  const scopeClause = appendScopeSql(params, scopeContext);
+  const targetResult = await pool.query(
+    `SELECT id, title, media_type, year, tmdb_id, import_source, type_details, upc
+       FROM media
+      WHERE id = $1${scopeClause}
+      LIMIT 1`,
+    params
+  );
+  const target = targetResult.rows[0] || null;
+  if (!target) {
+    const error = new Error('Target media row was not found in the active library');
+    error.status = 404;
+    throw error;
+  }
+
+  const itemTmdbId = Number(item.tmdb_id || 0) || null;
+  const targetTmdbId = Number(target.tmdb_id || 0) || null;
+  if (itemTmdbId && targetTmdbId && itemTmdbId !== targetTmdbId) {
+    const error = new Error('Cannot attach Plex identity because TMDB identifiers conflict');
+    error.status = 409;
+    throw error;
+  }
+  const itemType = normalizeMediaType(item.media_type || 'movie', 'movie');
+  const targetType = normalizeMediaType(target.media_type || 'movie', 'movie');
+  if (itemType && targetType && itemType !== targetType) {
+    const error = new Error('Cannot attach Plex identity because media types conflict');
+    error.status = 409;
+    throw error;
+  }
+
+  const metadata = await pool.query(
+    `SELECT "key", "value"
+       FROM media_metadata
+      WHERE media_id = $1
+        AND "key" IN ('plex_guid', 'plex_item_key', 'plex_section_id')`,
+    [target.id]
+  );
+  const metadataMap = new Map(metadata.rows.map((row) => [row.key, row.value]));
+  if (metadataMap.get('plex_item_key') && item.plex_item_key && metadataMap.get('plex_item_key') !== item.plex_item_key) {
+    const error = new Error('Cannot attach Plex identity because the target already has a different Plex item key');
+    error.status = 409;
+    throw error;
+  }
+  if (metadataMap.get('plex_guid') && item.plex_guid && metadataMap.get('plex_guid') !== item.plex_guid) {
+    const error = new Error('Cannot attach Plex identity because the target already has a different Plex GUID');
+    error.status = 409;
+    throw error;
+  }
+
+  return target;
+}
+
+async function attachPlexIdentityToExistingMedia({ review = {}, targetMediaId = null, scopeContext = null } = {}) {
+  const target = await validatePlexAttachExistingTarget({ review, targetMediaId, scopeContext });
+  const item = review.item_snapshot || {};
+  if (item.plex_guid) await upsertMediaMetadataEntry(target.id, 'plex_guid', item.plex_guid);
+  if (item.plex_item_key) await upsertMediaMetadataEntry(target.id, 'plex_item_key', item.plex_item_key);
+  if (item.sectionId) await upsertMediaMetadataEntry(target.id, 'plex_section_id', String(item.sectionId));
+  return target;
+}
+
 function buildPlexReconciliationJobSummary(preview = {}) {
   const buckets = preview.buckets || {};
   return {
@@ -13718,8 +13793,8 @@ router.post('/plex-reconciliation-conflicts/:id/resolve', asyncHandler(async (re
     return res.status(400).json({ error: 'Invalid Plex conflict review id' });
   }
   const action = String(req.body?.action || '').trim().toLowerCase();
-  if (!['create_separate', 'dismiss'].includes(action)) {
-    return res.status(400).json({ error: 'action must be create_separate or dismiss' });
+  if (!['create_separate', 'dismiss', 'attach_existing'].includes(action)) {
+    return res.status(400).json({ error: 'action must be create_separate, attach_existing, or dismiss' });
   }
   const notes = String(req.body?.notes || '').trim().slice(0, 1000) || null;
   const reviewResult = await pool.query(
@@ -13772,6 +13847,13 @@ router.post('/plex-reconciliation-conflicts/:id/resolve', asyncHandler(async (re
         resolvedMediaId = Number(lookup.rows[0]?.media_id || 0) || null;
       }
     }
+  } else if (action === 'attach_existing') {
+    const target = await attachPlexIdentityToExistingMedia({
+      review,
+      targetMediaId: req.body?.targetMediaId || review.existing_media_id,
+      scopeContext: effectiveScopeContext
+    });
+    resolvedMediaId = Number(target.id);
   }
 
   const updated = await pool.query(
@@ -13793,14 +13875,14 @@ router.post('/plex-reconciliation-conflicts/:id/resolve', asyncHandler(async (re
     resolvedMediaId,
     existingMediaId: review.existing_media_id || null,
     plexWriteback: false,
-    importMutation: action === 'create_separate'
+    importMutation: action === 'create_separate' || action === 'attach_existing'
   });
   res.json({
     ok: true,
     provider: 'plex',
     processingMode: 'plex_reconciliation_conflict_resolution',
     plexWriteback: false,
-    importMutation: action === 'create_separate',
+    importMutation: action === 'create_separate' || action === 'attach_existing',
     review: formatPlexReconciliationReview(updated.rows[0]),
     importSummary: importResult?.summary || null
   });

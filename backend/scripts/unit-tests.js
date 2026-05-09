@@ -1669,6 +1669,15 @@ results.push(run('plex full-library reconciliation preview stays read-only and c
   assert.ok(plexReconciliationSyncSmokeSource.includes('Expected one conflict for review'));
   assert.ok(plexReconciliationSyncSmokeSource.includes('/api/media/plex-reconciliation-conflicts?status=open'));
   assert.ok(plexReconciliationSyncSmokeSource.includes("action: 'create_separate'"));
+  assert.ok(plexReconciliationSyncSmokeSource.includes("action: 'attach_existing'"));
+  assert.ok(plexReconciliationSyncSmokeSource.includes('Attach-existing conflict resolution rejects strong identifier conflicts'));
+  assert.ok(plexReconciliationSyncSmokeSource.includes('Attach-existing conflict resolution can attach Plex identity metadata to a safe existing row'));
+  assert.ok(mediaRoutesSource.includes('validatePlexAttachExistingTarget'));
+  assert.ok(mediaRoutesSource.includes('attachPlexIdentityToExistingMedia'));
+  assert.ok(mediaRoutesSource.includes('targetMediaId is required for attach_existing conflict resolution'));
+  assert.ok(mediaRoutesSource.includes('Cannot attach Plex identity because TMDB identifiers conflict'));
+  assert.ok(openApiSource.includes('attach_existing'));
+  assert.ok(openApiSource.includes('targetMediaId'));
   assert.ok(plexReconciliationSyncSmokeSource.includes('Conflict review can create a separate local Plex-linked title without Plex writeback'));
   assert.ok(plexReconciliationSyncSmokeSource.includes('plex-reconciliation-sync-smoke.json'));
   assert.ok(adminIntegrationsViewSource.includes('Plex library sync'));
@@ -1679,6 +1688,7 @@ results.push(run('plex full-library reconciliation preview stays read-only and c
   assert.ok(adminIntegrationsViewSource.includes('Sync Plex Library'));
   assert.ok(adminIntegrationsViewSource.includes('Sync Issues'));
   assert.ok(adminIntegrationsViewSource.includes('PlexConflictReviewQueue'));
+  assert.ok(adminIntegrationsViewSource.includes('Attach to existing'));
   assert.ok(adminIntegrationsViewSource.includes('Create separate title'));
   assert.ok(adminIntegrationsViewSource.includes('resolvePlexConflictReview'));
   assert.ok(adminIntegrationsViewSource.includes('runPlexReconciliationPreview'));
@@ -1688,6 +1698,7 @@ results.push(run('plex full-library reconciliation preview stays read-only and c
   assert.ok(integrationsBrowserSpecSource.includes('Plex reconciliation sync surface displays durable conflict review actions'));
   assert.ok(integrationsBrowserSpecSource.includes('/api/media/plex-reconciliation-conflicts?status=open'));
   assert.ok(integrationsBrowserSpecSource.includes('/api/media/plex-reconciliation-conflicts/77/resolve'));
+  assert.ok(integrationsBrowserSpecSource.includes('Attach to existing'));
   assert.ok(integrationsBrowserSpecSource.includes('/api/media/plex-reconciliation-preview'));
   assert.ok(integrationsBrowserSpecSource.includes('/api/media/plex-reconciliation-sync/run'));
   assert.ok(integrationsBrowserSpecSource.includes('toHaveCount(0)'));
@@ -1696,6 +1707,7 @@ results.push(run('plex full-library reconciliation preview stays read-only and c
   assert.ok(releaseRoadmapSource.includes('3.4.140 — Plex Reconciliation Auto-Sync and Conflict Review'));
   assert.ok(releaseRoadmapSource.includes('3.4.141 — Plex Reconciliation Full-Scan and Scheduler Automation'));
   assert.ok(releaseRoadmapSource.includes('3.4.143 — Plex Reconciliation Conflict Review and Resolution'));
+  assert.ok(releaseRoadmapSource.includes('3.4.144 — Plex Attach-Existing Conflict Resolution Contract'));
 }));
 
 results.push(run('plex webhook receiver administration contract is token-scoped and queues library-new import hints only', () => {

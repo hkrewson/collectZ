@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.144",
+      "version": "3.4.144",
+      "date": null,
+      "status": "released",
+      "summary": "This patch adds a guarded attach-existing path for Plex reconciliation conflicts so an admin can link a Plex identity to an existing collectZ title when the identifiers are safe.",
+      "details": []
+    },
+    {
       "title": "collectZ v3.4.143",
       "version": "3.4.143",
       "date": null,
@@ -70,14 +78,6 @@
       "date": null,
       "status": null,
       "summary": "This patch adds explicit Plex writeback controls to Plex-linked media detail drawers.",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.4.134",
-      "version": "v3.4.134",
-      "date": null,
-      "status": null,
-      "summary": "This patch adds explicit Plex rating writeback for one existing Plex-linked collectZ row.",
       "details": []
     }
   ]

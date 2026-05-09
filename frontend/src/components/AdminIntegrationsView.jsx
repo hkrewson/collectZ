@@ -243,10 +243,20 @@ function PlexConflictReviewQueue({ reviews = [], loading = '', onResolve }) {
         ) : reviews.slice(0, 25).map((review) => (
           <PlexReconciliationRow key={review.id} row={review}>
             <div className="mt-2 flex flex-wrap gap-2">
+              {review.existingMediaId && (
+                <button
+                  type="button"
+                  className="btn-secondary btn-sm"
+                  disabled={loading === `plex-conflict-attach-${review.id}` || loading === `plex-conflict-create-${review.id}` || loading === `plex-conflict-dismiss-${review.id}`}
+                  onClick={() => onResolve?.(review.id, 'attach_existing', review.existingMediaId)}
+                >
+                  Attach to existing
+                </button>
+              )}
               <button
                 type="button"
                 className="btn-secondary btn-sm"
-                disabled={loading === `plex-conflict-create-${review.id}` || loading === `plex-conflict-dismiss-${review.id}`}
+                disabled={loading === `plex-conflict-attach-${review.id}` || loading === `plex-conflict-create-${review.id}` || loading === `plex-conflict-dismiss-${review.id}`}
                 onClick={() => onResolve?.(review.id, 'create_separate')}
               >
                 Create separate title
@@ -254,7 +264,7 @@ function PlexConflictReviewQueue({ reviews = [], loading = '', onResolve }) {
               <button
                 type="button"
                 className="btn-secondary btn-sm"
-                disabled={loading === `plex-conflict-create-${review.id}` || loading === `plex-conflict-dismiss-${review.id}`}
+                disabled={loading === `plex-conflict-attach-${review.id}` || loading === `plex-conflict-create-${review.id}` || loading === `plex-conflict-dismiss-${review.id}`}
                 onClick={() => onResolve?.(review.id, 'dismiss')}
               >
                 Dismiss
@@ -1007,14 +1017,23 @@ export default function AdminIntegrationsView({
     }
   };
 
-  const resolvePlexConflictReview = async (reviewId, action) => {
-    const loadingKey = action === 'create_separate' ? `plex-conflict-create-${reviewId}` : `plex-conflict-dismiss-${reviewId}`;
+  const resolvePlexConflictReview = async (reviewId, action, targetMediaId = null) => {
+    const loadingKey = action === 'create_separate'
+      ? `plex-conflict-create-${reviewId}`
+      : action === 'attach_existing'
+        ? `plex-conflict-attach-${reviewId}`
+        : `plex-conflict-dismiss-${reviewId}`;
     setTestLoading(loadingKey);
     setTestMsg('');
     try {
-      const result = await apiCall('post', `/media/plex-reconciliation-conflicts/${reviewId}/resolve`, { action });
+      const payload = targetMediaId ? { action, targetMediaId } : { action };
+      const result = await apiCall('post', `/media/plex-reconciliation-conflicts/${reviewId}/resolve`, payload);
       await refreshPlexConflictReviews();
-      const label = action === 'create_separate' ? 'created a separate title' : 'dismissed the conflict';
+      const label = action === 'create_separate'
+        ? 'created a separate title'
+        : action === 'attach_existing'
+          ? 'attached the Plex identity to the existing title'
+          : 'dismissed the conflict';
       setTestMsg(`PLEX CONFLICT: ${label}.`);
       onToast(result?.review?.item?.title ? `Plex conflict resolved for ${result.review.item.title}` : 'Plex conflict resolved');
     } catch (err) {

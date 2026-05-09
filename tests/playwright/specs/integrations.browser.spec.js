@@ -258,6 +258,7 @@ test.describe('integrations browser regressions', () => {
           count: conflictOpen ? 1 : 0,
           reviews: conflictOpen ? [{
             id: 77,
+            existingMediaId: 104,
             item: { title: 'Conflict Movie', media_type: 'movie', year: 2021, sectionId: '1', plex_item_key: '1:1004' },
             existing: { id: 104, title: 'Conflict Movie', media_type: 'movie', year: 2021, import_source: 'manual' },
             matchedBy: 'title_year_conflict',
@@ -267,6 +268,8 @@ test.describe('integrations browser regressions', () => {
       });
     });
     await page.route('**/api/media/plex-reconciliation-conflicts/77/resolve', async (route) => {
+      const requestBody = route.request().postDataJSON();
+      expect(requestBody).toMatchObject({ action: 'attach_existing', targetMediaId: 104 });
       conflictOpen = false;
       await route.fulfill({
         status: 200,
@@ -276,11 +279,11 @@ test.describe('integrations browser regressions', () => {
           provider: 'plex',
           processingMode: 'plex_reconciliation_conflict_resolution',
           plexWriteback: false,
-          importMutation: false,
+          importMutation: true,
           review: {
             id: 77,
             status: 'resolved',
-            resolution: 'dismiss',
+            resolution: 'attach_existing',
             item: { title: 'Conflict Movie', media_type: 'movie', year: 2021 }
           }
         })
@@ -311,9 +314,10 @@ test.describe('integrations browser regressions', () => {
     await expect(page.getByText('Updated', { exact: true })).toBeVisible();
     await expect(page.getByText('Needs review', { exact: true })).toBeVisible();
     await expect(page.getByText('Conflict review')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Attach to existing' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Create separate title' })).toBeVisible();
-    await page.getByRole('button', { name: 'Dismiss' }).click();
-    await expect(page.getByText('PLEX CONFLICT: dismissed the conflict.')).toBeVisible();
+    await page.getByRole('button', { name: 'Attach to existing' }).click();
+    await expect(page.getByText('PLEX CONFLICT: attached the Plex identity to the existing title.')).toBeVisible();
     await expect(page.getByText('No open Plex conflicts.')).toBeVisible();
     await expect(page.getByRole('button', { name: /apply/i })).toHaveCount(0);
   });

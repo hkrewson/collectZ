@@ -9299,7 +9299,7 @@
       "post": {
         "tags": ["Media"],
         "summary": "Resolve a Plex reconciliation conflict review row",
-        "description": "Resolves a stored Plex reconciliation conflict by creating a separate local Plex-linked title or dismissing the conflict. Plex writeback remains disabled.",
+        "description": "Resolves a stored Plex reconciliation conflict by creating a separate local Plex-linked title, attaching Plex identity metadata to an existing collectZ row after strong-ID guardrails pass, or dismissing the conflict. Plex writeback remains disabled.",
         "security": [
           { "cookieSession": [], "csrfHeader": [] },
           { "bearerAuth": [] }
@@ -9322,7 +9322,11 @@
                 "properties": {
                   "action": {
                     "type": "string",
-                    "enum": ["create_separate", "dismiss"]
+                    "enum": ["create_separate", "attach_existing", "dismiss"]
+                  },
+                  "targetMediaId": {
+                    "type": "integer",
+                    "description": "Existing collectZ media row to attach Plex identity metadata to when action is attach_existing."
                   },
                   "notes": {
                     "type": "string",
@@ -9378,7 +9382,7 @@
             }
           },
           "409": {
-            "description": "Review row already resolved",
+            "description": "Review row already resolved or attach-existing guardrail conflict",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/Error" }

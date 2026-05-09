@@ -393,6 +393,13 @@ async function main() {
     assert(conflicts.data?.reviews?.[0]?.item?.title === 'Conflict Movie', `Expected Conflict Movie review row: ${JSON.stringify(conflicts.data)}`);
     assert(!Object.prototype.hasOwnProperty.call(conflicts.data.reviews[0], 'sourceItem'), 'Conflict review readback must not expose raw source item payloads');
     const reviewId = Number(conflicts.data.reviews[0]?.id || 0);
+    const unsafeAttach = await client.request(`/api/media/plex-reconciliation-conflicts/${reviewId}/resolve`, {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 409,
+      body: { action: 'attach_existing', targetMediaId: conflicts.data.reviews[0]?.existingMediaId }
+    });
+    assert(String(unsafeAttach.data?.error || '').includes('TMDB identifiers conflict'), `Expected unsafe attach rejection: ${JSON.stringify(unsafeAttach.data)}`);
     const resolved = await client.request(`/api/media/plex-reconciliation-conflicts/${reviewId}/resolve`, {
       method: 'POST',
       withCsrf: true,
@@ -411,6 +418,69 @@ async function main() {
     assert(resolvedConflicts.data?.count === 0, `Expected no open conflict review rows after resolution: ${JSON.stringify(resolvedConflicts.data)}`);
     const afterResolutionCount = await pool.query('SELECT COUNT(*)::int AS count FROM media WHERE library_id = $1', [libraryId]);
     assert(afterResolutionCount.rows[0].count === beforeCount.rows[0].count + 2, `Expected conflict resolution to create one more media row, before=${beforeCount.rows[0].count} after=${afterResolutionCount.rows[0].count}`);
+    const attachTarget = await pool.query(
+      `INSERT INTO media (title, media_type, format, library_id, space_id, added_by, import_source, year)
+       VALUES ('Attach Existing Candidate', 'movie', 'Digital', $1, $2, $3, 'manual', 2005)
+       RETURNING id`,
+      [libraryId, spaceId, userId]
+    );
+    const attachTargetId = Number(attachTarget.rows[0]?.id || 0);
+    mediaIds.push(attachTargetId);
+    const attachReview = await pool.query(
+      `INSERT INTO plex_reconciliation_reviews (
+         provider, source_key, status, reason, matched_by, item_snapshot, existing_snapshot,
+         existing_media_id, library_id, space_id, created_by
+       )
+       VALUES (
+         'plex', 'plex_item_key:1:9901', 'open', 'Smoke attach-existing safe candidate.',
+         'operator_selected',
+         $1::jsonb,
+         $2::jsonb,
+         $3, $4, $5, $6
+       )
+       RETURNING id`,
+      [
+        JSON.stringify({
+          title: 'Attach Existing Candidate',
+          media_type: 'movie',
+          year: 2005,
+          sectionId: '1',
+          plex_item_key: '1:9901',
+          plex_guid: 'tmdb://9901'
+        }),
+        JSON.stringify({
+          id: attachTargetId,
+          title: 'Attach Existing Candidate',
+          media_type: 'movie',
+          year: 2005,
+          import_source: 'manual'
+        }),
+        attachTargetId,
+        libraryId,
+        spaceId,
+        userId
+      ]
+    );
+    const attachReviewId = Number(attachReview.rows[0]?.id || 0);
+    const attached = await client.request(`/api/media/plex-reconciliation-conflicts/${attachReviewId}/resolve`, {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 200,
+      body: { action: 'attach_existing', targetMediaId: attachTargetId, notes: 'smoke attach existing' }
+    });
+    assert(attached.data?.review?.resolution === 'attach_existing', `Expected attach_existing resolution: ${JSON.stringify(attached.data)}`);
+    assert(attached.data?.review?.resolvedMediaId === attachTargetId, `Expected attach target id: ${JSON.stringify(attached.data)}`);
+    assert(attached.data?.importMutation === true, 'Expected attach_existing to mutate local identity metadata');
+    assert(attached.data?.plexWriteback === false, 'Expected attach_existing to keep Plex writeback disabled');
+    const attachedMetadata = await pool.query(
+      `SELECT "key", "value" FROM media_metadata
+       WHERE media_id = $1 AND "key" IN ('plex_guid', 'plex_item_key', 'plex_section_id')
+       ORDER BY "key"`,
+      [attachTargetId]
+    );
+    const attachedMap = new Map(attachedMetadata.rows.map((row) => [row.key, row.value]));
+    assert(attachedMap.get('plex_item_key') === '1:9901', `Expected attached Plex item key: ${JSON.stringify(attachedMetadata.rows)}`);
+    assert(attachedMap.get('plex_section_id') === '1', `Expected attached Plex section id: ${JSON.stringify(attachedMetadata.rows)}`);
     assert(fake.requests.some((entry) => entry.pathname === '/library/sections'), 'Expected sections readback');
     assert(fake.requests.some((entry) => entry.pathname === '/library/sections/1/all'), 'Expected section library readback');
     assert(fake.requests.every((entry) => entry.hasToken && entry.tokenMatched), 'Expected fake PMS requests to authenticate');
@@ -432,9 +502,11 @@ async function main() {
       conflictReviewCount: job.summary.conflictReviewCount,
       conflictResolution: {
         openBefore: conflicts.data.count,
+        unsafeAttachRejected: true,
         action: resolved.data.review.resolution,
         resolvedMediaId: resolved.data.review.resolvedMediaId,
-        openAfter: resolvedConflicts.data.count
+        openAfter: resolvedConflicts.data.count,
+        attachExistingResolvedMediaId: attached.data.review.resolvedMediaId
       },
       queuedJob: {
         id: jobId,
@@ -471,6 +543,8 @@ async function main() {
         'Reconciliation sync scanned more than 1000 Plex rows when no diagnostic limit was supplied',
         'Queued reconciliation sync job created one safe missing row and updated one strong TMDB match',
         'Already-linked rows stayed no-op and conflicting rows were stored for review',
+        'Attach-existing conflict resolution rejects strong identifier conflicts',
+        'Attach-existing conflict resolution can attach Plex identity metadata to a safe existing row',
         'Conflict review can create a separate local Plex-linked title without Plex writeback',
         'Sync evidence did not surface Plex tokens, token query strings, private IPs, or media file paths'
       ]

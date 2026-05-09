@@ -10535,6 +10535,37 @@ Historical note:
 - What remains in the milestone: Nothing for `3.4.143`; CI-only release gates still need their normal GitHub run.
 - Recommended commit message: `Release 3.4.143 with Plex reconciliation conflict review and resolution`
 
+## 3.4.144 — Plex Attach-Existing Conflict Resolution Contract
+
+**Goal:** Let admins resolve a Plex reconciliation conflict by attaching the Plex identity to an existing collectZ row when the strong identifiers are safe.
+
+### Scope
+
+- Add an explicit `attach_existing` Plex conflict resolution action.
+- Require active-library scoping and reject unsafe attaches when TMDB ids, media types, existing Plex item keys, or existing Plex GUIDs conflict.
+- Attach only Plex identity metadata to the selected existing row; do not rewrite broader title fields.
+- Surface Attach to existing in the Plex integrations conflict queue when a suggested existing row is present.
+- Keep Plex writeback, automatic conflict resolution, and broad import rewrites out of scope.
+
+### Acceptance Criteria
+
+- Unsafe attach-existing attempts return a clear conflict error and leave the review row open.
+- Safe attach-existing attempts store Plex identity metadata on the selected existing row.
+- Resolved review rows record `resolution=attach_existing`, `resolved_media_id`, no Plex writeback, and a local import mutation.
+- The Plex conflict queue exposes create-separate, attach-existing, and dismiss as explicit admin choices.
+- Version metadata, release note, release feed, and Help > Releases include `3.4.144`.
+
+### Closeout
+
+- Roadmap slice: `3.4.144 — Plex Attach-Existing Conflict Resolution Contract`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`; `docs/wiki/08-Backlog.md`; `docs/releases/v3.4.144.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild with `APP_VERSION=3.4.144`; `/api/health` served frontend/backend/build `3.4.144`; running backend env reported `APP_EDITION=platform`, `APP_VERSION=3.4.144`, `NODE_ENV=development`, `SESSION_COOKIE_SECURE=false`, `PLEX_RECONCILIATION_SYNC_ENABLED=false`, `PLEX_RECONCILIATION_SYNC_INTERVAL_MINUTES=360`, and no scheduled scan limit; live DB kept `events_enabled=true` and `collectibles_enabled=true` with schema migrations at version `100`; Docker Plex reconciliation sync smoke proved full-scan reconciliation, one stored open conflict review row, unsafe attach-existing rejected on TMDB conflict, safe attach-existing writing Plex identity metadata to an existing row, `create_separate` still creating one additional local Plex-linked media row, open review count returning to zero, and Plex writeback remaining false; Help > Releases served `3.4.144`; homelab boundary passed under a temporary local homelab override, then the stack was restored to platform.
+- CI/checks run: `node --check backend/routes/media.js`; `node --check backend/scripts/plex-reconciliation-sync-smoke.js`; source unit contract with Node 24; Docker backend/frontend build; Docker `npm run test:unit`; Docker `npm run test:openapi`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; Docker `npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:plex-reconciliation-sync-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:help-releases-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker homelab boundary with temporary homelab override and `BASE_URL=http://frontend:3000`; full Playwright browser regression passed `64 passed, 4 skipped`; `npm --prefix backend run test:observability-evidence`; `npm --prefix backend run test:release-preflight-local`; `git diff --check`; targeted secret scan over the new release note, release feed, preflight, and observability evidence. Local preflight marks secure-cookie compose-smoke conditions blocked in the dev stack because `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`, and marks CI-only `secret-scan` and `image-security-and-sbom` for CI follow-through.
+- Files changed: `app-meta.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `backend/app-meta.json`; `backend/openapi/openapi.yaml`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/routes/media.js`; `backend/scripts/plex-reconciliation-sync-smoke.js`; `backend/scripts/unit-tests.js`; `docker-compose.yml`; `docs/releases/v3.4.144.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/AdminIntegrationsView.jsx`; `preflight-go-no-go.md`; `tests/playwright/specs/integrations.browser.spec.js`.
+- Risks/follow-ups: attach-existing intentionally only writes Plex identity metadata and refuses strong-ID conflicts; it does not broaden into automatic conflict resolution, wider Plex import rewrites, Plex writeback, or richer episode-row modeling. CI still needs to run its normal `secret-scan`, `image-security-and-sbom`, and stricter secure-cookie compose-smoke context.
+- What remains in the milestone: Nothing for `3.4.144`; CI-only release gates still need their normal GitHub run.
+- Recommended commit message: `Release 3.4.144 with Plex attach-existing conflict resolution guardrails`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.
