@@ -12,6 +12,7 @@ import useApiClient from './components/app/hooks/useApiClient';
 import useImportJobPolling from './components/app/hooks/useImportJobPolling';
 import useSessionBootstrap from './components/app/hooks/useSessionBootstrap';
 import useMediaApi from './components/app/hooks/useMediaApi';
+import useRootAppearance from './components/app/hooks/useRootAppearance';
 import { readFrontendEnv } from './components/app/frontendEnv';
 import {
   getSafeDashboardTab,
@@ -347,30 +348,7 @@ export default function App() {
     apiCall('get', '/settings/general').then((data) => setUiSettings(data)).catch(() => {});
   }, [route, authChecked, user, activeSpaceId, apiCall]);
 
-  useEffect(() => {
-    const root = document.documentElement;
-    const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    const resolveTheme = () => (uiSettings.theme === 'system' ? (mq.matches ? 'dark' : 'light') : uiSettings.theme);
-
-    const apply = () => {
-      const theme = resolveTheme();
-      root.classList.remove('theme-light', 'theme-dark', 'density-compact', 'density-comfortable');
-      root.classList.add(theme === 'light' ? 'theme-light' : 'theme-dark');
-      root.classList.add(uiSettings.density === 'compact' ? 'density-compact' : 'density-comfortable');
-      root.style.colorScheme = theme;
-    };
-
-    apply();
-    const onSystemThemeChange = () => {
-      if (uiSettings.theme === 'system') apply();
-    };
-    if (mq.addEventListener) mq.addEventListener('change', onSystemThemeChange);
-    else mq.addListener(onSystemThemeChange);
-    return () => {
-      if (mq.removeEventListener) mq.removeEventListener('change', onSystemThemeChange);
-      else mq.removeListener(onSystemThemeChange);
-    };
-  }, [uiSettings.theme, uiSettings.density]);
+  useRootAppearance(uiSettings);
 
   useEffect(() => {
     if (!(route === 'dashboard' && authChecked && user)) return;
