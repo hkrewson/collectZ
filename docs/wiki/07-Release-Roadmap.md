@@ -10715,6 +10715,38 @@ Historical note:
 - What remains in the milestone: Nothing for `3.4.149`; CI-only release gates still need their normal GitHub run.
 - Recommended commit message: `Release 3.4.149 with Plex provider-advertised import path contract`
 
+## 3.4.153 — Kavita Comic Series Title Normalization and Issue Mapping
+
+**Goal:** Fix Kavita comic imports where Kavita exposes issue/file-shaped comic rows as series rows, so collectZ stores cleaner title, series, and issue metadata without creating duplicate fan-out rows.
+
+### Scope
+
+- Detect hash-number issue-like Kavita comic series titles such as `Alpha Flight#130 - The Hollow Man! - Unknown`.
+- Normalize issue-like rows into clean display titles, series names, issue numbers, and parsed issue titles.
+- Keep raw Kavita names in Kavita-specific metadata for troubleshooting and writeback context.
+- Keep true Kavita comic series rows series-level instead of copying first-chapter issue number and cover date onto the series row.
+- Skip chapter fan-out for issue-like series rows so the same Kavita source does not create a duplicate issue row.
+- Keep broader annual/special/non-standard chapter import handling, existing-row repair, and external registry matching out of scope.
+
+### Acceptance Criteria
+
+- A Kavita comic row named like `Alpha Flight#130 - The Hollow Man! - Unknown` imports as `Alpha Flight #130 - The Hollow Man!` with `series=Alpha Flight` and `issue_number=130`.
+- True Kavita comic series rows do not inherit first-chapter `issue_number` or `cover_date`.
+- Chapter fan-out remains opt-in and does not duplicate issue-like series rows.
+- Raw Kavita series/localized/original/sort names remain available.
+- Version metadata, release note, release feed, and Help > Releases include `3.4.153`.
+
+### Closeout
+
+- Roadmap slice: `3.4.153 — Kavita Comic Series Title Normalization and Issue Mapping`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/41-Kavita-Integration-Setup.md`; `docs/releases/v3.4.153.md`.
+- Runtime verification used: Docker-first platform backend rebuild with `APP_VERSION=3.4.153`; backend container env reported `APP_EDITION=platform`, `APP_VERSION=3.4.153`, and redacted DB URL; `/api/health` reported build `v3.4.153`; Help > Releases smoke served `3.4.153`; live DB evidence showed existing affected Kavita rows before the patch; Docker Kavita import/sync smoke proved normalized `Alpha Flight #130 - The Hollow Man!`, true series rows without first-chapter issue metadata, opt-in fan-out still producing two chapter rows, workspace-owned Kavita settings, cross-workspace isolation, cover proxy, metadata writeback preview/apply, progress actions, and secret-free launch/readback URLs.
+- CI/checks run: `node --check backend/services/kavita.js`; `node --check backend/routes/media.js`; `node --check backend/services/typeDetails.js`; `node --check backend/scripts/kavita-import-sync-smoke.js`; `node --check backend/scripts/unit-tests.js`; Docker backend build; Docker `npm run test:unit` (`285` passed); Docker `npm run test:openapi`; Docker `BASE_URL=http://backend:3001 npm run test:kavita-import-sync-smoke`; Docker `BASE_URL=http://backend:3001 EXPECTED_RELEASE_VERSION=3.4.153 npm run test:help-releases-smoke`; Docker stack health check; `git diff --check`. Full release gates still need the normal CI run.
+- Files changed: `app-meta.json`; `backend/app-meta.json`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/routes/media.js`; `backend/scripts/kavita-import-sync-smoke.js`; `backend/scripts/unit-tests.js`; `backend/services/kavita.js`; `backend/services/typeDetails.js`; `docker-compose.yml`; `docs/releases/v3.4.153.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`.
+- Risks or follow-ups: Existing affected Kavita rows are not rewritten automatically; a later repair/resync task can refresh older imported rows. The parser intentionally handles the proven hash-number issue-like pattern first; annuals, specials, one-shots, and other non-standard numbering remain separate backlog work. Normal imports still use live external enrichment; the smoke uses a non-production-only enrichment skip header to avoid external provider timeouts.
+- What remains in the milestone: nothing for `3.4.153`; CI-only release gates still need their normal GitHub run.
+- Recommended commit message: `Release 3.4.153 with Kavita comic series title normalization`.
+
 ## 3.4.152 — Reusable Artist Records for Artwork Entry
 
 **Goal:** Let artwork entry create, reuse, and show durable artist records without losing the lightweight per-item artist text that existing art rows already use.

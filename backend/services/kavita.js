@@ -119,6 +119,33 @@ function buildKavitaCoverImageUrl(baseUrl = '', coverImage = '') {
   return buildKavitaWebUrl(normalizedBase, raw);
 }
 
+function cleanKavitaIssueTitleSuffix(rawTitle = '') {
+  return String(rawTitle || '')
+    .trim()
+    .replace(/\s+-\s+unknown\s*$/i, '')
+    .replace(/\s+-\s+no title\s*$/i, '')
+    .trim();
+}
+
+function parseKavitaComicIssueLikeSeriesTitle(rawTitle = '') {
+  const title = String(rawTitle || '').trim();
+  if (!title) return null;
+  const compactHashMatch = title.match(/^(.+?)\s*#\s*([A-Za-z0-9]+(?:[._-][A-Za-z0-9]+)?)\s*(?:-\s*(.+))?$/);
+  if (!compactHashMatch) return null;
+
+  const series = cleanKavitaIssueTitleSuffix(compactHashMatch[1]);
+  const issueNumber = String(compactHashMatch[2] || '').trim().replace(/_/g, '.');
+  const issueTitle = cleanKavitaIssueTitleSuffix(compactHashMatch[3] || '');
+  if (!series || !issueNumber) return null;
+
+  return {
+    series,
+    issueNumber,
+    issueTitle,
+    displayTitle: issueTitle ? `${series} #${issueNumber} - ${issueTitle}` : `${series} #${issueNumber}`
+  };
+}
+
 async function fetchKavitaCoverImage(config = {}, token, coverImage = '', options = {}) {
   const primaryUrl = buildKavitaCoverImageUrl(config.kavitaBaseUrl, coverImage);
   const fallbackUrl = buildKavitaCoverImageUrl(
@@ -596,9 +623,10 @@ function applyKavitaVolumeDetails(normalized = null, volumes = [], { status = 'l
   };
 
   if (normalized.media_type === 'comic_book') {
+    const parsedAsIssue = String(details.kavita_title_parse_status || '') === 'issue_like_series';
     nextDetails.volume = details.volume || summary.firstVolumeNumber || null;
-    nextDetails.issue_number = details.issue_number || summary.firstChapterNumber || null;
-    nextDetails.cover_date = details.cover_date || summary.firstChapterReleaseDate || null;
+    nextDetails.issue_number = details.issue_number || (parsedAsIssue ? summary.firstChapterNumber : null) || null;
+    nextDetails.cover_date = details.cover_date || (parsedAsIssue ? summary.firstChapterReleaseDate : null) || null;
   }
 
   return {
@@ -632,6 +660,9 @@ function normalizeKavitaChapterIssueRows(normalized = null, volumes = [], config
   const details = normalized.type_details;
   if (!isKavitaComicLibraryType(details.kavita_library_type)) {
     return { rows: [], skippedBooks: 1, skippedSpecials: 0, skippedMissingIds: 0, skippedSparseMetadata: 0 };
+  }
+  if (String(details.kavita_title_parse_status || '') === 'issue_like_series') {
+    return { rows: [], skippedBooks: 0, skippedSpecials: 0, skippedMissingIds: 0, skippedSparseMetadata: 1 };
   }
 
   const parentSeriesId = Number(details.kavita_series_id || 0) || null;
@@ -717,10 +748,14 @@ function normalizeKavitaChapterIssueRows(normalized = null, volumes = [], config
 
 function normalizeKavitaSeries(series = {}, library = {}, config = {}) {
   const id = series.id ?? series.seriesId ?? null;
-  const title = firstString(series.localizedName, series.name, series.originalName, series.sortName);
-  if (!id || !title) return null;
+  const rawTitle = firstString(series.localizedName, series.name, series.originalName, series.sortName);
+  if (!id || !rawTitle) return null;
 
   const mediaType = detectKavitaMediaType(series, library);
+  const parsedComicIssueTitle = mediaType === 'comic_book'
+    ? parseKavitaComicIssueLikeSeriesTitle(rawTitle)
+    : null;
+  const title = parsedComicIssueTitle?.displayTitle || rawTitle;
   const sourceUpdatedAt = firstString(series.lastChapterAdded, series.lastFolderScanned, series.created, library.lastScanned);
   const publishedDate = firstString(series.releaseDate, series.published, series.publicationDate);
   const date = normalizeKavitaDate(publishedDate);
@@ -734,8 +769,8 @@ function normalizeKavitaSeries(series = {}, library = {}, config = {}) {
   const coverImage = buildKavitaSeriesCoverImagePath(id) || rawCoverImage;
   const coverUrl = buildKavitaCoverImageUrl(config.kavitaBaseUrl, coverImage);
   const coverProxyUrl = buildKavitaCoverProxyPath(id);
-  const seriesName = firstString(series.name, title);
-  const localizedName = firstString(series.localizedName, title);
+  const seriesName = firstString(series.name, rawTitle);
+  const localizedName = firstString(series.localizedName, rawTitle);
   const originalName = firstString(series.originalName);
   const sortName = firstString(series.sortName);
   const kavitaFormat = firstString(series.format);
@@ -755,9 +790,12 @@ function normalizeKavitaSeries(series = {}, library = {}, config = {}) {
       publisher: firstString(series.publisher) || null,
       isbn: null,
       edition: null,
-      series: mediaType === 'comic_book' ? title : firstString(series.seriesName) || null,
-      issue_number: null,
+      series: mediaType === 'comic_book'
+        ? (parsedComicIssueTitle?.series || rawTitle)
+        : firstString(series.seriesName) || null,
+      issue_number: parsedComicIssueTitle?.issueNumber || null,
       volume: firstString(series.volume) || null,
+      cover_date: null,
       provider_name: 'kavita',
       provider_item_id: providerItemId,
       provider_external_url: openUrl || null,
@@ -774,6 +812,8 @@ function normalizeKavitaSeries(series = {}, library = {}, config = {}) {
       kavita_localized_name: localizedName || null,
       kavita_original_name: originalName || null,
       kavita_sort_name: sortName || null,
+      kavita_title_parse_status: parsedComicIssueTitle ? 'issue_like_series' : 'series',
+      kavita_issue_title: parsedComicIssueTitle?.issueTitle || null,
       kavita_format: kavitaFormat || null,
       kavita_pages: kavitaPages || null,
       kavita_cover_image: coverImage || null,
@@ -963,6 +1003,7 @@ module.exports = {
   fetchKavitaReaderImage,
   fetchKavitaImportItems,
   normalizeKavitaSeries,
+  parseKavitaComicIssueLikeSeriesTitle,
   normalizeKavitaLibraryType,
   isKavitaComicLibraryType,
   summarizeKavitaVolumeDetails,

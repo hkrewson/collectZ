@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.153",
+      "version": "3.4.153",
+      "date": "2026-05-10",
+      "status": "released",
+      "summary": "This patch improves Kavita comic imports when Kavita exposes an issue-shaped comic file as a series row. collectZ now recognizes titles such as `Alpha Flight#130 - The Hollow Man! - Unknown`, keeps the raw Kavita title for troubleshooting, and stores cleaner comic series and issue metadata.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Normalizes issue-like Kavita comic series titles into cleaner display titles, series names, issue numbers, and issue titles.",
+            "Keeps true Kavita comic series rows at the series level instead of copying first-chapter issue number and cover date onto the series row.",
+            "Prevents chapter fan-out from creating a duplicate issue row when the Kavita series row already represents an issue-like comic.",
+            "Preserves raw Kavita series/localized/original/sort names plus parse status metadata for troubleshooting.",
+            "Extends the Kavita import smoke fixture with the real `Alpha Flight#130 - The Hollow Man! - Unknown` pattern."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.4.152",
       "version": "3.4.152",
       "date": "2026-05-10",
@@ -103,14 +122,6 @@
       "date": null,
       "status": "released",
       "summary": "This patch adds a guarded attach-existing path for Plex reconciliation conflicts so an admin can link a Plex identity to an existing collectZ title when the identifiers are safe.",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.4.143",
-      "version": "3.4.143",
-      "date": null,
-      "status": "released",
-      "summary": "This patch adds a durable Plex reconciliation conflict review queue so unsafe Plex sync matches can be resolved intentionally after automated sync.",
       "details": []
     }
   ]

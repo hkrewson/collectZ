@@ -5369,6 +5369,14 @@ function resolveValuationExecutionMode(req) {
   return 'live';
 }
 
+function resolveImportEnrichmentExecutionMode(req) {
+  const normalized = String(req.get('x-import-enrichment-mode') || 'live').trim().toLowerCase();
+  if (normalized === 'skip' && process.env.NODE_ENV !== 'production') {
+    return 'skip';
+  }
+  return 'live';
+}
+
 function buildQueuedJobResponse(job, provider) {
   return {
     ok: true,
@@ -8056,7 +8064,8 @@ async function runGenericCsvImport({
   scopeContext,
   onProgress = null,
   importSource = 'csv_generic',
-  reviewContext = null
+  reviewContext = null,
+  enrichmentMode = 'live'
 }) {
   const summary = {
     created: 0,
@@ -8161,6 +8170,8 @@ async function runGenericCsvImport({
         kavita_localized_name: value('kavita_localized_name') || rowTypeDetails.kavita_localized_name || null,
         kavita_original_name: value('kavita_original_name') || rowTypeDetails.kavita_original_name || null,
         kavita_sort_name: value('kavita_sort_name') || rowTypeDetails.kavita_sort_name || null,
+        kavita_title_parse_status: value('kavita_title_parse_status') || rowTypeDetails.kavita_title_parse_status || null,
+        kavita_issue_title: value('kavita_issue_title') || rowTypeDetails.kavita_issue_title || null,
         kavita_format: value('kavita_format') || rowTypeDetails.kavita_format || null,
         kavita_pages: value('kavita_pages') || rowTypeDetails.kavita_pages || null,
         kavita_cover_image: value('kavita_cover_image') || rowTypeDetails.kavita_cover_image || null,
@@ -8275,12 +8286,14 @@ async function runGenericCsvImport({
       asin: value('asin') || value('amazon_item_id') || value('amazon_link') || value('amazon link')
     });
     try {
-      const enrichmentResult = await runImportEnrichmentPipeline(
-        { ...mapped, identifiers: rowIdentifiers },
-        config,
-        caches,
-        rowIdentifiers
-      );
+      const enrichmentResult = enrichmentMode === 'skip'
+        ? { item: mapped, enrichmentStatus: 'not_attempted', lookupPath: 'skipped_by_test_mode', lookupStatus: 'skipped' }
+        : await runImportEnrichmentPipeline(
+          { ...mapped, identifiers: rowIdentifiers },
+          config,
+          caches,
+          rowIdentifiers
+        );
       const enriched = enrichmentResult.item;
       incrementImportEnrichmentCounter(summary.enrichment, enrichmentResult.enrichmentStatus);
       const result = await upsertImportedMedia({
@@ -12423,6 +12436,7 @@ router.get('/import/template-csv', asyncHandler(async (_req, res) => {
 router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, res) => {
   const scopeContext = resolveScopeContext(req);
   const valuationMode = resolveValuationExecutionMode(req);
+  const enrichmentMode = resolveImportEnrichmentExecutionMode(req);
   if (!req.file) {
     return res.status(400).json({ error: 'CSV file is required (multipart field: file)' });
   }
@@ -12929,6 +12943,7 @@ router.post('/import-cwa', asyncHandler(async (req, res) => {
 router.post('/import-kavita', asyncHandler(async (req, res) => {
   const scopeContext = resolveScopeContext(req);
   const valuationMode = resolveValuationExecutionMode(req);
+  const enrichmentMode = resolveImportEnrichmentExecutionMode(req);
   if (!await canManageWorkspaceIntegration(req, scopeContext?.spaceId || null)) {
     return res.status(403).json({ error: 'Kavita import requires workspace admin access' });
   }
@@ -12973,7 +12988,8 @@ router.post('/import-kavita', asyncHandler(async (req, res) => {
       scopeContext,
       onProgress,
       importSource: 'kavita',
-      reviewContext
+      reviewContext,
+      enrichmentMode
     });
     const valuationRefresh = await queueImportedValuationRefresh({
       mediaIds: result.createdMediaIds,

@@ -41,6 +41,7 @@ const {
   buildKavitaSeriesCoverImagePath,
   buildKavitaSeriesProviderItemId,
   buildKavitaChapterProviderItemId,
+  parseKavitaComicIssueLikeSeriesTitle,
   normalizeKavitaChapterIssueRows
 } = require('../services/kavita');
 const {
@@ -2733,7 +2734,7 @@ results.push(run('repo includes Kavita import sync smoke coverage for repeat syn
   assert.ok(backendPackageJson.scripts['test:kavita-import-sync-smoke']);
   assert.ok(kavitaImportSyncSmokeSource.includes('/api/media/import-kavita?sync=1'));
   assert.ok(kavitaImportSyncSmokeSource.includes('/api/media/import-kavita?sync=1&pageSize=10&maxPages=2&chapterFanout=1'));
-  assert.ok(kavitaImportSyncSmokeSource.includes('Expected first Kavita import to create one new comic row while reusing the existing non-Kavita book title'));
+  assert.ok(kavitaImportSyncSmokeSource.includes('Expected first Kavita import to create two new comic rows while reusing the existing non-Kavita book title'));
   assert.ok(kavitaImportSyncSmokeSource.includes('Expected second Kavita import to avoid duplicate creation'));
   assert.ok(kavitaImportSyncSmokeSource.includes('Expected default Kavita import to keep chapter fan-out disabled'));
   assert.ok(kavitaImportSyncSmokeSource.includes('Expected first fan-out import to create one new issue row while reusing the existing local issue'));
@@ -2745,6 +2746,8 @@ results.push(run('repo includes Kavita import sync smoke coverage for repeat syn
   assert.ok(kavitaImportSyncSmokeSource.includes('Expected Kavita library type 1 to classify as comic_book'));
   assert.ok(kavitaImportSyncSmokeSource.includes('Expected Kavita page metadata'));
   assert.ok(kavitaImportSyncSmokeSource.includes('Expected Kavita comic reader launch URL metadata without secrets'));
+  assert.ok(kavitaImportSyncSmokeSource.includes('Expected Kavita issue-like series title to normalize away file-style suffixes'));
+  assert.ok(kavitaImportSyncSmokeSource.includes("x-import-enrichment-mode': 'skip'"));
   assert.ok(kavitaImportSyncSmokeSource.includes('Expected Kavita chapter #1 provider issue id'));
   assert.ok(kavitaImportSyncSmokeSource.includes('Kavita launch URL must not include API keys'));
   assert.ok(kavitaImportSyncSmokeSource.includes('Expected Kavita proxied cover content type'));
@@ -2777,6 +2780,22 @@ results.push(run('kavita launch URL helpers build secret-free native web routes'
     format: 4,
     libraryType: 'book'
   }), 'https://kavita.example/root/library/86/series/8603/pdf/9703');
+}));
+
+results.push(run('kavita comic issue-like series titles normalize series and issue metadata', () => {
+  assert.deepStrictEqual(parseKavitaComicIssueLikeSeriesTitle('Alpha Flight#130 - The Hollow Man! - Unknown'), {
+    series: 'Alpha Flight',
+    issueNumber: '130',
+    issueTitle: 'The Hollow Man!',
+    displayTitle: 'Alpha Flight #130 - The Hollow Man!'
+  });
+  assert.deepStrictEqual(parseKavitaComicIssueLikeSeriesTitle('Alpha Flight #129 - Ordeal!'), {
+    series: 'Alpha Flight',
+    issueNumber: '129',
+    issueTitle: 'Ordeal!',
+    displayTitle: 'Alpha Flight #129 - Ordeal!'
+  });
+  assert.strictEqual(parseKavitaComicIssueLikeSeriesTitle('HEAVY METAL MAGAZINE'), null);
 }));
 
 results.push(run('kavita chapter fan-out rows stay comic-only and keep provider identity separate', () => {
@@ -2830,6 +2849,13 @@ results.push(run('kavita chapter fan-out rows stay comic-only and keep provider 
   }, [{ id: 1, chapters: [{ id: 2, title: 'Book Chapter' }] }], { kavitaBaseUrl: 'https://kavita.example' });
   assert.deepStrictEqual(bookFanout.rows, []);
   assert.strictEqual(bookFanout.skippedBooks, 1);
+
+  const issueLikeSeriesFanout = normalizeKavitaChapterIssueRows({
+    ...normalized,
+    type_details: { ...normalized.type_details, kavita_title_parse_status: 'issue_like_series' }
+  }, [{ id: 1, chapters: [{ id: 2, title: 'Duplicate Issue Chapter' }] }], { kavitaBaseUrl: 'https://kavita.example' });
+  assert.deepStrictEqual(issueLikeSeriesFanout.rows, []);
+  assert.strictEqual(issueLikeSeriesFanout.skippedSparseMetadata, 1);
 }));
 
 results.push(run('kavita cover helpers preserve proxy base paths and reject cross-origin images', () => {
