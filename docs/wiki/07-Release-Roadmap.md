@@ -10715,6 +10715,35 @@ Historical note:
 - What remains in the milestone: Nothing for `3.4.149`; CI-only release gates still need their normal GitHub run.
 - Recommended commit message: `Release 3.4.149 with Plex provider-advertised import path contract`
 
+## 3.4.151 — Plex Sync Operating Model Cleanup
+
+**Goal:** Make the Plex sync UI and docs clearly describe what is manual, scheduled, webhook-triggered, and admin-configured now that the main Plex integration slices are complete.
+
+### Scope
+
+- Add Plex settings readback that distinguishes manual import, read-only checks, manual/scheduled sync, webhook hint processing, conflict review, and manual writeback.
+- Remove stale user-facing preview/apply wording from the Plex reconciliation surface while preserving the read-only preview API contract.
+- Update Plex modernization/backlog docs so completed webhook, watch-state, rating, reconciliation, and provider-root slices are not implied to be future work.
+- Keep provider item-listing migration explicitly out of scope unless a future real-PMS proof shows a viable API shape.
+
+### Acceptance Criteria
+
+- A user can tell which Plex behaviors happen automatically and which require manual action.
+- Plex settings/readback copy matches the actual shipped behavior.
+- The backlog no longer implies that completed Plex webhook, watch-state, rating, reconciliation, or sections-root API work is still unstarted.
+- Version metadata, release note, release feed, and Help > Releases include `3.4.151`.
+
+### Closeout
+
+- Roadmap slice: `3.4.151 — Plex Sync Operating Model Cleanup`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`; `docs/wiki/08-Backlog.md`; `docs/releases/v3.4.151.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild with `APP_VERSION=3.4.151`; `/api/health` reported frontend/backend/build `3.4.151`; backend container env was verified after restoring `APP_EDITION=platform`; live DB kept `events_enabled=true` and `collectibles_enabled=true`; Help > Releases served `3.4.151`; browser regression verified the Plex Integrations surface shows the operating-model readback plus `Check now`, `Queue check`, `Sync Plex Library`, and conflict review behavior.
+- CI/checks run: Docker backend/frontend build; Docker `npm run test:unit`; Docker `npm run test:openapi`; Docker `npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:help-releases-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; Docker homelab override plus `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`; Playwright targeted integrations regression; Playwright full browser regression (`64` passed, `4` skipped); host release feed export; host `npm --prefix backend run test:observability-evidence`; host `npm --prefix backend run test:release-preflight-local`; `git diff --check`; targeted release-artifact and Playwright artifact secret-pattern scan. Host `node backend/scripts/unit-tests.js` was blocked by the host Node runtime missing `AbortController`, then passed in Docker.
+- Files changed: `app-meta.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `backend/app-meta.json`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/scripts/unit-tests.js`; `docker-compose.yml`; `docs/releases/v3.4.151.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/AdminIntegrationsView.jsx`; `preflight-go-no-go.md`; `tests/playwright/specs/integrations.browser.spec.js`.
+- Risks or follow-ups: This is a UI/docs operating-model cleanup only; it intentionally does not change Plex import behavior, reconciliation algorithms, webhook processing, provider item-listing migration, or writeback semantics. Local preflight still marks secure-cookie compose smoke, gitleaks secret scan, and Trivy/SBOM as CI-only or stricter-CI follow-through.
+- What remains in the milestone: nothing for `3.4.151`; only CI-only release gates remain for the remote pipeline.
+- Recommended commit message: `Release 3.4.151 with Plex sync operating model cleanup`.
+
 ## 3.4.150 — Plex Provider-Advertised Sections Root Runtime Migration
 
 **Goal:** Make Plex section discovery use the provider-advertised sections root at runtime while preserving the existing `/library/sections` fallback.

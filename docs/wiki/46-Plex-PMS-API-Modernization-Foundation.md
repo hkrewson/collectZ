@@ -23,6 +23,14 @@ Starting with `3.4.150`, section discovery resolves the sections root at runtime
 - use `/library/sections/all` when the official library provider advertises it,
 - fall back to `/library/sections` when provider discovery, advertisement, or the advertised root readback is unavailable.
 
+Starting with `3.4.151`, the admin Plex surface documents the operating model directly:
+
+- `Import from Plex` remains a manual import control for selected/saved sections.
+- `Check now` and queued checks are read-only library scans; they do not create or update collectZ rows.
+- `Sync Plex Library` and the scheduled reconciliation job use the same safe create/update policy and send ambiguous rows to conflict review.
+- Plex webhook receiver URLs accept library-new, watched-state, and rating hints; the backend can auto-process import hints when that scheduler is enabled.
+- Plex watched-state and rating writeback remain explicit manual controls from media detail.
+
 ## Modernization Direction
 
 New Plex-facing features should first prove the provider-oriented PMS API shape before adding more hard-coded library-section assumptions.
@@ -42,7 +50,7 @@ Use this for feature discovery and future new Plex surfaces where possible. It i
 - Treat provider discovery as capability readback, not as permission to change import semantics automatically.
 - Do not pursue provider item-listing migration until a real-PMS proof finds provider-advertised item rows with identity, metadata, and repeat-sync parity against the maintained `/library/sections/:sectionId/all` import path.
 - Do not expose Plex tokens, provider URLs, file paths, raw download locations, or other credential-adjacent values in browser-visible payloads.
-- Keep Plex modernization separate from Plex webhooks, scheduled sync cadence, and kiosk-style Now Playing UI until each is promoted as its own milestone.
+- Keep future Plex modernization separate from Plex webhooks, scheduled sync cadence, and kiosk-style Now Playing UI unless a new promoted milestone explicitly changes those surfaces.
 
 ## Candidate Follow-ups
 
@@ -86,12 +94,13 @@ Use this for feature discovery and future new Plex surfaces where possible. It i
 - Plex Now Playing Multi-Session Display Polish. Promoted as `3.4.148`.
 - Plex Provider-Advertised Path Import Migration Contract. Promoted as `3.4.149`.
 - Plex Provider-Advertised Sections Root Runtime Migration. Promoted as `3.4.150`.
-- Plex Sync Operating Model Cleanup. Remaining backlog task for UI/docs clarity only; not an import rewrite.
+- Plex Sync Operating Model Cleanup. Promoted as `3.4.151`.
 
 ## Acceptance Criteria
 
 - The documented Plex library provider paths are documented as current behavior.
 - The provider-oriented PMS direction is documented for future Plex features without treating `/media/providers` as an item-listing endpoint.
 - Plex section discovery prefers provider-advertised `/library/sections/all` at runtime while preserving `/library/sections` fallback behavior.
+- Plex settings/readback copy distinguishes manual import, read-only checks, manual/scheduled sync, webhook-triggered import hints, conflict review, and manual writeback.
 - Source assertions keep the modernization contract and parser in place.
 - Existing Plex import tests continue to pass without behavior changes.

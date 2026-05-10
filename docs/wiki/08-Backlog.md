@@ -347,7 +347,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
   - Metron
 
 **Plex status**
-- Plex import, provider discovery, provider-advertised sections-root resolution, webhook receipt/processing, new-title hints, watched-state sync/writeback, rating readback/writeback, reconciliation, conflict review, and scheduled/full-scan behavior were promoted and closed across `3.4.111` through `3.4.150`.
+- Plex import, provider discovery, provider-advertised sections-root resolution, webhook receipt/processing, new-title hints, watched-state sync/writeback, rating readback/writeback, reconciliation, conflict review, scheduled/full-scan behavior, and operating-model UI/docs cleanup were promoted and closed across `3.4.111` through `3.4.151`.
 - Plex now uses `/media/providers` as capability discovery and resolves provider-advertised `/library/...` roots where proven safe. Current item import remains on documented Plex library paths because real-PMS provider item-row proof did not expose a better provider item-listing candidate.
 - Do not reopen broad Plex provider item-listing migration unless a future Plex PMS shape exposes richer provider-advertised item rows and a new runtime proof shows identity, metadata, and repeat-sync parity.
 
@@ -355,23 +355,6 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - The named CSV templates are available for the supported library types.
 - Update cadence can be described and configured for Calibre, Kavita, and Metron sources.
 - Plex remains represented by completed promoted milestones instead of stale future-work bullets.
-
-### Backlog Item: Plex Sync Operating Model Cleanup
-**Type:** Task
-**Tags:** `plex`, `sync`, `integrations`, `ux`
-
-**Goal:** Make the Plex sync UI and docs clearly describe what is manual, scheduled, webhook-triggered, and admin-configured now that the main Plex integration slices are complete.
-
-**Scope**
-- Audit Plex integration settings, import surfaces, reconciliation surfaces, and Help/roadmap copy for outdated temporary wording.
-- Clarify which Plex operations are manual controls, scheduled jobs, webhook-triggered jobs, or admin-configured background behavior.
-- Remove any stale preview/apply language that implies temporary reconciliation UI is still the intended long-term model.
-- Keep provider item-listing migration explicitly out of scope unless a future real-PMS proof shows a viable API shape.
-
-**Acceptance Criteria**
-- A user can tell which Plex behaviors happen automatically and which require manual action.
-- Plex settings/readback copy matches the actual shipped behavior.
-- The backlog no longer implies that completed Plex webhook, watch-state, rating, reconciliation, or sections-root API work is still unstarted.
 
 ### Backlog Item: Support Metrics and Satisfaction Surveys
 **Type:** Task

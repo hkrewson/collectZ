@@ -51,7 +51,7 @@ const SECTION_DESCRIPTIONS = {
   games: 'Connection details, credentials, and runtime checks for this integration.',
   logs: 'Configure external log export and validate the running endpoint.',
   metrics: 'Enable admin-facing metrics export here, while scrape tokens and DEBUG-level access remain runtime infrastructure settings.',
-  plex: 'Connection details, credentials, and runtime checks for this integration.',
+  plex: 'Connection details, credentials, import controls, webhook readback, and sync operating model.',
   pricecharting: 'Configure PriceCharting as the primary queued valuation provider. Dry-run tests confirm identifier-first lookup planning and the serialized rate-limit policy without calling the live API.',
   tmdb: 'Connection details, credentials, and runtime checks for this integration.'
 };
@@ -172,6 +172,34 @@ function DisclosureSection({ title, summary, children, defaultOpen = false }) {
   );
 }
 
+function PlexOperatingModel({ sectionIds = [], scheduler = null, webhookReceiver = null }) {
+  const autoSync = scheduler?.runtime?.enabled
+    ? `On, every ${scheduler.runtime.intervalMinutes} minutes`
+    : 'Off';
+  const webhookMode = webhookReceiver?.enabled
+    ? (webhookReceiver.processingMode === 'contract_only' ? 'Contract only' : (webhookReceiver.processingMode || 'Read-only hints'))
+    : 'No active receiver';
+  const sections = sectionIds.length ? sectionIds.join(',') : 'Saved defaults';
+
+  return (
+    <div className="rounded-xl border border-edge bg-raised/60 px-3 py-3 space-y-3">
+      <div>
+        <p className="text-sm font-medium text-ink">Plex operating model</p>
+        <p className="mt-1 text-xs text-ghost">Shows what collectZ does automatically, what stays manual, and which PMS paths are only capability readback.</p>
+      </div>
+      <RuntimeKeyValueList rows={[
+        { label: 'Manual import', value: `Import from Plex uses ${sections} and the maintained library item paths.` },
+        { label: 'Manual sync', value: 'Sync Plex Library creates safe missing rows, updates strong matches, and sends ambiguous rows to conflict review.' },
+        { label: 'Read-only check', value: 'Check now scans the same Plex libraries without creating or updating collectZ rows.' },
+        { label: 'Scheduled sync', value: autoSync },
+        { label: 'Webhook receiver', value: webhookMode },
+        { label: 'Writeback', value: 'Watched-state and rating writeback are manual controls from media detail.' },
+        { label: 'Provider API', value: 'Provider discovery resolves section roots; item imports still use documented /library paths.' }
+      ]} />
+    </div>
+  );
+}
+
 const PLEX_RECONCILIATION_BUCKETS = [
   ['alreadyLinked', 'Linked'],
   ['wouldUpdate', 'Updates'],
@@ -279,7 +307,7 @@ function PlexConflictReviewQueue({ reviews = [], loading = '', onResolve }) {
   );
 }
 
-function PlexReconciliationPreview({ result }) {
+function PlexReconciliationReadback({ result }) {
   const normalized = normalizePlexReconciliationResult(result);
   if (!normalized) return null;
   const summary = normalized.summary || {};
@@ -318,7 +346,7 @@ function PlexReconciliationPreview({ result }) {
       </div>
       <div className="space-y-2">
         {(isSyncResult
-          ? [['conflictReview', 'Sync Issues']]
+          ? [['conflictReview', 'Sync issues']]
           : PLEX_RECONCILIATION_BUCKETS
         ).map(([key, label]) => {
           const rows = key === 'conflictReview' ? (summary.conflictReview || []) : (normalized.buckets[key] || []);
@@ -330,7 +358,7 @@ function PlexReconciliationPreview({ result }) {
               </summary>
               <div className="space-y-2 border-t border-edge/70 p-3">
                 {rows.length === 0 ? (
-                  <p className="text-sm text-dim">No rows in this bucket.</p>
+                  <p className="text-sm text-dim">No rows to show.</p>
                 ) : rows.slice(0, 25).map((row, index) => (
                   <PlexReconciliationRow key={`${key}-${row?.item?.plex_item_key || row?.existing?.id || index}`} row={row} />
                 ))}
@@ -1052,9 +1080,9 @@ export default function AdminIntegrationsView({
     try {
       const result = await apiCall('post', '/media/plex-reconciliation-preview', buildPlexReconciliationPayload());
       setPlexReconciliationResult(normalizePlexReconciliationResult(result));
-      setTestMsg(`PLEX RECONCILIATION: preview scanned ${Number(result?.summary?.scanned || 0)} item(s).`);
+      setTestMsg(`PLEX CHECK: scanned ${Number(result?.summary?.scanned || 0)} item(s) without changes.`);
     } catch (err) {
-      setTestMsg(err.response?.data?.error || 'Plex reconciliation preview failed');
+      setTestMsg(err.response?.data?.error || 'Plex read-only check failed');
     } finally {
       setTestLoading('');
     }
@@ -1085,14 +1113,14 @@ export default function AdminIntegrationsView({
 
       if (latest?.status === 'succeeded') {
         setPlexReconciliationResult(normalizePlexReconciliationResult(latest));
-        setTestMsg(`PLEX RECONCILIATION: preview job #${jobId} scanned ${Number(latest?.summary?.scanned || 0)} item(s).`);
+        setTestMsg(`PLEX CHECK: job #${jobId} scanned ${Number(latest?.summary?.scanned || 0)} item(s) without changes.`);
       } else if (latest?.status === 'failed') {
-        setTestMsg(latest?.error || `Plex reconciliation preview job #${jobId} failed`);
+        setTestMsg(latest?.error || `Plex read-only check job #${jobId} failed`);
       } else {
-        setTestMsg(`PLEX RECONCILIATION: preview job #${jobId} is still running.`);
+        setTestMsg(`PLEX CHECK: job #${jobId} is still running.`);
       }
     } catch (err) {
-      setTestMsg(err.response?.data?.error || err.message || 'Plex reconciliation preview job failed');
+      setTestMsg(err.response?.data?.error || err.message || 'Plex read-only check job failed');
     } finally {
       setTestLoading('');
     }
@@ -1487,6 +1515,11 @@ export default function AdminIntegrationsView({
           <div className="text-xs text-ghost">
             Import will use section IDs: <span className="font-mono text-dim">{plexSectionIds.length ? plexSectionIds.join(',') : '(none selected)'}</span>
           </div>
+          <PlexOperatingModel
+            sectionIds={plexSectionIds}
+            scheduler={plexReconciliationScheduler}
+            webhookReceiver={plexWebhookReceiver}
+          />
           {plexAvailableSections.length > 0 && (
             <div className="rounded-xl border border-edge bg-raised/60 px-3 py-3 space-y-2">
               <p className="text-xs text-ghost">Detected Plex Libraries</p>
@@ -1625,7 +1658,7 @@ export default function AdminIntegrationsView({
             <p className="text-xs text-ghost">
               {plexWebhookReceiver.enabled && !plexWebhookReceiverLink
                 ? 'Existing receiver shown with a masked token. Regenerate if Plex needs the full URL again.'
-                : 'Accepts Plex webhook hints for newly added media, watched state, and ratings. Import and writeback actions remain manual until a later slice.'}
+                : 'Accepts Plex webhook hints for newly added media, watched state, and ratings. Imports can be auto-processed when the backend scheduler is enabled; writeback stays manual.'}
             </p>
           </div>
           <div className="rounded-xl border border-edge bg-raised/60 px-3 py-3 space-y-3">
@@ -1633,18 +1666,18 @@ export default function AdminIntegrationsView({
               <div>
                 <p className="text-sm font-medium text-ink">Plex library sync</p>
                 <p className="mt-1 text-xs text-ghost">
-                  Creates missing Plex titles and updates strong TMDB matches. Automatic sync uses the same policy; Plex writeback stays manual.
+                  Manual and scheduled sync create safe missing rows, update strong matches, and leave ambiguous rows in conflict review. Plex writeback stays manual.
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
                 <button type="button" onClick={runPlexReconciliationPreview} disabled={testLoading === 'plex-reconciliation-preview' || testLoading === 'plex-reconciliation-job' || testLoading === 'plex-reconciliation-sync'} className="btn-secondary btn-sm">
-                  {testLoading === 'plex-reconciliation-preview' ? <Spinner size={14} /> : 'Preview now'}
+                  {testLoading === 'plex-reconciliation-preview' ? <Spinner size={14} /> : 'Check now'}
                 </button>
                 <button type="button" onClick={runPlexReconciliationSyncJob} disabled={testLoading === 'plex-reconciliation-preview' || testLoading === 'plex-reconciliation-job' || testLoading === 'plex-reconciliation-sync'} className="btn-primary btn-sm">
                   {testLoading === 'plex-reconciliation-sync' ? <Spinner size={14} /> : 'Sync Plex Library'}
                 </button>
                 <button type="button" onClick={runPlexReconciliationPreviewJob} disabled={testLoading === 'plex-reconciliation-preview' || testLoading === 'plex-reconciliation-job' || testLoading === 'plex-reconciliation-sync'} className="btn-secondary btn-sm">
-                  {testLoading === 'plex-reconciliation-job' ? <Spinner size={14} /> : 'Queue preview'}
+                  {testLoading === 'plex-reconciliation-job' ? <Spinner size={14} /> : 'Queue check'}
                 </button>
               </div>
             </div>
@@ -1673,7 +1706,7 @@ export default function AdminIntegrationsView({
                 {plexReconciliationJob?.id && <span>Job #{plexReconciliationJob.id}: {plexReconciliationJob.status}</span>}
               </div>
             </div>
-            <PlexReconciliationPreview result={plexReconciliationResult} />
+            <PlexReconciliationReadback result={plexReconciliationResult} />
             <PlexConflictReviewQueue
               reviews={plexConflictReviews}
               loading={testLoading}

@@ -1691,19 +1691,21 @@ results.push(run('plex full-library reconciliation preview stays read-only and c
   assert.ok(plexReconciliationSyncSmokeSource.includes('Conflict review can create a separate local Plex-linked title without Plex writeback'));
   assert.ok(plexReconciliationSyncSmokeSource.includes('plex-reconciliation-sync-smoke.json'));
   assert.ok(adminIntegrationsViewSource.includes('Plex library sync'));
+  assert.ok(adminIntegrationsViewSource.includes('Plex operating model'));
   assert.ok(adminIntegrationsViewSource.includes('runPlexReconciliationSyncJob'));
   assert.ok(adminIntegrationsViewSource.includes('refreshPlexReconciliationScheduler'));
-  assert.ok(adminIntegrationsViewSource.includes('Automatic sync uses the same policy'));
+  assert.ok(adminIntegrationsViewSource.includes('Manual and scheduled sync create safe missing rows'));
+  assert.ok(adminIntegrationsViewSource.includes('Check now scans the same Plex libraries without creating or updating collectZ rows.'));
   assert.ok(adminIntegrationsViewSource.includes('Scan Limit'));
   assert.ok(adminIntegrationsViewSource.includes('Sync Plex Library'));
-  assert.ok(adminIntegrationsViewSource.includes('Sync Issues'));
+  assert.ok(adminIntegrationsViewSource.includes('Sync issues'));
   assert.ok(adminIntegrationsViewSource.includes('PlexConflictReviewQueue'));
   assert.ok(adminIntegrationsViewSource.includes('Attach to existing'));
   assert.ok(adminIntegrationsViewSource.includes('Create separate title'));
   assert.ok(adminIntegrationsViewSource.includes('resolvePlexConflictReview'));
   assert.ok(adminIntegrationsViewSource.includes('runPlexReconciliationPreview'));
   assert.ok(adminIntegrationsViewSource.includes('runPlexReconciliationPreviewJob'));
-  assert.ok(adminIntegrationsViewSource.includes('PlexReconciliationPreview'));
+  assert.ok(adminIntegrationsViewSource.includes('PlexReconciliationReadback'));
   assert.ok(adminIntegrationsViewSource.includes('Plex writeback stays manual.'));
   assert.ok(integrationsBrowserSpecSource.includes('Plex reconciliation sync surface displays durable conflict review actions'));
   assert.ok(integrationsBrowserSpecSource.includes('/api/media/plex-reconciliation-conflicts?status=open'));
@@ -1870,7 +1872,10 @@ results.push(run('plex provider-advertised sections root runtime migration keeps
   assert.ok(plexProviderSectionsRootRuntimeSmokeSource.includes("artifacts', 'plex-provider-sections-root-runtime', 'plex-provider-sections-root-runtime-smoke.json"));
   assert.ok(plexProviderSectionsRootRuntimeSmokeSource.includes('assertSecretFree'));
   assert.ok(plexPmsModernizationDocSource.includes('Plex Provider-Advertised Sections Root Runtime Migration. Promoted as `3.4.150`.'));
+  assert.ok(plexPmsModernizationDocSource.includes('Plex Sync Operating Model Cleanup. Promoted as `3.4.151`.'));
+  assert.ok(plexPmsModernizationDocSource.includes('Plex settings/readback copy distinguishes manual import'));
   assert.ok(releaseRoadmapSource.includes('3.4.150 — Plex Provider-Advertised Sections Root Runtime Migration'));
+  assert.ok(releaseRoadmapSource.includes('3.4.151 — Plex Sync Operating Model Cleanup'));
 }));
 
 results.push(run('plex real-server provider discovery readback is wired as sanitized admin and workspace probes', () => {

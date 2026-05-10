@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.151",
+      "version": "3.4.151",
+      "date": "2026-05-10",
+      "status": "released",
+      "summary": "This patch cleans up the Plex admin operating model after the main Plex integration run. The settings surface now explains which Plex actions are manual, which can run on schedules, which are webhook-triggered hints, and which writeback actions stay explicit user controls.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Adds a Plex operating-model readback panel to Integrations.",
+            "Renames user-facing reconciliation scan controls from preview wording to read-only check wording.",
+            "Clarifies that manual and scheduled Plex sync share the same safe create/update policy and send ambiguous rows to conflict review.",
+            "Clarifies that Plex webhooks can feed import hints while watched-state and rating writeback remain manual controls.",
+            "Moves the Plex operating-model cleanup task out of backlog and into the completed roadmap milestone."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.4.150",
       "version": "3.4.150",
       "date": "2026-05-10",
@@ -81,14 +100,6 @@
       "date": null,
       "status": "released",
       "summary": "This patch makes Plex TV watched-state writeback episode-aware instead of blocking TV series outright.",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.4.141",
-      "version": "v3.4.141",
-      "date": null,
-      "status": null,
-      "summary": "This patch removes the confusing 1000-title Plex reconciliation cap and adds scheduled reconciliation sync automation.",
       "details": []
     }
   ]

@@ -293,14 +293,17 @@ test.describe('integrations browser regressions', () => {
     await signInThroughUi(page, adminCredentials);
     await page.goto('/dashboard?tab=admin-integrations&integration=plex');
     await expect(page.getByRole('heading', { name: 'Integrations' })).toBeVisible();
+    await expect(page.getByText('Plex operating model')).toBeVisible();
+    await expect(page.getByText('Scheduled sync', { exact: true })).toBeVisible();
+    await expect(page.getByText('On, every 360 minutes')).toBeVisible();
     await expect(page.getByText('Plex library sync')).toBeVisible();
     await expect(page.getByText('Automatic:')).toBeVisible();
     await expect(page.getByText('on/360m')).toBeVisible();
     await expect(page.getByPlaceholder('All')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Preview now' }).click();
+    await page.getByRole('button', { name: 'Check now' }).click();
 
-    await expect(page.getByText('PLEX RECONCILIATION: preview scanned 4 item(s).')).toBeVisible();
+    await expect(page.getByText('PLEX CHECK: scanned 4 item(s) without changes.')).toBeVisible();
     await activeSectionRoot(page).locator('details').filter({ hasText: 'Linked' }).first().locator('summary').click();
     await activeSectionRoot(page).locator('details').filter({ hasText: 'Creates' }).first().locator('summary').click();
     await expect(page.getByText('Linked Movie', { exact: true })).toBeVisible();
@@ -309,11 +312,11 @@ test.describe('integrations browser regressions', () => {
 
     await page.getByRole('button', { name: 'Sync Plex Library' }).click();
     await expect(page.getByText('PLEX SYNC: job #901 created 1, updated 1, review 1.')).toBeVisible();
-    await expect(page.getByText('Sync Issues')).toBeVisible();
+    await expect(page.getByText('Sync issues')).toBeVisible();
     await expect(page.getByText('Created', { exact: true })).toBeVisible();
     await expect(page.getByText('Updated', { exact: true })).toBeVisible();
     await expect(page.getByText('Needs review', { exact: true })).toBeVisible();
-    await expect(page.getByText('Conflict review')).toBeVisible();
+    await expect(page.getByText('Conflict review', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Attach to existing' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Create separate title' })).toBeVisible();
     await page.getByRole('button', { name: 'Attach to existing' }).click();
