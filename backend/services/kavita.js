@@ -530,7 +530,7 @@ function normalizeKavitaChapterNumber(chapter = {}) {
   const min = normalizeKavitaNumberToken(chapter.minNumber);
   const max = normalizeKavitaNumberToken(chapter.maxNumber);
   if (min && max && min !== max) return `${min}-${max}`;
-  return min || max || normalizeKavitaNumberToken(chapter.number);
+  return min || max || normalizeKavitaNumberToken(chapter.number) || normalizeKavitaNumberToken(chapter.sortOrder);
 }
 
 function sortKavitaVolumes(volumes = []) {
@@ -649,6 +649,7 @@ function hasKavitaChapterDisplayMetadata(chapter = {}) {
     || firstString(chapter.titleName, chapter.title)
     || firstString(chapter.releaseDate, chapter.createdUtc, chapter.created)
     || firstString(chapter.pages)
+    || firstString(chapter.sortOrder)
   );
 }
 
@@ -678,10 +679,6 @@ function normalizeKavitaChapterIssueRows(normalized = null, volumes = [], config
     const volumeNumber = normalizeKavitaVolumeNumber(volume);
     const chapters = sortKavitaChapters(Array.isArray(volume?.chapters) ? volume.chapters : []);
     for (const chapter of chapters) {
-      if (chapter?.isSpecial) {
-        skippedSpecials += 1;
-        continue;
-      }
       const chapterId = Number(chapter?.id || 0) || null;
       const chapterProviderItemId = buildKavitaChapterProviderItemId(chapterId);
       if (!chapterProviderItemId) {
@@ -732,9 +729,11 @@ function normalizeKavitaChapterIssueRows(normalized = null, volumes = [], config
           kavita_chapter_id: chapterId,
           kavita_volume_id: volumeId,
           kavita_chapter_number: chapterNumber || null,
+          kavita_chapter_sort_order: firstString(chapter.sortOrder) || null,
           kavita_chapter_title: firstString(chapter.titleName, chapter.title) || null,
           kavita_chapter_release_date: chapterDate.release_date || null,
           kavita_chapter_pages: chapterPages || null,
+          kavita_chapter_special: chapter?.isSpecial ? 'true' : 'false',
           kavita_parent_provider_item_id: parentProviderItemId || null,
           kavita_series_provider_item_id: parentProviderItemId || null,
           kavita_chapter_provider_item_id: chapterProviderItemId

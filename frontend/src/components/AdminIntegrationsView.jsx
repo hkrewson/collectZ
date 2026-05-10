@@ -457,7 +457,7 @@ export default function AdminIntegrationsView({
   const [saving, setSaving] = useState(false);
   const [importingPlex, setImportingPlex] = useState(false);
   const [importingKavita, setImportingKavita] = useState(false);
-  const [kavitaChapterFanout, setKavitaChapterFanout] = useState(false);
+  const [kavitaChapterFanout, setKavitaChapterFanout] = useState(true);
   const [plexAvailableSections, setPlexAvailableSections] = useState([]);
   const [plexProviders, setPlexProviders] = useState([]);
   const [plexNowPlayingSessions, setPlexNowPlayingSessions] = useState([]);

@@ -2737,11 +2737,12 @@ results.push(run('repo includes Kavita import sync smoke coverage for repeat syn
   assert.ok(kavitaImportSyncSmokeSource.includes('Expected first Kavita import to create two new comic rows while reusing the existing non-Kavita book title'));
   assert.ok(kavitaImportSyncSmokeSource.includes('Expected second Kavita import to avoid duplicate creation'));
   assert.ok(kavitaImportSyncSmokeSource.includes('Expected default Kavita import to keep chapter fan-out disabled'));
-  assert.ok(kavitaImportSyncSmokeSource.includes('Expected first fan-out import to create one new issue row while reusing the existing local issue'));
+  assert.ok(kavitaImportSyncSmokeSource.includes('Expected first fan-out import to create two new issue rows while reusing the existing local issue'));
+  assert.ok(kavitaImportSyncSmokeSource.includes('Expected Kavita special chapter to import as an issue row'));
   assert.ok(kavitaImportSyncSmokeSource.includes('Expected repeat fan-out import to avoid duplicate issue creation'));
   assert.ok(kavitaImportSyncSmokeSource.includes('Expected fan-out to preserve existing non-Kavita comic issue metadata'));
   assert.ok(kavitaImportSyncSmokeSource.includes('Expected Kavita book chapter to stay series-level only'));
-  assert.ok(kavitaImportSyncSmokeSource.includes('Expected Kavita special chapter to be skipped'));
+  assert.ok(kavitaImportSyncSmokeSource.includes('Expected Kavita special chapter issue marker'));
   assert.ok(kavitaImportSyncSmokeSource.includes('Expected Kavita title reuse to preserve existing non-Kavita author metadata'));
   assert.ok(kavitaImportSyncSmokeSource.includes('Expected Kavita library type 1 to classify as comic_book'));
   assert.ok(kavitaImportSyncSmokeSource.includes('Expected Kavita page metadata'));
@@ -2827,12 +2828,13 @@ results.push(run('kavita chapter fan-out rows stay comic-only and keep provider 
       maxNumber: 1,
       chapters: [
         { id: 9702, volumeId: 9602, range: '1', sortOrder: 1, title: 'Fanout Smoke #1', releaseDate: '2023-03-04T00:00:00Z', pages: 24 },
-        { id: 9799, volumeId: 9602, range: 'S', sortOrder: 99, title: 'Fanout Special', isSpecial: true }
+        { id: 9799, volumeId: 9602, range: 'S', sortOrder: 99, title: 'Fanout Special', isSpecial: true },
+        { id: 9800, volumeId: 9602, sortOrder: 100 }
       ]
     }
   ], { kavitaBaseUrl: 'https://kavita.example' });
-  assert.strictEqual(fanout.rows.length, 1);
-  assert.strictEqual(fanout.skippedSpecials, 1);
+  assert.strictEqual(fanout.rows.length, 3);
+  assert.strictEqual(fanout.skippedSpecials, 0);
   const row = fanout.rows[0];
   assert.strictEqual(row.media_type, 'comic_book');
   assert.strictEqual(row.title, 'Fanout Smoke #1');
@@ -2841,6 +2843,12 @@ results.push(run('kavita chapter fan-out rows stay comic-only and keep provider 
   assert.strictEqual(row.type_details.kavita_parent_provider_item_id, 'kavita:series:8602');
   assert.strictEqual(row.type_details.kavita_chapter_fanout, 'true');
   assert.strictEqual(row.type_details.kavita_launch_url, 'https://kavita.example/library/87/series/8602/manga/9702');
+  assert.strictEqual(fanout.rows[1].type_details.provider_item_id, 'kavita:chapter:9799');
+  assert.strictEqual(fanout.rows[1].type_details.issue_number, 'S');
+  assert.strictEqual(fanout.rows[1].type_details.kavita_chapter_special, 'true');
+  assert.strictEqual(fanout.rows[2].title, 'Fanout Smoke Series #100');
+  assert.strictEqual(fanout.rows[2].type_details.issue_number, '100');
+  assert.strictEqual(fanout.rows[2].type_details.kavita_chapter_sort_order, '100');
 
   const bookFanout = normalizeKavitaChapterIssueRows({
     ...normalized,

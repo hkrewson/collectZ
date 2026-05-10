@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.154",
+      "version": "3.4.154",
+      "date": "2026-05-10",
+      "status": null,
+      "summary": "Kavita comic imports now lean toward showing the issues Kavita exposes, not quietly stopping at the parent series row. The admin Kavita import control defaults chapter issue fan-out on, special chapters import as issue rows, and chapter rows can be kept when Kavita provides sort/order metadata even if the usual issue fields are sparse.",
+      "details": []
+    },
+    {
       "title": "collectZ v3.4.153",
       "version": "3.4.153",
       "date": "2026-05-10",
@@ -114,14 +122,6 @@
       "date": null,
       "status": "released",
       "summary": "This patch adds a read-only Plex provider/API import parity proof before any future migration away from the current library-section import path.",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.4.144",
-      "version": "3.4.144",
-      "date": null,
-      "status": "released",
-      "summary": "This patch adds a guarded attach-existing path for Plex reconciliation conflicts so an admin can link a Plex identity to an existing collectZ title when the identifiers are safe.",
       "details": []
     }
   ]

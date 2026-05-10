@@ -10715,6 +10715,35 @@ Historical note:
 - What remains in the milestone: Nothing for `3.4.149`; CI-only release gates still need their normal GitHub run.
 - Recommended commit message: `Release 3.4.149 with Plex provider-advertised import path contract`
 
+## 3.4.154 — Kavita Comic Issue Coverage Guardrails
+
+**Goal:** Make Kavita comic imports less likely to hide issues by defaulting the admin import toward chapter issue rows and keeping more Kavita chapter shapes.
+
+**Scope**
+- Default the admin Kavita import control to import comic chapters as issue rows.
+- Import comic special chapters as issue rows when they have a stable Kavita chapter id.
+- Use Kavita chapter `sortOrder` as a fallback issue/order signal for sparse chapter metadata.
+- Preserve special/sort-order markers in imported type details.
+- Keep books, unknown library types, automatic repair of older rows, and embedded reader scope out of this slice.
+
+**Acceptance**
+- Admin Kavita import queues with chapter issue fan-out enabled unless the user turns it off.
+- Kavita special chapters are imported as chapter-backed comic issue rows.
+- Sparse Kavita chapters with sort/order metadata are no longer skipped solely because title/date/pages are absent.
+- Kavita import/sync smoke proves the new coverage behavior.
+- Version metadata, release note, release feed, and Help > Releases include `3.4.154`.
+
+### Closeout
+
+- Roadmap slice: `3.4.154 — Kavita Comic Issue Coverage Guardrails`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/41-Kavita-Integration-Setup.md`; `docs/releases/v3.4.154.md`.
+- Runtime verification used: Docker-first platform backend/frontend rebuild with `APP_VERSION=3.4.154`; backend container env reported `APP_EDITION=platform`, `APP_VERSION=3.4.154`, and redacted DB URL; `/api/health` reported frontend/backend/build `3.4.154`; Help > Releases smoke served `3.4.154`; Docker Kavita import/sync smoke proved three comic chapter issue rows, one special chapter row, special issue marker `S`, and secret-free Kavita launch/readback URLs.
+- CI/checks run: `node --check backend/services/kavita.js`; `node --check backend/routes/media.js`; `node --check backend/services/typeDetails.js`; `node --check backend/scripts/kavita-import-sync-smoke.js`; `node --check backend/scripts/unit-tests.js`; Docker backend/frontend build; Docker `npm run test:unit` (`285` passed); Docker `npm run test:openapi`; Docker `BASE_URL=http://backend:3001 npm run test:kavita-import-sync-smoke`; Docker `BASE_URL=http://backend:3001 EXPECTED_RELEASE_VERSION=3.4.154 npm run test:help-releases-smoke`; Docker stack health check. Full release gates still need the normal CI run.
+- Files changed: `app-meta.json`; `backend/app-meta.json`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/routes/media.js`; `backend/scripts/kavita-import-sync-smoke.js`; `backend/scripts/unit-tests.js`; `backend/services/kavita.js`; `backend/services/typeDetails.js`; `docker-compose.yml`; `docs/releases/v3.4.154.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/41-Kavita-Integration-Setup.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/AdminIntegrationsView.jsx`.
+- Risks or follow-ups: Existing already-imported rows still need a later repair/resync pass to backfill missing chapter rows from older imports; direct API callers still control `chapterFanout` explicitly, while the admin UI now defaults it on.
+- What remains in the milestone: nothing for `3.4.154`; CI-only release gates still need their normal GitHub run.
+- Recommended commit message: `Release 3.4.154 with Kavita comic issue coverage guardrails`.
+
 ## 3.4.153 — Kavita Comic Series Title Normalization and Issue Mapping
 
 **Goal:** Fix Kavita comic imports where Kavita exposes issue/file-shaped comic rows as series rows, so collectZ stores cleaner title, series, and issue metadata without creating duplicate fan-out rows.
