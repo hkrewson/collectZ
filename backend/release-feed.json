@@ -3,10 +3,21 @@
     {
       "title": "collectZ v3.4.150",
       "version": "3.4.150",
-      "date": null,
+      "date": "2026-05-10",
       "status": "released",
       "summary": "This patch moves Plex section discovery onto the provider-advertised sections root at runtime. When Plex advertises `/library/sections/all` through the official library provider, collectZ uses it; when it is absent or unavailable, collectZ keeps the existing `/library/sections` fallback.",
-      "details": []
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Updates Plex section discovery to resolve the sections root from `/media/providers`.",
+            "Uses `/library/sections/all` when the official Plex library provider advertises it.",
+            "Falls back to `/library/sections` if provider discovery fails, the root is not advertised, or the advertised root is unavailable.",
+            "Adds a fake-PMS smoke proof covering advertised-root success, advertised-root failure fallback, and non-advertised fallback.",
+            "Keeps Plex item import, reconciliation, webhooks, watched-state writeback, rating writeback, and automatic sync behavior otherwise unchanged."
+          ]
+        }
+      ]
     },
     {
       "title": "collectZ v3.4.149",
