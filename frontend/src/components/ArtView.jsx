@@ -100,6 +100,7 @@ function ArtistRecordPicker({ apiCall, form, setForm }) {
   const selectedId = Number(form.artist_id || 0) || null;
   const selected = matches.find((artist) => Number(artist.id) === selectedId) || form.artist_record || null;
   const exactMatch = matches.find((artist) => artist.name?.toLowerCase() === artistName.toLowerCase());
+  const linkedWorksLabel = selected?.linked_works_count === 1 ? '1 work' : `${selected?.linked_works_count} works`;
 
   useEffect(() => {
     if (artistName.length < 2) {
@@ -187,13 +188,18 @@ function ArtistRecordPicker({ apiCall, form, setForm }) {
         </label>
       </div>
       {selected ? (
-        <div className="mt-2 rounded-md border border-brand/30 bg-brand/8 px-3 py-2 text-sm text-dim">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-medium text-ink">{selected.name}</span>
-            {selected.linked_works_count !== undefined ? <span className="text-xs text-ghost">{selected.linked_works_count} linked</span> : null}
-            <button type="button" className="btn-ghost btn-sm ml-auto" onClick={clearLink}>Use text only</button>
+        <div className="mt-2 rounded-md border border-edge/70 bg-surface px-3 py-2 text-sm text-dim">
+          <div className="flex flex-wrap items-start gap-3">
+            <div className="min-w-0 flex-1">
+              {selected.website_url ? (
+                <a className="block truncate text-xs text-dim transition-colors hover:text-ink" href={selected.website_url} target="_blank" rel="noreferrer">
+                  {selected.website_url}
+                </a>
+              ) : null}
+              {selected.linked_works_count !== undefined ? <p className="mt-1 text-xs text-ghost">{linkedWorksLabel}</p> : null}
+            </div>
+            <button type="button" className="btn-ghost btn-sm shrink-0" onClick={clearLink}>Unlink</button>
           </div>
-          {selected.website_url ? <p className="mt-1 truncate text-xs text-ghost">{selected.website_url}</p> : null}
           {Array.isArray(selected.aliases) && selected.aliases.length ? <p className="mt-1 text-xs text-ghost">Aliases: {selected.aliases.join(', ')}</p> : null}
           {selected.notes ? <p className="mt-1 text-xs leading-5 text-ghost">{selected.notes}</p> : null}
         </div>
@@ -443,18 +449,23 @@ function ArtDetailDrawer({ artId, apiCall, events, onClose, onEdit, onDeleted, o
                 <div className="space-y-2">
                   <p>{item.artist}</p>
                   {artistRecord ? (
-                    <div className="rounded-md border border-edge/70 px-3 py-2 text-xs text-ghost">
-                      {item.artist_role ? <p className="text-dim">Role: {item.artist_role}</p> : null}
-                      {Array.isArray(artistRecord.aliases) && artistRecord.aliases.length ? <p>Aliases: {artistRecord.aliases.join(', ')}</p> : null}
-                      {artistRecord.website_url ? <a className="inline-flex items-center gap-2 text-dim transition-colors hover:text-ink" href={artistRecord.website_url} target="_blank" rel="noreferrer"><Icons.Link />Artist link</a> : null}
-                      {artistRecord.notes ? <p className="leading-5">{artistRecord.notes}</p> : null}
-                      <button type="button" className="btn-secondary btn-sm mt-2" onClick={() => onViewArtistWorks?.(item)}>Other works</button>
+                    <div className="rounded-md border border-edge/70 bg-surface/60 px-3 py-2 text-xs text-ghost">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                        {artistRecord.website_url ? (
+                          <a className="inline-flex items-center gap-2 text-dim transition-colors hover:text-ink" href={artistRecord.website_url} target="_blank" rel="noreferrer">
+                            <Icons.Link />Website
+                          </a>
+                        ) : null}
+                        <button type="button" className="btn-ghost btn-sm ml-auto" onClick={() => onViewArtistWorks?.(item)}>Other works</button>
+                      </div>
+                      {Array.isArray(artistRecord.aliases) && artistRecord.aliases.length ? <p className="mt-2">Aliases: {artistRecord.aliases.join(', ')}</p> : null}
+                      {artistRecord.notes ? <p className="mt-1 leading-5">{artistRecord.notes}</p> : null}
                     </div>
                   ) : null}
                 </div>
               </DetailField>
-              <DetailField label="H">{formatDimensionValue(item.height, item.dimension_unit)}</DetailField>
-              <DetailField label="W">{formatDimensionValue(item.width, item.dimension_unit)}</DetailField>
+              <DetailField label="Height">{formatDimensionValue(item.height, item.dimension_unit)}</DetailField>
+              <DetailField label="Width">{formatDimensionValue(item.width, item.dimension_unit)}</DetailField>
               <DetailField label="Print">{printEdition}</DetailField>
               <DetailField label="Framed">{item.framed ? 'Yes' : 'No'}</DetailField>
               <DetailField label="Event">{resolvedEvent || 'None linked'}</DetailField>
@@ -681,8 +692,8 @@ function ArtDrawer({ initial, events, saving, error, notice, apiCall, onClose, o
                 </label>
                 <ArtistRecordPicker apiCall={apiCall} form={form} setForm={setForm} />
                 <label className="field"><span className="label">Price</span><input className="input" value={form.price ?? ''} onChange={(e) => setForm((p) => ({ ...p, price: e.target.value }))} /></label>
-                <label className="field"><span className="label">H</span><input className="input" type="number" min="0" step="0.01" value={form.height ?? ''} onChange={(e) => setForm((p) => ({ ...p, height: e.target.value }))} /></label>
-                <label className="field"><span className="label">W</span><input className="input" type="number" min="0" step="0.01" value={form.width ?? ''} onChange={(e) => setForm((p) => ({ ...p, width: e.target.value }))} /></label>
+                <label className="field"><span className="label">Height</span><input className="input" type="number" min="0" step="0.01" value={form.height ?? ''} onChange={(e) => setForm((p) => ({ ...p, height: e.target.value }))} /></label>
+                <label className="field"><span className="label">Width</span><input className="input" type="number" min="0" step="0.01" value={form.width ?? ''} onChange={(e) => setForm((p) => ({ ...p, width: e.target.value }))} /></label>
                 <label className="field"><span className="label">Print #</span><input className="input" type="number" min="1" step="1" value={form.print_number ?? ''} onChange={(e) => setForm((p) => ({ ...p, print_number: e.target.value }))} /></label>
                 <label className="field"><span className="label">Run</span><input className="input" type="number" min="1" step="1" value={form.print_run ?? ''} onChange={(e) => setForm((p) => ({ ...p, print_run: e.target.value }))} /></label>
                 <label className="field"><span className="label">Unit</span>

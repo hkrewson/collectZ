@@ -5450,7 +5450,8 @@ results.push(run('reusable artist records are wired into artwork entry for the 3
   assert.ok(artViewSource.includes("apiCall('get', `/art/artists?q="));
   assert.ok(artViewSource.includes("apiCall('post', '/art/artists'"));
   assert.ok(artViewSource.includes('Create artist record'));
-  assert.ok(artViewSource.includes('Use text only'));
+  assert.ok(artViewSource.includes('Unlink'));
+  assert.ok(artViewSource.includes('Website'));
   assert.ok(artViewSource.includes('Other works'));
   assert.ok(openApiSource.includes('/api/art/artists'));
   assert.ok(openApiSource.includes('"ArtArtistRecord"'));
@@ -5713,8 +5714,8 @@ results.push(run('Art physical dimensions and framed metadata are wired through 
   assert.ok(collectiblesRoutesSource.includes('framed: row.framed === true'));
   assert.ok(collectiblesRoutesSource.includes("'height', 'width'"));
   assert.ok(collectiblesRoutesSource.includes("'framed'"));
-  assert.ok(artViewSource.includes('<span className="label">H</span>'));
-  assert.ok(artViewSource.includes('<span className="label">W</span>'));
+  assert.ok(artViewSource.includes('<span className="label">Height</span>'));
+  assert.ok(artViewSource.includes('<span className="label">Width</span>'));
   assert.ok(artViewSource.includes('Framed'));
   assert.ok(openApiSource.includes('"height"'));
   assert.ok(openApiSource.includes('"width"'));
