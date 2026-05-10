@@ -40,6 +40,7 @@ Use this for feature discovery and future new Plex surfaces where possible. It i
 - Prefer provider-advertised `/library/sections/all` for future path resolution when present, while retaining `/library/sections` as the compatibility fallback.
 - Prefer JSON responses for new PMS API calls while preserving XML compatibility for existing imports.
 - Treat provider discovery as capability readback, not as permission to change import semantics automatically.
+- Do not pursue provider item-listing migration until a real-PMS proof finds provider-advertised item rows with identity, metadata, and repeat-sync parity against the maintained `/library/sections/:sectionId/all` import path.
 - Do not expose Plex tokens, provider URLs, file paths, raw download locations, or other credential-adjacent values in browser-visible payloads.
 - Keep Plex modernization separate from Plex webhooks, scheduled sync cadence, and kiosk-style Now Playing UI until each is promoted as its own milestone.
 
@@ -85,6 +86,7 @@ Use this for feature discovery and future new Plex surfaces where possible. It i
 - Plex Now Playing Multi-Session Display Polish. Promoted as `3.4.148`.
 - Plex Provider-Advertised Path Import Migration Contract. Promoted as `3.4.149`.
 - Plex Provider-Advertised Sections Root Runtime Migration. Promoted as `3.4.150`.
+- Plex Sync Operating Model Cleanup. Remaining backlog task for UI/docs clarity only; not an import rewrite.
 
 ## Acceptance Criteria
 

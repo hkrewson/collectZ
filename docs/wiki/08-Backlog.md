@@ -329,9 +329,9 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 
 ### Backlog Item: Imports and Sync Cadence Expansion
 **Type:** Deferred milestone
-**Tags:** `imports`, `csv`, `plex`, `calibre`, `kavita`, `metron`, `sync`
+**Tags:** `imports`, `csv`, `calibre`, `kavita`, `metron`, `sync`
 
-**Goal:** Expand import templates and synchronization cadence controls across the supported import sources.
+**Goal:** Expand import templates and synchronization cadence controls across the supported non-Plex import sources.
 
 **Scope**
 - Add multiple CSV templates for:
@@ -342,20 +342,36 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
   - Collectibles
   - Books
 - Define cadence for updates from:
-  - Plex
   - Calibre
   - Kavita
   - Metron
-- Move Plex import to the actual API instead of a placeholder or indirect path.
-- Set a cadence to check for new titles in Plex.
-- Set a cadence to check for updated watch statuses in Plex.
-- Receive and process Plex webhooks.
+
+**Plex status**
+- Plex import, provider discovery, provider-advertised sections-root resolution, webhook receipt/processing, new-title hints, watched-state sync/writeback, rating readback/writeback, reconciliation, conflict review, and scheduled/full-scan behavior were promoted and closed across `3.4.111` through `3.4.150`.
+- Plex now uses `/media/providers` as capability discovery and resolves provider-advertised `/library/...` roots where proven safe. Current item import remains on documented Plex library paths because real-PMS provider item-row proof did not expose a better provider item-listing candidate.
+- Do not reopen broad Plex provider item-listing migration unless a future Plex PMS shape exposes richer provider-advertised item rows and a new runtime proof shows identity, metadata, and repeat-sync parity.
 
 **Acceptance Criteria**
 - The named CSV templates are available for the supported library types.
-- Update cadence can be described and configured for Plex, Calibre, Kavita, and Metron sources.
-- Plex import uses the actual API path.
-- New-title checks, watch-status checks, and webhooks are all represented in the import design.
+- Update cadence can be described and configured for Calibre, Kavita, and Metron sources.
+- Plex remains represented by completed promoted milestones instead of stale future-work bullets.
+
+### Backlog Item: Plex Sync Operating Model Cleanup
+**Type:** Task
+**Tags:** `plex`, `sync`, `integrations`, `ux`
+
+**Goal:** Make the Plex sync UI and docs clearly describe what is manual, scheduled, webhook-triggered, and admin-configured now that the main Plex integration slices are complete.
+
+**Scope**
+- Audit Plex integration settings, import surfaces, reconciliation surfaces, and Help/roadmap copy for outdated temporary wording.
+- Clarify which Plex operations are manual controls, scheduled jobs, webhook-triggered jobs, or admin-configured background behavior.
+- Remove any stale preview/apply language that implies temporary reconciliation UI is still the intended long-term model.
+- Keep provider item-listing migration explicitly out of scope unless a future real-PMS proof shows a viable API shape.
+
+**Acceptance Criteria**
+- A user can tell which Plex behaviors happen automatically and which require manual action.
+- Plex settings/readback copy matches the actual shipped behavior.
+- The backlog no longer implies that completed Plex webhook, watch-state, rating, reconciliation, or sections-root API work is still unstarted.
 
 ### Backlog Item: Support Metrics and Satisfaction Surveys
 **Type:** Task
