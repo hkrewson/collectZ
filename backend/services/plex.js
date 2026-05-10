@@ -11,10 +11,19 @@ const PLEX_PRESETS = {
 };
 
 const PLEX_PMS_MODERNIZATION_CONTRACT = Object.freeze({
-  currentMode: 'legacy-library-paths',
-  nextMode: 'provider-oriented-pms-api',
+  currentMode: 'documented-library-provider-paths',
+  nextMode: 'provider-advertised-library-paths',
   providerDiscoveryPath: '/media/providers',
   nowPlayingPath: '/status/sessions',
+  libraryProviderIdentifier: 'com.plexapp.plugins.library',
+  providerAdvertisedSectionRootPath: '/library/sections/all',
+  documentedImportPaths: Object.freeze([
+    '/library/sections/all',
+    '/library/sections/:sectionId/all',
+    '/library/metadata/:ids',
+    '/library/metadata/:ids/children',
+    '/library/metadata/:ids/allLeaves'
+  ]),
   legacyImportPaths: Object.freeze([
     '/library/sections',
     '/library/sections/:sectionId/all',
@@ -22,8 +31,10 @@ const PLEX_PMS_MODERNIZATION_CONTRACT = Object.freeze({
     '/library/metadata/:ratingKey/allLeaves'
   ]),
   migrationRules: Object.freeze([
-    'Keep existing Plex import and duplicate-avoidance behavior on legacy library paths until a provider endpoint proves the same identity and metadata coverage.',
-    'Use provider discovery for new Plex-facing features before adding more hard-coded library-section assumptions.',
+    'Treat /media/providers as capability discovery, not as an item-listing replacement by itself.',
+    'Resolve PMS import roots from the official library provider when it advertises documented /library paths.',
+    'Keep existing Plex import and duplicate-avoidance behavior on documented library provider paths until provider-advertised roots prove the same repeat-sync behavior in runtime.',
+    'Use /library/sections/all when the library provider advertises it, while retaining /library/sections as the compatibility fallback for current Plex installs.',
     'Prefer JSON responses for new PMS API calls while preserving XML parsing for existing import compatibility.',
     'Do not expose Plex tokens, provider URLs, file paths, or raw download locations in browser-visible payloads.'
   ]),
@@ -315,6 +326,53 @@ const extractPlexProviderItemListingCandidates = (providers = []) => {
     }
   }
   return candidates;
+};
+
+const choosePlexLibraryProvider = (providers = []) => {
+  const normalized = asArray(providers).filter(Boolean);
+  return normalized.find((provider) => provider.identifier === PLEX_PMS_MODERNIZATION_CONTRACT.libraryProviderIdentifier)
+    || normalized.find((provider) => provider.key === PLEX_PMS_MODERNIZATION_CONTRACT.libraryProviderIdentifier)
+    || normalized.find((provider) => String(provider.type || '').toLowerCase() === 'library')
+    || null;
+};
+
+const providerHasDirectoryKey = (provider, key) => asArray(provider?.featureDirectories)
+  .some((directory) => sanitizeProviderDirectoryKey(directory?.key) === key);
+
+const buildPlexProviderAdvertisedImportPathContract = (providers = []) => {
+  const libraryProvider = choosePlexLibraryProvider(providers);
+  const sectionsRootAdvertised = providerHasDirectoryKey(
+    libraryProvider,
+    PLEX_PMS_MODERNIZATION_CONTRACT.providerAdvertisedSectionRootPath
+  );
+  const sectionsRootPath = sectionsRootAdvertised
+    ? PLEX_PMS_MODERNIZATION_CONTRACT.providerAdvertisedSectionRootPath
+    : '/library/sections';
+  return {
+    providerDiscoveryPath: PLEX_PMS_MODERNIZATION_CONTRACT.providerDiscoveryPath,
+    libraryProviderIdentifier: PLEX_PMS_MODERNIZATION_CONTRACT.libraryProviderIdentifier,
+    providerFound: Boolean(libraryProvider),
+    providerAdvertisedSectionsRoot: sectionsRootAdvertised,
+    importMigrationReady: false,
+    sectionsRootPath,
+    sectionItemsPathTemplate: '/library/sections/:sectionId/all',
+    sectionLeavesPathTemplate: '/library/sections/:sectionId/allLeaves',
+    metadataPathTemplate: '/library/metadata/:ids',
+    metadataChildrenPathTemplate: '/library/metadata/:ids/children',
+    metadataLeavesPathTemplate: '/library/metadata/:ids/allLeaves',
+    ratingWritebackPath: PLEX_WEBHOOK_AND_RATINGS_CONTRACT.ratingWriteback.path,
+    watchedStateWritebackPaths: {
+      scrobble: PLEX_WATCHED_STATE_WRITEBACK_CONTRACT.actions.scrobble.path,
+      unscrobble: PLEX_WATCHED_STATE_WRITEBACK_CONTRACT.actions.unscrobble.path
+    },
+    documentedImportPaths: [...PLEX_PMS_MODERNIZATION_CONTRACT.documentedImportPaths],
+    compatibilityFallbacks: ['/library/sections'],
+    rules: [
+      'Use provider discovery to choose advertised documented PMS library roots.',
+      'Do not treat /media/providers as the library item listing endpoint by itself.',
+      'Do not change import mutation behavior until runtime parity proves repeat-sync safety.'
+    ]
+  };
 };
 
 const fetchPlexProviderItemRows = async (config, candidates = [], options = {}) => {
@@ -730,7 +788,11 @@ const buildPlexPmsModernizationContract = () => ({
   nextMode: PLEX_PMS_MODERNIZATION_CONTRACT.nextMode,
   providerDiscoveryPath: PLEX_PMS_MODERNIZATION_CONTRACT.providerDiscoveryPath,
   nowPlayingPath: PLEX_PMS_MODERNIZATION_CONTRACT.nowPlayingPath,
+  libraryProviderIdentifier: PLEX_PMS_MODERNIZATION_CONTRACT.libraryProviderIdentifier,
+  providerAdvertisedSectionRootPath: PLEX_PMS_MODERNIZATION_CONTRACT.providerAdvertisedSectionRootPath,
+  documentedImportPaths: [...PLEX_PMS_MODERNIZATION_CONTRACT.documentedImportPaths],
   legacyImportPaths: [...PLEX_PMS_MODERNIZATION_CONTRACT.legacyImportPaths],
+  providerAdvertisedImportPathContract: buildPlexProviderAdvertisedImportPathContract(),
   migrationRules: [...PLEX_PMS_MODERNIZATION_CONTRACT.migrationRules],
   candidateProofSlices: [...PLEX_PMS_MODERNIZATION_CONTRACT.candidateProofSlices]
 });
@@ -1343,6 +1405,7 @@ module.exports = {
   normalizePlexMediaProvider,
   normalizePlexProviderFeatureDirectory,
   extractPlexProviderItemListingCandidates,
+  buildPlexProviderAdvertisedImportPathContract,
   fetchPlexProviderItemRows,
   parsePlexNowPlayingSessions,
   normalizePlexNowPlayingSession,

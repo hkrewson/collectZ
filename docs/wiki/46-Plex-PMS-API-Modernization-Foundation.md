@@ -6,14 +6,16 @@ Move new Plex-facing work toward the provider-oriented Plex Media Server API wit
 
 ## Current collectZ Behavior
 
-The existing Plex integration is legacy-library-path based:
+The existing Plex integration is documented-library-provider-path based:
 
 - `/library/sections`
+- `/library/sections/all`
 - `/library/sections/:sectionId/all`
+- `/library/metadata/:ids`
 - `/library/metadata/:ratingKey/children`
 - `/library/metadata/:ratingKey/allLeaves`
 
-Those paths remain the maintained import path for current Plex library sync, duplicate avoidance, TV season inventory, and provider identity alias behavior.
+Those paths remain the maintained import path for current Plex library sync, duplicate avoidance, TV season inventory, and provider identity alias behavior. `/library/sections` remains the compatibility fallback for current installs; the downloaded official Plex PMS OpenAPI spec documents `/library/sections/all` as the main media-provider sections root.
 
 ## Modernization Direction
 
@@ -23,11 +25,13 @@ The initial discovery path is:
 
 - `/media/providers`
 
-Use this for feature discovery and future new Plex surfaces where possible. The first good proof slice is a read-only Now Playing or provider-discovery probe, not a rewrite of import behavior.
+Use this for feature discovery and future new Plex surfaces where possible. It is a capability/provider discovery entry point, not the library item listing endpoint by itself. When the official library provider (`com.plexapp.plugins.library`) advertises documented `/library/...` roots, collectZ should resolve those advertised roots before any future import migration changes behavior.
 
 ## Migration Rules
 
-- Keep existing Plex import and duplicate-avoidance behavior on legacy paths until provider endpoints prove equivalent identity and metadata coverage.
+- Keep existing Plex import and duplicate-avoidance behavior on documented library provider paths until provider-advertised roots prove equivalent identity, metadata coverage, and repeat-sync behavior.
+- Treat `/media/providers` as capability discovery, not as permission to import rows from that endpoint directly.
+- Prefer provider-advertised `/library/sections/all` for future path resolution when present, while retaining `/library/sections` as the compatibility fallback.
 - Prefer JSON responses for new PMS API calls while preserving XML compatibility for existing imports.
 - Treat provider discovery as capability readback, not as permission to change import semantics automatically.
 - Do not expose Plex tokens, provider URLs, file paths, raw download locations, or other credential-adjacent values in browser-visible payloads.
@@ -73,10 +77,11 @@ Use this for feature discovery and future new Plex surfaces where possible. The 
 - Plex Provider Item-Listing API Discovery. Promoted as `3.4.146`.
 - Plex Real PMS Provider Item-Row Parity Proof. Promoted as `3.4.147`.
 - Plex Now Playing Multi-Session Display Polish. Promoted as `3.4.148`.
+- Plex Provider-Advertised Path Import Migration Contract. Promoted as `3.4.149`.
 
 ## Acceptance Criteria
 
-- The legacy Plex import paths are documented as current behavior.
-- The provider-oriented PMS direction is documented for future Plex features.
+- The documented Plex library provider paths are documented as current behavior.
+- The provider-oriented PMS direction is documented for future Plex features without treating `/media/providers` as an item-listing endpoint.
 - Source assertions keep the modernization contract and parser in place.
 - Existing Plex import tests continue to pass without behavior changes.

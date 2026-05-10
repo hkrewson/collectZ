@@ -242,6 +242,7 @@ const plexProviderReadbackSmokeSource = fs.readFileSync(require.resolve('../scri
 const plexProviderImportParitySmokeSource = fs.readFileSync(require.resolve('../scripts/plex-provider-import-parity-smoke'), 'utf8');
 const plexProviderItemListingDiscoverySmokeSource = fs.readFileSync(require.resolve('../scripts/plex-provider-item-listing-discovery-smoke'), 'utf8');
 const plexRealProviderItemRowParityProofSource = fs.readFileSync(require.resolve('../scripts/plex-real-provider-item-row-parity-proof'), 'utf8');
+const plexProviderAdvertisedImportPathContractSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-provider-advertised-import-path-contract-smoke'), 'utf8');
 const plexNowPlayingProviderProofSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-now-playing-provider-proof-smoke'), 'utf8');
 const plexNowPlayingReadbackSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-now-playing-readback-smoke'), 'utf8');
 const plexRealNowPlayingRuntimeProofSource = fs.readFileSync(require.resolve('../scripts/plex-real-now-playing-runtime-proof'), 'utf8');
@@ -1193,13 +1194,16 @@ results.push(run('plex.shouldIncludePlexEntry keeps TV imports at show level onl
   assert.strictEqual(shouldIncludePlexEntry('', 'episode'), false);
 }));
 
-results.push(run('plex PMS modernization contract keeps provider discovery separate from legacy import paths', () => {
+results.push(run('plex PMS modernization contract keeps provider discovery separate from documented import paths', () => {
   const contract = buildPlexPmsModernizationContract();
-  assert.strictEqual(contract.currentMode, 'legacy-library-paths');
-  assert.strictEqual(contract.nextMode, 'provider-oriented-pms-api');
+  assert.strictEqual(contract.currentMode, 'documented-library-provider-paths');
+  assert.strictEqual(contract.nextMode, 'provider-advertised-library-paths');
   assert.strictEqual(contract.providerDiscoveryPath, '/media/providers');
+  assert.ok(contract.documentedImportPaths.includes('/library/sections/all'));
+  assert.ok(contract.documentedImportPaths.includes('/library/metadata/:ids/allLeaves'));
   assert.ok(contract.legacyImportPaths.includes('/library/sections/:sectionId/all'));
   assert.ok(contract.legacyImportPaths.includes('/library/metadata/:ratingKey/allLeaves'));
+  assert.ok(contract.migrationRules.some((rule) => rule.includes('Treat /media/providers as capability discovery')));
   assert.ok(contract.migrationRules.some((rule) => rule.includes('Keep existing Plex import')));
   assert.ok(contract.migrationRules.some((rule) => rule.includes('Prefer JSON')));
   assert.ok(contract.candidateProofSlices.includes('Now Playing Viewer provider proof'));
@@ -1823,6 +1827,28 @@ results.push(run('plex real PMS provider item-row parity proof stays read-only a
   assert.ok(plexRealProviderItemRowParityProofSource.includes("artifacts', 'plex-provider-item-row-parity', 'plex-real-provider-item-row-parity-proof.json"));
   assert.ok(plexPmsModernizationDocSource.includes('Plex Real PMS Provider Item-Row Parity Proof. Promoted as `3.4.147`.'));
   assert.ok(releaseRoadmapSource.includes('3.4.147 — Plex Real PMS Provider Item-Row Parity Proof'));
+}));
+
+results.push(run('plex provider-advertised import path contract uses documented library provider paths', () => {
+  const contract = buildPlexPmsModernizationContract();
+  assert.strictEqual(contract.currentMode, 'documented-library-provider-paths');
+  assert.strictEqual(contract.nextMode, 'provider-advertised-library-paths');
+  assert.strictEqual(contract.libraryProviderIdentifier, 'com.plexapp.plugins.library');
+  assert.ok(contract.documentedImportPaths.includes('/library/sections/all'));
+  assert.ok(contract.documentedImportPaths.includes('/library/metadata/:ids/allLeaves'));
+  assert.ok(plexServiceSource.includes('buildPlexProviderAdvertisedImportPathContract'));
+  assert.ok(plexServiceSource.includes("providerAdvertisedSectionRootPath: '/library/sections/all'"));
+  assert.ok(plexServiceSource.includes("sectionsRootPath = sectionsRootAdvertised"));
+  assert.ok(backendPackageJson.scripts['test:plex-provider-advertised-import-path-contract-smoke']);
+  assert.ok(plexProviderAdvertisedImportPathContractSmokeSource.includes('provider_advertised_import_path_contract'));
+  assert.ok(plexProviderAdvertisedImportPathContractSmokeSource.includes('/library/sections/all'));
+  assert.ok(plexProviderAdvertisedImportPathContractSmokeSource.includes('/library/sections/:sectionId/all'));
+  assert.ok(plexProviderAdvertisedImportPathContractSmokeSource.includes('/library/metadata/:ids/allLeaves'));
+  assert.ok(plexProviderAdvertisedImportPathContractSmokeSource.includes('media_providers_is_capability_discovery'));
+  assert.ok(plexProviderAdvertisedImportPathContractSmokeSource.includes("artifacts', 'plex-provider-advertised-import-path-contract', 'plex-provider-advertised-import-path-contract-smoke.json"));
+  assert.ok(plexProviderAdvertisedImportPathContractSmokeSource.includes('assertSecretFree'));
+  assert.ok(plexPmsModernizationDocSource.includes('Plex Provider-Advertised Path Import Migration Contract. Promoted as `3.4.149`.'));
+  assert.ok(releaseRoadmapSource.includes('3.4.149 — Plex Provider-Advertised Path Import Migration Contract'));
 }));
 
 results.push(run('plex real-server provider discovery readback is wired as sanitized admin and workspace probes', () => {

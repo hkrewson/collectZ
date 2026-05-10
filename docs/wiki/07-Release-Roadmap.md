@@ -10686,6 +10686,35 @@ Historical note:
 - What remains in the milestone: Nothing for `3.4.148`; CI-only release gates still need their normal GitHub run.
 - Recommended commit message: `Release 3.4.148 with Plex Now Playing multi-session display polish`
 
+## 3.4.149 — Plex Provider-Advertised Path Import Migration Contract
+
+**Goal:** Correct the Plex provider/API migration model so `/media/providers` is treated as provider capability discovery and future import migration resolves the official library provider's advertised documented `/library/...` paths before changing import behavior.
+
+### Scope
+
+- Add a source-level Plex import path contract that maps provider discovery to the official library provider (`com.plexapp.plugins.library`).
+- Resolve provider-advertised `/library/sections/all` as the future sections root when present, while retaining `/library/sections` as the compatibility fallback.
+- Keep existing Plex import, reconciliation, webhooks, watched-state writeback, rating writeback, and automatic sync behavior unchanged.
+- Use the downloaded official Plex PMS OpenAPI spec and a fake-PMS runtime proof to validate the path contract.
+
+### Acceptance Criteria
+
+- The contract explicitly says `/media/providers` is not an item-listing endpoint by itself.
+- The contract includes documented PMS paths for `/library/sections/all`, `/library/sections/:sectionId/all`, `/library/metadata/:ids`, `/library/metadata/:ids/allLeaves`, `/:/rate`, `/:/scrobble`, `/:/unscrobble`, and `/status/sessions`.
+- A fake-PMS smoke proves provider discovery can advertise `/library/sections/all`, does not call import endpoints, and writes secret-free evidence.
+- Version metadata, release note, release feed, and Help > Releases include `3.4.149`.
+
+### Closeout
+
+- Roadmap slice: `3.4.149 — Plex Provider-Advertised Path Import Migration Contract`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`; `docs/wiki/08-Backlog.md`; `docs/releases/v3.4.149.md`; downloaded Plex PMS OpenAPI source at `/Users/hamlin/Downloads/openapi.json`.
+- Runtime verification used: Docker-first backend/frontend build with `APP_VERSION=3.4.149`; `/api/health` served frontend/backend/build `3.4.149`; running backend env reported `APP_EDITION=platform`, `APP_VERSION=3.4.149`, `NODE_ENV=development`, and `SESSION_COOKIE_SECURE=false` after restore; live DB feature flags kept `events_enabled=true` and `collectibles_enabled=true` with schema migrations at version `100`; Docker Plex provider-advertised import path contract smoke proved `/media/providers` discovery, provider-advertised `/library/sections/all`, compatibility fallback to `/library/sections`, `readOnly=true`, `importMutation=false`, and `plexWriteback=false`; Docker Help > Releases smoke served `v3.4.149`; homelab boundary passed under a temporary local homelab override, then the stack was restored to platform and rechecked.
+- CI/checks run: `node --check backend/services/plex.js`; `node --check backend/scripts/plex-provider-advertised-import-path-contract-smoke.js`; host Plex provider-advertised import path contract smoke; host unit tests with bundled Node (`282` tests); Docker backend/frontend build; Docker `npm run test:plex-provider-advertised-import-path-contract-smoke`; Docker `npm run test:unit`; Docker `npm run test:openapi`; Docker `npm run test:integration-smoke`; Docker `BASE_URL=http://localhost:3001 npm run test:help-releases-smoke`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; Docker `BASE_URL=http://localhost:3001 npm run test:rbac-regression`; Docker `BASE_URL=http://localhost:3001 npm run test:platform-edition-boundary`; Docker homelab override plus `BASE_URL=http://localhost:3001 npm run test:homelab-edition-boundary`; Playwright browser regression with bundled Node (`64` passed, `4` skipped); `npm --prefix backend run test:observability-evidence` (`9/9` checks passed after a transient Loki smoke rerun); `npm --prefix backend run test:release-preflight-local`; `git diff --check`; targeted secret-adjacent scan of new Plex evidence, observability evidence, and preflight artifacts. Local preflight still marks secure-cookie compose smoke, gitleaks secret scan, and Trivy/SBOM as CI-only or stricter-CI follow-through.
+- Files changed: `app-meta.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `artifacts/plex-provider-advertised-import-path-contract/plex-provider-advertised-import-path-contract-smoke.json`; `backend/app-meta.json`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/scripts/plex-provider-advertised-import-path-contract-smoke.js`; `backend/scripts/unit-tests.js`; `backend/services/plex.js`; `docker-compose.yml`; `docs/releases/v3.4.149.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `preflight-go-no-go.md`.
+- Risks or follow-ups: this is a contract/proof correction, not an import migration. Runtime import still uses the current documented library provider paths; a later slice can explicitly switch `fetchPlexSections` toward provider-resolved `/library/sections/all` after real PMS repeat-sync behavior is proven. The local observability run initially hit a transient Loki smoke failure and passed on rerun; CI still needs normal gitleaks, Trivy/SBOM, and stricter secure-cookie compose-smoke coverage.
+- What remains in the milestone: Nothing for `3.4.149`; CI-only release gates still need their normal GitHub run.
+- Recommended commit message: `Release 3.4.149 with Plex provider-advertised import path contract`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

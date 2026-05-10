@@ -1,0 +1,81 @@
+{
+  "generatedAt": "2026-05-10T00:58:56.977Z",
+  "provider": "plex",
+  "processingMode": "provider_advertised_import_path_contract",
+  "readOnly": true,
+  "importMutation": false,
+  "plexWriteback": false,
+  "providerDiscovery": {
+    "path": "/media/providers",
+    "providerCount": 1
+  },
+  "openApiSource": {
+    "title": "Plex Media Server",
+    "downloadedSpecPath": "/Users/hamlin/Downloads/openapi.json",
+    "documentedPathsChecked": [
+      "/media/providers",
+      "/library/sections/all",
+      "/library/sections/:sectionId/all",
+      "/library/metadata/:ids",
+      "/library/metadata/:ids/allLeaves",
+      "/:/rate",
+      "/:/scrobble",
+      "/:/unscrobble",
+      "/status/sessions"
+    ]
+  },
+  "advertisedContract": {
+    "providerDiscoveryPath": "/media/providers",
+    "libraryProviderIdentifier": "com.plexapp.plugins.library",
+    "providerFound": true,
+    "providerAdvertisedSectionsRoot": true,
+    "importMigrationReady": false,
+    "sectionsRootPath": "/library/sections/all",
+    "sectionItemsPathTemplate": "/library/sections/:sectionId/all",
+    "sectionLeavesPathTemplate": "/library/sections/:sectionId/allLeaves",
+    "metadataPathTemplate": "/library/metadata/:ids",
+    "metadataChildrenPathTemplate": "/library/metadata/:ids/children",
+    "metadataLeavesPathTemplate": "/library/metadata/:ids/allLeaves",
+    "ratingWritebackPath": "/:/rate",
+    "watchedStateWritebackPaths": {
+      "scrobble": "/:/scrobble",
+      "unscrobble": "/:/unscrobble"
+    },
+    "documentedImportPaths": [
+      "/library/sections/all",
+      "/library/sections/:sectionId/all",
+      "/library/metadata/:ids",
+      "/library/metadata/:ids/children",
+      "/library/metadata/:ids/allLeaves"
+    ],
+    "compatibilityFallbacks": [
+      "/library/sections"
+    ],
+    "rules": [
+      "Use provider discovery to choose advertised documented PMS library roots.",
+      "Do not treat /media/providers as the library item listing endpoint by itself.",
+      "Do not change import mutation behavior until runtime parity proves repeat-sync safety."
+    ]
+  },
+  "compatibilityFallback": {
+    "providerFound": false,
+    "providerAdvertisedSectionsRoot": false,
+    "sectionsRootPath": "/library/sections"
+  },
+  "decision": "media_providers_is_capability_discovery_and_import_should_resolve_documented_library_provider_paths_before_any_runtime_migration",
+  "assertions": [
+    "/media/providers is not treated as an item-listing endpoint by itself",
+    "the library provider can advertise /library/sections/all as the sections root",
+    "current import mutation behavior remains unchanged",
+    "compatibility fallback stays /library/sections when the advertised root is absent"
+  ],
+  "requests": [
+    {
+      "method": "GET",
+      "pathname": "/media/providers",
+      "hasToken": true,
+      "tokenMatched": true,
+      "accept": "application/json"
+    }
+  ]
+}

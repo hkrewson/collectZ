@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.149",
+      "version": "3.4.149",
+      "date": null,
+      "status": "released",
+      "summary": "This patch corrects the Plex provider import migration contract. `/media/providers` is now treated as capability discovery, while future import migration resolves the official Plex library provider's advertised documented `/library/...` paths before any import behavior changes.",
+      "details": []
+    },
+    {
       "title": "collectZ v3.4.148",
       "version": "3.4.148",
       "date": null,
@@ -70,14 +78,6 @@
       "date": null,
       "status": null,
       "summary": "This patch turns the Plex reconciliation proof into a conservative one-way sync job.",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.4.139",
-      "version": "v3.4.139",
-      "date": null,
-      "status": null,
-      "summary": "This patch adds a temporary read-only Plex reconciliation review UI.",
       "details": []
     }
   ]
