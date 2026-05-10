@@ -115,7 +115,7 @@
     "test:plex-watched-state-writeback-smoke": "node scripts/plex-watched-state-writeback-smoke.js"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1042.0",
+    "@aws-sdk/client-s3": "^3.1045.0",
     "axios": "^1.16.0",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.6",
