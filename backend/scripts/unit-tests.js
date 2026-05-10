@@ -23,6 +23,8 @@ const {
   normalizePlexWatchedStateEntry,
   parsePlexRatingEntries,
   normalizePlexRatingEntry,
+  resolvePlexSectionsRootPath,
+  fetchPlexSectionsWithResolution,
   shouldIncludePlexEntry
 } = require('../services/plex');
 const { wrapTmdbRequestError } = require('../services/tmdb');
@@ -243,6 +245,7 @@ const plexProviderImportParitySmokeSource = fs.readFileSync(require.resolve('../
 const plexProviderItemListingDiscoverySmokeSource = fs.readFileSync(require.resolve('../scripts/plex-provider-item-listing-discovery-smoke'), 'utf8');
 const plexRealProviderItemRowParityProofSource = fs.readFileSync(require.resolve('../scripts/plex-real-provider-item-row-parity-proof'), 'utf8');
 const plexProviderAdvertisedImportPathContractSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-provider-advertised-import-path-contract-smoke'), 'utf8');
+const plexProviderSectionsRootRuntimeSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-provider-sections-root-runtime-smoke'), 'utf8');
 const plexNowPlayingProviderProofSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-now-playing-provider-proof-smoke'), 'utf8');
 const plexNowPlayingReadbackSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-now-playing-readback-smoke'), 'utf8');
 const plexRealNowPlayingRuntimeProofSource = fs.readFileSync(require.resolve('../scripts/plex-real-now-playing-runtime-proof'), 'utf8');
@@ -1849,6 +1852,25 @@ results.push(run('plex provider-advertised import path contract uses documented 
   assert.ok(plexProviderAdvertisedImportPathContractSmokeSource.includes('assertSecretFree'));
   assert.ok(plexPmsModernizationDocSource.includes('Plex Provider-Advertised Path Import Migration Contract. Promoted as `3.4.149`.'));
   assert.ok(releaseRoadmapSource.includes('3.4.149 — Plex Provider-Advertised Path Import Migration Contract'));
+}));
+
+results.push(run('plex provider-advertised sections root runtime migration keeps fallback behavior', () => {
+  assert.strictEqual(typeof resolvePlexSectionsRootPath, 'function');
+  assert.strictEqual(typeof fetchPlexSectionsWithResolution, 'function');
+  assert.ok(plexServiceSource.includes('resolvePlexSectionsRootPath'));
+  assert.ok(plexServiceSource.includes('fetchPlexSectionsWithResolution'));
+  assert.ok(plexServiceSource.includes("'provider_advertised'"));
+  assert.ok(plexServiceSource.includes("'provider_advertised_root_failed_fallback'"));
+  assert.ok(plexServiceSource.includes("requestPlexSectionsAtPath(config, '/library/sections')"));
+  assert.ok(backendPackageJson.scripts['test:plex-provider-sections-root-runtime-smoke']);
+  assert.ok(plexProviderSectionsRootRuntimeSmokeSource.includes('provider_sections_root_runtime_migration'));
+  assert.ok(plexProviderSectionsRootRuntimeSmokeSource.includes('/library/sections/all'));
+  assert.ok(plexProviderSectionsRootRuntimeSmokeSource.includes('provider_advertised_root_unavailable_fallback'));
+  assert.ok(plexProviderSectionsRootRuntimeSmokeSource.includes('provider_root_not_advertised_fallback'));
+  assert.ok(plexProviderSectionsRootRuntimeSmokeSource.includes("artifacts', 'plex-provider-sections-root-runtime', 'plex-provider-sections-root-runtime-smoke.json"));
+  assert.ok(plexProviderSectionsRootRuntimeSmokeSource.includes('assertSecretFree'));
+  assert.ok(plexPmsModernizationDocSource.includes('Plex Provider-Advertised Sections Root Runtime Migration. Promoted as `3.4.150`.'));
+  assert.ok(releaseRoadmapSource.includes('3.4.150 — Plex Provider-Advertised Sections Root Runtime Migration'));
 }));
 
 results.push(run('plex real-server provider discovery readback is wired as sanitized admin and workspace probes', () => {

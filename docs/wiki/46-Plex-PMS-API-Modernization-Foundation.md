@@ -17,6 +17,12 @@ The existing Plex integration is documented-library-provider-path based:
 
 Those paths remain the maintained import path for current Plex library sync, duplicate avoidance, TV season inventory, and provider identity alias behavior. `/library/sections` remains the compatibility fallback for current installs; the downloaded official Plex PMS OpenAPI spec documents `/library/sections/all` as the main media-provider sections root.
 
+Starting with `3.4.150`, section discovery resolves the sections root at runtime:
+
+- fetch `/media/providers`,
+- use `/library/sections/all` when the official library provider advertises it,
+- fall back to `/library/sections` when provider discovery, advertisement, or the advertised root readback is unavailable.
+
 ## Modernization Direction
 
 New Plex-facing features should first prove the provider-oriented PMS API shape before adding more hard-coded library-section assumptions.
@@ -78,10 +84,12 @@ Use this for feature discovery and future new Plex surfaces where possible. It i
 - Plex Real PMS Provider Item-Row Parity Proof. Promoted as `3.4.147`.
 - Plex Now Playing Multi-Session Display Polish. Promoted as `3.4.148`.
 - Plex Provider-Advertised Path Import Migration Contract. Promoted as `3.4.149`.
+- Plex Provider-Advertised Sections Root Runtime Migration. Promoted as `3.4.150`.
 
 ## Acceptance Criteria
 
 - The documented Plex library provider paths are documented as current behavior.
 - The provider-oriented PMS direction is documented for future Plex features without treating `/media/providers` as an item-listing endpoint.
+- Plex section discovery prefers provider-advertised `/library/sections/all` at runtime while preserving `/library/sections` fallback behavior.
 - Source assertions keep the modernization contract and parser in place.
 - Existing Plex import tests continue to pass without behavior changes.

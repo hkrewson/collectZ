@@ -375,6 +375,78 @@ const buildPlexProviderAdvertisedImportPathContract = (providers = []) => {
   };
 };
 
+const parsePlexSectionsResponse = (payload) => parsePlexDirectories(payload)
+  .map((d) => ({
+    id: d.key,
+    title: d.title || `Section ${d.key}`,
+    type: String(d.type || '').trim().toLowerCase() || 'unknown'
+  }));
+
+const requestPlexSectionsAtPath = async (config, path) => {
+  const response = await plexRequest(config, path);
+  if (response.status >= 400) {
+    const message = typeof response.data === 'string'
+      ? response.data.slice(0, 200)
+      : response.data?.error || response.statusText;
+    const error = new Error(`Plex sections request failed (${response.status}): ${message}`);
+    error.status = response.status;
+    error.path = path;
+    throw error;
+  }
+  return parsePlexSectionsResponse(response.data);
+};
+
+const resolvePlexSectionsRootPath = async (config) => {
+  try {
+    const providers = await fetchPlexMediaProviders(config);
+    const contract = buildPlexProviderAdvertisedImportPathContract(providers);
+    return {
+      path: contract.sectionsRootPath,
+      source: contract.providerAdvertisedSectionsRoot ? 'provider_advertised' : 'compatibility_fallback',
+      providerAdvertised: contract.providerAdvertisedSectionsRoot,
+      providerFound: contract.providerFound
+    };
+  } catch (error) {
+    return {
+      path: '/library/sections',
+      source: 'provider_discovery_failed_fallback',
+      providerAdvertised: false,
+      providerFound: false,
+      discoveryErrorStatus: error?.status || null
+    };
+  }
+};
+
+const fetchPlexSectionsWithResolution = async (config) => {
+  const resolution = await resolvePlexSectionsRootPath(config);
+  const attemptedPaths = [];
+  try {
+    attemptedPaths.push(resolution.path);
+    return {
+      sections: await requestPlexSectionsAtPath(config, resolution.path),
+      resolution: {
+        ...resolution,
+        attemptedPaths,
+        fallbackUsed: resolution.path === '/library/sections'
+      }
+    };
+  } catch (error) {
+    if (resolution.path === '/library/sections') throw error;
+    attemptedPaths.push('/library/sections');
+    return {
+      sections: await requestPlexSectionsAtPath(config, '/library/sections'),
+      resolution: {
+        ...resolution,
+        path: '/library/sections',
+        source: 'provider_advertised_root_failed_fallback',
+        attemptedPaths,
+        fallbackUsed: true,
+        providerRootErrorStatus: error?.status || null
+      }
+    };
+  }
+};
+
 const fetchPlexProviderItemRows = async (config, candidates = [], options = {}) => {
   const maxCandidates = Number.isFinite(Number(options.maxCandidates)) ? Math.max(1, Number(options.maxCandidates)) : 3;
   const containerSize = Number.isFinite(Number(options.containerSize)) ? Math.max(1, Number(options.containerSize)) : 5;
@@ -1006,22 +1078,6 @@ const sendPlexRatingWriteback = async (config, options = {}) => {
   };
 };
 
-const fetchPlexSections = async (config) => {
-  const response = await plexRequest(config, '/library/sections');
-  if (response.status >= 400) {
-    const message = typeof response.data === 'string'
-      ? response.data.slice(0, 200)
-      : response.data?.error || response.statusText;
-    throw new Error(`Plex sections request failed (${response.status}): ${message}`);
-  }
-  const directories = parsePlexDirectories(response.data);
-  return directories.map((d) => ({
-      id: d.key,
-      title: d.title || `Section ${d.key}`,
-      type: String(d.type || '').trim().toLowerCase() || 'unknown'
-    }));
-};
-
 const fetchPlexMediaProviders = async (config) => {
   const response = await plexRequest(config, PLEX_PMS_MODERNIZATION_CONTRACT.providerDiscoveryPath);
   if (response.status >= 400) {
@@ -1033,6 +1089,11 @@ const fetchPlexMediaProviders = async (config) => {
   return parsePlexMediaProviders(response.data)
     .map(normalizePlexMediaProvider)
     .filter(Boolean);
+};
+
+const fetchPlexSections = async (config) => {
+  const { sections } = await fetchPlexSectionsWithResolution(config);
+  return sections;
 };
 
 const fetchPlexNowPlayingSessions = async (config) => {
@@ -1390,6 +1451,8 @@ module.exports = {
   buildPlexWebhookAndRatingsContract,
   buildPlexWatchStateSyncContract,
   buildPlexWatchedStateWritebackContract,
+  resolvePlexSectionsRootPath,
+  fetchPlexSectionsWithResolution,
   fetchPlexSections,
   fetchPlexMediaProviders,
   fetchPlexNowPlayingSessions,

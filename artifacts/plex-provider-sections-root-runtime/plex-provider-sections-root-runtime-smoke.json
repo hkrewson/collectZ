@@ -1,0 +1,116 @@
+{
+  "generatedAt": "2026-05-10T01:36:42.247Z",
+  "provider": "plex",
+  "processingMode": "provider_sections_root_runtime_migration",
+  "readOnly": true,
+  "importMutation": false,
+  "plexWriteback": false,
+  "scenarios": [
+    {
+      "name": "provider_advertised_sections_root",
+      "sectionCount": 2,
+      "resolution": {
+        "path": "/library/sections/all",
+        "source": "provider_advertised",
+        "providerAdvertised": true,
+        "providerFound": true,
+        "attemptedPaths": [
+          "/library/sections/all"
+        ],
+        "fallbackUsed": false
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "pathname": "/media/providers",
+          "hasToken": true,
+          "tokenMatched": true,
+          "accept": "application/json"
+        },
+        {
+          "method": "GET",
+          "pathname": "/library/sections/all",
+          "hasToken": true,
+          "tokenMatched": true,
+          "accept": "application/json"
+        }
+      ]
+    },
+    {
+      "name": "provider_advertised_root_unavailable_fallback",
+      "sectionCount": 2,
+      "resolution": {
+        "path": "/library/sections",
+        "source": "provider_advertised_root_failed_fallback",
+        "providerAdvertised": true,
+        "providerFound": true,
+        "attemptedPaths": [
+          "/library/sections/all",
+          "/library/sections"
+        ],
+        "fallbackUsed": true,
+        "providerRootErrorStatus": 404
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "pathname": "/media/providers",
+          "hasToken": true,
+          "tokenMatched": true,
+          "accept": "application/json"
+        },
+        {
+          "method": "GET",
+          "pathname": "/library/sections/all",
+          "hasToken": true,
+          "tokenMatched": true,
+          "accept": "application/json"
+        },
+        {
+          "method": "GET",
+          "pathname": "/library/sections",
+          "hasToken": true,
+          "tokenMatched": true,
+          "accept": "application/json"
+        }
+      ]
+    },
+    {
+      "name": "provider_root_not_advertised_fallback",
+      "sectionCount": 2,
+      "resolution": {
+        "path": "/library/sections",
+        "source": "compatibility_fallback",
+        "providerAdvertised": false,
+        "providerFound": true,
+        "attemptedPaths": [
+          "/library/sections"
+        ],
+        "fallbackUsed": true
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "pathname": "/media/providers",
+          "hasToken": true,
+          "tokenMatched": true,
+          "accept": "application/json"
+        },
+        {
+          "method": "GET",
+          "pathname": "/library/sections",
+          "hasToken": true,
+          "tokenMatched": true,
+          "accept": "application/json"
+        }
+      ]
+    }
+  ],
+  "decision": "runtime_section_discovery_prefers_provider_advertised_sections_all_and_falls_back_to_library_sections",
+  "assertions": [
+    "fetchPlexSections now resolves the sections root through provider discovery at runtime",
+    "provider-advertised /library/sections/all is used when it is present and readable",
+    "fallback to /library/sections remains intact when the advertised root is absent or fails",
+    "the smoke does not call item import endpoints or mutate collectZ rows"
+  ]
+}

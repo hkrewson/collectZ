@@ -10715,6 +10715,35 @@ Historical note:
 - What remains in the milestone: Nothing for `3.4.149`; CI-only release gates still need their normal GitHub run.
 - Recommended commit message: `Release 3.4.149 with Plex provider-advertised import path contract`
 
+## 3.4.150 — Plex Provider-Advertised Sections Root Runtime Migration
+
+**Goal:** Make Plex section discovery use the provider-advertised sections root at runtime while preserving the existing `/library/sections` fallback.
+
+### Scope
+
+- Update `fetchPlexSections` to resolve the sections root through `/media/providers`.
+- Use `/library/sections/all` when the official library provider advertises it and the readback succeeds.
+- Fall back to `/library/sections` when provider discovery fails, the sections root is not advertised, or `/library/sections/all` is unavailable.
+- Keep item import, reconciliation, webhooks, watched-state writeback, rating writeback, and automatic sync behavior otherwise unchanged.
+
+### Acceptance Criteria
+
+- Runtime section discovery calls `/media/providers` before choosing the sections root.
+- A fake-PMS smoke proves provider-advertised `/library/sections/all`, advertised-root failure fallback, and non-advertised fallback paths.
+- Existing Plex library import still receives the same section ids, titles, and types.
+- Version metadata, release note, release feed, and Help > Releases include `3.4.150`.
+
+### Closeout
+
+- Roadmap slice: `3.4.150 — Plex Provider-Advertised Sections Root Runtime Migration`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`; `docs/wiki/08-Backlog.md`; `docs/releases/v3.4.150.md`; Plex PMS OpenAPI source at `/Users/hamlin/Downloads/openapi.json`.
+- Runtime verification used: Docker-first backend/frontend rebuild with `APP_VERSION=3.4.150`; `/api/health` reported frontend/backend/build `3.4.150`; backend container env was verified after restoring `APP_EDITION=platform`; live DB kept `events_enabled` and `collectibles_enabled` true with latest schema migration `100`; Docker Plex sections-root runtime smoke proved provider-advertised `/library/sections/all`, advertised-root 404 fallback to `/library/sections`, and non-advertised fallback without writeback/import mutation; Help > Releases served `3.4.150`.
+- CI/checks run: `node --check backend/services/plex.js`; `node --check backend/scripts/plex-provider-sections-root-runtime-smoke.js`; host and Docker `test:plex-provider-sections-root-runtime-smoke`; host and Docker `test:unit`; Docker `test:openapi`; Docker `test:integration-smoke`; Docker `test:help-releases-smoke`; Docker `test:init-parity`; Docker `test:migration-rehearsal`; Docker `test:rbac-regression`; Docker `test:platform-edition-boundary`; Docker `test:homelab-edition-boundary`; Docker backend dependency audit; Docker frontend dependency audit with a throwaway Node image; `test:observability-evidence`; local Playwright `test:browser`; `test:release-preflight-local`; `git diff --check`; targeted release-evidence/artifact secret scan.
+- Files changed: `app-meta.json`; `backend/app-meta.json`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/scripts/plex-provider-sections-root-runtime-smoke.js`; `backend/scripts/unit-tests.js`; `backend/services/plex.js`; `docker-compose.yml`; `docs/releases/v3.4.150.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `artifacts/plex-provider-sections-root-runtime/plex-provider-sections-root-runtime-smoke.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `preflight-go-no-go.md`.
+- Risks or follow-ups: Section discovery now makes one read-only `/media/providers` request before section listing; fallback preserves current `/library/sections` behavior when provider discovery or `/library/sections/all` is unavailable. Item listing remains on the existing section item path; reconciliation, webhook, watched-state writeback, rating writeback, and automatic sync are unchanged. CI-only secure-cookie compose smoke, gitleaks, and Trivy/SBOM still need the normal GitHub Actions run.
+- What remains in the milestone: nothing for `3.4.150`; only CI-only release gates remain for the remote pipeline.
+- Recommended commit message: `Release 3.4.150 with Plex provider-advertised sections root runtime migration`.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.
