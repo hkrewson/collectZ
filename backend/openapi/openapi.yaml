@@ -1303,7 +1303,15 @@
           "framed": { "type": "boolean" },
           "print_number": { "type": ["integer", "null"], "minimum": 1 },
           "print_run": { "type": ["integer", "null"], "minimum": 1 },
+          "artist_id": { "type": ["integer", "null"] },
+          "artist_role": { "type": ["string", "null"] },
           "artist": { "type": ["string", "null"] },
+          "artist_record": {
+            "oneOf": [
+              { "$ref": "#/components/schemas/ArtArtistRecord" },
+              { "type": "null" }
+            ]
+          },
           "vendor": { "type": ["string", "null"] },
           "booth": { "type": ["string", "null"] },
           "booth_or_vendor": { "type": ["string", "null"] },
@@ -1384,6 +1392,60 @@
         },
         "required": ["items", "pagination"]
       },
+      "ArtArtistRecord": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "library_id": { "type": ["integer", "null"] },
+          "space_id": { "type": ["integer", "null"] },
+          "name": { "type": "string" },
+          "sort_name": { "type": ["string", "null"] },
+          "aliases": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "website_url": { "type": ["string", "null"] },
+          "notes": { "type": ["string", "null"] },
+          "linked_works_count": { "type": "integer" },
+          "created_at": { "type": ["string", "null"], "format": "date-time" },
+          "updated_at": { "type": ["string", "null"], "format": "date-time" }
+        },
+        "required": ["id", "name", "aliases", "linked_works_count"]
+      },
+      "ArtArtistListResponse": {
+        "type": "object",
+        "properties": {
+          "artists": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ArtArtistRecord" }
+          }
+        },
+        "required": ["artists"]
+      },
+      "ArtArtistCreateRequest": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "sort_name": { "type": ["string", "null"] },
+          "aliases": {
+            "oneOf": [
+              { "type": "string" },
+              { "type": "array", "items": { "type": "string" } },
+              { "type": "null" }
+            ]
+          },
+          "website_url": { "type": ["string", "null"] },
+          "notes": { "type": ["string", "null"] }
+        },
+        "required": ["name"]
+      },
+      "ArtArtistCreateResponse": {
+        "type": "object",
+        "properties": {
+          "artist": { "$ref": "#/components/schemas/ArtArtistRecord" }
+        },
+        "required": ["artist"]
+      },
       "ArtUpsertRequest": {
         "type": "object",
         "properties": {
@@ -1398,6 +1460,8 @@
           "framed": { "type": ["boolean", "null"] },
           "print_number": { "type": ["integer", "null"], "minimum": 1 },
           "print_run": { "type": ["integer", "null"], "minimum": 1 },
+          "artist_id": { "type": ["integer", "null"] },
+          "artist_role": { "type": ["string", "null"] },
           "artist": { "type": ["string", "null"] },
           "vendor": { "type": ["string", "null"] },
           "booth": { "type": ["string", "null"] },
@@ -6986,6 +7050,56 @@
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/ArtRecord" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/art/artists": {
+      "get": {
+        "tags": ["Media"],
+        "summary": "Search reusable artist records for Art entries",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          { "in": "query", "name": "q", "schema": { "type": "string" } },
+          { "in": "query", "name": "limit", "schema": { "type": "integer", "minimum": 1, "maximum": 25 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Matching artist records",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ArtArtistListResponse" }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Media"],
+        "summary": "Create or reuse an artist record for Art entries",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ArtArtistCreateRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Artist record",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ArtArtistCreateResponse" }
               }
             }
           }

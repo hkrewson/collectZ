@@ -5428,6 +5428,36 @@ results.push(run('art ui divergence keeps Art out of the Collectibles component 
   assert.ok(!collectiblesViewSource.includes("apiBasePath: '/art'"));
 }));
 
+results.push(run('reusable artist records are wired into artwork entry for the 3.4.152 slice', () => {
+  assert.ok(migrationsSource.includes('version: 101'));
+  assert.ok(migrationsSource.includes("description: 'Add reusable artist records for Art'"));
+  assert.ok(migrationsSource.includes('CREATE TABLE IF NOT EXISTS art_artist_records'));
+  assert.ok(migrationsSource.includes('artist_id INTEGER REFERENCES art_artist_records(id) ON DELETE SET NULL'));
+  assert.ok(migrationsSource.includes('artist_role VARCHAR(100)'));
+  assert.ok(migrationsSource.includes('idx_art_artist_records_library_name_active'));
+  assert.ok(initSqlSource.includes('CREATE TABLE IF NOT EXISTS art_artist_records'));
+  assert.ok(initSqlSource.includes('artist_id INTEGER REFERENCES art_artist_records(id) ON DELETE SET NULL'));
+  assert.ok(initSqlSource.includes('idx_art_items_artist_id'));
+  assert.ok(initSqlSource.includes('update_art_artist_records_updated_at'));
+  assert.ok(validateMiddlewareSource.includes('artist_id: nullableNumberSchema'));
+  assert.ok(validateMiddlewareSource.includes('artist_role: z.preprocess(emptyStringToNull'));
+  assert.ok(collectiblesRoutesSource.includes("router.get('/art/artists'"));
+  assert.ok(collectiblesRoutesSource.includes("router.post('/art/artists'"));
+  assert.ok(collectiblesRoutesSource.includes('validateScopedArtistRecord'));
+  assert.ok(collectiblesRoutesSource.includes('artist_record: row.artist_id ?'));
+  assert.ok(collectiblesRoutesSource.includes('payload.artist = payload.artist || artistRecord.name'));
+  assert.ok(artViewSource.includes('function ArtistRecordPicker'));
+  assert.ok(artViewSource.includes("apiCall('get', `/art/artists?q="));
+  assert.ok(artViewSource.includes("apiCall('post', '/art/artists'"));
+  assert.ok(artViewSource.includes('Create artist record'));
+  assert.ok(artViewSource.includes('Use text only'));
+  assert.ok(artViewSource.includes('Other works'));
+  assert.ok(openApiSource.includes('/api/art/artists'));
+  assert.ok(openApiSource.includes('"ArtArtistRecord"'));
+  assert.ok(openApiSource.includes('"artist_record"'));
+  assert.ok(releaseRoadmapSource.includes('3.4.152 — Reusable Artist Records for Artwork Entry'));
+}));
+
 results.push(run('collectibles taxonomy cleanup and art medium boundary are wired for the 3.4.5 split', () => {
   const collectiblesViewSource = readFrontendSource(path.join('components', 'CollectiblesView'));
   assert.ok(artViewSource.includes('ART_MEDIUM_OPTIONS'));

@@ -967,6 +967,8 @@ const artBaseSchema = z.object({
   print_number: nullableNumberSchema(z.number().int().positive().max(1000000)),
   print_run: nullableNumberSchema(z.number().int().positive().max(1000000)),
   event_id: nullableNumberSchema(z.number().int().positive()),
+  artist_id: nullableNumberSchema(z.number().int().positive()),
+  artist_role: z.preprocess(emptyStringToNull, z.string().max(100).optional().nullable()),
   vendor: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
   booth: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
   booth_or_vendor: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),

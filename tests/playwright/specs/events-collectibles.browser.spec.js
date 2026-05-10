@@ -101,6 +101,89 @@ test.describe('events and collectibles browser regressions', () => {
     }
   });
 
+  test('artwork entry can create and reuse a linked artist record', async ({ page }) => {
+    const adminCredentials = await ensureSavedAdminCredentials();
+    const adminRequestContext = await createAuthenticatedRequestContext(adminCredentials);
+    const userCredentials = await createFreshUserCredentials();
+    const userRequestContext = await createAuthenticatedRequestContext(userCredentials);
+    const suffix = Date.now();
+    const artistName = `Playwright Reusable Artist ${suffix}`;
+    const firstTitle = `Playwright Artist Linked Print ${suffix}`;
+    const secondTitle = `Playwright Artist Linked Sketch ${suffix}`;
+    const originalFlagsPayload = await getFeatureFlags(adminRequestContext);
+    const originalFlags = Array.isArray(originalFlagsPayload?.flags) ? originalFlagsPayload.flags : [];
+    const originalCollectiblesEnabled = Boolean(originalFlags.find((flag) => flag?.key === 'collectibles_enabled')?.enabled);
+
+    await deleteArtByExactTitle(userRequestContext, firstTitle).catch(() => {});
+    await deleteArtByExactTitle(userRequestContext, secondTitle).catch(() => {});
+    try {
+      if (!originalCollectiblesEnabled) {
+        await updateFeatureFlag(adminRequestContext, 'collectibles_enabled', true);
+      }
+
+      const artistResponse = await postWithCsrf(userRequestContext, '/api/art/artists', {
+        name: artistName,
+        aliases: 'PWRA',
+        website_url: 'https://example.test/artists/reusable',
+        notes: 'Created by the reusable artist regression.'
+      }, 201);
+      const artistPayload = await artistResponse.json();
+      const artistId = Number(artistPayload?.artist?.id || 0);
+      expect(artistId).toBeGreaterThan(0);
+
+      const searchResponse = await userRequestContext.get(`/api/art/artists?q=${encodeURIComponent(artistName)}&limit=5`);
+      expect(searchResponse.status()).toBe(200);
+      const searchPayload = await searchResponse.json();
+      expect(searchPayload.artists.some((artist) => Number(artist.id) === artistId)).toBe(true);
+
+      const firstResponse = await postWithCsrf(userRequestContext, '/api/art', {
+        title: firstTitle,
+        medium: 'print',
+        artist_id: artistId,
+        artist_role: 'Illustrator',
+        print_number: 12,
+        print_run: 50
+      }, 201);
+      const firstPayload = await firstResponse.json();
+      const firstId = Number(firstPayload?.id || firstPayload?.native_art_id || 0);
+      expect(firstId).toBeGreaterThan(0);
+      expect(firstPayload.artist).toBe(artistName);
+      expect(firstPayload.artist_record?.id).toBe(artistId);
+
+      const secondResponse = await postWithCsrf(userRequestContext, '/api/art', {
+        title: secondTitle,
+        medium: 'original',
+        artist_id: artistId,
+        artist_role: 'Painter'
+      }, 201);
+      const secondPayload = await secondResponse.json();
+      expect(Number(secondPayload?.artist_id || 0)).toBe(artistId);
+
+      const detailResponse = await userRequestContext.get(`/api/art/${firstId}`);
+      expect(detailResponse.status()).toBe(200);
+      const detailPayload = await detailResponse.json();
+      expect(detailPayload.artist_record?.name).toBe(artistName);
+      expect(detailPayload.artist_record?.aliases).toContain('PWRA');
+      expect(detailPayload.artist_role).toBe('Illustrator');
+
+      await signInThroughUi(page, userCredentials);
+      await page.goto('/dashboard?tab=library-art');
+      const artCard = page.locator('article').filter({ hasText: firstTitle }).first();
+      await expect(artCard).toBeVisible();
+      await artCard.click();
+      await expect(page.getByText(artistName).first()).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Other works' })).toBeVisible();
+    } finally {
+      await deleteArtByExactTitle(userRequestContext, firstTitle).catch(() => {});
+      await deleteArtByExactTitle(userRequestContext, secondTitle).catch(() => {});
+      if (!originalCollectiblesEnabled) {
+        await updateFeatureFlag(adminRequestContext, 'collectibles_enabled', false).catch(() => {});
+      }
+      await userRequestContext.dispose();
+      await adminRequestContext.dispose();
+    }
+  });
+
   test('mobile event drawer shows a compact social overview before admin sections', async ({ page }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
     const adminRequestContext = await createAuthenticatedRequestContext(adminCredentials);

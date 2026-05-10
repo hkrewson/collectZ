@@ -4204,6 +4204,51 @@ const MIGRATIONS = [
       END;
       $$;
     `
+  },
+  {
+    version: 101,
+    description: 'Add reusable artist records for Art',
+    up: `
+      CREATE TABLE IF NOT EXISTS art_artist_records (
+        id SERIAL PRIMARY KEY,
+        library_id INTEGER REFERENCES libraries(id) ON DELETE CASCADE,
+        space_id INTEGER,
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        name VARCHAR(255) NOT NULL,
+        normalized_name VARCHAR(255) NOT NULL,
+        sort_name VARCHAR(255),
+        aliases TEXT[] NOT NULL DEFAULT '{}',
+        website_url TEXT,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        archived_at TIMESTAMP
+      );
+
+      ALTER TABLE art_items
+        ADD COLUMN IF NOT EXISTS artist_id INTEGER REFERENCES art_artist_records(id) ON DELETE SET NULL,
+        ADD COLUMN IF NOT EXISTS artist_role VARCHAR(100);
+
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_art_artist_records_library_name_active
+        ON art_artist_records(library_id, normalized_name)
+        WHERE archived_at IS NULL;
+
+      CREATE INDEX IF NOT EXISTS idx_art_artist_records_space_name
+        ON art_artist_records(space_id, normalized_name)
+        WHERE archived_at IS NULL;
+
+      CREATE INDEX IF NOT EXISTS idx_art_items_artist_id
+        ON art_items(artist_id);
+
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_art_artist_records_updated_at') THEN
+          CREATE TRIGGER update_art_artist_records_updated_at BEFORE UPDATE ON art_artist_records
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+        END IF;
+      END;
+      $$;
+    `
   }
 ];
 

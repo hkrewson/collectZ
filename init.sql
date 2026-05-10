@@ -798,6 +798,22 @@ CREATE TABLE IF NOT EXISTS collectibles (
     archived_at TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS art_artist_records (
+    id SERIAL PRIMARY KEY,
+    library_id INTEGER REFERENCES libraries(id) ON DELETE CASCADE,
+    space_id INTEGER,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    name VARCHAR(255) NOT NULL,
+    normalized_name VARCHAR(255) NOT NULL,
+    sort_name VARCHAR(255),
+    aliases TEXT[] NOT NULL DEFAULT '{}',
+    website_url TEXT,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    archived_at TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS art_items (
     id SERIAL PRIMARY KEY,
     source_collectible_id INTEGER UNIQUE REFERENCES collectibles(id) ON DELETE SET NULL,
@@ -806,6 +822,8 @@ CREATE TABLE IF NOT EXISTS art_items (
     created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
     title VARCHAR(255) NOT NULL,
     artist VARCHAR(255),
+    artist_id INTEGER REFERENCES art_artist_records(id) ON DELETE SET NULL,
+    artist_role VARCHAR(100),
     series VARCHAR(255),
     franchise VARCHAR(255),
     medium VARCHAR(50)
@@ -1242,9 +1260,12 @@ CREATE INDEX IF NOT EXISTS idx_collectibles_exclusive_created ON collectibles(ex
 CREATE INDEX IF NOT EXISTS idx_art_items_library_created_at ON art_items(library_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_art_items_space_created_at ON art_items(space_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_art_items_artist ON art_items(artist);
+CREATE INDEX IF NOT EXISTS idx_art_items_artist_id ON art_items(artist_id);
 CREATE INDEX IF NOT EXISTS idx_art_items_series ON art_items(series);
 CREATE INDEX IF NOT EXISTS idx_art_items_franchise ON art_items(franchise);
 CREATE INDEX IF NOT EXISTS idx_art_items_vendor ON art_items(vendor);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_art_artist_records_library_name_active ON art_artist_records(library_id, normalized_name) WHERE archived_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_art_artist_records_space_name ON art_artist_records(space_id, normalized_name) WHERE archived_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_event_purchased_items_event_created ON event_purchased_items(event_id, created_at DESC, id DESC);
 CREATE INDEX IF NOT EXISTS idx_event_purchased_items_item_lookup ON event_purchased_items(item_type, item_id, created_at DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_event_purchased_items_active_unique ON event_purchased_items(event_id, item_type, item_id) WHERE archived_at IS NULL;
@@ -1383,6 +1404,10 @@ BEGIN
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_art_items_updated_at') THEN
         CREATE TRIGGER update_art_items_updated_at BEFORE UPDATE ON art_items
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_art_artist_records_updated_at') THEN
+        CREATE TRIGGER update_art_artist_records_updated_at BEFORE UPDATE ON art_artist_records
             FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_event_purchased_items_updated_at') THEN
@@ -1597,5 +1622,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (97, 'Add Plex now playing display preferences'),
     (98, 'Add Plex webhook receiver token metadata'),
     (99, 'Normalize user ratings to 0-10 provider scale'),
-    (100, 'Add Plex reconciliation conflict reviews')
+    (100, 'Add Plex reconciliation conflict reviews'),
+    (101, 'Add reusable artist records for Art')
 ON CONFLICT (version) DO NOTHING;

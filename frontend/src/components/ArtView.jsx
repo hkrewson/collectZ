@@ -28,6 +28,8 @@ const DEFAULT_FORM = {
   framed: false,
   print_number: '',
   print_run: '',
+  artist_id: '',
+  artist_role: 'Artist',
   event_id: '',
   vendor: '',
   booth: '',
@@ -83,6 +85,156 @@ function DetailField({ label, children, className = '' }) {
     <div className={className}>
       <p className="label">{label}</p>
       <div className="mt-1 text-sm text-ink">{children}</div>
+    </div>
+  );
+}
+
+function ArtistRecordPicker({ apiCall, form, setForm }) {
+  const [matches, setMatches] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [draft, setDraft] = useState({ aliases: '', website_url: '', notes: '' });
+  const [working, setWorking] = useState(false);
+  const [error, setError] = useState('');
+  const artistName = String(form.artist || '').trim();
+  const selectedId = Number(form.artist_id || 0) || null;
+  const selected = matches.find((artist) => Number(artist.id) === selectedId) || form.artist_record || null;
+  const exactMatch = matches.find((artist) => artist.name?.toLowerCase() === artistName.toLowerCase());
+
+  useEffect(() => {
+    if (artistName.length < 2) {
+      setMatches([]);
+      return undefined;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const payload = await apiCall('get', `/art/artists?q=${encodeURIComponent(artistName)}&limit=8`);
+        if (!cancelled) setMatches(Array.isArray(payload?.artists) ? payload.artists : []);
+      } catch (err) {
+        if (!cancelled) setError(err?.response?.data?.error || 'Artist lookup failed');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }, 220);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [apiCall, artistName]);
+
+  const selectArtist = (artist) => {
+    setForm((prev) => ({
+      ...prev,
+      artist_id: artist?.id ? String(artist.id) : '',
+      artist: artist?.name || prev.artist,
+      artist_record: artist || null,
+      artist_role: prev.artist_role || 'Artist'
+    }));
+    setCreateOpen(false);
+    setError('');
+  };
+
+  const clearLink = () => {
+    setForm((prev) => ({ ...prev, artist_id: '', artist_record: null }));
+  };
+
+  const createArtist = async () => {
+    if (!artistName || working) return;
+    setWorking(true);
+    setError('');
+    try {
+      const payload = await apiCall('post', '/art/artists', {
+        name: artistName,
+        aliases: draft.aliases || null,
+        website_url: draft.website_url || null,
+        notes: draft.notes || null
+      });
+      const artist = payload?.artist;
+      if (artist?.id) {
+        selectArtist(artist);
+        setMatches((current) => [artist, ...current.filter((entry) => Number(entry.id) !== Number(artist.id))].slice(0, 8));
+        setDraft({ aliases: '', website_url: '', notes: '' });
+      }
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Artist record could not be created');
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  return (
+    <div className="field md:col-span-2">
+      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_10rem]">
+        <label className="field">
+          <span className="label">Artist</span>
+          <input
+            className="input"
+            value={form.artist || ''}
+            onChange={(e) => setForm((prev) => ({ ...prev, artist: e.target.value, artist_id: '', artist_record: null }))}
+          />
+        </label>
+        <label className="field">
+          <span className="label">Role</span>
+          <input
+            className="input"
+            placeholder="Artist"
+            value={form.artist_role || ''}
+            onChange={(e) => setForm((prev) => ({ ...prev, artist_role: e.target.value }))}
+          />
+        </label>
+      </div>
+      {selected ? (
+        <div className="mt-2 rounded-md border border-brand/30 bg-brand/8 px-3 py-2 text-sm text-dim">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-medium text-ink">{selected.name}</span>
+            {selected.linked_works_count !== undefined ? <span className="text-xs text-ghost">{selected.linked_works_count} linked</span> : null}
+            <button type="button" className="btn-ghost btn-sm ml-auto" onClick={clearLink}>Use text only</button>
+          </div>
+          {selected.website_url ? <p className="mt-1 truncate text-xs text-ghost">{selected.website_url}</p> : null}
+          {Array.isArray(selected.aliases) && selected.aliases.length ? <p className="mt-1 text-xs text-ghost">Aliases: {selected.aliases.join(', ')}</p> : null}
+          {selected.notes ? <p className="mt-1 text-xs leading-5 text-ghost">{selected.notes}</p> : null}
+        </div>
+      ) : null}
+      {!selected && (loading || matches.length > 0 || artistName.length >= 2) ? (
+        <div className="mt-2 rounded-md border border-edge/70 bg-surface px-3 py-2">
+          <div className="flex items-center gap-2 text-xs text-ghost">
+            {loading ? <Spinner size={12} /> : null}
+            <span>{loading ? 'Searching artists…' : matches.length ? 'Matching artists' : 'No linked artist record yet'}</span>
+          </div>
+          {matches.length > 0 ? (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {matches.map((artist) => (
+                <button key={artist.id} type="button" className="btn-secondary btn-sm" onClick={() => selectArtist(artist)}>
+                  {artist.name}
+                </button>
+              ))}
+            </div>
+          ) : null}
+          {!exactMatch && artistName ? (
+            <button type="button" className="btn-ghost btn-sm mt-2" onClick={() => setCreateOpen((value) => !value)}>
+              <Icons.Plus />Create artist record
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+      {createOpen ? (
+        <div className="mt-2 rounded-md border border-edge/70 bg-raised/70 px-3 py-3 space-y-3">
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="field"><span className="label">Aliases</span><input className="input" placeholder="Comma separated" value={draft.aliases} onChange={(e) => setDraft((prev) => ({ ...prev, aliases: e.target.value }))} /></label>
+            <label className="field"><span className="label">Website / link</span><input className="input" value={draft.website_url} onChange={(e) => setDraft((prev) => ({ ...prev, website_url: e.target.value }))} /></label>
+            <label className="field md:col-span-2"><span className="label">Artist notes</span><textarea className="textarea min-h-[72px]" value={draft.notes} onChange={(e) => setDraft((prev) => ({ ...prev, notes: e.target.value }))} /></label>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            {error ? <p className="text-xs text-err">{error}</p> : <p className="text-xs text-ghost">Creates a reusable artist record for future artwork.</p>}
+            <button type="button" className="btn-secondary btn-sm" onClick={createArtist} disabled={working}>
+              {working ? <Spinner size={12} /> : <Icons.Check />}Create
+            </button>
+          </div>
+        </div>
+      ) : error ? <p className="mt-2 text-xs text-err">{error}</p> : null}
     </div>
   );
 }
@@ -160,7 +312,7 @@ function ArtRow({ item, supportsHover, onOpen, onEdit, onDelete }) {
   );
 }
 
-function ArtDetailDrawer({ artId, apiCall, events, onClose, onEdit, onDeleted }) {
+function ArtDetailDrawer({ artId, apiCall, events, onClose, onEdit, onDeleted, onViewArtistWorks }) {
   const [item, setItem] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -189,6 +341,7 @@ function ArtDetailDrawer({ artId, apiCall, events, onClose, onEdit, onDeleted })
     || null;
   const showPurchaseContext = hasPurchaseContext(item);
   const mediumLabel = ART_MEDIUM_OPTIONS.find((option) => option.value === item?.medium)?.label || null;
+  const artistRecord = item?.artist_record || null;
   const factSummary = [item?.franchise, item?.series, item?.artist, mediumLabel, resolvedEvent].filter(Boolean);
   const dimensionsSummary = [item?.height, item?.width].filter((value) => value !== null && value !== undefined && value !== '').length
     ? `${item?.height || '?'} × ${item?.width || '?'}${item?.dimension_unit ? ` ${item.dimension_unit}` : ''}`
@@ -286,7 +439,20 @@ function ArtDetailDrawer({ artId, apiCall, events, onClose, onEdit, onDeleted })
               <DetailField label="Series">{item.series}</DetailField>
               <DetailField label="Fandom / Franchise">{item.franchise}</DetailField>
               <DetailField label="Medium / Type">{mediumLabel}</DetailField>
-              <DetailField label="Artist">{item.artist}</DetailField>
+              <DetailField label="Artist">
+                <div className="space-y-2">
+                  <p>{item.artist}</p>
+                  {artistRecord ? (
+                    <div className="rounded-md border border-edge/70 px-3 py-2 text-xs text-ghost">
+                      {item.artist_role ? <p className="text-dim">Role: {item.artist_role}</p> : null}
+                      {Array.isArray(artistRecord.aliases) && artistRecord.aliases.length ? <p>Aliases: {artistRecord.aliases.join(', ')}</p> : null}
+                      {artistRecord.website_url ? <a className="inline-flex items-center gap-2 text-dim transition-colors hover:text-ink" href={artistRecord.website_url} target="_blank" rel="noreferrer"><Icons.Link />Artist link</a> : null}
+                      {artistRecord.notes ? <p className="leading-5">{artistRecord.notes}</p> : null}
+                      <button type="button" className="btn-secondary btn-sm mt-2" onClick={() => onViewArtistWorks?.(item)}>Other works</button>
+                    </div>
+                  ) : null}
+                </div>
+              </DetailField>
               <DetailField label="H">{formatDimensionValue(item.height, item.dimension_unit)}</DetailField>
               <DetailField label="W">{formatDimensionValue(item.width, item.dimension_unit)}</DetailField>
               <DetailField label="Print">{printEdition}</DetailField>
@@ -374,6 +540,9 @@ function ArtDrawer({ initial, events, saving, error, notice, apiCall, onClose, o
     framed: Boolean(initial?.framed),
     print_number: initial?.print_number ?? '',
     print_run: initial?.print_run ?? '',
+    artist_id: initial?.artist_id ? String(initial.artist_id) : '',
+    artist_role: initial?.artist_role || 'Artist',
+    artist_record: initial?.artist_record || null,
     vendor: initial?.vendor || '',
     booth: initial?.booth || ''
   }));
@@ -405,6 +574,9 @@ function ArtDrawer({ initial, events, saving, error, notice, apiCall, onClose, o
       framed: Boolean(initial?.framed),
       print_number: initial?.print_number ?? '',
       print_run: initial?.print_run ?? '',
+      artist_id: initial?.artist_id ? String(initial.artist_id) : '',
+      artist_role: initial?.artist_role || 'Artist',
+      artist_record: initial?.artist_record || null,
       vendor: initial?.vendor || '',
       booth: initial?.booth || ''
     });
@@ -507,7 +679,7 @@ function ArtDrawer({ initial, events, saving, error, notice, apiCall, onClose, o
                     {ART_MEDIUM_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                   </select>
                 </label>
-                <label className="field"><span className="label">Artist</span><input className="input" value={form.artist || ''} onChange={(e) => setForm((p) => ({ ...p, artist: e.target.value }))} /></label>
+                <ArtistRecordPicker apiCall={apiCall} form={form} setForm={setForm} />
                 <label className="field"><span className="label">Price</span><input className="input" value={form.price ?? ''} onChange={(e) => setForm((p) => ({ ...p, price: e.target.value }))} /></label>
                 <label className="field"><span className="label">H</span><input className="input" type="number" min="0" step="0.01" value={form.height ?? ''} onChange={(e) => setForm((p) => ({ ...p, height: e.target.value }))} /></label>
                 <label className="field"><span className="label">W</span><input className="input" type="number" min="0" step="0.01" value={form.width ?? ''} onChange={(e) => setForm((p) => ({ ...p, width: e.target.value }))} /></label>
@@ -703,6 +875,8 @@ export default function ArtView({ apiCall, onToast }) {
         print_run: form.print_run === '' ? null : Number(form.print_run),
         subtype: 'art',
         event_id: form.event_id ? Number(form.event_id) : null,
+        artist_id: form.artist_id ? Number(form.artist_id) : null,
+        artist_role: form.artist_role || null,
         artist: form.artist || null,
         vendor: form.vendor || null,
         booth: form.booth || null,
@@ -770,6 +944,14 @@ export default function ArtView({ apiCall, onToast }) {
     const refreshed = await api('get', `/art/${editing.id}`);
     setEditing(refreshed);
     await load();
+  };
+
+  const viewArtistWorks = (item) => {
+    const artistName = item?.artist_record?.name || item?.artist || '';
+    if (!artistName) return;
+    setSearch(artistName);
+    setPage(1);
+    setDetailId(null);
   };
 
   const uploadSignatureProofFromDrawer = async (id, proofFile) => {
@@ -918,6 +1100,7 @@ export default function ArtView({ apiCall, onToast }) {
           onClose={() => setDetailId(null)}
           onEdit={(item) => { setDetailId(null); setEditing(item); }}
           onDeleted={load}
+          onViewArtistWorks={viewArtistWorks}
         />
       ) : null}
     </div>

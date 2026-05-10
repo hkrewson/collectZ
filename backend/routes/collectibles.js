@@ -129,7 +129,17 @@ const serializeNativeArtRow = (row) => {
     framed: row.framed === true,
     print_number: row.print_number === null || row.print_number === undefined ? null : Number(row.print_number),
     print_run: row.print_run === null || row.print_run === undefined ? null : Number(row.print_run),
+    artist_id: row.artist_id || null,
+    artist_role: row.artist_role || null,
     artist: row.artist || null,
+    artist_record: row.artist_id ? {
+      id: row.artist_id,
+      name: row.artist_record_name || row.artist || null,
+      sort_name: row.artist_record_sort_name || null,
+      aliases: Array.isArray(row.artist_record_aliases) ? row.artist_record_aliases : [],
+      website_url: row.artist_record_website_url || null,
+      notes: row.artist_record_notes || null
+    } : null,
     vendor,
     booth,
     booth_or_vendor: vendor && booth ? `${vendor} / ${booth}` : (vendor || booth || null),
@@ -154,11 +164,19 @@ const serializeNativeArtRow = (row) => {
 const buildNativeArtSelect = () => `
   SELECT a.*,
          COALESCE(epi.event_id, c.event_id) AS event_id,
-         epi.id AS purchased_item_id
+         epi.id AS purchased_item_id,
+         ar.name AS artist_record_name,
+         ar.sort_name AS artist_record_sort_name,
+         ar.aliases AS artist_record_aliases,
+         ar.website_url AS artist_record_website_url,
+         ar.notes AS artist_record_notes
   FROM art_items a
   LEFT JOIN collectibles c
     ON c.id = a.source_collectible_id
    AND c.archived_at IS NULL
+  LEFT JOIN art_artist_records ar
+    ON ar.id = a.artist_id
+   AND ar.archived_at IS NULL
   LEFT JOIN LATERAL (
     SELECT id, event_id
     FROM event_purchased_items
@@ -258,6 +276,58 @@ const validateScopedEvent = async (scopeContext, eventId) => {
     eventParams
   );
   return eventResult.rows[0] || null;
+};
+
+const normalizeArtistName = (value) => String(value || '').trim().replace(/\s+/g, ' ');
+const normalizeArtistKey = (value) => normalizeArtistName(value).toLowerCase();
+const normalizeArtistAliases = (value) => {
+  if (Array.isArray(value)) {
+    return value.map(normalizeArtistName).filter(Boolean).slice(0, 12);
+  }
+  return String(value || '')
+    .split(',')
+    .map(normalizeArtistName)
+    .filter(Boolean)
+    .slice(0, 12);
+};
+
+const serializeArtistRecord = (row) => ({
+  id: row.id,
+  library_id: row.library_id || null,
+  space_id: row.space_id || null,
+  name: row.name,
+  sort_name: row.sort_name || null,
+  aliases: Array.isArray(row.aliases) ? row.aliases : [],
+  website_url: row.website_url || null,
+  notes: row.notes || null,
+  linked_works_count: Number(row.linked_works_count || 0),
+  created_at: row.created_at,
+  updated_at: row.updated_at
+});
+
+const validateScopedArtistRecord = async (scopeContext, artistId) => {
+  const numericArtistId = Number(artistId);
+  if (!Number.isFinite(numericArtistId) || numericArtistId <= 0) return null;
+  const params = [numericArtistId];
+  const scopeClause = appendScopeSql(params, scopeContext, {
+    libraryColumn: 'ar.library_id',
+    spaceColumn: 'ar.space_id'
+  });
+  const result = await pool.query(
+    `SELECT ar.*,
+            COUNT(a.id)::int AS linked_works_count
+     FROM art_artist_records ar
+     LEFT JOIN art_items a
+       ON a.artist_id = ar.id
+      AND a.archived_at IS NULL
+     WHERE ar.id = $1
+       AND ar.archived_at IS NULL
+       ${scopeClause}
+     GROUP BY ar.id
+     LIMIT 1`,
+    params
+  );
+  return result.rows[0] || null;
 };
 
 const buildPublicNativeArtId = (row) => Number(row.source_collectible_id || row.id);
@@ -432,6 +502,8 @@ const normalizeArtPayload = (payload = {}) => {
     event_id: payload.event_id || null,
     vendor,
     booth,
+    artist_id: payload.artist_id || null,
+    artist_role: payload.artist_role || null,
     artist: payload.artist || null,
     price: payload.price ?? null,
     exclusive: payload.exclusive === true,
@@ -485,6 +557,91 @@ router.get('/collectibles/categories', asyncHandler(async (_req, res) => {
 
 router.get('/art/categories', asyncHandler(async (_req, res) => {
   res.status(404).json({ error: 'Art categories are not available' });
+}));
+
+router.get('/art/artists', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const q = normalizeArtistName(req.query?.q || '');
+  const limitRaw = Number(req.query?.limit);
+  const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(25, limitRaw)) : 10;
+  const params = [];
+  let where = 'WHERE ar.archived_at IS NULL';
+  if (q) {
+    params.push(`%${q}%`);
+    where += ` AND (
+      ar.name ILIKE $${params.length}
+      OR COALESCE(ar.sort_name, '') ILIKE $${params.length}
+      OR EXISTS (
+        SELECT 1
+        FROM unnest(ar.aliases) alias_name
+        WHERE alias_name ILIKE $${params.length}
+      )
+    )`;
+  }
+  where += appendScopeSql(params, scopeContext, {
+    libraryColumn: 'ar.library_id',
+    spaceColumn: 'ar.space_id'
+  });
+  params.push(limit);
+  const rows = await pool.query(
+    `SELECT ar.*,
+            COUNT(a.id)::int AS linked_works_count
+     FROM art_artist_records ar
+     LEFT JOIN art_items a
+       ON a.artist_id = ar.id
+      AND a.archived_at IS NULL
+     ${where}
+     GROUP BY ar.id
+     ORDER BY LOWER(COALESCE(ar.sort_name, ar.name)) ASC, ar.id ASC
+     LIMIT $${params.length}`,
+    params
+  );
+  res.json({ artists: rows.rows.map(serializeArtistRecord) });
+}));
+
+router.post('/art/artists', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const libraryId = req.body.library_id || scopeContext.libraryId || null;
+  const spaceId = req.body.space_id || scopeContext.spaceId || null;
+  if (!libraryId) return res.status(400).json({ error: 'No active library selected for artist creation' });
+  const name = normalizeArtistName(req.body?.name);
+  if (!name) return res.status(400).json({ error: 'Artist name is required' });
+  if (name.length > 255) return res.status(400).json({ error: 'Artist name is too long' });
+  const normalizedName = normalizeArtistKey(name);
+  const aliases = normalizeArtistAliases(req.body?.aliases);
+  const sortName = normalizeArtistName(req.body?.sort_name);
+  const websiteUrl = normalizeArtistName(req.body?.website_url);
+  const notes = String(req.body?.notes || '').trim();
+
+  const result = await pool.query(
+    `INSERT INTO art_artist_records (
+       library_id,
+       space_id,
+       created_by,
+       name,
+       normalized_name,
+       sort_name,
+       aliases,
+       website_url,
+       notes
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+     ON CONFLICT (library_id, normalized_name) WHERE archived_at IS NULL
+     DO UPDATE SET name = art_artist_records.name
+     RETURNING *`,
+    [
+      libraryId,
+      spaceId,
+      req.user.id,
+      name,
+      normalizedName,
+      sortName || null,
+      aliases,
+      websiteUrl || null,
+      notes || null
+    ]
+  );
+  const row = await validateScopedArtistRecord(scopeContext, result.rows[0]?.id);
+  res.status(201).json({ artist: serializeArtistRecord(row || result.rows[0]) });
 }));
 
 router.get(COLLECTIBLE_ROUTE_PATHS, asyncHandler(async (req, res) => {
@@ -719,6 +876,12 @@ const createArt = asyncHandler(async (req, res) => {
     const eventRow = await validateScopedEvent(scopeContext, payload.event_id);
     if (!eventRow) return res.status(404).json({ error: 'Linked event not found in scope' });
   }
+  let artistRecord = null;
+  if (payload.artist_id) {
+    artistRecord = await validateScopedArtistRecord(scopeContext, payload.artist_id);
+    if (!artistRecord) return res.status(404).json({ error: 'Artist record not found in scope' });
+    payload.artist = payload.artist || artistRecord.name;
+  }
 
   const created = await pool.query(
     `INSERT INTO art_items (
@@ -727,6 +890,8 @@ const createArt = asyncHandler(async (req, res) => {
        created_by,
        title,
        artist,
+       artist_id,
+       artist_role,
        series,
        franchise,
        medium,
@@ -743,7 +908,7 @@ const createArt = asyncHandler(async (req, res) => {
        signed,
        image_path,
        notes
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
      RETURNING *`,
     [
       libraryId,
@@ -751,6 +916,8 @@ const createArt = asyncHandler(async (req, res) => {
       req.user.id,
       payload.title,
       payload.artist,
+      payload.artist_id,
+      payload.artist_role,
       payload.series,
       payload.franchise,
       payload.medium,
@@ -942,11 +1109,18 @@ const updateArt = asyncHandler(async (req, res) => {
     if (!eventRow) return res.status(404).json({ error: 'Linked event not found in scope' });
   }
 
-  const allowed = ['title', 'series', 'franchise', 'medium', 'height', 'width', 'dimension_unit', 'framed', 'print_number', 'print_run', 'vendor', 'booth', 'booth_or_vendor', 'artist', 'price', 'exclusive', 'signed', 'image_path', 'notes'];
+  const allowed = ['title', 'series', 'franchise', 'medium', 'height', 'width', 'dimension_unit', 'framed', 'print_number', 'print_run', 'vendor', 'booth', 'booth_or_vendor', 'artist', 'artist_id', 'artist_role', 'price', 'exclusive', 'signed', 'image_path', 'notes'];
   const payload = normalizeArtPayload({
     ...current,
     ...req.body
   });
+  if (Object.prototype.hasOwnProperty.call(req.body || {}, 'artist_id') && payload.artist_id) {
+    const artistRecord = await validateScopedArtistRecord(scopeContext, payload.artist_id);
+    if (!artistRecord) return res.status(404).json({ error: 'Artist record not found in scope' });
+    if (!Object.prototype.hasOwnProperty.call(req.body || {}, 'artist') || !payload.artist) {
+      payload.artist = artistRecord.name;
+    }
+  }
   const updates = [];
   const params = [current.id];
   for (const key of allowed) {
@@ -961,6 +1135,11 @@ const updateArt = asyncHandler(async (req, res) => {
     && !Object.prototype.hasOwnProperty.call(req.body || {}, 'vendor')) {
     params.push(payload.vendor || null);
     updates.push({ key: 'vendor', ref: `$${params.length}` });
+  }
+  if (Object.prototype.hasOwnProperty.call(req.body || {}, 'artist_id')
+    && !Object.prototype.hasOwnProperty.call(req.body || {}, 'artist')) {
+    params.push(payload.artist || null);
+    updates.push({ key: 'artist', ref: `$${params.length}` });
   }
   if (updates.length > 0) {
     const setClause = updates.map((entry) => `${entry.key} = ${entry.ref}`).join(', ');

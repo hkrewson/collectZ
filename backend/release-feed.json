@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.152",
+      "version": "3.4.152",
+      "date": "2026-05-10",
+      "status": "released",
+      "summary": "This patch adds reusable artist records to Art entry. Artwork can still keep its own simple artist text, but users can now create an artist once, reuse that record across multiple works, and see linked artist details from the artwork detail view.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Adds reusable Art artist records with names, sort names, aliases, website links, notes, and linked-work counts.",
+            "Adds `artist_id` and `artist_role` to Art rows so each artwork can link to an artist while keeping item-specific text and role metadata.",
+            "Adds typeahead artist lookup and inline artist creation inside the Art drawer.",
+            "Shows linked artist metadata on Art detail with a shortcut to view other works by the same artist.",
+            "Documents and tests the new Art artist API in OpenAPI, migration/init parity, source checks, and browser regression coverage."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.4.151",
       "version": "3.4.151",
       "date": "2026-05-10",
@@ -92,14 +111,6 @@
       "date": null,
       "status": "released",
       "summary": "This patch adds a durable Plex reconciliation conflict review queue so unsafe Plex sync matches can be resolved intentionally after automated sync.",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.4.142",
-      "version": "3.4.142",
-      "date": null,
-      "status": "released",
-      "summary": "This patch makes Plex TV watched-state writeback episode-aware instead of blocking TV series outright.",
       "details": []
     }
   ]

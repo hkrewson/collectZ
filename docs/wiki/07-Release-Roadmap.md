@@ -10715,6 +10715,39 @@ Historical note:
 - What remains in the milestone: Nothing for `3.4.149`; CI-only release gates still need their normal GitHub run.
 - Recommended commit message: `Release 3.4.149 with Plex provider-advertised import path contract`
 
+## 3.4.152 — Reusable Artist Records for Artwork Entry
+
+**Goal:** Let artwork entry create, reuse, and show durable artist records without losing the lightweight per-item artist text that existing art rows already use.
+
+### Scope
+
+- Add reusable, library-scoped artist records for Art, including aliases, links, notes, and sort names.
+- Link art items to an artist record with an item-local role while preserving the existing item-local `artist` text.
+- Add typeahead lookup and inline artist creation to the Art drawer.
+- Show linked artist metadata on Art detail and provide a quick path to other works by the same artist.
+- Keep event exhibitor import, valuation enrichment, external artist identity, and artwork edition registry work out of scope.
+
+### Acceptance Criteria
+
+- A user can create an artist record once and reuse it across multiple artwork entries.
+- A user can search existing artists with typeahead while adding or editing artwork.
+- A user can create a new artist inline from the artwork entry flow without navigating away.
+- Selecting an artist brings forward known artist metadata while preserving artwork-specific fields.
+- Artwork detail views can show linked artist information and navigate to other works by the same artist.
+- The implementation clearly distinguishes reusable artist metadata from per-artwork provenance and item details.
+- Version metadata, release note, release feed, and Help > Releases include `3.4.152`.
+
+### Closeout
+
+- Roadmap slice: `3.4.152 — Reusable Artist Records for Artwork Entry`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/08-Backlog.md`; `docs/releases/v3.4.152.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild with `APP_VERSION=3.4.152`; `/api/health` reported frontend/backend/build `3.4.152`; backend container env was verified after restoring `APP_EDITION=platform`; live DB kept `events_enabled=true` and `collectibles_enabled=true`; live DB schema reached migration `101` with `art_artist_records`, `art_items.artist_id`, and `art_items.artist_role`; Help > Releases smoke served `3.4.152`; browser regression created one reusable Art artist record, linked two Art rows to it, verified API detail readback, and opened the linked artist metadata in the Art UI.
+- CI/checks run: `node --check backend/routes/collectibles.js`; `node --check backend/db/migrations.js`; `node --check backend/middleware/validate.js`; Docker backend/frontend build; Docker `npm run test:unit`; Docker `npm run test:openapi`; Docker `npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:help-releases-smoke`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker homelab override plus `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`; targeted Playwright Art/events regression (`17` passed); full Playwright browser regression (`65` passed, `4` skipped); host release feed export; host `npm --prefix backend run test:observability-evidence`; host `npm --prefix backend run test:release-preflight-local`; `git diff --check`; targeted release-artifact and Playwright artifact secret-pattern scan. Host `node backend/scripts/unit-tests.js` remains blocked by the host Node runtime missing `AbortController`, then passed in Docker.
+- Files changed: `app-meta.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `backend/app-meta.json`; `backend/db/migrations.js`; `backend/middleware/validate.js`; `backend/openapi/openapi.yaml`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/routes/collectibles.js`; `backend/scripts/unit-tests.js`; `docker-compose.yml`; `docs/releases/v3.4.152.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/ArtView.jsx`; `init.sql`; `preflight-go-no-go.md`; `tests/playwright/specs/events-collectibles.browser.spec.js`.
+- Risks or follow-ups: Existing Art rows are not automatically deduplicated into artist records; users can keep item-local artist text or opt into linking. Keyboard-highlight acceptance is conservative in this slice, with explicit typeahead selection and inline creation instead. Event exhibitor lookup/import, external creator identity, and artwork edition registry enrichment remain separate future work. Local preflight still marks secure-cookie compose smoke, gitleaks secret scan, and Trivy/SBOM as CI-only or stricter-CI follow-through.
+- What remains in the milestone: nothing for `3.4.152`; only CI-only release gates remain for the remote pipeline.
+- Recommended commit message: `Release 3.4.152 with reusable artist records for Artwork entry`.
+
 ## 3.4.151 — Plex Sync Operating Model Cleanup
 
 **Goal:** Make the Plex sync UI and docs clearly describe what is manual, scheduled, webhook-triggered, and admin-configured now that the main Plex integration slices are complete.
