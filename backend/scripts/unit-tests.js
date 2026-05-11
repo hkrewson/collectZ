@@ -42,6 +42,8 @@ const {
   buildKavitaSeriesProviderItemId,
   buildKavitaChapterProviderItemId,
   parseKavitaComicIssueLikeSeriesTitle,
+  normalizeKavitaLibraryType,
+  isKavitaComicLibraryType,
   normalizeKavitaChapterIssueRows
 } = require('../services/kavita');
 const {
@@ -2744,7 +2746,8 @@ results.push(run('repo includes Kavita import sync smoke coverage for repeat syn
   assert.ok(kavitaImportSyncSmokeSource.includes('Expected Kavita book chapter to stay series-level only'));
   assert.ok(kavitaImportSyncSmokeSource.includes('Expected Kavita special chapter issue marker'));
   assert.ok(kavitaImportSyncSmokeSource.includes('Expected Kavita title reuse to preserve existing non-Kavita author metadata'));
-  assert.ok(kavitaImportSyncSmokeSource.includes('Expected Kavita library type 1 to classify as comic_book'));
+  assert.ok(kavitaImportSyncSmokeSource.includes('Expected Kavita library type 5 to classify as comic_book'));
+  assert.ok(kavitaImportSyncSmokeSource.includes('Expected Kavita numeric library type 5 to normalize as comic metadata'));
   assert.ok(kavitaImportSyncSmokeSource.includes('Expected Kavita page metadata'));
   assert.ok(kavitaImportSyncSmokeSource.includes('Expected Kavita comic reader launch URL metadata without secrets'));
   assert.ok(kavitaImportSyncSmokeSource.includes('Expected Kavita issue-like series title to normalize away file-style suffixes'));
@@ -2797,6 +2800,13 @@ results.push(run('kavita comic issue-like series titles normalize series and iss
     displayTitle: 'Alpha Flight #129 - Ordeal!'
   });
   assert.strictEqual(parseKavitaComicIssueLikeSeriesTitle('HEAVY METAL MAGAZINE'), null);
+}));
+
+results.push(run('kavita numeric library type 5 is treated as comic for fan-out', () => {
+  assert.strictEqual(normalizeKavitaLibraryType(5), 'comic');
+  assert.strictEqual(normalizeKavitaLibraryType('5'), 'comic');
+  assert.strictEqual(isKavitaComicLibraryType(5), true);
+  assert.strictEqual(isKavitaComicLibraryType('5'), true);
 }));
 
 results.push(run('kavita chapter fan-out rows stay comic-only and keep provider identity separate', () => {
@@ -3017,16 +3027,17 @@ results.push(run('kavita embedded reader controls stay explicit and one-based in
   assert.ok(!libraryViewSource.includes('Mark Unread in Kavita'));
 }));
 
-results.push(run('kavita chapter fan-out contract keeps series and issue identities distinct and opt-in', () => {
+results.push(run('kavita chapter fan-out contract keeps series and issue identities distinct', () => {
   assert.ok(kavitaSetupDocSource.includes('43-Kavita-Chapter-Issue-Fanout-Contract.md'));
   assert.ok(kavitaChapterFanoutDocSource.includes('Series row: `provider_item_id = kavita:series:{seriesId}`'));
   assert.ok(kavitaChapterFanoutDocSource.includes('Chapter/issue row: `provider_item_id = kavita:chapter:{chapterId}`'));
-  assert.ok(kavitaChapterFanoutDocSource.includes('Chapter fan-out is opt-in and comic-only'));
+  assert.ok(kavitaChapterFanoutDocSource.includes('Chapter fan-out is comic-only'));
   assert.ok(kavitaChapterFanoutDocSource.includes('`3.4.93` implements'));
+  assert.ok(kavitaChapterFanoutDocSource.includes('observed numeric Kavita library types `1` and `5` normalize to `comic`'));
   assert.ok(mediaRoutesSource.includes('includeChapterFanout'));
   assert.ok(mediaRoutesSource.includes('provider_issue_id'));
   assert.ok(openApiSource.includes('"chapterFanout"'));
-  assert.ok(kavitaChapterFanoutDocSource.includes('Default Kavita import still creates only the series-level row'));
+  assert.ok(kavitaChapterFanoutDocSource.includes('Admin Kavita import defaults to importing comic chapters as issue rows'));
   assert.ok(kavitaChapterFanoutDocSource.includes('Repeat fan-out sync reports no duplicate creation'));
   assert.ok(kavitaChapterFanoutDocSource.includes('Book libraries do not fan out into comic issue rows'));
   assert.ok(kavitaChapterFanoutDocSource.includes('No reader/progress endpoints are called as part of fan-out'));

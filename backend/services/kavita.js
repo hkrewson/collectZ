@@ -490,6 +490,7 @@ function normalizeKavitaLibraryType(rawType) {
     if (numeric === 0) return 'manga';
     if (numeric === 1) return 'comic';
     if (numeric === 2) return 'book';
+    if (numeric === 5) return 'comic';
   }
   return String(rawType || '').trim().toLowerCase();
 }

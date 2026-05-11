@@ -192,7 +192,7 @@ async function startFakeKavitaServer() {
       res.writeHead(200);
       res.end(JSON.stringify([
         { id: 86, name: 'Kavita Smoke Books', type: 2, lastScanned: '2026-05-03T00:00:00Z' },
-        { id: 87, name: 'Kavita Smoke Sequential Shelf', type: 1, lastScanned: '2026-05-03T00:00:00Z' }
+        { id: 87, name: 'Kavita Smoke Sequential Shelf', type: 5, lastScanned: '2026-05-03T00:00:00Z' }
       ]));
       return;
     }
@@ -842,11 +842,11 @@ async function main() {
 
     const canonicalComic = comicRows[0] || {};
     const canonicalComicDetails = canonicalComic.type_details || {};
-    assert(String(canonicalComic.media_type || '') === 'comic_book', `Expected Kavita library type 1 to classify as comic_book, got ${JSON.stringify(canonicalComic)}`);
+    assert(String(canonicalComic.media_type || '') === 'comic_book', `Expected Kavita library type 5 to classify as comic_book, got ${JSON.stringify(canonicalComic)}`);
     assert(String(canonicalComic.title || '') === 'Kavita Metadata Smoke Issue', `Expected Kavita series-level resync to restore the canonical series title instead of the first issue title, got ${JSON.stringify(canonicalComic)}`);
     assert(String(canonicalComicDetails.provider_item_id || '') === COMIC_PROVIDER_ITEM_ID, `Expected provider item id ${COMIC_PROVIDER_ITEM_ID}, got ${JSON.stringify(canonicalComic)}`);
     assert(String(canonicalComicDetails.kavita_library_id || '') === '87', `Expected Kavita comic library id metadata, got ${JSON.stringify(canonicalComicDetails)}`);
-    assert(String(canonicalComicDetails.kavita_library_type || '') === 'comic', `Expected Kavita numeric comic library type metadata, got ${JSON.stringify(canonicalComicDetails)}`);
+    assert(String(canonicalComicDetails.kavita_library_type || '') === 'comic', `Expected Kavita numeric library type 5 to normalize as comic metadata, got ${JSON.stringify(canonicalComicDetails)}`);
     assert(String(canonicalComicDetails.kavita_pages || '') === '24', `Expected Kavita comic page metadata, got ${JSON.stringify(canonicalComicDetails)}`);
     assert(String(canonicalComicDetails.volume || '') === '1-2', `Expected Kavita comic volume mapped from volume detail, got ${JSON.stringify(canonicalComicDetails)}`);
     assert(String(canonicalComicDetails.issue_number || '') === '', `Expected true Kavita comic series row to stay series-level without first-chapter issue number, got ${JSON.stringify(canonicalComicDetails)}`);

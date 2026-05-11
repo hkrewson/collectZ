@@ -10715,6 +10715,33 @@ Historical note:
 - What remains in the milestone: Nothing for `3.4.149`; CI-only release gates still need their normal GitHub run.
 - Recommended commit message: `Release 3.4.149 with Plex provider-advertised import path contract`
 
+## 3.4.155 — Kavita Numeric Comic Library Type Fan-out Fix
+
+**Goal:** Fix real Kavita comic libraries that report numeric library type `5` so chapter issue fan-out does not misclassify them as books.
+
+**Scope**
+- Normalize Kavita numeric library type `5` as `comic`.
+- Prove import/fan-out behavior with a fake Kavita comic library reporting type `5`.
+- Update Kavita setup and fan-out docs to match current type and special-chapter behavior.
+- Keep cover 404 recovery, historical row repair, and issue coverage audit as separate follow-up work.
+
+**Acceptance**
+- `kavita_library_type=5` rows qualify as comic fan-out candidates.
+- Kavita import/sync smoke creates chapter issue rows for numeric type `5`.
+- Unit coverage proves numeric `5` normalizes to `comic`.
+- Version metadata, release note, release feed, and Help > Releases include `3.4.155`.
+
+### Closeout
+
+- Roadmap slice: `3.4.155 — Kavita Numeric Comic Library Type Fan-out Fix`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/41-Kavita-Integration-Setup.md`; `docs/wiki/43-Kavita-Chapter-Issue-Fanout-Contract.md`; `docs/releases/v3.4.155.md`.
+- Runtime verification used: Docker-first platform backend/frontend rebuild with `APP_VERSION=3.4.155`; backend container env reported `APP_EDITION=platform`, `APP_VERSION=3.4.155`, and redacted DB URL; `/api/health` reported frontend/backend/build `3.4.155`; Help > Releases smoke served `3.4.155`; live DB evidence showed real Kavita rows with `kavita_library_type=5`, `media_type=comic_book`, and loaded chapter counts; Docker Kavita import/sync smoke proved a numeric type `5` comic library creates three chapter issue rows including one special row.
+- CI/checks run: `node --check backend/services/kavita.js`; `node --check backend/scripts/kavita-import-sync-smoke.js`; `node --check backend/scripts/unit-tests.js`; Docker backend/frontend build; Docker `npm run test:unit` (`286` passed); Docker `npm run test:openapi`; Docker `BASE_URL=http://backend:3001 npm run test:kavita-import-sync-smoke`; Docker `BASE_URL=http://backend:3001 EXPECTED_RELEASE_VERSION=3.4.155 npm run test:help-releases-smoke`; Docker stack health check; `git diff --check`. Full release gates still need the normal CI run.
+- Files changed: `app-meta.json`; `backend/app-meta.json`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/scripts/kavita-import-sync-smoke.js`; `backend/scripts/unit-tests.js`; `backend/services/kavita.js`; `docker-compose.yml`; `docs/releases/v3.4.155.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/41-Kavita-Integration-Setup.md`; `docs/wiki/43-Kavita-Chapter-Issue-Fanout-Contract.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`.
+- Risks or follow-ups: Kavita cover proxy 404s remain separate; they appear to be real `/api/Image/series-cover` misses for specific series, not import blockers. Existing imported rows need rerun/repair to create newly eligible chapter rows.
+- What remains in the milestone: nothing for `3.4.155`; CI-only release gates still need their normal GitHub run.
+- Recommended commit message: `Release 3.4.155 with Kavita numeric comic library fan-out fix`.
+
 ## 3.4.154 — Kavita Comic Issue Coverage Guardrails
 
 **Goal:** Make Kavita comic imports less likely to hide issues by defaulting the admin import toward chapter issue rows and keeping more Kavita chapter shapes.

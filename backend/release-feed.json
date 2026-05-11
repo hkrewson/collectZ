@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.155",
+      "version": "3.4.155",
+      "date": "2026-05-10",
+      "status": null,
+      "summary": "Kavita comic libraries that report numeric library type `5` now qualify for comic chapter issue fan-out. This fixes imports that were correctly classified as `comic_book` rows but still skipped all chapter fan-out as if they were books.",
+      "details": []
+    },
+    {
       "title": "collectZ v3.4.154",
       "version": "3.4.154",
       "date": "2026-05-10",
@@ -114,14 +122,6 @@
       "date": null,
       "status": "released",
       "summary": "This patch adds a read-only Plex provider item-listing discovery proof. It checks whether `/media/providers` can expose safe content listing candidates before any future migration away from the current legacy section import path.",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.4.145",
-      "version": "3.4.145",
-      "date": null,
-      "status": "released",
-      "summary": "This patch adds a read-only Plex provider/API import parity proof before any future migration away from the current library-section import path.",
       "details": []
     }
   ]

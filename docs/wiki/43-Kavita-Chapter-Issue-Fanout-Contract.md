@@ -1,12 +1,12 @@
 # Kavita Chapter-as-Issue Fan-out Contract
 
-`3.4.92` defines how collectZ should eventually import selected Kavita comic/manga chapters as individual `comic_book` rows. `3.4.93` implements the first opt-in import behavior. Series-level Kavita imports remain the default behavior.
+`3.4.92` defines how collectZ should eventually import selected Kavita comic/manga chapters as individual `comic_book` rows. `3.4.93` implements the first opt-in import behavior. `3.4.154` defaults the admin import control toward chapter rows and includes special chapters when Kavita provides usable chapter metadata.
 
 ## Recommendation
 
-Chapter fan-out is opt-in and comic-only. The implementation creates chapter/issue rows only when the caller explicitly asks for fan-out through `chapterFanout=true` or the admin Kavita import checkbox.
+Chapter fan-out is comic-only. API callers still opt in through `chapterFanout=true`; the admin Kavita import checkbox defaults on so comic imports do not quietly stop at series-level rows.
 
-Do not auto-expand every Kavita series into issues by default. Kavita libraries often include manga volumes, omnibus files, specials, and book-like archives where a chapter row is not the right collectZ object.
+Do not auto-expand books or unknown Kavita libraries into issues by default. Kavita libraries often include manga volumes, omnibus files, specials, and book-like archives where a chapter row is not always the right collectZ object.
 
 ## Identity Model
 
@@ -32,11 +32,10 @@ The provider identity must be the strongest repeat-sync key. A chapter row must 
 
 The fan-out implementation includes a Kavita chapter only when all of these are true:
 
-- The parent library resolves to collectZ `comic_book` through Kavita library type `comic` or `manga`.
+- The parent library resolves to collectZ `comic_book` through Kavita library type `comic` or `manga`; observed numeric Kavita library types `1` and `5` normalize to `comic`.
 - The parent series has volume/chapter detail loaded from `/api/Series/volumes`.
 - The chapter has a stable numeric Kavita chapter id.
-- The chapter is not marked special unless a later option explicitly includes specials.
-- The chapter has enough display metadata to form a useful row: issue number, title, release date, or page count.
+- The chapter has enough display metadata to form a useful row: issue number, title, release date, page count, or sort/order metadata.
 
 Books, EPUB/PDF-only libraries, and unknown library types should keep series-level import only until a separate contract says otherwise.
 
@@ -78,13 +77,13 @@ The implementation milestone extends the fake Kavita import smoke with a comic/m
 
 The smoke should prove:
 
-- Default Kavita import still creates only the series-level row.
+- Admin Kavita import defaults to importing comic chapters as issue rows.
 - Fan-out import creates chapter rows with `provider_item_id` values such as `kavita:chapter:9702`.
 - The parent series row keeps `provider_item_id = kavita:series:8602`.
 - Repeat fan-out sync reports no duplicate creation.
 - Existing non-Kavita/local comic issue metadata is preserved when a high-confidence match is reused.
 - Book libraries do not fan out into comic issue rows.
-- Special chapters are skipped unless an explicit future option enables them.
+- Special chapters import as issue rows when they have a stable chapter id and display/order metadata.
 - Launch URLs and cover proxy URLs remain credential-free.
 - No reader/progress endpoints are called as part of fan-out.
 
