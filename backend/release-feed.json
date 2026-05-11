@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.156",
+      "version": "3.4.156",
+      "date": "2026-05-11",
+      "status": null,
+      "summary": "Kavita chapter-as-issue rows now use a chapter-specific cover proxy instead of repeating the parent series cover for every imported issue.",
+      "details": []
+    },
+    {
       "title": "collectZ v3.4.155",
       "version": "3.4.155",
       "date": "2026-05-10",
@@ -114,14 +122,6 @@
       "date": null,
       "status": "released",
       "summary": "This patch adds a read-only real Plex Media Server provider item-row parity proof. It uses saved Plex settings, probes provider-advertised item listing candidates with small page limits, and records whether those rows carry enough metadata to consider a future import migration.",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.4.146",
-      "version": "3.4.146",
-      "date": null,
-      "status": "released",
-      "summary": "This patch adds a read-only Plex provider item-listing discovery proof. It checks whether `/media/providers` can expose safe content listing candidates before any future migration away from the current legacy section import path.",
       "details": []
     }
   ]

@@ -1623,5 +1623,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (98, 'Add Plex webhook receiver token metadata'),
     (99, 'Normalize user ratings to 0-10 provider scale'),
     (100, 'Add Plex reconciliation conflict reviews'),
-    (101, 'Add reusable artist records for Art')
+    (101, 'Add reusable artist records for Art'),
+    (102, 'Repair Kavita chapter issue cover proxy paths')
 ON CONFLICT (version) DO NOTHING;

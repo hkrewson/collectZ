@@ -9256,6 +9256,64 @@ async function findKavitaCoverRow(req, seriesId, scopeContext = null) {
   return fallbackResult.rows[0] || null;
 }
 
+async function findKavitaChapterCoverRow(req, chapterId, scopeContext = null) {
+  const scopedParams = [String(chapterId)];
+  const scopedClause = appendScopeSql(scopedParams, scopeContext, {
+    spaceColumn: 'space_id',
+    libraryColumn: 'library_id'
+  });
+  const baseWhere = `
+      WHERE type_details->>'provider_name' = 'kavita'
+        AND type_details->>'kavita_chapter_id' = $1`;
+  const scopedResult = await pool.query(
+    `SELECT id, space_id, library_id, type_details
+       FROM media
+       ${baseWhere}
+        ${scopedClause}
+      ORDER BY id ASC
+      LIMIT 1`,
+    scopedParams
+  );
+  if (scopedResult.rows[0]) return scopedResult.rows[0];
+
+  const userId = Number(req.user?.id || 0) || null;
+  const role = String(req.user?.role || '').trim();
+  if (!userId) return null;
+
+  const fallbackParams = [String(chapterId)];
+  let accessJoin = '';
+  let accessClause = '';
+  if (role === 'admin') {
+    accessClause = '';
+  } else if (role === 'support_admin' && Number(req.user?.supportSpaceId || 0) > 0) {
+    fallbackParams.push(Number(req.user.supportSpaceId));
+    accessClause = ` AND media.space_id = $${fallbackParams.length}`;
+  } else {
+    fallbackParams.push(userId);
+    accessJoin = `
+      JOIN library_memberships lm
+        ON lm.library_id = media.library_id
+       AND lm.user_id = $${fallbackParams.length}
+      JOIN space_memberships sm
+        ON sm.space_id = media.space_id
+       AND sm.user_id = lm.user_id
+       AND sm.suspended_at IS NULL`;
+  }
+
+  const fallbackResult = await pool.query(
+    `SELECT media.id, media.space_id, media.library_id, media.type_details
+       FROM media
+       ${accessJoin}
+      WHERE media.type_details->>'provider_name' = 'kavita'
+        AND media.type_details->>'kavita_chapter_id' = $1
+        ${accessClause}
+      ORDER BY media.id ASC
+      LIMIT 1`,
+    fallbackParams
+  );
+  return fallbackResult.rows[0] || null;
+}
+
 router.get('/kavita-cover/:seriesId', asyncHandler(async (req, res) => {
   const scopeContext = resolveScopeContext(req);
   const seriesId = Number(req.params.seriesId || 0) || null;
@@ -9278,6 +9336,29 @@ router.get('/kavita-cover/:seriesId', asyncHandler(async (req, res) => {
   res.setHeader('Content-Type', cover.contentType);
   res.setHeader('Cache-Control', 'private, max-age=300');
   return res.send(cover.body);
+}));
+
+router.get('/kavita-chapter-cover/:chapterId', requireSessionAuth, asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const chapterId = Number(req.params.chapterId || 0) || null;
+  if (!chapterId) {
+    return res.status(400).json({ error: 'Invalid Kavita chapter id' });
+  }
+
+  const row = await findKavitaChapterCoverRow(req, chapterId, scopeContext);
+  if (!row) {
+    return res.status(404).json({ error: 'Kavita chapter cover was not found in the active scope' });
+  }
+
+  const config = await loadWorkspaceKavitaIntegrationConfig(row.space_id || scopeContext?.spaceId || null);
+  if (!config.kavitaBaseUrl || !config.kavitaApiKey) {
+    return res.status(404).json({ error: 'Kavita cover settings were not found for the active workspace' });
+  }
+  const auth = await authenticateKavita(config);
+  const image = await fetchKavitaReaderImage(config, auth.token, chapterId, 0);
+  res.setHeader('Content-Type', image.contentType);
+  res.setHeader('Cache-Control', 'private, max-age=300');
+  return res.send(image.body);
 }));
 
 router.post('/:id/kavita-writeback-preview', requireSessionAuth, validate(kavitaMetadataWritebackPreviewSchema), asyncHandler(async (req, res) => {

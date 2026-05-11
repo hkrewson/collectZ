@@ -518,7 +518,7 @@ async function startFakeKavitaServer() {
         page,
         apiKeySet: Boolean(url.searchParams.get('apiKey'))
       });
-      if (chapterId === 9702 && page === 1 && url.searchParams.get('apiKey') === KAVITA_SMOKE_KEY) {
+      if (chapterId === 9702 && (page === 0 || page === 1) && url.searchParams.get('apiKey') === KAVITA_SMOKE_KEY) {
         const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=', 'base64');
         res.writeHead(200, {
           'Content-Type': 'image/png',
@@ -903,7 +903,10 @@ async function main() {
     assert(String(chapterOneDetails.cover_date || '') === '2023-03-04', `Expected Kavita chapter #1 cover date, got ${JSON.stringify(chapterOneDetails)}`);
     assert(dateReadbackStartsWith(chapterOne.release_date, '2023-03-04'), `Expected Kavita chapter #1 release date, got ${JSON.stringify(chapterOne)}`);
     assert(String(chapterOneDetails.kavita_chapter_pages || '') === '24', `Expected Kavita chapter #1 pages, got ${JSON.stringify(chapterOneDetails)}`);
-    assert(String(chapterOne.poster_path || '') === '/api/media/kavita-cover/8602', `Expected Kavita chapter #1 poster proxy, got ${JSON.stringify(chapterOne)}`);
+    assert(String(chapterOne.poster_path || '') === '/api/media/kavita-chapter-cover/9702', `Expected Kavita chapter #1 poster proxy, got ${JSON.stringify(chapterOne)}`);
+    assert(String(chapterOneDetails.kavita_cover_proxy_url || '') === '/api/media/kavita-chapter-cover/9702', `Expected Kavita chapter #1 cover proxy metadata, got ${JSON.stringify(chapterOneDetails)}`);
+    assert(String(chapterOneDetails.kavita_cover_source || '') === 'collectz_chapter_proxy', `Expected Kavita chapter #1 cover source metadata, got ${JSON.stringify(chapterOneDetails)}`);
+    assert(String(chapterOneDetails.kavita_cover_status || '') === 'proxied_chapter_page_0', `Expected Kavita chapter #1 cover status metadata, got ${JSON.stringify(chapterOneDetails)}`);
     assert(String(chapterOneDetails.kavita_launch_url || '') === `${fake.baseUrl}/library/87/series/8602/manga/9702`, `Expected Kavita chapter #1 launch URL, got ${JSON.stringify(chapterOneDetails)}`);
     assert(String(chapterOneDetails.kavita_launch_target || '') === 'chapter_reader', `Expected Kavita chapter #1 launch target, got ${JSON.stringify(chapterOneDetails)}`);
     assert(String(chapterTwoDetails.provider_item_id || '') === COMIC_CHAPTER_TWO_PROVIDER_ITEM_ID, `Expected Kavita chapter #2 provider item id, got ${JSON.stringify(chapterTwoDetails)}`);
@@ -1030,6 +1033,9 @@ async function main() {
     const coverReadback = await client.requestRaw(`/api/media/kavita-cover/8602?${scopeQuery}`, { expectStatus: 200 });
     assert(String(coverReadback.headers.get('content-type') || '').startsWith('image/png'), `Expected Kavita proxied cover content type, got ${coverReadback.headers.get('content-type')}`);
     assert(coverReadback.body.length > 0, 'Expected Kavita proxied cover body');
+    const chapterCoverReadback = await client.requestRaw(`/api/media/kavita-chapter-cover/9702?${scopeQuery}`, { expectStatus: 200 });
+    assert(String(chapterCoverReadback.headers.get('content-type') || '').startsWith('image/png'), `Expected Kavita proxied chapter cover content type, got ${chapterCoverReadback.headers.get('content-type')}`);
+    assert(chapterCoverReadback.body.length > 0, 'Expected Kavita proxied chapter cover body');
 
     const secondScope = await createDirectSpaceAndLibrary({ userId, suffix });
     secondSpaceId = secondScope.spaceId;
@@ -1107,7 +1113,9 @@ async function main() {
       comicLaunchUrl: canonicalComicDetails.kavita_launch_url,
       comicChapterLaunchUrl: chapterOneDetails.kavita_launch_url,
       comicCoverProxyUrl: canonicalComicDetails.kavita_cover_proxy_url,
+      comicChapterCoverProxyUrl: chapterOneDetails.kavita_cover_proxy_url,
       coverProxyContentType: coverReadback.headers.get('content-type'),
+      chapterCoverProxyContentType: chapterCoverReadback.headers.get('content-type'),
       secretReturned: false
     }, null, 2));
   } finally {

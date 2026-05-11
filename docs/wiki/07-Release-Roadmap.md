@@ -10715,6 +10715,38 @@ Historical note:
 - What remains in the milestone: Nothing for `3.4.149`; CI-only release gates still need their normal GitHub run.
 - Recommended commit message: `Release 3.4.149 with Plex provider-advertised import path contract`
 
+## 3.4.156 — Kavita Chapter Issue Cover Proxy
+
+**Goal:** Make Kavita chapter-as-issue rows display per-title issue artwork instead of repeating the parent series cover for every imported chapter.
+
+### Scope
+
+- Add a scoped collectZ chapter-cover proxy for Kavita chapter rows.
+- Use Kavita reader page `0` as the issue/title cover for fan-out rows.
+- Repair existing provider-owned Kavita chapter poster paths that still point at the parent series cover proxy.
+- Keep series rows on the existing Kavita series-cover proxy.
+- Keep this out of embedded reader ownership, PDF/raw file proxying, and broader cover recovery work.
+
+### Acceptance Criteria
+
+- Kavita fan-out chapter rows store `poster_path` as `/api/media/kavita-chapter-cover/{chapterId}`.
+- Existing imported Kavita chapter rows using the old series-cover proxy are migrated to the chapter-cover proxy.
+- The chapter-cover proxy uses workspace-owned Kavita credentials server-side and does not expose API keys.
+- Existing series cover proxy behavior remains intact.
+- Kavita import/sync smoke proves chapter cover proxy readback.
+- Version metadata, release note, release feed, and Help > Releases include `3.4.156`.
+
+### Closeout
+
+- Roadmap slice: `3.4.156 — Kavita Chapter Issue Cover Proxy`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/41-Kavita-Integration-Setup.md`; `docs/wiki/43-Kavita-Chapter-Issue-Fanout-Contract.md`; `docs/releases/v3.4.156.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild with `APP_VERSION=3.4.156`; `/api/health` reported frontend/backend/build `3.4.156`; running backend env reported `APP_EDITION=platform`, `APP_VERSION=3.4.156`, and a redacted DB URL; backend logs showed migration `102` applied; live DB reported schema migration `102` and `730` Kavita chapter rows repaired from series-cover proxy to chapter-cover proxy; Help > Releases smoke served `3.4.156`; Docker Kavita import/sync smoke proved `comicChapterCoverProxyUrl=/api/media/kavita-chapter-cover/9702`, `chapterCoverProxyContentType=image/png`, and `secretReturned=false`.
+- CI/checks run: `node --check backend/services/kavita.js`; `node --check backend/routes/media.js`; `node --check backend/db/migrations.js`; `node --check backend/scripts/kavita-import-sync-smoke.js`; `node --check backend/scripts/unit-tests.js`; Docker backend/frontend build; Docker `npm run test:unit` (`287` passed); Docker `npm run test:openapi`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; Docker `BASE_URL=http://backend:3001 npm run test:kavita-import-sync-smoke`; Docker `BASE_URL=http://backend:3001 EXPECTED_RELEASE_VERSION=3.4.156 npm run test:help-releases-smoke`; Docker stack health check; `git diff --check`.
+- Files changed: `app-meta.json`; `backend/app-meta.json`; `backend/db/migrations.js`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/routes/media.js`; `backend/scripts/kavita-import-sync-smoke.js`; `backend/scripts/unit-tests.js`; `backend/services/kavita.js`; `docker-compose.yml`; `docs/releases/v3.4.156.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/41-Kavita-Integration-Setup.md`; `docs/wiki/43-Kavita-Chapter-Issue-Fanout-Contract.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `init.sql`.
+- Risks or follow-ups: chapter covers use Kavita reader page `0`, which should match comic cover expectations but still depends on Kavita being able to serve that page for the signed-in workspace-owned account. Existing source-level Kavita series cover 404s remain separate cover-recovery work.
+- What remains in the milestone: nothing for `3.4.156`; CI-only release gates still need the normal GitHub run, including `compose-smoke`, `rbac-regression`, `browser-regression`, `homelab-edition-boundary`, `platform-edition-boundary`, `dependency-scan`, `secret-scan`, and `image-security-and-sbom`.
+- Recommended commit message: `Release 3.4.156 with Kavita chapter issue cover proxy`.
+
 ## 3.4.155 — Kavita Numeric Comic Library Type Fan-out Fix
 
 **Goal:** Fix real Kavita comic libraries that report numeric library type `5` so chapter issue fan-out does not misclassify them as books.

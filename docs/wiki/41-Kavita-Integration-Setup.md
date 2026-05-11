@@ -35,12 +35,13 @@ Kavita imports are read-only. Imported rows keep Kavita provider identity, Kavit
 
 Cover art uses a collectZ-authenticated proxy URL:
 
-- collectZ cover proxy: `/api/media/kavita-cover/{seriesId}`
+- collectZ series cover proxy: `/api/media/kavita-cover/{seriesId}`
+- collectZ chapter/issue cover proxy: `/api/media/kavita-chapter-cover/{chapterId}`
 - Kavita source path metadata: `kavita_cover_image`
 - Kavita source URL metadata: `kavita_cover_url`
 - readback status metadata: `kavita_cover_source` and `kavita_cover_status`
 
-The proxy only serves covers for Kavita rows visible in the active collectZ scope, then fetches the Kavita image server-side using the stored integration credentials.
+The proxies only serve covers for Kavita rows visible in the active collectZ scope, then fetch the Kavita image server-side using the stored integration credentials. Series rows use Kavita's series cover endpoint. Chapter/issue rows use the first reader page as the issue cover so fan-out rows can show per-title artwork instead of always repeating the parent series cover.
 
 Launch links remain native Kavita web URLs:
 

@@ -52,7 +52,8 @@ For an eligible chapter, collectZ should map:
 - `cover_date` / `release_date` from chapter release date when present
 - `page_count` / `kavita_first_chapter_pages` style metadata from chapter pages when present
 - `external_url`, `kavita_launch_url`, and `provider_external_url` as secret-free native Kavita reader links for that chapter
-- `poster_path` through the existing collectZ Kavita cover proxy when the parent series cover is available
+- `poster_path` through the collectZ Kavita chapter-cover proxy when a chapter id is available, using Kavita reader page `0` as the issue/title cover
+- parent series cover metadata remains available as fallback/provider context, but chapter rows should not intentionally repeat the series cover when a chapter image can be proxied
 
 The parent series row can remain useful as a series/collection-level record. Fan-out should not require deleting or hiding that row.
 

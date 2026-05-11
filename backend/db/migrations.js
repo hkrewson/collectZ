@@ -4249,6 +4249,42 @@ const MIGRATIONS = [
       END;
       $$;
     `
+  },
+  {
+    version: 102,
+    description: 'Repair Kavita chapter issue cover proxy paths',
+    up: `
+      WITH kavita_chapter_covers AS (
+        SELECT
+          id,
+          '/api/media/kavita-chapter-cover/' || (type_details->>'kavita_chapter_id') AS chapter_cover_proxy
+        FROM media
+        WHERE type_details->>'provider_name' = 'kavita'
+          AND type_details->>'provider_item_id' LIKE 'kavita:chapter:%'
+          AND COALESCE(type_details->>'kavita_chapter_id', '') <> ''
+          AND poster_path LIKE '/api/media/kavita-cover/%'
+      )
+      UPDATE media AS m
+         SET poster_path = k.chapter_cover_proxy,
+             type_details = jsonb_set(
+               jsonb_set(
+                 jsonb_set(
+                   COALESCE(m.type_details, '{}'::jsonb),
+                   '{kavita_cover_proxy_url}',
+                   to_jsonb(k.chapter_cover_proxy),
+                   true
+                 ),
+                 '{kavita_cover_source}',
+                 to_jsonb('collectz_chapter_proxy'::text),
+                 true
+               ),
+               '{kavita_cover_status}',
+               to_jsonb('proxied_chapter_page_0'::text),
+               true
+             )
+        FROM kavita_chapter_covers AS k
+       WHERE m.id = k.id;
+    `
   }
 ];
 

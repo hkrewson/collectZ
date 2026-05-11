@@ -38,6 +38,7 @@ const {
   buildKavitaReaderWebUrl,
   buildKavitaCoverImageUrl,
   buildKavitaCoverProxyPath,
+  buildKavitaChapterCoverProxyPath,
   buildKavitaSeriesCoverImagePath,
   buildKavitaSeriesProviderItemId,
   buildKavitaChapterProviderItemId,
@@ -2853,6 +2854,10 @@ results.push(run('kavita chapter fan-out rows stay comic-only and keep provider 
   assert.strictEqual(row.type_details.kavita_parent_provider_item_id, 'kavita:series:8602');
   assert.strictEqual(row.type_details.kavita_chapter_fanout, 'true');
   assert.strictEqual(row.type_details.kavita_launch_url, 'https://kavita.example/library/87/series/8602/manga/9702');
+  assert.strictEqual(row.poster_path, '/api/media/kavita-chapter-cover/9702');
+  assert.strictEqual(row.type_details.kavita_cover_proxy_url, '/api/media/kavita-chapter-cover/9702');
+  assert.strictEqual(row.type_details.kavita_cover_source, 'collectz_chapter_proxy');
+  assert.strictEqual(row.type_details.kavita_cover_status, 'proxied_chapter_page_0');
   assert.strictEqual(fanout.rows[1].type_details.provider_item_id, 'kavita:chapter:9799');
   assert.strictEqual(fanout.rows[1].type_details.issue_number, 'S');
   assert.strictEqual(fanout.rows[1].type_details.kavita_chapter_special, 'true');
@@ -2878,6 +2883,7 @@ results.push(run('kavita chapter fan-out rows stay comic-only and keep provider 
 
 results.push(run('kavita cover helpers preserve proxy base paths and reject cross-origin images', () => {
   assert.strictEqual(buildKavitaCoverProxyPath(8602), '/api/media/kavita-cover/8602');
+  assert.strictEqual(buildKavitaChapterCoverProxyPath(9702), '/api/media/kavita-chapter-cover/9702');
   assert.strictEqual(buildKavitaSeriesCoverImagePath(8602), '/api/Image/series-cover?seriesId=8602');
   assert.strictEqual(buildKavitaCoverImageUrl('https://kavita.example/root/', '/api/image/series-cover?seriesId=8602'), 'https://kavita.example/root/api/image/series-cover?seriesId=8602');
   assert.strictEqual(buildKavitaCoverImageUrl('https://kavita.example/root/', buildKavitaSeriesCoverImagePath(8602)), 'https://kavita.example/root/api/Image/series-cover?seriesId=8602');
@@ -2890,6 +2896,7 @@ results.push(run('kavita reader and progress contract documents opt-in writeback
   assert.ok(kavitaReaderProgressDocSource.includes('`3.4.102` implements the first opt-in progress writeback and page-proxy reader slice'));
   assert.ok(kavitaReaderProgressDocSource.includes('Do not iframe Kavita'));
   assert.ok(kavitaReaderProgressDocSource.includes('collectZ may proxy `/api/Reader/image` for a single authenticated chapter page'));
+  assert.ok(kavitaImportSyncSmokeSource.includes('/api/media/kavita-chapter-cover/9702'));
   assert.ok(kavitaReaderProgressDocSource.includes('Progress writeback requires an explicit user action'));
   assert.ok(kavitaReaderProgressDocSource.includes('`GET /api/Reader/get-progress`'));
   assert.ok(kavitaReaderProgressDocSource.includes('`POST /api/Reader/progress`'));
@@ -5502,6 +5509,15 @@ results.push(run('reusable artist records are wired into artwork entry for the 3
   assert.ok(openApiSource.includes('"ArtArtistRecord"'));
   assert.ok(openApiSource.includes('"artist_record"'));
   assert.ok(releaseRoadmapSource.includes('3.4.152 — Reusable Artist Records for Artwork Entry'));
+}));
+
+results.push(run('kavita chapter cover repair migration updates existing fan-out poster paths', () => {
+  assert.ok(migrationsSource.includes('version: 102'));
+  assert.ok(migrationsSource.includes("description: 'Repair Kavita chapter issue cover proxy paths'"));
+  assert.ok(migrationsSource.includes("'/api/media/kavita-chapter-cover/' || (type_details->>'kavita_chapter_id')"));
+  assert.ok(migrationsSource.includes("poster_path LIKE '/api/media/kavita-cover/%'"));
+  assert.ok(migrationsSource.includes("to_jsonb('collectz_chapter_proxy'::text)"));
+  assert.ok(initSqlSource.includes("(102, 'Repair Kavita chapter issue cover proxy paths')"));
 }));
 
 results.push(run('collectibles taxonomy cleanup and art medium boundary are wired for the 3.4.5 split', () => {

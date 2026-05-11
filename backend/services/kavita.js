@@ -95,6 +95,12 @@ function buildKavitaCoverProxyPath(seriesId = null) {
   return `/api/media/kavita-cover/${id}`;
 }
 
+function buildKavitaChapterCoverProxyPath(chapterId = null) {
+  const id = Number(chapterId || 0) || null;
+  if (!id) return '';
+  return `/api/media/kavita-chapter-cover/${id}`;
+}
+
 function buildKavitaSeriesCoverImagePath(seriesId = null) {
   const id = Number(seriesId || 0) || null;
   if (!id) return '';
@@ -694,6 +700,7 @@ function normalizeKavitaChapterIssueRows(normalized = null, volumes = [], config
       const chapterNumber = normalizeKavitaChapterNumber(chapter);
       const chapterDate = normalizeKavitaDate(firstString(chapter.releaseDate, chapter.createdUtc, chapter.created));
       const chapterTitle = buildKavitaChapterIssueTitle(normalized.title, chapter, chapterNumber);
+      const chapterCoverProxyUrl = buildKavitaChapterCoverProxyPath(chapterId);
       const launchUrl = buildKavitaReaderWebUrl(config.kavitaBaseUrl, {
         libraryId: details.kavita_library_id,
         seriesId: parentSeriesId,
@@ -711,7 +718,7 @@ function normalizeKavitaChapterIssueRows(normalized = null, volumes = [], config
         format: 'Digital',
         overview: normalized.overview || null,
         external_url: launchUrl || details.kavita_series_url || details.provider_external_url || null,
-        poster_path: normalized.poster_path || null,
+        poster_path: chapterCoverProxyUrl || normalized.poster_path || null,
         type_details: {
           ...details,
           series: firstString(details.series, details.kavita_series_name, normalized.title) || null,
@@ -734,6 +741,10 @@ function normalizeKavitaChapterIssueRows(normalized = null, volumes = [], config
           kavita_chapter_title: firstString(chapter.titleName, chapter.title) || null,
           kavita_chapter_release_date: chapterDate.release_date || null,
           kavita_chapter_pages: chapterPages || null,
+          kavita_cover_image: details.kavita_cover_image || null,
+          kavita_cover_proxy_url: chapterCoverProxyUrl || details.kavita_cover_proxy_url || null,
+          kavita_cover_source: chapterCoverProxyUrl ? 'collectz_chapter_proxy' : details.kavita_cover_source || null,
+          kavita_cover_status: chapterCoverProxyUrl ? 'proxied_chapter_page_0' : details.kavita_cover_status || null,
           kavita_chapter_special: chapter?.isSpecial ? 'true' : 'false',
           kavita_parent_provider_item_id: parentProviderItemId || null,
           kavita_series_provider_item_id: parentProviderItemId || null,
@@ -986,6 +997,7 @@ module.exports = {
   buildKavitaChapterProviderItemId,
   buildKavitaReaderWebUrl,
   buildKavitaCoverProxyPath,
+  buildKavitaChapterCoverProxyPath,
   buildKavitaSeriesCoverImagePath,
   buildKavitaCoverImageUrl,
   fetchKavitaCoverImage,
