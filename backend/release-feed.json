@@ -4,9 +4,20 @@
       "title": "collectZ v3.4.156",
       "version": "3.4.156",
       "date": "2026-05-11",
-      "status": null,
+      "status": "released",
       "summary": "Kavita chapter-as-issue rows now use a chapter-specific cover proxy instead of repeating the parent series cover for every imported issue.",
-      "details": []
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added a scoped `/api/media/kavita-chapter-cover/{chapterId}` proxy that fetches Kavita reader page `0` server-side.",
+            "Updated Kavita chapter fan-out rows so `poster_path` points at the chapter-cover proxy.",
+            "Added a data repair migration for existing Kavita chapter rows that still pointed at the parent series cover proxy.",
+            "Kept series rows on the existing series-cover proxy.",
+            "Updated Kavita docs and smoke coverage for chapter-level issue cover behavior."
+          ]
+        }
+      ]
     },
     {
       "title": "collectZ v3.4.155",
