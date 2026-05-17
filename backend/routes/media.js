@@ -33,6 +33,8 @@ const {
   titleAuthorSearchSchema,
   titleArtistSearchSchema,
   upcLookupSchema,
+  barcodeLookupSchema,
+  barcodeImportSchema,
   signatureRecordCreateSchema,
   signatureRecordUpdateSchema
 } = require('../middleware/validate');
@@ -8914,6 +8916,58 @@ async function runDeliciousCsvImport({
   return { rows: rows.length, summary, auditRows, createdMediaIds };
 }
 
+router.post('/lookup/barcode', authenticateToken, enforceScopeAccess({ allowedHintRoles: ['admin'] }), validate(barcodeLookupSchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const { barcode, symbology, mediaType, limit = 10 } = req.body;
+  const code = normalizeBarcodeLookupCode(barcode);
+  const config = await loadScopedIntegrationConfig(scopeContext?.spaceId || null);
+  const catalogMatches = await lookupCatalogMediaByBarcode({
+    barcode: code,
+    mediaType,
+    scopeContext,
+    limit,
+    symbology
+  });
+
+  let providerMatches = [];
+  let provider = config.barcodeProvider || 'barcode';
+  let providerRequest = null;
+  let providerError = null;
+  try {
+    const providerResult = await lookupProviderMatchesForBarcode({
+      barcode: code,
+      mediaType,
+      config,
+      limit: Math.max(1, Number(limit || 10) - catalogMatches.length),
+      symbology
+    });
+    provider = providerResult.provider || provider;
+    providerRequest = providerResult.request || null;
+    providerMatches = providerResult.matches || [];
+  } catch (error) {
+    providerError = error?.response?.data?.message
+      || error?.response?.data?.error
+      || error?.response?.data?.detail
+      || error?.message
+      || 'Barcode provider lookup failed';
+  }
+
+  const matches = [...catalogMatches, ...providerMatches].slice(0, limit);
+  res.json({
+    ok: true,
+    authenticated: true,
+    provider,
+    barcode: code,
+    symbology: symbology || null,
+    count: matches.length,
+    matches,
+    catalog_count: catalogMatches.length,
+    provider_count: providerMatches.length,
+    provider_error: providerError,
+    request: providerRequest
+  });
+}));
+
 // All routes require auth
 router.use(authenticateToken);
 router.use(enforceScopeAccess({ allowedHintRoles: ['admin'] }));
@@ -11909,13 +11963,303 @@ router.post('/enrich/comic/search', validate(simpleSearchSchema.pick({ title: tr
 
 // ── UPC lookup ────────────────────────────────────────────────────────────────
 
+function normalizeBarcodeLookupCode(value) {
+  return String(value || '')
+    .normalize('NFKC')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .replace(/\s+/g, '')
+    .replace(/[^0-9A-Za-z-]/g, '')
+    .trim();
+}
+
+function formatScannerCatalogMatch(row = {}, barcode = '', symbology = '') {
+  const typeDetails = row.type_details && typeof row.type_details === 'object' ? row.type_details : {};
+  return {
+    id: `media:${row.id}`,
+    source: 'catalog',
+    match_type: 'existing_media',
+    media_id: Number(row.id || 0) || null,
+    title: row.title || '',
+    normalizedTitle: row.title || '',
+    searchTitle: row.title || '',
+    description: row.overview || null,
+    image: row.poster_path || null,
+    upc: row.upc || barcode || null,
+    barcode: barcode || row.upc || null,
+    symbology: symbology || null,
+    mediaTypeGuess: row.media_type || null,
+    media_type: row.media_type || null,
+    year: row.year || null,
+    already_imported: true,
+    typeDetails,
+    type_details: typeDetails,
+    media: normalizeMediaRecord(row)
+  };
+}
+
+async function lookupCatalogMediaByBarcode({ barcode, mediaType = null, scopeContext = null, limit = 10, symbology = '' }) {
+  const code = normalizeBarcodeLookupCode(barcode);
+  if (!code) return [];
+  const digits = code.replace(/\D+/g, '');
+  const normalizedMediaType = mediaType ? normalizeMediaType(mediaType, null) : null;
+  const params = [code, digits || code];
+  let typeClause = '';
+  if (normalizedMediaType) {
+    params.push(normalizedMediaType);
+    typeClause = `AND COALESCE(m.media_type, 'movie') = $${params.length}`;
+  }
+  const scopeClause = appendScopeSql(params, scopeContext, {
+    spaceColumn: 'm.space_id',
+    libraryColumn: 'm.library_id'
+  });
+  params.push(Math.max(1, Math.min(25, Number(limit || 10))));
+  const limitParam = `$${params.length}`;
+  const result = await pool.query(
+    `SELECT DISTINCT m.*, m.cast_members AS cast
+       FROM media m
+       LEFT JOIN media_metadata mm ON mm.media_id = m.id
+      WHERE (
+            COALESCE(m.upc, '') = $1
+         OR regexp_replace(COALESCE(m.upc, ''), '\\D+', '', 'g') = $2
+         OR COALESCE(m.type_details->>'isbn', '') = $1
+         OR regexp_replace(COALESCE(m.type_details->>'isbn', ''), '\\D+', '', 'g') = $2
+         OR (
+              mm."key" IN ('upc', 'ean', 'ean_upc', 'isbn', 'barcode')
+          AND (mm."value" = $1 OR regexp_replace(COALESCE(mm."value", ''), '\\D+', '', 'g') = $2)
+            )
+          )
+        ${typeClause}
+        ${scopeClause}
+      ORDER BY m.updated_at DESC NULLS LAST, m.id DESC
+      LIMIT ${limitParam}`,
+    params
+  );
+  return result.rows.map((row) => formatScannerCatalogMatch(row, code, symbology));
+}
+
+function normalizeScannerProviderMatch(match = {}, barcode = '', symbology = '', options = {}) {
+  const provider = String(options.provider || match.source || 'barcode_provider').trim() || 'barcode_provider';
+  const index = Number.isInteger(options.index) && options.index >= 0 ? options.index : null;
+  const rawId = match.raw?.id || match.raw?.product_id || match.raw?.asin || match.raw?.mpn || match.raw?.model || null;
+  const idParts = [
+    provider,
+    match.upc || barcode || 'unknown',
+    rawId || match.title || 'candidate',
+    index === null ? '' : index
+  ].map((part) => String(part || '').trim()).filter(Boolean);
+  return {
+    ...match,
+    id: match.id || `barcode:${idParts.join(':')}`,
+    source: match.source || provider,
+    match_type: match.match_type || 'provider_candidate',
+    media_id: match.media_id ?? null,
+    media_type: match.media_type || match.mediaTypeGuess || null,
+    barcode: barcode || match.upc || null,
+    symbology: symbology || null,
+    already_imported: Boolean(match.already_imported),
+    provider_candidate_index: index
+  };
+}
+
+async function lookupProviderMatchesForBarcode({ barcode, mediaType = null, config, limit = 10, symbology = '' }) {
+  const upc = normalizeBarcodeLookupCode(barcode);
+  const normalizedMediaType = mediaType ? normalizeMediaType(mediaType, null) : null;
+  const directBookIsbn = normalizeIsbn(upc);
+
+  if (directBookIsbn) {
+    const directBookMatches = await searchBooksByIsbn(directBookIsbn, config, Math.min(5, limit));
+    if (directBookMatches.length) {
+      return {
+        provider: 'books:isbn-direct',
+        request: {
+          provider: 'books:isbn-direct',
+          isbn: directBookIsbn
+        },
+        matches: directBookMatches.map((book, index) => normalizeScannerProviderMatch({
+          title: book?.title || '',
+          normalizedTitle: book?.title || '',
+          searchTitle: book?.title || '',
+          description: book?.overview || null,
+          image: book?.poster_path || null,
+          upc: upc || null,
+          mediaTypeGuess: 'book',
+          year: book?.year || null,
+          source: 'books:isbn-direct',
+          typeDetails: {
+            author: book?.type_details?.author || null,
+            isbn: directBookIsbn,
+            format: book?.type_details?.edition || null,
+            series: null,
+            season_number: null,
+            publisher: book?.type_details?.publisher || null
+          },
+          book
+        }, upc, symbology, { provider: 'books:isbn-direct', index }))
+      };
+    }
+  }
+
+  const {
+    barcodeProvider,
+    barcodeApiUrl,
+    barcodeQueryParam,
+    barcodeApiKey,
+    barcodeApiKeyHeader
+  } = config;
+  if (!barcodeApiUrl) {
+    return {
+      provider: barcodeProvider,
+      request: { provider: barcodeProvider, configured: false },
+      matches: []
+    };
+  }
+
+  const headers = {};
+  if (barcodeApiKey) headers[barcodeApiKeyHeader] = barcodeApiKey;
+  const request = {
+    provider: barcodeProvider,
+    url: barcodeApiUrl,
+    params: { [barcodeQueryParam]: upc },
+    headerNames: Object.keys(headers)
+  };
+  const barcodeResponse = await axios.get(barcodeApiUrl, {
+    params: { [barcodeQueryParam]: upc },
+    headers,
+    timeout: 15000
+  });
+
+  const barcodeMatches = normalizeBarcodeMatches(barcodeResponse.data);
+  const enrichedMatches = [];
+  for (const [index, match] of barcodeMatches.slice(0, Math.max(1, Math.min(25, limit))).entries()) {
+    let book = null;
+    let typeEnrichment = null;
+    let tmdb = null;
+    const effectiveMediaType = normalizedMediaType || match.mediaTypeGuess || null;
+    const queryTitle = String(match?.searchTitle || match?.normalizedTitle || match?.title || '').trim();
+
+    try {
+      if (effectiveMediaType === 'book') {
+        const isbn = String(match?.typeDetails?.isbn || '').trim();
+        const author = String(match?.typeDetails?.author || '').trim();
+        let bookResults = [];
+        if (isbn) bookResults = await searchBooksByIsbn(isbn, config, 5);
+        if (!bookResults.length && queryTitle) {
+          bookResults = await searchBooksByTitle(queryTitle, config, 5, author);
+        }
+        book = bookResults[0] || null;
+      } else if (effectiveMediaType === 'audio' && queryTitle) {
+        const audioResults = await searchAudioByTitle(queryTitle, config, 5, String(match?.typeDetails?.author || '').trim());
+        typeEnrichment = audioResults[0] || null;
+      } else if (effectiveMediaType === 'game' && queryTitle) {
+        const gameResults = await searchGamesByTitle(queryTitle, config, 5);
+        typeEnrichment = gameResults[0] || null;
+      } else if (effectiveMediaType === 'comic_book' && queryTitle) {
+        const comicResults = await searchComicsByTitle(queryTitle, config, 5);
+        typeEnrichment = comicResults[0] || null;
+      } else if (queryTitle) {
+        const tmdbSearchType = effectiveMediaType === 'tv_series' || effectiveMediaType === 'tv_episode' || match.mediaTypeGuess === 'tv_series'
+          ? 'tv'
+          : 'movie';
+        const tmdbResults = await searchTmdbMovie(queryTitle, undefined, config, tmdbSearchType);
+        tmdb = tmdbResults[0] || null;
+      }
+    } catch (error) {
+      logError('Barcode provider enrichment failed', error, {
+        stage: 'scanner_barcode_lookup',
+        mediaType: effectiveMediaType,
+        provider: barcodeProvider
+      });
+    }
+
+    enrichedMatches.push(normalizeScannerProviderMatch({ ...match, book, typeEnrichment, tmdb }, upc, symbology, {
+      provider: barcodeProvider,
+      index
+    }));
+  }
+
+  return { provider: barcodeProvider, request, matches: enrichedMatches };
+}
+
+function pickScannerField(...values) {
+  for (const value of values) {
+    if (value === undefined || value === null) continue;
+    const text = String(value).trim();
+    if (text) return value;
+  }
+  return null;
+}
+
+function buildImportItemFromBarcodeMatch({ match = {}, barcode = '', mediaType = null, scopeContext = null }) {
+  const source = match.book || match.typeEnrichment || match.tmdb || {};
+  const typeDetails = match.typeDetails || match.type_details || {};
+  const normalizedMediaType = normalizeMediaType(mediaType || match.media_type || match.mediaTypeGuess || 'movie', 'movie');
+  const normalizedTmdbType = normalizedMediaType === 'tv_series' || normalizedMediaType === 'tv_episode' ? 'tv' : 'movie';
+  const upc = normalizeBarcodeLookupCode(match.upc || match.barcode || barcode);
+  const title = String(pickScannerField(source.title, match.normalizedTitle, match.title, match.searchTitle) || '').trim();
+  const sourceTypeDetails = source.type_details || {};
+  const mergedTypeDetails = {
+    ...typeDetails,
+    ...sourceTypeDetails,
+    provider_name: typeDetails.provider_name || sourceTypeDetails.provider_name || match.source || 'barcode_provider',
+    provider_item_id: typeDetails.provider_item_id || sourceTypeDetails.provider_item_id || source.id || match.id || null
+  };
+  if (normalizedMediaType === 'book') {
+    mergedTypeDetails.isbn = mergedTypeDetails.isbn || normalizeIsbn(upc) || null;
+  }
+
+  return {
+    title,
+    media_type: normalizedMediaType,
+    original_title: source.original_title || source.original_name || null,
+    release_date: source.release_date || null,
+    year: source.year || match.year || parseYear(source.release_date) || null,
+    format: source.format || match.format || null,
+    owned_formats: source.owned_formats || null,
+    genre: source.genre || null,
+    director: source.director || null,
+    cast: source.cast || null,
+    rating: source.rating ?? source.vote_average ?? null,
+    user_rating: null,
+    tmdb_id: source.id && match.tmdb ? source.id : (source.tmdb_id || null),
+    tmdb_media_type: source.tmdb_media_type || (match.tmdb ? normalizedTmdbType : null),
+    tmdb_url: source.tmdb_url || source.external_url || null,
+    poster_path: source.poster_path || source.image || match.image || null,
+    backdrop_path: source.backdrop_path || null,
+    overview: source.overview || source.description || match.description || null,
+    trailer_url: source.trailer_url || null,
+    runtime: source.runtime || null,
+    upc: upc || null,
+    type_details: mergedTypeDetails,
+    library_id: scopeContext?.libraryId || null,
+    space_id: scopeContext?.spaceId || null,
+    identifiers: {
+      isbn: normalizeIsbn(mergedTypeDetails.isbn || ''),
+      eanUpc: upc || '',
+      asin: ''
+    }
+  };
+}
+
+async function loadScopedMediaRecordById(mediaId, scopeContext = null) {
+  const params = [mediaId];
+  const scopeClause = appendScopeSql(params, scopeContext);
+  const result = await pool.query(
+    `SELECT *, cast_members AS cast
+       FROM media
+      WHERE id = $1${scopeClause}
+      LIMIT 1`,
+    params
+  );
+  return result.rows[0] || null;
+}
+
 router.post('/lookup-upc', validate(upcLookupSchema), asyncHandler(async (req, res) => {
   const scopeContext = resolveScopeContext(req);
   const { upc, mediaType } = req.body;
 
   const config = await loadScopedIntegrationConfig(scopeContext?.spaceId || null);
   const { barcodeProvider, barcodeApiUrl, barcodeQueryParam, barcodeApiKey, barcodeApiKeyHeader } = config;
-  const directBookIsbn = mediaType === 'book' ? normalizeIsbn(upc) : '';
+  const directBookIsbn = normalizeIsbn(upc);
 
   if (directBookIsbn) {
     try {
@@ -12501,6 +12845,83 @@ router.delete('/:id/signing-proof', asyncHandler(async (req, res) => {
   await syncMediaPrimarySignature(updated.rows[0], req.user.id);
   await logActivity(req, 'media.signing_proof.remove', 'media', mediaId, { previousPath });
   res.json({ ok: true, removed: true, signed_proof_path: null });
+}));
+
+router.post('/import-barcode', validate(barcodeImportSchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const selectedMatch = req.body.selectedMatch || req.body.match || {};
+  const barcode = normalizeBarcodeLookupCode(req.body.barcode || selectedMatch.barcode || selectedMatch.upc || '');
+  const mediaId = Number(selectedMatch.media_id || 0) || null;
+
+  if (mediaId) {
+    const existing = await loadScopedMediaRecordById(mediaId, scopeContext);
+    if (!existing) {
+      return res.status(404).json({ error: 'Selected media match was not found in this library scope' });
+    }
+    await logActivity(req, 'media.import_barcode.existing', 'media', mediaId, {
+      barcode: barcode || null,
+      symbology: req.body.symbology || selectedMatch.symbology || null,
+      mediaType: existing.media_type || null
+    });
+    return res.json({
+      ok: true,
+      status: 'existing',
+      action: 'matched_existing',
+      media_id: mediaId,
+      media: normalizeMediaRecord(existing),
+      barcode: barcode || null
+    });
+  }
+
+  const item = buildImportItemFromBarcodeMatch({
+    match: selectedMatch,
+    barcode,
+    mediaType: req.body.mediaType,
+    scopeContext
+  });
+  if (!item.title) {
+    return res.status(400).json({ error: 'Selected barcode match does not include a title to import' });
+  }
+
+  const result = await upsertImportedMedia({
+    userId: req.user.id,
+    item,
+    importSource: 'barcode_scanner',
+    scopeContext,
+    identifiers: item.identifiers
+  });
+  if (!result?.mediaId || result.type === 'invalid') {
+    return res.status(400).json({
+      error: result?.detail || 'Barcode import did not create or update media',
+      status: result?.type || 'invalid'
+    });
+  }
+
+  await upsertMediaMetadataEntry(result.mediaId, 'barcode_scanner_last_code', barcode || item.upc || '');
+  await upsertMediaMetadataEntry(result.mediaId, 'barcode_scanner_last_symbology', req.body.symbology || selectedMatch.symbology || '');
+  if (selectedMatch.source) {
+    await upsertMediaMetadataEntry(result.mediaId, 'barcode_scanner_match_source', selectedMatch.source);
+  }
+  const media = await loadScopedMediaRecordById(result.mediaId, scopeContext);
+  await logActivity(req, 'media.import_barcode', 'media', result.mediaId, {
+    status: result.type,
+    barcode: barcode || item.upc || null,
+    symbology: req.body.symbology || selectedMatch.symbology || null,
+    mediaType: item.media_type || null,
+    matchedBy: result.matchedBy || null,
+    matchMode: result.matchMode || null
+  });
+
+  res.status(result.type === 'created' ? 201 : 200).json({
+    ok: true,
+    status: result.type,
+    action: result.type === 'created' ? 'created' : 'updated',
+    media_id: result.mediaId,
+    media: media ? normalizeMediaRecord(media) : null,
+    barcode: barcode || item.upc || null,
+    matched_by: result.matchedBy || null,
+    match_mode: result.matchMode || null
+  });
 }));
 
 // ── CSV import ────────────────────────────────────────────────────────────────

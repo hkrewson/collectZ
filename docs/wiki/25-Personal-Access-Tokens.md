@@ -236,6 +236,7 @@ curl -sS -b cookies.txt \
 - `GET /api/auth/me`, `GET/PATCH /api/profile`: `profile:*`
 - `GET/POST/PATCH/DELETE /api/libraries...`: `libraries:*`
 - `GET/POST/PATCH/DELETE /api/media...`: `media:*`
+- `POST /api/media/lookup/barcode`, `POST /api/media/lookup-upc`: `media:read`
 - `POST /api/media/import-*`: `import:run`
 - `GET /api/media/sync-jobs`, `GET /api/media/sync-jobs/:id`, `GET /api/media/sync-jobs/:id/result`: `import:run`
 - `GET/POST/PATCH/DELETE /api/events...`: `events:*`

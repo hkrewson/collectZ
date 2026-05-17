@@ -133,6 +133,102 @@ function normalizeBarcodeSearchTitle(rawTitle = '') {
   return value;
 }
 
+function normalizeTitleVariantKey(value = '') {
+  return normalizeBarcodeSearchTitle(value)
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function collectBarcodeTitleVariants(entry = {}) {
+  const variants = [];
+  const seen = new Set();
+  const add = (title, source = 'item', sourceIndex = null, sourceEntry = null) => {
+    const value = String(title || '').trim();
+    if (!value) return;
+    const key = normalizeTitleVariantKey(value);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    variants.push({
+      title: value,
+      source,
+      sourceIndex,
+      sourceEntry
+    });
+  };
+
+  add(entry?.title || entry?.name || entry?.product_name || null, 'item', null, entry);
+  if (Array.isArray(entry?.offers)) {
+    entry.offers.forEach((offer, index) => {
+      add(offer?.title || offer?.name || offer?.product_name || null, 'offer', index, offer);
+    });
+  }
+  if (Array.isArray(entry?.listings)) {
+    entry.listings.forEach((listing, index) => {
+      add(listing?.title || listing?.name || listing?.product_name || null, 'listing', index, listing);
+    });
+  }
+
+  return variants;
+}
+
+function normalizeBarcodeEntryVariant(entry = {}, variant = {}, variantIndex = 0) {
+  const rawTitle = variant.title || entry?.title || entry?.name || entry?.product_name || null;
+  const { normalizedTitle, author, format, series } = parseBarcodeTitleMetadata(rawTitle);
+  const tvMetadata = inferTvSeasonMetadata(normalizedTitle || rawTitle);
+  const searchTitle = normalizeBarcodeSearchTitle(tvMetadata.matched ? tvMetadata.title : (normalizedTitle || rawTitle));
+  const upc = normalizeDigits(entry?.upc || entry?.barcode || entry?.ean || entry?.gtin || '');
+  const inferredIsbn = inferBookBarcodeType(upc);
+  const mediaTypeGuess = inferredIsbn || format ? 'book' : (tvMetadata.matched ? 'tv_series' : 'movie');
+  const variantSource = variant.source || 'item';
+  const variantSourceIndex = variant.sourceIndex;
+  const sourceEntry = variant.sourceEntry || entry;
+
+  return {
+    title: rawTitle,
+    normalizedTitle: normalizedTitle || rawTitle,
+    searchTitle: searchTitle || normalizedTitle || rawTitle,
+    description: entry?.description || sourceEntry?.description || entry?.brand || entry?.manufacturer || entry?.publisher || null,
+    image: entry?.image || entry?.image_url || entry?.images?.[0] || sourceEntry?.image || sourceEntry?.image_url || null,
+    upc: upc || null,
+    mediaTypeGuess,
+    year: entry?.year || entry?.release_year || sourceEntry?.year || sourceEntry?.release_year || null,
+    match_type: variantSource === 'item' ? 'provider_candidate' : 'provider_title_variant',
+    titleVariantSource: variantSource,
+    title_variant_source: variantSource,
+    titleVariantIndex: variantIndex,
+    title_variant_index: variantIndex,
+    offerIndex: variantSource === 'offer' ? variantSourceIndex : null,
+    offer_index: variantSource === 'offer' ? variantSourceIndex : null,
+    listingIndex: variantSource === 'listing' ? variantSourceIndex : null,
+    listing_index: variantSource === 'listing' ? variantSourceIndex : null,
+    alternateTitles: collectBarcodeTitleVariants(entry)
+      .map((row) => row.title)
+      .filter((title) => normalizeTitleVariantKey(title) !== normalizeTitleVariantKey(rawTitle)),
+    alternate_titles: collectBarcodeTitleVariants(entry)
+      .map((row) => row.title)
+      .filter((title) => normalizeTitleVariantKey(title) !== normalizeTitleVariantKey(rawTitle)),
+    typeDetails: {
+      author: author || null,
+      isbn: inferredIsbn || null,
+      format: format || null,
+      series: series || null,
+      season_number: tvMetadata.seasonNumber || null,
+      publisher: entry?.publisher || entry?.brand || entry?.manufacturer || sourceEntry?.merchant || null
+    },
+    raw: {
+      ...entry,
+      title_variant: {
+        source: variantSource,
+        source_index: variantSourceIndex,
+        variant_index: variantIndex,
+        title: rawTitle
+      }
+    }
+  };
+}
+
 /**
  * Normalize barcode API responses from different providers into a
  * consistent shape: [{ title, description, image, raw }]
@@ -147,34 +243,10 @@ const normalizeBarcodeMatches = (payload) => {
 
   if (!Array.isArray(list)) return [];
 
-  return list.map((entry) => {
-    const rawTitle = entry?.title || entry?.name || entry?.product_name || null;
-    const { normalizedTitle, author, format, series } = parseBarcodeTitleMetadata(rawTitle);
-    const tvMetadata = inferTvSeasonMetadata(normalizedTitle || rawTitle);
-    const searchTitle = normalizeBarcodeSearchTitle(tvMetadata.matched ? tvMetadata.title : (normalizedTitle || rawTitle));
-    const upc = normalizeDigits(entry?.upc || entry?.barcode || entry?.ean || entry?.gtin || '');
-    const inferredIsbn = inferBookBarcodeType(upc);
-    const mediaTypeGuess = inferredIsbn || format ? 'book' : (tvMetadata.matched ? 'tv_series' : 'movie');
-
-    return {
-      title: rawTitle,
-      normalizedTitle: normalizedTitle || rawTitle,
-      searchTitle: searchTitle || normalizedTitle || rawTitle,
-      description: entry?.description || entry?.brand || entry?.manufacturer || entry?.publisher || null,
-      image: entry?.image || entry?.image_url || entry?.images?.[0] || null,
-      upc: upc || null,
-      mediaTypeGuess,
-      year: entry?.year || entry?.release_year || null,
-      typeDetails: {
-        author: author || null,
-        isbn: inferredIsbn || null,
-        format: format || null,
-        series: series || null,
-        season_number: tvMetadata.seasonNumber || null,
-        publisher: entry?.publisher || entry?.brand || entry?.manufacturer || null
-      },
-      raw: entry
-    };
+  return list.flatMap((entry) => {
+    const variants = collectBarcodeTitleVariants(entry);
+    if (!variants.length) return [normalizeBarcodeEntryVariant(entry, {}, 0)];
+    return variants.map((variant, index) => normalizeBarcodeEntryVariant(entry, variant, index));
   });
 };
 

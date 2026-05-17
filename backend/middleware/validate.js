@@ -86,6 +86,73 @@ const upcLookupSchema = z.object({
   mediaType: z.enum(['movie', 'tv_series', 'tv_episode', 'book', 'audio', 'game', 'comic_book']).optional()
 });
 
+const barcodeLookupSchema = z.object({
+  barcode: z.preprocess(normalizeLookupCode, z.string()
+    .min(4, 'barcode is required')
+    .max(64, 'barcode is too long')
+    .regex(/^[0-9A-Za-z-]+$/, 'barcode must use only letters, numbers, or hyphens')),
+  symbology: z.preprocess(emptyStringToNull, z.string().trim().max(64).optional().nullable()),
+  mediaType: z.enum(['movie', 'tv_series', 'tv_episode', 'book', 'audio', 'game', 'comic_book']).optional(),
+  limit: z.preprocess((value) => {
+    if (value === undefined || value === null || value === '') return 10;
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : value;
+  }, z.number().int().min(1).max(25).optional())
+});
+
+const barcodeImportMatchSchema = z.object({
+  id: z.union([z.string(), z.number()]).optional().nullable(),
+  source: z.string().max(128).optional().nullable(),
+  match_type: z.string().max(128).optional().nullable(),
+  media_id: z.preprocess((value) => {
+    if (value === undefined || value === null || value === '') return null;
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : value;
+  }, z.number().int().positive().optional().nullable()),
+  title: z.string().max(500).optional().nullable(),
+  normalizedTitle: z.string().max(500).optional().nullable(),
+  searchTitle: z.string().max(500).optional().nullable(),
+  description: z.string().max(10000).optional().nullable(),
+  image: z.string().max(1000).optional().nullable(),
+  upc: z.preprocess((value) => {
+    const normalized = normalizeLookupCode(value);
+    return normalized || null;
+  }, z.string().max(64).optional().nullable()),
+  mediaTypeGuess: z.enum(['movie', 'tv_series', 'tv_episode', 'book', 'audio', 'game', 'comic_book']).optional().nullable(),
+  media_type: z.enum(['movie', 'tv_series', 'tv_episode', 'book', 'audio', 'game', 'comic_book']).optional().nullable(),
+  year: z.preprocess((value) => {
+    if (value === undefined || value === null || value === '') return null;
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : value;
+  }, z.number().int().min(1000).max(3000).optional().nullable()),
+  typeDetails: z.record(z.union([z.string(), z.number(), z.boolean(), z.null()])).optional().nullable(),
+  type_details: z.record(z.union([z.string(), z.number(), z.boolean(), z.null()])).optional().nullable(),
+  book: z.record(z.any()).optional().nullable(),
+  typeEnrichment: z.record(z.any()).optional().nullable(),
+  tmdb: z.record(z.any()).optional().nullable(),
+  raw: z.any().optional()
+}).passthrough();
+
+const barcodeImportSchema = z.object({
+  barcode: z.preprocess((value) => {
+    const normalized = normalizeLookupCode(value);
+    return normalized || null;
+  }, z.string().max(64).optional().nullable()),
+  symbology: z.preprocess(emptyStringToNull, z.string().trim().max(64).optional().nullable()),
+  mediaType: z.enum(['movie', 'tv_series', 'tv_episode', 'book', 'audio', 'game', 'comic_book']).optional(),
+  selectedMatch: barcodeImportMatchSchema.optional(),
+  match: barcodeImportMatchSchema.optional(),
+  lookupContext: z.record(z.any()).optional().nullable()
+}).superRefine((data, ctx) => {
+  if (!data.selectedMatch && !data.match) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['selectedMatch'],
+      message: 'selectedMatch is required'
+    });
+  }
+});
+
 // ── Media ─────────────────────────────────────────────────────────────────────
 
 const MEDIA_TYPES = ['movie', 'tv_series', 'tv_episode', 'book', 'audio', 'game', 'comic_book'];
@@ -1030,6 +1097,8 @@ module.exports = {
   titleAuthorSearchSchema,
   titleArtistSearchSchema,
   upcLookupSchema,
+  barcodeLookupSchema,
+  barcodeImportSchema,
   mediaCreateSchema,
   mediaUpdateSchema,
   mediaLoanCreateSchema,

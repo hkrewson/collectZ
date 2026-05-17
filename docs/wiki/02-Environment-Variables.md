@@ -25,7 +25,7 @@ openssl rand -hex 32
 - `POSTGRES_DB` (default: `mediavault`)
 - `DATABASE_SSL` (`false` by default)
 - `NODE_ENV` (`production` by default)
-- `APP_EDITION` (`platform` by default in this private repo's local/dev workflow)
+- `APP_EDITION` (`platform` in the private repo's local/dev workflow; the generated public homelab compose defaults to `homelab` unless overridden)
   - supported values:
     - `platform`: local/private tenancy-global-admin product surface and the default runtime in this private repo
     - `homelab`: explicit parallel single-household surface with one shared library context, local accounts, and Help limited to `Guidance` and `Releases`
@@ -62,7 +62,7 @@ openssl rand -hex 32
   - `RATE_LIMIT_MEDIA_WRITE_MAX` (default `240`) — write methods on `/api/media/*`.
   - `RATE_LIMIT_IMPORT_START_MAX` (default `60`) — import start routes.
   - `RATE_LIMIT_SYNC_POLL_MAX` (default `600`) — `/api/media/sync-jobs`.
-  - `RATE_LIMIT_EXTERNAL_API_MAX` (default `30`) — external provider routes (`/api/media/search-tmdb`, `/api/media/lookup-upc`).
+  - `RATE_LIMIT_EXTERNAL_API_MAX` (default `30`) — external provider routes (`/api/media/search-tmdb`, `/api/media/lookup-upc`, `/api/media/lookup/barcode`).
   - `PLAYWRIGHT_E2E_BYPASS_TOKEN` (optional) — Playwright-only rate-limit bypass token for browser regression runs.
     - Requests must include header `x-playwright-e2e-bypass: <token>`.
     - Intended only for local/CI browser testing.

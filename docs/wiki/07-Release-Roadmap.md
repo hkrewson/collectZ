@@ -10715,6 +10715,139 @@ Historical note:
 - What remains in the milestone: Nothing for `3.4.149`; CI-only release gates still need their normal GitHub run.
 - Recommended commit message: `Release 3.4.149 with Plex provider-advertised import path contract`
 
+## 3.4.160 — Scanner ISBN Direct Books Lookup
+
+**Goal:** Let scanner and web barcode lookups use the existing Books/Google Books enrichment path directly when the scanned barcode is an ISBN.
+
+### Scope
+
+- Detect ISBN-10/ISBN-13 shaped barcode values in scanner lookup without requiring `mediaType: book`.
+- Use the configured Books provider directly for ISBN matches before generic barcode lookup.
+- Apply the same ISBN direct path to web `/api/media/lookup-upc`.
+- Keep lookup authentication unchanged.
+- Keep import behavior unchanged.
+
+### Acceptance Criteria
+
+- Scanner `POST /api/media/lookup/barcode` returns `books:isbn-direct` candidates for ISBN scans.
+- Web `POST /api/media/lookup-upc` returns `books:isbn-direct` candidates for ISBN scans.
+- Scanner clients do not need to route through the web UI or force media type before lookup.
+- OpenAPI documents the ISBN direct behavior.
+- Runtime smoke proves ISBN direct lookup works for scanner and web lookup paths.
+- Version metadata, release note, release feed, and Help > Releases include `3.4.160`.
+
+### Closeout
+
+- Roadmap slice: `3.4.160 — Scanner ISBN Direct Books Lookup`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/25-Personal-Access-Tokens.md`; `docs/releases/v3.4.160.md`.
+- Runtime verification used: Docker-first backend/frontend image builds with `APP_VERSION=3.4.160`; running stack health served frontend/backend/build `3.4.160`; scanner API smoke used a local fake Books provider and proved ISBN `9780553572735` returns `source: books:isbn-direct` through `/api/media/lookup/barcode` without `mediaType: book`; web UPC lookup smoke proved the same ISBN direct path even when the request media type was not `book`; Help > Releases served `3.4.160`; platform and homelab edition boundary checks passed under their respective runtime overrides, then the stack was restored to platform release-tagged images.
+- CI/checks run: `node --check backend/routes/media.js`; `node --check backend/scripts/barcode-scanner-api-smoke.js`; `node backend/scripts/validate-openapi.js`; `node backend/scripts/export-release-feed.js`; host unit tests (`288` passed); Docker backend/frontend image builds; Docker `BASE_URL=http://frontend:3000 npm run test:barcode-scanner-api-smoke`; Docker `npm run test:openapi`; Docker image/unit test run with repo mounted (`288` passed); Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.4.160 npm run test:help-releases-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker homelab override plus `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; Playwright browser regression (`65` passed, `4` skipped after one transient 502 rerun on release-tagged images); local backend/frontend production dependency audits (`0` vulnerabilities); local observability evidence; local release preflight; `git diff --check`.
+- Files changed: `app-meta.json`; `artifacts/dependency-audit/backend-audit.json`; `artifacts/dependency-audit/frontend-audit.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `backend/app-meta.json`; `backend/middleware/validate.js`; `backend/openapi/openapi.yaml`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/routes/media.js`; `backend/scripts/barcode-scanner-api-smoke.js`; `backend/scripts/unit-tests.js`; `backend/scripts/validate-openapi.js`; `backend/server.js`; `backend/services/barcode.js`; `backend/services/personalAccessTokens.js`; `docker-compose.yml`; `docs/releases/v3.4.157.md`; `docs/releases/v3.4.158.md`; `docs/releases/v3.4.159.md`; `docs/releases/v3.4.160.md`; `docs/wiki/02-Environment-Variables.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/25-Personal-Access-Tokens.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `preflight-go-no-go.md`; `scripts/generate-public-compose.js`.
+- Risks or follow-ups: Google Books/provider metadata quality still depends on the configured Books integration and the ISBN data available from the provider; CI-only secure-cookie compose smoke, secret scan, and image security/SBOM gates still need their normal GitHub Actions run.
+- What remains in the milestone: Nothing for `3.4.160`; CI-only release gates still need their normal GitHub run.
+- Recommended commit message: `Release 3.4.160 with scanner ISBN direct books lookup`.
+
+## 3.4.159 — Barcode Provider Title Variant Lookup
+
+**Goal:** Surface provider listing/offer title variants in both web UPC lookup and scanner barcode lookup so users can choose the correct title when one barcode maps to messy provider product names.
+
+### Scope
+
+- Expand UPCItemDB-style `offers[].title` and provider listing title variants into normalized barcode matches.
+- Preserve the top-level provider product row while adding distinct title variants as candidate rows.
+- Return alternate title lists on each candidate for scanner and web UI presentation.
+- Keep exact duplicate title variants collapsed by normalized title text.
+- Keep lookup auth and import auth unchanged.
+
+### Acceptance Criteria
+
+- Web `/api/media/lookup-upc` returns distinct provider title variants.
+- Scanner `/api/media/lookup/barcode` returns the same distinct provider title variants.
+- The fixture UPC `0076783005990` can surface `Before the Storm` as a candidate when the provider returns it as an offer title.
+- OpenAPI documents alternate title and variant metadata fields.
+- Runtime smoke proves both web and scanner lookup paths return provider offer title variants.
+- Version metadata, release note, release feed, and Help > Releases include `3.4.159`.
+
+### Closeout
+
+- Roadmap slice: `3.4.159 — Barcode Provider Title Variant Lookup`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/25-Personal-Access-Tokens.md`; `docs/releases/v3.4.159.md`.
+- Runtime verification used: Docker-first backend/frontend image builds with `APP_VERSION=3.4.159`; running stack health served frontend/backend/build `3.4.159`; running backend env verified `APP_EDITION=platform`, `APP_VERSION=3.4.159`, `NODE_ENV=development`, and `SESSION_COOKIE_SECURE=false`; scanner API smoke used a local fake barcode provider and proved `Before the Storm` returns through both `/api/media/lookup/barcode` and `/api/media/lookup-upc`; a live provider check for `0076783005990` returned three candidates through both scanner and web lookup routes; Help > Releases served `3.4.159`; homelab boundary passed under a temporary local homelab override, then the stack was restored to platform.
+- CI/checks run: `node --check backend/services/barcode.js`; `node --check backend/scripts/barcode-scanner-api-smoke.js`; `node backend/scripts/validate-openapi.js`; host unit tests (`288` passed); Docker backend/frontend image builds; Docker `BASE_URL=http://frontend:3000 npm run test:barcode-scanner-api-smoke`; Docker `npm run test:openapi`; Docker image/unit test run with repo mounted (`288` passed); Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.4.159 npm run test:help-releases-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker homelab override plus `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; Playwright browser regression (`65` passed, `4` skipped); local backend/frontend production dependency audits (`0` vulnerabilities); local observability evidence (`9/9` checks passed); local release preflight; `git diff --check`.
+- Files changed: `app-meta.json`; `artifacts/dependency-audit/backend-audit.json`; `artifacts/dependency-audit/frontend-audit.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `backend/app-meta.json`; `backend/middleware/validate.js`; `backend/openapi/openapi.yaml`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/routes/media.js`; `backend/scripts/barcode-scanner-api-smoke.js`; `backend/scripts/unit-tests.js`; `backend/scripts/validate-openapi.js`; `backend/server.js`; `backend/services/barcode.js`; `backend/services/personalAccessTokens.js`; `docker-compose.yml`; `docs/releases/v3.4.157.md`; `docs/releases/v3.4.158.md`; `docs/releases/v3.4.159.md`; `docs/wiki/02-Environment-Variables.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/25-Personal-Access-Tokens.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `preflight-go-no-go.md`; `scripts/generate-public-compose.js`.
+- Risks or follow-ups: provider offer/listing titles can be noisy and may include wrong-title seller listings; collectZ intentionally gives the user the choice rather than choosing automatically; CI still needs its normal gitleaks secret scan, image security/SBOM, and stricter secure-cookie compose-smoke context.
+- What remains in the milestone: Nothing for `3.4.159`; CI-only release gates still need their normal GitHub run.
+- Recommended commit message: `Release 3.4.159 with barcode provider title variant lookup`.
+
+## 3.4.158 — Barcode Scanner Multi-Candidate Lookup
+
+**Goal:** Keep scanner barcode lookup as a candidate search by preserving all meaningful provider matches for a barcode that maps to multiple products, editions, or variants.
+
+### Scope
+
+- Preserve multiple normalized provider candidates in `POST /api/media/lookup/barcode`.
+- Avoid accidental scanner-side collapse by giving each provider candidate a stable per-result ID.
+- Keep catalog matches and provider matches visible when they are distinct.
+- Keep lookup authenticated with `media:read`; import behavior remains unchanged.
+- Do not route scanner lookup through the web frontend.
+
+### Acceptance Criteria
+
+- A barcode provider response with multiple items returns multiple `matches`.
+- Provider candidates sharing a UPC do not share the same fallback `id`.
+- Lookup remains a list result and still returns a successful empty response when no candidates exist.
+- Auth behavior is unchanged: lookup requires auth and import remains token-gated.
+- OpenAPI documents that lookup may return zero, one, or many candidates.
+- Runtime scanner smoke proves a multi-candidate provider response survives the backend route.
+- Version metadata, release note, release feed, and Help > Releases include `3.4.158`.
+
+### Closeout
+
+- Roadmap slice: `3.4.158 — Barcode Scanner Multi-Candidate Lookup`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/25-Personal-Access-Tokens.md`; `docs/wiki/02-Environment-Variables.md`; `docs/releases/v3.4.158.md`.
+- Runtime verification used: Docker-first backend/frontend image builds with `APP_VERSION=3.4.158`; running stack health served frontend/backend/build `3.4.158`; running backend env verified `APP_EDITION=platform`, `APP_VERSION=3.4.158`, `NODE_ENV=development`, `SESSION_COOKIE_SECURE=false`, and redacted DB URL; scanner API smoke used a local fake barcode provider and proved `0076783005990` returns three distinct provider matches; Help > Releases served `3.4.158`; homelab boundary passed under a temporary local homelab override, then the stack was restored to platform.
+- CI/checks run: `node --check backend/routes/media.js`; `node --check backend/scripts/barcode-scanner-api-smoke.js`; `node backend/scripts/validate-openapi.js`; Docker backend/frontend image builds; Docker `BASE_URL=http://frontend:3000 npm run test:barcode-scanner-api-smoke`; Docker `npm run test:openapi`; Docker image/unit test run with repo mounted (`287` passed); Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.4.158 npm run test:help-releases-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker homelab override plus `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; Playwright browser regression (`65` passed, `4` skipped); local backend/frontend production dependency audits (`0` vulnerabilities); local observability evidence (`9/9` checks passed); local release preflight; `git diff --check`.
+- Files changed: `app-meta.json`; `artifacts/dependency-audit/backend-audit.json`; `artifacts/dependency-audit/frontend-audit.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `backend/app-meta.json`; `backend/middleware/validate.js`; `backend/openapi/openapi.yaml`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/routes/media.js`; `backend/scripts/barcode-scanner-api-smoke.js`; `backend/scripts/unit-tests.js`; `backend/scripts/validate-openapi.js`; `backend/server.js`; `backend/services/personalAccessTokens.js`; `docker-compose.yml`; `docs/releases/v3.4.157.md`; `docs/releases/v3.4.158.md`; `docs/wiki/02-Environment-Variables.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/25-Personal-Access-Tokens.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `preflight-go-no-go.md`; `scripts/generate-public-compose.js`.
+- Risks or follow-ups: scanner lookup remains authenticated by design; provider ordering is preserved but collectZ does not assign confidence scores; CI still needs its normal gitleaks secret scan, image security/SBOM, and stricter secure-cookie compose-smoke context.
+- What remains in the milestone: Nothing for `3.4.158`; CI-only release gates still need their normal GitHub run.
+- Recommended commit message: `Release 3.4.158 with barcode scanner multi-candidate lookup`.
+
+## 3.4.157 — Barcode Scanner Backend Import API
+
+**Goal:** Let the iOS scanner app complete barcode lookup and import end to end through backend-owned API routes without depending on the web frontend.
+
+### Scope
+
+- Add scanner-facing `POST /api/media/lookup/barcode`.
+- Resolve decoded barcodes against the scoped existing media catalog before returning provider candidates.
+- Return successful empty lookup responses when no match exists.
+- Add authenticated `POST /api/media/import-barcode` to create or update canonical media from a selected match.
+- Keep lookup authenticated because catalog match readback exposes private library contents.
+- Keep import authenticated and scoped through the existing import token model.
+- Keep the web frontend out of the scanner flow.
+
+### Acceptance Criteria
+
+- Scanner lookup reaches the route handler and no longer fails only because of the blanket `/api/media` auth guard.
+- Lookup returns useful catalog/provider match rows.
+- Empty lookups return `ok=true` with an empty `matches` array.
+- Barcode import creates or updates media through the canonical backend import/upsert path.
+- PAT/service-token scope mapping is explicit: lookup uses `media:read`, import uses `import:run`.
+- OpenAPI documents request/response shapes for scanner clients.
+- Runtime smoke covers route availability, lookup success, empty lookup, import success, and auth behavior.
+- Version metadata, release note, release feed, and Help > Releases include `3.4.157`.
+
+### Closeout
+
+- Roadmap slice: `3.4.157 — Barcode Scanner Backend Import API`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/25-Personal-Access-Tokens.md`; `docs/wiki/02-Environment-Variables.md`; `docs/releases/v3.4.157.md`.
+- Runtime verification used: Docker-first backend rebuild from local source with `APP_VERSION=3.4.157`; running backend env verified `APP_EDITION=platform`, `APP_VERSION=3.4.157`, `NODE_ENV=development`, and a redacted DB URL; `/api/health` reported frontend/backend/build `3.4.157`; scanner API smoke passed against the live frontend/backend stack with lookup auth required, lookup success, empty lookup success, import auth required, and import success; Help > Releases smoke served `3.4.157`.
+- CI/checks run: `node --check backend/routes/media.js`; `node --check backend/middleware/validate.js`; `node --check backend/scripts/barcode-scanner-api-smoke.js`; Docker backend build; Docker `npm run test:openapi`; Docker image/unit test run with repo mounted (`287` passed); Docker `BASE_URL=http://frontend:3000 npm run test:barcode-scanner-api-smoke`; Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.4.157 npm run test:help-releases-smoke`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; Docker `BASE_URL=http://frontend:3000 npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker homelab override plus `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`; Playwright browser regression (`65` passed, `4` skipped); local frontend production dependency audit (`0` vulnerabilities); local observability evidence (`9/9` checks passed); local release preflight; `git diff --check`.
+- Files changed: `app-meta.json`; `artifacts/dependency-audit/backend-audit.json`; `artifacts/dependency-audit/frontend-audit.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `backend/app-meta.json`; `backend/middleware/validate.js`; `backend/openapi/openapi.yaml`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/routes/media.js`; `backend/scripts/barcode-scanner-api-smoke.js`; `backend/scripts/unit-tests.js`; `backend/scripts/validate-openapi.js`; `backend/server.js`; `backend/services/personalAccessTokens.js`; `docker-compose.yml`; `docs/releases/v3.4.157.md`; `docs/wiki/02-Environment-Variables.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/25-Personal-Access-Tokens.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `preflight-go-no-go.md`; `scripts/generate-public-compose.js`.
+- Risks or follow-ups: scanner clients must send bearer auth for lookup and import; provider-quality limits still come from configured barcode/books/media integrations; public/unauthenticated lookup remains intentionally out of scope because existing catalog readback would expose library contents.
+- What remains in the milestone: nothing for `3.4.157`; CI-only release gates still need the normal GitHub run, including stricter secure-cookie `compose-smoke`, `dependency-scan`, `secret-scan`, and `image-security-and-sbom`.
+- Recommended commit message: `Release 3.4.157 with barcode scanner backend import API`.
+
 ## 3.4.156 — Kavita Chapter Issue Cover Proxy
 
 **Goal:** Make Kavita chapter-as-issue rows display per-title issue artwork instead of repeating the parent series cover for every imported chapter.

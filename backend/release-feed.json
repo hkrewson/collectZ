@@ -1,6 +1,84 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.160",
+      "version": "3.4.160",
+      "date": "2026-05-16",
+      "status": "released",
+      "summary": "This patch makes ISBN-shaped barcode scans use the configured Books provider directly, so the iOS scanner app can get Google Books-style candidates without routing through the web UI or forcing the client to know the media type first.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Scanner barcode lookup now detects ISBN-10/ISBN-13 shaped codes automatically.",
+            "Web UPC lookup now also uses the direct ISBN path when a scanned identifier normalizes to ISBN.",
+            "Direct ISBN matches return with `source: books:isbn-direct` and `mediaTypeGuess: book`.",
+            "Scanner smoke now proves the ISBN path works without `mediaType: book`.",
+            "OpenAPI now documents scanner ISBN behavior on `/api/media/lookup/barcode`."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "collectZ v3.4.159",
+      "version": "3.4.159",
+      "date": "2026-05-16",
+      "status": "released",
+      "summary": "This patch surfaces distinct barcode provider title variants from nested offer/listing rows so both the web UPC lookup and iOS scanner lookup can show messy real-world UPC choices like `Before the Storm` when the provider includes that title beneath a top-level product.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Expanded normalized barcode matches to include distinct `offers[].title` and listing title variants.",
+            "Kept the top-level provider product candidate while adding meaningful provider title variants as additional candidates.",
+            "Added `alternateTitles`/`alternate_titles` readback so clients can show related provider title strings.",
+            "Added title-variant metadata fields such as `titleVariantSource`, `titleVariantIndex`, and `offerIndex`.",
+            "Updated scanner smoke coverage so both `/api/media/lookup/barcode` and `/api/media/lookup-upc` prove offer title variants are returned."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "collectZ v3.4.158",
+      "version": "3.4.158",
+      "date": "2026-05-16",
+      "status": "released",
+      "summary": "This patch keeps scanner barcode lookup as a candidate search by preserving multiple provider products for a single barcode instead of allowing duplicate provider identifiers to collapse choices in scanner clients.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Preserved multiple barcode provider matches in `POST /api/media/lookup/barcode`.",
+            "Added stable per-candidate provider IDs so barcode variants sharing the same UPC stay distinct.",
+            "Added `provider_candidate_index` to scanner lookup matches when provider ordering is available.",
+            "Updated scanner smoke coverage with a fake UPC provider returning three candidates for `0076783005990`.",
+            "Clarified OpenAPI docs that barcode lookup may return zero, one, or many candidates."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "collectZ v3.4.157",
+      "version": "3.4.157",
+      "date": "2026-05-16",
+      "status": "released",
+      "summary": "This patch adds the backend scanner contract needed for the iOS barcode scanner app to look up decoded barcodes and import selected matches without routing through the web UI.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added authenticated `POST /api/media/lookup/barcode` for scanner clients.",
+            "The scanner lookup reads scoped existing catalog matches first, then configured barcode/provider enrichment matches when available.",
+            "Empty barcode lookups now return a successful response with an empty `matches` array.",
+            "Added authenticated `POST /api/media/import-barcode` to create or update canonical media from a selected scanner match.",
+            "Added PAT/service-token scope mapping so scanner lookup uses `media:read` and barcode import uses the existing `import:run` import scope.",
+            "Updated OpenAPI and smoke coverage for lookup success, empty lookup, import success, and auth behavior.",
+            "Follow-up `3.4.158` keeps this scanner lookup contract as a true candidate list when a provider returns multiple products for one barcode."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.4.156",
       "version": "3.4.156",
       "date": "2026-05-11",
@@ -91,49 +169,6 @@
           ]
         }
       ]
-    },
-    {
-      "title": "collectZ v3.4.150",
-      "version": "3.4.150",
-      "date": "2026-05-10",
-      "status": "released",
-      "summary": "This patch moves Plex section discovery onto the provider-advertised sections root at runtime. When Plex advertises `/library/sections/all` through the official library provider, collectZ uses it; when it is absent or unavailable, collectZ keeps the existing `/library/sections` fallback.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Updates Plex section discovery to resolve the sections root from `/media/providers`.",
-            "Uses `/library/sections/all` when the official Plex library provider advertises it.",
-            "Falls back to `/library/sections` if provider discovery fails, the root is not advertised, or the advertised root is unavailable.",
-            "Adds a fake-PMS smoke proof covering advertised-root success, advertised-root failure fallback, and non-advertised fallback.",
-            "Keeps Plex item import, reconciliation, webhooks, watched-state writeback, rating writeback, and automatic sync behavior otherwise unchanged."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.4.149",
-      "version": "3.4.149",
-      "date": null,
-      "status": "released",
-      "summary": "This patch corrects the Plex provider import migration contract. `/media/providers` is now treated as capability discovery, while future import migration resolves the official Plex library provider's advertised documented `/library/...` paths before any import behavior changes.",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.4.148",
-      "version": "3.4.148",
-      "date": null,
-      "status": "released",
-      "summary": "This patch polishes the Plex Now Playing display for homes with more than one active Plex session. The main display still focuses on the first active session, and can now show a compact readback of other active sessions when that display preference is enabled.",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.4.147",
-      "version": "3.4.147",
-      "date": null,
-      "status": "released",
-      "summary": "This patch adds a read-only real Plex Media Server provider item-row parity proof. It uses saved Plex settings, probes provider-advertised item listing candidates with small page limits, and records whether those rows carry enough metadata to consider a future import migration.",
-      "details": []
     }
   ]
 }

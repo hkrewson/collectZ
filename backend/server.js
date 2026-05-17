@@ -247,9 +247,11 @@ app.use('/api/admin', adminLimiter);
 app.use('/api/media', mediaReadLimiter);
 app.use('/api/media', mediaWriteLimiter);
 app.use('/api/media/import-plex', importStartLimiter);
+app.use('/api/media/import-barcode', importStartLimiter);
 app.use('/api/media/import-csv', importStartLimiter);
 app.use('/api/media/sync-jobs', syncPollLimiter);
 app.use('/api/media/search-tmdb', externalApiLimiter);
+app.use('/api/media/lookup/barcode', externalApiLimiter);
 app.use('/api/media/lookup-upc', externalApiLimiter);
 
 // ── Static file serving (cover uploads) ──────────────────────────────────────

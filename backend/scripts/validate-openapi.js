@@ -73,6 +73,8 @@ function main() {
     '/api/docs/openapi.json': ['get'],
     '/api/metrics': ['get'],
     '/api/media': ['get'],
+    '/api/media/lookup/barcode': ['post'],
+    '/api/media/import-barcode': ['post'],
     '/api/media/import-plex': ['post'],
     '/api/media/sync-jobs': ['get'],
     '/api/media/sync-jobs/{id}': ['get'],
@@ -150,6 +152,11 @@ function main() {
     'ServiceAccountKeyCreateResponse',
     'MetricsText',
     'MediaListResponse',
+    'BarcodeLookupRequest',
+    'BarcodeLookupMatch',
+    'BarcodeLookupResponse',
+    'BarcodeImportRequest',
+    'BarcodeImportResponse',
     'SyncJobResponse',
     'QueuedJobResponse'
   ];

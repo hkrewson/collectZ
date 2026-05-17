@@ -35,6 +35,7 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: \${NODE_ENV:-production}
+      APP_EDITION: \${APP_EDITION:-homelab}
       DEBUG: \${DEBUG:-0}
       TRUST_PROXY: \${TRUST_PROXY:-1}
       SESSION_COOKIE_SECURE: \${SESSION_COOKIE_SECURE:-true}

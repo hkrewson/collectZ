@@ -1,6 +1,6 @@
 {
   "name": "mediavault-backend",
-  "version": "3.4.156",
+  "version": "3.4.160",
   "description": "collectZ Backend API",
   "main": "server.js",
   "scripts": {
@@ -112,7 +112,8 @@
     "test:plex-reconciliation-preview-job-smoke": "node scripts/plex-full-library-reconciliation-smoke.js",
     "test:plex-reconciliation-sync-smoke": "node scripts/plex-reconciliation-sync-smoke.js",
     "test:plex-watched-state-writeback-contract-smoke": "node scripts/plex-watched-state-writeback-contract-smoke.js",
-    "test:plex-watched-state-writeback-smoke": "node scripts/plex-watched-state-writeback-smoke.js"
+    "test:plex-watched-state-writeback-smoke": "node scripts/plex-watched-state-writeback-smoke.js",
+    "test:barcode-scanner-api-smoke": "node scripts/barcode-scanner-api-smoke.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1042.0",

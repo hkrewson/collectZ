@@ -147,6 +147,7 @@ const getRequiredPatScopesForRequest = (req) => {
     return [isRead ? 'profile:read' : 'profile:write'];
   }
   if (path.startsWith('/api/libraries')) return [isRead ? 'libraries:read' : 'libraries:write'];
+  if (path === '/api/media/lookup/barcode' || path === '/api/media/lookup-upc') return ['media:read'];
   if (path.startsWith('/api/media/import-')) return ['import:run'];
   if (path.startsWith('/api/media')) return [isRead ? 'media:read' : 'media:write'];
   if (path.startsWith('/api/events')) return [isRead ? 'events:read' : 'events:write'];

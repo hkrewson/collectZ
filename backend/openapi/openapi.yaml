@@ -1036,6 +1036,105 @@
         "type": "object",
         "additionalProperties": true
       },
+      "BarcodeLookupRequest": {
+        "type": "object",
+        "properties": {
+          "barcode": { "type": "string", "description": "Captured barcode value after scanner-side decoding." },
+          "symbology": { "type": ["string", "null"], "description": "Scanner-reported barcode format such as ean13, upca, or code128." },
+          "mediaType": { "type": "string", "enum": ["movie", "tv_series", "tv_episode", "book", "audio", "game", "comic_book"] },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 25, "default": 10 }
+        },
+        "required": ["barcode"]
+      },
+      "BarcodeLookupMatch": {
+        "type": "object",
+        "properties": {
+          "id": { "type": ["string", "integer"] },
+          "source": { "type": "string", "description": "catalog, barcode_provider, books:isbn-direct, or another backend provider source." },
+          "match_type": { "type": "string" },
+          "media_id": { "type": ["integer", "null"] },
+          "title": { "type": "string" },
+          "normalizedTitle": { "type": ["string", "null"] },
+          "searchTitle": { "type": ["string", "null"] },
+          "description": { "type": ["string", "null"] },
+          "image": { "type": ["string", "null"] },
+          "alternateTitles": {
+            "type": "array",
+            "description": "Distinct provider title/listing variants for the same barcode item, excluding this match title.",
+            "items": { "type": "string" }
+          },
+          "alternate_titles": {
+            "type": "array",
+            "description": "Snake-case alias for alternateTitles.",
+            "items": { "type": "string" }
+          },
+          "upc": { "type": ["string", "null"] },
+          "barcode": { "type": ["string", "null"] },
+          "symbology": { "type": ["string", "null"] },
+          "mediaTypeGuess": { "type": ["string", "null"] },
+          "media_type": { "type": ["string", "null"] },
+          "year": { "type": ["integer", "null"] },
+          "already_imported": { "type": "boolean" },
+          "provider_candidate_index": { "type": ["integer", "null"], "description": "Zero-based index of the provider candidate in the normalized provider response when available." },
+          "titleVariantSource": { "type": ["string", "null"], "description": "Provider field family that supplied this title, such as item, offer, or listing." },
+          "title_variant_source": { "type": ["string", "null"], "description": "Snake-case alias for titleVariantSource." },
+          "titleVariantIndex": { "type": ["integer", "null"], "description": "Zero-based index of this distinct title variant within the provider item." },
+          "title_variant_index": { "type": ["integer", "null"], "description": "Snake-case alias for titleVariantIndex." },
+          "offerIndex": { "type": ["integer", "null"], "description": "Original offer index when this candidate came from an offer title." },
+          "offer_index": { "type": ["integer", "null"], "description": "Snake-case alias for offerIndex." },
+          "typeDetails": { "type": ["object", "null"], "additionalProperties": true },
+          "book": { "type": ["object", "null"], "additionalProperties": true },
+          "typeEnrichment": { "type": ["object", "null"], "additionalProperties": true },
+          "tmdb": { "type": ["object", "null"], "additionalProperties": true }
+        },
+        "required": ["source", "title"]
+      },
+      "BarcodeLookupResponse": {
+        "type": "object",
+        "properties": {
+          "ok": { "type": "boolean" },
+          "authenticated": { "type": "boolean" },
+          "provider": { "type": ["string", "null"] },
+          "barcode": { "type": "string" },
+          "symbology": { "type": ["string", "null"] },
+          "count": { "type": "integer" },
+          "matches": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/BarcodeLookupMatch" }
+          },
+          "catalog_count": { "type": "integer" },
+          "provider_count": { "type": "integer" },
+          "provider_error": { "type": ["string", "null"] },
+          "request": { "type": ["object", "null"], "additionalProperties": true }
+        },
+        "required": ["ok", "authenticated", "barcode", "count", "matches"]
+      },
+      "BarcodeImportRequest": {
+        "type": "object",
+        "properties": {
+          "barcode": { "type": ["string", "null"] },
+          "symbology": { "type": ["string", "null"] },
+          "mediaType": { "type": "string", "enum": ["movie", "tv_series", "tv_episode", "book", "audio", "game", "comic_book"] },
+          "selectedMatch": { "$ref": "#/components/schemas/BarcodeLookupMatch" },
+          "match": { "$ref": "#/components/schemas/BarcodeLookupMatch" },
+          "lookupContext": { "type": ["object", "null"], "additionalProperties": true }
+        },
+        "additionalProperties": false
+      },
+      "BarcodeImportResponse": {
+        "type": "object",
+        "properties": {
+          "ok": { "type": "boolean" },
+          "status": { "type": "string", "enum": ["existing", "created", "updated"] },
+          "action": { "type": "string", "enum": ["matched_existing", "created", "updated"] },
+          "media_id": { "type": "integer" },
+          "media": { "type": ["object", "null"], "additionalProperties": true },
+          "barcode": { "type": ["string", "null"] },
+          "matched_by": { "type": ["string", "null"] },
+          "match_mode": { "type": ["string", "null"] }
+        },
+        "required": ["ok", "status", "action", "media_id"]
+      },
       "MediaLoanRecord": {
         "type": "object",
         "properties": {
@@ -6128,6 +6227,112 @@
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/MediaListResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/media/lookup/barcode": {
+      "post": {
+        "tags": ["Media"],
+        "summary": "Lookup decoded scanner barcode against the scoped catalog and configured barcode providers",
+        "description": "Authenticated scanner contract. Requires a browser session or bearer token with media:read. The backend remains the source of truth and returns a candidate list: catalog matches and all meaningful provider candidates up to the requested limit. ISBN-10/ISBN-13 shaped barcodes use the configured Books provider directly before general barcode lookup. Empty lookups return a successful empty match list.",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/BarcodeLookupRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Barcode lookup completed. matches may contain zero, one, or many catalog/provider candidates.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/BarcodeLookupResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid barcode lookup request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid authentication token",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/media/import-barcode": {
+      "post": {
+        "tags": ["Media"],
+        "summary": "Import or update media from a selected scanner barcode match",
+        "description": "Authenticated scanner import contract. Bearer tokens require import:run; cookie sessions require CSRF.",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/BarcodeImportRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Existing media matched or media updated from the selected barcode match",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/BarcodeImportResponse" }
+              }
+            }
+          },
+          "201": {
+            "description": "Media created from the selected barcode match",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/BarcodeImportResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid import request or selected match",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid authentication token",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "404": {
+            "description": "Selected existing media match was not found in scope",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
               }
             }
           }
