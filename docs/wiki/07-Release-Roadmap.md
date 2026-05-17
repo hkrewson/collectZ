@@ -10715,6 +10715,37 @@ Historical note:
 - What remains in the milestone: Nothing for `3.4.149`; CI-only release gates still need their normal GitHub run.
 - Recommended commit message: `Release 3.4.149 with Plex provider-advertised import path contract`
 
+## 3.4.161 — Scanner Barcode Import Enrichment
+
+**Goal:** After the scanner app sends a selected barcode match for import, run the backend enrichment pipeline with the available ISBN, UPC, title, and provider data before creating or updating the canonical media row.
+
+### Scope
+
+- Keep scanner import authenticated through the existing `import:run` token scope.
+- Keep scanner clients thin: the scanner sends the selected match, and the backend remains the source of truth.
+- Run import enrichment before `upsertImportedMedia` for scanner barcode imports.
+- Return enrichment readback fields in the scanner import response.
+- Record scanner enrichment outcome in activity/metadata for troubleshooting.
+
+### Acceptance Criteria
+
+- `POST /api/media/import-barcode` enriches selected ISBN/book matches before upsert when provider metadata is available.
+- Import response includes `enrichment_status`, `lookup_path`, and `lookup_status`.
+- Scanner import smoke proves an ISBN import receives Books metadata from a fake provider.
+- Auth behavior is unchanged: lookup uses `media:read`; import uses `import:run`.
+- Version metadata, release note, release feed, and Help > Releases include `3.4.161`.
+
+### Closeout
+
+- Roadmap slice: `3.4.161 — Scanner Barcode Import Enrichment`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/25-Personal-Access-Tokens.md`; `docs/releases/v3.4.161.md`.
+- Runtime verification used: Docker-first backend/frontend image builds with `APP_VERSION=3.4.161`; running stack health served frontend/backend/build `3.4.161`; Docker scanner API smoke used a local fake Books provider and proved ISBN import enrichment returned `enrichment_status: enriched`, `lookup_path` containing `identifier_first:isbn`, enriched overview, cover, and publisher; Help > Releases served `3.4.161`; platform and homelab edition boundary checks passed under their respective runtime overrides, then the stack was restored to platform release-tagged images.
+- CI/checks run: `node --check backend/routes/media.js`; `node --check backend/scripts/barcode-scanner-api-smoke.js`; `node backend/scripts/validate-openapi.js`; `node backend/scripts/export-release-feed.js`; host unit tests (`288` passed); Docker backend/frontend image builds; Docker `BASE_URL=http://frontend:3000 npm run test:barcode-scanner-api-smoke`; Docker `npm run test:openapi`; Docker image/unit test run with repo mounted (`288` passed); Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.4.161 npm run test:help-releases-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression` (rerun passed after an overlapping platform-boundary setup collision); Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker homelab override plus `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; Playwright browser regression (`65` passed, `4` skipped after a transient 502 rerun on release-tagged images); local backend/frontend production dependency audits (`0` vulnerabilities); local observability evidence; local release preflight; targeted release/artifact secret scan; `git diff --check`.
+- Files changed: `app-meta.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `backend/app-meta.json`; `backend/openapi/openapi.yaml`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/routes/media.js`; `backend/scripts/barcode-scanner-api-smoke.js`; `docker-compose.yml`; `docs/releases/v3.4.161.md`; `docs/wiki/07-Release-Roadmap.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `preflight-go-no-go.md`.
+- Risks or follow-ups: scanner import enrichment depends on configured provider quality and availability; existing rows only receive richer metadata when a scanner import updates them through normal upsert rules; CI-only secure-cookie compose smoke, secret scan, and image security/SBOM gates still need their normal GitHub Actions run.
+- What remains in the milestone: Nothing for `3.4.161`; CI-only release gates still need their normal GitHub run.
+- Recommended commit message: `Release 3.4.161 with scanner barcode import enrichment`.
+
 ## 3.4.160 — Scanner ISBN Direct Books Lookup
 
 **Goal:** Let scanner and web barcode lookups use the existing Books/Google Books enrichment path directly when the scanned barcode is an ISBN.

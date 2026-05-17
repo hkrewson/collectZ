@@ -12882,13 +12882,29 @@ router.post('/import-barcode', validate(barcodeImportSchema), asyncHandler(async
   if (!item.title) {
     return res.status(400).json({ error: 'Selected barcode match does not include a title to import' });
   }
+  const config = await loadScopedIntegrationConfig(scopeContext?.spaceId || null);
+  const enrichmentMode = resolveImportEnrichmentExecutionMode(req);
+  const enrichmentResult = enrichmentMode === 'skip'
+    ? {
+        item,
+        enrichmentStatus: 'not_attempted',
+        lookupPath: 'skipped_by_test_mode',
+        lookupStatus: 'skipped'
+      }
+    : await runImportEnrichmentPipeline(
+      item,
+      config,
+      { providerCache: new Map(), tmdbCache: new Map() },
+      item.identifiers || {}
+    );
+  const enrichedItem = enrichmentResult.item || item;
 
   const result = await upsertImportedMedia({
     userId: req.user.id,
-    item,
+    item: enrichedItem,
     importSource: 'barcode_scanner',
     scopeContext,
-    identifiers: item.identifiers
+    identifiers: enrichedItem.identifiers || item.identifiers
   });
   if (!result?.mediaId || result.type === 'invalid') {
     return res.status(400).json({
@@ -12902,14 +12918,20 @@ router.post('/import-barcode', validate(barcodeImportSchema), asyncHandler(async
   if (selectedMatch.source) {
     await upsertMediaMetadataEntry(result.mediaId, 'barcode_scanner_match_source', selectedMatch.source);
   }
+  await upsertMediaMetadataEntry(result.mediaId, 'barcode_scanner_import_enrichment_status', enrichmentResult.enrichmentStatus || 'not_attempted');
+  await upsertMediaMetadataEntry(result.mediaId, 'barcode_scanner_import_lookup_path', enrichmentResult.lookupPath || 'none');
+  await upsertMediaMetadataEntry(result.mediaId, 'barcode_scanner_import_lookup_status', enrichmentResult.lookupStatus || 'none');
   const media = await loadScopedMediaRecordById(result.mediaId, scopeContext);
   await logActivity(req, 'media.import_barcode', 'media', result.mediaId, {
     status: result.type,
-    barcode: barcode || item.upc || null,
+    barcode: barcode || enrichedItem.upc || item.upc || null,
     symbology: req.body.symbology || selectedMatch.symbology || null,
-    mediaType: item.media_type || null,
+    mediaType: enrichedItem.media_type || item.media_type || null,
     matchedBy: result.matchedBy || null,
-    matchMode: result.matchMode || null
+    matchMode: result.matchMode || null,
+    enrichmentStatus: enrichmentResult.enrichmentStatus || 'not_attempted',
+    lookupPath: enrichmentResult.lookupPath || 'none',
+    lookupStatus: enrichmentResult.lookupStatus || 'none'
   });
 
   res.status(result.type === 'created' ? 201 : 200).json({
@@ -12918,9 +12940,12 @@ router.post('/import-barcode', validate(barcodeImportSchema), asyncHandler(async
     action: result.type === 'created' ? 'created' : 'updated',
     media_id: result.mediaId,
     media: media ? normalizeMediaRecord(media) : null,
-    barcode: barcode || item.upc || null,
+    barcode: barcode || enrichedItem.upc || item.upc || null,
     matched_by: result.matchedBy || null,
-    match_mode: result.matchMode || null
+    match_mode: result.matchMode || null,
+    enrichment_status: enrichmentResult.enrichmentStatus || 'not_attempted',
+    lookup_path: enrichmentResult.lookupPath || 'none',
+    lookup_status: enrichmentResult.lookupStatus || 'none'
   });
 }));
 

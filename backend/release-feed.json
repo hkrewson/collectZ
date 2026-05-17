@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.161",
+      "version": "3.4.161",
+      "date": "2026-05-16",
+      "status": "released",
+      "summary": "This patch makes scanner barcode imports run the existing backend enrichment pipeline before creating or updating the canonical media row.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "`POST /api/media/import-barcode` now enriches the selected scanner match with available ISBN, UPC, title, and provider data before upsert.",
+            "ISBN book imports can populate Books/Google Books metadata such as overview, cover image, publisher, and type details.",
+            "Import responses now include `enrichment_status`, `lookup_path`, and `lookup_status` so scanner clients can show what happened.",
+            "Barcode import activity and metadata record the scanner enrichment outcome for readback/debugging.",
+            "Scanner smoke now proves ISBN import enrichment end-to-end with a fake Books provider."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.4.160",
       "version": "3.4.160",
       "date": "2026-05-16",
@@ -147,25 +166,6 @@
             "Adds typeahead artist lookup and inline artist creation inside the Art drawer.",
             "Shows linked artist metadata on Art detail with a shortcut to view other works by the same artist.",
             "Documents and tests the new Art artist API in OpenAPI, migration/init parity, source checks, and browser regression coverage."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.4.151",
-      "version": "3.4.151",
-      "date": "2026-05-10",
-      "status": "released",
-      "summary": "This patch cleans up the Plex admin operating model after the main Plex integration run. The settings surface now explains which Plex actions are manual, which can run on schedules, which are webhook-triggered hints, and which writeback actions stay explicit user controls.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Adds a Plex operating-model readback panel to Integrations.",
-            "Renames user-facing reconciliation scan controls from preview wording to read-only check wording.",
-            "Clarifies that manual and scheduled Plex sync share the same safe create/update policy and send ambiguous rows to conflict review.",
-            "Clarifies that Plex webhooks can feed import hints while watched-state and rating writeback remain manual controls.",
-            "Moves the Plex operating-model cleanup task out of backlog and into the completed roadmap milestone."
           ]
         }
       ]

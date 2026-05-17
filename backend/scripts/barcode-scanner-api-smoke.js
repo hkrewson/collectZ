@@ -282,14 +282,14 @@ async function main() {
     const unauthenticatedImport = await request('/api/media/import-barcode', {
       method: 'POST',
       body: {
-        barcode: '9781401207927',
+        barcode: fakeProvider.isbn,
         symbology: 'ean13',
         mediaType: 'book',
         selectedMatch: {
           source: 'barcode_provider',
           title: 'Barcode Scanner Import Smoke',
           mediaTypeGuess: 'book',
-          typeDetails: { author: 'Smoke Author', isbn: '9781401207927' }
+          typeDetails: { author: 'Smoke Author', isbn: fakeProvider.isbn }
         }
       },
       expectStatus: 401
@@ -300,22 +300,27 @@ async function main() {
       method: 'POST',
       token: context.token,
       body: {
-        barcode: '9781401207927',
+        barcode: fakeProvider.isbn,
         symbology: 'ean13',
         mediaType: 'book',
         selectedMatch: {
           id: 'provider:barcode-scanner-import-smoke',
           source: 'barcode_provider',
-          title: 'Barcode Scanner Import Smoke',
-          description: 'Imported by scanner smoke.',
+          title: 'Before the Storm',
           mediaTypeGuess: 'book',
-          typeDetails: { author: 'Smoke Author', isbn: '9781401207927', publisher: 'Smoke Press' }
+          typeDetails: { author: 'Michael P. Kube-McDowell', isbn: fakeProvider.isbn }
         }
       }
     });
     assert([200, 201].includes(imported.status), `import should succeed, got ${imported.status}`);
     assert(imported.data?.ok === true, 'import response should return ok=true');
     assert(Number(imported.data?.media_id || 0) > 0, 'import response should include media_id');
+    assert(imported.data?.enrichment_status === 'enriched', `import should report enriched status, got ${imported.data?.enrichment_status}`);
+    assert(String(imported.data?.lookup_path || '').includes('identifier_first:isbn'), `import should use ISBN enrichment path, got ${imported.data?.lookup_path}`);
+    const importedMedia = imported.data?.media || {};
+    assert(importedMedia.overview === 'Book one of the Black Fleet Crisis trilogy.', 'imported media should include book enrichment overview');
+    assert(importedMedia.poster_path === 'https://example.test/before-the-storm.jpg', 'imported media should include book enrichment cover');
+    assert(importedMedia.type_details?.publisher === 'Bantam', 'imported media should include enriched publisher');
 
     console.log(JSON.stringify({
       ok: true,
@@ -328,7 +333,8 @@ async function main() {
         scannerIsbnLookupSuccess: true,
         webIsbnLookupSuccess: true,
         importRequiresAuth: true,
-        importSuccess: true
+        importSuccess: true,
+        importEnrichmentSuccess: true
       },
       seededMediaId,
       importedMediaId: imported.data.media_id

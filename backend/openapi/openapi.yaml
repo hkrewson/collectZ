@@ -1131,7 +1131,13 @@
           "media": { "type": ["object", "null"], "additionalProperties": true },
           "barcode": { "type": ["string", "null"] },
           "matched_by": { "type": ["string", "null"] },
-          "match_mode": { "type": ["string", "null"] }
+          "match_mode": { "type": ["string", "null"] },
+          "enrichment_status": {
+            "type": "string",
+            "enum": ["enriched", "no_match", "not_applicable", "not_attempted"]
+          },
+          "lookup_path": { "type": ["string", "null"] },
+          "lookup_status": { "type": ["string", "null"] }
         },
         "required": ["ok", "status", "action", "media_id"]
       },
@@ -6282,7 +6288,7 @@
       "post": {
         "tags": ["Media"],
         "summary": "Import or update media from a selected scanner barcode match",
-        "description": "Authenticated scanner import contract. Bearer tokens require import:run; cookie sessions require CSRF.",
+        "description": "Authenticated scanner import contract. Bearer tokens require import:run; cookie sessions require CSRF. The backend runs the import enrichment pipeline with available selected-match identifiers, barcode, title, and provider data before creating or updating the canonical media row.",
         "security": [
           { "cookieSession": [], "csrfHeader": [] },
           { "bearerAuth": [] }
