@@ -21,7 +21,7 @@ Recommended order:
 
 ```bash
 docker compose --env-file .env exec -T db \
-  psql -U "${DB_USER:-mediavault}" -d "${POSTGRES_DB:-mediavault}" \
+  psql -U "${DB_USER:-collectz}" -d "${POSTGRES_DB:-collectz}" \
   -c "SELECT id,email,role,active FROM users ORDER BY id;"
 ```
 
@@ -29,7 +29,7 @@ docker compose --env-file .env exec -T db \
 
 ```bash
 docker compose --env-file .env exec -T db \
-  psql -U "${DB_USER:-mediavault}" -d "${POSTGRES_DB:-mediavault}" \
+  psql -U "${DB_USER:-collectz}" -d "${POSTGRES_DB:-collectz}" \
   -c "UPDATE users SET role = 'admin' WHERE email = 'you@example.com';"
 ```
 
@@ -44,7 +44,7 @@ docker compose --env-file .env exec -T backend \
 
 ```bash
 docker compose --env-file .env exec -T db \
-  psql -U "${DB_USER:-mediavault}" -d "${POSTGRES_DB:-mediavault}" \
+  psql -U "${DB_USER:-collectz}" -d "${POSTGRES_DB:-collectz}" \
   -c "UPDATE users SET password = '<PASTE_BCRYPT_HASH>' WHERE email = 'you@example.com';"
 ```
 
@@ -52,7 +52,7 @@ docker compose --env-file .env exec -T db \
 
 ```bash
 docker compose --env-file .env exec -T db \
-  psql -U "${DB_USER:-mediavault}" -d "${POSTGRES_DB:-mediavault}" \
+  psql -U "${DB_USER:-collectz}" -d "${POSTGRES_DB:-collectz}" \
   -c "DELETE FROM user_sessions WHERE user_id = (SELECT id FROM users WHERE email = 'you@example.com');"
 ```
 
@@ -70,13 +70,13 @@ Database fallback:
 
 ```bash
 docker compose --env-file .env exec -T db \
-  psql -U "${DB_USER:-mediavault}" -d "${POSTGRES_DB:-mediavault}" \
+  psql -U "${DB_USER:-collectz}" -d "${POSTGRES_DB:-collectz}" \
   -c "UPDATE invites SET active = FALSE WHERE active = TRUE;"
 ```
 
 ```bash
 docker compose --env-file .env exec -T db \
-  psql -U "${DB_USER:-mediavault}" -d "${POSTGRES_DB:-mediavault}" \
+  psql -U "${DB_USER:-collectz}" -d "${POSTGRES_DB:-collectz}" \
   -c "UPDATE users SET reset_token = NULL, reset_expires = NULL WHERE reset_token IS NOT NULL;"
 ```
 

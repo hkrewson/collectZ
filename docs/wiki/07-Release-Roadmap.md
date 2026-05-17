@@ -10715,6 +10715,37 @@ Historical note:
 - What remains in the milestone: Nothing for `3.4.149`; CI-only release gates still need their normal GitHub run.
 - Recommended commit message: `Release 3.4.149 with Plex provider-advertised import path contract`
 
+## 3.4.162 — Scanner ISBN Lookup Fallback Guard
+
+**Goal:** Keep valid ISBN scanner and web barcode lookups on the Books/ISBN path so a Books no-match does not fall through to UPCItemDB/general barcode lookup.
+
+### Scope
+
+- Detect ISBN-10/ISBN-13 shaped scanner barcode values as ISBN direct lookups.
+- Return a successful empty ISBN response when Books has no match.
+- Apply the same no-fallback behavior to web `/api/media/lookup-upc`.
+- Keep lookup/import auth behavior unchanged.
+- Keep scanner clients thin and backend-owned.
+
+### Acceptance Criteria
+
+- `0553572393` normalizes to ISBN-13 `9780553572391` and returns `provider: books:isbn-direct`.
+- Scanner `POST /api/media/lookup/barcode` returns empty `matches` for a valid ISBN no-match without UPCItemDB fallback.
+- Web `POST /api/media/lookup-upc` returns empty `matches` for a valid ISBN no-match without UPCItemDB fallback.
+- OpenAPI documents the ISBN no-fallback behavior.
+- Version metadata, release note, release feed, and Help > Releases include `3.4.162`.
+
+### Closeout
+
+- Roadmap slice: `3.4.162 — Scanner ISBN Lookup Fallback Guard`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/25-Personal-Access-Tokens.md`; `docs/releases/v3.4.162.md`.
+- Runtime verification used: Docker-first backend/frontend image builds with `APP_VERSION=3.4.162`; running stack health served frontend/backend/build `3.4.162`; running frontend HTML served `<title>collectZ</title>` and `collectZ - Manage your collection`; running backend env reported `APP_EDITION=platform`, `APP_VERSION=3.4.162`, `NODE_ENV=development`, and `SESSION_COOKIE_SECURE=false` after restore; Docker scanner API smoke used a local fake Books/barcode provider and proved `0553572393` normalizes to `9780553572391`, returns `provider: books:isbn-direct`, and does not fall through to UPCItemDB when Books has no match; the same smoke also proved `0076783005990` still returns barcode-provider title variants; Help > Releases served `3.4.162`; platform and homelab edition boundary checks passed under their respective runtime overrides, then the stack was restored to platform release-tagged images.
+- CI/checks run: `node --check scripts/write-ci-compose-overrides.js`; `node --check scripts/generate-public-compose.js`; `node --check backend/services/importIdentifiers.js`; `node --check backend/routes/media.js`; `node --check backend/scripts/barcode-scanner-api-smoke.js`; `node backend/scripts/validate-openapi.js`; `node backend/scripts/export-release-feed.js`; host unit tests (`289` passed); Docker backend/frontend image builds; Docker `BASE_URL=http://frontend:3000 npm run test:barcode-scanner-api-smoke`; Docker `npm run test:openapi`; Docker image/unit test run with repo files mounted (`289` passed); Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.4.162 npm run test:help-releases-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker homelab override plus `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; Playwright browser regression (`65` passed, `4` skipped); local backend/frontend production dependency audits (`0` vulnerabilities); local observability evidence (`9/9` checks passed); local release preflight; old-name sweep for active source/docs/artifacts; targeted release/artifact secret-adjacent scan; `git diff --check`.
+- Files changed: `app-meta.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `artifacts/sbom-cyclonedx/backend-sbom.cdx.json`; `artifacts/sbom-cyclonedx/frontend-sbom.cdx.json`; `backend/app-meta.json`; `backend/openapi/openapi.yaml`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/routes/media.js`; `backend/scripts/barcode-scanner-api-smoke.js`; `backend/scripts/unit-tests.js`; `backend/services/importIdentifiers.js`; `docker-compose.yml`; `docs/releases/v3.4.162.md`; `docs/wiki/01-Configuration-and-Use.md`; `docs/wiki/02-Environment-Variables.md`; `docs/wiki/03-Docker-Compose-Setup.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backup-and-Restore.md`; `docs/wiki/09-Smoke-Test-Checklist.md`; `docs/wiki/15-Secrets-and-Rotation-Runbook.md`; `docs/wiki/16-Activity-Triage-Runbook.md`; `docs/wiki/26-Admin-Recovery-and-SMTP-Triage.md`; `docs/wiki/30-Observability-Triage-Runbook.md`; `env.example`; `frontend/index.html`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `preflight-go-no-go.md`; `scripts/generate-public-compose.js`; `scripts/write-ci-compose-overrides.js`.
+- Risks or follow-ups: this tightens ISBN-13 validation to the actual ISBN prefix range (`978`/`979`), so checksum-valid non-ISBN EAN/UPC values no longer get treated as Books identifiers; that is intended for scanner/barcode behavior, but any older import path that accidentally used a non-ISBN EAN as `isbn` will now leave that field empty and preserve it as UPC/EAN instead. New compose/template defaults use `collectz`; existing deployments with explicit `DB_USER`/`POSTGRES_DB` values are unchanged. CI-only secure-cookie compose smoke, secret scan, and image security/SBOM gates still need their normal GitHub Actions run.
+- What remains in the milestone: Nothing for `3.4.162`; CI-only release gates still need their normal GitHub run.
+- Recommended commit message: `Release 3.4.162 with scanner ISBN lookup fallback guard`.
+
 ## 3.4.161 — Scanner Barcode Import Enrichment
 
 **Goal:** After the scanner app sends a selected barcode match for import, run the backend enrichment pipeline with the available ISBN, UPC, title, and provider data before creating or updating the canonical media row.

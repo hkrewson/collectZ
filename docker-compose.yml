@@ -6,8 +6,8 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-mediavault}
-      POSTGRES_USER: ${DB_USER:-mediavault}
+      POSTGRES_DB: ${POSTGRES_DB:-collectz}
+      POSTGRES_USER: ${DB_USER:-collectz}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -15,13 +15,13 @@ services:
     networks:
       - internal
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-mediavault}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-collectz}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
   backend:
-    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-hkrewson}/collectz-backend:${IMAGE_TAG:-3.4.161}
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-hkrewson}/collectz-backend:${IMAGE_TAG:-3.4.162}
     restart: unless-stopped
     environment:
       NODE_ENV: ${NODE_ENV:-production}
@@ -31,7 +31,7 @@ services:
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
       PORT: 3001
       DATABASE_SSL: ${DATABASE_SSL:-false}
-      DATABASE_URL: postgresql://${DB_USER:-mediavault}:${DB_PASSWORD}@db:5432/${POSTGRES_DB:-mediavault}
+      DATABASE_URL: postgresql://${DB_USER:-collectz}:${DB_PASSWORD}@db:5432/${POSTGRES_DB:-collectz}
       AUDIT_LOG_MODE: ${AUDIT_LOG_MODE:-failures}
       LOG_EXPORT_BACKEND: ${LOG_EXPORT_BACKEND:-off}
       LOG_EXPORT_HOST: ${LOG_EXPORT_HOST:-127.0.0.1}
@@ -42,7 +42,7 @@ services:
       LOG_EXPORT_DEBUG: ${LOG_EXPORT_DEBUG:-false}
       LOG_EXPORT_MAX_DETAIL_BYTES: ${LOG_EXPORT_MAX_DETAIL_BYTES:-16384}
       GIT_SHA: ${GIT_SHA:-}
-      APP_VERSION: ${APP_VERSION:-3.4.161}
+      APP_VERSION: ${APP_VERSION:-3.4.162}
       SESSION_SECRET: ${SESSION_SECRET}
       SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-session_token}
       CSRF_COOKIE_NAME: ${CSRF_COOKIE_NAME:-csrf_token}
@@ -90,7 +90,7 @@ services:
       retries: 3
 
   frontend:
-    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-hkrewson}/collectz-frontend:${IMAGE_TAG:-3.4.161}
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-hkrewson}/collectz-frontend:${IMAGE_TAG:-3.4.162}
     restart: unless-stopped
     depends_on:
       - backend

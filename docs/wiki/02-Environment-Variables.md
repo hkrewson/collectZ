@@ -21,8 +21,8 @@ openssl rand -hex 32
 
 ## Core Database/Runtime
 
-- `DB_USER` (default: `mediavault`)
-- `POSTGRES_DB` (default: `mediavault`)
+- `DB_USER` (default: `collectz`)
+- `POSTGRES_DB` (default: `collectz`)
 - `DATABASE_SSL` (`false` by default)
 - `NODE_ENV` (`production` by default)
 - `APP_EDITION` (`platform` in the private repo's local/dev workflow; the generated public homelab compose defaults to `homelab` unless overridden)

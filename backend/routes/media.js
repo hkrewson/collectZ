@@ -12068,35 +12068,35 @@ async function lookupProviderMatchesForBarcode({ barcode, mediaType = null, conf
 
   if (directBookIsbn) {
     const directBookMatches = await searchBooksByIsbn(directBookIsbn, config, Math.min(5, limit));
-    if (directBookMatches.length) {
-      return {
+    return {
+      provider: 'books:isbn-direct',
+      request: {
         provider: 'books:isbn-direct',
-        request: {
-          provider: 'books:isbn-direct',
-          isbn: directBookIsbn
-        },
-        matches: directBookMatches.map((book, index) => normalizeScannerProviderMatch({
-          title: book?.title || '',
-          normalizedTitle: book?.title || '',
-          searchTitle: book?.title || '',
-          description: book?.overview || null,
-          image: book?.poster_path || null,
-          upc: upc || null,
-          mediaTypeGuess: 'book',
-          year: book?.year || null,
-          source: 'books:isbn-direct',
-          typeDetails: {
-            author: book?.type_details?.author || null,
-            isbn: directBookIsbn,
-            format: book?.type_details?.edition || null,
-            series: null,
-            season_number: null,
-            publisher: book?.type_details?.publisher || null
-          },
-          book
-        }, upc, symbology, { provider: 'books:isbn-direct', index }))
-      };
-    }
+        isbn: directBookIsbn
+      },
+      matches: directBookMatches.length
+        ? directBookMatches.map((book, index) => normalizeScannerProviderMatch({
+            title: book?.title || '',
+            normalizedTitle: book?.title || '',
+            searchTitle: book?.title || '',
+            description: book?.overview || null,
+            image: book?.poster_path || null,
+            upc: upc || null,
+            mediaTypeGuess: 'book',
+            year: book?.year || null,
+            source: 'books:isbn-direct',
+            typeDetails: {
+              author: book?.type_details?.author || null,
+              isbn: directBookIsbn,
+              format: book?.type_details?.edition || null,
+              series: null,
+              season_number: null,
+              publisher: book?.type_details?.publisher || null
+            },
+            book
+          }, upc, symbology, { provider: 'books:isbn-direct', index }))
+        : []
+    };
   }
 
   const {
@@ -12264,14 +12264,14 @@ router.post('/lookup-upc', validate(upcLookupSchema), asyncHandler(async (req, r
   if (directBookIsbn) {
     try {
       const directBookMatches = await searchBooksByIsbn(directBookIsbn, config, 5);
-      if (directBookMatches.length) {
-        return res.json({
+      return res.json({
+        provider: 'books:isbn-direct',
+        request: {
           provider: 'books:isbn-direct',
-          request: {
-            provider: 'books:isbn-direct',
-            isbn: directBookIsbn
-          },
-          matches: directBookMatches.map((book) => ({
+          isbn: directBookIsbn
+        },
+        matches: directBookMatches.length
+          ? directBookMatches.map((book) => ({
             title: book?.title || '',
             normalizedTitle: book?.title || '',
             searchTitle: book?.title || '',
@@ -12291,8 +12291,8 @@ router.post('/lookup-upc', validate(upcLookupSchema), asyncHandler(async (req, r
             },
             book
           }))
-        });
-      }
+          : []
+      });
     } catch (error) {
       if ((error?.status || 500) >= 400 && (error?.status || 500) < 500) {
         return res.status(error.status || 400).json({

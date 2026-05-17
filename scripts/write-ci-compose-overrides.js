@@ -15,7 +15,7 @@ const buildOverride = `services:
       dockerfile: Dockerfile
       args:
         APP_VERSION: \${APP_VERSION:-}
-    image: mediavault-backend:ci
+    image: collectz-backend:ci
     volumes:
       - ./init.sql:/init.sql:ro
       - ./docker-compose.yml:/docker-compose.yml:ro
@@ -38,7 +38,7 @@ const buildOverride = `services:
         VITE_APP_VERSION: \${APP_VERSION:-}
         VITE_DEBUG: \${DEBUG:-0}
         VITE_CSRF_COOKIE_NAME: \${CSRF_COOKIE_NAME:-csrf_token}
-    image: mediavault-frontend:ci
+    image: collectz-frontend:ci
 `;
 
 const platformOverride = `services:

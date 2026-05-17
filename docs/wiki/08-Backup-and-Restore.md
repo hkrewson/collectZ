@@ -8,9 +8,9 @@ From repo root on your Docker host:
 
 ```bash
 mkdir -p backups
-BACKUP_FILE="backups/mediavault_$(date -u +%Y%m%dT%H%M%SZ).sql"
+BACKUP_FILE="backups/collectz_$(date -u +%Y%m%dT%H%M%SZ).sql"
 docker compose --env-file .env exec -T db \
-  pg_dump -U "${DB_USER:-mediavault}" -d "${POSTGRES_DB:-mediavault}" \
+  pg_dump -U "${DB_USER:-collectz}" -d "${POSTGRES_DB:-collectz}" \
   > "$BACKUP_FILE"
 ```
 
@@ -33,18 +33,18 @@ docker compose --env-file .env stop frontend backend
 2. Restore SQL dump file:
 
 ```bash
-BACKUP_FILE="backups/mediavault_YYYYMMDDTHHMMSSZ.sql"
+BACKUP_FILE="backups/collectz_YYYYMMDDTHHMMSSZ.sql"
 docker compose --env-file .env exec -T db \
-  psql -U "${DB_USER:-mediavault}" -d "${POSTGRES_DB:-mediavault}" \
+  psql -U "${DB_USER:-collectz}" -d "${POSTGRES_DB:-collectz}" \
   < "$BACKUP_FILE"
 ```
 
 If using `.sql.gz`:
 
 ```bash
-gunzip -c backups/mediavault_YYYYMMDDTHHMMSSZ.sql.gz | \
+gunzip -c backups/collectz_YYYYMMDDTHHMMSSZ.sql.gz | \
   docker compose --env-file .env exec -T db \
-  psql -U "${DB_USER:-mediavault}" -d "${POSTGRES_DB:-mediavault}"
+  psql -U "${DB_USER:-collectz}" -d "${POSTGRES_DB:-collectz}"
 ```
 
 3. Restart app services:

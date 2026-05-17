@@ -97,7 +97,7 @@ docker compose --env-file .env exec -T backend \
 
 ```bash
 docker compose --env-file .env exec -T db \
-  psql -U "${DB_USER:-mediavault}" -d "${POSTGRES_DB:-mediavault}" \
+  psql -U "${DB_USER:-collectz}" -d "${POSTGRES_DB:-collectz}" \
   -c "UPDATE users SET password = '<PASTE_BCRYPT_HASH>' WHERE email = 'admin@example.com';"
 ```
 
@@ -105,7 +105,7 @@ docker compose --env-file .env exec -T db \
 
 ```bash
 docker compose --env-file .env exec -T db \
-  psql -U "${DB_USER:-mediavault}" -d "${POSTGRES_DB:-mediavault}" \
+  psql -U "${DB_USER:-collectz}" -d "${POSTGRES_DB:-collectz}" \
   -c "UPDATE users SET role = 'admin' WHERE email = 'you@example.com';"
 ```
 
@@ -113,7 +113,7 @@ docker compose --env-file .env exec -T db \
 
 ```bash
 docker compose --env-file .env exec -T db \
-  psql -U "${DB_USER:-mediavault}" -d "${POSTGRES_DB:-mediavault}" \
+  psql -U "${DB_USER:-collectz}" -d "${POSTGRES_DB:-collectz}" \
   -c "DELETE FROM user_sessions WHERE user_id = (SELECT id FROM users WHERE email = 'admin@example.com');"
 ```
 

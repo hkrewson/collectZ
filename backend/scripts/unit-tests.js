@@ -964,6 +964,10 @@ results.push(run('importIdentifiers.normalizeIsbn rejects invalid ISBN-10 values
   assert.strictEqual(normalizeIsbn('0553572751'), '');
 }));
 
+results.push(run('importIdentifiers.normalizeIsbn rejects checksum-valid non-ISBN EAN values', () => {
+  assert.strictEqual(normalizeIsbn('0076783005990'), '');
+}));
+
 results.push(run('mediaFormats.buildOwnedFormatsPayload preserves multi-format ownership and derives primary display format', () => {
   const moviePayload = buildOwnedFormatsPayload('movie', ['dvd', 'uhd', 'bluray'], null);
   assert.deepStrictEqual(moviePayload.ownedFormats, ['dvd', 'bluray', 'uhd']);
@@ -2592,6 +2596,7 @@ results.push(run('media route source guards tmdb season hydration to tv series o
 results.push(run('media route source prefers direct isbn lookup for explicit book identifiers', () => {
   assert.ok(mediaRoutesSource.includes('const directBookIsbn = normalizeIsbn(upc);'));
   assert.ok(mediaRoutesSource.includes("provider: 'books:isbn-direct'"));
+  assert.ok(mediaRoutesSource.includes('matches: directBookMatches.length'));
   assert.ok(mediaRoutesSource.includes("stage: 'book_isbn_direct'"));
 }));
 

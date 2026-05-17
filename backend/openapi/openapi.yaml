@@ -1039,7 +1039,7 @@
       "BarcodeLookupRequest": {
         "type": "object",
         "properties": {
-          "barcode": { "type": "string", "description": "Captured barcode value after scanner-side decoding." },
+          "barcode": { "type": "string", "description": "Captured barcode value after scanner-side decoding. Valid ISBN-10/ISBN-13 values are treated as Books lookups and do not fall through to the generic barcode provider when Books returns no candidates." },
           "symbology": { "type": ["string", "null"], "description": "Scanner-reported barcode format such as ean13, upca, or code128." },
           "mediaType": { "type": "string", "enum": ["movie", "tv_series", "tv_episode", "book", "audio", "game", "comic_book"] },
           "limit": { "type": "integer", "minimum": 1, "maximum": 25, "default": 10 }
@@ -1094,7 +1094,7 @@
         "properties": {
           "ok": { "type": "boolean" },
           "authenticated": { "type": "boolean" },
-          "provider": { "type": ["string", "null"] },
+          "provider": { "type": ["string", "null"], "description": "Provider used for provider candidates. ISBN lookups report books:isbn-direct, including successful empty no-match responses." },
           "barcode": { "type": "string" },
           "symbology": { "type": ["string", "null"] },
           "count": { "type": "integer" },
@@ -6243,7 +6243,7 @@
       "post": {
         "tags": ["Media"],
         "summary": "Lookup decoded scanner barcode against the scoped catalog and configured barcode providers",
-        "description": "Authenticated scanner contract. Requires a browser session or bearer token with media:read. The backend remains the source of truth and returns a candidate list: catalog matches and all meaningful provider candidates up to the requested limit. ISBN-10/ISBN-13 shaped barcodes use the configured Books provider directly before general barcode lookup. Empty lookups return a successful empty match list.",
+        "description": "Authenticated scanner contract. Requires a browser session or bearer token with media:read. The backend remains the source of truth and returns a candidate list: catalog matches and all meaningful provider candidates up to the requested limit. ISBN-10/ISBN-13 shaped barcodes use the configured Books provider directly and stay on that path even when Books returns no candidates, so ISBN no-match scans return a successful empty match list instead of falling through to UPCItemDB/general barcode lookup. Empty lookups return a successful empty match list.",
         "security": [
           { "cookieSession": [], "csrfHeader": [] },
           { "bearerAuth": [] }

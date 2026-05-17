@@ -16,8 +16,8 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: \${POSTGRES_DB:-mediavault}
-      POSTGRES_USER: \${DB_USER:-mediavault}
+      POSTGRES_DB: \${POSTGRES_DB:-collectz}
+      POSTGRES_USER: \${DB_USER:-collectz}
       POSTGRES_PASSWORD: \${DB_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -25,7 +25,7 @@ services:
     networks:
       - internal
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U \${DB_USER:-mediavault}"]
+      test: ["CMD-SHELL", "pg_isready -U \${DB_USER:-collectz}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -41,7 +41,7 @@ services:
       SESSION_COOKIE_SECURE: \${SESSION_COOKIE_SECURE:-true}
       PORT: 3001
       DATABASE_SSL: \${DATABASE_SSL:-false}
-      DATABASE_URL: postgresql://\${DB_USER:-mediavault}:\${DB_PASSWORD}@db:5432/\${POSTGRES_DB:-mediavault}
+      DATABASE_URL: postgresql://\${DB_USER:-collectz}:\${DB_PASSWORD}@db:5432/\${POSTGRES_DB:-collectz}
       AUDIT_LOG_MODE: \${AUDIT_LOG_MODE:-failures}
       LOG_EXPORT_BACKEND: \${LOG_EXPORT_BACKEND:-off}
       LOG_EXPORT_HOST: \${LOG_EXPORT_HOST:-127.0.0.1}

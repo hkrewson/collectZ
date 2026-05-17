@@ -1,6 +1,27 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.162",
+      "version": "3.4.162",
+      "date": "2026-05-17",
+      "status": "released",
+      "summary": "This patch keeps valid ISBN scanner and web lookups on the Books/ISBN path even when the Books provider has no match.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Valid ISBN-10/ISBN-13 barcode values now return `provider: books:isbn-direct` from scanner lookup without falling through to UPCItemDB/general barcode lookup.",
+            "ISBN no-match lookups return a successful empty `matches` list instead of a potentially unrelated barcode-provider candidate.",
+            "Checksum-valid non-ISBN EAN/UPC values, such as `0076783005990`, remain on the barcode-provider path so provider title variants still surface.",
+            "The web barcode lookup path follows the same ISBN no-fallback behavior.",
+            "Public templates, browser metadata, package names, generated compose defaults, and operator docs now use `collectZ`/`collectz` naming instead of the old app-name defaults.",
+            "Scanner smoke coverage now proves ISBN direct success and ISBN direct no-match behavior for both scanner and web lookup routes.",
+            "OpenAPI now documents that ISBN no-match scans stay on `books:isbn-direct`."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.4.161",
       "version": "3.4.161",
       "date": "2026-05-16",
@@ -147,25 +168,6 @@
             "Prevents chapter fan-out from creating a duplicate issue row when the Kavita series row already represents an issue-like comic.",
             "Preserves raw Kavita series/localized/original/sort names plus parse status metadata for troubleshooting.",
             "Extends the Kavita import smoke fixture with the real `Alpha Flight#130 - The Hollow Man! - Unknown` pattern."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.4.152",
-      "version": "3.4.152",
-      "date": "2026-05-10",
-      "status": "released",
-      "summary": "This patch adds reusable artist records to Art entry. Artwork can still keep its own simple artist text, but users can now create an artist once, reuse that record across multiple works, and see linked artist details from the artwork detail view.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Adds reusable Art artist records with names, sort names, aliases, website links, notes, and linked-work counts.",
-            "Adds `artist_id` and `artist_role` to Art rows so each artwork can link to an artist while keeping item-specific text and role metadata.",
-            "Adds typeahead artist lookup and inline artist creation inside the Art drawer.",
-            "Shows linked artist metadata on Art detail with a shortcut to view other works by the same artist.",
-            "Documents and tests the new Art artist API in OpenAPI, migration/init parity, source checks, and browser regression coverage."
           ]
         }
       ]

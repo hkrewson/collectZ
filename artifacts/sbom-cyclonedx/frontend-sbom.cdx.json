@@ -19,7 +19,7 @@
     "component": {
       "bom-ref": "67027106-7a38-44ba-be6e-73a78baabefc",
       "type": "container",
-      "name": "mediavault-frontend:latest",
+      "name": "collectz-frontend:latest",
       "properties": [
         {
           "name": "aquasecurity:trivy:DiffID",
@@ -71,7 +71,7 @@
         },
         {
           "name": "aquasecurity:trivy:RepoTag",
-          "value": "mediavault-frontend:latest"
+          "value": "collectz-frontend:latest"
         },
         {
           "name": "aquasecurity:trivy:SchemaVersion",

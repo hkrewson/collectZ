@@ -56,7 +56,7 @@ Check audit entries were written:
 
 ```bash
 docker compose --env-file .env exec -T db \
-  psql -U "${DB_USER:-mediavault}" -d "${POSTGRES_DB:-mediavault}" \
+  psql -U "${DB_USER:-collectz}" -d "${POSTGRES_DB:-collectz}" \
   -c "SELECT id, action, entity_type, entity_id, user_id, created_at FROM activity_log ORDER BY id DESC LIMIT 20;"
 ```
 

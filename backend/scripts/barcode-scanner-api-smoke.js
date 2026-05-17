@@ -104,6 +104,8 @@ async function configureFakeBarcodeProvider({ spaceId, barcodeUrl, booksUrl }) {
 async function startFakeProvider() {
   const multiUpc = '0076783005990';
   const isbn = '9780553572735';
+  const isbnNoMatch = '0553572393';
+  const isbnNoMatchCanonical = '9780553572391';
   const server = http.createServer((req, res) => {
     const url = new URL(req.url, 'http://127.0.0.1');
     if (url.pathname === '/books') {
@@ -135,6 +137,10 @@ async function startFakeProvider() {
         }));
         return;
       }
+      if (q === `isbn:${isbnNoMatchCanonical}`) {
+        res.end(JSON.stringify({ totalItems: 0, items: [] }));
+        return;
+      }
       res.end(JSON.stringify({ totalItems: 0, items: [] }));
       return;
     }
@@ -162,6 +168,21 @@ async function startFakeProvider() {
       }));
       return;
     }
+    if (upc === isbnNoMatch || upc === isbnNoMatchCanonical) {
+      res.end(JSON.stringify({
+        code: 'OK',
+        total: 1,
+        items: [
+          {
+            title: 'Wrong generic barcode fallback',
+            description: 'This result must not appear for valid ISBN direct no-match lookups.',
+            upc,
+            brand: 'Provider Fixture'
+          }
+        ]
+      }));
+      return;
+    }
     res.end(JSON.stringify({ code: 'OK', total: 0, items: [] }));
   });
 
@@ -173,6 +194,8 @@ async function startFakeProvider() {
   return {
     multiUpc,
     isbn,
+    isbnNoMatch,
+    isbnNoMatchCanonical,
     barcodeUrl: `http://127.0.0.1:${address.port}/lookup`,
     booksUrl: `http://127.0.0.1:${address.port}/books`,
     close: () => new Promise((resolve) => server.close(resolve))
@@ -279,6 +302,29 @@ async function main() {
     const webIsbnMatches = Array.isArray(webIsbnLookup.data?.matches) ? webIsbnLookup.data.matches : [];
     assert(webIsbnMatches.some((match) => match.source === 'books:isbn-direct' && match.title === 'Before the Storm'), 'web ISBN lookup should use direct books enrichment even when mediaType is not book');
 
+    const scannerIsbnNoMatchLookup = await request('/api/media/lookup/barcode', {
+      method: 'POST',
+      token: context.token,
+      body: { barcode: fakeProvider.isbnNoMatch, symbology: 'isbn10', limit: 10 },
+      expectStatus: 200
+    });
+    assert(scannerIsbnNoMatchLookup.data?.ok === true, 'scanner ISBN no-match lookup should return ok=true');
+    assert(scannerIsbnNoMatchLookup.data?.provider === 'books:isbn-direct', 'scanner ISBN no-match lookup should stay on books:isbn-direct');
+    assert(scannerIsbnNoMatchLookup.data?.request?.isbn === fakeProvider.isbnNoMatchCanonical, 'scanner ISBN no-match lookup should report canonical ISBN-13');
+    const scannerIsbnNoMatchMatches = Array.isArray(scannerIsbnNoMatchLookup.data?.matches) ? scannerIsbnNoMatchLookup.data.matches : [];
+    assert(scannerIsbnNoMatchMatches.length === 0, `scanner ISBN no-match lookup should return empty matches, got ${scannerIsbnNoMatchMatches.length}`);
+
+    const webIsbnNoMatchLookup = await request('/api/media/lookup-upc', {
+      method: 'POST',
+      token: context.token,
+      body: { upc: fakeProvider.isbnNoMatch, mediaType: 'movie' },
+      expectStatus: 200
+    });
+    assert(webIsbnNoMatchLookup.data?.provider === 'books:isbn-direct', 'web ISBN no-match lookup should stay on books:isbn-direct');
+    assert(webIsbnNoMatchLookup.data?.request?.isbn === fakeProvider.isbnNoMatchCanonical, 'web ISBN no-match lookup should report canonical ISBN-13');
+    const webIsbnNoMatchMatches = Array.isArray(webIsbnNoMatchLookup.data?.matches) ? webIsbnNoMatchLookup.data.matches : [];
+    assert(webIsbnNoMatchMatches.length === 0, `web ISBN no-match lookup should return empty matches, got ${webIsbnNoMatchMatches.length}`);
+
     const unauthenticatedImport = await request('/api/media/import-barcode', {
       method: 'POST',
       body: {
@@ -332,6 +378,8 @@ async function main() {
         webLookupTitleVariantSuccess: true,
         scannerIsbnLookupSuccess: true,
         webIsbnLookupSuccess: true,
+        scannerIsbnNoFallbackSuccess: true,
+        webIsbnNoFallbackSuccess: true,
         importRequiresAuth: true,
         importSuccess: true,
         importEnrichmentSuccess: true

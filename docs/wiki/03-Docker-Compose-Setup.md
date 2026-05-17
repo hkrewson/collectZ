@@ -85,8 +85,8 @@ Set DB user password inside Postgres to match `.env`:
 
 ```bash
 docker compose --env-file .env exec -T db \
-  psql -U "${DB_USER:-mediavault}" -d "${POSTGRES_DB:-mediavault}" \
-  -c "ALTER USER ${DB_USER:-mediavault} WITH PASSWORD '${DB_PASSWORD}';"
+  psql -U "${DB_USER:-collectz}" -d "${POSTGRES_DB:-collectz}" \
+  -c "ALTER USER ${DB_USER:-collectz} WITH PASSWORD '${DB_PASSWORD}';"
 
 docker compose --env-file .env restart backend
 ```

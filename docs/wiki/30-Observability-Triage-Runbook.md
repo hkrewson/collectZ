@@ -185,7 +185,7 @@ Recent activity fallback:
 
 ```bash
 docker compose --env-file .env exec -T db \
-  psql -U "${DB_USER:-mediavault}" -d "${POSTGRES_DB:-mediavault}" \
+  psql -U "${DB_USER:-collectz}" -d "${POSTGRES_DB:-collectz}" \
   -c "SELECT id, action, entity_type, user_id, details, created_at FROM activity_log ORDER BY id DESC LIMIT 200;"
 ```
 

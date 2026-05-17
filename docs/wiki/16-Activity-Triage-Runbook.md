@@ -42,7 +42,7 @@ If UI is insufficient, run direct SQL:
 
 ```bash
 docker compose --env-file .env exec -T db \
-  psql -U "${DB_USER:-mediavault}" -d "${POSTGRES_DB:-mediavault}" \
+  psql -U "${DB_USER:-collectz}" -d "${POSTGRES_DB:-collectz}" \
   -c "SELECT id, action, entity_type, user_id, details->>'status' AS status, details->>'reason' AS reason, created_at FROM activity_log ORDER BY id DESC LIMIT 200;"
 ```
 
@@ -50,7 +50,7 @@ Time-bounded query:
 
 ```bash
 docker compose --env-file .env exec -T db \
-  psql -U "${DB_USER:-mediavault}" -d "${POSTGRES_DB:-mediavault}" \
+  psql -U "${DB_USER:-collectz}" -d "${POSTGRES_DB:-collectz}" \
   -c "SELECT id, action, entity_type, user_id, details, created_at FROM activity_log WHERE created_at >= NOW() - INTERVAL '2 hours' ORDER BY id DESC;"
 ```
 

@@ -19,7 +19,7 @@
     "component": {
       "bom-ref": "688c9df2-3bed-4679-b750-a38d100f5547",
       "type": "container",
-      "name": "mediavault-backend:latest",
+      "name": "collectz-backend:latest",
       "properties": [
         {
           "name": "aquasecurity:trivy:DiffID",
@@ -67,7 +67,7 @@
         },
         {
           "name": "aquasecurity:trivy:RepoTag",
-          "value": "mediavault-backend:latest"
+          "value": "collectz-backend:latest"
         },
         {
           "name": "aquasecurity:trivy:SchemaVersion",
@@ -16542,11 +16542,11 @@
       ]
     },
     {
-      "bom-ref": "pkg:npm/mediavault-backend@3.1.2",
+      "bom-ref": "pkg:npm/collectz-backend@3.1.2",
       "type": "library",
-      "name": "mediavault-backend",
+      "name": "collectz-backend",
       "version": "3.1.2",
-      "purl": "pkg:npm/mediavault-backend@3.1.2",
+      "purl": "pkg:npm/collectz-backend@3.1.2",
       "properties": [
         {
           "name": "aquasecurity:trivy:FilePath",
@@ -16558,7 +16558,7 @@
         },
         {
           "name": "aquasecurity:trivy:PkgID",
-          "value": "mediavault-backend@3.1.2"
+          "value": "collectz-backend@3.1.2"
         },
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -21790,7 +21790,7 @@
         "pkg:npm/make-fetch-happen@13.0.1",
         "pkg:npm/math-intrinsics@1.1.0",
         "pkg:npm/media-typer@0.3.0",
-        "pkg:npm/mediavault-backend@3.1.2",
+        "pkg:npm/collectz-backend@3.1.2",
         "pkg:npm/merge-descriptors@1.0.3",
         "pkg:npm/methods@1.1.2",
         "pkg:npm/mime-db@1.52.0",
@@ -23619,7 +23619,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:npm/mediavault-backend@3.1.2",
+      "ref": "pkg:npm/collectz-backend@3.1.2",
       "dependsOn": []
     },
     {

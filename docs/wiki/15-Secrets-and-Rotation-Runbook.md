@@ -80,7 +80,7 @@ Changing `SESSION_SECRET` invalidates cookie signing trust for new requests.
 For immediate full session revocation, clear persisted sessions:
 
 ```bash
-docker compose --env-file .env exec -T db psql -U "${DB_USER:-mediavault}" -d "${POSTGRES_DB:-mediavault}" \
+docker compose --env-file .env exec -T db psql -U "${DB_USER:-collectz}" -d "${POSTGRES_DB:-collectz}" \
   -c "DELETE FROM user_sessions;"
 ```
 
@@ -162,14 +162,14 @@ If no admin can sign in, recover in this order:
 Count active sessions:
 
 ```bash
-docker compose --env-file .env exec -T db psql -U "${DB_USER:-mediavault}" -d "${POSTGRES_DB:-mediavault}" \
+docker compose --env-file .env exec -T db psql -U "${DB_USER:-collectz}" -d "${POSTGRES_DB:-collectz}" \
   -c "SELECT COUNT(*) AS active_sessions FROM user_sessions;"
 ```
 
 Inspect recent auth-related activity:
 
 ```bash
-docker compose --env-file .env exec -T db psql -U "${DB_USER:-mediavault}" -d "${POSTGRES_DB:-mediavault}" \
+docker compose --env-file .env exec -T db psql -U "${DB_USER:-collectz}" -d "${POSTGRES_DB:-collectz}" \
   -c "SELECT id, action, created_at FROM activity_log WHERE action LIKE 'auth.%' ORDER BY id DESC LIMIT 20;"
 ```
 

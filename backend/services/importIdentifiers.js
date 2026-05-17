@@ -34,6 +34,7 @@ function computeIsbn13CheckDigit(core) {
 function isValidIsbn13(value) {
   const digits = normalizeDigits(value);
   if (!/^\d{13}$/.test(digits)) return false;
+  if (!/^97[89]/.test(digits)) return false;
   return computeIsbn13CheckDigit(digits.slice(0, 12)) === Number(digits[12]);
 }
 
