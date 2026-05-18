@@ -7,8 +7,10 @@ import AdminMergeReviewView from '../AdminMergeReviewView';
 import AdminSettingsView from '../AdminSettingsView';
 import AdminIntegrationsView from '../AdminIntegrationsView';
 import AdminSpacesView from '../AdminSpacesView';
+import DashboardCommandCenterView from '../DashboardCommandCenterView';
 import LibraryView from '../LibraryView';
 import LibraryLoansView from '../LibraryLoansView';
+import WishlistView from '../WishlistView';
 import EventsView from '../EventsView';
 import CollectiblesView from '../CollectiblesView';
 import ArtView from '../ArtView';
@@ -54,6 +56,8 @@ export default function DashboardContent({
   setUiSettings,
   activeIntegrationSection,
   setActiveIntegrationSection,
+  libraryReviewFilter,
+  setLibraryReviewFilter,
   spaces,
   activeSpace,
   activeSpaceId,
@@ -72,6 +76,7 @@ export default function DashboardContent({
   productEdition = 'platform'
 }) {
   const [mergeReviewSeed, setMergeReviewSeed] = React.useState(null);
+  const [timelineFocus, setTimelineFocus] = React.useState(null);
   const isAdminTab = String(activeTab || '').startsWith('admin-');
   const supportHelpEnabled = isSupportHelpEnabled(productEdition);
   const supportStaffInEdition = supportHelpEnabled && ['admin', 'support_admin'].includes(String(user?.role || ''));
@@ -89,7 +94,33 @@ export default function DashboardContent({
     return <ForbiddenView detail="Support admins stay in the support surface by default and cannot browse tenant library data without a later approved support workflow." />;
   }
 
+  const handleTimelineNavigate = (target = {}) => {
+    if (target.integrationSection) setActiveIntegrationSection?.(target.integrationSection);
+    if (target.focus) {
+      setTimelineFocus({
+        ...target.focus,
+        createdAt: Date.now()
+      });
+    }
+    if (target.tab) setActiveTab(target.tab);
+  };
+
   switch (activeTab) {
+    case 'dashboard':
+      return (
+        <DashboardCommandCenterView
+          key={`dashboard:${scopeKey}`}
+          apiCall={apiCall}
+          onToast={showToast}
+          setActiveTab={setActiveTab}
+          setActiveIntegrationSection={setActiveIntegrationSection}
+          setLibraryReviewFilter={setLibraryReviewFilter}
+          activeSpace={activeSpace}
+          activeLibrary={activeLibrary}
+          Icons={Icons}
+          Spinner={Spinner}
+        />
+      );
     case 'help':
     case 'support-inbox':
       return (
@@ -117,6 +148,7 @@ export default function DashboardContent({
     case 'library-audio':
     case 'library-games':
     case 'library-comics':
+    case 'library-wishlist':
     case 'library-loans':
     case 'library-art':
     case 'library-collectibles':
@@ -128,13 +160,13 @@ export default function DashboardContent({
         return <ForbiddenView detail="Events is currently disabled by feature flag." />;
       }
       if (activeTab === 'library-art') {
-        return <ArtView key={`art:${scopeKey}`} apiCall={apiCall} onToast={showToast} />;
+        return <ArtView key={`art:${scopeKey}`} apiCall={apiCall} onToast={showToast} focusTarget={timelineFocus?.entityType === 'art' ? timelineFocus : null} />;
       }
       if (activeTab === 'library-collectibles') {
-        return <CollectiblesView key={`collectibles:${scopeKey}`} apiCall={apiCall} onToast={showToast} />;
+        return <CollectiblesView key={`collectibles:${scopeKey}`} apiCall={apiCall} onToast={showToast} focusTarget={timelineFocus?.entityType === 'collectible' ? timelineFocus : null} />;
       }
       if (activeTab === 'library-events') {
-        return <EventsView key={`events:${scopeKey}`} apiCall={apiCall} onToast={showToast} currentUser={user} />;
+        return <EventsView key={`events:${scopeKey}`} apiCall={apiCall} onToast={showToast} currentUser={user} focusTarget={timelineFocus?.entityType === 'event' ? timelineFocus : null} />;
       }
       if (activeTab === 'library-loans') {
         return (
@@ -148,9 +180,21 @@ export default function DashboardContent({
           />
         );
       }
+      if (activeTab === 'library-wishlist') {
+        return (
+          <WishlistView
+            key={`library-wishlist:${scopeKey}`}
+            apiCall={apiCall}
+            onToast={showToast}
+            activeLibrary={activeLibrary}
+            Icons={Icons}
+            Spinner={Spinner}
+          />
+        );
+      }
       return (
         <LibraryView
-          key={`library:${activeTab}:${scopeKey}`}
+          key={`library:${activeTab}:${scopeKey}:${libraryReviewFilter?.type || 'none'}:${libraryReviewFilter?.createdAt || 0}`}
           mediaItems={mediaItems}
           loading={mediaLoading}
           error={mediaError}
@@ -163,7 +207,10 @@ export default function DashboardContent({
           onBulkDelete={bulkDeleteMedia}
           onRating={rateMedia}
           apiCall={apiCall}
-          forcedMediaType={forcedMediaTypeByTab[activeTab] || 'movie'}
+          forcedMediaType={activeTab === 'library' ? 'all' : forcedMediaTypeByTab[activeTab] || 'movie'}
+          reviewFilter={activeTab === 'library' ? libraryReviewFilter : null}
+          onClearReviewFilter={() => setLibraryReviewFilter?.(null)}
+          focusTarget={timelineFocus?.entityType === 'media' ? timelineFocus : null}
           onFindPossibleDuplicates={user?.role === 'admin'
             ? (item) => {
                 setMergeReviewSeed({
@@ -235,6 +282,7 @@ export default function DashboardContent({
           Icons={Icons}
           Spinner={Spinner}
           cx={cx}
+          onTimelineNavigate={handleTimelineNavigate}
         />
       );
     case 'admin-users':
@@ -265,7 +313,7 @@ export default function DashboardContent({
         />
       );
     case 'admin-activity':
-      return <AdminActivityView apiCall={apiCall} Spinner={Spinner} />;
+      return <AdminActivityView apiCall={apiCall} Spinner={Spinner} onTimelineNavigate={handleTimelineNavigate} />;
     case 'admin-settings':
       return (
         <AdminSettingsView

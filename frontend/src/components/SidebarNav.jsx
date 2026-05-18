@@ -65,6 +65,7 @@ export default function SidebarNav({
     'library-art',
     'library-games',
     'library-comics',
+    'library-wishlist',
     'library-loans',
     'library-collectibles',
     'library-events',
@@ -192,6 +193,10 @@ export default function SidebarNav({
           )}
         </div>
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto no-scrollbar">
+          {canUseLibraryShell && isTabAllowed('dashboard') && (
+            <NavLink id="dashboard" icon={<Icons.Gauge />} label="Dashboard" />
+          )}
+
           {!collapsed && user && showLibrarySwitcher && (
             <div className="mb-3 space-y-1">
               <div className="flex items-center justify-between gap-2 px-1">
@@ -245,6 +250,7 @@ export default function SidebarNav({
                 <NavLink id="library-loans" icon={null} label="Loans" sub />
                 <NavLink id="library-movies" icon={null} label="Movies" sub />
                 <NavLink id="library-tv" icon={null} label="TV" sub />
+                <NavLink id="library-wishlist" icon={null} label="Wishlist" sub />
               </div>
             )}
           </div>

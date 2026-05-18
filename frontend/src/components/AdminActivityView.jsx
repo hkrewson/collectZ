@@ -17,7 +17,7 @@ function formatFailureReason(value) {
     .join(' ');
 }
 
-export default function AdminActivityView({ apiCall, Spinner }) {
+export default function AdminActivityView({ apiCall, Spinner, onTimelineNavigate = null }) {
   const [operations, setOperations] = useState(null);
   const [loadingOperations, setLoadingOperations] = useState(true);
 
@@ -43,7 +43,7 @@ export default function AdminActivityView({ apiCall, Spinner }) {
       <div className="space-y-2">
         <h1 className="section-title">Platform Activity</h1>
         <p className="text-sm text-ghost max-w-3xl">
-          Platform-wide audit trail for admin actions, account changes, and cross-workspace management events. Workspace-local activity lives in Workspace.
+          Human-readable platform timeline for admin actions, account changes, and cross-workspace management events. Workspace-local timeline entries live in Workspace.
         </p>
       </div>
 
@@ -181,8 +181,10 @@ export default function AdminActivityView({ apiCall, Spinner }) {
         apiCall={apiCall}
         Spinner={Spinner}
         endpoint="/admin/activity"
-        title="Platform Activity"
-        description=""
+        title="Timeline"
+        description="Readable activity entries first, technical details only when needed."
+        context="platform"
+        onNavigate={onTimelineNavigate}
       />
     </div>
   );

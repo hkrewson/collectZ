@@ -9883,6 +9883,7 @@ router.get('/', asyncHandler(async (req, res) => {
     format, search, page, limit,
     sortBy, sortDir,
     media_type,
+    review_filter,
     director, genre, cast, resolution, platform, publisher,
     yearMin, yearMax,
     ratingMin, ratingMax,
@@ -9968,6 +9969,19 @@ router.get('/', asyncHandler(async (req, res) => {
   } else if (media_type && media_type !== 'all' && MEDIA_TYPES.includes(String(media_type))) {
     params.push(media_type);
     where += ` AND media_type = $${params.length}`;
+  }
+
+  const normalizedReviewFilter = String(review_filter || '').trim().toLowerCase().replace(/-/g, '_');
+  if (normalizedReviewFilter === 'missing_covers' || normalizedReviewFilter === 'missing_cover') {
+    where += ` AND COALESCE(NULLIF(TRIM(media.poster_path), ''), NULL) IS NULL`;
+  } else if (normalizedReviewFilter === 'missing_identifiers' || normalizedReviewFilter === 'missing_identifier') {
+    where += ` AND COALESCE(NULLIF(TRIM(media.upc), ''), NULL) IS NULL
+      AND media.tmdb_id IS NULL
+      AND COALESCE(NULLIF(TRIM(media.type_details->>'isbn'), ''), NULL) IS NULL
+      AND COALESCE(NULLIF(TRIM(media.type_details->>'isbn13'), ''), NULL) IS NULL
+      AND COALESCE(NULLIF(TRIM(media.type_details->>'google_books_id'), ''), NULL) IS NULL
+      AND COALESCE(NULLIF(TRIM(media.type_details->>'plex_rating_key'), ''), NULL) IS NULL
+      AND COALESCE(NULLIF(TRIM(media.type_details->>'kavita_series_id'), ''), NULL) IS NULL`;
   }
 
   if (normalizedSearch) {

@@ -2,7 +2,7 @@
 
 const { test, expect } = require('@playwright/test');
 const { createSpaceFixture, deleteSpace } = require('../helpers/admin');
-const { ensureSavedAdminCredentials, createAuthenticatedRequestContext, postWithCsrf } = require('../helpers/auth');
+const { ensureSavedAdminCredentials, createAuthenticatedRequestContext, postWithCsrf, requestWithCsrf } = require('../helpers/auth');
 const { deleteMediaByExactTitle } = require('../helpers/media');
 const { signInThroughUi } = require('../helpers/session');
 
@@ -19,6 +19,94 @@ async function findCollectionsByName(requestContext, name) {
 }
 
 test.describe('admin shell browser regressions', () => {
+  test('dashboard command center is the default dashboard landing view', async ({ page }) => {
+    const adminCredentials = await ensureSavedAdminCredentials();
+    await signInThroughUi(page, adminCredentials);
+    const summaryResponse = page.waitForResponse((response) => (
+      response.url().includes('/api/dashboard/summary') && response.request().method() === 'GET'
+    ));
+    await page.goto('/dashboard');
+    const response = await summaryResponse;
+    expect(response.ok()).toBeTruthy();
+    const summary = await response.json();
+    expect(summary?.attention_details).toBeTruthy();
+    expect(Array.isArray(summary?.attention_details?.missing_cover_items)).toBeTruthy();
+    expect(Array.isArray(summary?.attention_details?.missing_identifier_items)).toBeTruthy();
+    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Needs attention' })).toBeVisible();
+    await expect(page.getByRole('tablist', { name: 'Needs attention sections' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /Failed syncs/ })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /Missing covers/ })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /Missing identifiers/ })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Provider health' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Quick actions' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Latest failures' })).toHaveCount(0);
+    const recentSyncsPanel = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Recent syncs' }) });
+    await expect(recentSyncsPanel.getByRole('button', { name: /^Import$/ })).toHaveCount(0);
+    if (Number(summary?.collection?.missing_covers || 0) > 0) {
+      const mediaReviewResponse = page.waitForResponse((mediaResponse) => (
+        mediaResponse.url().includes('/api/media')
+        && mediaResponse.url().includes('review_filter=missing_covers')
+        && mediaResponse.request().method() === 'GET'
+      ));
+      await page.getByRole('button', { name: /Open missing covers review/i }).click();
+      const reviewResponse = await mediaReviewResponse;
+      expect(reviewResponse.ok()).toBeTruthy();
+      await expect(page.getByRole('heading', { name: 'Library' })).toBeVisible();
+      await expect(page.getByText('Missing covers across all library types')).toBeVisible();
+    }
+  });
+
+  test('wishlist foundation lists wanted items and converts media wants', async ({ page }) => {
+    const suffix = Date.now();
+    const title = `Playwright Wishlist ${suffix}`;
+    const adminCredentials = await ensureSavedAdminCredentials();
+    const requestContext = await createAuthenticatedRequestContext(adminCredentials);
+    let wishlistId = null;
+
+    try {
+      await deleteMediaByExactTitle(requestContext, title).catch(() => {});
+      const createResponse = await postWithCsrf(requestContext, '/api/wishlist', {
+        title,
+        object_type: 'book',
+        desired_format: 'Paperback',
+        desired_edition: 'First printing',
+        identifiers: { isbn: `978000${String(suffix).slice(-7)}` },
+        source_context: { source: 'playwright' }
+      }, 201);
+      const createPayload = await createResponse.json();
+      wishlistId = Number(createPayload?.item?.id || 0);
+      expect(wishlistId).toBeGreaterThan(0);
+
+      await signInThroughUi(page, adminCredentials);
+      const wishlistResponse = page.waitForResponse((response) => (
+        response.url().includes('/api/wishlist') && response.request().method() === 'GET'
+      ));
+      await page.goto('/dashboard?tab=library-wishlist');
+      expect((await wishlistResponse).ok()).toBeTruthy();
+      await expect(page.getByRole('heading', { name: 'Wishlist', exact: true })).toBeVisible();
+      await expect(page.getByText(title)).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Add item' })).toBeVisible();
+
+      const convertResponse = await postWithCsrf(requestContext, `/api/wishlist/${wishlistId}/convert`, {}, 201);
+      const convertPayload = await convertResponse.json();
+      expect(convertPayload?.ok).toBe(true);
+      expect(convertPayload?.media?.title).toBe(title);
+      expect(convertPayload?.item?.status).toBe('acquired');
+
+      const acquiredResponse = await requestContext.get(`/api/wishlist?status=acquired&search=${encodeURIComponent(title)}`);
+      expect(acquiredResponse.ok()).toBeTruthy();
+      const acquiredPayload = await acquiredResponse.json();
+      expect(acquiredPayload?.items?.some((item) => item.id === wishlistId && item.linked_media_id === convertPayload.media.id)).toBeTruthy();
+    } finally {
+      if (wishlistId) {
+        await requestWithCsrf(requestContext, 'DELETE', `/api/wishlist/${wishlistId}`, undefined, [200, 404]).catch(() => {});
+      }
+      await deleteMediaByExactTitle(requestContext, title).catch(() => {});
+      await requestContext.dispose();
+    }
+  });
+
   test('authenticated admin shell loads and docs surface is available when debug gating is satisfied', async ({ page }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
     await signInThroughUi(page, adminCredentials);

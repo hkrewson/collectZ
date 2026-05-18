@@ -146,6 +146,8 @@ const getRequiredPatScopesForRequest = (req) => {
   if (path === '/api/auth/me' || path === '/api/auth/scope' || path.startsWith('/api/profile') || path.startsWith('/api/settings/general')) {
     return [isRead ? 'profile:read' : 'profile:write'];
   }
+  if (path.startsWith('/api/dashboard')) return [isRead ? 'media:read' : 'media:write'];
+  if (path.startsWith('/api/wishlist')) return [isRead ? 'media:read' : 'media:write'];
   if (path.startsWith('/api/libraries')) return [isRead ? 'libraries:read' : 'libraries:write'];
   if (path === '/api/media/lookup/barcode' || path === '/api/media/lookup-upc') return ['media:read'];
   if (path.startsWith('/api/media/import-')) return ['import:run'];

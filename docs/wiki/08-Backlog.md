@@ -12,6 +12,117 @@ This file is the staging area for work that has not yet been assigned a release 
 - Keep the roadmap focused on milestone work only.
 - Update the roadmap, release notes, release feed, and verification steps together when a backlog item is promoted.
 
+## Product-Level Feature Gaps
+
+These are product-level capability gaps discovered from the current shape of the app. They are not immediate implementation commitments and should stay versionless until one is selected and moved into the roadmap as a numbered milestone.
+
+### Backlog Item: Unified Review Queue
+**Type:** Deferred milestone
+**Tags:** `product`, `review`, `imports`, `metadata`, `duplicates`
+
+**Goal:** Centralize uncertain states from scanner, Plex, Kavita, enrichment, duplicate detection, and imports.
+
+**Scope**
+- Capture candidate selection, conflict review, sparse import review, missing-cover review, and low-confidence metadata decisions.
+- Preserve provider-specific readback while giving users one place to resolve uncertain work.
+
+**Acceptance Criteria**
+- Reviewable items have a clear source, reason, and next action.
+- Resolving a review item updates the relevant object or provider workflow.
+- Dismissed or deferred review decisions remain auditable.
+
+### Backlog Item: Collection Health and Audit Dashboard
+**Type:** Deferred milestone
+**Tags:** `product`, `health`, `audit`, `metadata`, `maintenance`
+
+**Goal:** Show collection maintenance health across libraries and workspaces.
+
+**Scope**
+- Surface missing identifiers, missing covers, duplicate candidates, stale syncs, failed imports, unlinked provider rows, and low-confidence metadata.
+- Keep health findings explainable and actionable instead of presenting a vague score.
+
+**Acceptance Criteria**
+- Users can identify the most important collection maintenance issues.
+- Health findings can be filtered by library, media type, provider, and severity.
+- Each finding links to a repair, review, or source record where available.
+
+### Backlog Item: Universal Search
+**Type:** Deferred milestone
+**Tags:** `product`, `search`, `navigation`, `identifiers`
+
+**Goal:** Search across media, books, comics, games, art, collectibles, events, people, vendors, identifiers, and provider IDs.
+
+**Scope**
+- Include barcode, ISBN, UPC, provider identity, artist, vendor, event, and object-title lookups.
+- Provide direct navigation to matched records.
+- Keep search scoped to the user's accessible workspace and library permissions.
+
+**Acceptance Criteria**
+- Users can find known records without knowing which section owns them.
+- Identifier searches return direct object matches where possible.
+- Search results clearly show object type and destination.
+
+### Backlog Item: Saved Views and Smart Collections
+**Type:** Deferred milestone
+**Tags:** `product`, `saved-views`, `smart-collections`, `filters`
+
+**Goal:** Let users save reusable filtered views across collection data.
+
+**Scope**
+- Support views such as unread Kavita comics, signed art, missing ISBNs, event-purchased items, recent imports, watched but unowned media, and needs-review items.
+- Keep saved views as user/workspace-scoped filters before introducing heavier rule automation.
+
+**Acceptance Criteria**
+- Users can save, name, open, and update reusable filtered views.
+- Saved views preserve the relevant filters and sort choices.
+- Views remain permission-aware across workspaces and libraries.
+
+### Backlog Item: People and Places Model
+**Type:** Deferred milestone
+**Tags:** `product`, `people`, `places`, `identity`, `events`
+
+**Goal:** Introduce reusable scoped identities for creators, vendors, venues, friends, publishers, stores, and event-related people.
+
+**Scope**
+- Keep this distinct from a social network or broad friend graph.
+- Support reusable people/place references for artists, vendors, venues, publishers, stores, attendees, and event contacts where useful.
+- Preserve workspace ownership and privacy boundaries.
+
+**Acceptance Criteria**
+- People and places can be reused without duplicating plain-text fields everywhere.
+- Existing item-local text remains usable where a reusable record is unnecessary.
+- The model does not imply cross-workspace identity or social graph behavior by default.
+
+### Backlog Item: Mobile-First Capture Workflow
+**Type:** Deferred milestone
+**Tags:** `product`, `mobile`, `capture`, `scanner`, `ocr`
+
+**Goal:** Expand beyond barcode scanning into real-world quick capture.
+
+**Scope**
+- Include photo capture, OCR, cover/art recognition, offline queueing, convention or store quick-add, and later review resolution.
+- Keep the backend as the source of truth while native/mobile clients act as capture surfaces.
+
+**Acceptance Criteria**
+- Users can quickly capture items in the real world without completing full metadata entry immediately.
+- Captured items can be reviewed, enriched, merged, or discarded later.
+- Offline or low-connectivity capture behavior is explicit and recoverable.
+
+### Backlog Item: Backup, Export, and Portability UX
+**Type:** Deferred milestone
+**Tags:** `product`, `backup`, `export`, `portability`, `homelab`
+
+**Goal:** Make data trust visible in the app, not only in docs.
+
+**Scope**
+- Surface export data, export images, backup status, restore guidance, storage location readback, and portability checks.
+- Keep operator docs as the detailed runbook while giving users an in-app confidence/readiness surface.
+
+**Acceptance Criteria**
+- Users can see whether backups and exports are configured and recent.
+- Export/restore guidance is visible from the app without exposing secrets.
+- Data portability coverage is clear for database records, images, and provider-linked metadata.
+
 ## UI/UX Cleanup Working Plan
 
 These tasks are intentionally ordered so quick hygiene work does not get buried under larger UI refactors.

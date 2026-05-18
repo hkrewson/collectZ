@@ -1,6 +1,6 @@
 export const PLATFORM_PRODUCT_EDITION = 'platform';
 export const HOMELAB_PRODUCT_EDITION = 'homelab';
-export const DEFAULT_PLATFORM_TAB = 'library-movies';
+export const DEFAULT_PLATFORM_TAB = 'dashboard';
 
 export function normalizeProductEdition(value) {
   return String(value || '').trim().toLowerCase() === HOMELAB_PRODUCT_EDITION
@@ -54,6 +54,7 @@ export function getHomelabAllowedTabs({
 } = {}) {
   const normalizedRole = String(userRole || '').trim().toLowerCase();
   const allowed = new Set([
+    'dashboard',
     'help',
     'profile',
     'library',
@@ -64,6 +65,7 @@ export function getHomelabAllowedTabs({
     'library-art',
     'library-games',
     'library-comics',
+    'library-wishlist',
     'library-loans',
     'library-import'
   ]);

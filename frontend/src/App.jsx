@@ -36,6 +36,7 @@ export default function App() {
   const [activeLibraryId, setActiveLibraryId] = useState(null);
   const [supportSession, setSupportSession] = useState(null);
   const [uiSettings, setUiSettings] = useState({ theme: 'system', density: 'comfortable' });
+  const [libraryReviewFilter, setLibraryReviewFilter] = useState(null);
   const [featureFlags, setFeatureFlags] = useState({
     events_enabled: null,
     collectibles_enabled: null
@@ -535,6 +536,8 @@ export default function App() {
       apiUrl={apiUrl}
       setUiSettings={setUiSettings}
       activeIntegrationSection={activeIntegrationSection}
+      libraryReviewFilter={libraryReviewFilter}
+      setLibraryReviewFilter={setLibraryReviewFilter}
       scopeKey={scopeKey}
       loadAuthScope={loadAuthScope}
       startSupportSession={startSupportSession}

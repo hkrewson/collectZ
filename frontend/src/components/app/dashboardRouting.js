@@ -1,4 +1,5 @@
 export const VALID_DASHBOARD_TABS = new Set([
+  'dashboard',
   'help',
   'support-inbox',
   'library',
@@ -9,6 +10,7 @@ export const VALID_DASHBOARD_TABS = new Set([
   'library-art',
   'library-games',
   'library-comics',
+  'library-wishlist',
   'library-loans',
   'library-collectibles',
   'library-events',
@@ -38,12 +40,18 @@ export const VALID_INTEGRATION_SECTIONS = new Set([
   'pricecharting',
   'tmdb'
 ]);
-export const DEFAULT_TAB = 'library-movies';
+export const DEFAULT_TAB = 'dashboard';
 export const DEFAULT_INTEGRATION_SECTION = 'audio';
+
+function normalizeDashboardTab(tab) {
+  if (tab === 'library-other') return 'library-comics';
+  if (tab === 'library-import-review') return 'library-import';
+  return tab;
+}
 
 export function readDashboardStateFromUrl() {
   const path = String(window.location.pathname || '');
-  const libMatch = path.match(/^\/library\/(movies|tv|books|audio|art|games|comics|loans|collectibles|events|other|import|import-review)\/?$/);
+  const libMatch = path.match(/^\/library\/(movies|tv|books|audio|art|games|comics|wishlist|loans|collectibles|events|other|import|import-review)\/?$/);
   if (libMatch) {
     const slug = libMatch[1];
     return {
@@ -70,11 +78,7 @@ export function readDashboardStateFromUrl() {
   const params = new URLSearchParams(window.location.search);
   const tab = params.get('tab');
   const integration = params.get('integration');
-  const normalizedTab = tab === 'library-other'
-    ? 'library-comics'
-    : tab === 'library-import-review'
-      ? 'library-import'
-      : tab;
+  const normalizedTab = normalizeDashboardTab(tab);
   return {
     tab: VALID_DASHBOARD_TABS.has(normalizedTab) ? normalizedTab : DEFAULT_TAB,
     integrationSection: VALID_INTEGRATION_SECTIONS.has(integration) ? integration : DEFAULT_INTEGRATION_SECTION

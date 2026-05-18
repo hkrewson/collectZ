@@ -13,10 +13,12 @@
   ],
   "tags": [
     { "name": "Health" },
+    { "name": "Dashboard" },
     { "name": "Auth" },
     { "name": "Admin" },
     { "name": "Support" },
     { "name": "Media" },
+    { "name": "Wishlist" },
     { "name": "Observability" }
   ],
   "components": {
@@ -3105,6 +3107,122 @@
       "MetricsText": {
         "type": "string",
         "description": "Prometheus text exposition format."
+      },
+      "DashboardSummary": {
+        "type": "object",
+        "description": "Authenticated, active-scope operational dashboard summary for the Dashboard command center.",
+        "properties": {
+          "scope": {
+            "type": "object",
+            "properties": {
+              "space_id": { "type": ["integer", "null"] },
+              "library_id": { "type": ["integer", "null"] }
+            },
+            "required": ["space_id", "library_id"]
+          },
+          "generated_at": { "type": "string", "format": "date-time" },
+          "collection": {
+            "type": "object",
+            "properties": {
+              "total_items": { "type": "integer" },
+              "missing_covers": { "type": "integer" },
+              "missing_identifiers": { "type": "integer" }
+            },
+            "required": ["total_items", "missing_covers", "missing_identifiers"]
+          },
+          "attention": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+          "attention_details": {
+            "type": "object",
+            "description": "Small actionable samples for Dashboard attention sections. Counts remain authoritative in collection/attention.",
+            "properties": {
+              "missing_cover_items": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+              "missing_identifier_items": { "type": "array", "items": { "type": "object", "additionalProperties": true } }
+            },
+            "additionalProperties": true
+          },
+          "failed_sync_jobs": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+          "recent_sync_jobs": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+          "providers": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+          "upcoming_events": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+          "recent_activity": { "type": "array", "items": { "type": "object", "additionalProperties": true } }
+        },
+        "required": ["scope", "generated_at", "collection", "attention", "attention_details", "providers", "upcoming_events", "recent_activity"],
+        "additionalProperties": true
+      },
+      "WantedItem": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "title": { "type": "string" },
+          "object_type": { "type": "string", "enum": ["movie", "tv_series", "book", "comic_book", "audio", "game", "art", "collectible", "event_item", "other"] },
+          "status": { "type": "string", "enum": ["wanted", "watching", "preordered", "ordered", "acquired", "dismissed"] },
+          "priority": { "type": "string", "enum": ["low", "normal", "high", "grail"] },
+          "year": { "type": ["integer", "null"] },
+          "desired_format": { "type": ["string", "null"] },
+          "desired_edition": { "type": ["string", "null"] },
+          "notes": { "type": ["string", "null"] },
+          "identifiers": { "type": "object", "additionalProperties": true },
+          "source_context": { "type": "object", "additionalProperties": true },
+          "provider": { "type": ["string", "null"] },
+          "provider_key": { "type": ["string", "null"] },
+          "event_id": { "type": ["integer", "null"] },
+          "vendor": { "type": ["string", "null"] },
+          "target_price": { "type": ["number", "null"] },
+          "linked_media_id": { "type": ["integer", "null"] },
+          "library_id": { "type": ["integer", "null"] },
+          "space_id": { "type": ["integer", "null"] },
+          "created_by": { "type": ["integer", "null"] },
+          "acquired_at": { "type": ["string", "null"], "format": "date-time" },
+          "dismissed_at": { "type": ["string", "null"], "format": "date-time" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "title", "object_type", "status", "priority", "identifiers", "source_context", "created_at", "updated_at"]
+      },
+      "WantedItemInput": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string" },
+          "object_type": { "type": "string", "enum": ["movie", "tv_series", "book", "comic_book", "audio", "game", "art", "collectible", "event_item", "other"] },
+          "status": { "type": "string", "enum": ["wanted", "watching", "preordered", "ordered", "acquired", "dismissed"] },
+          "priority": { "type": "string", "enum": ["low", "normal", "high", "grail"] },
+          "year": { "type": ["integer", "null"] },
+          "desired_format": { "type": ["string", "null"] },
+          "desired_edition": { "type": ["string", "null"] },
+          "notes": { "type": ["string", "null"] },
+          "identifiers": { "type": "object", "additionalProperties": true },
+          "source_context": { "type": "object", "additionalProperties": true },
+          "provider": { "type": ["string", "null"] },
+          "provider_key": { "type": ["string", "null"] },
+          "event_id": { "type": ["integer", "null"] },
+          "vendor": { "type": ["string", "null"] },
+          "target_price": { "type": ["number", "null"] }
+        },
+        "required": ["title"]
+      },
+      "WishlistListResponse": {
+        "type": "object",
+        "properties": {
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/WantedItem" } },
+          "pagination": { "type": "object", "additionalProperties": true }
+        },
+        "required": ["items", "pagination"]
+      },
+      "WantedItemResponse": {
+        "type": "object",
+        "properties": {
+          "item": { "$ref": "#/components/schemas/WantedItem" }
+        },
+        "required": ["item"]
+      },
+      "WishlistConvertResponse": {
+        "type": "object",
+        "properties": {
+          "ok": { "type": "boolean" },
+          "item": { "$ref": "#/components/schemas/WantedItem" },
+          "media": { "type": "object", "additionalProperties": true }
+        },
+        "required": ["ok", "item", "media"]
       }
     }
   },
@@ -3119,6 +3237,204 @@
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/Health" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard/summary": {
+      "get": {
+        "tags": ["Dashboard"],
+        "summary": "Read the active-scope Dashboard command center summary",
+        "description": "Returns collection health counts, attention items, recent provider jobs, provider configuration status, upcoming events, and recent activity for the authenticated user's active workspace/library scope.",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dashboard command center summary",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DashboardSummary" }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication is required",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "403": {
+            "description": "The active or requested scope is not accessible",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/wishlist": {
+      "get": {
+        "tags": ["Wishlist"],
+        "summary": "List active-scope wishlist and acquisition candidates",
+        "description": "Returns wanted items scoped to the authenticated user's active workspace/library. The endpoint supports status, object_type, search, page, and limit query parameters.",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "responses": {
+          "200": {
+            "description": "Wishlist candidates",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/WishlistListResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication is required",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Wishlist"],
+        "summary": "Create a wishlist item",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/WantedItemInput" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Wishlist item created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/WantedItemResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid wishlist payload",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/wishlist/{id}": {
+      "patch": {
+        "tags": ["Wishlist"],
+        "summary": "Update a wishlist item",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/WantedItemInput" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Wishlist item updated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/WantedItemResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "Wishlist item not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Wishlist"],
+        "summary": "Delete a wishlist item",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Wishlist item deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "id": { "type": "integer" }
+                  },
+                  "required": ["ok", "id"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/wishlist/{id}/convert": {
+      "post": {
+        "tags": ["Wishlist"],
+        "summary": "Convert a media-compatible wishlist item into a canonical media row",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "201": {
+            "description": "Wishlist item converted into owned media",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/WishlistConvertResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Wishlist item cannot be converted to media",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
               }
             }
           }
@@ -6225,6 +6541,23 @@
             "in": "query",
             "name": "library_id",
             "schema": { "type": "string" }
+          },
+          {
+            "in": "query",
+            "name": "media_type",
+            "schema": {
+              "type": "string",
+              "enum": ["movie", "tv", "tv_series", "book", "audio", "game", "comic_book", "all"]
+            }
+          },
+          {
+            "in": "query",
+            "name": "review_filter",
+            "description": "Optional Dashboard/Library attention filter for all-media review lists.",
+            "schema": {
+              "type": "string",
+              "enum": ["missing_covers", "missing_identifiers"]
+            }
           }
         ],
         "responses": {

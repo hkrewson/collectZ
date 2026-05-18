@@ -52,6 +52,8 @@ export default function DashboardShell({
   apiUrl,
   setUiSettings,
   activeIntegrationSection,
+  libraryReviewFilter,
+  setLibraryReviewFilter,
   scopeKey,
   loadAuthScope,
   startSupportSession,
@@ -83,6 +85,7 @@ export default function DashboardShell({
               await handleSpaceSelect(fallbackManageableSpace.id, { silent: true });
             }
           }
+          setLibraryReviewFilter?.(null);
           setActiveTab(getSafeDashboardTab(productEdition, nextTab, {
             userRole: user?.role,
             supportSessionActive: supportSessionActiveInEdition,
@@ -177,6 +180,8 @@ export default function DashboardShell({
             setUiSettings={setUiSettings}
             activeIntegrationSection={activeIntegrationSection}
             setActiveIntegrationSection={setActiveIntegrationSection}
+            libraryReviewFilter={libraryReviewFilter}
+            setLibraryReviewFilter={setLibraryReviewFilter}
             spaces={spaces}
             activeSpace={activeSpace}
             activeSpaceId={activeSpaceId}

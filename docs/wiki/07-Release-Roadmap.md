@@ -10715,6 +10715,192 @@ Historical note:
 - What remains in the milestone: Nothing for `3.4.149`; CI-only release gates still need their normal GitHub run.
 - Recommended commit message: `Release 3.4.149 with Plex provider-advertised import path contract`
 
+## 3.6.0 — Wishlist and Acquisition Foundation
+
+**Goal:** Start the `3.6` line with first-class wanted-item tracking so users can distinguish things they want to acquire from things they already own.
+
+### Scope
+
+- Promote the backlog `Acquisition, Wishlist, and Want Tracking` item into the roadmap as the first `3.6.0` slice.
+- Add a workspace/library-scoped wishlist model for wanted items without creating misleading owned inventory rows.
+- Support the first durable wanted-item statuses: `wanted`, `watching`, `preordered`, `ordered`, `acquired`, and `dismissed`.
+- Capture useful acquisition intent fields such as title, object type, notes, priority, desired format or edition, known identifiers, source/provider context, and optional event/vendor context.
+- Add a simple Wishlist surface that can list, filter, create, edit, and resolve wanted items.
+- Add a conversion path from wanted item to owned collection record.
+- Keep source intake provider-neutral, with Plex, scanner, search, ISBN/UPC, Kavita, and other providers treated as candidate sources rather than separate wishlist systems.
+- Defer price watch automation, missing-run detection, and provider-specific wishlist imports until the foundation object and review flow are stable.
+
+### Acceptance Criteria
+
+- Users can create wanted items without creating owned media, art, collectible, or event-purchased records.
+- Wanted items are scoped to the active workspace/library and honor existing access boundaries.
+- Wanted items can store enough metadata to represent books, comics, movies, shows, games, art, collectibles, upgrades, replacements, and event shopping targets.
+- Wanted items can be promoted into owned records with clear readback about what was created or linked.
+- Provider or scanner candidates can become wishlist entries through a backend-owned flow instead of relying on the web UI as a mediator.
+- Plex-sourced candidates are treated as acquisition suggestions, not proof of ownership.
+- The backlog no longer carries `Acquisition, Wishlist, and Want Tracking` as an unscheduled product-level item.
+- Version metadata, release note, release feed, and Help > Releases include `3.6.0`.
+
+### Closeout
+
+- Roadmap slice: `3.6.0 — Wishlist and Acquisition Foundation`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/06-Versioning-and-Build-Metadata.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.6.0.md`.
+- Runtime verification used: Docker-first platform rebuild with `APP_VERSION=3.6.0`; `/api/health` reported frontend/backend/build `3.6.0`; backend logs showed migration `103` applied and later `103 migration(s) applied`; running container env was verified as `APP_EDITION=platform`, `APP_VERSION=3.6.0`, `NODE_ENV=development`, `SESSION_COOKIE_SECURE=false`, `TRUST_PROXY=1`, and redacted DB URL; live DB confirmed `schema_migrations` contains `103`, `wanted_items` exists, and the expected indexes exist; unauthenticated `GET /api/wishlist` returned `401`; `/dashboard?tab=library-wishlist` served through the running frontend; targeted Playwright proved a wanted book appears in Library > Wishlist, converts into a media row, and is marked `acquired`; Help > Releases served `3.6.0`; a temporary homelab override verified homelab boundaries and the stack was restored to platform mode afterward.
+- CI/checks run locally: backend route syntax check; OpenAPI JSON parse; Docker frontend Vite build; Docker backend/frontend build; Docker `npm run test:unit` (`292` passed); Docker `npm run test:openapi`; Docker `npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.6.0 npm run test:help-releases-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker temporary homelab override plus `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; targeted Wishlist Playwright regression; full browser regression (`67` passed, `4` skipped); backend/frontend production dependency audits (`0` vulnerabilities); local observability evidence (`9/9` checks passed); local release preflight; public export surface validation; compose config validation; version sync check; `git diff --check`; targeted release/evidence secret-pattern scan. Host frontend build and host unit tests remain non-authoritative because the local non-Docker Node path cannot parse/run all current dependencies; Docker is authoritative for these gates. Local `gitleaks`, Trivy, and SBOM tooling were not run, so `secret-scan` and `image-security-and-sbom` still need their normal CI runs; stricter secure-cookie `compose-smoke` remains CI-only because the local stack runs with development cookie settings.
+- Files changed for this slice: `backend/db/migrations.js`; `init.sql`; `backend/routes/wishlist.js`; `backend/server.js`; `backend/services/personalAccessTokens.js`; `backend/openapi/openapi.yaml`; `backend/scripts/unit-tests.js`; `frontend/src/components/WishlistView.jsx`; `frontend/src/components/SidebarNav.jsx`; `frontend/src/components/app/DashboardContent.jsx`; `frontend/src/components/app/dashboardRouting.js`; `frontend/src/components/app/productEdition.js`; `tests/playwright/specs/admin-shell.browser.spec.js`; `tests/playwright/specs/events-collectibles.browser.spec.js`; version metadata/package files; `docker-compose.yml`; `docs/releases/v3.6.0.md`; `backend/release-feed.json`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `artifacts/observability-evidence/observability-release-evidence.json`; `preflight-go-no-go.md`.
+- Risks/follow-ups: Wishlist conversion currently creates basic media rows with provider/identifier details preserved in `type_details`; richer type-specific conversion and duplicate candidate review should be handled before wiring automatic provider intake. Price watch automation, missing-run detection, and provider-specific wishlist imports remain intentionally deferred.
+- What remains in the milestone: nothing for the `3.6.0` foundation slice; later `3.6.x` work can build provider candidate intake and richer acquisition workflows on this model.
+- Recommended commit message: `Release 3.6.0 with wishlist and acquisition foundation`.
+
+## 3.7.1 — Timeline Deep Links
+
+**Goal:** Make the human-readable activity timeline operational by letting users jump from a timeline row to the related app surface when the target is known.
+
+### Scope
+
+- Add contextual action buttons to timeline rows for media, Art, Collectibles, Events, imports, loans, integrations, people, workspaces, and users.
+- Keep the actions modest and inline so the timeline remains readable rather than turning into a button-heavy control surface.
+- Route Admin Activity actions through the dashboard shell to the relevant admin or library surface.
+- Route Workspace Activity actions to the relevant workspace tab or library surface while preserving workspace scope.
+- Open media, Art, Collectible, and Event detail drawers when the target row still exists.
+
+### Acceptance Criteria
+
+- A media creation timeline row exposes an `Open item` action.
+- Selecting `Open item` from Workspace Activity switches to the appropriate library tab and opens the related detail.
+- Provider/integration activity can navigate to the appropriate integration surface.
+- People/workspace activity can navigate to the appropriate workspace/admin surface.
+- Version metadata, release note, release feed, and Help > Releases include `3.7.1`.
+
+### Closeout
+
+- Roadmap slice: `3.7.1 — Timeline Deep Links`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/06-Versioning-and-Build-Metadata.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.7.1.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild with `APP_VERSION=3.7.1`; running platform stack `/api/health` reported frontend/backend/build `3.7.1`; running backend env reported `APP_EDITION=platform`, `APP_VERSION=3.7.1`, `NODE_ENV=development`, `SESSION_COOKIE_SECURE=false`, and `TRUST_PROXY=0`; Help > Releases smoke served `3.7.1`; targeted Workspace Activity browser regression proved `Open item` switches to `library-movies` and opens the linked media detail; full browser regression passed; a separate throwaway public/default homelab stack reported `homelab` edition and passed homelab boundary before teardown.
+- CI/checks run locally: Docker backend/frontend build; `npm --prefix frontend run build`; Docker `npm run test:unit` (`292` passed); Docker `npm run test:openapi`; Docker `npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.7.1 npm run test:help-releases-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker throwaway homelab stack plus `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; targeted Workspace Activity Playwright regression; full `npm run test:browser` (`67` passed, `4` skipped); backend/frontend production dependency audits (`0` vulnerabilities); local observability evidence (`9/9` checks passed); local release preflight; release feed export; `git diff --check`; targeted release/evidence secret-pattern scan. CI remains authoritative for stricter secure-cookie `compose-smoke`, `secret-scan`, and `image-security-and-sbom`.
+- Files changed for this slice: `frontend/src/components/ActivityFeedView.jsx`; `frontend/src/components/AdminActivityView.jsx`; `frontend/src/components/SpaceManagerView.jsx`; `frontend/src/components/app/DashboardContent.jsx`; `frontend/src/components/LibraryView.jsx`; `frontend/src/components/ArtView.jsx`; `frontend/src/components/CollectiblesView.jsx`; `frontend/src/components/EventsView.jsx`; `tests/playwright/specs/space-manager.browser.spec.js`; version metadata/package files; `docker-compose.yml`; `docs/releases/v3.7.1.md`; `backend/release-feed.json`; `docs/wiki/07-Release-Roadmap.md`; `artifacts/observability-evidence/observability-release-evidence.json`; `preflight-go-no-go.md`.
+- Risks/follow-ups: Timeline links only open durable object detail drawers when the original object still exists. Deleted/archived targets and sync failures still need richer job/failure detail pages.
+- What remains in the milestone: nothing for `3.7.1`; durable job/failure detail pages and richer missing-target readback should be separate `3.7.x` slices.
+- Recommended commit message: `Release 3.7.1 with timeline deep links`
+
+## 3.7.0 — Human-Readable Activity Timeline
+
+**Goal:** Turn technical activity and import logs into a user-facing timeline that explains what happened without requiring users to parse raw dotted action names or JSON audit details.
+
+### Scope
+
+- Promote the backlog `Human-Readable Activity Timeline` item into the roadmap as the first `3.7.0` slice.
+- Rework the shared Activity surface so Admin Activity and Workspace Activity show readable timeline entries first.
+- Translate common activity actions into user-facing copy for imports, scanner imports, provider writebacks, ratings, watched-state updates, library changes, wishlist conversions, workspace people/invite changes, security events, and event activity.
+- Keep raw action names, timestamps, IPs, statuses, reasons, and JSON details available behind a technical disclosure.
+- Add timeline filters for imports, providers, library, events, people, security, and failures.
+- Preserve existing workspace/support-access boundaries by using the current scoped activity endpoints.
+
+### Acceptance Criteria
+
+- Users can understand recent activity without reading raw logs.
+- Technical audit details remain available when an admin or operator needs them.
+- Workspace activity remains scoped to the active workspace.
+- Platform Activity continues to exclude workspace-local media actions.
+- Version metadata, release note, release feed, and Help > Releases include `3.7.0`.
+
+### Closeout
+
+- Roadmap slice: `3.7.0 — Human-Readable Activity Timeline`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/06-Versioning-and-Build-Metadata.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.7.0.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild with `APP_VERSION=3.7.0`; running platform stack `/api/health` reported frontend/backend/build `3.7.0`; running backend env reported `APP_EDITION=platform`, `APP_VERSION=3.7.0`, `NODE_ENV=development`, `SESSION_COOKIE_SECURE=false`, and `TRUST_PROXY=0`; Help > Releases smoke served `3.7.0`; targeted Workspace Activity browser regression proved the surface now renders as `Timeline` with readable copy and keeps raw actions behind technical detail; full browser regression passed; a separate throwaway public/default homelab stack reported `homelab` edition and passed homelab boundary before teardown.
+- CI/checks run locally: Docker backend/frontend build; `npm --prefix frontend run build`; Docker `npm run test:unit` (`292` passed); Docker `npm run test:openapi`; Docker `npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.7.0 npm run test:help-releases-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker throwaway homelab stack plus `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; targeted Workspace Activity Playwright regression; full `npm run test:browser` (`67` passed, `4` skipped); backend/frontend production dependency audits (`0` vulnerabilities); local observability evidence (`9/9` checks passed); local release preflight; release feed export; `git diff --check`; targeted release/evidence secret-pattern scan. CI remains authoritative for stricter secure-cookie `compose-smoke`, `secret-scan`, and `image-security-and-sbom`.
+- Files changed for this slice: `frontend/src/components/ActivityFeedView.jsx`; `frontend/src/components/AdminActivityView.jsx`; `frontend/src/components/SpaceManagerView.jsx`; `tests/playwright/specs/space-manager.browser.spec.js`; version metadata/package files; `docker-compose.yml`; `docs/releases/v3.7.0.md`; `backend/release-feed.json`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `artifacts/observability-evidence/observability-release-evidence.json`; `preflight-go-no-go.md`.
+- Risks/follow-ups: This first timeline slice translates existing activity records; later `3.7.x` work should add object/job/event deep links and improve activity context for workflows that still log sparse details.
+- What remains in the milestone: nothing for `3.7.0`; future timeline improvements should be promoted as separate `3.7.x` slices.
+- Recommended commit message: `Release 3.7.0 with human-readable activity timeline`
+
+## 3.5.1 — Dashboard Attention Readback Refinement
+
+**Goal:** Make the new Dashboard command center less decorative and more directly useful by replacing broad navigation shortcuts with attention readback the user can act on.
+
+### Scope
+
+- Remove Dashboard `Quick actions` because the targets are already one click away in the sidebar.
+- Remove the `Recent syncs` import shortcut for the same reason.
+- Remove the duplicate `Latest failures` panel because it mirrors failed-sync attention.
+- Change failed-sync attention from a generic navigation target into inline failure details.
+- Show sample rows for missing-cover and missing-identifier attention items directly in Dashboard.
+- Add filtered all-media Library drilldowns for missing-cover and missing-identifier attention.
+- Tighten Dashboard density with smaller summary counters, slimmer rows, and capped attention samples.
+- Remove the aggregate `Needs attention` metric card because it duplicates the tabbed attention panel.
+- Reflow Dashboard into a denser dashboard grid so Recent syncs, Recent activity, and Upcoming events do not stack under an overwide left column.
+- Rename the command-center surface to `Dashboard` across the sidebar, heading, route/tab id, API route, OpenAPI contract, tests, and docs.
+- Make `Needs attention` tabbed so attention categories do not stack into a long scrolling panel.
+- Keep the useful Dashboard sections from `3.5.0`: Recent activity, Provider health, and Upcoming events.
+
+### Acceptance Criteria
+
+- Dashboard no longer renders `Quick actions`.
+- Recent syncs no longer includes a generic import button.
+- Dashboard no longer renders a duplicate `Latest failures` panel.
+- Failed sync attention shows provider/job/error/timestamp details.
+- Missing covers and missing identifiers expose item lists instead of opening a generic library tab.
+- Missing-cover and missing-identifier Dashboard actions open Library with matching all-media review filters.
+- The top metric row shows concrete collection-health metrics only and does not include an aggregate `Needs attention` card.
+- Recent syncs, Recent activity, and Upcoming events render in compact lower-grid panels on wide screens.
+- The sidebar navigation labels the default command-center route as `Dashboard` with a gauge-style icon.
+- Needs attention uses tabs for failed syncs, missing covers, missing identifiers, and Plex conflicts.
+- The Dashboard first viewport stays compact enough that the right-side Provider/Event rail remains visible on desktop.
+- `GET /api/dashboard/summary` documents the richer `attention_details` contract.
+- Version metadata, release note, release feed, and Help > Releases include `3.5.1`.
+
+### Closeout
+
+- Version metadata, release note, release feed, and Help > Releases include `3.5.1`.
+- Roadmap slice: `3.5.1 — Dashboard Attention Readback Refinement`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.5.1.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild with `APP_VERSION=3.5.1`; `/api/health` reported frontend/backend/build `3.5.1`; backend container env was verified with `APP_EDITION=platform`, `APP_VERSION=3.5.1`, `NODE_ENV=development`, `SESSION_COOKIE_SECURE=false`, and redacted DB URL; targeted browser regression proved `/dashboard` loads Dashboard, `GET /api/dashboard/summary` returns `attention_details`, Dashboard no longer renders `Quick actions`, `Needs attention` exposes the tabbed attention sections, `Recent syncs` has no import shortcut, and Missing covers opens Library with a matching all-media review filter; final Playwright screenshot verified the first non-empty attention tab opens by default and the Provider/Event rail remains visible; backend logs showed `GET /api/dashboard/summary -> 200`; `GET /api/media?media_type=all&review_filter=missing_covers` returned scoped results from the running stack; Help > Releases served `3.5.1`; homelab boundary was verified under a temporary `APP_EDITION=homelab` override and the stack was restored to platform mode afterward.
+- CI/checks run: `node --check backend/routes/dashboard.js`; `node --check backend/routes/media.js`; `node --check backend/scripts/unit-tests.js`; Docker `npm run test:unit` (`291` passed); Docker `npm run test:openapi`; host `npm run test:openapi`; frontend Vite build in Docker; Docker backend/frontend build; Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.5.1 npm run test:help-releases-smoke`; Docker `npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker homelab override plus `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; targeted Dashboard Playwright regression; full Playwright browser regression (`66` passed, `4` skipped); host backend/frontend production dependency audits (`0` vulnerabilities); host observability evidence (`9/9` checks passed); local release preflight; public compose export validation; `git diff --check`; targeted release/evidence secret-pattern scan. Host frontend build and host unit tests are blocked by the older local Node runtime (`??=` and `AbortController` support), so Docker is authoritative for those gates. Local `gitleaks`, `trivy`, and `syft` were unavailable, so `secret-scan` and `image-security-and-sbom` still need their normal CI runs; the stricter secure-cookie `compose-smoke` remains CI-only because the local stack runs with development cookie settings.
+- Files changed: `app-meta.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `backend/app-meta.json`; `backend/openapi/openapi.yaml`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/routes/dashboard.js`; `backend/routes/media.js`; `backend/scripts/unit-tests.js`; `backend/server.js`; `backend/services/personalAccessTokens.js`; `docker-compose.yml`; `docs/releases/v3.5.0.md`; `docs/releases/v3.5.1.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/DashboardCommandCenterView.jsx`; `frontend/src/components/LibraryView.jsx`; `frontend/src/components/SidebarNav.jsx`; `frontend/src/components/app/DashboardContent.jsx`; `frontend/src/components/app/DashboardShell.jsx`; `frontend/src/components/app/dashboardRouting.js`; `frontend/src/components/app/hooks/useMediaApi.js`; `frontend/src/components/app/productEdition.js`; `preflight-go-no-go.md`; `scripts/generate-public-compose.js`; `tests/playwright/specs/admin-shell.browser.spec.js`.
+- Risks or follow-ups: Dashboard still shows capped samples rather than a full unified review queue; that remains separate backlog work. The Library review filters are intentionally focused on missing covers and identifiers, not a broader saved-view system yet. CI-only secure-cookie compose smoke, secret scan, and image security/SBOM gates still need the normal GitHub Actions run.
+- What remains in the milestone: nothing for `3.5.1`; only CI-only release gates remain for the remote pipeline.
+- Recommended commit message: `Release 3.5.1 with Dashboard attention readback refinement`.
+
+## 3.5.0 — Dashboard / Command Center Foundation
+
+**Goal:** Start the `3.5` line by turning the default dashboard into an operational Dashboard surface that shows what needs attention before users have to hunt through Library, Import, Events, or Integrations.
+
+### Scope
+
+- Promote the backlog `Dashboard / Command Center` item into the roadmap as the first `3.5.0` slice.
+- Add an authenticated, active-scope Dashboard summary API with:
+  - collection totals,
+  - missing cover and missing identifier counts,
+  - recent failed and recent sync jobs,
+  - open Plex reconciliation conflicts,
+  - provider configuration/readback status,
+  - upcoming Events,
+  - recent activity.
+- Add a first-screen Dashboard view that links users back into existing detailed workflows instead of replacing those workflows.
+- Make Dashboard the default dashboard route for normal platform and homelab users.
+- Keep support-admin default routing in Help/support surfaces.
+
+### Acceptance Criteria
+
+- `/dashboard` opens Dashboard by default.
+- `GET /api/dashboard/summary` is authenticated, scope-aware, documented in OpenAPI, and PAT-readable with `media:read`.
+- Dashboard clearly surfaces attention counts, provider health, recent syncs, recent activity, upcoming Events, and quick actions.
+- Existing Library, Import, Events, Integrations, Help, and admin surfaces remain reachable.
+- `Dashboard / Command Center` no longer appears as an unscheduled backlog item.
+
+### Closeout
+
+- Version metadata, release note, release feed, and Help > Releases include `3.5.0`.
+- Roadmap slice: `3.5.0 — Dashboard / Command Center Foundation`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/08-Backlog.md`; `docs/releases/v3.5.0.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild with `APP_VERSION=3.5.0`; running stack health reported frontend/backend/build `3.5.0`; backend container env was verified with `APP_EDITION=platform`, `APP_VERSION=3.5.0`, `NODE_ENV=development`, `SESSION_COOKIE_SECURE=false`, and redacted DB URL; targeted browser regression opened `/dashboard` as Dashboard and backend logs showed `GET /api/dashboard/summary -> 200`; Help > Releases served `3.5.0`; homelab boundary was verified under a temporary `APP_EDITION=homelab` override and the stack was restored to platform mode afterward.
+- CI/checks run: `node --check backend/routes/dashboard.js`; `node --check backend/server.js`; `node --check backend/services/personalAccessTokens.js`; host and Docker `npm run test:unit` (`291` passed); host and Docker `npm run test:openapi`; frontend Vite build; Docker backend/frontend build; Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.5.0 npm run test:help-releases-smoke`; Docker `npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker homelab override plus `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; targeted Dashboard Playwright regression; full Playwright browser regression (`66` passed, `4` skipped); host backend/frontend production dependency audits (`0` vulnerabilities); host observability evidence (`9/9` checks passed); local release preflight; public compose export validation; `git diff --check`; targeted release/evidence secret-pattern scan. Local `gitleaks`, `trivy`, and `syft` were unavailable, so `secret-scan` and `image-security-and-sbom` still need their normal CI runs; the stricter secure-cookie `compose-smoke` remains CI-only because the local stack runs with development cookie settings.
+- Files changed: `app-meta.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `backend/app-meta.json`; `backend/openapi/openapi.yaml`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/routes/dashboard.js`; `backend/scripts/unit-tests.js`; `backend/server.js`; `backend/services/personalAccessTokens.js`; `docker-compose.yml`; `docs/releases/v3.5.0.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/DashboardCommandCenterView.jsx`; `frontend/src/components/SidebarNav.jsx`; `frontend/src/components/app/DashboardContent.jsx`; `frontend/src/components/app/dashboardRouting.js`; `frontend/src/components/app/productEdition.js`; `preflight-go-no-go.md`; `scripts/generate-public-compose.js`; `tests/playwright/specs/admin-shell.browser.spec.js`.
+- Risks or follow-ups: Dashboard is intentionally a foundation slice; deeper unified review queues, saved views, smart collections, object-level activity timelines, richer collection-health drilldowns, and notification routing remain separate product backlog work. The public compose generator now keeps `APP_EDITION` out of the exported homelab stack, so platform deployments should continue to set platform mode through local/private overrides rather than the public export.
+- What remains in the milestone: nothing for `3.5.0`; CI-only release gates still need the normal GitHub run, including stricter secure-cookie `compose-smoke`, `secret-scan`, and `image-security-and-sbom`.
+- Recommended commit message: `Release 3.5.0 with Dashboard command center foundation`.
+
 ## 3.4.162 — Scanner ISBN Lookup Fallback Guard
 
 **Goal:** Keep valid ISBN scanner and web barcode lookups on the Books/ISBN path so a Books no-match does not fall through to UPCItemDB/general barcode lookup.

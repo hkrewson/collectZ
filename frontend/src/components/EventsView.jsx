@@ -5275,7 +5275,7 @@ function EventDetailDrawer({ eventId, apiCall, onClose, onEdit, onDeleted, onSav
   );
 }
 
-export default function EventsView({ apiCall, onToast, currentUser = null }) {
+export default function EventsView({ apiCall, onToast, currentUser = null, focusTarget = null }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -5316,6 +5316,10 @@ export default function EventsView({ apiCall, onToast, currentUser = null }) {
   }, [apiCall, fromDate, page, pageSize, search, sortDir, toDate]);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (focusTarget?.entityType !== 'event' || !focusTarget?.entityId) return;
+    setDetailId(Number(focusTarget.entityId));
+  }, [focusTarget?.createdAt, focusTarget?.entityId, focusTarget?.entityType]);
 
   const saveEvent = async (payload, imageFile) => {
     if (editing?.id) {

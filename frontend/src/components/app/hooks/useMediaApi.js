@@ -15,7 +15,7 @@ export default function useMediaApi({ apiCall, showToast }) {
     const passthrough = [
       'page', 'limit', 'search', 'format', 'media_type', 'sortBy', 'sortDir',
       'director', 'genre', 'cast', 'resolution', 'yearMin', 'yearMax',
-      'platform', 'publisher', 'ratingMin', 'ratingMax', 'userRatingMin', 'userRatingMax'
+      'platform', 'publisher', 'review_filter', 'ratingMin', 'ratingMax', 'userRatingMin', 'userRatingMax'
     ];
 
     passthrough.forEach((key) => {

@@ -413,7 +413,7 @@ function CollectibleDrawer({
   );
 }
 
-export default function CollectiblesView({ apiCall, onToast }) {
+export default function CollectiblesView({ apiCall, onToast, focusTarget = null }) {
   const viewConfig = VIEW_CONFIG;
   const apiBasePath = viewConfig.apiBasePath;
   const api = useCallback((method, path, data, config = {}) => (
@@ -496,6 +496,10 @@ export default function CollectiblesView({ apiCall, onToast }) {
   useEffect(() => { load(); }, [load]);
   useEffect(() => { loadEvents(); }, [loadEvents]);
   useEffect(() => { loadCategories(); }, [loadCategories]);
+  useEffect(() => {
+    if (focusTarget?.entityType !== 'collectible' || !focusTarget?.entityId) return;
+    setDetailId(Number(focusTarget.entityId));
+  }, [focusTarget?.createdAt, focusTarget?.entityId, focusTarget?.entityType]);
   useEffect(() => {
     const onPointerDown = (event) => {
       if (!filterMenuRef.current) return;

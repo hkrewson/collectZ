@@ -52,6 +52,20 @@ const DEFAULT_MEDIA_FORM = {
 };
 const OVERVIEW_MAX_LENGTH = 10000;
 
+function normalizeReviewFilter(value) {
+  const raw = typeof value === 'string' ? value : value?.type;
+  const normalized = String(raw || '').trim().toLowerCase().replace(/-/g, '_');
+  if (normalized === 'missing_covers' || normalized === 'missing_cover') return 'missing_covers';
+  if (normalized === 'missing_identifiers' || normalized === 'missing_identifier') return 'missing_identifiers';
+  return '';
+}
+
+function reviewFilterLabel(value) {
+  if (value === 'missing_covers') return 'Missing covers';
+  if (value === 'missing_identifiers') return 'Missing identifiers';
+  return 'Review filter';
+}
+
 function clampOverviewText(value) {
   const raw = typeof value === 'string' ? value.trim() : '';
   if (!raw) return '';
@@ -4192,6 +4206,9 @@ export default function LibraryView({
   onRating,
   apiCall,
   forcedMediaType,
+  reviewFilter = null,
+  onClearReviewFilter = null,
+  focusTarget = null,
   onFindPossibleDuplicates = null,
   canWritePlex = false
 }) {
@@ -4201,12 +4218,14 @@ export default function LibraryView({
   const [resolutionInput, setResolutionInput] = useState('all');
   const [platformInput, setPlatformInput] = useState('all');
   const [publisherInput, setPublisherInput] = useState('all');
+  const normalizedReviewFilter = normalizeReviewFilter(reviewFilter);
   const [filters, setFilters] = useState({
     media_type: forcedMediaType || 'movie',
     search: '',
     resolution: 'all',
     platform: 'all',
     publisher: 'all',
+    review_filter: normalizedReviewFilter,
     sortBy: forcedMediaType === 'comic_book' ? 'comic_issue' : 'title',
     sortDir: 'asc'
   });
@@ -4260,6 +4279,7 @@ export default function LibraryView({
     [addFormMediaType]
   );
 
+  const activeReviewFilterLabel = reviewFilterLabel(filters.review_filter);
   const isComicsLibrary = forcedMediaType === 'comic_book';
   const supportsCollections = forcedMediaType === 'movie' || forcedMediaType === 'game';
   const isCollectionMode = supportsCollections && collectionMode === 'collections';
@@ -4339,6 +4359,7 @@ export default function LibraryView({
       resolution: 'all',
       platform: 'all',
       publisher: 'all',
+      review_filter: normalizedReviewFilter,
       sortBy: forcedMediaType === 'comic_book' ? 'comic_issue' : 'title',
       sortDir: 'asc'
     }));
@@ -4357,7 +4378,7 @@ export default function LibraryView({
       setComicView('issues');
       setComicSeries('all');
     }
-  }, [forcedMediaType]);
+  }, [forcedMediaType, normalizedReviewFilter]);
 
   const refreshComicSeries = useCallback(async (targetPage = page) => {
     if (!isComicsLibrary) return;
@@ -4487,6 +4508,26 @@ export default function LibraryView({
     onRefresh({ page: requestPage, limit: requestLimit, ...filters });
     return fresh;
   }, [apiCall, filters, onRefresh, requestLimit, requestPage]);
+
+  useEffect(() => {
+    if (focusTarget?.entityType !== 'media' || !focusTarget?.entityId) return undefined;
+    let active = true;
+    (async () => {
+      try {
+        const fresh = await apiCall('get', `/media/${focusTarget.entityId}`);
+        if (active) setDetail(fresh);
+      } catch (_) {
+        if (active && focusTarget.title) {
+          setSearchInput(String(focusTarget.title));
+          setFilters((prev) => ({ ...prev, search: String(focusTarget.title) }));
+          setPage(1);
+        }
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [apiCall, focusTarget?.createdAt, focusTarget?.entityId, focusTarget?.entityType, focusTarget?.title]);
 
   const displayedTotal = isCollectionMode
     ? (collectionPagination?.total ?? collectionRows.length)
@@ -4803,6 +4844,7 @@ export default function LibraryView({
         if (filters.resolution && filters.resolution !== 'all') params.set('resolution', filters.resolution);
         if (filters.platform && filters.platform !== 'all') params.set('platform', filters.platform);
         if (filters.publisher && filters.publisher !== 'all') params.set('publisher', filters.publisher);
+        if (filters.review_filter) params.set('review_filter', filters.review_filter);
         return params;
       };
 
@@ -4854,6 +4896,12 @@ export default function LibraryView({
     selectionGestureRef.current = false;
     setSelectingAllMatching(false);
   }, []);
+
+  const clearReviewFilter = useCallback(() => {
+    setFilters((f) => ({ ...f, review_filter: '' }));
+    onClearReviewFilter?.();
+    setPage(1);
+  }, [onClearReviewFilter]);
 
   const handleBulkDelete = useCallback(async () => {
     const targetIds = [...selectedIds];
@@ -4986,6 +5034,17 @@ export default function LibraryView({
           </div>
           </div>
         </div>
+        {filters.review_filter ? (
+          <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-edge bg-raised/25 px-3 py-2 text-sm">
+            <div className="min-w-0">
+              <span className="font-medium text-ink">{activeReviewFilterLabel}</span>
+              <span className="text-ghost"> across all library types</span>
+            </div>
+            <button type="button" className="btn-secondary btn-sm" onClick={clearReviewFilter}>
+              Clear
+            </button>
+          </div>
+        ) : null}
         {(hasResultsTabs || showSelectionControls) && (
           <div className="mt-2.5 flex flex-col gap-2 border-t border-edge/60 pt-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex min-w-0 flex-wrap items-center gap-3">

@@ -58,8 +58,12 @@ test.describe('space manager browser regressions', () => {
       await expect(page.getByRole('button', { name: 'People', exact: true })).toHaveCount(0);
 
       await page.getByRole('button', { name: 'Activity', exact: true }).click();
-      await expect(page.getByRole('heading', { name: 'Activity', exact: true })).toBeVisible();
-      await expect(page.getByText('media.create', { exact: true }).first()).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Timeline', exact: true })).toBeVisible();
+      await expect(page.getByText('Library item added').first()).toBeVisible();
+      await expect(page.getByText(title).first()).toBeVisible();
+      await page.getByRole('button', { name: 'Open item' }).first().click();
+      await expect(page).toHaveURL(/tab=library-movies/);
+      await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
     } finally {
       await deleteMediaByExactTitle(requestContext, title).catch(() => {});
       await requestContext.dispose();

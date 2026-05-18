@@ -4285,6 +4285,61 @@ const MIGRATIONS = [
         FROM kavita_chapter_covers AS k
        WHERE m.id = k.id;
     `
+  },
+  {
+    version: 103,
+    description: 'Add scoped wishlist and acquisition tracking',
+    up: `
+      CREATE TABLE IF NOT EXISTS wanted_items (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(500) NOT NULL,
+        object_type VARCHAR(30) NOT NULL DEFAULT 'movie' CHECK (object_type IN ('movie', 'tv_series', 'book', 'comic_book', 'audio', 'game', 'art', 'collectible', 'event_item', 'other')),
+        status VARCHAR(20) NOT NULL DEFAULT 'wanted' CHECK (status IN ('wanted', 'watching', 'preordered', 'ordered', 'acquired', 'dismissed')),
+        priority VARCHAR(20) NOT NULL DEFAULT 'normal' CHECK (priority IN ('low', 'normal', 'high', 'grail')),
+        year INTEGER,
+        desired_format VARCHAR(100),
+        desired_edition VARCHAR(255),
+        notes TEXT,
+        identifiers JSONB NOT NULL DEFAULT '{}'::jsonb,
+        source_context JSONB NOT NULL DEFAULT '{}'::jsonb,
+        provider VARCHAR(80),
+        provider_key TEXT,
+        event_id INTEGER,
+        vendor VARCHAR(255),
+        target_price NUMERIC(12,2),
+        linked_media_id INTEGER REFERENCES media(id) ON DELETE SET NULL,
+        library_id INTEGER,
+        space_id INTEGER,
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        acquired_at TIMESTAMP,
+        dismissed_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_wanted_items_library_status
+        ON wanted_items(library_id, status, updated_at DESC);
+
+      CREATE INDEX IF NOT EXISTS idx_wanted_items_space_status
+        ON wanted_items(space_id, status, updated_at DESC);
+
+      CREATE INDEX IF NOT EXISTS idx_wanted_items_provider_key
+        ON wanted_items(provider, provider_key)
+        WHERE provider IS NOT NULL AND provider_key IS NOT NULL;
+
+      CREATE INDEX IF NOT EXISTS idx_wanted_items_linked_media
+        ON wanted_items(linked_media_id)
+        WHERE linked_media_id IS NOT NULL;
+
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_wanted_items_updated_at') THEN
+          CREATE TRIGGER update_wanted_items_updated_at BEFORE UPDATE ON wanted_items
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+        END IF;
+      END;
+      $$;
+    `
   }
 ];
 

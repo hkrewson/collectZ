@@ -770,7 +770,7 @@ function ArtDrawer({ initial, events, saving, error, notice, apiCall, onClose, o
   );
 }
 
-export default function ArtView({ apiCall, onToast }) {
+export default function ArtView({ apiCall, onToast, focusTarget = null }) {
   const api = useCallback((method, path, data, config = {}) => (
     apiCall(method, path, data, { timeout: 15000, ...config })
   ), [apiCall]);
@@ -833,6 +833,10 @@ export default function ArtView({ apiCall, onToast }) {
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { loadEvents(); }, [loadEvents]);
+  useEffect(() => {
+    if (focusTarget?.entityType !== 'art' || !focusTarget?.entityId) return;
+    setDetailId(Number(focusTarget.entityId));
+  }, [focusTarget?.createdAt, focusTarget?.entityId, focusTarget?.entityType]);
   useEffect(() => {
     const onPointerDown = (event) => {
       if (!filterMenuRef.current) return;

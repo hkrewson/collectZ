@@ -39,7 +39,8 @@ export default function SpaceManagerView({
   onSettingsChange,
   Icons,
   Spinner,
-  cx
+  cx,
+  onTimelineNavigate = null
 }) {
   const [members, setMembers] = useState([]);
   const [invites, setInvites] = useState([]);
@@ -723,9 +724,18 @@ export default function SpaceManagerView({
             apiCall={apiCall}
             Spinner={Spinner}
             endpoint={`/spaces/${activeSpaceId}/activity`}
-            title="Activity"
-            description="This feed is scoped to the active workspace so owners and members can review what belongs to this tenant."
+            title="Timeline"
+            description="Readable activity entries scoped to the active workspace. Technical audit details stay available when needed."
             emptyMessage="No activity has been recorded for this workspace yet."
+            context="workspace"
+            onNavigate={(target) => {
+              if (target?.managerTab) {
+                setManagerTab(target.managerTab);
+                if (target.managerTab === 'people') setPeopleTab('members');
+                return;
+              }
+              onTimelineNavigate?.(target);
+            }}
             embedded
           />
         ) : null}

@@ -39,6 +39,8 @@ const { sharedIntegrationsRouter, platformIntegrationsRouter } = require('./rout
 const spaceIntegrationsRouter = require('./routes/spaceIntegrations');
 const librariesRouter = require('./routes/libraries');
 const spacesRouter = require('./routes/spaces');
+const dashboardRouter = require('./routes/dashboard');
+const wishlistRouter = require('./routes/wishlist');
 const eventsRouter = require('./routes/events');
 const collectiblesRouter = require('./routes/collectibles');
 const { supportSharedRouter, supportPlatformRouter } = require('./routes/support');
@@ -278,6 +280,8 @@ if (!HOMELAB_EDITION) {
 // Profile endpoints live under auth routes but are exposed at /api/profile
 // for backward compatibility with existing frontend calls
 app.use('/api', authRouter);
+app.use('/api', dashboardRouter);
+app.use('/api', wishlistRouter);
 app.use('/api/media', mediaRouter);
 app.use('/api', eventsRouter);
 app.use('/api', collectiblesRouter);

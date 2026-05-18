@@ -1,6 +1,113 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.7.1",
+      "version": "3.7.1",
+      "date": "2026-05-17",
+      "status": "implemented",
+      "summary": "This patch keeps iterating on the human-readable activity timeline by adding contextual navigation from timeline rows to the related app surface.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added small timeline action buttons for known targets such as media items, Art, Collectibles, Events, imports, loans, integrations, people, workspaces, and users.",
+            "Wired Admin Activity links into the main dashboard shell so platform timeline entries can open the relevant admin or library surface.",
+            "Wired Workspace Activity links so workspace entries can open the matching workspace tab or jump out to the relevant library item.",
+            "Added focus handoff for media, Art, Collectible, and Event targets so existing rows can open their detail drawer after navigation.",
+            "Extended the workspace activity browser regression to prove a media timeline row can open the related library detail."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "collectZ v3.7.0",
+      "version": "3.7.0",
+      "date": "2026-05-17",
+      "status": "implemented",
+      "summary": "This minor milestone turns the existing technical activity feed into a readable timeline for people using the app day to day, while keeping the raw audit details available when operators need them.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Promoted `Human-Readable Activity Timeline` from the product backlog into the `3.7.0` roadmap.",
+            "Reworked the shared Activity surface so Admin Activity and Workspace Activity show readable timeline entries first.",
+            "Added timeline copy for imports, scanner imports, Plex and Kavita provider activity, ratings, watched-state changes, valuation refreshes, library changes, wishlist conversions, workspace people/invite activity, security events, and failures.",
+            "Added filters for imports, providers, library, events, people, security, and failures.",
+            "Moved raw action names, exact timestamps, IPs, statuses, reasons, and JSON details behind a `Technical details` disclosure.",
+            "Moved the working app/version metadata to `3.7.0` so the minor milestone is aligned across app meta, packages, public compose defaults, release notes, and the in-app release feed."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "collectZ v3.6.0",
+      "version": "3.6.0",
+      "date": "2026-05-17",
+      "status": "implemented",
+      "summary": "This minor milestone starts first-class wishlist and acquisition tracking: a way to track things users want without pretending they already own them.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Promoted `Acquisition, Wishlist, and Want Tracking` from the product backlog into the `3.6.0` roadmap.",
+            "Added scoped `wanted_items` storage with `wanted`, `watching`, `preordered`, `ordered`, `acquired`, and `dismissed` states.",
+            "Added authenticated `/api/wishlist` endpoints to list, create, edit, delete, and convert media-compatible wishlist items into canonical library media rows.",
+            "Added a Library > Wishlist surface with status tabs, type/search filters, lightweight acquisition metadata, and an `Add to library` conversion action.",
+            "Documented the wishlist API in OpenAPI and added browser regression coverage for listing and converting a wanted item.",
+            "Moved the working app/version metadata to `3.6.0` so the minor milestone is aligned across app meta, packages, public compose defaults, release notes, and the in-app release feed."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "collectZ v3.5.1",
+      "version": "3.5.1",
+      "date": "2026-05-17",
+      "status": "released",
+      "summary": "This patch tightens the new Dashboard command center so attention items show useful readback instead of sending users to broad navigation destinations.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Removed the superfluous Dashboard `Quick actions` panel.",
+            "Removed the `Import` shortcut from `Recent syncs`.",
+            "Removed the duplicate `Latest failures` panel so failed syncs have one source of truth in `Needs attention`.",
+            "Changed failed sync attention from a generic Integrations jump into inline failed-job details with provider, job type, timestamp, status, and error readback.",
+            "Added inline lists for items missing covers and items missing identifiers.",
+            "Made the summary counters and attention tab actions open filtered all-media Library review lists for missing covers and missing identifiers.",
+            "Added `review_filter` support to `GET /api/media` so Dashboard drilldowns and Library use the same backend source of truth for attention lists.",
+            "Made Dashboard more compact with tighter panel spacing, smaller summary counters, and capped attention samples.",
+            "Removed the aggregate `Needs attention` summary metric because it duplicated the tabbed attention panel without adding a distinct workflow.",
+            "Reflowed Dashboard into a denser dashboard layout with three collection-health metrics, a primary attention/provider row, and compact Recent syncs, Recent activity, and Upcoming events panels.",
+            "Renamed the command-center surface to `Dashboard` across the nav, heading, tab id, API route, OpenAPI contract, tests, and docs.",
+            "Changed `Needs attention` into tabs so failed syncs, missing covers, missing identifiers, and Plex conflicts do not stack into a long page on high-resolution screens.",
+            "Extended `GET /api/dashboard/summary` with `attention_details` samples for missing-cover and missing-identifier items.",
+            "Updated OpenAPI and source assertions for the richer Dashboard summary contract."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "collectZ v3.5.0",
+      "version": "3.5.0",
+      "date": "2026-05-17",
+      "status": "released",
+      "summary": "This minor release starts the `3.5` line with a new Dashboard command center: a first-screen operational summary of what changed, what failed, and what needs attention in the active workspace/library scope.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added authenticated `GET /api/dashboard/summary` for scoped Dashboard data.",
+            "Dashboard now summarizes collection totals, missing covers, missing identifiers, recent syncs, failed syncs, open Plex reconciliation conflicts, provider status, upcoming Events, and recent activity.",
+            "`/dashboard` now opens Dashboard by default for normal platform and homelab users.",
+            "Added Dashboard navigation and quick links back into Import, Library, Events, and Integrations.",
+            "Documented the Dashboard summary endpoint in OpenAPI and mapped PAT access to `media:read`.",
+            "Promoted `Dashboard / Command Center` out of the backlog and into the `3.5.0` roadmap."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.4.162",
       "version": "3.4.162",
       "date": "2026-05-17",
@@ -93,81 +200,6 @@
             "Added `provider_candidate_index` to scanner lookup matches when provider ordering is available.",
             "Updated scanner smoke coverage with a fake UPC provider returning three candidates for `0076783005990`.",
             "Clarified OpenAPI docs that barcode lookup may return zero, one, or many candidates."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.4.157",
-      "version": "3.4.157",
-      "date": "2026-05-16",
-      "status": "released",
-      "summary": "This patch adds the backend scanner contract needed for the iOS barcode scanner app to look up decoded barcodes and import selected matches without routing through the web UI.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added authenticated `POST /api/media/lookup/barcode` for scanner clients.",
-            "The scanner lookup reads scoped existing catalog matches first, then configured barcode/provider enrichment matches when available.",
-            "Empty barcode lookups now return a successful response with an empty `matches` array.",
-            "Added authenticated `POST /api/media/import-barcode` to create or update canonical media from a selected scanner match.",
-            "Added PAT/service-token scope mapping so scanner lookup uses `media:read` and barcode import uses the existing `import:run` import scope.",
-            "Updated OpenAPI and smoke coverage for lookup success, empty lookup, import success, and auth behavior.",
-            "Follow-up `3.4.158` keeps this scanner lookup contract as a true candidate list when a provider returns multiple products for one barcode."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.4.156",
-      "version": "3.4.156",
-      "date": "2026-05-11",
-      "status": "released",
-      "summary": "Kavita chapter-as-issue rows now use a chapter-specific cover proxy instead of repeating the parent series cover for every imported issue.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added a scoped `/api/media/kavita-chapter-cover/{chapterId}` proxy that fetches Kavita reader page `0` server-side.",
-            "Updated Kavita chapter fan-out rows so `poster_path` points at the chapter-cover proxy.",
-            "Added a data repair migration for existing Kavita chapter rows that still pointed at the parent series cover proxy.",
-            "Kept series rows on the existing series-cover proxy.",
-            "Updated Kavita docs and smoke coverage for chapter-level issue cover behavior."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.4.155",
-      "version": "3.4.155",
-      "date": "2026-05-10",
-      "status": null,
-      "summary": "Kavita comic libraries that report numeric library type `5` now qualify for comic chapter issue fan-out. This fixes imports that were correctly classified as `comic_book` rows but still skipped all chapter fan-out as if they were books.",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.4.154",
-      "version": "3.4.154",
-      "date": "2026-05-10",
-      "status": null,
-      "summary": "Kavita comic imports now lean toward showing the issues Kavita exposes, not quietly stopping at the parent series row. The admin Kavita import control defaults chapter issue fan-out on, special chapters import as issue rows, and chapter rows can be kept when Kavita provides sort/order metadata even if the usual issue fields are sparse.",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.4.153",
-      "version": "3.4.153",
-      "date": "2026-05-10",
-      "status": "released",
-      "summary": "This patch improves Kavita comic imports when Kavita exposes an issue-shaped comic file as a series row. collectZ now recognizes titles such as `Alpha Flight#130 - The Hollow Man! - Unknown`, keeps the raw Kavita title for troubleshooting, and stores cleaner comic series and issue metadata.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Normalizes issue-like Kavita comic series titles into cleaner display titles, series names, issue numbers, and issue titles.",
-            "Keeps true Kavita comic series rows at the series level instead of copying first-chapter issue number and cover date onto the series row.",
-            "Prevents chapter fan-out from creating a duplicate issue row when the Kavita series row already represents an issue-like comic.",
-            "Preserves raw Kavita series/localized/original/sort names plus parse status metadata for troubleshooting.",
-            "Extends the Kavita import smoke fixture with the real `Alpha Flight#130 - The Hollow Man! - Unknown` pattern."
           ]
         }
       ]
