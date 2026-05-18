@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { DetailDrawerShell, Icons } from './app/AppPrimitives';
 import SyncJobDetailDrawer from './SyncJobDetailDrawer';
 
 const FILTERS = [
@@ -83,9 +84,34 @@ function detailNumber(details, keys = []) {
   return null;
 }
 
+function formatDateTime(value) {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return String(value || '');
+  return parsed.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
 function formatCountLabel(count, singular, plural = `${singular}s`) {
   const n = Number(count || 0);
   return `${n} ${n === 1 ? singular : plural}`;
+}
+
+function buildSnapshotRows(entry, details) {
+  const rows = [
+    ['Action', entry?.action],
+    ['Target', formatEntityLabel(entry)],
+    ['Recorded', formatDateTime(entry?.created_at)],
+    ['User', entry?.user_email || (entry?.user_id ? `User #${entry.user_id}` : 'System')],
+    ['Title', detailValue(details, ['title', 'mediaTitle', 'eventTitle', 'name'])],
+    ['Type', detailValue(details, ['mediaType', 'media_type', 'object_type', 'itemType'])],
+    ['Status', detailValue(details, ['status', 'details_status'])],
+    ['Reason', detailValue(details, ['reason', 'error', 'message'])],
+    ['Provider', detailValue(details, ['provider', 'provider_name', 'source', 'integration'])],
+    ['Space', detailValue(details, ['spaceName', 'spaceId', 'space_id'])],
+    ['Library', detailValue(details, ['libraryName', 'libraryId', 'library_id'])]
+  ];
+  return rows
+    .map(([label, value]) => [label, compactValue(value)])
+    .filter(([, value]) => value);
 }
 
 function buildImportSummary(entry, details) {
@@ -327,6 +353,60 @@ function buildTimelineLinks(entry, context) {
   return links;
 }
 
+function shouldOfferSnapshot(entry, links) {
+  const action = String(entry?.action || '');
+  const details = entry?.details && typeof entry.details === 'object' ? entry.details : {};
+  const deletedOrArchived = action.includes('.delete') || action.includes('.deleted') || action.includes('.archive');
+  return deletedOrArchived && Object.keys(details).length > 0 && !links.some((link) => link.target?.snapshotEntry);
+}
+
+function ActivitySnapshotDrawer({ entry, onClose }) {
+  const details = entry?.details && typeof entry.details === 'object' ? entry.details : {};
+  const readable = buildTimelineEntry(entry);
+  const rows = buildSnapshotRows(entry, details);
+
+  return (
+    <DetailDrawerShell onClose={onClose} panelClassName="max-w-lg" testId="activity-snapshot-drawer">
+      <div className="flex items-start justify-between gap-4 border-b border-edge px-5 py-4">
+        <div className="min-w-0">
+          <h2 className="truncate text-lg font-semibold text-ink">Activity snapshot</h2>
+          <p className="mt-1 text-sm text-ghost">{readable.title}</p>
+        </div>
+        <button type="button" onClick={onClose} className="btn-icon btn-sm shrink-0" aria-label="Close activity snapshot">
+          <Icons.X />
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-5 py-4">
+        <div className="space-y-5">
+          <div className="rounded-lg border border-edge bg-raised/20 p-3">
+            <p className="text-sm text-ink">{readable.summary || 'Activity was recorded.'}</p>
+            <p className="mt-2 text-xs text-ghost">The original target may have been deleted or archived, so this view uses the activity snapshot saved at the time of the change.</p>
+          </div>
+
+          {rows.length > 0 ? (
+            <dl className="rounded-lg border border-edge bg-panel px-3">
+              {rows.map(([label, value]) => (
+                <div key={label} className="flex items-start justify-between gap-4 border-t border-edge/70 py-2 first:border-t-0">
+                  <dt className="text-xs text-ghost">{label}</dt>
+                  <dd className="max-w-[65%] text-right text-sm text-ink">{value}</dd>
+                </div>
+              ))}
+            </dl>
+          ) : null}
+
+          <details className="rounded-lg border border-edge bg-panel p-3 text-xs text-ghost">
+            <summary className="cursor-pointer select-none text-dim">Technical payload</summary>
+            <pre className="mt-3 max-h-96 overflow-auto whitespace-pre-wrap break-words rounded-md bg-abyss px-3 py-2 font-mono text-[11px] text-ghost/85">
+              {JSON.stringify({ ...entry, details }, null, 2)}
+            </pre>
+          </details>
+        </div>
+      </div>
+    </DetailDrawerShell>
+  );
+}
+
 export default function ActivityFeedView({
   apiCall,
   Spinner,
@@ -346,8 +426,13 @@ export default function ActivityFeedView({
   const [hasMore, setHasMore] = useState(false);
   const [pageSize, setPageSize] = useState(50);
   const [selectedSyncJob, setSelectedSyncJob] = useState(null);
+  const [selectedSnapshotEntry, setSelectedSnapshotEntry] = useState(null);
 
   const handleTimelineTarget = (target) => {
+    if (target?.snapshotEntry) {
+      setSelectedSnapshotEntry(target.snapshotEntry);
+      return;
+    }
     if (target?.syncJobId) {
       setSelectedSyncJob({ id: target.syncJobId, initialJob: target.syncJob || null });
       return;
@@ -440,6 +525,13 @@ export default function ActivityFeedView({
             const readable = buildTimelineEntry(entry);
             const details = entry.details && typeof entry.details === 'object' ? entry.details : {};
             const links = buildTimelineLinks(entry, context).filter((link) => link.target?.syncJobId || onNavigate);
+            if (shouldOfferSnapshot(entry, links)) {
+              links.push({
+                key: `snapshot:${entry.id}`,
+                label: 'View snapshot',
+                target: { snapshotEntry: entry }
+              });
+            }
             return (
             <div key={entry.id} className="py-4 space-y-2">
               <div className="flex items-start gap-3">
@@ -497,6 +589,12 @@ export default function ActivityFeedView({
           initialJob={selectedSyncJob.initialJob}
           onClose={() => setSelectedSyncJob(null)}
           Spinner={Spinner}
+        />
+      ) : null}
+      {selectedSnapshotEntry ? (
+        <ActivitySnapshotDrawer
+          entry={selectedSnapshotEntry}
+          onClose={() => setSelectedSnapshotEntry(null)}
         />
       ) : null}
     </div>

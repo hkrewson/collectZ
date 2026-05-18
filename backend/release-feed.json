@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.7.3",
+      "version": "3.7.3",
+      "date": "2026-05-18",
+      "status": "implemented",
+      "summary": "This patch continues the human-readable timeline work by giving deleted or archived activity rows a readable snapshot drawer.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added an Activity snapshot drawer for timeline rows whose original target is no longer openable.",
+            "Added `View snapshot` actions for deleted or archived timeline entries that still have saved audit details.",
+            "Shows the saved title, target, action, timestamp, user, type, provider, scope hints, and reason when those fields exist.",
+            "Keeps the raw activity payload behind a technical disclosure.",
+            "Added browser coverage for a deleted media row opening its saved timeline snapshot."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.7.2",
       "version": "3.7.2",
       "date": "2026-05-18",
@@ -181,25 +200,6 @@
             "Direct ISBN matches return with `source: books:isbn-direct` and `mediaTypeGuess: book`.",
             "Scanner smoke now proves the ISBN path works without `mediaType: book`.",
             "OpenAPI now documents scanner ISBN behavior on `/api/media/lookup/barcode`."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.4.159",
-      "version": "3.4.159",
-      "date": "2026-05-16",
-      "status": "released",
-      "summary": "This patch surfaces distinct barcode provider title variants from nested offer/listing rows so both the web UPC lookup and iOS scanner lookup can show messy real-world UPC choices like `Before the Storm` when the provider includes that title beneath a top-level product.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Expanded normalized barcode matches to include distinct `offers[].title` and listing title variants.",
-            "Kept the top-level provider product candidate while adding meaningful provider title variants as additional candidates.",
-            "Added `alternateTitles`/`alternate_titles` readback so clients can show related provider title strings.",
-            "Added title-variant metadata fields such as `titleVariantSource`, `titleVariantIndex`, and `offerIndex`.",
-            "Updated scanner smoke coverage so both `/api/media/lookup/barcode` and `/api/media/lookup-upc` prove offer title variants are returned."
           ]
         }
       ]

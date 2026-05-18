@@ -70,6 +70,45 @@ test.describe('space manager browser regressions', () => {
     }
   });
 
+  test('workspace activity deleted rows open a saved activity snapshot', async ({ page }) => {
+    const credentials = await createFreshUserCredentials();
+    const requestContext = await createAuthenticatedRequestContext(credentials);
+    const title = `Playwright Deleted Activity Snapshot ${Date.now()}`;
+
+    await deleteMediaByExactTitle(requestContext, title).catch(() => {});
+
+    try {
+      await postWithCsrf(requestContext, '/api/media', {
+        title,
+        media_type: 'movie',
+        owned_formats: ['digital']
+      }, 201);
+      await deleteMediaByExactTitle(requestContext, title);
+
+      const storageState = await requestContext.storageState();
+      await page.context().addCookies(storageState.cookies || []);
+      await page.goto('/dashboard?tab=space-manage');
+
+      await expect(page.getByRole('button', { name: 'Activity', exact: true })).toBeVisible();
+      await page.getByRole('button', { name: 'Activity', exact: true }).click();
+      await expect(page.getByRole('heading', { name: 'Timeline', exact: true })).toBeVisible();
+
+      await page.getByPlaceholder('Action, user, target, or details').fill(title);
+      await page.getByPlaceholder('Action, user, target, or details').press('Enter');
+
+      await expect(page.getByText('Library item deleted').first()).toBeVisible();
+      await expect(page.getByText(title).first()).toBeVisible();
+      await page.getByRole('button', { name: 'View snapshot' }).first().click();
+      await expect(page.getByTestId('activity-snapshot-drawer')).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Activity snapshot' })).toBeVisible();
+      await expect(page.getByText(title).first()).toBeVisible();
+      await expect(page.getByText('Technical payload')).toBeVisible();
+    } finally {
+      await deleteMediaByExactTitle(requestContext, title).catch(() => {});
+      await requestContext.dispose();
+    }
+  });
+
   test('platform activity excludes workspace-local media actions while workspace activity retains them', async () => {
     const credentials = await createFreshUserCredentials();
     const requestContext = await createAuthenticatedRequestContext(credentials);

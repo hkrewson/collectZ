@@ -6153,6 +6153,11 @@ results.push(run('dashboard command center frontend owns first-screen attention 
   assert.ok(activityFeedViewSource.includes('Open failure'));
   assert.ok(activityFeedViewSource.includes('syncJobId'));
   assert.ok(activityFeedViewSource.includes('SyncJobDetailDrawer'));
+  assert.ok(activityFeedViewSource.includes('ActivitySnapshotDrawer'));
+  assert.ok(activityFeedViewSource.includes('View snapshot'));
+  assert.ok(activityFeedViewSource.includes('activity-snapshot-drawer'));
+  assert.ok(activityFeedViewSource.includes('saved at the time of the change'));
+  assert.ok(spaceManagerBrowserSpecSource.includes('workspace activity deleted rows open a saved activity snapshot'));
   assert.ok(adminShellBrowserSpecSource.includes('/api/dashboard/summary'));
   assert.ok(adminShellBrowserSpecSource.includes("page.goto('/dashboard')"));
 }));

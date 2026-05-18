@@ -13,8 +13,18 @@ async function findMediaByTitle(requestContext, title) {
 async function deleteMediaByExactTitle(requestContext, title) {
   const items = await findMediaByTitle(requestContext, title);
   const matches = items.filter((item) => String(item?.title || '') === String(title));
+  let csrfToken = '';
+  if (matches.length > 0) {
+    const csrfResponse = await requestContext.get('/api/auth/csrf-token');
+    if (csrfResponse.ok()) {
+      const csrfPayload = await csrfResponse.json();
+      csrfToken = String(csrfPayload?.csrfToken || '');
+    }
+  }
   for (const item of matches) {
-    const response = await requestContext.delete(`/api/media/${item.id}`);
+    const response = await requestContext.delete(`/api/media/${item.id}`, {
+      headers: csrfToken ? { 'x-csrf-token': csrfToken } : undefined
+    });
     if (!response.ok() && response.status() !== 404) {
       const text = await response.text();
       throw new Error(`Failed to delete media #${item.id} for "${title}" (${response.status()}): ${text}`);

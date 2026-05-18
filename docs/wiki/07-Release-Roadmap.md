@@ -10752,6 +10752,37 @@ Historical note:
 - What remains in the milestone: nothing for the `3.6.0` foundation slice; later `3.6.x` work can build provider candidate intake and richer acquisition workflows on this model.
 - Recommended commit message: `Release 3.6.0 with wishlist and acquisition foundation`.
 
+## 3.7.3 — Timeline Missing Target Snapshot Readback
+
+**Goal:** Keep deleted or archived timeline entries useful by opening the saved activity snapshot when the original target is no longer available.
+
+### Scope
+
+- Add a readable activity snapshot drawer for timeline rows whose target cannot be opened directly.
+- Surface `View snapshot` on deleted or archived timeline rows that have saved audit details.
+- Show the saved action, target, timestamp, user, title, type, provider, scope hints, and reason when present.
+- Keep the raw activity payload available behind a technical disclosure.
+- Keep this slice read-only and scoped to existing Activity API payloads.
+
+### Acceptance Criteria
+
+- A deleted media activity row exposes `View snapshot`.
+- `View snapshot` opens a drawer that explains the original target may have been deleted or archived.
+- The drawer shows saved activity context without requiring the original object row to exist.
+- Existing `Open item`, `Open sync`, and `Open failure` actions still render when applicable.
+- Version metadata, release note, release feed, and Help > Releases include `3.7.3`.
+
+### Closeout
+
+- Roadmap slice: `3.7.3 — Timeline Missing Target Snapshot Readback`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/06-Versioning-and-Build-Metadata.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.7.3.md`.
+- Runtime verification used: Docker-first platform backend/frontend rebuild with `APP_VERSION=3.7.3`; running `/api/health` reported frontend/backend/build `3.7.3`; running backend logs reported `collectZ backend v3.7.3` with `103 migration(s) applied`; running backend env reported `APP_EDITION=platform`, `APP_VERSION=3.7.3`, `NODE_ENV=development`, `SESSION_COOKIE_SECURE=false`, `TRUST_PROXY=0`, and a redacted DB URL; live DB confirmed `schema_migrations` at `103`, `collectibles_enabled=true`, and `events_enabled=true`; targeted browser proof created then deleted a media row and verified Workspace Activity opens `View snapshot` for the deleted row; Help > Releases smoke served `3.7.3`; throwaway homelab and CI-shaped compose stacks passed their runtime checks and were torn down.
+- CI/checks run locally: `npm --prefix frontend run build`; `node backend/scripts/unit-tests.js` (`292` passed); Docker backend/frontend build; Docker `npm run test:unit` (`292` passed); Docker `npm run test:openapi`; Docker `npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.7.3 npm run test:help-releases-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker throwaway homelab stack plus `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; targeted Workspace Activity snapshot Playwright regression; full `npm run test:browser` (`68` passed, `4` skipped); backend/frontend production dependency audits (`0` vulnerabilities); local observability evidence (`9/9` checks passed); local release preflight; public export surface validation; compose config validation; CI-shaped compose smoke; version sync check; `git diff --check`; targeted release/artifact secret-pattern scan. CI remains authoritative for full repository `secret-scan` and `image-security-and-sbom`.
+- Files changed for this slice: `frontend/src/components/ActivityFeedView.jsx`; `tests/playwright/specs/space-manager.browser.spec.js`; `tests/playwright/helpers/media.js`; `backend/scripts/unit-tests.js`; version metadata/package files; `docker-compose.yml`; `docs/releases/v3.7.3.md`; `backend/release-feed.json`; `docs/wiki/07-Release-Roadmap.md`; `artifacts/observability-evidence/observability-release-evidence.json`; `preflight-go-no-go.md`.
+- Risks/follow-ups: The snapshot drawer uses saved activity payloads only, so sparse historical rows may still show limited context. Broader conflict/review queue work remains separate from the timeline readback slice.
+- What remains in the milestone: nothing for `3.7.3`; future `3.7.x` work can continue improving the human-readable activity timeline with richer event-plan and provider-writeback entries.
+- Recommended commit message: `Release 3.7.3 with timeline missing-target snapshot readback`
+
 ## 3.7.2 — Timeline Sync And Failure Detail Readback
 
 **Goal:** Make sync failures and sync/import timeline rows inspectable from the surfaces where users encounter them.
