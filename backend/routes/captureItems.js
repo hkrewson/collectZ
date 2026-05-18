@@ -1,16 +1,20 @@
 const express = require('express');
+const multer = require('multer');
 const pool = require('../db/pool');
 const { asyncHandler } = require('../middleware/errors');
 const { authenticateToken } = require('../middleware/auth');
 const { enforceScopeAccess } = require('../middleware/scopeAccess');
 const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
 const { logActivity } = require('../services/audit');
+const { uploadBuffer } = require('../services/storage');
 
 const router = express.Router();
 
 router.use('/capture-items', authenticateToken);
 router.use('/capture-items', enforceScopeAccess({ allowedHintRoles: ['admin'] }));
 
+const memoryUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+const ALLOWED_IMAGE_MIME_TYPES = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif']);
 const CAPTURE_TYPES = new Set(['barcode', 'photo', 'ocr_text', 'manual_note']);
 const STATUSES = new Set(['new', 'reviewed', 'converted', 'discarded']);
 const OBJECT_TYPES = new Set(['movie', 'tv_series', 'book', 'comic_book', 'audio', 'game', 'art', 'collectible', 'event_item', 'other']);
@@ -43,6 +47,14 @@ function normalizeObjectType(value, fallback = 'other') {
 
 function jsonObject(value) {
   if (value && typeof value === 'object' && !Array.isArray(value)) return value;
+  if (typeof value === 'string' && value.trim().startsWith('{')) {
+    try {
+      const parsed = JSON.parse(value);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+    } catch (_) {
+      return {};
+    }
+  }
   return {};
 }
 
@@ -218,6 +230,66 @@ router.post('/capture-items', asyncHandler(async (req, res) => {
     libraryId: created.library_id
   });
   return res.status(201).json({ item: created });
+}));
+
+router.post('/capture-items/upload-image', memoryUpload.single('image'), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  if (!req.file) return res.status(400).json({ error: 'Image file is required.' });
+
+  const mimeType = String(req.file.mimetype || '').toLowerCase();
+  if (!ALLOWED_IMAGE_MIME_TYPES.has(mimeType)) {
+    return res.status(400).json({ error: 'Unsupported image type. Use JPEG, PNG, WEBP, or GIF.' });
+  }
+
+  const stored = await uploadBuffer(req.file.buffer, req.file.originalname, req.file.mimetype);
+  const bodyItem = valuesFromBody(req.body || {});
+  const sourceContext = {
+    source: 'capture_upload',
+    upload_provider: stored.provider,
+    original_filename: nullableString(req.file.originalname),
+    mime_type: req.file.mimetype || null,
+    size_bytes: req.file.size || null,
+    ...jsonObject(bodyItem.source_context)
+  };
+  const title = bodyItem.title || nullableString(req.body?.name) || nullableString(req.file.originalname) || 'Photo capture';
+
+  const result = await pool.query(
+    `INSERT INTO capture_items (
+       title, capture_type, status, object_type, barcode, symbology, ocr_text, notes, image_path,
+       source_context, review_decision, library_id, space_id, created_by
+     )
+     VALUES (
+       $1, 'photo', $2, $3, $4, $5, $6, $7, $8,
+       $9::jsonb, $10::jsonb, $11, $12, $13
+     )
+     RETURNING *`,
+    [
+      title,
+      bodyItem.status || 'new',
+      bodyItem.object_type || 'other',
+      bodyItem.barcode ?? null,
+      bodyItem.symbology ?? null,
+      bodyItem.ocr_text ?? null,
+      bodyItem.notes ?? null,
+      stored.url,
+      JSON.stringify(sourceContext),
+      JSON.stringify(bodyItem.review_decision || {}),
+      scopeContext.libraryId,
+      scopeContext.spaceId,
+      req.user?.id || null
+    ]
+  );
+
+  const created = shapeCaptureItem(result.rows[0]);
+  await logActivity(req, 'capture.image.upload', 'capture_item', created.id, {
+    title: created.title,
+    captureType: created.capture_type,
+    imagePath: created.image_path,
+    provider: stored.provider,
+    spaceId: created.space_id,
+    libraryId: created.library_id
+  });
+  return res.status(201).json({ item: created, upload: { image_path: stored.url, provider: stored.provider } });
 }));
 
 router.patch('/capture-items/:id', asyncHandler(async (req, res) => {

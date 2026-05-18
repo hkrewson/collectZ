@@ -3287,6 +3287,21 @@
         },
         "required": ["item"]
       },
+      "CaptureImageUploadResponse": {
+        "type": "object",
+        "properties": {
+          "item": { "$ref": "#/components/schemas/CaptureItem" },
+          "upload": {
+            "type": "object",
+            "properties": {
+              "image_path": { "type": "string" },
+              "provider": { "type": "string" }
+            },
+            "required": ["image_path", "provider"]
+          }
+        },
+        "required": ["item", "upload"]
+      },
       "CaptureWishlistConvertResponse": {
         "type": "object",
         "properties": {
@@ -3564,6 +3579,52 @@
           },
           "400": {
             "description": "Invalid capture payload",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      }
+    },
+    "/api/capture-items/upload-image": {
+      "post": {
+        "tags": ["Capture"],
+        "summary": "Upload a photo and create a quick-capture record",
+        "description": "Accepts a multipart image upload from a mobile or web capture client, stores the image through the backend storage provider, and creates a scoped photo capture record for review.",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "image": { "type": "string", "format": "binary" },
+                  "title": { "type": "string" },
+                  "object_type": { "type": "string", "enum": ["movie", "tv_series", "book", "comic_book", "audio", "game", "art", "collectible", "event_item", "other"] },
+                  "barcode": { "type": "string" },
+                  "symbology": { "type": "string" },
+                  "ocr_text": { "type": "string" },
+                  "notes": { "type": "string" },
+                  "source_context": { "type": "string", "description": "Optional JSON object encoded as a string." }
+                },
+                "required": ["image"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Photo capture created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CaptureImageUploadResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid upload payload",
             "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
           }
         }

@@ -10752,6 +10752,38 @@ Historical note:
 - What remains in the milestone: nothing for the `3.6.0` foundation slice; later `3.6.x` work can build provider candidate intake and richer acquisition workflows on this model.
 - Recommended commit message: `Release 3.6.0 with wishlist and acquisition foundation`.
 
+## 3.8.1 — Capture Inbox Photo Upload Intake
+
+**Goal:** Let mobile and web capture clients upload actual photo captures into the backend-owned Capture Inbox instead of only passing an image path string.
+
+### Scope
+
+- Add an authenticated multipart upload endpoint that stores a capture image through the existing backend storage provider.
+- Create a scoped `photo` capture row from that upload, preserving optional title, type, barcode, OCR text, notes, and source context.
+- Add a simple photo upload control to Library > Capture Inbox.
+- Show capture thumbnails in the inbox list when an image path is present.
+- Keep this slice focused on upload intake; do not add OCR, cover/art recognition, offline queue reconciliation, or automatic import resolution.
+
+### Acceptance Criteria
+
+- Authenticated clients can upload an image directly to `POST /api/capture-items/upload-image` without using the web UI as a mediator.
+- The upload endpoint rejects missing files and unsupported image MIME types.
+- Uploaded photo captures are scoped to the active workspace/library and protected by existing auth/scope rules.
+- Library > Capture Inbox can save a photo capture and show a thumbnail for it.
+- OpenAPI documents the multipart upload endpoint.
+- Version metadata, release note, release feed, and Help > Releases include `3.8.1`.
+
+### Closeout
+
+- Roadmap slice: `3.8.1 — Capture Inbox Photo Upload Intake`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.8.1.md`.
+- Runtime verification used: Docker-first platform backend/frontend rebuild with `APP_VERSION=3.8.1`; running `/api/health` reported frontend/backend/build `3.8.1`; backend logs reported `collectZ backend v3.8.1`; Help > Releases smoke served `3.8.1`; targeted Capture Inbox browser proof uploaded a 1x1 PNG through `POST /api/capture-items/upload-image`, verified a scoped `photo` row with an `/uploads/` image path, and verified the thumbnail rendered in Library > Capture Inbox; a disposable production-style compose-smoke stack on alternate local port `3101` passed health, headers, secure CSRF cookie, session cookie option, unauthenticated `401`, and integration smoke checks before teardown.
+- CI/checks run locally: `node --check backend/routes/captureItems.js`; `node backend/scripts/validate-openapi.js`; host `node backend/scripts/unit-tests.js` (`293` passed); `npm --prefix frontend run build`; Docker backend/frontend build; Docker `npm run test:unit` (`293` passed); Docker `npm run test:openapi`; Docker `npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.8.1 npm run test:help-releases-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker throwaway homelab stack plus `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; targeted Capture Inbox Playwright regression; full `npm run test:browser` (`70` passed, `4` skipped); backend/frontend production dependency audits (`0` vulnerabilities); local observability evidence (`9/9` checks passed); local release preflight; public export surface validation; CI-shaped compose smoke; version sync check; release note heading check; `git diff --check`; targeted release/artifact secret-pattern scan. Local `gitleaks`, Trivy, and SBOM tooling were not installed, so full repository `secret-scan` and `image-security-and-sbom` still need their normal CI runs.
+- Files changed for this slice: `app-meta.json`; `backend/app-meta.json`; `backend/openapi/openapi.yaml`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/routes/captureItems.js`; `backend/scripts/unit-tests.js`; `docker-compose.yml`; `docs/releases/v3.8.1.md`; `docs/wiki/07-Release-Roadmap.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/CaptureInboxView.jsx`; `preflight-go-no-go.md`; `tests/playwright/specs/admin-shell.browser.spec.js`; `artifacts/observability-evidence/observability-release-evidence.json`.
+- Risks/follow-ups: Upload intake accepts common image MIME types and stores through the existing storage provider, but OCR, image recognition, offline queue reconciliation, and review-queue resolution remain intentionally deferred. CI remains authoritative for full history secret scanning and image security/SBOM artifacts.
+- What remains in the milestone: nothing for `3.8.1`; later `3.8.x` work can add OCR/recognition enrichment, scanner offline queue reconciliation, and unified review-queue integration.
+- Recommended commit message: `Release 3.8.1 with Capture Inbox photo upload intake`.
+
 ## 3.8.0 — Mobile Capture Inbox Foundation
 
 **Goal:** Start the Mobile-First Capture Workflow by giving mobile/scanner clients and the web app a backend-owned place to store real-world quick captures before full metadata review.

@@ -2,7 +2,7 @@
 
 const { test, expect } = require('@playwright/test');
 const { createSpaceFixture, deleteSpace } = require('../helpers/admin');
-const { ensureSavedAdminCredentials, createAuthenticatedRequestContext, postWithCsrf, requestWithCsrf } = require('../helpers/auth');
+const { ensureSavedAdminCredentials, createAuthenticatedRequestContext, fetchCsrfToken, postWithCsrf, requestWithCsrf } = require('../helpers/auth');
 const { deleteMediaByExactTitle } = require('../helpers/media');
 const { signInThroughUi } = require('../helpers/session');
 
@@ -110,9 +110,11 @@ test.describe('admin shell browser regressions', () => {
   test('capture inbox foundation receives quick captures and converts to wishlist', async ({ page }) => {
     const suffix = Date.now();
     const title = `Playwright Capture ${suffix}`;
+    const photoTitle = `Playwright Photo Capture ${suffix}`;
     const adminCredentials = await ensureSavedAdminCredentials();
     const requestContext = await createAuthenticatedRequestContext(adminCredentials);
     let captureId = null;
+    let photoCaptureId = null;
     let wantedItemId = null;
 
     try {
@@ -128,6 +130,27 @@ test.describe('admin shell browser regressions', () => {
       captureId = Number(createPayload?.item?.id || 0);
       expect(captureId).toBeGreaterThan(0);
 
+      const csrfToken = await fetchCsrfToken(requestContext);
+      const uploadResponse = await requestContext.post('/api/capture-items/upload-image', {
+        headers: { 'x-csrf-token': csrfToken },
+        multipart: {
+          title: photoTitle,
+          object_type: 'book',
+          notes: 'Photo capture from browser regression',
+          image: {
+            name: `capture-${suffix}.png`,
+            mimeType: 'image/png',
+            buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=', 'base64')
+          }
+        }
+      });
+      expect(uploadResponse.status()).toBe(201);
+      const uploadPayload = await uploadResponse.json();
+      photoCaptureId = Number(uploadPayload?.item?.id || 0);
+      expect(photoCaptureId).toBeGreaterThan(0);
+      expect(uploadPayload?.item?.capture_type).toBe('photo');
+      expect(uploadPayload?.item?.image_path).toContain('/uploads/');
+
       await signInThroughUi(page, adminCredentials);
       const captureResponse = page.waitForResponse((response) => (
         response.url().includes('/api/capture-items') && response.request().method() === 'GET'
@@ -136,6 +159,8 @@ test.describe('admin shell browser regressions', () => {
       expect((await captureResponse).ok()).toBeTruthy();
       await expect(page.getByRole('heading', { name: 'Capture Inbox', exact: true })).toBeVisible();
       await expect(page.getByText(title)).toBeVisible();
+      await expect(page.getByText(photoTitle)).toBeVisible();
+      await expect(page.locator(`img[src*="${uploadPayload.item.image_path}"]`)).toBeVisible();
       await expect(page.getByRole('button', { name: 'New capture' })).toBeVisible();
 
       const convertResponse = await postWithCsrf(requestContext, `/api/capture-items/${captureId}/convert-wishlist`, {}, 201);
@@ -152,6 +177,9 @@ test.describe('admin shell browser regressions', () => {
     } finally {
       if (captureId) {
         await requestWithCsrf(requestContext, 'DELETE', `/api/capture-items/${captureId}`, undefined, [200, 404]).catch(() => {});
+      }
+      if (photoCaptureId) {
+        await requestWithCsrf(requestContext, 'DELETE', `/api/capture-items/${photoCaptureId}`, undefined, [200, 404]).catch(() => {});
       }
       if (wantedItemId) {
         await requestWithCsrf(requestContext, 'DELETE', `/api/wishlist/${wantedItemId}`, undefined, [200, 404]).catch(() => {});

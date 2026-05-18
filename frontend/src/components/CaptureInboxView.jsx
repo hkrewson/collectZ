@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CollectionPaginationFooter, SectionTabs, cx } from './app/AppPrimitives';
+import { CollectionPaginationFooter, SectionTabs, cx, posterUrl } from './app/AppPrimitives';
 
 const STATUS_TABS = [
   { id: 'active', label: 'Active' },
@@ -37,6 +37,7 @@ const EMPTY_FORM = {
   barcode: '',
   symbology: '',
   image_path: '',
+  image_file: null,
   ocr_text: '',
   notes: ''
 };
@@ -117,6 +118,23 @@ function CaptureEditor({ form, setForm, saving, onSave, onCancel }) {
             value={form.image_path}
             onChange={(event) => setForm((current) => ({ ...current, image_path: event.target.value }))}
           />
+        </Field>
+        <Field label="Photo upload" className="md:col-span-6">
+          <input
+            className="block w-full text-sm text-ghost file:mr-3 file:rounded-md file:border file:border-edge file:bg-raised file:px-3 file:py-2 file:text-sm file:font-medium file:text-ink hover:file:bg-surface"
+            type="file"
+            accept="image/*"
+            onChange={(event) => {
+              const file = event.target.files?.[0] || null;
+              setForm((current) => ({
+                ...current,
+                image_file: file,
+                capture_type: file ? 'photo' : current.capture_type,
+                title: current.title || file?.name || ''
+              }));
+            }}
+          />
+          {form.image_file ? <span className="mt-1 block text-xs text-dim">{form.image_file.name}</span> : null}
         </Field>
         <Field label="OCR text" className="md:col-span-6">
           <textarea
@@ -202,10 +220,29 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
     source_context: { source: 'web_capture_inbox' }
   });
 
+  const uploadPayloadFromForm = () => {
+    const body = new FormData();
+    body.append('image', form.image_file);
+    if (form.title) body.append('title', form.title);
+    if (form.object_type) body.append('object_type', form.object_type);
+    if (form.barcode) body.append('barcode', form.barcode);
+    if (form.symbology) body.append('symbology', form.symbology);
+    if (form.ocr_text) body.append('ocr_text', form.ocr_text);
+    if (form.notes) body.append('notes', form.notes);
+    body.append('source_context', JSON.stringify({ source: 'web_capture_inbox' }));
+    return body;
+  };
+
   const saveCapture = async () => {
     setSaving(true);
     try {
-      await apiCall('post', '/capture-items', payloadFromForm());
+      if (form.image_file) {
+        await apiCall('post', '/capture-items/upload-image', uploadPayloadFromForm(), {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+      } else {
+        await apiCall('post', '/capture-items', payloadFromForm());
+      }
       onToast?.('Capture saved.', 'success');
       setEditorOpen(false);
       setForm(EMPTY_FORM);
@@ -347,7 +384,17 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
               dateLabel(item.updated_at)
             ].filter(Boolean).join(' · ');
             return (
-              <div key={item.id} className="grid gap-3 py-3 md:grid-cols-[1fr_auto] md:items-center">
+              <div key={item.id} className="grid gap-3 py-3 md:grid-cols-[auto_1fr_auto] md:items-center">
+                {item.image_path ? (
+                  <img
+                    src={posterUrl(item.image_path)}
+                    alt=""
+                    className="h-16 w-12 rounded-md border border-edge object-cover"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="hidden h-16 w-12 md:block" aria-hidden="true" />
+                )}
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <div className="truncate text-sm font-medium text-ink">{primary}</div>
@@ -355,6 +402,7 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
                     <span className="text-xs text-dim">{item.status}</span>
                   </div>
                   <div className="mt-1 text-xs text-ghost">{secondary}</div>
+                  {item.image_path ? <div className="mt-1 truncate text-xs text-dim">{item.image_path}</div> : null}
                   {item.ocr_text ? <div className="mt-1 line-clamp-2 text-xs text-dim">{item.ocr_text}</div> : null}
                   {item.notes ? <div className="mt-1 line-clamp-2 text-xs text-dim">{item.notes}</div> : null}
                 </div>

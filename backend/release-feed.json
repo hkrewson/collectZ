@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.8.1",
+      "version": "3.8.1",
+      "date": "2026-05-18",
+      "status": "implemented",
+      "summary": "This release turns Capture Inbox photo entries into real backend-owned uploads instead of only storing pasted image paths.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added authenticated `POST /api/capture-items/upload-image` for multipart photo capture uploads.",
+            "Stored uploaded capture images through the existing backend storage provider and saved the returned image path on the capture row.",
+            "Added web Capture Inbox photo upload support with mobile-friendly image selection.",
+            "Added capture image thumbnails in the inbox list.",
+            "Documented the multipart upload contract in OpenAPI."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.8.0",
       "version": "3.8.0",
       "date": "2026-05-18",
@@ -178,26 +197,6 @@
             "Changed `Needs attention` into tabs so failed syncs, missing covers, missing identifiers, and Plex conflicts do not stack into a long page on high-resolution screens.",
             "Extended `GET /api/dashboard/summary` with `attention_details` samples for missing-cover and missing-identifier items.",
             "Updated OpenAPI and source assertions for the richer Dashboard summary contract."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.5.0",
-      "version": "3.5.0",
-      "date": "2026-05-17",
-      "status": "released",
-      "summary": "This minor release starts the `3.5` line with a new Dashboard command center: a first-screen operational summary of what changed, what failed, and what needs attention in the active workspace/library scope.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added authenticated `GET /api/dashboard/summary` for scoped Dashboard data.",
-            "Dashboard now summarizes collection totals, missing covers, missing identifiers, recent syncs, failed syncs, open Plex reconciliation conflicts, provider status, upcoming Events, and recent activity.",
-            "`/dashboard` now opens Dashboard by default for normal platform and homelab users.",
-            "Added Dashboard navigation and quick links back into Import, Library, Events, and Integrations.",
-            "Documented the Dashboard summary endpoint in OpenAPI and mapped PAT access to `media:read`.",
-            "Promoted `Dashboard / Command Center` out of the backlog and into the `3.5.0` roadmap."
           ]
         }
       ]
