@@ -6157,7 +6157,14 @@ results.push(run('dashboard command center frontend owns first-screen attention 
   assert.ok(activityFeedViewSource.includes('View snapshot'));
   assert.ok(activityFeedViewSource.includes('activity-snapshot-drawer'));
   assert.ok(activityFeedViewSource.includes('saved at the time of the change'));
+  assert.ok(activityFeedViewSource.includes('buildEventTimelineEntry'));
+  assert.ok(activityFeedViewSource.includes("action.startsWith('events.')"));
+  assert.ok(activityFeedViewSource.includes('Event attendee ${verb}'));
+  assert.ok(activityFeedViewSource.includes('buildPlexTimelineEntry'));
+  assert.ok(activityFeedViewSource.includes('Plex ratings read from Plex'));
+  assert.ok(activityFeedViewSource.includes('Plex watched state written to Plex'));
   assert.ok(spaceManagerBrowserSpecSource.includes('workspace activity deleted rows open a saved activity snapshot'));
+  assert.ok(spaceManagerBrowserSpecSource.includes('workspace activity renders event social rows as readable event timeline entries'));
   assert.ok(adminShellBrowserSpecSource.includes('/api/dashboard/summary'));
   assert.ok(adminShellBrowserSpecSource.includes("page.goto('/dashboard')"));
 }));

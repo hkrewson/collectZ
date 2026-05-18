@@ -9,6 +9,7 @@ const {
   postWithCsrf
 } = require('../helpers/auth');
 const { deleteMediaByExactTitle, findExactMediaByTitle } = require('../helpers/media');
+const { deleteEventsByExactTitle } = require('../helpers/eventsCollectibles');
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -105,6 +106,53 @@ test.describe('space manager browser regressions', () => {
       await expect(page.getByText('Technical payload')).toBeVisible();
     } finally {
       await deleteMediaByExactTitle(requestContext, title).catch(() => {});
+      await requestContext.dispose();
+    }
+  });
+
+  test('workspace activity renders event social rows as readable event timeline entries', async ({ page }) => {
+    const credentials = await createFreshUserCredentials();
+    const requestContext = await createAuthenticatedRequestContext(credentials);
+    const suffix = Date.now();
+    const eventTitle = `Playwright Timeline Event ${suffix}`;
+    let attendeeId = null;
+
+    await deleteEventsByExactTitle(requestContext, eventTitle).catch(() => {});
+
+    try {
+      const eventResponse = await postWithCsrf(requestContext, '/api/events', {
+        title: eventTitle,
+        url: `https://example.test/timeline-event/${suffix}`,
+        location: 'Timeline Hall',
+        date_start: '2026-07-24',
+        date_end: '2026-07-26'
+      }, 201);
+      const eventPayload = await eventResponse.json();
+      const eventId = Number(eventPayload?.id || 0);
+      expect(eventId).toBeGreaterThan(0);
+
+      const attendeeResponse = await postWithCsrf(requestContext, `/api/events/${eventId}/attendees`, {
+        display_name: `Timeline Friend ${suffix}`,
+        role: 'friend'
+      }, 201);
+      const attendeePayload = await attendeeResponse.json();
+      attendeeId = Number(attendeePayload?.id || 0);
+      expect(attendeeId).toBeGreaterThan(0);
+
+      const storageState = await requestContext.storageState();
+      await page.context().addCookies(storageState.cookies || []);
+      await page.goto('/dashboard?tab=space-manage');
+
+      await expect(page.getByRole('button', { name: 'Activity', exact: true })).toBeVisible();
+      await page.getByRole('button', { name: 'Activity', exact: true }).click();
+      await page.locator('label').filter({ hasText: 'Show' }).locator('select').selectOption('events');
+
+      await expect(page.getByText('Event attendee added').first()).toBeVisible();
+      await expect(page.getByText(`Attendee #${attendeeId}`).first()).toBeVisible();
+      await expect(page.getByText('Event created').first()).toBeVisible();
+      await expect(page.getByText(eventTitle).first()).toBeVisible();
+    } finally {
+      await deleteEventsByExactTitle(requestContext, eventTitle).catch(() => {});
       await requestContext.dispose();
     }
   });

@@ -95,6 +95,13 @@ function formatCountLabel(count, singular, plural = `${singular}s`) {
   return `${n} ${n === 1 ? singular : plural}`;
 }
 
+function formatSummaryParts(values = []) {
+  return values
+    .filter((value) => value !== null && value !== undefined && value !== '')
+    .map((value) => String(value))
+    .join(' · ');
+}
+
 function buildSnapshotRows(entry, details) {
   const rows = [
     ['Action', entry?.action],
@@ -134,6 +141,262 @@ function buildImportSummary(entry, details) {
   };
 }
 
+function countPart(details, keys, singular, plural = `${singular}s`) {
+  const value = detailNumber(details, keys);
+  return value === null ? null : formatCountLabel(value, singular, plural);
+}
+
+function buildPlexTimelineEntry(entry, details) {
+  const action = String(entry?.action || '');
+  const targetName = detailValue(details, ['title', 'mediaTitle', 'name']) || formatEntityLabel(entry);
+  const failed = action.includes('failed') || action.includes('failure');
+
+  if (action.includes('.reconciliation.preview_job')) {
+    return {
+      title: failed ? 'Plex reconciliation preview failed' : 'Plex reconciliation preview finished',
+      summary: formatSummaryParts([
+        countPart(details, ['scanned'], 'scanned', 'scanned'),
+        countPart(details, ['alreadyLinked'], 'linked', 'linked'),
+        countPart(details, ['conflicts'], 'conflict'),
+        countPart(details, ['created'], 'created', 'created'),
+        detailValue(details, ['detail', 'error', 'reason'])
+      ]) || 'Plex library reconciliation preview activity was recorded.',
+      category: failed ? 'Failures' : 'Providers'
+    };
+  }
+
+  if (action.includes('.reconciliation.sync_job') || action.includes('.reconciliation.sync_scheduler')) {
+    return {
+      title: failed ? 'Plex reconciliation sync failed' : 'Plex reconciliation sync ran',
+      summary: formatSummaryParts([
+        countPart(details, ['targetCount'], 'target'),
+        countPart(details, ['jobsQueued'], 'job queued', 'jobs queued'),
+        countPart(details, ['scanned'], 'scanned', 'scanned'),
+        countPart(details, ['created'], 'created', 'created'),
+        countPart(details, ['updated'], 'updated', 'updated'),
+        countPart(details, ['conflicts'], 'conflict'),
+        detailValue(details, ['detail', 'error', 'reason'])
+      ]) || 'Plex reconciliation sync activity was recorded.',
+      category: failed ? 'Failures' : 'Providers'
+    };
+  }
+
+  if (action.includes('.reconciliation.conflict_resolved')) {
+    return {
+      title: 'Plex conflict resolved',
+      summary: formatSummaryParts([
+        detailValue(details, ['action']),
+        detailValue(details, ['resolvedMediaId', 'existingMediaId']),
+        detailValue(details, ['notes'])
+      ]) || targetName,
+      category: 'Providers'
+    };
+  }
+
+  if (action.includes('.rating.writeback')) {
+    return {
+      title: failed ? 'Plex rating writeback failed' : 'Plex rating written to Plex',
+      summary: formatSummaryParts([
+        targetName,
+        detailValue(details, ['rating']),
+        detailValue(details, ['detail', 'error', 'reason'])
+      ]),
+      category: failed ? 'Failures' : 'Providers'
+    };
+  }
+
+  if (action.includes('.rating.apply')) {
+    return {
+      title: failed ? 'Plex rating readback failed' : 'Plex ratings read from Plex',
+      summary: formatSummaryParts([
+        countPart(details, ['readEntries'], 'rating read', 'ratings read'),
+        countPart(details, ['ratingsUpdated'], 'rating updated', 'ratings updated'),
+        countPart(details, ['sectionIdCount'], 'section'),
+        detailValue(details, ['detail', 'error', 'reason'])
+      ]) || 'Plex rating readback activity was recorded.',
+      category: failed ? 'Failures' : 'Providers'
+    };
+  }
+
+  if (action.includes('.watch_state.writeback')) {
+    return {
+      title: failed ? 'Plex watched-state writeback failed' : 'Plex watched state written to Plex',
+      summary: formatSummaryParts([
+        targetName,
+        detailValue(details, ['action']),
+        detailValue(details, ['watched']),
+        detailValue(details, ['detail', 'error', 'reason'])
+      ]),
+      category: failed ? 'Failures' : 'Providers'
+    };
+  }
+
+  if (action.includes('.watch_state.apply') || action.includes('.watch_state.refresh')) {
+    return {
+      title: failed ? 'Plex watched-state readback failed' : 'Plex watched state read from Plex',
+      summary: formatSummaryParts([
+        countPart(details, ['entriesRead', 'readEntries'], 'state read', 'states read'),
+        countPart(details, ['itemsUpdated', 'updated'], 'item updated', 'items updated'),
+        countPart(details, ['scopeCount', 'scopesProcessed'], 'scope'),
+        detailValue(details, ['reason', 'detail', 'error'])
+      ]) || 'Plex watched-state readback activity was recorded.',
+      category: failed ? 'Failures' : 'Providers'
+    };
+  }
+
+  return {
+    title: failed ? 'Plex provider activity failed' : 'Plex provider activity recorded',
+    summary: formatSummaryParts([targetName, detailValue(details, ['detail', 'error', 'reason'])]),
+    category: failed ? 'Failures' : 'Providers'
+  };
+}
+
+function buildEventTimelineEntry(entry, details) {
+  const action = String(entry?.action || '');
+  const targetName = detailValue(details, ['eventTitle', 'title', 'name']) || formatEntityLabel(entry);
+  const failed = action.includes('failed') || action.includes('failure');
+  const removed = action.includes('.delete') || action.includes('.discard');
+  const updated = action.includes('.update') || action.includes('.replace') || action.includes('.save');
+  const verb = removed ? 'removed' : updated ? 'updated' : 'added';
+
+  if (action === 'events.create') {
+    return {
+      title: 'Event created',
+      summary: formatSummaryParts([targetName, detailValue(details, ['date_start']), detailValue(details, ['location'])]),
+      category: 'Events'
+    };
+  }
+
+  if (action === 'events.update') {
+    return {
+      title: 'Event details updated',
+      summary: formatSummaryParts([targetName, detailValue(details, ['fields'])]) || targetName,
+      category: 'Events'
+    };
+  }
+
+  if (action === 'events.delete') {
+    return {
+      title: 'Event deleted',
+      summary: targetName,
+      category: 'Events'
+    };
+  }
+
+  if (action.startsWith('events.attendee.')) {
+    return {
+      title: `Event attendee ${verb}`,
+      summary: formatSummaryParts([targetName, detailValue(details, ['attendeeName']), detailValue(details, ['attendeeId']) ? `Attendee #${detailValue(details, ['attendeeId'])}` : null]),
+      category: 'Events'
+    };
+  }
+
+  if (action.startsWith('events.group.')) {
+    return {
+      title: `Event group ${verb}`,
+      summary: formatSummaryParts([targetName, detailValue(details, ['groupName']), detailValue(details, ['groupId']) ? `Group #${detailValue(details, ['groupId'])}` : null]),
+      category: 'Events'
+    };
+  }
+
+  if (action.startsWith('events.meetup.')) {
+    return {
+      title: `Meetup ${verb}`,
+      summary: formatSummaryParts([targetName, detailValue(details, ['meetupTitle', 'title']), detailValue(details, ['meetupId']) ? `Meetup #${detailValue(details, ['meetupId'])}` : null]),
+      category: 'Events'
+    };
+  }
+
+  if (action.startsWith('events.schedule_plan.')) {
+    return {
+      title: `Schedule plan ${verb}`,
+      summary: formatSummaryParts([targetName, detailValue(details, ['scheduleTitle', 'title']), detailValue(details, ['requestedStatus', 'status']), detailValue(details, ['schedulePlanId']) ? `Plan #${detailValue(details, ['schedulePlanId'])}` : null]),
+      category: 'Events'
+    };
+  }
+
+  if (action.startsWith('events.schedule_change.preview')) {
+    return {
+      title: 'Schedule change previewed',
+      summary: formatSummaryParts([targetName, detailValue(details, ['requestedStatus']), detailValue(details, ['messageIntent'])]),
+      category: 'Events'
+    };
+  }
+
+  if (action.startsWith('events.schedule_notification.')) {
+    const title = action.includes('.send') ? 'Schedule notification sent'
+      : action.includes('.draft') ? 'Schedule notification drafted'
+        : action.includes('.discard') ? 'Schedule notification discarded'
+          : 'Schedule notification updated';
+    return {
+      title,
+      summary: formatSummaryParts([targetName, detailValue(details, ['channel']), detailValue(details, ['status']), detailValue(details, ['notificationId']) ? `Notification #${detailValue(details, ['notificationId'])}` : null]),
+      category: 'Events'
+    };
+  }
+
+  if (action.startsWith('events.schedule_session.import_ics.')) {
+    const summary = details?.summary && typeof details.summary === 'object' ? details.summary : {};
+    return {
+      title: failed ? 'Event schedule import failed' : 'Event schedule import finished',
+      summary: formatSummaryParts([
+        targetName,
+        countPart(summary, ['created'], 'created', 'created'),
+        countPart(summary, ['updated'], 'updated', 'updated'),
+        countPart(summary, ['skipped'], 'skipped', 'skipped'),
+        detailValue(details, ['error', 'detail'])
+      ]),
+      category: failed ? 'Failures' : 'Events'
+    };
+  }
+
+  if (action.startsWith('events.schedule_session.')) {
+    return {
+      title: `Catalog session ${verb}`,
+      summary: formatSummaryParts([targetName, detailValue(details, ['sessionTitle', 'title']), detailValue(details, ['scheduleSessionId']) ? `Session #${detailValue(details, ['scheduleSessionId'])}` : null]),
+      category: 'Events'
+    };
+  }
+
+  if (action.startsWith('events.personal_ics_source.')) {
+    return {
+      title: failed ? 'Personal calendar sync failed' : action.includes('.sync.') ? 'Personal calendar synced' : action.includes('.delete') ? 'Personal calendar removed' : 'Personal calendar saved',
+      summary: formatSummaryParts([targetName, detailValue(details, ['sourceId']) ? `Source #${detailValue(details, ['sourceId'])}` : null, detailValue(details, ['error', 'detail'])]),
+      category: failed ? 'Failures' : 'Events'
+    };
+  }
+
+  if (action.startsWith('events.artifact.')) {
+    return {
+      title: action.includes('.signature.link') ? 'Event signature linked' : `Event artifact ${verb}`,
+      summary: formatSummaryParts([targetName, detailValue(details, ['title']), detailValue(details, ['artifactType']), detailValue(details, ['artifactId']) ? `Artifact #${detailValue(details, ['artifactId'])}` : null]),
+      category: 'Events'
+    };
+  }
+
+  if (action.startsWith('events.purchased_item.')) {
+    return {
+      title: `Event purchase link ${verb}`,
+      summary: formatSummaryParts([targetName, detailValue(details, ['itemType']), detailValue(details, ['purchasedItemId']) ? `Link #${detailValue(details, ['purchasedItemId'])}` : null]),
+      category: 'Events'
+    };
+  }
+
+  if (action.startsWith('events.image.') || action.startsWith('events.attachment.')) {
+    return {
+      title: action.includes('.delete') ? 'Event image removed' : action.includes('.replace') ? 'Event image replaced' : 'Event image uploaded',
+      summary: targetName,
+      category: 'Events'
+    };
+  }
+
+  return {
+    title: failed ? 'Event activity failed' : 'Event activity recorded',
+    summary: targetName,
+    category: failed ? 'Failures' : 'Events'
+  };
+}
+
 function buildTimelineEntry(entry) {
   const action = String(entry?.action || '');
   const details = entry?.details && typeof entry.details === 'object' ? entry.details : {};
@@ -151,14 +414,8 @@ function buildTimelineEntry(entry) {
     title = action.endsWith('.existing') ? 'Scanner found an existing library item' : 'Scanner added a library item';
     summary = [targetName || formatEntityLabel(entry), detailValue(details, ['barcode', 'upc', 'isbn'])].filter(Boolean).join(' · ');
     category = 'Scanner';
-  } else if (action.startsWith('media.plex.rating.')) {
-    title = action.endsWith('.failed') ? 'Plex rating writeback failed' : 'Plex rating was written back';
-    summary = [targetName || formatEntityLabel(entry), detailValue(details, ['collectzRating', 'plexRating', 'rating'])].filter(Boolean).join(' · ');
-    category = 'Providers';
-  } else if (action.startsWith('media.plex.watch_state.')) {
-    title = action.endsWith('.failed') ? 'Plex watched-state writeback failed' : 'Plex watched state changed';
-    summary = [targetName || formatEntityLabel(entry), detailValue(details, ['watched', 'viewCount', 'plex_item_key'])].filter(Boolean).join(' · ');
-    category = 'Providers';
+  } else if (action.startsWith('media.plex.')) {
+    return buildPlexTimelineEntry(entry, details);
   } else if (action.includes('.kavita.')) {
     title = action.endsWith('.failed') ? 'Kavita activity failed' : 'Kavita activity recorded';
     summary = [targetName || formatEntityLabel(entry), provider].filter(Boolean).join(' · ');
@@ -187,10 +444,8 @@ function buildTimelineEntry(entry) {
     title = action.includes('.delete') ? 'Collection item deleted' : action.includes('.update') ? 'Collection item updated' : 'Collection item added';
     summary = targetName || formatEntityLabel(entry);
     category = 'Library';
-  } else if (action.startsWith('event.')) {
-    title = action.includes('.delete') ? 'Event plan removed' : action.includes('.update') ? 'Event plan updated' : 'Event plan changed';
-    summary = targetName || formatEntityLabel(entry);
-    category = 'Events';
+  } else if (action.startsWith('event.') || action.startsWith('events.')) {
+    return buildEventTimelineEntry(entry, details);
   } else if (action.startsWith('space.') || action.startsWith('admin.space.')) {
     title = action.includes('member') ? 'Workspace member changed' : action.includes('invite') ? 'Workspace invite changed' : 'Workspace settings changed';
     summary = targetName || formatEntityLabel(entry);
@@ -227,7 +482,7 @@ function filterMatches(entry, filter) {
   if (filter === 'imports') return action.includes('.import.') || action.includes('import_barcode');
   if (filter === 'providers') return readable.category === 'Providers' || action.includes('plex') || action.includes('kavita') || action.includes('valuation') || action.includes('integrations');
   if (filter === 'library') return readable.category === 'Library' || action.startsWith('media.') || action.startsWith('wishlist.') || action.startsWith('art.') || action.startsWith('collectibles.');
-  if (filter === 'events') return readable.category === 'Events' || action.startsWith('event.');
+  if (filter === 'events') return readable.category === 'Events' || action.startsWith('event.') || action.startsWith('events.');
   if (filter === 'people') return readable.category === 'People' || action.includes('member') || action.includes('invite') || action.startsWith('space.');
   if (filter === 'security') return readable.category === 'Security' || action.startsWith('auth.') || action.startsWith('security.');
   if (filter === 'errors') return action.includes('failed') || action.includes('fail') || entry?.details_status || entry?.details_reason;
@@ -296,7 +551,7 @@ function buildTimelineLinks(entry, context) {
       tab: 'library-events',
       focus: { entityType: 'event', entityId, title: detailValue(details, ['eventTitle', 'title', 'name']) }
     });
-  } else if (entityType === 'event' || action.startsWith('event.')) {
+  } else if (entityType === 'event' || action.startsWith('event.') || action.startsWith('events.')) {
     push('Open events', { tab: 'library-events' });
   }
 

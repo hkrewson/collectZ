@@ -10,11 +10,21 @@ async function listEventsByTitle(requestContext, title) {
   return Array.isArray(payload?.items) ? payload.items : [];
 }
 
+async function fetchCsrfToken(requestContext) {
+  const response = await requestContext.get('/api/auth/csrf-token');
+  if (!response.ok()) return null;
+  const payload = await response.json().catch(() => ({}));
+  return payload?.csrfToken || null;
+}
+
 async function deleteEventsByExactTitle(requestContext, title) {
   const items = await listEventsByTitle(requestContext, title);
   const matches = items.filter((item) => String(item?.title || '') === String(title));
+  const csrfToken = matches.length ? await fetchCsrfToken(requestContext) : null;
   for (const item of matches) {
-    const response = await requestContext.delete(`/api/events/${item.id}`);
+    const response = await requestContext.delete(`/api/events/${item.id}`, {
+      headers: csrfToken ? { 'x-csrf-token': csrfToken } : undefined
+    });
     if (!response.ok() && response.status() !== 404) {
       const text = await response.text();
       throw new Error(`Failed to delete event #${item.id} for "${title}" (${response.status()}): ${text}`);
@@ -36,8 +46,11 @@ async function listCollectiblesByTitle(requestContext, title) {
 async function deleteCollectiblesByExactTitle(requestContext, title) {
   const items = await listCollectiblesByTitle(requestContext, title);
   const matches = items.filter((item) => String(item?.title || '') === String(title));
+  const csrfToken = matches.length ? await fetchCsrfToken(requestContext) : null;
   for (const item of matches) {
-    const response = await requestContext.delete(`/api/collectibles/${item.id}`);
+    const response = await requestContext.delete(`/api/collectibles/${item.id}`, {
+      headers: csrfToken ? { 'x-csrf-token': csrfToken } : undefined
+    });
     if (!response.ok() && response.status() !== 404) {
       const text = await response.text();
       throw new Error(`Failed to delete collectible #${item.id} for "${title}" (${response.status()}): ${text}`);
@@ -59,8 +72,11 @@ async function listArtByTitle(requestContext, title) {
 async function deleteArtByExactTitle(requestContext, title) {
   const items = await listArtByTitle(requestContext, title);
   const matches = items.filter((item) => String(item?.title || '') === String(title));
+  const csrfToken = matches.length ? await fetchCsrfToken(requestContext) : null;
   for (const item of matches) {
-    const response = await requestContext.delete(`/api/art/${item.id}`);
+    const response = await requestContext.delete(`/api/art/${item.id}`, {
+      headers: csrfToken ? { 'x-csrf-token': csrfToken } : undefined
+    });
     if (!response.ok() && response.status() !== 404) {
       const text = await response.text();
       throw new Error(`Failed to delete art #${item.id} for "${title}" (${response.status()}): ${text}`);

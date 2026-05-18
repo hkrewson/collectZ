@@ -10752,6 +10752,36 @@ Historical note:
 - What remains in the milestone: nothing for the `3.6.0` foundation slice; later `3.6.x` work can build provider candidate intake and richer acquisition workflows on this model.
 - Recommended commit message: `Release 3.6.0 with wishlist and acquisition foundation`.
 
+## 3.7.4 — Timeline Event And Provider Readability
+
+**Goal:** Make event-planning and provider readback/writeback activity rows read like concrete user-facing events instead of generic technical actions.
+
+### Scope
+
+- Treat `events.*` activity rows as first-class event timeline entries.
+- Add readable copy for event attendees, groups, meetups, schedule plans, schedule imports, personal calendars, notifications, artifacts, and purchased-item links.
+- Improve Plex provider readback/writeback copy for rating apply/writeback, watched-state apply/writeback/refresh, and reconciliation jobs.
+- Keep this slice read-only and scoped to existing Activity API payloads.
+
+### Acceptance Criteria
+
+- Workspace Activity can filter event-planning rows under `Events`.
+- Event attendee/social/schedule rows use concrete readable labels instead of `Events / ...` action text.
+- Plex apply/writeback/reconciliation rows summarize counts/status when the existing payload includes them.
+- Existing timeline links and snapshot behavior continue to work.
+- Version metadata, release note, release feed, and Help > Releases include `3.7.4`.
+
+### Closeout
+
+- Roadmap slice: `3.7.4 — Timeline Event And Provider Readability`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/06-Versioning-and-Build-Metadata.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.7.4.md`.
+- Runtime verification used: Docker-first platform backend/frontend rebuild with `APP_VERSION=3.7.4`; running `/api/health` reported frontend/backend/build `3.7.4`; running backend logs reported `collectZ backend v3.7.4` with `103 migration(s) applied`; running backend env reported `APP_EDITION=platform`, `APP_VERSION=3.7.4`, `NODE_ENV=development`, `SESSION_COOKIE_SECURE=false`, `TRUST_PROXY=0`, and a redacted DB URL; live DB confirmed `schema_migrations` at `103`, `collectibles_enabled=true`, and `events_enabled=true`; targeted browser proof created an event plus attendee and verified Workspace Activity > Events shows `Event attendee added`; Help > Releases smoke served `3.7.4`; throwaway homelab and CI-shaped compose stacks passed their runtime checks and were torn down.
+- CI/checks run locally: `npm --prefix frontend run build`; `node backend/scripts/unit-tests.js` (`292` passed); Docker backend/frontend build; Docker `npm run test:unit` (`292` passed); Docker `npm run test:openapi`; Docker `npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.7.4 npm run test:help-releases-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker throwaway homelab stack plus `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; targeted Workspace Activity event timeline Playwright regression; full `npm run test:browser` (`69` passed, `4` skipped); backend/frontend production dependency audits (`0` vulnerabilities); local observability evidence (`9/9` checks passed); local release preflight; public export surface validation; compose config validation; CI-shaped compose smoke; version sync check; `git diff --check`; targeted release/artifact secret-pattern scan. CI remains authoritative for full repository `secret-scan` and `image-security-and-sbom`.
+- Files changed for this slice: `frontend/src/components/ActivityFeedView.jsx`; `tests/playwright/specs/space-manager.browser.spec.js`; `tests/playwright/helpers/eventsCollectibles.js`; `backend/scripts/unit-tests.js`; version metadata/package files; `docker-compose.yml`; `docs/releases/v3.7.4.md`; `backend/release-feed.json`; `docs/wiki/07-Release-Roadmap.md`; `artifacts/dependency-audit/backend-audit.json`; `artifacts/dependency-audit/frontend-audit.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `preflight-go-no-go.md`.
+- Risks/follow-ups: Event social rows are now readable, but some summaries still depend on sparse historical payloads and may show event or child ids until backend activity logging is enriched with titles/names. Plex rows are clearer from existing counters, but deeper per-item provider history remains separate from this timeline copy slice.
+- What remains in the milestone: nothing for `3.7.4`; future `3.7.x` work can enrich backend activity payloads for event child objects and provider writeback histories.
+- Recommended commit message: `Release 3.7.4 with timeline event and provider readability`
+
 ## 3.7.3 — Timeline Missing Target Snapshot Readback
 
 **Goal:** Keep deleted or archived timeline entries useful by opening the saved activity snapshot when the original target is no longer available.

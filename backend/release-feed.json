@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.7.4",
+      "version": "3.7.4",
+      "date": "2026-05-18",
+      "status": "implemented",
+      "summary": "This patch continues the human-readable timeline work by making event-planning and Plex provider rows read like concrete activity instead of raw action names.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added readable timeline copy for `events.*` rows, including attendees, groups, meetups, schedule plans, schedule imports, personal calendars, notifications, artifacts, and purchased-item links.",
+            "Fixed the Events activity filter so event-planning rows logged as `events.*` appear under `Events`.",
+            "Improved Plex timeline copy for rating readback/writeback, watched-state readback/writeback, refresh runs, reconciliation previews, sync jobs, and conflict resolution.",
+            "Added browser coverage proving a workspace event attendee row appears as readable event activity.",
+            "Hardened event/art/collectible Playwright cleanup helpers so authenticated deletes include CSRF tokens."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.7.3",
       "version": "3.7.3",
       "date": "2026-05-18",
@@ -181,25 +200,6 @@
             "Import responses now include `enrichment_status`, `lookup_path`, and `lookup_status` so scanner clients can show what happened.",
             "Barcode import activity and metadata record the scanner enrichment outcome for readback/debugging.",
             "Scanner smoke now proves ISBN import enrichment end-to-end with a fake Books provider."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.4.160",
-      "version": "3.4.160",
-      "date": "2026-05-16",
-      "status": "released",
-      "summary": "This patch makes ISBN-shaped barcode scans use the configured Books provider directly, so the iOS scanner app can get Google Books-style candidates without routing through the web UI or forcing the client to know the media type first.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Scanner barcode lookup now detects ISBN-10/ISBN-13 shaped codes automatically.",
-            "Web UPC lookup now also uses the direct ISBN path when a scanned identifier normalizes to ISBN.",
-            "Direct ISBN matches return with `source: books:isbn-direct` and `mediaTypeGuess: book`.",
-            "Scanner smoke now proves the ISBN path works without `mediaType: book`.",
-            "OpenAPI now documents scanner ISBN behavior on `/api/media/lookup/barcode`."
           ]
         }
       ]
