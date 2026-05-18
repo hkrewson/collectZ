@@ -547,9 +547,11 @@ test.describe('library multi-format browser regressions', () => {
 
       await addSavedAdminCookies(page, requestContext);
       await page.goto('/dashboard?tab=library-movies');
+      await expect(page.getByRole('button', { name: 'All Movies', exact: true })).toBeVisible();
 
       const searchInput = page.getByPlaceholder('Search title, director…');
       await searchInput.fill(title);
+      await expect(searchInput).toHaveValue(title);
       const resultCard = page.locator('article').filter({
         has: page.getByText(title, { exact: true })
       }).first();

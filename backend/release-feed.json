@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.8.0",
+      "version": "3.8.0",
+      "date": "2026-05-18",
+      "status": "implemented",
+      "summary": "This release starts the mobile-first capture workflow with a backend-owned Capture Inbox for quick real-world captures.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added scoped `capture_items` storage for barcode, photo, OCR text, and manual-note captures.",
+            "Added authenticated `/api/capture-items` endpoints so scanner/mobile clients can create and read captures directly.",
+            "Added review actions to update, discard, delete, and convert captures into Wishlist candidates.",
+            "Added Library > Capture Inbox in the web app for reviewing captured items.",
+            "Documented the capture API contract in OpenAPI."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.7.5",
       "version": "3.7.5",
       "date": "2026-05-18",
@@ -179,27 +198,6 @@
             "Added Dashboard navigation and quick links back into Import, Library, Events, and Integrations.",
             "Documented the Dashboard summary endpoint in OpenAPI and mapped PAT access to `media:read`.",
             "Promoted `Dashboard / Command Center` out of the backlog and into the `3.5.0` roadmap."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.4.162",
-      "version": "3.4.162",
-      "date": "2026-05-17",
-      "status": "released",
-      "summary": "This patch keeps valid ISBN scanner and web lookups on the Books/ISBN path even when the Books provider has no match.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Valid ISBN-10/ISBN-13 barcode values now return `provider: books:isbn-direct` from scanner lookup without falling through to UPCItemDB/general barcode lookup.",
-            "ISBN no-match lookups return a successful empty `matches` list instead of a potentially unrelated barcode-provider candidate.",
-            "Checksum-valid non-ISBN EAN/UPC values, such as `0076783005990`, remain on the barcode-provider path so provider title variants still surface.",
-            "The web barcode lookup path follows the same ISBN no-fallback behavior.",
-            "Public templates, browser metadata, package names, generated compose defaults, and operator docs now use `collectZ`/`collectz` naming instead of the old app-name defaults.",
-            "Scanner smoke coverage now proves ISBN direct success and ISBN direct no-match behavior for both scanner and web lookup routes.",
-            "OpenAPI now documents that ISBN no-match scans stay on `books:isbn-direct`."
           ]
         }
       ]

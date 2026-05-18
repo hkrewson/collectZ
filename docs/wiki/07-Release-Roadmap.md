@@ -10752,6 +10752,39 @@ Historical note:
 - What remains in the milestone: nothing for the `3.6.0` foundation slice; later `3.6.x` work can build provider candidate intake and richer acquisition workflows on this model.
 - Recommended commit message: `Release 3.6.0 with wishlist and acquisition foundation`.
 
+## 3.8.0 — Mobile Capture Inbox Foundation
+
+**Goal:** Start the Mobile-First Capture Workflow by giving mobile/scanner clients and the web app a backend-owned place to store real-world quick captures before full metadata review.
+
+### Scope
+
+- Promote the backlog `Mobile-First Capture Workflow` item into the roadmap as the first `3.8.0` slice.
+- Add a scoped capture inbox model for barcode, photo, OCR text, and manual-note captures.
+- Add authenticated capture intake/read/update/delete APIs owned by the backend.
+- Add a conversion path from a reviewed capture into a Wishlist candidate.
+- Add a compact Library > Capture Inbox web surface for review, discard, and Wishlist conversion.
+- Keep this slice focused on capture intake and review state; do not implement full OCR, image recognition, offline queue reconciliation, or automatic import resolution yet.
+
+### Acceptance Criteria
+
+- Authenticated clients can create capture records without using the web UI as a mediator.
+- Capture records are scoped to the active workspace/library and protected by existing auth/scope rules.
+- The web app lists captures, filters by capture/status, and can mark reviewed, discard, delete, or convert to Wishlist.
+- Capture conversion preserves barcode/symbology/source context in the created Wishlist candidate.
+- OpenAPI documents the capture inbox endpoints.
+- Version metadata, release note, release feed, and Help > Releases include `3.8.0`.
+
+### Closeout
+
+- Roadmap slice: `3.8.0 — Mobile Capture Inbox Foundation`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/08-Backlog.md`; `docs/releases/v3.8.0.md`.
+- Runtime verification used: Docker-first platform backend/frontend rebuild with `APP_VERSION=3.8.0`; running `/api/health` reported frontend/backend/build `3.8.0`; backend logs applied migration `v104` and reported `collectZ backend v3.8.0`; running backend env readback reported `APP_EDITION=platform`, `APP_VERSION=3.8.0`, `NODE_ENV=development`, `SESSION_COOKIE_SECURE=false`, `TRUST_PROXY=0`, and a redacted DB URL; live DB confirmed `schema_migrations` at `104`, `capture_items` exists, `collectibles_enabled=true`, and `events_enabled=true`; Help > Releases smoke served `3.8.0`; targeted browser proof created a capture through the backend API, opened Library > Capture Inbox, converted it to Wishlist, and verified the Wishlist row; a disposable production-style compose stack on alternate local port `3098` passed health, headers, secure CSRF cookie, session cookie option, unauthenticated `401`, and integration smoke checks before teardown.
+- CI/checks run locally: `node --check backend/routes/captureItems.js`; `node --check backend/server.js`; `node backend/scripts/validate-openapi.js`; host `node backend/scripts/unit-tests.js` (`293` passed); `npm --prefix frontend run build`; Docker backend/frontend build; Docker `npm run test:unit` (`293` passed); Docker `npm run test:openapi`; Docker `npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.8.0 npm run test:help-releases-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker throwaway homelab stack plus `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; targeted Capture Inbox Playwright regression; full `npm run test:browser` (`70` passed, `4` skipped) after repairing an unrelated library-search readiness race; backend/frontend production dependency audits (`0` vulnerabilities); local observability evidence (`9/9` checks passed); local release preflight; public export surface validation; CI-shaped compose smoke; version sync check; release note heading check; `git diff --check`; targeted release/artifact secret-pattern scan. CI remains authoritative for full repository `secret-scan` and `image-security-and-sbom`.
+- Files changed for this slice: `app-meta.json`; `backend/app-meta.json`; `backend/db/migrations.js`; `backend/openapi/openapi.yaml`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/routes/captureItems.js`; `backend/scripts/unit-tests.js`; `backend/server.js`; `backend/services/personalAccessTokens.js`; `docker-compose.yml`; `docs/releases/v3.8.0.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/ActivityFeedView.jsx`; `frontend/src/components/CaptureInboxView.jsx`; `frontend/src/components/SidebarNav.jsx`; `frontend/src/components/app/DashboardContent.jsx`; `frontend/src/components/app/dashboardRouting.js`; `frontend/src/components/app/productEdition.js`; `init.sql`; `preflight-go-no-go.md`; `tests/playwright/specs/admin-shell.browser.spec.js`; `tests/playwright/specs/library-multiformat.browser.spec.js`.
+- Risks/follow-ups: This is the inbox foundation, not the full mobile capture workflow. Photo uploads currently store an image path supplied by the client; OCR, cover/art recognition, offline queue reconciliation, and automatic import resolution remain future slices. The capture-to-Wishlist path intentionally creates a reviewable wanted item rather than an owned inventory row.
+- What remains in the milestone: nothing for `3.8.0`; future `3.8.x` work can add actual photo upload intake, OCR/recognition enrichment, scanner offline queue reconciliation, and review-queue integration.
+- Recommended commit message: `Release 3.8.0 with mobile capture inbox foundation`
+
 ## 3.7.5 — Timeline Event Payload Enrichment
 
 **Goal:** Enrich event-planning activity payloads so readable timeline entries can show event titles and child object names instead of only ids.

@@ -66,6 +66,7 @@ export default function SidebarNav({
     'library-games',
     'library-comics',
     'library-wishlist',
+    'library-capture',
     'library-loans',
     'library-collectibles',
     'library-events',
@@ -251,6 +252,7 @@ export default function SidebarNav({
                 <NavLink id="library-movies" icon={null} label="Movies" sub />
                 <NavLink id="library-tv" icon={null} label="TV" sub />
                 <NavLink id="library-wishlist" icon={null} label="Wishlist" sub />
+                <NavLink id="library-capture" icon={null} label="Capture Inbox" sub />
               </div>
             )}
           </div>

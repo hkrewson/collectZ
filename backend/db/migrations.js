@@ -4340,6 +4340,59 @@ const MIGRATIONS = [
       END;
       $$;
     `
+  },
+  {
+    version: 104,
+    description: 'Add mobile capture inbox foundation',
+    up: `
+      CREATE TABLE IF NOT EXISTS capture_items (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(500),
+        capture_type VARCHAR(30) NOT NULL DEFAULT 'manual_note' CHECK (capture_type IN ('barcode', 'photo', 'ocr_text', 'manual_note')),
+        status VARCHAR(20) NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'reviewed', 'converted', 'discarded')),
+        object_type VARCHAR(30) NOT NULL DEFAULT 'other' CHECK (object_type IN ('movie', 'tv_series', 'book', 'comic_book', 'audio', 'game', 'art', 'collectible', 'event_item', 'other')),
+        barcode TEXT,
+        symbology VARCHAR(80),
+        ocr_text TEXT,
+        notes TEXT,
+        image_path TEXT,
+        source_context JSONB NOT NULL DEFAULT '{}'::jsonb,
+        review_decision JSONB NOT NULL DEFAULT '{}'::jsonb,
+        linked_media_id INTEGER REFERENCES media(id) ON DELETE SET NULL,
+        wanted_item_id INTEGER REFERENCES wanted_items(id) ON DELETE SET NULL,
+        library_id INTEGER,
+        space_id INTEGER,
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        reviewed_at TIMESTAMP,
+        converted_at TIMESTAMP,
+        discarded_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_capture_items_library_status
+        ON capture_items(library_id, status, updated_at DESC);
+
+      CREATE INDEX IF NOT EXISTS idx_capture_items_space_status
+        ON capture_items(space_id, status, updated_at DESC);
+
+      CREATE INDEX IF NOT EXISTS idx_capture_items_barcode
+        ON capture_items(barcode)
+        WHERE barcode IS NOT NULL;
+
+      CREATE INDEX IF NOT EXISTS idx_capture_items_wanted_item
+        ON capture_items(wanted_item_id)
+        WHERE wanted_item_id IS NOT NULL;
+
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_capture_items_updated_at') THEN
+          CREATE TRIGGER update_capture_items_updated_at BEFORE UPDATE ON capture_items
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+        END IF;
+      END;
+      $$;
+    `
   }
 ];
 

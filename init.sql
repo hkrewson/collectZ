@@ -147,6 +147,31 @@ CREATE TABLE IF NOT EXISTS wanted_items (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS capture_items (
+    id SERIAL PRIMARY KEY,
+    title VARCHAR(500),
+    capture_type VARCHAR(30) NOT NULL DEFAULT 'manual_note' CHECK (capture_type IN ('barcode', 'photo', 'ocr_text', 'manual_note')),
+    status VARCHAR(20) NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'reviewed', 'converted', 'discarded')),
+    object_type VARCHAR(30) NOT NULL DEFAULT 'other' CHECK (object_type IN ('movie', 'tv_series', 'book', 'comic_book', 'audio', 'game', 'art', 'collectible', 'event_item', 'other')),
+    barcode TEXT,
+    symbology VARCHAR(80),
+    ocr_text TEXT,
+    notes TEXT,
+    image_path TEXT,
+    source_context JSONB NOT NULL DEFAULT '{}'::jsonb,
+    review_decision JSONB NOT NULL DEFAULT '{}'::jsonb,
+    linked_media_id INTEGER REFERENCES media(id) ON DELETE SET NULL,
+    wanted_item_id INTEGER REFERENCES wanted_items(id) ON DELETE SET NULL,
+    library_id INTEGER,
+    space_id INTEGER,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    reviewed_at TIMESTAMP,
+    converted_at TIMESTAMP,
+    discarded_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS media_loan_reminders (
     id SERIAL PRIMARY KEY,
     loan_id INTEGER NOT NULL REFERENCES media_loans(id) ON DELETE CASCADE,
@@ -1364,6 +1389,14 @@ CREATE INDEX IF NOT EXISTS idx_wanted_items_provider_key
 CREATE INDEX IF NOT EXISTS idx_wanted_items_linked_media
     ON wanted_items(linked_media_id)
     WHERE linked_media_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_capture_items_library_status ON capture_items(library_id, status, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_capture_items_space_status ON capture_items(space_id, status, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_capture_items_barcode
+    ON capture_items(barcode)
+    WHERE barcode IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_capture_items_wanted_item
+    ON capture_items(wanted_item_id)
+    WHERE wanted_item_id IS NOT NULL;
 
 -- Updated-at trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -1387,6 +1420,10 @@ BEGIN
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_wanted_items_updated_at') THEN
         CREATE TRIGGER update_wanted_items_updated_at BEFORE UPDATE ON wanted_items
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_capture_items_updated_at') THEN
+        CREATE TRIGGER update_capture_items_updated_at BEFORE UPDATE ON capture_items
             FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_media_variants_updated_at') THEN
@@ -1664,5 +1701,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (100, 'Add Plex reconciliation conflict reviews'),
     (101, 'Add reusable artist records for Art'),
     (102, 'Repair Kavita chapter issue cover proxy paths'),
-    (103, 'Add scoped wishlist and acquisition tracking')
+    (103, 'Add scoped wishlist and acquisition tracking'),
+    (104, 'Add mobile capture inbox foundation')
 ON CONFLICT (version) DO NOTHING;

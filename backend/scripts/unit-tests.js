@@ -142,6 +142,7 @@ const { isServiceAccountPrefixAllowed } = require('../services/serviceAccountKey
 const authRoutesSource = fs.readFileSync(require.resolve('../routes/auth'), 'utf8');
 const dashboardRoutesSource = fs.readFileSync(require.resolve('../routes/dashboard'), 'utf8');
 const wishlistRoutesSource = fs.readFileSync(require.resolve('../routes/wishlist'), 'utf8');
+const captureItemsRoutesSource = fs.readFileSync(require.resolve('../routes/captureItems'), 'utf8');
 const mediaRoutesSource = fs.readFileSync(require.resolve('../routes/media'), 'utf8');
 const manualMergeRecommendationsServiceSource = fs.readFileSync(require.resolve('../services/manualMergeRecommendations'), 'utf8');
 const openApiSource = fs.readFileSync(require.resolve('../openapi/openapi.yaml'), 'utf8');
@@ -205,6 +206,7 @@ const adminUsersViewSource = readFrontendSource(path.join('components', 'AdminUs
 const dashboardCommandCenterViewSource = readFrontendSource(path.join('components', 'DashboardCommandCenterView'));
 const syncJobDetailDrawerSource = readFrontendSource(path.join('components', 'SyncJobDetailDrawer'));
 const wishlistViewSource = readFrontendSource(path.join('components', 'WishlistView'));
+const captureInboxViewSource = readFrontendSource(path.join('components', 'CaptureInboxView'));
 const adminIntegrationsViewSource = readFrontendSource(path.join('components', 'AdminIntegrationsView'));
 const spaceManagerViewSource = readFrontendSource(path.join('components', 'SpaceManagerView'));
 const libraryLoansViewSource = readFrontendSource(path.join('components', 'LibraryLoansView'));
@@ -6206,6 +6208,40 @@ results.push(run('wishlist acquisition foundation is scoped, routed, and documen
   assert.ok(adminShellBrowserSpecSource.includes('/dashboard?tab=library-wishlist'));
   assert.ok(adminShellBrowserSpecSource.includes('/api/wishlist'));
   assert.ok(adminShellBrowserSpecSource.includes('/convert'));
+}));
+
+results.push(run('mobile capture inbox foundation is scoped, routed, and reviewable', () => {
+  assert.ok(migrationsSource.includes('Add mobile capture inbox foundation'));
+  assert.ok(migrationsSource.includes('CREATE TABLE IF NOT EXISTS capture_items'));
+  assert.ok(migrationsSource.includes("capture_type IN ('barcode', 'photo', 'ocr_text', 'manual_note')"));
+  assert.ok(migrationsSource.includes("status IN ('new', 'reviewed', 'converted', 'discarded')"));
+  assert.ok(migrationsSource.includes('idx_capture_items_library_status'));
+  assert.ok(initSqlSource.includes('CREATE TABLE IF NOT EXISTS capture_items'));
+  assert.ok(initSqlSource.includes("(104, 'Add mobile capture inbox foundation')"));
+  assert.ok(captureItemsRoutesSource.includes("router.use('/capture-items', authenticateToken);"));
+  assert.ok(captureItemsRoutesSource.includes("router.get('/capture-items'"));
+  assert.ok(captureItemsRoutesSource.includes("router.post('/capture-items'"));
+  assert.ok(captureItemsRoutesSource.includes("router.post('/capture-items/:id/convert-wishlist'"));
+  assert.ok(captureItemsRoutesSource.includes("await logActivity(req, 'capture.create'"));
+  assert.ok(serverSource.includes("const captureItemsRouter = require('./routes/captureItems');"));
+  assert.ok(serverSource.includes("app.use('/api', captureItemsRouter);"));
+  assert.deepStrictEqual(getRequiredPatScopesForRequest({ originalUrl: '/api/capture-items', method: 'GET' }), ['media:read']);
+  assert.deepStrictEqual(getRequiredPatScopesForRequest({ originalUrl: '/api/capture-items', method: 'POST' }), ['media:write']);
+  assert.ok(openApiSource.includes('"/api/capture-items"'));
+  assert.ok(openApiSource.includes('"/api/capture-items/{id}/convert-wishlist"'));
+  assert.ok(openApiSource.includes('"CaptureItem"'));
+  assert.ok(dashboardRoutingSource.includes("'library-capture'"));
+  assert.ok(productEditionFrontendSource.includes("'library-capture'"));
+  assert.ok(sidebarNavSource.includes('Capture Inbox'));
+  assert.ok(dashboardContentSource.includes("case 'library-capture'"));
+  assert.ok(dashboardContentSource.includes('CaptureInboxView'));
+  assert.ok(captureInboxViewSource.includes("apiCall('get', `/capture-items?${params.toString()}`)"));
+  assert.ok(captureInboxViewSource.includes("apiCall('post', `/capture-items/${item.id}/convert-wishlist`, {})"));
+  assert.ok(captureInboxViewSource.includes('Capture Inbox'));
+  assert.ok(activityFeedViewSource.includes("action.startsWith('capture.')"));
+  assert.ok(activityFeedViewSource.includes('Capture added to Wishlist'));
+  assert.ok(adminShellBrowserSpecSource.includes('/dashboard?tab=library-capture'));
+  assert.ok(adminShellBrowserSpecSource.includes('/api/capture-items'));
 }));
 
 results.push(run('admin users view stays platform-only without invitation management tab', () => {

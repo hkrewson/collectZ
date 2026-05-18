@@ -66,6 +66,7 @@ export function getHomelabAllowedTabs({
     'library-games',
     'library-comics',
     'library-wishlist',
+    'library-capture',
     'library-loans',
     'library-import'
   ]);

@@ -107,6 +107,59 @@ test.describe('admin shell browser regressions', () => {
     }
   });
 
+  test('capture inbox foundation receives quick captures and converts to wishlist', async ({ page }) => {
+    const suffix = Date.now();
+    const title = `Playwright Capture ${suffix}`;
+    const adminCredentials = await ensureSavedAdminCredentials();
+    const requestContext = await createAuthenticatedRequestContext(adminCredentials);
+    let captureId = null;
+    let wantedItemId = null;
+
+    try {
+      const createResponse = await postWithCsrf(requestContext, '/api/capture-items', {
+        title,
+        capture_type: 'barcode',
+        object_type: 'book',
+        barcode: `978000${String(suffix).slice(-7)}`,
+        symbology: 'EAN-13',
+        source_context: { source: 'playwright' }
+      }, 201);
+      const createPayload = await createResponse.json();
+      captureId = Number(createPayload?.item?.id || 0);
+      expect(captureId).toBeGreaterThan(0);
+
+      await signInThroughUi(page, adminCredentials);
+      const captureResponse = page.waitForResponse((response) => (
+        response.url().includes('/api/capture-items') && response.request().method() === 'GET'
+      ));
+      await page.goto('/dashboard?tab=library-capture');
+      expect((await captureResponse).ok()).toBeTruthy();
+      await expect(page.getByRole('heading', { name: 'Capture Inbox', exact: true })).toBeVisible();
+      await expect(page.getByText(title)).toBeVisible();
+      await expect(page.getByRole('button', { name: 'New capture' })).toBeVisible();
+
+      const convertResponse = await postWithCsrf(requestContext, `/api/capture-items/${captureId}/convert-wishlist`, {}, 201);
+      const convertPayload = await convertResponse.json();
+      expect(convertPayload?.ok).toBe(true);
+      wantedItemId = Number(convertPayload?.wanted_item?.id || 0);
+      expect(wantedItemId).toBeGreaterThan(0);
+      expect(convertPayload?.item?.status).toBe('converted');
+
+      const wishlistResponse = await requestContext.get(`/api/wishlist?status=active&search=${encodeURIComponent(title)}`);
+      expect(wishlistResponse.ok()).toBeTruthy();
+      const wishlistPayload = await wishlistResponse.json();
+      expect(wishlistPayload?.items?.some((item) => item.id === wantedItemId && item.provider === 'capture')).toBeTruthy();
+    } finally {
+      if (captureId) {
+        await requestWithCsrf(requestContext, 'DELETE', `/api/capture-items/${captureId}`, undefined, [200, 404]).catch(() => {});
+      }
+      if (wantedItemId) {
+        await requestWithCsrf(requestContext, 'DELETE', `/api/wishlist/${wantedItemId}`, undefined, [200, 404]).catch(() => {});
+      }
+      await requestContext.dispose();
+    }
+  });
+
   test('authenticated admin shell loads and docs surface is available when debug gating is satisfied', async ({ page }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
     await signInThroughUi(page, adminCredentials);

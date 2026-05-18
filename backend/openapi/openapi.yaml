@@ -19,6 +19,7 @@
     { "name": "Support" },
     { "name": "Media" },
     { "name": "Wishlist" },
+    { "name": "Capture" },
     { "name": "Observability" }
   ],
   "components": {
@@ -3223,6 +3224,77 @@
           "media": { "type": "object", "additionalProperties": true }
         },
         "required": ["ok", "item", "media"]
+      },
+      "CaptureItem": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "title": { "type": ["string", "null"] },
+          "capture_type": { "type": "string", "enum": ["barcode", "photo", "ocr_text", "manual_note"] },
+          "status": { "type": "string", "enum": ["new", "reviewed", "converted", "discarded"] },
+          "object_type": { "type": "string", "enum": ["movie", "tv_series", "book", "comic_book", "audio", "game", "art", "collectible", "event_item", "other"] },
+          "barcode": { "type": ["string", "null"] },
+          "symbology": { "type": ["string", "null"] },
+          "ocr_text": { "type": ["string", "null"] },
+          "notes": { "type": ["string", "null"] },
+          "image_path": { "type": ["string", "null"] },
+          "source_context": { "type": "object", "additionalProperties": true },
+          "review_decision": { "type": "object", "additionalProperties": true },
+          "linked_media_id": { "type": ["integer", "null"] },
+          "wanted_item_id": { "type": ["integer", "null"] },
+          "library_id": { "type": ["integer", "null"] },
+          "space_id": { "type": ["integer", "null"] },
+          "created_by": { "type": ["integer", "null"] },
+          "reviewed_at": { "type": ["string", "null"], "format": "date-time" },
+          "converted_at": { "type": ["string", "null"], "format": "date-time" },
+          "discarded_at": { "type": ["string", "null"], "format": "date-time" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "capture_type", "status", "object_type", "source_context", "review_decision", "created_at", "updated_at"]
+      },
+      "CaptureItemInput": {
+        "type": "object",
+        "properties": {
+          "title": { "type": ["string", "null"] },
+          "capture_type": { "type": "string", "enum": ["barcode", "photo", "ocr_text", "manual_note"] },
+          "status": { "type": "string", "enum": ["new", "reviewed", "converted", "discarded"] },
+          "object_type": { "type": "string", "enum": ["movie", "tv_series", "book", "comic_book", "audio", "game", "art", "collectible", "event_item", "other"] },
+          "barcode": { "type": ["string", "null"] },
+          "upc": { "type": ["string", "null"] },
+          "isbn": { "type": ["string", "null"] },
+          "symbology": { "type": ["string", "null"] },
+          "ocr_text": { "type": ["string", "null"] },
+          "notes": { "type": ["string", "null"] },
+          "image_path": { "type": ["string", "null"] },
+          "source_context": { "type": "object", "additionalProperties": true },
+          "review_decision": { "type": "object", "additionalProperties": true }
+        },
+        "additionalProperties": false
+      },
+      "CaptureListResponse": {
+        "type": "object",
+        "properties": {
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/CaptureItem" } },
+          "pagination": { "type": "object", "additionalProperties": true }
+        },
+        "required": ["items", "pagination"]
+      },
+      "CaptureItemResponse": {
+        "type": "object",
+        "properties": {
+          "item": { "$ref": "#/components/schemas/CaptureItem" }
+        },
+        "required": ["item"]
+      },
+      "CaptureWishlistConvertResponse": {
+        "type": "object",
+        "properties": {
+          "ok": { "type": "boolean" },
+          "item": { "$ref": "#/components/schemas/CaptureItem" },
+          "wanted_item": { "$ref": "#/components/schemas/WantedItem" }
+        },
+        "required": ["ok", "item", "wanted_item"]
       }
     }
   },
@@ -3437,6 +3509,152 @@
                 "schema": { "$ref": "#/components/schemas/Error" }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/capture-items": {
+      "get": {
+        "tags": ["Capture"],
+        "summary": "List mobile-first capture inbox records",
+        "description": "Returns quick-capture records scoped to the authenticated user's active workspace/library. Supports status, capture_type, search, page, and limit query parameters.",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "responses": {
+          "200": {
+            "description": "Capture inbox records",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CaptureListResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication is required",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Capture"],
+        "summary": "Create a quick-capture inbox record",
+        "description": "Stores a barcode, photo reference, OCR text, or manual note for later review. Native/mobile clients remain capture surfaces; the backend owns the reviewable record.",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CaptureItemInput" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Capture item created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CaptureItemResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid capture payload",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      }
+    },
+    "/api/capture-items/{id}": {
+      "patch": {
+        "tags": ["Capture"],
+        "summary": "Update a quick-capture inbox record",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CaptureItemInput" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Capture item updated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CaptureItemResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "Capture item not found",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Capture"],
+        "summary": "Delete a quick-capture inbox record",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Capture item deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "id": { "type": "integer" }
+                  },
+                  "required": ["ok", "id"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/capture-items/{id}/convert-wishlist": {
+      "post": {
+        "tags": ["Capture"],
+        "summary": "Convert a quick-capture record into a wishlist item",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+        ],
+        "responses": {
+          "201": {
+            "description": "Capture converted into a wishlist candidate",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CaptureWishlistConvertResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "Capture item not found",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
           }
         }
       }

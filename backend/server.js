@@ -41,6 +41,7 @@ const librariesRouter = require('./routes/libraries');
 const spacesRouter = require('./routes/spaces');
 const dashboardRouter = require('./routes/dashboard');
 const wishlistRouter = require('./routes/wishlist');
+const captureItemsRouter = require('./routes/captureItems');
 const eventsRouter = require('./routes/events');
 const collectiblesRouter = require('./routes/collectibles');
 const { supportSharedRouter, supportPlatformRouter } = require('./routes/support');
@@ -282,6 +283,7 @@ if (!HOMELAB_EDITION) {
 app.use('/api', authRouter);
 app.use('/api', dashboardRouter);
 app.use('/api', wishlistRouter);
+app.use('/api', captureItemsRouter);
 app.use('/api/media', mediaRouter);
 app.use('/api', eventsRouter);
 app.use('/api', collectiblesRouter);

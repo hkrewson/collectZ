@@ -440,6 +440,16 @@ function buildTimelineEntry(entry) {
     title = action === 'wishlist.convert' ? 'Wishlist item added to library' : `Wishlist item ${action.split('.').pop()}`;
     summary = [targetName || formatEntityLabel(entry), detailValue(details, ['object_type', 'status'])].filter(Boolean).join(' · ');
     category = 'Library';
+  } else if (action.startsWith('capture.')) {
+    title = action === 'capture.convert_wishlist'
+      ? 'Capture added to Wishlist'
+      : action.includes('.delete')
+        ? 'Capture deleted'
+        : action.includes('.update')
+          ? 'Capture updated'
+          : 'Capture saved';
+    summary = [targetName || formatEntityLabel(entry), detailValue(details, ['captureType']), detailValue(details, ['barcode', 'status'])].filter(Boolean).join(' · ');
+    category = 'Scanner';
   } else if (action.startsWith('art.') || action.startsWith('collectibles.')) {
     title = action.includes('.delete') ? 'Collection item deleted' : action.includes('.update') ? 'Collection item updated' : 'Collection item added';
     summary = targetName || formatEntityLabel(entry);

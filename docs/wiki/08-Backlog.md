@@ -93,21 +93,6 @@ These are product-level capability gaps discovered from the current shape of the
 - Existing item-local text remains usable where a reusable record is unnecessary.
 - The model does not imply cross-workspace identity or social graph behavior by default.
 
-### Backlog Item: Mobile-First Capture Workflow
-**Type:** Deferred milestone
-**Tags:** `product`, `mobile`, `capture`, `scanner`, `ocr`
-
-**Goal:** Expand beyond barcode scanning into real-world quick capture.
-
-**Scope**
-- Include photo capture, OCR, cover/art recognition, offline queueing, convention or store quick-add, and later review resolution.
-- Keep the backend as the source of truth while native/mobile clients act as capture surfaces.
-
-**Acceptance Criteria**
-- Users can quickly capture items in the real world without completing full metadata entry immediately.
-- Captured items can be reviewed, enriched, merged, or discarded later.
-- Offline or low-connectivity capture behavior is explicit and recoverable.
-
 ### Backlog Item: Backup, Export, and Portability UX
 **Type:** Deferred milestone
 **Tags:** `product`, `backup`, `export`, `portability`, `homelab`

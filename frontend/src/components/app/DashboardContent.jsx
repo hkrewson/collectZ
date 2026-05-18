@@ -11,6 +11,7 @@ import DashboardCommandCenterView from '../DashboardCommandCenterView';
 import LibraryView from '../LibraryView';
 import LibraryLoansView from '../LibraryLoansView';
 import WishlistView from '../WishlistView';
+import CaptureInboxView from '../CaptureInboxView';
 import EventsView from '../EventsView';
 import CollectiblesView from '../CollectiblesView';
 import ArtView from '../ArtView';
@@ -149,6 +150,7 @@ export default function DashboardContent({
     case 'library-games':
     case 'library-comics':
     case 'library-wishlist':
+    case 'library-capture':
     case 'library-loans':
     case 'library-art':
     case 'library-collectibles':
@@ -184,6 +186,18 @@ export default function DashboardContent({
         return (
           <WishlistView
             key={`library-wishlist:${scopeKey}`}
+            apiCall={apiCall}
+            onToast={showToast}
+            activeLibrary={activeLibrary}
+            Icons={Icons}
+            Spinner={Spinner}
+          />
+        );
+      }
+      if (activeTab === 'library-capture') {
+        return (
+          <CaptureInboxView
+            key={`library-capture:${scopeKey}`}
             apiCall={apiCall}
             onToast={showToast}
             activeLibrary={activeLibrary}
