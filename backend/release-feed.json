@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.7.2",
+      "version": "3.7.2",
+      "date": "2026-05-18",
+      "status": "implemented",
+      "summary": "This patch makes sync failures and sync activity inspectable from the Dashboard and Activity timeline instead of sending users to broad import or integration screens.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added a shared sync-job detail drawer backed by `/api/media/sync-jobs/:id/result`.",
+            "Changed Dashboard failed-sync rows to open detailed job readback with status, provider, timestamps, failure text, summary counters, progress, and technical payload.",
+            "Added timeline actions for sync jobs and import activity so failed rows can open `Open failure` and successful rows can open `Open sync`.",
+            "Kept existing import navigation available for import-shaped activity rows.",
+            "Added source-level regression coverage to keep the Dashboard, Activity timeline, and sync-job drawer wired together."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.7.1",
       "version": "3.7.1",
       "date": "2026-05-17",
@@ -181,25 +200,6 @@
             "Added `alternateTitles`/`alternate_titles` readback so clients can show related provider title strings.",
             "Added title-variant metadata fields such as `titleVariantSource`, `titleVariantIndex`, and `offerIndex`.",
             "Updated scanner smoke coverage so both `/api/media/lookup/barcode` and `/api/media/lookup-upc` prove offer title variants are returned."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.4.158",
-      "version": "3.4.158",
-      "date": "2026-05-16",
-      "status": "released",
-      "summary": "This patch keeps scanner barcode lookup as a candidate search by preserving multiple provider products for a single barcode instead of allowing duplicate provider identifiers to collapse choices in scanner clients.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Preserved multiple barcode provider matches in `POST /api/media/lookup/barcode`.",
-            "Added stable per-candidate provider IDs so barcode variants sharing the same UPC stay distinct.",
-            "Added `provider_candidate_index` to scanner lookup matches when provider ordering is available.",
-            "Updated scanner smoke coverage with a fake UPC provider returning three candidates for `0076783005990`.",
-            "Clarified OpenAPI docs that barcode lookup may return zero, one, or many candidates."
           ]
         }
       ]

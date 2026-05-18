@@ -200,8 +200,10 @@ const useApiClientSource = readFrontendSource(path.join('components', 'app', 'ho
 const useMediaApiSource = readFrontendSource(path.join('components', 'app', 'hooks', 'useMediaApi'));
 const helpViewSource = readFrontendSource(path.join('components', 'HelpView'));
 const adminActivityViewSource = readFrontendSource(path.join('components', 'AdminActivityView'));
+const activityFeedViewSource = readFrontendSource(path.join('components', 'ActivityFeedView'));
 const adminUsersViewSource = readFrontendSource(path.join('components', 'AdminUsersView'));
 const dashboardCommandCenterViewSource = readFrontendSource(path.join('components', 'DashboardCommandCenterView'));
+const syncJobDetailDrawerSource = readFrontendSource(path.join('components', 'SyncJobDetailDrawer'));
 const wishlistViewSource = readFrontendSource(path.join('components', 'WishlistView'));
 const adminIntegrationsViewSource = readFrontendSource(path.join('components', 'AdminIntegrationsView'));
 const spaceManagerViewSource = readFrontendSource(path.join('components', 'SpaceManagerView'));
@@ -6144,6 +6146,13 @@ results.push(run('dashboard command center frontend owns first-screen attention 
   assert.ok(dashboardCommandCenterViewSource.includes('Provider health'));
   assert.ok(dashboardCommandCenterViewSource.includes('Recent syncs'));
   assert.ok(dashboardCommandCenterViewSource.includes('Upcoming events'));
+  assert.ok(dashboardCommandCenterViewSource.includes('SyncJobDetailDrawer'));
+  assert.ok(dashboardCommandCenterViewSource.includes('setSelectedSyncJob'));
+  assert.ok(syncJobDetailDrawerSource.includes("/media/sync-jobs/${jobId}/result"));
+  assert.ok(syncJobDetailDrawerSource.includes('Technical payload'));
+  assert.ok(activityFeedViewSource.includes('Open failure'));
+  assert.ok(activityFeedViewSource.includes('syncJobId'));
+  assert.ok(activityFeedViewSource.includes('SyncJobDetailDrawer'));
   assert.ok(adminShellBrowserSpecSource.includes('/api/dashboard/summary'));
   assert.ok(adminShellBrowserSpecSource.includes("page.goto('/dashboard')"));
 }));

@@ -10752,6 +10752,37 @@ Historical note:
 - What remains in the milestone: nothing for the `3.6.0` foundation slice; later `3.6.x` work can build provider candidate intake and richer acquisition workflows on this model.
 - Recommended commit message: `Release 3.6.0 with wishlist and acquisition foundation`.
 
+## 3.7.2 — Timeline Sync And Failure Detail Readback
+
+**Goal:** Make sync failures and sync/import timeline rows inspectable from the surfaces where users encounter them.
+
+### Scope
+
+- Add a shared sync-job detail drawer backed by the existing full sync-job result endpoint.
+- Change Dashboard failed-sync attention rows to open detailed job readback instead of generic provider or import navigation.
+- Add timeline actions for sync jobs and import activity so failed rows can open failure detail and successful rows can open sync detail when a job id is available.
+- Preserve existing import navigation for import-shaped activity rows.
+- Keep this slice read-only: no sync retry, mutation, or reconciliation apply behavior.
+
+### Acceptance Criteria
+
+- Dashboard > Needs attention > Failed syncs opens a detailed sync-job readback surface.
+- The detail surface shows status, provider/job type, timestamps, failure text when available, summary counters, progress, and technical payload.
+- Activity timeline rows linked to sync jobs expose `Open failure` or `Open sync` actions when a job id is available.
+- Existing scoped `/api/media/sync-jobs/:id/result` auth and access rules remain unchanged.
+- Version metadata, release note, release feed, and Help > Releases include `3.7.2`.
+
+### Closeout
+
+- Roadmap slice: `3.7.2 — Timeline Sync And Failure Detail Readback`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/06-Versioning-and-Build-Metadata.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.7.2.md`.
+- Runtime verification used: Docker-first platform backend/frontend rebuild with `APP_VERSION=3.7.2`; running `/api/health` reported frontend/backend/build `3.7.2`; running backend logs reported `collectZ backend v3.7.2` with `103 migration(s) applied`; running backend env reported `APP_EDITION=platform`, `APP_VERSION=3.7.2`, `NODE_ENV=development`, `SESSION_COOKIE_SECURE=false`, `TRUST_PROXY=0`, and a redacted DB URL; live DB confirmed `schema_migrations` at `103` and `events_enabled=true`; targeted running-stack browser proof inserted a temporary scoped failed sync job, opened Dashboard > Needs attention > Failed syncs, verified the sync detail drawer and technical payload, then removed the temporary row; Help > Releases smoke served `3.7.2`; a throwaway homelab stack passed homelab boundary and was torn down.
+- CI/checks run locally: `npm --prefix frontend run build`; Docker backend/frontend build; Docker `npm run test:unit` (`292` passed); Docker `npm run test:openapi`; Docker `npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.7.2 npm run test:help-releases-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker throwaway homelab stack plus `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; full `npm run test:browser` (`67` passed, `4` skipped); backend/frontend production dependency audits (`0` vulnerabilities); local observability evidence (`9/9` checks passed); local release preflight; public export surface validation; compose config validation; version sync check; `git diff --check`; targeted release/artifact secret-pattern scan. Local preflight still marks stricter secure-cookie `compose-smoke`, `secret-scan`, and `image-security-and-sbom` as CI-only/blocking follow-through.
+- Files changed for this slice: `frontend/src/components/SyncJobDetailDrawer.jsx`; `frontend/src/components/DashboardCommandCenterView.jsx`; `frontend/src/components/ActivityFeedView.jsx`; `backend/scripts/unit-tests.js`; version metadata/package files; `docker-compose.yml`; `docs/releases/v3.7.2.md`; `backend/release-feed.json`; `docs/wiki/07-Release-Roadmap.md`; `artifacts/observability-evidence/observability-release-evidence.json`; `preflight-go-no-go.md`.
+- Risks/follow-ups: Activity rows can open sync detail only when the activity entry is linked to `sync_jobs` or carries a sync-job id in details; older sparse activity rows still fall back to generic import navigation. No retry/apply behavior was added in this read-only slice. CI remains authoritative for gitleaks, Trivy/SBOM, and secure-cookie compose-smoke.
+- What remains in the milestone: nothing for `3.7.2`; future `3.7.x` work can add richer missing-target readback for deleted/archived objects or a broader review queue.
+- Recommended commit message: `Release 3.7.2 with timeline sync and failure detail readback`
+
 ## 3.7.1 — Timeline Deep Links
 
 **Goal:** Make the human-readable activity timeline operational by letting users jump from a timeline row to the related app surface when the target is known.

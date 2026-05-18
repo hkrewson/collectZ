@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import SyncJobDetailDrawer from './SyncJobDetailDrawer';
 
 const DASHBOARD_SAMPLE_LIMIT = 5;
 
@@ -35,16 +36,6 @@ function severityClasses(severity) {
   if (severity === 'warn') return 'border-warn/40 bg-warn/10 text-warn';
   if (severity === 'info') return 'border-gold/30 bg-gold/10 text-gold';
   return 'border-edge bg-raised/30 text-ok';
-}
-
-function integrationSectionForProvider(value) {
-  const normalized = String(value || '').trim().toLowerCase();
-  if (normalized.includes('kavita')) return 'kavita';
-  if (normalized.includes('plex')) return 'plex';
-  if (normalized.includes('book') || normalized.includes('google')) return 'books';
-  if (normalized.includes('barcode') || normalized.includes('upc')) return 'barcode';
-  if (normalized.includes('comic')) return 'comics';
-  return null;
 }
 
 function EmptyLine({ children }) {
@@ -143,7 +134,7 @@ function MediaAttentionList({ items, emptyText }) {
   );
 }
 
-function FailedSyncList({ jobs, onOpenProvider }) {
+function FailedSyncList({ jobs, onOpenJob }) {
   if (!jobs.length) return <EmptyLine>No failed sync jobs in this scope.</EmptyLine>;
   return (
     <div className="divide-y divide-edge overflow-hidden rounded-lg border border-err/30">
@@ -151,7 +142,7 @@ function FailedSyncList({ jobs, onOpenProvider }) {
         <button
           key={job.id}
           type="button"
-          onClick={() => onOpenProvider?.(job)}
+          onClick={() => onOpenJob?.(job)}
           className="w-full bg-err/10 px-3 py-2 text-left transition hover:bg-err/15"
         >
           <div className="flex items-start justify-between gap-3">
@@ -160,7 +151,7 @@ function FailedSyncList({ jobs, onOpenProvider }) {
               <p className="mt-1 text-xs text-ghost">{job.job_type || 'sync'} · {formatDateTime(job.updated_at || job.created_at)}</p>
               <p className="mt-1 text-xs text-err">{job.error || job.summary?.message || 'No failure detail was recorded.'}</p>
             </div>
-            <span className="shrink-0 text-xs font-medium text-err">{job.status || 'failed'}</span>
+            <span className="shrink-0 text-xs font-medium text-err">Open</span>
           </div>
         </button>
       ))}
@@ -183,6 +174,7 @@ export default function DashboardCommandCenterView({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeAttentionTab, setActiveAttentionTab] = useState('failed-syncs');
+  const [selectedSyncJob, setSelectedSyncJob] = useState(null);
 
   const loadSummary = useCallback(async () => {
     setLoading(true);
@@ -237,18 +229,13 @@ export default function DashboardCommandCenterView({
     setActiveTab?.('library');
   };
 
-  const openFailedSyncProvider = (job) => {
-    const section = integrationSectionForProvider(job?.provider || job?.job_type);
-    go('admin-integrations', section);
-  };
-
   const plexConflictAttention = attention.find((item) => item.id === 'plex-conflicts');
   const attentionTabs = useMemo(() => [
     {
       id: 'failed-syncs',
       label: 'Failed syncs',
       count: failedJobs.length,
-      content: <FailedSyncList jobs={failedJobs} onOpenProvider={openFailedSyncProvider} />
+      content: <FailedSyncList jobs={failedJobs} onOpenJob={setSelectedSyncJob} />
     },
     {
       id: 'missing-covers',
@@ -478,6 +465,16 @@ export default function DashboardCommandCenterView({
           )}
         </Panel>
       </div>
+
+      {selectedSyncJob ? (
+        <SyncJobDetailDrawer
+          apiCall={apiCall}
+          jobId={selectedSyncJob.id}
+          initialJob={selectedSyncJob}
+          onClose={() => setSelectedSyncJob(null)}
+          Spinner={Spinner}
+        />
+      ) : null}
     </div>
   );
 }

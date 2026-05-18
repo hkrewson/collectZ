@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import SyncJobDetailDrawer from './SyncJobDetailDrawer';
 
 const FILTERS = [
   { id: 'all', label: 'All activity' },
@@ -72,6 +73,14 @@ function detailValue(details, keys = []) {
     if (value) return value;
   }
   return '';
+}
+
+function detailNumber(details, keys = []) {
+  for (const key of keys) {
+    const value = Number(details?.[key] || 0);
+    if (Number.isFinite(value) && value > 0) return value;
+  }
+  return null;
 }
 
 function formatCountLabel(count, singular, plural = `${singular}s`) {
@@ -265,6 +274,23 @@ function buildTimelineLinks(entry, context) {
     push('Open events', { tab: 'library-events' });
   }
 
+  const syncJobId = entityType === 'sync_jobs'
+    ? entityId
+    : detailNumber(details, ['sync_job_id', 'syncJobId', 'job_id', 'jobId']);
+  if (syncJobId) {
+    const failed = action.includes('failed') || String(details.status || details.details_status || '').toLowerCase() === 'failed';
+    push(failed ? 'Open failure' : 'Open sync', {
+      syncJobId,
+      syncJob: {
+        id: syncJobId,
+        provider: detailValue(details, ['provider', 'source', 'import_source']),
+        job_type: detailValue(details, ['job_type', 'jobType', 'type']),
+        status: failed ? 'failed' : detailValue(details, ['status']),
+        error: detailValue(details, ['error', 'reason', 'message'])
+      }
+    });
+  }
+
   if (entityType === 'sync_jobs' || entityType === 'media_import' || action.includes('.import.')) {
     push('Open imports', { tab: 'library-import' });
   }
@@ -319,6 +345,15 @@ export default function ActivityFeedView({
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [pageSize, setPageSize] = useState(50);
+  const [selectedSyncJob, setSelectedSyncJob] = useState(null);
+
+  const handleTimelineTarget = (target) => {
+    if (target?.syncJobId) {
+      setSelectedSyncJob({ id: target.syncJobId, initialJob: target.syncJob || null });
+      return;
+    }
+    onNavigate?.(target);
+  };
 
   const load = async (targetPage = page, searchOverride = null) => {
     setLoading(true);
@@ -404,7 +439,7 @@ export default function ActivityFeedView({
           {visibleItems.map((entry) => {
             const readable = buildTimelineEntry(entry);
             const details = entry.details && typeof entry.details === 'object' ? entry.details : {};
-            const links = onNavigate ? buildTimelineLinks(entry, context) : [];
+            const links = buildTimelineLinks(entry, context).filter((link) => link.target?.syncJobId || onNavigate);
             return (
             <div key={entry.id} className="py-4 space-y-2">
               <div className="flex items-start gap-3">
@@ -423,7 +458,7 @@ export default function ActivityFeedView({
                           key={link.key}
                           type="button"
                           className="btn-secondary btn-sm"
-                          onClick={() => onNavigate(link.target)}
+                          onClick={() => handleTimelineTarget(link.target)}
                         >
                           {link.label}
                         </button>
@@ -455,6 +490,15 @@ export default function ActivityFeedView({
           })}
         </div>
       )}
+      {selectedSyncJob ? (
+        <SyncJobDetailDrawer
+          apiCall={apiCall}
+          jobId={selectedSyncJob.id}
+          initialJob={selectedSyncJob.initialJob}
+          onClose={() => setSelectedSyncJob(null)}
+          Spinner={Spinner}
+        />
+      ) : null}
     </div>
   );
 }
