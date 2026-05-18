@@ -111,6 +111,8 @@ test.describe('admin shell browser regressions', () => {
     const suffix = Date.now();
     const title = `Playwright Capture ${suffix}`;
     const photoTitle = `Playwright Photo Capture ${suffix}`;
+    const clientCaptureId = `playwright-capture-${suffix}`;
+    const photoClientCaptureId = `playwright-photo-${suffix}`;
     const adminCredentials = await ensureSavedAdminCredentials();
     const requestContext = await createAuthenticatedRequestContext(adminCredentials);
     let captureId = null;
@@ -124,11 +126,30 @@ test.describe('admin shell browser regressions', () => {
         object_type: 'book',
         barcode: `978000${String(suffix).slice(-7)}`,
         symbology: 'EAN-13',
+        client_capture_id: clientCaptureId,
+        client_source: 'playwright-browser',
         source_context: { source: 'playwright' }
       }, 201);
       const createPayload = await createResponse.json();
       captureId = Number(createPayload?.item?.id || 0);
       expect(captureId).toBeGreaterThan(0);
+      expect(createPayload?.item?.client_capture_id).toBe(clientCaptureId);
+
+      const retryResponse = await postWithCsrf(requestContext, '/api/capture-items', {
+        title,
+        capture_type: 'barcode',
+        object_type: 'book',
+        barcode: createPayload.item.barcode,
+        symbology: 'EAN-13',
+        client_capture_id: clientCaptureId,
+        client_source: 'playwright-browser',
+        notes: 'Retried from offline queue'
+      });
+      const retryPayload = await retryResponse.json();
+      expect(retryPayload?.idempotent).toBe(true);
+      expect(retryPayload?.idempotency?.replayed).toBe(true);
+      expect(Number(retryPayload?.item?.id || 0)).toBe(captureId);
+      expect(retryPayload?.item?.notes).toBe('Retried from offline queue');
 
       const csrfToken = await fetchCsrfToken(requestContext);
       const uploadResponse = await requestContext.post('/api/capture-items/upload-image', {
@@ -137,6 +158,8 @@ test.describe('admin shell browser regressions', () => {
           title: photoTitle,
           object_type: 'book',
           notes: 'Photo capture from browser regression',
+          client_capture_id: photoClientCaptureId,
+          client_source: 'playwright-browser',
           image: {
             name: `capture-${suffix}.png`,
             mimeType: 'image/png',
@@ -150,6 +173,28 @@ test.describe('admin shell browser regressions', () => {
       expect(photoCaptureId).toBeGreaterThan(0);
       expect(uploadPayload?.item?.capture_type).toBe('photo');
       expect(uploadPayload?.item?.image_path).toContain('/uploads/');
+      expect(uploadPayload?.item?.client_capture_id).toBe(photoClientCaptureId);
+
+      const retryUploadResponse = await requestContext.post('/api/capture-items/upload-image', {
+        headers: { 'x-csrf-token': csrfToken },
+        multipart: {
+          title: photoTitle,
+          object_type: 'book',
+          notes: 'Retried photo capture from browser regression',
+          client_capture_id: photoClientCaptureId,
+          client_source: 'playwright-browser',
+          image: {
+            name: `capture-retry-${suffix}.png`,
+            mimeType: 'image/png',
+            buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=', 'base64')
+          }
+        }
+      });
+      expect(retryUploadResponse.status()).toBe(200);
+      const retryUploadPayload = await retryUploadResponse.json();
+      expect(retryUploadPayload?.idempotent).toBe(true);
+      expect(Number(retryUploadPayload?.item?.id || 0)).toBe(photoCaptureId);
+      expect(retryUploadPayload?.item?.image_path).toBe(uploadPayload.item.image_path);
 
       const ocrResponse = await postWithCsrf(requestContext, `/api/capture-items/${photoCaptureId}/ocr-text`, {
         ocr_text: 'Back cover OCR ISBN 0-553-57239-3',

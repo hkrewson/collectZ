@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.8.3",
+      "version": "3.8.3",
+      "date": "2026-05-18",
+      "status": "implemented",
+      "summary": "This release makes Capture Inbox intake safer for mobile/scanner offline queues by letting clients resend queued captures without creating duplicate rows.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added optional `client_capture_id` and `client_source` handling for quick-capture records.",
+            "Reusing the same `client_capture_id` in the same workspace/library scope now returns and updates the existing capture item instead of inserting another row.",
+            "Added idempotent replay behavior for photo uploads, including returning the existing image path when the original upload already succeeded.",
+            "Exposed normalized `client_capture_id`, `client_source`, and idempotency readback in capture API responses.",
+            "Documented the idempotent capture create and upload behavior in OpenAPI."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.8.2",
       "version": "3.8.2",
       "date": "2026-05-18",
@@ -168,26 +187,6 @@
             "Added filters for imports, providers, library, events, people, security, and failures.",
             "Moved raw action names, exact timestamps, IPs, statuses, reasons, and JSON details behind a `Technical details` disclosure.",
             "Moved the working app/version metadata to `3.7.0` so the minor milestone is aligned across app meta, packages, public compose defaults, release notes, and the in-app release feed."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.6.0",
-      "version": "3.6.0",
-      "date": "2026-05-17",
-      "status": "implemented",
-      "summary": "This minor milestone starts first-class wishlist and acquisition tracking: a way to track things users want without pretending they already own them.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Promoted `Acquisition, Wishlist, and Want Tracking` from the product backlog into the `3.6.0` roadmap.",
-            "Added scoped `wanted_items` storage with `wanted`, `watching`, `preordered`, `ordered`, `acquired`, and `dismissed` states.",
-            "Added authenticated `/api/wishlist` endpoints to list, create, edit, delete, and convert media-compatible wishlist items into canonical library media rows.",
-            "Added a Library > Wishlist surface with status tabs, type/search filters, lightweight acquisition metadata, and an `Add to library` conversion action.",
-            "Documented the wishlist API in OpenAPI and added browser regression coverage for listing and converting a wanted item.",
-            "Moved the working app/version metadata to `3.6.0` so the minor milestone is aligned across app meta, packages, public compose defaults, release notes, and the in-app release feed."
           ]
         }
       ]

@@ -3239,6 +3239,8 @@
           "notes": { "type": ["string", "null"] },
           "image_path": { "type": ["string", "null"] },
           "source_context": { "type": "object", "additionalProperties": true },
+          "client_capture_id": { "type": ["string", "null"], "description": "Client-generated retry/idempotency key normalized from source_context when supplied." },
+          "client_source": { "type": ["string", "null"], "description": "Optional client/source label normalized from source_context when supplied." },
           "review_decision": { "type": "object", "additionalProperties": true },
           "linked_media_id": { "type": ["integer", "null"] },
           "wanted_item_id": { "type": ["integer", "null"] },
@@ -3267,6 +3269,10 @@
           "ocr_text": { "type": ["string", "null"] },
           "notes": { "type": ["string", "null"] },
           "image_path": { "type": ["string", "null"] },
+          "client_capture_id": { "type": ["string", "null"], "description": "Optional client-generated idempotency key. Reusing the same value in the same active scope returns/updates the existing capture instead of creating a duplicate." },
+          "clientCaptureId": { "type": ["string", "null"], "description": "Camel-case alias for client_capture_id." },
+          "client_source": { "type": ["string", "null"], "description": "Optional source label for the capture client, such as ios-scanner." },
+          "clientSource": { "type": ["string", "null"], "description": "Camel-case alias for client_source." },
           "source_context": { "type": "object", "additionalProperties": true },
           "review_decision": { "type": "object", "additionalProperties": true }
         },
@@ -3283,7 +3289,16 @@
       "CaptureItemResponse": {
         "type": "object",
         "properties": {
-          "item": { "$ref": "#/components/schemas/CaptureItem" }
+          "item": { "$ref": "#/components/schemas/CaptureItem" },
+          "idempotent": { "type": "boolean", "description": "True when an existing capture row was reused for a repeated client_capture_id." },
+          "idempotency": {
+            "type": "object",
+            "properties": {
+              "replayed": { "type": "boolean" },
+              "client_capture_id": { "type": ["string", "null"] }
+            },
+            "additionalProperties": true
+          }
         },
         "required": ["item"]
       },
@@ -3298,6 +3313,15 @@
               "provider": { "type": "string" }
             },
             "required": ["image_path", "provider"]
+          },
+          "idempotent": { "type": "boolean", "description": "True when an existing capture row was reused for a repeated client_capture_id." },
+          "idempotency": {
+            "type": "object",
+            "properties": {
+              "replayed": { "type": "boolean" },
+              "client_capture_id": { "type": ["string", "null"] }
+            },
+            "additionalProperties": true
           }
         },
         "required": ["item", "upload"]
@@ -3588,7 +3612,7 @@
       "post": {
         "tags": ["Capture"],
         "summary": "Create a quick-capture inbox record",
-        "description": "Stores a barcode, photo reference, OCR text, or manual note for later review. Native/mobile clients remain capture surfaces; the backend owns the reviewable record.",
+        "description": "Stores a barcode, photo reference, OCR text, or manual note for later review. Native/mobile clients remain capture surfaces; the backend owns the reviewable record. Supplying a client_capture_id makes queued/offline retries idempotent within the active scope.",
         "security": [
           { "cookieSession": [], "csrfHeader": [] },
           { "bearerAuth": [] }
@@ -3610,6 +3634,14 @@
               }
             }
           },
+          "200": {
+            "description": "Existing capture item reused for a repeated client_capture_id",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CaptureItemResponse" }
+              }
+            }
+          },
           "400": {
             "description": "Invalid capture payload",
             "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
@@ -3621,7 +3653,7 @@
       "post": {
         "tags": ["Capture"],
         "summary": "Upload a photo and create a quick-capture record",
-        "description": "Accepts a multipart image upload from a mobile or web capture client, stores the image through the backend storage provider, and creates a scoped photo capture record for review.",
+        "description": "Accepts a multipart image upload from a mobile or web capture client, stores the image through the backend storage provider, and creates a scoped photo capture record for review. Supplying a client_capture_id makes repeated queued uploads idempotent; if the original image already exists the backend returns it instead of storing another copy.",
         "security": [
           { "cookieSession": [], "csrfHeader": [] },
           { "bearerAuth": [] }
@@ -3640,6 +3672,10 @@
                   "symbology": { "type": "string" },
                   "ocr_text": { "type": "string" },
                   "notes": { "type": "string" },
+                  "client_capture_id": { "type": "string" },
+                  "clientCaptureId": { "type": "string" },
+                  "client_source": { "type": "string" },
+                  "clientSource": { "type": "string" },
                   "source_context": { "type": "string", "description": "Optional JSON object encoded as a string." }
                 },
                 "required": ["image"]
@@ -3650,6 +3686,14 @@
         "responses": {
           "201": {
             "description": "Photo capture created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CaptureImageUploadResponse" }
+              }
+            }
+          },
+          "200": {
+            "description": "Existing photo capture reused for a repeated client_capture_id",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/CaptureImageUploadResponse" }

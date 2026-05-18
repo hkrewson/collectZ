@@ -10752,6 +10752,40 @@ Historical note:
 - What remains in the milestone: nothing for the `3.6.0` foundation slice; later `3.6.x` work can build provider candidate intake and richer acquisition workflows on this model.
 - Recommended commit message: `Release 3.6.0 with wishlist and acquisition foundation`.
 
+## 3.8.3 — Capture Offline Queue Idempotency
+
+**Goal:** Make Capture Inbox intake safe for scanner/mobile offline queues by allowing clients to retry queued captures without creating confusing duplicate rows.
+
+### Scope
+
+- Add optional client-generated capture IDs to backend capture intake.
+- Accept `client_capture_id` and `client_source` either as top-level fields or normalized source-context metadata.
+- Reuse an existing scoped capture row when the same `client_capture_id` is replayed.
+- Update the existing row with useful retry metadata instead of inserting a duplicate when safe.
+- Add idempotent replay behavior to photo upload intake, returning the existing image path when the first upload already succeeded.
+- Keep this slice focused on backend/API retry safety; do not add a web-managed offline queue, automatic import resolution, or a full review-queue conflict UI.
+
+### Acceptance Criteria
+
+- Authenticated clients can send `client_capture_id` with `POST /api/capture-items`.
+- Replaying the same `client_capture_id` in the same active scope returns the same capture item with explicit idempotency readback.
+- Authenticated clients can send `client_capture_id` with `POST /api/capture-items/upload-image`.
+- Replaying an already-uploaded photo capture returns the existing capture row and image path instead of storing a duplicate capture.
+- Idempotency lookup is constrained by the active workspace/library scope.
+- OpenAPI documents the idempotent capture create and upload contracts.
+- Version metadata, release note, release feed, and Help > Releases include `3.8.3`.
+
+### Closeout
+
+- Roadmap slice: `3.8.3 — Capture Offline Queue Idempotency`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.8.3.md`.
+- Runtime verification used: Docker-first platform backend/frontend rebuild with `APP_VERSION=3.8.3`; running `/api/health` reported frontend/backend/build `3.8.3`; backend logs reported `Database schema up to date (104 migration(s) applied)` and `collectZ backend v3.8.3`; running backend env readback reported `APP_EDITION=platform`, `APP_VERSION=3.8.3`, `NODE_ENV=development`, `SESSION_COOKIE_SECURE=false`, `TRUST_PROXY=0`, and a redacted DB URL; Help > Releases smoke served `3.8.3`; targeted Capture Inbox browser proof created a barcode capture with `client_capture_id`, replayed it and verified the same id plus `idempotent: true`, uploaded a photo with `client_capture_id`, replayed that upload and verified the same photo capture and image path, extracted/applied OCR, rendered Capture Inbox, and converted the barcode capture to Wishlist; a disposable production-style compose-smoke stack on alternate local port `3104` passed health, headers, secure CSRF cookie, session cookie option, unauthenticated `401`, and integration smoke checks before teardown; a disposable homelab stack passed homelab boundary checks before teardown.
+- CI/checks run locally: `node --check backend/routes/captureItems.js`; `node --check backend/services/captureOcr.js`; `node backend/scripts/validate-openapi.js`; host `node backend/scripts/unit-tests.js` (`294` passed); `npm --prefix frontend run build`; Docker backend/frontend build; Docker `npm run test:unit` (`294` passed); Docker `npm run test:openapi`; Docker `npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.8.3 npm run test:help-releases-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker throwaway homelab stack plus `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; targeted Capture Inbox Playwright regression; full `npm run test:browser` (`70` passed, `4` skipped); backend/frontend production dependency audits (`0` vulnerabilities); local observability evidence (`9/9` checks passed); local release preflight; public export surface validation; CI-shaped compose smoke; version sync check; release note heading check; `git diff --check`; targeted release/artifact secret-pattern scan. Local `gitleaks` and Trivy tooling were not installed, so full repository `secret-scan` and `image-security-and-sbom` still need their normal CI runs.
+- Files changed for this slice: `app-meta.json`; `backend/app-meta.json`; `backend/openapi/openapi.yaml`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/routes/captureItems.js`; `backend/scripts/unit-tests.js`; `docker-compose.yml`; `docs/releases/v3.8.3.md`; `docs/wiki/07-Release-Roadmap.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `preflight-go-no-go.md`; `tests/playwright/specs/admin-shell.browser.spec.js`; `artifacts/dependency-audit/backend-audit.json`; `artifacts/dependency-audit/frontend-audit.json`; `artifacts/observability-evidence/observability-release-evidence.json`.
+- Risks/follow-ups: Idempotency depends on mobile/scanner clients sending a stable `client_capture_id` for each queued capture. Replayed payloads currently merge useful metadata into the existing row, but a later review-queue slice should handle genuinely conflicting replay payloads more explicitly. The first local compose-smoke attempt used the CI `timeout` command, which is unavailable on macOS; the same throwaway stack was then checked with the equivalent health/header/cookie/auth/integration steps and torn down.
+- What remains in the milestone: nothing for `3.8.3`; later `3.8.x` work can add richer offline queue conflict review, cover/art recognition, and unified review queue integration.
+- Recommended commit message: `Release 3.8.3 with Capture Inbox offline queue idempotency`.
+
 ## 3.8.2 — Capture OCR Identifier Candidate Review
 
 **Goal:** Make OCR text useful in the Capture Inbox by extracting reviewable identifier candidates without auto-importing or silently applying any result.

@@ -6227,6 +6227,10 @@ results.push(run('mobile capture inbox foundation is scoped, routed, and reviewa
   assert.ok(captureItemsRoutesSource.includes("router.post('/capture-items/upload-image'"));
   assert.ok(captureItemsRoutesSource.includes("router.post('/capture-items/:id/ocr-text'"));
   assert.ok(captureItemsRoutesSource.includes("router.post('/capture-items/:id/apply-ocr-candidate'"));
+  assert.ok(captureItemsRoutesSource.includes('function extractClientCaptureId'));
+  assert.ok(captureItemsRoutesSource.includes('fetchCaptureItemByClientCaptureId'));
+  assert.ok(captureItemsRoutesSource.includes("'capture.idempotent_replay'"));
+  assert.ok(captureItemsRoutesSource.includes("await logActivity(req, 'capture.image.idempotent_replay'"));
   assert.ok(captureItemsRoutesSource.includes("await logActivity(req, 'capture.ocr.extract'"));
   assert.ok(captureItemsRoutesSource.includes("await logActivity(req, 'capture.ocr.apply_candidate'"));
   assert.ok(captureItemsRoutesSource.includes("memoryUpload.single('image')"));
@@ -6249,6 +6253,10 @@ results.push(run('mobile capture inbox foundation is scoped, routed, and reviewa
   assert.ok(openApiSource.includes('"CaptureImageUploadResponse"'));
   assert.ok(openApiSource.includes('"CaptureOcrTextResponse"'));
   assert.ok(openApiSource.includes('"CaptureOcrCandidateApplyResponse"'));
+  assert.ok(openApiSource.includes('"client_capture_id"'));
+  assert.ok(openApiSource.includes('"clientCaptureId"'));
+  assert.ok(openApiSource.includes('"idempotency"'));
+  assert.ok(openApiSource.includes('Existing capture item reused for a repeated client_capture_id'));
   assert.ok(openApiSource.includes('"/api/capture-items/{id}/convert-wishlist"'));
   assert.ok(openApiSource.includes('"CaptureItem"'));
   assert.ok(dashboardRoutingSource.includes("'library-capture'"));
@@ -6269,6 +6277,8 @@ results.push(run('mobile capture inbox foundation is scoped, routed, and reviewa
   assert.ok(activityFeedViewSource.includes('Capture added to Wishlist'));
   assert.ok(adminShellBrowserSpecSource.includes('/dashboard?tab=library-capture'));
   assert.ok(adminShellBrowserSpecSource.includes('/api/capture-items'));
+  assert.ok(adminShellBrowserSpecSource.includes('client_capture_id: clientCaptureId'));
+  assert.ok(adminShellBrowserSpecSource.includes('retryPayload?.idempotent'));
 }));
 
 results.push(run('capture OCR candidate extraction normalizes reviewable ISBN UPC and ASIN values', () => {

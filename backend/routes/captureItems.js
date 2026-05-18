@@ -59,7 +59,35 @@ function jsonObject(value) {
   return {};
 }
 
+function extractClientCaptureId(body = {}, sourceContext = {}) {
+  return nullableString(
+    body.client_capture_id
+    ?? body.clientCaptureId
+    ?? sourceContext.client_capture_id
+    ?? sourceContext.clientCaptureId
+  );
+}
+
+function extractClientSource(body = {}, sourceContext = {}) {
+  return nullableString(
+    body.client_source
+    ?? body.clientSource
+    ?? sourceContext.client_source
+    ?? sourceContext.clientSource
+  );
+}
+
+function mergeClientCaptureContext(body = {}, sourceContext = {}) {
+  const next = { ...jsonObject(sourceContext) };
+  const clientCaptureId = extractClientCaptureId(body, next);
+  const clientSource = extractClientSource(body, next);
+  if (clientCaptureId) next.client_capture_id = clientCaptureId;
+  if (clientSource) next.client_source = clientSource;
+  return next;
+}
+
 function shapeCaptureItem(row) {
+  const sourceContext = jsonObject(row.source_context);
   return {
     id: row.id,
     title: row.title,
@@ -71,7 +99,9 @@ function shapeCaptureItem(row) {
     ocr_text: row.ocr_text,
     notes: row.notes,
     image_path: row.image_path,
-    source_context: jsonObject(row.source_context),
+    source_context: sourceContext,
+    client_capture_id: sourceContext.client_capture_id || null,
+    client_source: sourceContext.client_source || null,
     review_decision: jsonObject(row.review_decision),
     linked_media_id: row.linked_media_id,
     wanted_item_id: row.wanted_item_id,
@@ -101,6 +131,7 @@ function valuesFromBody(body, current = {}) {
   if (has('image_path')) next.image_path = nullableString(body.image_path);
   if (has('source_context')) next.source_context = jsonObject(body.source_context);
   if (has('review_decision')) next.review_decision = jsonObject(body.review_decision);
+  next.source_context = mergeClientCaptureContext(body, next.source_context || {});
 
   return next;
 }
@@ -132,6 +163,79 @@ async function fetchCaptureItem(id, scopeContext) {
   const where = buildScopedWhere(params, scopeContext, id);
   const result = await pool.query(`SELECT * FROM capture_items ${where} LIMIT 1`, params);
   return result.rows[0] || null;
+}
+
+async function fetchCaptureItemByClientCaptureId(clientCaptureId, scopeContext) {
+  const normalized = nullableString(clientCaptureId);
+  if (!normalized) return null;
+  const params = [normalized];
+  let where = "WHERE source_context->>'client_capture_id' = $1";
+  where += appendScopeSql(params, scopeContext);
+  const result = await pool.query(
+    `SELECT *
+       FROM capture_items
+      ${where}
+      ORDER BY updated_at DESC, id DESC
+      LIMIT 1`,
+    params
+  );
+  return result.rows[0] || null;
+}
+
+async function updateCaptureItemFromRetry(existing, item, scopeContext, req, action = 'capture.idempotent_replay') {
+  const current = shapeCaptureItem(existing);
+  const sourceContext = {
+    ...current.source_context,
+    ...mergeClientCaptureContext(req.body || {}, item.source_context || {}),
+    idempotent_replayed_at: new Date().toISOString()
+  };
+  const reviewDecision = {
+    ...current.review_decision,
+    ...jsonObject(item.review_decision)
+  };
+
+  const result = await pool.query(
+    `UPDATE capture_items
+        SET title = COALESCE($1, title),
+            capture_type = COALESCE($2, capture_type),
+            status = CASE WHEN status IN ('converted', 'discarded') THEN status ELSE COALESCE($3, status) END,
+            object_type = COALESCE($4, object_type),
+            barcode = COALESCE($5, barcode),
+            symbology = COALESCE($6, symbology),
+            ocr_text = COALESCE($7, ocr_text),
+            notes = COALESCE($8, notes),
+            image_path = COALESCE($9, image_path),
+            source_context = $10::jsonb,
+            review_decision = $11::jsonb,
+            updated_at = CURRENT_TIMESTAMP
+      WHERE id = $12
+      RETURNING *`,
+    [
+      item.title ?? null,
+      item.capture_type || null,
+      item.status || null,
+      item.object_type || null,
+      item.barcode ?? null,
+      item.symbology ?? null,
+      item.ocr_text ?? null,
+      item.notes ?? null,
+      item.image_path ?? null,
+      JSON.stringify(sourceContext),
+      JSON.stringify(reviewDecision),
+      current.id
+    ]
+  );
+
+  const updated = shapeCaptureItem(result.rows[0]);
+  await logActivity(req, action, 'capture_item', updated.id, {
+    title: updated.title,
+    captureType: updated.capture_type,
+    clientCaptureId: updated.client_capture_id,
+    status: updated.status,
+    spaceId: scopeContext.spaceId,
+    libraryId: scopeContext.libraryId
+  });
+  return updated;
 }
 
 router.get('/capture-items', asyncHandler(async (req, res) => {
@@ -205,6 +309,20 @@ router.post('/capture-items', asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'Capture needs a title, barcode, OCR text, note, or image path.' });
   }
 
+  const clientCaptureId = extractClientCaptureId(req.body || {}, item.source_context || {});
+  const existing = await fetchCaptureItemByClientCaptureId(clientCaptureId, scopeContext);
+  if (existing) {
+    const updated = await updateCaptureItemFromRetry(existing, item, scopeContext, req);
+    return res.json({
+      item: updated,
+      idempotent: true,
+      idempotency: {
+        replayed: true,
+        client_capture_id: updated.client_capture_id
+      }
+    });
+  }
+
   const result = await pool.query(
     `INSERT INTO capture_items (
        title, capture_type, status, object_type, barcode, symbology, ocr_text, notes, image_path,
@@ -254,17 +372,61 @@ router.post('/capture-items/upload-image', memoryUpload.single('image'), asyncHa
     return res.status(400).json({ error: 'Unsupported image type. Use JPEG, PNG, WEBP, or GIF.' });
   }
 
-  const stored = await uploadBuffer(req.file.buffer, req.file.originalname, req.file.mimetype);
   const bodyItem = valuesFromBody(req.body || {});
+  const preUploadSourceContext = mergeClientCaptureContext(req.body || {}, bodyItem.source_context || {});
+  const clientCaptureId = extractClientCaptureId(req.body || {}, preUploadSourceContext);
+  const existing = await fetchCaptureItemByClientCaptureId(clientCaptureId, scopeContext);
+  if (existing) {
+    const current = shapeCaptureItem(existing);
+    if (current.image_path) {
+      await logActivity(req, 'capture.image.idempotent_replay', 'capture_item', current.id, {
+        title: current.title,
+        captureType: current.capture_type,
+        imagePath: current.image_path,
+        clientCaptureId: current.client_capture_id,
+        spaceId: current.space_id,
+        libraryId: current.library_id
+      });
+      return res.json({
+        item: current,
+        upload: { image_path: current.image_path, provider: current.source_context?.upload_provider || 'existing' },
+        idempotent: true,
+        idempotency: { replayed: true, client_capture_id: current.client_capture_id }
+      });
+    }
+  }
+
+  const stored = await uploadBuffer(req.file.buffer, req.file.originalname, req.file.mimetype);
   const sourceContext = {
     source: 'capture_upload',
     upload_provider: stored.provider,
     original_filename: nullableString(req.file.originalname),
     mime_type: req.file.mimetype || null,
     size_bytes: req.file.size || null,
-    ...jsonObject(bodyItem.source_context)
+    ...mergeClientCaptureContext(req.body || {}, bodyItem.source_context || {})
   };
   const title = bodyItem.title || nullableString(req.body?.name) || nullableString(req.file.originalname) || 'Photo capture';
+  if (existing) {
+    const updated = await updateCaptureItemFromRetry(
+      existing,
+      {
+        ...bodyItem,
+        title,
+        capture_type: 'photo',
+        image_path: stored.url,
+        source_context: sourceContext
+      },
+      scopeContext,
+      req,
+      'capture.image.idempotent_replay'
+    );
+    return res.json({
+      item: updated,
+      upload: { image_path: stored.url, provider: stored.provider },
+      idempotent: true,
+      idempotency: { replayed: true, client_capture_id: updated.client_capture_id }
+    });
+  }
 
   const result = await pool.query(
     `INSERT INTO capture_items (
