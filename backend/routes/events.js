@@ -374,6 +374,85 @@ function buildUpdateSql({ table, idColumn, id, eventId, fields, body }) {
   };
 }
 
+function buildEventActivityDetails(eventRow, extra = {}) {
+  return {
+    eventId: eventRow?.id || null,
+    eventTitle: eventRow?.title || null,
+    eventDateStart: eventRow?.date_start || null,
+    eventLocation: eventRow?.location || null,
+    ...extra
+  };
+}
+
+function buildAttendeeActivityDetails(eventRow, attendee = {}) {
+  return buildEventActivityDetails(eventRow, {
+    attendeeId: attendee.id || null,
+    attendeeName: attendee.display_name || null,
+    attendeeRole: attendee.relationship || attendee.role || null,
+    attendeeStatus: attendee.status || null,
+    attendeeVisibility: attendee.visibility || null,
+    linkedUserId: attendee.user_id || null
+  });
+}
+
+function buildGroupActivityDetails(eventRow, group = {}) {
+  const members = Array.isArray(group.members) ? group.members : [];
+  return buildEventActivityDetails(eventRow, {
+    groupId: group.id || null,
+    groupName: group.name || null,
+    groupStatus: group.status || null,
+    groupVisibility: group.visibility || null,
+    attendeeCount: members.length
+  });
+}
+
+function buildMeetupActivityDetails(eventRow, meetup = {}) {
+  return buildEventActivityDetails(eventRow, {
+    meetupId: meetup.id || null,
+    meetupTitle: meetup.title || null,
+    groupId: meetup.group_id || null,
+    groupName: meetup.group_name || null,
+    startAt: meetup.start_at || null,
+    endAt: meetup.end_at || null,
+    location: meetup.location || null,
+    vendor: meetup.vendor || null,
+    booth: meetup.booth || null,
+    status: meetup.status || null,
+    visibility: meetup.visibility || null
+  });
+}
+
+function buildSchedulePlanActivityDetails(eventRow, plan = {}) {
+  return buildEventActivityDetails(eventRow, {
+    schedulePlanId: plan.id || null,
+    scheduleTitle: plan.title || null,
+    startAt: plan.start_at || null,
+    endAt: plan.end_at || null,
+    location: plan.location || null,
+    vendor: plan.vendor || null,
+    booth: plan.booth || null,
+    sourceType: plan.source_type || null,
+    sourceRef: plan.source_ref || null,
+    status: plan.status || null,
+    visibility: plan.visibility || null
+  });
+}
+
+function buildScheduleSessionActivityDetails(eventRow, session = {}) {
+  return buildEventActivityDetails(eventRow, {
+    scheduleSessionId: session.id || null,
+    sessionTitle: session.title || null,
+    startAt: session.start_at || null,
+    endAt: session.end_at || null,
+    location: session.location || null,
+    room: session.room || null,
+    track: session.track || null,
+    sourceType: session.source_type || null,
+    sourceRef: session.source_ref || null,
+    status: session.status || null
+  });
+}
+
 async function replaceEventGroupMembers(eventId, groupId, attendeeIds = [], userId = null) {
   if (!Array.isArray(attendeeIds)) return;
   const uniqueAttendeeIds = Array.from(new Set(attendeeIds.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)));
@@ -2895,7 +2974,7 @@ router.post('/events/:id/attendees', validate(eventAttendeeCreateSchema), asyncH
   } catch (err) {
     return handleDuplicateEventAttendeeUserLink(res, err, eventId, body.user_id || req.user.id);
   }
-  await logActivity(req, 'events.attendee.create', 'event', eventId, { attendeeId: result.rows[0].id });
+  await logActivity(req, 'events.attendee.create', 'event', eventId, buildAttendeeActivityDetails(eventRow, result.rows[0]));
   res.status(201).json(result.rows[0]);
 }));
 
@@ -2922,7 +3001,7 @@ router.patch('/events/:id/attendees/:attendeeId', validate(eventAttendeeUpdateSc
     return handleDuplicateEventAttendeeUserLink(res, err, eventId, body.user_id || req.user.id);
   }
   if (!result.rows[0]) return res.status(404).json({ error: 'Attendee not found' });
-  await logActivity(req, 'events.attendee.update', 'event', eventId, { attendeeId });
+  await logActivity(req, 'events.attendee.update', 'event', eventId, buildAttendeeActivityDetails(eventRow, result.rows[0]));
   res.json(result.rows[0]);
 }));
 
@@ -2939,11 +3018,11 @@ router.delete('/events/:id/attendees/:attendeeId', asyncHandler(async (req, res)
       WHERE id = $1
         AND event_id = $2
         AND archived_at IS NULL
-      RETURNING id`,
+      RETURNING *`,
     [attendeeId, eventId]
   );
   if (!result.rows[0]) return res.status(404).json({ error: 'Attendee not found' });
-  await logActivity(req, 'events.attendee.delete', 'event', eventId, { attendeeId });
+  await logActivity(req, 'events.attendee.delete', 'event', eventId, buildAttendeeActivityDetails(eventRow, result.rows[0]));
   res.json({ ok: true, id: attendeeId });
 }));
 
@@ -2980,7 +3059,7 @@ router.post('/events/:id/groups', validate(eventGroupCreateSchema), asyncHandler
   const result = await pool.query(insert.sql, insert.values);
   await replaceEventGroupMembers(eventId, result.rows[0].id, req.body.attendee_ids, req.user.id);
   const [group] = await attachMembersToGroups(result.rows);
-  await logActivity(req, 'events.group.create', 'event', eventId, { groupId: group.id });
+  await logActivity(req, 'events.group.create', 'event', eventId, buildGroupActivityDetails(eventRow, group));
   res.status(201).json(group);
 }));
 
@@ -3015,7 +3094,7 @@ router.patch('/events/:id/groups/:groupId', validate(eventGroupUpdateSchema), as
     await replaceEventGroupMembers(eventId, groupId, req.body.attendee_ids, req.user.id);
   }
   const [group] = await attachMembersToGroups(rows);
-  await logActivity(req, 'events.group.update', 'event', eventId, { groupId });
+  await logActivity(req, 'events.group.update', 'event', eventId, buildGroupActivityDetails(eventRow, group));
   res.json(group);
 }));
 
@@ -3032,11 +3111,11 @@ router.delete('/events/:id/groups/:groupId', asyncHandler(async (req, res) => {
       WHERE id = $1
         AND event_id = $2
         AND archived_at IS NULL
-      RETURNING id`,
+      RETURNING *`,
     [groupId, eventId]
   );
   if (!result.rows[0]) return res.status(404).json({ error: 'Group not found' });
-  await logActivity(req, 'events.group.delete', 'event', eventId, { groupId });
+  await logActivity(req, 'events.group.delete', 'event', eventId, buildGroupActivityDetails(eventRow, result.rows[0]));
   res.json({ ok: true, id: groupId });
 }));
 
@@ -3075,7 +3154,7 @@ router.post('/events/:id/meetups', validate(eventMeetupCreateSchema), asyncHandl
     userId: req.user.id
   });
   const result = await pool.query(insert.sql, insert.values);
-  await logActivity(req, 'events.meetup.create', 'event', eventId, { meetupId: result.rows[0].id });
+  await logActivity(req, 'events.meetup.create', 'event', eventId, buildMeetupActivityDetails(eventRow, result.rows[0]));
   res.status(201).json(result.rows[0]);
 }));
 
@@ -3099,7 +3178,7 @@ router.patch('/events/:id/meetups/:meetupId', validate(eventMeetupUpdateSchema),
   });
   const result = await pool.query(update.sql, update.values);
   if (!result.rows[0]) return res.status(404).json({ error: 'Meetup not found' });
-  await logActivity(req, 'events.meetup.update', 'event', eventId, { meetupId });
+  await logActivity(req, 'events.meetup.update', 'event', eventId, buildMeetupActivityDetails(eventRow, result.rows[0]));
   res.json(result.rows[0]);
 }));
 
@@ -3116,11 +3195,11 @@ router.delete('/events/:id/meetups/:meetupId', asyncHandler(async (req, res) => 
       WHERE id = $1
         AND event_id = $2
         AND archived_at IS NULL
-      RETURNING id`,
+      RETURNING *`,
     [meetupId, eventId]
   );
   if (!result.rows[0]) return res.status(404).json({ error: 'Meetup not found' });
-  await logActivity(req, 'events.meetup.delete', 'event', eventId, { meetupId });
+  await logActivity(req, 'events.meetup.delete', 'event', eventId, buildMeetupActivityDetails(eventRow, result.rows[0]));
   res.json({ ok: true, id: meetupId });
 }));
 
@@ -3155,7 +3234,7 @@ router.post('/events/:id/schedule-plans', validate(eventSchedulePlanCreateSchema
     userId: req.user.id
   });
   const result = await pool.query(insert.sql, insert.values);
-  await logActivity(req, 'events.schedule_plan.create', 'event', eventId, { schedulePlanId: result.rows[0].id });
+  await logActivity(req, 'events.schedule_plan.create', 'event', eventId, buildSchedulePlanActivityDetails(eventRow, result.rows[0]));
   res.status(201).json(result.rows[0]);
 }));
 
@@ -3176,7 +3255,7 @@ router.patch('/events/:id/schedule-plans/:planId', validate(eventSchedulePlanUpd
   });
   const result = await pool.query(update.sql, update.values);
   if (!result.rows[0]) return res.status(404).json({ error: 'Schedule plan not found' });
-  await logActivity(req, 'events.schedule_plan.update', 'event', eventId, { schedulePlanId: planId });
+  await logActivity(req, 'events.schedule_plan.update', 'event', eventId, buildSchedulePlanActivityDetails(eventRow, result.rows[0]));
   res.json(result.rows[0]);
 }));
 
@@ -3193,11 +3272,11 @@ router.delete('/events/:id/schedule-plans/:planId', asyncHandler(async (req, res
       WHERE id = $1
         AND event_id = $2
         AND archived_at IS NULL
-      RETURNING id`,
+      RETURNING *`,
     [planId, eventId]
   );
   if (!result.rows[0]) return res.status(404).json({ error: 'Schedule plan not found' });
-  await logActivity(req, 'events.schedule_plan.delete', 'event', eventId, { schedulePlanId: planId });
+  await logActivity(req, 'events.schedule_plan.delete', 'event', eventId, buildSchedulePlanActivityDetails(eventRow, result.rows[0]));
   res.json({ ok: true, id: planId });
 }));
 
@@ -3216,15 +3295,16 @@ router.post('/events/:id/schedule-change-preview', validate(eventScheduleChangeP
     messageIntent: req.body.message_intent || null
   });
   if (!preview) return res.status(404).json({ error: 'Schedule change subject not found' });
-  await logActivity(req, 'events.schedule_change.preview', 'event', eventId, {
+  await logActivity(req, 'events.schedule_change.preview', 'event', eventId, buildEventActivityDetails(eventRow, {
     schedulePlanId: preview.subject.schedule_plan_id,
     catalogSessionId: preview.subject.catalog_session_id,
+    scheduleTitle: preview.subject.title || null,
     requestedStatus: preview.requested_change.status,
     requestedVisibility: preview.requested_change.visibility,
     attendeeCount: preview.recipients.summary.attendee_count,
     groupCount: preview.recipients.summary.group_count,
     previewOnly: true
-  });
+  }));
   res.json(preview);
 }));
 
@@ -3471,17 +3551,18 @@ router.post('/events/:id/schedule-notifications', validate(eventScheduleNotifica
     body: req.body,
     userId: req.user.id
   });
-  await logActivity(req, notification.status === 'sent' ? 'events.schedule_notification.send' : 'events.schedule_notification.draft', 'event', eventId, {
+  await logActivity(req, notification.status === 'sent' ? 'events.schedule_notification.send' : 'events.schedule_notification.draft', 'event', eventId, buildEventActivityDetails(eventRow, {
     notificationId: notification.id,
     schedulePlanId: notification.schedule_plan_id,
     catalogSessionId: notification.catalog_session_id,
+    scheduleTitle: preview.subject?.title || null,
     requestedStatus: notification.requested_status,
     requestedVisibility: notification.requested_visibility,
     attendeeCount: notification.recipients?.summary?.attendee_count || 0,
     groupCount: notification.recipients?.summary?.group_count || 0,
     deliveryChannel: notification.delivery_channel,
     externalDeliverySupported: false
-  });
+  }));
   res.status(201).json(notification);
 }));
 
@@ -3509,17 +3590,18 @@ router.patch('/events/:id/schedule-notifications/:notificationId', validate(even
     body: req.body,
     userId: req.user.id
   });
-  await logActivity(req, notification.status === 'sent' ? 'events.schedule_notification.send_draft' : 'events.schedule_notification.update_draft', 'event', eventId, {
+  await logActivity(req, notification.status === 'sent' ? 'events.schedule_notification.send_draft' : 'events.schedule_notification.update_draft', 'event', eventId, buildEventActivityDetails(eventRow, {
     notificationId: notification.id,
     schedulePlanId: notification.schedule_plan_id,
     catalogSessionId: notification.catalog_session_id,
+    scheduleTitle: preview.subject?.title || null,
     requestedStatus: notification.requested_status,
     requestedVisibility: notification.requested_visibility,
     attendeeCount: notification.recipients?.summary?.attendee_count || 0,
     groupCount: notification.recipients?.summary?.group_count || 0,
     deliveryChannel: notification.delivery_channel,
     externalDeliverySupported: false
-  });
+  }));
   res.json(notification);
 }));
 
@@ -3559,12 +3641,12 @@ router.delete('/events/:id/schedule-notifications/:notificationId', asyncHandler
         AND archived_at IS NULL`,
     [notificationId, eventId]
   );
-  await logActivity(req, 'events.schedule_notification.discard_draft', 'event', eventId, {
+  await logActivity(req, 'events.schedule_notification.discard_draft', 'event', eventId, buildEventActivityDetails(eventRow, {
     notificationId,
     schedulePlanId: row.schedule_plan_id || null,
     catalogSessionId: row.catalog_session_id || null,
     externalDeliverySupported: false
-  });
+  }));
   res.json({ ok: true, id: notificationId });
 }));
 
@@ -3599,7 +3681,7 @@ router.post('/events/:id/schedule-sessions', validate(eventScheduleSessionCreate
     userId: req.user.id
   });
   const result = await pool.query(insert.sql, insert.values);
-  await logActivity(req, 'events.schedule_session.create', 'event', eventId, { scheduleSessionId: result.rows[0].id });
+  await logActivity(req, 'events.schedule_session.create', 'event', eventId, buildScheduleSessionActivityDetails(eventRow, result.rows[0]));
   res.status(201).json(result.rows[0]);
 }));
 
@@ -3615,14 +3697,14 @@ router.post('/events/:id/schedule-sessions/import-ics', validate(eventScheduleCa
       userId: req.user.id,
       feedUrl: req.body.feed_url
     });
-    await logActivity(req, 'events.schedule_session.import_ics.success', 'event', eventId, {
+    await logActivity(req, 'events.schedule_session.import_ics.success', 'event', eventId, buildEventActivityDetails(eventRow, {
       summary: result.summary
-    });
+    }));
     res.json(result);
   } catch (error) {
-    await logActivity(req, 'events.schedule_session.import_ics.failure', 'event', eventId, {
+    await logActivity(req, 'events.schedule_session.import_ics.failure', 'event', eventId, buildEventActivityDetails(eventRow, {
       error: 'redacted catalog ICS import failure detail'
-    });
+    }));
     res.status(502).json({
       error: 'Catalog ICS import failed',
       detail: String(error?.message || 'Import failed').replace(/https?:\/\/\S+/gi, '[redacted-url]').slice(0, 240),
@@ -3648,7 +3730,7 @@ router.patch('/events/:id/schedule-sessions/:sessionId', validate(eventScheduleS
   });
   const result = await pool.query(update.sql, update.values);
   if (!result.rows[0]) return res.status(404).json({ error: 'Schedule session not found' });
-  await logActivity(req, 'events.schedule_session.update', 'event', eventId, { scheduleSessionId: sessionId });
+  await logActivity(req, 'events.schedule_session.update', 'event', eventId, buildScheduleSessionActivityDetails(eventRow, result.rows[0]));
   res.json(result.rows[0]);
 }));
 
@@ -3665,11 +3747,11 @@ router.delete('/events/:id/schedule-sessions/:sessionId', asyncHandler(async (re
       WHERE id = $1
         AND event_id = $2
         AND archived_at IS NULL
-      RETURNING id`,
+      RETURNING *`,
     [sessionId, eventId]
   );
   if (!result.rows[0]) return res.status(404).json({ error: 'Schedule session not found' });
-  await logActivity(req, 'events.schedule_session.delete', 'event', eventId, { scheduleSessionId: sessionId });
+  await logActivity(req, 'events.schedule_session.delete', 'event', eventId, buildScheduleSessionActivityDetails(eventRow, result.rows[0]));
   res.json({ ok: true, id: sessionId });
 }));
 

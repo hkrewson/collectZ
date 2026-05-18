@@ -10752,6 +10752,36 @@ Historical note:
 - What remains in the milestone: nothing for the `3.6.0` foundation slice; later `3.6.x` work can build provider candidate intake and richer acquisition workflows on this model.
 - Recommended commit message: `Release 3.6.0 with wishlist and acquisition foundation`.
 
+## 3.7.5 — Timeline Event Payload Enrichment
+
+**Goal:** Enrich event-planning activity payloads so readable timeline entries can show event titles and child object names instead of only ids.
+
+### Scope
+
+- Add shared event activity detail builders for event title, date, location, and related child object context.
+- Include attendee names/status, group names/member counts, meetup titles/location/status, schedule plan titles/status, and schedule session titles/source hints in newly logged event activity.
+- Include event context on schedule previews, notifications, and schedule import success/failure rows.
+- Keep this slice scoped to future activity payloads; do not migrate historical activity rows.
+
+### Acceptance Criteria
+
+- New event attendee activity rows include `eventTitle` and `attendeeName`.
+- New event social/schedule rows include the related child title/name when the route already has that row available.
+- Workspace Activity continues to render event rows under `Events`.
+- Existing timeline links and snapshot behavior continue to work.
+- Version metadata, release note, release feed, and Help > Releases include `3.7.5`.
+
+### Closeout
+
+- Roadmap slice: `3.7.5 — Timeline Event Payload Enrichment`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/06-Versioning-and-Build-Metadata.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.7.5.md`.
+- Runtime verification used: Docker-first platform backend/frontend rebuild with `APP_VERSION=3.7.5`; running `/api/health` reported frontend/backend/build `3.7.5`; running backend logs reported `collectZ backend v3.7.5` with `103 migration(s) applied`; running backend env reported `APP_EDITION=platform`, `APP_VERSION=3.7.5`, `NODE_ENV=development`, `SESSION_COOKIE_SECURE=false`, `TRUST_PROXY=1`, and a redacted DB URL; live DB confirmed `schema_migrations` at `103`, `collectibles_enabled=true`, and `events_enabled=true`; Help > Releases smoke served `3.7.5`; targeted Workspace Activity browser proof created an event attendee and verified the readable attendee name appears under Events; a disposable production-style compose stack on alternate local port `3098` passed health, headers, secure CSRF cookie, session cookie option, unauthenticated `401`, and integration smoke checks before teardown.
+- CI/checks run locally: `node --check backend/routes/events.js`; host `node backend/scripts/unit-tests.js` (`292` passed); `npm --prefix frontend run build`; Docker backend/frontend build; Docker `npm run test:unit` (`292` passed); Docker `npm run test:openapi`; Docker `npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.7.5 npm run test:help-releases-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker throwaway homelab stack plus `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; targeted Workspace Activity event timeline Playwright regression; full `npm run test:browser` (`69` passed, `4` skipped); backend/frontend production dependency audits (`0` vulnerabilities); local observability evidence (`9/9` checks passed); local release preflight; public export surface validation; compose config validation; CI-shaped compose smoke; version sync check; release note heading check; `git diff --check`; targeted release/artifact secret-pattern scan. CI remains authoritative for full repository `secret-scan` and `image-security-and-sbom`.
+- Files changed for this slice: `backend/routes/events.js`; `tests/playwright/specs/space-manager.browser.spec.js`; `backend/scripts/unit-tests.js`; version metadata/package files; `docker-compose.yml`; `docs/releases/v3.7.5.md`; `backend/release-feed.json`; `docs/wiki/07-Release-Roadmap.md`; `artifacts/observability-evidence/observability-release-evidence.json`; `preflight-go-no-go.md`.
+- Risks/follow-ups: This enriches newly logged activity only; historical event rows keep their older sparse payloads unless a future migration/backfill is intentionally added. Additional provider-specific timeline payloads can be enriched in later `3.7.x` slices as those activity sources are reviewed.
+- What remains in the milestone: nothing for `3.7.5`; the broader Human-Readable Activity Timeline track can continue with provider writeback histories, failed cover/readback detail, or scanner import timeline copy in later patches.
+- Recommended commit message: `Release 3.7.5 with timeline event payload enrichment`
+
 ## 3.7.4 — Timeline Event And Provider Readability
 
 **Goal:** Make event-planning and provider readback/writeback activity rows read like concrete user-facing events instead of generic technical actions.

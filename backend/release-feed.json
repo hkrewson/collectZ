@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.7.5",
+      "version": "3.7.5",
+      "date": "2026-05-18",
+      "status": "implemented",
+      "summary": "This patch enriches newly logged event activity so the human-readable timeline can show event titles and child object names instead of only ids.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added shared event activity detail builders for event title, date, location, and related child object context.",
+            "Event attendee rows now log attendee name, status, visibility, linked user id, and event context.",
+            "Event group, meetup, schedule plan, and schedule session rows now log their own readable name/title plus event context.",
+            "Schedule preview, notification, and schedule import rows now include event context in their activity details.",
+            "Updated browser coverage to prove new attendee activity shows the attendee name in Workspace Activity."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.7.4",
       "version": "3.7.4",
       "date": "2026-05-18",
@@ -181,25 +200,6 @@
             "Public templates, browser metadata, package names, generated compose defaults, and operator docs now use `collectZ`/`collectz` naming instead of the old app-name defaults.",
             "Scanner smoke coverage now proves ISBN direct success and ISBN direct no-match behavior for both scanner and web lookup routes.",
             "OpenAPI now documents that ISBN no-match scans stay on `books:isbn-direct`."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.4.161",
-      "version": "3.4.161",
-      "date": "2026-05-16",
-      "status": "released",
-      "summary": "This patch makes scanner barcode imports run the existing backend enrichment pipeline before creating or updating the canonical media row.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "`POST /api/media/import-barcode` now enriches the selected scanner match with available ISBN, UPC, title, and provider data before upsert.",
-            "ISBN book imports can populate Books/Google Books metadata such as overview, cover image, publisher, and type details.",
-            "Import responses now include `enrichment_status`, `lookup_path`, and `lookup_status` so scanner clients can show what happened.",
-            "Barcode import activity and metadata record the scanner enrichment outcome for readback/debugging.",
-            "Scanner smoke now proves ISBN import enrichment end-to-end with a fake Books provider."
           ]
         }
       ]

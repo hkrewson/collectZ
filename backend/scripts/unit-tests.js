@@ -6163,8 +6163,14 @@ results.push(run('dashboard command center frontend owns first-screen attention 
   assert.ok(activityFeedViewSource.includes('buildPlexTimelineEntry'));
   assert.ok(activityFeedViewSource.includes('Plex ratings read from Plex'));
   assert.ok(activityFeedViewSource.includes('Plex watched state written to Plex'));
+  assert.ok(eventsRoutesSource.includes('buildEventActivityDetails'));
+  assert.ok(eventsRoutesSource.includes('buildAttendeeActivityDetails'));
+  assert.ok(eventsRoutesSource.includes('attendeeName: attendee.display_name'));
+  assert.ok(eventsRoutesSource.includes('buildSchedulePlanActivityDetails'));
+  assert.ok(eventsRoutesSource.includes('buildScheduleSessionActivityDetails'));
   assert.ok(spaceManagerBrowserSpecSource.includes('workspace activity deleted rows open a saved activity snapshot'));
   assert.ok(spaceManagerBrowserSpecSource.includes('workspace activity renders event social rows as readable event timeline entries'));
+  assert.ok(spaceManagerBrowserSpecSource.includes('await expect(page.getByText(attendeeName).first()).toBeVisible();'));
   assert.ok(adminShellBrowserSpecSource.includes('/api/dashboard/summary'));
   assert.ok(adminShellBrowserSpecSource.includes("page.goto('/dashboard')"));
 }));

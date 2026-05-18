@@ -114,7 +114,8 @@ test.describe('space manager browser regressions', () => {
     const credentials = await createFreshUserCredentials();
     const requestContext = await createAuthenticatedRequestContext(credentials);
     const suffix = Date.now();
-    const eventTitle = `Playwright Timeline Event ${suffix}`;
+      const eventTitle = `Playwright Timeline Event ${suffix}`;
+      const attendeeName = `Timeline Friend ${suffix}`;
     let attendeeId = null;
 
     await deleteEventsByExactTitle(requestContext, eventTitle).catch(() => {});
@@ -132,7 +133,7 @@ test.describe('space manager browser regressions', () => {
       expect(eventId).toBeGreaterThan(0);
 
       const attendeeResponse = await postWithCsrf(requestContext, `/api/events/${eventId}/attendees`, {
-        display_name: `Timeline Friend ${suffix}`,
+        display_name: attendeeName,
         role: 'friend'
       }, 201);
       const attendeePayload = await attendeeResponse.json();
@@ -148,6 +149,7 @@ test.describe('space manager browser regressions', () => {
       await page.locator('label').filter({ hasText: 'Show' }).locator('select').selectOption('events');
 
       await expect(page.getByText('Event attendee added').first()).toBeVisible();
+      await expect(page.getByText(attendeeName).first()).toBeVisible();
       await expect(page.getByText(`Attendee #${attendeeId}`).first()).toBeVisible();
       await expect(page.getByText('Event created').first()).toBeVisible();
       await expect(page.getByText(eventTitle).first()).toBeVisible();
