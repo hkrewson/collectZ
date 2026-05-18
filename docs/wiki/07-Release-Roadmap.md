@@ -10752,6 +10752,39 @@ Historical note:
 - What remains in the milestone: nothing for the `3.6.0` foundation slice; later `3.6.x` work can build provider candidate intake and richer acquisition workflows on this model.
 - Recommended commit message: `Release 3.6.0 with wishlist and acquisition foundation`.
 
+## 3.8.2 — Capture OCR Identifier Candidate Review
+
+**Goal:** Make OCR text useful in the Capture Inbox by extracting reviewable identifier candidates without auto-importing or silently applying any result.
+
+### Scope
+
+- Add a backend OCR-text review endpoint that accepts text produced by mobile or web capture clients.
+- Extract likely ISBN, UPC/EAN, and ASIN candidates from OCR text using backend-owned normalization.
+- Store extracted OCR candidates in capture review metadata.
+- Add an explicit apply endpoint for the user-selected OCR candidate.
+- Surface OCR candidates in Library > Capture Inbox with compact apply controls.
+- Keep this slice focused on text-to-candidate review; do not add backend OCR image processing, cover/art recognition, offline queue reconciliation, or automatic import resolution.
+
+### Acceptance Criteria
+
+- Authenticated clients can submit OCR text for an existing capture through `POST /api/capture-items/{id}/ocr-text`.
+- The backend returns a list of reviewable candidates instead of a single implicit resolver result.
+- Applying a candidate updates the capture barcode/symbology/object type and records the selected candidate in review metadata.
+- Library > Capture Inbox shows extracted OCR candidates and lets the reviewer apply one.
+- OpenAPI documents the OCR text and apply-candidate contracts.
+- Version metadata, release note, release feed, and Help > Releases include `3.8.2`.
+
+### Closeout
+
+- Roadmap slice: `3.8.2 — Capture OCR Identifier Candidate Review`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.8.2.md`.
+- Runtime verification used: Docker-first platform backend/frontend rebuild with `APP_VERSION=3.8.2`; running `/api/health` reported frontend/backend/build `3.8.2`; backend logs reported `Database schema up to date (104 migration(s) applied)` and `collectZ backend v3.8.2`; Help > Releases smoke served `3.8.2`; targeted Capture Inbox browser proof uploaded a PNG, submitted OCR text for the photo capture, extracted ISBN candidate `9780553572391`, applied it, and verified the selected OCR candidate rendered in Library > Capture Inbox; a disposable production-style compose-smoke stack on alternate local port `3102` passed health, headers, secure CSRF cookie, session cookie option, unauthenticated `401`, and integration smoke checks before teardown.
+- CI/checks run locally: `node --check backend/routes/captureItems.js`; `node --check backend/services/captureOcr.js`; `node backend/scripts/validate-openapi.js`; host `node backend/scripts/unit-tests.js` (`294` passed); `npm --prefix frontend run build`; Docker backend/frontend build; Docker `npm run test:unit` (`294` passed); Docker `npm run test:openapi`; Docker `npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.8.2 npm run test:help-releases-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker throwaway homelab stack plus `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; targeted Capture Inbox Playwright regression; full `npm run test:browser` (`70` passed, `4` skipped); backend/frontend production dependency audits (`0` vulnerabilities); local observability evidence (`9/9` checks passed); local release preflight; public export surface validation; CI-shaped compose smoke; version sync check; release note heading check; `git diff --check`; targeted release/artifact secret-pattern scan. Local `gitleaks` and Trivy tooling were not installed, so full repository `secret-scan` and `image-security-and-sbom` still need their normal CI runs.
+- Files changed for this slice: `app-meta.json`; `backend/app-meta.json`; `backend/openapi/openapi.yaml`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/routes/captureItems.js`; `backend/services/captureOcr.js`; `backend/scripts/unit-tests.js`; `docker-compose.yml`; `docs/releases/v3.8.2.md`; `docs/wiki/07-Release-Roadmap.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/CaptureInboxView.jsx`; `preflight-go-no-go.md`; `tests/playwright/specs/admin-shell.browser.spec.js`; `artifacts/observability-evidence/observability-release-evidence.json`.
+- Risks/follow-ups: This extracts candidates from supplied OCR text only; backend-owned image OCR, cover/art recognition, offline queue reconciliation, and automatic review resolution remain intentionally deferred. Candidate extraction is heuristic and may surface noisy UPC/EAN/ASIN values, so the user still chooses explicitly before applying.
+- What remains in the milestone: nothing for `3.8.2`; later `3.8.x` work can add backend OCR image processing, scanner offline queue reconciliation, and unified review-queue integration.
+- Recommended commit message: `Release 3.8.2 with Capture OCR identifier candidate review`.
+
 ## 3.8.1 — Capture Inbox Photo Upload Intake
 
 **Goal:** Let mobile and web capture clients upload actual photo captures into the backend-owned Capture Inbox instead of only passing an image path string.

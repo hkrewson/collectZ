@@ -6,6 +6,9 @@ const path = require('path');
 const { parseCsvText } = require('../services/csv');
 const { normalizeBarcodeMatches } = require('../services/barcode');
 const {
+  buildCaptureOcrCandidates
+} = require('../services/captureOcr');
+const {
   buildPlexPmsModernizationContract,
   normalizePlexItem,
   normalizePlexVariant,
@@ -6222,6 +6225,10 @@ results.push(run('mobile capture inbox foundation is scoped, routed, and reviewa
   assert.ok(captureItemsRoutesSource.includes("router.get('/capture-items'"));
   assert.ok(captureItemsRoutesSource.includes("router.post('/capture-items'"));
   assert.ok(captureItemsRoutesSource.includes("router.post('/capture-items/upload-image'"));
+  assert.ok(captureItemsRoutesSource.includes("router.post('/capture-items/:id/ocr-text'"));
+  assert.ok(captureItemsRoutesSource.includes("router.post('/capture-items/:id/apply-ocr-candidate'"));
+  assert.ok(captureItemsRoutesSource.includes("await logActivity(req, 'capture.ocr.extract'"));
+  assert.ok(captureItemsRoutesSource.includes("await logActivity(req, 'capture.ocr.apply_candidate'"));
   assert.ok(captureItemsRoutesSource.includes("memoryUpload.single('image')"));
   assert.ok(captureItemsRoutesSource.includes("await uploadBuffer(req.file.buffer"));
   assert.ok(captureItemsRoutesSource.includes("await logActivity(req, 'capture.image.upload'"));
@@ -6232,10 +6239,16 @@ results.push(run('mobile capture inbox foundation is scoped, routed, and reviewa
   assert.deepStrictEqual(getRequiredPatScopesForRequest({ originalUrl: '/api/capture-items', method: 'GET' }), ['media:read']);
   assert.deepStrictEqual(getRequiredPatScopesForRequest({ originalUrl: '/api/capture-items', method: 'POST' }), ['media:write']);
   assert.deepStrictEqual(getRequiredPatScopesForRequest({ originalUrl: '/api/capture-items/upload-image', method: 'POST' }), ['media:write']);
+  assert.deepStrictEqual(getRequiredPatScopesForRequest({ originalUrl: '/api/capture-items/123/ocr-text', method: 'POST' }), ['media:write']);
+  assert.deepStrictEqual(getRequiredPatScopesForRequest({ originalUrl: '/api/capture-items/123/apply-ocr-candidate', method: 'POST' }), ['media:write']);
   assert.ok(openApiSource.includes('"/api/capture-items"'));
   assert.ok(openApiSource.includes('"/api/capture-items/upload-image"'));
+  assert.ok(openApiSource.includes('"/api/capture-items/{id}/ocr-text"'));
+  assert.ok(openApiSource.includes('"/api/capture-items/{id}/apply-ocr-candidate"'));
   assert.ok(openApiSource.includes('"multipart/form-data"'));
   assert.ok(openApiSource.includes('"CaptureImageUploadResponse"'));
+  assert.ok(openApiSource.includes('"CaptureOcrTextResponse"'));
+  assert.ok(openApiSource.includes('"CaptureOcrCandidateApplyResponse"'));
   assert.ok(openApiSource.includes('"/api/capture-items/{id}/convert-wishlist"'));
   assert.ok(openApiSource.includes('"CaptureItem"'));
   assert.ok(dashboardRoutingSource.includes("'library-capture'"));
@@ -6245,6 +6258,9 @@ results.push(run('mobile capture inbox foundation is scoped, routed, and reviewa
   assert.ok(dashboardContentSource.includes('CaptureInboxView'));
   assert.ok(captureInboxViewSource.includes("apiCall('get', `/capture-items?${params.toString()}`)"));
   assert.ok(captureInboxViewSource.includes("apiCall('post', '/capture-items/upload-image'"));
+  assert.ok(captureInboxViewSource.includes("apiCall('post', `/capture-items/${item.id}/ocr-text`"));
+  assert.ok(captureInboxViewSource.includes("apiCall('post', `/capture-items/${item.id}/apply-ocr-candidate`"));
+  assert.ok(captureInboxViewSource.includes('OCR candidates'));
   assert.ok(captureInboxViewSource.includes('type="file"'));
   assert.ok(captureInboxViewSource.includes('posterUrl(item.image_path)'));
   assert.ok(captureInboxViewSource.includes("apiCall('post', `/capture-items/${item.id}/convert-wishlist`, {})"));
@@ -6253,6 +6269,22 @@ results.push(run('mobile capture inbox foundation is scoped, routed, and reviewa
   assert.ok(activityFeedViewSource.includes('Capture added to Wishlist'));
   assert.ok(adminShellBrowserSpecSource.includes('/dashboard?tab=library-capture'));
   assert.ok(adminShellBrowserSpecSource.includes('/api/capture-items'));
+}));
+
+results.push(run('capture OCR candidate extraction normalizes reviewable ISBN UPC and ASIN values', () => {
+  const parsed = buildCaptureOcrCandidates(`
+    Back cover scan
+    ISBN 0-553-57239-3
+    UPC 0076783005990
+    ASIN B000123456
+  `);
+
+  assert.ok(parsed.isbnCandidates.includes('9780553572391'));
+  assert.ok(parsed.upcCandidates.includes('0076783005990'));
+  assert.ok(parsed.asinCandidates.includes('B000123456'));
+  assert.ok(parsed.candidates.some((candidate) => candidate.match_type === 'isbn' && candidate.barcode === '9780553572391' && candidate.media_type === 'book'));
+  assert.ok(parsed.candidates.some((candidate) => candidate.match_type === 'ean' && candidate.barcode === '0076783005990'));
+  assert.ok(parsed.candidates.some((candidate) => candidate.match_type === 'asin' && candidate.barcode === 'B000123456'));
 }));
 
 results.push(run('admin users view stays platform-only without invitation management tab', () => {

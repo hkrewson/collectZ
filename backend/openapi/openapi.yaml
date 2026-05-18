@@ -3302,6 +3302,39 @@
         },
         "required": ["item", "upload"]
       },
+      "CaptureOcrCandidate": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "source": { "type": "string", "enum": ["ocr"] },
+          "match_type": { "type": "string", "enum": ["isbn", "upc", "ean", "asin"] },
+          "value": { "type": "string" },
+          "barcode": { "type": "string" },
+          "symbology": { "type": "string" },
+          "media_type": { "type": "string", "enum": ["book", "other"] },
+          "label": { "type": "string" },
+          "rank": { "type": "integer" },
+          "context": { "type": "string" }
+        },
+        "required": ["id", "source", "match_type", "value", "barcode", "symbology", "media_type", "label"]
+      },
+      "CaptureOcrTextResponse": {
+        "type": "object",
+        "properties": {
+          "item": { "$ref": "#/components/schemas/CaptureItem" },
+          "candidates": { "type": "array", "items": { "$ref": "#/components/schemas/CaptureOcrCandidate" } },
+          "parsed": { "type": "object", "additionalProperties": true }
+        },
+        "required": ["item", "candidates", "parsed"]
+      },
+      "CaptureOcrCandidateApplyResponse": {
+        "type": "object",
+        "properties": {
+          "item": { "$ref": "#/components/schemas/CaptureItem" },
+          "candidate": { "$ref": "#/components/schemas/CaptureOcrCandidate" }
+        },
+        "required": ["item", "candidate"]
+      },
       "CaptureWishlistConvertResponse": {
         "type": "object",
         "properties": {
@@ -3625,6 +3658,101 @@
           },
           "400": {
             "description": "Invalid upload payload",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      }
+    },
+    "/api/capture-items/{id}/ocr-text": {
+      "post": {
+        "tags": ["Capture"],
+        "summary": "Store OCR text and extract reviewable identifier candidates",
+        "description": "Accepts OCR text produced by a mobile or web capture client, stores it on the scoped capture row, and returns explicit ISBN/UPC/ASIN candidates for user review. The backend does not auto-import or silently apply a candidate.",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ocr_text": { "type": "string" },
+                  "text": { "type": "string" },
+                  "source": { "type": "string" }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OCR text stored and candidates extracted",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CaptureOcrTextResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "OCR text missing",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          },
+          "404": {
+            "description": "Capture item not found",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      }
+    },
+    "/api/capture-items/{id}/apply-ocr-candidate": {
+      "post": {
+        "tags": ["Capture"],
+        "summary": "Apply a selected OCR identifier candidate to a capture",
+        "description": "Applies an explicit user-selected OCR candidate to the capture barcode/symbology fields and records the selected candidate in review metadata.",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "candidate_id": { "type": "string" },
+                  "candidate": { "$ref": "#/components/schemas/CaptureOcrCandidate" }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OCR candidate applied",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CaptureOcrCandidateApplyResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "OCR candidate missing",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          },
+          "404": {
+            "description": "Capture item not found",
             "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
           }
         }

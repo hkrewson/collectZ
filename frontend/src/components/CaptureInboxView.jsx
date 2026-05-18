@@ -172,6 +172,7 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
   const [editorOpen, setEditorOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState(null);
+  const [workingCaptureId, setWorkingCaptureId] = useState(null);
 
   const loadCaptures = useCallback(async (page = 1) => {
     setLoading(true);
@@ -271,6 +272,43 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
       await loadCaptures(pagination.page || 1);
     } catch (err) {
       onToast?.(err?.message || 'Could not convert capture.', 'error');
+    }
+  };
+
+  const extractOcrCandidates = async (item) => {
+    if (!item.ocr_text) {
+      onToast?.('Add OCR text before extracting candidates.', 'error');
+      return;
+    }
+    setWorkingCaptureId(item.id);
+    try {
+      const response = await apiCall('post', `/capture-items/${item.id}/ocr-text`, {
+        ocr_text: item.ocr_text,
+        source: 'web_capture_inbox'
+      });
+      const count = response?.candidates?.length || 0;
+      onToast?.(count ? `Found ${count} OCR candidate${count === 1 ? '' : 's'}.` : 'No identifiers found in OCR text.', count ? 'success' : 'info');
+      await loadCaptures(pagination.page || 1);
+    } catch (err) {
+      onToast?.(err?.message || 'Could not extract OCR candidates.', 'error');
+    } finally {
+      setWorkingCaptureId(null);
+    }
+  };
+
+  const applyOcrCandidate = async (item, candidate) => {
+    setWorkingCaptureId(item.id);
+    try {
+      await apiCall('post', `/capture-items/${item.id}/apply-ocr-candidate`, {
+        candidate_id: candidate.id,
+        candidate
+      });
+      onToast?.('OCR candidate applied.', 'success');
+      await loadCaptures(pagination.page || 1);
+    } catch (err) {
+      onToast?.(err?.message || 'Could not apply OCR candidate.', 'error');
+    } finally {
+      setWorkingCaptureId(null);
     }
   };
 
@@ -383,6 +421,8 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
               item.barcode,
               dateLabel(item.updated_at)
             ].filter(Boolean).join(' · ');
+            const ocrCandidates = Array.isArray(item.review_decision?.ocr_candidates) ? item.review_decision.ocr_candidates : [];
+            const selectedCandidateId = item.review_decision?.selected_ocr_candidate?.id || '';
             return (
               <div key={item.id} className="grid gap-3 py-3 md:grid-cols-[auto_1fr_auto] md:items-center">
                 {item.image_path ? (
@@ -404,9 +444,39 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
                   <div className="mt-1 text-xs text-ghost">{secondary}</div>
                   {item.image_path ? <div className="mt-1 truncate text-xs text-dim">{item.image_path}</div> : null}
                   {item.ocr_text ? <div className="mt-1 line-clamp-2 text-xs text-dim">{item.ocr_text}</div> : null}
+                  {ocrCandidates.length ? (
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <span className="text-xs text-ghost">OCR candidates</span>
+                      {ocrCandidates.slice(0, 4).map((candidate) => (
+                        <button
+                          key={candidate.id || candidate.value}
+                          type="button"
+                          className={cx(
+                            'btn-ghost btn-sm h-7 px-2 text-xs',
+                            selectedCandidateId === candidate.id ? 'border-ok/50 text-ok' : ''
+                          )}
+                          disabled={workingCaptureId === item.id}
+                          onClick={() => applyOcrCandidate(item, candidate)}
+                        >
+                          {selectedCandidateId === candidate.id ? 'Using ' : 'Use '}
+                          {candidate.label || candidate.value}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
                   {item.notes ? <div className="mt-1 line-clamp-2 text-xs text-dim">{item.notes}</div> : null}
                 </div>
                 <div className="flex flex-wrap gap-2 md:justify-end">
+                  {item.ocr_text && (
+                    <button
+                      type="button"
+                      className="btn-ghost btn-sm"
+                      disabled={workingCaptureId === item.id}
+                      onClick={() => extractOcrCandidates(item)}
+                    >
+                      Extract IDs
+                    </button>
+                  )}
                   {item.status !== 'reviewed' && item.status !== 'converted' && (
                     <button type="button" className="btn-ghost btn-sm" onClick={() => updateStatus(item, 'reviewed')}>
                       {Icons?.Check ? <Icons.Check /> : null}

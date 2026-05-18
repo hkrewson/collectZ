@@ -7,6 +7,7 @@ const { enforceScopeAccess } = require('../middleware/scopeAccess');
 const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
 const { logActivity } = require('../services/audit');
 const { uploadBuffer } = require('../services/storage');
+const { buildCaptureOcrCandidates } = require('../services/captureOcr');
 
 const router = express.Router();
 
@@ -102,6 +103,18 @@ function valuesFromBody(body, current = {}) {
   if (has('review_decision')) next.review_decision = jsonObject(body.review_decision);
 
   return next;
+}
+
+function mergeReviewDecision(current = {}, patch = {}) {
+  return {
+    ...jsonObject(current),
+    ...jsonObject(patch)
+  };
+}
+
+function findStoredOcrCandidate(reviewDecision = {}, candidateId = '') {
+  const candidates = Array.isArray(reviewDecision?.ocr_candidates) ? reviewDecision.ocr_candidates : [];
+  return candidates.find((candidate) => String(candidate?.id || '') === String(candidateId || '')) || null;
 }
 
 function buildScopedWhere(params, scopeContext, id = null) {
@@ -290,6 +303,112 @@ router.post('/capture-items/upload-image', memoryUpload.single('image'), asyncHa
     libraryId: created.library_id
   });
   return res.status(201).json({ item: created, upload: { image_path: stored.url, provider: stored.provider } });
+}));
+
+router.post('/capture-items/:id/ocr-text', asyncHandler(async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(404).json({ error: 'Capture item not found.' });
+
+  const scopeContext = resolveScopeContext(req);
+  const current = await fetchCaptureItem(id, scopeContext);
+  if (!current) return res.status(404).json({ error: 'Capture item not found.' });
+
+  const ocrText = nullableString(req.body?.ocr_text ?? req.body?.text);
+  if (!ocrText) return res.status(400).json({ error: 'OCR text is required.' });
+
+  const extracted = buildCaptureOcrCandidates(ocrText);
+  const shapedCurrent = shapeCaptureItem(current);
+  const sourceContext = mergeReviewDecision(shapedCurrent.source_context, {
+    ocr_source: nullableString(req.body?.source) || 'client',
+    ocr_updated_at: new Date().toISOString()
+  });
+  const reviewDecision = mergeReviewDecision(shapedCurrent.review_decision, {
+    ocr_candidates: extracted.candidates,
+    ocr_candidate_summary: {
+      isbn: extracted.isbnCandidates.length,
+      upc: extracted.upcCandidates.length,
+      asin: extracted.asinCandidates.length
+    }
+  });
+
+  const result = await pool.query(
+    `UPDATE capture_items
+        SET ocr_text = $1,
+            capture_type = CASE WHEN capture_type = 'manual_note' THEN 'ocr_text' ELSE capture_type END,
+            source_context = $2::jsonb,
+            review_decision = $3::jsonb,
+            updated_at = CURRENT_TIMESTAMP
+      WHERE id = $4
+      RETURNING *`,
+    [
+      extracted.rawText || ocrText,
+      JSON.stringify(sourceContext),
+      JSON.stringify(reviewDecision),
+      id
+    ]
+  );
+
+  const updated = shapeCaptureItem(result.rows[0]);
+  await logActivity(req, 'capture.ocr.extract', 'capture_item', updated.id, {
+    title: updated.title,
+    captureType: updated.capture_type,
+    candidateCount: extracted.candidates.length,
+    spaceId: updated.space_id,
+    libraryId: updated.library_id
+  });
+  return res.json({ item: updated, candidates: extracted.candidates, parsed: extracted });
+}));
+
+router.post('/capture-items/:id/apply-ocr-candidate', asyncHandler(async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(404).json({ error: 'Capture item not found.' });
+
+  const scopeContext = resolveScopeContext(req);
+  const current = await fetchCaptureItem(id, scopeContext);
+  if (!current) return res.status(404).json({ error: 'Capture item not found.' });
+
+  const shapedCurrent = shapeCaptureItem(current);
+  const candidateId = nullableString(req.body?.candidate_id);
+  const candidate = candidateId
+    ? findStoredOcrCandidate(shapedCurrent.review_decision, candidateId)
+    : jsonObject(req.body?.candidate);
+  if (!candidate?.barcode) return res.status(400).json({ error: 'OCR candidate is required.' });
+
+  const reviewDecision = mergeReviewDecision(shapedCurrent.review_decision, {
+    selected_ocr_candidate: candidate,
+    selected_ocr_candidate_at: new Date().toISOString()
+  });
+  const objectType = normalizeObjectType(candidate.media_type || candidate.mediaTypeGuess, shapedCurrent.object_type || 'other');
+
+  const result = await pool.query(
+    `UPDATE capture_items
+        SET barcode = $1,
+            symbology = $2,
+            object_type = $3,
+            review_decision = $4::jsonb,
+            updated_at = CURRENT_TIMESTAMP
+      WHERE id = $5
+      RETURNING *`,
+    [
+      nullableString(candidate.barcode || candidate.value),
+      nullableString(candidate.symbology),
+      objectType,
+      JSON.stringify(reviewDecision),
+      id
+    ]
+  );
+
+  const updated = shapeCaptureItem(result.rows[0]);
+  await logActivity(req, 'capture.ocr.apply_candidate', 'capture_item', updated.id, {
+    title: updated.title,
+    captureType: updated.capture_type,
+    candidateId: candidate.id || null,
+    barcode: updated.barcode,
+    symbology: updated.symbology,
+    spaceId: updated.space_id,
+    libraryId: updated.library_id
+  });
+  return res.json({ item: updated, candidate });
 }));
 
 router.patch('/capture-items/:id', asyncHandler(async (req, res) => {

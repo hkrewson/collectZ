@@ -151,6 +151,21 @@ test.describe('admin shell browser regressions', () => {
       expect(uploadPayload?.item?.capture_type).toBe('photo');
       expect(uploadPayload?.item?.image_path).toContain('/uploads/');
 
+      const ocrResponse = await postWithCsrf(requestContext, `/api/capture-items/${photoCaptureId}/ocr-text`, {
+        ocr_text: 'Back cover OCR ISBN 0-553-57239-3',
+        source: 'playwright'
+      });
+      const ocrPayload = await ocrResponse.json();
+      const isbnCandidate = ocrPayload?.candidates?.find((candidate) => candidate.barcode === '9780553572391');
+      expect(isbnCandidate).toBeTruthy();
+
+      const applyOcrResponse = await postWithCsrf(requestContext, `/api/capture-items/${photoCaptureId}/apply-ocr-candidate`, {
+        candidate_id: isbnCandidate.id
+      });
+      const applyOcrPayload = await applyOcrResponse.json();
+      expect(applyOcrPayload?.item?.barcode).toBe('9780553572391');
+      expect(applyOcrPayload?.item?.object_type).toBe('book');
+
       await signInThroughUi(page, adminCredentials);
       const captureResponse = page.waitForResponse((response) => (
         response.url().includes('/api/capture-items') && response.request().method() === 'GET'
@@ -161,6 +176,8 @@ test.describe('admin shell browser regressions', () => {
       await expect(page.getByText(title)).toBeVisible();
       await expect(page.getByText(photoTitle)).toBeVisible();
       await expect(page.locator(`img[src*="${uploadPayload.item.image_path}"]`)).toBeVisible();
+      await expect(page.getByText('OCR candidates')).toBeVisible();
+      await expect(page.getByRole('button', { name: /Using ISBN 9780553572391/ })).toBeVisible();
       await expect(page.getByRole('button', { name: 'New capture' })).toBeVisible();
 
       const convertResponse = await postWithCsrf(requestContext, `/api/capture-items/${captureId}/convert-wishlist`, {}, 201);

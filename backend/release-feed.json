@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.8.2",
+      "version": "3.8.2",
+      "date": "2026-05-18",
+      "status": "implemented",
+      "summary": "This release makes OCR text in Capture Inbox reviewable by extracting likely identifiers and letting the user explicitly choose the right one.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added authenticated `POST /api/capture-items/{id}/ocr-text` for storing OCR text and extracting ISBN, UPC/EAN, and ASIN candidates.",
+            "Added authenticated `POST /api/capture-items/{id}/apply-ocr-candidate` for applying a selected OCR candidate to a capture.",
+            "Stored OCR candidate lists and selected candidate metadata in capture review data.",
+            "Added compact OCR candidate controls in Library > Capture Inbox.",
+            "Documented the OCR text and candidate apply contracts in OpenAPI."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.8.1",
       "version": "3.8.1",
       "date": "2026-05-18",
@@ -169,34 +188,6 @@
             "Added a Library > Wishlist surface with status tabs, type/search filters, lightweight acquisition metadata, and an `Add to library` conversion action.",
             "Documented the wishlist API in OpenAPI and added browser regression coverage for listing and converting a wanted item.",
             "Moved the working app/version metadata to `3.6.0` so the minor milestone is aligned across app meta, packages, public compose defaults, release notes, and the in-app release feed."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.5.1",
-      "version": "3.5.1",
-      "date": "2026-05-17",
-      "status": "released",
-      "summary": "This patch tightens the new Dashboard command center so attention items show useful readback instead of sending users to broad navigation destinations.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Removed the superfluous Dashboard `Quick actions` panel.",
-            "Removed the `Import` shortcut from `Recent syncs`.",
-            "Removed the duplicate `Latest failures` panel so failed syncs have one source of truth in `Needs attention`.",
-            "Changed failed sync attention from a generic Integrations jump into inline failed-job details with provider, job type, timestamp, status, and error readback.",
-            "Added inline lists for items missing covers and items missing identifiers.",
-            "Made the summary counters and attention tab actions open filtered all-media Library review lists for missing covers and missing identifiers.",
-            "Added `review_filter` support to `GET /api/media` so Dashboard drilldowns and Library use the same backend source of truth for attention lists.",
-            "Made Dashboard more compact with tighter panel spacing, smaller summary counters, and capped attention samples.",
-            "Removed the aggregate `Needs attention` summary metric because it duplicated the tabbed attention panel without adding a distinct workflow.",
-            "Reflowed Dashboard into a denser dashboard layout with three collection-health metrics, a primary attention/provider row, and compact Recent syncs, Recent activity, and Upcoming events panels.",
-            "Renamed the command-center surface to `Dashboard` across the nav, heading, tab id, API route, OpenAPI contract, tests, and docs.",
-            "Changed `Needs attention` into tabs so failed syncs, missing covers, missing identifiers, and Plex conflicts do not stack into a long page on high-resolution screens.",
-            "Extended `GET /api/dashboard/summary` with `attention_details` samples for missing-cover and missing-identifier items.",
-            "Updated OpenAPI and source assertions for the richer Dashboard summary contract."
           ]
         }
       ]
