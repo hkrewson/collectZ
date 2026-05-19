@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.8.7",
+      "version": "3.8.7",
+      "date": "2026-05-19",
+      "status": "implemented",
+      "summary": "This release lets Capture Inbox turn an applied barcode or ISBN into reviewable catalog and provider match candidates.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Adds authenticated `POST /api/capture-items/{id}/lookup-matches`.",
+            "Reuses the backend scanner barcode lookup path used by `/api/media/lookup/barcode`.",
+            "Stores lookup matches and summary counts on the capture row for later review.",
+            "Adds a compact `Find matches` action for capture rows that have a barcode or applied OCR candidate.",
+            "Shows persisted capture matches inline, including existing catalog matches marked as already in the library."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.8.6",
       "version": "3.8.6",
       "date": "2026-05-19",
@@ -168,25 +187,6 @@
             "Improved Plex timeline copy for rating readback/writeback, watched-state readback/writeback, refresh runs, reconciliation previews, sync jobs, and conflict resolution.",
             "Added browser coverage proving a workspace event attendee row appears as readable event activity.",
             "Hardened event/art/collectible Playwright cleanup helpers so authenticated deletes include CSRF tokens."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.7.3",
-      "version": "3.7.3",
-      "date": "2026-05-18",
-      "status": "implemented",
-      "summary": "This patch continues the human-readable timeline work by giving deleted or archived activity rows a readable snapshot drawer.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added an Activity snapshot drawer for timeline rows whose original target is no longer openable.",
-            "Added `View snapshot` actions for deleted or archived timeline entries that still have saved audit details.",
-            "Shows the saved title, target, action, timestamp, user, type, provider, scope hints, and reason when those fields exist.",
-            "Keeps the raw activity payload behind a technical disclosure.",
-            "Added browser coverage for a deleted media row opening its saved timeline snapshot."
           ]
         }
       ]

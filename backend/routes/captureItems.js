@@ -10,6 +10,7 @@ const { uploadBuffer, readLocalUploadBuffer } = require('../services/storage');
 const { buildCaptureOcrCandidates } = require('../services/captureOcr');
 const { extractTextFromImageBuffer } = require('../services/captureImageOcr');
 const { loadIntegrationConfigRow, normalizeIntegrationRecord } = require('../services/integrations');
+const mediaRouter = require('./media');
 
 const router = express.Router();
 
@@ -148,6 +149,30 @@ function mergeReviewDecision(current = {}, patch = {}) {
 function findStoredOcrCandidate(reviewDecision = {}, candidateId = '') {
   const candidates = Array.isArray(reviewDecision?.ocr_candidates) ? reviewDecision.ocr_candidates : [];
   return candidates.find((candidate) => String(candidate?.id || '') === String(candidateId || '')) || null;
+}
+
+function sanitizeLookupMatches(matches = []) {
+  return (Array.isArray(matches) ? matches : []).slice(0, 10).map((match) => ({
+    id: match.id || null,
+    source: match.source || null,
+    match_type: match.match_type || null,
+    media_id: match.media_id ?? null,
+    title: match.title || match.normalizedTitle || match.searchTitle || '',
+    normalizedTitle: match.normalizedTitle || match.title || '',
+    searchTitle: match.searchTitle || match.normalizedTitle || match.title || '',
+    description: match.description || null,
+    image: match.image || null,
+    upc: match.upc || match.barcode || null,
+    barcode: match.barcode || match.upc || null,
+    symbology: match.symbology || null,
+    mediaTypeGuess: match.mediaTypeGuess || match.media_type || null,
+    media_type: match.media_type || match.mediaTypeGuess || null,
+    year: match.year || null,
+    already_imported: Boolean(match.already_imported),
+    provider_candidate_index: match.provider_candidate_index ?? null,
+    typeDetails: match.typeDetails || match.type_details || {},
+    type_details: match.type_details || match.typeDetails || {}
+  }));
 }
 
 function compareReplayField(field, currentValue, incomingValue) {
@@ -796,6 +821,91 @@ router.post('/capture-items/:id/apply-ocr-candidate', asyncHandler(async (req, r
     libraryId: updated.library_id
   });
   return res.json({ item: updated, candidate });
+}));
+
+router.post('/capture-items/:id/lookup-matches', asyncHandler(async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(404).json({ error: 'Capture item not found.' });
+
+  const scopeContext = resolveScopeContext(req);
+  const current = await fetchCaptureItem(id, scopeContext);
+  if (!current) return res.status(404).json({ error: 'Capture item not found.' });
+
+  const shapedCurrent = shapeCaptureItem(current);
+  const barcode = nullableString(req.body?.barcode) || shapedCurrent.barcode;
+  if (!barcode) return res.status(400).json({ error: 'Capture needs a barcode or applied OCR candidate before match lookup.' });
+  if (typeof mediaRouter.lookupScannerBarcodeCandidates !== 'function') {
+    return res.status(409).json({ error: 'Barcode lookup is not available in this runtime.' });
+  }
+
+  const limit = Math.max(1, Math.min(10, Number(req.body?.limit || 6)));
+  const lookup = await mediaRouter.lookupScannerBarcodeCandidates({
+    barcode,
+    symbology: nullableString(req.body?.symbology) || shapedCurrent.symbology || '',
+    mediaType: nullableString(req.body?.media_type) || shapedCurrent.object_type || null,
+    limit,
+    scopeContext
+  });
+  const matches = sanitizeLookupMatches(lookup.matches || []);
+  const lookedUpAt = new Date().toISOString();
+  const reviewDecision = mergeReviewDecision(shapedCurrent.review_decision, {
+    capture_lookup_matches: matches,
+    capture_lookup_status: {
+      barcode: lookup.barcode || barcode,
+      symbology: lookup.symbology || shapedCurrent.symbology || null,
+      provider: lookup.provider || null,
+      provider_error: lookup.provider_error || null,
+      catalog_count: lookup.catalog_count || 0,
+      provider_count: lookup.provider_count || 0,
+      match_count: matches.length,
+      looked_up_at: lookedUpAt
+    }
+  });
+  const sourceContext = mergeReviewDecision(shapedCurrent.source_context, {
+    capture_lookup_source: 'backend',
+    capture_lookup_last_at: lookedUpAt
+  });
+
+  const result = await pool.query(
+    `UPDATE capture_items
+        SET review_decision = $1::jsonb,
+            source_context = $2::jsonb,
+            updated_at = CURRENT_TIMESTAMP
+      WHERE id = $3
+      RETURNING *`,
+    [
+      JSON.stringify(reviewDecision),
+      JSON.stringify(sourceContext),
+      id
+    ]
+  );
+
+  const updated = shapeCaptureItem(result.rows[0]);
+  await logActivity(req, 'capture.lookup_matches', 'capture_item', updated.id, {
+    title: updated.title,
+    captureType: updated.capture_type,
+    barcode: lookup.barcode || barcode,
+    matchCount: matches.length,
+    catalogCount: lookup.catalog_count || 0,
+    providerCount: lookup.provider_count || 0,
+    provider: lookup.provider || null,
+    providerError: lookup.provider_error || null,
+    spaceId: updated.space_id,
+    libraryId: updated.library_id
+  });
+  return res.json({
+    item: updated,
+    matches,
+    lookup: {
+      provider: lookup.provider || null,
+      barcode: lookup.barcode || barcode,
+      symbology: lookup.symbology || shapedCurrent.symbology || null,
+      count: matches.length,
+      catalog_count: lookup.catalog_count || 0,
+      provider_count: lookup.provider_count || 0,
+      provider_error: lookup.provider_error || null
+    }
+  });
 }));
 
 router.post('/capture-items/:id/resolve-replay-conflict', asyncHandler(async (req, res) => {

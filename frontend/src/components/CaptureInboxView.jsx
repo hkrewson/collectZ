@@ -358,6 +358,29 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
     }
   };
 
+  const lookupMatches = async (item) => {
+    if (!item.barcode) {
+      onToast?.('Apply an OCR candidate or add a barcode before finding matches.', 'error');
+      return;
+    }
+    setWorkingCaptureId(item.id);
+    try {
+      const response = await apiCall('post', `/capture-items/${item.id}/lookup-matches`, {
+        limit: 6
+      });
+      const count = response?.matches?.length || 0;
+      onToast?.(
+        count ? `Found ${count} capture match${count === 1 ? '' : 'es'}.` : 'No catalog or provider matches found.',
+        count ? 'success' : 'info'
+      );
+      await loadCaptures(pagination.page || 1);
+    } catch (err) {
+      onToast?.(err?.message || 'Could not find capture matches.', 'error');
+    } finally {
+      setWorkingCaptureId(null);
+    }
+  };
+
   const resolveReplayConflict = async (item, action) => {
     setWorkingCaptureId(item.id);
     try {
@@ -486,6 +509,8 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
             ].filter(Boolean).join(' · ');
             const ocrCandidates = Array.isArray(item.review_decision?.ocr_candidates) ? item.review_decision.ocr_candidates : [];
             const selectedCandidateId = item.review_decision?.selected_ocr_candidate?.id || '';
+            const lookupMatchesList = Array.isArray(item.review_decision?.capture_lookup_matches) ? item.review_decision.capture_lookup_matches : [];
+            const lookupStatus = item.review_decision?.capture_lookup_status || {};
             const replayConflict = latestReplayConflict(item);
             const replayFields = Array.isArray(replayConflict?.fields) ? replayConflict.fields : [];
             return (
@@ -566,6 +591,33 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
                       ))}
                     </div>
                   ) : null}
+                  {lookupMatchesList.length ? (
+                    <div className="mt-2 border-l-2 border-edge pl-3" aria-label="Capture lookup matches">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <span className="text-xs font-medium text-ink">Matches</span>
+                        <span className="text-xs text-ghost">
+                          {lookupStatus.catalog_count || 0} catalog · {lookupStatus.provider_count || 0} provider
+                        </span>
+                      </div>
+                      <div className="mt-2 grid gap-1 md:max-w-2xl">
+                        {lookupMatchesList.slice(0, 4).map((match) => (
+                          <div key={match.id || `${item.id}-${match.title}`} className="grid gap-1 text-xs md:grid-cols-[1fr_auto]">
+                            <span className="truncate text-dim">
+                              {match.title || 'Untitled match'}
+                              {match.media_type || match.mediaTypeGuess ? ` · ${typeLabel(match.media_type || match.mediaTypeGuess, OBJECT_TYPES)}` : ''}
+                            </span>
+                            <span className={cx('text-ghost', match.already_imported ? 'text-ok' : '')}>
+                              {match.already_imported ? 'In library' : titleCase(match.source || 'provider')}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : lookupStatus.provider_error ? (
+                    <div className="mt-2 text-xs text-warn" aria-label="Capture lookup warning">
+                      Match lookup warning: {lookupStatus.provider_error}
+                    </div>
+                  ) : null}
                   {item.notes ? <div className="mt-1 line-clamp-2 text-xs text-dim">{item.notes}</div> : null}
                 </div>
                 <div className="flex flex-wrap gap-2 md:justify-end">
@@ -587,6 +639,16 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
                       onClick={() => extractOcrCandidates(item)}
                     >
                       Extract IDs
+                    </button>
+                  )}
+                  {item.barcode && (
+                    <button
+                      type="button"
+                      className="btn-ghost btn-sm"
+                      disabled={workingCaptureId === item.id}
+                      onClick={() => lookupMatches(item)}
+                    >
+                      Find matches
                     </button>
                   )}
                   {item.status !== 'reviewed' && item.status !== 'converted' && (

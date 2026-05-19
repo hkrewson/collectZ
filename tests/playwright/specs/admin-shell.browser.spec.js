@@ -118,6 +118,7 @@ test.describe('admin shell browser regressions', () => {
     let captureId = null;
     let photoCaptureId = null;
     let wantedItemId = null;
+    let catalogMediaId = null;
 
     try {
       const createResponse = await postWithCsrf(requestContext, '/api/capture-items', {
@@ -230,6 +231,26 @@ test.describe('admin shell browser regressions', () => {
       expect(applyOcrPayload?.item?.barcode).toBe('9780553572391');
       expect(applyOcrPayload?.item?.object_type).toBe('book');
 
+      const catalogMediaResponse = await postWithCsrf(requestContext, '/api/media', {
+        title: `${photoTitle} Catalog Match`,
+        media_type: 'book',
+        format: 'Paperback',
+        owned_formats: ['paperback'],
+        upc: '9780553572391',
+        type_details: {
+          isbn: '9780553572391',
+          author: 'Michael P. Kube-McDowell'
+        }
+      }, 201);
+      const catalogMediaPayload = await catalogMediaResponse.json();
+      catalogMediaId = Number(catalogMediaPayload?.id || 0);
+      expect(catalogMediaId).toBeGreaterThan(0);
+
+      const lookupResponse = await postWithCsrf(requestContext, `/api/capture-items/${photoCaptureId}/lookup-matches`, { limit: 6 });
+      const lookupPayload = await lookupResponse.json();
+      expect(lookupPayload?.matches?.some((match) => Number(match.media_id || 0) === catalogMediaId)).toBeTruthy();
+      expect(lookupPayload?.item?.review_decision?.capture_lookup_matches?.length).toBeGreaterThan(0);
+
       await signInThroughUi(page, adminCredentials);
       const captureResponse = page.waitForResponse((response) => (
         response.url().includes('/api/capture-items') && response.request().method() === 'GET'
@@ -238,7 +259,7 @@ test.describe('admin shell browser regressions', () => {
       expect((await captureResponse).ok()).toBeTruthy();
       await expect(page.getByRole('heading', { name: 'Capture Inbox', exact: true })).toBeVisible();
       await expect(page.getByText(title, { exact: true })).toBeVisible();
-      await expect(page.getByText(photoTitle)).toBeVisible();
+      await expect(page.getByText(photoTitle, { exact: true })).toBeVisible();
       const replayConflictReview = page.getByLabel('Replay conflict review').first();
       await expect(replayConflictReview.getByText('Replay conflict', { exact: true })).toBeVisible();
       await expect(replayConflictReview.getByText('Barcode', { exact: true })).toBeVisible();
@@ -256,6 +277,10 @@ test.describe('admin shell browser regressions', () => {
       await expect(page.getByRole('button', { name: 'Read image text' })).toBeVisible();
       await expect(page.getByText('OCR candidates')).toBeVisible();
       await expect(page.getByRole('button', { name: /Using ISBN 9780553572391/ })).toBeVisible();
+      const photoCaptureRow = page.locator('div').filter({ hasText: photoTitle }).filter({ hasText: 'Find matches' }).first();
+      await expect(photoCaptureRow.getByLabel('Capture lookup matches')).toBeVisible();
+      await expect(photoCaptureRow.getByText('Matches', { exact: true })).toBeVisible();
+      await expect(photoCaptureRow.getByText('In library')).toBeVisible();
       await expect(page.getByRole('button', { name: 'New capture' })).toBeVisible();
 
       const convertResponse = await postWithCsrf(requestContext, `/api/capture-items/${captureId}/convert-wishlist`, {}, 201);
@@ -278,6 +303,9 @@ test.describe('admin shell browser regressions', () => {
       }
       if (wantedItemId) {
         await requestWithCsrf(requestContext, 'DELETE', `/api/wishlist/${wantedItemId}`, undefined, [200, 404]).catch(() => {});
+      }
+      if (catalogMediaId) {
+        await requestWithCsrf(requestContext, 'DELETE', `/api/media/${catalogMediaId}`, undefined, [200, 404]).catch(() => {});
       }
       await requestContext.dispose();
     }

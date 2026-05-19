@@ -3402,6 +3402,27 @@
         },
         "required": ["item", "candidate"]
       },
+      "CaptureLookupMatchesResponse": {
+        "type": "object",
+        "properties": {
+          "item": { "$ref": "#/components/schemas/CaptureItem" },
+          "matches": { "type": "array", "items": { "$ref": "#/components/schemas/BarcodeLookupMatch" } },
+          "lookup": {
+            "type": "object",
+            "properties": {
+              "provider": { "type": ["string", "null"] },
+              "barcode": { "type": "string" },
+              "symbology": { "type": ["string", "null"] },
+              "count": { "type": "integer" },
+              "catalog_count": { "type": "integer" },
+              "provider_count": { "type": "integer" },
+              "provider_error": { "type": ["string", "null"] }
+            },
+            "required": ["barcode", "count", "catalog_count", "provider_count"]
+          }
+        },
+        "required": ["item", "matches", "lookup"]
+      },
       "CaptureReplayConflictResolveResponse": {
         "type": "object",
         "properties": {
@@ -3891,6 +3912,59 @@
           },
           "404": {
             "description": "Capture item not found",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      }
+    },
+    "/api/capture-items/{id}/lookup-matches": {
+      "post": {
+        "tags": ["Capture"],
+        "summary": "Lookup catalog and provider matches for a capture identifier",
+        "description": "Uses the capture barcode, applied OCR candidate, or request override to run the same backend scanner lookup path used by /api/media/lookup/barcode. Matches are stored on the capture row for review; the backend does not import or link media in this step.",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "barcode": { "type": "string" },
+                  "symbology": { "type": "string" },
+                  "media_type": { "type": "string", "enum": ["movie", "tv_series", "book", "comic_book", "audio", "game", "other"] },
+                  "limit": { "type": "integer", "minimum": 1, "maximum": 10, "default": 6 }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Capture lookup matches stored for review",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CaptureLookupMatchesResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Capture does not have an identifier to lookup",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          },
+          "404": {
+            "description": "Capture item not found",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          },
+          "409": {
+            "description": "Lookup path unavailable in this runtime",
             "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
           }
         }

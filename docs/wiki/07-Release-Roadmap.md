@@ -10752,6 +10752,36 @@ Historical note:
 - What remains in the milestone: nothing for the `3.6.0` foundation slice; later `3.6.x` work can build provider candidate intake and richer acquisition workflows on this model.
 - Recommended commit message: `Release 3.6.0 with wishlist and acquisition foundation`.
 
+## 3.8.7 — Capture Identifier Match Lookup
+
+**Goal:** Let Capture Inbox use an applied barcode or OCR identifier to fetch reviewable catalog/provider matches without importing or linking media automatically.
+
+**Scope**
+
+- Add a capture-owned lookup endpoint that reuses the backend scanner barcode lookup path.
+- Store lookup matches and summary counts on the capture row for readback.
+- Add a compact Capture Inbox action for capture rows that have a barcode or applied OCR candidate.
+- Keep this slice lookup-only; do not add selected-match import, media linking, cover recognition, or unified review queue routing.
+
+**Acceptance**
+
+- `POST /api/capture-items/{id}/lookup-matches` stores catalog/provider candidates in `review_decision`.
+- Capture Inbox rows with identifiers expose `Find matches`.
+- Existing catalog matches are visible as already in the library.
+- OpenAPI documents the endpoint and response shape.
+- Version metadata, release note, release feed, and Help > Releases include `3.8.7`.
+
+**Closeout**
+
+- Roadmap slice: `3.8.7 — Capture Identifier Match Lookup`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.8.7.md`.
+- Runtime verification used: Docker backend/frontend rebuild and healthy running stack; in-stack `/api/health` reported frontend/backend/build `3.8.7`; targeted Capture Inbox browser proof created a photo capture, applied an OCR ISBN candidate, created a same-scope catalog media row, ran `POST /api/capture-items/:id/lookup-matches`, verified the persisted lookup match, and rendered it as already in the library; Docker Help > Releases smoke served `3.8.7`; disposable CI-shaped compose smoke proved secure-cookie health/CSRF/auth basics; disposable homelab stack proved the public edition boundary.
+- CI/checks run locally: `node --check backend/routes/captureItems.js`; `node --check backend/routes/media.js`; `node backend/scripts/validate-openapi.js`; host unit tests (`295` passed); frontend production build; Docker backend/frontend build; Docker `npm run test:unit` (`295` passed); Docker `npm run test:openapi`; Docker `npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.8.7 npm run test:help-releases-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker throwaway homelab stack plus `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; targeted Capture Inbox Playwright regression; full Playwright browser regression (`70` passed, `4` skipped); backend/frontend production dependency audits (`0` vulnerabilities); local observability evidence (`9/9` checks passed); local release preflight; public export validation; CI-shaped compose smoke; version sync check; release note heading check; `git diff --check`; targeted release/evidence secret-pattern scan.
+- Files changed: `app-meta.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `backend/app-meta.json`; `backend/openapi/openapi.yaml`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/routes/captureItems.js`; `backend/routes/media.js`; `backend/scripts/unit-tests.js`; `docker-compose.yml`; `docs/releases/v3.8.7.md`; `docs/wiki/07-Release-Roadmap.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/CaptureInboxView.jsx`; `preflight-go-no-go.md`; `tests/playwright/specs/admin-shell.browser.spec.js`.
+- Risks/follow-ups: this slice intentionally stops at lookup/readback, so importing or linking a selected capture match remains future work; provider candidates depend on configured Barcode/Books integrations; capture match snapshots are capped for review display and are not a canonical external identity store. Local `gitleaks`, `trivy`, and `syft` were not installed, so CI remains authoritative for full-repository `secret-scan` and `image-security-and-sbom`, while local targeted release/evidence secret-pattern scanning passed.
+- What remains in the milestone: nothing for `3.8.7`; later Mobile-First Capture Workflow slices can add selected-match import/linking, object-storage OCR, photo/cover recognition, offline queue replay UI, and unified review queue routing.
+- Recommended commit message: `Release 3.8.7 Capture Identifier Match Lookup for Capture Inbox`
+
 ## 3.8.6 — Capture Backend Image OCR
 
 **Goal:** Let Capture Inbox run backend-owned OCR against uploaded photo captures so mobile/web clients can send images without needing to perform OCR themselves.

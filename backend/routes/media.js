@@ -8919,53 +8919,8 @@ async function runDeliciousCsvImport({
 router.post('/lookup/barcode', authenticateToken, enforceScopeAccess({ allowedHintRoles: ['admin'] }), validate(barcodeLookupSchema), asyncHandler(async (req, res) => {
   const scopeContext = resolveScopeContext(req);
   const { barcode, symbology, mediaType, limit = 10 } = req.body;
-  const code = normalizeBarcodeLookupCode(barcode);
-  const config = await loadScopedIntegrationConfig(scopeContext?.spaceId || null);
-  const catalogMatches = await lookupCatalogMediaByBarcode({
-    barcode: code,
-    mediaType,
-    scopeContext,
-    limit,
-    symbology
-  });
-
-  let providerMatches = [];
-  let provider = config.barcodeProvider || 'barcode';
-  let providerRequest = null;
-  let providerError = null;
-  try {
-    const providerResult = await lookupProviderMatchesForBarcode({
-      barcode: code,
-      mediaType,
-      config,
-      limit: Math.max(1, Number(limit || 10) - catalogMatches.length),
-      symbology
-    });
-    provider = providerResult.provider || provider;
-    providerRequest = providerResult.request || null;
-    providerMatches = providerResult.matches || [];
-  } catch (error) {
-    providerError = error?.response?.data?.message
-      || error?.response?.data?.error
-      || error?.response?.data?.detail
-      || error?.message
-      || 'Barcode provider lookup failed';
-  }
-
-  const matches = [...catalogMatches, ...providerMatches].slice(0, limit);
-  res.json({
-    ok: true,
-    authenticated: true,
-    provider,
-    barcode: code,
-    symbology: symbology || null,
-    count: matches.length,
-    matches,
-    catalog_count: catalogMatches.length,
-    provider_count: providerMatches.length,
-    provider_error: providerError,
-    request: providerRequest
-  });
+  const lookup = await router.lookupScannerBarcodeCandidates({ barcode, symbology, mediaType, limit, scopeContext });
+  res.json(lookup);
 }));
 
 // All routes require auth
@@ -15945,5 +15900,61 @@ router.runPlexWatchStateRefreshOnce = runPlexWatchStateRefreshOnce;
 router.startPlexReconciliationSyncScheduler = startPlexReconciliationSyncScheduler;
 router.getPlexReconciliationSyncRuntimeConfig = getPlexReconciliationSyncRuntimeConfig;
 router.runPlexReconciliationSyncSchedulerOnce = runPlexReconciliationSyncSchedulerOnce;
+router.lookupScannerBarcodeCandidates = async function lookupScannerBarcodeCandidates({
+  barcode,
+  symbology = '',
+  mediaType = null,
+  limit = 10,
+  scopeContext = null
+} = {}) {
+  const code = normalizeBarcodeLookupCode(barcode);
+  const safeLimit = Math.max(1, Math.min(25, Number(limit || 10)));
+  const config = await loadScopedIntegrationConfig(scopeContext?.spaceId || null);
+  const catalogMatches = await lookupCatalogMediaByBarcode({
+    barcode: code,
+    mediaType,
+    scopeContext,
+    limit: safeLimit,
+    symbology
+  });
+
+  let providerMatches = [];
+  let provider = config.barcodeProvider || 'barcode';
+  let providerRequest = null;
+  let providerError = null;
+  try {
+    const providerResult = await lookupProviderMatchesForBarcode({
+      barcode: code,
+      mediaType,
+      config,
+      limit: Math.max(1, safeLimit - catalogMatches.length),
+      symbology
+    });
+    provider = providerResult.provider || provider;
+    providerRequest = providerResult.request || null;
+    providerMatches = providerResult.matches || [];
+  } catch (error) {
+    providerError = error?.response?.data?.message
+      || error?.response?.data?.error
+      || error?.response?.data?.detail
+      || error?.message
+      || 'Barcode provider lookup failed';
+  }
+
+  const matches = [...catalogMatches, ...providerMatches].slice(0, safeLimit);
+  return {
+    ok: true,
+    authenticated: true,
+    provider,
+    barcode: code,
+    symbology: symbology || null,
+    count: matches.length,
+    matches,
+    catalog_count: catalogMatches.length,
+    provider_count: providerMatches.length,
+    provider_error: providerError,
+    request: providerRequest
+  };
+};
 
 module.exports = router;
