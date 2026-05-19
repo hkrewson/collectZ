@@ -3377,6 +3377,23 @@
         },
         "required": ["item", "candidates", "parsed"]
       },
+      "CaptureOcrImageResponse": {
+        "type": "object",
+        "properties": {
+          "item": { "$ref": "#/components/schemas/CaptureItem" },
+          "candidates": { "type": "array", "items": { "$ref": "#/components/schemas/CaptureOcrCandidate" } },
+          "parsed": { "type": "object", "additionalProperties": true },
+          "ocr": {
+            "type": "object",
+            "properties": {
+              "provider": { "type": "string" },
+              "text_length": { "type": "integer" }
+            },
+            "required": ["provider", "text_length"]
+          }
+        },
+        "required": ["item", "candidates", "parsed", "ocr"]
+      },
       "CaptureOcrCandidateApplyResponse": {
         "type": "object",
         "properties": {
@@ -3791,6 +3808,42 @@
           },
           "404": {
             "description": "Capture item not found",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      }
+    },
+    "/api/capture-items/{id}/ocr-image": {
+      "post": {
+        "tags": ["Capture"],
+        "summary": "Run backend OCR against an uploaded capture image",
+        "description": "Reads an existing locally stored capture image through the backend, runs the configured vision OCR provider, stores extracted OCR text, and returns explicit ISBN/UPC/ASIN candidates for user review. The backend does not auto-import or silently apply a candidate.",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Image OCR completed and candidates extracted",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CaptureOcrImageResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Capture image missing or not available to backend OCR",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          },
+          "404": {
+            "description": "Capture item not found",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          },
+          "409": {
+            "description": "Vision OCR provider is not configured or unsupported",
             "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
           }
         }

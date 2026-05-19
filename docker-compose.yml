@@ -21,7 +21,7 @@ services:
       retries: 5
 
   backend:
-    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-hkrewson}/collectz-backend:${IMAGE_TAG:-3.8.5}
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-hkrewson}/collectz-backend:${IMAGE_TAG:-3.8.6}
     restart: unless-stopped
     environment:
       NODE_ENV: ${NODE_ENV:-production}
@@ -41,7 +41,7 @@ services:
       LOG_EXPORT_DEBUG: ${LOG_EXPORT_DEBUG:-false}
       LOG_EXPORT_MAX_DETAIL_BYTES: ${LOG_EXPORT_MAX_DETAIL_BYTES:-16384}
       GIT_SHA: ${GIT_SHA:-}
-      APP_VERSION: ${APP_VERSION:-3.8.5}
+      APP_VERSION: ${APP_VERSION:-3.8.6}
       SESSION_SECRET: ${SESSION_SECRET}
       SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-session_token}
       CSRF_COOKIE_NAME: ${CSRF_COOKIE_NAME:-csrf_token}
@@ -59,6 +59,11 @@ services:
       BARCODE_API_KEY: ${BARCODE_API_KEY:-}
       BARCODE_API_KEY_HEADER: ${BARCODE_API_KEY_HEADER:-x-api-key}
       BARCODE_QUERY_PARAM: ${BARCODE_QUERY_PARAM:-upc}
+      VISION_PRESET: ${VISION_PRESET:-ocrspace}
+      VISION_PROVIDER: ${VISION_PROVIDER:-ocrspace}
+      VISION_API_URL: ${VISION_API_URL:-https://api.ocr.space/parse/image}
+      VISION_API_KEY: ${VISION_API_KEY:-}
+      VISION_API_KEY_HEADER: ${VISION_API_KEY_HEADER:-apikey}
       PLEX_PRESET: ${PLEX_PRESET:-plex}
       PLEX_PROVIDER: ${PLEX_PROVIDER:-plex}
       PLEX_API_URL: ${PLEX_API_URL:-}
@@ -89,7 +94,7 @@ services:
       retries: 3
 
   frontend:
-    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-hkrewson}/collectz-frontend:${IMAGE_TAG:-3.8.5}
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-hkrewson}/collectz-frontend:${IMAGE_TAG:-3.8.6}
     restart: unless-stopped
     depends_on:
       - backend

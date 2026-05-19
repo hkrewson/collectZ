@@ -253,6 +253,7 @@ test.describe('admin shell browser regressions', () => {
       expect((await resolveResponse).ok()).toBeTruthy();
       await expect(page.getByLabel('Replay conflict review')).toHaveCount(0);
       await expect(page.locator(`img[src*="${uploadPayload.item.image_path}"]`)).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Read image text' })).toBeVisible();
       await expect(page.getByText('OCR candidates')).toBeVisible();
       await expect(page.getByRole('button', { name: /Using ISBN 9780553572391/ })).toBeVisible();
       await expect(page.getByRole('button', { name: 'New capture' })).toBeVisible();

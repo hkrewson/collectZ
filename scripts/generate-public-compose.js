@@ -69,6 +69,11 @@ services:
       BARCODE_API_KEY: \${BARCODE_API_KEY:-}
       BARCODE_API_KEY_HEADER: \${BARCODE_API_KEY_HEADER:-x-api-key}
       BARCODE_QUERY_PARAM: \${BARCODE_QUERY_PARAM:-upc}
+      VISION_PRESET: \${VISION_PRESET:-ocrspace}
+      VISION_PROVIDER: \${VISION_PROVIDER:-ocrspace}
+      VISION_API_URL: \${VISION_API_URL:-https://api.ocr.space/parse/image}
+      VISION_API_KEY: \${VISION_API_KEY:-}
+      VISION_API_KEY_HEADER: \${VISION_API_KEY_HEADER:-apikey}
       PLEX_PRESET: \${PLEX_PRESET:-plex}
       PLEX_PROVIDER: \${PLEX_PROVIDER:-plex}
       PLEX_API_URL: \${PLEX_API_URL:-}

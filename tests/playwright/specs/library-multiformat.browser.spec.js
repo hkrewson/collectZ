@@ -832,8 +832,11 @@ test.describe('library multi-format browser regressions', () => {
 
       await addSavedAdminCookies(page);
       await page.goto('/dashboard?tab=library-movies');
+      await expect(page.getByRole('heading', { name: 'Library', exact: true })).toBeVisible();
+      await expect(page.locator('article').first()).toBeVisible();
       await page.getByRole('button', { name: 'Add', exact: true }).click();
 
+      await expect(page.getByRole('heading', { name: /add to library/i })).toBeVisible();
       await page.getByPlaceholder('Movie title').fill(title);
       await page.getByPlaceholder('012345678901').fill(upc);
 

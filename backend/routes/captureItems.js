@@ -6,8 +6,10 @@ const { authenticateToken } = require('../middleware/auth');
 const { enforceScopeAccess } = require('../middleware/scopeAccess');
 const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
 const { logActivity } = require('../services/audit');
-const { uploadBuffer } = require('../services/storage');
+const { uploadBuffer, readLocalUploadBuffer } = require('../services/storage');
 const { buildCaptureOcrCandidates } = require('../services/captureOcr');
+const { extractTextFromImageBuffer } = require('../services/captureImageOcr');
+const { loadIntegrationConfigRow, normalizeIntegrationRecord } = require('../services/integrations');
 
 const router = express.Router();
 
@@ -660,6 +662,88 @@ router.post('/capture-items/:id/ocr-text', asyncHandler(async (req, res) => {
     libraryId: updated.library_id
   });
   return res.json({ item: updated, candidates: extracted.candidates, parsed: extracted });
+}));
+
+router.post('/capture-items/:id/ocr-image', asyncHandler(async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(404).json({ error: 'Capture item not found.' });
+
+  const scopeContext = resolveScopeContext(req);
+  const current = await fetchCaptureItem(id, scopeContext);
+  if (!current) return res.status(404).json({ error: 'Capture item not found.' });
+
+  const shapedCurrent = shapeCaptureItem(current);
+  if (!shapedCurrent.image_path) return res.status(400).json({ error: 'Capture needs an uploaded image before backend OCR can run.' });
+
+  const imageBuffer = await readLocalUploadBuffer(shapedCurrent.image_path);
+  if (!imageBuffer) {
+    return res.status(400).json({ error: 'Backend OCR currently supports images stored by the local upload provider.' });
+  }
+
+  const integrationRow = await loadIntegrationConfigRow(scopeContext.spaceId, { allowFallback: true });
+  const config = normalizeIntegrationRecord(integrationRow || null);
+  const ocrResult = await extractTextFromImageBuffer(imageBuffer, {
+    filename: shapedCurrent.source_context?.original_filename || `capture-${id}`,
+    mimeType: shapedCurrent.source_context?.mime_type || 'application/octet-stream',
+    config
+  });
+  const extracted = buildCaptureOcrCandidates(ocrResult.text || '');
+  const sourceContext = mergeReviewDecision(shapedCurrent.source_context, {
+    ocr_source: 'backend_image',
+    ocr_image_provider: ocrResult.provider,
+    ocr_image_processed_at: new Date().toISOString()
+  });
+  const reviewDecision = mergeReviewDecision(shapedCurrent.review_decision, {
+    ocr_candidates: extracted.candidates,
+    ocr_candidate_summary: {
+      isbn: extracted.isbnCandidates.length,
+      upc: extracted.upcCandidates.length,
+      asin: extracted.asinCandidates.length
+    },
+    ocr_image_status: {
+      provider: ocrResult.provider,
+      text_length: String(ocrResult.text || '').length,
+      candidate_count: extracted.candidates.length,
+      processed_at: sourceContext.ocr_image_processed_at
+    }
+  });
+
+  const result = await pool.query(
+    `UPDATE capture_items
+        SET ocr_text = $1,
+            capture_type = CASE WHEN capture_type = 'manual_note' THEN 'photo' ELSE capture_type END,
+            source_context = $2::jsonb,
+            review_decision = $3::jsonb,
+            updated_at = CURRENT_TIMESTAMP
+      WHERE id = $4
+      RETURNING *`,
+    [
+      extracted.rawText || ocrResult.text || null,
+      JSON.stringify(sourceContext),
+      JSON.stringify(reviewDecision),
+      id
+    ]
+  );
+
+  const updated = shapeCaptureItem(result.rows[0]);
+  await logActivity(req, 'capture.ocr.image_extract', 'capture_item', updated.id, {
+    title: updated.title,
+    captureType: updated.capture_type,
+    provider: ocrResult.provider,
+    textLength: String(ocrResult.text || '').length,
+    candidateCount: extracted.candidates.length,
+    spaceId: updated.space_id,
+    libraryId: updated.library_id
+  });
+  return res.json({
+    item: updated,
+    candidates: extracted.candidates,
+    parsed: extracted,
+    ocr: {
+      provider: ocrResult.provider,
+      text_length: String(ocrResult.text || '').length
+    }
+  });
 }));
 
 router.post('/capture-items/:id/apply-ocr-candidate', asyncHandler(async (req, res) => {

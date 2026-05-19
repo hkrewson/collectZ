@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.8.6",
+      "version": "3.8.6",
+      "date": "2026-05-19",
+      "status": "implemented",
+      "summary": "This release lets Capture Inbox run backend-owned OCR against uploaded photo captures.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Adds authenticated `POST /api/capture-items/{id}/ocr-image`.",
+            "Reads locally stored capture uploads from backend storage before calling the configured Vision/OCR provider.",
+            "Stores extracted OCR text and reviewable ISBN, UPC/EAN, and ASIN candidates on the capture row.",
+            "Adds a compact `Read image text` action for photo captures in Capture Inbox.",
+            "Surfaces optional Vision/OCR provider settings through integration config readback and public compose env pass-through.",
+            "Records image OCR extraction activity for timeline/readback."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.8.5",
       "version": "3.8.5",
       "date": "2026-05-19",
@@ -167,25 +187,6 @@
             "Shows the saved title, target, action, timestamp, user, type, provider, scope hints, and reason when those fields exist.",
             "Keeps the raw activity payload behind a technical disclosure.",
             "Added browser coverage for a deleted media row opening its saved timeline snapshot."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.7.2",
-      "version": "3.7.2",
-      "date": "2026-05-18",
-      "status": "implemented",
-      "summary": "This patch makes sync failures and sync activity inspectable from the Dashboard and Activity timeline instead of sending users to broad import or integration screens.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added a shared sync-job detail drawer backed by `/api/media/sync-jobs/:id/result`.",
-            "Changed Dashboard failed-sync rows to open detailed job readback with status, provider, timestamps, failure text, summary counters, progress, and technical payload.",
-            "Added timeline actions for sync jobs and import activity so failed rows can open `Open failure` and successful rows can open `Open sync`.",
-            "Kept existing import navigation available for import-shaped activity rows.",
-            "Added source-level regression coverage to keep the Dashboard, Activity timeline, and sync-job drawer wired together."
           ]
         }
       ]

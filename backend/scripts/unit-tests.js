@@ -9,6 +9,10 @@ const {
   buildCaptureOcrCandidates
 } = require('../services/captureOcr');
 const {
+  extractOcrSpaceText,
+  buildOcrProviderConfig
+} = require('../services/captureImageOcr');
+const {
   buildPlexPmsModernizationContract,
   normalizePlexItem,
   normalizePlexVariant,
@@ -146,6 +150,7 @@ const authRoutesSource = fs.readFileSync(require.resolve('../routes/auth'), 'utf
 const dashboardRoutesSource = fs.readFileSync(require.resolve('../routes/dashboard'), 'utf8');
 const wishlistRoutesSource = fs.readFileSync(require.resolve('../routes/wishlist'), 'utf8');
 const captureItemsRoutesSource = fs.readFileSync(require.resolve('../routes/captureItems'), 'utf8');
+const captureImageOcrServiceSource = fs.readFileSync(require.resolve('../services/captureImageOcr'), 'utf8');
 const mediaRoutesSource = fs.readFileSync(require.resolve('../routes/media'), 'utf8');
 const manualMergeRecommendationsServiceSource = fs.readFileSync(require.resolve('../services/manualMergeRecommendations'), 'utf8');
 const openApiSource = fs.readFileSync(require.resolve('../openapi/openapi.yaml'), 'utf8');
@@ -6226,6 +6231,7 @@ results.push(run('mobile capture inbox foundation is scoped, routed, and reviewa
   assert.ok(captureItemsRoutesSource.includes("router.post('/capture-items'"));
   assert.ok(captureItemsRoutesSource.includes("router.post('/capture-items/upload-image'"));
   assert.ok(captureItemsRoutesSource.includes("router.post('/capture-items/:id/ocr-text'"));
+  assert.ok(captureItemsRoutesSource.includes("router.post('/capture-items/:id/ocr-image'"));
   assert.ok(captureItemsRoutesSource.includes("router.post('/capture-items/:id/apply-ocr-candidate'"));
   assert.ok(captureItemsRoutesSource.includes("router.post('/capture-items/:id/resolve-replay-conflict'"));
   assert.ok(captureItemsRoutesSource.includes('function extractClientCaptureId'));
@@ -6238,7 +6244,10 @@ results.push(run('mobile capture inbox foundation is scoped, routed, and reviewa
   assert.ok(captureItemsRoutesSource.includes("'capture.idempotent_replay'"));
   assert.ok(captureItemsRoutesSource.includes("'capture.image.idempotent_replay'"));
   assert.ok(captureItemsRoutesSource.includes("await logActivity(req, 'capture.ocr.extract'"));
+  assert.ok(captureItemsRoutesSource.includes("await logActivity(req, 'capture.ocr.image_extract'"));
   assert.ok(captureItemsRoutesSource.includes("await logActivity(req, 'capture.ocr.apply_candidate'"));
+  assert.ok(captureItemsRoutesSource.includes('readLocalUploadBuffer(shapedCurrent.image_path)'));
+  assert.ok(captureItemsRoutesSource.includes('extractTextFromImageBuffer(imageBuffer'));
   assert.ok(captureItemsRoutesSource.includes("memoryUpload.single('image')"));
   assert.ok(captureItemsRoutesSource.includes("await uploadBuffer(req.file.buffer"));
   assert.ok(captureItemsRoutesSource.includes("await logActivity(req, 'capture.image.upload'"));
@@ -6250,17 +6259,20 @@ results.push(run('mobile capture inbox foundation is scoped, routed, and reviewa
   assert.deepStrictEqual(getRequiredPatScopesForRequest({ originalUrl: '/api/capture-items', method: 'POST' }), ['media:write']);
   assert.deepStrictEqual(getRequiredPatScopesForRequest({ originalUrl: '/api/capture-items/upload-image', method: 'POST' }), ['media:write']);
   assert.deepStrictEqual(getRequiredPatScopesForRequest({ originalUrl: '/api/capture-items/123/ocr-text', method: 'POST' }), ['media:write']);
+  assert.deepStrictEqual(getRequiredPatScopesForRequest({ originalUrl: '/api/capture-items/123/ocr-image', method: 'POST' }), ['media:write']);
   assert.deepStrictEqual(getRequiredPatScopesForRequest({ originalUrl: '/api/capture-items/123/apply-ocr-candidate', method: 'POST' }), ['media:write']);
   assert.deepStrictEqual(getRequiredPatScopesForRequest({ originalUrl: '/api/capture-items/123/resolve-replay-conflict', method: 'POST' }), ['media:write']);
   assert.ok(openApiSource.includes('"/api/capture-items"'));
   assert.ok(openApiSource.includes('"/api/capture-items/upload-image"'));
   assert.ok(openApiSource.includes('"/api/capture-items/{id}/ocr-text"'));
+  assert.ok(openApiSource.includes('"/api/capture-items/{id}/ocr-image"'));
   assert.ok(openApiSource.includes('"/api/capture-items/{id}/apply-ocr-candidate"'));
   assert.ok(openApiSource.includes('"/api/capture-items/{id}/resolve-replay-conflict"'));
   assert.ok(openApiSource.includes('"CaptureReplayConflictResolveResponse"'));
   assert.ok(openApiSource.includes('"multipart/form-data"'));
   assert.ok(openApiSource.includes('"CaptureImageUploadResponse"'));
   assert.ok(openApiSource.includes('"CaptureOcrTextResponse"'));
+  assert.ok(openApiSource.includes('"CaptureOcrImageResponse"'));
   assert.ok(openApiSource.includes('"CaptureOcrCandidateApplyResponse"'));
   assert.ok(openApiSource.includes('"client_capture_id"'));
   assert.ok(openApiSource.includes('"clientCaptureId"'));
@@ -6277,11 +6289,13 @@ results.push(run('mobile capture inbox foundation is scoped, routed, and reviewa
   assert.ok(captureInboxViewSource.includes("apiCall('get', `/capture-items?${params.toString()}`)"));
   assert.ok(captureInboxViewSource.includes("apiCall('post', '/capture-items/upload-image'"));
   assert.ok(captureInboxViewSource.includes("apiCall('post', `/capture-items/${item.id}/ocr-text`"));
+  assert.ok(captureInboxViewSource.includes("apiCall('post', `/capture-items/${item.id}/ocr-image`"));
   assert.ok(captureInboxViewSource.includes("apiCall('post', `/capture-items/${item.id}/apply-ocr-candidate`"));
   assert.ok(captureInboxViewSource.includes("apiCall('post', `/capture-items/${item.id}/resolve-replay-conflict`"));
   assert.ok(captureInboxViewSource.includes('Replay conflict'));
   assert.ok(captureInboxViewSource.includes('Use replayed values'));
   assert.ok(captureInboxViewSource.includes('OCR candidates'));
+  assert.ok(captureInboxViewSource.includes('Read image text'));
   assert.ok(captureInboxViewSource.includes('type="file"'));
   assert.ok(captureInboxViewSource.includes('posterUrl(item.image_path)'));
   assert.ok(captureInboxViewSource.includes("apiCall('post', `/capture-items/${item.id}/convert-wishlist`, {})"));
@@ -6293,6 +6307,9 @@ results.push(run('mobile capture inbox foundation is scoped, routed, and reviewa
   assert.ok(adminShellBrowserSpecSource.includes('client_capture_id: clientCaptureId'));
   assert.ok(adminShellBrowserSpecSource.includes('retryPayload?.idempotent'));
   assert.ok(adminShellBrowserSpecSource.includes("conflictRetryPayload?.idempotency?.status"));
+  assert.ok(captureImageOcrServiceSource.includes("form.append('file'"));
+  assert.ok(captureImageOcrServiceSource.includes('extractOcrSpaceText'));
+  assert.ok(integrationsServiceSource.includes('visionApiKey'));
 }));
 
 results.push(run('capture OCR candidate extraction normalizes reviewable ISBN UPC and ASIN values', () => {
@@ -6309,6 +6326,19 @@ results.push(run('capture OCR candidate extraction normalizes reviewable ISBN UP
   assert.ok(parsed.candidates.some((candidate) => candidate.match_type === 'isbn' && candidate.barcode === '9780553572391' && candidate.media_type === 'book'));
   assert.ok(parsed.candidates.some((candidate) => candidate.match_type === 'ean' && candidate.barcode === '0076783005990'));
   assert.ok(parsed.candidates.some((candidate) => candidate.match_type === 'asin' && candidate.barcode === 'B000123456'));
+}));
+
+results.push(run('capture image OCR provider parsing preserves backend-owned OCR text', () => {
+  assert.strictEqual(extractOcrSpaceText({
+    ParsedResults: [
+      { ParsedText: 'ISBN 0-553-57239-3' },
+      { ParsedText: 'UPC 0076783005990' }
+    ]
+  }), 'ISBN 0-553-57239-3\nUPC 0076783005990');
+  const fixtureConfig = buildOcrProviderConfig({ visionProvider: 'fixture', visionApiKey: '', visionApiUrl: '' });
+  assert.strictEqual(fixtureConfig.preset, 'fixture');
+  assert.strictEqual(fixtureConfig.provider, 'fixture');
+  assert.strictEqual(typeof fixtureConfig.apiUrl, 'string');
 }));
 
 results.push(run('admin users view stays platform-only without invitation management tab', () => {

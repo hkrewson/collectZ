@@ -7,6 +7,7 @@ const { resolveBooksPreset } = require('./books');
 const { resolveAudioPreset } = require('./audio');
 const { resolveGamesPreset } = require('./games');
 const { resolveComicsPreset } = require('./comics');
+const { normalizeVisionPreset } = require('./captureImageOcr');
 const { normalizeKavitaBaseUrl } = require('./kavita');
 const {
   DEFAULT_PRICECHARTING_API_URL,
@@ -34,6 +35,7 @@ const normalizeIntegrationRecord = (row) => {
   const envAudioPreset = process.env.AUDIO_PRESET || process.env.AUDIO_PROVIDER || 'discogs';
   const envGamesPreset = process.env.GAMES_PRESET || process.env.GAMES_PROVIDER || 'igdb';
   const envComicsPreset = process.env.COMICS_PRESET || process.env.COMICS_PROVIDER || 'metron';
+  const envVisionPreset = process.env.VISION_PRESET || process.env.VISION_PROVIDER || 'ocrspace';
 
   const barcodePreset = resolveBarcodePreset(row?.barcode_preset || envBarcodePreset);
   const tmdbPreset = resolveTmdbPreset(row?.tmdb_preset || envTmdbPreset);
@@ -42,6 +44,7 @@ const normalizeIntegrationRecord = (row) => {
   const audioPreset = resolveAudioPreset(row?.audio_preset || envAudioPreset);
   const gamesPreset = resolveGamesPreset(row?.games_preset || envGamesPreset);
   const comicsPreset = resolveComicsPreset(row?.comics_preset || envComicsPreset);
+  const visionPreset = normalizeVisionPreset(row?.vision_preset || envVisionPreset);
 
   const barcodeDecrypt = decryptSecretWithStatus(row?.barcode_api_key_encrypted, 'barcode_api_key_encrypted');
   const tmdbDecrypt = decryptSecretWithStatus(row?.tmdb_api_key_encrypted, 'tmdb_api_key_encrypted');
@@ -51,6 +54,7 @@ const normalizeIntegrationRecord = (row) => {
   const gamesDecrypt = decryptSecretWithStatus(row?.games_api_key_encrypted, 'games_api_key_encrypted');
   const gamesClientSecretDecrypt = decryptSecretWithStatus(row?.games_client_secret_encrypted, 'games_client_secret_encrypted');
   const comicsDecrypt = decryptSecretWithStatus(row?.comics_api_key_encrypted, 'comics_api_key_encrypted');
+  const visionDecrypt = decryptSecretWithStatus(row?.vision_api_key_encrypted, 'vision_api_key_encrypted');
   const cwaPasswordDecrypt = decryptSecretWithStatus(row?.cwa_password_encrypted, 'cwa_password_encrypted');
   const kavitaApiKeyDecrypt = decryptSecretWithStatus(row?.kavita_api_key_encrypted, 'kavita_api_key_encrypted');
   const priceChartingDecrypt = decryptSecretWithStatus(row?.pricecharting_api_key_encrypted, 'pricecharting_api_key_encrypted');
@@ -64,6 +68,7 @@ const normalizeIntegrationRecord = (row) => {
   const gamesApiKey = gamesDecrypt.value || process.env.GAMES_API_KEY || '';
   const gamesClientSecret = gamesClientSecretDecrypt.value || process.env.GAMES_CLIENT_SECRET || '';
   const comicsApiKey = comicsDecrypt.value || process.env.COMICS_API_KEY || '';
+  const visionApiKey = visionDecrypt.value || process.env.VISION_API_KEY || '';
   const cwaPassword = cwaPasswordDecrypt.value || process.env.CWA_PASSWORD || process.env.CWA_TOKEN || '';
   const kavitaApiKey = kavitaApiKeyDecrypt.value || process.env.KAVITA_API_KEY || process.env.KAVITA_TOKEN || '';
   const priceChartingApiKey = priceChartingDecrypt.value || process.env.PRICECHARTING_API_KEY || '';
@@ -90,6 +95,7 @@ const normalizeIntegrationRecord = (row) => {
   maybeWarn('games', 'games_api_key_encrypted', row?.games_api_key_encrypted, gamesDecrypt);
   maybeWarn('games', 'games_client_secret_encrypted', row?.games_client_secret_encrypted, gamesClientSecretDecrypt);
   maybeWarn('comics', 'comics_api_key_encrypted', row?.comics_api_key_encrypted, comicsDecrypt);
+  maybeWarn('vision', 'vision_api_key_encrypted', row?.vision_api_key_encrypted, visionDecrypt);
   maybeWarn('cwa', 'cwa_password_encrypted', row?.cwa_password_encrypted, cwaPasswordDecrypt);
   maybeWarn('kavita', 'kavita_api_key_encrypted', row?.kavita_api_key_encrypted, kavitaApiKeyDecrypt);
   maybeWarn('pricecharting', 'pricecharting_api_key_encrypted', row?.pricecharting_api_key_encrypted, priceChartingDecrypt);
@@ -114,6 +120,11 @@ const normalizeIntegrationRecord = (row) => {
     barcodeApiKeyHeader: barcodePreset.apiKeyHeader || 'x-api-key',
     barcodeQueryParam: barcodePreset.queryParam || 'upc',
     barcodeApiKey,
+    visionPreset: visionPreset.preset || 'ocrspace',
+    visionProvider: row?.vision_provider || visionPreset.provider,
+    visionApiUrl: row?.vision_api_url || visionPreset.apiUrl || process.env.VISION_API_URL || '',
+    visionApiKeyHeader: row?.vision_api_key_header || visionPreset.apiKeyHeader || process.env.VISION_API_KEY_HEADER || 'apikey',
+    visionApiKey,
     tmdbPreset: tmdbPreset.preset || 'tmdb',
     tmdbProvider: tmdbPreset.provider,
     tmdbApiUrl: row?.tmdb_api_url || tmdbPreset.apiUrl || process.env.TMDB_API_URL || 'https://api.themoviedb.org/3/search/movie',

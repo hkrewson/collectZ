@@ -321,6 +321,27 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
     }
   };
 
+  const readImageText = async (item) => {
+    if (!item.image_path) {
+      onToast?.('Capture needs an image before backend OCR can run.', 'error');
+      return;
+    }
+    setWorkingCaptureId(item.id);
+    try {
+      const response = await apiCall('post', `/capture-items/${item.id}/ocr-image`, {});
+      const count = response?.candidates?.length || 0;
+      onToast?.(
+        count ? `Found ${count} image OCR candidate${count === 1 ? '' : 's'}.` : 'Image OCR finished with no identifiers found.',
+        count ? 'success' : 'info'
+      );
+      await loadCaptures(pagination.page || 1);
+    } catch (err) {
+      onToast?.(err?.message || 'Could not read text from image.', 'error');
+    } finally {
+      setWorkingCaptureId(null);
+    }
+  };
+
   const applyOcrCandidate = async (item, candidate) => {
     setWorkingCaptureId(item.id);
     try {
@@ -548,6 +569,16 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
                   {item.notes ? <div className="mt-1 line-clamp-2 text-xs text-dim">{item.notes}</div> : null}
                 </div>
                 <div className="flex flex-wrap gap-2 md:justify-end">
+                  {item.image_path && (
+                    <button
+                      type="button"
+                      className="btn-ghost btn-sm"
+                      disabled={workingCaptureId === item.id}
+                      onClick={() => readImageText(item)}
+                    >
+                      Read image text
+                    </button>
+                  )}
                   {item.ocr_text && (
                     <button
                       type="button"

@@ -10752,6 +10752,36 @@ Historical note:
 - What remains in the milestone: nothing for the `3.6.0` foundation slice; later `3.6.x` work can build provider candidate intake and richer acquisition workflows on this model.
 - Recommended commit message: `Release 3.6.0 with wishlist and acquisition foundation`.
 
+## 3.8.6 — Capture Backend Image OCR
+
+**Goal:** Let Capture Inbox run backend-owned OCR against uploaded photo captures so mobile/web clients can send images without needing to perform OCR themselves.
+
+**Scope**
+
+- Add an authenticated, scoped endpoint for running OCR against an existing uploaded capture image.
+- Keep OCR candidates review-only; do not auto-import or silently apply identifiers.
+- Store extracted text, candidate summaries, provider readback, and activity evidence on the capture row.
+- Add a compact Capture Inbox action for photo rows.
+- Keep this slice focused on image-to-text OCR; do not add cover/art recognition, remote image fetching, or unified review queue routing.
+
+**Acceptance**
+
+- `POST /api/capture-items/{id}/ocr-image` reads backend-local uploaded images and returns OCR candidates.
+- Capture Inbox photo rows expose `Read image text`.
+- OpenAPI documents the endpoint and response shape.
+- Version metadata, release note, release feed, and Help > Releases include `3.8.6`.
+
+**Closeout**
+
+- Roadmap slice: `3.8.6 — Capture Backend Image OCR`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.8.6.md`.
+- Runtime verification used: Docker backend/frontend rebuild and healthy running stack; in-stack `/api/health` reported frontend/backend/build `3.8.6`; Docker `test:capture-image-ocr-smoke` uploaded a capture image, ran fixture-backed backend OCR through `POST /api/capture-items/:id/ocr-image`, persisted OCR text/candidates, and verified the ISBN candidate; Docker Help > Releases smoke served `3.8.6`; disposable CI-shaped compose smoke proved secure-cookie health/CSRF/auth basics; disposable homelab stack proved the public edition boundary.
+- CI/checks run locally: `node --check backend/routes/captureItems.js`; `node --check backend/services/captureImageOcr.js`; `node --check backend/services/integrations.js`; `node --check backend/scripts/capture-image-ocr-smoke.js`; `node backend/scripts/validate-openapi.js`; host unit tests (`295` passed); frontend production build; Docker backend/frontend build; Docker `BASE_URL=http://frontend:3000 npm run test:capture-image-ocr-smoke`; Docker `npm run test:unit` (`295` passed); Docker `npm run test:openapi`; Docker `npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.8.6 npm run test:help-releases-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker throwaway homelab stack plus `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; full Playwright browser regression (`70` passed, `4` skipped) after hardening one existing add-drawer readiness wait; backend/frontend production dependency audits (`0` vulnerabilities); local observability evidence (`9/9` checks passed); local release preflight; public export validation; CI-shaped compose smoke; `git diff --check`; targeted release/evidence secret-pattern scan.
+- Files changed: `app-meta.json`; `backend/app-meta.json`; `backend/openapi/openapi.yaml`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/routes/captureItems.js`; `backend/scripts/capture-image-ocr-smoke.js`; `backend/scripts/unit-tests.js`; `backend/services/captureImageOcr.js`; `backend/services/integrationResponse.js`; `backend/services/integrations.js`; `backend/services/storage.js`; `docker-compose.yml`; `docs/releases/v3.8.6.md`; `docs/wiki/07-Release-Roadmap.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/CaptureInboxView.jsx`; `scripts/generate-public-compose.js`; `tests/playwright/specs/admin-shell.browser.spec.js`; `tests/playwright/specs/library-multiformat.browser.spec.js`; `artifacts/dependency-audit/frontend-audit.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `preflight-go-no-go.md`.
+- Risks/follow-ups: backend OCR currently reads local `/uploads` images only, so object-storage-backed capture images need a later storage-reader path; real OCR quality depends on the configured Vision/OCR provider and credentials; OCR candidates intentionally remain review-only and do not auto-import. Local `gitleaks`, `trivy`, and `syft` were not installed, so CI remains authoritative for full-repository `secret-scan` and `image-security-and-sbom`, while local targeted release/evidence secret-pattern scanning passed.
+- What remains in the milestone: nothing for `3.8.6`; later Mobile-First Capture Workflow slices can add object-storage OCR, photo/cover recognition, offline queue replay, and review-queue routing.
+- Recommended commit message: `Release 3.8.6 Capture Backend Image OCR for uploaded capture photos`
+
 ## 3.8.5 — Capture Replay Conflict Review UI
 
 **Goal:** Let users review and resolve Capture Inbox replay conflicts without editing raw metadata or losing the existing safe idempotency behavior.

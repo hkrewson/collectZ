@@ -85,7 +85,16 @@ async function uploadBuffer(buffer, originalName, contentType = 'application/oct
   return { key, url: resolveS3PublicUrl(key), provider: 's3' };
 }
 
-module.exports = {
-  uploadBuffer
-};
+async function readLocalUploadBuffer(publicPath = '') {
+  const value = String(publicPath || '').trim();
+  if (!value.startsWith('/uploads/')) return null;
+  const key = path.basename(value);
+  if (!key || key !== value.slice('/uploads/'.length)) return null;
+  const fullPath = path.join(localUploadsDir, key);
+  return fs.promises.readFile(fullPath);
+}
 
+module.exports = {
+  uploadBuffer,
+  readLocalUploadBuffer
+};
