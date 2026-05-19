@@ -51,6 +51,15 @@ const EMPTY_FORM = {
   notes: ''
 };
 
+const EMPTY_FORM_LOOKUP = {
+  loading: false,
+  matches: [],
+  lookup: null,
+  error: null,
+  barcode: '',
+  lookedUp: false
+};
+
 function typeLabel(value, options) {
   return options.find((option) => option.value === value)?.label || value || 'Item';
 }
@@ -96,10 +105,32 @@ function Field({ label, className = '', children, asLabel = true }) {
   );
 }
 
-function CaptureEditor({ form, setForm, saving, onSave, onCancel, onToast, Icons, editorRef }) {
+function CaptureEditor({
+  form,
+  setForm,
+  saving,
+  formLookup,
+  formImporting,
+  scanRequest,
+  onSave,
+  onCancel,
+  onToast,
+  onLookupBarcode,
+  onClearLookup,
+  onImportMatch,
+  onSaveAndScanNext,
+  Icons,
+  editorRef
+}) {
   const barcodeCameraInputRef = useRef(null);
   const [barcodeScanning, setBarcodeScanning] = useState(false);
   const barcodeCameraSupported = supportsBarcodeCapture();
+  const lookupMatches = Array.isArray(formLookup?.matches) ? formLookup.matches : [];
+
+  useEffect(() => {
+    if (!scanRequest) return;
+    window.setTimeout(() => barcodeCameraInputRef.current?.click(), 0);
+  }, [scanRequest]);
 
   const readIsbnFromBarcodeImage = async (file, detected) => {
     const directIsbn = inferBookBarcodeIdentifier(detected?.code || '');
@@ -138,12 +169,14 @@ function CaptureEditor({ form, setForm, saving, onSave, onCancel, onToast, Icons
       }
       const bookIdentifiers = await readIsbnFromBarcodeImage(file, detected);
       const capturedCode = bookIdentifiers.isbn || detected.code;
+      const capturedSymbology = bookIdentifiers.isbn ? 'ISBN-13' : (detected.symbology || detected.format || form.symbology || '');
+      const capturedObjectType = bookIdentifiers.isbn ? 'book' : form.object_type;
       setForm((current) => ({
         ...current,
         capture_type: 'barcode',
-        object_type: bookIdentifiers.isbn ? 'book' : current.object_type,
+        object_type: capturedObjectType,
         barcode: capturedCode,
-        symbology: bookIdentifiers.isbn ? 'ISBN-13' : current.symbology,
+        symbology: capturedSymbology,
         title: current.title || file.name || '',
         ocr_text: current.ocr_text || bookIdentifiers.rawText || ''
       }));
@@ -153,6 +186,11 @@ function CaptureEditor({ form, setForm, saving, onSave, onCancel, onToast, Icons
           : `Barcode captured: ${detected.code}`,
         'success'
       );
+      await onLookupBarcode?.({
+        barcode: capturedCode,
+        symbology: capturedSymbology,
+        mediaType: capturedObjectType
+      });
     } catch (_) {
       onToast?.('No barcode found. Try a closer photo with the code filling more of the frame.', 'error');
     } finally {
@@ -202,7 +240,11 @@ function CaptureEditor({ form, setForm, saving, onSave, onCancel, onToast, Icons
               value={form.barcode}
               inputMode="numeric"
               aria-label="Barcode / ISBN"
-              onChange={(event) => setForm((current) => ({ ...current, barcode: event.target.value }))}
+              onChange={(event) => {
+                const nextBarcode = event.target.value;
+                setForm((current) => ({ ...current, barcode: nextBarcode }));
+                if (formLookup?.barcode && nextBarcode.trim() !== formLookup.barcode) onClearLookup?.();
+              }}
             />
             <input
               ref={barcodeCameraInputRef}
@@ -274,10 +316,81 @@ function CaptureEditor({ form, setForm, saving, onSave, onCancel, onToast, Icons
           />
         </Field>
       </div>
-      <div className="mt-4 flex gap-2">
+      {formLookup?.loading || formLookup?.lookedUp || formLookup?.error ? (
+        <div className="mt-4 border-t border-edge/70 pt-3" aria-label="Scan lookup results">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <div className="text-sm font-medium text-ink">Scan results</div>
+              <div className="mt-0.5 text-xs text-ghost">
+                {formLookup?.loading
+                  ? 'Looking up matches...'
+                  : lookupMatches.length
+                    ? `${lookupMatches.length} candidate${lookupMatches.length === 1 ? '' : 's'} for ${formLookup.barcode || form.barcode}`
+                    : formLookup?.error
+                      ? formLookup.error
+                      : `No matches found for ${formLookup.barcode || form.barcode}`}
+              </div>
+            </div>
+            {formLookup?.lookedUp ? (
+              <button
+                type="button"
+                className="btn-ghost btn-sm"
+                disabled={saving || formImporting}
+                onClick={onSaveAndScanNext}
+              >
+                Save and scan next
+              </button>
+            ) : null}
+          </div>
+          {lookupMatches.length ? (
+            <div className="mt-3 divide-y divide-edge/70 border-y border-edge/70">
+              {lookupMatches.slice(0, 6).map((match) => (
+                <div key={match.id || `${match.source}-${match.title}`} className="grid gap-2 py-2 text-sm md:grid-cols-[1fr_auto] md:items-center">
+                  <div className="min-w-0">
+                    <div className="truncate font-medium text-ink">{match.title || 'Untitled match'}</div>
+                    <div className="mt-0.5 truncate text-xs text-ghost">
+                      {[
+                        match.already_imported ? 'In library' : titleCase(match.source || 'provider'),
+                        typeLabel(match.media_type || match.mediaTypeGuess, OBJECT_TYPES),
+                        match.year
+                      ].filter(Boolean).join(' · ')}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-ghost btn-sm"
+                    disabled={saving || formImporting}
+                    onClick={() => onImportMatch?.(match)}
+                  >
+                    {match.already_imported ? 'Link' : 'Add to library'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {formLookup?.lookup?.provider_error && lookupMatches.length ? (
+            <div className="mt-2 text-xs text-warn">Provider warning: {formLookup.lookup.provider_error}</div>
+          ) : null}
+        </div>
+      ) : null}
+      <div className="mt-4 flex flex-wrap gap-2">
         <button type="submit" className="btn-primary" disabled={saving}>
-          {saving ? 'Saving...' : 'Save capture'}
+          {saving ? 'Saving...' : formLookup?.lookedUp ? 'Save for review' : 'Save capture'}
         </button>
+        {form.barcode ? (
+          <button
+            type="button"
+            className="btn-ghost"
+            disabled={saving || formLookup?.loading}
+            onClick={() => onLookupBarcode?.({
+              barcode: form.barcode,
+              symbology: form.symbology,
+              mediaType: form.object_type
+            })}
+          >
+            {formLookup?.loading ? 'Finding...' : 'Find matches'}
+          </button>
+        ) : null}
         <button type="button" className="btn-ghost" onClick={onCancel}>Cancel</button>
       </div>
     </form>
@@ -295,8 +408,11 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
   const [saving, setSaving] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [formLookup, setFormLookup] = useState(EMPTY_FORM_LOOKUP);
   const [error, setError] = useState(null);
   const [workingCaptureId, setWorkingCaptureId] = useState(null);
+  const [formImporting, setFormImporting] = useState(false);
+  const [scanRequest, setScanRequest] = useState(0);
 
   const loadCaptures = useCallback(async (page = 1) => {
     setLoading(true);
@@ -334,17 +450,36 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
     return counts;
   }, [items]);
 
-  const payloadFromForm = () => ({
-    title: form.title || null,
-    capture_type: form.capture_type,
-    object_type: form.object_type,
-    barcode: form.barcode || null,
-    symbology: form.symbology || null,
-    image_path: form.image_path || null,
-    ocr_text: form.ocr_text || null,
-    notes: form.notes || null,
-    source_context: { source: 'web_capture_inbox' }
-  });
+  const reviewDecisionFromFormLookup = () => {
+    if (!formLookup.lookedUp && !formLookup.error && !formLookup.matches.length) return {};
+    return {
+      capture_lookup_matches: formLookup.matches,
+      capture_lookup_status: {
+        ...(formLookup.lookup || {}),
+        barcode: formLookup.barcode || form.barcode || null,
+        match_count: formLookup.matches.length,
+        provider_error: formLookup.error || formLookup.lookup?.provider_error || null,
+        looked_up_at: formLookup.lookup?.looked_up_at || new Date().toISOString(),
+        source: 'web_capture_editor'
+      }
+    };
+  };
+
+  const payloadFromForm = () => {
+    const reviewDecision = reviewDecisionFromFormLookup();
+    return {
+      title: form.title || null,
+      capture_type: form.capture_type,
+      object_type: form.object_type,
+      barcode: form.barcode || null,
+      symbology: form.symbology || null,
+      image_path: form.image_path || null,
+      ocr_text: form.ocr_text || null,
+      notes: form.notes || null,
+      source_context: { source: 'web_capture_inbox' },
+      ...(Object.keys(reviewDecision).length ? { review_decision: reviewDecision } : {})
+    };
+  };
 
   const uploadPayloadFromForm = () => {
     const body = new FormData();
@@ -355,29 +490,127 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
     if (form.symbology) body.append('symbology', form.symbology);
     if (form.ocr_text) body.append('ocr_text', form.ocr_text);
     if (form.notes) body.append('notes', form.notes);
+    const reviewDecision = reviewDecisionFromFormLookup();
+    if (Object.keys(reviewDecision).length) body.append('review_decision', JSON.stringify(reviewDecision));
     body.append('source_context', JSON.stringify({ source: 'web_capture_inbox' }));
     return body;
   };
 
-  const saveCapture = async () => {
+  const persistCapture = async () => {
+    if (form.image_file) {
+      const response = await apiCall('post', '/capture-items/upload-image', uploadPayloadFromForm(), {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      return response?.item || null;
+    }
+    const response = await apiCall('post', '/capture-items', payloadFromForm());
+    return response?.item || null;
+  };
+
+  const resetEditorForm = () => {
+    setForm(EMPTY_FORM);
+    setFormLookup(EMPTY_FORM_LOOKUP);
+  };
+
+  const saveCapture = async ({ closeEditor = true, silent = false } = {}) => {
     setSaving(true);
     try {
-      if (form.image_file) {
-        await apiCall('post', '/capture-items/upload-image', uploadPayloadFromForm(), {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
-      } else {
-        await apiCall('post', '/capture-items', payloadFromForm());
-      }
-      onToast?.('Capture saved.', 'success');
-      setEditorOpen(false);
-      setForm(EMPTY_FORM);
+      const item = await persistCapture();
+      if (!silent) onToast?.('Capture saved.', 'success');
+      if (closeEditor) setEditorOpen(false);
+      resetEditorForm();
       await loadCaptures(1);
+      return item;
     } catch (err) {
       onToast?.(err?.message || 'Could not save capture.', 'error');
+      return null;
     } finally {
       setSaving(false);
     }
+  };
+
+  const lookupFormBarcode = async ({ barcode, symbology = '', mediaType = null } = {}) => {
+    const code = String(barcode || '').trim();
+    if (!code) return;
+    setFormLookup({
+      ...EMPTY_FORM_LOOKUP,
+      loading: true,
+      barcode: code,
+      lookedUp: true
+    });
+    try {
+      const response = await apiCall('post', '/media/lookup/barcode', {
+        barcode: code,
+        symbology: symbology || null,
+        mediaType: mediaType && mediaType !== 'other' ? mediaType : null,
+        limit: 6
+      });
+      const matches = Array.isArray(response?.matches) ? response.matches : [];
+      setFormLookup({
+        loading: false,
+        matches,
+        lookup: {
+          provider: response?.provider || null,
+          barcode: response?.barcode || code,
+          symbology: response?.symbology || symbology || null,
+          count: response?.count ?? matches.length,
+          catalog_count: response?.catalog_count || 0,
+          provider_count: response?.provider_count || 0,
+          provider_error: response?.provider_error || null,
+          looked_up_at: new Date().toISOString()
+        },
+        error: null,
+        barcode: response?.barcode || code,
+        lookedUp: true
+      });
+      onToast?.(
+        matches.length ? `Found ${matches.length} match${matches.length === 1 ? '' : 'es'}.` : 'No matches found. You can save this capture for review.',
+        matches.length ? 'success' : 'info'
+      );
+    } catch (err) {
+      const message = err?.message || 'Could not find matches.';
+      setFormLookup({
+        ...EMPTY_FORM_LOOKUP,
+        loading: false,
+        error: message,
+        barcode: code,
+        lookedUp: true
+      });
+      onToast?.(message, 'error');
+    }
+  };
+
+  const importFormLookupMatch = async (match) => {
+    setFormImporting(true);
+    try {
+      const item = await saveCapture({ closeEditor: false, silent: true });
+      if (!item?.id) return;
+      const response = await apiCall('post', `/capture-items/${item.id}/import-match`, {
+        match_id: match.id,
+        match,
+        barcode: form.barcode || match.barcode || match.upc || null,
+        symbology: form.symbology || match.symbology || null,
+        media_type: match.media_type || match.mediaTypeGuess || form.object_type || null
+      });
+      const action = response?.import?.action === 'matched_existing' ? 'linked' : 'added';
+      onToast?.(`Capture ${action} to library.`, 'success');
+      setEditorOpen(false);
+      resetEditorForm();
+      await loadCaptures(1);
+    } catch (err) {
+      onToast?.(err?.message || 'Could not add selected match.', 'error');
+    } finally {
+      setFormImporting(false);
+    }
+  };
+
+  const saveAndScanNext = async () => {
+    const item = await saveCapture({ closeEditor: false, silent: true });
+    if (!item?.id) return;
+    onToast?.('Capture saved. Ready for the next scan.', 'success');
+    resetEditorForm();
+    setEditorOpen(true);
+    setScanRequest((current) => current + 1);
   };
 
   const updateStatus = async (item, nextStatus) => {
@@ -523,7 +756,7 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
   };
 
   const openNewCapture = () => {
-    setForm(EMPTY_FORM);
+    resetEditorForm();
     setEditorOpen(true);
     window.requestAnimationFrame(() => {
       window.setTimeout(() => {
@@ -606,13 +839,20 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
           form={form}
           setForm={setForm}
           saving={saving}
+          formLookup={formLookup}
+          formImporting={formImporting}
+          scanRequest={scanRequest}
           onSave={saveCapture}
           onToast={onToast}
+          onLookupBarcode={lookupFormBarcode}
+          onClearLookup={() => setFormLookup(EMPTY_FORM_LOOKUP)}
+          onImportMatch={importFormLookupMatch}
+          onSaveAndScanNext={saveAndScanNext}
           Icons={Icons}
           editorRef={editorRef}
           onCancel={() => {
             setEditorOpen(false);
-            setForm(EMPTY_FORM);
+            resetEditorForm();
           }}
         />
       ) : null}

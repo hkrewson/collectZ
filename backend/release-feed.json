@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.8.11",
+      "version": "3.8.11",
+      "date": "2026-05-19",
+      "status": "implemented",
+      "summary": "This release shortens the Capture Inbox barcode workflow by showing lookup candidates immediately in the new-capture editor after a barcode or ISBN is scanned or entered.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Capture Inbox can run the scanner barcode lookup contract before the capture row is saved.",
+            "New-capture lookup results appear inline with candidate title, source, type, and library state.",
+            "A selected result can be added or linked through the existing Capture Inbox import path.",
+            "Captures saved for review now keep lookup matches and lookup status on the capture row.",
+            "Added a `Save and scan next` action so scanning another item does not require returning to the inbox list."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.8.10",
       "version": "3.8.10",
       "date": "2026-05-19",
@@ -168,25 +187,6 @@
             "Stored OCR candidate lists and selected candidate metadata in capture review data.",
             "Added compact OCR candidate controls in Library > Capture Inbox.",
             "Documented the OCR text and candidate apply contracts in OpenAPI."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.8.1",
-      "version": "3.8.1",
-      "date": "2026-05-18",
-      "status": "implemented",
-      "summary": "This release turns Capture Inbox photo entries into real backend-owned uploads instead of only storing pasted image paths.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added authenticated `POST /api/capture-items/upload-image` for multipart photo capture uploads.",
-            "Stored uploaded capture images through the existing backend storage provider and saved the returned image path on the capture row.",
-            "Added web Capture Inbox photo upload support with mobile-friendly image selection.",
-            "Added capture image thumbnails in the inbox list.",
-            "Documented the multipart upload contract in OpenAPI."
           ]
         }
       ]

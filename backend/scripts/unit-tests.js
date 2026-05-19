@@ -6317,6 +6317,12 @@ results.push(run('mobile capture inbox foundation is scoped, routed, and reviewa
   assert.ok(captureInboxViewSource.includes('Find matches'));
   assert.ok(captureInboxViewSource.includes('importLookupMatch'));
   assert.ok(captureInboxViewSource.includes('Capture lookup matches'));
+  assert.ok(captureInboxViewSource.includes("apiCall('post', '/media/lookup/barcode'"));
+  assert.ok(captureInboxViewSource.includes('reviewDecisionFromFormLookup'));
+  assert.ok(captureInboxViewSource.includes('importFormLookupMatch'));
+  assert.ok(captureInboxViewSource.includes('Scan results'));
+  assert.ok(captureInboxViewSource.includes('Save and scan next'));
+  assert.ok(captureInboxViewSource.includes('Add to library'));
   assert.ok(captureInboxViewSource.includes('type="file"'));
   assert.ok(captureInboxViewSource.includes('detectBarcodeCapturePayloadFromFile'));
   assert.ok(captureInboxViewSource.includes('extractIdentifierCandidatesFromFile'));
@@ -6333,6 +6339,9 @@ results.push(run('mobile capture inbox foundation is scoped, routed, and reviewa
   assert.ok(activityFeedViewSource.includes('Capture added to Wishlist'));
   assert.ok(adminShellBrowserSpecSource.includes('/dashboard?tab=library-capture'));
   assert.ok(adminShellBrowserSpecSource.includes('/api/capture-items'));
+  assert.ok(adminShellBrowserSpecSource.includes('/api/media/lookup/barcode'));
+  assert.ok(adminShellBrowserSpecSource.includes('Scan lookup results'));
+  assert.ok(adminShellBrowserSpecSource.includes('Save and scan next'));
   assert.ok(adminShellBrowserSpecSource.includes('client_capture_id: clientCaptureId'));
   assert.ok(adminShellBrowserSpecSource.includes('retryPayload?.idempotent'));
   assert.ok(adminShellBrowserSpecSource.includes("conflictRetryPayload?.idempotency?.status"));

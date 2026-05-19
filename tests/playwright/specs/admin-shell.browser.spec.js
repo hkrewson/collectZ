@@ -298,6 +298,47 @@ test.describe('admin shell browser regressions', () => {
       await expect(page.getByLabel('Barcode camera image')).toHaveAttribute('capture', 'environment');
       await page.getByRole('button', { name: 'Save capture' }).scrollIntoViewIfNeeded();
       await expect(page.getByRole('button', { name: 'Save capture' })).toBeVisible();
+      await page.route('**/api/media/lookup/barcode', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            ok: true,
+            authenticated: true,
+            provider: 'playwright-barcode',
+            barcode: '9780553572773',
+            symbology: 'ISBN-13',
+            count: 1,
+            catalog_count: 0,
+            provider_count: 1,
+            matches: [{
+              id: 'barcode:playwright:9780553572773',
+              source: 'books:isbn-direct',
+              match_type: 'provider_candidate',
+              title: 'Before the Storm',
+              normalizedTitle: 'Before the Storm',
+              searchTitle: 'Before the Storm',
+              barcode: '9780553572773',
+              upc: '9780553572773',
+              symbology: 'ISBN-13',
+              mediaTypeGuess: 'book',
+              media_type: 'book',
+              already_imported: false
+            }]
+          })
+        });
+      });
+      await page.getByLabel('Barcode / ISBN').fill('9780553572773');
+      const unsavedLookupResponse = page.waitForResponse((response) => (
+        response.url().includes('/api/media/lookup/barcode') && response.request().method() === 'POST'
+      ));
+      await page.locator('form').getByRole('button', { name: 'Find matches' }).click();
+      expect((await unsavedLookupResponse).ok()).toBeTruthy();
+      await expect(page.getByLabel('Scan lookup results')).toBeVisible();
+      await expect(page.getByText('Before the Storm', { exact: true })).toBeVisible();
+      await expect(page.locator('form').getByRole('button', { name: 'Add to library' })).toBeVisible();
+      await expect(page.locator('form').getByRole('button', { name: 'Save and scan next' })).toBeVisible();
+      await page.unroute('**/api/media/lookup/barcode');
 
       const convertResponse = await postWithCsrf(requestContext, `/api/capture-items/${captureId}/convert-wishlist`, {}, 201);
       const convertPayload = await convertResponse.json();

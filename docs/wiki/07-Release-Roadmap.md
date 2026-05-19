@@ -10807,8 +10807,45 @@ Historical note:
 - CI/checks run locally: host `node backend/scripts/unit-tests.js` (`295` passed); `npm --prefix frontend run build`; Docker backend/frontend build; Docker `npm run test:unit` (`295` passed); Docker `npm run test:openapi`; `node backend/scripts/validate-openapi.js`; Docker `npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.8.10 npm run test:help-releases-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker temporary homelab override plus `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`; Docker `npm run test:init-parity` after rerunning a clean copy because an earlier parallel homelab rebuild interrupted it; Docker `npm run test:migration-rehearsal`; targeted Capture Inbox Playwright regression; full `npm run test:browser` (`70` passed, `4` skipped); backend/frontend production dependency audits (`0` vulnerabilities); local observability evidence (`9/9` checks passed); public export surface validation; local release preflight; version sync check; release note heading check; `git diff --check`; targeted release/evidence secret-pattern scan. Local compose smoke secure-cookie basics remain blocked by the development stack settings (`SESSION_COOKIE_SECURE=false`, `NODE_ENV=development`), and CI remains authoritative for `secret-scan` plus `image-security-and-sbom`.
 - Files changed for this slice: `app-meta.json`; `artifacts/dependency-audit/backend-audit.json`; `artifacts/dependency-audit/frontend-audit.json`; `artifacts/init-parity-evidence/init-parity-evidence.json`; `artifacts/migration-rehearsal-evidence/migration-rehearsal-evidence.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `backend/app-meta.json`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/scripts/unit-tests.js`; `docker-compose.yml`; `docs/releases/v3.8.10.md`; `docs/releases/v3.8.9.md`; `docs/wiki/07-Release-Roadmap.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/CaptureInboxView.jsx`; `preflight-go-no-go.md`; `tests/playwright/specs/admin-shell.browser.spec.js`.
 - Risks/follow-ups: ISBN recognition depends on the captured image containing readable ISBN text and may still fall back to UPC under glare, blur, or odd book packaging. The temporary scan image remains browser-local unless the user separately uses photo upload. The native iOS scanner client is unchanged by this web Capture Inbox patch.
-- What remains in the milestone: nothing for `3.8.10`; later Mobile-First Capture Workflow slices can tune ISBN candidate selection with real scan samples, add cover/art recognition, and route uncertain captures into the unified review queue.
+- What remains in the milestone: nothing for `3.8.10`; next planned work is `3.8.11 — Capture Scan Immediate Lookup`, followed by batch scan mode, safe ISBN auto-import, and exception review routing.
 - Recommended commit message: `Release 3.8.10 with Capture Inbox barcode camera ISBN recognition`.
+
+## 3.8.11 — Capture Scan Immediate Lookup
+
+**Goal:** Reduce scanner/capture friction by turning a successful barcode/ISBN camera scan into immediate lookup results before the user has to save and revisit the capture row.
+
+### Planned Scope
+
+- After Barcode / ISBN camera scan fills an ISBN or UPC, immediately run the existing lookup flow for that identifier.
+- Show lookup candidates inline in the new-capture editor.
+- Allow the user to choose between `Add selected to library`, `Save capture for review`, and `Scan next`.
+- Keep the backend as source of truth and reuse the scanner/import lookup contracts; do not route through the web Library add drawer.
+- Keep auto-import off in this slice unless the user explicitly chooses the selected match.
+
+### Acceptance Targets
+
+- A successful camera scan can display lookup candidates before saving the capture row.
+- A single clear match can be imported or linked with one explicit user action.
+- Multiple or weak matches remain visible for user selection rather than silently choosing one.
+- `Scan next` returns the user to the camera workflow without forcing manual navigation.
+- Existing Capture Inbox rows remain the review surface for unresolved or no-match captures.
+
+### Follow-on Capture Workflow Slices
+
+- `Capture Batch Scan Mode`: allow repeated scan, save, scan-next loops for stacks of books, comics, and media.
+- `Capture Safe ISBN Auto-Import`: optionally auto-import exact ISBN matches when confidence and provider metadata are strong enough.
+- `Capture Exceptions Review Queue`: push no-match, multi-match, weak-metadata, and sparse-cover captures into a review-only queue.
+
+### Closeout
+
+- Roadmap slice: `3.8.11 — Capture Scan Immediate Lookup`.
+- Project docs/checklists used: `AGENTS.md`; `/Users/hamlin/.codex/skills/uncodixfy/SKILL.md`; `docs/wiki/06-Versioning-and-Build-Metadata.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.8.11.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild with `APP_VERSION=3.8.11`; running `/api/health` reported frontend/backend/build `3.8.11`; backend logs reported `Database schema up to date (104 migration(s) applied)` and `collectZ backend v3.8.11`; running backend env readback was verified with secrets redacted and showed `APP_EDITION=platform`, `APP_VERSION=3.8.11`, `NODE_ENV=development`, `SESSION_COOKIE_SECURE=false`, `TRUST_PROXY=0`, and a redacted DB URL; Help > Releases smoke served `3.8.11`; temporary homelab-mode stack proved the homelab edition boundary and the local stack was restored to platform mode afterward.
+- CI/checks run locally: host `node backend/scripts/unit-tests.js` (`295` passed); host `npm --prefix frontend run build`; host `node backend/scripts/validate-openapi.js`; Docker backend/frontend build; Docker `npm run test:unit` (`295` passed); Docker `npm run test:openapi`; Docker `npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.8.11 npm run test:help-releases-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker temporary homelab override plus `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; targeted Capture Inbox browser regression; full `npm run test:browser` (`70` passed, `4` skipped) after a targeted docs-capture rerun confirmed an earlier tail-end timeout was transient; backend/frontend production dependency audits (`0` vulnerabilities); local observability evidence (`9/9` checks passed); public export surface validation; local release preflight; version sync check; release note heading check; `git diff --check`.
+- Files changed for this slice: `app-meta.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `backend/app-meta.json`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/scripts/unit-tests.js`; `docs/releases/v3.8.11.md`; `docs/wiki/07-Release-Roadmap.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/CaptureInboxView.jsx`; `preflight-go-no-go.md`; `tests/playwright/specs/admin-shell.browser.spec.js`.
+- Risks/follow-ups: immediate lookup still depends on provider availability and barcode/ISBN readability; safe auto-import remains intentionally deferred; batch mode is still a follow-on and this slice keeps each add/import as an explicit user action.
+- What remains in the milestone: nothing for `3.8.11`; next Mobile-First Capture Workflow slices are `Capture Batch Scan Mode`, `Capture Safe ISBN Auto-Import`, and `Capture Exceptions Review Queue`.
+- Recommended commit message: `Release 3.8.11 with Capture Scan Immediate Lookup for Capture Inbox`.
 
 ## 3.8.8 — Capture Selected Match Import
 
