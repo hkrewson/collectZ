@@ -3298,6 +3298,19 @@
               "client_capture_id": { "type": ["string", "null"] }
             },
             "additionalProperties": true
+          },
+          "replay_conflicts": {
+            "type": "array",
+            "description": "Fields that differed from the existing row during an idempotent replay and were preserved for review instead of silently overwriting.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": { "type": "string" },
+                "existing": { "type": ["string", "null"] },
+                "incoming": { "type": ["string", "null"] }
+              },
+              "required": ["field", "existing", "incoming"]
+            }
           }
         },
         "required": ["item"]
@@ -3322,6 +3335,19 @@
               "client_capture_id": { "type": ["string", "null"] }
             },
             "additionalProperties": true
+          },
+          "replay_conflicts": {
+            "type": "array",
+            "description": "Fields that differed from the existing row during an idempotent upload replay and were preserved for review instead of silently overwriting.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": { "type": "string" },
+                "existing": { "type": ["string", "null"] },
+                "incoming": { "type": ["string", "null"] }
+              },
+              "required": ["field", "existing", "incoming"]
+            }
           }
         },
         "required": ["item", "upload"]

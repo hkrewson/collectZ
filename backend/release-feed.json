@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.8.4",
+      "version": "3.8.4",
+      "date": "2026-05-18",
+      "status": "implemented",
+      "summary": "This release makes idempotent Capture Inbox retries more reviewable by preserving conflicting replay data instead of silently overwriting the existing capture row.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Detects differing title, capture type, object type, barcode, symbology, OCR text, and image path values when a queued capture retry reuses an existing `client_capture_id`.",
+            "Keeps the existing capture values when a replay contains conflicting identifying data.",
+            "Stores conflicting incoming values in `capture_items.review_decision.capture_replay_conflicts`.",
+            "Returns `idempotency.status`, `idempotency.conflict_count`, and `replay_conflicts` in retry responses.",
+            "Documents replay conflict readback in OpenAPI."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.8.3",
       "version": "3.8.3",
       "date": "2026-05-18",
@@ -167,26 +186,6 @@
             "Wired Workspace Activity links so workspace entries can open the matching workspace tab or jump out to the relevant library item.",
             "Added focus handoff for media, Art, Collectible, and Event targets so existing rows can open their detail drawer after navigation.",
             "Extended the workspace activity browser regression to prove a media timeline row can open the related library detail."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.7.0",
-      "version": "3.7.0",
-      "date": "2026-05-17",
-      "status": "implemented",
-      "summary": "This minor milestone turns the existing technical activity feed into a readable timeline for people using the app day to day, while keeping the raw audit details available when operators need them.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Promoted `Human-Readable Activity Timeline` from the product backlog into the `3.7.0` roadmap.",
-            "Reworked the shared Activity surface so Admin Activity and Workspace Activity show readable timeline entries first.",
-            "Added timeline copy for imports, scanner imports, Plex and Kavita provider activity, ratings, watched-state changes, valuation refreshes, library changes, wishlist conversions, workspace people/invite activity, security events, and failures.",
-            "Added filters for imports, providers, library, events, people, security, and failures.",
-            "Moved raw action names, exact timestamps, IPs, statuses, reasons, and JSON details behind a `Technical details` disclosure.",
-            "Moved the working app/version metadata to `3.7.0` so the minor milestone is aligned across app meta, packages, public compose defaults, release notes, and the in-app release feed."
           ]
         }
       ]

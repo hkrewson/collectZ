@@ -148,8 +148,26 @@ test.describe('admin shell browser regressions', () => {
       const retryPayload = await retryResponse.json();
       expect(retryPayload?.idempotent).toBe(true);
       expect(retryPayload?.idempotency?.replayed).toBe(true);
+      expect(retryPayload?.idempotency?.status).toBe('matched');
       expect(Number(retryPayload?.item?.id || 0)).toBe(captureId);
       expect(retryPayload?.item?.notes).toBe('Retried from offline queue');
+
+      const conflictRetryResponse = await postWithCsrf(requestContext, '/api/capture-items', {
+        title: `${title} conflicting replay`,
+        capture_type: 'barcode',
+        object_type: 'book',
+        barcode: '9780553572391',
+        symbology: 'ISBN-13',
+        client_capture_id: clientCaptureId,
+        client_source: 'playwright-browser'
+      });
+      const conflictRetryPayload = await conflictRetryResponse.json();
+      expect(conflictRetryPayload?.idempotent).toBe(true);
+      expect(conflictRetryPayload?.idempotency?.status).toBe('needs_review');
+      expect(Number(conflictRetryPayload?.item?.id || 0)).toBe(captureId);
+      expect(conflictRetryPayload?.item?.barcode).toBe(createPayload.item.barcode);
+      expect(conflictRetryPayload?.replay_conflicts?.some((conflict) => conflict.field === 'barcode')).toBeTruthy();
+      expect(conflictRetryPayload?.item?.review_decision?.capture_replay_last_status).toBe('needs_review');
 
       const csrfToken = await fetchCsrfToken(requestContext);
       const uploadResponse = await requestContext.post('/api/capture-items/upload-image', {
@@ -193,6 +211,7 @@ test.describe('admin shell browser regressions', () => {
       expect(retryUploadResponse.status()).toBe(200);
       const retryUploadPayload = await retryUploadResponse.json();
       expect(retryUploadPayload?.idempotent).toBe(true);
+      expect(retryUploadPayload?.idempotency?.status).toBe('matched');
       expect(Number(retryUploadPayload?.item?.id || 0)).toBe(photoCaptureId);
       expect(retryUploadPayload?.item?.image_path).toBe(uploadPayload.item.image_path);
 

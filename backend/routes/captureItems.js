@@ -148,6 +148,56 @@ function findStoredOcrCandidate(reviewDecision = {}, candidateId = '') {
   return candidates.find((candidate) => String(candidate?.id || '') === String(candidateId || '')) || null;
 }
 
+function compareReplayField(field, currentValue, incomingValue) {
+  const normalizedCurrent = nullableString(currentValue);
+  const normalizedIncoming = nullableString(incomingValue);
+  if (!normalizedIncoming || !normalizedCurrent || normalizedIncoming === normalizedCurrent) return null;
+  return { field, existing: normalizedCurrent, incoming: normalizedIncoming };
+}
+
+function buildReplayConflicts(current, item) {
+  return [
+    compareReplayField('title', current.title, item.title),
+    compareReplayField('capture_type', current.capture_type, item.capture_type),
+    compareReplayField('object_type', current.object_type, item.object_type),
+    compareReplayField('barcode', current.barcode, item.barcode),
+    compareReplayField('symbology', current.symbology, item.symbology),
+    compareReplayField('ocr_text', current.ocr_text, item.ocr_text),
+    compareReplayField('image_path', current.image_path, item.image_path)
+  ].filter(Boolean);
+}
+
+function mergeReplayConflictReview(currentReviewDecision = {}, conflicts = [], item = {}) {
+  const current = jsonObject(currentReviewDecision);
+  if (!conflicts.length) {
+    return {
+      ...current,
+      capture_replay_last_status: 'matched'
+    };
+  }
+  const previous = Array.isArray(current.capture_replay_conflicts) ? current.capture_replay_conflicts : [];
+  const replayRecord = {
+    status: 'needs_review',
+    received_at: new Date().toISOString(),
+    fields: conflicts,
+    incoming: {
+      title: item.title ?? null,
+      capture_type: item.capture_type ?? null,
+      object_type: item.object_type ?? null,
+      barcode: item.barcode ?? null,
+      symbology: item.symbology ?? null,
+      ocr_text: item.ocr_text ?? null,
+      image_path: item.image_path ?? null
+    }
+  };
+  return {
+    ...current,
+    capture_replay_last_status: 'needs_review',
+    capture_replay_conflict_count: previous.length + 1,
+    capture_replay_conflicts: [...previous.slice(-4), replayRecord]
+  };
+}
+
 function buildScopedWhere(params, scopeContext, id = null) {
   let where = 'WHERE 1=1';
   if (id !== null && id !== undefined) {
@@ -184,27 +234,38 @@ async function fetchCaptureItemByClientCaptureId(clientCaptureId, scopeContext) 
 
 async function updateCaptureItemFromRetry(existing, item, scopeContext, req, action = 'capture.idempotent_replay') {
   const current = shapeCaptureItem(existing);
+  const replayConflicts = buildReplayConflicts(current, item);
   const sourceContext = {
     ...current.source_context,
     ...mergeClientCaptureContext(req.body || {}, item.source_context || {}),
-    idempotent_replayed_at: new Date().toISOString()
+    idempotent_replayed_at: new Date().toISOString(),
+    ...(replayConflicts.length ? { idempotent_replay_status: 'needs_review' } : { idempotent_replay_status: 'matched' })
   };
-  const reviewDecision = {
-    ...current.review_decision,
-    ...jsonObject(item.review_decision)
-  };
+  const reviewDecision = mergeReplayConflictReview(
+    {
+      ...current.review_decision,
+      ...jsonObject(item.review_decision)
+    },
+    replayConflicts,
+    item
+  );
+  const shouldApplyIncoming = replayConflicts.length === 0;
 
   const result = await pool.query(
     `UPDATE capture_items
-        SET title = COALESCE($1, title),
-            capture_type = COALESCE($2, capture_type),
-            status = CASE WHEN status IN ('converted', 'discarded') THEN status ELSE COALESCE($3, status) END,
-            object_type = COALESCE($4, object_type),
-            barcode = COALESCE($5, barcode),
-            symbology = COALESCE($6, symbology),
-            ocr_text = COALESCE($7, ocr_text),
+        SET title = CASE WHEN $13::boolean THEN COALESCE($1, title) ELSE title END,
+            capture_type = CASE WHEN $13::boolean THEN COALESCE($2, capture_type) ELSE capture_type END,
+            status = CASE
+              WHEN status IN ('converted', 'discarded') THEN status
+              WHEN $13::boolean THEN COALESCE($3, status)
+              ELSE status
+            END,
+            object_type = CASE WHEN $13::boolean THEN COALESCE($4, object_type) ELSE object_type END,
+            barcode = CASE WHEN $13::boolean THEN COALESCE($5, barcode) ELSE barcode END,
+            symbology = CASE WHEN $13::boolean THEN COALESCE($6, symbology) ELSE symbology END,
+            ocr_text = CASE WHEN $13::boolean THEN COALESCE($7, ocr_text) ELSE ocr_text END,
             notes = COALESCE($8, notes),
-            image_path = COALESCE($9, image_path),
+            image_path = CASE WHEN $13::boolean THEN COALESCE($9, image_path) ELSE image_path END,
             source_context = $10::jsonb,
             review_decision = $11::jsonb,
             updated_at = CURRENT_TIMESTAMP
@@ -222,7 +283,8 @@ async function updateCaptureItemFromRetry(existing, item, scopeContext, req, act
       item.image_path ?? null,
       JSON.stringify(sourceContext),
       JSON.stringify(reviewDecision),
-      current.id
+      current.id,
+      shouldApplyIncoming
     ]
   );
 
@@ -231,11 +293,12 @@ async function updateCaptureItemFromRetry(existing, item, scopeContext, req, act
     title: updated.title,
     captureType: updated.capture_type,
     clientCaptureId: updated.client_capture_id,
+    replayConflictCount: replayConflicts.length,
     status: updated.status,
     spaceId: scopeContext.spaceId,
     libraryId: scopeContext.libraryId
   });
-  return updated;
+  return { item: updated, conflicts: replayConflicts };
 }
 
 router.get('/capture-items', asyncHandler(async (req, res) => {
@@ -312,14 +375,17 @@ router.post('/capture-items', asyncHandler(async (req, res) => {
   const clientCaptureId = extractClientCaptureId(req.body || {}, item.source_context || {});
   const existing = await fetchCaptureItemByClientCaptureId(clientCaptureId, scopeContext);
   if (existing) {
-    const updated = await updateCaptureItemFromRetry(existing, item, scopeContext, req);
+    const retryResult = await updateCaptureItemFromRetry(existing, item, scopeContext, req);
     return res.json({
-      item: updated,
+      item: retryResult.item,
       idempotent: true,
       idempotency: {
         replayed: true,
-        client_capture_id: updated.client_capture_id
-      }
+        client_capture_id: retryResult.item.client_capture_id,
+        conflict_count: retryResult.conflicts.length,
+        status: retryResult.conflicts.length ? 'needs_review' : 'matched'
+      },
+      replay_conflicts: retryResult.conflicts
     });
   }
 
@@ -379,19 +445,32 @@ router.post('/capture-items/upload-image', memoryUpload.single('image'), asyncHa
   if (existing) {
     const current = shapeCaptureItem(existing);
     if (current.image_path) {
-      await logActivity(req, 'capture.image.idempotent_replay', 'capture_item', current.id, {
-        title: current.title,
-        captureType: current.capture_type,
-        imagePath: current.image_path,
-        clientCaptureId: current.client_capture_id,
-        spaceId: current.space_id,
-        libraryId: current.library_id
-      });
+      const retryResult = await updateCaptureItemFromRetry(
+        existing,
+        {
+          ...bodyItem,
+          title: bodyItem.title || nullableString(req.body?.name) || nullableString(req.file.originalname),
+          capture_type: 'photo',
+          source_context: preUploadSourceContext
+        },
+        scopeContext,
+        req,
+        'capture.image.idempotent_replay'
+      );
       return res.json({
-        item: current,
-        upload: { image_path: current.image_path, provider: current.source_context?.upload_provider || 'existing' },
+        item: retryResult.item,
+        upload: {
+          image_path: retryResult.item.image_path,
+          provider: retryResult.item.source_context?.upload_provider || current.source_context?.upload_provider || 'existing'
+        },
         idempotent: true,
-        idempotency: { replayed: true, client_capture_id: current.client_capture_id }
+        idempotency: {
+          replayed: true,
+          client_capture_id: retryResult.item.client_capture_id,
+          conflict_count: retryResult.conflicts.length,
+          status: retryResult.conflicts.length ? 'needs_review' : 'matched'
+        },
+        replay_conflicts: retryResult.conflicts
       });
     }
   }
@@ -407,7 +486,7 @@ router.post('/capture-items/upload-image', memoryUpload.single('image'), asyncHa
   };
   const title = bodyItem.title || nullableString(req.body?.name) || nullableString(req.file.originalname) || 'Photo capture';
   if (existing) {
-    const updated = await updateCaptureItemFromRetry(
+    const retryResult = await updateCaptureItemFromRetry(
       existing,
       {
         ...bodyItem,
@@ -421,10 +500,16 @@ router.post('/capture-items/upload-image', memoryUpload.single('image'), asyncHa
       'capture.image.idempotent_replay'
     );
     return res.json({
-      item: updated,
+      item: retryResult.item,
       upload: { image_path: stored.url, provider: stored.provider },
       idempotent: true,
-      idempotency: { replayed: true, client_capture_id: updated.client_capture_id }
+      idempotency: {
+        replayed: true,
+        client_capture_id: retryResult.item.client_capture_id,
+        conflict_count: retryResult.conflicts.length,
+        status: retryResult.conflicts.length ? 'needs_review' : 'matched'
+      },
+      replay_conflicts: retryResult.conflicts
     });
   }
 
