@@ -6322,6 +6322,13 @@ results.push(run('mobile capture inbox foundation is scoped, routed, and reviewa
   assert.ok(captureInboxViewSource.includes('importFormLookupMatch'));
   assert.ok(captureInboxViewSource.includes('Scan results'));
   assert.ok(captureInboxViewSource.includes('Save and scan next'));
+  assert.ok(captureInboxViewSource.includes('Batch scan'));
+  assert.ok(captureInboxViewSource.includes('aria-label="Batch scan session"'));
+  assert.ok(captureInboxViewSource.includes('batchStats'));
+  assert.ok(captureInboxViewSource.includes('requestNextScan'));
+  assert.ok(captureInboxViewSource.includes('startBatchScan'));
+  assert.ok(captureInboxViewSource.includes('stopBatchScan'));
+  assert.ok(captureInboxViewSource.includes('Batch scan stopped.'));
   assert.ok(captureInboxViewSource.includes('Add to library'));
   assert.ok(captureInboxViewSource.includes('type="file"'));
   assert.ok(captureInboxViewSource.includes('detectBarcodeCapturePayloadFromFile'));
@@ -6342,6 +6349,7 @@ results.push(run('mobile capture inbox foundation is scoped, routed, and reviewa
   assert.ok(adminShellBrowserSpecSource.includes('/api/media/lookup/barcode'));
   assert.ok(adminShellBrowserSpecSource.includes('Scan lookup results'));
   assert.ok(adminShellBrowserSpecSource.includes('Save and scan next'));
+  assert.ok(adminShellBrowserSpecSource.includes('Batch scan'));
   assert.ok(adminShellBrowserSpecSource.includes('client_capture_id: clientCaptureId'));
   assert.ok(adminShellBrowserSpecSource.includes('retryPayload?.idempotent'));
   assert.ok(adminShellBrowserSpecSource.includes("conflictRetryPayload?.idempotency?.status"));

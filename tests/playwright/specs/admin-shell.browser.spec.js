@@ -292,6 +292,7 @@ test.describe('admin shell browser regressions', () => {
       expect(Number(importMatchPayload?.item?.linked_media_id || 0)).toBe(catalogMediaId);
       expect(importMatchPayload?.import?.action).toBe('matched_existing');
       await expect(page.getByRole('button', { name: 'New capture' })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Batch scan' })).toBeVisible();
       await page.setViewportSize({ width: 390, height: 844 });
       await page.getByRole('button', { name: 'New capture' }).click();
       await expect(page.getByRole('button', { name: 'Scan barcode with camera' })).toBeVisible();

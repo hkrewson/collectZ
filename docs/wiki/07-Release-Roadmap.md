@@ -10810,6 +10810,39 @@ Historical note:
 - What remains in the milestone: nothing for `3.8.10`; next planned work is `3.8.11 — Capture Scan Immediate Lookup`, followed by batch scan mode, safe ISBN auto-import, and exception review routing.
 - Recommended commit message: `Release 3.8.10 with Capture Inbox barcode camera ISBN recognition`.
 
+## 3.8.12 — Capture Batch Scan Mode
+
+**Goal:** Make repeated barcode/ISBN capture practical for stacks of items by keeping Capture Inbox in a scan-save-next loop.
+
+**Scope**
+
+- Add an explicit Batch scan mode in Capture Inbox.
+- Keep batch mode manual and review-first; do not auto-import or silently choose lookup candidates.
+- Show compact batch-session readback with saved, added, and needs-review counts.
+- Let `Save and scan next` persist the current capture and return to the next camera scan.
+- Let `Add to library`/`Link` keep batch mode moving to the next scan after a successful import/link.
+- Keep unresolved/no-match captures in Capture Inbox for later review.
+
+**Acceptance**
+
+- Batch scan can be started from Capture Inbox without leaving the page.
+- Batch session readback is visible while active.
+- Saving a scanned capture advances to the next scan.
+- Importing/linking a selected lookup candidate advances to the next scan while batch mode is active.
+- Stopping batch mode leaves normal single-capture behavior intact.
+- Version metadata, release note, release feed, and Help > Releases include `3.8.12`.
+
+### Closeout
+
+- Roadmap slice: `3.8.12 — Capture Batch Scan Mode`.
+- Project docs/checklists used: `AGENTS.md`; `/Users/hamlin/.codex/skills/uncodixfy/SKILL.md`; `docs/wiki/06-Versioning-and-Build-Metadata.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.8.12.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild with `APP_VERSION=3.8.12`; running `/api/health` reported frontend/backend/build `3.8.12`; backend logs reported `Database schema up to date (104 migration(s) applied)` and `collectZ backend v3.8.12`; running backend env readback was verified with secrets redacted and showed `APP_EDITION=platform`, `APP_VERSION=3.8.12`, `NODE_ENV=development`, `SESSION_COOKIE_SECURE=false`, `TRUST_PROXY=0`, and a redacted DB URL; Help > Releases smoke served `3.8.12`; temporary homelab-mode stack proved the homelab edition boundary and the local stack was restored to platform mode afterward; a CI-shaped disposable compose stack proved production secure-cookie/header/auth health checks on a throwaway environment before teardown.
+- CI/checks run locally: host `node backend/scripts/unit-tests.js` (`295` passed); host `npm --prefix frontend run build`; host `node backend/scripts/validate-openapi.js`; Docker backend/frontend build; Docker `npm run test:unit` (`295` passed); Docker `npm run test:openapi`; Docker `npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.8.12 npm run test:help-releases-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker temporary homelab override plus `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; CI-shaped disposable compose smoke; targeted Capture Inbox/admin shell browser regression (`9` passed); full `npm run test:browser` (`70` passed, `4` skipped); backend/frontend production dependency audits (`0` vulnerabilities); local observability evidence (`9/9` checks passed); public export surface validation; local release preflight; version sync check; release note heading check; `git diff --check`; targeted release/evidence secret-pattern scan. Local `gitleaks`, `trivy`, and `syft` are unavailable, so CI remains authoritative for full `secret-scan` and `image-security-and-sbom`.
+- Files changed for this slice: `app-meta.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `backend/app-meta.json`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/scripts/unit-tests.js`; `docker-compose.yml`; `docs/releases/v3.8.12.md`; `docs/wiki/07-Release-Roadmap.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/CaptureInboxView.jsx`; `preflight-go-no-go.md`; `tests/playwright/specs/admin-shell.browser.spec.js`.
+- Risks/follow-ups: batch scan still depends on browser camera/file input support and readable barcodes; it intentionally does not auto-pick candidates or auto-import exact ISBN matches; no-match and multi-match captures still rely on Capture Inbox review instead of a unified review queue.
+- What remains in the milestone: nothing for `3.8.12`; next Mobile-First Capture Workflow slices can cover safe exact-match ISBN automation, exception review routing, and richer multi-scan summaries.
+- Recommended commit message: `Release 3.8.12 with Capture Inbox batch scan mode`.
+
 ## 3.8.11 — Capture Scan Immediate Lookup
 
 **Goal:** Reduce scanner/capture friction by turning a successful barcode/ISBN camera scan into immediate lookup results before the user has to save and revisit the capture row.

@@ -111,6 +111,8 @@ function CaptureEditor({
   saving,
   formLookup,
   formImporting,
+  batchMode,
+  batchStats,
   scanRequest,
   onSave,
   onCancel,
@@ -119,6 +121,7 @@ function CaptureEditor({
   onClearLookup,
   onImportMatch,
   onSaveAndScanNext,
+  onStopBatch,
   Icons,
   editorRef
 }) {
@@ -207,6 +210,17 @@ function CaptureEditor({
         onSave?.();
       }}
     >
+      {batchMode ? (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-edge/70 pb-3" aria-label="Batch scan session">
+          <div className="text-sm text-ink">
+            Batch scan
+            <span className="ml-2 text-xs text-ghost">
+              {batchStats.saved} saved · {batchStats.imported} added · {batchStats.review} for review
+            </span>
+          </div>
+          <button type="button" className="btn-ghost btn-sm" onClick={onStopBatch}>Stop batch</button>
+        </div>
+      ) : null}
       <div className="grid grid-cols-1 gap-3 md:grid-cols-12">
         <Field label="Capture" className="md:col-span-2">
           <select
@@ -331,11 +345,11 @@ function CaptureEditor({
                       : `No matches found for ${formLookup.barcode || form.barcode}`}
               </div>
             </div>
-            {formLookup?.lookedUp ? (
+            {batchMode || formLookup?.lookedUp ? (
               <button
                 type="button"
                 className="btn-ghost btn-sm"
-                disabled={saving || formImporting}
+                disabled={saving || formImporting || !form.barcode}
                 onClick={onSaveAndScanNext}
               >
                 Save and scan next
@@ -413,6 +427,8 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
   const [workingCaptureId, setWorkingCaptureId] = useState(null);
   const [formImporting, setFormImporting] = useState(false);
   const [scanRequest, setScanRequest] = useState(0);
+  const [batchMode, setBatchMode] = useState(false);
+  const [batchStats, setBatchStats] = useState({ saved: 0, imported: 0, review: 0 });
 
   const loadCaptures = useCallback(async (page = 1) => {
     setLoading(true);
@@ -512,6 +528,11 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
     setFormLookup(EMPTY_FORM_LOOKUP);
   };
 
+  const requestNextScan = () => {
+    setEditorOpen(true);
+    setScanRequest((current) => current + 1);
+  };
+
   const saveCapture = async ({ closeEditor = true, silent = false } = {}) => {
     setSaving(true);
     try {
@@ -581,6 +602,7 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
   };
 
   const importFormLookupMatch = async (match) => {
+    const currentForm = { ...form };
     setFormImporting(true);
     try {
       const item = await saveCapture({ closeEditor: false, silent: true });
@@ -588,14 +610,19 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
       const response = await apiCall('post', `/capture-items/${item.id}/import-match`, {
         match_id: match.id,
         match,
-        barcode: form.barcode || match.barcode || match.upc || null,
-        symbology: form.symbology || match.symbology || null,
-        media_type: match.media_type || match.mediaTypeGuess || form.object_type || null
+        barcode: currentForm.barcode || match.barcode || match.upc || null,
+        symbology: currentForm.symbology || match.symbology || null,
+        media_type: match.media_type || match.mediaTypeGuess || currentForm.object_type || null
       });
       const action = response?.import?.action === 'matched_existing' ? 'linked' : 'added';
       onToast?.(`Capture ${action} to library.`, 'success');
-      setEditorOpen(false);
+      setBatchStats((current) => ({ ...current, imported: current.imported + 1 }));
       resetEditorForm();
+      if (batchMode) {
+        requestNextScan();
+      } else {
+        setEditorOpen(false);
+      }
       await loadCaptures(1);
     } catch (err) {
       onToast?.(err?.message || 'Could not add selected match.', 'error');
@@ -607,10 +634,15 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
   const saveAndScanNext = async () => {
     const item = await saveCapture({ closeEditor: false, silent: true });
     if (!item?.id) return;
+    const hadMatches = Array.isArray(formLookup.matches) && formLookup.matches.length > 0;
+    setBatchStats((current) => ({
+      ...current,
+      saved: current.saved + 1,
+      review: hadMatches ? current.review : current.review + 1
+    }));
     onToast?.('Capture saved. Ready for the next scan.', 'success');
     resetEditorForm();
-    setEditorOpen(true);
-    setScanRequest((current) => current + 1);
+    requestNextScan();
   };
 
   const updateStatus = async (item, nextStatus) => {
@@ -765,6 +797,24 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
     });
   };
 
+  const startBatchScan = () => {
+    setBatchMode(true);
+    setBatchStats({ saved: 0, imported: 0, review: 0 });
+    resetEditorForm();
+    setEditorOpen(true);
+    window.requestAnimationFrame(() => {
+      window.setTimeout(() => {
+        editorRef.current?.scrollIntoView?.({ block: 'start', behavior: 'smooth' });
+        requestNextScan();
+      }, 0);
+    });
+  };
+
+  const stopBatchScan = () => {
+    setBatchMode(false);
+    onToast?.('Batch scan stopped.', 'info');
+  };
+
   return (
     <div className="h-full min-h-0 overflow-y-auto px-4 py-4 sm:px-6">
       <div className="mx-auto max-w-7xl space-y-4">
@@ -773,14 +823,24 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
           <h1 className="text-2xl font-semibold text-ink">Capture Inbox</h1>
           <p className="mt-1 text-sm text-ghost">{activeLibrary?.name || 'Current library'}</p>
         </div>
-        <button
-          type="button"
-          className="btn-primary inline-flex items-center gap-2"
-          onClick={openNewCapture}
-        >
-          {Icons?.Camera ? <Icons.Camera /> : null}
-          New capture
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            className="btn-primary inline-flex items-center gap-2"
+            onClick={openNewCapture}
+          >
+            {Icons?.Camera ? <Icons.Camera /> : null}
+            New capture
+          </button>
+          <button
+            type="button"
+            className="btn-ghost inline-flex items-center gap-2"
+            onClick={batchMode ? stopBatchScan : startBatchScan}
+          >
+            {Icons?.Barcode ? <Icons.Barcode /> : null}
+            {batchMode ? 'Stop batch' : 'Batch scan'}
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
@@ -841,6 +901,8 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
           saving={saving}
           formLookup={formLookup}
           formImporting={formImporting}
+          batchMode={batchMode}
+          batchStats={batchStats}
           scanRequest={scanRequest}
           onSave={saveCapture}
           onToast={onToast}
@@ -848,6 +910,7 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
           onClearLookup={() => setFormLookup(EMPTY_FORM_LOOKUP)}
           onImportMatch={importFormLookupMatch}
           onSaveAndScanNext={saveAndScanNext}
+          onStopBatch={stopBatchScan}
           Icons={Icons}
           editorRef={editorRef}
           onCancel={() => {
