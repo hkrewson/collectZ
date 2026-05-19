@@ -10752,6 +10752,35 @@ Historical note:
 - What remains in the milestone: nothing for the `3.6.0` foundation slice; later `3.6.x` work can build provider candidate intake and richer acquisition workflows on this model.
 - Recommended commit message: `Release 3.6.0 with wishlist and acquisition foundation`.
 
+## 3.8.9 — Capture Inbox Mobile Barcode Camera Fix
+
+**Goal:** Make the Capture Inbox new-capture form usable on iOS Safari and expose a clear camera-backed barcode scan path in the web capture workflow.
+
+### Scope
+
+- Give Capture Inbox an owned scroll container inside the dashboard shell so mobile Safari can scroll through the full editor.
+- Add a Barcode / ISBN camera scan action that opens the mobile camera and decodes a captured image through the existing browser barcode pipeline.
+- Keep manual barcode entry, manual notes, OCR text, and photo upload intact.
+- Keep this slice focused on the web Capture Inbox UI; do not add native iOS scanner changes or automatic import processing.
+
+### Acceptance Criteria
+
+- Tapping `New capture` on mobile opens an editor that can scroll past Title to the rest of the form.
+- Barcode / ISBN exposes a camera scan action that uses `capture="environment"` and fills the barcode field when decoding succeeds.
+- Photo upload remains available and mobile-camera capable.
+- Version metadata, release note, release feed, and Help > Releases include `3.8.9`.
+
+### Closeout
+
+- Roadmap slice: `3.8.9 — Capture Inbox Mobile Barcode Camera Fix`.
+- Project docs/checklists used: `AGENTS.md`; `/Users/hamlin/.codex/skills/uncodixfy/SKILL.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.8.9.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild with `APP_VERSION=3.8.9`; running `/api/health` reported frontend/backend/build `3.8.9`; backend logs reported `Database schema up to date (104 migration(s) applied)` and `collectZ backend v3.8.9`; running backend env readback was verified with secrets redacted and showed `APP_EDITION=platform`, `APP_VERSION=3.8.9`, `NODE_ENV=development`, `SESSION_COOKIE_SECURE=false`, `TRUST_PROXY=0`, and a redacted DB URL; Help > Releases smoke served `3.8.9`; targeted Capture Inbox browser proof opened Library > Capture Inbox, switched to a mobile viewport, opened `New capture`, verified the camera barcode scan affordance, verified the hidden file input uses `capture="environment"`, and scrolled to `Save capture`; a temporary homelab override verified the homelab edition boundary and the local stack was restored to platform mode afterward.
+- CI/checks run locally: host `node backend/scripts/unit-tests.js` (`295` passed); `npm --prefix frontend run build`; Docker backend/frontend build; Docker `npm run test:unit` (`295` passed); Docker `npm run test:openapi`; `node backend/scripts/validate-openapi.js`; Docker `npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.8.9 npm run test:help-releases-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker temporary homelab override plus `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; targeted Capture Inbox Playwright regression; full `npm run test:browser` (`70` passed, `4` skipped); backend/frontend production dependency audits (`0` vulnerabilities); local observability evidence (`9/9` checks passed); public export surface validation; local release preflight; version sync check; release note heading check; `git diff --check`; targeted release/evidence secret-pattern scan. Local compose smoke secure-cookie basics remain blocked by the development stack settings (`SESSION_COOKIE_SECURE=false`, `NODE_ENV=development`), and CI remains authoritative for `secret-scan` plus `image-security-and-sbom`.
+- Files changed for this slice: `app-meta.json`; `artifacts/dependency-audit/backend-audit.json`; `artifacts/dependency-audit/frontend-audit.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `backend/app-meta.json`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/scripts/unit-tests.js`; `docker-compose.yml`; `docs/releases/v3.8.9.md`; `docs/wiki/07-Release-Roadmap.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/CaptureInboxView.jsx`; `preflight-go-no-go.md`; `tests/playwright/specs/admin-shell.browser.spec.js`.
+- Risks/follow-ups: Browser barcode decoding depends on camera focus, lighting, and client browser support. The scan image is intentionally temporary and is not uploaded unless the user separately chooses the photo upload path. This fixes the web Capture Inbox; the native iOS scanner app remains its own client.
+- What remains in the milestone: nothing for `3.8.9`; later Mobile-First Capture Workflow slices can add cover/art recognition, convention/store quick-add modes, and unified review queue routing.
+- Recommended commit message: `Release 3.8.9 with Capture Inbox mobile barcode camera fix`.
+
 ## 3.8.8 — Capture Selected Match Import
 
 **Goal:** Let Capture Inbox complete the review loop by importing or linking a user-selected lookup match into the canonical library.

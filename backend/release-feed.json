@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.8.9",
+      "version": "3.8.9",
+      "date": "2026-05-19",
+      "status": "implemented",
+      "summary": "This release tightens Capture Inbox on mobile Safari by making the new-capture form scroll correctly inside the dashboard shell and adding a direct camera scan control for barcodes.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Gives Capture Inbox its own scroll container so the iOS Safari form can move past the Title field.",
+            "Adds a `Scan` action beside Barcode / ISBN that opens the device camera and decodes the captured image through the existing BarcodeDetector/ZXing client pipeline.",
+            "Keeps manual barcode entry and photo upload intact.",
+            "Marks photo upload controls as mobile-camera capable.",
+            "Adds regression coverage for the mobile scan affordance and scrollable capture editor."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.8.8",
       "version": "3.8.8",
       "date": "2026-05-19",
@@ -169,25 +188,6 @@
             "Added review actions to update, discard, delete, and convert captures into Wishlist candidates.",
             "Added Library > Capture Inbox in the web app for reviewing captured items.",
             "Documented the capture API contract in OpenAPI."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.7.5",
-      "version": "3.7.5",
-      "date": "2026-05-18",
-      "status": "implemented",
-      "summary": "This patch enriches newly logged event activity so the human-readable timeline can show event titles and child object names instead of only ids.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added shared event activity detail builders for event title, date, location, and related child object context.",
-            "Event attendee rows now log attendee name, status, visibility, linked user id, and event context.",
-            "Event group, meetup, schedule plan, and schedule session rows now log their own readable name/title plus event context.",
-            "Schedule preview, notification, and schedule import rows now include event context in their activity details.",
-            "Updated browser coverage to prove new attendee activity shows the attendee name in Workspace Activity."
           ]
         }
       ]

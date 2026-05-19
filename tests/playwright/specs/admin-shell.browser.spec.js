@@ -292,6 +292,12 @@ test.describe('admin shell browser regressions', () => {
       expect(Number(importMatchPayload?.item?.linked_media_id || 0)).toBe(catalogMediaId);
       expect(importMatchPayload?.import?.action).toBe('matched_existing');
       await expect(page.getByRole('button', { name: 'New capture' })).toBeVisible();
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.getByRole('button', { name: 'New capture' }).click();
+      await expect(page.getByRole('button', { name: 'Scan barcode with camera' })).toBeVisible();
+      await expect(page.getByLabel('Barcode camera image')).toHaveAttribute('capture', 'environment');
+      await page.getByRole('button', { name: 'Save capture' }).scrollIntoViewIfNeeded();
+      await expect(page.getByRole('button', { name: 'Save capture' })).toBeVisible();
 
       const convertResponse = await postWithCsrf(requestContext, `/api/capture-items/${captureId}/convert-wishlist`, {}, 201);
       const convertPayload = await convertResponse.json();

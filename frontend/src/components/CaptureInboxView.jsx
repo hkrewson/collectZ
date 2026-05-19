@@ -1,5 +1,12 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CollectionPaginationFooter, SectionTabs, cx, posterUrl } from './app/AppPrimitives';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  CollectionPaginationFooter,
+  SectionTabs,
+  cx,
+  detectBarcodeCapturePayloadFromFile,
+  posterUrl,
+  supportsBarcodeCapture
+} from './app/AppPrimitives';
 
 const STATUS_TABS = [
   { id: 'active', label: 'Active' },
@@ -77,18 +84,50 @@ function latestReplayConflict(item = {}) {
   return null;
 }
 
-function Field({ label, className = '', children }) {
+function Field({ label, className = '', children, asLabel = true }) {
+  const Component = asLabel ? 'label' : 'div';
   return (
-    <label className={cx('space-y-1', className)}>
+    <Component className={cx('space-y-1', className)}>
       <span className="text-xs font-medium text-ghost">{label}</span>
       {children}
-    </label>
+    </Component>
   );
 }
 
-function CaptureEditor({ form, setForm, saving, onSave, onCancel }) {
+function CaptureEditor({ form, setForm, saving, onSave, onCancel, onToast, Icons, editorRef }) {
+  const barcodeCameraInputRef = useRef(null);
+  const [barcodeScanning, setBarcodeScanning] = useState(false);
+  const barcodeCameraSupported = supportsBarcodeCapture();
+
+  const handleBarcodeCameraFile = async (event) => {
+    const file = event.target.files?.[0] || null;
+    event.target.value = '';
+    if (!file) return;
+
+    setBarcodeScanning(true);
+    try {
+      const detected = await detectBarcodeCapturePayloadFromFile(file);
+      if (!detected?.code) {
+        onToast?.('No barcode found in that image.', 'error');
+        return;
+      }
+      setForm((current) => ({
+        ...current,
+        capture_type: 'barcode',
+        barcode: detected.code,
+        title: current.title || file.name || ''
+      }));
+      onToast?.(`Barcode captured: ${detected.code}`, 'success');
+    } catch (_) {
+      onToast?.('No barcode found. Try a closer photo with the code filling more of the frame.', 'error');
+    } finally {
+      setBarcodeScanning(false);
+    }
+  };
+
   return (
     <form
+      ref={editorRef}
       className="border-b border-edge/70 pb-4"
       onSubmit={(event) => {
         event.preventDefault();
@@ -121,12 +160,36 @@ function CaptureEditor({ form, setForm, saving, onSave, onCancel }) {
             onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
           />
         </Field>
-        <Field label="Barcode / ISBN" className="md:col-span-3">
-          <input
-            className="input w-full"
-            value={form.barcode}
-            onChange={(event) => setForm((current) => ({ ...current, barcode: event.target.value }))}
-          />
+        <Field label="Barcode / ISBN" className="md:col-span-3" asLabel={false}>
+          <div className="flex gap-2">
+            <input
+              className="input min-w-0 flex-1"
+              value={form.barcode}
+              inputMode="numeric"
+              aria-label="Barcode / ISBN"
+              onChange={(event) => setForm((current) => ({ ...current, barcode: event.target.value }))}
+            />
+            <input
+              ref={barcodeCameraInputRef}
+              className="hidden"
+              type="file"
+              accept="image/*"
+              capture="environment"
+              aria-label="Barcode camera image"
+              onChange={handleBarcodeCameraFile}
+            />
+            <button
+              type="button"
+              className="btn-ghost h-10 shrink-0 px-3"
+              disabled={barcodeScanning || !barcodeCameraSupported}
+              onClick={() => barcodeCameraInputRef.current?.click()}
+              aria-label="Scan barcode with camera"
+              title={barcodeCameraSupported ? 'Scan barcode with camera' : 'Camera barcode capture is not supported in this browser'}
+            >
+              {Icons?.Barcode ? <Icons.Barcode /> : null}
+              <span className="hidden sm:inline">{barcodeScanning ? 'Scanning...' : 'Scan'}</span>
+            </button>
+          </div>
         </Field>
         <Field label="Symbology" className="md:col-span-2">
           <input
@@ -148,6 +211,7 @@ function CaptureEditor({ form, setForm, saving, onSave, onCancel }) {
             className="block w-full text-sm text-ghost file:mr-3 file:rounded-md file:border file:border-edge file:bg-raised file:px-3 file:py-2 file:text-sm file:font-medium file:text-ink hover:file:bg-surface"
             type="file"
             accept="image/*"
+            capture="environment"
             onChange={(event) => {
               const file = event.target.files?.[0] || null;
               setForm((current) => ({
@@ -186,6 +250,7 @@ function CaptureEditor({ form, setForm, saving, onSave, onCancel }) {
 }
 
 export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icons, Spinner }) {
+  const editorRef = useRef(null);
   const [items, setItems] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 50, total: 0, total_pages: 1 });
   const [status, setStatus] = useState('active');
@@ -422,8 +487,19 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
     }
   };
 
+  const openNewCapture = () => {
+    setForm(EMPTY_FORM);
+    setEditorOpen(true);
+    window.requestAnimationFrame(() => {
+      window.setTimeout(() => {
+        editorRef.current?.scrollIntoView?.({ block: 'start', behavior: 'smooth' });
+      }, 0);
+    });
+  };
+
   return (
-    <div className="space-y-4">
+    <div className="h-full min-h-0 overflow-y-auto px-4 py-4 sm:px-6">
+      <div className="mx-auto max-w-7xl space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Capture Inbox</h1>
@@ -432,10 +508,7 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
         <button
           type="button"
           className="btn-primary inline-flex items-center gap-2"
-          onClick={() => {
-            setForm(EMPTY_FORM);
-            setEditorOpen(true);
-          }}
+          onClick={openNewCapture}
         >
           {Icons?.Camera ? <Icons.Camera /> : null}
           New capture
@@ -499,6 +572,9 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
           setForm={setForm}
           saving={saving}
           onSave={saveCapture}
+          onToast={onToast}
+          Icons={Icons}
+          editorRef={editorRef}
           onCancel={() => {
             setEditorOpen(false);
             setForm(EMPTY_FORM);
@@ -716,6 +792,7 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
         leadingContent={`${pagination.total || 0} captures`}
         className="px-0"
       />
+      </div>
     </div>
   );
 }
