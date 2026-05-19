@@ -198,6 +198,62 @@ function mergeReplayConflictReview(currentReviewDecision = {}, conflicts = [], i
   };
 }
 
+function getLatestOpenReplayConflict(reviewDecision = {}) {
+  const conflicts = Array.isArray(reviewDecision?.capture_replay_conflicts) ? reviewDecision.capture_replay_conflicts : [];
+  for (let index = conflicts.length - 1; index >= 0; index -= 1) {
+    const conflict = conflicts[index];
+    if (conflict?.status === 'needs_review' && Array.isArray(conflict.fields) && conflict.fields.length) {
+      return { conflict, index, conflicts };
+    }
+  }
+  return { conflict: null, index: -1, conflicts };
+}
+
+function resolveReplayConflictReview(currentReviewDecision = {}, action = 'keep_existing') {
+  const current = jsonObject(currentReviewDecision);
+  const { conflict, index, conflicts } = getLatestOpenReplayConflict(current);
+  if (!conflict) return { reviewDecision: current, conflict: null, appliedFields: [] };
+
+  const resolvedAt = new Date().toISOString();
+  const nextConflicts = conflicts.slice();
+  nextConflicts[index] = {
+    ...conflict,
+    status: action === 'apply_incoming' ? 'applied_incoming' : 'kept_existing',
+    resolved_at: resolvedAt,
+    resolution: action
+  };
+
+  return {
+    reviewDecision: {
+      ...current,
+      capture_replay_last_status: 'resolved',
+      capture_replay_last_resolution: action,
+      capture_replay_resolved_at: resolvedAt,
+      capture_replay_conflicts: nextConflicts
+    },
+    conflict,
+    appliedFields: action === 'apply_incoming' ? conflict.fields : []
+  };
+}
+
+function applyReplayFieldValue(field, value, currentValue) {
+  switch (field) {
+    case 'title':
+      return nullableString(value) ?? currentValue ?? null;
+    case 'capture_type':
+      return normalizeCaptureType(value, currentValue || 'manual_note');
+    case 'object_type':
+      return normalizeObjectType(value, currentValue || 'other');
+    case 'barcode':
+    case 'symbology':
+    case 'ocr_text':
+    case 'image_path':
+      return nullableString(value);
+    default:
+      return currentValue ?? null;
+  }
+}
+
 function buildScopedWhere(params, scopeContext, id = null) {
   let where = 'WHERE 1=1';
   if (id !== null && id !== undefined) {
@@ -656,6 +712,94 @@ router.post('/capture-items/:id/apply-ocr-candidate', asyncHandler(async (req, r
     libraryId: updated.library_id
   });
   return res.json({ item: updated, candidate });
+}));
+
+router.post('/capture-items/:id/resolve-replay-conflict', asyncHandler(async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(404).json({ error: 'Capture item not found.' });
+
+  const action = trimString(req.body?.action || 'keep_existing').toLowerCase();
+  if (!['keep_existing', 'apply_incoming'].includes(action)) {
+    return res.status(400).json({ error: 'Use action keep_existing or apply_incoming.' });
+  }
+
+  const scopeContext = resolveScopeContext(req);
+  const current = await fetchCaptureItem(id, scopeContext);
+  if (!current) return res.status(404).json({ error: 'Capture item not found.' });
+
+  const shapedCurrent = shapeCaptureItem(current);
+  const { reviewDecision, conflict, appliedFields } = resolveReplayConflictReview(shapedCurrent.review_decision, action);
+  if (!conflict) return res.status(409).json({ error: 'No replay conflict needs review for this capture.' });
+
+  const nextValues = {
+    title: shapedCurrent.title,
+    capture_type: shapedCurrent.capture_type,
+    object_type: shapedCurrent.object_type,
+    barcode: shapedCurrent.barcode,
+    symbology: shapedCurrent.symbology,
+    ocr_text: shapedCurrent.ocr_text,
+    image_path: shapedCurrent.image_path
+  };
+  appliedFields.forEach((fieldConflict) => {
+    if (!fieldConflict?.field) return;
+    nextValues[fieldConflict.field] = applyReplayFieldValue(
+      fieldConflict.field,
+      fieldConflict.incoming,
+      nextValues[fieldConflict.field]
+    );
+  });
+
+  const sourceContext = {
+    ...shapedCurrent.source_context,
+    idempotent_replay_status: 'resolved',
+    idempotent_replay_resolution: action,
+    idempotent_replay_resolved_at: reviewDecision.capture_replay_resolved_at
+  };
+
+  const result = await pool.query(
+    `UPDATE capture_items
+        SET title = $1,
+            capture_type = $2,
+            object_type = $3,
+            barcode = $4,
+            symbology = $5,
+            ocr_text = $6,
+            image_path = $7,
+            source_context = $8::jsonb,
+            review_decision = $9::jsonb,
+            updated_at = CURRENT_TIMESTAMP
+      WHERE id = $10
+      RETURNING *`,
+    [
+      nextValues.title,
+      nextValues.capture_type,
+      nextValues.object_type,
+      nextValues.barcode,
+      nextValues.symbology,
+      nextValues.ocr_text,
+      nextValues.image_path,
+      JSON.stringify(sourceContext),
+      JSON.stringify(reviewDecision),
+      id
+    ]
+  );
+
+  const updated = shapeCaptureItem(result.rows[0]);
+  await logActivity(req, 'capture.replay_conflict.resolve', 'capture_item', updated.id, {
+    title: updated.title,
+    captureType: updated.capture_type,
+    action,
+    appliedFieldCount: appliedFields.length,
+    spaceId: updated.space_id,
+    libraryId: updated.library_id
+  });
+  return res.json({
+    item: updated,
+    resolution: {
+      action,
+      applied_fields: appliedFields.map((fieldConflict) => fieldConflict.field).filter(Boolean)
+    }
+  });
 }));
 
 router.patch('/capture-items/:id', asyncHandler(async (req, res) => {

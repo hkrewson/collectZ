@@ -10752,6 +10752,38 @@ Historical note:
 - What remains in the milestone: nothing for the `3.6.0` foundation slice; later `3.6.x` work can build provider candidate intake and richer acquisition workflows on this model.
 - Recommended commit message: `Release 3.6.0 with wishlist and acquisition foundation`.
 
+## 3.8.5 — Capture Replay Conflict Review UI
+
+**Goal:** Let users review and resolve Capture Inbox replay conflicts without editing raw metadata or losing the existing safe idempotency behavior.
+
+### Scope
+
+- Show unresolved replay conflicts directly on Capture Inbox rows.
+- Show current and replayed values for conflicting fields.
+- Add explicit actions to keep current values or apply the stored replayed values.
+- Add a scoped backend endpoint to resolve the latest replay conflict.
+- Keep this slice focused on Capture Inbox-local review; do not add the broader unified review queue.
+
+### Acceptance Criteria
+
+- Capture Inbox shows replay-conflict rows with field-level current/replayed readback.
+- `Keep current` resolves the conflict and preserves the existing capture row values.
+- `Use replayed values` resolves the conflict and applies the stored incoming replay values.
+- Resolution updates existing review metadata and emits activity evidence.
+- OpenAPI documents the replay conflict resolution endpoint.
+- Version metadata, release note, release feed, and Help > Releases include `3.8.5`.
+
+### Closeout
+
+- Roadmap slice: `3.8.5 — Capture Replay Conflict Review UI`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.8.5.md`; `docs/releases/v3.8.4.md`.
+- Runtime verification used: Docker-first platform backend/frontend rebuild with `APP_VERSION=3.8.5`; running `/api/health` reported frontend/backend/build `3.8.5`; backend logs reported `Database schema up to date (104 migration(s) applied)` and `collectZ backend v3.8.5`; running backend env readback reported `APP_EDITION=platform`, `APP_VERSION=3.8.5`, `NODE_ENV=development`, `SESSION_COOKIE_SECURE=false`, `TRUST_PROXY=0`, and a redacted DB URL; Help > Releases smoke served `3.8.5`; targeted Capture Inbox browser proof created a conflicting replay, showed the row-level `Replay conflict` readback with current and replayed values, resolved it with `Keep current`, verified the conflict review disappeared, and completed the existing OCR/image/Wishlist conversion path; a disposable production-style compose-smoke stack on alternate local port `3108` passed health, headers, secure CSRF cookie, session cookie option, unauthenticated `401`, and integration smoke checks before teardown; a disposable homelab stack passed homelab boundary checks before teardown.
+- CI/checks run locally: `node --check backend/routes/captureItems.js`; `node backend/scripts/validate-openapi.js`; host `node backend/scripts/unit-tests.js` (`294` passed); `npm --prefix frontend run build`; Docker backend/frontend build; Docker `npm run test:unit` (`294` passed); Docker `npm run test:openapi`; Docker `npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.8.5 npm run test:help-releases-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker throwaway homelab stack plus `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; targeted Capture Inbox Playwright regression; full `npm run test:browser` (`70` passed, `4` skipped); backend/frontend production dependency audits (`0` vulnerabilities); local observability evidence (`9/9` checks passed); local release preflight; public export surface validation; CI-shaped compose smoke; version sync check; release note heading check; `git diff --check`; targeted release/artifact secret-pattern scan. Local `gitleaks` and Trivy tooling were not installed, so full repository `secret-scan` and `image-security-and-sbom` still need their normal CI runs.
+- Files changed for this slice: `app-meta.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `backend/app-meta.json`; `backend/openapi/openapi.yaml`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/routes/captureItems.js`; `backend/scripts/unit-tests.js`; `docker-compose.yml`; `docs/releases/v3.8.5.md`; `docs/wiki/07-Release-Roadmap.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/CaptureInboxView.jsx`; `preflight-go-no-go.md`; `tests/playwright/specs/admin-shell.browser.spec.js`.
+- Risks or follow-ups: This resolves only the latest open replay conflict per capture row and keeps the review surface local to Capture Inbox. A later unified review queue should group replay conflicts with scanner candidates, sparse imports, enrichment decisions, and missing-cover review.
+- What remains in the milestone: nothing for `3.8.5`; later `3.8.x` work can add backend-owned image OCR, cover/art recognition, quick-add modes, and unified review queue integration.
+- Recommended commit message: `Release 3.8.5 with Capture Inbox replay conflict review UI`.
+
 ## 3.8.4 — Capture Replay Conflict Review
 
 **Goal:** Preserve meaningful differences from repeated mobile/scanner capture submissions so idempotent retries stay safe without hiding conflicts.

@@ -6227,9 +6227,12 @@ results.push(run('mobile capture inbox foundation is scoped, routed, and reviewa
   assert.ok(captureItemsRoutesSource.includes("router.post('/capture-items/upload-image'"));
   assert.ok(captureItemsRoutesSource.includes("router.post('/capture-items/:id/ocr-text'"));
   assert.ok(captureItemsRoutesSource.includes("router.post('/capture-items/:id/apply-ocr-candidate'"));
+  assert.ok(captureItemsRoutesSource.includes("router.post('/capture-items/:id/resolve-replay-conflict'"));
   assert.ok(captureItemsRoutesSource.includes('function extractClientCaptureId'));
   assert.ok(captureItemsRoutesSource.includes('fetchCaptureItemByClientCaptureId'));
   assert.ok(captureItemsRoutesSource.includes('function buildReplayConflicts'));
+  assert.ok(captureItemsRoutesSource.includes('function resolveReplayConflictReview'));
+  assert.ok(captureItemsRoutesSource.includes('capture.replay_conflict.resolve'));
   assert.ok(captureItemsRoutesSource.includes('capture_replay_conflicts'));
   assert.ok(captureItemsRoutesSource.includes('replay_conflicts'));
   assert.ok(captureItemsRoutesSource.includes("'capture.idempotent_replay'"));
@@ -6248,10 +6251,13 @@ results.push(run('mobile capture inbox foundation is scoped, routed, and reviewa
   assert.deepStrictEqual(getRequiredPatScopesForRequest({ originalUrl: '/api/capture-items/upload-image', method: 'POST' }), ['media:write']);
   assert.deepStrictEqual(getRequiredPatScopesForRequest({ originalUrl: '/api/capture-items/123/ocr-text', method: 'POST' }), ['media:write']);
   assert.deepStrictEqual(getRequiredPatScopesForRequest({ originalUrl: '/api/capture-items/123/apply-ocr-candidate', method: 'POST' }), ['media:write']);
+  assert.deepStrictEqual(getRequiredPatScopesForRequest({ originalUrl: '/api/capture-items/123/resolve-replay-conflict', method: 'POST' }), ['media:write']);
   assert.ok(openApiSource.includes('"/api/capture-items"'));
   assert.ok(openApiSource.includes('"/api/capture-items/upload-image"'));
   assert.ok(openApiSource.includes('"/api/capture-items/{id}/ocr-text"'));
   assert.ok(openApiSource.includes('"/api/capture-items/{id}/apply-ocr-candidate"'));
+  assert.ok(openApiSource.includes('"/api/capture-items/{id}/resolve-replay-conflict"'));
+  assert.ok(openApiSource.includes('"CaptureReplayConflictResolveResponse"'));
   assert.ok(openApiSource.includes('"multipart/form-data"'));
   assert.ok(openApiSource.includes('"CaptureImageUploadResponse"'));
   assert.ok(openApiSource.includes('"CaptureOcrTextResponse"'));
@@ -6272,6 +6278,9 @@ results.push(run('mobile capture inbox foundation is scoped, routed, and reviewa
   assert.ok(captureInboxViewSource.includes("apiCall('post', '/capture-items/upload-image'"));
   assert.ok(captureInboxViewSource.includes("apiCall('post', `/capture-items/${item.id}/ocr-text`"));
   assert.ok(captureInboxViewSource.includes("apiCall('post', `/capture-items/${item.id}/apply-ocr-candidate`"));
+  assert.ok(captureInboxViewSource.includes("apiCall('post', `/capture-items/${item.id}/resolve-replay-conflict`"));
+  assert.ok(captureInboxViewSource.includes('Replay conflict'));
+  assert.ok(captureInboxViewSource.includes('Use replayed values'));
   assert.ok(captureInboxViewSource.includes('OCR candidates'));
   assert.ok(captureInboxViewSource.includes('type="file"'));
   assert.ok(captureInboxViewSource.includes('posterUrl(item.image_path)'));

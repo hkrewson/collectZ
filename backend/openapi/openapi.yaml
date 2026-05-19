@@ -3385,6 +3385,21 @@
         },
         "required": ["item", "candidate"]
       },
+      "CaptureReplayConflictResolveResponse": {
+        "type": "object",
+        "properties": {
+          "item": { "$ref": "#/components/schemas/CaptureItem" },
+          "resolution": {
+            "type": "object",
+            "properties": {
+              "action": { "type": "string", "enum": ["keep_existing", "apply_incoming"] },
+              "applied_fields": { "type": "array", "items": { "type": "string" } }
+            },
+            "required": ["action", "applied_fields"]
+          }
+        },
+        "required": ["item", "resolution"]
+      },
       "CaptureWishlistConvertResponse": {
         "type": "object",
         "properties": {
@@ -3823,6 +3838,57 @@
           },
           "404": {
             "description": "Capture item not found",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      }
+    },
+    "/api/capture-items/{id}/resolve-replay-conflict": {
+      "post": {
+        "tags": ["Capture"],
+        "summary": "Resolve the latest replay conflict for a capture",
+        "description": "Marks the latest stored idempotent replay conflict as resolved. The user can keep the current trusted values or apply the incoming replayed values field-by-field.",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "action": { "type": "string", "enum": ["keep_existing", "apply_incoming"] }
+                },
+                "required": ["action"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Replay conflict resolved",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CaptureReplayConflictResolveResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid conflict resolution action",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          },
+          "404": {
+            "description": "Capture item not found",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          },
+          "409": {
+            "description": "No replay conflict is waiting for review",
             "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
           }
         }

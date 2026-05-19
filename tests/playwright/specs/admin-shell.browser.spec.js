@@ -85,7 +85,7 @@ test.describe('admin shell browser regressions', () => {
       await page.goto('/dashboard?tab=library-wishlist');
       expect((await wishlistResponse).ok()).toBeTruthy();
       await expect(page.getByRole('heading', { name: 'Wishlist', exact: true })).toBeVisible();
-      await expect(page.getByText(title)).toBeVisible();
+      await expect(page.getByText(title, { exact: true })).toBeVisible();
       await expect(page.getByRole('button', { name: 'Add item' })).toBeVisible();
 
       const convertResponse = await postWithCsrf(requestContext, `/api/wishlist/${wishlistId}/convert`, {}, 201);
@@ -237,8 +237,21 @@ test.describe('admin shell browser regressions', () => {
       await page.goto('/dashboard?tab=library-capture');
       expect((await captureResponse).ok()).toBeTruthy();
       await expect(page.getByRole('heading', { name: 'Capture Inbox', exact: true })).toBeVisible();
-      await expect(page.getByText(title)).toBeVisible();
+      await expect(page.getByText(title, { exact: true })).toBeVisible();
       await expect(page.getByText(photoTitle)).toBeVisible();
+      const replayConflictReview = page.getByLabel('Replay conflict review').first();
+      await expect(replayConflictReview.getByText('Replay conflict', { exact: true })).toBeVisible();
+      await expect(replayConflictReview.getByText('Barcode', { exact: true })).toBeVisible();
+      await expect(replayConflictReview.getByText(`Current: ${createPayload.item.barcode}`)).toBeVisible();
+      await expect(replayConflictReview.getByText('Replayed: 9780553572391')).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Use replayed values' })).toBeVisible();
+      const resolveResponse = page.waitForResponse((response) => (
+        response.url().includes(`/api/capture-items/${captureId}/resolve-replay-conflict`)
+        && response.request().method() === 'POST'
+      ));
+      await page.getByRole('button', { name: 'Keep current' }).click();
+      expect((await resolveResponse).ok()).toBeTruthy();
+      await expect(page.getByLabel('Replay conflict review')).toHaveCount(0);
       await expect(page.locator(`img[src*="${uploadPayload.item.image_path}"]`)).toBeVisible();
       await expect(page.getByText('OCR candidates')).toBeVisible();
       await expect(page.getByRole('button', { name: /Using ISBN 9780553572391/ })).toBeVisible();

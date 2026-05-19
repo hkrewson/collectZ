@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.8.5",
+      "version": "3.8.5",
+      "date": "2026-05-19",
+      "status": "implemented",
+      "summary": "This release turns stored Capture Inbox replay conflicts into a visible review workflow.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Shows unresolved replay conflicts directly on Capture Inbox rows.",
+            "Lists the conflicting fields with current and replayed values.",
+            "Adds explicit `Keep current` and `Use replayed values` actions.",
+            "Adds a scoped backend endpoint to resolve the latest replay conflict without editing raw review metadata.",
+            "Records replay conflict resolution activity for timeline/readback."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.8.4",
       "version": "3.8.4",
       "date": "2026-05-18",
@@ -167,25 +186,6 @@
             "Added timeline actions for sync jobs and import activity so failed rows can open `Open failure` and successful rows can open `Open sync`.",
             "Kept existing import navigation available for import-shaped activity rows.",
             "Added source-level regression coverage to keep the Dashboard, Activity timeline, and sync-job drawer wired together."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.7.1",
-      "version": "3.7.1",
-      "date": "2026-05-17",
-      "status": "implemented",
-      "summary": "This patch keeps iterating on the human-readable activity timeline by adding contextual navigation from timeline rows to the related app surface.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added small timeline action buttons for known targets such as media items, Art, Collectibles, Events, imports, loans, integrations, people, workspaces, and users.",
-            "Wired Admin Activity links into the main dashboard shell so platform timeline entries can open the relevant admin or library surface.",
-            "Wired Workspace Activity links so workspace entries can open the matching workspace tab or jump out to the relevant library item.",
-            "Added focus handoff for media, Art, Collectible, and Event targets so existing rows can open their detail drawer after navigation.",
-            "Extended the workspace activity browser regression to prove a media timeline row can open the related library detail."
           ]
         }
       ]

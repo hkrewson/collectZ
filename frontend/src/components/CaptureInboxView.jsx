@@ -53,6 +53,30 @@ function dateLabel(value) {
   return date.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
+function titleCase(value) {
+  return String(value || '')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function displayConflictValue(value) {
+  const text = String(value ?? '').trim();
+  return text || 'Empty';
+}
+
+function latestReplayConflict(item = {}) {
+  const conflicts = Array.isArray(item.review_decision?.capture_replay_conflicts)
+    ? item.review_decision.capture_replay_conflicts
+    : [];
+  for (let index = conflicts.length - 1; index >= 0; index -= 1) {
+    const conflict = conflicts[index];
+    if (conflict?.status === 'needs_review' && Array.isArray(conflict.fields) && conflict.fields.length) {
+      return conflict;
+    }
+  }
+  return null;
+}
+
 function Field({ label, className = '', children }) {
   return (
     <label className={cx('space-y-1', className)}>
@@ -199,9 +223,10 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
   }, [loadCaptures]);
 
   const visibleCounts = useMemo(() => {
-    const counts = { active: 0, barcode: 0, photo: 0, ocr: 0 };
+    const counts = { active: 0, conflicts: 0, barcode: 0, photo: 0, ocr: 0 };
     items.forEach((item) => {
       if (item.status === 'new' || item.status === 'reviewed') counts.active += 1;
+      if (latestReplayConflict(item)) counts.conflicts += 1;
       if (item.capture_type === 'barcode') counts.barcode += 1;
       if (item.capture_type === 'photo') counts.photo += 1;
       if (item.capture_type === 'ocr_text') counts.ocr += 1;
@@ -312,6 +337,19 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
     }
   };
 
+  const resolveReplayConflict = async (item, action) => {
+    setWorkingCaptureId(item.id);
+    try {
+      await apiCall('post', `/capture-items/${item.id}/resolve-replay-conflict`, { action });
+      onToast?.(action === 'apply_incoming' ? 'Replayed values applied.' : 'Replay conflict kept current values.', 'success');
+      await loadCaptures(pagination.page || 1);
+    } catch (err) {
+      onToast?.(err?.message || 'Could not resolve replay conflict.', 'error');
+    } finally {
+      setWorkingCaptureId(null);
+    }
+  };
+
   const deleteCapture = async (item) => {
     if (!window.confirm('Delete this capture?')) return;
     try {
@@ -343,10 +381,14 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
         </button>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         <div className="border-b border-edge pb-2">
           <div className="text-xs text-ghost">Active</div>
           <div className="mt-1 text-xl font-semibold text-ink">{visibleCounts.active}</div>
+        </div>
+        <div className="border-b border-edge pb-2">
+          <div className="text-xs text-ghost">Replay conflicts</div>
+          <div className="mt-1 text-xl font-semibold text-ink">{visibleCounts.conflicts}</div>
         </div>
         <div className="border-b border-edge pb-2">
           <div className="text-xs text-ghost">Barcode</div>
@@ -423,6 +465,8 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
             ].filter(Boolean).join(' · ');
             const ocrCandidates = Array.isArray(item.review_decision?.ocr_candidates) ? item.review_decision.ocr_candidates : [];
             const selectedCandidateId = item.review_decision?.selected_ocr_candidate?.id || '';
+            const replayConflict = latestReplayConflict(item);
+            const replayFields = Array.isArray(replayConflict?.fields) ? replayConflict.fields : [];
             return (
               <div key={item.id} className="grid gap-3 py-3 md:grid-cols-[auto_1fr_auto] md:items-center">
                 {item.image_path ? (
@@ -444,6 +488,43 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
                   <div className="mt-1 text-xs text-ghost">{secondary}</div>
                   {item.image_path ? <div className="mt-1 truncate text-xs text-dim">{item.image_path}</div> : null}
                   {item.ocr_text ? <div className="mt-1 line-clamp-2 text-xs text-dim">{item.ocr_text}</div> : null}
+                  {replayFields.length ? (
+                    <div className="mt-3 border-l-2 border-warn/60 pl-3" aria-label="Replay conflict review">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <span className="text-xs font-medium text-warn">Replay conflict</span>
+                        <span className="text-xs text-ghost">
+                          {replayFields.map((conflict) => titleCase(conflict.field)).join(', ')}
+                        </span>
+                      </div>
+                      <div className="mt-2 grid gap-1 text-xs md:max-w-2xl">
+                        {replayFields.slice(0, 4).map((conflict) => (
+                          <div key={`${item.id}-${conflict.field}`} className="grid gap-1 md:grid-cols-[7rem_1fr_1fr]">
+                            <span className="text-ghost">{titleCase(conflict.field)}</span>
+                            <span className="truncate text-dim">Current: {displayConflictValue(conflict.existing)}</span>
+                            <span className="truncate text-dim">Replayed: {displayConflictValue(conflict.incoming)}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          className="btn-ghost btn-sm"
+                          disabled={workingCaptureId === item.id}
+                          onClick={() => resolveReplayConflict(item, 'keep_existing')}
+                        >
+                          Keep current
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-ghost btn-sm"
+                          disabled={workingCaptureId === item.id}
+                          onClick={() => resolveReplayConflict(item, 'apply_incoming')}
+                        >
+                          Use replayed values
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
                   {ocrCandidates.length ? (
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       <span className="text-xs text-ghost">OCR candidates</span>
