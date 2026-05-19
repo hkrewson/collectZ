@@ -10810,6 +10810,36 @@ Historical note:
 - What remains in the milestone: nothing for `3.8.10`; next planned work is `3.8.11 — Capture Scan Immediate Lookup`, followed by batch scan mode, safe ISBN auto-import, and exception review routing.
 - Recommended commit message: `Release 3.8.10 with Capture Inbox barcode camera ISBN recognition`.
 
+## 3.8.13 — Capture Inbox Review Filters
+
+**Goal:** Keep capture exceptions on the existing Capture Inbox page while making the queue easier to triage.
+
+**Scope**
+
+- Add review-oriented filters to Capture Inbox instead of creating a separate queue.
+- Keep filters server-backed so counts and pagination reflect the full scoped capture set.
+- Surface filters for all captures, captures needing a choice, exact ready-to-add captures, no-match captures, missing-detail captures, and problem captures.
+- Preserve current scan, lookup, selected import/link, and batch scan behavior.
+
+**Acceptance**
+
+- Capture Inbox renders review filters with counts.
+- Selecting a review filter reloads the existing capture list without leaving the page.
+- No-match, multi-match/choice, missing-detail, ready, and problem captures remain reviewable in Capture Inbox.
+- OpenAPI documents the `review_filter` query parameter and response counts.
+- Version metadata, release note, release feed, and Help > Releases include `3.8.13`.
+
+### Closeout
+
+- Roadmap slice: `3.8.13 — Capture Inbox Review Filters`.
+- Project docs/checklists used: `AGENTS.md`; `/Users/hamlin/.codex/skills/uncodixfy/SKILL.md`; `docs/wiki/06-Versioning-and-Build-Metadata.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.8.13.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild with `APP_VERSION=3.8.13`; running `/api/health` reported frontend/backend/build `3.8.13`; backend logs reported `Database schema up to date (104 migration(s) applied)` and `collectZ backend v3.8.13`; running backend env readback was verified with secrets redacted and showed `APP_EDITION=platform`, `APP_VERSION=3.8.13`, `NODE_ENV=development`, `SESSION_COOKIE_SECURE=false`, `TRUST_PROXY=0`, `LOG_EXPORT_BACKEND=off`, and a redacted DB URL; Help > Releases smoke served `3.8.13`; targeted Capture Inbox browser proof created captures, rendered review filter tabs, clicked the `Needs choice` filter, verified the server-backed `review_filter=needs_choice` request, and returned to the full view; temporary homelab-mode stack proved the homelab edition boundary and the local stack was restored to platform mode afterward.
+- CI/checks run locally: host `node --check backend/routes/captureItems.js`; host `node backend/scripts/validate-openapi.js`; host `node backend/scripts/unit-tests.js` (`295` passed); release note heading check; Docker backend/frontend build; Docker `/api/health` smoke; Docker `npm run test:unit` (`295` passed); Docker `npm run test:openapi`; Docker `npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.8.13 npm run test:help-releases-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker temporary homelab override plus `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; targeted Capture Inbox/admin shell browser regression (`2` passed); full `npm run test:browser` (`70` passed, `4` skipped); backend/frontend production dependency audits (`0` high/critical vulnerabilities); public export surface validation; local release preflight; `git diff --check`; targeted release/evidence secret-pattern scan. Local `gitleaks`, `trivy`, and `syft` are unavailable, so CI remains authoritative for full `secret-scan` and `image-security-and-sbom`. Local secure-cookie compose-smoke remains blocked in the developer stack because it runs `NODE_ENV=development` with `SESSION_COOKIE_SECURE=false`; CI must still run the production-shaped `compose-smoke`.
+- Files changed for this slice: `app-meta.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `backend/app-meta.json`; `backend/openapi/openapi.yaml`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/routes/captureItems.js`; `backend/scripts/unit-tests.js`; `docker-compose.yml`; `docs/releases/v3.8.13.md`; `docs/wiki/07-Release-Roadmap.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/CaptureInboxView.jsx`; `preflight-go-no-go.md`; `tests/playwright/specs/admin-shell.browser.spec.js`.
+- Risks/follow-ups: review filters are derived from existing capture metadata, so they improve triage without creating a new source of truth. Local observability collector evidence failed for Graylog/Loki/Syslog collector-path drills and backend restore in this environment; the stack was restored to `LOG_EXPORT_BACKEND=off`, and CI or a configured observability environment should rerun that evidence before treating observability collector release proof as green.
+- What remains in the milestone: nothing for `3.8.13`; next Mobile-First Capture Workflow work can cover safe exact ISBN auto-import, richer batch summaries, and later unified review queue routing if Capture Inbox volume makes it worthwhile.
+- Recommended commit message: `Release 3.8.13 with Capture Inbox review filters`.
+
 ## 3.8.12 — Capture Batch Scan Mode
 
 **Goal:** Make repeated barcode/ISBN capture practical for stacks of items by keeping Capture Inbox in a scan-save-next loop.

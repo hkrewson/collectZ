@@ -22,6 +22,7 @@ const ALLOWED_IMAGE_MIME_TYPES = new Set(['image/jpeg', 'image/jpg', 'image/png'
 const CAPTURE_TYPES = new Set(['barcode', 'photo', 'ocr_text', 'manual_note']);
 const STATUSES = new Set(['new', 'reviewed', 'converted', 'discarded']);
 const OBJECT_TYPES = new Set(['movie', 'tv_series', 'book', 'comic_book', 'audio', 'game', 'art', 'collectible', 'event_item', 'other']);
+const REVIEW_FILTERS = new Set(['all', 'needs_choice', 'no_match', 'ready', 'missing_details', 'problems']);
 
 function trimString(value) {
   return String(value || '').trim();
@@ -117,6 +118,82 @@ function shapeCaptureItem(row) {
     created_at: row.created_at,
     updated_at: row.updated_at
   };
+}
+
+function normalizeReviewFilter(value) {
+  const filter = trimString(value).toLowerCase();
+  return REVIEW_FILTERS.has(filter) ? filter : 'all';
+}
+
+function reviewArrayLength(path) {
+  return `jsonb_array_length(COALESCE(review_decision->'${path}', '[]'::jsonb))`;
+}
+
+function hasActiveReplayConflictSql() {
+  return `EXISTS (
+    SELECT 1
+      FROM jsonb_array_elements(COALESCE(review_decision->'capture_replay_conflicts', '[]'::jsonb)) AS conflict
+     WHERE conflict->>'status' = 'needs_review'
+       AND ${reviewArrayLength('fields').replace(/review_decision/g, 'conflict')} > 0
+  )`;
+}
+
+function captureLookupMatchCountSql() {
+  return reviewArrayLength('capture_lookup_matches');
+}
+
+function ocrCandidateCountSql() {
+  return reviewArrayLength('ocr_candidates');
+}
+
+function captureLookupCountStatusSql() {
+  return `COALESCE(NULLIF(review_decision->'capture_lookup_status'->>'match_count', '')::int, ${captureLookupMatchCountSql()})`;
+}
+
+function captureLookupProviderErrorSql() {
+  return `NULLIF(review_decision->'capture_lookup_status'->>'provider_error', '') IS NOT NULL`;
+}
+
+function captureReviewFilterCondition(filter) {
+  const lookupMatches = captureLookupMatchCountSql();
+  const ocrCandidates = ocrCandidateCountSql();
+  const lookupCount = captureLookupCountStatusSql();
+  const providerError = captureLookupProviderErrorSql();
+  const replayConflict = hasActiveReplayConflictSql();
+  const activeStatus = "status NOT IN ('converted', 'discarded')";
+  const hasLookupStatus = "review_decision ? 'capture_lookup_status'";
+  const missingText = `(
+    ${activeStatus}
+    AND (
+      NULLIF(title, '') IS NULL
+      OR (
+        capture_type IN ('barcode', 'ocr_text')
+        AND NULLIF(barcode, '') IS NULL
+        AND NULLIF(ocr_text, '') IS NULL
+      )
+      OR (
+        capture_type = 'photo'
+        AND NULLIF(image_path, '') IS NULL
+      )
+    )
+  )`;
+
+  if (filter === 'needs_choice') {
+    return `(${activeStatus} AND (${lookupMatches} > 1 OR ${ocrCandidates} > 1 OR ${replayConflict}))`;
+  }
+  if (filter === 'no_match') {
+    return `(${activeStatus} AND ${hasLookupStatus} AND ${lookupCount} = 0 AND NOT (${providerError}))`;
+  }
+  if (filter === 'ready') {
+    return `(${activeStatus} AND ${lookupMatches} = 1)`;
+  }
+  if (filter === 'missing_details') {
+    return missingText;
+  }
+  if (filter === 'problems') {
+    return `(${activeStatus} AND (${providerError} OR ${replayConflict}))`;
+  }
+  return 'TRUE';
 }
 
 function valuesFromBody(body, current = {}) {
@@ -421,12 +498,30 @@ router.get('/capture-items', asyncHandler(async (req, res) => {
   }
 
   where += appendScopeSql(params, scopeContext);
+  const baseWhere = where;
+
+  const reviewFilter = normalizeReviewFilter(req.query.review_filter);
+  if (reviewFilter !== 'all') {
+    where += ` AND ${captureReviewFilterCondition(reviewFilter)}`;
+  }
 
   const limit = Math.min(100, Math.max(1, Number(req.query.limit || 50)));
   const page = Math.max(1, Number(req.query.page || 1));
   const offset = (page - 1) * limit;
 
   const totalResult = await pool.query(`SELECT COUNT(*)::int AS total FROM capture_items ${where}`, params);
+  const countResult = await pool.query(
+    `SELECT
+        COUNT(*)::int AS all_count,
+        COUNT(*) FILTER (WHERE ${captureReviewFilterCondition('needs_choice')})::int AS needs_choice,
+        COUNT(*) FILTER (WHERE ${captureReviewFilterCondition('no_match')})::int AS no_match,
+        COUNT(*) FILTER (WHERE ${captureReviewFilterCondition('ready')})::int AS ready,
+        COUNT(*) FILTER (WHERE ${captureReviewFilterCondition('missing_details')})::int AS missing_details,
+        COUNT(*) FILTER (WHERE ${captureReviewFilterCondition('problems')})::int AS problems
+       FROM capture_items
+      ${baseWhere}`,
+    params
+  );
   const listParams = params.slice();
   listParams.push(limit, offset);
   const result = await pool.query(
@@ -441,8 +536,19 @@ router.get('/capture-items', asyncHandler(async (req, res) => {
     listParams
   );
 
+  const reviewCounts = countResult.rows[0] || {};
+
   res.json({
     items: result.rows.map(shapeCaptureItem),
+    review_filter: reviewFilter,
+    review_counts: {
+      all: reviewCounts.all_count || 0,
+      needs_choice: reviewCounts.needs_choice || 0,
+      no_match: reviewCounts.no_match || 0,
+      ready: reviewCounts.ready || 0,
+      missing_details: reviewCounts.missing_details || 0,
+      problems: reviewCounts.problems || 0
+    },
     pagination: {
       page,
       limit,

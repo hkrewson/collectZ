@@ -3282,6 +3282,19 @@
         "type": "object",
         "properties": {
           "items": { "type": "array", "items": { "$ref": "#/components/schemas/CaptureItem" } },
+          "review_filter": { "type": "string", "enum": ["all", "needs_choice", "ready", "no_match", "missing_details", "problems"] },
+          "review_counts": {
+            "type": "object",
+            "properties": {
+              "all": { "type": "integer" },
+              "needs_choice": { "type": "integer" },
+              "ready": { "type": "integer" },
+              "no_match": { "type": "integer" },
+              "missing_details": { "type": "integer" },
+              "problems": { "type": "integer" }
+            },
+            "additionalProperties": false
+          },
           "pagination": { "type": "object", "additionalProperties": true }
         },
         "required": ["items", "pagination"]
@@ -3694,10 +3707,43 @@
       "get": {
         "tags": ["Capture"],
         "summary": "List mobile-first capture inbox records",
-        "description": "Returns quick-capture records scoped to the authenticated user's active workspace/library. Supports status, capture_type, search, page, and limit query parameters.",
+        "description": "Returns quick-capture records scoped to the authenticated user's active workspace/library. Supports status, capture_type, review_filter, search, page, and limit query parameters.",
         "security": [
           { "cookieSession": [] },
           { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": { "type": "string", "enum": ["active", "new", "reviewed", "converted", "discarded", "all"] }
+          },
+          {
+            "name": "capture_type",
+            "in": "query",
+            "schema": { "type": "string", "enum": ["barcode", "photo", "ocr_text", "manual_note"] }
+          },
+          {
+            "name": "review_filter",
+            "in": "query",
+            "description": "Optional triage filter for the Capture Inbox review tabs.",
+            "schema": { "type": "string", "enum": ["all", "needs_choice", "ready", "no_match", "missing_details", "problems"] }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 1, "default": 1 }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 50 }
+          }
         ],
         "responses": {
           "200": {

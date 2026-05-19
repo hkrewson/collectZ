@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.8.13",
+      "version": "3.8.13",
+      "date": "2026-05-19",
+      "status": "implemented",
+      "summary": "This release makes Capture Inbox easier to work through by adding review filters for captures that need a decision, are ready to add, have no match, are missing details, or have provider/replay problems.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added server-backed `review_filter` support to `GET /api/capture-items`.",
+            "Added capture review counts for all review filters.",
+            "Added Capture Inbox review tabs: `All`, `Needs choice`, `Ready to add`, `No match`, `Missing details`, and `Problems`.",
+            "Kept all capture records on the existing Capture Inbox page instead of creating a separate queue.",
+            "Updated OpenAPI to document the new query parameter and response counts."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.8.12",
       "version": "3.8.12",
       "date": "2026-05-19",
@@ -169,25 +188,6 @@
             "Stores conflicting incoming values in `capture_items.review_decision.capture_replay_conflicts`.",
             "Returns `idempotency.status`, `idempotency.conflict_count`, and `replay_conflicts` in retry responses.",
             "Documents replay conflict readback in OpenAPI."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.8.3",
-      "version": "3.8.3",
-      "date": "2026-05-18",
-      "status": "implemented",
-      "summary": "This release makes Capture Inbox intake safer for mobile/scanner offline queues by letting clients resend queued captures without creating duplicate rows.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added optional `client_capture_id` and `client_source` handling for quick-capture records.",
-            "Reusing the same `client_capture_id` in the same workspace/library scope now returns and updates the existing capture item instead of inserting another row.",
-            "Added idempotent replay behavior for photo uploads, including returning the existing image path when the original upload already succeeded.",
-            "Exposed normalized `client_capture_id`, `client_source`, and idempotency readback in capture API responses.",
-            "Documented the idempotent capture create and upload behavior in OpenAPI."
           ]
         }
       ]

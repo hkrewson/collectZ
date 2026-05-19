@@ -258,7 +258,19 @@ test.describe('admin shell browser regressions', () => {
       await page.goto('/dashboard?tab=library-capture');
       expect((await captureResponse).ok()).toBeTruthy();
       await expect(page.getByRole('heading', { name: 'Capture Inbox', exact: true })).toBeVisible();
+      await expect(page.getByRole('tablist', { name: 'Capture review filter' })).toBeVisible();
+      await expect(page.getByRole('tab', { name: /Needs choice/ })).toBeVisible();
+      await expect(page.getByRole('tab', { name: /Ready to add/ })).toBeVisible();
+      await expect(page.getByRole('tab', { name: /No match/ })).toBeVisible();
+      const reviewFilterResponse = page.waitForResponse((response) => (
+        response.url().includes('/api/capture-items')
+        && response.url().includes('review_filter=needs_choice')
+        && response.request().method() === 'GET'
+      ));
+      await page.getByRole('tab', { name: /Needs choice/ }).click();
+      expect((await reviewFilterResponse).ok()).toBeTruthy();
       await expect(page.getByText(title, { exact: true })).toBeVisible();
+      await page.getByRole('tab', { name: /^All / }).click();
       await expect(page.getByText(photoTitle, { exact: true })).toBeVisible();
       const replayConflictReview = page.getByLabel('Replay conflict review').first();
       await expect(replayConflictReview.getByText('Replay conflict', { exact: true })).toBeVisible();

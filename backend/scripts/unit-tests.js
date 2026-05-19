@@ -6228,6 +6228,10 @@ results.push(run('mobile capture inbox foundation is scoped, routed, and reviewa
   assert.ok(initSqlSource.includes("(104, 'Add mobile capture inbox foundation')"));
   assert.ok(captureItemsRoutesSource.includes("router.use('/capture-items', authenticateToken);"));
   assert.ok(captureItemsRoutesSource.includes("router.get('/capture-items'"));
+  assert.ok(captureItemsRoutesSource.includes('const REVIEW_FILTERS'));
+  assert.ok(captureItemsRoutesSource.includes('function captureReviewFilterCondition'));
+  assert.ok(captureItemsRoutesSource.includes('review_filter: reviewFilter'));
+  assert.ok(captureItemsRoutesSource.includes('review_counts'));
   assert.ok(captureItemsRoutesSource.includes("router.post('/capture-items'"));
   assert.ok(captureItemsRoutesSource.includes("router.post('/capture-items/upload-image'"));
   assert.ok(captureItemsRoutesSource.includes("router.post('/capture-items/:id/ocr-text'"));
@@ -6275,6 +6279,8 @@ results.push(run('mobile capture inbox foundation is scoped, routed, and reviewa
   assert.deepStrictEqual(getRequiredPatScopesForRequest({ originalUrl: '/api/capture-items/123/import-match', method: 'POST' }), ['media:write']);
   assert.deepStrictEqual(getRequiredPatScopesForRequest({ originalUrl: '/api/capture-items/123/resolve-replay-conflict', method: 'POST' }), ['media:write']);
   assert.ok(openApiSource.includes('"/api/capture-items"'));
+  assert.ok(openApiSource.includes('"review_filter"'));
+  assert.ok(openApiSource.includes('"review_counts"'));
   assert.ok(openApiSource.includes('"/api/capture-items/upload-image"'));
   assert.ok(openApiSource.includes('"/api/capture-items/{id}/ocr-text"'));
   assert.ok(openApiSource.includes('"/api/capture-items/{id}/ocr-image"'));
@@ -6303,6 +6309,15 @@ results.push(run('mobile capture inbox foundation is scoped, routed, and reviewa
   assert.ok(dashboardContentSource.includes("case 'library-capture'"));
   assert.ok(dashboardContentSource.includes('CaptureInboxView'));
   assert.ok(captureInboxViewSource.includes("apiCall('get', `/capture-items?${params.toString()}`)"));
+  assert.ok(captureInboxViewSource.includes('const REVIEW_TABS'));
+  assert.ok(captureInboxViewSource.includes("params.set('review_filter', reviewFilter)"));
+  assert.ok(captureInboxViewSource.includes('reviewCounts'));
+  assert.ok(captureInboxViewSource.includes('Capture review filter'));
+  assert.ok(captureInboxViewSource.includes('Needs choice'));
+  assert.ok(captureInboxViewSource.includes('Ready to add'));
+  assert.ok(captureInboxViewSource.includes('No match'));
+  assert.ok(captureInboxViewSource.includes('Missing details'));
+  assert.ok(captureInboxViewSource.includes('Problems'));
   assert.ok(captureInboxViewSource.includes("apiCall('post', '/capture-items/upload-image'"));
   assert.ok(captureInboxViewSource.includes("apiCall('post', `/capture-items/${item.id}/ocr-text`"));
   assert.ok(captureInboxViewSource.includes("apiCall('post', `/capture-items/${item.id}/ocr-image`"));

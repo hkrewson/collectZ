@@ -19,6 +19,15 @@ const STATUS_TABS = [
   { id: 'all', label: 'All' }
 ];
 
+const REVIEW_TABS = [
+  { id: 'all', label: 'All' },
+  { id: 'needs_choice', label: 'Needs choice' },
+  { id: 'ready', label: 'Ready to add' },
+  { id: 'no_match', label: 'No match' },
+  { id: 'missing_details', label: 'Missing details' },
+  { id: 'problems', label: 'Problems' }
+];
+
 const CAPTURE_TYPES = [
   { value: 'manual_note', label: 'Note' },
   { value: 'barcode', label: 'Barcode' },
@@ -93,6 +102,15 @@ function latestReplayConflict(item = {}) {
     }
   }
   return null;
+}
+
+function emptyReviewMessage(filter) {
+  if (filter === 'needs_choice') return 'No captures need a choice in this view.';
+  if (filter === 'ready') return 'No captures are ready to add in this view.';
+  if (filter === 'no_match') return 'No captures without matches in this view.';
+  if (filter === 'missing_details') return 'No captures are missing details in this view.';
+  if (filter === 'problems') return 'No capture problems in this view.';
+  return 'No captures match this view.';
 }
 
 function Field({ label, className = '', children, asLabel = true }) {
@@ -416,6 +434,15 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
   const [items, setItems] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 50, total: 0, total_pages: 1 });
   const [status, setStatus] = useState('active');
+  const [reviewFilter, setReviewFilter] = useState('all');
+  const [reviewCounts, setReviewCounts] = useState({
+    all: 0,
+    needs_choice: 0,
+    ready: 0,
+    no_match: 0,
+    missing_details: 0,
+    problems: 0
+  });
   const [captureType, setCaptureType] = useState('all');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
@@ -438,17 +465,26 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
       params.set('status', status);
       params.set('page', String(page));
       params.set('limit', '50');
+      if (reviewFilter !== 'all') params.set('review_filter', reviewFilter);
       if (captureType !== 'all') params.set('capture_type', captureType);
       if (search.trim()) params.set('search', search.trim());
       const payload = await apiCall('get', `/capture-items?${params.toString()}`);
       setItems(Array.isArray(payload?.items) ? payload.items : []);
+      setReviewCounts({
+        all: Number(payload?.review_counts?.all || 0),
+        needs_choice: Number(payload?.review_counts?.needs_choice || 0),
+        ready: Number(payload?.review_counts?.ready || 0),
+        no_match: Number(payload?.review_counts?.no_match || 0),
+        missing_details: Number(payload?.review_counts?.missing_details || 0),
+        problems: Number(payload?.review_counts?.problems || 0)
+      });
       setPagination(payload?.pagination || { page, limit: 50, total: 0, total_pages: 1 });
     } catch (err) {
       setError(err?.message || 'Could not load capture inbox.');
     } finally {
       setLoading(false);
     }
-  }, [apiCall, captureType, search, status]);
+  }, [apiCall, captureType, reviewFilter, search, status]);
 
   useEffect(() => {
     loadCaptures(1);
@@ -465,6 +501,11 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
     });
     return counts;
   }, [items]);
+
+  const reviewTabs = useMemo(() => REVIEW_TABS.map((tab) => ({
+    ...tab,
+    label: `${tab.label} ${reviewCounts[tab.id] || 0}`
+  })), [reviewCounts]);
 
   const reviewDecisionFromFormLookup = () => {
     if (!formLookup.lookedUp && !formLookup.error && !formLookup.matches.length) return {};
@@ -892,6 +933,18 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
             <button type="button" className="btn-ghost h-9" onClick={() => loadCaptures(1)}>Search</button>
           </div>
         </div>
+        <div className="mt-3 border-t border-edge/70 pt-3">
+          <SectionTabs
+            tabs={reviewTabs}
+            activeId={reviewFilter}
+            onChange={(next) => setReviewFilter(next)}
+            showDivider={false}
+            className="min-w-0"
+            listClassName="gap-3"
+            buttonClassName="py-1.5 text-xs"
+            ariaLabel="Capture review filter"
+          />
+        </div>
       </div>
 
       {editorOpen ? (
@@ -927,7 +980,7 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
       ) : error ? (
         <div className="py-4 text-sm text-err">{error}</div>
       ) : items.length === 0 ? (
-        <div className="border-b border-edge/70 py-6 text-sm text-ghost">No captures match this view.</div>
+        <div className="border-b border-edge/70 py-6 text-sm text-ghost">{emptyReviewMessage(reviewFilter)}</div>
       ) : (
         <div className="divide-y divide-edge/70 border-b border-edge/70">
           {items.map((item) => {
