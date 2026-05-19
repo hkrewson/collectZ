@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.8.8",
+      "version": "3.8.8",
+      "date": "2026-05-19",
+      "status": "implemented",
+      "summary": "This release lets Capture Inbox turn a selected lookup match into a real library link or import, keeping the user in control of the final decision.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Adds authenticated `POST /api/capture-items/{id}/import-match`.",
+            "Reuses the scanner barcode import pipeline so Capture Inbox and the iOS scanner share the same backend source of truth.",
+            "Links captures to existing library items when the selected match is already in the catalog.",
+            "Imports provider candidates into canonical media rows when the selected match is new.",
+            "Marks converted captures with the linked media id and stores selected-match/import readback in capture review metadata.",
+            "Adds compact `Link` and `Import` actions beside persisted capture lookup matches."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.8.7",
       "version": "3.8.7",
       "date": "2026-05-19",
@@ -168,25 +188,6 @@
             "Event group, meetup, schedule plan, and schedule session rows now log their own readable name/title plus event context.",
             "Schedule preview, notification, and schedule import rows now include event context in their activity details.",
             "Updated browser coverage to prove new attendee activity shows the attendee name in Workspace Activity."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.7.4",
-      "version": "3.7.4",
-      "date": "2026-05-18",
-      "status": "implemented",
-      "summary": "This patch continues the human-readable timeline work by making event-planning and Plex provider rows read like concrete activity instead of raw action names.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added readable timeline copy for `events.*` rows, including attendees, groups, meetups, schedule plans, schedule imports, personal calendars, notifications, artifacts, and purchased-item links.",
-            "Fixed the Events activity filter so event-planning rows logged as `events.*` appear under `Events`.",
-            "Improved Plex timeline copy for rating readback/writeback, watched-state readback/writeback, refresh runs, reconciliation previews, sync jobs, and conflict resolution.",
-            "Added browser coverage proving a workspace event attendee row appears as readable event activity.",
-            "Hardened event/art/collectible Playwright cleanup helpers so authenticated deletes include CSRF tokens."
           ]
         }
       ]

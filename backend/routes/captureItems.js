@@ -151,6 +151,11 @@ function findStoredOcrCandidate(reviewDecision = {}, candidateId = '') {
   return candidates.find((candidate) => String(candidate?.id || '') === String(candidateId || '')) || null;
 }
 
+function findStoredLookupMatch(reviewDecision = {}, matchId = '') {
+  const matches = Array.isArray(reviewDecision?.capture_lookup_matches) ? reviewDecision.capture_lookup_matches : [];
+  return matches.find((match) => String(match?.id || '') === String(matchId || '')) || null;
+}
+
 function sanitizeLookupMatches(matches = []) {
   return (Array.isArray(matches) ? matches : []).slice(0, 10).map((match) => ({
     id: match.id || null,
@@ -905,6 +910,107 @@ router.post('/capture-items/:id/lookup-matches', asyncHandler(async (req, res) =
       provider_count: lookup.provider_count || 0,
       provider_error: lookup.provider_error || null
     }
+  });
+}));
+
+router.post('/capture-items/:id/import-match', asyncHandler(async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(404).json({ error: 'Capture item not found.' });
+
+  const scopeContext = resolveScopeContext(req);
+  const current = await fetchCaptureItem(id, scopeContext);
+  if (!current) return res.status(404).json({ error: 'Capture item not found.' });
+
+  const shapedCurrent = shapeCaptureItem(current);
+  const matchId = nullableString(req.body?.match_id);
+  const storedMatch = matchId ? findStoredLookupMatch(shapedCurrent.review_decision, matchId) : null;
+  const providedMatch = jsonObject(req.body?.match || req.body?.selectedMatch);
+  const selectedMatch = storedMatch || providedMatch;
+  if (!selectedMatch?.media_id && !selectedMatch?.title) {
+    return res.status(400).json({ error: 'Select a stored lookup match or provide a match with a title.' });
+  }
+  if (matchId && !storedMatch) {
+    return res.status(404).json({ error: 'Stored lookup match not found for this capture.' });
+  }
+  if (typeof mediaRouter.importBarcodeMatchForRequest !== 'function') {
+    return res.status(409).json({ error: 'Barcode import is not available in this runtime.' });
+  }
+
+  const barcode = nullableString(req.body?.barcode)
+    || selectedMatch.barcode
+    || selectedMatch.upc
+    || shapedCurrent.barcode
+    || '';
+  const importResult = await mediaRouter.importBarcodeMatchForRequest(req, {
+    scopeContext,
+    selectedMatch,
+    barcode,
+    symbology: nullableString(req.body?.symbology) || selectedMatch.symbology || shapedCurrent.symbology || '',
+    mediaType: nullableString(req.body?.media_type) || selectedMatch.media_type || selectedMatch.mediaTypeGuess || shapedCurrent.object_type || null,
+    importSource: 'capture_lookup',
+    activityAction: 'media.import_capture_lookup',
+    existingActivityAction: 'media.import_capture_lookup.existing'
+  });
+  if (!importResult?.body?.ok || !importResult.body.media_id) {
+    return res.status(importResult?.statusCode || 400).json(importResult?.body || { error: 'Capture match import failed.' });
+  }
+
+  const importedAt = new Date().toISOString();
+  const reviewDecision = mergeReviewDecision(shapedCurrent.review_decision, {
+    selected_capture_lookup_match: selectedMatch,
+    selected_capture_lookup_match_at: importedAt,
+    capture_import_result: {
+      status: importResult.body.status || null,
+      action: importResult.body.action || null,
+      media_id: importResult.body.media_id,
+      matched_by: importResult.body.matched_by || null,
+      match_mode: importResult.body.match_mode || null,
+      enrichment_status: importResult.body.enrichment_status || null,
+      lookup_path: importResult.body.lookup_path || null,
+      lookup_status: importResult.body.lookup_status || null,
+      imported_at: importedAt
+    },
+    converted_to: 'media'
+  });
+  const sourceContext = mergeReviewDecision(shapedCurrent.source_context, {
+    capture_import_source: 'lookup_match',
+    capture_imported_at: importedAt
+  });
+
+  const result = await pool.query(
+    `UPDATE capture_items
+        SET status = 'converted',
+            linked_media_id = $1,
+            converted_at = COALESCE(converted_at, CURRENT_TIMESTAMP),
+            review_decision = $2::jsonb,
+            source_context = $3::jsonb,
+            updated_at = CURRENT_TIMESTAMP
+      WHERE id = $4
+      RETURNING *`,
+    [
+      importResult.body.media_id,
+      JSON.stringify(reviewDecision),
+      JSON.stringify(sourceContext),
+      id
+    ]
+  );
+
+  const updated = shapeCaptureItem(result.rows[0]);
+  await logActivity(req, 'capture.import_match', 'capture_item', updated.id, {
+    title: updated.title,
+    captureType: updated.capture_type,
+    mediaId: importResult.body.media_id,
+    importStatus: importResult.body.status || null,
+    matchId: selectedMatch.id || null,
+    barcode: importResult.body.barcode || barcode || null,
+    spaceId: updated.space_id,
+    libraryId: updated.library_id
+  });
+  return res.status(importResult.statusCode || 200).json({
+    ok: true,
+    item: updated,
+    import: importResult.body,
+    match: selectedMatch
   });
 }));
 

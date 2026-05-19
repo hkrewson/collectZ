@@ -10752,6 +10752,39 @@ Historical note:
 - What remains in the milestone: nothing for the `3.6.0` foundation slice; later `3.6.x` work can build provider candidate intake and richer acquisition workflows on this model.
 - Recommended commit message: `Release 3.6.0 with wishlist and acquisition foundation`.
 
+## 3.8.8 — Capture Selected Match Import
+
+**Goal:** Let Capture Inbox complete the review loop by importing or linking a user-selected lookup match into the canonical library.
+
+**Scope**
+
+- Add an authenticated capture endpoint that accepts a stored or supplied lookup match.
+- Reuse the existing scanner barcode import pipeline so scanner and Capture Inbox imports stay consistent.
+- Link captures to existing scoped media rows when the selected match is already in the library.
+- Import provider matches into canonical media rows when the selected match is new.
+- Store selected-match and import-result readback on the capture row.
+- Keep import/link as an explicit user action; do not auto-import lookup results.
+
+**Acceptance**
+
+- `POST /api/capture-items/{id}/import-match` is authenticated, scoped, and documented in OpenAPI.
+- Existing catalog matches link the capture to the existing media row without creating a duplicate.
+- Provider matches can create or update a canonical media row through the scanner import pipeline.
+- Converted captures store `linked_media_id`, selected match readback, and import result readback.
+- Capture Inbox renders compact `Link`/`Import` actions beside persisted lookup matches.
+- Version metadata, release note, release feed, and Help > Releases include `3.8.8`.
+
+### Closeout
+
+- Roadmap slice: `3.8.8 — Capture Selected Match Import`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/06-Versioning-and-Build-Metadata.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.8.8.md`.
+- Runtime verification used: Docker backend/frontend rebuild and healthy running stack; in-stack `/api/health` reported frontend/backend/build `3.8.8`; running backend logs reported `collectZ backend v3.8.8` with `104 migration(s) applied`; running backend env reported `APP_EDITION=platform`, `APP_VERSION=3.8.8`, `NODE_ENV=development`, `SESSION_COOKIE_SECURE=false`, and `TRUST_PROXY=0`; targeted Capture Inbox browser proof created a photo capture, applied an OCR ISBN candidate, found a same-scope catalog match, clicked `Link`, and verified the capture converted with `linked_media_id`; Docker Help > Releases smoke served `3.8.8`; disposable CI-shaped compose smoke proved secure-cookie health/CSRF/auth basics; disposable homelab stack proved the public edition boundary.
+- CI/checks run locally: `node --check backend/routes/captureItems.js`; `node --check backend/routes/media.js`; `node backend/scripts/validate-openapi.js`; host unit tests (`295` passed); frontend production build; Docker backend/frontend build; Docker `npm run test:unit` (`295` passed); Docker `npm run test:openapi`; Docker `npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.8.8 npm run test:help-releases-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker throwaway homelab stack plus `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; targeted Capture Inbox Playwright regression; full Playwright browser regression (`70` passed, `4` skipped); backend/frontend production dependency audits (`0` vulnerabilities); local observability evidence (`9/9` checks passed); local release preflight; public export validation; CI-shaped compose smoke; version sync check; release note heading check; `git diff --check`; targeted release/evidence secret-pattern scan.
+- Files changed: `app-meta.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `backend/app-meta.json`; `backend/openapi/openapi.yaml`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/routes/captureItems.js`; `backend/routes/media.js`; `backend/scripts/unit-tests.js`; `docker-compose.yml`; `docs/releases/v3.8.8.md`; `docs/wiki/07-Release-Roadmap.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/CaptureInboxView.jsx`; `preflight-go-no-go.md`; `tests/playwright/specs/admin-shell.browser.spec.js`.
+- Risks/follow-ups: Selected-match import remains explicit and does not yet provide automatic capture processing or broader unified review queue routing. Provider-created rows still depend on metadata quality from the configured Barcode and Books providers. Local `gitleaks`, `trivy`, and `syft` were unavailable, so CI remains authoritative for `secret-scan` and `image-security-and-sbom`; local preflight still marks its built-in compose-smoke line blocked because the main development stack intentionally runs with development cookie settings, while a separate CI-shaped disposable compose smoke passed.
+- What remains in the milestone: nothing for `3.8.8`; later Mobile-First Capture Workflow slices can add photo/cover recognition, offline queue replay UI polish, convention/store quick-add affordances, and unified review queue routing.
+- Recommended commit message: `Release 3.8.8 Capture Selected Match Import for Capture Inbox`
+
 ## 3.8.7 — Capture Identifier Match Lookup
 
 **Goal:** Let Capture Inbox use an applied barcode or OCR identifier to fetch reviewable catalog/provider matches without importing or linking media automatically.

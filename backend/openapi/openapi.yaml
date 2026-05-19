@@ -3423,6 +3423,32 @@
         },
         "required": ["item", "matches", "lookup"]
       },
+      "CaptureImportMatchResponse": {
+        "type": "object",
+        "properties": {
+          "ok": { "type": "boolean" },
+          "item": { "$ref": "#/components/schemas/CaptureItem" },
+          "import": {
+            "type": "object",
+            "properties": {
+              "ok": { "type": "boolean" },
+              "status": { "type": "string", "enum": ["existing", "created", "updated"] },
+              "action": { "type": "string", "enum": ["matched_existing", "created", "updated"] },
+              "media_id": { "type": "integer" },
+              "media": { "type": ["object", "null"], "additionalProperties": true },
+              "barcode": { "type": ["string", "null"] },
+              "matched_by": { "type": ["string", "null"] },
+              "match_mode": { "type": ["string", "null"] },
+              "enrichment_status": { "type": ["string", "null"] },
+              "lookup_path": { "type": ["string", "null"] },
+              "lookup_status": { "type": ["string", "null"] }
+            },
+            "required": ["ok", "status", "action", "media_id"]
+          },
+          "match": { "$ref": "#/components/schemas/BarcodeLookupMatch" }
+        },
+        "required": ["ok", "item", "import", "match"]
+      },
       "CaptureReplayConflictResolveResponse": {
         "type": "object",
         "properties": {
@@ -3965,6 +3991,69 @@
           },
           "409": {
             "description": "Lookup path unavailable in this runtime",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      }
+    },
+    "/api/capture-items/{id}/import-match": {
+      "post": {
+        "tags": ["Capture"],
+        "summary": "Import or link a selected capture lookup match",
+        "description": "Converts an explicit user-selected capture lookup match into a canonical media row, or links the capture to an existing scoped media row when the match already exists. This is an explicit review action and reuses the scanner barcode import path rather than auto-importing lookup results.",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "match_id": { "type": "string", "description": "ID of a previously stored capture lookup match." },
+                  "match": { "$ref": "#/components/schemas/BarcodeLookupMatch" },
+                  "selectedMatch": { "$ref": "#/components/schemas/BarcodeLookupMatch" },
+                  "barcode": { "type": "string" },
+                  "symbology": { "type": "string" },
+                  "media_type": { "type": "string", "enum": ["movie", "tv_series", "book", "comic_book", "audio", "game", "other"] }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Capture linked to an existing or updated media row",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CaptureImportMatchResponse" }
+              }
+            }
+          },
+          "201": {
+            "description": "Capture imported into a newly created media row",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CaptureImportMatchResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Selected match cannot be imported",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          },
+          "404": {
+            "description": "Capture item or stored match not found",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          },
+          "409": {
+            "description": "Import path unavailable in this runtime",
             "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
           }
         }

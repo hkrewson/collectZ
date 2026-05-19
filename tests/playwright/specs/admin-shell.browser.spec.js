@@ -281,6 +281,16 @@ test.describe('admin shell browser regressions', () => {
       await expect(photoCaptureRow.getByLabel('Capture lookup matches')).toBeVisible();
       await expect(photoCaptureRow.getByText('Matches', { exact: true })).toBeVisible();
       await expect(photoCaptureRow.getByText('In library')).toBeVisible();
+      const importMatchResponse = page.waitForResponse((response) => (
+        response.url().includes(`/api/capture-items/${photoCaptureId}/import-match`)
+        && response.request().method() === 'POST'
+      ));
+      await photoCaptureRow.getByRole('button', { name: 'Link' }).first().click();
+      const importMatchPayload = await (await importMatchResponse).json();
+      expect(importMatchPayload?.ok).toBe(true);
+      expect(importMatchPayload?.item?.status).toBe('converted');
+      expect(Number(importMatchPayload?.item?.linked_media_id || 0)).toBe(catalogMediaId);
+      expect(importMatchPayload?.import?.action).toBe('matched_existing');
       await expect(page.getByRole('button', { name: 'New capture' })).toBeVisible();
 
       const convertResponse = await postWithCsrf(requestContext, `/api/capture-items/${captureId}/convert-wishlist`, {}, 201);

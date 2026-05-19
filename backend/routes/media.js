@@ -12816,40 +12816,56 @@ router.delete('/:id/signing-proof', asyncHandler(async (req, res) => {
   res.json({ ok: true, removed: true, signed_proof_path: null });
 }));
 
-router.post('/import-barcode', validate(barcodeImportSchema), asyncHandler(async (req, res) => {
-  const scopeContext = resolveScopeContext(req);
-  const selectedMatch = req.body.selectedMatch || req.body.match || {};
-  const barcode = normalizeBarcodeLookupCode(req.body.barcode || selectedMatch.barcode || selectedMatch.upc || '');
+async function importBarcodeMatchForRequest(req, {
+  scopeContext = null,
+  selectedMatch = {},
+  barcode: barcodeInput = '',
+  symbology = '',
+  mediaType = null,
+  importSource = 'barcode_scanner',
+  activityAction = 'media.import_barcode',
+  existingActivityAction = 'media.import_barcode.existing'
+} = {}) {
+  const barcode = normalizeBarcodeLookupCode(barcodeInput || selectedMatch.barcode || selectedMatch.upc || '');
   const mediaId = Number(selectedMatch.media_id || 0) || null;
 
   if (mediaId) {
     const existing = await loadScopedMediaRecordById(mediaId, scopeContext);
     if (!existing) {
-      return res.status(404).json({ error: 'Selected media match was not found in this library scope' });
+      return {
+        statusCode: 404,
+        body: { error: 'Selected media match was not found in this library scope' }
+      };
     }
-    await logActivity(req, 'media.import_barcode.existing', 'media', mediaId, {
+    await logActivity(req, existingActivityAction, 'media', mediaId, {
       barcode: barcode || null,
-      symbology: req.body.symbology || selectedMatch.symbology || null,
+      symbology: symbology || selectedMatch.symbology || null,
       mediaType: existing.media_type || null
     });
-    return res.json({
-      ok: true,
-      status: 'existing',
-      action: 'matched_existing',
-      media_id: mediaId,
-      media: normalizeMediaRecord(existing),
-      barcode: barcode || null
-    });
+    return {
+      statusCode: 200,
+      body: {
+        ok: true,
+        status: 'existing',
+        action: 'matched_existing',
+        media_id: mediaId,
+        media: normalizeMediaRecord(existing),
+        barcode: barcode || null
+      }
+    };
   }
 
   const item = buildImportItemFromBarcodeMatch({
     match: selectedMatch,
     barcode,
-    mediaType: req.body.mediaType,
+    mediaType,
     scopeContext
   });
   if (!item.title) {
-    return res.status(400).json({ error: 'Selected barcode match does not include a title to import' });
+    return {
+      statusCode: 400,
+      body: { error: 'Selected barcode match does not include a title to import' }
+    };
   }
   const config = await loadScopedIntegrationConfig(scopeContext?.spaceId || null);
   const enrichmentMode = resolveImportEnrichmentExecutionMode(req);
@@ -12871,19 +12887,22 @@ router.post('/import-barcode', validate(barcodeImportSchema), asyncHandler(async
   const result = await upsertImportedMedia({
     userId: req.user.id,
     item: enrichedItem,
-    importSource: 'barcode_scanner',
+    importSource,
     scopeContext,
     identifiers: enrichedItem.identifiers || item.identifiers
   });
   if (!result?.mediaId || result.type === 'invalid') {
-    return res.status(400).json({
-      error: result?.detail || 'Barcode import did not create or update media',
-      status: result?.type || 'invalid'
-    });
+    return {
+      statusCode: 400,
+      body: {
+        error: result?.detail || 'Barcode import did not create or update media',
+        status: result?.type || 'invalid'
+      }
+    };
   }
 
   await upsertMediaMetadataEntry(result.mediaId, 'barcode_scanner_last_code', barcode || item.upc || '');
-  await upsertMediaMetadataEntry(result.mediaId, 'barcode_scanner_last_symbology', req.body.symbology || selectedMatch.symbology || '');
+  await upsertMediaMetadataEntry(result.mediaId, 'barcode_scanner_last_symbology', symbology || selectedMatch.symbology || '');
   if (selectedMatch.source) {
     await upsertMediaMetadataEntry(result.mediaId, 'barcode_scanner_match_source', selectedMatch.source);
   }
@@ -12891,10 +12910,10 @@ router.post('/import-barcode', validate(barcodeImportSchema), asyncHandler(async
   await upsertMediaMetadataEntry(result.mediaId, 'barcode_scanner_import_lookup_path', enrichmentResult.lookupPath || 'none');
   await upsertMediaMetadataEntry(result.mediaId, 'barcode_scanner_import_lookup_status', enrichmentResult.lookupStatus || 'none');
   const media = await loadScopedMediaRecordById(result.mediaId, scopeContext);
-  await logActivity(req, 'media.import_barcode', 'media', result.mediaId, {
+  await logActivity(req, activityAction, 'media', result.mediaId, {
     status: result.type,
     barcode: barcode || enrichedItem.upc || item.upc || null,
-    symbology: req.body.symbology || selectedMatch.symbology || null,
+    symbology: symbology || selectedMatch.symbology || null,
     mediaType: enrichedItem.media_type || item.media_type || null,
     matchedBy: result.matchedBy || null,
     matchMode: result.matchMode || null,
@@ -12903,19 +12922,35 @@ router.post('/import-barcode', validate(barcodeImportSchema), asyncHandler(async
     lookupStatus: enrichmentResult.lookupStatus || 'none'
   });
 
-  res.status(result.type === 'created' ? 201 : 200).json({
-    ok: true,
-    status: result.type,
-    action: result.type === 'created' ? 'created' : 'updated',
-    media_id: result.mediaId,
-    media: media ? normalizeMediaRecord(media) : null,
-    barcode: barcode || enrichedItem.upc || item.upc || null,
-    matched_by: result.matchedBy || null,
-    match_mode: result.matchMode || null,
-    enrichment_status: enrichmentResult.enrichmentStatus || 'not_attempted',
-    lookup_path: enrichmentResult.lookupPath || 'none',
-    lookup_status: enrichmentResult.lookupStatus || 'none'
+  return {
+    statusCode: result.type === 'created' ? 201 : 200,
+    body: {
+      ok: true,
+      status: result.type,
+      action: result.type === 'created' ? 'created' : 'updated',
+      media_id: result.mediaId,
+      media: media ? normalizeMediaRecord(media) : null,
+      barcode: barcode || enrichedItem.upc || item.upc || null,
+      matched_by: result.matchedBy || null,
+      match_mode: result.matchMode || null,
+      enrichment_status: enrichmentResult.enrichmentStatus || 'not_attempted',
+      lookup_path: enrichmentResult.lookupPath || 'none',
+      lookup_status: enrichmentResult.lookupStatus || 'none'
+    }
+  };
+}
+
+router.post('/import-barcode', validate(barcodeImportSchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const selectedMatch = req.body.selectedMatch || req.body.match || {};
+  const result = await importBarcodeMatchForRequest(req, {
+    scopeContext,
+    selectedMatch,
+    barcode: req.body.barcode || selectedMatch.barcode || selectedMatch.upc || '',
+    symbology: req.body.symbology || selectedMatch.symbology || '',
+    mediaType: req.body.mediaType
   });
+  res.status(result.statusCode).json(result.body);
 }));
 
 // ── CSV import ────────────────────────────────────────────────────────────────
@@ -15900,6 +15935,7 @@ router.runPlexWatchStateRefreshOnce = runPlexWatchStateRefreshOnce;
 router.startPlexReconciliationSyncScheduler = startPlexReconciliationSyncScheduler;
 router.getPlexReconciliationSyncRuntimeConfig = getPlexReconciliationSyncRuntimeConfig;
 router.runPlexReconciliationSyncSchedulerOnce = runPlexReconciliationSyncSchedulerOnce;
+router.importBarcodeMatchForRequest = importBarcodeMatchForRequest;
 router.lookupScannerBarcodeCandidates = async function lookupScannerBarcodeCandidates({
   barcode,
   symbology = '',

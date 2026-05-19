@@ -381,6 +381,23 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
     }
   };
 
+  const importLookupMatch = async (item, match) => {
+    setWorkingCaptureId(item.id);
+    try {
+      const response = await apiCall('post', `/capture-items/${item.id}/import-match`, {
+        match_id: match.id,
+        match
+      });
+      const action = response?.import?.action === 'matched_existing' ? 'linked' : 'imported';
+      onToast?.(`Capture ${action} to library.`, 'success');
+      await loadCaptures(pagination.page || 1);
+    } catch (err) {
+      onToast?.(err?.message || 'Could not import capture match.', 'error');
+    } finally {
+      setWorkingCaptureId(null);
+    }
+  };
+
   const resolveReplayConflict = async (item, action) => {
     setWorkingCaptureId(item.id);
     try {
@@ -601,7 +618,7 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
                       </div>
                       <div className="mt-2 grid gap-1 md:max-w-2xl">
                         {lookupMatchesList.slice(0, 4).map((match) => (
-                          <div key={match.id || `${item.id}-${match.title}`} className="grid gap-1 text-xs md:grid-cols-[1fr_auto]">
+                          <div key={match.id || `${item.id}-${match.title}`} className="grid items-center gap-2 text-xs md:grid-cols-[1fr_auto_auto]">
                             <span className="truncate text-dim">
                               {match.title || 'Untitled match'}
                               {match.media_type || match.mediaTypeGuess ? ` · ${typeLabel(match.media_type || match.mediaTypeGuess, OBJECT_TYPES)}` : ''}
@@ -609,6 +626,16 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
                             <span className={cx('text-ghost', match.already_imported ? 'text-ok' : '')}>
                               {match.already_imported ? 'In library' : titleCase(match.source || 'provider')}
                             </span>
+                            {item.status !== 'converted' ? (
+                              <button
+                                type="button"
+                                className="btn-ghost btn-sm h-7 px-2 text-xs"
+                                disabled={workingCaptureId === item.id}
+                                onClick={() => importLookupMatch(item, match)}
+                              >
+                                {match.already_imported ? 'Link' : 'Import'}
+                              </button>
+                            ) : null}
                           </div>
                         ))}
                       </div>
