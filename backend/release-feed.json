@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.8.10",
+      "version": "3.8.10",
+      "date": "2026-05-19",
+      "status": "implemented",
+      "summary": "This release makes the Capture Inbox barcode camera flow more useful for books by looking for an ISBN in the captured barcode photo instead of stopping at the retail UPC.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "After the camera barcode action reads a code, Capture Inbox now runs the existing client-side identifier OCR against the same image.",
+            "If an ISBN is found, the capture form uses the ISBN, marks the object type as Book, and sets the symbology to `ISBN-13`.",
+            "If no ISBN is found, the flow falls back to the detected UPC/barcode as before.",
+            "Preserves OCR text readback when available so the capture row can still be reviewed."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.8.9",
       "version": "3.8.9",
       "date": "2026-05-19",
@@ -169,25 +187,6 @@
             "Added web Capture Inbox photo upload support with mobile-friendly image selection.",
             "Added capture image thumbnails in the inbox list.",
             "Documented the multipart upload contract in OpenAPI."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.8.0",
-      "version": "3.8.0",
-      "date": "2026-05-18",
-      "status": "implemented",
-      "summary": "This release starts the mobile-first capture workflow with a backend-owned Capture Inbox for quick real-world captures.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added scoped `capture_items` storage for barcode, photo, OCR text, and manual-note captures.",
-            "Added authenticated `/api/capture-items` endpoints so scanner/mobile clients can create and read captures directly.",
-            "Added review actions to update, discard, delete, and convert captures into Wishlist candidates.",
-            "Added Library > Capture Inbox in the web app for reviewing captured items.",
-            "Documented the capture API contract in OpenAPI."
           ]
         }
       ]

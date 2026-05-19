@@ -6319,6 +6319,9 @@ results.push(run('mobile capture inbox foundation is scoped, routed, and reviewa
   assert.ok(captureInboxViewSource.includes('Capture lookup matches'));
   assert.ok(captureInboxViewSource.includes('type="file"'));
   assert.ok(captureInboxViewSource.includes('detectBarcodeCapturePayloadFromFile'));
+  assert.ok(captureInboxViewSource.includes('extractIdentifierCandidatesFromFile'));
+  assert.ok(captureInboxViewSource.includes('inferBookBarcodeIdentifier'));
+  assert.ok(captureInboxViewSource.includes('ISBN captured'));
   assert.ok(captureInboxViewSource.includes('aria-label="Scan barcode with camera"'));
   assert.ok(captureInboxViewSource.includes('capture="environment"'));
   assert.ok(captureInboxViewSource.includes('h-full min-h-0 overflow-y-auto'));

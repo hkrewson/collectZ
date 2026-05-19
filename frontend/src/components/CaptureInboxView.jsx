@@ -4,6 +4,8 @@ import {
   SectionTabs,
   cx,
   detectBarcodeCapturePayloadFromFile,
+  extractIdentifierCandidatesFromFile,
+  inferBookBarcodeIdentifier,
   posterUrl,
   supportsBarcodeCapture
 } from './app/AppPrimitives';
@@ -99,6 +101,29 @@ function CaptureEditor({ form, setForm, saving, onSave, onCancel, onToast, Icons
   const [barcodeScanning, setBarcodeScanning] = useState(false);
   const barcodeCameraSupported = supportsBarcodeCapture();
 
+  const readIsbnFromBarcodeImage = async (file, detected) => {
+    const directIsbn = inferBookBarcodeIdentifier(detected?.code || '');
+    try {
+      const extracted = await extractIdentifierCandidatesFromFile(file, {
+        boundingBox: detected?.boundingBox || null
+      });
+      const candidates = [
+        ...(extracted?.strictIsbnCandidates || []),
+        ...(extracted?.labeledIsbnCandidates || []),
+        ...(extracted?.isbnCandidates || [])
+      ].filter(Boolean);
+      return {
+        isbn: candidates[0] || directIsbn || '',
+        rawText: extracted?.rawText || ''
+      };
+    } catch (_) {
+      return {
+        isbn: directIsbn || '',
+        rawText: ''
+      };
+    }
+  };
+
   const handleBarcodeCameraFile = async (event) => {
     const file = event.target.files?.[0] || null;
     event.target.value = '';
@@ -111,13 +136,23 @@ function CaptureEditor({ form, setForm, saving, onSave, onCancel, onToast, Icons
         onToast?.('No barcode found in that image.', 'error');
         return;
       }
+      const bookIdentifiers = await readIsbnFromBarcodeImage(file, detected);
+      const capturedCode = bookIdentifiers.isbn || detected.code;
       setForm((current) => ({
         ...current,
         capture_type: 'barcode',
-        barcode: detected.code,
-        title: current.title || file.name || ''
+        object_type: bookIdentifiers.isbn ? 'book' : current.object_type,
+        barcode: capturedCode,
+        symbology: bookIdentifiers.isbn ? 'ISBN-13' : current.symbology,
+        title: current.title || file.name || '',
+        ocr_text: current.ocr_text || bookIdentifiers.rawText || ''
       }));
-      onToast?.(`Barcode captured: ${detected.code}`, 'success');
+      onToast?.(
+        bookIdentifiers.isbn
+          ? `ISBN captured: ${bookIdentifiers.isbn}`
+          : `Barcode captured: ${detected.code}`,
+        'success'
+      );
     } catch (_) {
       onToast?.('No barcode found. Try a closer photo with the code filling more of the frame.', 'error');
     } finally {

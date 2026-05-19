@@ -10781,6 +10781,35 @@ Historical note:
 - What remains in the milestone: nothing for `3.8.9`; later Mobile-First Capture Workflow slices can add cover/art recognition, convention/store quick-add modes, and unified review queue routing.
 - Recommended commit message: `Release 3.8.9 with Capture Inbox mobile barcode camera fix`.
 
+## 3.8.10 — Capture Barcode Camera ISBN Recognition
+
+**Goal:** Make Capture Inbox barcode-camera scans book-aware by recognizing nearby ISBN text in the captured image and preferring it over a retail UPC when available.
+
+### Scope
+
+- Reuse the existing client-side identifier OCR pipeline after a barcode camera scan.
+- Prefer a recognized ISBN for book lookup when the photo contains one.
+- Preserve UPC fallback when no ISBN is recognized.
+- Keep this slice focused on Capture Inbox form population; do not change backend lookup/import behavior or the native iOS scanner client.
+
+### Acceptance Criteria
+
+- Barcode camera scan still captures UPC/barcode values when no ISBN is available.
+- Barcode camera scan can populate Barcode / ISBN with a recognized ISBN when the image contains one.
+- ISBN recognition sets the capture type to Barcode, object type to Book, and symbology to `ISBN-13`.
+- Version metadata, release note, release feed, and Help > Releases include `3.8.10`.
+
+### Closeout
+
+- Roadmap slice: `3.8.10 — Capture Barcode Camera ISBN Recognition`.
+- Project docs/checklists used: `AGENTS.md`; `/Users/hamlin/.codex/skills/uncodixfy/SKILL.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.8.10.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild with `APP_VERSION=3.8.10`; running `/api/health` reported frontend/backend/build `3.8.10`; backend logs reported `Database schema up to date (104 migration(s) applied)` and `collectZ backend v3.8.10`; running backend env readback was verified with secrets redacted and showed `APP_EDITION=platform`, `APP_VERSION=3.8.10`, `NODE_ENV=development`, `SESSION_COOKIE_SECURE=false`, `TRUST_PROXY=0`, and a redacted DB URL; Help > Releases smoke served `3.8.10`; targeted Capture Inbox browser proof revalidated the mobile barcode camera control and capture editor flow; a temporary homelab override verified the homelab edition boundary and the local stack was restored to platform mode afterward.
+- CI/checks run locally: host `node backend/scripts/unit-tests.js` (`295` passed); `npm --prefix frontend run build`; Docker backend/frontend build; Docker `npm run test:unit` (`295` passed); Docker `npm run test:openapi`; `node backend/scripts/validate-openapi.js`; Docker `npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.8.10 npm run test:help-releases-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker temporary homelab override plus `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`; Docker `npm run test:init-parity` after rerunning a clean copy because an earlier parallel homelab rebuild interrupted it; Docker `npm run test:migration-rehearsal`; targeted Capture Inbox Playwright regression; full `npm run test:browser` (`70` passed, `4` skipped); backend/frontend production dependency audits (`0` vulnerabilities); local observability evidence (`9/9` checks passed); public export surface validation; local release preflight; version sync check; release note heading check; `git diff --check`; targeted release/evidence secret-pattern scan. Local compose smoke secure-cookie basics remain blocked by the development stack settings (`SESSION_COOKIE_SECURE=false`, `NODE_ENV=development`), and CI remains authoritative for `secret-scan` plus `image-security-and-sbom`.
+- Files changed for this slice: `app-meta.json`; `artifacts/dependency-audit/backend-audit.json`; `artifacts/dependency-audit/frontend-audit.json`; `artifacts/init-parity-evidence/init-parity-evidence.json`; `artifacts/migration-rehearsal-evidence/migration-rehearsal-evidence.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `backend/app-meta.json`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/scripts/unit-tests.js`; `docker-compose.yml`; `docs/releases/v3.8.10.md`; `docs/releases/v3.8.9.md`; `docs/wiki/07-Release-Roadmap.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/CaptureInboxView.jsx`; `preflight-go-no-go.md`; `tests/playwright/specs/admin-shell.browser.spec.js`.
+- Risks/follow-ups: ISBN recognition depends on the captured image containing readable ISBN text and may still fall back to UPC under glare, blur, or odd book packaging. The temporary scan image remains browser-local unless the user separately uses photo upload. The native iOS scanner client is unchanged by this web Capture Inbox patch.
+- What remains in the milestone: nothing for `3.8.10`; later Mobile-First Capture Workflow slices can tune ISBN candidate selection with real scan samples, add cover/art recognition, and route uncertain captures into the unified review queue.
+- Recommended commit message: `Release 3.8.10 with Capture Inbox barcode camera ISBN recognition`.
+
 ## 3.8.8 — Capture Selected Match Import
 
 **Goal:** Let Capture Inbox complete the review loop by importing or linking a user-selected lookup match into the canonical library.
