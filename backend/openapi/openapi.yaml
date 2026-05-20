@@ -3201,6 +3201,62 @@
         },
         "required": ["title"]
       },
+      "AppleItunesWishlistCandidate": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "provider": { "type": "string", "enum": ["apple_itunes"] },
+          "provider_key": { "type": ["string", "null"] },
+          "title": { "type": "string" },
+          "subtitle": { "type": ["string", "null"] },
+          "object_type": { "type": "string", "enum": ["movie", "tv_series", "book", "comic_book", "audio", "game", "art", "collectible", "event_item", "other"] },
+          "media": { "type": ["string", "null"] },
+          "kind": { "type": ["string", "null"] },
+          "year": { "type": ["integer", "null"] },
+          "price": { "type": ["number", "null"] },
+          "currency": { "type": ["string", "null"] },
+          "artwork_url": { "type": ["string", "null"] },
+          "store_url": { "type": ["string", "null"] },
+          "already_saved": { "type": "boolean" },
+          "wanted_item_id": { "type": ["integer", "null"] },
+          "raw_result": { "type": "object", "additionalProperties": true }
+        },
+        "required": ["id", "provider", "title", "object_type"]
+      },
+      "AppleItunesWishlistSearchResponse": {
+        "type": "object",
+        "properties": {
+          "provider": { "type": "string", "enum": ["apple_itunes"] },
+          "term": { "type": "string" },
+          "media": { "type": "array", "items": { "type": "string" } },
+          "country": { "type": "string" },
+          "limit": { "type": "integer" },
+          "matches": { "type": "array", "items": { "$ref": "#/components/schemas/AppleItunesWishlistCandidate" } }
+        },
+        "required": ["provider", "term", "media", "country", "limit", "matches"]
+      },
+      "AppleItunesWishlistSaveInput": {
+        "type": "object",
+        "properties": {
+          "candidate": { "$ref": "#/components/schemas/AppleItunesWishlistCandidate" },
+          "target_price": { "type": ["number", "string", "null"] },
+          "priority": { "type": "string", "enum": ["low", "normal", "high", "grail"] },
+          "status": { "type": "string", "enum": ["wanted", "watching", "preordered", "ordered", "acquired", "dismissed"] },
+          "country": { "type": "string" },
+          "notes": { "type": ["string", "null"] }
+        },
+        "required": ["candidate"]
+      },
+      "AppleItunesWishlistSaveResponse": {
+        "type": "object",
+        "properties": {
+          "ok": { "type": "boolean" },
+          "created": { "type": "boolean" },
+          "existing": { "type": "boolean" },
+          "item": { "$ref": "#/components/schemas/WantedItem" }
+        },
+        "required": ["ok", "created", "existing", "item"]
+      },
       "WishlistListResponse": {
         "type": "object",
         "properties": {
@@ -3556,6 +3612,100 @@
           },
           "403": {
             "description": "The active or requested scope is not accessible",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/wishlist/apple-itunes/search": {
+      "get": {
+        "tags": ["Wishlist"],
+        "summary": "Search Apple/iTunes Store candidates for wishlist intake",
+        "description": "Authenticated backend-owned Apple Search API proxy for Wishlist search and save. The endpoint can return multiple candidates and annotates scoped candidates that are already saved.",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          { "name": "term", "in": "query", "required": true, "schema": { "type": "string" } },
+          {
+            "name": "media",
+            "in": "query",
+            "required": false,
+            "description": "One Apple media value or a comma-separated list. Defaults to movie.",
+            "schema": { "type": "string", "default": "movie", "enum": ["movie", "tvShow", "music", "musicVideo", "audiobook", "ebook", "podcast", "shortFilm", "software", "all"] }
+          },
+          { "name": "country", "in": "query", "required": false, "schema": { "type": "string", "default": "US" } },
+          { "name": "limit", "in": "query", "required": false, "schema": { "type": "integer", "minimum": 1, "maximum": 50, "default": 25 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Apple/iTunes candidates",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AppleItunesWishlistSearchResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing or invalid search term",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication is required",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/wishlist/apple-itunes/save": {
+      "post": {
+        "tags": ["Wishlist"],
+        "summary": "Save an Apple/iTunes candidate to the wishlist",
+        "description": "Creates a scoped wanted item with provider='apple_itunes', or returns the existing scoped item when the Apple provider key is already saved.",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AppleItunesWishlistSaveInput" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Existing Apple/iTunes wishlist item returned",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AppleItunesWishlistSaveResponse" }
+              }
+            }
+          },
+          "201": {
+            "description": "Apple/iTunes wishlist item created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AppleItunesWishlistSaveResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid Apple/iTunes save payload",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/Error" }

@@ -1,6 +1,27 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.9.0",
+      "version": "3.9.0",
+      "date": "2026-05-20",
+      "status": "implemented",
+      "summary": "This release starts the Apple/iTunes wishlist line with a backend-owned search and save flow for adding Apple Store candidates directly to Wishlist.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added authenticated `GET /api/wishlist/apple-itunes/search` for Apple/iTunes candidate search.",
+            "Added authenticated `POST /api/wishlist/apple-itunes/save` for scoped Wishlist saves.",
+            "Normalized Apple result shapes across movies, TV, ebooks, audiobooks, music, podcasts, short films, and software.",
+            "Preserved Apple provider identity using `provider='apple_itunes'` and stable provider keys.",
+            "Added scoped duplicate readback so saved Apple-linked results show as saved instead of creating confusing duplicate Wishlist rows.",
+            "Added a compact Apple/iTunes search panel to Library > Wishlist with artwork, price/currency, store link, optional target price, and direct Add action.",
+            "Documented the new Apple/iTunes Wishlist contract in OpenAPI."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.8.20",
       "version": "3.8.20",
       "date": "2026-05-20",
@@ -172,25 +193,6 @@
             "`Save and scan next` keeps unresolved captures in Capture Inbox for later review.",
             "`Add to library` and `Link` continue to the next scan while batch mode is active.",
             "Normal one-off `New capture` behavior remains available."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.8.11",
-      "version": "3.8.11",
-      "date": "2026-05-19",
-      "status": "implemented",
-      "summary": "This release shortens the Capture Inbox barcode workflow by showing lookup candidates immediately in the new-capture editor after a barcode or ISBN is scanned or entered.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Capture Inbox can run the scanner barcode lookup contract before the capture row is saved.",
-            "New-capture lookup results appear inline with candidate title, source, type, and library state.",
-            "A selected result can be added or linked through the existing Capture Inbox import path.",
-            "Captures saved for review now keep lookup matches and lookup status on the capture row.",
-            "Added a `Save and scan next` action so scanning another item does not require returning to the inbox list."
           ]
         }
       ]

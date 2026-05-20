@@ -26,6 +26,19 @@ const OBJECT_TYPES = [
   { value: 'other', label: 'Other' }
 ];
 
+const APPLE_MEDIA_OPTIONS = [
+  { value: 'movie', label: 'Movies' },
+  { value: 'tvShow', label: 'TV' },
+  { value: 'ebook', label: 'Books' },
+  { value: 'audiobook', label: 'Audiobooks' },
+  { value: 'music', label: 'Music' },
+  { value: 'musicVideo', label: 'Music videos' },
+  { value: 'podcast', label: 'Podcasts' },
+  { value: 'shortFilm', label: 'Short films' },
+  { value: 'software', label: 'Apps' },
+  { value: 'all', label: 'All' }
+];
+
 const MEDIA_TYPES = new Set(['movie', 'tv_series', 'book', 'comic_book', 'audio', 'game']);
 
 const WISHLIST_FORMAT_OPTIONS = {
@@ -152,6 +165,17 @@ function formatMoney(value) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return null;
   return parsed.toLocaleString(undefined, { style: 'currency', currency: 'USD' });
+}
+
+function formatAppleMoney(value, currency) {
+  if (value === null || value === undefined || value === '') return 'No price';
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return 'No price';
+  try {
+    return parsed.toLocaleString(undefined, { style: 'currency', currency: currency || 'USD' });
+  } catch (_error) {
+    return `${parsed.toFixed(2)} ${currency || ''}`.trim();
+  }
 }
 
 function priorityClass(priority) {
@@ -321,6 +345,140 @@ function WishlistEditor({ form, setForm, editingItem, saving, onCancel, onSave }
   );
 }
 
+function AppleItunesWishlistSearch({ apiCall, onToast, onSaved }) {
+  const [term, setTerm] = useState('');
+  const [media, setMedia] = useState('movie');
+  const [country, setCountry] = useState('US');
+  const [matches, setMatches] = useState([]);
+  const [searched, setSearched] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [savingKey, setSavingKey] = useState(null);
+  const [error, setError] = useState(null);
+  const [targetPrices, setTargetPrices] = useState({});
+
+  const searchApple = async (event) => {
+    event?.preventDefault?.();
+    const query = term.trim();
+    if (!query) return;
+    setLoading(true);
+    setError(null);
+    setSearched(true);
+    try {
+      const params = new URLSearchParams();
+      params.set('term', query);
+      params.set('media', media);
+      params.set('country', country.trim() || 'US');
+      params.set('limit', '25');
+      const payload = await apiCall('get', `/wishlist/apple-itunes/search?${params.toString()}`);
+      setMatches(Array.isArray(payload?.matches) ? payload.matches : []);
+    } catch (err) {
+      setMatches([]);
+      setError(err?.message || 'Apple/iTunes search failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveMatch = async (match) => {
+    const key = match.provider_key || match.id;
+    setSavingKey(key);
+    try {
+      const payload = await apiCall('post', '/wishlist/apple-itunes/save', {
+        candidate: match,
+        target_price: targetPrices[key] || null,
+        status: 'wanted',
+        priority: 'normal',
+        country
+      });
+      setMatches((current) => current.map((candidate) => (
+        (candidate.provider_key || candidate.id) === key
+          ? { ...candidate, already_saved: true, wanted_item_id: payload?.item?.id || candidate.wanted_item_id || null }
+          : candidate
+      )));
+      onToast?.(payload?.existing ? 'That Apple/iTunes item is already on the wishlist.' : 'Apple/iTunes item added to the wishlist.', 'success');
+      await onSaved?.();
+    } catch (err) {
+      onToast?.(err?.message || 'Could not save Apple/iTunes item.', 'error');
+    } finally {
+      setSavingKey(null);
+    }
+  };
+
+  return (
+    <section className="border-y border-edge py-3">
+      <form className="flex flex-wrap items-end gap-2" onSubmit={searchApple}>
+        <Field label="Apple/iTunes search" className="min-w-64 flex-1">
+          <input
+            className="input h-9 w-full"
+            value={term}
+            onChange={(event) => setTerm(event.target.value)}
+            placeholder="Search store titles"
+          />
+        </Field>
+        <Field label="Media" className="w-40">
+          <select className="select h-9 w-full" value={media} onChange={(event) => setMedia(event.target.value)}>
+            {APPLE_MEDIA_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+        </Field>
+        <Field label="Country" className="w-24">
+          <input className="input h-9 w-full uppercase" value={country} maxLength={2} onChange={(event) => setCountry(event.target.value.toUpperCase())} />
+        </Field>
+        <button type="submit" className="btn-secondary h-9" disabled={loading || !term.trim()}>
+          {loading ? 'Searching...' : 'Search'}
+        </button>
+      </form>
+
+      {error ? <div className="mt-3 text-sm text-err">{error}</div> : null}
+      {searched && !loading && matches.length === 0 && !error ? (
+        <div className="mt-3 text-sm text-ghost">No Apple/iTunes results matched that search.</div>
+      ) : null}
+      {matches.length > 0 ? (
+        <div className="mt-3 divide-y divide-edge/70 border-t border-edge/70">
+          {matches.map((match) => {
+            const key = match.provider_key || match.id;
+            const saved = Boolean(match.already_saved);
+            return (
+              <div key={match.id || key} className="grid gap-3 py-3 sm:grid-cols-[56px_minmax(0,1fr)_auto]">
+                <div className="h-14 w-14 overflow-hidden rounded border border-edge bg-panel">
+                  {match.artwork_url ? <img src={match.artwork_url} alt="" className="h-full w-full object-cover" /> : null}
+                </div>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <h3 className="truncate text-sm font-semibold text-ink">{match.title}</h3>
+                    {match.year ? <span className="text-xs text-ghost">{match.year}</span> : null}
+                    <span className="text-xs text-ghost">{typeLabel(match.object_type)}</span>
+                  </div>
+                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-ghost">
+                    {match.subtitle ? <span>{match.subtitle}</span> : null}
+                    {match.kind || match.media ? <span>{[match.media, match.kind].filter(Boolean).join(' · ')}</span> : null}
+                    <span>{formatAppleMoney(match.price, match.currency)}</span>
+                    {match.store_url ? (
+                      <a className="text-link hover:underline" href={match.store_url} target="_blank" rel="noreferrer">Store</a>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <input
+                    className="input h-8 w-28"
+                    inputMode="decimal"
+                    value={targetPrices[key] || ''}
+                    onChange={(event) => setTargetPrices((current) => ({ ...current, [key]: event.target.value }))}
+                    placeholder="Target"
+                    disabled={saved}
+                  />
+                  <button type="button" className={saved ? 'btn-ghost h-8' : 'btn-secondary h-8'} disabled={saved || savingKey === key} onClick={() => saveMatch(match)}>
+                    {saved ? 'Saved' : savingKey === key ? 'Saving...' : 'Add'}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 export default function WishlistView({ apiCall, onToast, activeLibrary, Icons, Spinner }) {
   const [items, setItems] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 50, total: 0, total_pages: 1 });
@@ -459,6 +617,8 @@ export default function WishlistView({ apiCall, onToast, activeLibrary, Icons, S
           Add item
         </button>
       </div>
+
+      <AppleItunesWishlistSearch apiCall={apiCall} onToast={onToast} onSaved={() => loadWishlist(pagination.page || 1)} />
 
       <div className="border-y border-edge py-3">
         <div className="flex flex-wrap items-center justify-between gap-3">

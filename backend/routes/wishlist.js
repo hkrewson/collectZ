@@ -5,6 +5,14 @@ const { authenticateToken } = require('../middleware/auth');
 const { enforceScopeAccess } = require('../middleware/scopeAccess');
 const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
 const { logActivity } = require('../services/audit');
+const {
+  PROVIDER: APPLE_ITUNES_PROVIDER,
+  fetchAppleSearch,
+  normalizeAppleItunesResult,
+  normalizeCountry,
+  normalizeLimit,
+  normalizeMediaList
+} = require('../services/appleItunes');
 
 const router = express.Router();
 
@@ -130,6 +138,167 @@ function itemValuesFromBody(body, current = {}) {
 
   return next;
 }
+
+async function findScopedWantedItemByProvider(scopeContext, provider, providerKey) {
+  if (!provider || !providerKey) return null;
+  const params = [provider, providerKey];
+  let where = 'WHERE provider = $1 AND provider_key = $2';
+  where += appendScopeSql(params, scopeContext);
+  const result = await pool.query(`SELECT * FROM wanted_items ${where} ORDER BY updated_at DESC, id DESC LIMIT 1`, params);
+  return result.rows[0] || null;
+}
+
+async function markAppleItunesSavedState(scopeContext, candidates) {
+  const keys = Array.from(new Set((candidates || []).map((candidate) => candidate.provider_key).filter(Boolean)));
+  if (keys.length === 0) {
+    return (candidates || []).map((candidate) => ({ ...candidate, already_saved: false, wanted_item_id: null }));
+  }
+
+  const params = [APPLE_ITUNES_PROVIDER, keys];
+  let where = 'WHERE provider = $1 AND provider_key = ANY($2)';
+  where += appendScopeSql(params, scopeContext);
+  const result = await pool.query(
+    `SELECT id, provider_key
+       FROM wanted_items
+      ${where}`,
+    params
+  );
+  const savedByKey = new Map(result.rows.map((row) => [String(row.provider_key), Number(row.id)]));
+  return candidates.map((candidate) => ({
+    ...candidate,
+    already_saved: savedByKey.has(String(candidate.provider_key)),
+    wanted_item_id: savedByKey.get(String(candidate.provider_key)) || null
+  }));
+}
+
+function normalizeAppleSaveCandidate(body) {
+  const input = body?.candidate && typeof body.candidate === 'object' ? body.candidate : body || {};
+  const normalized = input.raw_result
+    ? normalizeAppleItunesResult(input.raw_result, { media: input.media })
+    : null;
+  const candidate = {
+    ...(normalized || {}),
+    ...input,
+    provider: APPLE_ITUNES_PROVIDER
+  };
+  if (!candidate.provider_key && normalized?.provider_key) candidate.provider_key = normalized.provider_key;
+  if (!candidate.title && normalized?.title) candidate.title = normalized.title;
+  return candidate;
+}
+
+router.get('/wishlist/apple-itunes/search', asyncHandler(async (req, res) => {
+  const term = trimString(req.query.term);
+  if (!term) return res.status(400).json({ error: 'Search term is required.' });
+
+  const scopeContext = resolveScopeContext(req);
+  const media = normalizeMediaList(req.query.media);
+  const country = normalizeCountry(req.query.country);
+  const limit = normalizeLimit(req.query.limit);
+  const matches = await fetchAppleSearch({ term, media, country, limit });
+  const scopedMatches = await markAppleItunesSavedState(scopeContext, matches);
+
+  return res.json({
+    provider: APPLE_ITUNES_PROVIDER,
+    term,
+    media,
+    country,
+    limit,
+    matches: scopedMatches
+  });
+}));
+
+router.post('/wishlist/apple-itunes/save', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const candidate = normalizeAppleSaveCandidate(req.body || {});
+  const providerKey = nullableString(candidate.provider_key);
+  if (!candidate.title || !providerKey) {
+    return res.status(400).json({ error: 'Apple/iTunes wishlist save requires a title and provider key.' });
+  }
+
+  const existing = await findScopedWantedItemByProvider(scopeContext, APPLE_ITUNES_PROVIDER, providerKey);
+  if (existing) {
+    return res.json({
+      ok: true,
+      created: false,
+      existing: true,
+      item: shapeWantedItem(existing)
+    });
+  }
+
+  const country = normalizeCountry(req.body?.country || candidate.raw_result?.country || 'US');
+  const identifiers = {
+    provider_name: APPLE_ITUNES_PROVIDER,
+    provider_item_id: providerKey,
+    apple_itunes_provider_key: providerKey,
+    apple_itunes_track_id: candidate.raw_result?.trackId ?? null,
+    apple_itunes_collection_id: candidate.raw_result?.collectionId ?? null,
+    apple_itunes_media: candidate.media || null,
+    apple_itunes_kind: candidate.kind || null
+  };
+  const sourceContext = {
+    provider: APPLE_ITUNES_PROVIDER,
+    provider_key: providerKey,
+    media: candidate.media || null,
+    kind: candidate.kind || null,
+    country,
+    currency: candidate.currency || null,
+    current_price: candidate.price ?? null,
+    store_url: candidate.store_url || null,
+    artwork_url: candidate.artwork_url || null,
+    looked_up_at: new Date().toISOString(),
+    raw_result: jsonObject(candidate.raw_result)
+  };
+  const result = await pool.query(
+    `INSERT INTO wanted_items (
+       title, object_type, status, priority, year, desired_format, desired_edition, notes,
+       identifiers, source_context, provider, provider_key, event_id, vendor, target_price,
+       library_id, space_id, created_by
+     )
+     VALUES (
+       $1, $2, $3, $4, $5, $6, $7, $8,
+       $9::jsonb, $10::jsonb, $11, $12, $13, $14, $15,
+       $16, $17, $18
+     )
+     RETURNING *`,
+    [
+      trimString(candidate.title),
+      normalizeObjectType(candidate.object_type, 'other'),
+      normalizeStatus(req.body?.status, 'wanted'),
+      normalizePriority(req.body?.priority, 'normal'),
+      nullableInt(candidate.year),
+      nullableString(candidate.kind || candidate.media),
+      nullableString(candidate.subtitle),
+      nullableString(req.body?.notes),
+      JSON.stringify(identifiers),
+      JSON.stringify(sourceContext),
+      APPLE_ITUNES_PROVIDER,
+      providerKey,
+      null,
+      'Apple',
+      nullablePrice(req.body?.target_price),
+      scopeContext.libraryId,
+      scopeContext.spaceId,
+      req.user?.id || null
+    ]
+  );
+
+  const created = shapeWantedItem(result.rows[0]);
+  await logActivity(req, 'wishlist.create', 'wanted_item', created.id, {
+    title: created.title,
+    object_type: created.object_type,
+    status: created.status,
+    provider: APPLE_ITUNES_PROVIDER,
+    providerKey,
+    spaceId: created.space_id,
+    libraryId: created.library_id
+  });
+  return res.status(201).json({
+    ok: true,
+    created: true,
+    existing: false,
+    item: created
+  });
+}));
 
 router.get('/wishlist', asyncHandler(async (req, res) => {
   const scopeContext = resolveScopeContext(req);

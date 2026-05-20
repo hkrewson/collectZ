@@ -107,6 +107,104 @@ test.describe('admin shell browser regressions', () => {
     }
   });
 
+  test('wishlist apple itunes search presents candidates and saves a selected result', async ({ page }) => {
+    const adminCredentials = await ensureSavedAdminCredentials();
+    let savePayload = null;
+
+    await page.route('**/api/wishlist/apple-itunes/search**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          provider: 'apple_itunes',
+          term: 'star wars',
+          media: ['movie'],
+          country: 'US',
+          limit: 25,
+          matches: [
+            {
+              id: 'apple_itunes:1001',
+              provider: 'apple_itunes',
+              provider_key: '1001',
+              title: 'Star Wars: A New Hope',
+              subtitle: 'Lucasfilm',
+              object_type: 'movie',
+              media: 'movie',
+              kind: 'feature-movie',
+              year: 1977,
+              price: 9.99,
+              currency: 'USD',
+              artwork_url: null,
+              store_url: 'https://itunes.apple.com/us/movie/id1001',
+              already_saved: false,
+              wanted_item_id: null,
+              raw_result: { trackId: 1001 }
+            },
+            {
+              id: 'apple_itunes:1002',
+              provider: 'apple_itunes',
+              provider_key: '1002',
+              title: 'Star Wars: The Empire Strikes Back',
+              subtitle: 'Lucasfilm',
+              object_type: 'movie',
+              media: 'movie',
+              kind: 'feature-movie',
+              year: 1980,
+              price: 9.99,
+              currency: 'USD',
+              artwork_url: null,
+              store_url: 'https://itunes.apple.com/us/movie/id1002',
+              already_saved: false,
+              wanted_item_id: null,
+              raw_result: { trackId: 1002 }
+            }
+          ]
+        })
+      });
+    });
+
+    await page.route('**/api/wishlist/apple-itunes/save', async (route) => {
+      savePayload = route.request().postDataJSON();
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ok: true,
+          created: true,
+          existing: false,
+          item: {
+            id: 9001,
+            title: savePayload?.candidate?.title,
+            object_type: 'movie',
+            status: 'wanted',
+            priority: 'normal',
+            identifiers: {},
+            source_context: {},
+            provider: 'apple_itunes',
+            provider_key: savePayload?.candidate?.provider_key,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }
+        })
+      });
+    });
+
+    await signInThroughUi(page, adminCredentials);
+    await page.goto('/dashboard?tab=library-wishlist');
+    await expect(page.getByRole('heading', { name: 'Wishlist', exact: true })).toBeVisible();
+    const applePanel = page.locator('section').filter({ has: page.getByLabel('Apple/iTunes search') });
+    await applePanel.getByLabel('Apple/iTunes search').fill('star wars');
+    await applePanel.getByRole('button', { name: 'Search' }).click();
+    await expect(page.getByText('Star Wars: A New Hope')).toBeVisible();
+    await expect(page.getByText('Star Wars: The Empire Strikes Back')).toBeVisible();
+    await applePanel.getByPlaceholder('Target').first().fill('7.99');
+    await applePanel.getByRole('button', { name: 'Add' }).first().click();
+    await expect(applePanel.getByRole('button', { name: 'Saved' }).first()).toBeVisible();
+    expect(savePayload?.candidate?.provider).toBe('apple_itunes');
+    expect(savePayload?.candidate?.provider_key).toBe('1001');
+    expect(savePayload?.target_price).toBe('7.99');
+  });
+
   test('capture inbox foundation receives quick captures and converts to wishlist', async ({ page }) => {
     const suffix = Date.now();
     const title = `Playwright Capture ${suffix}`;

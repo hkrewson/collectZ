@@ -10810,6 +10810,49 @@ Historical note:
 - What remains in the milestone: nothing for `3.8.10`; next planned work is `3.8.11 — Capture Scan Immediate Lookup`, followed by batch scan mode, safe ISBN auto-import, and exception review routing.
 - Recommended commit message: `Release 3.8.10 with Capture Inbox barcode camera ISBN recognition`.
 
+## 3.9.0 — Apple/iTunes Wishlist Search Intake
+
+**Goal:** Add a backend-owned Apple/iTunes search and save intake path inside Library > Wishlist so users can search store catalog items and save acquisition candidates without routing the flow through the web UI as a provider client.
+
+### Scope
+
+- Add authenticated Apple/iTunes Wishlist search endpoint:
+  - `GET /api/wishlist/apple-itunes/search`
+  - query: `term`, `media`, `country`, `limit`
+  - supported media: movie, TV, music, music video, audiobook, ebook, podcast, short film, software, and all.
+- Add authenticated Apple/iTunes Wishlist save endpoint:
+  - `POST /api/wishlist/apple-itunes/save`
+  - creates a scoped `wanted_items` row with `provider='apple_itunes'`
+  - returns the existing scoped row when the selected Apple provider key is already saved.
+- Normalize Apple results into Wishlist candidates with title, type, media/kind, year, price/currency, artwork, store link, provider key, and raw provider metadata.
+- Add a compact Library > Wishlist Apple/iTunes search panel with result rows, store links, optional target price, and direct Add action.
+- Keep this slice search + save only:
+  - no scheduled price polling,
+  - no price history,
+  - no price-drop notifications,
+  - no owned-library valuation behavior.
+
+### Acceptance Criteria
+
+- Wishlist can search Apple/iTunes from the backend and render multiple normalized candidates.
+- Apple-linked candidates expose enough metadata for user choice before saving.
+- Saved Apple/iTunes candidates become scoped Wishlist rows with source metadata retained.
+- Re-saving the same scoped Apple provider key returns the existing row instead of silently creating a duplicate.
+- OpenAPI documents the search/save request and response shapes.
+- Version metadata, release note, release feed, and Help > Releases include `3.9.0`.
+
+### Closeout
+
+- Roadmap slice: `3.9.0 — Apple/iTunes Wishlist Search Intake`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/06-Versioning-and-Build-Metadata.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.9.0.md`; Apple Search API documentation for search parameters, lookup support, and result fields.
+- Runtime verification used: Docker-first backend/frontend build with `APP_VERSION=3.9.0`; running `/api/health` reported frontend/backend/build `3.9.0`; running backend env readback showed platform edition and `APP_VERSION=3.9.0`; live authenticated Apple/iTunes search route returned a successful empty result for a movie search; live authenticated Apple/iTunes search route returned five music candidates for `jack johnson`; live save created a scoped `provider='apple_itunes'` Wishlist row; a second save of the same Apple provider key returned the existing Wishlist row; temporary Wishlist row was deleted after verification; Help > Releases smoke served `3.9.0`; local stack was restored to normal platform/dev mode after CI-shaped browser verification.
+- CI/checks run locally: host `node --check backend/services/appleItunes.js`; host `node --check backend/routes/wishlist.js`; host `node --check tests/playwright/specs/admin-shell.browser.spec.js`; host `node backend/scripts/unit-tests.js` (`297` passed); host `npm --prefix backend run test:openapi`; host `npm ci --no-fund`; host `npm ci --prefix backend --no-fund`; host `npm ci --prefix frontend --no-fund`; host `npm --prefix frontend run build`; host `npm --prefix backend audit --omit=dev` (`0` vulnerabilities); host `npm --prefix frontend audit --omit=dev` (`0` vulnerabilities); host targeted Playwright Apple/iTunes Wishlist test (`2` passed); host full `npm run test:browser` with CI-shaped `DEBUG=1` (`71` passed, `4` skipped); Docker backend/frontend build; Docker `npm run test:unit` (`297` passed); Docker `npm run test:openapi`; Docker `npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.9.0 npm run test:help-releases-smoke`; host `npm run validate:public-export`; host `npm --prefix backend run test:observability-evidence`; host `npm --prefix backend run test:release-preflight-local`; secret-pattern scan over regenerated release evidence artifacts; `git diff --check`.
+- Blocked/unverified gates: local homelab edition boundary was not proven because the public GHCR `latest` image pull has no local arm64 manifest and the localhost compose override pins platform edition; CI remains authoritative for `homelab-edition-boundary`. Local release preflight remains NO-GO because observability evidence failed `graylog_collector_smoke` and `syslog_collector_smoke`, and compose-smoke secure-cookie basics are blocked by the local development stack settings (`SESSION_COOKIE_SECURE=false`, `NODE_ENV=development`). `secret-scan` and `image-security-and-sbom` remain CI-only local blockers.
+- Files changed for this slice: `app-meta.json`; `artifacts/dependency-audit/frontend-audit.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `backend/app-meta.json`; `backend/openapi/openapi.yaml`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/routes/wishlist.js`; `backend/scripts/unit-tests.js`; `backend/services/appleItunes.js`; `docs/releases/v3.9.0.md`; `docs/wiki/07-Release-Roadmap.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/WishlistView.jsx`; `preflight-go-no-go.md`; `tests/playwright/specs/admin-shell.browser.spec.js`.
+- Risks/follow-ups: scheduled Apple/iTunes price refresh, price history, price-drop alerts, and owned-library valuation remain out of scope; Apple Search API rate limits mean future automation should add caching/backoff before polling; local observability collector failures need separate release-gate cleanup before a final push-ready release call.
+- What remains in the milestone: nothing in the product implementation; release is not final push-ready until blocked local/CI gates above are resolved or green in CI.
+- Recommended commit message: `Release 3.9.0 with Apple/iTunes Wishlist search intake`.
+
 ## 3.8.20 — Public Homelab Environment Reference
 
 **Goal:** Keep the public startup surface minimal while giving homelab operators a safe, readable reference for optional deployment settings.

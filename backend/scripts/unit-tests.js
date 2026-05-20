@@ -149,6 +149,12 @@ const { isServiceAccountPrefixAllowed } = require('../services/serviceAccountKey
 const authRoutesSource = fs.readFileSync(require.resolve('../routes/auth'), 'utf8');
 const dashboardRoutesSource = fs.readFileSync(require.resolve('../routes/dashboard'), 'utf8');
 const wishlistRoutesSource = fs.readFileSync(require.resolve('../routes/wishlist'), 'utf8');
+const appleItunesServiceSource = fs.readFileSync(require.resolve('../services/appleItunes'), 'utf8');
+const {
+  normalizeAppleItunesResult,
+  normalizeMediaList,
+  dedupeCandidates
+} = require('../services/appleItunes');
 const captureItemsRoutesSource = fs.readFileSync(require.resolve('../routes/captureItems'), 'utf8');
 const captureImageOcrServiceSource = fs.readFileSync(require.resolve('../services/captureImageOcr'), 'utf8');
 const mediaRoutesSource = fs.readFileSync(require.resolve('../routes/media'), 'utf8');
@@ -6228,6 +6234,65 @@ results.push(run('wishlist acquisition foundation is scoped, routed, and documen
   assert.ok(adminShellBrowserSpecSource.includes('/dashboard?tab=library-wishlist'));
   assert.ok(adminShellBrowserSpecSource.includes('/api/wishlist'));
   assert.ok(adminShellBrowserSpecSource.includes('/convert'));
+}));
+
+results.push(run('apple itunes wishlist intake normalizes provider candidates', () => {
+  const movie = normalizeAppleItunesResult({
+    wrapperType: 'track',
+    kind: 'feature-movie',
+    trackId: 1001,
+    trackName: 'Before the Storm',
+    artistName: 'Lucasfilm',
+    releaseDate: '1996-01-01T08:00:00Z',
+    trackPrice: 4.99,
+    currency: 'USD',
+    artworkUrl100: 'https://is1-ssl.mzstatic.com/image/thumb/Video/100x100bb.jpg',
+    trackViewUrl: 'https://itunes.apple.com/us/movie/before-the-storm/id1001'
+  }, { media: 'movie' });
+  assert.strictEqual(movie.provider, 'apple_itunes');
+  assert.strictEqual(movie.provider_key, '1001');
+  assert.strictEqual(movie.object_type, 'movie');
+  assert.strictEqual(movie.year, 1996);
+  assert.strictEqual(movie.price, 4.99);
+  assert.ok(movie.artwork_url.includes('600x600bb'));
+
+  const tv = normalizeAppleItunesResult({ kind: 'tv-episode', trackId: 2002, trackName: 'Pilot', collectionName: 'A Show' }, { media: 'tvShow' });
+  const ebook = normalizeAppleItunesResult({ kind: 'book', trackId: 3003, trackName: 'Green Mars' }, { media: 'ebook' });
+  const audiobook = normalizeAppleItunesResult({ kind: 'audiobook', collectionId: 4004, collectionName: 'Dune' }, { media: 'audiobook' });
+  const music = normalizeAppleItunesResult({ kind: 'song', trackId: 5005, trackName: 'Song', trackPrice: 0, currency: 'USD' }, { media: 'music' });
+  const software = normalizeAppleItunesResult({ kind: 'software-package', trackId: 6006, trackName: 'Game App', primaryGenreName: 'Games' }, { media: 'software' });
+  assert.strictEqual(tv.object_type, 'tv_series');
+  assert.strictEqual(ebook.object_type, 'book');
+  assert.strictEqual(audiobook.object_type, 'audio');
+  assert.strictEqual(music.object_type, 'audio');
+  assert.strictEqual(music.price, 0);
+  assert.strictEqual(software.object_type, 'game');
+  assert.deepStrictEqual(normalizeMediaList('movie,ebook,unknown,tvShow'), ['movie', 'ebook', 'tvShow']);
+  assert.strictEqual(dedupeCandidates([movie, { ...movie, id: 'copy' }]).length, 1);
+}));
+
+results.push(run('apple itunes wishlist search and save are routed, scoped, and documented', () => {
+  assert.ok(appleItunesServiceSource.includes("const SEARCH_URL = 'https://itunes.apple.com/search';"));
+  assert.ok(appleItunesServiceSource.includes('SUPPORTED_MEDIA'));
+  assert.ok(appleItunesServiceSource.includes('fetchAppleSearch'));
+  assert.ok(appleItunesServiceSource.includes('User-Agent'));
+  assert.ok(wishlistRoutesSource.includes("router.get('/wishlist/apple-itunes/search'"));
+  assert.ok(wishlistRoutesSource.includes("router.post('/wishlist/apple-itunes/save'"));
+  assert.ok(wishlistRoutesSource.includes('markAppleItunesSavedState'));
+  assert.ok(wishlistRoutesSource.includes('findScopedWantedItemByProvider'));
+  assert.ok(wishlistRoutesSource.includes("provider: APPLE_ITUNES_PROVIDER"));
+  assert.deepStrictEqual(getRequiredPatScopesForRequest({ originalUrl: '/api/wishlist/apple-itunes/search', method: 'GET' }), ['media:read']);
+  assert.deepStrictEqual(getRequiredPatScopesForRequest({ originalUrl: '/api/wishlist/apple-itunes/save', method: 'POST' }), ['media:write']);
+  assert.ok(openApiSource.includes('"/api/wishlist/apple-itunes/search"'));
+  assert.ok(openApiSource.includes('"/api/wishlist/apple-itunes/save"'));
+  assert.ok(openApiSource.includes('"AppleItunesWishlistCandidate"'));
+  assert.ok(wishlistViewSource.includes('Apple/iTunes search'));
+  assert.ok(wishlistViewSource.includes("apiCall('get', `/wishlist/apple-itunes/search?${params.toString()}`)"));
+  assert.ok(wishlistViewSource.includes("apiCall('post', '/wishlist/apple-itunes/save'"));
+  assert.ok(wishlistViewSource.includes('already_saved'));
+  assert.ok(adminShellBrowserSpecSource.includes('wishlist apple itunes search presents candidates and saves a selected result'));
+  assert.ok(adminShellBrowserSpecSource.includes('/api/wishlist/apple-itunes/search'));
+  assert.ok(adminShellBrowserSpecSource.includes('/api/wishlist/apple-itunes/save'));
 }));
 
 results.push(run('mobile capture inbox foundation is scoped, routed, and reviewable', () => {
