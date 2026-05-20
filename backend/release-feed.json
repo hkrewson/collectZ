@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.9.2",
+      "version": "3.9.2",
+      "date": null,
+      "status": null,
+      "summary": "",
+      "details": []
+    },
+    {
       "title": "collectZ v3.9.1",
       "version": "3.9.1",
       "date": null,
@@ -162,25 +170,6 @@
             "Normal one-off captures still show the candidate list in place.",
             "Single exact ISBN rows now use clearer `Add exact ISBN` / `Link exact ISBN` copy.",
             "Kept multi-candidate ISBN/UPC lookups as explicit user choice."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.8.13",
-      "version": "3.8.13",
-      "date": "2026-05-19",
-      "status": "implemented",
-      "summary": "This release makes Capture Inbox easier to work through by adding review filters for captures that need a decision, are ready to add, have no match, are missing details, or have provider/replay problems.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added server-backed `review_filter` support to `GET /api/capture-items`.",
-            "Added capture review counts for all review filters.",
-            "Added Capture Inbox review tabs: `All`, `Needs choice`, `Ready to add`, `No match`, `Missing details`, and `Problems`.",
-            "Kept all capture records on the existing Capture Inbox page instead of creating a separate queue.",
-            "Updated OpenAPI to document the new query parameter and response counts."
           ]
         }
       ]

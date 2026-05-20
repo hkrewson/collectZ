@@ -4393,6 +4393,37 @@ const MIGRATIONS = [
       END;
       $$;
     `
+  },
+  {
+    version: 105,
+    description: 'Add wishlist price history snapshots',
+    up: `
+      CREATE TABLE IF NOT EXISTS wanted_item_price_history (
+        id SERIAL PRIMARY KEY,
+        wanted_item_id INTEGER NOT NULL REFERENCES wanted_items(id) ON DELETE CASCADE,
+        provider VARCHAR(100) NOT NULL,
+        provider_key TEXT,
+        price NUMERIC(12,2),
+        currency VARCHAR(10),
+        target_price NUMERIC(12,2),
+        target_met BOOLEAN NOT NULL DEFAULT false,
+        source_context JSONB NOT NULL DEFAULT '{}'::jsonb,
+        library_id INTEGER,
+        space_id INTEGER,
+        checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_wanted_item_price_history_item_checked
+        ON wanted_item_price_history(wanted_item_id, checked_at DESC);
+
+      CREATE INDEX IF NOT EXISTS idx_wanted_item_price_history_provider_key
+        ON wanted_item_price_history(provider, provider_key, checked_at DESC)
+        WHERE provider_key IS NOT NULL;
+
+      CREATE INDEX IF NOT EXISTS idx_wanted_item_price_history_scope_checked
+        ON wanted_item_price_history(space_id, library_id, checked_at DESC);
+    `
   }
 ];
 

@@ -178,6 +178,13 @@ function formatAppleMoney(value, currency) {
   }
 }
 
+function formatCompactDate(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
 function priorityClass(priority) {
   if (priority === 'grail') return 'text-gold';
   if (priority === 'high') return 'text-err';
@@ -563,6 +570,9 @@ export default function WishlistView({ apiCall, onToast, activeLibrary, Icons, S
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [openPriceHistoryId, setOpenPriceHistoryId] = useState(null);
+  const [priceHistoryByItem, setPriceHistoryByItem] = useState({});
+  const [priceHistoryLoadingId, setPriceHistoryLoadingId] = useState(null);
 
   const loadWishlist = useCallback(async (page = 1) => {
     setLoading(true);
@@ -677,6 +687,29 @@ export default function WishlistView({ apiCall, onToast, activeLibrary, Icons, S
     }
   };
 
+  const togglePriceHistory = async (item) => {
+    if (openPriceHistoryId === item.id) {
+      setOpenPriceHistoryId(null);
+      return;
+    }
+    setOpenPriceHistoryId(item.id);
+    if (priceHistoryByItem[item.id]) return;
+
+    setPriceHistoryLoadingId(item.id);
+    try {
+      const payload = await apiCall('get', `/wishlist/${item.id}/price-history?limit=8`);
+      setPriceHistoryByItem((current) => ({
+        ...current,
+        [item.id]: Array.isArray(payload?.history) ? payload.history : []
+      }));
+    } catch (err) {
+      onToast?.(err?.message || 'Could not load price history.', 'error');
+      setPriceHistoryByItem((current) => ({ ...current, [item.id]: [] }));
+    } finally {
+      setPriceHistoryLoadingId(null);
+    }
+  };
+
   return (
     <div className="mx-auto w-full max-w-[1180px] space-y-4 px-4 pb-6 sm:px-5 lg:px-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -750,6 +783,9 @@ export default function WishlistView({ apiCall, onToast, activeLibrary, Icons, S
             const canConvert = MEDIA_TYPES.has(item.object_type) && item.status !== 'acquired';
             const price = formatMoney(item.target_price);
             const applePrice = applePriceSummary(item);
+            const isAppleItem = item.provider === 'apple_itunes';
+            const priceHistoryOpen = openPriceHistoryId === item.id;
+            const priceHistory = priceHistoryByItem[item.id] || [];
             const sourceText = item.provider ? [item.provider, item.provider_key].filter(Boolean).join(' ') : '';
             const idText = identifierSummary(item.identifiers);
             return (
@@ -775,9 +811,37 @@ export default function WishlistView({ apiCall, onToast, activeLibrary, Icons, S
                     </div>
                   ) : null}
                   {applePrice ? <div className="mt-1 text-xs text-dim">{applePrice}</div> : null}
+                  {priceHistoryOpen ? (
+                    <div className="mt-2 rounded border border-edge/70 bg-panel/40 px-3 py-2 text-xs text-dim">
+                      {priceHistoryLoadingId === item.id ? (
+                        <span>Loading price history...</span>
+                      ) : priceHistory.length === 0 ? (
+                        <span>No price snapshots yet.</span>
+                      ) : (
+                        <div className="flex flex-wrap gap-x-4 gap-y-1">
+                          {priceHistory.map((entry) => (
+                            <span key={entry.id}>
+                              {formatCompactDate(entry.checked_at) || 'Snapshot'} · {formatAppleMoney(entry.price, entry.currency)}
+                              {entry.target_met ? ' · target met' : ''}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
                   {item.notes ? <p className="mt-2 line-clamp-2 text-sm text-dim">{item.notes}</p> : null}
                 </div>
                 <div className="flex flex-wrap items-start justify-end gap-2">
+                  {isAppleItem ? (
+                    <button
+                      type="button"
+                      className="btn-ghost h-8"
+                      aria-expanded={priceHistoryOpen}
+                      onClick={() => togglePriceHistory(item)}
+                    >
+                      Price history
+                    </button>
+                  ) : null}
                   {canConvert ? <button type="button" className="btn-secondary h-8" onClick={() => convertItem(item)}>Add to library</button> : null}
                   {item.status !== 'dismissed' && item.status !== 'acquired' ? (
                     <button type="button" className="btn-ghost h-8" onClick={() => updateStatus(item, 'dismissed')}>Dismiss</button>

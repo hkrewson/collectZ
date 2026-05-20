@@ -191,6 +191,24 @@ function buildApplePriceReadback(row, candidate, error = null) {
   };
 }
 
+function shapePriceHistory(row) {
+  return {
+    id: row.id,
+    wanted_item_id: row.wanted_item_id,
+    provider: row.provider,
+    provider_key: row.provider_key,
+    price: row.price === null || row.price === undefined ? null : Number(row.price),
+    currency: row.currency,
+    target_price: row.target_price === null || row.target_price === undefined ? null : Number(row.target_price),
+    target_met: Boolean(row.target_met),
+    source_context: jsonObject(row.source_context),
+    library_id: row.library_id,
+    space_id: row.space_id,
+    checked_at: row.checked_at,
+    created_at: row.created_at
+  };
+}
+
 function normalizeAppleSaveCandidate(body) {
   const input = body?.candidate && typeof body.candidate === 'object' ? body.candidate : body || {};
   const normalized = input.raw_result
@@ -387,9 +405,39 @@ router.post('/wishlist/apple-itunes/refresh-prices', asyncHandler(async (req, re
           RETURNING *`,
         [row.id, JSON.stringify(nextSourceContext)]
       );
+      const historyContext = {
+        store_url: nextSourceContext.store_url,
+        artwork_url: nextSourceContext.artwork_url,
+        country,
+        media: sourceContext.media || null,
+        kind: sourceContext.kind || null,
+        raw_result: jsonObject(candidate.raw_result)
+      };
+      const historyRow = await pool.query(
+        `INSERT INTO wanted_item_price_history (
+           wanted_item_id, provider, provider_key, price, currency, target_price, target_met,
+           source_context, library_id, space_id, checked_at
+         )
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11)
+         RETURNING id`,
+        [
+          row.id,
+          APPLE_ITUNES_PROVIDER,
+          row.provider_key,
+          readback.current_price,
+          readback.currency,
+          readback.target_price,
+          readback.target_met,
+          JSON.stringify(historyContext),
+          row.library_id,
+          row.space_id,
+          refreshedAt
+        ]
+      );
       updated += 1;
       items.push({
         ...readback,
+        history_id: historyRow.rows[0]?.id || null,
         item: shapeWantedItem(updatedRow.rows[0])
       });
     } catch (err) {
@@ -416,6 +464,32 @@ router.post('/wishlist/apple-itunes/refresh-prices', asyncHandler(async (req, re
     skipped,
     failed,
     items
+  });
+}));
+
+router.get('/wishlist/:id/price-history', asyncHandler(async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(404).json({ error: 'Wishlist item not found.' });
+
+  const scopeContext = resolveScopeContext(req);
+  const wanted = await fetchWantedItem(id, scopeContext);
+  if (!wanted) return res.status(404).json({ error: 'Wishlist item not found.' });
+
+  const limit = normalizeLimit(req.query.limit || 10);
+  const result = await pool.query(
+    `SELECT *
+       FROM wanted_item_price_history
+      WHERE wanted_item_id = $1
+      ORDER BY checked_at DESC, id DESC
+      LIMIT $2`,
+    [id, limit]
+  );
+
+  return res.json({
+    item_id: wanted.id,
+    provider: wanted.provider,
+    provider_key: wanted.provider_key,
+    history: result.rows.map(shapePriceHistory)
   });
 }));
 

@@ -3268,10 +3268,40 @@
           "currency": { "type": ["string", "null"] },
           "target_price": { "type": ["number", "null"] },
           "target_met": { "type": "boolean" },
+          "history_id": { "type": ["integer", "null"] },
           "error": { "type": ["string", "null"] },
           "item": { "$ref": "#/components/schemas/WantedItem" }
         },
         "required": ["id", "title", "target_met"]
+      },
+      "WishlistPriceHistoryEntry": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "wanted_item_id": { "type": "integer" },
+          "provider": { "type": "string" },
+          "provider_key": { "type": ["string", "null"] },
+          "price": { "type": ["number", "null"] },
+          "currency": { "type": ["string", "null"] },
+          "target_price": { "type": ["number", "null"] },
+          "target_met": { "type": "boolean" },
+          "source_context": { "type": "object", "additionalProperties": true },
+          "library_id": { "type": ["integer", "null"] },
+          "space_id": { "type": ["integer", "null"] },
+          "checked_at": { "type": ["string", "null"], "format": "date-time" },
+          "created_at": { "type": ["string", "null"], "format": "date-time" }
+        },
+        "required": ["id", "wanted_item_id", "provider", "target_met", "source_context"]
+      },
+      "WishlistPriceHistoryResponse": {
+        "type": "object",
+        "properties": {
+          "item_id": { "type": "integer" },
+          "provider": { "type": ["string", "null"] },
+          "provider_key": { "type": ["string", "null"] },
+          "history": { "type": "array", "items": { "$ref": "#/components/schemas/WishlistPriceHistoryEntry" } }
+        },
+        "required": ["item_id", "history"]
       },
       "AppleItunesWishlistPriceRefreshResponse": {
         "type": "object",
@@ -3779,6 +3809,47 @@
           },
           "401": {
             "description": "Authentication is required",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/wishlist/{id}/price-history": {
+      "get": {
+        "tags": ["Wishlist"],
+        "summary": "Read price history for a wishlist item",
+        "description": "Returns recent scoped price snapshots for one wishlist item. The first implementation records successful manual Apple/iTunes price refresh snapshots only; it does not schedule polling or send alerts.",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } },
+          { "name": "limit", "in": "query", "required": false, "schema": { "type": "integer", "minimum": 1, "maximum": 50, "default": 10 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Wishlist price history",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/WishlistPriceHistoryResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication is required",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "404": {
+            "description": "Wishlist item not found in the active scope",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/Error" }

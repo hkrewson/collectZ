@@ -147,6 +147,22 @@ CREATE TABLE IF NOT EXISTS wanted_items (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS wanted_item_price_history (
+    id SERIAL PRIMARY KEY,
+    wanted_item_id INTEGER NOT NULL REFERENCES wanted_items(id) ON DELETE CASCADE,
+    provider VARCHAR(100) NOT NULL,
+    provider_key TEXT,
+    price NUMERIC(12,2),
+    currency VARCHAR(10),
+    target_price NUMERIC(12,2),
+    target_met BOOLEAN NOT NULL DEFAULT false,
+    source_context JSONB NOT NULL DEFAULT '{}'::jsonb,
+    library_id INTEGER,
+    space_id INTEGER,
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS capture_items (
     id SERIAL PRIMARY KEY,
     title VARCHAR(500),
@@ -1389,6 +1405,13 @@ CREATE INDEX IF NOT EXISTS idx_wanted_items_provider_key
 CREATE INDEX IF NOT EXISTS idx_wanted_items_linked_media
     ON wanted_items(linked_media_id)
     WHERE linked_media_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_wanted_item_price_history_item_checked
+    ON wanted_item_price_history(wanted_item_id, checked_at DESC);
+CREATE INDEX IF NOT EXISTS idx_wanted_item_price_history_provider_key
+    ON wanted_item_price_history(provider, provider_key, checked_at DESC)
+    WHERE provider_key IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_wanted_item_price_history_scope_checked
+    ON wanted_item_price_history(space_id, library_id, checked_at DESC);
 CREATE INDEX IF NOT EXISTS idx_capture_items_library_status ON capture_items(library_id, status, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_capture_items_space_status ON capture_items(space_id, status, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_capture_items_barcode
@@ -1702,5 +1725,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (101, 'Add reusable artist records for Art'),
     (102, 'Repair Kavita chapter issue cover proxy paths'),
     (103, 'Add scoped wishlist and acquisition tracking'),
-    (104, 'Add mobile capture inbox foundation')
+    (104, 'Add mobile capture inbox foundation'),
+    (105, 'Add wishlist price history snapshots')
 ON CONFLICT (version) DO NOTHING;
