@@ -16,7 +16,8 @@
             "Removed stale Portainer/deploy guidance that implied version metadata variables changed the public prebuilt image tag.",
             "Removed public deploy guidance that recommended putting audit verbosity in the default Portainer environment.",
             "Added the new public reference to public export surface validation.",
-            "Kept the Playwright browser-regression bypass out of public compose/docs while restoring the CI-only compose override that passes the per-run bypass token to the backend test stack."
+            "Kept the Playwright browser-regression bypass out of public compose/docs while restoring the CI-only compose override that passes the per-run bypass token to the backend test stack.",
+            "Kept CI-only debug-gated API docs available to browser regression, and seeded Events on during Playwright setup so event-social browser specs do not inherit a disabled Event feature flag."
           ]
         }
       ]

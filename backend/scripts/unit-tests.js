@@ -233,6 +233,7 @@ const frontendViteIndexHtmlSource = fs.readFileSync(require.resolve('../../front
 const frontendDockerfileSource = fs.readFileSync(require.resolve('../../frontend/Dockerfile'), 'utf8');
 const rootPackageJson = JSON.parse(fs.readFileSync(require.resolve('../../package.json'), 'utf8'));
 const playwrightConfigSource = fs.readFileSync(require.resolve('../../playwright.config'), 'utf8');
+const playwrightAdminSetupSource = fs.readFileSync(require.resolve('../../tests/playwright/setup/admin.setup'), 'utf8');
 const helpCenterBrowserSpecSource = fs.readFileSync(require.resolve('../../tests/playwright/specs/help-center.browser.spec'), 'utf8');
 const helpAdminSupportBrowserSpecSource = fs.readFileSync(require.resolve('../../tests/playwright/specs/help-admin-support.browser.spec'), 'utf8');
 const approvedSupportSessionBrowserSpecSource = fs.readFileSync(require.resolve('../../tests/playwright/specs/approved-support-session.browser.spec'), 'utf8');
@@ -2509,7 +2510,9 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
   assert.ok(scopeAccessSource.includes("Number(libraryRow.space_id || 0) === Number(req.user?.supportSpaceId || 0)"));
   assert.ok(!dockerComposeSource.includes('PLAYWRIGHT_E2E_BYPASS_TOKEN'));
   assert.ok(!publicComposeGeneratorSource.includes('PLAYWRIGHT_E2E_BYPASS_TOKEN'));
+  assert.ok(ciComposeOverrideGeneratorSource.includes('DEBUG: \\${DEBUG:-0}'));
   assert.ok(ciComposeOverrideGeneratorSource.includes('PLAYWRIGHT_E2E_BYPASS_TOKEN: \\${PLAYWRIGHT_E2E_BYPASS_TOKEN:-}'));
+  assert.ok(playwrightAdminSetupSource.includes("updateFeatureFlag(requestContext, 'events_enabled', true)"));
   assert.ok(dockerPublishWorkflowSource.includes('browser-regression:'));
   assert.ok(dockerPublishWorkflowSource.includes('npx playwright install --with-deps chromium'));
   assert.ok(dockerPublishWorkflowSource.includes('npm run test:browser'));

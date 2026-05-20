@@ -17,6 +17,7 @@ const buildOverride = `services:
         APP_VERSION: \${APP_VERSION:-}
     image: collectz-backend:ci
     environment:
+      DEBUG: \${DEBUG:-0}
       PLAYWRIGHT_E2E_BYPASS_TOKEN: \${PLAYWRIGHT_E2E_BYPASS_TOKEN:-}
     volumes:
       - ./init.sql:/init.sql:ro
