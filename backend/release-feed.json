@@ -1,6 +1,84 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.8.20",
+      "version": "3.8.20",
+      "date": "2026-05-20",
+      "status": "implemented",
+      "summary": "This release adds a public homelab environment reference so `env.example` can stay minimal while operators still have a safe place to understand optional deployment settings.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added `docs/wiki/48-Public-Homelab-Environment-Reference.md` for operator-safe public homelab settings.",
+            "Updated README and deployment docs to point public users at the new homelab-specific environment reference.",
+            "Marked the broad environment-variable page as a maintainer/runtime reference rather than the first public setup path.",
+            "Removed stale Portainer/deploy guidance that implied version metadata variables changed the public prebuilt image tag.",
+            "Removed public deploy guidance that recommended putting audit verbosity in the default Portainer environment.",
+            "Added the new public reference to public export surface validation."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "collectZ v3.8.19",
+      "version": "3.8.19",
+      "date": "2026-05-20",
+      "status": "implemented",
+      "summary": "This release simplifies the public homelab Docker Compose file so it defaults directly to the GHCR `latest` images and only exposes the runtime environment values needed for normal homelab startup.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Changed public backend image to `ghcr.io/hkrewson/collectz-backend:latest`.",
+            "Changed public frontend image to `ghcr.io/hkrewson/collectz-frontend:latest`.",
+            "Removed public `IMAGE_REGISTRY`, `IMAGE_NAMESPACE`, and `IMAGE_TAG` indirection from the generated compose surface.",
+            "Removed provider/bootstrap tuning variables from the default public compose environment block.",
+            "Kept required database, session, encryption, CORS, reverse-proxy, secure-cookie, upload, and port settings in the public compose.",
+            "Tightened public export validation so image-source indirection variables do not return to public deploy docs, compose, or env examples."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "collectZ v3.8.18",
+      "version": "3.8.18",
+      "date": "2026-05-20",
+      "status": "implemented",
+      "summary": "This release tightens the public homelab deployment surface by keeping env examples focused on required runtime values and removing testing/private controls from public compose/docs.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Removed the Playwright browser-regression bypass variable from the generated public compose file.",
+            "Tightened public export validation so public compose/env/docs cannot expose Playwright bypass controls, session bearer fallback controls, or private edition controls.",
+            "Clarified `env.example` around required secrets versus optional database and reverse-proxy settings.",
+            "Updated README wording so public homelab setup does not point users at private/platform edition controls.",
+            "Kept public compose defaulting to `NODE_ENV=production` and secure-cookie posture unless explicitly overridden for local HTTP testing."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "collectZ v3.8.17",
+      "version": "3.8.17",
+      "date": "2026-05-20",
+      "status": "implemented",
+      "summary": "This release makes Capture Inbox rows explain why they need attention, using backend-derived review reasons.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added `review_reasons` readback to capture items.",
+            "Derives reasons for replay conflicts, lookup problems, multiple choices, no matches, ready-to-add captures, and missing details.",
+            "Shows those reasons directly on Capture Inbox rows as compact text.",
+            "Documents the new readback in OpenAPI.",
+            "Preserves existing review tabs, source filters, batch summary, scanner shortcuts, and import/link actions."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.8.16",
       "version": "3.8.16",
       "date": "2026-05-20",
@@ -111,82 +189,6 @@
             "A selected result can be added or linked through the existing Capture Inbox import path.",
             "Captures saved for review now keep lookup matches and lookup status on the capture row.",
             "Added a `Save and scan next` action so scanning another item does not require returning to the inbox list."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.8.10",
-      "version": "3.8.10",
-      "date": "2026-05-19",
-      "status": "implemented",
-      "summary": "This release makes the Capture Inbox barcode camera flow more useful for books by looking for an ISBN in the captured barcode photo instead of stopping at the retail UPC.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "After the camera barcode action reads a code, Capture Inbox now runs the existing client-side identifier OCR against the same image.",
-            "If an ISBN is found, the capture form uses the ISBN, marks the object type as Book, and sets the symbology to `ISBN-13`.",
-            "If no ISBN is found, the flow falls back to the detected UPC/barcode as before.",
-            "Preserves OCR text readback when available so the capture row can still be reviewed."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.8.9",
-      "version": "3.8.9",
-      "date": "2026-05-19",
-      "status": "implemented",
-      "summary": "This release tightens Capture Inbox on mobile Safari by making the new-capture form scroll correctly inside the dashboard shell and adding a direct camera scan control for barcodes.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Gives Capture Inbox its own scroll container so the iOS Safari form can move past the Title field.",
-            "Adds a `Scan` action beside Barcode / ISBN that opens the device camera and decodes the captured image through the existing BarcodeDetector/ZXing client pipeline.",
-            "Keeps manual barcode entry and photo upload intact.",
-            "Marks photo upload controls as mobile-camera capable.",
-            "Adds regression coverage for the mobile scan affordance and scrollable capture editor."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.8.8",
-      "version": "3.8.8",
-      "date": "2026-05-19",
-      "status": "implemented",
-      "summary": "This release lets Capture Inbox turn a selected lookup match into a real library link or import, keeping the user in control of the final decision.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Adds authenticated `POST /api/capture-items/{id}/import-match`.",
-            "Reuses the scanner barcode import pipeline so Capture Inbox and the iOS scanner share the same backend source of truth.",
-            "Links captures to existing library items when the selected match is already in the catalog.",
-            "Imports provider candidates into canonical media rows when the selected match is new.",
-            "Marks converted captures with the linked media id and stores selected-match/import readback in capture review metadata.",
-            "Adds compact `Link` and `Import` actions beside persisted capture lookup matches."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.8.7",
-      "version": "3.8.7",
-      "date": "2026-05-19",
-      "status": "implemented",
-      "summary": "This release lets Capture Inbox turn an applied barcode or ISBN into reviewable catalog and provider match candidates.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Adds authenticated `POST /api/capture-items/{id}/lookup-matches`.",
-            "Reuses the backend scanner barcode lookup path used by `/api/media/lookup/barcode`.",
-            "Stores lookup matches and summary counts on the capture row for later review.",
-            "Adds a compact `Find matches` action for capture rows that have a barcode or applied OCR candidate.",
-            "Shows persisted capture matches inline, including existing catalog matches marked as already in the library."
           ]
         }
       ]

@@ -10810,6 +10810,133 @@ Historical note:
 - What remains in the milestone: nothing for `3.8.10`; next planned work is `3.8.11 — Capture Scan Immediate Lookup`, followed by batch scan mode, safe ISBN auto-import, and exception review routing.
 - Recommended commit message: `Release 3.8.10 with Capture Inbox barcode camera ISBN recognition`.
 
+## 3.8.20 — Public Homelab Environment Reference
+
+**Goal:** Keep the public startup surface minimal while giving homelab operators a safe, readable reference for optional deployment settings.
+
+**Scope**
+
+- Add a public homelab environment reference separate from the broad maintainer runtime variable catalog.
+- Update README and deployment docs so public users start from `env.example` and the public homelab reference.
+- Remove stale public deploy guidance that implies version/build metadata variables select published images.
+- Keep private, CI-only, and deep maintainer runtime controls out of public-facing setup guidance.
+
+**Acceptance criteria**
+
+- `env.example` remains focused on the small startup surface.
+- Public docs point users to a homelab-specific environment reference.
+- The new public reference is covered by public export validation.
+- Version metadata, release note, release feed, and Help > Releases include `3.8.20`.
+
+**Closeout**
+
+- Roadmap slice: `3.8.20 — Public Homelab Environment Reference`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/06-Versioning-and-Build-Metadata.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.8.20.md`; `README.md`; `env.example`; `docs/wiki/48-Public-Homelab-Environment-Reference.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild with `APP_VERSION=3.8.20`; running `/api/health` reported frontend/backend/build `3.8.20`; running backend env readback showed restored local platform/dev values after homelab testing; Help > Releases smoke served `3.8.20`; temporary minimal public compose resolution with only required secrets resolved to fixed `ghcr.io/hkrewson/collectz-backend:latest` and `ghcr.io/hkrewson/collectz-frontend:latest` images with `NODE_ENV=production` and `SESSION_COOKIE_SECURE=true`; temporary homelab-mode stack proved the homelab edition boundary and the local stack was restored to platform mode afterward.
+- CI/checks run locally: host `node backend/scripts/unit-tests.js` (`295` passed); host `npm run validate:public-export`; Docker backend/frontend build; Docker `npm run test:unit` (`295` passed); Docker `npm run test:openapi`; Docker `npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.8.20 npm run test:help-releases-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker temporary homelab override plus `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; backend/frontend production dependency audits (`0` vulnerabilities); local release preflight; public-surface/release secret-pattern scan; `git diff --check`.
+- Blocked/unverified gates: local release preflight remains NO-GO because observability release evidence failed `graylog_collector_smoke`, `loki_collector_smoke`, `syslog_collector_smoke`, `nonblocking_export_failure_smoke`, and `backend_restore_graylog`; compose-smoke secure-cookie basics are blocked by the local development stack settings (`SESSION_COOKIE_SECURE=false`, `NODE_ENV=development`); browser regression was not rerun for this docs/config-reference slice; CI remains authoritative for `browser-regression`, `secret-scan`, `image-security-and-sbom`, and stricter CI compose-smoke conditions.
+- Files changed for this slice: `README.md`; `app-meta.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `backend/app-meta.json`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `docs/releases/v3.8.20.md`; `docs/wiki/02-Environment-Variables.md`; `docs/wiki/03-Docker-Compose-Setup.md`; `docs/wiki/04-Docker-CLI-and-Portainer-Deploy.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/48-Public-Homelab-Environment-Reference.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `preflight-go-no-go.md`; `scripts/validate-public-export-surface.js`.
+- Risks or follow-ups: The broader maintainer environment-variable catalog still contains private/runtime detail by design; a later public wiki pass can continue separating operator docs from project history and maintainer internals.
+- What remains in the milestone: nothing for `3.8.20`.
+- Recommended commit message: `Release 3.8.20 with public homelab environment reference`.
+
+## 3.8.19 — Public Compose Latest Image Simplification
+
+**Goal:** Make the public homelab compose file simpler by using the GHCR `latest` images directly and exposing only the normal boot-time runtime values.
+
+**Scope**
+
+- Change public backend image to `ghcr.io/hkrewson/collectz-backend:latest`.
+- Change public frontend image to `ghcr.io/hkrewson/collectz-frontend:latest`.
+- Remove public image registry, namespace, and tag indirection from generated compose.
+- Trim provider/bootstrap tuning variables from the public compose environment block.
+- Keep database, session, encryption, CORS, reverse-proxy, secure-cookie, upload, and port settings.
+- Update public docs and validation so image-source indirection does not drift back into the public deploy surface.
+
+**Acceptance**
+
+- Generated `docker-compose.yml` has fixed GHCR `latest` backend/frontend image names.
+- Public compose does not expose `IMAGE_REGISTRY`, `IMAGE_NAMESPACE`, or `IMAGE_TAG`.
+- Public compose environment block is limited to normal homelab boot settings.
+- Public export validation enforces the simplified surface.
+- Version metadata, release note, release feed, and Help > Releases include `3.8.19`.
+
+### Closeout
+
+- Roadmap slice: `3.8.19 — Public Compose Latest Image Simplification`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/06-Versioning-and-Build-Metadata.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.8.19.md`; `README.md`; `env.example`.
+- Runtime verification used: Docker-first backend/frontend rebuild with `APP_VERSION=3.8.19`; running `/api/health` reported frontend/backend/build `3.8.19`; running backend env readback showed local platform/dev override values and no `IMAGE_REGISTRY`, `IMAGE_NAMESPACE`, `IMAGE_TAG`, `LOG_EXPORT_BACKEND`, `TMDB_API_KEY`, or `PLEX_API_KEY`; Help > Releases smoke served `3.8.19`; temporary minimal public compose resolution with only required secrets resolved to fixed `ghcr.io/hkrewson/collectz-backend:latest` and `ghcr.io/hkrewson/collectz-frontend:latest` images with `NODE_ENV=production` and `SESSION_COOKIE_SECURE=true`; temporary homelab-mode stack proved the homelab edition boundary and the local stack was restored to platform mode afterward.
+- CI/checks run locally: host `node backend/scripts/unit-tests.js` (`295` passed); host `npm run validate:public-export`; Docker backend/frontend build; Docker `npm run test:unit` (`295` passed); Docker `npm run test:openapi`; Docker `npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.8.19 npm run test:help-releases-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker temporary homelab override plus `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; backend/frontend production dependency audits (`0` vulnerabilities); local release preflight; public-surface/release secret-pattern scan; `git diff --check`.
+- Blocked/unverified gates: local release preflight is NO-GO because observability release evidence is stale/failing; compose-smoke secure-cookie basics are blocked by the local development stack settings (`SESSION_COOKIE_SECURE=false`, `NODE_ENV=development`); browser regression was not rerun for this compose/docs-only slice after the prior `3.8.18` run had one unrelated transient failure and a green targeted rerun; CI remains authoritative for `browser-regression`, `secret-scan`, `image-security-and-sbom`, and stricter CI compose-smoke conditions.
+- Files changed for this slice: `README.md`; `app-meta.json`; `backend/app-meta.json`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/scripts/unit-tests.js`; `docker-compose.yml`; `docs/releases/v3.8.19.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `preflight-go-no-go.md`; `scripts/generate-public-compose.js`; `scripts/validate-public-export-surface.js`.
+- Risks/follow-ups: public compose no longer supports tag pinning through `.env`; anyone who needs exact pins should edit the image lines or use a private override. A separate public environment variable reference can document optional advanced runtime/provider settings without re-expanding the default compose.
+- What remains in the milestone: nothing for `3.8.19`.
+- Recommended commit message: `Release 3.8.19 with public compose latest image simplification`.
+
+## 3.8.18 — Public Homelab Env Surface Cleanup
+
+**Goal:** Keep the public homelab `.env` and compose surface focused on required runtime configuration while moving private/test-only controls out of public setup paths.
+
+**Scope**
+
+- Confirm the minimum public homelab `.env` values needed for production startup.
+- Remove Playwright browser-regression bypass configuration from generated public compose.
+- Keep session bearer fallback controls out of public compose, env examples, and public setup docs.
+- Keep private/platform edition controls out of the public homelab quick start.
+- Tighten public export validation so these controls do not drift back into public deployment files.
+- Preserve `NODE_ENV=production` as the public compose default and document secure-cookie override only for direct HTTP local testing.
+
+**Acceptance**
+
+- `env.example` clearly separates required secrets from optional deployment posture values.
+- Generated `docker-compose.yml` does not expose browser-test bypass controls, session bearer fallback controls, or private edition controls.
+- Public README and deploy docs do not point homelab users at private/test-only controls.
+- Public export validation enforces the cleaned deployment surface.
+- Version metadata, release note, release feed, and Help > Releases include `3.8.18`.
+
+### Closeout
+
+- Roadmap slice: `3.8.18 — Public Homelab Env Surface Cleanup`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/06-Versioning-and-Build-Metadata.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.8.18.md`; `README.md`; `env.example`.
+- Runtime verification used: Docker-first backend/frontend rebuild with `APP_VERSION=3.8.18`; running `/api/health` reported frontend/backend/build `3.8.18`; running backend env readback showed no `PLAYWRIGHT_E2E_BYPASS_TOKEN` or `ALLOW_SESSION_BEARER_FALLBACK`; Help > Releases smoke served `3.8.18`; a temporary minimal public compose resolution with only `DB_PASSWORD`, `SESSION_SECRET`, and `INTEGRATION_ENCRYPTION_KEY` resolved to `NODE_ENV=production` and `SESSION_COOKIE_SECURE=true` without browser-test bypass, session bearer fallback, or private edition controls; temporary homelab-mode stack proved the homelab edition boundary and the local stack was restored to platform mode afterward.
+- CI/checks run locally: host `node backend/scripts/unit-tests.js` (`295` passed); Docker backend/frontend build; Docker `npm run test:unit` (`295` passed); Docker `npm run test:openapi`; Docker `npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.8.18 npm run test:help-releases-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker temporary homelab override plus `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`; backend/frontend production dependency audits (`0` vulnerabilities); public export surface validation; full `npm run test:browser` (`69` passed, `1` transient failed, `4` skipped); targeted rerun of the failed browser spec passed (`2` passed); local release preflight; `git diff --check`; release/public-surface secret-pattern scan.
+- Blocked/unverified gates: local release preflight is NO-GO because observability release evidence is stale/failing; compose-smoke secure-cookie basics are blocked by the local development stack settings (`SESSION_COOKIE_SECURE=false`, `NODE_ENV=development`); CI remains authoritative for `secret-scan`, `image-security-and-sbom`, and any stricter CI compose-smoke conditions.
+- Files changed for this slice: `README.md`; `app-meta.json`; `backend/app-meta.json`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `docker-compose.yml`; `docs/releases/v3.8.18.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `env.example`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `preflight-go-no-go.md`; `scripts/generate-public-compose.js`; `scripts/validate-public-export-surface.js`.
+- Risks/follow-ups: the minimal public `.env` is intentionally not a full env reference; optional homelab variables should be documented separately so the example stays small. Direct HTTP-only local testing still needs `SESSION_COOKIE_SECURE=false`.
+- What remains in the milestone: nothing for `3.8.18`; a separate public homelab environment variable reference can follow without re-expanding `env.example`.
+- Recommended commit message: `Release 3.8.18 with public homelab env surface cleanup`.
+
+## 3.8.17 — Capture Review Reason Readback
+
+**Goal:** Make Capture Inbox rows explain why they need review so users can act from the existing list without guessing from tabs alone.
+
+**Scope**
+
+- Add backend-derived `review_reasons` to capture item readback.
+- Cover replay conflicts, lookup problems, needs-choice rows, no-match rows, ready-to-add rows, and missing-detail rows.
+- Show compact row-level review reason text in Capture Inbox.
+- Update OpenAPI for the new response field.
+- Preserve existing review filters, scanner source filters, batch summary, safe exact ISBN auto-add, and import/link behavior.
+
+**Acceptance**
+
+- Capture list responses include stable `review_reasons` arrays.
+- Replay-conflict captures show a `Replay conflict` review reason in Capture Inbox.
+- Reason readback is scoped to existing capture rows and does not create a separate queue.
+- Version metadata, release note, release feed, and Help > Releases include `3.8.17`.
+
+### Closeout
+
+- Roadmap slice: `3.8.17 — Capture Review Reason Readback`.
+- Project docs/checklists used: `AGENTS.md`; `/Users/hamlin/.codex/skills/uncodixfy/SKILL.md`; `docs/wiki/06-Versioning-and-Build-Metadata.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.8.17.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild with `APP_VERSION=3.8.17`; running `/api/health` reported frontend/backend/build `3.8.17`; running backend env readback showed `APP_EDITION=platform`, `APP_VERSION=3.8.17`, `NODE_ENV=development`, `SESSION_COOKIE_SECURE=false`, `TRUST_PROXY=0`, and `LOG_EXPORT_BACKEND=off`; Help > Releases smoke served `3.8.17`; browser regression created a scanner-shaped capture and verified visible `Replay conflict` review reason readback in Capture Inbox; temporary homelab-mode stack proved the homelab edition boundary and the local stack was restored to platform mode afterward.
+- CI/checks run locally: `node --check backend/routes/captureItems.js`; host `node backend/scripts/unit-tests.js` (`295` passed); host `npm --prefix frontend run build`; host `node backend/scripts/validate-openapi.js`; host release feed export; Docker backend/frontend build; Docker `/api/health` smoke; Docker `npm run test:unit` (`295` passed); Docker `npm run test:openapi`; Docker `npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.8.17 npm run test:help-releases-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker temporary homelab override plus `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; targeted Capture Inbox Playwright regression (`2` passed); full `npm run test:browser` (`70` passed, `4` skipped); backend/frontend production dependency audits (`0` vulnerabilities); public export surface validation; compose config validation without writing the secret-bearing resolved output as an artifact; local release preflight; release/evidence secret-pattern scan; `git diff --check`.
+- Blocked/unverified gates: local release preflight is NO-GO because observability release evidence is stale/failing; compose-smoke secure-cookie basics are blocked by the local development stack settings (`SESSION_COOKIE_SECURE=false`, `NODE_ENV=development`); CI remains authoritative for `secret-scan`, `image-security-and-sbom`, and any stricter CI compose-smoke conditions.
+- Files changed for this slice: `app-meta.json`; `backend/app-meta.json`; `backend/openapi/openapi.yaml`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/routes/captureItems.js`; `backend/scripts/unit-tests.js`; `docker-compose.yml`; `docs/releases/v3.8.17.md`; `docs/wiki/07-Release-Roadmap.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/CaptureInboxView.jsx`; `preflight-go-no-go.md`; `tests/playwright/specs/admin-shell.browser.spec.js`.
+- Risks/follow-ups: review reasons are intentionally lightweight labels derived from existing capture state, so deeper remediation flows still belong in later capture review routing work. Existing capture rows with sparse provider data may show `Missing details` until a lookup/import decision fills the row.
+- What remains in the milestone: nothing for `3.8.17`; the broader Mobile-First Capture Workflow can continue into durable review routing, offline queue management, or richer batch decision handling.
+- Recommended commit message: `Release 3.8.17 with Capture review reason readback`.
+
 ## 3.8.16 — Capture Scanner Queue Shortcuts
 
 **Goal:** Make scanner-app captures easier to find and continue from inside Capture Inbox without adding a separate queue page.

@@ -1252,6 +1252,7 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
             const selectedCandidateId = item.review_decision?.selected_ocr_candidate?.id || '';
             const lookupMatchesList = Array.isArray(item.review_decision?.capture_lookup_matches) ? item.review_decision.capture_lookup_matches : [];
             const lookupStatus = item.review_decision?.capture_lookup_status || {};
+            const reviewReasons = Array.isArray(item.review_reasons) ? item.review_reasons : [];
             const replayConflict = latestReplayConflict(item);
             const replayFields = Array.isArray(replayConflict?.fields) ? replayConflict.fields : [];
             return (
@@ -1273,6 +1274,11 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
                     <span className="text-xs text-dim">{item.status}</span>
                   </div>
                   <div className="mt-1 text-xs text-ghost">{secondary}</div>
+                  {reviewReasons.length ? (
+                    <div className="mt-1 text-xs text-ghost" aria-label="Capture review reasons">
+                      Review: {reviewReasons.map((reason) => reason.label).join(' · ')}
+                    </div>
+                  ) : null}
                   {item.image_path ? <div className="mt-1 truncate text-xs text-dim">{item.image_path}</div> : null}
                   {item.ocr_text ? <div className="mt-1 line-clamp-2 text-xs text-dim">{item.ocr_text}</div> : null}
                   {replayFields.length ? (

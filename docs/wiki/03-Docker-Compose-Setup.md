@@ -15,6 +15,8 @@ cp env.example .env
 - `INTEGRATION_ENCRYPTION_KEY`
 - `SESSION_COOKIE_SECURE=true` (required when `NODE_ENV=production`)
 
+For optional public deployment settings, use `docs/wiki/48-Public-Homelab-Environment-Reference.md`. Keep `env.example` focused on the minimum values needed to start.
+
 3. Pull and start the default homelab stack:
 
 ```bash

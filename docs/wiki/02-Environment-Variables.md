@@ -1,5 +1,7 @@
 # Environment Variables
 
+> Maintainer note: this is the broad private/runtime reference. For normal public homelab deployments, start with `env.example` and `docs/wiki/48-Public-Homelab-Environment-Reference.md` instead.
+
 All runtime variables are loaded from `.env` via `docker compose --env-file .env ...`.
 
 ## Required

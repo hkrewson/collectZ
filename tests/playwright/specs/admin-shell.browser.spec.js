@@ -307,6 +307,8 @@ test.describe('admin shell browser regressions', () => {
       await page.getByRole('tab', { name: /^All / }).click();
       await expect(page.getByText(photoTitle, { exact: true })).toBeVisible();
       const replayConflictReview = page.getByLabel('Replay conflict review').first();
+      const replayReason = page.getByLabel('Capture review reasons').filter({ hasText: 'Replay conflict' }).first();
+      await expect(replayReason).toBeVisible();
       await expect(replayConflictReview.getByText('Replay conflict', { exact: true })).toBeVisible();
       await expect(replayConflictReview.getByText('Barcode', { exact: true })).toBeVisible();
       await expect(replayConflictReview.getByText(`Current: ${createPayload.item.barcode}`)).toBeVisible();

@@ -3242,6 +3242,20 @@
           "client_capture_id": { "type": ["string", "null"], "description": "Client-generated retry/idempotency key normalized from source_context when supplied." },
           "client_source": { "type": ["string", "null"], "description": "Optional client/source label normalized from source_context when supplied." },
           "review_decision": { "type": "object", "additionalProperties": true },
+          "review_reasons": {
+            "type": "array",
+            "description": "Backend-derived reasons this capture is reviewable or actionable.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string", "enum": ["replay_conflict", "lookup_problem", "needs_choice", "no_match", "ready_to_add", "missing_details"] },
+                "label": { "type": "string" },
+                "severity": { "type": "string", "enum": ["warning", "attention", "ok", "muted"] }
+              },
+              "required": ["id", "label", "severity"],
+              "additionalProperties": false
+            }
+          },
           "linked_media_id": { "type": ["integer", "null"] },
           "wanted_item_id": { "type": ["integer", "null"] },
           "library_id": { "type": ["integer", "null"] },
@@ -3253,7 +3267,7 @@
           "created_at": { "type": "string", "format": "date-time" },
           "updated_at": { "type": "string", "format": "date-time" }
         },
-        "required": ["id", "capture_type", "status", "object_type", "source_context", "review_decision", "created_at", "updated_at"]
+        "required": ["id", "capture_type", "status", "object_type", "source_context", "review_decision", "review_reasons", "created_at", "updated_at"]
       },
       "CaptureItemInput": {
         "type": "object",
@@ -3283,6 +3297,7 @@
         "properties": {
           "items": { "type": "array", "items": { "$ref": "#/components/schemas/CaptureItem" } },
           "review_filter": { "type": "string", "enum": ["all", "needs_choice", "ready", "no_match", "missing_details", "problems"] },
+          "source_filter": { "type": "string", "enum": ["all", "scanner", "web"] },
           "review_counts": {
             "type": "object",
             "properties": {
@@ -3292,6 +3307,14 @@
               "no_match": { "type": "integer" },
               "missing_details": { "type": "integer" },
               "problems": { "type": "integer" }
+            },
+            "additionalProperties": false
+          },
+          "source_counts": {
+            "type": "object",
+            "properties": {
+              "scanner": { "type": "integer" },
+              "web": { "type": "integer" }
             },
             "additionalProperties": false
           },
@@ -3707,7 +3730,7 @@
       "get": {
         "tags": ["Capture"],
         "summary": "List mobile-first capture inbox records",
-        "description": "Returns quick-capture records scoped to the authenticated user's active workspace/library. Supports status, capture_type, review_filter, search, page, and limit query parameters.",
+        "description": "Returns quick-capture records scoped to the authenticated user's active workspace/library. Supports status, capture_type, review_filter, source_filter, search, page, and limit query parameters.",
         "security": [
           { "cookieSession": [] },
           { "bearerAuth": [] }
@@ -3728,6 +3751,12 @@
             "in": "query",
             "description": "Optional triage filter for the Capture Inbox review tabs.",
             "schema": { "type": "string", "enum": ["all", "needs_choice", "ready", "no_match", "missing_details", "problems"] }
+          },
+          {
+            "name": "source_filter",
+            "in": "query",
+            "description": "Optional capture-source filter for scanner-app or web-origin captures.",
+            "schema": { "type": "string", "enum": ["all", "scanner", "web"] }
           },
           {
             "name": "search",

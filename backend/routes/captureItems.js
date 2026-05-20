@@ -91,8 +91,70 @@ function mergeClientCaptureContext(body = {}, sourceContext = {}) {
   return next;
 }
 
+function arrayCount(value) {
+  return Array.isArray(value) ? value.length : 0;
+}
+
+function hasOpenReplayConflict(reviewDecision = {}) {
+  const conflicts = Array.isArray(reviewDecision.capture_replay_conflicts) ? reviewDecision.capture_replay_conflicts : [];
+  return conflicts.some((conflict) => conflict?.status === 'needs_review' && arrayCount(conflict.fields) > 0);
+}
+
+function lookupMatchCount(reviewDecision = {}) {
+  const lookupStatus = jsonObject(reviewDecision.capture_lookup_status);
+  const explicitCount = Number(lookupStatus.match_count);
+  return Number.isFinite(explicitCount) ? explicitCount : arrayCount(reviewDecision.capture_lookup_matches);
+}
+
+function hasMissingCaptureDetails(row = {}) {
+  if (!nullableString(row.title)) return true;
+  if (
+    ['barcode', 'ocr_text'].includes(row.capture_type)
+    && !nullableString(row.barcode)
+    && !nullableString(row.ocr_text)
+  ) {
+    return true;
+  }
+  if (row.capture_type === 'photo' && !nullableString(row.image_path)) return true;
+  return false;
+}
+
+function buildCaptureReviewReasons(row = {}, reviewDecision = {}) {
+  if (['converted', 'discarded'].includes(row.status)) return [];
+
+  const reasons = [];
+  const lookupStatus = jsonObject(reviewDecision.capture_lookup_status);
+  const providerError = nullableString(lookupStatus.provider_error);
+  const matchCount = lookupMatchCount(reviewDecision);
+  const lookupMatches = arrayCount(reviewDecision.capture_lookup_matches);
+  const ocrCandidates = arrayCount(reviewDecision.ocr_candidates);
+  const hasLookupStatus = Object.keys(lookupStatus).length > 0;
+
+  if (hasOpenReplayConflict(reviewDecision)) {
+    reasons.push({ id: 'replay_conflict', label: 'Replay conflict', severity: 'warning' });
+  }
+  if (providerError) {
+    reasons.push({ id: 'lookup_problem', label: 'Lookup problem', severity: 'warning' });
+  }
+  if (lookupMatches > 1 || ocrCandidates > 1) {
+    reasons.push({ id: 'needs_choice', label: 'Needs choice', severity: 'attention' });
+  }
+  if (hasLookupStatus && matchCount === 0 && !providerError) {
+    reasons.push({ id: 'no_match', label: 'No match', severity: 'attention' });
+  }
+  if (lookupMatches === 1) {
+    reasons.push({ id: 'ready_to_add', label: 'Ready to add', severity: 'ok' });
+  }
+  if (hasMissingCaptureDetails(row)) {
+    reasons.push({ id: 'missing_details', label: 'Missing details', severity: 'muted' });
+  }
+
+  return reasons;
+}
+
 function shapeCaptureItem(row) {
   const sourceContext = jsonObject(row.source_context);
+  const reviewDecision = jsonObject(row.review_decision);
   return {
     id: row.id,
     title: row.title,
@@ -107,7 +169,8 @@ function shapeCaptureItem(row) {
     source_context: sourceContext,
     client_capture_id: sourceContext.client_capture_id || null,
     client_source: sourceContext.client_source || null,
-    review_decision: jsonObject(row.review_decision),
+    review_decision: reviewDecision,
+    review_reasons: buildCaptureReviewReasons(row, reviewDecision),
     linked_media_id: row.linked_media_id,
     wanted_item_id: row.wanted_item_id,
     library_id: row.library_id,

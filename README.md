@@ -1,30 +1,26 @@
 # collectZ
 
-collectZ is a self-hosted collection management app for homelab collectors. It tracks media, books, comics, games, art, events, loans, wishlists, capture workflows, and provider-backed imports from one Docker-deployed web app.
+collectZ is a self-hosted collection management app capable of tracking media, books, comics, games, art, events, loans, wishlists, and more.
 
-The project is built for private collection ownership first: local accounts, scoped libraries/workspaces, secure cookie sessions, admin-managed integrations, and a homelab-friendly deployment path using prebuilt container images.
 
 ## What It Does
 
-- **Collection library:** browse, search, add, edit, rate, and review movies, TV, books, comics, games, audio, art, collectibles, and related objects.
 - **Dashboard:** first-screen summary for recent activity, provider health, upcoming events, failed syncs, missing covers, missing identifiers, and other items that need attention.
-- **Capture Inbox:** quick capture flow for barcode/ISBN scans, photos, OCR text, manual notes, lookup candidates, batch scanning, and review filters.
+- **Library:** browse, search, add, edit, rate, and review movies, TV, books, comics, games, audio, art, collectibles, and related objects.
+- **Loans:** keep track of items loaned to friend, send email reminder, and track returns.
 - **Imports and syncs:** CSV, Plex, Kavita, scanner/barcode intake, and provider-specific enrichment paths.
 - **Provider integrations:** TMDB, Google Books, UPC/barcode lookup, Metron/comics, Plex, Kavita, optional valuation providers, SMTP, storage, metrics, and structured log export.
-- **Plex workflows:** imports, provider-path modernization, webhook intake, watched-state sync/writeback, rating read/writeback, reconciliation, and now-playing display.
-- **Kavita workflows:** workspace-owned integration settings, import/resync, comic chapter-as-issue fan-out, covers, reader/progress contracts, and read-only metadata enrichment.
-- **Events and art:** convention/event planning, schedules, attendees, purchased-item links, native art records, reusable artists, signatures, proofs, numbered prints, and event-linked purchases.
-- **Wishlist and acquisition tracking:** wanted items, statuses, priority, target price, provider identity, and library-ready conversion.
-- **Administration:** users, workspaces, integrations, feature flags, activity, support/session controls, release notes, API docs when debug-enabled, and operational evidence.
+- **Events:** convention/event planning, schedules, and event-linked purchases.
+- **Wishlist:** wanted items, statuses, priority, target price.
 
 ## Deployment Model
 
-The public compose file is intended for homelab-style deployment with prebuilt images from GHCR. Most users should not need to build images locally.
+Use the docker compose and an env with prebuilt images from GHCR.
 
 Release tags:
 
-- `stable`: recommended homelab release after maintainer promotion.
-- `latest`: newest published release.
+- `latest`: default homelab release channel.
+- `stable`: compatibility tag for older deployments that explicitly use it.
 - exact semver, such as `3.8.13`: pin to one release.
 - moving minor tag, such as `3.8`: newest published release in that minor line.
 
@@ -47,13 +43,7 @@ Release tags:
 
    Use strong unique values. `openssl rand -hex 32` is a good starting point for secrets.
 
-4. Choose an image tag in `.env` if you do not want the compose default:
-
-   ```text
-   IMAGE_TAG=stable
-   ```
-
-5. Pull and start:
+4. Pull and start:
 
    ```bash
    docker compose --env-file .env pull
@@ -78,8 +68,7 @@ The helper checks prerequisites and `.env` basics, then prints deploy commands. 
 
 - On a new homelab install, the first successful registration becomes the admin.
 - Homelab mode is designed around local accounts and a shared household library model.
-- Platform/private mode has a broader workspace and invite-driven control plane.
-- The active edition is controlled by `APP_EDITION` and surfaced by the backend at runtime.
+- The public compose file is the homelab deployment surface. Private/platform deployment uses maintainer-only configuration outside this public quick start.
 
 ## Core Configuration
 
@@ -91,8 +80,8 @@ Required for reliable operation:
 
 Production and reverse-proxy settings:
 
-- `NODE_ENV=production`
-- `SESSION_COOKIE_SECURE=true`
+- `NODE_ENV` defaults to production in the public compose file
+- `SESSION_COOKIE_SECURE=true` for HTTPS deployments; use `false` only for direct HTTP local testing
 - `TRUST_PROXY=1` when running behind one trusted reverse proxy hop
 - `ALLOWED_ORIGINS` set to the browser origins that should be allowed
 
@@ -103,7 +92,7 @@ Useful optional configuration:
 - `TMDB_API_KEY`, `COMICS_API_KEY`, `BARCODE_API_KEY`, `PLEX_API_KEY`, and other provider keys as needed
 - `SMTP_*` values for invites, password reset, and email flows
 
-See [Environment Variables](docs/wiki/02-Environment-Variables.md) for the full configuration reference.
+See [Public Homelab Environment Reference](docs/wiki/48-Public-Homelab-Environment-Reference.md) for operator-safe optional settings. The older [Environment Variables](docs/wiki/02-Environment-Variables.md) page is a broader maintainer reference.
 
 ## Integrations
 
@@ -189,7 +178,7 @@ The `docs/wiki/` directory is currently a maintainer knowledge base, not a polis
 Good public/operator entry points:
 
 - [Configuration and Use](docs/wiki/01-Configuration-and-Use.md)
-- [Environment Variables](docs/wiki/02-Environment-Variables.md)
+- [Public Homelab Environment Reference](docs/wiki/48-Public-Homelab-Environment-Reference.md)
 - [Docker Compose Setup](docs/wiki/03-Docker-Compose-Setup.md)
 - [CI/CD and Registry Deploy](docs/wiki/10-CI-CD-and-Registry-Deploy.md)
 - [Backup and Restore](docs/wiki/08-Backup-and-Restore.md)
@@ -219,5 +208,5 @@ If login fails after changing compose or `.env`, verify the running backend cont
 ```bash
 docker inspect collectz-backend-1 \
   --format '{{range .Config.Env}}{{println .}}{{end}}' \
-  | grep -E '^(DATABASE_URL|APP_EDITION|NODE_ENV|SESSION_COOKIE_SECURE|TRUST_PROXY|ALLOWED_ORIGINS|APP_VERSION)='
+  | grep -E '^(DATABASE_URL|NODE_ENV|SESSION_COOKIE_SECURE|TRUST_PROXY|ALLOWED_ORIGINS|APP_VERSION)='
 ```
