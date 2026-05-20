@@ -10810,6 +10810,45 @@ Historical note:
 - What remains in the milestone: nothing for `3.8.10`; next planned work is `3.8.11 — Capture Scan Immediate Lookup`, followed by batch scan mode, safe ISBN auto-import, and exception review routing.
 - Recommended commit message: `Release 3.8.10 with Capture Inbox barcode camera ISBN recognition`.
 
+## 3.9.1 — Apple/iTunes Wishlist Price Readback
+
+**Goal:** Add a manual, scoped Apple/iTunes price refresh for saved wishlist rows so target-price decisions can use current store readback without adding scheduled polling or alerts yet.
+
+### Scope
+
+- Add authenticated Apple/iTunes lookup support for saved provider keys.
+- Add `POST /api/wishlist/apple-itunes/refresh-prices`.
+- Refresh active scoped Apple-linked wishlist rows by current provider key.
+- Store current price, previous price, currency, store URL, artwork URL, refresh timestamp, and target-price readback in `source_context`.
+- Add a compact Library > Wishlist action to refresh saved Apple/iTunes prices.
+- Rename the optional result-row price field from “Buy below” to “Target price”.
+- Keep this slice manual readback only:
+  - no scheduler,
+  - no price history table,
+  - no price-drop alerts,
+  - no owned-library valuation behavior.
+
+### Acceptance Criteria
+
+- Saved Apple/iTunes wishlist rows can refresh current store price from the backend.
+- Price refresh remains authenticated and scoped.
+- Wishlist rows show current Apple price readback when available.
+- Target-price state is clear without per-result UI clutter.
+- OpenAPI documents the refresh request and response shapes.
+- Version metadata, release note, release feed, and Help > Releases include `3.9.1`.
+
+### Closeout
+
+- Roadmap slice: `3.9.1 — Apple/iTunes Wishlist Price Readback`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/06-Versioning-and-Build-Metadata.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.9.1.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild with `APP_VERSION=3.9.1`; running `/api/health` reported frontend/backend/build `3.9.1`; running backend env readback showed `APP_EDITION=platform`, `APP_VERSION=3.9.1`, and `NODE_ENV=development`; live authenticated Apple/iTunes search returned five `jack johnson` music candidates; live save created a temporary Apple-linked Wishlist row; live `POST /api/wishlist/apple-itunes/refresh-prices` checked one saved Apple row, updated one row, returned numeric current-price readback, and marked the target as met; the temporary Wishlist row was deleted after verification; Help > Releases smoke served `3.9.1`.
+- CI/checks run locally: host `node --check backend/services/appleItunes.js`; host `node --check backend/routes/wishlist.js`; host `node --check tests/playwright/specs/admin-shell.browser.spec.js`; host `node backend/scripts/unit-tests.js` (`297` passed); host `npm --prefix backend run test:openapi`; host `npm --prefix frontend run build`; host `npm ci --prefix backend --no-fund`; host `npm ci --prefix frontend --no-fund`; host backend/frontend production dependency audits (`0` vulnerabilities); host targeted Playwright Apple/iTunes Wishlist test (`2` passed); Docker backend/frontend build; Docker `npm run test:unit` (`297` passed); Docker `npm run test:openapi`; Docker `npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.9.1 npm run test:help-releases-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression` passed when rerun alone after an invalid parallel run conflicted with the platform smoke on the shared local DB; host `npm run validate:public-export`; release note heading check; `git diff --check`.
+- Blocked/unverified gates: direct homelab edition boundary smoke against the current platform stack is not a valid homelab runtime and returned platform-only email settings as expected for platform mode; a temporary homelab override was not run for this UI/API-only slice. `compose-smoke` secure-cookie basics remain blocked by local development stack settings (`SESSION_COOKIE_SECURE=false`, `NODE_ENV=development`). `secret-scan` and `image-security-and-sbom` remain CI-only local blockers.
+- Files changed for this slice: `app-meta.json`; `backend/app-meta.json`; `backend/openapi/openapi.yaml`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/routes/wishlist.js`; `backend/scripts/unit-tests.js`; `backend/services/appleItunes.js`; `docs/releases/v3.9.1.md`; `docs/wiki/07-Release-Roadmap.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/WishlistView.jsx`; `tests/playwright/specs/admin-shell.browser.spec.js`.
+- Risks/follow-ups: this is manual current-price readback only; scheduled polling, price history, price-drop notifications, and owned-library valuation are still out of scope. Apple lookup is limited to numeric provider keys; URL-only provider-key fallbacks are skipped until a broader identity strategy is added. Apple Search API rate limits still need caching/backoff before automation.
+- What remains in the milestone: nothing for `3.9.1`; next Apple/iTunes wishlist work would be scheduled polling/history/alerts if selected.
+- Recommended commit message: `Release 3.9.1 with Apple/iTunes Wishlist price readback`.
+
 ## 3.9.0 — Apple/iTunes Wishlist Search Intake
 
 **Goal:** Add a backend-owned Apple/iTunes search and save intake path inside Library > Wishlist so users can search store catalog items and save acquisition candidates without routing the flow through the web UI as a provider client.

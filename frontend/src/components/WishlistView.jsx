@@ -353,8 +353,11 @@ function AppleItunesWishlistSearch({ apiCall, onToast, onSaved }) {
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
   const [savingKey, setSavingKey] = useState(null);
+  const [refreshingPrices, setRefreshingPrices] = useState(false);
+  const [refreshSummary, setRefreshSummary] = useState(null);
   const [error, setError] = useState(null);
   const [targetPrices, setTargetPrices] = useState({});
+  const [priceEditors, setPriceEditors] = useState({});
 
   const searchApple = async (event) => {
     event?.preventDefault?.();
@@ -371,6 +374,7 @@ function AppleItunesWishlistSearch({ apiCall, onToast, onSaved }) {
       params.set('limit', '25');
       const payload = await apiCall('get', `/wishlist/apple-itunes/search?${params.toString()}`);
       setMatches(Array.isArray(payload?.matches) ? payload.matches : []);
+      setPriceEditors({});
     } catch (err) {
       setMatches([]);
       setError(err?.message || 'Apple/iTunes search failed.');
@@ -404,10 +408,32 @@ function AppleItunesWishlistSearch({ apiCall, onToast, onSaved }) {
     }
   };
 
+  const refreshSavedPrices = async () => {
+    setRefreshingPrices(true);
+    setRefreshSummary(null);
+    try {
+      const payload = await apiCall('post', '/wishlist/apple-itunes/refresh-prices', {
+        status: 'active',
+        limit: 25,
+        country
+      });
+      setRefreshSummary(payload);
+      onToast?.(
+        `Apple/iTunes prices refreshed for ${payload?.updated || 0} of ${payload?.checked || 0} saved item${Number(payload?.checked || 0) === 1 ? '' : 's'}.`,
+        payload?.failed ? 'error' : 'success'
+      );
+      await onSaved?.();
+    } catch (err) {
+      onToast?.(err?.message || 'Could not refresh Apple/iTunes prices.', 'error');
+    } finally {
+      setRefreshingPrices(false);
+    }
+  };
+
   return (
     <section className="border-y border-edge py-3">
-      <form className="flex flex-wrap items-end gap-2" onSubmit={searchApple}>
-        <Field label="Apple/iTunes search" className="min-w-64 flex-1">
+      <form className="grid max-w-[920px] grid-cols-1 items-end gap-2 md:grid-cols-[minmax(260px,1fr)_160px_96px_auto]" onSubmit={searchApple}>
+        <Field label="Apple/iTunes search">
           <input
             className="input h-9 w-full"
             value={term}
@@ -415,68 +441,114 @@ function AppleItunesWishlistSearch({ apiCall, onToast, onSaved }) {
             placeholder="Search store titles"
           />
         </Field>
-        <Field label="Media" className="w-40">
+        <Field label="Media">
           <select className="select h-9 w-full" value={media} onChange={(event) => setMedia(event.target.value)}>
             {APPLE_MEDIA_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
         </Field>
-        <Field label="Country" className="w-24">
+        <Field label="Country">
           <input className="input h-9 w-full uppercase" value={country} maxLength={2} onChange={(event) => setCountry(event.target.value.toUpperCase())} />
         </Field>
         <button type="submit" className="btn-secondary h-9" disabled={loading || !term.trim()}>
           {loading ? 'Searching...' : 'Search'}
         </button>
       </form>
+      <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-ghost">
+        <button type="button" className="btn-ghost h-8 text-xs" onClick={refreshSavedPrices} disabled={refreshingPrices}>
+          {refreshingPrices ? 'Refreshing prices...' : 'Refresh saved prices'}
+        </button>
+        {refreshSummary ? (
+          <span>
+            Updated {refreshSummary.updated || 0} of {refreshSummary.checked || 0}
+            {refreshSummary.failed ? ` · ${refreshSummary.failed} failed` : ''}
+          </span>
+        ) : null}
+      </div>
 
       {error ? <div className="mt-3 text-sm text-err">{error}</div> : null}
       {searched && !loading && matches.length === 0 && !error ? (
         <div className="mt-3 text-sm text-ghost">No Apple/iTunes results matched that search.</div>
       ) : null}
       {matches.length > 0 ? (
-        <div className="mt-3 divide-y divide-edge/70 border-t border-edge/70">
-          {matches.map((match) => {
-            const key = match.provider_key || match.id;
-            const saved = Boolean(match.already_saved);
-            return (
-              <div key={match.id || key} className="grid gap-3 py-3 sm:grid-cols-[56px_minmax(0,1fr)_auto]">
-                <div className="h-14 w-14 overflow-hidden rounded border border-edge bg-panel">
-                  {match.artwork_url ? <img src={match.artwork_url} alt="" className="h-full w-full object-cover" /> : null}
-                </div>
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                    <h3 className="truncate text-sm font-semibold text-ink">{match.title}</h3>
-                    {match.year ? <span className="text-xs text-ghost">{match.year}</span> : null}
-                    <span className="text-xs text-ghost">{typeLabel(match.object_type)}</span>
+        <div className="mt-3 border-t border-edge/70 pt-2">
+          <div className="mb-2 flex items-center justify-between gap-3 text-xs text-ghost">
+            <span>{matches.length} Apple/iTunes result{matches.length === 1 ? '' : 's'}</span>
+            <span className="hidden sm:inline">Add a target price from a result row when needed.</span>
+          </div>
+          <div className="max-h-[360px] overflow-y-auto overscroll-contain pr-1">
+            <div className="divide-y divide-edge/70">
+              {matches.map((match) => {
+                const key = match.provider_key || match.id;
+                const saved = Boolean(match.already_saved);
+                const priceEditorOpen = Boolean(priceEditors[key]);
+                return (
+                  <div key={match.id || key} className="grid grid-cols-[48px_minmax(0,1fr)] gap-3 py-3 lg:grid-cols-[56px_minmax(0,1fr)_auto]">
+                    <div className="h-12 w-12 overflow-hidden rounded border border-edge bg-panel lg:h-14 lg:w-14">
+                      {match.artwork_url ? <img src={match.artwork_url} alt="" className="h-full w-full object-cover" /> : null}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <h3 className="truncate text-sm font-semibold text-ink">{match.title}</h3>
+                        {match.year ? <span className="text-xs text-ghost">{match.year}</span> : null}
+                        <span className="text-xs text-ghost">{typeLabel(match.object_type)}</span>
+                      </div>
+                      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-ghost">
+                        {match.subtitle ? <span>{match.subtitle}</span> : null}
+                        {match.kind || match.media ? <span>{[match.media, match.kind].filter(Boolean).join(' · ')}</span> : null}
+                        <span>{formatAppleMoney(match.price, match.currency)}</span>
+                        {match.store_url ? (
+                          <a className="text-link hover:underline" href={match.store_url} target="_blank" rel="noreferrer">Store</a>
+                        ) : null}
+                      </div>
+                    </div>
+                    <div className="col-span-2 flex flex-wrap items-center justify-start gap-2 lg:col-span-1 lg:justify-end">
+                      {priceEditorOpen && !saved ? (
+                        <label className="flex items-center gap-2 text-xs text-ghost">
+                          <span>Target price</span>
+                          <input
+                            className="input h-8 w-28"
+                            inputMode="decimal"
+                            aria-label={`Target price for ${match.title}`}
+                            value={targetPrices[key] || ''}
+                            onChange={(event) => setTargetPrices((current) => ({ ...current, [key]: event.target.value }))}
+                            placeholder="Optional"
+                          />
+                        </label>
+                      ) : null}
+                      {!saved && !priceEditorOpen ? (
+                        <button
+                          type="button"
+                          className="btn-ghost h-8 text-xs"
+                          aria-label={`Set target price for ${match.title}`}
+                          onClick={() => setPriceEditors((current) => ({ ...current, [key]: true }))}
+                        >
+                          Target price
+                        </button>
+                      ) : null}
+                      <button type="button" className={saved ? 'btn-ghost h-8' : 'btn-secondary h-8'} disabled={saved || savingKey === key} onClick={() => saveMatch(match)}>
+                        {saved ? 'Saved' : savingKey === key ? 'Saving...' : 'Add'}
+                      </button>
+                    </div>
                   </div>
-                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-ghost">
-                    {match.subtitle ? <span>{match.subtitle}</span> : null}
-                    {match.kind || match.media ? <span>{[match.media, match.kind].filter(Boolean).join(' · ')}</span> : null}
-                    <span>{formatAppleMoney(match.price, match.currency)}</span>
-                    {match.store_url ? (
-                      <a className="text-link hover:underline" href={match.store_url} target="_blank" rel="noreferrer">Store</a>
-                    ) : null}
-                  </div>
-                </div>
-                <div className="flex flex-wrap items-center justify-end gap-2">
-                  <input
-                    className="input h-8 w-28"
-                    inputMode="decimal"
-                    value={targetPrices[key] || ''}
-                    onChange={(event) => setTargetPrices((current) => ({ ...current, [key]: event.target.value }))}
-                    placeholder="Target"
-                    disabled={saved}
-                  />
-                  <button type="button" className={saved ? 'btn-ghost h-8' : 'btn-secondary h-8'} disabled={saved || savingKey === key} onClick={() => saveMatch(match)}>
-                    {saved ? 'Saved' : savingKey === key ? 'Saving...' : 'Add'}
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+                );
+              })}
+            </div>
+          </div>
         </div>
       ) : null}
     </section>
   );
+}
+
+function applePriceSummary(item) {
+  if (item.provider !== 'apple_itunes') return null;
+  const source = item.source_context || {};
+  const current = formatAppleMoney(source.current_price, source.currency || 'USD');
+  if (current === 'No price' && !source.price_refreshed_at) return null;
+  const parts = [`Apple current: ${current}`];
+  if (source.price_refreshed_at) parts.push('refreshed');
+  if (source.target_price_met) parts.push('target met');
+  return parts.join(' · ');
 }
 
 export default function WishlistView({ apiCall, onToast, activeLibrary, Icons, Spinner }) {
@@ -606,7 +678,7 @@ export default function WishlistView({ apiCall, onToast, activeLibrary, Icons, S
   };
 
   return (
-    <div className="space-y-4">
+    <div className="mx-auto w-full max-w-[1180px] space-y-4 px-4 pb-6 sm:px-5 lg:px-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Wishlist</h1>
@@ -677,6 +749,7 @@ export default function WishlistView({ apiCall, onToast, activeLibrary, Icons, S
           {items.map((item) => {
             const canConvert = MEDIA_TYPES.has(item.object_type) && item.status !== 'acquired';
             const price = formatMoney(item.target_price);
+            const applePrice = applePriceSummary(item);
             const sourceText = item.provider ? [item.provider, item.provider_key].filter(Boolean).join(' ') : '';
             const idText = identifierSummary(item.identifiers);
             return (
@@ -701,6 +774,7 @@ export default function WishlistView({ apiCall, onToast, activeLibrary, Icons, S
                       {idText ? <span>{idText}</span> : null}
                     </div>
                   ) : null}
+                  {applePrice ? <div className="mt-1 text-xs text-dim">{applePrice}</div> : null}
                   {item.notes ? <p className="mt-2 line-clamp-2 text-sm text-dim">{item.notes}</p> : null}
                 </div>
                 <div className="flex flex-wrap items-start justify-end gap-2">

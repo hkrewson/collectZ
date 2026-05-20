@@ -6273,26 +6273,40 @@ results.push(run('apple itunes wishlist intake normalizes provider candidates', 
 
 results.push(run('apple itunes wishlist search and save are routed, scoped, and documented', () => {
   assert.ok(appleItunesServiceSource.includes("const SEARCH_URL = 'https://itunes.apple.com/search';"));
+  assert.ok(appleItunesServiceSource.includes("const LOOKUP_URL = 'https://itunes.apple.com/lookup';"));
   assert.ok(appleItunesServiceSource.includes('SUPPORTED_MEDIA'));
   assert.ok(appleItunesServiceSource.includes('fetchAppleSearch'));
+  assert.ok(appleItunesServiceSource.includes('fetchAppleLookup'));
   assert.ok(appleItunesServiceSource.includes('User-Agent'));
   assert.ok(wishlistRoutesSource.includes("router.get('/wishlist/apple-itunes/search'"));
   assert.ok(wishlistRoutesSource.includes("router.post('/wishlist/apple-itunes/save'"));
+  assert.ok(wishlistRoutesSource.includes("router.post('/wishlist/apple-itunes/refresh-prices'"));
   assert.ok(wishlistRoutesSource.includes('markAppleItunesSavedState'));
+  assert.ok(wishlistRoutesSource.includes('buildApplePriceReadback'));
   assert.ok(wishlistRoutesSource.includes('findScopedWantedItemByProvider'));
   assert.ok(wishlistRoutesSource.includes("provider: APPLE_ITUNES_PROVIDER"));
   assert.deepStrictEqual(getRequiredPatScopesForRequest({ originalUrl: '/api/wishlist/apple-itunes/search', method: 'GET' }), ['media:read']);
   assert.deepStrictEqual(getRequiredPatScopesForRequest({ originalUrl: '/api/wishlist/apple-itunes/save', method: 'POST' }), ['media:write']);
+  assert.deepStrictEqual(getRequiredPatScopesForRequest({ originalUrl: '/api/wishlist/apple-itunes/refresh-prices', method: 'POST' }), ['media:write']);
   assert.ok(openApiSource.includes('"/api/wishlist/apple-itunes/search"'));
   assert.ok(openApiSource.includes('"/api/wishlist/apple-itunes/save"'));
+  assert.ok(openApiSource.includes('"/api/wishlist/apple-itunes/refresh-prices"'));
   assert.ok(openApiSource.includes('"AppleItunesWishlistCandidate"'));
+  assert.ok(openApiSource.includes('"AppleItunesWishlistPriceRefreshResponse"'));
   assert.ok(wishlistViewSource.includes('Apple/iTunes search'));
+  assert.ok(wishlistViewSource.includes('Refresh saved prices'));
   assert.ok(wishlistViewSource.includes("apiCall('get', `/wishlist/apple-itunes/search?${params.toString()}`)"));
   assert.ok(wishlistViewSource.includes("apiCall('post', '/wishlist/apple-itunes/save'"));
+  assert.ok(wishlistViewSource.includes("apiCall('post', '/wishlist/apple-itunes/refresh-prices'"));
   assert.ok(wishlistViewSource.includes('already_saved'));
+  assert.ok(wishlistViewSource.includes('Add a target price from a result row when needed.'));
+  assert.ok(wishlistViewSource.includes('max-h-[360px] overflow-y-auto'));
+  assert.ok(wishlistViewSource.includes('Set target price for ${match.title}'));
+  assert.ok(wishlistViewSource.includes('Apple current: ${current}'));
   assert.ok(adminShellBrowserSpecSource.includes('wishlist apple itunes search presents candidates and saves a selected result'));
   assert.ok(adminShellBrowserSpecSource.includes('/api/wishlist/apple-itunes/search'));
   assert.ok(adminShellBrowserSpecSource.includes('/api/wishlist/apple-itunes/save'));
+  assert.ok(adminShellBrowserSpecSource.includes('/api/wishlist/apple-itunes/refresh-prices'));
 }));
 
 results.push(run('mobile capture inbox foundation is scoped, routed, and reviewable', () => {

@@ -110,6 +110,7 @@ test.describe('admin shell browser regressions', () => {
   test('wishlist apple itunes search presents candidates and saves a selected result', async ({ page }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
     let savePayload = null;
+    let refreshPayload = null;
 
     await page.route('**/api/wishlist/apple-itunes/search**', async (route) => {
       await route.fulfill({
@@ -189,15 +190,49 @@ test.describe('admin shell browser regressions', () => {
       });
     });
 
+    await page.route('**/api/wishlist/apple-itunes/refresh-prices', async (route) => {
+      refreshPayload = route.request().postDataJSON();
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ok: true,
+          provider: 'apple_itunes',
+          checked: 1,
+          updated: 1,
+          skipped: 0,
+          failed: 0,
+          items: [
+            {
+              id: 9001,
+              title: 'Star Wars: A New Hope',
+              provider_key: '1001',
+              previous_price: 9.99,
+              current_price: 7.99,
+              currency: 'USD',
+              target_price: 7.99,
+              target_met: true,
+              error: null
+            }
+          ]
+        })
+      });
+    });
+
     await signInThroughUi(page, adminCredentials);
     await page.goto('/dashboard?tab=library-wishlist');
     await expect(page.getByRole('heading', { name: 'Wishlist', exact: true })).toBeVisible();
     const applePanel = page.locator('section').filter({ has: page.getByLabel('Apple/iTunes search') });
+    await applePanel.getByRole('button', { name: 'Refresh saved prices' }).click();
+    await expect(applePanel.getByText('Updated 1 of 1')).toBeVisible();
+    expect(refreshPayload?.status).toBe('active');
     await applePanel.getByLabel('Apple/iTunes search').fill('star wars');
     await applePanel.getByRole('button', { name: 'Search' }).click();
     await expect(page.getByText('Star Wars: A New Hope')).toBeVisible();
     await expect(page.getByText('Star Wars: The Empire Strikes Back')).toBeVisible();
-    await applePanel.getByPlaceholder('Target').first().fill('7.99');
+    await expect(applePanel.getByText('Add a target price from a result row when needed.')).toBeVisible();
+    await applePanel.getByLabel('Set target price for Star Wars: A New Hope').click();
+    await applePanel.getByLabel('Target price for Star Wars: A New Hope').fill('7.99');
     await applePanel.getByRole('button', { name: 'Add' }).first().click();
     await expect(applePanel.getByRole('button', { name: 'Saved' }).first()).toBeVisible();
     expect(savePayload?.candidate?.provider).toBe('apple_itunes');

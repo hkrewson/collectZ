@@ -3257,6 +3257,35 @@
         },
         "required": ["ok", "created", "existing", "item"]
       },
+      "AppleItunesWishlistPriceRefreshItem": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "title": { "type": "string" },
+          "provider_key": { "type": ["string", "null"] },
+          "previous_price": { "type": ["number", "null"] },
+          "current_price": { "type": ["number", "null"] },
+          "currency": { "type": ["string", "null"] },
+          "target_price": { "type": ["number", "null"] },
+          "target_met": { "type": "boolean" },
+          "error": { "type": ["string", "null"] },
+          "item": { "$ref": "#/components/schemas/WantedItem" }
+        },
+        "required": ["id", "title", "target_met"]
+      },
+      "AppleItunesWishlistPriceRefreshResponse": {
+        "type": "object",
+        "properties": {
+          "ok": { "type": "boolean" },
+          "provider": { "type": "string", "enum": ["apple_itunes"] },
+          "checked": { "type": "integer" },
+          "updated": { "type": "integer" },
+          "skipped": { "type": "integer" },
+          "failed": { "type": "integer" },
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/AppleItunesWishlistPriceRefreshItem" } }
+        },
+        "required": ["ok", "provider", "checked", "updated", "skipped", "failed", "items"]
+      },
       "WishlistListResponse": {
         "type": "object",
         "properties": {
@@ -3706,6 +3735,50 @@
           },
           "400": {
             "description": "Invalid Apple/iTunes save payload",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/wishlist/apple-itunes/refresh-prices": {
+      "post": {
+        "tags": ["Wishlist"],
+        "summary": "Refresh current Apple/iTunes prices for saved wishlist rows",
+        "description": "Looks up active scoped Apple/iTunes wishlist rows by provider key, updates source_context current price metadata, and reports whether the current store price is at or below the saved target price. This is manual readback only; it does not schedule polling or send alerts.",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": { "type": "string", "enum": ["active", "all", "wanted", "watching", "preordered", "ordered", "acquired", "dismissed"], "default": "active" },
+                  "country": { "type": "string", "default": "US" },
+                  "limit": { "type": "integer", "minimum": 1, "maximum": 50, "default": 25 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Apple/iTunes price refresh summary",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AppleItunesWishlistPriceRefreshResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication is required",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/Error" }

@@ -3,6 +3,7 @@ const appMeta = require('../app-meta.json');
 
 const PROVIDER = 'apple_itunes';
 const SEARCH_URL = 'https://itunes.apple.com/search';
+const LOOKUP_URL = 'https://itunes.apple.com/lookup';
 const SUPPORTED_MEDIA = new Set([
   'movie',
   'tvShow',
@@ -175,6 +176,34 @@ async function fetchAppleSearch({ term, media = ['movie'], country = 'US', limit
   return dedupeCandidates(settled.flat()).slice(0, normalizedLimit);
 }
 
+async function fetchAppleLookup({ providerKey, country = 'US', fetchImpl = global.fetch } = {}) {
+  const normalizedProviderKey = trimString(providerKey);
+  if (!normalizedProviderKey || !/^\d+$/.test(normalizedProviderKey)) return null;
+  if (typeof fetchImpl !== 'function') throw new Error('Apple/iTunes lookup is unavailable in this runtime.');
+
+  const url = new URL(process.env.APPLE_ITUNES_LOOKUP_URL || LOOKUP_URL);
+  url.searchParams.set('id', normalizedProviderKey);
+  url.searchParams.set('country', normalizeCountry(country));
+  url.searchParams.set('explicit', 'No');
+
+  const response = await fetchImpl(url, {
+    headers: {
+      Accept: 'application/json',
+      'User-Agent': appMeta.userAgent || 'collectZ'
+    },
+    signal: typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function'
+      ? AbortSignal.timeout(8000)
+      : undefined
+  });
+  if (!response.ok) {
+    throw new Error(`Apple/iTunes lookup failed with HTTP ${response.status}.`);
+  }
+  const payload = await response.json();
+  const results = Array.isArray(payload?.results) ? payload.results : [];
+  const matches = dedupeCandidates(results.map((result) => normalizeAppleItunesResult(result)).filter(Boolean));
+  return matches.find((candidate) => String(candidate.provider_key) === normalizedProviderKey) || matches[0] || null;
+}
+
 module.exports = {
   PROVIDER,
   SUPPORTED_MEDIA,
@@ -183,5 +212,6 @@ module.exports = {
   normalizeMediaList,
   normalizeAppleItunesResult,
   dedupeCandidates,
-  fetchAppleSearch
+  fetchAppleSearch,
+  fetchAppleLookup
 };

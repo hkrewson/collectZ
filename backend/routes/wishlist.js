@@ -7,6 +7,7 @@ const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
 const { logActivity } = require('../services/audit');
 const {
   PROVIDER: APPLE_ITUNES_PROVIDER,
+  fetchAppleLookup,
   fetchAppleSearch,
   normalizeAppleItunesResult,
   normalizeCountry,
@@ -171,6 +172,25 @@ async function markAppleItunesSavedState(scopeContext, candidates) {
   }));
 }
 
+function buildApplePriceReadback(row, candidate, error = null) {
+  const sourceContext = jsonObject(row.source_context);
+  const previousPrice = sourceContext.current_price ?? null;
+  const currentPrice = candidate?.price ?? null;
+  const targetPrice = row.target_price === null || row.target_price === undefined ? null : Number(row.target_price);
+  const targetMet = targetPrice !== null && currentPrice !== null ? Number(currentPrice) <= targetPrice : false;
+  return {
+    id: row.id,
+    title: row.title,
+    provider_key: row.provider_key,
+    previous_price: previousPrice === null || previousPrice === undefined ? null : Number(previousPrice),
+    current_price: currentPrice === null || currentPrice === undefined ? null : Number(currentPrice),
+    currency: candidate?.currency || sourceContext.currency || null,
+    target_price: targetPrice,
+    target_met: targetMet,
+    error
+  };
+}
+
 function normalizeAppleSaveCandidate(body) {
   const input = body?.candidate && typeof body.candidate === 'object' ? body.candidate : body || {};
   const normalized = input.raw_result
@@ -297,6 +317,105 @@ router.post('/wishlist/apple-itunes/save', asyncHandler(async (req, res) => {
     created: true,
     existing: false,
     item: created
+  });
+}));
+
+router.post('/wishlist/apple-itunes/refresh-prices', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const limit = normalizeLimit(req.body?.limit || 25);
+  const requestedStatus = trimString(req.body?.status).toLowerCase();
+  const params = [APPLE_ITUNES_PROVIDER];
+  let where = 'WHERE provider = $1 AND provider_key IS NOT NULL';
+  if (requestedStatus && requestedStatus !== 'active' && requestedStatus !== 'all' && STATUSES.has(requestedStatus)) {
+    params.push(requestedStatus);
+    where += ` AND status = $${params.length}`;
+  } else if (requestedStatus !== 'all') {
+    params.push(ACTIVE_STATUSES);
+    where += ` AND status = ANY($${params.length})`;
+  }
+  where += appendScopeSql(params, scopeContext);
+  params.push(limit);
+
+  const result = await pool.query(
+    `SELECT *
+       FROM wanted_items
+      ${where}
+      ORDER BY updated_at DESC, id DESC
+      LIMIT $${params.length}`,
+    params
+  );
+
+  const refreshedAt = new Date().toISOString();
+  const items = [];
+  let updated = 0;
+  let skipped = 0;
+  let failed = 0;
+
+  for (const row of result.rows) {
+    const sourceContext = jsonObject(row.source_context);
+    const country = normalizeCountry(req.body?.country || sourceContext.country || 'US');
+    try {
+      const candidate = await fetchAppleLookup({ providerKey: row.provider_key, country });
+      if (!candidate) {
+        skipped += 1;
+        items.push(buildApplePriceReadback(row, null, 'No Apple/iTunes lookup result.'));
+        continue;
+      }
+      const readback = buildApplePriceReadback(row, candidate);
+      const nextSourceContext = {
+        ...sourceContext,
+        provider: APPLE_ITUNES_PROVIDER,
+        provider_key: row.provider_key,
+        country,
+        currency: candidate.currency || sourceContext.currency || null,
+        previous_price: readback.previous_price,
+        current_price: readback.current_price,
+        store_url: candidate.store_url || sourceContext.store_url || null,
+        artwork_url: candidate.artwork_url || sourceContext.artwork_url || null,
+        price_refreshed_at: refreshedAt,
+        target_price_met: readback.target_met,
+        target_price_delta: readback.current_price !== null && readback.target_price !== null
+          ? Math.round((readback.current_price - readback.target_price) * 100) / 100
+          : null,
+        raw_result: jsonObject(candidate.raw_result)
+      };
+      const updatedRow = await pool.query(
+        `UPDATE wanted_items
+            SET source_context = $2::jsonb,
+                updated_at = NOW()
+          WHERE id = $1
+          RETURNING *`,
+        [row.id, JSON.stringify(nextSourceContext)]
+      );
+      updated += 1;
+      items.push({
+        ...readback,
+        item: shapeWantedItem(updatedRow.rows[0])
+      });
+    } catch (err) {
+      failed += 1;
+      items.push(buildApplePriceReadback(row, null, err?.message || 'Apple/iTunes lookup failed.'));
+    }
+  }
+
+  await logActivity(req, 'wishlist.apple_itunes_prices_refresh', 'wanted_item', null, {
+    provider: APPLE_ITUNES_PROVIDER,
+    checked: result.rows.length,
+    updated,
+    skipped,
+    failed,
+    spaceId: scopeContext.spaceId,
+    libraryId: scopeContext.libraryId
+  });
+
+  return res.json({
+    ok: true,
+    provider: APPLE_ITUNES_PROVIDER,
+    checked: result.rows.length,
+    updated,
+    skipped,
+    failed,
+    items
   });
 }));
 

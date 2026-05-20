@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.9.1",
+      "version": "3.9.1",
+      "date": null,
+      "status": null,
+      "summary": "",
+      "details": []
+    },
+    {
       "title": "collectZ v3.9.0",
       "version": "3.9.0",
       "date": "2026-05-20",
@@ -173,26 +181,6 @@
             "Added Capture Inbox review tabs: `All`, `Needs choice`, `Ready to add`, `No match`, `Missing details`, and `Problems`.",
             "Kept all capture records on the existing Capture Inbox page instead of creating a separate queue.",
             "Updated OpenAPI to document the new query parameter and response counts."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.8.12",
-      "version": "3.8.12",
-      "date": "2026-05-19",
-      "status": "implemented",
-      "summary": "This release makes Capture Inbox faster for scanning several books or items in a row by adding an explicit batch scan mode.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added a `Batch scan` action to Capture Inbox.",
-            "Batch mode keeps the editor open and launches the next camera barcode scan after saving.",
-            "The editor now shows a compact batch-session readback with saved, added, and review counts.",
-            "`Save and scan next` keeps unresolved captures in Capture Inbox for later review.",
-            "`Add to library` and `Link` continue to the next scan while batch mode is active.",
-            "Normal one-off `New capture` behavior remains available."
           ]
         }
       ]
