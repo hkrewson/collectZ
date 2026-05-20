@@ -10810,6 +10810,38 @@ Historical note:
 - What remains in the milestone: nothing for `3.8.10`; next planned work is `3.8.11 — Capture Scan Immediate Lookup`, followed by batch scan mode, safe ISBN auto-import, and exception review routing.
 - Recommended commit message: `Release 3.8.10 with Capture Inbox barcode camera ISBN recognition`.
 
+## 3.8.15 — Capture Batch Session Summary
+
+**Goal:** Make a completed batch scan easier to understand and continue from without adding a separate queue page.
+
+**Scope**
+
+- Keep a compact completed-session summary on Capture Inbox after Batch scan stops.
+- Show added, linked, needs-choice, no-match, and failed counts.
+- Show a short recent outcome list for the batch.
+- Add direct review actions for captures needing a choice and captures with no match.
+- Preserve the existing batch scan, safe exact ISBN auto-add, selected import/link, and save-for-review behavior.
+
+**Acceptance**
+
+- Stopping Batch scan renders a completed batch summary.
+- The summary separates added, linked, needs-choice, no-match, and failed counts.
+- Review actions switch the existing Capture Inbox filters instead of opening a new queue.
+- Starting a new batch clears the previous summary.
+- Version metadata, release note, release feed, and Help > Releases include `3.8.15`.
+
+### Closeout
+
+- Roadmap slice: `3.8.15 — Capture Batch Session Summary`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/06-Versioning-and-Build-Metadata.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.8.15.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild with `APP_VERSION=3.8.15`; running `/api/health` reported frontend/backend/build `3.8.15`; running backend env readback showed `APP_EDITION=platform`, `APP_VERSION=3.8.15`, `NODE_ENV=development`, `SESSION_COOKIE_SECURE=false`, `TRUST_PROXY=0`, and `LOG_EXPORT_BACKEND=off`; Help > Releases smoke served `3.8.15`; temporary homelab-mode stack proved the homelab edition boundary and the local stack was restored to platform mode afterward.
+- CI/checks run locally: host `node backend/scripts/unit-tests.js` (`295` passed); host `npm --prefix frontend run build`; host `node backend/scripts/validate-openapi.js`; host release feed export; Docker backend/frontend build; Docker `/api/health` smoke; Docker `npm run test:unit` (`295` passed); Docker `npm run test:openapi`; Docker `npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.8.15 npm run test:help-releases-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker temporary homelab override plus `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; full `npm run test:browser` (`70` passed, `4` skipped); backend/frontend production dependency audits (`0` vulnerabilities); public export surface validation; compose config validation; local release preflight; release note heading check; `git diff --check`; targeted release/evidence secret-pattern scan.
+- Blocked/unverified gates: local observability evidence was rerun but failed collector-path checks (`graylog_collector_smoke`, `loki_collector_smoke`, `syslog_collector_smoke`, `nonblocking_export_failure_smoke`, `backend_restore_graylog`) after the CI platform override attempted to pull unpublished `ghcr.io/hkrewson/collectz-backend:3.8.15` images; the stack was restored to `LOG_EXPORT_BACKEND=off`. Local `gitleaks`, `trivy`, and `syft` are unavailable, so CI remains authoritative for full `secret-scan` and `image-security-and-sbom`. Local secure-cookie compose-smoke remains blocked in the developer stack because it runs `NODE_ENV=development` with `SESSION_COOKIE_SECURE=false`; CI must still run the production-shaped `compose-smoke`.
+- Files changed for this slice: `app-meta.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `backend/app-meta.json`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/scripts/unit-tests.js`; `docker-compose.yml`; `docs/releases/v3.8.15.md`; `docs/wiki/07-Release-Roadmap.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/CaptureInboxView.jsx`; `preflight-go-no-go.md`.
+- Risks/follow-ups: the batch summary is intentionally session-local and disappears when dismissed or when a new batch starts; scanner-app queue shortcuts, true visible offline queue management, cover/art recognition, and broader unified review queue routing remain future Capture workflow work.
+- What remains in the milestone: nothing for `3.8.15`; next Mobile-First Capture Workflow work can continue scanner-app queue shortcuts or durable review routing.
+- Recommended commit message: `Release 3.8.15 with Capture batch session summary`.
+
 ## 3.8.14 — Capture Safe Exact ISBN Auto-Add
 
 **Goal:** Make batch ISBN scanning faster without removing user choice for ambiguous lookup results.

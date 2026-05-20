@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.8.15",
+      "version": "3.8.15",
+      "date": "2026-05-20",
+      "status": "implemented",
+      "summary": "This release makes batch scanning easier to wrap up by keeping a compact summary on Capture Inbox after a batch is stopped.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added a completed batch summary to Capture Inbox.",
+            "Shows added, linked, needs-choice, no-match, and failed counts after batch mode stops.",
+            "Keeps a short recent outcome list so the user can see what just happened.",
+            "Adds direct review actions for choices and no-match captures.",
+            "Keeps the existing batch scan flow and exact ISBN auto-add behavior intact."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.8.14",
       "version": "3.8.14",
       "date": "2026-05-19",
@@ -169,25 +188,6 @@
             "Adds a compact `Read image text` action for photo captures in Capture Inbox.",
             "Surfaces optional Vision/OCR provider settings through integration config readback and public compose env pass-through.",
             "Records image OCR extraction activity for timeline/readback."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.8.5",
-      "version": "3.8.5",
-      "date": "2026-05-19",
-      "status": "implemented",
-      "summary": "This release turns stored Capture Inbox replay conflicts into a visible review workflow.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Shows unresolved replay conflicts directly on Capture Inbox rows.",
-            "Lists the conflicting fields with current and replayed values.",
-            "Adds explicit `Keep current` and `Use replayed values` actions.",
-            "Adds a scoped backend endpoint to resolve the latest replay conflict without editing raw review metadata.",
-            "Records replay conflict resolution activity for timeline/readback."
           ]
         }
       ]

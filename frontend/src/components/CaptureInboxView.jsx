@@ -269,7 +269,8 @@ function CaptureEditor({
           <div className="text-sm text-ink">
             Batch scan
             <span className="ml-2 text-xs text-ghost">
-              {batchStats.saved} saved · {batchStats.imported} added · {batchStats.review} for review
+              {batchStats.imported} added · {batchStats.linked} linked · {batchStats.review} for review
+              {batchStats.errors ? ` · ${batchStats.errors} failed` : ''}
             </span>
           </div>
           <button type="button" className="btn-ghost btn-sm" onClick={onStopBatch}>Stop batch</button>
@@ -498,7 +499,17 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
   const [formImporting, setFormImporting] = useState(false);
   const [scanRequest, setScanRequest] = useState(0);
   const [batchMode, setBatchMode] = useState(false);
-  const [batchStats, setBatchStats] = useState({ saved: 0, imported: 0, review: 0 });
+  const [batchStats, setBatchStats] = useState({
+    saved: 0,
+    imported: 0,
+    linked: 0,
+    review: 0,
+    needs_choice: 0,
+    no_match: 0,
+    errors: 0
+  });
+  const [batchEvents, setBatchEvents] = useState([]);
+  const [lastBatchSummary, setLastBatchSummary] = useState(null);
 
   const loadCaptures = useCallback(async (page = 1) => {
     setLoading(true);
@@ -617,6 +628,34 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
     setScanRequest((current) => current + 1);
   };
 
+  const emptyBatchStats = () => ({
+    saved: 0,
+    imported: 0,
+    linked: 0,
+    review: 0,
+    needs_choice: 0,
+    no_match: 0,
+    errors: 0
+  });
+
+  const recordBatchEvent = (event = {}) => {
+    if (!batchMode) return;
+    const entry = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      title: event.title || form.title || form.barcode || 'Untitled capture',
+      status: event.status || 'review',
+      detail: event.detail || '',
+      created_at: new Date().toISOString()
+    };
+    setBatchEvents((current) => [entry, ...current].slice(0, 8));
+  };
+
+  const buildBatchSummary = () => ({
+    stats: { ...batchStats },
+    events: batchEvents,
+    stopped_at: new Date().toISOString()
+  });
+
   const saveCapture = async ({ closeEditor = true, silent = false, formSnapshot = form, lookupSnapshot = formLookup } = {}) => {
     setSaving(true);
     try {
@@ -628,6 +667,14 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
       return item;
     } catch (err) {
       onToast?.(err?.message || 'Could not save capture.', 'error');
+      if (batchMode) {
+        setBatchStats((current) => ({ ...current, errors: current.errors + 1 }));
+        recordBatchEvent({
+          status: 'error',
+          title: formSnapshot.title || formSnapshot.barcode || 'Capture',
+          detail: err?.message || 'Could not save capture.'
+        });
+      }
       return null;
     } finally {
       setSaving(false);
@@ -722,7 +769,18 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
       });
       const action = response?.import?.action === 'matched_existing' ? 'linked' : 'added';
       onToast?.(`Capture ${action} to library.`, 'success');
-      setBatchStats((current) => ({ ...current, imported: current.imported + 1 }));
+      if (batchMode) {
+        setBatchStats((current) => ({
+          ...current,
+          imported: action === 'added' ? current.imported + 1 : current.imported,
+          linked: action === 'linked' ? current.linked + 1 : current.linked
+        }));
+        recordBatchEvent({
+          status: action,
+          title: match.title || currentForm.title || currentForm.barcode || 'Exact ISBN match',
+          detail: action === 'linked' ? 'Linked existing library item' : 'Added to library'
+        });
+      }
       resetEditorForm();
       if (batchMode) {
         requestNextScan();
@@ -732,6 +790,14 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
       await loadCaptures(1);
     } catch (err) {
       onToast?.(err?.message || 'Could not add selected match.', 'error');
+      if (batchMode) {
+        setBatchStats((current) => ({ ...current, errors: current.errors + 1 }));
+        recordBatchEvent({
+          status: 'error',
+          title: match?.title || currentForm.title || currentForm.barcode || 'Capture',
+          detail: err?.message || 'Could not add selected match.'
+        });
+      }
     } finally {
       setFormImporting(false);
     }
@@ -744,8 +810,15 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
     setBatchStats((current) => ({
       ...current,
       saved: current.saved + 1,
-      review: hadMatches ? current.review : current.review + 1
+      review: current.review + 1,
+      needs_choice: hadMatches ? current.needs_choice + 1 : current.needs_choice,
+      no_match: hadMatches ? current.no_match : current.no_match + 1
     }));
+    recordBatchEvent({
+      status: hadMatches ? 'needs_choice' : 'no_match',
+      title: form.title || form.barcode || 'Saved capture',
+      detail: hadMatches ? 'Needs candidate choice' : 'No lookup match'
+    });
     onToast?.('Capture saved. Ready for the next scan.', 'success');
     resetEditorForm();
     requestNextScan();
@@ -904,8 +977,10 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
   };
 
   const startBatchScan = () => {
+    setLastBatchSummary(null);
     setBatchMode(true);
-    setBatchStats({ saved: 0, imported: 0, review: 0 });
+    setBatchStats(emptyBatchStats());
+    setBatchEvents([]);
     resetEditorForm();
     setEditorOpen(true);
     window.requestAnimationFrame(() => {
@@ -917,6 +992,7 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
   };
 
   const stopBatchScan = () => {
+    setLastBatchSummary(buildBatchSummary());
     setBatchMode(false);
     onToast?.('Batch scan stopped.', 'info');
   };
@@ -948,6 +1024,60 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
           </button>
         </div>
       </div>
+
+      {lastBatchSummary ? (
+        <div className="border-y border-edge py-3" aria-label="Batch scan summary">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="text-sm font-medium text-ink">Batch summary</div>
+              <div className="mt-1 text-xs text-ghost">
+                {lastBatchSummary.stats.imported} added · {lastBatchSummary.stats.linked} linked · {lastBatchSummary.stats.needs_choice} need choice · {lastBatchSummary.stats.no_match} no match
+                {lastBatchSummary.stats.errors ? ` · ${lastBatchSummary.stats.errors} failed` : ''}
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {lastBatchSummary.stats.needs_choice ? (
+                <button
+                  type="button"
+                  className="btn-ghost btn-sm"
+                  onClick={() => {
+                    setStatus('active');
+                    setReviewFilter('needs_choice');
+                  }}
+                >
+                  Review choices
+                </button>
+              ) : null}
+              {lastBatchSummary.stats.no_match ? (
+                <button
+                  type="button"
+                  className="btn-ghost btn-sm"
+                  onClick={() => {
+                    setStatus('active');
+                    setReviewFilter('no_match');
+                  }}
+                >
+                  Review no matches
+                </button>
+              ) : null}
+              <button type="button" className="btn-ghost btn-sm" onClick={() => setLastBatchSummary(null)}>Dismiss</button>
+            </div>
+          </div>
+          {lastBatchSummary.events.length ? (
+            <div className="mt-3 divide-y divide-edge/70 border-t border-edge/70">
+              {lastBatchSummary.events.slice(0, 5).map((event) => (
+                <div key={event.id} className="grid gap-1 py-2 text-xs sm:grid-cols-[7rem_1fr_auto] sm:items-center">
+                  <span className={cx('font-medium', event.status === 'error' ? 'text-err' : event.status === 'needs_choice' ? 'text-warn' : 'text-ghost')}>
+                    {titleCase(event.status)}
+                  </span>
+                  <span className="truncate text-ink">{event.title}</span>
+                  <span className="truncate text-ghost">{event.detail}</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         <div className="border-b border-edge pb-2">
