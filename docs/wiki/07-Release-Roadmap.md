@@ -10810,6 +10810,37 @@ Historical note:
 - What remains in the milestone: nothing for `3.8.10`; next planned work is `3.8.11 — Capture Scan Immediate Lookup`, followed by batch scan mode, safe ISBN auto-import, and exception review routing.
 - Recommended commit message: `Release 3.8.10 with Capture Inbox barcode camera ISBN recognition`.
 
+## 3.8.14 — Capture Safe Exact ISBN Auto-Add
+
+**Goal:** Make batch ISBN scanning faster without removing user choice for ambiguous lookup results.
+
+**Scope**
+
+- Detect safe exact ISBN book matches in Capture Inbox lookup results.
+- Auto-add or link only when batch scan returns exactly one safe exact ISBN candidate.
+- Keep normal one-off capture lookup results visible in the current editor location.
+- Keep multiple ISBN/UPC candidates explicit for user selection.
+- Preserve the existing capture save and selected-match import path.
+
+**Acceptance**
+
+- Batch scan auto-adds a single exact `books:isbn-direct` book candidate.
+- A single exact existing catalog ISBN match can be linked through the same safe path.
+- Multiple candidates still render in the capture editor and are not auto-imported.
+- Normal one-off captures show the exact ISBN candidate and require a user action.
+- Version metadata, release note, release feed, and Help > Releases include `3.8.14`.
+
+### Closeout
+
+- Roadmap slice: `3.8.14 — Capture Safe Exact ISBN Auto-Add`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/06-Versioning-and-Build-Metadata.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.8.14.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild with `APP_VERSION=3.8.14`; running `/api/health` reported frontend/backend/build `3.8.14`; backend logs reported `Database schema up to date (104 migration(s) applied)` and `collectZ backend v3.8.14`; running backend env readback was verified with secrets redacted and showed `APP_EDITION=platform`, `APP_VERSION=3.8.14`, `NODE_ENV=development`, `SESSION_COOKIE_SECURE=false`, `TRUST_PROXY=0`, `LOG_EXPORT_BACKEND=off`, and a redacted DB URL; Help > Releases smoke served `3.8.14`; targeted Capture Inbox browser proof verified the exact ISBN candidate copy in the new-capture editor; temporary homelab-mode stack proved the homelab edition boundary and the local stack was restored to platform mode afterward.
+- CI/checks run locally: host `node backend/scripts/unit-tests.js` (`295` passed); host `npm --prefix frontend run build`; host `node backend/scripts/validate-openapi.js`; host release feed export; Docker backend/frontend build; Docker `/api/health` smoke; Docker `npm run test:unit` (`295` passed); Docker `npm run test:openapi`; Docker `npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.8.14 npm run test:help-releases-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker temporary homelab override plus `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; targeted Capture Inbox/admin shell browser regression (`2` passed); full `npm run test:browser` (`70` passed, `4` skipped); backend/frontend production dependency audits (`0` high/critical vulnerabilities); public export surface validation; compose config validation; local release preflight; release note heading check; `git diff --check`; targeted release/evidence secret-pattern scan. Local observability evidence was rerun but failed collector-path checks (`graylog_collector_smoke`, `loki_collector_smoke`, `syslog_collector_smoke`, `nonblocking_export_failure_smoke`, `backend_restore_graylog`) in this environment; the stack was restored to `LOG_EXPORT_BACKEND=off`. Local `gitleaks`, `trivy`, and `syft` are unavailable, so CI remains authoritative for full `secret-scan` and `image-security-and-sbom`. Local secure-cookie compose-smoke remains blocked in the developer stack because it runs `NODE_ENV=development` with `SESSION_COOKIE_SECURE=false`; CI must still run the production-shaped `compose-smoke`.
+- Files changed for this slice: `app-meta.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `backend/app-meta.json`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/scripts/unit-tests.js`; `docker-compose.yml`; `docs/releases/v3.8.14.md`; `docs/wiki/07-Release-Roadmap.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/CaptureInboxView.jsx`; `preflight-go-no-go.md`; `tests/playwright/specs/admin-shell.browser.spec.js`.
+- Risks/follow-ups: auto-add is intentionally conservative and only runs in batch mode when the lookup returns exactly one safe exact ISBN book candidate; provider no-match and multi-candidate results still require review. Richer batch summaries, scanner-app queue shortcuts, true visible offline queue management, cover/art recognition, and broader unified review queue routing remain future Capture workflow work.
+- What remains in the milestone: nothing for `3.8.14`; next Mobile-First Capture Workflow work can cover richer batch-scan summaries or scanner-app queue shortcuts.
+- Recommended commit message: `Release 3.8.14 with Capture safe exact ISBN auto-add`.
+
 ## 3.8.13 — Capture Inbox Review Filters
 
 **Goal:** Keep capture exceptions on the existing Capture Inbox page while making the queue easier to triage.

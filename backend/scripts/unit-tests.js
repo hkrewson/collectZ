@@ -6345,6 +6345,9 @@ results.push(run('mobile capture inbox foundation is scoped, routed, and reviewa
   assert.ok(captureInboxViewSource.includes('stopBatchScan'));
   assert.ok(captureInboxViewSource.includes('Batch scan stopped.'));
   assert.ok(captureInboxViewSource.includes('Add to library'));
+  assert.ok(captureInboxViewSource.includes('findSafeExactIsbnMatch'));
+  assert.ok(captureInboxViewSource.includes('Add exact ISBN'));
+  assert.ok(captureInboxViewSource.includes('Exact ISBN match found. Adding it to the library.'));
   assert.ok(captureInboxViewSource.includes('type="file"'));
   assert.ok(captureInboxViewSource.includes('detectBarcodeCapturePayloadFromFile'));
   assert.ok(captureInboxViewSource.includes('extractIdentifierCandidatesFromFile'));

@@ -349,7 +349,7 @@ test.describe('admin shell browser regressions', () => {
       expect((await unsavedLookupResponse).ok()).toBeTruthy();
       await expect(page.getByLabel('Scan lookup results')).toBeVisible();
       await expect(page.getByText('Before the Storm', { exact: true })).toBeVisible();
-      await expect(page.locator('form').getByRole('button', { name: 'Add to library' })).toBeVisible();
+      await expect(page.locator('form').getByRole('button', { name: 'Add exact ISBN' })).toBeVisible();
       await expect(page.locator('form').getByRole('button', { name: 'Save and scan next' })).toBeVisible();
       await page.unroute('**/api/media/lookup/barcode');
 

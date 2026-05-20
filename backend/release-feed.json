@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.8.14",
+      "version": "3.8.14",
+      "date": "2026-05-19",
+      "status": "implemented",
+      "summary": "This release makes batch scanning faster when Capture Inbox finds one safe exact ISBN book match. Multiple lookup candidates still stay in the editor for user choice.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added safe exact ISBN match detection to Capture Inbox.",
+            "Batch scan now automatically saves and imports a single exact ISBN book match.",
+            "Normal one-off captures still show the candidate list in place.",
+            "Single exact ISBN rows now use clearer `Add exact ISBN` / `Link exact ISBN` copy.",
+            "Kept multi-candidate ISBN/UPC lookups as explicit user choice."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.8.13",
       "version": "3.8.13",
       "date": "2026-05-19",
@@ -169,25 +188,6 @@
             "Adds explicit `Keep current` and `Use replayed values` actions.",
             "Adds a scoped backend endpoint to resolve the latest replay conflict without editing raw review metadata.",
             "Records replay conflict resolution activity for timeline/readback."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.8.4",
-      "version": "3.8.4",
-      "date": "2026-05-18",
-      "status": "implemented",
-      "summary": "This release makes idempotent Capture Inbox retries more reviewable by preserving conflicting replay data instead of silently overwriting the existing capture row.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Detects differing title, capture type, object type, barcode, symbology, OCR text, and image path values when a queued capture retry reuses an existing `client_capture_id`.",
-            "Keeps the existing capture values when a replay contains conflicting identifying data.",
-            "Stores conflicting incoming values in `capture_items.review_decision.capture_replay_conflicts`.",
-            "Returns `idempotency.status`, `idempotency.conflict_count`, and `replay_conflicts` in retry responses.",
-            "Documents replay conflict readback in OpenAPI."
           ]
         }
       ]

@@ -113,6 +113,41 @@ function emptyReviewMessage(filter) {
   return 'No captures match this view.';
 }
 
+function normalizedIdentifierDigits(value) {
+  return String(value || '').replace(/\D+/g, '');
+}
+
+function looksLikeIsbn(value) {
+  const digits = normalizedIdentifierDigits(value);
+  return digits.length === 10 || (digits.length === 13 && /^(978|979)/.test(digits));
+}
+
+function isSafeExactIsbnMatch(match, barcode) {
+  const mediaType = String(match?.media_type || match?.mediaTypeGuess || '').toLowerCase();
+  if (mediaType !== 'book') return false;
+  if (!match?.title) return false;
+
+  const lookupDigits = normalizedIdentifierDigits(barcode);
+  const matchIdentifiers = [
+    match?.barcode,
+    match?.upc,
+    match?.typeDetails?.isbn,
+    match?.type_details?.isbn,
+    match?.book?.type_details?.isbn
+  ].map(normalizedIdentifierDigits).filter(Boolean);
+  const hasExactIdentifier = lookupDigits && matchIdentifiers.some((identifier) => identifier === lookupDigits);
+  if (!hasExactIdentifier || !looksLikeIsbn(lookupDigits)) return false;
+
+  const source = String(match?.source || '').toLowerCase();
+  const matchType = String(match?.match_type || '').toLowerCase();
+  return source === 'books:isbn-direct' || source === 'catalog' || matchType === 'existing_media';
+}
+
+function findSafeExactIsbnMatch(matches = [], barcode = '') {
+  const candidates = (Array.isArray(matches) ? matches : []).filter((match) => isSafeExactIsbnMatch(match, barcode));
+  return candidates.length === 1 && matches.length === 1 ? candidates[0] : null;
+}
+
 function Field({ label, className = '', children, asLabel = true }) {
   const Component = asLabel ? 'label' : 'div';
   return (
@@ -147,6 +182,7 @@ function CaptureEditor({
   const [barcodeScanning, setBarcodeScanning] = useState(false);
   const barcodeCameraSupported = supportsBarcodeCapture();
   const lookupMatches = Array.isArray(formLookup?.matches) ? formLookup.matches : [];
+  const safeExactIsbnMatch = findSafeExactIsbnMatch(lookupMatches, formLookup?.barcode || form.barcode);
 
   useEffect(() => {
     if (!scanRequest) return;
@@ -390,14 +426,21 @@ function CaptureEditor({
                   </div>
                   <button
                     type="button"
-                    className="btn-ghost btn-sm"
+                    className={cx('btn-sm', safeExactIsbnMatch?.id === match.id ? 'btn-secondary' : 'btn-ghost')}
                     disabled={saving || formImporting}
                     onClick={() => onImportMatch?.(match)}
                   >
-                    {match.already_imported ? 'Link' : 'Add to library'}
+                    {safeExactIsbnMatch?.id === match.id
+                      ? match.already_imported ? 'Link exact ISBN' : 'Add exact ISBN'
+                      : match.already_imported ? 'Link' : 'Add to library'}
                   </button>
                 </div>
               ))}
+            </div>
+          ) : null}
+          {safeExactIsbnMatch && !batchMode ? (
+            <div className="mt-2 text-xs text-ghost">
+              Exact ISBN match. Add it now, or save this capture for review.
             </div>
           ) : null}
           {formLookup?.lookup?.provider_error && lookupMatches.length ? (
@@ -507,32 +550,32 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
     label: `${tab.label} ${reviewCounts[tab.id] || 0}`
   })), [reviewCounts]);
 
-  const reviewDecisionFromFormLookup = () => {
-    if (!formLookup.lookedUp && !formLookup.error && !formLookup.matches.length) return {};
+  const reviewDecisionFromFormLookup = (lookupSnapshot = formLookup, formSnapshot = form) => {
+    if (!lookupSnapshot.lookedUp && !lookupSnapshot.error && !lookupSnapshot.matches.length) return {};
     return {
-      capture_lookup_matches: formLookup.matches,
+      capture_lookup_matches: lookupSnapshot.matches,
       capture_lookup_status: {
-        ...(formLookup.lookup || {}),
-        barcode: formLookup.barcode || form.barcode || null,
-        match_count: formLookup.matches.length,
-        provider_error: formLookup.error || formLookup.lookup?.provider_error || null,
-        looked_up_at: formLookup.lookup?.looked_up_at || new Date().toISOString(),
+        ...(lookupSnapshot.lookup || {}),
+        barcode: lookupSnapshot.barcode || formSnapshot.barcode || null,
+        match_count: lookupSnapshot.matches.length,
+        provider_error: lookupSnapshot.error || lookupSnapshot.lookup?.provider_error || null,
+        looked_up_at: lookupSnapshot.lookup?.looked_up_at || new Date().toISOString(),
         source: 'web_capture_editor'
       }
     };
   };
 
-  const payloadFromForm = () => {
-    const reviewDecision = reviewDecisionFromFormLookup();
+  const payloadFromForm = (formSnapshot = form, lookupSnapshot = formLookup) => {
+    const reviewDecision = reviewDecisionFromFormLookup(lookupSnapshot, formSnapshot);
     return {
-      title: form.title || null,
-      capture_type: form.capture_type,
-      object_type: form.object_type,
-      barcode: form.barcode || null,
-      symbology: form.symbology || null,
-      image_path: form.image_path || null,
-      ocr_text: form.ocr_text || null,
-      notes: form.notes || null,
+      title: formSnapshot.title || null,
+      capture_type: formSnapshot.capture_type,
+      object_type: formSnapshot.object_type,
+      barcode: formSnapshot.barcode || null,
+      symbology: formSnapshot.symbology || null,
+      image_path: formSnapshot.image_path || null,
+      ocr_text: formSnapshot.ocr_text || null,
+      notes: formSnapshot.notes || null,
       source_context: { source: 'web_capture_inbox' },
       ...(Object.keys(reviewDecision).length ? { review_decision: reviewDecision } : {})
     };
@@ -553,14 +596,14 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
     return body;
   };
 
-  const persistCapture = async () => {
+  const persistCapture = async (formSnapshot = form, lookupSnapshot = formLookup) => {
     if (form.image_file) {
       const response = await apiCall('post', '/capture-items/upload-image', uploadPayloadFromForm(), {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       return response?.item || null;
     }
-    const response = await apiCall('post', '/capture-items', payloadFromForm());
+    const response = await apiCall('post', '/capture-items', payloadFromForm(formSnapshot, lookupSnapshot));
     return response?.item || null;
   };
 
@@ -574,10 +617,10 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
     setScanRequest((current) => current + 1);
   };
 
-  const saveCapture = async ({ closeEditor = true, silent = false } = {}) => {
+  const saveCapture = async ({ closeEditor = true, silent = false, formSnapshot = form, lookupSnapshot = formLookup } = {}) => {
     setSaving(true);
     try {
-      const item = await persistCapture();
+      const item = await persistCapture(formSnapshot, lookupSnapshot);
       if (!silent) onToast?.('Capture saved.', 'success');
       if (closeEditor) setEditorOpen(false);
       resetEditorForm();
@@ -608,7 +651,7 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
         limit: 6
       });
       const matches = Array.isArray(response?.matches) ? response.matches : [];
-      setFormLookup({
+      const lookupSnapshot = {
         loading: false,
         matches,
         lookup: {
@@ -624,11 +667,27 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
         error: null,
         barcode: response?.barcode || code,
         lookedUp: true
-      });
+      };
+      setFormLookup(lookupSnapshot);
       onToast?.(
         matches.length ? `Found ${matches.length} match${matches.length === 1 ? '' : 'es'}.` : 'No matches found. You can save this capture for review.',
         matches.length ? 'success' : 'info'
       );
+      const safeExactMatch = findSafeExactIsbnMatch(matches, response?.barcode || code);
+      if (batchMode && safeExactMatch) {
+        onToast?.('Exact ISBN match found. Adding it to the library.', 'info');
+        await importFormLookupMatch(safeExactMatch, {
+          formSnapshot: {
+            ...form,
+            capture_type: 'barcode',
+            object_type: 'book',
+            barcode: response?.barcode || code,
+            symbology: response?.symbology || symbology || 'ISBN',
+            title: form.title || safeExactMatch.title || ''
+          },
+          lookupSnapshot
+        });
+      }
     } catch (err) {
       const message = err?.message || 'Could not find matches.';
       setFormLookup({
@@ -642,11 +701,17 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
     }
   };
 
-  const importFormLookupMatch = async (match) => {
-    const currentForm = { ...form };
+  const importFormLookupMatch = async (match, options = {}) => {
+    const currentForm = { ...form, ...(options.formSnapshot || {}) };
+    const currentLookup = options.lookupSnapshot || formLookup;
     setFormImporting(true);
     try {
-      const item = await saveCapture({ closeEditor: false, silent: true });
+      const item = await saveCapture({
+        closeEditor: false,
+        silent: true,
+        formSnapshot: currentForm,
+        lookupSnapshot: currentLookup
+      });
       if (!item?.id) return;
       const response = await apiCall('post', `/capture-items/${item.id}/import-match`, {
         match_id: match.id,

@@ -1,138 +1,223 @@
 # collectZ
 
-collectZ is a self-hosted media collection manager currently focused on movies.
-It is designed for homelab-friendly deployment with Docker, secure user auth, and admin-managed integrations.
+collectZ is a self-hosted collection management app for homelab collectors. It tracks media, books, comics, games, art, events, loans, wishlists, capture workflows, and provider-backed imports from one Docker-deployed web app.
+
+The project is built for private collection ownership first: local accounts, scoped libraries/workspaces, secure cookie sessions, admin-managed integrations, and a homelab-friendly deployment path using prebuilt container images.
 
 ## What It Does
 
-- Secure login/register with cookie-based sessions
-- Role-aware admin area (members, invitations, activity, integrations)
-- Library browsing with search, card/list view, rating, and detail drawer
-- Add/edit/delete media entries
-- TMDB enrichment for metadata and artwork
-- Plex import with dedupe + variant handling
-- CSV import support:
-  - Generic CSV import
-  - Delicious Library CSV import (movie rows only)
-- Import audit reports (downloadable per-row CSV)
+- **Collection library:** browse, search, add, edit, rate, and review movies, TV, books, comics, games, audio, art, collectibles, and related objects.
+- **Dashboard:** first-screen summary for recent activity, provider health, upcoming events, failed syncs, missing covers, missing identifiers, and other items that need attention.
+- **Capture Inbox:** quick capture flow for barcode/ISBN scans, photos, OCR text, manual notes, lookup candidates, batch scanning, and review filters.
+- **Imports and syncs:** CSV, Plex, Kavita, scanner/barcode intake, and provider-specific enrichment paths.
+- **Provider integrations:** TMDB, Google Books, UPC/barcode lookup, Metron/comics, Plex, Kavita, optional valuation providers, SMTP, storage, metrics, and structured log export.
+- **Plex workflows:** imports, provider-path modernization, webhook intake, watched-state sync/writeback, rating read/writeback, reconciliation, and now-playing display.
+- **Kavita workflows:** workspace-owned integration settings, import/resync, comic chapter-as-issue fan-out, covers, reader/progress contracts, and read-only metadata enrichment.
+- **Events and art:** convention/event planning, schedules, attendees, purchased-item links, native art records, reusable artists, signatures, proofs, numbered prints, and event-linked purchases.
+- **Wishlist and acquisition tracking:** wanted items, statuses, priority, target price, provider identity, and library-ready conversion.
+- **Administration:** users, workspaces, integrations, feature flags, activity, support/session controls, release notes, API docs when debug-enabled, and operational evidence.
 
-## Current Version
+## Deployment Model
 
-- `3.4.20`
+The public compose file is intended for homelab-style deployment with prebuilt images from GHCR. Most users should not need to build images locally.
 
-## App Metadata
+Release tags:
 
-- Canonical metadata lives in `app-meta.json`.
-- Mirror files used at runtime:
-  - `backend/app-meta.json`
-  - `frontend/src/app-meta.json`
-- After editing root metadata, sync mirrors with:
-  - `node scripts/sync-app-meta.js`
+- `stable`: recommended homelab release after maintainer promotion.
+- `latest`: newest published release.
+- exact semver, such as `3.8.13`: pin to one release.
+- moving minor tag, such as `3.8`: newest published release in that minor line.
 
-## Quick Start (Local Docker)
+## Quick Start
 
-1. Clone repo and enter directory.
-2. Copy env file:
-   - `cp env.example .env`
+1. Clone the repo and enter the directory.
+2. Copy the example environment:
+
+   ```bash
+   cp env.example .env
+   ```
+
 3. Edit `.env` and set at minimum:
-   - `DB_PASSWORD`
-   - `SESSION_SECRET`
-   - `INTEGRATION_ENCRYPTION_KEY` (required in production)
-   - `SESSION_COOKIE_SECURE=true` (required in production)
-   - `TMDB_API_KEY` (recommended for enrichment)
-   - production hardening: use strong non-placeholder secrets (minimum 32 chars)
-4. Pull and start:
-   - `docker compose --env-file .env pull`
-   - `docker compose --env-file .env up -d`
-5. Open:
-   - `http://localhost:3000`
 
-Optional preflight helper:
+   ```text
+   DB_PASSWORD=
+   SESSION_SECRET=
+   INTEGRATION_ENCRYPTION_KEY=
+   ```
 
-- `./setup.sh`
-- Performs prerequisite + `.env` checks and prints deploy commands.
-- It does not modify application source files.
+   Use strong unique values. `openssl rand -hex 32` is a good starting point for secrets.
 
-## First-Run Auth Behavior
+4. Choose an image tag in `.env` if you do not want the compose default:
 
-- If there are no users, the first successful registration becomes admin.
-- Additional local users can register after the first admin.
-- Admins can manage shared settings and integrations from the Admin section.
+   ```text
+   IMAGE_TAG=stable
+   ```
 
-## Core Environment Variables
+5. Pull and start:
+
+   ```bash
+   docker compose --env-file .env pull
+   docker compose --env-file .env up -d
+   ```
+
+6. Open:
+
+   ```text
+   http://localhost:3000
+   ```
+
+Optional setup helper:
+
+```bash
+./setup.sh
+```
+
+The helper checks prerequisites and `.env` basics, then prints deploy commands. It does not modify application source files.
+
+## First-Run Auth
+
+- On a new homelab install, the first successful registration becomes the admin.
+- Homelab mode is designed around local accounts and a shared household library model.
+- Platform/private mode has a broader workspace and invite-driven control plane.
+- The active edition is controlled by `APP_EDITION` and surfaced by the backend at runtime.
+
+## Core Configuration
 
 Required for reliable operation:
 
 - `DB_PASSWORD`
 - `SESSION_SECRET`
-- `INTEGRATION_ENCRYPTION_KEY` (required in production)
-- `SESSION_COOKIE_SECURE=true` (required in production)
+- `INTEGRATION_ENCRYPTION_KEY`
 
-Strongly recommended:
+Production and reverse-proxy settings:
 
-- `TMDB_API_KEY`
-- `ALLOWED_ORIGINS`
-- `TRUST_PROXY` (`1` behind one reverse proxy hop; `false` for direct backend access)
+- `NODE_ENV=production`
+- `SESSION_COOKIE_SECURE=true`
+- `TRUST_PROXY=1` when running behind one trusted reverse proxy hop
+- `ALLOWED_ORIGINS` set to the browser origins that should be allowed
 
-Storage selection:
+Useful optional configuration:
 
-- `STORAGE_PROVIDER=local` (default) stores uploads on local filesystem (`/uploads`)
-- `STORAGE_PROVIDER=s3` stores uploads in S3-compatible object storage (set `S3_*` vars)
+- `STORAGE_PROVIDER=local` for filesystem uploads
+- `STORAGE_PROVIDER=s3` plus `S3_*` values for S3-compatible object storage
+- `TMDB_API_KEY`, `COMICS_API_KEY`, `BARCODE_API_KEY`, `PLEX_API_KEY`, and other provider keys as needed
+- `SMTP_*` values for invites, password reset, and email flows
 
-See `env.example` and docs in `docs/wiki/` for full configuration details.
+See [Environment Variables](docs/wiki/02-Environment-Variables.md) for the full configuration reference.
 
-Debug levels:
+## Integrations
 
-- `DEBUG=0`: normal production behavior (no debug/dev-only workflows)
-- `DEBUG=1`: basic diagnostics (expanded import/audit detail)
-- `DEBUG=2`: full dev/debug workflows (includes Import Review queue + endpoints/UI)
+Most provider settings can be bootstrapped from `.env` and then managed from the app's Integrations area.
 
-For frontend debug-gated UI, set the Vite env:
+Common integrations:
 
-- `VITE_DEBUG=0|1|2`
+- TMDB for movie/TV metadata and artwork
+- Google Books for ISBN/book enrichment
+- Barcode/UPC lookup for scanner and web capture flows
+- Metron/comics for comic metadata
+- Plex for import, reconciliation, watch state, ratings, webhooks, and now-playing
+- Kavita for hosted books/comics/magazines
+- SMTP for user and support workflows
+- Local or S3-compatible storage for uploaded images
+- Optional metrics and structured log export for operations
 
-The public compose defaults to `0`. Legacy `REACT_APP_*` names remain build-time compatibility shims only; use `VITE_*` for new local and CI configuration.
+## Import and Capture Workflows
 
-## Import Workflows
+Use the app's `Import` and `Capture Inbox` areas for intake work.
 
-Use the `Import` section in the left navigation:
+Supported paths include:
 
-- **Plex**: imports from configured Plex integration (admin-managed)
-  - Runs as an async job with progress/status tracking
-- **Generic CSV**: import from collectZ-friendly columns
-- **Delicious CSV**: imports movie rows from Delicious export CSV
+- Plex library import and sync
+- Kavita library import and sync
+- Generic CSV import
+- Delicious Library CSV import
+- Barcode/ISBN scanner API
+- Web Capture Inbox with photo, OCR, barcode/ISBN, lookup matches, batch scanning, and review filters
 
-After CSV imports, use **Download Audit CSV** to get per-row results (`created`, `updated`, `skipped`, `error`).
-
-## Production Deploy
-
-The public compose file uses prebuilt images from GHCR:
-
-1. Configure `.env`
-2. Set your release channel or exact tag:
-  - `IMAGE_TAG=stable` for the recommended homelab release
-  - `IMAGE_TAG=latest` for the newest release
-  - `IMAGE_TAG=3.4.124` to pin an exact release
-3. Deploy:
-   - `docker compose --env-file .env pull`
-   - `docker compose --env-file .env up -d`
+Imports and syncs run through backend-owned APIs. The web UI and scanner clients are clients of those backend contracts, not separate sources of truth.
 
 ## Updating
 
-- `docker compose --env-file .env pull`
-- `docker compose --env-file .env up -d`
+Update the image tag if desired, then run:
 
-## Notes
+```bash
+docker compose --env-file .env pull
+docker compose --env-file .env up -d
+```
 
-- Health checks are included for db/backend/frontend services.
-- Activity log captures operational and admin events.
-- Movie import dedupe primarily matches by TMDB ID, then title/year heuristics.
+Check the running version:
+
+```bash
+curl http://localhost:3000/api/health
+```
+
+Release notes are also available in the app under Help/Releases.
+
+## Developer Notes
+
+Canonical version metadata lives in:
+
+- `app-meta.json`
+- `backend/app-meta.json`
+- `frontend/src/app-meta.json`
+- `backend/package.json`
+- `frontend/package.json`
+
+After changing the root metadata, sync mirrors with:
+
+```bash
+node scripts/sync-app-meta.js
+```
+
+Regenerate the in-app release feed with:
+
+```bash
+node backend/scripts/export-release-feed.js
+```
+
+For source-built local development, use the local override:
+
+```bash
+APP_VERSION=$(node -p "require('./app-meta.json').version") \
+docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml up -d --build
+```
+
+## Documentation
+
+The `docs/wiki/` directory is currently a maintainer knowledge base, not a polished public wiki. It contains a mix of user/operator docs, engineering runbooks, roadmap history, release policy, and integration contracts.
+
+Good public/operator entry points:
+
+- [Configuration and Use](docs/wiki/01-Configuration-and-Use.md)
+- [Environment Variables](docs/wiki/02-Environment-Variables.md)
+- [Docker Compose Setup](docs/wiki/03-Docker-Compose-Setup.md)
+- [CI/CD and Registry Deploy](docs/wiki/10-CI-CD-and-Registry-Deploy.md)
+- [Backup and Restore](docs/wiki/08-Backup-and-Restore.md)
+- [Kavita Integration Setup](docs/wiki/41-Kavita-Integration-Setup.md)
+- [Personal Access Tokens](docs/wiki/25-Personal-Access-Tokens.md)
+
+Internal/planning-heavy docs such as the roadmap, backlog, delivery policy, release gates, and integration contracts are useful to maintainers but are not written as end-user documentation yet.
 
 ## Troubleshooting
 
-- If backend startup fails in production with:
-  - `INTEGRATION_ENCRYPTION_KEY must be set in production`
-- Set `INTEGRATION_ENCRYPTION_KEY` in `.env`, then restart:
-  - `docker compose --env-file .env up -d backend`
-- If Admin Integrations shows a decryption warning, that key was encrypted with older key material.
-  Re-enter/save the affected key (or clear it) so it is re-encrypted with current `INTEGRATION_ENCRYPTION_KEY`.
+If backend startup fails in production with:
+
+```text
+INTEGRATION_ENCRYPTION_KEY must be set in production
+```
+
+Set `INTEGRATION_ENCRYPTION_KEY` in `.env`, then restart:
+
+```bash
+docker compose --env-file .env up -d backend
+```
+
+If Integrations shows a decryption warning, the saved key was encrypted with older key material. Re-enter or clear the affected key so it is encrypted with the current `INTEGRATION_ENCRYPTION_KEY`.
+
+If login fails after changing compose or `.env`, verify the running backend container values, not only the file:
+
+```bash
+docker inspect collectz-backend-1 \
+  --format '{{range .Config.Env}}{{println .}}{{end}}' \
+  | grep -E '^(DATABASE_URL|APP_EDITION|NODE_ENV|SESSION_COOKIE_SECURE|TRUST_PROXY|ALLOWED_ORIGINS|APP_VERSION)='
+```
