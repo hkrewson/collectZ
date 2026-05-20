@@ -361,10 +361,29 @@ function AppleItunesWishlistSearch({ apiCall, onToast, onSaved }) {
   const [loading, setLoading] = useState(false);
   const [savingKey, setSavingKey] = useState(null);
   const [refreshingPrices, setRefreshingPrices] = useState(false);
+  const [scheduler, setScheduler] = useState(null);
+  const [schedulerLoading, setSchedulerLoading] = useState(false);
+  const [schedulerRunning, setSchedulerRunning] = useState(false);
   const [refreshSummary, setRefreshSummary] = useState(null);
   const [error, setError] = useState(null);
   const [targetPrices, setTargetPrices] = useState({});
   const [priceEditors, setPriceEditors] = useState({});
+
+  const loadScheduler = useCallback(async () => {
+    setSchedulerLoading(true);
+    try {
+      const payload = await apiCall('get', '/wishlist/apple-itunes/price-refresh-scheduler');
+      setScheduler(payload);
+    } catch (_err) {
+      setScheduler(null);
+    } finally {
+      setSchedulerLoading(false);
+    }
+  }, [apiCall]);
+
+  useEffect(() => {
+    loadScheduler();
+  }, [loadScheduler]);
 
   const searchApple = async (event) => {
     event?.preventDefault?.();
@@ -437,6 +456,31 @@ function AppleItunesWishlistSearch({ apiCall, onToast, onSaved }) {
     }
   };
 
+  const runScheduledRefresh = async () => {
+    setSchedulerRunning(true);
+    try {
+      const payload = await apiCall('post', '/wishlist/apple-itunes/price-refresh-scheduler/run', {
+        status: 'active',
+        limit: scheduler?.runtime?.limit || 25,
+        country
+      });
+      setRefreshSummary(payload?.summary || null);
+      onToast?.(
+        `Apple/iTunes scheduled refresh checked ${payload?.summary?.checked || 0} saved item${Number(payload?.summary?.checked || 0) === 1 ? '' : 's'}.`,
+        payload?.summary?.failed ? 'error' : 'success'
+      );
+      await loadScheduler();
+      await onSaved?.();
+    } catch (err) {
+      onToast?.(err?.message || 'Could not run Apple/iTunes scheduled refresh.', 'error');
+    } finally {
+      setSchedulerRunning(false);
+    }
+  };
+
+  const schedulerRuntime = scheduler?.runtime || null;
+  const schedulerState = scheduler?.state || null;
+
   return (
     <section className="border-y border-edge py-3">
       <form className="grid max-w-[920px] grid-cols-1 items-end gap-2 md:grid-cols-[minmax(260px,1fr)_160px_96px_auto]" onSubmit={searchApple}>
@@ -469,6 +513,19 @@ function AppleItunesWishlistSearch({ apiCall, onToast, onSaved }) {
             Updated {refreshSummary.updated || 0} of {refreshSummary.checked || 0}
             {refreshSummary.failed ? ` · ${refreshSummary.failed} failed` : ''}
           </span>
+        ) : null}
+        {schedulerRuntime ? (
+          <span>
+            Auto refresh {schedulerRuntime.enabled ? `on · every ${schedulerRuntime.intervalMinutes}m` : 'off'}
+            {schedulerState?.lastFinishedAt ? ' · last run saved' : ''}
+          </span>
+        ) : schedulerLoading ? (
+          <span>Checking auto refresh...</span>
+        ) : null}
+        {schedulerRuntime ? (
+          <button type="button" className="btn-ghost h-8 text-xs" onClick={runScheduledRefresh} disabled={schedulerRunning}>
+            {schedulerRunning ? 'Running...' : 'Run auto refresh now'}
+          </button>
         ) : null}
       </div>
 

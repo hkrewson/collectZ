@@ -82,6 +82,9 @@ const PLEX_WATCH_STATE_REFRESH_RUNTIME = typeof mediaRouter.getPlexWatchStateRef
 const PLEX_RECONCILIATION_SYNC_RUNTIME = typeof mediaRouter.getPlexReconciliationSyncRuntimeConfig === 'function'
   ? mediaRouter.getPlexReconciliationSyncRuntimeConfig()
   : { enabled: false };
+const APPLE_ITUNES_WISHLIST_PRICE_REFRESH_RUNTIME = typeof wishlistRouter.getAppleItunesWishlistPriceRefreshRuntimeConfig === 'function'
+  ? wishlistRouter.getAppleItunesWishlistPriceRefreshRuntimeConfig()
+  : { enabled: false };
 const parseBoolean = (value, fallback = false) => {
   if (value === undefined || value === null || value === '') return fallback;
   return ['1', 'true', 'yes', 'on'].includes(String(value).toLowerCase().trim());
@@ -349,6 +352,9 @@ const startServer = async () => {
     if (typeof mediaRouter.startPlexReconciliationSyncScheduler === 'function') {
       mediaRouter.startPlexReconciliationSyncScheduler();
     }
+    if (typeof wishlistRouter.startAppleItunesWishlistPriceRefreshScheduler === 'function') {
+      wishlistRouter.startAppleItunesWishlistPriceRefreshScheduler();
+    }
     app.listen(PORT, '0.0.0.0', () => {
       console.log(
         `collectZ backend ${BUILD_LABEL} listening on port ${PORT} (audit=${getMode()}, ` +
@@ -359,6 +365,7 @@ const startServer = async () => {
         `plexWebhookImportAuto=${PLEX_WEBHOOK_IMPORT_RUNTIME.enabled ? `on/${PLEX_WEBHOOK_IMPORT_RUNTIME.intervalSeconds}s` : 'off'}, ` +
         `plexWatchRefresh=${PLEX_WATCH_STATE_REFRESH_RUNTIME.enabled ? `on/${PLEX_WATCH_STATE_REFRESH_RUNTIME.intervalMinutes}m` : 'off'}, ` +
         `plexReconciliationSync=${PLEX_RECONCILIATION_SYNC_RUNTIME.enabled ? `on/${PLEX_RECONCILIATION_SYNC_RUNTIME.intervalMinutes}m` : 'off'}, ` +
+        `appleWishlistPriceRefresh=${APPLE_ITUNES_WISHLIST_PRICE_REFRESH_RUNTIME.enabled ? `on/${APPLE_ITUNES_WISHLIST_PRICE_REFRESH_RUNTIME.intervalMinutes}m` : 'off'}, ` +
         `externalApiMax=${RATE_LIMIT_EXTERNAL_API_MAX})`
       );
     });

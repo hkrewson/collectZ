@@ -10810,6 +10810,72 @@ Historical note:
 - What remains in the milestone: nothing for `3.8.10`; next planned work is `3.8.11 — Capture Scan Immediate Lookup`, followed by batch scan mode, safe ISBN auto-import, and exception review routing.
 - Recommended commit message: `Release 3.8.10 with Capture Inbox barcode camera ISBN recognition`.
 
+## 3.9.3 — Apple/iTunes Wishlist Scheduled Price Refresh
+
+**Goal:** Add a conservative opt-in scheduler path for Apple/iTunes wishlist price refreshes, reusing the manual refresh and price-history snapshot behavior without adding alerts or charts yet.
+
+### Scope
+
+- Add backend runtime config for Apple/iTunes wishlist price refresh automation.
+- Add admin-only scheduler status and manual-run endpoints.
+- Keep recurring polling disabled by default.
+- Reuse the `3.9.2` price-history snapshot path for scheduler runs.
+- Add compact Library > Wishlist readback for scheduler status and manual scheduler execution.
+- Keep this slice automation-only:
+  - no price-drop alerts,
+  - no charts,
+  - no owned-library valuation behavior,
+  - no automatic enablement in public compose.
+
+### Acceptance Criteria
+
+- Scheduler status reports runtime config and in-process state without exposing secrets.
+- Scheduler defaults off.
+- Admin manual scheduler run refreshes active Apple/iTunes wishlist rows and writes price-history snapshots.
+- Wishlist UI exposes compact auto-refresh status and a manual scheduler run action.
+- OpenAPI documents the scheduler status and run routes.
+- Version metadata, release note, release feed, and Help > Releases include `3.9.3`.
+
+### Closeout
+
+- Roadmap slice: `3.9.3 — Apple/iTunes Wishlist Scheduled Price Refresh`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/06-Versioning-and-Build-Metadata.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.9.3.md`.
+- Runtime verification used:
+  - Rebuilt the Docker stack at `APP_VERSION=3.9.3` from local source.
+  - Verified `/api/health` reports frontend/backend/build `3.9.3`.
+  - Verified the running backend defaults Apple/iTunes wishlist price refresh automation off.
+  - Verified live scheduler status, Apple/iTunes search, save, admin scheduler run, price-history readback, and cleanup from the running stack.
+  - Verified the final restored platform stack is healthy after temporary homelab/debug runtime overrides.
+- CI/checks run:
+  - `npm ci --prefix backend --no-fund`
+  - `npm ci --prefix frontend --no-fund`
+  - `npm --prefix backend audit --omit=dev --audit-level=critical`
+  - `npm --prefix frontend audit --omit=dev --audit-level=critical`
+  - `node backend/scripts/unit-tests.js`
+  - `npm --prefix backend run test:openapi`
+  - `npm --prefix frontend run build`
+  - `git diff --check`
+  - Docker `npm run test:unit`
+  - Docker `npm run test:openapi`
+  - Docker `npm run test:integration-smoke`
+  - Docker `BASE_URL=http://frontend:3000 npm run test:help-releases-smoke`
+  - Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`
+  - Docker `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`
+  - Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`
+  - Docker `npm run test:init-parity`
+  - Docker `npm run test:migration-rehearsal`
+  - `PLAYWRIGHT_E2E_BYPASS_TOKEN=... npm run test:browser` against a temporary debug-enabled stack: 71 passed, 4 homelab-only specs skipped.
+  - `npm --prefix backend run test:release-preflight-local` generated `preflight-go-no-go.md` but remains NO-GO locally because observability evidence has collector-smoke failures and secure-cookie compose smoke is CI-shaped.
+  - `npm --prefix backend run test:observability-evidence` produced evidence with 7 passed and 2 failed checks: `graylog_collector_smoke`, `syslog_collector_smoke`.
+- Files changed: version metadata, Wishlist backend routes/UI, server scheduler startup, OpenAPI, browser/unit tests, release feed, release note, roadmap closeout, and release evidence artifacts.
+- Risks or follow-ups:
+  - Recurring Apple/iTunes polling remains disabled by default and should only be enabled intentionally per deployment.
+  - The scheduler is in-process only; multi-replica deployments would need a distributed lock or external scheduler before enabling broadly.
+  - Local observability release evidence is blocked by Graylog/syslog collector export lookup failures unrelated to this Wishlist slice.
+  - Local `gitleaks` and `trivy` binaries are unavailable, so `secret-scan` and `image-security-and-sbom` remain CI-only follow-through gates.
+- What remains in the milestone: no implementation work remains for `3.9.3`; release publication remains pending the blocked observability/local CI-only gates above.
+- Recommended commit message: `Release 3.9.3 Apple/iTunes wishlist scheduled price refresh`.
+
 ## 3.9.2 — Apple/iTunes Wishlist Price History Foundation
 
 **Goal:** Store successful Apple/iTunes wishlist price refreshes as scoped history snapshots so later polling, trends, and alerts can build on durable price evidence.

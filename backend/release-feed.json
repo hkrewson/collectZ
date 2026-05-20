@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.9.3",
+      "version": "3.9.3",
+      "date": null,
+      "status": null,
+      "summary": "",
+      "details": []
+    },
+    {
       "title": "collectZ v3.9.2",
       "version": "3.9.2",
       "date": null,
@@ -151,25 +159,6 @@
             "Keeps a short recent outcome list so the user can see what just happened.",
             "Adds direct review actions for choices and no-match captures.",
             "Keeps the existing batch scan flow and exact ISBN auto-add behavior intact."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.8.14",
-      "version": "3.8.14",
-      "date": "2026-05-19",
-      "status": "implemented",
-      "summary": "This release makes batch scanning faster when Capture Inbox finds one safe exact ISBN book match. Multiple lookup candidates still stay in the editor for user choice.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added safe exact ISBN match detection to Capture Inbox.",
-            "Batch scan now automatically saves and imports a single exact ISBN book match.",
-            "Normal one-off captures still show the candidate list in place.",
-            "Single exact ISBN rows now use clearer `Add exact ISBN` / `Link exact ISBN` copy.",
-            "Kept multi-candidate ISBN/UPC lookups as explicit user choice."
           ]
         }
       ]

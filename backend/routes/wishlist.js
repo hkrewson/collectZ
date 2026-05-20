@@ -20,6 +20,42 @@ const router = express.Router();
 router.use('/wishlist', authenticateToken);
 router.use('/wishlist', enforceScopeAccess({ allowedHintRoles: ['admin'] }));
 
+function parseBoolean(value, fallback = false) {
+  if (value === undefined || value === null || value === '') return fallback;
+  return ['1', 'true', 'yes', 'on'].includes(String(value).toLowerCase().trim());
+}
+
+function parsePositiveInt(value, fallback, min = 1, max = Number.MAX_SAFE_INTEGER) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(min, Math.min(max, Math.floor(parsed)));
+}
+
+function getAppleItunesWishlistPriceRefreshRuntimeConfig() {
+  return {
+    enabled: parseBoolean(process.env.APPLE_ITUNES_WISHLIST_PRICE_REFRESH_ENABLED, false),
+    intervalMinutes: parsePositiveInt(process.env.APPLE_ITUNES_WISHLIST_PRICE_REFRESH_INTERVAL_MINUTES, 720, 60, 10080),
+    limit: parsePositiveInt(process.env.APPLE_ITUNES_WISHLIST_PRICE_REFRESH_LIMIT, 25, 1, 50),
+    country: normalizeCountry(process.env.APPLE_ITUNES_WISHLIST_PRICE_REFRESH_COUNTRY || 'US'),
+    status: 'active'
+  };
+}
+
+const appleItunesWishlistPriceRefreshState = {
+  enabled: false,
+  intervalMinutes: 720,
+  limit: 25,
+  country: 'US',
+  running: false,
+  lastStartedAt: null,
+  lastFinishedAt: null,
+  lastError: null,
+  lastChecked: 0,
+  lastUpdated: 0,
+  lastSkipped: 0,
+  lastFailed: 0
+};
+
 const ACTIVE_STATUSES = ['wanted', 'watching', 'preordered', 'ordered'];
 const STATUSES = new Set([...ACTIVE_STATUSES, 'acquired', 'dismissed']);
 const PRIORITIES = new Set(['low', 'normal', 'high', 'grail']);
@@ -147,6 +183,11 @@ async function findScopedWantedItemByProvider(scopeContext, provider, providerKe
   where += appendScopeSql(params, scopeContext);
   const result = await pool.query(`SELECT * FROM wanted_items ${where} ORDER BY updated_at DESC, id DESC LIMIT 1`, params);
   return result.rows[0] || null;
+}
+
+function appendOptionalScopeSql(params, scopeContext) {
+  if (!scopeContext) return '';
+  return appendScopeSql(params, scopeContext);
 }
 
 async function markAppleItunesSavedState(scopeContext, candidates) {
@@ -340,8 +381,32 @@ router.post('/wishlist/apple-itunes/save', asyncHandler(async (req, res) => {
 
 router.post('/wishlist/apple-itunes/refresh-prices', asyncHandler(async (req, res) => {
   const scopeContext = resolveScopeContext(req);
-  const limit = normalizeLimit(req.body?.limit || 25);
-  const requestedStatus = trimString(req.body?.status).toLowerCase();
+  const summary = await runAppleItunesWishlistPriceRefreshOnce({
+    reason: 'manual',
+    scopeContext,
+    status: req.body?.status,
+    limit: req.body?.limit || 25,
+    country: req.body?.country || 'US',
+    req
+  });
+
+  return res.json({
+    ok: true,
+    provider: APPLE_ITUNES_PROVIDER,
+    ...summary
+  });
+}));
+
+async function runAppleItunesWishlistPriceRefreshOnce({
+  reason = 'manual',
+  scopeContext = null,
+  status = 'active',
+  limit = 25,
+  country = 'US',
+  req = null
+} = {}) {
+  const effectiveLimit = normalizeLimit(limit || 25);
+  const requestedStatus = trimString(status).toLowerCase();
   const params = [APPLE_ITUNES_PROVIDER];
   let where = 'WHERE provider = $1 AND provider_key IS NOT NULL';
   if (requestedStatus && requestedStatus !== 'active' && requestedStatus !== 'all' && STATUSES.has(requestedStatus)) {
@@ -351,8 +416,8 @@ router.post('/wishlist/apple-itunes/refresh-prices', asyncHandler(async (req, re
     params.push(ACTIVE_STATUSES);
     where += ` AND status = ANY($${params.length})`;
   }
-  where += appendScopeSql(params, scopeContext);
-  params.push(limit);
+  where += appendOptionalScopeSql(params, scopeContext);
+  params.push(effectiveLimit);
 
   const result = await pool.query(
     `SELECT *
@@ -371,9 +436,9 @@ router.post('/wishlist/apple-itunes/refresh-prices', asyncHandler(async (req, re
 
   for (const row of result.rows) {
     const sourceContext = jsonObject(row.source_context);
-    const country = normalizeCountry(req.body?.country || sourceContext.country || 'US');
+    const effectiveCountry = normalizeCountry(country || sourceContext.country || 'US');
     try {
-      const candidate = await fetchAppleLookup({ providerKey: row.provider_key, country });
+      const candidate = await fetchAppleLookup({ providerKey: row.provider_key, country: effectiveCountry });
       if (!candidate) {
         skipped += 1;
         items.push(buildApplePriceReadback(row, null, 'No Apple/iTunes lookup result.'));
@@ -384,7 +449,7 @@ router.post('/wishlist/apple-itunes/refresh-prices', asyncHandler(async (req, re
         ...sourceContext,
         provider: APPLE_ITUNES_PROVIDER,
         provider_key: row.provider_key,
-        country,
+        country: effectiveCountry,
         currency: candidate.currency || sourceContext.currency || null,
         previous_price: readback.previous_price,
         current_price: readback.current_price,
@@ -408,7 +473,7 @@ router.post('/wishlist/apple-itunes/refresh-prices', asyncHandler(async (req, re
       const historyContext = {
         store_url: nextSourceContext.store_url,
         artwork_url: nextSourceContext.artwork_url,
-        country,
+        country: effectiveCountry,
         media: sourceContext.media || null,
         kind: sourceContext.kind || null,
         raw_result: jsonObject(candidate.raw_result)
@@ -446,24 +511,112 @@ router.post('/wishlist/apple-itunes/refresh-prices', asyncHandler(async (req, re
     }
   }
 
-  await logActivity(req, 'wishlist.apple_itunes_prices_refresh', 'wanted_item', null, {
+  await logActivity(req || {
+    user: { id: null, role: 'system', email: 'system@collectz.local', name: 'collectZ system' },
+    headers: {},
+    ip: 'system',
+    socket: null
+  }, 'wishlist.apple_itunes_prices_refresh', 'wanted_item', null, {
     provider: APPLE_ITUNES_PROVIDER,
+    reason,
     checked: result.rows.length,
     updated,
     skipped,
     failed,
-    spaceId: scopeContext.spaceId,
-    libraryId: scopeContext.libraryId
+    spaceId: scopeContext?.spaceId || null,
+    libraryId: scopeContext?.libraryId || null
   });
 
-  return res.json({
-    ok: true,
-    provider: APPLE_ITUNES_PROVIDER,
+  return {
+    reason,
     checked: result.rows.length,
     updated,
     skipped,
     failed,
     items
+  };
+}
+
+function startAppleItunesWishlistPriceRefreshScheduler() {
+  const runtimeConfig = getAppleItunesWishlistPriceRefreshRuntimeConfig();
+  Object.assign(appleItunesWishlistPriceRefreshState, {
+    enabled: runtimeConfig.enabled,
+    intervalMinutes: runtimeConfig.intervalMinutes,
+    limit: runtimeConfig.limit,
+    country: runtimeConfig.country
+  });
+  if (!runtimeConfig.enabled) return null;
+
+  const runSweep = async () => {
+    if (appleItunesWishlistPriceRefreshState.running) return;
+    appleItunesWishlistPriceRefreshState.running = true;
+    appleItunesWishlistPriceRefreshState.lastStartedAt = new Date().toISOString();
+    appleItunesWishlistPriceRefreshState.lastError = null;
+    try {
+      const summary = await runAppleItunesWishlistPriceRefreshOnce({
+        reason: 'scheduled',
+        status: runtimeConfig.status,
+        limit: runtimeConfig.limit,
+        country: runtimeConfig.country
+      });
+      appleItunesWishlistPriceRefreshState.lastChecked = summary.checked;
+      appleItunesWishlistPriceRefreshState.lastUpdated = summary.updated;
+      appleItunesWishlistPriceRefreshState.lastSkipped = summary.skipped;
+      appleItunesWishlistPriceRefreshState.lastFailed = summary.failed;
+      if (summary.failed > 0) {
+        const firstError = summary.items.find((item) => item.error)?.error;
+        appleItunesWishlistPriceRefreshState.lastError = firstError || 'Apple/iTunes scheduled price refresh had failures';
+      }
+    } catch (error) {
+      appleItunesWishlistPriceRefreshState.lastError = error.message || 'Apple/iTunes scheduled price refresh failed';
+    } finally {
+      appleItunesWishlistPriceRefreshState.running = false;
+      appleItunesWishlistPriceRefreshState.lastFinishedAt = new Date().toISOString();
+    }
+  };
+
+  const timer = setInterval(runSweep, runtimeConfig.intervalMinutes * 60 * 1000);
+  timer.unref();
+  setTimeout(runSweep, Math.min(5000, runtimeConfig.intervalMinutes * 60 * 1000)).unref();
+  return timer;
+}
+
+router.get('/wishlist/apple-itunes/price-refresh-scheduler', asyncHandler(async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Only admins can inspect Apple/iTunes wishlist price refresh automation' });
+  }
+  const runtimeConfig = getAppleItunesWishlistPriceRefreshRuntimeConfig();
+  res.json({
+    ok: true,
+    provider: APPLE_ITUNES_PROVIDER,
+    processingMode: 'scheduled_wishlist_price_refresh',
+    runtime: runtimeConfig,
+    state: { ...appleItunesWishlistPriceRefreshState }
+  });
+}));
+
+router.post('/wishlist/apple-itunes/price-refresh-scheduler/run', asyncHandler(async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Only admins can run Apple/iTunes wishlist price refresh automation' });
+  }
+  const runtimeConfig = getAppleItunesWishlistPriceRefreshRuntimeConfig();
+  const summary = await runAppleItunesWishlistPriceRefreshOnce({
+    reason: 'admin_requested',
+    status: req.body?.status || runtimeConfig.status,
+    limit: req.body?.limit || runtimeConfig.limit,
+    country: req.body?.country || runtimeConfig.country,
+    req
+  });
+  res.json({
+    ok: true,
+    provider: APPLE_ITUNES_PROVIDER,
+    processingMode: 'scheduled_wishlist_price_refresh',
+    schedulerEnabled: runtimeConfig.enabled,
+    summary: {
+      ok: true,
+      provider: APPLE_ITUNES_PROVIDER,
+      ...summary
+    }
   });
 }));
 
@@ -761,5 +914,9 @@ router.post('/wishlist/:id/convert', asyncHandler(async (req, res) => {
     client.release();
   }
 }));
+
+router.getAppleItunesWishlistPriceRefreshRuntimeConfig = getAppleItunesWishlistPriceRefreshRuntimeConfig;
+router.startAppleItunesWishlistPriceRefreshScheduler = startAppleItunesWishlistPriceRefreshScheduler;
+router.runAppleItunesWishlistPriceRefreshOnce = runAppleItunesWishlistPriceRefreshOnce;
 
 module.exports = router;

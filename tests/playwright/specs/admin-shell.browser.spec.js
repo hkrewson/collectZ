@@ -111,6 +111,7 @@ test.describe('admin shell browser regressions', () => {
     const adminCredentials = await ensureSavedAdminCredentials();
     let savePayload = null;
     let refreshPayload = null;
+    let schedulerRunPayload = null;
 
     await page.route('**/api/wishlist?**', async (route) => {
       await route.fulfill({
@@ -251,6 +252,55 @@ test.describe('admin shell browser regressions', () => {
       });
     });
 
+    await page.route('**/api/wishlist/apple-itunes/price-refresh-scheduler', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ok: true,
+          provider: 'apple_itunes',
+          processingMode: 'scheduled_wishlist_price_refresh',
+          runtime: { enabled: false, intervalMinutes: 720, limit: 25, country: 'US', status: 'active' },
+          state: {
+            enabled: false,
+            intervalMinutes: 720,
+            limit: 25,
+            country: 'US',
+            running: false,
+            lastFinishedAt: null,
+            lastChecked: 0,
+            lastUpdated: 0,
+            lastSkipped: 0,
+            lastFailed: 0
+          }
+        })
+      });
+    });
+
+    await page.route('**/api/wishlist/apple-itunes/price-refresh-scheduler/run', async (route) => {
+      schedulerRunPayload = route.request().postDataJSON();
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ok: true,
+          provider: 'apple_itunes',
+          processingMode: 'scheduled_wishlist_price_refresh',
+          schedulerEnabled: false,
+          summary: {
+            ok: true,
+            provider: 'apple_itunes',
+            reason: 'admin_requested',
+            checked: 1,
+            updated: 1,
+            skipped: 0,
+            failed: 0,
+            items: []
+          }
+        })
+      });
+    });
+
     await page.route('**/api/wishlist/9001/price-history**', async (route) => {
       await route.fulfill({
         status: 200,
@@ -284,6 +334,10 @@ test.describe('admin shell browser regressions', () => {
     await page.getByRole('button', { name: 'Price history' }).first().click();
     await expect(page.getByText(/target met/).first()).toBeVisible();
     const applePanel = page.locator('section').filter({ has: page.getByLabel('Apple/iTunes search') });
+    await expect(applePanel.getByText('Auto refresh off')).toBeVisible();
+    await applePanel.getByRole('button', { name: 'Run auto refresh now' }).click();
+    await expect(applePanel.getByText('Updated 1 of 1')).toBeVisible();
+    expect(schedulerRunPayload?.status).toBe('active');
     await applePanel.getByRole('button', { name: 'Refresh saved prices' }).click();
     await expect(applePanel.getByText('Updated 1 of 1')).toBeVisible();
     expect(refreshPayload?.status).toBe('active');

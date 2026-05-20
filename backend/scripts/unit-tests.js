@@ -6286,6 +6286,10 @@ results.push(run('apple itunes wishlist search and save are routed, scoped, and 
   assert.ok(wishlistRoutesSource.includes("router.get('/wishlist/apple-itunes/search'"));
   assert.ok(wishlistRoutesSource.includes("router.post('/wishlist/apple-itunes/save'"));
   assert.ok(wishlistRoutesSource.includes("router.post('/wishlist/apple-itunes/refresh-prices'"));
+  assert.ok(wishlistRoutesSource.includes("router.get('/wishlist/apple-itunes/price-refresh-scheduler'"));
+  assert.ok(wishlistRoutesSource.includes("router.post('/wishlist/apple-itunes/price-refresh-scheduler/run'"));
+  assert.ok(wishlistRoutesSource.includes('getAppleItunesWishlistPriceRefreshRuntimeConfig'));
+  assert.ok(wishlistRoutesSource.includes('startAppleItunesWishlistPriceRefreshScheduler'));
   assert.ok(wishlistRoutesSource.includes("router.get('/wishlist/:id/price-history'"));
   assert.ok(wishlistRoutesSource.includes('INSERT INTO wanted_item_price_history'));
   assert.ok(wishlistRoutesSource.includes('shapePriceHistory'));
@@ -6296,16 +6300,26 @@ results.push(run('apple itunes wishlist search and save are routed, scoped, and 
   assert.deepStrictEqual(getRequiredPatScopesForRequest({ originalUrl: '/api/wishlist/apple-itunes/search', method: 'GET' }), ['media:read']);
   assert.deepStrictEqual(getRequiredPatScopesForRequest({ originalUrl: '/api/wishlist/apple-itunes/save', method: 'POST' }), ['media:write']);
   assert.deepStrictEqual(getRequiredPatScopesForRequest({ originalUrl: '/api/wishlist/apple-itunes/refresh-prices', method: 'POST' }), ['media:write']);
+  assert.deepStrictEqual(getRequiredPatScopesForRequest({ originalUrl: '/api/wishlist/apple-itunes/price-refresh-scheduler', method: 'GET' }), ['media:read']);
+  assert.deepStrictEqual(getRequiredPatScopesForRequest({ originalUrl: '/api/wishlist/apple-itunes/price-refresh-scheduler/run', method: 'POST' }), ['media:write']);
   assert.deepStrictEqual(getRequiredPatScopesForRequest({ originalUrl: '/api/wishlist/1/price-history', method: 'GET' }), ['media:read']);
   assert.ok(openApiSource.includes('"/api/wishlist/apple-itunes/search"'));
   assert.ok(openApiSource.includes('"/api/wishlist/apple-itunes/save"'));
   assert.ok(openApiSource.includes('"/api/wishlist/apple-itunes/refresh-prices"'));
+  assert.ok(openApiSource.includes('"/api/wishlist/apple-itunes/price-refresh-scheduler"'));
+  assert.ok(openApiSource.includes('"/api/wishlist/apple-itunes/price-refresh-scheduler/run"'));
   assert.ok(openApiSource.includes('"/api/wishlist/{id}/price-history"'));
   assert.ok(openApiSource.includes('"AppleItunesWishlistCandidate"'));
   assert.ok(openApiSource.includes('"AppleItunesWishlistPriceRefreshResponse"'));
+  assert.ok(openApiSource.includes('"AppleItunesWishlistPriceRefreshSchedulerResponse"'));
   assert.ok(openApiSource.includes('"WishlistPriceHistoryResponse"'));
+  assert.ok(serverSource.includes('APPLE_ITUNES_WISHLIST_PRICE_REFRESH_RUNTIME'));
+  assert.ok(serverSource.includes('startAppleItunesWishlistPriceRefreshScheduler'));
   assert.ok(wishlistViewSource.includes('Apple/iTunes search'));
   assert.ok(wishlistViewSource.includes('Refresh saved prices'));
+  assert.ok(wishlistViewSource.includes("apiCall('get', '/wishlist/apple-itunes/price-refresh-scheduler')"));
+  assert.ok(wishlistViewSource.includes("apiCall('post', '/wishlist/apple-itunes/price-refresh-scheduler/run'"));
+  assert.ok(wishlistViewSource.includes('Run auto refresh now'));
   assert.ok(wishlistViewSource.includes("apiCall('get', `/wishlist/apple-itunes/search?${params.toString()}`)"));
   assert.ok(wishlistViewSource.includes("apiCall('post', '/wishlist/apple-itunes/save'"));
   assert.ok(wishlistViewSource.includes("apiCall('post', '/wishlist/apple-itunes/refresh-prices'"));
@@ -6320,6 +6334,7 @@ results.push(run('apple itunes wishlist search and save are routed, scoped, and 
   assert.ok(adminShellBrowserSpecSource.includes('/api/wishlist/apple-itunes/search'));
   assert.ok(adminShellBrowserSpecSource.includes('/api/wishlist/apple-itunes/save'));
   assert.ok(adminShellBrowserSpecSource.includes('/api/wishlist/apple-itunes/refresh-prices'));
+  assert.ok(adminShellBrowserSpecSource.includes('/api/wishlist/apple-itunes/price-refresh-scheduler'));
   assert.ok(adminShellBrowserSpecSource.includes('/api/wishlist/9001/price-history'));
 }));
 

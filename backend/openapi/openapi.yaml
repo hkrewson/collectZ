@@ -3303,6 +3303,38 @@
         },
         "required": ["item_id", "history"]
       },
+      "AppleItunesWishlistPriceRefreshSchedulerResponse": {
+        "type": "object",
+        "properties": {
+          "ok": { "type": "boolean" },
+          "provider": { "type": "string", "enum": ["apple_itunes"] },
+          "processingMode": { "type": "string", "enum": ["scheduled_wishlist_price_refresh"] },
+          "runtime": {
+            "type": "object",
+            "properties": {
+              "enabled": { "type": "boolean" },
+              "intervalMinutes": { "type": "integer" },
+              "limit": { "type": "integer" },
+              "country": { "type": "string" },
+              "status": { "type": "string" }
+            },
+            "additionalProperties": true
+          },
+          "state": { "type": "object", "additionalProperties": true }
+        },
+        "required": ["ok", "provider", "processingMode", "runtime", "state"]
+      },
+      "AppleItunesWishlistPriceRefreshSchedulerRunResponse": {
+        "type": "object",
+        "properties": {
+          "ok": { "type": "boolean" },
+          "provider": { "type": "string", "enum": ["apple_itunes"] },
+          "processingMode": { "type": "string", "enum": ["scheduled_wishlist_price_refresh"] },
+          "schedulerEnabled": { "type": "boolean" },
+          "summary": { "$ref": "#/components/schemas/AppleItunesWishlistPriceRefreshResponse" }
+        },
+        "required": ["ok", "provider", "processingMode", "schedulerEnabled", "summary"]
+      },
       "AppleItunesWishlistPriceRefreshResponse": {
         "type": "object",
         "properties": {
@@ -3850,6 +3882,79 @@
           },
           "404": {
             "description": "Wishlist item not found in the active scope",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/wishlist/apple-itunes/price-refresh-scheduler": {
+      "get": {
+        "tags": ["Wishlist"],
+        "summary": "Inspect Apple/iTunes wishlist price refresh automation",
+        "description": "Returns the opt-in scheduler runtime and in-process state for Apple/iTunes wishlist price refreshes. The scheduler defaults off and records successful refreshes into wishlist price history.",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "responses": {
+          "200": {
+            "description": "Apple/iTunes wishlist price refresh scheduler status",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AppleItunesWishlistPriceRefreshSchedulerResponse" }
+              }
+            }
+          },
+          "403": {
+            "description": "Admin access is required",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/wishlist/apple-itunes/price-refresh-scheduler/run": {
+      "post": {
+        "tags": ["Wishlist"],
+        "summary": "Run Apple/iTunes wishlist price refresh automation once",
+        "description": "Runs the scheduler refresh path once on demand for active Apple/iTunes wishlist rows. This does not enable recurring polling or send alerts.",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": { "type": "string", "enum": ["active", "all", "wanted", "watching", "preordered", "ordered", "acquired", "dismissed"], "default": "active" },
+                  "country": { "type": "string", "default": "US" },
+                  "limit": { "type": "integer", "minimum": 1, "maximum": 50, "default": 25 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Apple/iTunes wishlist price refresh scheduler run summary",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AppleItunesWishlistPriceRefreshSchedulerRunResponse" }
+              }
+            }
+          },
+          "403": {
+            "description": "Admin access is required",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/Error" }
