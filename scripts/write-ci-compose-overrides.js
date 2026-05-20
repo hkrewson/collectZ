@@ -16,6 +16,8 @@ const buildOverride = `services:
       args:
         APP_VERSION: \${APP_VERSION:-}
     image: collectz-backend:ci
+    environment:
+      PLAYWRIGHT_E2E_BYPASS_TOKEN: \${PLAYWRIGHT_E2E_BYPASS_TOKEN:-}
     volumes:
       - ./init.sql:/init.sql:ro
       - ./docker-compose.yml:/docker-compose.yml:ro

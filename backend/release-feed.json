@@ -15,7 +15,8 @@
             "Marked the broad environment-variable page as a maintainer/runtime reference rather than the first public setup path.",
             "Removed stale Portainer/deploy guidance that implied version metadata variables changed the public prebuilt image tag.",
             "Removed public deploy guidance that recommended putting audit verbosity in the default Portainer environment.",
-            "Added the new public reference to public export surface validation."
+            "Added the new public reference to public export surface validation.",
+            "Kept the Playwright browser-regression bypass out of public compose/docs while restoring the CI-only compose override that passes the per-run bypass token to the backend test stack."
           ]
         }
       ]

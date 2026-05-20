@@ -255,6 +255,7 @@ const browserCapturesWorkflowSource = fs.readFileSync(require.resolve('../../.gi
 const nowPlayingViewerBrowserSpecSource = fs.readFileSync(require.resolve('../../tests/playwright/specs/now-playing-viewer.browser.spec.js'), 'utf8');
 const dockerComposeSource = fs.readFileSync(require.resolve('../../docker-compose.yml'), 'utf8');
 const publicComposeGeneratorSource = fs.readFileSync(require.resolve('../../scripts/generate-public-compose'), 'utf8');
+const ciComposeOverrideGeneratorSource = fs.readFileSync(require.resolve('../../scripts/write-ci-compose-overrides'), 'utf8');
 const publicExportValidatorSource = fs.readFileSync(require.resolve('../../scripts/validate-public-export-surface'), 'utf8');
 const releaseRoadmapSource = fs.readFileSync(require.resolve('../../docs/wiki/07-Release-Roadmap.md'), 'utf8');
 const backlogSource = fs.readFileSync(require.resolve('../../docs/wiki/08-Backlog.md'), 'utf8');
@@ -2508,6 +2509,7 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
   assert.ok(scopeAccessSource.includes("Number(libraryRow.space_id || 0) === Number(req.user?.supportSpaceId || 0)"));
   assert.ok(!dockerComposeSource.includes('PLAYWRIGHT_E2E_BYPASS_TOKEN'));
   assert.ok(!publicComposeGeneratorSource.includes('PLAYWRIGHT_E2E_BYPASS_TOKEN'));
+  assert.ok(ciComposeOverrideGeneratorSource.includes('PLAYWRIGHT_E2E_BYPASS_TOKEN: \\${PLAYWRIGHT_E2E_BYPASS_TOKEN:-}'));
   assert.ok(dockerPublishWorkflowSource.includes('browser-regression:'));
   assert.ok(dockerPublishWorkflowSource.includes('npx playwright install --with-deps chromium'));
   assert.ok(dockerPublishWorkflowSource.includes('npm run test:browser'));
