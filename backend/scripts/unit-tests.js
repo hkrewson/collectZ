@@ -6352,6 +6352,11 @@ results.push(run('mobile capture inbox foundation is scoped, routed, and reviewa
   assert.ok(captureInboxViewSource.includes('lastBatchSummary'));
   assert.ok(captureInboxViewSource.includes('Review choices'));
   assert.ok(captureInboxViewSource.includes('Review no matches'));
+  assert.ok(captureInboxViewSource.includes('Review scanner captures'));
+  assert.ok(captureInboxViewSource.includes('SOURCE_FILTERS'));
+  assert.ok(captureInboxViewSource.includes('isScannerCapture'));
+  assert.ok(captureItemsRoutesSource.includes('source_filter'));
+  assert.ok(captureItemsRoutesSource.includes('scannerSourceSql'));
   assert.ok(captureInboxViewSource.includes('type="file"'));
   assert.ok(captureInboxViewSource.includes('detectBarcodeCapturePayloadFromFile'));
   assert.ok(captureInboxViewSource.includes('extractIdentifierCandidatesFromFile'));

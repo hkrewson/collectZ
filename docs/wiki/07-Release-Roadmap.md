@@ -10810,6 +10810,39 @@ Historical note:
 - What remains in the milestone: nothing for `3.8.10`; next planned work is `3.8.11 — Capture Scan Immediate Lookup`, followed by batch scan mode, safe ISBN auto-import, and exception review routing.
 - Recommended commit message: `Release 3.8.10 with Capture Inbox barcode camera ISBN recognition`.
 
+## 3.8.16 — Capture Scanner Queue Shortcuts
+
+**Goal:** Make scanner-app captures easier to find and continue from inside Capture Inbox without adding a separate queue page.
+
+**Scope**
+
+- Add backend Capture Inbox source filtering for scanner-origin captures.
+- Return scanner and web source counts from the scoped capture list endpoint.
+- Add a compact scanner shortcut when scanner captures are waiting.
+- Add a source selector for All sources, Scanner app, and Web capture.
+- Show scanner-origin row readback so users know a capture came from the scanner app.
+- Preserve existing Capture Inbox review filters, batch scan summary, safe exact ISBN auto-add, and import/link behavior.
+
+**Acceptance**
+
+- `GET /api/capture-items?source_filter=scanner` returns scanner-origin captures within the active scope.
+- Capture Inbox shows a scanner shortcut when active scanner captures exist.
+- The scanner shortcut switches the existing list into the Scanner app source view.
+- Scanner-origin rows show `Scanner app` in row detail text.
+- Version metadata, release note, release feed, and Help > Releases include `3.8.16`.
+
+### Closeout
+
+- Roadmap slice: `3.8.16 — Capture Scanner Queue Shortcuts`.
+- Project docs/checklists used: `AGENTS.md`; `/Users/hamlin/.codex/skills/uncodixfy/SKILL.md`; `docs/wiki/06-Versioning-and-Build-Metadata.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.8.16.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild with `APP_VERSION=3.8.16`; running `/api/health` reported frontend/backend/build `3.8.16`; running backend env readback showed `APP_EDITION=platform`, `APP_VERSION=3.8.16`, `NODE_ENV=development`, `SESSION_COOKIE_SECURE=false`, `TRUST_PROXY=0`, and `LOG_EXPORT_BACKEND=off`; Help > Releases smoke served `3.8.16`; browser regression created a scanner-shaped capture, proved `source_filter=scanner`, clicked `Review scanner captures`, and verified scanner row readback; temporary homelab-mode stack proved the homelab edition boundary and the local stack was restored to platform mode afterward.
+- CI/checks run locally: `node --check backend/routes/captureItems.js`; host `node backend/scripts/unit-tests.js` (`295` passed); host `npm --prefix frontend run build`; host `node backend/scripts/validate-openapi.js`; host release feed export; Docker backend/frontend build; Docker `/api/health` smoke; Docker `npm run test:unit` (`295` passed); Docker `npm run test:openapi`; Docker `npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.8.16 npm run test:help-releases-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker temporary homelab override plus `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`; Docker `npm run test:init-parity` after rerunning because an overlapping homelab rebuild interrupted the first attempt; Docker `npm run test:migration-rehearsal`; targeted Capture Inbox Playwright regression (`2` passed); full `npm run test:browser` (`70` passed, `4` skipped); backend/frontend production dependency audits (`0` vulnerabilities); public export surface validation; compose config validation; local release preflight; release/evidence secret-pattern scan; `git diff --check`.
+- Blocked/unverified gates: local observability evidence remains failed/stale from the collector-path checks after the CI platform override attempts to pull unpublished release images; the stack is restored to `LOG_EXPORT_BACKEND=off`. Local `gitleaks`, `trivy`, and `syft` are unavailable, so CI remains authoritative for full `secret-scan` and `image-security-and-sbom`. Local secure-cookie compose-smoke remains blocked in the developer stack because it runs `NODE_ENV=development` with `SESSION_COOKIE_SECURE=false`; CI must still run the production-shaped `compose-smoke`.
+- Files changed for this slice: `app-meta.json`; `backend/app-meta.json`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/routes/captureItems.js`; `backend/scripts/unit-tests.js`; `docker-compose.yml`; `docs/releases/v3.8.16.md`; `docs/wiki/07-Release-Roadmap.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/CaptureInboxView.jsx`; `preflight-go-no-go.md`; `tests/playwright/specs/admin-shell.browser.spec.js`.
+- Risks/follow-ups: scanner detection is intentionally lightweight and string-based against existing `source_context.source` and `client_source` values; durable unified review routing, visible offline queue management, and cover/art recognition remain future Capture workflow work.
+- What remains in the milestone: nothing for `3.8.16`; the broader Mobile-First Capture Workflow can continue into durable review routing or visible offline queue management.
+- Recommended commit message: `Release 3.8.16 with Capture scanner queue shortcuts`.
+
 ## 3.8.15 — Capture Batch Session Summary
 
 **Goal:** Make a completed batch scan easier to understand and continue from without adding a separate queue page.

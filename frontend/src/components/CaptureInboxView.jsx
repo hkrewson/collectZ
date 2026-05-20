@@ -35,6 +35,12 @@ const CAPTURE_TYPES = [
   { value: 'ocr_text', label: 'OCR text' }
 ];
 
+const SOURCE_FILTERS = [
+  { value: 'all', label: 'All sources' },
+  { value: 'scanner', label: 'Scanner app' },
+  { value: 'web', label: 'Web capture' }
+];
+
 const OBJECT_TYPES = [
   { value: 'other', label: 'Other' },
   { value: 'book', label: 'Book' },
@@ -102,6 +108,12 @@ function latestReplayConflict(item = {}) {
     }
   }
   return null;
+}
+
+function isScannerCapture(item = {}) {
+  const source = String(item.source_context?.source || '').toLowerCase();
+  const clientSource = String(item.client_source || item.source_context?.client_source || '').toLowerCase();
+  return source.includes('scanner') || clientSource.includes('scanner');
 }
 
 function emptyReviewMessage(filter) {
@@ -487,7 +499,9 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
     missing_details: 0,
     problems: 0
   });
+  const [sourceCounts, setSourceCounts] = useState({ scanner: 0, web: 0 });
   const [captureType, setCaptureType] = useState('all');
+  const [sourceFilter, setSourceFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -521,6 +535,7 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
       params.set('limit', '50');
       if (reviewFilter !== 'all') params.set('review_filter', reviewFilter);
       if (captureType !== 'all') params.set('capture_type', captureType);
+      if (sourceFilter !== 'all') params.set('source_filter', sourceFilter);
       if (search.trim()) params.set('search', search.trim());
       const payload = await apiCall('get', `/capture-items?${params.toString()}`);
       setItems(Array.isArray(payload?.items) ? payload.items : []);
@@ -533,28 +548,35 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
         problems: Number(payload?.review_counts?.problems || 0)
       });
       setPagination(payload?.pagination || { page, limit: 50, total: 0, total_pages: 1 });
+      setSourceCounts({
+        scanner: Number(payload?.source_counts?.scanner || 0),
+        web: Number(payload?.source_counts?.web || 0)
+      });
     } catch (err) {
       setError(err?.message || 'Could not load capture inbox.');
     } finally {
       setLoading(false);
     }
-  }, [apiCall, captureType, reviewFilter, search, status]);
+  }, [apiCall, captureType, reviewFilter, search, sourceFilter, status]);
 
   useEffect(() => {
     loadCaptures(1);
   }, [loadCaptures]);
 
   const visibleCounts = useMemo(() => {
-    const counts = { active: 0, conflicts: 0, barcode: 0, photo: 0, ocr: 0 };
+    const counts = { active: 0, conflicts: 0, scanner: 0, barcode: 0, photo: 0 };
     items.forEach((item) => {
       if (item.status === 'new' || item.status === 'reviewed') counts.active += 1;
       if (latestReplayConflict(item)) counts.conflicts += 1;
+      if (isScannerCapture(item)) counts.scanner += 1;
       if (item.capture_type === 'barcode') counts.barcode += 1;
       if (item.capture_type === 'photo') counts.photo += 1;
-      if (item.capture_type === 'ocr_text') counts.ocr += 1;
     });
     return counts;
   }, [items]);
+
+  const showScannerShortcut = sourceFilter !== 'scanner' && sourceCounts.scanner > 0;
+  const showAllSourcesShortcut = sourceFilter !== 'all';
 
   const reviewTabs = useMemo(() => REVIEW_TABS.map((tab) => ({
     ...tab,
@@ -1079,6 +1101,41 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
         </div>
       ) : null}
 
+      {(showScannerShortcut || showAllSourcesShortcut) ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-y border-edge py-3" aria-label="Capture source shortcuts">
+          <div>
+            <div className="text-sm font-medium text-ink">
+              {sourceFilter === 'scanner' ? 'Scanner app captures' : 'Scanner captures waiting'}
+            </div>
+            <div className="mt-1 text-xs text-ghost">
+              {sourceFilter === 'scanner'
+                ? `${pagination.total || 0} scanner capture${(pagination.total || 0) === 1 ? '' : 's'} in this view`
+                : `${sourceCounts.scanner} scanner capture${sourceCounts.scanner === 1 ? '' : 's'} in the current status`}
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {showScannerShortcut ? (
+              <button
+                type="button"
+                className="btn-ghost btn-sm"
+                onClick={() => {
+                  setStatus('active');
+                  setSourceFilter('scanner');
+                  setReviewFilter('all');
+                }}
+              >
+                Review scanner captures
+              </button>
+            ) : null}
+            {showAllSourcesShortcut ? (
+              <button type="button" className="btn-ghost btn-sm" onClick={() => setSourceFilter('all')}>
+                Show all sources
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         <div className="border-b border-edge pb-2">
           <div className="text-xs text-ghost">Active</div>
@@ -1089,16 +1146,16 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
           <div className="mt-1 text-xl font-semibold text-ink">{visibleCounts.conflicts}</div>
         </div>
         <div className="border-b border-edge pb-2">
+          <div className="text-xs text-ghost">Scanner</div>
+          <div className="mt-1 text-xl font-semibold text-ink">{visibleCounts.scanner}</div>
+        </div>
+        <div className="border-b border-edge pb-2">
           <div className="text-xs text-ghost">Barcode</div>
           <div className="mt-1 text-xl font-semibold text-ink">{visibleCounts.barcode}</div>
         </div>
         <div className="border-b border-edge pb-2">
           <div className="text-xs text-ghost">Photo</div>
           <div className="mt-1 text-xl font-semibold text-ink">{visibleCounts.photo}</div>
-        </div>
-        <div className="border-b border-edge pb-2">
-          <div className="text-xs text-ghost">OCR</div>
-          <div className="mt-1 text-xl font-semibold text-ink">{visibleCounts.ocr}</div>
         </div>
       </div>
 
@@ -1118,6 +1175,9 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
             <select className="select h-9 min-w-36" value={captureType} onChange={(event) => setCaptureType(event.target.value)}>
               <option value="all">All captures</option>
               {CAPTURE_TYPES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+            <select className="select h-9 min-w-36" value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value)}>
+              {SOURCE_FILTERS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
             <input
               className="input h-9 w-64 max-w-full"
@@ -1180,9 +1240,11 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
         <div className="divide-y divide-edge/70 border-b border-edge/70">
           {items.map((item) => {
             const primary = item.title || item.barcode || item.ocr_text || item.notes || 'Untitled capture';
+            const scannerCapture = isScannerCapture(item);
             const secondary = [
               typeLabel(item.capture_type, CAPTURE_TYPES),
               typeLabel(item.object_type, OBJECT_TYPES),
+              scannerCapture ? 'Scanner app' : null,
               item.barcode,
               dateLabel(item.updated_at)
             ].filter(Boolean).join(' · ');

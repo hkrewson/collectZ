@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.8.16",
+      "version": "3.8.16",
+      "date": "2026-05-20",
+      "status": "implemented",
+      "summary": "This release makes scanner-app captures easier to find and continue from inside Capture Inbox.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added backend source filtering for Capture Inbox so scanner-origin captures can be requested directly.",
+            "Added source counts for scanner and web captures in Capture Inbox responses.",
+            "Added a compact scanner shortcut on Capture Inbox when scanner captures are waiting.",
+            "Added a source selector with Scanner app and Web capture filters.",
+            "Marks scanner-origin rows as Scanner app in capture row details."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.8.15",
       "version": "3.8.15",
       "date": "2026-05-20",
@@ -168,26 +187,6 @@
             "Stores lookup matches and summary counts on the capture row for later review.",
             "Adds a compact `Find matches` action for capture rows that have a barcode or applied OCR candidate.",
             "Shows persisted capture matches inline, including existing catalog matches marked as already in the library."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.8.6",
-      "version": "3.8.6",
-      "date": "2026-05-19",
-      "status": "implemented",
-      "summary": "This release lets Capture Inbox run backend-owned OCR against uploaded photo captures.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Adds authenticated `POST /api/capture-items/{id}/ocr-image`.",
-            "Reads locally stored capture uploads from backend storage before calling the configured Vision/OCR provider.",
-            "Stores extracted OCR text and reviewable ISBN, UPC/EAN, and ASIN candidates on the capture row.",
-            "Adds a compact `Read image text` action for photo captures in Capture Inbox.",
-            "Surfaces optional Vision/OCR provider settings through integration config readback and public compose env pass-through.",
-            "Records image OCR extraction activity for timeline/readback."
           ]
         }
       ]

@@ -23,6 +23,7 @@ const CAPTURE_TYPES = new Set(['barcode', 'photo', 'ocr_text', 'manual_note']);
 const STATUSES = new Set(['new', 'reviewed', 'converted', 'discarded']);
 const OBJECT_TYPES = new Set(['movie', 'tv_series', 'book', 'comic_book', 'audio', 'game', 'art', 'collectible', 'event_item', 'other']);
 const REVIEW_FILTERS = new Set(['all', 'needs_choice', 'no_match', 'ready', 'missing_details', 'problems']);
+const SOURCE_FILTERS = new Set(['all', 'scanner', 'web']);
 
 function trimString(value) {
   return String(value || '').trim();
@@ -123,6 +124,32 @@ function shapeCaptureItem(row) {
 function normalizeReviewFilter(value) {
   const filter = trimString(value).toLowerCase();
   return REVIEW_FILTERS.has(filter) ? filter : 'all';
+}
+
+function normalizeSourceFilter(value) {
+  const filter = trimString(value).toLowerCase();
+  return SOURCE_FILTERS.has(filter) ? filter : 'all';
+}
+
+function scannerSourceSql() {
+  return `(
+    LOWER(COALESCE(source_context->>'client_source', '')) LIKE '%scanner%'
+    OR LOWER(COALESCE(source_context->>'source', '')) LIKE '%scanner%'
+  )`;
+}
+
+function webSourceSql() {
+  return `(
+    LOWER(COALESCE(source_context->>'client_source', '')) LIKE '%web%'
+    OR LOWER(COALESCE(source_context->>'client_source', '')) LIKE '%browser%'
+    OR LOWER(COALESCE(source_context->>'source', '')) IN ('web_capture_inbox', 'web_capture_editor', 'capture_upload', 'playwright')
+  )`;
+}
+
+function sourceFilterCondition(filter) {
+  if (filter === 'scanner') return scannerSourceSql();
+  if (filter === 'web') return webSourceSql();
+  return 'TRUE';
 }
 
 function reviewArrayLength(path) {
@@ -486,6 +513,11 @@ router.get('/capture-items', asyncHandler(async (req, res) => {
     where += ` AND capture_type = $${params.length}`;
   }
 
+  const sourceFilter = normalizeSourceFilter(req.query.source_filter);
+  if (sourceFilter !== 'all') {
+    where += ` AND ${sourceFilterCondition(sourceFilter)}`;
+  }
+
   const search = trimString(req.query.search);
   if (search) {
     params.push(`%${search.toLowerCase()}%`);
@@ -517,7 +549,9 @@ router.get('/capture-items', asyncHandler(async (req, res) => {
         COUNT(*) FILTER (WHERE ${captureReviewFilterCondition('no_match')})::int AS no_match,
         COUNT(*) FILTER (WHERE ${captureReviewFilterCondition('ready')})::int AS ready,
         COUNT(*) FILTER (WHERE ${captureReviewFilterCondition('missing_details')})::int AS missing_details,
-        COUNT(*) FILTER (WHERE ${captureReviewFilterCondition('problems')})::int AS problems
+        COUNT(*) FILTER (WHERE ${captureReviewFilterCondition('problems')})::int AS problems,
+        COUNT(*) FILTER (WHERE ${scannerSourceSql()})::int AS scanner,
+        COUNT(*) FILTER (WHERE ${webSourceSql()})::int AS web
        FROM capture_items
       ${baseWhere}`,
     params
@@ -548,6 +582,11 @@ router.get('/capture-items', asyncHandler(async (req, res) => {
       ready: reviewCounts.ready || 0,
       missing_details: reviewCounts.missing_details || 0,
       problems: reviewCounts.problems || 0
+    },
+    source_filter: sourceFilter,
+    source_counts: {
+      scanner: reviewCounts.scanner || 0,
+      web: reviewCounts.web || 0
     },
     pagination: {
       page,

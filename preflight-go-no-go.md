@@ -1,13 +1,13 @@
 # Local Release Go/No-Go Preflight
 
-- Version: `3.8.15`
-- Generated: `2026-05-20T00:47:17.949Z`
+- Version: `3.8.16`
+- Generated: `2026-05-20T01:17:18.803Z`
 - Base URL: `http://localhost:3000`
 
 ## Gate Results
 
-- Version metadata sync: PASS — all manifests aligned on 3.8.15
-- Release note presence: PASS — docs/releases/v3.8.15.md
+- Version metadata sync: PASS — all manifests aligned on 3.8.16
+- Release note presence: PASS — docs/releases/v3.8.16.md
 - Backend dependency audit: PASS — low=0 moderate=0 high=0 critical=0
 - Frontend dependency audit: PASS — low=0 moderate=0 high=0 critical=0
 - Migration evidence presence: PASS — init parity and migration rehearsal evidence are present
@@ -28,7 +28,7 @@
 
 ## Release Note
 
-- `docs/releases/v3.8.15.md`: present
+- `docs/releases/v3.8.16.md`: present
 - Security triage markers: present
 
 ## Blocking Criteria

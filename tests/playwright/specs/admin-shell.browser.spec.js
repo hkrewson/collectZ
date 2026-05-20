@@ -113,10 +113,12 @@ test.describe('admin shell browser regressions', () => {
     const photoTitle = `Playwright Photo Capture ${suffix}`;
     const clientCaptureId = `playwright-capture-${suffix}`;
     const photoClientCaptureId = `playwright-photo-${suffix}`;
+    const scannerClientCaptureId = `playwright-scanner-${suffix}`;
     const adminCredentials = await ensureSavedAdminCredentials();
     const requestContext = await createAuthenticatedRequestContext(adminCredentials);
     let captureId = null;
     let photoCaptureId = null;
+    let scannerCaptureId = null;
     let wantedItemId = null;
     let catalogMediaId = null;
 
@@ -169,6 +171,27 @@ test.describe('admin shell browser regressions', () => {
       expect(conflictRetryPayload?.item?.barcode).toBe(createPayload.item.barcode);
       expect(conflictRetryPayload?.replay_conflicts?.some((conflict) => conflict.field === 'barcode')).toBeTruthy();
       expect(conflictRetryPayload?.item?.review_decision?.capture_replay_last_status).toBe('needs_review');
+
+      const scannerCaptureResponse = await postWithCsrf(requestContext, '/api/capture-items', {
+        title: `Scanner Queue Capture ${suffix}`,
+        capture_type: 'barcode',
+        object_type: 'book',
+        barcode: '9780553572773',
+        symbology: 'ISBN-13',
+        client_capture_id: scannerClientCaptureId,
+        client_source: 'ios-scanner-app',
+        source_context: { source: 'ios_scanner_app' }
+      }, 201);
+      const scannerCapturePayload = await scannerCaptureResponse.json();
+      scannerCaptureId = Number(scannerCapturePayload?.item?.id || 0);
+      expect(scannerCaptureId).toBeGreaterThan(0);
+      expect(scannerCapturePayload?.item?.client_source).toBe('ios-scanner-app');
+
+      const scannerFilterResponse = await requestContext.get('/api/capture-items?status=active&source_filter=scanner');
+      expect(scannerFilterResponse.ok()).toBeTruthy();
+      const scannerFilterPayload = await scannerFilterResponse.json();
+      expect(scannerFilterPayload?.source_filter).toBe('scanner');
+      expect(scannerFilterPayload?.items?.some((item) => Number(item.id) === scannerCaptureId)).toBeTruthy();
 
       const csrfToken = await fetchCsrfToken(requestContext);
       const uploadResponse = await requestContext.post('/api/capture-items/upload-image', {
@@ -262,6 +285,17 @@ test.describe('admin shell browser regressions', () => {
       await expect(page.getByRole('tab', { name: /Needs choice/ })).toBeVisible();
       await expect(page.getByRole('tab', { name: /Ready to add/ })).toBeVisible();
       await expect(page.getByRole('tab', { name: /No match/ })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Review scanner captures' })).toBeVisible();
+      const scannerUiFilterResponse = page.waitForResponse((response) => (
+        response.url().includes('/api/capture-items')
+        && response.url().includes('source_filter=scanner')
+        && response.request().method() === 'GET'
+      ));
+      await page.getByRole('button', { name: 'Review scanner captures' }).click();
+      expect((await scannerUiFilterResponse).ok()).toBeTruthy();
+      const scannerRow = page.locator('div').filter({ hasText: `Scanner Queue Capture ${suffix}` }).filter({ hasText: 'Scanner app' }).first();
+      await expect(scannerRow).toBeVisible();
+      await page.getByRole('button', { name: 'Show all sources' }).click();
       const reviewFilterResponse = page.waitForResponse((response) => (
         response.url().includes('/api/capture-items')
         && response.url().includes('review_filter=needs_choice')
@@ -370,6 +404,9 @@ test.describe('admin shell browser regressions', () => {
       }
       if (photoCaptureId) {
         await requestWithCsrf(requestContext, 'DELETE', `/api/capture-items/${photoCaptureId}`, undefined, [200, 404]).catch(() => {});
+      }
+      if (scannerCaptureId) {
+        await requestWithCsrf(requestContext, 'DELETE', `/api/capture-items/${scannerCaptureId}`, undefined, [200, 404]).catch(() => {});
       }
       if (wantedItemId) {
         await requestWithCsrf(requestContext, 'DELETE', `/api/wishlist/${wantedItemId}`, undefined, [200, 404]).catch(() => {});
