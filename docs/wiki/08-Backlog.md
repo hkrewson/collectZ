@@ -7,6 +7,7 @@ This file is the staging area for work that has not yet been assigned a release 
 - Keep backlog items versionless until they are promoted.
 - Treat tags as metadata only.
 - Keep each item clearly scoped as a task, bug, discussion, or deferred milestone.
+- Each backlog item should include enough context to judge status later: a one-line goal, current state or why it exists, intended scope, candidate subtasks when useful, and acceptance criteria.
 - If an item is clearly a release candidate, mark it as such in the backlog, but do not assign a version number yet.
 - When a backlog item is selected for work, move it into the roadmap as a numbered milestone instead of copying it.
 - Keep the roadmap focused on milestone work only.
@@ -19,12 +20,33 @@ These are product-level capability gaps discovered from the current shape of the
 ### Backlog Item: Unified Review Queue
 **Type:** Deferred milestone
 **Tags:** `product`, `review`, `imports`, `metadata`, `duplicates`
+**Status:** Active backlog; not yet implemented as one unified product surface.
 
 **Goal:** Centralize uncertain states from scanner, Plex, Kavita, enrichment, duplicate detection, and imports.
+
+**Intent**
+- Give users one predictable place to resolve uncertain or partial work instead of hunting through provider-specific screens.
+- Preserve the provider-specific evidence that already exists while making the user workflow feel like "review these things" instead of "debug these integrations."
+
+**Current state**
+- Capture Inbox can hold scanner/capture work.
+- Plex reconciliation conflicts have their own review surface.
+- Dashboard/Needs Attention can show missing covers, missing identifiers, failed syncs, and Plex conflicts.
+- Apple/iTunes target-price hits can be reviewed in Wishlist.
+- These are separate surfaces; there is no single queue with shared statuses, ownership, or resolution semantics.
 
 **Scope**
 - Capture candidate selection, conflict review, sparse import review, missing-cover review, and low-confidence metadata decisions.
 - Preserve provider-specific readback while giving users one place to resolve uncertain work.
+- Define a common review item shape: source, affected object, reason, confidence, proposed action, available actions, status, and audit trail.
+- Start with readback/links before trying to move every provider workflow into one giant editor.
+
+**Candidate subtasks**
+- Inventory existing reviewable states and map them to a shared review-item taxonomy.
+- Add a backend readback endpoint that aggregates existing reviewable items without changing their source workflows.
+- Add a compact review queue UI with source/type filters and direct links to the owning workflow.
+- Add shared dismiss/defer semantics only where they can be audited without losing provider-specific evidence.
+- Later: allow inline resolution for simple cases such as missing covers, sparse imports, duplicate candidates, and target-price hits.
 
 **Acceptance Criteria**
 - Reviewable items have a clear source, reason, and next action.
@@ -34,12 +56,31 @@ These are product-level capability gaps discovered from the current shape of the
 ### Backlog Item: Collection Health and Audit Dashboard
 **Type:** Deferred milestone
 **Tags:** `product`, `health`, `audit`, `metadata`, `maintenance`
+**Status:** Partially served by Dashboard/Needs Attention; full health/audit workflow is not implemented.
 
 **Goal:** Show collection maintenance health across libraries and workspaces.
+
+**Intent**
+- Make collection maintenance visible and actionable without turning the Dashboard into a giant error log.
+- Separate "things need attention" from "the collection has measurable health gaps over time."
+
+**Current state**
+- Dashboard can surface counts and sample lists for missing covers, missing identifiers, failed syncs, and Plex conflicts.
+- Provider health and recent activity exist as operational readback.
+- There is no dedicated health/audit view with severity, source, trend, filtering, or repair status.
 
 **Scope**
 - Surface missing identifiers, missing covers, duplicate candidates, stale syncs, failed imports, unlinked provider rows, and low-confidence metadata.
 - Keep health findings explainable and actionable instead of presenting a vague score.
+- Support workspace/library/type/provider filters.
+- Include enough source context to explain why a finding exists and where to fix it.
+
+**Candidate subtasks**
+- Define health finding categories and severity rules.
+- Add scoped backend summary endpoints for counts and sample rows.
+- Add filtered drill-down lists for missing covers and missing identifiers.
+- Add stale-sync and failed-import diagnostics that link back to sync job/activity evidence.
+- Add a maintenance history/readback path so dismissed or resolved findings do not reappear without context.
 
 **Acceptance Criteria**
 - Users can identify the most important collection maintenance issues.
@@ -49,13 +90,29 @@ These are product-level capability gaps discovered from the current shape of the
 ### Backlog Item: Universal Search
 **Type:** Deferred milestone
 **Tags:** `product`, `search`, `navigation`, `identifiers`
+**Status:** Active backlog; current search remains section-specific plus scanner/provider lookup flows.
 
 **Goal:** Search across media, books, comics, games, art, collectibles, events, people, vendors, identifiers, and provider IDs.
+
+**Intent**
+- Let users find an object without remembering which library, provider, event, or workflow owns it.
+- Make barcode/ISBN/UPC/provider-id lookups a normal navigation path, not only an import/capture path.
+
+**Current state**
+- Library search, provider lookup, scanner barcode/ISBN lookup, event search, and admin/search-like workflows exist separately.
+- There is no app-wide command/search surface that returns typed destinations across collection objects and operational records.
 
 **Scope**
 - Include barcode, ISBN, UPC, provider identity, artist, vendor, event, and object-title lookups.
 - Provide direct navigation to matched records.
 - Keep search scoped to the user's accessible workspace and library permissions.
+
+**Candidate subtasks**
+- Define a shared search result shape with object type, title, subtitle, source, destination, and match reason.
+- Add a backend global-search endpoint that fans out to existing scoped object queries.
+- Add identifier-first matching for ISBN/UPC/provider IDs before title search.
+- Add a compact command/search UI that can navigate directly to records.
+- Later: include review queue findings, activity entries, people/places, and provider sync records.
 
 **Acceptance Criteria**
 - Users can find known records without knowing which section owns them.
@@ -65,12 +122,29 @@ These are product-level capability gaps discovered from the current shape of the
 ### Backlog Item: Saved Views and Smart Collections
 **Type:** Deferred milestone
 **Tags:** `product`, `saved-views`, `smart-collections`, `filters`
+**Status:** Active backlog; no durable saved-view model exists yet.
 
 **Goal:** Let users save reusable filtered views across collection data.
+
+**Intent**
+- Turn repeated filters into named, reusable views without requiring users to rebuild them every time.
+- Start as saved filters before adding rule automation or collection-like ownership semantics.
+
+**Current state**
+- Many library screens have filters and sort state.
+- Dashboard and provider surfaces expose some fixed views.
+- Users cannot save custom filtered views or share workspace-scoped smart views.
 
 **Scope**
 - Support views such as unread Kavita comics, signed art, missing ISBNs, event-purchased items, recent imports, watched but unowned media, and needs-review items.
 - Keep saved views as user/workspace-scoped filters before introducing heavier rule automation.
+
+**Candidate subtasks**
+- Define saved view storage: owner, workspace/library scope, object type, filters, sort, display mode, and visibility.
+- Add create/update/delete/list endpoints for saved views.
+- Add UI affordances to save the current library filter state.
+- Add a "Saved Views" entry point in the library/dashboard navigation.
+- Later: support smart collection badges, shared workspace views, and review/health-driven views.
 
 **Acceptance Criteria**
 - Users can save, name, open, and update reusable filtered views.
@@ -80,13 +154,30 @@ These are product-level capability gaps discovered from the current shape of the
 ### Backlog Item: People and Places Model
 **Type:** Deferred milestone
 **Tags:** `product`, `people`, `places`, `identity`, `events`
+**Status:** Partially implemented for artists and event attendees; broader scoped identity model remains backlog.
 
 **Goal:** Introduce reusable scoped identities for creators, vendors, venues, friends, publishers, stores, and event-related people.
+
+**Intent**
+- Reduce repeated free-text names where reuse has real value, while keeping lightweight one-off entry intact.
+- Keep identity scoped to a workspace unless a later milestone explicitly defines a broader boundary.
+
+**Current state**
+- Reusable Artist records exist for artwork entry.
+- Event attendees can be linked to app users for current-user/self attendee behavior.
+- Vendor, venue, publisher, store, friend/contact, and broader creator identities are still mostly free text or object-local fields.
 
 **Scope**
 - Keep this distinct from a social network or broad friend graph.
 - Support reusable people/place references for artists, vendors, venues, publishers, stores, attendees, and event contacts where useful.
 - Preserve workspace ownership and privacy boundaries.
+
+**Candidate subtasks**
+- Inventory existing person/place-like fields and decide which should stay free text.
+- Define scoped people/place records with roles, aliases, links, and source provenance.
+- Extend artwork artists only after proving migration/backfill behavior.
+- Add vendor and venue reuse for events/convention purchases if it reduces repeated entry.
+- Keep "friends" limited to event-local coordination/contact records unless a later friend graph is selected.
 
 **Acceptance Criteria**
 - People and places can be reused without duplicating plain-text fields everywhere.
@@ -96,17 +187,60 @@ These are product-level capability gaps discovered from the current shape of the
 ### Backlog Item: Backup, Export, and Portability UX
 **Type:** Deferred milestone
 **Tags:** `product`, `backup`, `export`, `portability`, `homelab`
+**Status:** Active backlog; docs/runbooks exist, but in-app trust/readback is not implemented.
 
 **Goal:** Make data trust visible in the app, not only in docs.
+
+**Intent**
+- Help self-hosted and platform users understand where their data lives, whether backup/export paths are healthy, and how portable their collection is.
+- Keep sensitive backup details redacted while making operational confidence visible.
+
+**Current state**
+- Public docs and runbooks describe configuration, backup/restore, environment, and deployment behavior.
+- The app does not provide an in-product backup/export status dashboard.
 
 **Scope**
 - Surface export data, export images, backup status, restore guidance, storage location readback, and portability checks.
 - Keep operator docs as the detailed runbook while giving users an in-app confidence/readiness surface.
 
+**Candidate subtasks**
+- Add read-only backend endpoints for database/storage/export capability readback.
+- Show storage locations and configured backup/export status with secrets redacted.
+- Add manual export actions only after readback and permissions are clear.
+- Add portability checks for database rows, uploaded media, provider-linked metadata, and release/runtime version.
+- Link to sanitized docs/runbooks from the in-app surface.
+
 **Acceptance Criteria**
 - Users can see whether backups and exports are configured and recent.
 - Export/restore guidance is visible from the app without exposing secrets.
 - Data portability coverage is clear for database records, images, and provider-linked metadata.
+
+### Backlog Item: Apple/iTunes Wishlist Price Watch Follow-ups
+**Type:** Deferred milestone
+**Tags:** `wishlist`, `apple-itunes`, `price-watch`, `notifications`, `review`
+
+**Goal:** Preserve future Apple/iTunes Wishlist price-watch ideas without treating them as current priority work.
+
+**Why this work exists**
+- The Apple/iTunes Wishlist foundation can already search, save, refresh prices, store history, run an opt-in scheduler, surface target-price hits, and mark hits ordered or dismissed.
+- The remaining work is useful only if Apple/iTunes price watching becomes personally or product-significant later.
+
+**Scope**
+- Add optional price-drop notification behavior for target-price hits.
+- Route target-price hits into a broader review queue if the Unified Review Queue is selected.
+- Improve price-history UX with trends, lowest-seen readback, or compact charts.
+- Research better Apple movie/catalog matching only if Apple/iTunes movie acquisition tracking becomes important.
+- Keep scheduled polling conservative, opt-in, and rate-limit aware.
+
+**Out of scope**
+- Do not add auto-purchase behavior.
+- Do not make Apple/iTunes the default Wishlist acquisition path.
+- Do not prioritize this ahead of higher-value collection, capture, import, or review workflows unless explicitly selected.
+
+**Acceptance Criteria**
+- Users can opt into any alerting or polling behavior.
+- Price-watch decisions remain explainable from stored price history and provider metadata.
+- Target-price hits can be reviewed or dismissed without creating noisy duplicate work.
 
 ## UI/UX Cleanup Working Plan
 
@@ -344,14 +478,27 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 ### Backlog Item: Public Homelab Repo Promotion and Export Workflow
 **Type:** Deferred milestone
 **Tags:** `major-feature`, `infra`, `risk`, `homelab`, `repo-promotion`
+**Status:** Partially completed by public-compose/env/docs cleanup; remaining work is actual publication/export automation.
 
 **Goal:** Prepare the public homelab repo promotion and export workflow after the shared-core boundary settles.
+
+**Current state**
+- Public homelab compose and private platform surface scrub work shipped in `3.4.20`.
+- Public environment/docs cleanup shipped across the `3.8.x` line, including simplified env examples and public homelab reference updates.
+- GHCR image publication exists for backend/frontend runtime images.
+- A separate public repo/export workflow is not yet automated or documented as a repeatable release operation.
 
 **Scope**
 - Define how shared-core content is packaged for public release.
 - Define how publication and update flow work for the homelab repo.
 - Keep the public repo free of private platform shell surfaces.
 - Make the promotion path intentional instead of ad hoc.
+
+**Remaining subtasks**
+- Decide whether the public homelab artifact is a separate repository, release asset bundle, or generated export branch.
+- Add an export validation checklist that proves no private platform-only docs, env knobs, credentials, or internal runbooks leak into the public artifact.
+- Document how `latest` and stable tags map to public deployment updates.
+- Add release automation only after the exported artifact boundary is stable enough to maintain.
 
 **Acceptance Criteria**
 - The public homelab repo contains no private platform shell surfaces.
@@ -398,8 +545,15 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 ### Backlog Item: Imports and Sync Cadence Expansion
 **Type:** Deferred milestone
 **Tags:** `imports`, `csv`, `calibre`, `kavita`, `metron`, `sync`
+**Status:** Active backlog for non-Plex providers and CSV templates; Plex broad sync work is closed.
 
 **Goal:** Expand import templates and synchronization cadence controls across the supported non-Plex import sources.
+
+**Current state**
+- Plex import/reconciliation/scheduler/writeback work is closed and should not be reopened under this broad item.
+- Kavita has substantial import/sync behavior, issue fan-out, covers, progress, writeback, and workspace-owned administration, but still has separate backlog for special chapters, background progress polling, and shared provider abstraction.
+- Barcode/ISBN scanner API and Capture Inbox paths exist.
+- Multiple type-specific CSV templates and non-Plex cadence controls are not yet formalized as a shared import operating model.
 
 **Scope**
 - Add multiple CSV templates for:
@@ -413,6 +567,13 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
   - Calibre
   - Kavita
   - Metron
+
+**Remaining subtasks**
+- Inventory existing CSV import mappings and identify gaps by media type.
+- Add template files, docs, and import smoke coverage for each supported CSV shape.
+- Define per-provider cadence readback and controls for Calibre/CWA, Kavita, and Metron where applicable.
+- Route failed/stale import cadence states into Dashboard/health or the future Unified Review Queue.
+- Keep provider-specific metadata behavior documented instead of hiding it behind one generic sync label.
 
 **Plex status**
 - Plex import, provider discovery, provider-advertised sections-root resolution, webhook receipt/processing, new-title hints, watched-state sync/writeback, rating readback/writeback, reconciliation, conflict review, scheduled/full-scan behavior, and operating-model UI/docs cleanup were promoted and closed across `3.4.111` through `3.4.151`.
@@ -444,14 +605,25 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 ### Backlog Item: Event Social Planning Mobile Web Experience
 **Type:** Task
 **Tags:** `events`, `mobile`, `ui`, `social`, `meetups`, `schedule`
+**Status:** Mostly completed across `3.4.33` through `3.4.84`; keep only for new mobile-web polish discovered through real use.
 
 **Goal:** Make the web app's event social planning views useful on a phone during a con before building native companion surfaces.
+
+**Current state**
+- The Event drawer now includes mobile schedule readability, day navigation, compact social overview, fast meetup/status updates, shared schedule editing, private/shared treatment, vendor/booth/location notes, day-of social summary, and mobile time-window filters.
+- Event-local attendee, group, meetup, schedule, notification draft/history/inbox, and delivery-attempt readback foundations are present.
+- The broad "make it usable on mobile" intent is no longer a blank backlog item; future work should be specific polish found during real event use.
 
 **Scope**
 - Continue the mobile-first event social view beyond the completed `3.4.38` through `3.4.42` slices when new small mobile-social polish needs appear.
 - Optimize the view for quick day-of-con scanning rather than admin-heavy editing.
 - Keep the UI privacy-aware so private and shared items are visually distinct.
 - Preserve desktop planning views for richer pre-con editing.
+
+**Remaining subtasks**
+- Record concrete mobile friction from actual con/day-of use instead of inventing broad UI work.
+- Promote only narrow slices such as "reduce drawer scrolling for X," "make Y action thumb-reachable," or "clarify Z privacy readback."
+- Keep native companion work in the platform-app backlog items instead of widening this web task.
 
 **Acceptance Criteria**
 - A user can open an event on mobile and quickly see who/when/where for social plans.
@@ -462,6 +634,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 ### Backlog Item: Event Schedule Catalog Now/Next Follow-ups
 **Type:** Deferred milestone
 **Tags:** `events`, `schedule`, `discovery`, `sched`, `calendar`, `mobile`
+**Status:** Mostly completed for web/backend catalog discovery; remaining work should be narrow import/provider polish or native-companion-specific.
 
 **Goal:** Build on the `3.4.46` and `3.4.47` schedule catalog foundation/entry work with import, discovery, and richer quick planning flows for sessions happening during a con.
 
@@ -496,7 +669,8 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - The `3.4.71` delivery-attempt model slice is promoted to define the future attempt audit shape while keeping attempt creation disabled.
 - The `3.4.72` delivery-attempt persistence slice is promoted to create/read Event-local attempt audit rows without enabling external providers.
 - The `3.4.73` delivery-attempt readback UI slice is promoted to surface Event-local attempt audit evidence in notification history.
-- This follow-up turns that data into import-backed and time-aware discovery surfaces.
+- Later slices added platform companion Now/Next contracts (`3.4.74` and `3.4.75`), social discovery/readback, attendee duplicate guardrails, mobile day-of social summary, and mobile time-window filters through `3.4.84`.
+- The original broad web/backend catalog intent is mostly shipped; this item remains only as a parking place for specific catalog import/provider or day-of-discovery polish.
 
 **Scope**
 - Support importing or manually entering an event's full schedule catalog.
@@ -504,6 +678,12 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - Add filters for time window, track/category, location/room, planned status, friend/group attendance, and conflicts.
 - Add session states such as planned, maybe, skipped, backup, and unavailable where useful.
 - Keep Sched ingestion conservative: prefer supported export/import paths over brittle scraping.
+
+**Remaining subtasks**
+- Identify any missing provider import path beyond current ICS/manual entry.
+- Add only concrete catalog discovery improvements that cannot be solved by the existing filters and Now/Next readback.
+- Keep push/email/device-provider delivery outside this item unless a delivery provider task is explicitly selected.
+- Move native Swift/UI work to the platform companion backlog items.
 
 **Acceptance Criteria**
 - Catalog import flows build on `event_schedule_sessions` instead of personal selected schedule plans.
@@ -515,8 +695,14 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 ### Backlog Item: Friend-Aware Session Changes and Notifications
 **Type:** Deferred milestone
 **Tags:** `events`, `social`, `schedule`, `notifications`, `friends`, `groups`
+**Status:** Backend/local event notification workflow mostly shipped; remaining work is external delivery and/or native app UX.
 
 **Goal:** Let users quickly change session choices and notify selected friends or groups about the plan change.
+
+**Current state**
+- Join/leave/replace/backup intent, selected-recipient drafts, templates, recipient trimming, draft management, notification history/inbox/readback, delivery attempt audit rows, and platform companion contracts have shipped.
+- Delivery providers are intentionally described but disabled; there is no push/email/device delivery.
+- No broad friend graph exists; the model remains event-local and visibility-aware.
 
 **Scope**
 - Add explicit actions for joining, leaving, replacing, or marking backup sessions. The first web-card slice is promoted as `3.4.64`.
@@ -532,6 +718,12 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - Handle conflicts by offering replace, keep as backup, or keep both tentative.
 - Respect privacy levels from the event social planning model.
 
+**Remaining subtasks**
+- Pick an actual delivery provider path, such as email, push, platform-device, or Discord, before adding real outbound delivery.
+- Keep delivery opt-in per change and selected-recipient by default.
+- Add provider-specific failure/readback only after external delivery is enabled.
+- Keep any native Apple session-change UI in the platform companion backlog.
+
 **Acceptance Criteria**
 - A user can change session plans from a quick event/session view.
 - The app can notify selected friends or groups about the change.
@@ -541,6 +733,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 ### Backlog Item: Platform Companion Now/Next Schedule Experience
 **Type:** Deferred milestone
 **Tags:** `apple`, `platform-app`, `xcode`, `events`, `schedule`, `offline`, `notifications`
+**Status:** Backend/API contract shipped as `3.4.74`; remaining work is native app implementation outside this repo plus any contract gaps found by that app.
 
 **Goal:** Make the Apple/Xcode app a useful day-of-con companion for fast schedule discovery and plan changes while the web app remains the canonical planning surface.
 
@@ -567,10 +760,12 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 
 **Promotion**
 - The backend/API companion contract slice for this work is promoted as `3.4.74`. Native Swift UI implementation remains outside this webapp repo.
+- Do not promote more backend work from this item until the native client identifies a concrete contract gap.
 
 ### Backlog Item: Platform Companion Friend-Aware Session Changes
 **Type:** Deferred milestone
 **Tags:** `apple`, `platform-app`, `xcode`, `events`, `social`, `schedule`, `notifications`, `privacy`
+**Status:** Backend/API contract shipped as `3.4.75`; remaining work is native app implementation and future real delivery-provider integration.
 
 **Goal:** Let the Apple/Xcode app handle quick session plan changes with opt-in, privacy-aware friend and group notifications.
 
@@ -598,3 +793,4 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 
 **Promotion**
 - The backend/API companion contract slice for this work is promoted as `3.4.75`. Native Swift UI implementation remains outside this webapp repo.
+- Do not promote more backend work from this item until the native client or a selected delivery provider exposes a concrete contract gap.

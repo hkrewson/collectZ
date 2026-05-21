@@ -132,6 +132,7 @@ const { shouldEnforceCsrf } = require('../middleware/csrf');
 const { sanitizeRequestUrl } = require('../middleware/errors');
 const observabilityRuntimeSource = fs.readFileSync(require.resolve('../services/observabilityRuntime'), 'utf8');
 const releasePreflightLocalSource = fs.readFileSync(require.resolve('../scripts/release-preflight-local'), 'utf8');
+const ciComposeWriterSource = fs.readFileSync(require.resolve('../../scripts/write-ci-compose-overrides'), 'utf8');
 const artMigrationBackfillSmokeSource = fs.readFileSync(require.resolve('../scripts/art-migration-backfill-smoke'), 'utf8');
 const nativeArtReadCutoverSmokeSource = fs.readFileSync(require.resolve('../scripts/native-art-read-cutover-smoke'), 'utf8');
 const authModulePath = require.resolve('../middleware/auth');
@@ -263,6 +264,10 @@ const stablePromotionWorkflowSource = fs.readFileSync(require.resolve('../../.gi
 const browserCapturesWorkflowSource = fs.readFileSync(require.resolve('../../.github/workflows/browser-captures.yml'), 'utf8');
 const nowPlayingViewerBrowserSpecSource = fs.readFileSync(require.resolve('../../tests/playwright/specs/now-playing-viewer.browser.spec.js'), 'utf8');
 const dockerComposeSource = fs.readFileSync(require.resolve('../../docker-compose.yml'), 'utf8');
+const ciBuildComposePath = path.resolve(__dirname, '..', '..', '.ci', 'docker-compose.build.yml');
+const ciBuildComposeSource = fs.existsSync(ciBuildComposePath)
+  ? fs.readFileSync(ciBuildComposePath, 'utf8')
+  : '';
 const publicComposeGeneratorSource = fs.readFileSync(require.resolve('../../scripts/generate-public-compose'), 'utf8');
 const ciComposeOverrideGeneratorSource = fs.readFileSync(require.resolve('../../scripts/write-ci-compose-overrides'), 'utf8');
 const publicExportValidatorSource = fs.readFileSync(require.resolve('../../scripts/validate-public-export-surface'), 'utf8');
@@ -6732,6 +6737,12 @@ results.push(run('observability endpoint control-plane source includes stored co
   assert.ok(observabilityRuntimeSource.includes('envService'));
   assert.ok(observabilityRuntimeSource.includes('envDebugEnabled'));
   assert.ok(!dockerComposeSource.includes('LOG_EXPORT_SETTINGS_READ_ONLY'));
+  assert.ok(ciComposeWriterSource.includes('LOG_EXPORT_BACKEND:'));
+  assert.ok(ciComposeWriterSource.includes('LOG_EXPORT_SETTINGS_READ_ONLY:'));
+  if (ciBuildComposeSource) {
+    assert.ok(ciBuildComposeSource.includes('LOG_EXPORT_BACKEND: ${LOG_EXPORT_BACKEND:-off}'));
+    assert.ok(ciBuildComposeSource.includes('LOG_EXPORT_SETTINGS_READ_ONLY: ${LOG_EXPORT_SETTINGS_READ_ONLY:-false}'));
+  }
   assert.ok(logExportSource.includes('LOG_EXPORT_SETTINGS_READ_ONLY'));
 }));
 

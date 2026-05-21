@@ -18,6 +18,11 @@ const buildOverride = `services:
     image: collectz-backend:ci
     environment:
       DEBUG: \${DEBUG:-0}
+      LOG_EXPORT_BACKEND: \${LOG_EXPORT_BACKEND:-off}
+      LOG_EXPORT_HOST: \${LOG_EXPORT_HOST:-127.0.0.1}
+      LOG_EXPORT_PORT: \${LOG_EXPORT_PORT:-12201}
+      LOG_EXPORT_DEBUG: \${LOG_EXPORT_DEBUG:-0}
+      LOG_EXPORT_SETTINGS_READ_ONLY: \${LOG_EXPORT_SETTINGS_READ_ONLY:-false}
       PLAYWRIGHT_E2E_BYPASS_TOKEN: \${PLAYWRIGHT_E2E_BYPASS_TOKEN:-}
     volumes:
       - ./init.sql:/init.sql:ro

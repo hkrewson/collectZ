@@ -10810,6 +10810,35 @@ Historical note:
 - What remains in the milestone: nothing for `3.8.10`; next planned work is `3.8.11 — Capture Scan Immediate Lookup`, followed by batch scan mode, safe ISBN auto-import, and exception review routing.
 - Recommended commit message: `Release 3.8.10 with Capture Inbox barcode camera ISBN recognition`.
 
+## 3.9.8 — Observability Collector Smoke Wiring
+
+**Goal:** Restore release evidence confidence for structured-log collector smoke tests by ensuring generated CI compose overrides actually pass external-log runtime settings into the backend container.
+
+### Scope
+
+- Forward `LOG_EXPORT_BACKEND`, host, port, debug, and read-only settings through the generated CI Docker Compose backend override.
+- Keep public homelab compose minimal and unchanged for external log export defaults.
+- Add regression coverage so the CI compose writer and local generated override keep the log-export env surface.
+- Regenerate observability evidence and prove Graylog, Loki, syslog, nonblocking failure, restore, and main-stack health all pass.
+
+### Acceptance Criteria
+
+- Generated CI compose includes backend `LOG_EXPORT_*` env wiring.
+- Observability release evidence reports `9/9` passed checks.
+- Version metadata, release note, release feed, and Help > Releases include `3.9.8`.
+
+### Closeout
+
+- Roadmap slice: `3.9.8 — Observability Collector Smoke Wiring`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/30-Observability-Triage-Runbook.md`; `docs/wiki/35-Structured-Log-Export.md`; `docs/wiki/37-Syslog-Structured-Logs.md`; `docs/releases/v3.9.8.md`.
+- Runtime verification used: Docker-first observability evidence rebuilt the backend with collector-specific log-export settings, started/stopped Graylog, Loki, and syslog collector stacks, verified exported `admin.feature_flag.update` events reached Graylog search, Loki query, and syslog collector tail, restored the backend, and verified main stack health; rebuilt backend/frontend at `APP_VERSION=3.9.8`; verified `/api/health` reports frontend/backend/build `3.9.8`; verified running backend env returned normal platform/dev values with no lingering `LOG_EXPORT_*` override; verified Help > Releases serves `3.9.8`; ran an isolated homelab boundary stack with `APP_EDITION` empty, `APP_VERSION=3.9.8`, and `LOG_EXPORT_BACKEND=off`.
+- CI/checks run locally: host `node --check scripts/write-ci-compose-overrides.js`; host `node --check backend/scripts/observability-release-evidence.js`; host `node backend/scripts/unit-tests.js` (`299` passed); generated CI compose config readback confirmed backend `LOG_EXPORT_*` env wiring; `npm --prefix backend run test:observability-evidence` (`9/9` checks passed); Docker backend/frontend build; Docker `npm run test:unit` (`299` passed); Docker `npm run test:openapi`; Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.9.8 npm run test:help-releases-smoke`; Docker `npm run test:integration-smoke`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression` passed when rerun alone after an invalid parallel run conflicted on shared test bootstrap data; isolated Docker homelab boundary smoke; local release preflight; `git diff --check`; targeted release/evidence secret-pattern scan.
+- Gate status: this slice directly clears the local observability evidence failure for `graylog_collector_smoke` and `syslog_collector_smoke`; `compose-smoke` remains locally blocked by development stack secure-cookie settings (`SESSION_COOKIE_SECURE=false`, `NODE_ENV=development`); `browser-regression` was not rerun because this slice does not change frontend runtime behavior; `secret-scan` and `image-security-and-sbom` remain CI-only.
+- Files changed for this slice: `app-meta.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `backend/app-meta.json`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/scripts/unit-tests.js`; `docs/releases/v3.9.8.md`; `docs/wiki/07-Release-Roadmap.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `preflight-go-no-go.md`; `scripts/write-ci-compose-overrides.js`.
+- Risks/follow-ups: the public compose remains intentionally minimal; release evidence depends on the generated CI override being written before compose runs, which existing CI workflows already do.
+- What remains in the milestone: nothing for `3.9.8`; CI should rerun the full release gate set with the generated override in place.
+- Recommended commit message: `Release 3.9.8 with observability collector smoke wiring`.
+
 ## 3.9.7 — Apple/iTunes Target Hit Actions
 
 **Goal:** Let users act on Apple/iTunes target price hits directly from the compact Wishlist readback without adding notifications or a new provider-specific status API.

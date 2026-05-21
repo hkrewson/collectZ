@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.9.8",
+      "version": "3.9.8",
+      "date": null,
+      "status": null,
+      "summary": "",
+      "details": []
+    },
+    {
       "title": "collectZ v3.9.7",
       "version": "3.9.7",
       "date": null,
@@ -95,26 +103,6 @@
             "Added the new public reference to public export surface validation.",
             "Kept the Playwright browser-regression bypass out of public compose/docs while restoring the CI-only compose override that passes the per-run bypass token to the backend test stack.",
             "Kept CI-only debug-gated API docs available to browser regression, and seeded Events on during Playwright setup so event-social browser specs do not inherit a disabled Event feature flag."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.8.19",
-      "version": "3.8.19",
-      "date": "2026-05-20",
-      "status": "implemented",
-      "summary": "This release simplifies the public homelab Docker Compose file so it defaults directly to the GHCR `latest` images and only exposes the runtime environment values needed for normal homelab startup.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Changed public backend image to `ghcr.io/hkrewson/collectz-backend:latest`.",
-            "Changed public frontend image to `ghcr.io/hkrewson/collectz-frontend:latest`.",
-            "Removed public `IMAGE_REGISTRY`, `IMAGE_NAMESPACE`, and `IMAGE_TAG` indirection from the generated compose surface.",
-            "Removed provider/bootstrap tuning variables from the default public compose environment block.",
-            "Kept required database, session, encryption, CORS, reverse-proxy, secure-cookie, upload, and port settings in the public compose.",
-            "Tightened public export validation so image-source indirection variables do not return to public deploy docs, compose, or env examples."
           ]
         }
       ]
