@@ -50,6 +50,8 @@ const WISHLIST_FORMAT_OPTIONS = {
 
 const PROVIDER_LABELS = {
   apple_itunes: 'Apple/iTunes',
+  capture: 'Capture Inbox',
+  capture_upload: 'Capture Inbox',
   googlebooks: 'Google Books',
   google_books: 'Google Books',
   kavita: 'Kavita',
@@ -57,7 +59,9 @@ const PROVIDER_LABELS = {
   upcitemdb: 'UPCItemDB',
   comicvine: 'Comic Vine',
   metron: 'Metron',
-  ios_scanner_app: 'iOS scanner'
+  ios_scanner_app: 'iOS scanner',
+  web_capture_editor: 'Capture Inbox',
+  web_capture_inbox: 'Capture Inbox'
 };
 
 const APPLE_KIND_LABELS = {
@@ -145,6 +149,19 @@ function appleMediaLabel(value) {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+function captureKindLabel(item) {
+  const captureType = String(item?.source_context?.capture_type || '').trim().toLowerCase();
+  if (captureType === 'barcode') return 'Barcode';
+  if (captureType === 'photo') return 'Photo';
+  if (captureType === 'ocr_text') return 'OCR text';
+  if (captureType === 'manual_note') return 'Manual note';
+
+  const identifiers = item?.identifiers || {};
+  if (identifiers.isbn || identifiers.isbn10 || identifiers.isbn_10 || identifiers.isbn13 || identifiers.isbn_13) return 'ISBN';
+  if (identifiers.upc || identifiers.ean || identifiers.barcode || identifiers.symbology) return 'Barcode';
+  return '';
+}
+
 function getWishlistFormatOptions(objectType, currentValue = '') {
   const baseOptions = MEDIA_TYPES.has(objectType)
     ? getOwnedFormatOptions(objectType).map((entry) => entry.label)
@@ -229,10 +246,11 @@ function identifierSummary(value) {
 
 function wishlistSourceSummary(item) {
   const provider = item?.provider || item?.identifiers?.provider_name || item?.source_context?.provider || item?.source_context?.source;
+  const providerKey = String(provider || '').trim().toLowerCase();
   const sourceLabel = providerLabel(provider);
   if (!sourceLabel) return [];
 
-  if (provider === 'apple_itunes') {
+  if (providerKey === 'apple_itunes') {
     const appleType = appleMediaLabel(
       item?.source_context?.kind
       || item?.source_context?.media
@@ -241,6 +259,11 @@ function wishlistSourceSummary(item) {
       || item?.object_type
     );
     return [appleType ? `${sourceLabel} · ${appleType}` : sourceLabel];
+  }
+
+  if (providerKey === 'capture' || providerKey === 'ios_scanner_app' || providerKey.startsWith('web_capture')) {
+    const captureType = captureKindLabel(item);
+    return [captureType ? `${sourceLabel} · ${captureType}` : sourceLabel];
   }
 
   return [sourceLabel];

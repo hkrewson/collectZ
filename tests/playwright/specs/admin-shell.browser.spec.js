@@ -139,9 +139,35 @@ test.describe('admin shell browser regressions', () => {
               provider_key: '1001',
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString()
+            },
+            {
+              id: 9002,
+              title: 'Before the Storm',
+              object_type: 'book',
+              status: 'wanted',
+              priority: 'normal',
+              identifiers: { isbn13: '9780553572773', provider_item_id: 'capture:91' },
+              source_context: { source: 'web_capture_inbox', capture_type: 'barcode', capture_item_id: 91 },
+              provider: 'capture',
+              provider_key: 'capture:91',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            },
+            {
+              id: 9003,
+              title: 'Scanner Candidate',
+              object_type: 'book',
+              status: 'wanted',
+              priority: 'normal',
+              identifiers: { isbn_10: '0553572776' },
+              source_context: { source: 'ios_scanner_app' },
+              provider: null,
+              provider_key: null,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
             }
           ],
-          pagination: { page: 1, limit: 50, total: 1, total_pages: 1 }
+          pagination: { page: 1, limit: 50, total: 3, total_pages: 1 }
         })
       });
     });
@@ -418,6 +444,8 @@ test.describe('admin shell browser regressions', () => {
     await expect(page.getByText('Source: Apple/iTunes')).toHaveCount(0);
     await expect(page.getByText('Source: apple_itunes 1001')).toHaveCount(0);
     await expect(page.getByText(/provider_item_id:/)).toHaveCount(0);
+    await expect(page.getByText('Capture Inbox · Barcode')).toBeVisible();
+    await expect(page.getByText('iOS scanner · ISBN')).toBeVisible();
     await expect(page.getByText('Store price: $7.99')).toBeVisible();
     await expect(page.getByText('Apple current: $7.99')).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'Open store for Star Wars: A New Hope' })).toHaveAttribute('href', 'https://itunes.apple.com/us/movie/id1001');

@@ -6437,9 +6437,15 @@ results.push(run('apple itunes wishlist search and save are routed, scoped, and 
   assert.ok(wishlistViewSource.includes('Set target price for ${match.title}'));
   assert.ok(wishlistViewSource.includes('Store price: ${current}'));
   assert.ok(wishlistViewSource.includes('${sourceLabel} · ${appleType}'));
+  assert.ok(wishlistViewSource.includes('${sourceLabel} · ${captureType}'));
+  assert.ok(wishlistViewSource.includes("capture: 'Capture Inbox'"));
+  assert.ok(wishlistViewSource.includes("ios_scanner_app: 'iOS scanner'"));
+  assert.ok(wishlistViewSource.includes('function captureKindLabel(item)'));
   assert.ok(wishlistViewSource.includes('|| item?.object_type'));
   assert.ok(!wishlistViewSource.includes('Source: ${sourceLabel}'));
   assert.ok(adminShellBrowserSpecSource.includes("page.getByText('Apple/iTunes · Movie')"));
+  assert.ok(adminShellBrowserSpecSource.includes("page.getByText('Capture Inbox · Barcode')"));
+  assert.ok(adminShellBrowserSpecSource.includes("page.getByText('iOS scanner · ISBN')"));
   assert.ok(adminShellBrowserSpecSource.includes("page.getByText('Apple current: $7.99')).toHaveCount(0)"));
   assert.ok(wishlistViewSource.includes("apiCall('get', `/wishlist/${item.id}/price-history?limit=8`)"));
   assert.ok(wishlistViewSource.includes('Price history'));

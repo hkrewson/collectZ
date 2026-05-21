@@ -10810,6 +10810,37 @@ Historical note:
 - What remains in the milestone: nothing for `3.8.10`; next planned work is `3.8.11 — Capture Scan Immediate Lookup`, followed by batch scan mode, safe ISBN auto-import, and exception review routing.
 - Recommended commit message: `Release 3.8.10 with Capture Inbox barcode camera ISBN recognition`.
 
+## 3.9.15 — Wishlist Source Compatibility Readback
+
+**Goal:** Finish the Wishlist source readback hardening pass across Apple/iTunes, Capture Inbox, iOS scanner, and other saved provider-style Wishlist rows.
+
+### Scope
+
+- Keep `3.9.14` Apple/iTunes compact source/type readback intact.
+- Add compact Capture Inbox source readback with capture-kind context when available.
+- Add compact iOS scanner source readback with ISBN/barcode context when available.
+- Keep raw provider keys and technical identifier fields hidden from saved Wishlist rows.
+- Do not add new Wishlist provider behavior, price alerts, review queues, or schema work.
+
+### Acceptance Criteria
+
+- Saved Apple/iTunes rows still show compact `Apple/iTunes · Movie` style readback.
+- Saved Capture Inbox rows show compact `Capture Inbox · Barcode` style readback when capture metadata is available.
+- Saved iOS scanner rows show compact `iOS scanner · ISBN` or barcode-style readback when identifier metadata is available.
+- Saved rows no longer surface raw provider keys such as `provider_item_id` or `capture:123`.
+- Version metadata, release note, release feed, and Help > Releases include `3.9.15`.
+
+### Closeout
+
+- Roadmap slice: `3.9.15 — Wishlist Source Compatibility Readback`.
+- Project docs/checklists used: `AGENTS.md`; `/Users/hamlin/.codex/skills/uncodixfy/SKILL.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.9.15.md`.
+- Runtime verification used: Docker-built backend/frontend at `APP_VERSION=3.9.15`; `/api/health` returned frontend/backend/build `3.9.15`; backend logs reported migrations current at 105; running backend env readback verified local platform mode with secret values redacted in closeout; Help > Releases smoke served `3.9.15`; targeted Wishlist browser regression proved Apple/iTunes, Capture Inbox, and iOS scanner saved rows show compact source readback and do not show raw provider identifiers; temporary homelab boundary verification passed and the local stack was restored to platform mode afterward.
+- CI/checks run: `node backend/scripts/unit-tests.js` (`299` passed); `node backend/scripts/validate-openapi.js`; `npm --prefix frontend run build`; Docker backend/frontend build; Docker `npm run test:unit` (`299` passed); Docker `npm run test:openapi`; Docker `npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.9.15 npm run test:help-releases-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker temporary homelab override plus `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; targeted Wishlist Apple/iTunes browser regression; full `npm run test:browser` initially had two unrelated failures while observability evidence was also exercising the stack, both failed specs passed when rerun alone, and the clean full rerun passed (`71` passed, `4` skipped); backend/frontend production dependency audits (`0` vulnerabilities); `npm --prefix backend run test:observability-evidence`; `npm --prefix backend run test:release-preflight-local`; release note heading check; version sync check; targeted release/artifact secret-pattern scan; `git diff --check`. Local compose smoke secure-cookie basics remain blocked by the development stack settings (`SESSION_COOKIE_SECURE=false`, `NODE_ENV=development`), and CI remains authoritative for `secret-scan` plus `image-security-and-sbom`.
+- Files changed: `app-meta.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `backend/app-meta.json`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/scripts/unit-tests.js`; `docs/releases/v3.9.15.md`; `docs/wiki/07-Release-Roadmap.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/WishlistView.jsx`; `preflight-go-no-go.md`; `tests/playwright/specs/admin-shell.browser.spec.js`.
+- Risks/follow-ups: This is still presentation-only cleanup. Source-kind readback depends on existing saved metadata, so older rows without capture type or identifier hints may only show the source label. Broader review queue, price alerts, and Apple/iTunes ranking work remain intentionally out of scope.
+- What remains in the milestone: Nothing for `3.9.15`; regroup before selecting the next product slice.
+- Recommended commit message: `Release 3.9.15 with Wishlist source compatibility readback`.
+
 ## 3.9.14 — Wishlist Source Details Readback Cleanup
 
 **Goal:** Make saved Wishlist provider readback feel like normal item metadata instead of technical source/debug information.
