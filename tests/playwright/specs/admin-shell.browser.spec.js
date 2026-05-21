@@ -132,7 +132,8 @@ test.describe('admin shell browser regressions', () => {
                 current_price: 7.99,
                 currency: 'USD',
                 price_refreshed_at: new Date().toISOString(),
-                target_price_met: true
+                target_price_met: true,
+                store_url: 'https://itunes.apple.com/us/movie/id1001'
               },
               provider: 'apple_itunes',
               provider_key: '1001',
@@ -415,6 +416,7 @@ test.describe('admin shell browser regressions', () => {
     await expect(page.getByText('Movie').first()).toBeVisible();
     await expect(page.getByText('Source: apple_itunes 1001')).toHaveCount(0);
     await expect(page.getByText(/provider_item_id:/)).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Open store for Star Wars: A New Hope' })).toHaveAttribute('href', 'https://itunes.apple.com/us/movie/id1001');
     await page.getByRole('button', { name: 'Price history' }).first().click();
     await expect(page.getByText(/target met/).first()).toBeVisible();
     const applePanel = page.locator('section').filter({ has: page.getByLabel('Apple/iTunes search') });

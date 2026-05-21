@@ -10810,6 +10810,38 @@ Historical note:
 - What remains in the milestone: nothing for `3.8.10`; next planned work is `3.8.11 — Capture Scan Immediate Lookup`, followed by batch scan mode, safe ISBN auto-import, and exception review routing.
 - Recommended commit message: `Release 3.8.10 with Capture Inbox barcode camera ISBN recognition`.
 
+## 3.9.10 — Wishlist Store Link Readback
+
+**Goal:** Let saved Apple/iTunes Wishlist rows reopen their Apple store page directly from the Wishlist list when collectZ has preserved a store URL.
+
+### Scope
+
+- Add a saved-row `Open store` action for Wishlist rows with a safe stored URL.
+- Reuse existing Apple/iTunes `source_context.store_url` metadata.
+- Limit user-facing outbound store links to `http` and `https` URLs.
+- Keep search-result store links unchanged.
+- Do not add new provider polling, alerts, or price-watch behavior.
+
+### Acceptance Criteria
+
+- Saved Apple/iTunes Wishlist rows show `Open store` when source metadata includes a store URL.
+- Rows without a valid store URL do not show an empty or broken action.
+- Store links open in a new tab and preserve normal `rel="noreferrer"` behavior.
+- Regression coverage proves the saved Wishlist row store action exists.
+- Version metadata, release note, release feed, and Help > Releases include `3.9.10`.
+
+### Closeout
+
+- Roadmap slice: `3.9.10 — Wishlist Store Link Readback`.
+- Project docs/checklists used: `AGENTS.md`; `/Users/hamlin/.codex/skills/uncodixfy/SKILL.md`; `docs/wiki/06-Versioning-and-Build-Metadata.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.9.10.md`.
+- Runtime verification used: Docker-built backend/frontend at `APP_VERSION=3.9.10`; `/api/health` returned frontend/backend/build `3.9.10`; running backend env was restored to local platform mode after homelab boundary verification; Help > Releases smoke served `3.9.10`; targeted browser regression verified the saved Wishlist `Open store` action.
+- CI/checks run: `node backend/scripts/unit-tests.js`; `npm --prefix frontend run build`; `node backend/scripts/validate-openapi.js`; `git diff --check`; Docker `test:help-releases-smoke`; Docker `test:unit`; Docker `test:openapi`; Docker `test:integration-smoke`; targeted and full `npm run test:browser`; Docker `test:rbac-regression`; Docker `test:platform-edition-boundary`; Docker `test:homelab-edition-boundary`; Docker `test:init-parity`; Docker `test:migration-rehearsal`; backend/frontend production audits; `npm --prefix backend run test:observability-evidence`; `npm --prefix backend run test:release-preflight-local`.
+- Gate status: `rbac-regression`, `browser-regression`, `homelab-edition-boundary`, and `platform-edition-boundary` passed locally. Local `compose-smoke` remains blocked in the preflight helper by development secure-cookie settings. `secret-scan` and `image-security-and-sbom` remain CI-only gates.
+- Files changed: `app-meta.json`; `backend/app-meta.json`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/scripts/unit-tests.js`; `docs/releases/v3.9.10.md`; `docs/wiki/07-Release-Roadmap.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/WishlistView.jsx`; `tests/playwright/specs/admin-shell.browser.spec.js`; generated release evidence artifacts.
+- Risks/follow-ups: Saved-row store links depend on provider metadata containing a store URL; outbound URLs are restricted to `http`/`https` and remain user-initiated. Broader Apple/iTunes price history and saved-state polish stay outside this patch.
+- What remains in the milestone: Nothing for `3.9.10`; rerun CI-only release gates in GitHub before publishing.
+- Recommended commit message: `Release 3.9.10 with Wishlist store link readback`.
+
 ## 3.9.9 — Wishlist Source Details Cleanup
 
 **Goal:** Make Wishlist source/provider metadata readable in the normal list view without removing the backend provider keys needed for matching, refresh, and import workflows.

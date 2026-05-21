@@ -246,6 +246,17 @@ function wishlistSourceSummary(item) {
   return parts;
 }
 
+function wishlistStoreUrl(item) {
+  const raw = item?.source_context?.store_url || item?.source_context?.url || '';
+  if (!raw) return '';
+  try {
+    const parsed = new URL(String(raw));
+    return ['http:', 'https:'].includes(parsed.protocol) ? parsed.href : '';
+  } catch (_error) {
+    return '';
+  }
+}
+
 function formFromItem(item) {
   if (!item) return EMPTY_FORM;
   return {
@@ -1040,6 +1051,7 @@ export default function WishlistView({ apiCall, onToast, activeLibrary, Icons, S
             const priceHistory = priceHistoryByItem[item.id] || [];
             const sourceParts = wishlistSourceSummary(item);
             const idText = identifierSummary(item.identifiers);
+            const storeUrl = wishlistStoreUrl(item);
             return (
               <div key={item.id} className="grid gap-3 py-3 md:grid-cols-[minmax(0,1fr)_auto]">
                 <div className="min-w-0">
@@ -1084,6 +1096,11 @@ export default function WishlistView({ apiCall, onToast, activeLibrary, Icons, S
                   {item.notes ? <p className="mt-2 line-clamp-2 text-sm text-dim">{item.notes}</p> : null}
                 </div>
                 <div className="flex flex-wrap items-start justify-end gap-2">
+                  {storeUrl ? (
+                    <a className="btn-ghost h-8" href={storeUrl} target="_blank" rel="noreferrer" aria-label={`Open store for ${item.title}`}>
+                      Open store
+                    </a>
+                  ) : null}
                   {isAppleItem ? (
                     <button
                       type="button"

@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.9.10",
+      "version": "3.9.10",
+      "date": null,
+      "status": null,
+      "summary": "",
+      "details": []
+    },
+    {
       "title": "collectZ v3.9.9",
       "version": "3.9.9",
       "date": null,
@@ -71,27 +79,6 @@
       "status": null,
       "summary": "",
       "details": []
-    },
-    {
-      "title": "collectZ v3.9.0",
-      "version": "3.9.0",
-      "date": "2026-05-20",
-      "status": "implemented",
-      "summary": "This release starts the Apple/iTunes wishlist line with a backend-owned search and save flow for adding Apple Store candidates directly to Wishlist.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added authenticated `GET /api/wishlist/apple-itunes/search` for Apple/iTunes candidate search.",
-            "Added authenticated `POST /api/wishlist/apple-itunes/save` for scoped Wishlist saves.",
-            "Normalized Apple result shapes across movies, TV, ebooks, audiobooks, music, podcasts, short films, and software.",
-            "Preserved Apple provider identity using `provider='apple_itunes'` and stable provider keys.",
-            "Added scoped duplicate readback so saved Apple-linked results show as saved instead of creating confusing duplicate Wishlist rows.",
-            "Added a compact Apple/iTunes search panel to Library > Wishlist with artwork, price/currency, store link, optional target price, and direct Add action.",
-            "Documented the new Apple/iTunes Wishlist contract in OpenAPI."
-          ]
-        }
-      ]
     }
   ]
 }
