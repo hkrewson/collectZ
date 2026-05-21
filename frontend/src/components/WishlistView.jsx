@@ -292,6 +292,17 @@ function formatMoney(value) {
   return parsed.toLocaleString(undefined, { style: 'currency', currency: 'USD' });
 }
 
+function normalizeTargetPriceValue(value) {
+  if (value === null || value === undefined) return { value: null, error: null };
+  const raw = String(value).trim();
+  if (!raw) return { value: null, error: null };
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return { value: null, error: 'Enter a valid target price of 0 or more.' };
+  }
+  return { value: Math.round(parsed * 100) / 100, error: null };
+}
+
 function formatAppleMoney(value, currency) {
   if (value === null || value === undefined || value === '') return 'No price';
   const parsed = Number(value);
@@ -427,6 +438,8 @@ function WishlistEditor({ form, setForm, editingItem, saving, onCancel, onSave }
           <input
             className="input w-full"
             inputMode="decimal"
+            min="0"
+            step="0.01"
             value={form.target_price}
             onChange={(event) => setForm((current) => ({ ...current, target_price: event.target.value }))}
           />
@@ -552,11 +565,16 @@ function AppleItunesWishlistSearch({ apiCall, onToast, onSaved, onViewSaved }) {
 
   const saveMatch = async (match) => {
     const key = match.provider_key || match.id;
+    const targetPrice = normalizeTargetPriceValue(targetPrices[key]);
+    if (targetPrice.error) {
+      onToast?.(targetPrice.error, 'error');
+      return;
+    }
     setSavingKey(key);
     try {
       const payload = await apiCall('post', '/wishlist/apple-itunes/save', {
         candidate: match,
-        target_price: targetPrices[key] || null,
+        target_price: targetPrice.value,
         status: 'wanted',
         priority: 'normal',
         country
@@ -796,6 +814,8 @@ function AppleItunesWishlistSearch({ apiCall, onToast, onSaved, onViewSaved }) {
                           <input
                             className="input h-8 w-28"
                             inputMode="decimal"
+                            min="0"
+                            step="0.01"
                             aria-label={`Target price for ${match.title}`}
                             value={targetPrices[key] || ''}
                             onChange={(event) => setTargetPrices((current) => ({ ...current, [key]: event.target.value }))}
@@ -906,21 +926,27 @@ export default function WishlistView({ apiCall, onToast, activeLibrary, Icons, S
     setEditorOpen(true);
   };
 
-  const payloadFromForm = () => ({
-    title: form.title,
-    object_type: form.object_type,
-    status: form.status,
-    priority: form.priority,
-    year: form.year || null,
-    desired_format: form.desired_format || null,
-    desired_edition: form.desired_edition || null,
-    provider: form.provider || null,
-    provider_key: form.provider_key || null,
-    vendor: form.vendor || null,
-    target_price: form.target_price || null,
-    notes: form.notes || null,
-    identifiers: parseIdentifiers(form.identifiers_text)
-  });
+  const payloadFromForm = () => {
+    const targetPrice = normalizeTargetPriceValue(form.target_price);
+    if (targetPrice.error) {
+      throw new Error(targetPrice.error);
+    }
+    return {
+      title: form.title,
+      object_type: form.object_type,
+      status: form.status,
+      priority: form.priority,
+      year: form.year || null,
+      desired_format: form.desired_format || null,
+      desired_edition: form.desired_edition || null,
+      provider: form.provider || null,
+      provider_key: form.provider_key || null,
+      vendor: form.vendor || null,
+      target_price: targetPrice.value,
+      notes: form.notes || null,
+      identifiers: parseIdentifiers(form.identifiers_text)
+    };
+  };
 
   const saveItem = async () => {
     setSaving(true);

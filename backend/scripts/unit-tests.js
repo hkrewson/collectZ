@@ -6380,6 +6380,8 @@ results.push(run('apple itunes wishlist search and save are routed, scoped, and 
   assert.ok(wishlistRoutesSource.includes('markAppleItunesSavedState'));
   assert.ok(wishlistRoutesSource.includes('buildApplePriceReadback'));
   assert.ok(wishlistRoutesSource.includes('findScopedWantedItemByProvider'));
+  assert.ok(wishlistRoutesSource.includes('invalid_target_price'));
+  assert.ok(wishlistRoutesSource.includes('parsed < 0'));
   assert.ok(wishlistRoutesSource.includes("provider: APPLE_ITUNES_PROVIDER"));
   assert.ok(wishlistRoutesSource.includes('SELECT id, provider_key, status'));
   assert.ok(wishlistRoutesSource.includes('wanted_status'));
@@ -6423,7 +6425,11 @@ results.push(run('apple itunes wishlist search and save are routed, scoped, and 
   assert.ok(wishlistViewSource.includes('already_saved'));
   assert.ok(wishlistViewSource.includes('View saved item'));
   assert.ok(wishlistViewSource.includes('function appleSearchResultMeta(match)'));
+  assert.ok(wishlistViewSource.includes('function normalizeTargetPriceValue(value)'));
+  assert.ok(wishlistViewSource.includes('Enter a valid target price of 0 or more.'));
   assert.ok(wishlistViewSource.includes('Saved: ${statusLabel(match.wanted_status)}'));
+  assert.ok(wishlistViewSource.includes('min="0"'));
+  assert.ok(wishlistViewSource.includes('step="0.01"'));
   assert.ok(wishlistViewSource.includes('border-edge/40 bg-transparent'));
   assert.ok(wishlistViewSource.includes('viewSavedAppleMatch'));
   assert.ok(wishlistViewSource.includes('Add a target price from a result row when needed.'));
@@ -6448,6 +6454,7 @@ results.push(run('apple itunes wishlist search and save are routed, scoped, and 
   assert.ok(adminShellBrowserSpecSource.includes('/api/wishlist/apple-itunes/target-price-hits'));
   assert.ok(adminShellBrowserSpecSource.includes("targetHitPatchPayload?.status).toBe('ordered'"));
   assert.ok(adminShellBrowserSpecSource.includes('/api/wishlist/9001/price-history'));
+  assert.ok(adminShellBrowserSpecSource.includes("expect(savePayload).toBeNull()"));
 }));
 
 results.push(run('mobile capture inbox foundation is scoped, routed, and reviewable', () => {

@@ -10810,6 +10810,36 @@ Historical note:
 - What remains in the milestone: nothing for `3.8.10`; next planned work is `3.8.11 — Capture Scan Immediate Lookup`, followed by batch scan mode, safe ISBN auto-import, and exception review routing.
 - Recommended commit message: `Release 3.8.10 with Capture Inbox barcode camera ISBN recognition`.
 
+## 3.9.13 — Wishlist Target Price Validation
+
+**Goal:** Make Wishlist target price entry predictable by validating bad values in the UI and enforcing the same rule in the backend.
+
+### Scope
+
+- Treat empty target price as optional/no target.
+- Reject negative and non-numeric target prices before manual Wishlist save or Apple/iTunes result save.
+- Return a clear backend error for invalid target prices instead of silently storing `null`.
+- Keep existing Wishlist status, provider, Apple/iTunes search, target-price hit, and price-refresh behavior unchanged.
+
+### Acceptance Criteria
+
+- Manual Wishlist target price entry accepts empty or valid non-negative values.
+- Apple/iTunes result target price entry blocks invalid values before calling save.
+- Backend Wishlist writes reject invalid target prices with a clear validation error.
+- Version metadata, release note, release feed, and Help > Releases include `3.9.13`.
+
+### Closeout
+
+- Roadmap slice: `3.9.13 — Wishlist Target Price Validation`.
+- Project docs/checklists used: `AGENTS.md`; `/Users/hamlin/.codex/skills/uncodixfy/SKILL.md`; `docs/wiki/06-Versioning-and-Build-Metadata.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.9.13.md`.
+- Runtime verification used: Docker-built backend/frontend at `APP_VERSION=3.9.13`; `/api/health` returned frontend/backend/build `3.9.13`; backend logs reported migrations current at 105; running backend env readback verified local platform mode after homelab boundary restore with secret values redacted in closeout; Help > Releases smoke served `3.9.13`; targeted Wishlist browser regression proved invalid Apple/iTunes target price entry does not call save and valid entry still saves.
+- CI/checks run: `node backend/scripts/unit-tests.js`; `node backend/scripts/validate-openapi.js`; `npm --prefix frontend run build`; Docker backend/frontend build; Docker `test:unit`; Docker `test:openapi`; Docker `test:integration-smoke`; Docker `test:help-releases-smoke`; targeted Wishlist browser regression; full `npm run test:browser` (`71` passed, `4` skipped); Docker `test:rbac-regression` (rerun passed after an overlapping platform-boundary DB collision); Docker `test:platform-edition-boundary`; Docker `test:homelab-edition-boundary` against rebuilt `3.9.13`; Docker `test:init-parity`; Docker `test:migration-rehearsal`; backend/frontend production audits; `npm --prefix backend run test:observability-evidence`; `npm --prefix backend run test:release-preflight-local`; targeted release/artifact secret-pattern scan; `git diff --check`.
+- Gate status: `rbac-regression`, `browser-regression`, `homelab-edition-boundary`, `platform-edition-boundary`, and dependency audits passed locally. Local preflight still marks stricter secure-cookie `compose-smoke` as blocked by development runtime settings. `secret-scan` and `image-security-and-sbom` remain CI-only gates, with targeted local release/artifact secret-pattern scan clean.
+- Files changed: `app-meta.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `backend/app-meta.json`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/routes/wishlist.js`; `backend/scripts/unit-tests.js`; `docs/releases/v3.9.13.md`; `docs/wiki/07-Release-Roadmap.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/WishlistView.jsx`; `preflight-go-no-go.md`; `tests/playwright/specs/admin-shell.browser.spec.js`.
+- Risks/follow-ups: This intentionally changes target price payloads from raw strings to numeric values in the UI save path, while preserving backend cent rounding. Existing stored values are unchanged. Broader price-watch alerts and Apple/iTunes wishlist monitoring remain separate backlog work.
+- What remains in the milestone: Nothing for `3.9.13`; rerun CI-only release gates in GitHub before publishing.
+- Recommended commit message: `Release 3.9.13 with Wishlist target price validation`.
+
 ## 3.9.12 — Apple/iTunes Search Result Density Polish
 
 **Goal:** Tighten the Apple/iTunes Wishlist search result rows so the saved-state and metadata readback feel like the rest of collectZ instead of a busy provider widget.

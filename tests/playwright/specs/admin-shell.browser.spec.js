@@ -443,13 +443,17 @@ test.describe('admin shell browser regressions', () => {
     await expect(applePanel.getByText('Weak match').first()).toBeVisible();
     await expect(applePanel.getByText('Apple returned movies, but none closely matched this title.')).toBeVisible();
     await applePanel.getByLabel('Set target price for Star Wars: A New Hope').click();
+    await applePanel.getByLabel('Target price for Star Wars: A New Hope').fill('-1');
+    await applePanel.getByRole('button', { name: 'Add' }).first().click();
+    await expect(page.getByText('Enter a valid target price of 0 or more.')).toBeVisible();
+    expect(savePayload).toBeNull();
     await applePanel.getByLabel('Target price for Star Wars: A New Hope').fill('7.99');
     await applePanel.getByRole('button', { name: 'Add' }).first().click();
     await expect(applePanel.getByText('Saved: Wanted')).toBeVisible();
     await expect(applePanel.getByRole('button', { name: 'View saved item' }).first()).toBeVisible();
     expect(savePayload?.candidate?.provider).toBe('apple_itunes');
     expect(savePayload?.candidate?.provider_key).toBe('1001');
-    expect(savePayload?.target_price).toBe('7.99');
+    expect(savePayload?.target_price).toBe(7.99);
   });
 
   test('capture inbox foundation receives quick captures and converts to wishlist', async ({ page }) => {

@@ -78,10 +78,17 @@ function nullableInt(value) {
   return Number.isInteger(parsed) ? parsed : null;
 }
 
-function nullablePrice(value) {
-  if (value === undefined || value === null || value === '') return null;
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return null;
+function nullablePrice(value, field = 'target_price') {
+  if (value === undefined || value === null) return null;
+  const raw = typeof value === 'string' ? value.trim() : value;
+  if (raw === '') return null;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    const error = new Error(`${field} must be a valid price of 0 or more.`);
+    error.status = 400;
+    error.code = 'invalid_target_price';
+    throw error;
+  }
   return Math.round(parsed * 100) / 100;
 }
 
