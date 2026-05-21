@@ -3307,6 +3307,39 @@
         },
         "required": ["item_id", "history"]
       },
+      "AppleItunesWishlistTargetPriceHit": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "title": { "type": "string" },
+          "object_type": { "type": "string" },
+          "status": { "type": "string" },
+          "priority": { "type": "string" },
+          "provider": { "type": "string", "enum": ["apple_itunes"] },
+          "provider_key": { "type": ["string", "null"] },
+          "target_price": { "type": ["number", "null"] },
+          "current_price": { "type": ["number", "null"] },
+          "currency": { "type": ["string", "null"] },
+          "target_price_delta": { "type": ["number", "null"] },
+          "store_url": { "type": ["string", "null"] },
+          "artwork_url": { "type": ["string", "null"] },
+          "checked_at": { "type": ["string", "null"], "format": "date-time" },
+          "history_id": { "type": ["integer", "null"] },
+          "item": { "$ref": "#/components/schemas/WantedItem" }
+        },
+        "required": ["id", "title", "provider", "target_price", "current_price", "item"]
+      },
+      "AppleItunesWishlistTargetPriceHitsResponse": {
+        "type": "object",
+        "properties": {
+          "provider": { "type": "string", "enum": ["apple_itunes"] },
+          "status": { "type": "string" },
+          "limit": { "type": "integer" },
+          "count": { "type": "integer" },
+          "hits": { "type": "array", "items": { "$ref": "#/components/schemas/AppleItunesWishlistTargetPriceHit" } }
+        },
+        "required": ["provider", "status", "limit", "count", "hits"]
+      },
       "AppleItunesWishlistPriceRefreshSchedulerResponse": {
         "type": "object",
         "properties": {
@@ -3959,6 +3992,39 @@
           },
           "403": {
             "description": "Admin access is required",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/wishlist/apple-itunes/target-price-hits": {
+      "get": {
+        "tags": ["Wishlist"],
+        "summary": "List Apple/iTunes wishlist rows at or below target price",
+        "description": "Returns active-scope Apple/iTunes wishlist rows whose latest refreshed store price is at or below the saved target price. This is readback for review, not a notification or auto-purchase workflow.",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          { "name": "status", "in": "query", "required": false, "schema": { "type": "string", "enum": ["active", "all", "wanted", "watching", "preordered", "ordered", "acquired", "dismissed"], "default": "active" } },
+          { "name": "limit", "in": "query", "required": false, "schema": { "type": "integer", "minimum": 1, "maximum": 50, "default": 25 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Apple/iTunes target price hits",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AppleItunesWishlistTargetPriceHitsResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication is required",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/Error" }

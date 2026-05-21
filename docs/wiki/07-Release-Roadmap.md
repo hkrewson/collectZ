@@ -10810,6 +10810,37 @@ Historical note:
 - What remains in the milestone: nothing for `3.8.10`; next planned work is `3.8.11 — Capture Scan Immediate Lookup`, followed by batch scan mode, safe ISBN auto-import, and exception review routing.
 - Recommended commit message: `Release 3.8.10 with Capture Inbox barcode camera ISBN recognition`.
 
+## 3.9.6 — Apple/iTunes Wishlist Target Price Hits
+
+**Goal:** Surface Apple/iTunes wishlist rows whose refreshed store price is at or below the saved target price, without turning this slice into notifications or auto-purchase behavior.
+
+### Scope
+
+- Add a backend readback endpoint for scoped Apple/iTunes target price hits.
+- Prefer the latest stored price-history snapshot, with current row price metadata as a fallback.
+- Add compact Library > Wishlist readback for target price hits.
+- Document the endpoint in OpenAPI.
+- Do not add email/push notifications, price-drop alert rules, or provider polling changes in this slice.
+
+### Acceptance Criteria
+
+- `GET /api/wishlist/apple-itunes/target-price-hits` returns only scoped Apple/iTunes rows at or below target price.
+- The endpoint remains authenticated through existing Wishlist access controls.
+- Library > Wishlist shows compact target-hit rows when matches exist.
+- OpenAPI documents the target-hit response.
+- Version metadata, release note, release feed, and Help > Releases include `3.9.6`.
+
+### Closeout
+
+- Roadmap slice: `3.9.6 — Apple/iTunes Wishlist Target Price Hits`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, and `docs/releases/v3.9.6.md`.
+- Runtime verification used: rebuilt the Docker stack at `APP_VERSION=3.9.6`; verified `/api/health` reports frontend/backend/build `3.9.6`; created a temporary Apple/iTunes wishlist row through the running API and verified `GET /api/wishlist/apple-itunes/target-price-hits` returned it with `current_price=4.99` and `target_price=7.99`; verified Help > Releases serves `3.9.6`.
+- CI/checks run: host syntax check for `backend/routes/wishlist.js`; host backend unit tests (`299` passed); host OpenAPI validation; host frontend build; Docker backend unit tests (`299` passed); Docker OpenAPI validation; targeted Apple/iTunes Wishlist browser regression; full browser regression (`71` passed, `4` skipped); backend and frontend production dependency audits (`0` vulnerabilities); RBAC regression; platform edition boundary; local release preflight; observability release evidence.
+- Files changed: Wishlist backend target-hit endpoint, Wishlist UI target-hit readback, OpenAPI target-hit schema/path, unit/browser regression coverage, version/app metadata, package lock metadata, release note, in-app release feed, roadmap closeout, and release evidence/preflight artifacts.
+- Risks/follow-ups: This is review/readback only and does not send alerts or notifications. Local homelab boundary smoke was blocked against the platform-shaped local stack. Release preflight remains NO-GO because existing `graylog_collector_smoke` and `syslog_collector_smoke` observability evidence checks failed; local `gitleaks` and `trivy` are not installed, so `secret-scan` and `image-security-and-sbom` remain CI-only.
+- What remains in the milestone: no 3.9.6 implementation work remains; release publication still needs the blocked/failed release gates to be green in the release environment.
+- Recommended commit message: `Release 3.9.6 Apple/iTunes wishlist target price hits`.
+
 ## 3.9.5 — Apple/iTunes Movie Result Relevance Guard
 
 **Goal:** Keep Apple/iTunes movie fallback useful without making weak generic Apple results look authoritative.

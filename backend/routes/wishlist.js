@@ -250,6 +250,33 @@ function shapePriceHistory(row) {
   };
 }
 
+function shapeAppleTargetPriceHit(row) {
+  const sourceContext = jsonObject(row.source_context);
+  const latestContext = jsonObject(row.latest_source_context);
+  const currentPrice = row.current_price === null || row.current_price === undefined ? null : Number(row.current_price);
+  const targetPrice = row.target_price === null || row.target_price === undefined ? null : Number(row.target_price);
+  return {
+    id: row.id,
+    title: row.title,
+    object_type: row.object_type,
+    status: row.status,
+    priority: row.priority,
+    provider: row.provider,
+    provider_key: row.provider_key,
+    target_price: targetPrice,
+    current_price: currentPrice,
+    currency: row.currency || sourceContext.currency || null,
+    target_price_delta: currentPrice !== null && targetPrice !== null
+      ? Math.round((currentPrice - targetPrice) * 100) / 100
+      : null,
+    store_url: latestContext.store_url || sourceContext.store_url || null,
+    artwork_url: latestContext.artwork_url || sourceContext.artwork_url || null,
+    checked_at: row.checked_at || sourceContext.price_refreshed_at || null,
+    history_id: row.history_id || null,
+    item: shapeWantedItem(row)
+  };
+}
+
 function normalizeAppleSaveCandidate(body) {
   const input = body?.candidate && typeof body.candidate === 'object' ? body.candidate : body || {};
   const normalized = input.raw_result
@@ -617,6 +644,60 @@ router.post('/wishlist/apple-itunes/price-refresh-scheduler/run', asyncHandler(a
       provider: APPLE_ITUNES_PROVIDER,
       ...summary
     }
+  });
+}));
+
+router.get('/wishlist/apple-itunes/target-price-hits', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const requestedStatus = trimString(req.query.status).toLowerCase();
+  const limit = normalizeLimit(req.query.limit || 25);
+  const params = [APPLE_ITUNES_PROVIDER];
+  let where = `
+    WHERE wi.provider = $1
+      AND wi.provider_key IS NOT NULL
+      AND wi.target_price IS NOT NULL
+      AND COALESCE(latest.price, NULLIF(wi.source_context->>'current_price', '')::numeric) IS NOT NULL
+      AND COALESCE(latest.price, NULLIF(wi.source_context->>'current_price', '')::numeric) <= wi.target_price
+  `;
+  if (requestedStatus && requestedStatus !== 'active' && requestedStatus !== 'all' && STATUSES.has(requestedStatus)) {
+    params.push(requestedStatus);
+    where += ` AND wi.status = $${params.length}`;
+  } else if (requestedStatus !== 'all') {
+    params.push(ACTIVE_STATUSES);
+    where += ` AND wi.status = ANY($${params.length})`;
+  }
+  where += appendScopeSql(params, scopeContext, { spaceColumn: 'wi.space_id', libraryColumn: 'wi.library_id' });
+  params.push(limit);
+
+  const result = await pool.query(
+    `SELECT wi.*,
+            COALESCE(latest.price, NULLIF(wi.source_context->>'current_price', '')::numeric) AS current_price,
+            COALESCE(latest.currency, wi.source_context->>'currency') AS currency,
+            latest.checked_at,
+            latest.id AS history_id,
+            latest.source_context AS latest_source_context
+       FROM wanted_items wi
+       LEFT JOIN LATERAL (
+         SELECT id, price, currency, checked_at, source_context
+           FROM wanted_item_price_history
+          WHERE wanted_item_id = wi.id
+          ORDER BY checked_at DESC, id DESC
+          LIMIT 1
+       ) latest ON TRUE
+      ${where}
+      ORDER BY
+        COALESCE(latest.checked_at, NULLIF(wi.source_context->>'price_refreshed_at', '')::timestamptz, wi.updated_at) DESC,
+        wi.id DESC
+      LIMIT $${params.length}`,
+    params
+  );
+
+  return res.json({
+    provider: APPLE_ITUNES_PROVIDER,
+    status: requestedStatus || 'active',
+    limit,
+    count: result.rows.length,
+    hits: result.rows.map(shapeAppleTargetPriceHit)
   });
 }));
 

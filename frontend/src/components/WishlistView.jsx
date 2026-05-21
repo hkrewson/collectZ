@@ -365,9 +365,23 @@ function AppleItunesWishlistSearch({ apiCall, onToast, onSaved }) {
   const [schedulerLoading, setSchedulerLoading] = useState(false);
   const [schedulerRunning, setSchedulerRunning] = useState(false);
   const [refreshSummary, setRefreshSummary] = useState(null);
+  const [targetHits, setTargetHits] = useState([]);
+  const [targetHitsLoading, setTargetHitsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [targetPrices, setTargetPrices] = useState({});
   const [priceEditors, setPriceEditors] = useState({});
+
+  const loadTargetHits = useCallback(async () => {
+    setTargetHitsLoading(true);
+    try {
+      const payload = await apiCall('get', '/wishlist/apple-itunes/target-price-hits?status=active&limit=5');
+      setTargetHits(Array.isArray(payload?.hits) ? payload.hits : []);
+    } catch (_err) {
+      setTargetHits([]);
+    } finally {
+      setTargetHitsLoading(false);
+    }
+  }, [apiCall]);
 
   const loadScheduler = useCallback(async () => {
     setSchedulerLoading(true);
@@ -383,7 +397,8 @@ function AppleItunesWishlistSearch({ apiCall, onToast, onSaved }) {
 
   useEffect(() => {
     loadScheduler();
-  }, [loadScheduler]);
+    loadTargetHits();
+  }, [loadScheduler, loadTargetHits]);
 
   const searchApple = async (event) => {
     event?.preventDefault?.();
@@ -427,6 +442,7 @@ function AppleItunesWishlistSearch({ apiCall, onToast, onSaved }) {
       )));
       onToast?.(payload?.existing ? 'That Apple/iTunes item is already on the wishlist.' : 'Apple/iTunes item added to the wishlist.', 'success');
       await onSaved?.();
+      await loadTargetHits();
     } catch (err) {
       onToast?.(err?.message || 'Could not save Apple/iTunes item.', 'error');
     } finally {
@@ -449,6 +465,7 @@ function AppleItunesWishlistSearch({ apiCall, onToast, onSaved }) {
         payload?.failed ? 'error' : 'success'
       );
       await onSaved?.();
+      await loadTargetHits();
     } catch (err) {
       onToast?.(err?.message || 'Could not refresh Apple/iTunes prices.', 'error');
     } finally {
@@ -471,6 +488,7 @@ function AppleItunesWishlistSearch({ apiCall, onToast, onSaved }) {
       );
       await loadScheduler();
       await onSaved?.();
+      await loadTargetHits();
     } catch (err) {
       onToast?.(err?.message || 'Could not run Apple/iTunes scheduled refresh.', 'error');
     } finally {
@@ -528,6 +546,34 @@ function AppleItunesWishlistSearch({ apiCall, onToast, onSaved }) {
           </button>
         ) : null}
       </div>
+
+      {targetHits.length > 0 || targetHitsLoading ? (
+        <div className="mt-3 border-t border-edge/70 pt-2">
+          <div className="mb-1 flex items-center justify-between gap-3 text-xs text-ghost">
+            <span>Target price hits</span>
+            {targetHitsLoading ? <span>Checking...</span> : <span>{targetHits.length} shown</span>}
+          </div>
+          <div className="divide-y divide-edge/70">
+            {targetHits.map((hit) => (
+              <div key={hit.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2 text-xs">
+                <div className="min-w-0">
+                  <span className="font-medium text-ink">{hit.title}</span>
+                  <span className="ml-2 text-ghost">{typeLabel(hit.object_type)}</span>
+                  {hit.checked_at ? <span className="ml-2 text-ghost">{formatCompactDate(hit.checked_at)}</span> : null}
+                </div>
+                <div className="flex items-center gap-3 text-ghost">
+                  <span>
+                    {formatAppleMoney(hit.current_price, hit.currency)} at or below {formatAppleMoney(hit.target_price, hit.currency)}
+                  </span>
+                  {hit.store_url ? (
+                    <a className="text-link hover:underline" href={hit.store_url} target="_blank" rel="noreferrer">Store</a>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {error ? <div className="mt-3 text-sm text-err">{error}</div> : null}
       {searched && !loading && matches.length === 0 && !error ? (

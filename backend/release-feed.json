@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.9.6",
+      "version": "3.9.6",
+      "date": null,
+      "status": null,
+      "summary": "",
+      "details": []
+    },
+    {
       "title": "collectZ v3.9.5",
       "version": "3.9.5",
       "date": null,
@@ -118,25 +126,6 @@
             "Clarified `env.example` around required secrets versus optional database and reverse-proxy settings.",
             "Updated README wording so public homelab setup does not point users at private/platform edition controls.",
             "Kept public compose defaulting to `NODE_ENV=production` and secure-cookie posture unless explicitly overridden for local HTTP testing."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.8.17",
-      "version": "3.8.17",
-      "date": "2026-05-20",
-      "status": "implemented",
-      "summary": "This release makes Capture Inbox rows explain why they need attention, using backend-derived review reasons.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added `review_reasons` readback to capture items.",
-            "Derives reasons for replay conflicts, lookup problems, multiple choices, no matches, ready-to-add captures, and missing details.",
-            "Shows those reasons directly on Capture Inbox rows as compact text.",
-            "Documents the new readback in OpenAPI.",
-            "Preserves existing review tabs, source filters, batch summary, scanner shortcuts, and import/link actions."
           ]
         }
       ]

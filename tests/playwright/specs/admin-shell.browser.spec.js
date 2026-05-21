@@ -309,6 +309,52 @@ test.describe('admin shell browser regressions', () => {
       });
     });
 
+    await page.route('**/api/wishlist/apple-itunes/target-price-hits**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          provider: 'apple_itunes',
+          status: 'active',
+          limit: 5,
+          count: 1,
+          hits: [
+            {
+              id: 9001,
+              title: 'Star Wars: A New Hope',
+              object_type: 'movie',
+              status: 'wanted',
+              priority: 'normal',
+              provider: 'apple_itunes',
+              provider_key: '1001',
+              target_price: 7.99,
+              current_price: 7.99,
+              currency: 'USD',
+              target_price_delta: 0,
+              store_url: 'https://itunes.apple.com/us/movie/id1001',
+              artwork_url: null,
+              checked_at: new Date().toISOString(),
+              history_id: 7001,
+              item: {
+                id: 9001,
+                title: 'Star Wars: A New Hope',
+                object_type: 'movie',
+                status: 'wanted',
+                priority: 'normal',
+                identifiers: {},
+                source_context: {},
+                provider: 'apple_itunes',
+                provider_key: '1001',
+                target_price: 7.99,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              }
+            }
+          ]
+        })
+      });
+    });
+
     await page.route('**/api/wishlist/9001/price-history**', async (route) => {
       await route.fulfill({
         status: 200,
@@ -343,6 +389,9 @@ test.describe('admin shell browser regressions', () => {
     await expect(page.getByText(/target met/).first()).toBeVisible();
     const applePanel = page.locator('section').filter({ has: page.getByLabel('Apple/iTunes search') });
     await expect(applePanel.getByText('Auto refresh off')).toBeVisible();
+    await expect(applePanel.getByText('Target price hits')).toBeVisible();
+    await expect(applePanel.getByText('Star Wars: A New Hope').first()).toBeVisible();
+    await expect(applePanel.getByText('$7.99 at or below $7.99')).toBeVisible();
     await applePanel.getByRole('button', { name: 'Run auto refresh now' }).click();
     await expect(applePanel.getByText('Updated 1 of 1')).toBeVisible();
     expect(schedulerRunPayload?.status).toBe('active');
@@ -351,7 +400,7 @@ test.describe('admin shell browser regressions', () => {
     expect(refreshPayload?.status).toBe('active');
     await applePanel.getByLabel('Apple/iTunes search').fill('star wars');
     await applePanel.getByRole('button', { name: 'Search' }).click();
-    await expect(applePanel.getByText('Star Wars: A New Hope')).toBeVisible();
+    await expect(applePanel.getByRole('heading', { name: 'Star Wars: A New Hope' })).toBeVisible();
     await expect(applePanel.getByText('Star Wars: The Empire Strikes Back')).toBeVisible();
     await expect(applePanel.getByText('Weak match').first()).toBeVisible();
     await expect(applePanel.getByText('Apple returned movies, but none closely matched this title.')).toBeVisible();
