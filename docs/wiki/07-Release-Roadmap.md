@@ -10810,6 +10810,36 @@ Historical note:
 - What remains in the milestone: nothing for `3.8.10`; next planned work is `3.8.11 — Capture Scan Immediate Lookup`, followed by batch scan mode, safe ISBN auto-import, and exception review routing.
 - Recommended commit message: `Release 3.8.10 with Capture Inbox barcode camera ISBN recognition`.
 
+## 3.9.16 — Wishlist Price History Summary Readback
+
+**Goal:** Make saved Apple/iTunes Wishlist price history more explainable by summarizing the latest price, lowest seen price, and snapshot count before the raw snapshot list.
+
+### Scope
+
+- Add compact summary readback inside the existing Wishlist price history panel.
+- Show latest price, lowest stored price, and number of stored snapshots.
+- Preserve the existing individual snapshot list and target-met readback.
+- Do not add notifications, charts, review queue routing, or new price polling behavior.
+
+### Acceptance Criteria
+
+- Opening price history for an Apple/iTunes Wishlist row shows latest price.
+- Opening price history shows lowest seen price across stored snapshots.
+- Opening price history shows the snapshot count.
+- Individual snapshot entries and target-met readback still render.
+- Version metadata, release note, release feed, and Help > Releases include `3.9.16`.
+
+### Closeout
+
+- Roadmap slice: `3.9.16 — Wishlist Price History Summary Readback`.
+- Project docs/checklists used: `AGENTS.md`; `/Users/hamlin/.codex/skills/uncodixfy/SKILL.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.9.16.md`.
+- Runtime verification used: Docker-built backend/frontend at `APP_VERSION=3.9.16`; `/api/health` returned frontend/backend/build `3.9.16`; backend logs reported migrations current at 105; Help > Releases smoke served `3.9.16`; targeted Wishlist browser regression proved price history summary readback for latest price, lowest seen price, and snapshot count; temporary homelab boundary verification passed and the local stack was restored to platform mode afterward.
+- CI/checks run: `node backend/scripts/unit-tests.js` (`299` passed); `node backend/scripts/validate-openapi.js`; `npm --prefix frontend run build`; Docker backend/frontend build; Docker `npm run test:unit` (`299` passed); Docker `npm run test:openapi`; Docker `npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.9.16 npm run test:help-releases-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker temporary homelab override plus `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; targeted Wishlist Apple/iTunes browser regression; full `npm run test:browser` initially had unrelated auth/navigation failures while observability evidence was also exercising the stack, then a clean full rerun passed (`71` passed, `4` skipped); backend/frontend production dependency audits (`0` vulnerabilities); `npm --prefix backend run test:observability-evidence`; `npm --prefix backend run test:release-preflight-local`; release note heading check; version sync check; targeted release/artifact secret-pattern scan; `git diff --check`. Local compose smoke secure-cookie basics remain blocked by the development stack settings (`SESSION_COOKIE_SECURE=false`, `NODE_ENV=development`), and CI remains authoritative for `secret-scan` plus `image-security-and-sbom`.
+- Files changed: `app-meta.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `backend/app-meta.json`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/scripts/unit-tests.js`; `docs/releases/v3.9.16.md`; `docs/wiki/07-Release-Roadmap.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/WishlistView.jsx`; `preflight-go-no-go.md`; `tests/playwright/specs/admin-shell.browser.spec.js`.
+- Risks/follow-ups: This is readback-only. The summary depends on stored price snapshots; rows with no snapshots still show the existing empty state. Price-drop notifications, broader review queue routing, charts, and Apple catalog ranking remain out of scope.
+- What remains in the milestone: Nothing for `3.9.16`; the remaining Apple/iTunes Wishlist follow-ups should stay deferred unless price watching becomes a real priority.
+- Recommended commit message: `Release 3.9.16 with Wishlist price history summary readback`.
+
 ## 3.9.15 — Wishlist Source Compatibility Readback
 
 **Goal:** Finish the Wishlist source readback hardening pass across Apple/iTunes, Capture Inbox, iOS scanner, and other saved provider-style Wishlist rows.

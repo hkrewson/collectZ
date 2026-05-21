@@ -6436,6 +6436,10 @@ results.push(run('apple itunes wishlist search and save are routed, scoped, and 
   assert.ok(wishlistViewSource.includes('max-h-[360px] overflow-y-auto'));
   assert.ok(wishlistViewSource.includes('Set target price for ${match.title}'));
   assert.ok(wishlistViewSource.includes('Store price: ${current}'));
+  assert.ok(wishlistViewSource.includes('function priceHistorySummary(history)'));
+  assert.ok(wishlistViewSource.includes('Latest ${formatAppleMoney(latest.price, latest.currency)}'));
+  assert.ok(wishlistViewSource.includes('Lowest ${formatAppleMoney(lowest.price, lowest.currency)}'));
+  assert.ok(wishlistViewSource.includes("entries.length === 1 ? 'snapshot' : 'snapshots'"));
   assert.ok(wishlistViewSource.includes('${sourceLabel} · ${appleType}'));
   assert.ok(wishlistViewSource.includes('${sourceLabel} · ${captureType}'));
   assert.ok(wishlistViewSource.includes("capture: 'Capture Inbox'"));
@@ -6446,6 +6450,9 @@ results.push(run('apple itunes wishlist search and save are routed, scoped, and 
   assert.ok(adminShellBrowserSpecSource.includes("page.getByText('Apple/iTunes · Movie')"));
   assert.ok(adminShellBrowserSpecSource.includes("page.getByText('Capture Inbox · Barcode')"));
   assert.ok(adminShellBrowserSpecSource.includes("page.getByText('iOS scanner · ISBN')"));
+  assert.ok(adminShellBrowserSpecSource.includes("page.getByText('Latest $7.99')"));
+  assert.ok(adminShellBrowserSpecSource.includes("page.getByText('Lowest $5.99')"));
+  assert.ok(adminShellBrowserSpecSource.includes("page.getByText('2 snapshots')"));
   assert.ok(adminShellBrowserSpecSource.includes("page.getByText('Apple current: $7.99')).toHaveCount(0)"));
   assert.ok(wishlistViewSource.includes("apiCall('get', `/wishlist/${item.id}/price-history?limit=8`)"));
   assert.ok(wishlistViewSource.includes('Price history'));

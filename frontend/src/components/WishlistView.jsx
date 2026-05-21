@@ -888,6 +888,32 @@ function applePriceSummary(item) {
   return parts.join(' · ');
 }
 
+function priceHistorySummary(history) {
+  const entries = (history || [])
+    .map((entry) => ({
+      ...entry,
+      parsedPrice: Number(entry.price),
+      parsedDate: entry.checked_at ? new Date(entry.checked_at) : null
+    }))
+    .filter((entry) => Number.isFinite(entry.parsedPrice));
+  if (entries.length === 0) return [];
+
+  const latest = [...entries].sort((a, b) => {
+    const aTime = a.parsedDate && !Number.isNaN(a.parsedDate.getTime()) ? a.parsedDate.getTime() : 0;
+    const bTime = b.parsedDate && !Number.isNaN(b.parsedDate.getTime()) ? b.parsedDate.getTime() : 0;
+    return bTime - aTime;
+  })[0];
+  const lowest = entries.reduce((best, entry) => (
+    entry.parsedPrice < best.parsedPrice ? entry : best
+  ), entries[0]);
+
+  return [
+    `Latest ${formatAppleMoney(latest.price, latest.currency)}`,
+    `Lowest ${formatAppleMoney(lowest.price, lowest.currency)}`,
+    `${entries.length} ${entries.length === 1 ? 'snapshot' : 'snapshots'}`
+  ];
+}
+
 export default function WishlistView({ apiCall, onToast, activeLibrary, Icons, Spinner }) {
   const [items, setItems] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 50, total: 0, total_pages: 1 });
@@ -1167,14 +1193,19 @@ export default function WishlistView({ apiCall, onToast, activeLibrary, Icons, S
                       ) : priceHistory.length === 0 ? (
                         <span>No price snapshots yet.</span>
                       ) : (
-                        <div className="flex flex-wrap gap-x-4 gap-y-1">
-                          {priceHistory.map((entry) => (
-                            <span key={entry.id}>
-                              {formatCompactDate(entry.checked_at) || 'Snapshot'} · {formatAppleMoney(entry.price, entry.currency)}
-                              {entry.target_met ? ' · target met' : ''}
-                            </span>
-                          ))}
-                        </div>
+                        <>
+                          <div className="mb-2 flex flex-wrap gap-x-4 gap-y-1 text-ghost">
+                            {priceHistorySummary(priceHistory).map((part) => <span key={part}>{part}</span>)}
+                          </div>
+                          <div className="flex flex-wrap gap-x-4 gap-y-1">
+                            {priceHistory.map((entry) => (
+                              <span key={entry.id}>
+                                {formatCompactDate(entry.checked_at) || 'Snapshot'} · {formatAppleMoney(entry.price, entry.currency)}
+                                {entry.target_met ? ' · target met' : ''}
+                              </span>
+                            ))}
+                          </div>
+                        </>
                       )}
                     </div>
                   ) : null}
