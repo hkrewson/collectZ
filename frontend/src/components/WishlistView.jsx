@@ -537,7 +537,11 @@ function AppleItunesWishlistSearch({ apiCall, onToast, onSaved }) {
         <div className="mt-3 border-t border-edge/70 pt-2">
           <div className="mb-2 flex items-center justify-between gap-3 text-xs text-ghost">
             <span>{matches.length} Apple/iTunes result{matches.length === 1 ? '' : 's'}</span>
-            <span className="hidden sm:inline">Add a target price from a result row when needed.</span>
+            {media === 'movie' && matches.every((match) => match.match_strength === 'weak') ? (
+              <span className="text-warn">Apple returned movies, but none closely matched this title.</span>
+            ) : (
+              <span className="hidden sm:inline">Add a target price from a result row when needed.</span>
+            )}
           </div>
           <div className="max-h-[360px] overflow-y-auto overscroll-contain pr-1">
             <div className="divide-y divide-edge/70">
@@ -555,10 +559,14 @@ function AppleItunesWishlistSearch({ apiCall, onToast, onSaved }) {
                         <h3 className="truncate text-sm font-semibold text-ink">{match.title}</h3>
                         {match.year ? <span className="text-xs text-ghost">{match.year}</span> : null}
                         <span className="text-xs text-ghost">{typeLabel(match.object_type)}</span>
+                        {match.match_strength === 'exact' ? <span className="text-xs text-ok">Exact match</span> : null}
+                        {match.match_strength === 'strong' ? <span className="text-xs text-ok">Close match</span> : null}
+                        {match.match_strength === 'weak' ? <span className="text-xs text-warn">Weak match</span> : null}
                       </div>
                       <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-ghost">
                         {match.subtitle ? <span>{match.subtitle}</span> : null}
                         {match.kind || match.media ? <span>{[match.media, match.kind].filter(Boolean).join(' · ')}</span> : null}
+                        {match.match_strength === 'weak' && match.match_reason ? <span>{match.match_reason}</span> : null}
                         <span>{formatAppleMoney(match.price, match.currency)}</span>
                         {match.store_url ? (
                           <a className="text-link hover:underline" href={match.store_url} target="_blank" rel="noreferrer">Store</a>

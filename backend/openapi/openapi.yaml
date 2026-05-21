@@ -3217,6 +3217,10 @@
           "currency": { "type": ["string", "null"] },
           "artwork_url": { "type": ["string", "null"] },
           "store_url": { "type": ["string", "null"] },
+          "match_strength": { "type": ["string", "null"], "enum": ["exact", "strong", "weak", null] },
+          "match_reason": { "type": ["string", "null"] },
+          "match_score": { "type": ["number", "null"] },
+          "search_source": { "type": ["string", "null"] },
           "already_saved": { "type": "boolean" },
           "wanted_item_id": { "type": ["integer", "null"] },
           "raw_result": { "type": "object", "additionalProperties": true }

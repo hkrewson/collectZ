@@ -10810,6 +10810,88 @@ Historical note:
 - What remains in the milestone: nothing for `3.8.10`; next planned work is `3.8.11 — Capture Scan Immediate Lookup`, followed by batch scan mode, safe ISBN auto-import, and exception review routing.
 - Recommended commit message: `Release 3.8.10 with Capture Inbox barcode camera ISBN recognition`.
 
+## 3.9.5 — Apple/iTunes Movie Result Relevance Guard
+
+**Goal:** Keep Apple/iTunes movie fallback useful without making weak generic Apple results look authoritative.
+
+### Scope
+
+- Add backend title relevance scoring for Apple/iTunes movie fallback candidates.
+- Add normalized match metadata to Apple/iTunes wishlist candidates.
+- Mark exact, close, and weak movie matches.
+- Show weak-match copy in Library > Wishlist when all movie fallback candidates are weak.
+- Keep users able to manually save weak matches if they intentionally want one.
+- Do not add Apple Music API, Apple TV scraping, alerts, or a new provider integration in this slice.
+
+### Acceptance Criteria
+
+- Movie fallback rows include `match_strength`, `match_reason`, `match_score`, and `search_source`.
+- Weak movie fallback candidates are visibly labeled in the Wishlist UI.
+- When all movie fallback results are weak, the UI explains that Apple returned movies but none closely matched the title.
+- OpenAPI documents the new candidate match metadata.
+- Version metadata, release note, release feed, and Help > Releases include `3.9.5`.
+
+### Closeout
+
+- Roadmap slice: `3.9.5 — Apple/iTunes Movie Result Relevance Guard`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/releases/v3.9.5.md`, and Apple's Search API documentation.
+- Runtime verification used: rebuilt the Docker stack at `APP_VERSION=3.9.5`; verified `/api/health` reports `3.9.5`; verified the running backend returns `avatar` movie fallback candidates as `weak` with `search_source=generic_movie_fallback`; verified Help > Releases serves `3.9.5`.
+- CI/checks run: Docker backend unit tests; Docker OpenAPI validation; backend and frontend production dependency audits; browser regression (`71 passed`, `4 skipped`) after starting the local backend with `DEBUG=1` for the debug-gated API docs surface; RBAC regression; platform edition boundary; local release preflight; observability release evidence.
+- Files changed: Apple/iTunes wishlist normalization and fallback scoring, Wishlist weak-match UI copy, OpenAPI candidate schema, unit and browser regression coverage, version/app metadata, release note, in-app release feed, and roadmap closeout.
+- Risks/follow-ups: Apple generic movie search can still return poor candidates; this slice labels weak candidates instead of treating Apple fallback rows as authoritative. Local homelab boundary smoke was blocked against the platform-shaped local stack. Release preflight remains NO-GO because existing `graylog_collector_smoke` and `syslog_collector_smoke` observability evidence checks failed, and local gitleaks/Trivy tools are not installed for `secret-scan` and `image-security-and-sbom`.
+- What remains in the milestone: no 3.9.5 implementation work remains; release publication still needs the blocked/failed release gates to be green in the release environment.
+- Recommended commit message: `Release 3.9.5 Apple/iTunes movie result relevance guard`.
+
+## 3.9.4 — Apple/iTunes Movie Search Fallback
+
+**Goal:** Make Apple/iTunes Wishlist movie search useful when Apple's documented `media=movie` Search API path returns no rows by falling back to generic Apple search and filtering to movie candidates in the backend.
+
+### Scope
+
+- Keep the typed `media=movie` Apple Search API request as the first attempt.
+- When the typed movie search returns empty, retry Apple's generic search form.
+- Return only raw `feature-movie` candidates from the generic fallback.
+- Keep non-movie Apple/iTunes Wishlist search behavior unchanged.
+- Do not add Apple Music API, Apple TV scraping, price alerts, or a new provider integration in this slice.
+
+### Acceptance Criteria
+
+- Movie search fallback is backend-owned and normalized through the existing Apple/iTunes Wishlist candidate contract.
+- Movie fallback only returns `feature-movie` rows.
+- Unit coverage proves an empty typed movie search falls back to generic search.
+- Version metadata, release note, release feed, and Help > Releases include `3.9.4`.
+
+### Closeout
+
+- Roadmap slice: `3.9.4 — Apple/iTunes Movie Search Fallback`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.9.4.md`; Apple Search API docs.
+- Runtime verification used:
+  - Rebuilt the Docker stack at `APP_VERSION=3.9.4` from local source.
+  - Verified `/api/health` reports frontend/backend/build `3.9.4`.
+  - Verified the running backend Apple/iTunes service returns movie fallback rows for a movie search only when they are raw `feature-movie` candidates.
+  - Verified Help > Releases serves `3.9.4`.
+- CI/checks run:
+  - `node --check backend/services/appleItunes.js`
+  - `node backend/scripts/unit-tests.js` (`298` passed)
+  - `npm --prefix backend run test:openapi`
+  - `npm --prefix frontend run build`
+  - Docker backend/frontend build at `3.9.4`
+  - Docker `npm run test:unit` (`298` passed)
+  - Docker `npm run test:openapi`
+  - Docker `BASE_URL=http://frontend:3000 npm run test:help-releases-smoke`
+  - Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`
+  - Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`
+  - Backend/frontend production dependency audits (`0` vulnerabilities)
+  - `npm --prefix backend run test:release-preflight-local` generated `preflight-go-no-go.md` but remains NO-GO locally because existing observability evidence has collector-smoke failures and secure-cookie compose smoke is CI-shaped.
+  - `git diff --check`
+- Files changed: Apple/iTunes service fallback, unit tests, version metadata, package lock metadata, release note, release feed, roadmap closeout, and local preflight evidence.
+- Risks or follow-ups:
+  - Apple's generic search result quality is uneven for unavailable or weakly matched movie titles, so this patch filters to real `feature-movie` rows but still follows Apple's ranking.
+  - A dedicated Apple TV movie catalog/source research slice remains useful if movie wishlist price tracking becomes a core path.
+  - Local `secret-scan`, `image-security-and-sbom`, homelab boundary, and full browser regression were not rerun for this backend-only fallback; CI remains authoritative for those release gates.
+- What remains in the milestone: no implementation work remains for `3.9.4`; release publication remains pending the blocked observability/local CI-only gates above.
+- Recommended commit message: `Release 3.9.4 Apple/iTunes movie search fallback`.
+
 ## 3.9.3 — Apple/iTunes Wishlist Scheduled Price Refresh
 
 **Goal:** Add a conservative opt-in scheduler path for Apple/iTunes wishlist price refreshes, reusing the manual refresh and price-history snapshot behavior without adding alerts or charts yet.

@@ -66,6 +66,45 @@ function normalizePrice(result) {
   return Number.isFinite(parsed) ? Math.round(parsed * 100) / 100 : null;
 }
 
+function normalizeSearchText(value) {
+  return trimString(value)
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\b(the|a|an)\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function scoreTitleMatch(searchTerm, title) {
+  const normalizedSearch = normalizeSearchText(searchTerm);
+  const normalizedTitle = normalizeSearchText(title);
+  if (!normalizedSearch || !normalizedTitle) {
+    return { score: 0, strength: 'weak', reason: 'No comparable title text.' };
+  }
+  if (normalizedTitle === normalizedSearch) {
+    return { score: 100, strength: 'exact', reason: 'Title exactly matches the search.' };
+  }
+  if (normalizedTitle.startsWith(`${normalizedSearch} `)) {
+    return { score: 85, strength: 'strong', reason: 'Title starts with the search.' };
+  }
+  if (normalizedTitle.includes(` ${normalizedSearch} `) || normalizedTitle.endsWith(` ${normalizedSearch}`)) {
+    return { score: 70, strength: 'strong', reason: 'Title contains the search.' };
+  }
+  if (normalizedSearch.includes(` ${normalizedTitle} `) || normalizedSearch.endsWith(` ${normalizedTitle}`)) {
+    return { score: 55, strength: 'weak', reason: 'Returned title is shorter than the search.' };
+  }
+  const searchTokens = new Set(normalizedSearch.split(' ').filter((token) => token.length > 2));
+  const titleTokens = new Set(normalizedTitle.split(' ').filter((token) => token.length > 2));
+  const overlap = Array.from(searchTokens).filter((token) => titleTokens.has(token)).length;
+  const ratio = searchTokens.size ? overlap / searchTokens.size : 0;
+  if (ratio >= 0.75) return { score: 45, strength: 'weak', reason: 'Most title words overlap the search.' };
+  if (ratio > 0) return { score: 20, strength: 'weak', reason: 'Only part of the title overlaps the search.' };
+  return { score: 0, strength: 'weak', reason: 'Apple returned a movie result, but the title does not closely match.' };
+}
+
 function inferObjectType(result, requestedMedia = '') {
   const media = trimString(requestedMedia || result.mediaType || result.wrapperType);
   const kind = trimString(result.kind).toLowerCase();
@@ -123,6 +162,10 @@ function normalizeAppleItunesResult(result, options = {}) {
     currency: result.currency || null,
     artwork_url: normalizeArtworkUrl(firstValue(result.artworkUrl100, result.artworkUrl60)),
     store_url: storeUrl || null,
+    match_strength: options.match_strength || null,
+    match_reason: options.match_reason || null,
+    match_score: Number.isFinite(options.match_score) ? options.match_score : null,
+    search_source: options.search_source || null,
     raw_result: result
   };
 }
@@ -139,6 +182,33 @@ function dedupeCandidates(candidates) {
   return unique;
 }
 
+function buildAppleSearchUrl({ term, mediaType, country, limit }) {
+  const url = new URL(process.env.APPLE_ITUNES_SEARCH_URL || SEARCH_URL);
+  url.searchParams.set('term', term);
+  if (mediaType && mediaType !== 'generic') url.searchParams.set('media', mediaType);
+  url.searchParams.set('country', country);
+  url.searchParams.set('limit', String(limit));
+  url.searchParams.set('explicit', 'No');
+  return url;
+}
+
+async function readAppleSearchResults(url, fetchImpl) {
+  const response = await fetchImpl(url, {
+    headers: {
+      Accept: 'application/json',
+      'User-Agent': appMeta.userAgent || 'collectZ'
+    },
+    signal: typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function'
+      ? AbortSignal.timeout(8000)
+      : undefined
+  });
+  if (!response.ok) {
+    throw new Error(`Apple/iTunes search failed with HTTP ${response.status}.`);
+  }
+  const payload = await response.json();
+  return Array.isArray(payload?.results) ? payload.results : [];
+}
+
 async function fetchAppleSearch({ term, media = ['movie'], country = 'US', limit = 25, fetchImpl = global.fetch } = {}) {
   const normalizedTerm = trimString(term);
   if (!normalizedTerm) return [];
@@ -148,28 +218,42 @@ async function fetchAppleSearch({ term, media = ['movie'], country = 'US', limit
   const normalizedCountry = normalizeCountry(country);
   const normalizedLimit = normalizeLimit(limit);
   const requests = mediaList.map(async (mediaType) => {
-    const url = new URL(process.env.APPLE_ITUNES_SEARCH_URL || SEARCH_URL);
-    url.searchParams.set('term', normalizedTerm);
-    url.searchParams.set('media', mediaType);
-    url.searchParams.set('country', normalizedCountry);
-    url.searchParams.set('limit', String(normalizedLimit));
-    url.searchParams.set('explicit', 'No');
-
-    const response = await fetchImpl(url, {
-      headers: {
-        Accept: 'application/json',
-        'User-Agent': appMeta.userAgent || 'collectZ'
-      },
-      signal: typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function'
-        ? AbortSignal.timeout(8000)
-        : undefined
+    const typedUrl = buildAppleSearchUrl({
+      term: normalizedTerm,
+      mediaType,
+      country: normalizedCountry,
+      limit: normalizedLimit
     });
-    if (!response.ok) {
-      throw new Error(`Apple/iTunes search failed with HTTP ${response.status}.`);
+    const typedResults = await readAppleSearchResults(typedUrl, fetchImpl);
+    if (mediaType !== 'movie' || typedResults.length > 0) {
+      return typedResults.map((result) => normalizeAppleItunesResult(result, {
+        media: mediaType,
+        search_source: 'typed'
+      })).filter(Boolean);
     }
-    const payload = await response.json();
-    const results = Array.isArray(payload?.results) ? payload.results : [];
-    return results.map((result) => normalizeAppleItunesResult(result, { media: mediaType })).filter(Boolean);
+
+    const genericUrl = buildAppleSearchUrl({
+      term: normalizedTerm,
+      mediaType: 'generic',
+      country: normalizedCountry,
+      limit: normalizedLimit
+    });
+    const genericResults = await readAppleSearchResults(genericUrl, fetchImpl);
+    return genericResults
+      .filter((result) => trimString(result.kind) === 'feature-movie')
+      .map((result) => {
+        const title = firstValue(result.trackName, result.collectionName, result.artistName);
+        const match = scoreTitleMatch(normalizedTerm, title);
+        return normalizeAppleItunesResult(result, {
+          media: 'movie',
+          search_source: 'generic_movie_fallback',
+          match_strength: match.strength,
+          match_reason: match.reason,
+          match_score: match.score
+        });
+      })
+      .filter(Boolean)
+      .sort((a, b) => Number(b.match_score || 0) - Number(a.match_score || 0));
   });
 
   const settled = await Promise.all(requests);
@@ -210,8 +294,11 @@ module.exports = {
   normalizeCountry,
   normalizeLimit,
   normalizeMediaList,
+  normalizeSearchText,
+  scoreTitleMatch,
   normalizeAppleItunesResult,
   dedupeCandidates,
+  buildAppleSearchUrl,
   fetchAppleSearch,
   fetchAppleLookup
 };

@@ -151,8 +151,10 @@ const dashboardRoutesSource = fs.readFileSync(require.resolve('../routes/dashboa
 const wishlistRoutesSource = fs.readFileSync(require.resolve('../routes/wishlist'), 'utf8');
 const appleItunesServiceSource = fs.readFileSync(require.resolve('../services/appleItunes'), 'utf8');
 const {
+  fetchAppleSearch,
   normalizeAppleItunesResult,
   normalizeMediaList,
+  scoreTitleMatch,
   dedupeCandidates
 } = require('../services/appleItunes');
 const captureItemsRoutesSource = fs.readFileSync(require.resolve('../routes/captureItems'), 'utf8');
@@ -6276,12 +6278,84 @@ results.push(run('apple itunes wishlist intake normalizes provider candidates', 
   assert.strictEqual(dedupeCandidates([movie, { ...movie, id: 'copy' }]).length, 1);
 }));
 
+results.push(run('apple itunes wishlist movie search falls back to generic feature-movie results', async () => {
+  const requestedUrls = [];
+  const matches = await fetchAppleSearch({
+    term: 'matrix',
+    media: ['movie'],
+    country: 'US',
+    limit: 5,
+    fetchImpl: async (url) => {
+      requestedUrls.push(String(url));
+      const isTypedMovieSearch = url.searchParams.get('media') === 'movie';
+      return {
+        ok: true,
+        async json() {
+          if (isTypedMovieSearch) return { resultCount: 0, results: [] };
+          return {
+            resultCount: 3,
+            results: [
+              {
+                wrapperType: 'track',
+                kind: 'feature-movie',
+                trackId: 9001,
+                trackName: 'The Matrix',
+                trackPrice: 14.99,
+                currency: 'USD',
+                trackViewUrl: 'https://itunes.apple.com/us/movie/the-matrix/id9001'
+              },
+              {
+                wrapperType: 'track',
+                kind: 'song',
+                trackId: 9002,
+                trackName: 'Matrix Theme'
+              },
+              {
+                wrapperType: 'track',
+                kind: 'tv-episode',
+                trackId: 9003,
+                trackName: 'The Matrix Episode'
+              }
+            ]
+          };
+        }
+      };
+    }
+  });
+
+  assert.strictEqual(requestedUrls.length, 2);
+  assert.ok(requestedUrls[0].includes('media=movie'));
+  assert.ok(!requestedUrls[1].includes('media=movie'));
+  assert.strictEqual(matches.length, 1);
+  assert.strictEqual(matches[0].title, 'The Matrix');
+  assert.strictEqual(matches[0].kind, 'feature-movie');
+  assert.strictEqual(matches[0].object_type, 'movie');
+  assert.strictEqual(matches[0].match_strength, 'exact');
+  assert.strictEqual(matches[0].search_source, 'generic_movie_fallback');
+}));
+
+results.push(run('apple itunes wishlist movie relevance marks weak fallback matches', () => {
+  assert.deepStrictEqual(
+    scoreTitleMatch('avatar', 'Avatar'),
+    { score: 100, strength: 'exact', reason: 'Title exactly matches the search.' }
+  );
+  assert.strictEqual(scoreTitleMatch('avatar', 'Avatar: The Way of Water').strength, 'strong');
+  assert.strictEqual(scoreTitleMatch('avatar', 'Christmas Cupcakes').strength, 'weak');
+  assert.strictEqual(scoreTitleMatch('the matrix', 'Christmas Cupcakes').strength, 'weak');
+}));
+
 results.push(run('apple itunes wishlist search and save are routed, scoped, and documented', () => {
   assert.ok(appleItunesServiceSource.includes("const SEARCH_URL = 'https://itunes.apple.com/search';"));
   assert.ok(appleItunesServiceSource.includes("const LOOKUP_URL = 'https://itunes.apple.com/lookup';"));
   assert.ok(appleItunesServiceSource.includes('SUPPORTED_MEDIA'));
   assert.ok(appleItunesServiceSource.includes('fetchAppleSearch'));
   assert.ok(appleItunesServiceSource.includes('fetchAppleLookup'));
+  assert.ok(appleItunesServiceSource.includes('buildAppleSearchUrl'));
+  assert.ok(appleItunesServiceSource.includes('scoreTitleMatch'));
+  assert.ok(appleItunesServiceSource.includes('match_strength'));
+  assert.ok(appleItunesServiceSource.includes('generic_movie_fallback'));
+  assert.ok(appleItunesServiceSource.includes("mediaType: 'generic'"));
+  assert.ok(appleItunesServiceSource.includes("trimString(result.kind) === 'feature-movie'"));
   assert.ok(appleItunesServiceSource.includes('User-Agent'));
   assert.ok(wishlistRoutesSource.includes("router.get('/wishlist/apple-itunes/search'"));
   assert.ok(wishlistRoutesSource.includes("router.post('/wishlist/apple-itunes/save'"));
@@ -6320,6 +6394,8 @@ results.push(run('apple itunes wishlist search and save are routed, scoped, and 
   assert.ok(wishlistViewSource.includes("apiCall('get', '/wishlist/apple-itunes/price-refresh-scheduler')"));
   assert.ok(wishlistViewSource.includes("apiCall('post', '/wishlist/apple-itunes/price-refresh-scheduler/run'"));
   assert.ok(wishlistViewSource.includes('Run auto refresh now'));
+  assert.ok(wishlistViewSource.includes('Weak match'));
+  assert.ok(wishlistViewSource.includes('Apple returned movies, but none closely matched this title.'));
   assert.ok(wishlistViewSource.includes("apiCall('get', `/wishlist/apple-itunes/search?${params.toString()}`)"));
   assert.ok(wishlistViewSource.includes("apiCall('post', '/wishlist/apple-itunes/save'"));
   assert.ok(wishlistViewSource.includes("apiCall('post', '/wishlist/apple-itunes/refresh-prices'"));

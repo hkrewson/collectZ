@@ -169,6 +169,10 @@ test.describe('admin shell browser regressions', () => {
               currency: 'USD',
               artwork_url: null,
               store_url: 'https://itunes.apple.com/us/movie/id1001',
+              match_strength: 'weak',
+              match_reason: 'Only part of the title overlaps the search.',
+              match_score: 20,
+              search_source: 'generic_movie_fallback',
               already_saved: false,
               wanted_item_id: null,
               raw_result: { trackId: 1001 }
@@ -187,6 +191,10 @@ test.describe('admin shell browser regressions', () => {
               currency: 'USD',
               artwork_url: null,
               store_url: 'https://itunes.apple.com/us/movie/id1002',
+              match_strength: 'weak',
+              match_reason: 'Only part of the title overlaps the search.',
+              match_score: 20,
+              search_source: 'generic_movie_fallback',
               already_saved: false,
               wanted_item_id: null,
               raw_result: { trackId: 1002 }
@@ -345,7 +353,8 @@ test.describe('admin shell browser regressions', () => {
     await applePanel.getByRole('button', { name: 'Search' }).click();
     await expect(applePanel.getByText('Star Wars: A New Hope')).toBeVisible();
     await expect(applePanel.getByText('Star Wars: The Empire Strikes Back')).toBeVisible();
-    await expect(applePanel.getByText('Add a target price from a result row when needed.')).toBeVisible();
+    await expect(applePanel.getByText('Weak match').first()).toBeVisible();
+    await expect(applePanel.getByText('Apple returned movies, but none closely matched this title.')).toBeVisible();
     await applePanel.getByLabel('Set target price for Star Wars: A New Hope').click();
     await applePanel.getByLabel('Target price for Star Wars: A New Hope').fill('7.99');
     await applePanel.getByRole('button', { name: 'Add' }).first().click();

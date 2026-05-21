@@ -1,6 +1,22 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.9.5",
+      "version": "3.9.5",
+      "date": null,
+      "status": null,
+      "summary": "",
+      "details": []
+    },
+    {
+      "title": "collectZ v3.9.4",
+      "version": "3.9.4",
+      "date": null,
+      "status": null,
+      "summary": "",
+      "details": []
+    },
+    {
       "title": "collectZ v3.9.3",
       "version": "3.9.3",
       "date": null,
@@ -121,44 +137,6 @@
             "Shows those reasons directly on Capture Inbox rows as compact text.",
             "Documents the new readback in OpenAPI.",
             "Preserves existing review tabs, source filters, batch summary, scanner shortcuts, and import/link actions."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.8.16",
-      "version": "3.8.16",
-      "date": "2026-05-20",
-      "status": "implemented",
-      "summary": "This release makes scanner-app captures easier to find and continue from inside Capture Inbox.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added backend source filtering for Capture Inbox so scanner-origin captures can be requested directly.",
-            "Added source counts for scanner and web captures in Capture Inbox responses.",
-            "Added a compact scanner shortcut on Capture Inbox when scanner captures are waiting.",
-            "Added a source selector with Scanner app and Web capture filters.",
-            "Marks scanner-origin rows as Scanner app in capture row details."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.8.15",
-      "version": "3.8.15",
-      "date": "2026-05-20",
-      "status": "implemented",
-      "summary": "This release makes batch scanning easier to wrap up by keeping a compact summary on Capture Inbox after a batch is stopped.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added a completed batch summary to Capture Inbox.",
-            "Shows added, linked, needs-choice, no-match, and failed counts after batch mode stops.",
-            "Keeps a short recent outcome list so the user can see what just happened.",
-            "Adds direct review actions for choices and no-match captures.",
-            "Keeps the existing batch scan flow and exact ISBN auto-add behavior intact."
           ]
         }
       ]
