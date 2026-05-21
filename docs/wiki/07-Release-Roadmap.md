@@ -10810,6 +10810,38 @@ Historical note:
 - What remains in the milestone: nothing for `3.8.10`; next planned work is `3.8.11 — Capture Scan Immediate Lookup`, followed by batch scan mode, safe ISBN auto-import, and exception review routing.
 - Recommended commit message: `Release 3.8.10 with Capture Inbox barcode camera ISBN recognition`.
 
+## 3.9.9 — Wishlist Source Details Cleanup
+
+**Goal:** Make Wishlist source/provider metadata readable in the normal list view without removing the backend provider keys needed for matching, refresh, and import workflows.
+
+### Scope
+
+- Replace raw Wishlist row source text such as `apple_itunes 1001` with friendly provider labels.
+- Keep Apple/iTunes media kind readable in the row when available.
+- Hide noisy provider identity fields such as `provider_item_id` from normal row summaries.
+- Continue showing useful identifiers like ISBN, UPC, EAN, barcode, and ASIN.
+- Keep manual source/provider fields available in the advanced edit form.
+
+### Acceptance Criteria
+
+- Apple/iTunes Wishlist rows show `Source: Apple/iTunes` instead of a raw provider key.
+- Wishlist rows do not show raw Apple/iTunes provider identity fields in the default list.
+- Useful identifiers remain visible when present.
+- Regression coverage proves the Apple/iTunes Wishlist row copy stays user-facing.
+- Version metadata, release note, release feed, and Help > Releases include `3.9.9`.
+
+### Closeout
+
+- Roadmap slice: `3.9.9 — Wishlist Source Details Cleanup`.
+- Project docs/checklists used: `AGENTS.md`; `/Users/hamlin/.codex/skills/uncodixfy/SKILL.md`; `docs/wiki/06-Versioning-and-Build-Metadata.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.9.9.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild with `APP_VERSION=3.9.9`; running `/api/health` reported frontend/backend/build `3.9.9`; backend logs reported `Database schema up to date (105 migration(s) applied)` and `collectZ backend v3.9.9`; running backend env readback was verified after observability and homelab checks were restored to normal platform values (`APP_EDITION=platform`, `APP_VERSION=3.9.9`, `NODE_ENV=development`, `SESSION_COOKIE_SECURE=false`, `TRUST_PROXY=0`, no lingering `LOG_EXPORT_BACKEND`); Help > Releases smoke served `3.9.9`; targeted Wishlist browser regression proved Apple/iTunes Wishlist rows show `Source: Apple/iTunes` and do not show raw provider keys or `provider_item_id` in the default row; a temporary homelab runtime using the CI build override passed the homelab edition boundary, then the stack was restored to platform mode.
+- CI/checks run locally: host `node backend/scripts/unit-tests.js` (`299` passed); host `npm --prefix frontend run build`; host `node backend/scripts/validate-openapi.js`; `git diff --check`; Docker backend/frontend build; Docker `npm run test:unit` (`299` passed); Docker `npm run test:openapi`; Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.9.9 npm run test:help-releases-smoke`; Docker `npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression` after an initial invalid container-local target returned `fetch failed`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; targeted Wishlist Apple/iTunes Playwright regression; full browser regression (`71` passed, `4` skipped); backend/frontend production dependency audits (`0` vulnerabilities); local observability evidence (`9/9` checks passed); local release preflight; targeted release/artifact secret-pattern scan; Docker homelab boundary under the correct CI build override after an initial invalid platform-localhost override failed as expected.
+- Gate status: `compose-smoke` remains locally blocked by development stack secure-cookie settings (`SESSION_COOKIE_SECURE=false`, `NODE_ENV=development`); `secret-scan` and `image-security-and-sbom` remain CI-only; browser, RBAC, platform boundary, and homelab boundary were run locally and passed.
+- Files changed for this slice: `app-meta.json`; `artifacts/dependency-audit/frontend-audit.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `backend/app-meta.json`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/scripts/unit-tests.js`; `docs/releases/v3.9.9.md`; `docs/wiki/07-Release-Roadmap.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/WishlistView.jsx`; `preflight-go-no-go.md`; `tests/playwright/specs/admin-shell.browser.spec.js`.
+- Risks/follow-ups: provider keys remain intentionally stored for backend identity matching, price refresh, and import/writeback workflows; this patch only changes default Wishlist readback copy. Broader Wishlist review-queue routing and Apple/iTunes alert delivery remain future work.
+- What remains in the milestone: nothing for `3.9.9`; CI should rerun the remaining CI-only release gates.
+- Recommended commit message: `Release 3.9.9 with Wishlist source details cleanup`.
+
 ## 3.9.8 — Observability Collector Smoke Wiring
 
 **Goal:** Restore release evidence confidence for structured-log collector smoke tests by ensuring generated CI compose overrides actually pass external-log runtime settings into the backend container.

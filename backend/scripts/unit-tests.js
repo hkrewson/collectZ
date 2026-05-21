@@ -6424,6 +6424,11 @@ results.push(run('apple itunes wishlist search and save are routed, scoped, and 
   assert.ok(wishlistViewSource.includes('Apple current: ${current}'));
   assert.ok(wishlistViewSource.includes("apiCall('get', `/wishlist/${item.id}/price-history?limit=8`)"));
   assert.ok(wishlistViewSource.includes('Price history'));
+  assert.ok(wishlistViewSource.includes('function providerLabel(provider)'));
+  assert.ok(wishlistViewSource.includes('function wishlistSourceSummary(item)'));
+  assert.ok(wishlistViewSource.includes("apple_itunes: 'Apple/iTunes'"));
+  assert.ok(wishlistViewSource.includes('TECHNICAL_IDENTIFIER_KEYS'));
+  assert.ok(!wishlistViewSource.includes("[item.provider, item.provider_key].filter(Boolean).join(' ')"));
   assert.ok(adminShellBrowserSpecSource.includes('wishlist apple itunes search presents candidates and saves a selected result'));
   assert.ok(adminShellBrowserSpecSource.includes('/api/wishlist/apple-itunes/search'));
   assert.ok(adminShellBrowserSpecSource.includes('/api/wishlist/apple-itunes/save'));

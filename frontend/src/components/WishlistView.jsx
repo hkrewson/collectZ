@@ -48,6 +48,54 @@ const WISHLIST_FORMAT_OPTIONS = {
   other: ['Physical', 'Digital', 'Service', 'Part', 'Upgrade']
 };
 
+const PROVIDER_LABELS = {
+  apple_itunes: 'Apple/iTunes',
+  googlebooks: 'Google Books',
+  google_books: 'Google Books',
+  kavita: 'Kavita',
+  plex: 'Plex',
+  upcitemdb: 'UPCItemDB',
+  comicvine: 'Comic Vine',
+  metron: 'Metron',
+  ios_scanner_app: 'iOS scanner'
+};
+
+const APPLE_KIND_LABELS = {
+  'feature-movie': 'Movie',
+  'tv-episode': 'TV episode',
+  book: 'Book',
+  audiobook: 'Audiobook',
+  song: 'Song',
+  album: 'Album',
+  'music-video': 'Music video',
+  podcast: 'Podcast',
+  'podcast-episode': 'Podcast episode',
+  'short-film': 'Short film',
+  'software-package': 'App'
+};
+
+const IDENTIFIER_LABELS = {
+  isbn: 'ISBN',
+  isbn10: 'ISBN-10',
+  isbn_10: 'ISBN-10',
+  isbn13: 'ISBN-13',
+  isbn_13: 'ISBN-13',
+  upc: 'UPC',
+  ean: 'EAN',
+  barcode: 'Barcode',
+  asin: 'ASIN'
+};
+
+const TECHNICAL_IDENTIFIER_KEYS = new Set([
+  'provider_name',
+  'provider_item_id',
+  'apple_itunes_provider_key',
+  'apple_itunes_track_id',
+  'apple_itunes_collection_id',
+  'apple_itunes_media',
+  'apple_itunes_kind'
+]);
+
 const EMPTY_FORM = {
   title: '',
   object_type: 'book',
@@ -70,6 +118,31 @@ function statusLabel(status) {
 
 function typeLabel(type) {
   return OBJECT_TYPES.find((item) => item.value === type)?.label || type || 'Item';
+}
+
+function providerLabel(provider) {
+  const key = String(provider || '').trim();
+  if (!key) return '';
+  const normalized = key.toLowerCase();
+  if (PROVIDER_LABELS[normalized]) return PROVIDER_LABELS[normalized];
+  return key
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function appleMediaLabel(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const kindLabel = APPLE_KIND_LABELS[raw] || APPLE_KIND_LABELS[raw.toLowerCase()];
+  if (kindLabel) return kindLabel;
+  const optionLabel = APPLE_MEDIA_OPTIONS.find((option) => option.value === raw)?.label;
+  if (optionLabel) return optionLabel;
+  return raw
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function getWishlistFormatOptions(objectType, currentValue = '') {
@@ -134,11 +207,43 @@ function stringifyIdentifiers(value) {
 
 function identifierSummary(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return '';
-  return Object.entries(value)
-    .filter(([key, val]) => key && val !== null && val !== undefined && String(val).trim())
+  const entries = Object.entries(value)
+    .filter(([key, val]) => {
+      const normalizedKey = String(key || '').trim();
+      return normalizedKey
+        && !TECHNICAL_IDENTIFIER_KEYS.has(normalizedKey)
+        && val !== null
+        && val !== undefined
+        && String(val).trim();
+    });
+
+  const prioritized = Object.keys(IDENTIFIER_LABELS)
+    .map((key) => entries.find(([entryKey]) => entryKey === key))
+    .filter(Boolean);
+  const remaining = entries.filter(([key]) => !IDENTIFIER_LABELS[key]);
+  return [...prioritized, ...remaining]
     .slice(0, 3)
-    .map(([key, val]) => `${key}: ${val}`)
+    .map(([key, val]) => `${IDENTIFIER_LABELS[key] || key}: ${val}`)
     .join(' · ');
+}
+
+function wishlistSourceSummary(item) {
+  const provider = item?.provider || item?.identifiers?.provider_name || item?.source_context?.provider || item?.source_context?.source;
+  const parts = [];
+  const sourceLabel = providerLabel(provider);
+  if (sourceLabel) parts.push(`Source: ${sourceLabel}`);
+
+  if (provider === 'apple_itunes') {
+    const appleType = appleMediaLabel(
+      item?.source_context?.kind
+      || item?.source_context?.media
+      || item?.identifiers?.apple_itunes_kind
+      || item?.identifiers?.apple_itunes_media
+    );
+    if (appleType) parts.push(appleType);
+  }
+
+  return parts;
 }
 
 function formFromItem(item) {
@@ -933,7 +1038,7 @@ export default function WishlistView({ apiCall, onToast, activeLibrary, Icons, S
             const isAppleItem = item.provider === 'apple_itunes';
             const priceHistoryOpen = openPriceHistoryId === item.id;
             const priceHistory = priceHistoryByItem[item.id] || [];
-            const sourceText = item.provider ? [item.provider, item.provider_key].filter(Boolean).join(' ') : '';
+            const sourceParts = wishlistSourceSummary(item);
             const idText = identifierSummary(item.identifiers);
             return (
               <div key={item.id} className="grid gap-3 py-3 md:grid-cols-[minmax(0,1fr)_auto]">
@@ -951,9 +1056,9 @@ export default function WishlistView({ apiCall, onToast, activeLibrary, Icons, S
                     {price ? <span>{price}</span> : null}
                     {item.linked_media_id ? <span>Library #{item.linked_media_id}</span> : null}
                   </div>
-                  {sourceText || idText ? (
+                  {sourceParts.length || idText ? (
                     <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-dim">
-                      {sourceText ? <span>Source: {sourceText}</span> : null}
+                      {sourceParts.map((part) => <span key={part}>{part}</span>)}
                       {idText ? <span>{idText}</span> : null}
                     </div>
                   ) : null}

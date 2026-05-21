@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.9.9",
+      "version": "3.9.9",
+      "date": null,
+      "status": null,
+      "summary": "",
+      "details": []
+    },
+    {
       "title": "collectZ v3.9.8",
       "version": "3.9.8",
       "date": null,
@@ -81,28 +89,6 @@
             "Added scoped duplicate readback so saved Apple-linked results show as saved instead of creating confusing duplicate Wishlist rows.",
             "Added a compact Apple/iTunes search panel to Library > Wishlist with artwork, price/currency, store link, optional target price, and direct Add action.",
             "Documented the new Apple/iTunes Wishlist contract in OpenAPI."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.8.20",
-      "version": "3.8.20",
-      "date": "2026-05-20",
-      "status": "implemented",
-      "summary": "This release adds a public homelab environment reference so `env.example` can stay minimal while operators still have a safe place to understand optional deployment settings.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added `docs/wiki/48-Public-Homelab-Environment-Reference.md` for operator-safe public homelab settings.",
-            "Updated README and deployment docs to point public users at the new homelab-specific environment reference.",
-            "Marked the broad environment-variable page as a maintainer/runtime reference rather than the first public setup path.",
-            "Removed stale Portainer/deploy guidance that implied version metadata variables changed the public prebuilt image tag.",
-            "Removed public deploy guidance that recommended putting audit verbosity in the default Portainer environment.",
-            "Added the new public reference to public export surface validation.",
-            "Kept the Playwright browser-regression bypass out of public compose/docs while restoring the CI-only compose override that passes the per-run bypass token to the backend test stack.",
-            "Kept CI-only debug-gated API docs available to browser regression, and seeded Events on during Playwright setup so event-social browser specs do not inherit a disabled Event feature flag."
           ]
         }
       ]

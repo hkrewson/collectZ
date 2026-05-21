@@ -411,6 +411,10 @@ test.describe('admin shell browser regressions', () => {
     await signInThroughUi(page, adminCredentials);
     await page.goto('/dashboard?tab=library-wishlist');
     await expect(page.getByRole('heading', { name: 'Wishlist', exact: true })).toBeVisible();
+    await expect(page.getByText('Source: Apple/iTunes')).toBeVisible();
+    await expect(page.getByText('Movie').first()).toBeVisible();
+    await expect(page.getByText('Source: apple_itunes 1001')).toHaveCount(0);
+    await expect(page.getByText(/provider_item_id:/)).toHaveCount(0);
     await page.getByRole('button', { name: 'Price history' }).first().click();
     await expect(page.getByText(/target met/).first()).toBeVisible();
     const applePanel = page.locator('section').filter({ has: page.getByLabel('Apple/iTunes search') });
