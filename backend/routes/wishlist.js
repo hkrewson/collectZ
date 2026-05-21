@@ -201,16 +201,20 @@ async function markAppleItunesSavedState(scopeContext, candidates) {
   let where = 'WHERE provider = $1 AND provider_key = ANY($2)';
   where += appendScopeSql(params, scopeContext);
   const result = await pool.query(
-    `SELECT id, provider_key
+    `SELECT id, provider_key, status
        FROM wanted_items
       ${where}`,
     params
   );
-  const savedByKey = new Map(result.rows.map((row) => [String(row.provider_key), Number(row.id)]));
+  const savedByKey = new Map(result.rows.map((row) => [String(row.provider_key), {
+    id: Number(row.id),
+    status: row.status
+  }]));
   return candidates.map((candidate) => ({
     ...candidate,
     already_saved: savedByKey.has(String(candidate.provider_key)),
-    wanted_item_id: savedByKey.get(String(candidate.provider_key)) || null
+    wanted_item_id: savedByKey.get(String(candidate.provider_key))?.id || null,
+    wanted_status: savedByKey.get(String(candidate.provider_key))?.status || null
   }));
 }
 

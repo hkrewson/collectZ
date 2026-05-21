@@ -468,7 +468,7 @@ function WishlistEditor({ form, setForm, editingItem, saving, onCancel, onSave }
   );
 }
 
-function AppleItunesWishlistSearch({ apiCall, onToast, onSaved }) {
+function AppleItunesWishlistSearch({ apiCall, onToast, onSaved, onViewSaved }) {
   const [term, setTerm] = useState('');
   const [media, setMedia] = useState('movie');
   const [country, setCountry] = useState('US');
@@ -554,7 +554,12 @@ function AppleItunesWishlistSearch({ apiCall, onToast, onSaved }) {
       });
       setMatches((current) => current.map((candidate) => (
         (candidate.provider_key || candidate.id) === key
-          ? { ...candidate, already_saved: true, wanted_item_id: payload?.item?.id || candidate.wanted_item_id || null }
+          ? {
+              ...candidate,
+              already_saved: true,
+              wanted_item_id: payload?.item?.id || candidate.wanted_item_id || null,
+              wanted_status: payload?.item?.status || candidate.wanted_status || 'wanted'
+            }
           : candidate
       )));
       onToast?.(payload?.existing ? 'That Apple/iTunes item is already on the wishlist.' : 'Apple/iTunes item added to the wishlist.', 'success');
@@ -747,6 +752,7 @@ function AppleItunesWishlistSearch({ apiCall, onToast, onSaved }) {
                 const key = match.provider_key || match.id;
                 const saved = Boolean(match.already_saved);
                 const priceEditorOpen = Boolean(priceEditors[key]);
+                const savedLabel = match.wanted_status ? `Saved as ${statusLabel(match.wanted_status)}` : 'Saved';
                 return (
                   <div key={match.id || key} className="grid grid-cols-[48px_minmax(0,1fr)] gap-3 py-3 lg:grid-cols-[56px_minmax(0,1fr)_auto]">
                     <div className="h-12 w-12 overflow-hidden rounded border border-edge bg-panel lg:h-14 lg:w-14">
@@ -769,6 +775,7 @@ function AppleItunesWishlistSearch({ apiCall, onToast, onSaved }) {
                         {match.store_url ? (
                           <a className="text-link hover:underline" href={match.store_url} target="_blank" rel="noreferrer">Store</a>
                         ) : null}
+                        {saved ? <span className="text-ok">{savedLabel}</span> : null}
                       </div>
                     </div>
                     <div className="col-span-2 flex flex-wrap items-center justify-start gap-2 lg:col-span-1 lg:justify-end">
@@ -795,9 +802,15 @@ function AppleItunesWishlistSearch({ apiCall, onToast, onSaved }) {
                           Target price
                         </button>
                       ) : null}
-                      <button type="button" className={saved ? 'btn-ghost h-8' : 'btn-secondary h-8'} disabled={saved || savingKey === key} onClick={() => saveMatch(match)}>
-                        {saved ? 'Saved' : savingKey === key ? 'Saving...' : 'Add'}
-                      </button>
+                      {saved ? (
+                        <button type="button" className="btn-ghost h-8" onClick={() => onViewSaved?.(match)}>
+                          View saved item
+                        </button>
+                      ) : (
+                        <button type="button" className="btn-secondary h-8" disabled={savingKey === key} onClick={() => saveMatch(match)}>
+                          {savingKey === key ? 'Saving...' : 'Add'}
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -973,6 +986,13 @@ export default function WishlistView({ apiCall, onToast, activeLibrary, Icons, S
     }
   };
 
+  const viewSavedAppleMatch = (match) => {
+    setStatus('all');
+    setObjectType('all');
+    setSearch(match.provider_key || match.title || '');
+    onToast?.('Showing the saved Wishlist item.', 'success');
+  };
+
   return (
     <div className="mx-auto w-full max-w-[1180px] space-y-4 px-4 pb-6 sm:px-5 lg:px-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -986,7 +1006,12 @@ export default function WishlistView({ apiCall, onToast, activeLibrary, Icons, S
         </button>
       </div>
 
-      <AppleItunesWishlistSearch apiCall={apiCall} onToast={onToast} onSaved={() => loadWishlist(pagination.page || 1)} />
+      <AppleItunesWishlistSearch
+        apiCall={apiCall}
+        onToast={onToast}
+        onSaved={() => loadWishlist(pagination.page || 1)}
+        onViewSaved={viewSavedAppleMatch}
+      />
 
       <div className="border-y border-edge py-3">
         <div className="flex flex-wrap items-center justify-between gap-3">

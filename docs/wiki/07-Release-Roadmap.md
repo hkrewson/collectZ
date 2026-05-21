@@ -10810,6 +10810,38 @@ Historical note:
 - What remains in the milestone: nothing for `3.8.10`; next planned work is `3.8.11 — Capture Scan Immediate Lookup`, followed by batch scan mode, safe ISBN auto-import, and exception review routing.
 - Recommended commit message: `Release 3.8.10 with Capture Inbox barcode camera ISBN recognition`.
 
+## 3.9.11 — Apple/iTunes Result Saved-State Readback
+
+**Goal:** Make Apple/iTunes Wishlist search results explain when a candidate is already saved and provide a direct way to bring the saved Wishlist row into view.
+
+### Scope
+
+- Include saved Wishlist status on Apple/iTunes search candidates when the provider key already exists.
+- Replace disabled-only saved result treatment with readable saved-state copy.
+- Add a `View saved item` action that filters the Wishlist list to the saved provider key.
+- Update newly saved search results in place so the row shows its saved status.
+- Do not add new provider polling, alerts, or price-watch behavior.
+
+### Acceptance Criteria
+
+- Already saved Apple/iTunes search results show readable saved-state copy such as `Saved as Watching`.
+- Saving a new candidate updates the search result to `Saved as Wanted`.
+- Saved candidates expose `View saved item` instead of a dead disabled action.
+- Apple/iTunes search response docs include the saved status field.
+- Version metadata, release note, release feed, and Help > Releases include `3.9.11`.
+
+### Closeout
+
+- Roadmap slice: `3.9.11 — Apple/iTunes Result Saved-State Readback`.
+- Project docs/checklists used: `AGENTS.md`; `/Users/hamlin/.codex/skills/uncodixfy/SKILL.md`; `docs/wiki/06-Versioning-and-Build-Metadata.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.9.11.md`.
+- Runtime verification used: Docker-built backend/frontend at `APP_VERSION=3.9.11`; `/api/health` returned frontend/backend/build `3.9.11`; running backend env was restored to local platform mode after homelab boundary verification; Help > Releases smoke served `3.9.11`; targeted browser regression verified already-saved Apple/iTunes results show saved status and newly saved rows update to `Saved as Wanted`.
+- CI/checks run: `node backend/scripts/unit-tests.js`; `npm --prefix frontend run build`; `node backend/scripts/validate-openapi.js`; Docker backend/frontend build; Docker `test:unit`; Docker `test:openapi`; Docker `test:integration-smoke`; Docker `test:help-releases-smoke`; targeted Wishlist browser regression; full `npm run test:browser`; Docker `test:rbac-regression`; Docker `test:platform-edition-boundary`; Docker `test:homelab-edition-boundary`; Docker `test:init-parity`; Docker `test:migration-rehearsal`; backend/frontend production audits; `npm --prefix backend run test:observability-evidence`; `npm --prefix backend run test:release-preflight-local`; targeted release/artifact secret-pattern scan; `git diff --check`.
+- Gate status: `rbac-regression`, `browser-regression`, `homelab-edition-boundary`, and `platform-edition-boundary` passed locally. Local `compose-smoke` remains blocked in the preflight helper by development secure-cookie settings. `secret-scan` and `image-security-and-sbom` remain CI-only gates.
+- Files changed: `app-meta.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `backend/app-meta.json`; `backend/openapi/openapi.yaml`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/routes/wishlist.js`; `backend/scripts/unit-tests.js`; `docs/releases/v3.9.11.md`; `docs/wiki/07-Release-Roadmap.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/WishlistView.jsx`; `preflight-go-no-go.md`; `tests/playwright/specs/admin-shell.browser.spec.js`.
+- Risks/follow-ups: `View saved item` filters by provider key/title rather than opening a dedicated Wishlist detail route because Wishlist rows do not yet have a standalone detail page. Broader Apple/iTunes price-watch notifications and review-queue routing remain future backlog work.
+- What remains in the milestone: Nothing for `3.9.11`; rerun CI-only release gates in GitHub before publishing.
+- Recommended commit message: `Release 3.9.11 with Apple/iTunes Wishlist saved-state readback`.
+
 ## 3.9.10 — Wishlist Store Link Readback
 
 **Goal:** Let saved Apple/iTunes Wishlist rows reopen their Apple store page directly from the Wishlist list when collectZ has preserved a store URL.

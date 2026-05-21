@@ -3223,6 +3223,7 @@
           "search_source": { "type": ["string", "null"] },
           "already_saved": { "type": "boolean" },
           "wanted_item_id": { "type": ["integer", "null"] },
+          "wanted_status": { "type": ["string", "null"], "enum": ["wanted", "watching", "preordered", "ordered", "acquired", "dismissed", null] },
           "raw_result": { "type": "object", "additionalProperties": true }
         },
         "required": ["id", "provider", "title", "object_type"]

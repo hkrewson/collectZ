@@ -6381,6 +6381,8 @@ results.push(run('apple itunes wishlist search and save are routed, scoped, and 
   assert.ok(wishlistRoutesSource.includes('buildApplePriceReadback'));
   assert.ok(wishlistRoutesSource.includes('findScopedWantedItemByProvider'));
   assert.ok(wishlistRoutesSource.includes("provider: APPLE_ITUNES_PROVIDER"));
+  assert.ok(wishlistRoutesSource.includes('SELECT id, provider_key, status'));
+  assert.ok(wishlistRoutesSource.includes('wanted_status'));
   assert.deepStrictEqual(getRequiredPatScopesForRequest({ originalUrl: '/api/wishlist/apple-itunes/search', method: 'GET' }), ['media:read']);
   assert.deepStrictEqual(getRequiredPatScopesForRequest({ originalUrl: '/api/wishlist/apple-itunes/save', method: 'POST' }), ['media:write']);
   assert.deepStrictEqual(getRequiredPatScopesForRequest({ originalUrl: '/api/wishlist/apple-itunes/refresh-prices', method: 'POST' }), ['media:write']);
@@ -6395,6 +6397,7 @@ results.push(run('apple itunes wishlist search and save are routed, scoped, and 
   assert.ok(openApiSource.includes('"/api/wishlist/apple-itunes/price-refresh-scheduler/run"'));
   assert.ok(openApiSource.includes('"/api/wishlist/apple-itunes/target-price-hits"'));
   assert.ok(openApiSource.includes('"/api/wishlist/{id}/price-history"'));
+  assert.ok(openApiSource.includes('"wanted_status"'));
   assert.ok(openApiSource.includes('"AppleItunesWishlistCandidate"'));
   assert.ok(openApiSource.includes('"AppleItunesWishlistPriceRefreshResponse"'));
   assert.ok(openApiSource.includes('"AppleItunesWishlistTargetPriceHitsResponse"'));
@@ -6418,6 +6421,9 @@ results.push(run('apple itunes wishlist search and save are routed, scoped, and 
   assert.ok(wishlistViewSource.includes("apiCall('patch', `/wishlist/${hit.id}`, { status: nextStatus })"));
   assert.ok(wishlistViewSource.includes('Mark ordered'));
   assert.ok(wishlistViewSource.includes('already_saved'));
+  assert.ok(wishlistViewSource.includes('View saved item'));
+  assert.ok(wishlistViewSource.includes('Saved as ${statusLabel(match.wanted_status)}'));
+  assert.ok(wishlistViewSource.includes('viewSavedAppleMatch'));
   assert.ok(wishlistViewSource.includes('Add a target price from a result row when needed.'));
   assert.ok(wishlistViewSource.includes('max-h-[360px] overflow-y-auto'));
   assert.ok(wishlistViewSource.includes('Set target price for ${match.title}'));
