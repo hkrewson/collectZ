@@ -6435,7 +6435,12 @@ results.push(run('apple itunes wishlist search and save are routed, scoped, and 
   assert.ok(wishlistViewSource.includes('Add a target price from a result row when needed.'));
   assert.ok(wishlistViewSource.includes('max-h-[360px] overflow-y-auto'));
   assert.ok(wishlistViewSource.includes('Set target price for ${match.title}'));
-  assert.ok(wishlistViewSource.includes('Apple current: ${current}'));
+  assert.ok(wishlistViewSource.includes('Store price: ${current}'));
+  assert.ok(wishlistViewSource.includes('${sourceLabel} · ${appleType}'));
+  assert.ok(wishlistViewSource.includes('|| item?.object_type'));
+  assert.ok(!wishlistViewSource.includes('Source: ${sourceLabel}'));
+  assert.ok(adminShellBrowserSpecSource.includes("page.getByText('Apple/iTunes · Movie')"));
+  assert.ok(adminShellBrowserSpecSource.includes("page.getByText('Apple current: $7.99')).toHaveCount(0)"));
   assert.ok(wishlistViewSource.includes("apiCall('get', `/wishlist/${item.id}/price-history?limit=8`)"));
   assert.ok(wishlistViewSource.includes('Price history'));
   assert.ok(wishlistViewSource.includes('function providerLabel(provider)'));

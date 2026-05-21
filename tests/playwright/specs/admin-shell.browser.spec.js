@@ -414,10 +414,12 @@ test.describe('admin shell browser regressions', () => {
     await signInThroughUi(page, adminCredentials);
     await page.goto('/dashboard?tab=library-wishlist');
     await expect(page.getByRole('heading', { name: 'Wishlist', exact: true })).toBeVisible();
-    await expect(page.getByText('Source: Apple/iTunes')).toBeVisible();
-    await expect(page.getByText('Movie').first()).toBeVisible();
+    await expect(page.getByText('Apple/iTunes · Movie')).toBeVisible();
+    await expect(page.getByText('Source: Apple/iTunes')).toHaveCount(0);
     await expect(page.getByText('Source: apple_itunes 1001')).toHaveCount(0);
     await expect(page.getByText(/provider_item_id:/)).toHaveCount(0);
+    await expect(page.getByText('Store price: $7.99')).toBeVisible();
+    await expect(page.getByText('Apple current: $7.99')).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'Open store for Star Wars: A New Hope' })).toHaveAttribute('href', 'https://itunes.apple.com/us/movie/id1001');
     await page.getByRole('button', { name: 'Price history' }).first().click();
     await expect(page.getByText(/target met/).first()).toBeVisible();

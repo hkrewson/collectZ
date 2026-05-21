@@ -229,9 +229,8 @@ function identifierSummary(value) {
 
 function wishlistSourceSummary(item) {
   const provider = item?.provider || item?.identifiers?.provider_name || item?.source_context?.provider || item?.source_context?.source;
-  const parts = [];
   const sourceLabel = providerLabel(provider);
-  if (sourceLabel) parts.push(`Source: ${sourceLabel}`);
+  if (!sourceLabel) return [];
 
   if (provider === 'apple_itunes') {
     const appleType = appleMediaLabel(
@@ -239,11 +238,12 @@ function wishlistSourceSummary(item) {
       || item?.source_context?.media
       || item?.identifiers?.apple_itunes_kind
       || item?.identifiers?.apple_itunes_media
+      || item?.object_type
     );
-    if (appleType) parts.push(appleType);
+    return [appleType ? `${sourceLabel} · ${appleType}` : sourceLabel];
   }
 
-  return parts;
+  return [sourceLabel];
 }
 
 function wishlistStoreUrl(item) {
@@ -859,7 +859,7 @@ function applePriceSummary(item) {
   const source = item.source_context || {};
   const current = formatAppleMoney(source.current_price, source.currency || 'USD');
   if (current === 'No price' && !source.price_refreshed_at) return null;
-  const parts = [`Apple current: ${current}`];
+  const parts = [`Store price: ${current}`];
   if (source.price_refreshed_at) parts.push('refreshed');
   if (source.target_price_met) parts.push('target met');
   return parts.join(' · ');

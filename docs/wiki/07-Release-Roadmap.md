@@ -10810,6 +10810,35 @@ Historical note:
 - What remains in the milestone: nothing for `3.8.10`; next planned work is `3.8.11 — Capture Scan Immediate Lookup`, followed by batch scan mode, safe ISBN auto-import, and exception review routing.
 - Recommended commit message: `Release 3.8.10 with Capture Inbox barcode camera ISBN recognition`.
 
+## 3.9.14 — Wishlist Source Details Readback Cleanup
+
+**Goal:** Make saved Wishlist provider readback feel like normal item metadata instead of technical source/debug information.
+
+### Scope
+
+- Collapse saved Apple/iTunes source and kind readback into one compact metadata line.
+- Replace `Apple current` copy with user-facing store price language.
+- Preserve existing store links, price history, target price, conversion, edit, dismiss, and delete behavior.
+- Keep this as presentation cleanup only; do not add price alerts, provider matching, or new Wishlist schema.
+
+### Acceptance Criteria
+
+- Saved Apple/iTunes Wishlist rows show compact `Apple/iTunes · Movie` style readback.
+- Saved rows no longer show `Source: Apple/iTunes` or `Apple current` copy.
+- Existing `Open store` and `Price history` actions still render and work.
+- Version metadata, release note, release feed, and Help > Releases include `3.9.14`.
+
+### Closeout
+
+- Roadmap slice: `3.9.14 — Wishlist Source Details Readback Cleanup`.
+- Project docs/checklists used: `AGENTS.md`; `/Users/hamlin/.codex/skills/uncodixfy/SKILL.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.9.14.md`.
+- Runtime verification used: Docker-built backend/frontend at `APP_VERSION=3.9.14`; `/api/health` returned frontend/backend/build `3.9.14`; backend logs reported migrations current at 105; running backend env readback verified local platform mode after the homelab boundary restore with secret values redacted in closeout; Help > Releases smoke served `3.9.14`; targeted Wishlist browser regression proved Apple/iTunes saved rows show compact source/type readback and do not show `Source: Apple/iTunes` or `Apple current`; full browser regression passed against the running stack.
+- CI/checks run: `node backend/scripts/unit-tests.js` (`299` passed); `node backend/scripts/validate-openapi.js`; `npm --prefix frontend run build`; Docker backend/frontend build; Docker `npm run test:unit` (`299` passed); Docker `npm run test:openapi`; Docker `npm run test:integration-smoke`; Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.9.14 npm run test:help-releases-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker temporary homelab override plus `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; targeted Wishlist Apple/iTunes Playwright regression; full `npm run test:browser` (`71` passed, `4` skipped); backend/frontend production dependency audits (`0` vulnerabilities); `npm --prefix backend run test:observability-evidence`; `npm --prefix backend run test:release-preflight-local`; release note heading check; version sync check; targeted release/artifact secret-pattern scan; `git diff --check`. Local compose smoke secure-cookie basics remain blocked by the development stack settings (`SESSION_COOKIE_SECURE=false`, `NODE_ENV=development`), and CI remains authoritative for `secret-scan` plus `image-security-and-sbom`.
+- Files changed: `app-meta.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `backend/app-meta.json`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/scripts/unit-tests.js`; `docs/releases/v3.9.14.md`; `docs/wiki/07-Release-Roadmap.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/WishlistView.jsx`; `preflight-go-no-go.md`; `tests/playwright/specs/admin-shell.browser.spec.js`.
+- Risks/follow-ups: This is presentation-only cleanup, so existing Apple/iTunes save, store-link, price-history, target-price, conversion, edit, dismiss, and delete behavior should remain unchanged. Apple/iTunes type readback falls back to the saved object type when provider kind/media metadata is absent, which keeps older saved rows readable without adding schema work.
+- What remains in the milestone: Nothing for `3.9.14`; rerun CI-only release gates in GitHub before publishing.
+- Recommended commit message: `Release 3.9.14 with Wishlist source details readback cleanup`.
+
 ## 3.9.13 — Wishlist Target Price Validation
 
 **Goal:** Make Wishlist target price entry predictable by validating bad values in the UI and enforcing the same rule in the backend.
