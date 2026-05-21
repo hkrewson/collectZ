@@ -438,14 +438,14 @@ test.describe('admin shell browser regressions', () => {
     await applePanel.getByRole('button', { name: 'Search' }).click();
     await expect(applePanel.getByRole('heading', { name: 'Star Wars: A New Hope' })).toBeVisible();
     await expect(applePanel.getByText('Star Wars: The Empire Strikes Back')).toBeVisible();
-    await expect(applePanel.getByText('Saved as Watching')).toBeVisible();
+    await expect(applePanel.getByText('Saved: Watching')).toBeVisible();
     await expect(applePanel.getByRole('button', { name: 'View saved item' })).toBeVisible();
     await expect(applePanel.getByText('Weak match').first()).toBeVisible();
     await expect(applePanel.getByText('Apple returned movies, but none closely matched this title.')).toBeVisible();
     await applePanel.getByLabel('Set target price for Star Wars: A New Hope').click();
     await applePanel.getByLabel('Target price for Star Wars: A New Hope').fill('7.99');
     await applePanel.getByRole('button', { name: 'Add' }).first().click();
-    await expect(applePanel.getByText('Saved as Wanted')).toBeVisible();
+    await expect(applePanel.getByText('Saved: Wanted')).toBeVisible();
     await expect(applePanel.getByRole('button', { name: 'View saved item' }).first()).toBeVisible();
     expect(savePayload?.candidate?.provider).toBe('apple_itunes');
     expect(savePayload?.candidate?.provider_key).toBe('1001');

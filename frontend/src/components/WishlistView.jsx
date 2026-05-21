@@ -257,6 +257,15 @@ function wishlistStoreUrl(item) {
   }
 }
 
+function appleSearchResultMeta(match) {
+  return [
+    match.subtitle,
+    [match.media, match.kind].filter(Boolean).join(' · '),
+    match.match_strength === 'weak' ? match.match_reason : null,
+    formatAppleMoney(match.price, match.currency)
+  ].filter(Boolean);
+}
+
 function formFromItem(item) {
   if (!item) return EMPTY_FORM;
   return {
@@ -752,12 +761,17 @@ function AppleItunesWishlistSearch({ apiCall, onToast, onSaved, onViewSaved }) {
                 const key = match.provider_key || match.id;
                 const saved = Boolean(match.already_saved);
                 const priceEditorOpen = Boolean(priceEditors[key]);
-                const savedLabel = match.wanted_status ? `Saved as ${statusLabel(match.wanted_status)}` : 'Saved';
+                const savedLabel = match.wanted_status ? `Saved: ${statusLabel(match.wanted_status)}` : 'Saved';
+                const metaParts = appleSearchResultMeta(match);
                 return (
                   <div key={match.id || key} className="grid grid-cols-[48px_minmax(0,1fr)] gap-3 py-3 lg:grid-cols-[56px_minmax(0,1fr)_auto]">
-                    <div className="h-12 w-12 overflow-hidden rounded border border-edge bg-panel lg:h-14 lg:w-14">
-                      {match.artwork_url ? <img src={match.artwork_url} alt="" className="h-full w-full object-cover" /> : null}
-                    </div>
+                    {match.artwork_url ? (
+                      <div className="h-12 w-12 overflow-hidden rounded border border-edge bg-panel lg:h-14 lg:w-14">
+                        <img src={match.artwork_url} alt="" className="h-full w-full object-cover" />
+                      </div>
+                    ) : (
+                      <div className="h-12 w-12 rounded border border-edge/40 bg-transparent lg:h-14 lg:w-14" aria-hidden="true" />
+                    )}
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                         <h3 className="truncate text-sm font-semibold text-ink">{match.title}</h3>
@@ -768,14 +782,11 @@ function AppleItunesWishlistSearch({ apiCall, onToast, onSaved, onViewSaved }) {
                         {match.match_strength === 'weak' ? <span className="text-xs text-warn">Weak match</span> : null}
                       </div>
                       <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-ghost">
-                        {match.subtitle ? <span>{match.subtitle}</span> : null}
-                        {match.kind || match.media ? <span>{[match.media, match.kind].filter(Boolean).join(' · ')}</span> : null}
-                        {match.match_strength === 'weak' && match.match_reason ? <span>{match.match_reason}</span> : null}
-                        <span>{formatAppleMoney(match.price, match.currency)}</span>
+                        {metaParts.map((part) => <span key={part}>{part}</span>)}
                         {match.store_url ? (
                           <a className="text-link hover:underline" href={match.store_url} target="_blank" rel="noreferrer">Store</a>
                         ) : null}
-                        {saved ? <span className="text-ok">{savedLabel}</span> : null}
+                        {saved ? <span className="text-dim">{savedLabel}</span> : null}
                       </div>
                     </div>
                     <div className="col-span-2 flex flex-wrap items-center justify-start gap-2 lg:col-span-1 lg:justify-end">

@@ -6422,7 +6422,9 @@ results.push(run('apple itunes wishlist search and save are routed, scoped, and 
   assert.ok(wishlistViewSource.includes('Mark ordered'));
   assert.ok(wishlistViewSource.includes('already_saved'));
   assert.ok(wishlistViewSource.includes('View saved item'));
-  assert.ok(wishlistViewSource.includes('Saved as ${statusLabel(match.wanted_status)}'));
+  assert.ok(wishlistViewSource.includes('function appleSearchResultMeta(match)'));
+  assert.ok(wishlistViewSource.includes('Saved: ${statusLabel(match.wanted_status)}'));
+  assert.ok(wishlistViewSource.includes('border-edge/40 bg-transparent'));
   assert.ok(wishlistViewSource.includes('viewSavedAppleMatch'));
   assert.ok(wishlistViewSource.includes('Add a target price from a result row when needed.'));
   assert.ok(wishlistViewSource.includes('max-h-[360px] overflow-y-auto'));

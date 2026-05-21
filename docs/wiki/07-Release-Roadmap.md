@@ -10810,6 +10810,37 @@ Historical note:
 - What remains in the milestone: nothing for `3.8.10`; next planned work is `3.8.11 — Capture Scan Immediate Lookup`, followed by batch scan mode, safe ISBN auto-import, and exception review routing.
 - Recommended commit message: `Release 3.8.10 with Capture Inbox barcode camera ISBN recognition`.
 
+## 3.9.12 — Apple/iTunes Search Result Density Polish
+
+**Goal:** Tighten the Apple/iTunes Wishlist search result rows so the saved-state and metadata readback feel like the rest of collectZ instead of a busy provider widget.
+
+### Scope
+
+- Calm saved-state copy from `Saved as ...` to `Saved: ...`.
+- Reduce the visual weight of empty Apple/iTunes artwork placeholders.
+- Group Apple/iTunes result metadata through a compact helper.
+- Keep existing search, save, target price, store link, and saved-row navigation behavior unchanged.
+- Do not add new provider polling, alerts, or price-watch behavior.
+
+### Acceptance Criteria
+
+- Saved Apple/iTunes search results still show saved state, but with quieter row copy.
+- Empty artwork placeholders no longer dominate rows with no provider artwork.
+- Result rows continue to expose price, store link, match strength, target price, add, and saved-item actions.
+- Version metadata, release note, release feed, and Help > Releases include `3.9.12`.
+
+### Closeout
+
+- Roadmap slice: `3.9.12 — Apple/iTunes Search Result Density Polish`.
+- Project docs/checklists used: `AGENTS.md`; `/Users/hamlin/.codex/skills/uncodixfy/SKILL.md`; `docs/wiki/06-Versioning-and-Build-Metadata.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.9.12.md`.
+- Runtime verification used: Docker-built backend/frontend at `APP_VERSION=3.9.12`; `/api/health` returned frontend/backend/build `3.9.12`; running backend env was restored to local platform mode after homelab boundary verification; Help > Releases smoke served `3.9.12`; targeted browser regression verified the Apple/iTunes Wishlist search result row still exposes saved, target-price, and add behavior after the density polish.
+- CI/checks run: `node backend/scripts/unit-tests.js`; `npm --prefix frontend run build`; `node backend/scripts/validate-openapi.js`; Docker backend/frontend build; Docker `test:unit`; Docker `test:openapi`; Docker `test:integration-smoke`; Docker `test:help-releases-smoke`; targeted Wishlist browser regression; full `npm run test:browser`; Docker `test:rbac-regression`; Docker `test:platform-edition-boundary`; Docker `test:homelab-edition-boundary`; Docker `test:init-parity`; Docker `test:migration-rehearsal`; backend/frontend production audits; `npm --prefix backend run test:observability-evidence`; `npm --prefix backend run test:release-preflight-local`; targeted release/artifact secret-pattern scan; `git diff --check`.
+- Gate status: `rbac-regression`, `browser-regression`, `homelab-edition-boundary`, and `platform-edition-boundary` passed locally. Local `compose-smoke` remains blocked in the preflight helper by development secure-cookie settings. `secret-scan` and `image-security-and-sbom` remain CI-only gates.
+- Files changed: `app-meta.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `backend/app-meta.json`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/scripts/unit-tests.js`; `docs/releases/v3.9.12.md`; `docs/wiki/07-Release-Roadmap.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/WishlistView.jsx`; `preflight-go-no-go.md`; `tests/playwright/specs/admin-shell.browser.spec.js`.
+- Risks/follow-ups: This is a presentation-only refinement. Apple/iTunes rows can still be dense when Apple returns weak-match explanations plus store pricing; broader result ranking and price-watch notification work remain outside this patch.
+- What remains in the milestone: Nothing for `3.9.12`; rerun CI-only release gates in GitHub before publishing.
+- Recommended commit message: `Release 3.9.12 with Apple/iTunes Wishlist search result density polish`.
+
 ## 3.9.11 — Apple/iTunes Result Saved-State Readback
 
 **Goal:** Make Apple/iTunes Wishlist search results explain when a candidate is already saved and provide a direct way to bring the saved Wishlist row into view.
