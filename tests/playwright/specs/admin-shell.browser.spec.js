@@ -112,6 +112,7 @@ test.describe('admin shell browser regressions', () => {
     let savePayload = null;
     let refreshPayload = null;
     let schedulerRunPayload = null;
+    let targetHitPatchPayload = null;
 
     await page.route('**/api/wishlist?**', async (route) => {
       await route.fulfill({
@@ -382,6 +383,31 @@ test.describe('admin shell browser regressions', () => {
       });
     });
 
+    await page.route('**/api/wishlist/9001', async (route) => {
+      if (route.request().method() !== 'PATCH') return route.fallback();
+      targetHitPatchPayload = route.request().postDataJSON();
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          item: {
+            id: 9001,
+            title: 'Star Wars: A New Hope',
+            object_type: 'movie',
+            status: targetHitPatchPayload?.status || 'ordered',
+            priority: 'normal',
+            identifiers: {},
+            source_context: {},
+            provider: 'apple_itunes',
+            provider_key: '1001',
+            target_price: 7.99,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }
+        })
+      });
+    });
+
     await signInThroughUi(page, adminCredentials);
     await page.goto('/dashboard?tab=library-wishlist');
     await expect(page.getByRole('heading', { name: 'Wishlist', exact: true })).toBeVisible();
@@ -392,6 +418,8 @@ test.describe('admin shell browser regressions', () => {
     await expect(applePanel.getByText('Target price hits')).toBeVisible();
     await expect(applePanel.getByText('Star Wars: A New Hope').first()).toBeVisible();
     await expect(applePanel.getByText('$7.99 at or below $7.99')).toBeVisible();
+    await applePanel.getByRole('button', { name: 'Mark ordered' }).click();
+    expect(targetHitPatchPayload?.status).toBe('ordered');
     await applePanel.getByRole('button', { name: 'Run auto refresh now' }).click();
     await expect(applePanel.getByText('Updated 1 of 1')).toBeVisible();
     expect(schedulerRunPayload?.status).toBe('active');

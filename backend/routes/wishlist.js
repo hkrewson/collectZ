@@ -57,6 +57,7 @@ const appleItunesWishlistPriceRefreshState = {
 };
 
 const ACTIVE_STATUSES = ['wanted', 'watching', 'preordered', 'ordered'];
+const TARGET_HIT_ACTIONABLE_STATUSES = ['wanted', 'watching', 'preordered'];
 const STATUSES = new Set([...ACTIVE_STATUSES, 'acquired', 'dismissed']);
 const PRIORITIES = new Set(['low', 'normal', 'high', 'grail']);
 const OBJECT_TYPES = new Set(['movie', 'tv_series', 'book', 'comic_book', 'audio', 'game', 'art', 'collectible', 'event_item', 'other']);
@@ -663,7 +664,7 @@ router.get('/wishlist/apple-itunes/target-price-hits', asyncHandler(async (req, 
     params.push(requestedStatus);
     where += ` AND wi.status = $${params.length}`;
   } else if (requestedStatus !== 'all') {
-    params.push(ACTIVE_STATUSES);
+    params.push(TARGET_HIT_ACTIONABLE_STATUSES);
     where += ` AND wi.status = ANY($${params.length})`;
   }
   where += appendScopeSql(params, scopeContext, { spaceColumn: 'wi.space_id', libraryColumn: 'wi.library_id' });
@@ -852,7 +853,7 @@ router.patch('/wishlist/:id', asyncHandler(async (req, res) => {
     `UPDATE wanted_items
         SET title = $1,
             object_type = $2,
-            status = $3,
+            status = $3::varchar,
             priority = $4,
             year = $5,
             desired_format = $6,
@@ -865,8 +866,8 @@ router.patch('/wishlist/:id', asyncHandler(async (req, res) => {
             event_id = $13,
             vendor = $14,
             target_price = $15,
-            acquired_at = CASE WHEN $3 = 'acquired' THEN COALESCE(acquired_at, CURRENT_TIMESTAMP) ELSE acquired_at END,
-            dismissed_at = CASE WHEN $3 = 'dismissed' THEN COALESCE(dismissed_at, CURRENT_TIMESTAMP) ELSE dismissed_at END
+            acquired_at = CASE WHEN $3::text = 'acquired' THEN COALESCE(acquired_at, CURRENT_TIMESTAMP) ELSE acquired_at END,
+            dismissed_at = CASE WHEN $3::text = 'dismissed' THEN COALESCE(dismissed_at, CURRENT_TIMESTAMP) ELSE dismissed_at END
       WHERE id = $16
       RETURNING *`,
     [

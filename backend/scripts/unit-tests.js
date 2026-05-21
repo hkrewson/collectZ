@@ -6363,6 +6363,8 @@ results.push(run('apple itunes wishlist search and save are routed, scoped, and 
   assert.ok(wishlistRoutesSource.includes("router.get('/wishlist/apple-itunes/price-refresh-scheduler'"));
   assert.ok(wishlistRoutesSource.includes("router.post('/wishlist/apple-itunes/price-refresh-scheduler/run'"));
   assert.ok(wishlistRoutesSource.includes("router.get('/wishlist/apple-itunes/target-price-hits'"));
+  assert.ok(wishlistRoutesSource.includes("const TARGET_HIT_ACTIONABLE_STATUSES = ['wanted', 'watching', 'preordered'];"));
+  assert.ok(wishlistRoutesSource.includes('status = $3::varchar'));
   assert.ok(wishlistRoutesSource.includes('getAppleItunesWishlistPriceRefreshRuntimeConfig'));
   assert.ok(wishlistRoutesSource.includes('startAppleItunesWishlistPriceRefreshScheduler'));
   assert.ok(wishlistRoutesSource.includes("router.get('/wishlist/:id/price-history'"));
@@ -6407,6 +6409,9 @@ results.push(run('apple itunes wishlist search and save are routed, scoped, and 
   assert.ok(wishlistViewSource.includes("apiCall('post', '/wishlist/apple-itunes/refresh-prices'"));
   assert.ok(wishlistViewSource.includes("apiCall('get', '/wishlist/apple-itunes/target-price-hits?status=active&limit=5')"));
   assert.ok(wishlistViewSource.includes('Target price hits'));
+  assert.ok(wishlistViewSource.includes('updateTargetHitStatus'));
+  assert.ok(wishlistViewSource.includes("apiCall('patch', `/wishlist/${hit.id}`, { status: nextStatus })"));
+  assert.ok(wishlistViewSource.includes('Mark ordered'));
   assert.ok(wishlistViewSource.includes('already_saved'));
   assert.ok(wishlistViewSource.includes('Add a target price from a result row when needed.'));
   assert.ok(wishlistViewSource.includes('max-h-[360px] overflow-y-auto'));
@@ -6420,6 +6425,7 @@ results.push(run('apple itunes wishlist search and save are routed, scoped, and 
   assert.ok(adminShellBrowserSpecSource.includes('/api/wishlist/apple-itunes/refresh-prices'));
   assert.ok(adminShellBrowserSpecSource.includes('/api/wishlist/apple-itunes/price-refresh-scheduler'));
   assert.ok(adminShellBrowserSpecSource.includes('/api/wishlist/apple-itunes/target-price-hits'));
+  assert.ok(adminShellBrowserSpecSource.includes("targetHitPatchPayload?.status).toBe('ordered'"));
   assert.ok(adminShellBrowserSpecSource.includes('/api/wishlist/9001/price-history'));
 }));
 

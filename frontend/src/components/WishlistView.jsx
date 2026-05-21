@@ -367,6 +367,7 @@ function AppleItunesWishlistSearch({ apiCall, onToast, onSaved }) {
   const [refreshSummary, setRefreshSummary] = useState(null);
   const [targetHits, setTargetHits] = useState([]);
   const [targetHitsLoading, setTargetHitsLoading] = useState(false);
+  const [targetHitActionId, setTargetHitActionId] = useState(null);
   const [error, setError] = useState(null);
   const [targetPrices, setTargetPrices] = useState({});
   const [priceEditors, setPriceEditors] = useState({});
@@ -496,6 +497,21 @@ function AppleItunesWishlistSearch({ apiCall, onToast, onSaved }) {
     }
   };
 
+  const updateTargetHitStatus = async (hit, nextStatus) => {
+    if (!hit?.id) return;
+    setTargetHitActionId(`${hit.id}:${nextStatus}`);
+    try {
+      await apiCall('patch', `/wishlist/${hit.id}`, { status: nextStatus });
+      setTargetHits((current) => current.filter((entry) => entry.id !== hit.id));
+      onToast?.(`Marked ${hit.title} ${statusLabel(nextStatus).toLowerCase()}.`, 'success');
+      await onSaved?.();
+    } catch (err) {
+      onToast?.(err?.message || 'Could not update target price hit.', 'error');
+    } finally {
+      setTargetHitActionId(null);
+    }
+  };
+
   const schedulerRuntime = scheduler?.runtime || null;
   const schedulerState = scheduler?.state || null;
 
@@ -561,12 +577,32 @@ function AppleItunesWishlistSearch({ apiCall, onToast, onSaved }) {
                   <span className="ml-2 text-ghost">{typeLabel(hit.object_type)}</span>
                   {hit.checked_at ? <span className="ml-2 text-ghost">{formatCompactDate(hit.checked_at)}</span> : null}
                 </div>
-                <div className="flex items-center gap-3 text-ghost">
+                <div className="flex flex-wrap items-center gap-2 text-ghost">
                   <span>
                     {formatAppleMoney(hit.current_price, hit.currency)} at or below {formatAppleMoney(hit.target_price, hit.currency)}
                   </span>
                   {hit.store_url ? (
                     <a className="text-link hover:underline" href={hit.store_url} target="_blank" rel="noreferrer">Store</a>
+                  ) : null}
+                  {hit.status !== 'ordered' && hit.status !== 'acquired' ? (
+                    <button
+                      type="button"
+                      className="btn-ghost h-7 text-xs"
+                      disabled={targetHitActionId === `${hit.id}:ordered`}
+                      onClick={() => updateTargetHitStatus(hit, 'ordered')}
+                    >
+                      {targetHitActionId === `${hit.id}:ordered` ? 'Saving...' : 'Mark ordered'}
+                    </button>
+                  ) : null}
+                  {hit.status !== 'dismissed' && hit.status !== 'acquired' ? (
+                    <button
+                      type="button"
+                      className="btn-ghost h-7 text-xs"
+                      disabled={targetHitActionId === `${hit.id}:dismissed`}
+                      onClick={() => updateTargetHitStatus(hit, 'dismissed')}
+                    >
+                      {targetHitActionId === `${hit.id}:dismissed` ? 'Saving...' : 'Dismiss'}
+                    </button>
                   ) : null}
                 </div>
               </div>

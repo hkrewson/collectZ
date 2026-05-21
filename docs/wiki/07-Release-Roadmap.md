@@ -10810,6 +10810,37 @@ Historical note:
 - What remains in the milestone: nothing for `3.8.10`; next planned work is `3.8.11 — Capture Scan Immediate Lookup`, followed by batch scan mode, safe ISBN auto-import, and exception review routing.
 - Recommended commit message: `Release 3.8.10 with Capture Inbox barcode camera ISBN recognition`.
 
+## 3.9.7 — Apple/iTunes Target Hit Actions
+
+**Goal:** Let users act on Apple/iTunes target price hits directly from the compact Wishlist readback without adding notifications or a new provider-specific status API.
+
+### Scope
+
+- Add compact `Mark ordered` and `Dismiss` actions to Apple/iTunes target price hit rows.
+- Reuse the existing scoped Wishlist update route for status changes.
+- Remove acted-on hits from the compact target-hit list after a successful update.
+- Keep Store links user-initiated.
+- Do not add email/push notifications, alert delivery, or auto-purchase behavior in this slice.
+
+### Acceptance Criteria
+
+- Target-hit rows can be marked `ordered` from Library > Wishlist.
+- Target-hit rows can be dismissed from Library > Wishlist.
+- Actions use existing authenticated Wishlist update behavior.
+- Version metadata, release note, release feed, and Help > Releases include `3.9.7`.
+
+### Closeout
+
+- Roadmap slice: `3.9.7 — Apple/iTunes Target Hit Actions`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.9.7.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild with `APP_VERSION=3.9.7`; running `/api/health` reported frontend/backend/build `3.9.7`; backend logs reported `Database schema up to date (105 migration(s) applied)` and `collectZ backend v3.9.7`; Help > Releases smoke served `3.9.7`; a temporary Apple/iTunes wishlist row was created through the running API, appeared in `GET /api/wishlist/apple-itunes/target-price-hits?status=active`, was patched through the existing `PATCH /api/wishlist/:id` route to `ordered`, disappeared from the default actionable target-hit readback, and remained visible through an explicit `status=ordered` query. The local stack was temporarily recreated as `APP_EDITION=homelab` for homelab boundary proof and then restored to platform mode.
+- CI/checks run locally: host `node --check backend/routes/wishlist.js`; host `node backend/scripts/unit-tests.js` (`299` passed); host `npm --prefix backend run test:openapi`; host `npm --prefix frontend run build`; Docker backend/frontend build; Docker `npm run test:unit` (`299` passed); Docker `npm run test:openapi`; Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.9.7 npm run test:help-releases-smoke`; Docker `npm run test:integration-smoke`; Docker `npm run test:init-parity`; Docker `npm run test:migration-rehearsal`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker temporary homelab override plus `BASE_URL=http://frontend:3000 npm run test:homelab-edition-boundary`; targeted Wishlist Apple/iTunes Playwright regression; full `npm run test:browser` (`71` passed, `4` skipped); backend/frontend production dependency audits (`0` vulnerabilities); modern-npm backend/frontend `npm ci --no-fund --dry-run`; `npm --prefix backend run test:observability-evidence`; `npm --prefix backend run test:release-preflight-local`; release-artifact secret-pattern scan; and `git diff --check`.
+- Gate status: `compose-smoke` remains locally blocked by development stack secure-cookie settings (`SESSION_COOKIE_SECURE=false`, `NODE_ENV=development`); `secret-scan` and `image-security-and-sbom` remain CI-only; local release preflight remains NO-GO because `graylog_collector_smoke` and `syslog_collector_smoke` failed in observability evidence even though the slice-specific runtime behavior passed.
+- Files changed for this slice: `app-meta.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `backend/app-meta.json`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/routes/wishlist.js`; `backend/scripts/unit-tests.js`; `docs/releases/v3.9.7.md`; `docs/wiki/07-Release-Roadmap.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/WishlistView.jsx`; `preflight-go-no-go.md`; `tests/playwright/specs/admin-shell.browser.spec.js`.
+- Risks/follow-ups: Target-hit actions are status changes only; there is still no notification delivery, price-drop alerting, or automatic purchase flow. The default target-hit readback is now action-oriented and excludes `ordered` rows unless explicitly requested. Observability collector smoke remains the open release-health issue to resolve before a clean release preflight.
+- What remains in the milestone: nothing for `3.9.7`; next Apple/iTunes work can move toward notification/alert design or broader acquisition review queue routing after the observability gate is healthy.
+- Recommended commit message: `Release 3.9.7 with Apple/iTunes target hit actions`.
+
 ## 3.9.6 — Apple/iTunes Wishlist Target Price Hits
 
 **Goal:** Surface Apple/iTunes wishlist rows whose refreshed store price is at or below the saved target price, without turning this slice into notifications or auto-purchase behavior.
