@@ -4,9 +4,20 @@
       "title": "collectZ v3.9.16",
       "version": "3.9.16",
       "date": null,
-      "status": null,
-      "summary": "",
-      "details": []
+      "status": "complete",
+      "summary": "This patch makes Apple/iTunes Wishlist price history easier to understand by summarizing the latest price, lowest seen price, and snapshot count before the individual history entries.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added compact summary readback to the Wishlist price history panel.",
+            "Shows latest store price, lowest stored price, and number of stored snapshots when price history is opened.",
+            "Kept the existing individual snapshot list and target-met readback.",
+            "Kept price alerts, notification routing, charts, and review queue behavior out of scope.",
+            "Added regression coverage for the new price history summary."
+          ]
+        }
+      ]
     },
     {
       "title": "collectZ v3.9.15",
