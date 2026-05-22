@@ -4975,15 +4975,17 @@ export default function LibraryView({
             <h1 className="section-title">Library</h1>
             <span className="badge badge-dim shrink-0">{displayedTotal}</span>
           </div>
-          <div className="flex flex-1 flex-col gap-2.5 lg:flex-row lg:flex-wrap lg:items-center lg:justify-end">
-          <div className="relative w-full sm:w-72">
+          <div
+            className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] gap-2 sm:flex sm:flex-wrap sm:items-center lg:justify-end"
+            data-testid="library-mobile-toolbar"
+          >
+          <div className="relative col-span-2 w-full sm:col-span-1 sm:w-72">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ghost pointer-events-none"><Icons.Search /></span>
             <input className="input pl-9 w-full" placeholder="Search title, director…" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} />
           </div>
-          <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 lg:justify-end">
             {quickFilterConfig && (
               <select
-                className="select min-w-0 flex-1 sm:flex-none sm:w-48"
+                className="select min-w-0 sm:w-48"
                 value={quickFilterConfig.value}
                 aria-label={quickFilterConfig.label}
                 onChange={(e) => {
@@ -5006,7 +5008,7 @@ export default function LibraryView({
                 ))}
               </select>
             )}
-            <div className="flex items-center gap-2 ml-auto sm:ml-0">
+            <div className="flex items-center justify-end gap-2">
               <SectionTabs
                 tabs={[
                   {
@@ -5040,9 +5042,8 @@ export default function LibraryView({
               <button onClick={() => { setFilters((f) => ({ ...f, sortDir: f.sortDir === 'asc' ? 'desc' : 'asc' })); setPage(1); }} className="btn-icon" title={filters.sortDir === 'asc' ? 'Sort ascending' : 'Sort descending'}>
                 {filters.sortDir === 'asc' ? <Icons.ArrowUp /> : <Icons.ArrowDown />}
               </button>
-              <button onClick={() => setAdding(true)} className="btn-primary whitespace-nowrap"><Icons.Plus />Add</button>
+              <button onClick={() => setAdding(true)} className="btn-primary whitespace-nowrap px-3 sm:px-4" aria-label="Add media"><Icons.Plus /><span className="hidden sm:inline">Add</span></button>
             </div>
-          </div>
           </div>
         </div>
         {filters.review_filter ? (

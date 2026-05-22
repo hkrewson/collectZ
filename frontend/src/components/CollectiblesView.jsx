@@ -587,21 +587,23 @@ export default function CollectiblesView({ apiCall, onToast, focusTarget = null 
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-6 py-4 border-b border-edge shrink-0">
-        <div className="flex items-start gap-4 flex-wrap">
+      <div className="px-4 py-3 border-b border-edge shrink-0 sm:px-6 sm:py-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start">
           <div className="min-w-0">
             <div className="flex items-center gap-3 flex-wrap">
               <h1 className="section-title">{viewConfig.title}</h1>
               <span className="badge badge-dim">{pagination.total || items.length}</span>
               {activeFilterCount > 0 ? <FilterPill tone="brand">{`${activeFilterCount} filter${activeFilterCount === 1 ? '' : 's'} active`}</FilterPill> : null}
             </div>
-            <p className="mt-1 text-sm text-ghost">{viewConfig.description}</p>
+            <p className="mt-1 hidden text-sm text-ghost sm:block">{viewConfig.description}</p>
           </div>
-          <div className="flex-1" />
-          <div className="flex items-center gap-3 flex-wrap">
-          <div className="relative">
+          <div
+            className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] gap-2 sm:flex sm:flex-wrap sm:items-center lg:justify-end"
+            data-testid="collectibles-mobile-toolbar"
+          >
+          <div className="relative col-span-2 w-full sm:col-span-1 sm:w-56">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ghost pointer-events-none"><Icons.Search /></span>
-            <input className="input pl-9 w-56" placeholder="Search…" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
+            <input className="input pl-9 w-full" placeholder="Search…" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
           </div>
           <div className="relative" ref={filterMenuRef}>
             <button className="btn-secondary" onClick={() => setFilterOpen((v) => !v)}>
@@ -658,6 +660,7 @@ export default function CollectiblesView({ apiCall, onToast, focusTarget = null 
               </div>
             ) : null}
           </div>
+          <div className="flex items-center justify-end gap-2">
           <SectionTabs
             tabs={[
               {
@@ -694,7 +697,8 @@ export default function CollectiblesView({ apiCall, onToast, focusTarget = null 
           >
             {sortDir === 'asc' ? <Icons.ArrowUp /> : <Icons.ArrowDown />}
           </button>
-          <button className="btn-primary" onClick={() => setAdding(true)}><Icons.Plus />{viewConfig.addLabel}</button>
+          <button className="btn-primary px-3 sm:px-4" onClick={() => setAdding(true)} aria-label={viewConfig.addLabel}><Icons.Plus /><span className="hidden sm:inline">{viewConfig.addLabel}</span></button>
+          </div>
           </div>
         </div>
         {activeFilterCount > 0 ? (

@@ -133,6 +133,39 @@ test.describe('admin shell browser regressions', () => {
     expect(overflow.root).toBeLessThanOrEqual(1);
   });
 
+  test('mobile library search toolbars stay compact', async ({ page }) => {
+    const adminCredentials = await ensureSavedAdminCredentials();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await signInThroughUi(page, adminCredentials);
+
+    const pages = [
+      { route: '/dashboard?tab=library-movies', heading: 'Library', toolbar: 'library-mobile-toolbar', maxHeight: 92 },
+      { route: '/dashboard?tab=library-collectibles', heading: 'Collectibles', toolbar: 'collectibles-mobile-toolbar', maxHeight: 92 },
+      { route: '/dashboard?tab=library-art', heading: 'Art', toolbar: 'art-mobile-toolbar', maxHeight: 92 },
+      { route: '/dashboard?tab=library-events', heading: 'Events', toolbar: 'events-mobile-toolbar', maxHeight: 132 }
+    ];
+
+    for (const target of pages) {
+      await page.goto(target.route);
+      await expect(page.getByRole('heading', { name: target.heading, exact: true })).toBeVisible();
+      const toolbar = page.getByTestId(target.toolbar);
+      await expect(toolbar).toBeVisible();
+      const toolbarBox = await toolbar.boundingBox();
+      expect(toolbarBox).toBeTruthy();
+      expect(toolbarBox.height).toBeLessThanOrEqual(target.maxHeight);
+
+      const overflow = await page.evaluate(() => {
+        const root = document.scrollingElement || document.documentElement;
+        return {
+          body: document.body.scrollWidth - document.body.clientWidth,
+          root: root.scrollWidth - root.clientWidth
+        };
+      });
+      expect(overflow.body).toBeLessThanOrEqual(1);
+      expect(overflow.root).toBeLessThanOrEqual(1);
+    }
+  });
+
   test('wishlist foundation lists wanted items and converts media wants', async ({ page }) => {
     const suffix = Date.now();
     const title = `Playwright Wishlist ${suffix}`;

@@ -10810,6 +10810,27 @@ Historical note:
 - What remains in the milestone: nothing for `3.8.10`; next planned work is `3.8.11 — Capture Scan Immediate Lookup`, followed by batch scan mode, safe ISBN auto-import, and exception review routing.
 - Recommended commit message: `Release 3.8.10 with Capture Inbox barcode camera ISBN recognition`.
 
+## 3.10.1 — Mobile Library Search and Toolbar Density
+
+**Goal:** Tighten mobile search/filter/action areas across library surfaces so common browsing controls do not dominate the first phone viewport.
+
+### Scope
+
+- Compact the general Library toolbar on mobile while preserving search, quick filters, view toggle, sort, and add controls.
+- Compact Collectibles, Art, and Events headers so long descriptive text does not push controls too far down on phone-width screens.
+- Keep Events date range filtering visible and usable without widening the page.
+- Preserve current search/filter behavior and desktop layout intent.
+- Do not introduce configurable toolbar ordering, a new filtering model, or Universal Search in this patch.
+
+### Acceptance Criteria
+
+- Library, Collectibles, Art, and Events mobile headers do not create horizontal overflow.
+- Mobile toolbars use the existing input, select, tab, icon button, and primary button primitives.
+- Mobile Add buttons remain accessible even when their visible label is hidden to save width.
+- Desktop toolbars still show readable action labels and existing controls.
+- A targeted browser regression verifies compact toolbar height and no horizontal overflow for representative library pages.
+- Version metadata, release note, release feed, and Help > Releases include `3.10.1`.
+
 ## 3.10.0 — Usability and Collection Maintenance Foundation
 
 **Goal:** Start the `3.10` usability line with focused interface reliability and collection-maintenance polish found through real use, especially mobile web issues.
@@ -10837,6 +10858,7 @@ Historical note:
 ### Patch Tracking Notes
 
 - `3.10.0`: establish the usability/maintenance line, fix Dashboard mobile width containment, tighten Dashboard Review tab/filter language, and add Review row clues for missing identifiers.
+- `3.10.1`: compact mobile Library, Collectibles, Art, and Events search/action toolbars without changing search/filter behavior.
 - Future `3.10.x` patches should be promoted only when a small set of interface/functionality fixes forms a clean cutoff.
 - Avoid patch churn for tiny isolated text/style changes unless they resolve a user-visible bug or unblock testing.
 
