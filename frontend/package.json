@@ -3,7 +3,7 @@
   "version": "3.9.16",
   "private": true,
   "dependencies": {
-    "@zxing/browser": "^0.1.5",
+    "@zxing/browser": "^0.2.0",
     "@zxing/library": "^0.21.3",
     "axios": "^1.15.0",
     "react": "^18.2.0",
