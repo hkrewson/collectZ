@@ -139,20 +139,25 @@ test.describe('admin shell browser regressions', () => {
     await signInThroughUi(page, adminCredentials);
 
     const pages = [
-      { route: '/dashboard?tab=library-movies', heading: 'Library', toolbar: 'library-mobile-toolbar', maxHeight: 92 },
-      { route: '/dashboard?tab=library-collectibles', heading: 'Collectibles', toolbar: 'collectibles-mobile-toolbar', maxHeight: 92 },
-      { route: '/dashboard?tab=library-art', heading: 'Art', toolbar: 'art-mobile-toolbar', maxHeight: 92 },
-      { route: '/dashboard?tab=library-events', heading: 'Events', toolbar: 'events-mobile-toolbar', maxHeight: 132 }
+      { route: '/dashboard?tab=library-movies', heading: 'Library', header: 'library-mobile-header', toolbar: 'library-mobile-toolbar', maxHeaderHeight: 170, maxToolbarHeight: 44 },
+      { route: '/dashboard?tab=library-collectibles', heading: 'Collectibles', header: 'collectibles-mobile-header', toolbar: 'collectibles-mobile-toolbar', maxHeaderHeight: 102, maxToolbarHeight: 44 },
+      { route: '/dashboard?tab=library-art', heading: 'Art', header: 'art-mobile-header', toolbar: 'art-mobile-toolbar', maxHeaderHeight: 102, maxToolbarHeight: 44 },
+      { route: '/dashboard?tab=library-events', heading: 'Events', header: 'events-mobile-header', toolbar: 'events-mobile-toolbar', maxHeaderHeight: 146, maxToolbarHeight: 88 }
     ];
 
     for (const target of pages) {
       await page.goto(target.route);
       await expect(page.getByRole('heading', { name: target.heading, exact: true })).toBeVisible();
+      const header = page.getByTestId(target.header);
+      await expect(header).toBeVisible();
       const toolbar = page.getByTestId(target.toolbar);
       await expect(toolbar).toBeVisible();
+      const headerBox = await header.boundingBox();
       const toolbarBox = await toolbar.boundingBox();
+      expect(headerBox).toBeTruthy();
       expect(toolbarBox).toBeTruthy();
-      expect(toolbarBox.height).toBeLessThanOrEqual(target.maxHeight);
+      expect(headerBox.height).toBeLessThanOrEqual(target.maxHeaderHeight);
+      expect(toolbarBox.height).toBeLessThanOrEqual(target.maxToolbarHeight);
 
       const overflow = await page.evaluate(() => {
         const root = document.scrollingElement || document.documentElement;

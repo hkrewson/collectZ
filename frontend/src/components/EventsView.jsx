@@ -5366,13 +5366,54 @@ export default function EventsView({ apiCall, onToast, currentUser = null, focus
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-4 py-3 border-b border-edge shrink-0 sm:px-6 sm:py-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-start">
+      <div className="px-3 py-2 border-b border-edge shrink-0 sm:px-6 sm:py-4" data-testid="events-mobile-header">
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-start">
           <div className="min-w-0">
+            <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="section-title">Events</h1>
+              <h1 className="section-title !text-2xl sm:!text-3xl">Events</h1>
               <span className="badge badge-dim">{pagination.total || items.length}</span>
               {activeFilterCount > 0 ? <MetaPill tone="brand">{`${activeFilterCount} filter${activeFilterCount === 1 ? '' : 's'} active`}</MetaPill> : null}
+            </div>
+            <div className="flex shrink-0 items-center justify-end gap-1.5 sm:hidden">
+              <SectionTabs
+                tabs={[
+                  {
+                    id: 'cards',
+                    label: (
+                      <>
+                        <span aria-hidden="true"><Icons.Film /></span>
+                        <span className="sr-only">Cards</span>
+                      </>
+                    )
+                  },
+                  {
+                    id: 'list',
+                    label: (
+                      <>
+                        <span aria-hidden="true"><Icons.List /></span>
+                        <span className="sr-only">List</span>
+                      </>
+                    )
+                  }
+                ]}
+                activeId={viewMode}
+                onChange={setViewMode}
+                semantics="buttons"
+                showDivider={false}
+                ariaLabel="Event view mode"
+                listClassName="gap-1.5"
+                buttonClassName="px-1.5 py-1.5"
+              />
+              <button
+                onClick={() => { setSortDir((d) => (d === 'asc' ? 'desc' : 'asc')); setPage(1); }}
+                className="btn-icon"
+                title={sortDir === 'asc' ? 'Sort ascending' : 'Sort descending'}
+              >
+                {sortDir === 'asc' ? <Icons.ArrowUp /> : <Icons.ArrowDown />}
+              </button>
+              <button onClick={() => setAdding(true)} className="btn-primary px-3" aria-label="Add event"><Icons.Plus /></button>
+            </div>
             </div>
             <p className="mt-1 hidden text-sm text-ghost sm:block">Track conventions, screenings, meetups, and the artifacts you picked up along the way.</p>
           </div>
@@ -5398,7 +5439,7 @@ export default function EventsView({ apiCall, onToast, currentUser = null, focus
             onChange={(e) => { setToDate(e.target.value); setPage(1); }}
             title="To date"
           />
-          <div className="col-span-2 flex items-center justify-end gap-2 sm:col-span-1">
+          <div className="col-span-2 hidden items-center justify-end gap-2 sm:col-span-1 sm:flex">
           <SectionTabs
             tabs={[
               {

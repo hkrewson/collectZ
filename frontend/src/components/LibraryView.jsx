@@ -4969,23 +4969,61 @@ export default function LibraryView({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-4 py-3 border-b border-edge shrink-0 sm:px-6 sm:py-4">
-        <div className="flex flex-col gap-2.5 xl:flex-row xl:items-center">
-          <div className="flex items-center gap-3 min-w-0">
-            <h1 className="section-title">Library</h1>
+      <div className="px-3 py-2 border-b border-edge shrink-0 sm:px-6 sm:py-4" data-testid="library-mobile-header">
+        <div className="flex flex-col gap-2 xl:flex-row xl:items-center">
+          <div className="flex items-center justify-between gap-2 min-w-0">
+            <div className="flex min-w-0 items-center gap-2.5">
+            <h1 className="section-title !text-2xl sm:!text-3xl">Library</h1>
             <span className="badge badge-dim shrink-0">{displayedTotal}</span>
+            </div>
+            <div className="flex shrink-0 items-center justify-end gap-1.5 sm:hidden">
+              <SectionTabs
+                tabs={[
+                  {
+                    id: 'cards',
+                    label: (
+                      <>
+                        <span aria-hidden="true"><Icons.Film /></span>
+                        <span className="sr-only">Cards</span>
+                      </>
+                    )
+                  },
+                  {
+                    id: 'list',
+                    label: (
+                      <>
+                        <span aria-hidden="true"><Icons.List /></span>
+                        <span className="sr-only">List</span>
+                      </>
+                    )
+                  }
+                ]}
+                activeId={viewMode}
+                onChange={setViewMode}
+                semantics="buttons"
+                showDivider={false}
+                ariaLabel="Library view mode"
+                className="shrink-0"
+                listClassName="gap-1.5"
+                buttonClassName="px-1.5 py-1.5"
+              />
+              <button onClick={() => { setFilters((f) => ({ ...f, sortDir: f.sortDir === 'asc' ? 'desc' : 'asc' })); setPage(1); }} className="btn-icon" title={filters.sortDir === 'asc' ? 'Sort ascending' : 'Sort descending'}>
+                {filters.sortDir === 'asc' ? <Icons.ArrowUp /> : <Icons.ArrowDown />}
+              </button>
+              <button onClick={() => setAdding(true)} className="btn-primary px-3" aria-label="Add media"><Icons.Plus /></button>
+            </div>
           </div>
           <div
             className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] gap-2 sm:flex sm:flex-wrap sm:items-center lg:justify-end"
             data-testid="library-mobile-toolbar"
           >
-          <div className="relative col-span-2 w-full sm:col-span-1 sm:w-72">
+          <div className="relative min-w-0 sm:w-72">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ghost pointer-events-none"><Icons.Search /></span>
             <input className="input pl-9 w-full" placeholder="Search title, director…" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} />
           </div>
             {quickFilterConfig && (
               <select
-                className="select min-w-0 sm:w-48"
+                className="select min-w-0 !w-36 sm:!w-48"
                 value={quickFilterConfig.value}
                 aria-label={quickFilterConfig.label}
                 onChange={(e) => {
@@ -5008,7 +5046,7 @@ export default function LibraryView({
                 ))}
               </select>
             )}
-            <div className="flex items-center justify-end gap-2">
+            <div className="hidden items-center justify-end gap-2 sm:flex">
               <SectionTabs
                 tabs={[
                   {
@@ -5099,7 +5137,7 @@ export default function LibraryView({
               )}
             </div>
             {showSelectionControls && (
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs lg:justify-end">
+              <div className="hidden flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:flex lg:justify-end">
                 {selectedIds.length > 0 ? <span className="font-medium text-ink">{selectedIds.length} selected</span> : null}
                 {selectedIds.length > 0 && canSelectVisiblePage ? (
                   <button
