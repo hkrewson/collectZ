@@ -89,6 +89,7 @@ const {
 } = require('../services/mediaIdentityAliases');
 const { buildOwnedFormatsPayload, buildMergedOwnedFormatsPayload, getOwnedFormatLabel } = require('../services/mediaFormats');
 const { compareReleaseVersions, parseReleaseMarkdown } = require('../services/releaseNotes');
+const { buildMissingIdentifierReviewClues } = require('../services/reviewClues');
 const {
   SUPPORT_ACCESS_APPROVAL_TTL_DAYS,
   getSupportAccessExpiryTimestamp,
@@ -161,6 +162,7 @@ const {
 const captureItemsRoutesSource = fs.readFileSync(require.resolve('../routes/captureItems'), 'utf8');
 const captureImageOcrServiceSource = fs.readFileSync(require.resolve('../services/captureImageOcr'), 'utf8');
 const mediaRoutesSource = fs.readFileSync(require.resolve('../routes/media'), 'utf8');
+const reviewCluesServiceSource = fs.readFileSync(require.resolve('../services/reviewClues'), 'utf8');
 const manualMergeRecommendationsServiceSource = fs.readFileSync(require.resolve('../services/manualMergeRecommendations'), 'utf8');
 const openApiSource = fs.readFileSync(require.resolve('../openapi/openapi.yaml'), 'utf8');
 const docsRoutesSource = fs.readFileSync(require.resolve('../routes/docs'), 'utf8');
@@ -6139,10 +6141,31 @@ results.push(run('dashboard command center is authenticated scoped dashboard def
   assert.ok(openApiSource.includes('"review_filter"'));
   assert.ok(openApiSource.includes('"missing_covers"'));
   assert.ok(openApiSource.includes('"missing_identifiers"'));
+  assert.ok(openApiSource.includes('"review_reasons"'));
+  assert.ok(openApiSource.includes('"recommended_identifiers"'));
+  assert.ok(dashboardRoutesSource.includes('buildMissingIdentifierReviewClues'));
+  assert.ok(mediaRoutesSource.includes('applyMediaReviewClues'));
   assert.ok(mediaRoutesSource.includes('normalizedReviewFilter'));
   assert.ok(mediaRoutesSource.includes("media.poster_path"));
   assert.ok(mediaRoutesSource.includes("media.type_details->>'google_books_id'"));
   assert.deepStrictEqual(getRequiredPatScopesForRequest({ originalUrl: '/api/dashboard/summary', method: 'GET' }), ['media:read']);
+}));
+
+results.push(run('media review clues explain missing identifier rows by type', () => {
+  assert.ok(reviewCluesServiceSource.includes('No recognized identifier on record'));
+  assert.deepStrictEqual(buildMissingIdentifierReviewClues({ media_type: 'book', type_details: {} }), {
+    review_reasons: ['No recognized identifier on record'],
+    recommended_identifiers: ['ISBN', 'Google Books ID']
+  });
+  assert.deepStrictEqual(buildMissingIdentifierReviewClues({ media_type: 'movie', type_details: {} }).recommended_identifiers, ['TMDB ID', 'Plex identity']);
+  assert.deepStrictEqual(buildMissingIdentifierReviewClues({ media_type: 'tv_series', type_details: {} }).recommended_identifiers, ['TMDB ID', 'Plex identity']);
+  assert.deepStrictEqual(buildMissingIdentifierReviewClues({ media_type: 'comic_book', type_details: {} }).recommended_identifiers, ['UPC/ISBN', 'provider issue identity']);
+  assert.deepStrictEqual(buildMissingIdentifierReviewClues({ media_type: 'audio', type_details: {} }).recommended_identifiers, ['UPC']);
+  assert.deepStrictEqual(buildMissingIdentifierReviewClues({ media_type: 'game', type_details: {} }).recommended_identifiers, ['UPC']);
+  assert.deepStrictEqual(buildMissingIdentifierReviewClues({ media_type: 'book', type_details: { isbn: '9780553572773' } }), {
+    review_reasons: [],
+    recommended_identifiers: []
+  });
 }));
 
 results.push(run('dashboard command center frontend owns first-screen attention workflow', () => {
@@ -6160,9 +6183,10 @@ results.push(run('dashboard command center frontend owns first-screen attention 
   assert.ok(dashboardContentSource.includes('DashboardCommandCenterView'));
   assert.ok(dashboardCommandCenterViewSource.includes("apiCall('get', '/dashboard/summary')"));
   assert.ok(dashboardCommandCenterViewSource.includes('>Dashboard<'));
-  assert.ok(dashboardCommandCenterViewSource.includes('Needs attention'));
+  assert.ok(dashboardCommandCenterViewSource.includes("label: 'Review'"));
   assert.ok(dashboardCommandCenterViewSource.includes('role="tablist"'));
-  assert.ok(dashboardCommandCenterViewSource.includes('Needs attention sections'));
+  assert.ok(dashboardCommandCenterViewSource.includes('Review sections'));
+  assert.ok(dashboardCommandCenterViewSource.includes('reviewClue'));
   assert.ok(dashboardCommandCenterViewSource.includes('Missing covers'));
   assert.ok(dashboardCommandCenterViewSource.includes('Missing identifiers'));
   assert.ok(dashboardCommandCenterViewSource.includes('Plex conflicts'));

@@ -96,6 +96,7 @@ const { normalizeDeliciousRow } = require('../services/deliciousNormalize');
 const { normalizeIdentifierSet, normalizeIsbn } = require('../services/importIdentifiers');
 const { syncNormalizedMetadataForMedia } = require('../services/mediaTaxonomy');
 const { normalizeTypeDetails } = require('../services/typeDetails');
+const { applyMediaReviewClues } = require('../services/reviewClues');
 const {
   buildBookNormalizationIdentity,
   buildComicNormalizationIdentity,
@@ -10125,7 +10126,7 @@ router.get('/', asyncHandler(async (req, res) => {
      OFFSET $${params.length}`,
     params
   );
-  const normalizedItems = result.rows.map((row) => normalizeMediaRecord(row));
+  const normalizedItems = result.rows.map((row) => applyMediaReviewClues(normalizeMediaRecord(row), normalizedReviewFilter));
   const totalPages = total > 0 ? Math.ceil(total / limitNum) : 1;
   res.json({
     items: normalizedItems,

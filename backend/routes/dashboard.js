@@ -4,6 +4,7 @@ const { asyncHandler } = require('../middleware/errors');
 const { authenticateToken } = require('../middleware/auth');
 const { enforceScopeAccess } = require('../middleware/scopeAccess');
 const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
+const { buildMissingIdentifierReviewClues } = require('../services/reviewClues');
 
 const router = express.Router();
 
@@ -115,9 +116,9 @@ const MISSING_IDENTIFIER_SQL = `COALESCE(NULLIF(TRIM(m.upc), ''), NULL) IS NULL
              AND COALESCE(NULLIF(TRIM(m.type_details->>'plex_rating_key'), ''), NULL) IS NULL
              AND COALESCE(NULLIF(TRIM(m.type_details->>'kavita_series_id'), ''), NULL) IS NULL`;
 
-function shapeMediaAttentionItem(row) {
+function shapeMediaAttentionItem(row, reviewFilter = '') {
   const details = safeJson(row.type_details, {});
-  return {
+  const payload = {
     id: row.id,
     title: row.title || 'Untitled',
     media_type: row.media_type || null,
@@ -132,6 +133,13 @@ function shapeMediaAttentionItem(row) {
     updated_at: row.updated_at || null,
     created_at: row.created_at || null
   };
+  if (reviewFilter === 'missing_identifiers') {
+    return {
+      ...payload,
+      ...buildMissingIdentifierReviewClues(row)
+    };
+  }
+  return payload;
 }
 
 router.get('/dashboard/summary', asyncHandler(async (req, res) => {
@@ -216,7 +224,7 @@ router.get('/dashboard/summary', asyncHandler(async (req, res) => {
       mediaParams
     ),
     pool.query(
-      `SELECT m.id, m.title, m.media_type, m.year, m.format, m.poster_path, m.type_details, m.import_source, m.updated_at, m.created_at
+      `SELECT m.id, m.title, m.media_type, m.year, m.format, m.poster_path, m.upc, m.tmdb_id, m.type_details, m.import_source, m.updated_at, m.created_at
        FROM media m
        WHERE ${MISSING_IDENTIFIER_SQL}${mediaScopeClause}
        ORDER BY m.updated_at DESC NULLS LAST, m.id DESC
@@ -326,7 +334,7 @@ router.get('/dashboard/summary', asyncHandler(async (req, res) => {
     attention,
     attention_details: {
       missing_cover_items: missingCoverItems.rows.map(shapeMediaAttentionItem),
-      missing_identifier_items: missingIdentifierItems.rows.map(shapeMediaAttentionItem)
+      missing_identifier_items: missingIdentifierItems.rows.map((row) => shapeMediaAttentionItem(row, 'missing_identifiers'))
     },
     failed_sync_jobs: failedJobs.rows.map((row) => ({
       id: row.id,

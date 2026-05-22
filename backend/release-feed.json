@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.10.0",
+      "version": "3.10.0",
+      "date": null,
+      "status": "in progress",
+      "summary": "This release starts the `3.10` usability and collection-maintenance line. The first slice keeps the Dashboard contained on mobile so recent syncs, recent activity, failure details, and panel content do not force horizontal page overflow.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Established `3.10` as a focused usability and collection-maintenance release line.",
+            "Hardened Dashboard panels, metric buttons, recent sync rows, recent activity rows, and long failed-sync messages against mobile horizontal overflow.",
+            "Renamed the Dashboard attention surface to `Review` and added compact mobile section tabs so Review categories stay readable on narrow screens.",
+            "Added exact row-level clues for missing-identifier Review items so users can see what kind of identifier would improve matching accuracy.",
+            "Added a mobile Dashboard browser regression that checks the page does not exceed the viewport width.",
+            "Kept desktop Dashboard layout behavior intact."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.9.16",
       "version": "3.9.16",
       "date": null,
@@ -78,14 +98,6 @@
     {
       "title": "collectZ v3.9.8",
       "version": "3.9.8",
-      "date": null,
-      "status": null,
-      "summary": "",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.9.7",
-      "version": "3.9.7",
       "date": null,
       "status": null,
       "summary": "",

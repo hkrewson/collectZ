@@ -10810,6 +10810,36 @@ Historical note:
 - What remains in the milestone: nothing for `3.8.10`; next planned work is `3.8.11 — Capture Scan Immediate Lookup`, followed by batch scan mode, safe ISBN auto-import, and exception review routing.
 - Recommended commit message: `Release 3.8.10 with Capture Inbox barcode camera ISBN recognition`.
 
+## 3.10.0 — Usability and Collection Maintenance Foundation
+
+**Goal:** Start the `3.10` usability line with focused interface reliability and collection-maintenance polish found through real use, especially mobile web issues.
+
+### Scope
+
+- Treat `3.10` as an umbrella usability line rather than one giant feature release.
+- Cut patch versions when a change has a coherent stopping point: one fixed workflow, one verified mobile surface, or one shipped behavior improvement.
+- Start with Dashboard mobile width containment so the page no longer drifts horizontally on narrow screens.
+- Rename the Dashboard attention surface to `Review` and keep its mobile filters compact enough to stay understandable on narrow screens.
+- Add row-level clues to Review missing-identifier rows so users can see what identifier data would improve each item.
+- Keep provider-specific feature expansion out of this line unless it directly blocks a usability or maintenance workflow.
+- Keep Universal Search deferred unless a concrete user workflow proves why it should exist.
+
+### Acceptance Criteria
+
+- Dashboard remains the default landing surface and keeps existing desktop layout behavior.
+- Dashboard mobile layout does not force horizontal page overflow on a phone-width viewport.
+- Recent syncs, recent activity, long sync failure details, and Dashboard panel content stay contained within the viewport.
+- Dashboard mobile section tabs expose `Review`, `Syncs`, `Activity`, `Health`, and `Events`, and the Review filters remain compact on mobile.
+- Dashboard Review > IDs and Library missing-identifiers review rows show exact missing-identifier clues without changing the filter criteria.
+- A targeted browser regression proves mobile Dashboard horizontal overflow stays within the viewport.
+- Version metadata, release note, release feed, and Help > Releases include `3.10.0`.
+
+### Patch Tracking Notes
+
+- `3.10.0`: establish the usability/maintenance line, fix Dashboard mobile width containment, tighten Dashboard Review tab/filter language, and add Review row clues for missing identifiers.
+- Future `3.10.x` patches should be promoted only when a small set of interface/functionality fixes forms a clean cutoff.
+- Avoid patch churn for tiny isolated text/style changes unless they resolve a user-visible bug or unblock testing.
+
 ## 3.9.16 — Wishlist Price History Summary Readback
 
 **Goal:** Make saved Apple/iTunes Wishlist price history more explainable by summarizing the latest price, lowest seen price, and snapshot count before the raw snapshot list.

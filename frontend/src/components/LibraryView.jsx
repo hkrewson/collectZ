@@ -422,6 +422,14 @@ function compareComicIssueOrder(aItem, bItem) {
   return aTitle.localeCompare(bTitle, undefined, { sensitivity: 'base' });
 }
 
+function reviewClue(item) {
+  const reasons = Array.isArray(item?.review_reasons) ? item.review_reasons.filter(Boolean) : [];
+  const recommended = Array.isArray(item?.recommended_identifiers) ? item.recommended_identifiers.filter(Boolean) : [];
+  const reason = reasons[0] || '';
+  const recommendation = recommended.length ? `Add ${recommended.join(' or ')}.` : '';
+  return [reason, recommendation].filter(Boolean).join('. ').replace('..', '.');
+}
+
 function MediaCard({ item, onOpen, onEdit, onDelete, onRating, supportsHover, selected = false, onToggleSelect = null, onSelectionGesture = null, selectionEnabled = false }) {
   const onPointerUp = (e) => {
     if (e.pointerType !== 'touch') return;
@@ -441,6 +449,7 @@ function MediaCard({ item, onOpen, onEdit, onDelete, onRating, supportsHover, se
     if (!selectionEnabled) return;
     onSelectionGesture?.(e);
   };
+  const clue = reviewClue(item);
 
   return (
     <ObjectPosterCard
@@ -471,7 +480,7 @@ function MediaCard({ item, onOpen, onEdit, onDelete, onRating, supportsHover, se
           {selected ? <Icons.Check /> : null}
         </button>
       ) : null}
-      subtitle={`${item.year || '—'}${item.director ? ` · ${item.director}` : ''}${item.media_type === 'tv_series' && item.tv_all_seasons_completed ? ' · Completed' : ''}`}
+      subtitle={clue || `${item.year || '—'}${item.director ? ` · ${item.director}` : ''}${item.media_type === 'tv_series' && item.tv_all_seasons_completed ? ' · Completed' : ''}`}
       meta={
         <div onClick={(e) => e.stopPropagation()}>
           <StarRating value={userRatingToStars(item.user_rating)} onChange={(r) => onRating(item.id, starsToUserRating(r))} />
@@ -522,6 +531,7 @@ function MediaListRow({ item, onOpen, onEdit, onDelete, onRating, supportsHover,
     if (!selectionEnabled) return;
     onSelectionGesture?.(e);
   };
+  const clue = reviewClue(item);
 
   return (
     <article onMouseDown={handleMouseDown} onClick={handleOpen} onPointerUp={onPointerUp} className={cx('group flex items-start gap-3 rounded-lg border bg-surface p-3 transition-all duration-150 animate-fade-in sm:items-center', selected ? 'border-brand/55' : 'border-edge hover:border-muted hover:bg-raised', onOpen && 'cursor-pointer')}>
@@ -554,6 +564,7 @@ function MediaListRow({ item, onOpen, onEdit, onDelete, onRating, supportsHover,
         {item.media_type === 'tv_series' && item.tv_all_seasons_completed && (
           <p className="text-xs text-ok mt-0.5 inline-flex items-center gap-1"><Icons.Check />All seasons completed</p>
         )}
+        {clue ? <p className="mt-0.5 break-words text-xs text-dim">{clue}</p> : null}
         {item.genre && <p className="text-xs text-ghost/70 mt-0.5 truncate">{item.genre}</p>}
       </div>
       <div onClick={(e) => e.stopPropagation()} className="sm:shrink-0"><StarRating value={userRatingToStars(item.user_rating)} onChange={(r) => onRating(item.id, starsToUserRating(r))} /></div>

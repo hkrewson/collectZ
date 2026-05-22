@@ -32,12 +32,23 @@ test.describe('admin shell browser regressions', () => {
     expect(summary?.attention_details).toBeTruthy();
     expect(Array.isArray(summary?.attention_details?.missing_cover_items)).toBeTruthy();
     expect(Array.isArray(summary?.attention_details?.missing_identifier_items)).toBeTruthy();
+    const missingIdentifierSample = summary.attention_details.missing_identifier_items[0] || null;
+    if (missingIdentifierSample) {
+      expect(Array.isArray(missingIdentifierSample.review_reasons)).toBeTruthy();
+      expect(Array.isArray(missingIdentifierSample.recommended_identifiers)).toBeTruthy();
+      expect(missingIdentifierSample.review_reasons).toContain('No recognized identifier on record');
+    }
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Needs attention' })).toBeVisible();
-    await expect(page.getByRole('tablist', { name: 'Needs attention sections' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Review' })).toBeVisible();
+    await expect(page.getByRole('tablist', { name: 'Review sections' })).toBeVisible();
     await expect(page.getByRole('tab', { name: /Failed syncs/ })).toBeVisible();
     await expect(page.getByRole('tab', { name: /Missing covers/ })).toBeVisible();
     await expect(page.getByRole('tab', { name: /Missing identifiers/ })).toBeVisible();
+    if (missingIdentifierSample) {
+      const reviewPanel = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Review' }) }).first();
+      await reviewPanel.getByRole('tablist', { name: 'Review sections' }).getByRole('tab', { name: /Missing identifiers/ }).click();
+      await expect(reviewPanel.getByText('No recognized identifier on record').first()).toBeVisible();
+    }
     await expect(page.getByRole('heading', { name: 'Provider health' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Quick actions' })).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Latest failures' })).toHaveCount(0);
@@ -55,6 +66,71 @@ test.describe('admin shell browser regressions', () => {
       await expect(page.getByRole('heading', { name: 'Library' })).toBeVisible();
       await expect(page.getByText('Missing covers across all library types')).toBeVisible();
     }
+    if (Number(summary?.collection?.missing_identifiers || 0) > 0) {
+      await page.goto('/dashboard');
+      await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+      const mediaReviewResponse = page.waitForResponse((mediaResponse) => (
+        mediaResponse.url().includes('/api/media')
+        && mediaResponse.url().includes('review_filter=missing_identifiers')
+        && mediaResponse.request().method() === 'GET'
+      ));
+      await page.getByRole('button', { name: /Open missing identifiers review/i }).click();
+      const reviewResponse = await mediaReviewResponse;
+      expect(reviewResponse.ok()).toBeTruthy();
+      const reviewPayload = await reviewResponse.json();
+      const reviewItem = Array.isArray(reviewPayload?.items) ? reviewPayload.items.find((item) => Array.isArray(item.review_reasons) && item.review_reasons.length > 0) : null;
+      expect(reviewItem).toBeTruthy();
+      await expect(page.getByRole('heading', { name: 'Library' })).toBeVisible();
+      await expect(page.getByText('Missing identifiers across all library types')).toBeVisible();
+      await expect(page.getByText('No recognized identifier on record').first()).toBeVisible();
+    }
+  });
+
+  test('dashboard command center does not overflow on mobile', async ({ page }) => {
+    const adminCredentials = await ensureSavedAdminCredentials();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await signInThroughUi(page, adminCredentials);
+    const summaryResponse = page.waitForResponse((response) => (
+      response.url().includes('/api/dashboard/summary') && response.request().method() === 'GET'
+    ));
+    await page.goto('/dashboard');
+    expect((await summaryResponse).ok()).toBeTruthy();
+    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+    const dashboardTabs = page.getByRole('tablist', { name: 'Dashboard sections' });
+    await expect(dashboardTabs).toBeVisible();
+    await expect(dashboardTabs.getByRole('tab', { name: 'Review' })).toBeVisible();
+    await expect(dashboardTabs.getByRole('tab', { name: 'Syncs' })).toBeVisible();
+    await expect(dashboardTabs.getByRole('tab', { name: 'Activity' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Review' })).toBeVisible();
+    const reviewTabs = page.getByRole('tablist', { name: 'Review sections' });
+    await expect(reviewTabs).toBeVisible();
+    await expect(reviewTabs.getByRole('tab', { name: /Failed syncs/ })).toBeVisible();
+    await expect(reviewTabs.getByRole('tab', { name: /Missing covers/ })).toBeVisible();
+    await expect(reviewTabs.getByRole('tab', { name: /Missing identifiers/ })).toBeVisible();
+    const metricButtons = page.getByRole('button', { name: /Open (items|missing covers|missing identifiers) review/i });
+    await expect(metricButtons).toHaveCount(3);
+    const firstMetricBox = await metricButtons.nth(0).boundingBox();
+    const lastMetricBox = await metricButtons.nth(2).boundingBox();
+    expect(firstMetricBox).toBeTruthy();
+    expect(lastMetricBox).toBeTruthy();
+    expect(Math.abs(firstMetricBox.y - lastMetricBox.y)).toBeLessThanOrEqual(2);
+    await dashboardTabs.getByRole('tab', { name: 'Syncs' }).click();
+    await expect(page.getByRole('heading', { name: 'Recent syncs' })).toBeVisible();
+    await dashboardTabs.getByRole('tab', { name: 'Activity' }).click();
+    await expect(page.getByRole('heading', { name: 'Recent activity' })).toBeVisible();
+    await dashboardTabs.getByRole('tab', { name: 'Health' }).click();
+    await expect(page.getByRole('heading', { name: 'Provider health' })).toBeVisible();
+
+    const overflow = await page.evaluate(() => {
+      const root = document.scrollingElement || document.documentElement;
+      return {
+        body: document.body.scrollWidth - document.body.clientWidth,
+        root: root.scrollWidth - root.clientWidth,
+        viewport: window.innerWidth
+      };
+    });
+    expect(overflow.body).toBeLessThanOrEqual(1);
+    expect(overflow.root).toBeLessThanOrEqual(1);
   });
 
   test('wishlist foundation lists wanted items and converts media wants', async ({ page }) => {

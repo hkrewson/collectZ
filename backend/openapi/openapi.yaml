@@ -1016,7 +1016,17 @@
                 "estimated_value_high": { "type": ["number", "null"] },
                 "valuation_currency": { "type": ["string", "null"] },
                 "valuation_source": { "type": ["string", "null"] },
-                "valuation_last_updated": { "type": ["string", "null"], "format": "date-time" }
+                "valuation_last_updated": { "type": ["string", "null"], "format": "date-time" },
+                "review_reasons": {
+                  "type": "array",
+                  "items": { "type": "string" },
+                  "description": "Optional row-level review clues for review-filtered lists."
+                },
+                "recommended_identifiers": {
+                  "type": "array",
+                  "items": { "type": "string" },
+                  "description": "Optional identifier types that would improve match accuracy for this row."
+                }
               },
               "required": ["id", "title", "media_type"]
             }
@@ -3137,7 +3147,17 @@
             "description": "Small actionable samples for Dashboard attention sections. Counts remain authoritative in collection/attention.",
             "properties": {
               "missing_cover_items": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
-              "missing_identifier_items": { "type": "array", "items": { "type": "object", "additionalProperties": true } }
+              "missing_identifier_items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "review_reasons": { "type": "array", "items": { "type": "string" } },
+                    "recommended_identifiers": { "type": "array", "items": { "type": "string" } }
+                  },
+                  "additionalProperties": true
+                }
+              }
             },
             "additionalProperties": true
           },
