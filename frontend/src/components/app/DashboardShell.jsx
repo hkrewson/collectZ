@@ -69,7 +69,7 @@ export default function DashboardShell({
   const adminWithoutSupportLane = user?.role === 'admin' && !supportSessionActiveInEdition;
 
   return (
-    <div className="flex h-screen overflow-hidden bg-void">
+    <div className="flex h-dvh overflow-hidden bg-void">
       <SidebarNav
         user={user}
         activeTab={activeTab}
@@ -116,8 +116,11 @@ export default function DashboardShell({
         productEdition={productEdition}
       />
 
-      <div className={cx('flex-1 flex flex-col min-w-0 transition-all duration-300', desktopNavExpanded ? 'lg:ml-56' : 'lg:ml-16')}>
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-edge shrink-0 bg-void/95 backdrop-blur lg:hidden">
+      <div className={cx('flex-1 flex min-h-0 flex-col min-w-0 transition-all duration-300', desktopNavExpanded ? 'lg:ml-56' : 'lg:ml-16')}>
+        <div
+          className="sticky top-0 z-30 flex items-center gap-3 border-b border-edge bg-void/95 px-4 py-3 backdrop-blur lg:hidden"
+          data-testid="mobile-app-header"
+        >
           <button
             onClick={() => setMobileNavOpen(true)}
             className="btn-icon"
@@ -151,7 +154,7 @@ export default function DashboardShell({
           Icons={Icons}
         />
 
-        <div className="flex-1 overflow-hidden">
+        <div className="min-h-0 flex-1 overflow-hidden">
           <DashboardContent
             activeTab={activeTab}
             setActiveTab={setActiveTab}

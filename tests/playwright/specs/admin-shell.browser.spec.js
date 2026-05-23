@@ -148,26 +148,42 @@ test.describe('admin shell browser regressions', () => {
     for (const target of pages) {
       await page.goto(target.route);
       await expect(page.getByRole('heading', { name: target.heading, exact: true })).toBeVisible();
+      const appHeader = page.getByTestId('mobile-app-header');
+      await expect(appHeader).toBeVisible();
+      await expect(appHeader).toHaveCSS('position', 'sticky');
       const header = page.getByTestId(target.header);
       await expect(header).toBeVisible();
       const toolbar = page.getByTestId(target.toolbar);
       await expect(toolbar).toBeVisible();
+      const appHeaderBoxBefore = await appHeader.boundingBox();
       const headerBox = await header.boundingBox();
       const toolbarBox = await toolbar.boundingBox();
+      expect(appHeaderBoxBefore).toBeTruthy();
       expect(headerBox).toBeTruthy();
       expect(toolbarBox).toBeTruthy();
       expect(headerBox.height).toBeLessThanOrEqual(target.maxHeaderHeight);
       expect(toolbarBox.height).toBeLessThanOrEqual(target.maxToolbarHeight);
+      await page.evaluate(() => {
+        window.scrollTo(0, 500);
+        const scrollArea = Array.from(document.querySelectorAll('.scroll-area'))
+          .find((node) => node.scrollHeight > node.clientHeight);
+        if (scrollArea) scrollArea.scrollTop = Math.min(500, scrollArea.scrollHeight - scrollArea.clientHeight);
+      });
+      const appHeaderBoxAfter = await appHeader.boundingBox();
+      expect(appHeaderBoxAfter).toBeTruthy();
+      expect(Math.abs(appHeaderBoxAfter.y - appHeaderBoxBefore.y)).toBeLessThanOrEqual(1);
 
       const overflow = await page.evaluate(() => {
         const root = document.scrollingElement || document.documentElement;
         return {
           body: document.body.scrollWidth - document.body.clientWidth,
-          root: root.scrollWidth - root.clientWidth
+          root: root.scrollWidth - root.clientWidth,
+          windowScrollY: window.scrollY
         };
       });
       expect(overflow.body).toBeLessThanOrEqual(1);
       expect(overflow.root).toBeLessThanOrEqual(1);
+      expect(overflow.windowScrollY).toBe(0);
     }
   });
 

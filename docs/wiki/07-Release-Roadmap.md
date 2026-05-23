@@ -10810,6 +10810,36 @@ Historical note:
 - What remains in the milestone: nothing for `3.8.10`; next planned work is `3.8.11 — Capture Scan Immediate Lookup`, followed by batch scan mode, safe ISBN auto-import, and exception review routing.
 - Recommended commit message: `Release 3.8.10 with Capture Inbox barcode camera ISBN recognition`.
 
+## 3.10.2 — Stable Mobile App Header
+
+**Goal:** Keep the mobile app header stable while library content scrolls so users do not lose the navigation/menu bar during phone browsing.
+
+### Scope
+
+- Stabilize the shell-level mobile header instead of repeating fixes across individual library pages.
+- Use dynamic viewport height for the dashboard shell so mobile browser chrome does not force page-level scroll drift.
+- Keep the existing CollectZ/menu header design and navigation behavior.
+- Extend the targeted mobile library browser regression to prove the app header remains in place after scrolling.
+- Do not change library search/filter behavior, toolbar ordering, or desktop shell layout.
+
+### Acceptance Criteria
+
+- On mobile-width Library, Collectibles, Art, and Events routes, the app header remains visible after the page/content scrolls.
+- Mobile library pages do not create horizontal overflow.
+- The targeted browser regression verifies the mobile app header is sticky and does not move after scroll.
+- Version metadata, release note, release feed, and Help > Releases include `3.10.2`.
+
+### Closeout
+
+- Roadmap slice: `3.10.2 — Stable Mobile App Header`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.10.2.md`; `/Users/hamlin/.codex/skills/uncodixfy/SKILL.md`; `/Users/hamlin/.codex/plugins/cache/openai-curated/build-web-apps/6188456f/skills/frontend-testing-debugging/SKILL.md`.
+- Runtime verification used: Docker-first platform rebuild with `APP_VERSION=3.10.2`; running `/api/health` reported frontend/backend/build `3.10.2`; backend logs reported `Database schema up to date (105 migration(s) applied)` and `collectZ backend v3.10.2`; Help > Releases smoke served `3.10.2`; temporary homelab rebuild used the local build override for homelab boundary proof before restoring the platform stack.
+- CI/checks run locally: `npm ci --no-fund`; `npm --prefix frontend ci --no-fund`; `npm --prefix backend ci --no-fund` (reported two existing moderate audit findings); `npm --prefix frontend run build`; `APP_VERSION=3.10.2 docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml up -d --build backend frontend`; targeted Playwright mobile library toolbar/header regression (`2 passed` including setup); Docker backend unit tests (`300` passed); Docker OpenAPI validation; Docker Help > Releases smoke for `3.10.2`; Docker RBAC regression; Docker platform edition boundary; Docker homelab edition boundary with `.ci/docker-compose.build.yml`; compose config validation; release note heading check; version sync check; `git diff --check`.
+- Files changed for this slice: `app-meta.json`; `backend/app-meta.json`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `docs/releases/v3.10.2.md`; `docs/wiki/07-Release-Roadmap.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/app/DashboardShell.jsx`; `tests/playwright/specs/admin-shell.browser.spec.js`.
+- Risks/follow-ups: The sticky header is verified in Chromium mobile viewport and should improve iOS Safari behavior, but real iOS Safari may still expose browser-chrome-specific viewport quirks. The patch intentionally does not change individual library toolbar behavior or add configurable mobile layout ordering.
+- What remains in the milestone: nothing for `3.10.2`; future `3.10.x` work should stay focused on concrete mobile/interface bugs discovered in real use.
+- Recommended commit message: `Release 3.10.2 with stable mobile app header during library scrolling`.
+
 ## 3.10.1 — Mobile Library Search and Toolbar Density
 
 **Goal:** Tighten mobile search/filter/action areas across library surfaces so common browsing controls do not dominate the first phone viewport.
@@ -10859,6 +10889,7 @@ Historical note:
 
 - `3.10.0`: establish the usability/maintenance line, fix Dashboard mobile width containment, tighten Dashboard Review tab/filter language, and add Review row clues for missing identifiers.
 - `3.10.1`: compact mobile Library, Collectibles, Art, and Events search/action toolbars without changing search/filter behavior.
+- `3.10.2`: stabilize the shell-level mobile app header so it stays visible while library content scrolls.
 - Future `3.10.x` patches should be promoted only when a small set of interface/functionality fixes forms a clean cutoff.
 - Avoid patch churn for tiny isolated text/style changes unless they resolve a user-visible bug or unblock testing.
 

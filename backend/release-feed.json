@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.10.2",
+      "version": "3.10.2",
+      "date": null,
+      "status": "completed",
+      "summary": "This patch stabilizes the mobile app header so the CollectZ/menu bar stays in place while library content scrolls underneath it.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Changed the dashboard shell to use dynamic viewport height on mobile-oriented browsers.",
+            "Made the mobile app header sticky with a stable z-index.",
+            "Preserved the existing mobile header visuals, navigation behavior, and library page toolbars.",
+            "Added browser regression coverage that scrolls mobile library pages and verifies the app header does not move or create horizontal overflow."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.10.1",
       "version": "3.10.1",
       "date": null,
@@ -103,14 +121,6 @@
     {
       "title": "collectZ v3.9.10",
       "version": "3.9.10",
-      "date": null,
-      "status": null,
-      "summary": "",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.9.9",
-      "version": "3.9.9",
       "date": null,
       "status": null,
       "summary": "",
