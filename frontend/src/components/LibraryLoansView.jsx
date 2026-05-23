@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { CollectionPaginationFooter, SectionTabs, posterUrl } from './app/AppPrimitives';
+import { CollectionPaginationFooter, FixedPageShell, SectionTabs, posterUrl } from './app/AppPrimitives';
 
 function formatDate(value) {
   const raw = String(value || '').trim();
@@ -415,67 +415,74 @@ export default function LibraryLoansView({
     await loadMediaLoanHistory(mediaId);
   }, [expandedLoanId, loadMediaLoanHistory]);
 
-  return (
-    <div className="flex h-full flex-col">
-      <div className="border-b border-edge px-4 py-4 sm:px-6">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="min-w-0">
-            <h1 className="section-title">Loans</h1>
-          </div>
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-            <div className="relative w-full sm:w-80">
-              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ghost"><Icons.Search /></span>
-              <input
-                className="input w-full pl-9"
-                placeholder="Search title or borrower"
-                value={searchInput}
-                onChange={(event) => setSearchInput(event.target.value)}
-              />
-            </div>
-          </div>
+  const header = (
+    <>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0">
+          <h1 className="section-title">Loans</h1>
         </div>
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          <SectionTabs
-            tabs={[
-              { id: 'active', label: 'Active' },
-              { id: 'overdue', label: 'Overdue' },
-              { id: 'returned', label: 'Returned' },
-              { id: 'all', label: 'All' }
-            ]}
-            activeId={status}
-            onChange={setStatus}
-            semantics="buttons"
-            showDivider={false}
-            ariaLabel="Loan status filters"
-            className="w-fit"
-          />
-        </div>
-        <div className="mt-4 overflow-hidden rounded-lg border border-edge bg-panel">
-          <div className="grid grid-cols-2 sm:grid-cols-4">
-            {[
-              ['Currently out', totals.active, 'text-ink'],
-              ['Overdue', totals.overdue, 'text-err'],
-              ['Due soon', totals.dueSoon, 'text-ink'],
-              ['Returned', totals.returned, 'text-ink']
-            ].map(([label, value, valueClass], index) => (
-              <div
-                key={label}
-                className={[
-                  'px-4 py-3',
-                  index > 0 ? 'border-t border-edge sm:border-t-0 sm:border-l' : ''
-                ].join(' ')}
-              >
-                <div className="flex items-baseline justify-between gap-3">
-                  <p className="text-sm text-dim">{label}</p>
-                  <p className={`text-lg font-semibold ${valueClass}`}>{value}</p>
-                </div>
-              </div>
-            ))}
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+          <div className="relative w-full sm:w-80">
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ghost"><Icons.Search /></span>
+            <input
+              className="input w-full pl-9"
+              placeholder="Search title or borrower"
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+            />
           </div>
         </div>
       </div>
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <SectionTabs
+          tabs={[
+            { id: 'active', label: 'Active' },
+            { id: 'overdue', label: 'Overdue' },
+            { id: 'returned', label: 'Returned' },
+            { id: 'all', label: 'All' }
+          ]}
+          activeId={status}
+          onChange={setStatus}
+          semantics="buttons"
+          showDivider={false}
+          ariaLabel="Loan status filters"
+          className="w-fit"
+        />
+      </div>
+      <div className="mt-4 overflow-hidden rounded-lg border border-edge bg-panel">
+        <div className="grid grid-cols-2 sm:grid-cols-4">
+          {[
+            ['Currently out', totals.active, 'text-ink'],
+            ['Overdue', totals.overdue, 'text-err'],
+            ['Due soon', totals.dueSoon, 'text-ink'],
+            ['Returned', totals.returned, 'text-ink']
+          ].map(([label, value, valueClass], index) => (
+            <div
+              key={label}
+              className={[
+                'px-4 py-3',
+                index > 0 ? 'border-t border-edge sm:border-t-0 sm:border-l' : ''
+              ].join(' ')}
+            >
+              <div className="flex items-baseline justify-between gap-3">
+                <p className="text-sm text-dim">{label}</p>
+                <p className={`text-lg font-semibold ${valueClass}`}>{value}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
 
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+  return (
+    <FixedPageShell
+      header={header}
+      bodyInnerClassName="flex min-h-full flex-col p-4 sm:p-6"
+      headerTestId="loans-page-header"
+      bodyTestId="loans-page-body"
+    >
+      <div className="flex-1">
         {error ? <p className="mb-4 text-sm text-err">{error}</p> : null}
         {loading ? (
           <div className="flex items-center justify-center py-20"><Spinner size={32} /></div>
@@ -662,6 +669,6 @@ export default function LibraryLoansView({
           saving={savingLoan}
         />
       ) : null}
-    </div>
+    </FixedPageShell>
   );
 }

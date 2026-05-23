@@ -1,6 +1,23 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.10.4",
+      "version": "3.10.4",
+      "date": null,
+      "status": "completed",
+      "summary": "This patch brings Loans onto the fixed-header page pattern added for the other utility pages in `3.10.3`.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Converted Loans to use the shared `FixedPageShell` primitive.",
+            "Kept the Loans title, search, status filters, and summary counters stationary while loan rows scroll underneath.",
+            "Extended the mobile utility-page browser regression so Loans is covered with Wishlist, Import, and Admin > Integrations."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.10.3",
       "version": "3.10.3",
       "date": null,
@@ -124,14 +141,6 @@
     {
       "title": "collectZ v3.9.12",
       "version": "3.9.12",
-      "date": null,
-      "status": null,
-      "summary": "",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.9.11",
-      "version": "3.9.11",
       "date": null,
       "status": null,
       "summary": "",

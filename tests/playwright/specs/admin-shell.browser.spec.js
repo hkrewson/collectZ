@@ -194,6 +194,7 @@ test.describe('admin shell browser regressions', () => {
 
     const pages = [
       { route: '/dashboard?tab=library-wishlist', heading: 'Wishlist', header: 'wishlist-page-header', body: 'wishlist-page-body' },
+      { route: '/dashboard?tab=library-loans', heading: 'Loans', header: 'loans-page-header', body: 'loans-page-body' },
       { route: '/dashboard?tab=library-import', heading: 'Import Media', header: 'import-page-header', body: 'import-page-body' },
       { route: '/dashboard?tab=admin-integrations', heading: 'Integrations', header: 'admin-integrations-page-header', body: 'admin-integrations-page-body' }
     ];
