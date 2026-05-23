@@ -4217,6 +4217,7 @@ export default function LibraryView({
   onRating,
   apiCall,
   forcedMediaType,
+  title = 'Library',
   reviewFilter = null,
   onClearReviewFilter = null,
   focusTarget = null,
@@ -4971,10 +4972,10 @@ export default function LibraryView({
     <div className="flex flex-col h-full">
       <div className="px-3 py-2 border-b border-edge shrink-0 sm:px-6 sm:py-4" data-testid="library-mobile-header">
         <div className="flex flex-col gap-2 xl:flex-row xl:items-center">
-          <div className="flex items-center justify-between gap-2 min-w-0">
-            <div className="flex min-w-0 items-center gap-2.5">
-            <h1 className="section-title !text-2xl sm:!text-3xl">Library</h1>
-            <span className="badge badge-dim shrink-0">{displayedTotal}</span>
+          <div className="flex items-center justify-end gap-2 min-w-0 sm:justify-between">
+            <div className="hidden min-w-0 items-center gap-2.5 sm:flex">
+              <h1 className="section-title !text-3xl">{title}</h1>
+              <span className="badge badge-dim shrink-0">{displayedTotal}</span>
             </div>
             <div className="flex shrink-0 items-center justify-end gap-1.5 sm:hidden">
               <SectionTabs

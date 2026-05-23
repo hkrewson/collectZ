@@ -147,18 +147,19 @@ test.describe('admin shell browser regressions', () => {
     await signInThroughUi(page, adminCredentials);
 
     const pages = [
-      { route: '/dashboard?tab=library-movies', heading: 'Library', header: 'library-mobile-header', toolbar: 'library-mobile-toolbar', maxHeaderHeight: 170, maxToolbarHeight: 44 },
-      { route: '/dashboard?tab=library-collectibles', heading: 'Collectibles', header: 'collectibles-mobile-header', toolbar: 'collectibles-mobile-toolbar', maxHeaderHeight: 102, maxToolbarHeight: 44 },
-      { route: '/dashboard?tab=library-art', heading: 'Art', header: 'art-mobile-header', toolbar: 'art-mobile-toolbar', maxHeaderHeight: 102, maxToolbarHeight: 44 },
-      { route: '/dashboard?tab=library-events', heading: 'Events', header: 'events-mobile-header', toolbar: 'events-mobile-toolbar', maxHeaderHeight: 146, maxToolbarHeight: 88 }
+      { route: '/dashboard?tab=library-movies', mobileTitle: 'Movies', desktopHeading: 'Movies', header: 'library-mobile-header', toolbar: 'library-mobile-toolbar', maxHeaderHeight: 170, maxToolbarHeight: 44 },
+      { route: '/dashboard?tab=library-collectibles', mobileTitle: 'Collectibles', desktopHeading: 'Collectibles', header: 'collectibles-mobile-header', toolbar: 'collectibles-mobile-toolbar', maxHeaderHeight: 102, maxToolbarHeight: 44 },
+      { route: '/dashboard?tab=library-art', mobileTitle: 'Art', desktopHeading: 'Art', header: 'art-mobile-header', toolbar: 'art-mobile-toolbar', maxHeaderHeight: 102, maxToolbarHeight: 44 },
+      { route: '/dashboard?tab=library-events', mobileTitle: 'Events', desktopHeading: 'Events', header: 'events-mobile-header', toolbar: 'events-mobile-toolbar', maxHeaderHeight: 146, maxToolbarHeight: 88 }
     ];
 
     for (const target of pages) {
       await page.goto(target.route);
-      await expect(page.getByRole('heading', { name: target.heading, exact: true })).toBeVisible();
       const appHeader = page.getByTestId('mobile-app-header');
       await expect(appHeader).toBeVisible();
       await expect(appHeader).toHaveCSS('position', 'sticky');
+      await expect(page.getByTestId('mobile-app-title')).toHaveText(target.mobileTitle);
+      await expect(page.getByRole('heading', { name: target.desktopHeading, exact: true })).toHaveCount(0);
       const header = page.getByTestId(target.header);
       await expect(header).toBeVisible();
       const toolbar = page.getByTestId(target.toolbar);
@@ -192,6 +193,27 @@ test.describe('admin shell browser regressions', () => {
       expect(overflow.body).toBeLessThanOrEqual(1);
       expect(overflow.root).toBeLessThanOrEqual(1);
       expect(overflow.windowScrollY).toBe(0);
+    }
+  });
+
+  test('desktop library pages use section-specific headings', async ({ page }) => {
+    const adminCredentials = await ensureSavedAdminCredentials();
+    await page.setViewportSize({ width: 1280, height: 860 });
+    await signInThroughUi(page, adminCredentials);
+
+    const pages = [
+      { route: '/dashboard?tab=library-movies', heading: 'Movies' },
+      { route: '/dashboard?tab=library-tv', heading: 'TV' },
+      { route: '/dashboard?tab=library-books', heading: 'Books' },
+      { route: '/dashboard?tab=library-audio', heading: 'Audio' },
+      { route: '/dashboard?tab=library-games', heading: 'Games' },
+      { route: '/dashboard?tab=library-comics', heading: 'Comics' }
+    ];
+
+    for (const target of pages) {
+      await page.goto(target.route);
+      await expect(page.getByRole('heading', { name: target.heading, exact: true })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Library', exact: true })).toHaveCount(0);
     }
   });
 

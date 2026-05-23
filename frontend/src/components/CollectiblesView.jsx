@@ -590,9 +590,9 @@ export default function CollectiblesView({ apiCall, onToast, focusTarget = null 
       <div className="px-3 py-2 border-b border-edge shrink-0 sm:px-6 sm:py-4" data-testid="collectibles-mobile-header">
         <div className="flex flex-col gap-2 lg:flex-row lg:items-start">
           <div className="min-w-0">
-            <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="section-title !text-2xl sm:!text-3xl">{viewConfig.title}</h1>
+            <div className="flex items-center justify-end gap-2 sm:justify-between">
+            <div className="hidden items-center gap-3 flex-wrap sm:flex">
+              <h1 className="section-title !text-3xl">{viewConfig.title}</h1>
               <span className="badge badge-dim">{pagination.total || items.length}</span>
               {activeFilterCount > 0 ? <FilterPill tone="brand">{`${activeFilterCount} filter${activeFilterCount === 1 ? '' : 's'} active`}</FilterPill> : null}
             </div>

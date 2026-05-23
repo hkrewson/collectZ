@@ -41,7 +41,7 @@ test.describe('homelab shared workflow regressions', () => {
       await signInThroughUi(page, credentials);
 
       await page.goto('/dashboard?tab=library-movies');
-      await expect(page.getByRole('heading', { name: 'Library' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Movies' })).toBeVisible();
 
       await page.goto('/dashboard?tab=library-import');
       await expect(page.getByRole('heading', { name: 'Import Media' })).toBeVisible();

@@ -10810,6 +10810,38 @@ Historical note:
 - What remains in the milestone: nothing for `3.8.10`; next planned work is `3.8.11 — Capture Scan Immediate Lookup`, followed by batch scan mode, safe ISBN auto-import, and exception review routing.
 - Recommended commit message: `Release 3.8.10 with Capture Inbox barcode camera ISBN recognition`.
 
+## 3.10.6 — Mobile Page Title Deduplication
+
+**Goal:** Make page title ownership consistent after the compact mobile app header work by letting the shell identify location on mobile and letting desktop page headers identify the active library section.
+
+### Scope
+
+- Desktop media library pages use the active section name (`Movies`, `TV`, `Books`, `Audio`, `Games`, `Comics`) instead of the generic `Library` heading.
+- Aggregate all-library review mode keeps the `Library` heading because it is not a single section.
+- Mobile library category toolbars no longer repeat page titles that the compact app shell already shows.
+- Mobile Art, Collectibles, and Events toolbars follow the same title ownership rule while preserving their search, filter, sort, view, and add controls.
+- Browser regression coverage proves representative mobile category pages use shell title readback and no longer expose duplicate toolbar headings.
+
+### Acceptance Criteria
+
+- Desktop `/dashboard?tab=library-movies` shows `Movies` as the page heading.
+- Mobile `/dashboard?tab=library-movies`, Art, Collectibles, and Events show the active page title in the app shell and do not repeat it as a visible toolbar heading.
+- Search/filter/view/sort/add controls remain available in the page toolbar.
+- Mobile category pages retain fixed app-shell behavior and avoid horizontal overflow.
+
+### Closeout
+
+- Version metadata, release note, release feed, and Help > Releases include `3.10.6`.
+- No schema migration or runtime env change is required.
+- Roadmap slice: `3.10.6 — Mobile Page Title Deduplication`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.10.6.md`; `/Users/hamlin/.codex/skills/uncodixfy/SKILL.md`.
+- Runtime verification used: Docker-first platform rebuild with `APP_VERSION=3.10.6`; running `/api/health` reported frontend/backend/build `3.10.6`; backend logs reported `collectZ backend v3.10.6`; Help > Releases smoke served `3.10.6`; temporary homelab rebuild used the local build override for homelab boundary proof before restoring the platform stack.
+- CI/checks run locally: `npm ci --no-fund`; `npm --prefix frontend ci --no-fund`; `npm --prefix backend ci --no-fund` (reported two existing moderate audit findings); root/frontend/backend production dependency audits at critical threshold; `npm --prefix frontend run build`; `APP_VERSION=3.10.6 docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml up -d --build backend frontend`; targeted Playwright mobile library/utility header plus desktop section-heading regression (`4 passed` including setup); Docker backend unit tests (`300` passed); Docker OpenAPI validation; Docker Help > Releases smoke for `3.10.6`; Docker RBAC regression; Docker platform edition boundary; Docker homelab edition boundary with `.ci/docker-compose.build.yml`; release note heading check; version sync check; `git diff --check`. Local `gitleaks` and `trivy` binaries were not installed, so CI remains authoritative for `secret-scan` and `image-security-and-sbom`.
+- Files changed for this slice: `app-meta.json`; `backend/app-meta.json`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `docs/releases/v3.10.6.md`; `docs/wiki/07-Release-Roadmap.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/ArtView.jsx`; `frontend/src/components/CollectiblesView.jsx`; `frontend/src/components/EventsView.jsx`; `frontend/src/components/LibraryView.jsx`; `frontend/src/components/app/DashboardContent.jsx`; `tests/playwright/specs/admin-shell.browser.spec.js`; `tests/playwright/specs/homelab-shared.browser.spec.js`.
+- Risks/follow-ups: search remains page-owned; any future search-in-shell decision should be a separate patch.
+- What remains in the milestone: nothing for `3.10.6`; future `3.10.x` work should continue only for concrete mobile/interface bugs or small functionality fixes that make a clean cutoff.
+- Recommended commit message: `Release 3.10.6 with mobile page title deduplication`.
+
 ## 3.10.5 — Compact Mobile App Header
 
 **Goal:** Replace the mobile brand-style app header with compact app chrome that keeps navigation accessible while showing the active page title.
@@ -10984,6 +11016,7 @@ Historical note:
 - `3.10.3`: move Wishlist, Import, and Admin > Integrations onto a shared fixed-header page primitive.
 - `3.10.4`: move Loans onto the same fixed-header primitive after it was identified as another header-scroll exception.
 - `3.10.5`: replace the mobile brand header with compact app chrome that uses the collectZ mark as the nav trigger and shows the active page title.
+- `3.10.6`: deduplicate mobile page titles on library category surfaces and use section-specific desktop library headings.
 - Future `3.10.x` patches should be promoted only when a small set of interface/functionality fixes forms a clean cutoff.
 - Avoid patch churn for tiny isolated text/style changes unless they resolve a user-visible bug or unblock testing.
 

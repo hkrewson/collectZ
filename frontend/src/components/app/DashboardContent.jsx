@@ -29,6 +29,16 @@ const forcedMediaTypeByTab = {
   'library-comics': 'comic_book'
 };
 
+const libraryTitleByTab = {
+  library: 'Library',
+  'library-movies': 'Movies',
+  'library-tv': 'TV',
+  'library-books': 'Books',
+  'library-audio': 'Audio',
+  'library-games': 'Games',
+  'library-comics': 'Comics'
+};
+
 export default function DashboardContent({
   activeTab,
   setActiveTab,
@@ -222,6 +232,7 @@ export default function DashboardContent({
           onRating={rateMedia}
           apiCall={apiCall}
           forcedMediaType={activeTab === 'library' ? 'all' : forcedMediaTypeByTab[activeTab] || 'movie'}
+          title={libraryTitleByTab[activeTab] || 'Library'}
           reviewFilter={activeTab === 'library' ? libraryReviewFilter : null}
           onClearReviewFilter={() => setLibraryReviewFilter?.(null)}
           focusTarget={timelineFocus?.entityType === 'media' ? timelineFocus : null}
