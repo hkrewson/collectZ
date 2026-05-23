@@ -10810,6 +10810,36 @@ Historical note:
 - What remains in the milestone: nothing for `3.8.10`; next planned work is `3.8.11 — Capture Scan Immediate Lookup`, followed by batch scan mode, safe ISBN auto-import, and exception review routing.
 - Recommended commit message: `Release 3.8.10 with Capture Inbox barcode camera ISBN recognition`.
 
+## 3.10.3 — Fixed Headers for Utility Pages
+
+**Goal:** Move Wishlist, Import, and Admin > Integrations onto a shared fixed-header page primitive so their headers stay stationary while content scrolls.
+
+### Scope
+
+- Add a reusable page shell primitive for fixed page headers and independently scrolling content.
+- Convert Wishlist, Import, and Admin > Integrations to use that primitive.
+- Preserve existing controls, routes, data loading, and visual hierarchy.
+- Extend browser regression coverage to prove these pages do not use page-level scroll for their headers.
+- Do not redesign the Wishlist, Import, or Integration setting controls in this patch.
+
+### Acceptance Criteria
+
+- Wishlist, Import, and Admin > Integrations headers remain visible while their body content scrolls.
+- The named pages use the same shared fixed-header primitive.
+- Page-level `window.scrollY` remains stable when content scrolls.
+- Version metadata, release note, release feed, and Help > Releases include `3.10.3`.
+
+### Closeout
+
+- Roadmap slice: `3.10.3 — Fixed Headers for Utility Pages`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.10.3.md`; `/Users/hamlin/.codex/skills/uncodixfy/SKILL.md`; `/Users/hamlin/.codex/plugins/cache/openai-curated/build-web-apps/6188456f/skills/frontend-testing-debugging/SKILL.md`.
+- Runtime verification used: Docker-first platform rebuild with `APP_VERSION=3.10.3`; running `/api/health` reported frontend/backend/build `3.10.3`; backend logs reported `collectZ backend v3.10.3`; Help > Releases smoke served `3.10.3`; temporary homelab rebuild used the local build override for homelab boundary proof before restoring the platform stack.
+- CI/checks run locally: `npm ci --no-fund`; `npm --prefix frontend ci --no-fund`; `npm --prefix backend ci --no-fund` (reported two existing moderate audit findings); `npm --prefix frontend run build`; `APP_VERSION=3.10.3 docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml up -d --build backend frontend`; targeted Playwright mobile library plus utility-page header regression (`3 passed` including setup); Docker backend unit tests (`300` passed); Docker OpenAPI validation; Docker Help > Releases smoke for `3.10.3`; Docker RBAC regression; Docker platform edition boundary; Docker homelab edition boundary with `.ci/docker-compose.build.yml`; compose config validation; version sync check; release note heading check; `git diff --check`.
+- Files changed for this slice: `app-meta.json`; `backend/app-meta.json`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `docs/releases/v3.10.3.md`; `docs/wiki/07-Release-Roadmap.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/AdminIntegrationsView.jsx`; `frontend/src/components/ImportView.jsx`; `frontend/src/components/WishlistView.jsx`; `frontend/src/components/app/AppPrimitives.jsx`; `tests/playwright/specs/admin-shell.browser.spec.js`.
+- Risks/follow-ups: This patch updates the three user-identified exceptions and leaves other pages unchanged. If Profile, Help, Activity, or other admin pages show the same mobile header-scroll issue during use, they should move to `FixedPageShell` in a later focused patch.
+- What remains in the milestone: nothing for `3.10.3`; future `3.10.x` work should keep converting real observed mobile/interface defects into small verified patches.
+- Recommended commit message: `Release 3.10.3 with fixed headers for Wishlist Import and Integrations`.
+
 ## 3.10.2 — Stable Mobile App Header
 
 **Goal:** Keep the mobile app header stable while library content scrolls so users do not lose the navigation/menu bar during phone browsing.
@@ -10890,6 +10920,7 @@ Historical note:
 - `3.10.0`: establish the usability/maintenance line, fix Dashboard mobile width containment, tighten Dashboard Review tab/filter language, and add Review row clues for missing identifiers.
 - `3.10.1`: compact mobile Library, Collectibles, Art, and Events search/action toolbars without changing search/filter behavior.
 - `3.10.2`: stabilize the shell-level mobile app header so it stays visible while library content scrolls.
+- `3.10.3`: move Wishlist, Import, and Admin > Integrations onto a shared fixed-header page primitive.
 - Future `3.10.x` patches should be promoted only when a small set of interface/functionality fixes forms a clean cutoff.
 - Avoid patch churn for tiny isolated text/style changes unless they resolve a user-visible bug or unblock testing.
 

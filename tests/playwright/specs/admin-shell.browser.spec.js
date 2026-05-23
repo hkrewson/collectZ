@@ -187,6 +187,41 @@ test.describe('admin shell browser regressions', () => {
     }
   });
 
+  test('mobile utility pages keep headers stable while content scrolls', async ({ page }) => {
+    const adminCredentials = await ensureSavedAdminCredentials();
+    await page.setViewportSize({ width: 390, height: 640 });
+    await signInThroughUi(page, adminCredentials);
+
+    const pages = [
+      { route: '/dashboard?tab=library-wishlist', heading: 'Wishlist', header: 'wishlist-page-header', body: 'wishlist-page-body' },
+      { route: '/dashboard?tab=library-import', heading: 'Import Media', header: 'import-page-header', body: 'import-page-body' },
+      { route: '/dashboard?tab=admin-integrations', heading: 'Integrations', header: 'admin-integrations-page-header', body: 'admin-integrations-page-body' }
+    ];
+
+    for (const target of pages) {
+      await page.goto(target.route);
+      await expect(page.getByRole('heading', { name: target.heading, exact: true })).toBeVisible();
+      const header = page.getByTestId(target.header);
+      const body = page.getByTestId(target.body);
+      await expect(header).toBeVisible();
+      await expect(body).toBeVisible();
+      await expect(body).toHaveCSS('overflow-y', 'auto');
+      const headerBoxBefore = await header.boundingBox();
+      expect(headerBoxBefore).toBeTruthy();
+
+      await body.evaluate((node) => {
+        node.scrollTop = Math.min(360, node.scrollHeight - node.clientHeight);
+      });
+
+      const headerBoxAfter = await header.boundingBox();
+      expect(headerBoxAfter).toBeTruthy();
+      expect(Math.abs(headerBoxAfter.y - headerBoxBefore.y)).toBeLessThanOrEqual(1);
+
+      const pageScroll = await page.evaluate(() => window.scrollY);
+      expect(pageScroll).toBe(0);
+    }
+  });
+
   test('wishlist foundation lists wanted items and converts media wants', async ({ page }) => {
     const suffix = Date.now();
     const title = `Playwright Wishlist ${suffix}`;

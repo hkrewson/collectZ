@@ -31,6 +31,36 @@ export function cx(...classes) {
   return classes.filter(Boolean).join(' ');
 }
 
+export function FixedPageShell({
+  header,
+  children,
+  className = '',
+  headerClassName = '',
+  headerInnerClassName = '',
+  bodyClassName = '',
+  bodyInnerClassName = '',
+  testId,
+  headerTestId,
+  bodyTestId
+}) {
+  return (
+    <div className={cx('flex h-full min-h-0 flex-col', className)} data-testid={testId}>
+      <header
+        className={cx('shrink-0 border-b border-edge bg-void/95 px-4 py-3 sm:px-6', headerClassName)}
+        data-testid={headerTestId}
+      >
+        <div className={headerInnerClassName}>{header}</div>
+      </header>
+      <main
+        className={cx('min-h-0 flex-1 overflow-y-auto scroll-area', bodyClassName)}
+        data-testid={bodyTestId}
+      >
+        <div className={bodyInnerClassName}>{children}</div>
+      </main>
+    </div>
+  );
+}
+
 export function DrawerBackdrop({
   imagePath,
   className = 'h-48',

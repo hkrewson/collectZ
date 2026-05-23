@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  FixedPageShell,
   SectionTabPanel,
   SectionTabs
 } from './app/AppPrimitives';
@@ -165,15 +166,23 @@ export default function ImportView({
     }
   }, [recentJobs, onImported]);
 
-  return (
-    <div className="h-full max-w-3xl space-y-6 overflow-y-auto p-4 sm:p-6">
+  const header = (
       <div className="space-y-1">
         <h1 className="section-title">Import Media</h1>
         <p className="text-sm text-ghost">
           Bring titles into {activeLibrary?.name ? `“${activeLibrary.name}”` : 'your active library'} from files or connected services.
         </p>
       </div>
+  );
 
+  return (
+    <FixedPageShell
+      header={header}
+      headerInnerClassName="max-w-3xl"
+      bodyInnerClassName="max-w-3xl space-y-6 p-4 sm:p-6"
+      headerTestId="import-page-header"
+      bodyTestId="import-page-body"
+    >
       <SectionTabs
         tabs={importSections.filter((section) => section.enabled)}
         activeId={tab}
@@ -291,6 +300,6 @@ export default function ImportView({
           <button onClick={downloadAudit} className="btn-secondary"><Icons.Download />Download Audit CSV</button>
         </div>
       )}
-    </div>
+    </FixedPageShell>
   );
 }

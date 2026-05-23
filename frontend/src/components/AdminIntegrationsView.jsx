@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CheckboxControl, SectionTabPanel, SectionTabs } from './app/AppPrimitives';
+import { CheckboxControl, FixedPageShell, SectionTabPanel, SectionTabs } from './app/AppPrimitives';
 
 const BARCODE_PRESETS = {
   upcitemdb: { barcodePreset: 'upcitemdb', barcodeProvider: 'upcitemdb', barcodeApiUrl: 'https://api.upcitemdb.com/prod/trial/lookup' },
@@ -1212,9 +1212,12 @@ export default function AdminIntegrationsView({
     : '';
 
   return (
-    <div className="h-full overflow-y-auto p-4 sm:p-6 space-y-6">
-      <h1 className="section-title">{title}</h1>
-
+    <FixedPageShell
+      header={<h1 className="section-title">{title}</h1>}
+      bodyInnerClassName="space-y-6 p-4 sm:p-6"
+      headerTestId="admin-integrations-page-header"
+      bodyTestId="admin-integrations-page-body"
+    >
       <div className="md:hidden">
         <label className="label">Integration</label>
         <select className="select mt-1" value={section} onChange={(e) => setSectionWithSync(e.target.value)}>
@@ -2004,6 +2007,6 @@ export default function AdminIntegrationsView({
       </div>
       </SectionTabPanel>
       </div>
-    </div>
+    </FixedPageShell>
   );
 }

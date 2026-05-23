@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CollectionPaginationFooter, SectionTabs, cx } from './app/AppPrimitives';
+import { CollectionPaginationFooter, FixedPageShell, SectionTabs, cx } from './app/AppPrimitives';
 import { getOwnedFormatOptions } from './app/mediaFormats';
 
 const STATUS_TABS = [
@@ -1079,8 +1079,7 @@ export default function WishlistView({ apiCall, onToast, activeLibrary, Icons, S
     onToast?.('Showing the saved Wishlist item.', 'success');
   };
 
-  return (
-    <div className="mx-auto w-full max-w-[1180px] space-y-4 px-4 pb-6 sm:px-5 lg:px-6">
+  const header = (
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Wishlist</h1>
@@ -1091,7 +1090,16 @@ export default function WishlistView({ apiCall, onToast, activeLibrary, Icons, S
           Add item
         </button>
       </div>
+  );
 
+  return (
+    <FixedPageShell
+      header={header}
+      headerInnerClassName="mx-auto w-full max-w-[1180px]"
+      bodyInnerClassName="mx-auto w-full max-w-[1180px] space-y-4 px-4 pb-6 pt-4 sm:px-5 lg:px-6"
+      headerTestId="wishlist-page-header"
+      bodyTestId="wishlist-page-body"
+    >
       <AppleItunesWishlistSearch
         apiCall={apiCall}
         onToast={onToast}
@@ -1255,6 +1263,6 @@ export default function WishlistView({ apiCall, onToast, activeLibrary, Icons, S
           showPageSize={false}
         />
       )}
-    </div>
+    </FixedPageShell>
   );
 }

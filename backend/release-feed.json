@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.10.3",
+      "version": "3.10.3",
+      "date": null,
+      "status": "completed",
+      "summary": "This patch brings Wishlist, Import, and Admin > Integrations onto the same fixed-header page pattern used by the library surfaces.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added a shared `FixedPageShell` primitive for pages with stationary headers and independently scrolling content.",
+            "Converted Wishlist to keep its title/add-item header fixed while wishlist search, filters, and rows scroll underneath.",
+            "Converted Import to keep its page title and active-library readback fixed while source tabs and import controls scroll underneath.",
+            "Converted Admin > Integrations to keep its page title fixed while integration settings scroll underneath.",
+            "Added browser regression coverage for the three exception pages so page-level scrolling cannot carry their headers away again."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.10.2",
       "version": "3.10.2",
       "date": null,
@@ -113,14 +132,6 @@
     {
       "title": "collectZ v3.9.11",
       "version": "3.9.11",
-      "date": null,
-      "status": null,
-      "summary": "",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.9.10",
-      "version": "3.9.10",
       "date": null,
       "status": null,
       "summary": "",
