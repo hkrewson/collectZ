@@ -96,6 +96,14 @@ test.describe('admin shell browser regressions', () => {
     await page.goto('/dashboard');
     expect((await summaryResponse).ok()).toBeTruthy();
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+    const appHeader = page.getByTestId('mobile-app-header');
+    await expect(appHeader).toBeVisible();
+    await expect(page.getByTestId('mobile-app-title')).toHaveText('Dashboard');
+    await expect(appHeader.getByText('COLLECTZ')).toHaveCount(0);
+    await expect(appHeader.getByText('Admin')).toHaveCount(0);
+    await page.getByTestId('mobile-nav-toggle').click();
+    await expect(page.locator('aside').getByText('collectZ')).toBeVisible();
+    await page.getByRole('button', { name: 'Dashboard' }).click();
     const dashboardTabs = page.getByRole('tablist', { name: 'Dashboard sections' });
     await expect(dashboardTabs).toBeVisible();
     await expect(dashboardTabs.getByRole('tab', { name: 'Review' })).toBeVisible();
@@ -193,15 +201,20 @@ test.describe('admin shell browser regressions', () => {
     await signInThroughUi(page, adminCredentials);
 
     const pages = [
-      { route: '/dashboard?tab=library-wishlist', heading: 'Wishlist', header: 'wishlist-page-header', body: 'wishlist-page-body' },
-      { route: '/dashboard?tab=library-loans', heading: 'Loans', header: 'loans-page-header', body: 'loans-page-body' },
-      { route: '/dashboard?tab=library-import', heading: 'Import Media', header: 'import-page-header', body: 'import-page-body' },
-      { route: '/dashboard?tab=admin-integrations', heading: 'Integrations', header: 'admin-integrations-page-header', body: 'admin-integrations-page-body' }
+      { route: '/dashboard?tab=library-wishlist', heading: 'Wishlist', mobileTitle: 'Wishlist', header: 'wishlist-page-header', body: 'wishlist-page-body' },
+      { route: '/dashboard?tab=library-loans', heading: 'Loans', mobileTitle: 'Loans', header: 'loans-page-header', body: 'loans-page-body' },
+      { route: '/dashboard?tab=library-import', heading: 'Import Media', mobileTitle: 'Import', header: 'import-page-header', body: 'import-page-body' },
+      { route: '/dashboard?tab=admin-integrations', heading: 'Integrations', mobileTitle: 'Integrations', header: 'admin-integrations-page-header', body: 'admin-integrations-page-body' }
     ];
 
     for (const target of pages) {
       await page.goto(target.route);
       await expect(page.getByRole('heading', { name: target.heading, exact: true })).toBeVisible();
+      const appHeader = page.getByTestId('mobile-app-header');
+      await expect(appHeader).toBeVisible();
+      await expect(page.getByTestId('mobile-app-title')).toHaveText(target.mobileTitle);
+      await expect(appHeader.getByText('COLLECTZ')).toHaveCount(0);
+      await expect(appHeader.getByText('Admin')).toHaveCount(0);
       const header = page.getByTestId(target.header);
       const body = page.getByTestId(target.body);
       await expect(header).toBeVisible();

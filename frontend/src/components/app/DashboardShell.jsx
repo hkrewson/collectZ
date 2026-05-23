@@ -7,6 +7,40 @@ import { DEFAULT_INTEGRATION_SECTION } from './dashboardRouting';
 import { ImportStatusDock, Toast, Icons, Spinner, cx } from './AppPrimitives';
 import { getSafeDashboardTab, isSupportHelpEnabled } from './productEdition';
 
+const MOBILE_HEADER_TITLES = {
+  dashboard: 'Dashboard',
+  help: 'Help',
+  'support-inbox': 'Support Inbox',
+  library: 'Library',
+  'library-movies': 'Movies',
+  'library-tv': 'TV',
+  'library-books': 'Books',
+  'library-audio': 'Audio',
+  'library-games': 'Games',
+  'library-comics': 'Comics',
+  'library-wishlist': 'Wishlist',
+  'library-capture': 'Capture',
+  'library-loans': 'Loans',
+  'library-art': 'Art',
+  'library-collectibles': 'Collectibles',
+  'library-events': 'Events',
+  'library-import': 'Import',
+  'library-import-review': 'Import',
+  profile: 'Profile',
+  'space-manage': 'Workspace',
+  'admin-merge-review': 'Merge Review',
+  'admin-settings': 'Settings',
+  'admin-integrations': 'Integrations',
+  'admin-activity': 'Activity',
+  'admin-spaces': 'All Workspaces',
+  'admin-users': 'All Members',
+  'admin-feature-flags': 'Feature Flags'
+};
+
+function getMobileHeaderTitle(activeTab) {
+  return MOBILE_HEADER_TITLES[String(activeTab || '')] || 'Dashboard';
+}
+
 export default function DashboardShell({
   user,
   onUserUpdate,
@@ -66,7 +100,7 @@ export default function DashboardShell({
   const supportHelpEnabled = isSupportHelpEnabled(productEdition);
   const supportStaffInEdition = supportHelpEnabled && ['admin', 'support_admin'].includes(String(user?.role || ''));
   const supportSessionActiveInEdition = supportHelpEnabled && Boolean(supportSession?.active);
-  const adminWithoutSupportLane = user?.role === 'admin' && !supportSessionActiveInEdition;
+  const mobileHeaderTitle = getMobileHeaderTitle(activeTab);
 
   return (
     <div className="flex h-dvh overflow-hidden bg-void">
@@ -118,28 +152,19 @@ export default function DashboardShell({
 
       <div className={cx('flex-1 flex min-h-0 flex-col min-w-0 transition-all duration-300', desktopNavExpanded ? 'lg:ml-56' : 'lg:ml-16')}>
         <div
-          className="sticky top-0 z-30 flex items-center gap-3 border-b border-edge bg-void/95 px-4 py-3 backdrop-blur lg:hidden"
+          className="sticky top-0 z-30 flex items-center gap-3 border-b border-edge bg-void/95 px-4 py-2.5 backdrop-blur lg:hidden"
           data-testid="mobile-app-header"
         >
           <button
             onClick={() => setMobileNavOpen(true)}
-            className="btn-icon"
+            className="btn-icon h-10 w-10 shrink-0"
             aria-label="Open navigation"
             aria-expanded={mobileNavOpen}
+            data-testid="mobile-nav-toggle"
           >
-            <Icons.Menu />
+            <CollectzMark className="h-7 w-7 text-gold" title="" />
           </button>
-          <CollectzMark className="h-6 w-6 shrink-0 text-gold" title="" />
-          <div className="min-w-0">
-            <div className="font-display text-lg tracking-wider text-gold leading-none">COLLECTZ</div>
-            <div className="text-[11px] text-ghost mt-1 truncate">
-              {adminWithoutSupportLane
-                ? 'Admin'
-                : supportStaffInEdition
-                  ? 'Support'
-                  : `${activeSpace?.name || 'No current workspace'}${activeLibrary ? ` / ${activeLibrary.name}` : ''}`}
-            </div>
-          </div>
+          <p className="min-w-0 truncate text-base font-semibold text-ink" data-testid="mobile-app-title">{mobileHeaderTitle}</p>
         </div>
 
         <SupportSessionBanner

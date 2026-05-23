@@ -170,7 +170,7 @@ export default function SidebarNav({
 
           {!collapsed && (
             <div className="min-w-0 flex-1">
-              <div className="font-display text-base tracking-wider text-ink leading-none">COLLECTZ</div>
+              <div className="text-base font-semibold tracking-tight text-ink leading-none">collectZ</div>
               <a
                 href={releaseNotesUrl}
                 target="_blank"

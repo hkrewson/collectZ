@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.10.5",
+      "version": "3.10.5",
+      "date": null,
+      "status": "completed",
+      "summary": "This patch replaces the mobile brand-style app header with a compact utility header that keeps navigation accessible while giving the space back to the active page.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Replaced the mobile hamburger button with the collectZ mark as the navigation trigger.",
+            "Kept the navigation trigger accessible with the same open-navigation behavior and expanded-state readback.",
+            "Removed the mobile `COLLECTZ` wordmark and role/workspace readback from the app header.",
+            "Added active page title readback in the mobile app header, including Dashboard, Loans, Wishlist, Import, and Integrations.",
+            "Updated the sidebar wordmark casing from `COLLECTZ` to `collectZ`.",
+            "Extended mobile browser regression coverage for the compact app header and nav trigger."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.10.4",
       "version": "3.10.4",
       "date": null,
@@ -133,14 +153,6 @@
     {
       "title": "collectZ v3.9.13",
       "version": "3.9.13",
-      "date": null,
-      "status": null,
-      "summary": "",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.9.12",
-      "version": "3.9.12",
       "date": null,
       "status": null,
       "summary": "",

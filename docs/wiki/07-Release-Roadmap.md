@@ -10810,6 +10810,38 @@ Historical note:
 - What remains in the milestone: nothing for `3.8.10`; next planned work is `3.8.11 — Capture Scan Immediate Lookup`, followed by batch scan mode, safe ISBN auto-import, and exception review routing.
 - Recommended commit message: `Release 3.8.10 with Capture Inbox barcode camera ISBN recognition`.
 
+## 3.10.5 — Compact Mobile App Header
+
+**Goal:** Replace the mobile brand-style app header with compact app chrome that keeps navigation accessible while showing the active page title.
+
+### Scope
+
+- Replace the mobile hamburger icon with the collectZ mark as the navigation trigger.
+- Keep the nav trigger accessible with the same open-navigation label and expanded-state readback.
+- Remove the mobile `COLLECTZ` wordmark and role/workspace readback from the app header.
+- Add shell-level active page title mapping for representative library, admin, help, profile, and workspace tabs.
+- Update the sidebar wordmark casing from `COLLECTZ` to `collectZ`.
+- Do not move search into the app shell or redesign page-level headers, search bars, tabs, or counters in this patch.
+
+### Acceptance Criteria
+
+- Mobile app header shows a compact mark button plus current page title.
+- The mark button opens the mobile navigation drawer.
+- The mobile app header no longer shows `COLLECTZ`, `Admin`, or workspace scope text.
+- Sidebar/nav still shows app identity and release link.
+- Version metadata, release note, release feed, and Help > Releases include `3.10.5`.
+
+### Closeout
+
+- Roadmap slice: `3.10.5 — Compact Mobile App Header`.
+- Project docs/checklists used: `AGENTS.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.10.5.md`; `/Users/hamlin/.codex/skills/uncodixfy/SKILL.md`.
+- Runtime verification used: Docker-first platform rebuild with `APP_VERSION=3.10.5`; running `/api/health` reported frontend/backend/build `3.10.5`; backend logs reported `collectZ backend v3.10.5`; Help > Releases smoke served `3.10.5`; temporary homelab rebuild used the local build override for homelab boundary proof before restoring the platform stack.
+- CI/checks run locally: `npm ci --no-fund`; `npm --prefix frontend ci --no-fund`; `npm --prefix backend ci --no-fund` (reported two existing moderate audit findings); `npm --prefix frontend run build`; `APP_VERSION=3.10.5 docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml up -d --build backend frontend`; targeted Playwright mobile dashboard/library/utility header regression (`4 passed` including setup); Docker backend unit tests (`300` passed); Docker OpenAPI validation; Docker Help > Releases smoke for `3.10.5`; Docker RBAC regression; Docker platform edition boundary; Docker homelab edition boundary with `.ci/docker-compose.build.yml`; compose config validation; release note heading check; `git diff --check`.
+- Files changed for this slice: `app-meta.json`; `backend/app-meta.json`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `docs/releases/v3.10.5.md`; `docs/wiki/07-Release-Roadmap.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/SidebarNav.jsx`; `frontend/src/components/app/DashboardShell.jsx`; `tests/playwright/specs/admin-shell.browser.spec.js`.
+- Risks/follow-ups: Search remains owned by page headers; if mobile chrome still feels too tall after real use, search-in-header should be a separate focused patch. The Design Lab sandbox still contains an uppercase `COLLECTZ` mockup string because this patch is scoped to the active shell/sidebar path. Backend dependency install still reports two existing moderate audit findings.
+- What remains in the milestone: nothing for `3.10.5`; future `3.10.x` work should stay focused on concrete mobile/interface bugs discovered in real use.
+- Recommended commit message: `Release 3.10.5 with compact mobile app header`.
+
 ## 3.10.4 — Fixed Header for Loans
 
 **Goal:** Move Loans onto the same fixed-header page primitive after real mobile use showed it had the same header-scroll behavior as the earlier utility-page exceptions.
@@ -10951,6 +10983,7 @@ Historical note:
 - `3.10.2`: stabilize the shell-level mobile app header so it stays visible while library content scrolls.
 - `3.10.3`: move Wishlist, Import, and Admin > Integrations onto a shared fixed-header page primitive.
 - `3.10.4`: move Loans onto the same fixed-header primitive after it was identified as another header-scroll exception.
+- `3.10.5`: replace the mobile brand header with compact app chrome that uses the collectZ mark as the nav trigger and shows the active page title.
 - Future `3.10.x` patches should be promoted only when a small set of interface/functionality fixes forms a clean cutoff.
 - Avoid patch churn for tiny isolated text/style changes unless they resolve a user-visible bug or unblock testing.
 
