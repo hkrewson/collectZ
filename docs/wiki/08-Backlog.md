@@ -314,6 +314,198 @@ These are product-level capability gaps discovered from the current shape of the
 - Existing item-local text remains usable where a reusable record is unnecessary.
 - The model does not imply cross-workspace identity or social graph behavior by default.
 
+### Backlog Item: Reusable Collectible Traits Across Libraries
+**Type:** Deferred milestone
+**Tags:** `product`, `collectibles`, `metadata`, `traits`, `cross-library`
+**Status:** Active backlog; concept approved, not yet promoted or versioned.
+
+**Goal:** Add reusable collectible traits that can be surfaced in existing object drawers without creating new top-level libraries for every collectible category.
+
+**Why this work exists**
+- Many collectible concepts apply across Books, Comics, Games, Art, Media, and Collectibles: signed, numbered, graded, certified, variant, bundled, and event-acquired.
+- Modeling each category as its own library would make the app heavier and harder to maintain.
+- Shared traits let collectZ improve specificity while keeping existing library surfaces intact.
+
+**Intent**
+- Treat traits as optional object capabilities shown only when useful for the selected library/type.
+- Preserve lightweight manual entry and avoid forcing every row into collectible-level detail.
+- Make future UI drawers explain what makes an item special without burying users in fields.
+
+**Scope**
+- Define reusable trait families:
+  - `signed/autographed`: signer, date, event/location, personalization, witnessed/authenticated.
+  - `numbered/limited`: item number, run size, artist proof, printer proof, remarque, limited edition.
+  - `graded`: grading company, grade, certificate number, slab/case notes.
+  - `certificate/provenance`: COA present, issuer, certificate number, document/image attachment, source/vendor.
+  - `edition/variant`: format, platform, region, printing, package variant, collector edition, promo/demo/screener/ARC.
+  - `bundle/related item`: included with, part of box set, came with collector edition, linked companion object.
+  - `event acquired`: event, vendor, booth, exclusive status, pickup notes.
+- Decide which traits appear for each library surface and item type.
+- Keep this as a model/UI capability task, not enrichment or valuation work.
+
+**Candidate subtasks**
+- Inventory current fields for signed, numbered, event-linked, edition, variant, and collectible category data.
+- Define a trait schema that can be attached to existing object types without duplicating whole records.
+- Add drawer/edit display rules for trait sections by library and item type.
+- Add compact readback badges or metadata lines only where they improve recognition.
+- Add tests for trait persistence and rendering across at least Art, Comics, Books, Games, Media, and Collectibles.
+
+**Out of scope**
+- Do not create new top-level libraries for every collectible type.
+- Do not automatically duplicate media rows into Collectibles.
+- Do not add valuation, external registry enrichment, or marketplace pricing in this first trait-model task.
+- Do not make traits required for normal media/book/game entry.
+
+**Acceptance Criteria**
+- Users can mark relevant rows as signed, numbered, graded, certified/provenance-backed, variant/edition-specific, bundled/related, or event-acquired.
+- Trait fields are available where useful and hidden or lightweight where irrelevant.
+- Existing library objects remain the canonical records unless a later relationship task intentionally links a companion object.
+- The UI makes special collectible details readable without making ordinary add/edit flows feel heavier.
+
+### Backlog Item: Physical Media Edition and Variant Modeling
+**Type:** Deferred milestone
+**Tags:** `media`, `games`, `books`, `variants`, `editions`, `physical-media`
+**Status:** Active backlog; should build on reusable collectible traits when selected.
+
+**Goal:** Improve how collectZ represents physical media variants such as SteelBooks, slipcovers, screeners, promo/demo discs, limited-run releases, collector editions, ARCs, and book printings.
+
+**Why this work exists**
+- SteelBooks, slipcovers, DVD/Blu-ray/VHS variants, and limited packaging should generally stay in the same media/library family as the owned title.
+- Games need platform/source behavior similar to movie/TV format, plus region, publisher line, collector edition, promo/demo, and limited-run distinctions.
+- Books need edition/printing and limited-run fields for first editions, later printings, ARCs, advance reader copies, and numbered editions.
+
+**Scope**
+- Treat SteelBook, slipcover, screener, promo disc, and packaging variants as edition/format metadata on media rows.
+- Treat game platform as a format-like ownership dimension while also supporting region, digital/physical source, collector edition, promo/demo, and limited-run details.
+- Treat book edition, printing, ARC/advance-reader-copy state, and limited-numbered runs as book-specific edition metadata.
+- Keep screeners and promo/demo discs close to their media/game record instead of forcing them into Collectibles.
+
+**Candidate subtasks**
+- Inventory current format/platform fields for Movies, TV, Games, Books, and Audio.
+- Define a shared edition/variant readback vocabulary with library-specific labels.
+- Add add/edit drawer controls for variant fields only where the selected type supports them.
+- Update list/detail surfaces to show variant labels compactly.
+- Add tests for media, game, and book variant entry and repeat editing.
+
+**Out of scope**
+- Do not build direct storefront/game-platform syncs here.
+- Do not add hardware/peripheral inventory to Games in this task.
+- Do not convert every box set into a separate Collectibles row.
+- Do not add external valuation or market rarity scoring.
+
+**Acceptance Criteria**
+- Media variants can be tracked without leaving the owning media library.
+- Game platform/edition/region/source details are visible enough to distinguish owned copies.
+- Book edition, printing, ARC, and limited-run details can be recorded and read back.
+- Variant modeling does not create confusing duplicate canonical records.
+
+### Backlog Item: Certification, Grading, and Provenance Traits
+**Type:** Deferred milestone
+**Tags:** `collectibles`, `comics`, `books`, `art`, `grading`, `coa`, `provenance`
+**Status:** Active backlog; should be promoted only after trait attachment rules are clear.
+
+**Goal:** Add consistent certificate, grading, and provenance support across collectible-like objects without tying it to one category.
+
+**Why this work exists**
+- CGC/CBCS graded comics, graded cards, graded games, signed books/comics, COAs, witnessed signatures, authenticated autographs, and provenance documents share a common evidence model.
+- Users need to know whether a signature or collectible claim is self-entered, witnessed, certified, or backed by a document/image.
+- Grading overlays and badges may be useful, but the underlying data should come first.
+
+**Scope**
+- Support grading company, grade, cert number, slab/case notes, and optional cert URL/image.
+- Support COA/provenance issuer, certificate number, source/vendor, event, and attachment linkage.
+- Support signed/autographed readback with signer, date, event/location, personalization, and authentication state.
+- Consider visual grade/cert badges or overlays for poster/card/grid views after data and readback are proven.
+
+**Candidate subtasks**
+- Define the shared certification/provenance data shape.
+- Map where it applies: Comics, Books, Art, Collectibles, Games, and selected Media items.
+- Add UI controls in drawers with compact default state and expanded details when a cert/grade is present.
+- Add detail/list readback for grade, cert, signed, and COA indicators.
+- Add tests for graded comic, signed book with COA, certified art print, and authenticated collectible flows.
+
+**Out of scope**
+- Do not integrate with CGC, CBCS, PSA, JSA, Beckett, or other registry APIs in the first slice.
+- Do not estimate value from grade or certification.
+- Do not require certificates for signed/autographed items.
+- Do not silently upgrade user-entered provenance with provider data.
+
+**Acceptance Criteria**
+- A user can record grade/cert/provenance details where relevant.
+- Signed and certified states are distinguishable in readback.
+- Attachments or certificate references can be linked without exposing private files unintentionally.
+- Visual badges/overlays, if added, reflect stored data and do not replace detail readback.
+
+### Backlog Item: Related Object and Bundle Relationships
+**Type:** Deferred milestone
+**Tags:** `collections`, `relationships`, `bundles`, `box-sets`, `collectibles`, `events`
+**Status:** Active backlog; relationship model only, not automatic duplication.
+
+**Goal:** Link items that belong together, such as box sets, bundled trading cards, collector-edition extras, strategy guides, soundtrack inserts, posters, pins, and event-acquired companion objects.
+
+**Why this work exists**
+- Some objects naturally belong to another owned item without becoming the same record.
+- Automatic duplication into another library would create "which row is canonical?" confusion.
+- A relationship model can show "included with" or "part of" context while preserving each object's owning library.
+
+**Scope**
+- Support relationships such as `part_of`, `includes`, `included_with`, `companion_to`, `purchased_with`, and `event_acquired_with`.
+- Allow a media/game/book/comic row to link to Art or Collectibles rows for posters, cards, signed prints, guides, tickets, merch, or extras.
+- Support box-set parent/child readback without requiring every child to be entered immediately.
+- Preserve event/vendor/booth context where the relationship came from a convention or purchase.
+
+**Candidate subtasks**
+- Inventory current event/art/media link behavior and avoid duplicating existing relationships.
+- Define relationship types, direction, display labels, and delete behavior.
+- Add simple link/unlink UI from detail drawers.
+- Add readback sections such as "Included items", "Part of box set", or "Related collectibles".
+- Add tests for bundled card, box set, strategy guide linked to game, and poster linked to movie/comic/event.
+
+**Out of scope**
+- Do not automatically create duplicate rows in Collectibles when a box set is checked.
+- Do not add inventory quantity, valuation rollups, or ownership hierarchy accounting in the first slice.
+- Do not turn relationships into a social graph or broad knowledge graph.
+
+**Acceptance Criteria**
+- Users can link related objects without duplicating canonical records.
+- Relationship direction and meaning are clear in the UI.
+- Deleting or editing one object does not silently destroy another related object.
+- Bundled/extras context is visible from both sides where useful.
+
+### Backlog Item: Collectible Type Taxonomy Expansion
+**Type:** Task
+**Tags:** `collectibles`, `taxonomy`, `events`, `music`, `memorabilia`
+**Status:** Active backlog; small taxonomy/UI cleanup candidate after trait direction is stable.
+
+**Goal:** Expand the existing Collectibles type dropdown for common memorabilia that belongs in Collectibles rather than Media or Art.
+
+**Why this work exists**
+- Several collectible categories can be supported as selectable types without new schema-heavy modeling.
+- Badges, lanyards, pins, patches, stickers, tickets, setlists, programs, merch, props, figures, cards, and hardware/peripherals need consistent labels.
+- Posters, one-sheets, lobby cards, tour posters, original pages, and display-focused prints may belong better in Art, so taxonomy should not overreach.
+
+**Scope**
+- Add or normalize dropdown options for convention/event items, music memorabilia, pop-culture memorabilia, hardware/peripherals, props/replicas, cards, and merch.
+- Keep Art-oriented print/display objects in Art unless a later milestone intentionally changes that boundary.
+- Add optional notes or type descriptions where labels could be ambiguous.
+- Preserve existing collectible rows and current dropdown values.
+
+**Candidate subtasks**
+- Inventory current collectible type values and real user-entered examples.
+- Define additions and aliases for event, music, memorabilia, hardware/peripheral, and merch categories.
+- Add migration/backfill only if current values need normalization.
+- Update add/edit UI and tests for the expanded dropdown.
+
+**Out of scope**
+- Do not add reusable traits, grading, COA, bundle relationships, or valuation in this taxonomy-only task.
+- Do not move existing Art records into Collectibles automatically.
+- Do not rename top-level Collectibles unless a separate naming review is promoted.
+
+**Acceptance Criteria**
+- Common convention, music, memorabilia, hardware/peripheral, prop, card, and merch items have clear type choices.
+- Existing rows keep working.
+- The taxonomy does not blur Art and Collectibles boundaries without an explicit future decision.
+
 ### Backlog Item: Backup, Export, and Portability UX
 **Type:** Deferred milestone
 **Tags:** `product`, `backup`, `export`, `portability`, `homelab`
