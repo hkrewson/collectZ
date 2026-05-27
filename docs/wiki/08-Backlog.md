@@ -536,6 +536,56 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - Common digital-library import behavior has one documented contract.
 - Existing Kavita and CWA/Calibre smokes continue to prove provider-specific identity, link, and cover behavior.
 
+### Backlog Item: Playnite Game Library Intake
+**Type:** Deferred milestone
+**Tags:** `games`, `playnite`, `imports`, `providers`, `digital-library`, `sync`
+**Status:** Active backlog; not yet promoted or versioned.
+
+**Goal:** Use Playnite as the preferred source for digital game library intake instead of building separate direct syncs for each storefront or platform.
+
+**Why this work exists**
+- Playnite already aggregates many PC and console-adjacent game sources through its library model and extension ecosystem.
+- Direct collectZ syncs for Steam, GOG, Epic, Xbox, PlayStation, Ubisoft, Battle.net, itch.io, Amazon, Humble, Rockstar, and similar services would duplicate fragile provider-specific auth and API work.
+- A Playnite-first path lets collectZ focus on collection ownership, metadata, review, and repeat import behavior while treating Playnite as the user-managed game-library aggregator.
+
+**Intent**
+- Make Playnite the canonical digital game intake bridge for collectZ.
+- Avoid adding direct syncs for services that Playnite already covers unless a future milestone proves Playnite cannot support a required use case.
+- Preserve source/provider identity so repeat imports update existing game rows cleanly.
+
+**Current state**
+- collectZ supports games as a library type, but there is no dedicated digital game library intake workflow.
+- The backlog has shared provider/import abstraction work, but no Playnite-specific plan.
+- Playnite source and extension documentation suggest practical options for export/import or a lightweight collectZ companion extension.
+
+**Scope**
+- Start with Playnite export/import support before building a live companion extension.
+- Accept a Playnite-exported library file or documented payload shape.
+- Normalize game rows with title, platform/source, provider identity, ownership/install status when available, artwork metadata, release/year metadata, tags/categories, and source links.
+- Match repeat imports by stable Playnite/source identifiers before falling back to title/platform matching.
+- Surface import results with created, updated, skipped, duplicate, and needs-review counts.
+- Keep conflicts reviewable rather than silently overwriting uncertain existing rows.
+
+**Candidate subtasks**
+- Inspect Playnite export formats and extension APIs to choose the first supported intake shape.
+- Define collectZ's Playnite import contract and OpenAPI request/response shapes.
+- Add backend parsing, normalization, dedupe, and update behavior for Playnite game rows.
+- Add a compact Import UI path for Playnite files or payloads.
+- Add tests for first import, repeat import, changed metadata, missing identifiers, duplicate candidates, and unsupported rows.
+- Later: evaluate a Playnite companion extension that can push library snapshots to collectZ without manual export/import.
+
+**Out of scope**
+- Do not build direct Steam, Xbox, PlayStation, GOG, Epic, Ubisoft, Battle.net, itch.io, Amazon, Humble, or Rockstar syncs in this task.
+- Do not implement storefront auth scraping or launcher credential storage.
+- Do not build price tracking, achievement sync, playtime sync, or install-state automation in the first slice.
+- Do not require Playnite to replace manually entered physical game records.
+
+**Acceptance Criteria**
+- The backlog clearly names Playnite as the preferred digital game library intake source.
+- A future implementer can tell that direct provider syncs are intentionally deferred/avoided.
+- The first promoted slice has a concrete path: Playnite export/import, stable identity, repeat updates, conflict readback, and UI import entry.
+- Existing games remain manually manageable even if no Playnite source is connected.
+
 ### Backlog Item: Artwork Edition Registry and Valuation Enrichment
 **Type:** Deferred milestone
 **Tags:** `artwork`, `prints`, `valuation`, `edition-series`, `metadata`
