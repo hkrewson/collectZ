@@ -568,6 +568,37 @@ These are product-level capability gaps discovered from the current shape of the
 
 These tasks are intentionally ordered so quick hygiene work does not get buried under larger UI refactors.
 
+### Active UI/UX Review Callouts
+**Status:** Active working frame for the current UI/UX round; keep referencing these items as pages and patches are selected until this round is intentionally closed.
+
+**Goal:** Keep the remaining high-value webapp polish findings visible while continuing focused page-by-page UI/UX cleanup.
+
+**Current verified context**
+- Running-stack visual review at `3.10.6` showed the mobile library headers are much improved: no horizontal overflow, compact page chrome, stable pagination, and cleaner search/filter/action placement.
+- The app's visual language is settling into a coherent dark, dense, operational product style.
+- Remaining issues are mostly hierarchy, repeated chrome, and surface-specific density rather than a broad redesign problem.
+
+**Important follow-up tasks**
+- `Mobile Page Title Deduplication for Non-Library Pages`
+  - Dashboard, Wishlist, Import, Integrations, and Loans still show the compact mobile shell title and then repeat the same page title below.
+  - Bring these pages into the same deduped mobile-title pattern used by the library pages.
+  - Preserve desktop page headings unless a specific desktop simplification is selected.
+- `Wishlist Mobile Density and Apple/iTunes Utility Compression`
+  - Wishlist is still the busiest mobile surface.
+  - Compress Apple/iTunes search and price-refresh controls so the actual wishlist is reachable sooner.
+  - Make `Refresh saved prices`, `Auto refresh off`, and `Run auto refresh now` feel like a coherent compact utility control group rather than loose text.
+- `Desktop Sidebar Growth and Bottom Account Area Review`
+  - Desktop sidebar is close to crowding lower navigation/admin content when the account area, help counts, and expanded groups are all visible.
+  - Review sidebar scroll behavior, bottom padding, and account menu anchoring before adding more permanent nav items.
+- `Dashboard Top Summary Row Purpose Review`
+  - Dashboard Review panel is now stronger than the top metrics row.
+  - Revisit whether `Items`, `Missing covers`, and `Missing identifiers` should remain as top-row metrics, become more action-oriented, or be visually subordinated.
+  - Avoid turning Dashboard into database telemetry when the Review panel already provides the actionable path.
+
+**Working rule**
+- When selecting the next UI/UX patch, check these callouts first and either promote one into the roadmap or explicitly state why another page issue is more urgent.
+- Do not let these become vague backlog memory; close or revise the callout when each issue is fixed and verified.
+
 1. Promote and complete `Release Evidence Token Hygiene Cleanup` by redacting fixed Playwright token examples and adding a guard against reintroducing them.
 2. `Shared Detail Drawer Shell Primitive` and `Mobile Drawer Density Audit and Follow-up` were promoted together as `3.4.26`; continue with image/proof parity next.
 3. `Image and Proof Control Language Parity` was promoted as `3.4.27`; finish that parity pass before moving to API/provider search work.
