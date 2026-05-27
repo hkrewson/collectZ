@@ -519,22 +519,52 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 ### Backlog Item: Shared Digital Library Provider Abstractions
 **Type:** Deferred milestone
 **Tags:** `kavita`, `calibre`, `cwa`, `opds`, `providers`, `imports`
+**Status:** Active backlog; extraction/refactor task only, not a new provider feature.
 
 **Goal:** Consolidate common provider/import contracts across Kavita, Calibre/CWA OPDS, and future digital-library sources without hiding provider-specific behavior.
 
 **Why this work exists**
 - Kavita, CWA/Calibre, and OPDS sources now share concepts such as provider ids, external URLs, download/reader links, cover art, and repeat-sync identity.
 - A shared abstraction can reduce duplication, but only after provider-specific behavior has been proven.
+- The phrase "shared provider abstractions" is easy to overread as a large generic integration framework; this task should instead extract the smallest proven helpers and contracts that reduce duplicated provider plumbing.
+
+**Intent**
+- Treat this as refactor/extraction work after at least two provider behaviors have been proven in production-shaped flows.
+- Keep each provider's user-facing behavior, route names, docs, smoke tests, and readback explicit.
+- Make future provider work easier by standardizing only the boring repeated parts: source identity, source links, cover identity, credential redaction, import result readback, and repeat-sync matching.
+
+**Current state**
+- Kavita has substantial provider-specific behavior across import identity, issue fan-out, cover handling, progress, writeback planning, and workspace-owned administration.
+- CWA/Calibre/OPDS-style sources share some link, cover, reader, and repeat-sync concepts, but their provider-specific behavior should remain visible.
+- Playnite game intake is tracked separately and should prove its own import/update behavior before any shared abstraction is applied to it.
 
 **Scope**
 - Inventory common provider fields and source-specific exceptions.
-- Define shared import identity, link, cover-art, and credential-redaction helpers.
+- Define small shared import identity, source-link, reader/download-link, cover-art, and credential-redaction helpers.
+- Define a common import result/readback shape for created, updated, skipped, failed, duplicate, and needs-review rows where providers already expose equivalent concepts.
+- Define repeat-sync identity helpers that make provider matching auditable without forcing every provider into the same schema.
 - Preserve provider-specific API behavior and smoke coverage.
-- Keep metadata writeback and reader/progress sync as separate contracts.
+- Document where each provider intentionally diverges from the shared helper behavior.
+
+**Candidate subtasks**
+- Compare Kavita and CWA/Calibre/OPDS source identity, link, cover, and import-result fields.
+- Identify duplicated helper logic that can be extracted without changing runtime behavior.
+- Add shared helper/service modules only for proven duplication.
+- Update provider-specific tests so they prove both shared helper behavior and provider-specific exceptions.
+- Add docs explaining when future provider work should use the shared helpers and when it should stay provider-local.
+
+**Out of scope**
+- Do not build a broad generic provider framework.
+- Do not add a new provider integration as part of this abstraction task.
+- Do not move provider-specific route names, admin UI, smoke tests, or user-facing readback behind generic labels.
+- Do not include metadata writeback, reading-progress sync, embedded readers, provider scheduling, or file proxying unless those are separately promoted milestones.
+- Do not block Playnite Game Library Intake on this task; Playnite should prove its import behavior first and may reuse shared pieces later.
 
 **Acceptance Criteria**
-- Common digital-library import behavior has one documented contract.
-- Existing Kavita and CWA/Calibre smokes continue to prove provider-specific identity, link, and cover behavior.
+- Common digital-library import plumbing has one documented contract for the extracted helper layer.
+- Existing Kavita and CWA/Calibre smokes continue to prove provider-specific identity, link, cover, and readback behavior.
+- Provider-specific exceptions remain documented and visible in tests or smoke readback.
+- A future implementer can tell this is limited extraction work, not permission to flatten every provider into one generic integration model.
 
 ### Backlog Item: Playnite Game Library Intake
 **Type:** Deferred milestone
