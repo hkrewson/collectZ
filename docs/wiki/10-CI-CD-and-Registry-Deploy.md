@@ -32,11 +32,11 @@ Pipeline behavior:
   - `<semver>` (example `1.6.5-r1`)
   - `<major.minor>` (example `1.6`)
   - `sha-<commit>`
-  - `latest` (default homelab release channel)
+  - `latest` (default release channel)
 - Release channel meaning:
   - Exact semver tags such as `3.4.110` are immutable release pins.
   - Moving minor tags such as `3.4` point to the newest published release in that minor line.
-  - `latest` points to the default homelab release.
+  - `latest` points to the default release.
   - `stable` is retained as a compatibility tag for older deployments that explicitly use it.
   - `stable-<major.minor>` points to the promoted stable release for that minor line.
 - Injects build metadata during build:
@@ -123,7 +123,7 @@ cp env.example .env
 - `SESSION_SECRET`
 - `INTEGRATION_ENCRYPTION_KEY`
 
-For public homelab optional settings, use `docs/wiki/48-Public-Homelab-Environment-Reference.md`. Keep `env.example` limited to the small startup surface.
+For optional deployment settings, use `docs/wiki/48-Deployment-Environment-Reference.md`. Keep `env.example` limited to the small startup surface.
 
 3. Deploy:
 

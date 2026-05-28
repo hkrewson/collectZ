@@ -13,11 +13,11 @@ docker compose --env-file .env pull
 docker compose --env-file .env up -d
 ```
 
-The public compose file is the homelab deployment stack and uses prebuilt images.
+The compose file uses prebuilt images.
 
 Release channel:
 
-The public compose defaults to the GHCR `latest` images. Use `docker compose --env-file .env pull && docker compose --env-file .env up -d` to move to the current default homelab release. If you need an exact pinned version, edit the backend/frontend `image:` lines directly or layer a private compose override.
+The compose file references GHCR images. Use `docker compose --env-file .env pull && docker compose --env-file .env up -d` to update. If you need an exact pinned version, edit the backend/frontend `image:` lines directly or layer a private compose override.
 
 Check:
 
@@ -50,7 +50,7 @@ Set these in stack environment:
 - `SESSION_SECRET`
 - `INTEGRATION_ENCRYPTION_KEY`
 
-Optional public settings are listed in `docs/wiki/48-Public-Homelab-Environment-Reference.md`.
+Optional settings are listed in `docs/wiki/48-Deployment-Environment-Reference.md`.
 
 ## Post-Deploy Checks
 

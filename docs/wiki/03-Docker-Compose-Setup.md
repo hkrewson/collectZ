@@ -13,11 +13,11 @@ cp env.example .env
 - `DB_PASSWORD`
 - `SESSION_SECRET`
 - `INTEGRATION_ENCRYPTION_KEY`
-- `SESSION_COOKIE_SECURE=true` (required when `NODE_ENV=production`)
+- `SESSION_COOKIE_SECURE=true` for HTTPS access
 
-For optional public deployment settings, use `docs/wiki/48-Public-Homelab-Environment-Reference.md`. Keep `env.example` focused on the minimum values needed to start.
+For optional deployment settings, use `docs/wiki/48-Deployment-Environment-Reference.md`. Keep `env.example` focused on the minimum values needed to start.
 
-3. Pull and start the default homelab stack:
+3. Pull and start collectZ:
 
 ```bash
 docker compose --env-file .env pull
@@ -31,12 +31,12 @@ docker compose --env-file .env ps
 docker compose --env-file .env logs -f backend frontend db
 ```
 
-## Full Setup (Integrations + Production Origins)
+## Full Setup (Integrations + Browser Origins)
 
 In addition to basic setup:
 
-1. Set `ALLOWED_ORIGINS` to include production domain(s).
-2. Keep `SESSION_COOKIE_SECURE=true` for TLS-backed production access.
+1. Set `ALLOWED_ORIGINS` to include the HTTPS domain(s) you will browse from.
+2. Keep `SESSION_COOKIE_SECURE=true` for TLS-backed access.
 3. Set integration keys (`TMDB_API_KEY`, `BARCODE_API_KEY`) or configure these in Admin Settings UI.
 4. Deploy behind reverse proxy/SSL (Nginx, Traefik, Caddy, Cloudflare tunnel).
 
@@ -60,7 +60,7 @@ If you want to open the app from another device on your wired or Wi-Fi LAN over 
 docker compose --env-file .env up -d backend frontend
 ```
 
-This keeps the registry/production default secure while allowing local non-TLS browser sessions to work correctly on the LAN.
+This keeps the default secure while allowing local non-TLS browser sessions to work correctly on the LAN.
 
 ## Updating an Existing Host
 

@@ -15,14 +15,7 @@ collectZ is a self-hosted collection management app capable of tracking media, b
 
 ## Deployment Model
 
-Use the docker compose and an env with prebuilt images from GHCR.
-
-Release tags:
-
-- `latest`: default homelab release channel.
-- `stable`: compatibility tag for older deployments that explicitly use it.
-- exact semver, such as `3.8.13`: pin to one release.
-- moving minor tag, such as `3.8`: newest published release in that minor line.
+Use the included docker compose file and an env file with prebuilt images from GHCR.
 
 ## Quick Start
 
@@ -62,13 +55,12 @@ Optional setup helper:
 ./setup.sh
 ```
 
-The helper checks prerequisites and `.env` basics, then prints deploy commands. It does not modify application source files.
+The helper checks prerequisites, creates `.env` when needed, can generate missing secrets, and can start collectZ for you. It does not modify application source files or print secret values.
 
 ## First-Run Auth
 
-- On a new homelab install, the first successful registration becomes the admin.
-- Homelab mode is designed around local accounts and a shared household library model.
-- The public compose file is the homelab deployment surface. Private/platform deployment uses maintainer-only configuration outside this public quick start.
+- On a new install, the first successful registration becomes the admin.
+- Additional accounts can be invited or managed from the app after initial setup.
 
 ## Core Configuration
 
@@ -78,9 +70,8 @@ Required for reliable operation:
 - `SESSION_SECRET`
 - `INTEGRATION_ENCRYPTION_KEY`
 
-Production and reverse-proxy settings:
+Runtime and reverse-proxy settings:
 
-- `NODE_ENV` defaults to production in the public compose file
 - `SESSION_COOKIE_SECURE=true` for HTTPS deployments; use `false` only for direct HTTP local testing
 - `TRUST_PROXY=1` when running behind one trusted reverse proxy hop
 - `ALLOWED_ORIGINS` set to the browser origins that should be allowed
@@ -92,7 +83,7 @@ Useful optional configuration:
 - `TMDB_API_KEY`, `COMICS_API_KEY`, `BARCODE_API_KEY`, `PLEX_API_KEY`, and other provider keys as needed
 - `SMTP_*` values for invites, password reset, and email flows
 
-See [Public Homelab Environment Reference](docs/wiki/48-Public-Homelab-Environment-Reference.md) for operator-safe optional settings. The older [Environment Variables](docs/wiki/02-Environment-Variables.md) page is a broader maintainer reference.
+See [Deployment Environment Reference](docs/wiki/48-Deployment-Environment-Reference.md) for operator-safe optional settings. The older [Environment Variables](docs/wiki/02-Environment-Variables.md) page is a broader maintainer reference.
 
 ## Integrations
 
@@ -178,7 +169,7 @@ The `docs/wiki/` directory is currently a maintainer knowledge base, not a polis
 Good public/operator entry points:
 
 - [Configuration and Use](docs/wiki/01-Configuration-and-Use.md)
-- [Public Homelab Environment Reference](docs/wiki/48-Public-Homelab-Environment-Reference.md)
+- [Deployment Environment Reference](docs/wiki/48-Deployment-Environment-Reference.md)
 - [Docker Compose Setup](docs/wiki/03-Docker-Compose-Setup.md)
 - [CI/CD and Registry Deploy](docs/wiki/10-CI-CD-and-Registry-Deploy.md)
 - [Backup and Restore](docs/wiki/08-Backup-and-Restore.md)
@@ -189,13 +180,7 @@ Internal/planning-heavy docs such as the roadmap, backlog, delivery policy, rele
 
 ## Troubleshooting
 
-If backend startup fails in production with:
-
-```text
-INTEGRATION_ENCRYPTION_KEY must be set in production
-```
-
-Set `INTEGRATION_ENCRYPTION_KEY` in `.env`, then restart:
+If backend startup says the integration encryption key is missing, set `INTEGRATION_ENCRYPTION_KEY` in `.env`, then restart:
 
 ```bash
 docker compose --env-file .env up -d backend

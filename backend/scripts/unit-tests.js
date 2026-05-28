@@ -2297,7 +2297,7 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(!dockerComposeSource.includes('IMAGE_REGISTRY'));
   assert.ok(!dockerComposeSource.includes('IMAGE_NAMESPACE'));
   assert.ok(!dockerComposeSource.includes('IMAGE_TAG'));
-  assert.ok(publicComposeGeneratorSource.includes('Public homelab deployment compose'));
+  assert.ok(publicComposeGeneratorSource.includes('Deployment compose for prebuilt collectZ images'));
   assert.ok(publicExportValidatorSource.includes('Public export surface validation passed.'));
   assert.ok(dockerComposeSource.includes('${FRONTEND_PORT:-3000}:3000'));
   assert.ok(serverSource.includes('const HOMELAB_EDITION = isHomelabEdition();'));

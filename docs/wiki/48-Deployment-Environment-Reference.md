@@ -1,8 +1,8 @@
-# Public Homelab Environment Reference
+# Deployment Environment Reference
 
-This page documents the public homelab deployment surface. `env.example` intentionally stays small; start there, then use this page when you need an optional setting.
+This page documents the deployment environment settings. `env.example` intentionally stays small; start there, then use this page when you need an optional setting.
 
-The public `docker-compose.yml` uses prebuilt GHCR `latest` images and passes only the variables needed for normal startup. Provider keys and most advanced runtime controls should be configured inside the app whenever possible.
+The included `docker-compose.yml` uses prebuilt GHCR images and passes only the variables needed for normal startup. Provider keys and most advanced runtime controls should be configured inside the app whenever possible.
 
 ## Required
 
@@ -52,9 +52,9 @@ FRONTEND_PORT=3100
 
 ## Uploaded Images
 
-The public compose stores uploaded images in the `media_uploads` Docker volume by default.
+The compose file stores uploaded images in the `media_uploads` Docker volume by default.
 
-Local storage needs no extra variables. S3-compatible object storage is supported by the app, but the public compose does not pass S3 variables by default. If you want S3-backed uploads, add a private compose override for the backend environment and configure:
+Local storage needs no extra variables. S3-compatible object storage is supported by the app, but the compose file does not pass S3 variables by default. If you want S3-backed uploads, add a private compose override for the backend environment and configure:
 
 - `STORAGE_PROVIDER=s3`
 - `S3_BUCKET`
@@ -76,11 +76,11 @@ Configure these in the app under Admin or Integrations when possible:
 - SMTP mail
 - Optional valuation providers
 
-The public compose no longer advertises provider API keys in `.env` because the app can store integration settings securely. If you specifically need environment-backed provider bootstrap, use a private compose override that adds only the needed backend environment values.
+The compose file no longer advertises provider API keys in `.env` because the app can store integration settings securely. If you specifically need environment-backed provider bootstrap, use a private compose override that adds only the needed backend environment values.
 
 ## Image Updates
 
-The public compose defaults to:
+The compose file defaults to:
 
 - `ghcr.io/hkrewson/collectz-backend:latest`
 - `ghcr.io/hkrewson/collectz-frontend:latest`

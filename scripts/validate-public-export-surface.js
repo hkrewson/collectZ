@@ -38,13 +38,13 @@ if (rootComposeFiles.length !== 1 || rootComposeFiles[0] !== 'docker-compose.yml
 for (const relativePath of ['docker-compose.yml', 'env.example']) {
   const source = read(relativePath);
   if (source.includes('APP_EDITION')) {
-    fail(`${relativePath} must not expose APP_EDITION in the public homelab surface.`);
+    fail(`${relativePath} must not expose APP_EDITION in the public setup surface.`);
   }
   if (source.includes('PLAYWRIGHT_E2E_BYPASS_TOKEN')) {
-    fail(`${relativePath} must not expose Playwright bypass controls in the public homelab surface.`);
+    fail(`${relativePath} must not expose Playwright bypass controls in the public setup surface.`);
   }
   if (source.includes('ALLOW_SESSION_BEARER_FALLBACK')) {
-    fail(`${relativePath} must not expose session bearer fallback controls in the public homelab surface.`);
+    fail(`${relativePath} must not expose session bearer fallback controls in the public setup surface.`);
   }
   for (const variableName of ['IMAGE_REGISTRY', 'IMAGE_NAMESPACE', 'IMAGE_TAG']) {
     if (source.includes(variableName)) {
@@ -58,7 +58,7 @@ const publicDocs = [
   'setup.sh',
   'docs/wiki/03-Docker-Compose-Setup.md',
   'docs/wiki/04-Docker-CLI-and-Portainer-Deploy.md',
-  'docs/wiki/48-Public-Homelab-Environment-Reference.md',
+  'docs/wiki/48-Deployment-Environment-Reference.md',
   'docs/wiki/10-CI-CD-and-Registry-Deploy.md'
 ].filter((relativePath) => fs.existsSync(path.join(root, relativePath)));
 
