@@ -975,6 +975,60 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - Top cost drivers are visible and attributable.
 - The self-hosted profile remains fully functional with paid-provider integrations disabled.
 
+### Backlog Item: Subscription Entitlement Contract and Tier Model
+**Type:** Deferred milestone
+**Tags:** `subscriptions`, `entitlements`, `billing`, `license`, `hosted`, `stripe`
+**Status:** Active backlog; not yet promoted or versioned.
+
+**Goal:** Define the first hosted-product subscription contract before payment processing is implemented.
+
+**Why this work exists**
+- collectZ needs a free tier that remains useful forever and at least one paid tier that unlocks heavier capabilities.
+- The first subscription slice should be an entitlement/license contract, not Stripe checkout or live payment collection.
+- The existing `platform` / `homelab` product-edition boundary is a shell/runtime boundary, not a subscription tier model, and must not be reused as Free vs Paid.
+- Individual users should work from a normal user license that hides platform/admin capabilities regardless of tier.
+
+**Tier intent**
+- Free should support real personal collection work: manual collection management, Dashboard, Wishlist, Loans, Activity, basic review surfaces, manual add/edit, manual image upload, manual CSV/import paths where cost is local, barcode/ISBN lookup and scanner intake with conservative usage tracking, basic low-cost provider lookup, and export/portability trust features.
+- Paid should focus first on automation: scheduled provider syncs, Apple/iTunes price watch automation, future Playnite automation, background enrichment jobs, cover/metadata refresh, valuation refresh, OCR/photo/capture automation beyond basic barcode capture, advanced/batch review helpers, duplicate automation, collection-health automation, and higher soft limits for storage, provider calls, sync frequency, and capture processing.
+- Future paid tiers may add collaboration/team features, but collaboration should not be the first paid boundary.
+
+**Intended first implementation slice**
+- Add a license/entitlement model owned by the user's personal workspace and billing email.
+- Automatically grant every user a default `free` license.
+- Reserve Stripe identifiers for a later payment slice: customer id, subscription id, current period, and subscription status.
+- Add a backend entitlement registry with named capabilities such as:
+  - `automation.provider_sync`
+  - `automation.price_watch`
+  - `automation.ocr`
+  - `automation.valuation_refresh`
+  - `review.advanced_queue`
+  - `limits.storage.soft`
+  - `limits.provider_calls.soft`
+- Add authenticated license readback through an account-level endpoint such as `GET /api/account/license`.
+- Return plan key, status, billing email, entitlements, soft-limit usage, and upgrade-readable reasons.
+- Add enforcement helpers so paid automation endpoints can return a clear `upgrade_required` response when blocked.
+- Keep manual features available on Free.
+- Track usage for cost modeling, but do not hard-block soft limits in the first slice except for explicitly paid automation.
+- Add Account/Settings UI readback for current plan, included automation, and locked automation.
+- Ensure subscription state never exposes platform/admin menus, labels, or controls.
+
+**Stripe follow-up**
+- Use Stripe Billing as the intended future payment processor.
+- Implement Checkout Sessions, customer portal, and webhook-driven subscription status only after the entitlement contract exists.
+- Do not add live checkout, customer portal, or Stripe webhooks in the first entitlement-contract slice.
+
+**Related work**
+- `Optional Build: Cost Model and Billing Readiness` should remain related but separate. Cost modeling can use entitlement/usage data later, but it is not required before the entitlement contract is defined.
+- `Personal Workspace Offboarding, Archive Retention, and Recovery` should inform future paid cancellation, retention, and recovery behavior.
+
+**Acceptance Criteria**
+- Backlog and roadmap clearly distinguish subscription tiers from product editions/platform capabilities.
+- A future implementation can add Free and Paid readback without exposing platform/admin surfaces.
+- Free remains a useful personal collection tier rather than a short trial.
+- Paid is defined around automation and cost-bearing work first.
+- Stripe is documented as the likely payment provider, but payment collection remains a later milestone.
+
 ### Backlog Item: Imports and Sync Cadence Expansion
 **Type:** Deferred milestone
 **Tags:** `imports`, `csv`, `calibre`, `kavita`, `metron`, `sync`
