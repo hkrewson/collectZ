@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { CollectionPaginationFooter, FixedPageShell, SectionTabs, posterUrl } from './app/AppPrimitives';
+import { CollectionPaginationFooter, FixedPageShell, PageHeaderSearchToolbar, SectionTabs, posterUrl } from './app/AppPrimitives';
 
 function formatDate(value) {
   const raw = String(value || '').trim();
@@ -417,22 +417,16 @@ export default function LibraryLoansView({
 
   const header = (
     <>
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="min-w-0">
-          <h1 className="section-title">Loans</h1>
-        </div>
-        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-          <div className="relative w-full sm:w-80">
-            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ghost"><Icons.Search /></span>
-            <input
-              className="input w-full pl-9"
-              placeholder="Search title or borrower"
-              value={searchInput}
-              onChange={(event) => setSearchInput(event.target.value)}
-            />
-          </div>
-        </div>
-      </div>
+      <PageHeaderSearchToolbar
+        title="Loans"
+        searchValue={searchInput}
+        onSearchChange={setSearchInput}
+        searchPlaceholder="Search title or borrower"
+        Icons={Icons}
+        className="-mx-4 -mt-3 border-b-0 px-0 py-0 sm:-mx-6"
+        searchClassName="w-full sm:w-80"
+        showTitleOnMobile
+      />
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <SectionTabs
           tabs={[

@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.10.7",
+      "version": "3.10.7",
+      "date": null,
+      "status": "completed",
+      "summary": "This patch starts the shared page-header/search-toolbar path for the mobile interface cleanup line. The main library-style pages now use one toolbar primitive, and the toolbar compacts after the user scrolls into the content.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added a shared `PageHeaderSearchToolbar` primitive for page title, count, search, filter controls, view toggle, sort, and add action.",
+            "Migrated media Library, Art, Collectibles, Events, and Loans onto the shared toolbar path.",
+            "Added scroll-aware compaction for media Library, Art, Collectibles, and Events so the toolbar gives back vertical space while browsing.",
+            "Kept page-specific filters local to each surface through toolbar slots instead of hiding business rules inside the primitive."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.10.6",
       "version": "3.10.6",
       "date": null,
@@ -156,14 +174,6 @@
     {
       "title": "collectZ v3.9.15",
       "version": "3.9.15",
-      "date": null,
-      "status": null,
-      "summary": "",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.9.14",
-      "version": "3.9.14",
       "date": null,
       "status": null,
       "summary": "",

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CheckboxControl, CollectionPaginationFooter, CoverImagePicker, DetailDrawerShell, DrawerBackdrop, Icons, ImageSourceControl, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
+import { CheckboxControl, CollectionPaginationFooter, CoverImagePicker, DetailDrawerShell, DrawerBackdrop, Icons, ImageSourceControl, PageHeaderSearchToolbar, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
 
 const DEFAULT_EVENT_FORM = {
   title: '',
@@ -5280,6 +5280,7 @@ export default function EventsView({ apiCall, onToast, currentUser = null, focus
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [headerCompact, setHeaderCompact] = useState(false);
   const [sortDir, setSortDir] = useState('asc');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
@@ -5293,6 +5294,10 @@ export default function EventsView({ apiCall, onToast, currentUser = null, focus
 
   const supportsHover = useMemo(() => window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches, []);
   const activeFilterCount = useMemo(() => [search.trim(), fromDate, toDate].filter(Boolean).length, [fromDate, search, toDate]);
+  const handleContentScroll = useCallback((event) => {
+    const nextCompact = event.currentTarget.scrollTop > 24;
+    setHeaderCompact((current) => (current === nextCompact ? current : nextCompact));
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -5366,130 +5371,58 @@ export default function EventsView({ apiCall, onToast, currentUser = null, focus
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-3 py-2 border-b border-edge shrink-0 sm:px-6 sm:py-4" data-testid="events-mobile-header">
-        <div className="flex flex-col gap-2 lg:flex-row lg:items-start">
-          <div className="min-w-0">
-            <div className="flex items-center justify-end gap-2 sm:justify-between">
-            <div className="hidden items-center gap-3 flex-wrap sm:flex">
-              <h1 className="section-title !text-3xl">Events</h1>
-              <span className="badge badge-dim">{pagination.total || items.length}</span>
-              {activeFilterCount > 0 ? <MetaPill tone="brand">{`${activeFilterCount} filter${activeFilterCount === 1 ? '' : 's'} active`}</MetaPill> : null}
-            </div>
-            <div className="flex shrink-0 items-center justify-end gap-1.5 sm:hidden">
-              <SectionTabs
-                tabs={[
-                  {
-                    id: 'cards',
-                    label: (
-                      <>
-                        <span aria-hidden="true"><Icons.Film /></span>
-                        <span className="sr-only">Cards</span>
-                      </>
-                    )
-                  },
-                  {
-                    id: 'list',
-                    label: (
-                      <>
-                        <span aria-hidden="true"><Icons.List /></span>
-                        <span className="sr-only">List</span>
-                      </>
-                    )
-                  }
-                ]}
-                activeId={viewMode}
-                onChange={setViewMode}
-                semantics="buttons"
-                showDivider={false}
-                ariaLabel="Event view mode"
-                listClassName="gap-1.5"
-                buttonClassName="px-1.5 py-1.5"
-              />
-              <button
-                onClick={() => { setSortDir((d) => (d === 'asc' ? 'desc' : 'asc')); setPage(1); }}
-                className="btn-icon"
-                title={sortDir === 'asc' ? 'Sort ascending' : 'Sort descending'}
-              >
-                {sortDir === 'asc' ? <Icons.ArrowUp /> : <Icons.ArrowDown />}
-              </button>
-              <button onClick={() => setAdding(true)} className="btn-primary px-3" aria-label="Add event"><Icons.Plus /></button>
-            </div>
-            </div>
-            <p className="mt-1 hidden text-sm text-ghost sm:block">Track conventions, screenings, meetups, and the artifacts you picked up along the way.</p>
-          </div>
-          <div
-            className="grid min-w-0 flex-1 grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center lg:justify-end"
-            data-testid="events-mobile-toolbar"
-          >
-          <div className="relative col-span-2 w-full sm:col-span-1 sm:w-56">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ghost pointer-events-none"><Icons.Search /></span>
-            <input className="input pl-9 w-full" placeholder="Search title or location…" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
-          </div>
-          <input
-            type="date"
-            className="input min-w-0"
-            value={fromDate}
-            onChange={(e) => { setFromDate(e.target.value); setPage(1); }}
-            title="From date"
-          />
-          <input
-            type="date"
-            className="input min-w-0"
-            value={toDate}
-            onChange={(e) => { setToDate(e.target.value); setPage(1); }}
-            title="To date"
-          />
-          <div className="col-span-2 hidden items-center justify-end gap-2 sm:col-span-1 sm:flex">
-          <SectionTabs
-            tabs={[
-              {
-                id: 'cards',
-                label: (
-                  <>
-                    <span aria-hidden="true"><Icons.Film /></span>
-                    <span className="sr-only">Cards</span>
-                  </>
-                )
-              },
-              {
-                id: 'list',
-                label: (
-                  <>
-                    <span aria-hidden="true"><Icons.List /></span>
-                    <span className="sr-only">List</span>
-                  </>
-                )
-              }
-            ]}
-            activeId={viewMode}
-            onChange={setViewMode}
-            semantics="buttons"
-            showDivider={false}
-            ariaLabel="Event view mode"
-            listClassName="gap-2"
-            buttonClassName="px-2"
-          />
-          <button
-            onClick={() => { setSortDir((d) => (d === 'asc' ? 'desc' : 'asc')); setPage(1); }}
-            className="btn-icon"
-            title={sortDir === 'asc' ? 'Sort ascending' : 'Sort descending'}
-          >
-            {sortDir === 'asc' ? <Icons.ArrowUp /> : <Icons.ArrowDown />}
-          </button>
-          <button onClick={() => setAdding(true)} className="btn-primary px-3 sm:px-4" aria-label="Add event"><Icons.Plus /><span className="hidden sm:inline">Add</span></button>
-          </div>
-          </div>
-        </div>
-        {activeFilterCount > 0 ? (
-          <div className="mt-4 flex flex-wrap gap-2">
+      <PageHeaderSearchToolbar
+        title="Events"
+        total={pagination.total || items.length}
+        description="Track conventions, screenings, meetups, and the artifacts you picked up along the way."
+        searchValue={search}
+        onSearchChange={(value) => { setSearch(value); setPage(1); }}
+        searchPlaceholder="Search title or location…"
+        extraControls={(
+          <>
+            <input
+              type="date"
+              className="input min-w-0"
+              value={fromDate}
+              onChange={(e) => { setFromDate(e.target.value); setPage(1); }}
+              title="From date"
+            />
+            <input
+              type="date"
+              className="input min-w-0"
+              value={toDate}
+              onChange={(e) => { setToDate(e.target.value); setPage(1); }}
+              title="To date"
+            />
+          </>
+        )}
+        filterCount={activeFilterCount}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        viewAriaLabel="Event view mode"
+        sortDirection={sortDir}
+        onToggleSort={() => { setSortDir((d) => (d === 'asc' ? 'desc' : 'asc')); setPage(1); }}
+        onAdd={() => setAdding(true)}
+        addLabel="Add"
+        addAriaLabel="Add event"
+        Icons={Icons}
+        compact={headerCompact}
+        testId="events-mobile-header"
+        toolbarTestId="events-mobile-toolbar"
+        toolbarClassName="grid-cols-2"
+        searchClassName="col-span-2 w-full sm:col-span-1 sm:w-56"
+      />
+      {activeFilterCount > 0 ? (
+        <div className="shrink-0 border-b border-edge bg-void/95 px-3 py-2 sm:px-6">
+          <div className="flex flex-wrap gap-2">
             {search.trim() ? <MetaPill>{`Search: ${search.trim()}`}</MetaPill> : null}
             {fromDate ? <MetaPill>{`From ${toDisplayDate(fromDate)}`}</MetaPill> : null}
             {toDate ? <MetaPill>{`To ${toDisplayDate(toDate)}`}</MetaPill> : null}
             <button className="btn-ghost btn-sm" onClick={() => { setSearch(''); setFromDate(''); setToDate(''); setPage(1); }}>Clear filters</button>
           </div>
-        ) : null}
-      </div>
-      <div className="flex-1 overflow-y-auto scroll-area p-6">
+        </div>
+      ) : null}
+      <div className="flex-1 overflow-y-auto scroll-area p-6" onScroll={handleContentScroll}>
         {error && <p className="text-sm text-err mb-4">{error}</p>}
         {loading && <div className="flex items-center justify-center py-20"><Spinner size={32} /></div>}
         {!loading && items.length === 0 && (

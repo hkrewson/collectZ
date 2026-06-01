@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CheckboxControl, CollectionPaginationFooter, CoverImagePicker, DetailDrawerShell, DrawerBackdrop, Icons, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
+import { CheckboxControl, CollectionPaginationFooter, CoverImagePicker, DetailDrawerShell, DrawerBackdrop, Icons, PageHeaderSearchToolbar, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
 
 const CATEGORY_OPTIONS = [
   { key: 'lego', label: 'Lego' },
@@ -428,6 +428,7 @@ export default function CollectiblesView({ apiCall, onToast, focusTarget = null 
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [search, setSearch] = useState('');
+  const [headerCompact, setHeaderCompact] = useState(false);
   const [sortDir, setSortDir] = useState('asc');
   const [viewMode, setViewMode] = useState('cards');
   const [categoryFilter, setCategoryFilter] = useState('');
@@ -441,6 +442,10 @@ export default function CollectiblesView({ apiCall, onToast, focusTarget = null 
   const [detailId, setDetailId] = useState(null);
   const [adding, setAdding] = useState(false);
   const filterMenuRef = useRef(null);
+  const handleContentScroll = useCallback((event) => {
+    const nextCompact = event.currentTarget.scrollTop > 24;
+    setHeaderCompact((current) => (current === nextCompact ? current : nextCompact));
+  }, []);
 
   const supportsHover = useMemo(() => window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches, []);
   const activeFilterCount = useMemo(
@@ -587,74 +592,22 @@ export default function CollectiblesView({ apiCall, onToast, focusTarget = null 
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-3 py-2 border-b border-edge shrink-0 sm:px-6 sm:py-4" data-testid="collectibles-mobile-header">
-        <div className="flex flex-col gap-2 lg:flex-row lg:items-start">
-          <div className="min-w-0">
-            <div className="flex items-center justify-end gap-2 sm:justify-between">
-            <div className="hidden items-center gap-3 flex-wrap sm:flex">
-              <h1 className="section-title !text-3xl">{viewConfig.title}</h1>
-              <span className="badge badge-dim">{pagination.total || items.length}</span>
-              {activeFilterCount > 0 ? <FilterPill tone="brand">{`${activeFilterCount} filter${activeFilterCount === 1 ? '' : 's'} active`}</FilterPill> : null}
-            </div>
-            <div className="flex shrink-0 items-center justify-end gap-1.5 sm:hidden">
-              <SectionTabs
-                tabs={[
-                  {
-                    id: 'cards',
-                    label: (
-                      <>
-                        <span aria-hidden="true"><Icons.Film /></span>
-                        <span className="sr-only">Cards</span>
-                      </>
-                    )
-                  },
-                  {
-                    id: 'list',
-                    label: (
-                      <>
-                        <span aria-hidden="true"><Icons.List /></span>
-                        <span className="sr-only">List</span>
-                      </>
-                    )
-                  }
-                ]}
-                activeId={viewMode}
-                onChange={setViewMode}
-                semantics="buttons"
-                showDivider={false}
-                ariaLabel="Collectible view mode"
-                listClassName="gap-1.5"
-                buttonClassName="px-1.5 py-1.5"
-              />
-              <button
-                className="btn-icon"
-                onClick={() => { setSortDir((d) => (d === 'asc' ? 'desc' : 'asc')); setPage(1); }}
-                title={sortDir === 'asc' ? 'Sort ascending' : 'Sort descending'}
-              >
-                {sortDir === 'asc' ? <Icons.ArrowUp /> : <Icons.ArrowDown />}
-              </button>
-              <button className="btn-primary px-3" onClick={() => setAdding(true)} aria-label={viewConfig.addLabel}><Icons.Plus /></button>
-            </div>
-            </div>
-            <p className="mt-1 hidden text-sm text-ghost sm:block">{viewConfig.description}</p>
-          </div>
-          <div
-            className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] gap-2 sm:flex sm:flex-wrap sm:items-center lg:justify-end"
-            data-testid="collectibles-mobile-toolbar"
-          >
-          <div className="relative min-w-0 sm:w-56">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ghost pointer-events-none"><Icons.Search /></span>
-            <input className="input pl-9 w-full" placeholder="Search…" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
-          </div>
+      <PageHeaderSearchToolbar
+        title={viewConfig.title}
+        total={pagination.total || items.length}
+        description={viewConfig.description}
+        searchValue={search}
+        onSearchChange={(value) => { setSearch(value); setPage(1); }}
+        filters={(
           <div className="relative" ref={filterMenuRef}>
             <button className="btn-secondary" onClick={() => setFilterOpen((v) => !v)}>
               Filter
               <Icons.ChevronDown />
             </button>
             {filterOpen ? (
-              <div className="absolute right-0 mt-2 w-80 rounded-xl border border-edge bg-raised p-3 z-20 shadow-2xl space-y-3">
+              <div className="absolute right-0 z-20 mt-2 w-80 space-y-3 rounded-lg border border-edge bg-raised p-3 shadow-lg">
                 <div>
-                  <p className="text-xs text-ghost mb-2">Category</p>
+                  <p className="mb-2 text-xs text-ghost">Category</p>
                   <select
                     className="select w-full"
                     value={categoryFilter}
@@ -667,7 +620,7 @@ export default function CollectiblesView({ apiCall, onToast, focusTarget = null 
                   </select>
                 </div>
                 <div>
-                  <p className="text-xs text-ghost mb-2">Events</p>
+                  <p className="mb-2 text-xs text-ghost">Events</p>
                   <select
                     className="select w-full"
                     value={eventFilter}
@@ -678,14 +631,14 @@ export default function CollectiblesView({ apiCall, onToast, focusTarget = null 
                   </select>
                 </div>
                 <div>
-                  <p className="text-xs text-ghost mb-2">Exclusives</p>
+                  <p className="mb-2 text-xs text-ghost">Exclusives</p>
                   <div className="flex gap-2">
                     <button className={cx('btn-ghost btn-sm', exclusiveFilter === '' && 'bg-brand/20 text-brand')} onClick={() => { setExclusiveFilter(''); setPage(1); }}>All</button>
                     <button className={cx('btn-ghost btn-sm', exclusiveFilter === 'true' && 'bg-brand/20 text-brand')} onClick={() => { setExclusiveFilter('true'); setPage(1); }}>Exclusive</button>
                     <button className={cx('btn-ghost btn-sm', exclusiveFilter === 'false' && 'bg-brand/20 text-brand')} onClick={() => { setExclusiveFilter('false'); setPage(1); }}>Non-exclusive</button>
                   </div>
                 </div>
-                <div className="pt-1 border-t border-edge flex justify-end">
+                <div className="flex justify-end border-t border-edge pt-1">
                   <button
                     className="btn-ghost btn-sm"
                     onClick={() => {
@@ -701,49 +654,24 @@ export default function CollectiblesView({ apiCall, onToast, focusTarget = null 
               </div>
             ) : null}
           </div>
-          <div className="hidden items-center justify-end gap-2 sm:flex">
-          <SectionTabs
-            tabs={[
-              {
-                id: 'cards',
-                label: (
-                  <>
-                    <span aria-hidden="true"><Icons.Film /></span>
-                    <span className="sr-only">Cards</span>
-                  </>
-                )
-              },
-              {
-                id: 'list',
-                label: (
-                  <>
-                    <span aria-hidden="true"><Icons.List /></span>
-                    <span className="sr-only">List</span>
-                  </>
-                )
-              }
-            ]}
-            activeId={viewMode}
-            onChange={setViewMode}
-            semantics="buttons"
-            showDivider={false}
-            ariaLabel="Collectible view mode"
-            listClassName="gap-2"
-            buttonClassName="px-2"
-          />
-          <button
-            className="btn-icon"
-            onClick={() => { setSortDir((d) => (d === 'asc' ? 'desc' : 'asc')); setPage(1); }}
-            title={sortDir === 'asc' ? 'Sort ascending' : 'Sort descending'}
-          >
-            {sortDir === 'asc' ? <Icons.ArrowUp /> : <Icons.ArrowDown />}
-          </button>
-          <button className="btn-primary px-3 sm:px-4" onClick={() => setAdding(true)} aria-label={viewConfig.addLabel}><Icons.Plus /><span className="hidden sm:inline">{viewConfig.addLabel}</span></button>
-          </div>
-          </div>
-        </div>
-        {activeFilterCount > 0 ? (
-          <div className="mt-4 flex flex-wrap gap-2">
+        )}
+        filterCount={activeFilterCount}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        viewAriaLabel="Collectible view mode"
+        sortDirection={sortDir}
+        onToggleSort={() => { setSortDir((d) => (d === 'asc' ? 'desc' : 'asc')); setPage(1); }}
+        onAdd={() => setAdding(true)}
+        addLabel={viewConfig.addLabel}
+        addAriaLabel={viewConfig.addLabel}
+        Icons={Icons}
+        compact={headerCompact}
+        testId="collectibles-mobile-header"
+        toolbarTestId="collectibles-mobile-toolbar"
+      />
+      {activeFilterCount > 0 ? (
+        <div className="shrink-0 border-b border-edge bg-void/95 px-3 py-2 sm:px-6">
+          <div className="flex flex-wrap gap-2">
             {search.trim() ? <FilterPill>{`Search: ${search.trim()}`}</FilterPill> : null}
             {categoryFilter ? <FilterPill>{`Category: ${COLLECTIBLE_CLASSIFICATIONS.find((cat) => cat.value === categoryFilter)?.label || categoryFilter}`}</FilterPill> : null}
             {eventFilter ? <FilterPill>{`Event: ${events.find((evt) => String(evt.id) === String(eventFilter))?.title || eventFilter}`}</FilterPill> : null}
@@ -761,9 +689,9 @@ export default function CollectiblesView({ apiCall, onToast, focusTarget = null 
               Clear filters
             </button>
           </div>
-        ) : null}
-      </div>
-      <div className="flex-1 overflow-y-auto scroll-area p-6">
+        </div>
+      ) : null}
+      <div className="flex-1 overflow-y-auto scroll-area p-6" onScroll={handleContentScroll}>
         {error ? <p className="text-sm text-err mb-3">{error}</p> : null}
         {loading ? <div className="flex items-center justify-center py-20"><Spinner size={32} /></div> : null}
         {!loading && items.length === 0 ? (

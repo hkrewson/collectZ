@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CheckboxControl, CollectionPaginationFooter, CoverImagePicker, DetailDrawerShell, DrawerBackdrop, Icons, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
+import { CheckboxControl, CollectionPaginationFooter, CoverImagePicker, DetailDrawerShell, DrawerBackdrop, Icons, PageHeaderSearchToolbar, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
 import SignatureManager from './app/SignatureManager';
 
 const ART_MEDIUM_OPTIONS = [
@@ -782,6 +782,7 @@ export default function ArtView({ apiCall, onToast, focusTarget = null }) {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [search, setSearch] = useState('');
+  const [headerCompact, setHeaderCompact] = useState(false);
   const [sortDir, setSortDir] = useState('asc');
   const [viewMode, setViewMode] = useState('cards');
   const [eventFilter, setEventFilter] = useState('');
@@ -794,6 +795,10 @@ export default function ArtView({ apiCall, onToast, focusTarget = null }) {
   const [detailId, setDetailId] = useState(null);
   const [adding, setAdding] = useState(false);
   const filterMenuRef = useRef(null);
+  const handleContentScroll = useCallback((event) => {
+    const nextCompact = event.currentTarget.scrollTop > 24;
+    setHeaderCompact((current) => (current === nextCompact ? current : nextCompact));
+  }, []);
 
   const supportsHover = useMemo(() => window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches, []);
   const activeFilterCount = useMemo(
@@ -987,93 +992,57 @@ export default function ArtView({ apiCall, onToast, focusTarget = null }) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-3 py-2 border-b border-edge shrink-0 sm:px-6 sm:py-4" data-testid="art-mobile-header">
-        <div className="flex flex-col gap-2 lg:flex-row lg:items-start">
-          <div className="min-w-0">
-            <div className="flex items-center justify-end gap-2 sm:justify-between">
-            <div className="hidden items-center gap-3 flex-wrap sm:flex">
-              <h1 className="section-title !text-3xl">Art</h1>
-              <span className="badge badge-dim">{pagination.total || items.length}</span>
-              {activeFilterCount > 0 ? <FilterPill tone="brand">{`${activeFilterCount} filter${activeFilterCount === 1 ? '' : 's'} active`}</FilterPill> : null}
-            </div>
-            <div className="flex shrink-0 items-center justify-end gap-1.5 sm:hidden">
-              <SectionTabs
-                tabs={[
-                  { id: 'cards', label: <><span aria-hidden="true"><Icons.Film /></span><span className="sr-only">Cards</span></> },
-                  { id: 'list', label: <><span aria-hidden="true"><Icons.List /></span><span className="sr-only">List</span></> }
-                ]}
-                activeId={viewMode}
-                onChange={setViewMode}
-                semantics="buttons"
-                showDivider={false}
-                ariaLabel="Art view mode"
-                listClassName="gap-1.5"
-                buttonClassName="px-1.5 py-1.5"
-              />
-              <button className="btn-icon" onClick={() => { setSortDir((d) => (d === 'asc' ? 'desc' : 'asc')); setPage(1); }} title={sortDir === 'asc' ? 'Sort ascending' : 'Sort descending'}>
-                {sortDir === 'asc' ? <Icons.ArrowUp /> : <Icons.ArrowDown />}
-              </button>
-              <button className="btn-primary px-3" onClick={() => setAdding(true)} aria-label="Add Art"><Icons.Plus /></button>
-            </div>
-            </div>
-            <p className="mt-1 hidden text-sm text-ghost sm:block">Track original art, prints, and sketch commissions as their own library while keeping event purchase context attached.</p>
-          </div>
-          <div
-            className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] gap-2 sm:flex sm:flex-wrap sm:items-center lg:justify-end"
-            data-testid="art-mobile-toolbar"
-          >
-            <div className="relative min-w-0 sm:w-56">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ghost pointer-events-none"><Icons.Search /></span>
-              <input className="input pl-9 w-full" placeholder="Search…" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
-            </div>
-            <div className="relative" ref={filterMenuRef}>
-              <button className="btn-secondary" onClick={() => setFilterOpen((v) => !v)}>Filter<Icons.ChevronDown /></button>
-              {filterOpen ? (
-                <div className="absolute right-0 mt-2 w-80 rounded-xl border border-edge bg-raised p-3 z-20 shadow-2xl space-y-3">
-                  <div>
-                    <p className="text-xs text-ghost mb-2">Events</p>
-                    <select className="select w-full" value={eventFilter} onChange={(e) => { setEventFilter(e.target.value); setPage(1); }}>
-                      <option value="">All events</option>
-                      {events.map((evt) => <option key={evt.id} value={String(evt.id)}>{evt.title}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <p className="text-xs text-ghost mb-2">Exclusives</p>
-                    <div className="flex gap-2">
-                      <button className={cx('btn-ghost btn-sm', exclusiveFilter === '' && 'bg-brand/20 text-brand')} onClick={() => { setExclusiveFilter(''); setPage(1); }}>All</button>
-                      <button className={cx('btn-ghost btn-sm', exclusiveFilter === 'true' && 'bg-brand/20 text-brand')} onClick={() => { setExclusiveFilter('true'); setPage(1); }}>Exclusive</button>
-                      <button className={cx('btn-ghost btn-sm', exclusiveFilter === 'false' && 'bg-brand/20 text-brand')} onClick={() => { setExclusiveFilter('false'); setPage(1); }}>Non-exclusive</button>
-                    </div>
-                  </div>
-                  <div className="pt-1 border-t border-edge flex justify-end">
-                    <button className="btn-ghost btn-sm" onClick={() => { setEventFilter(''); setExclusiveFilter(''); setPage(1); }}>Clear filters</button>
+      <PageHeaderSearchToolbar
+        title="Art"
+        total={pagination.total || items.length}
+        description="Track original art, prints, and sketch commissions as their own library while keeping event purchase context attached."
+        searchValue={search}
+        onSearchChange={(value) => { setSearch(value); setPage(1); }}
+        filters={(
+          <div className="relative" ref={filterMenuRef}>
+            <button className="btn-secondary" onClick={() => setFilterOpen((v) => !v)}>Filter<Icons.ChevronDown /></button>
+            {filterOpen ? (
+              <div className="absolute right-0 z-20 mt-2 w-80 space-y-3 rounded-lg border border-edge bg-raised p-3 shadow-lg">
+                <div>
+                  <p className="mb-2 text-xs text-ghost">Events</p>
+                  <select className="select w-full" value={eventFilter} onChange={(e) => { setEventFilter(e.target.value); setPage(1); }}>
+                    <option value="">All events</option>
+                    {events.map((evt) => <option key={evt.id} value={String(evt.id)}>{evt.title}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <p className="mb-2 text-xs text-ghost">Exclusives</p>
+                  <div className="flex gap-2">
+                    <button className={cx('btn-ghost btn-sm', exclusiveFilter === '' && 'bg-brand/20 text-brand')} onClick={() => { setExclusiveFilter(''); setPage(1); }}>All</button>
+                    <button className={cx('btn-ghost btn-sm', exclusiveFilter === 'true' && 'bg-brand/20 text-brand')} onClick={() => { setExclusiveFilter('true'); setPage(1); }}>Exclusive</button>
+                    <button className={cx('btn-ghost btn-sm', exclusiveFilter === 'false' && 'bg-brand/20 text-brand')} onClick={() => { setExclusiveFilter('false'); setPage(1); }}>Non-exclusive</button>
                   </div>
                 </div>
-              ) : null}
-            </div>
-            <div className="hidden items-center justify-end gap-2 sm:flex">
-            <SectionTabs
-              tabs={[
-                { id: 'cards', label: <><span aria-hidden="true"><Icons.Film /></span><span className="sr-only">Cards</span></> },
-                { id: 'list', label: <><span aria-hidden="true"><Icons.List /></span><span className="sr-only">List</span></> }
-              ]}
-              activeId={viewMode}
-              onChange={setViewMode}
-              semantics="buttons"
-              showDivider={false}
-              ariaLabel="Art view mode"
-              listClassName="gap-2"
-              buttonClassName="px-2"
-            />
-            <button className="btn-icon" onClick={() => { setSortDir((d) => (d === 'asc' ? 'desc' : 'asc')); setPage(1); }} title={sortDir === 'asc' ? 'Sort ascending' : 'Sort descending'}>
-              {sortDir === 'asc' ? <Icons.ArrowUp /> : <Icons.ArrowDown />}
-            </button>
-            <button className="btn-primary px-3 sm:px-4" onClick={() => setAdding(true)} aria-label="Add Art"><Icons.Plus /><span className="hidden sm:inline">Add Art</span></button>
-            </div>
+                <div className="flex justify-end border-t border-edge pt-1">
+                  <button className="btn-ghost btn-sm" onClick={() => { setEventFilter(''); setExclusiveFilter(''); setPage(1); }}>Clear filters</button>
+                </div>
+              </div>
+            ) : null}
           </div>
-        </div>
+        )}
+        filterCount={activeFilterCount}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        viewAriaLabel="Art view mode"
+        sortDirection={sortDir}
+        onToggleSort={() => { setSortDir((d) => (d === 'asc' ? 'desc' : 'asc')); setPage(1); }}
+        onAdd={() => setAdding(true)}
+        addLabel="Add Art"
+        addAriaLabel="Add Art"
+        Icons={Icons}
+        compact={headerCompact}
+        testId="art-mobile-header"
+        toolbarTestId="art-mobile-toolbar"
+      />
+      {activeFilterCount > 0 ? (
+        <div className="shrink-0 border-b border-edge bg-void/95 px-3 py-2 sm:px-6">
         {activeFilterCount > 0 ? (
-          <div className="mt-4 flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2">
             {search.trim() ? <FilterPill>{`Search: ${search.trim()}`}</FilterPill> : null}
             {eventFilter ? <FilterPill>{`Event: ${events.find((evt) => String(evt.id) === String(eventFilter))?.title || eventFilter}`}</FilterPill> : null}
             {exclusiveFilter ? <FilterPill>{exclusiveFilter === 'true' ? 'Exclusive only' : 'Non-exclusive only'}</FilterPill> : null}
@@ -1081,7 +1050,8 @@ export default function ArtView({ apiCall, onToast, focusTarget = null }) {
           </div>
         ) : null}
       </div>
-      <div className="flex-1 overflow-y-auto scroll-area p-6">
+      ) : null}
+      <div className="flex-1 overflow-y-auto scroll-area p-6" onScroll={handleContentScroll}>
         {error ? <p className="text-sm text-err mb-3">{error}</p> : null}
         {loading ? <div className="flex items-center justify-center py-20"><Spinner size={32} /></div> : null}
         {!loading && items.length === 0 ? (

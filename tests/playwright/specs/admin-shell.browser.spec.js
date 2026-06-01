@@ -18,6 +18,18 @@ async function findCollectionsByName(requestContext, name) {
   return Array.isArray(payload?.items) ? payload.items.filter((item) => String(item?.name || '') === String(name)) : [];
 }
 
+async function readRect(locator) {
+  return locator.evaluate((node) => {
+    const rect = node.getBoundingClientRect();
+    return {
+      x: rect.x,
+      y: rect.y,
+      width: rect.width,
+      height: rect.height
+    };
+  });
+}
+
 test.describe('admin shell browser regressions', () => {
   test('dashboard command center is the default dashboard landing view', async ({ page }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
@@ -164,9 +176,9 @@ test.describe('admin shell browser regressions', () => {
       await expect(header).toBeVisible();
       const toolbar = page.getByTestId(target.toolbar);
       await expect(toolbar).toBeVisible();
-      const appHeaderBoxBefore = await appHeader.boundingBox();
-      const headerBox = await header.boundingBox();
-      const toolbarBox = await toolbar.boundingBox();
+      const appHeaderBoxBefore = await readRect(appHeader);
+      const headerBox = await readRect(header);
+      const toolbarBox = await readRect(toolbar);
       expect(appHeaderBoxBefore).toBeTruthy();
       expect(headerBox).toBeTruthy();
       expect(toolbarBox).toBeTruthy();
@@ -178,9 +190,15 @@ test.describe('admin shell browser regressions', () => {
           .find((node) => node.scrollHeight > node.clientHeight);
         if (scrollArea) scrollArea.scrollTop = Math.min(500, scrollArea.scrollHeight - scrollArea.clientHeight);
       });
-      const appHeaderBoxAfter = await appHeader.boundingBox();
+      const appHeaderBoxAfter = await readRect(appHeader);
+      const headerBoxAfter = await readRect(header);
+      const toolbarBoxAfter = await readRect(toolbar);
       expect(appHeaderBoxAfter).toBeTruthy();
+      expect(headerBoxAfter).toBeTruthy();
+      expect(toolbarBoxAfter).toBeTruthy();
       expect(Math.abs(appHeaderBoxAfter.y - appHeaderBoxBefore.y)).toBeLessThanOrEqual(1);
+      expect(headerBoxAfter.height).toBeLessThanOrEqual(headerBox.height);
+      expect(toolbarBoxAfter.height).toBeLessThanOrEqual(toolbarBox.height);
 
       const overflow = await page.evaluate(() => {
         const root = document.scrollingElement || document.documentElement;
@@ -242,14 +260,14 @@ test.describe('admin shell browser regressions', () => {
       await expect(header).toBeVisible();
       await expect(body).toBeVisible();
       await expect(body).toHaveCSS('overflow-y', 'auto');
-      const headerBoxBefore = await header.boundingBox();
+      const headerBoxBefore = await readRect(header);
       expect(headerBoxBefore).toBeTruthy();
 
       await body.evaluate((node) => {
         node.scrollTop = Math.min(360, node.scrollHeight - node.clientHeight);
       });
 
-      const headerBoxAfter = await header.boundingBox();
+      const headerBoxAfter = await readRect(header);
       expect(headerBoxAfter).toBeTruthy();
       expect(Math.abs(headerBoxAfter.y - headerBoxBefore.y)).toBeLessThanOrEqual(1);
 

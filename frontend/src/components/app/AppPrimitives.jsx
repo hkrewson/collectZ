@@ -238,6 +238,168 @@ export function SectionTabs({
   );
 }
 
+export function PageHeaderSearchToolbar({
+  title,
+  total,
+  description,
+  searchValue,
+  onSearchChange,
+  searchPlaceholder = 'Search…',
+  filterCount = 0,
+  filterLabel,
+  filters,
+  extraControls,
+  viewMode,
+  onViewModeChange,
+  viewAriaLabel = 'View mode',
+  sortDirection,
+  onToggleSort,
+  onAdd,
+  addLabel = 'Add',
+  addAriaLabel,
+  Icons: IconSet = Icons,
+  compact = false,
+  showTitleOnMobile = false,
+  testId,
+  toolbarTestId,
+  toolbarClassName = '',
+  searchClassName = 'sm:w-56',
+  className = ''
+}) {
+  const hasSearch = typeof searchValue !== 'undefined' && typeof onSearchChange === 'function';
+  const hasViewToggle = viewMode && typeof onViewModeChange === 'function';
+  const hasSort = typeof onToggleSort === 'function';
+  const hasAdd = typeof onAdd === 'function';
+  const resolvedFilterLabel = filterLabel || `${filterCount} filter${filterCount === 1 ? '' : 's'} active`;
+
+  const viewTabs = hasViewToggle ? (
+    <SectionTabs
+      tabs={[
+        {
+          id: 'cards',
+          label: (
+            <>
+              <span aria-hidden="true"><IconSet.Film /></span>
+              <span className="sr-only">Cards</span>
+            </>
+          )
+        },
+        {
+          id: 'list',
+          label: (
+            <>
+              <span aria-hidden="true"><IconSet.List /></span>
+              <span className="sr-only">List</span>
+            </>
+          )
+        }
+      ]}
+      activeId={viewMode}
+      onChange={onViewModeChange}
+      semantics="buttons"
+      showDivider={false}
+      ariaLabel={viewAriaLabel}
+      className="shrink-0"
+      listClassName={compact ? 'gap-1.5' : 'gap-2'}
+      buttonClassName={compact ? 'px-1.5 py-1.5' : 'px-2'}
+    />
+  ) : null;
+
+  const sortButton = hasSort ? (
+    <button
+      type="button"
+      onClick={onToggleSort}
+      className="btn-icon"
+      title={sortDirection === 'asc' ? 'Sort ascending' : 'Sort descending'}
+    >
+      {sortDirection === 'asc' ? <IconSet.ArrowUp /> : <IconSet.ArrowDown />}
+    </button>
+  ) : null;
+
+  const addButton = hasAdd ? (
+    <button
+      type="button"
+      onClick={onAdd}
+      className={cx('btn-primary whitespace-nowrap', compact ? 'px-3' : 'px-3 sm:px-4')}
+      aria-label={addAriaLabel || addLabel}
+    >
+      <IconSet.Plus />
+      <span className="hidden sm:inline">{addLabel}</span>
+    </button>
+  ) : null;
+
+  return (
+    <div
+      className={cx(
+        'border-b border-edge bg-void/95 px-3 shrink-0 transition-[padding] duration-150 sm:px-6',
+        compact ? 'py-2' : 'py-2 sm:py-4',
+        className
+      )}
+      data-testid={testId}
+    >
+      <div className={cx('flex flex-col gap-2 lg:flex-row lg:items-start', compact && 'lg:items-center')}>
+        <div className={cx('min-w-0', compact ? 'lg:max-w-64' : '')}>
+          <div className="flex items-center justify-end gap-2 sm:justify-between">
+            <div className={cx(
+              'min-w-0 flex-wrap items-center gap-3',
+              showTitleOnMobile ? 'flex' : 'hidden sm:flex'
+            )}>
+              <h1 className={cx('section-title !text-3xl', compact && '!text-2xl')}>{title}</h1>
+              {typeof total !== 'undefined' ? <span className="badge badge-dim shrink-0">{total}</span> : null}
+              {filterCount > 0 ? <span className="badge badge-dim shrink-0">{resolvedFilterLabel}</span> : null}
+            </div>
+            {(viewTabs || sortButton || addButton) ? (
+              <div className={cx('shrink-0 items-center justify-end gap-1.5 sm:hidden', compact ? 'hidden' : 'flex')}>
+                {viewTabs}
+                {sortButton}
+                {addButton}
+              </div>
+            ) : null}
+          </div>
+          {description ? (
+            <p className={cx('mt-1 hidden text-sm text-ghost sm:block', compact && 'lg:hidden')}>{description}</p>
+          ) : null}
+        </div>
+
+        <div
+          className={cx(
+            'grid min-w-0 flex-1 gap-2 sm:flex sm:flex-wrap sm:items-center lg:justify-end',
+            compact && addButton
+              ? 'grid-cols-[minmax(0,1fr)_auto_auto]'
+              : 'grid-cols-[minmax(0,1fr)_auto]',
+            toolbarClassName
+          )}
+          data-testid={toolbarTestId}
+        >
+          {hasSearch ? (
+            <div className={cx('relative min-w-0', searchClassName)}>
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ghost"><IconSet.Search /></span>
+              <input
+                className="input w-full pl-9"
+                placeholder={searchPlaceholder}
+                value={searchValue}
+                onChange={(event) => onSearchChange(event.target.value)}
+              />
+            </div>
+          ) : null}
+          {filters}
+          {extraControls && compact ? (
+            <div className="hidden sm:contents">{extraControls}</div>
+          ) : extraControls}
+          {compact && addButton ? <div className="sm:hidden">{addButton}</div> : null}
+          {(viewTabs || sortButton || addButton) ? (
+            <div className="hidden items-center justify-end gap-2 sm:flex">
+              {viewTabs}
+              {sortButton}
+              {addButton}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function SectionTabPanel({
   tabId,
   activeId,

@@ -10810,6 +10810,38 @@ Historical note:
 - What remains in the milestone: nothing for `3.8.10`; next planned work is `3.8.11 — Capture Scan Immediate Lookup`, followed by batch scan mode, safe ISBN auto-import, and exception review routing.
 - Recommended commit message: `Release 3.8.10 with Capture Inbox barcode camera ISBN recognition`.
 
+## 3.10.7 — Shared Page Header Search Toolbar
+
+**Goal:** Start moving library-style page headers and search/action rows onto a shared primitive, then compact that shared toolbar after content scroll so mobile browsing gets more vertical space back.
+
+### Scope
+
+- Add a shared `PageHeaderSearchToolbar` primitive for title, count, search, filters, view toggle, sort, and add actions.
+- Migrate media Library, Art, Collectibles, Events, and Loans to the shared primitive where their header/search controls overlap.
+- Keep page-specific filter behavior in local slots so the primitive handles layout, not business rules.
+- Add scroll-aware toolbar compaction for media Library, Art, Collectibles, and Events.
+- Keep the app-shell mobile header unchanged from `3.10.5` and the title ownership rule unchanged from `3.10.6`.
+
+### Acceptance Criteria
+
+- Media Library, Art, Collectibles, Events, and Loans render their page header/search layout through `PageHeaderSearchToolbar`.
+- Mobile Library, Art, Collectibles, and Events keep the full controls before content scroll and compact the toolbar after browsing starts.
+- Search, filter, view toggle, sort, and add behavior remain available on migrated surfaces.
+- The compact app shell header remains fixed and separate from page-level search controls.
+- Version metadata, release note, release feed, and Help > Releases include `3.10.7`.
+
+### Closeout
+
+- Status: completed.
+- Roadmap slice: `3.10.7 — Shared Page Header Search Toolbar`.
+- Project docs/checklists used: `AGENTS.md`; `/Users/hamlin/.codex/skills/uncodixfy/SKILL.md`; `/Users/hamlin/.codex/plugins/cache/openai-curated/build-web-apps/fef63ecf/skills/frontend-testing-debugging/SKILL.md`; `/Users/hamlin/.codex/plugins/cache/openai-bundled/browser/26.527.31326/skills/control-in-app-browser/SKILL.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.10.7.md`.
+- Runtime verification used: Docker-first frontend rebuild with `APP_VERSION=3.10.7`; running `/api/health` reported frontend/backend/build `3.10.7`; Docker stack reported backend, database, and frontend healthy; Help > Releases smoke served `3.10.7`; targeted mobile browser regression verified fixed app shell behavior, desktop section headings, shared toolbar mobile compact behavior, and stable utility-page headers.
+- CI/checks run locally: Docker frontend build; targeted Playwright browser regression for mobile library search toolbars, mobile utility headers, and desktop library headings; Docker `npm run test:unit` (`300` passed); Docker `npm run test:openapi`; Docker `BASE_URL=http://frontend:3000 npm run test:help-releases-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker `npm run test:init-parity`; root dependency clean install with zero vulnerabilities; frontend clean install with zero vulnerabilities using the Node 24 runtime path; backend clean install plus high-severity audit check with only existing moderate `qs`/`express` findings; version sync check; release note heading check; `git diff --check`. The homelab edition boundary script was attempted against the current platform-mode stack and failed for the expected reason that platform-only email delivery settings were available; rerun that gate in a homelab-mode stack before a broad release cut. Local `gitleaks` and `trivy` binaries were not available, so CI remains authoritative for `secret-scan` and `image-security-and-sbom`.
+- Files changed for this slice: `app-meta.json`; `backend/app-meta.json`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `docs/releases/v3.10.7.md`; `docs/wiki/07-Release-Roadmap.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/ArtView.jsx`; `frontend/src/components/CollectiblesView.jsx`; `frontend/src/components/EventsView.jsx`; `frontend/src/components/LibraryLoansView.jsx`; `frontend/src/components/LibraryView.jsx`; `frontend/src/components/app/AppPrimitives.jsx`; `tests/playwright/specs/admin-shell.browser.spec.js`.
+- Risks/follow-ups: The compact toolbar is now shared across the migrated browse surfaces, but Wishlist, Import, Integrations, Capture Inbox, and other utility pages still keep specialized headers. If the mobile chrome still feels tall after use, the next slice should decide whether search expands from an icon or whether page-specific secondary controls move behind the filter/action primitive.
+- What remains in the milestone: nothing for `3.10.7`; future `3.10.x` UI/UX cleanup can continue with specialized utility-page header/search compaction.
+- Recommended commit message: `Release 3.10.7 with shared page header search toolbar compaction`.
+
 ## 3.10.6 — Mobile Page Title Deduplication
 
 **Goal:** Make page title ownership consistent after the compact mobile app header work by letting the shell identify location on mobile and letting desktop page headers identify the active library section.

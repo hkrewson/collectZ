@@ -7,6 +7,7 @@ import {
   DisclosureList,
   DetailDrawerShell,
   DrawerBackdrop,
+  PageHeaderSearchToolbar,
   CollectionPaginationFooter,
   cx,
   posterUrl,
@@ -4227,6 +4228,7 @@ export default function LibraryView({
   const PAGE_SIZE_STORAGE_KEY = 'collectz_library_page_size';
   const VIEW_MODE_STORAGE_KEY = 'collectz_library_view_mode';
   const [searchInput, setSearchInput] = useState('');
+  const [headerCompact, setHeaderCompact] = useState(false);
   const [resolutionInput, setResolutionInput] = useState('all');
   const [platformInput, setPlatformInput] = useState('all');
   const [publisherInput, setPublisherInput] = useState('all');
@@ -4250,6 +4252,10 @@ export default function LibraryView({
     const saved = window.localStorage.getItem(VIEW_MODE_STORAGE_KEY);
     return saved === 'list' ? 'list' : 'cards';
   });
+  const handleContentScroll = useCallback((event) => {
+    const nextCompact = event.currentTarget.scrollTop > 24;
+    setHeaderCompact((current) => (current === nextCompact ? current : nextCompact));
+  }, []);
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState(null);
   const [detail, setDetail] = useState(null);
@@ -4970,123 +4976,55 @@ export default function LibraryView({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-3 py-2 border-b border-edge shrink-0 sm:px-6 sm:py-4" data-testid="library-mobile-header">
-        <div className="flex flex-col gap-2 xl:flex-row xl:items-center">
-          <div className="flex items-center justify-end gap-2 min-w-0 sm:justify-between">
-            <div className="hidden min-w-0 items-center gap-2.5 sm:flex">
-              <h1 className="section-title !text-3xl">{title}</h1>
-              <span className="badge badge-dim shrink-0">{displayedTotal}</span>
-            </div>
-            <div className="flex shrink-0 items-center justify-end gap-1.5 sm:hidden">
-              <SectionTabs
-                tabs={[
-                  {
-                    id: 'cards',
-                    label: (
-                      <>
-                        <span aria-hidden="true"><Icons.Film /></span>
-                        <span className="sr-only">Cards</span>
-                      </>
-                    )
-                  },
-                  {
-                    id: 'list',
-                    label: (
-                      <>
-                        <span aria-hidden="true"><Icons.List /></span>
-                        <span className="sr-only">List</span>
-                      </>
-                    )
-                  }
-                ]}
-                activeId={viewMode}
-                onChange={setViewMode}
-                semantics="buttons"
-                showDivider={false}
-                ariaLabel="Library view mode"
-                className="shrink-0"
-                listClassName="gap-1.5"
-                buttonClassName="px-1.5 py-1.5"
-              />
-              <button onClick={() => { setFilters((f) => ({ ...f, sortDir: f.sortDir === 'asc' ? 'desc' : 'asc' })); setPage(1); }} className="btn-icon" title={filters.sortDir === 'asc' ? 'Sort ascending' : 'Sort descending'}>
-                {filters.sortDir === 'asc' ? <Icons.ArrowUp /> : <Icons.ArrowDown />}
-              </button>
-              <button onClick={() => setAdding(true)} className="btn-primary px-3" aria-label="Add media"><Icons.Plus /></button>
-            </div>
-          </div>
-          <div
-            className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] gap-2 sm:flex sm:flex-wrap sm:items-center lg:justify-end"
-            data-testid="library-mobile-toolbar"
+      <PageHeaderSearchToolbar
+        title={title}
+        total={displayedTotal}
+        searchValue={searchInput}
+        onSearchChange={setSearchInput}
+        searchPlaceholder="Search title, director…"
+        filters={quickFilterConfig ? (
+          <select
+            className="select min-w-0 !w-36 sm:!w-48"
+            value={quickFilterConfig.value}
+            aria-label={quickFilterConfig.label}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (quickFilterConfig.key === 'resolution') {
+                setResolutionInput(value);
+                setFilters((f) => ({ ...f, resolution: value }));
+              } else if (quickFilterConfig.key === 'platform') {
+                setPlatformInput(value);
+                setFilters((f) => ({ ...f, platform: value }));
+              } else if (quickFilterConfig.key === 'publisher') {
+                setPublisherInput(value);
+                setFilters((f) => ({ ...f, publisher: value }));
+              }
+              setPage(1);
+            }}
           >
-          <div className="relative min-w-0 sm:w-72">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ghost pointer-events-none"><Icons.Search /></span>
-            <input className="input pl-9 w-full" placeholder="Search title, director…" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} />
-          </div>
-            {quickFilterConfig && (
-              <select
-                className="select min-w-0 !w-36 sm:!w-48"
-                value={quickFilterConfig.value}
-                aria-label={quickFilterConfig.label}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  if (quickFilterConfig.key === 'resolution') {
-                    setResolutionInput(value);
-                    setFilters((f) => ({ ...f, resolution: value }));
-                  } else if (quickFilterConfig.key === 'platform') {
-                    setPlatformInput(value);
-                    setFilters((f) => ({ ...f, platform: value }));
-                  } else if (quickFilterConfig.key === 'publisher') {
-                    setPublisherInput(value);
-                    setFilters((f) => ({ ...f, publisher: value }));
-                  }
-                  setPage(1);
-                }}
-              >
-                {quickFilterConfig.options.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-            )}
-            <div className="hidden items-center justify-end gap-2 sm:flex">
-              <SectionTabs
-                tabs={[
-                  {
-                    id: 'cards',
-                    label: (
-                      <>
-                        <span aria-hidden="true"><Icons.Film /></span>
-                        <span className="sr-only">Cards</span>
-                      </>
-                    )
-                  },
-                  {
-                    id: 'list',
-                    label: (
-                      <>
-                        <span aria-hidden="true"><Icons.List /></span>
-                        <span className="sr-only">List</span>
-                      </>
-                    )
-                  }
-                ]}
-                activeId={viewMode}
-                onChange={setViewMode}
-                semantics="buttons"
-                showDivider={false}
-                ariaLabel="Library view mode"
-                className="shrink-0"
-                listClassName="gap-2"
-                buttonClassName="px-2"
-              />
-              <button onClick={() => { setFilters((f) => ({ ...f, sortDir: f.sortDir === 'asc' ? 'desc' : 'asc' })); setPage(1); }} className="btn-icon" title={filters.sortDir === 'asc' ? 'Sort ascending' : 'Sort descending'}>
-                {filters.sortDir === 'asc' ? <Icons.ArrowUp /> : <Icons.ArrowDown />}
-              </button>
-              <button onClick={() => setAdding(true)} className="btn-primary whitespace-nowrap px-3 sm:px-4" aria-label="Add media"><Icons.Plus /><span className="hidden sm:inline">Add</span></button>
-            </div>
-          </div>
-        </div>
+            {quickFilterConfig.options.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+        ) : null}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        viewAriaLabel="Library view mode"
+        sortDirection={filters.sortDir}
+        onToggleSort={() => { setFilters((f) => ({ ...f, sortDir: f.sortDir === 'asc' ? 'desc' : 'asc' })); setPage(1); }}
+        onAdd={() => setAdding(true)}
+        addLabel="Add"
+        addAriaLabel="Add media"
+        Icons={Icons}
+        compact={headerCompact}
+        testId="library-mobile-header"
+        toolbarTestId="library-mobile-toolbar"
+        searchClassName="sm:w-72"
+      />
+      {(filters.review_filter || hasResultsTabs || showSelectionControls) ? (
+        <div className="shrink-0 border-b border-edge bg-void/95 px-3 py-2 sm:px-6">
         {filters.review_filter ? (
-          <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-edge bg-raised/25 px-3 py-2 text-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-edge bg-raised/25 px-3 py-2 text-sm">
             <div className="min-w-0">
               <span className="font-medium text-ink">{activeReviewFilterLabel}</span>
               <span className="text-ghost"> across all library types</span>
@@ -5097,7 +5035,7 @@ export default function LibraryView({
           </div>
         ) : null}
         {(hasResultsTabs || showSelectionControls) && (
-          <div className="mt-2.5 flex flex-col gap-2 border-t border-edge/60 pt-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="mt-2 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex min-w-0 flex-wrap items-center gap-3">
               {supportsCollections && (
                 <SectionTabs
@@ -5197,8 +5135,9 @@ export default function LibraryView({
           </div>
         )}
       </div>
+      ) : null}
 
-      <div className="flex-1 overflow-y-auto scroll-area p-4 sm:p-6">
+      <div className="flex-1 overflow-y-auto scroll-area p-4 sm:p-6" onScroll={handleContentScroll}>
         {isCollectionMode ? (
           <>
             {collectionError && <p className="text-sm text-err mb-4">{collectionError}</p>}
