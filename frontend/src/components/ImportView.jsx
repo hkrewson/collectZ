@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FixedPageShell,
   SectionTabPanel,
-  SectionTabs
+  SectionTabs,
+  UtilityPageHeader
 } from './app/AppPrimitives';
 
 export default function ImportView({
@@ -166,13 +167,29 @@ export default function ImportView({
     }
   }, [recentJobs, onImported]);
 
+  const [headerCompact, setHeaderCompact] = useState(false);
+  const handleBodyScroll = useCallback((event) => {
+    setHeaderCompact(event.currentTarget.scrollTop > 24);
+  }, []);
+  const enabledImportSections = importSections.filter((section) => section.enabled);
+
   const header = (
-      <div className="space-y-1">
-        <h1 className="section-title">Import Media</h1>
-        <p className="text-sm text-ghost">
-          Bring titles into {activeLibrary?.name ? `“${activeLibrary.name}”` : 'your active library'} from files or connected services.
-        </p>
-      </div>
+    <UtilityPageHeader
+      title="Import Media"
+      subtitle={`Bring titles into ${activeLibrary?.name ? `“${activeLibrary.name}”` : 'your active library'} from files or connected services.`}
+      compact={headerCompact}
+      controls={(
+        <SectionTabs
+          tabs={enabledImportSections}
+          activeId={tab}
+          onChange={setTab}
+          ariaLabel="Import sources"
+          showDivider={false}
+          listClassName="gap-5"
+          buttonClassName="py-1.5 text-xs sm:text-sm"
+        />
+      )}
+    />
   );
 
   return (
@@ -180,18 +197,10 @@ export default function ImportView({
       header={header}
       headerInnerClassName="max-w-3xl"
       bodyInnerClassName="max-w-3xl space-y-6 p-4 sm:p-6"
+      onBodyScroll={handleBodyScroll}
       headerTestId="import-page-header"
       bodyTestId="import-page-body"
     >
-      <SectionTabs
-        tabs={importSections.filter((section) => section.enabled)}
-        activeId={tab}
-        onChange={setTab}
-        ariaLabel="Import sources"
-        className="border-t border-edge/60 pt-1"
-        listClassName="gap-5"
-      />
-
       <div className="space-y-6">
         <SectionTabPanel activeId={tab} tabKey="plex" idBase="import-source-tabs" className="space-y-4">
           <div className="space-y-1">

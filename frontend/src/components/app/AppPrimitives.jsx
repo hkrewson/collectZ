@@ -39,6 +39,7 @@ export function FixedPageShell({
   headerInnerClassName = '',
   bodyClassName = '',
   bodyInnerClassName = '',
+  onBodyScroll,
   testId,
   headerTestId,
   bodyTestId
@@ -54,9 +55,51 @@ export function FixedPageShell({
       <main
         className={cx('min-h-0 flex-1 overflow-y-auto scroll-area', bodyClassName)}
         data-testid={bodyTestId}
+        onScroll={onBodyScroll}
       >
         <div className={bodyInnerClassName}>{children}</div>
       </main>
+    </div>
+  );
+}
+
+export function UtilityPageHeader({
+  title,
+  subtitle,
+  actions,
+  controls,
+  compact = false,
+  showTitleOnMobile = true,
+  className = '',
+  titleClassName = '',
+  controlsClassName = ''
+}) {
+  return (
+    <div className={cx('space-y-3 transition-[padding] duration-150', compact && 'space-y-2', className)}>
+      <div className={cx(
+        'flex min-w-0 items-end justify-between gap-3',
+        compact && 'items-center',
+        compact && !showTitleOnMobile && 'max-sm:hidden'
+      )}>
+        <div className={cx('min-w-0', compact && 'sm:flex sm:items-center sm:gap-3')}>
+          <h1 className={cx('section-title !text-2xl sm:!text-3xl', compact && '!text-xl sm:!text-2xl', titleClassName)}>
+            {title}
+          </h1>
+          {subtitle ? (
+            <p className={cx('mt-1 text-sm text-ghost', compact && 'hidden lg:block')}>{subtitle}</p>
+          ) : null}
+        </div>
+        {actions ? (
+          <div className={cx('flex shrink-0 flex-wrap items-center justify-end gap-2', compact && 'gap-1.5')}>
+            {actions}
+          </div>
+        ) : null}
+      </div>
+      {controls ? (
+        <div className={cx('min-w-0', controlsClassName)}>
+          {controls}
+        </div>
+      ) : null}
     </div>
   );
 }

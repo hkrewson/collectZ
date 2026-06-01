@@ -10810,6 +10810,38 @@ Historical note:
 - What remains in the milestone: nothing for `3.8.10`; next planned work is `3.8.11 — Capture Scan Immediate Lookup`, followed by batch scan mode, safe ISBN auto-import, and exception review routing.
 - Recommended commit message: `Release 3.8.10 with Capture Inbox barcode camera ISBN recognition`.
 
+## 3.10.8 — Utility Page Header Search Compaction
+
+**Goal:** Continue the `3.10.x` mobile interface cleanup by moving utility-page search, filter, and section controls into a shared fixed header pattern that compacts after the user scrolls into page content.
+
+### Scope
+
+- Add a shared `UtilityPageHeader` primitive for utility-page title, subtitle, actions, and workflow-specific controls.
+- Extend `FixedPageShell` so pages can react to body scroll and compact their fixed header.
+- Move Wishlist status/search filters into the fixed header while preserving Apple/iTunes search as page content.
+- Move Import source tabs into the fixed header.
+- Move the mobile Integrations selector into the fixed header while preserving desktop integration tabs.
+- Convert Capture Inbox to the fixed page shell and move capture status, source, search, and review filters into the utility header.
+
+### Acceptance Criteria
+
+- Wishlist, Import, Integrations, Capture Inbox, and Loans keep headers stable while content scrolls on mobile.
+- Utility pages reduce repeated header chrome after scroll without hiding their primary controls.
+- Capture Inbox still supports new capture, batch scan, status filters, source filters, search, and review filters after the shell conversion.
+- Version metadata, release note, release feed, and Help > Releases include `3.10.8`.
+
+### Closeout
+
+- Status: completed.
+- Roadmap slice: `3.10.8 — Utility Page Header Search Compaction`.
+- Project docs/checklists used: `AGENTS.md`; `/Users/hamlin/.codex/skills/uncodixfy/SKILL.md`; `/Users/hamlin/.codex/plugins/cache/openai-curated/build-web-apps/fef63ecf/skills/frontend-testing-debugging/SKILL.md`; `/Users/hamlin/.codex/plugins/cache/openai-bundled/browser/26.527.31326/skills/control-in-app-browser/SKILL.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.10.8.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild with `APP_VERSION=3.10.8`; running `/api/health` reported frontend/backend/build `3.10.8`; Docker stack reported backend, database, and frontend healthy; Help > Releases smoke served `3.10.8`; targeted mobile browser regression verified Wishlist, Import, Integrations, Capture Inbox, and Loans keep fixed headers while content scrolls; in-app Browser was reachable but redirected to login because that browser session did not have authenticated test state.
+- CI/checks run locally: Docker backend/frontend build; targeted Playwright browser regression for mobile utility pages, mobile library search toolbars, and desktop library headings; Docker `npm run test:unit` (`300` passed); Docker `npm run test:openapi`; Docker `BASE_URL=http://frontend:3000 npm run test:help-releases-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker `npm run test:init-parity`; root dependency clean install with zero vulnerabilities; frontend clean install with zero vulnerabilities; backend clean install plus high-severity audit check with only existing moderate `qs`/`express` findings; version sync check; release note heading check; `git diff --check`. The homelab edition boundary script was attempted against the current platform-mode stack and failed for the expected reason that platform-only email delivery settings were available; rerun that gate in a homelab-mode stack before a broad release cut. Local `gitleaks` and `trivy` binaries were not available, so CI remains authoritative for `secret-scan` and `image-security-and-sbom`.
+- Files changed for this slice: `app-meta.json`; `backend/app-meta.json`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/scripts/unit-tests.js`; `docs/releases/v3.10.8.md`; `docs/wiki/07-Release-Roadmap.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/AdminIntegrationsView.jsx`; `frontend/src/components/CaptureInboxView.jsx`; `frontend/src/components/ImportView.jsx`; `frontend/src/components/WishlistView.jsx`; `frontend/src/components/app/AppPrimitives.jsx`; `tests/playwright/specs/admin-shell.browser.spec.js`.
+- Risks/follow-ups: Utility-page controls are now fixed and compactable, but small phones may still benefit from a later icon-expanded search or secondary filter overflow treatment. The in-app browser proof was blocked by unauthenticated session state, so targeted Playwright remains the authenticated rendered proof for this slice.
+- What remains in the milestone: nothing for `3.10.8`; future `3.10.x` UI/UX cleanup can continue with deeper utility-page filter density work if the fixed header still feels tall in everyday use.
+- Recommended commit message: `Release 3.10.8 with utility page header search compaction`.
+
 ## 3.10.7 — Shared Page Header Search Toolbar
 
 **Goal:** Start moving library-style page headers and search/action rows onto a shared primitive, then compact that shared toolbar after content scroll so mobile browsing gets more vertical space back.

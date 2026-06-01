@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { CheckboxControl, FixedPageShell, SectionTabPanel, SectionTabs } from './app/AppPrimitives';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { CheckboxControl, FixedPageShell, SectionTabPanel, SectionTabs, UtilityPageHeader } from './app/AppPrimitives';
 
 const BARCODE_PRESETS = {
   upcitemdb: { barcodePreset: 'upcitemdb', barcodeProvider: 'upcitemdb', barcodeApiUrl: 'https://api.upcitemdb.com/prod/trial/lookup' },
@@ -1210,25 +1210,43 @@ export default function AdminIntegrationsView({
   const logsRuntimeSummary = logsRuntime
     ? `${logsRuntime.effectiveState === 'ready' ? 'Ready' : logsRuntime.effectiveState === 'attention' ? 'Needs attention' : 'Disabled'} · ${logsRuntime.configSource === 'stored' ? 'Saved in Admin' : logsRuntime.configSource === 'env_override' ? 'Locked by runtime env' : 'Using runtime env defaults'}`
     : '';
+  const [headerCompact, setHeaderCompact] = useState(false);
+  const handleBodyScroll = useCallback((event) => {
+    setHeaderCompact(event.currentTarget.scrollTop > 24);
+  }, []);
+
+  const header = (
+    <UtilityPageHeader
+      title={title}
+      compact={headerCompact}
+      controls={(
+        <div className="md:hidden">
+          <label className="sr-only" htmlFor="integration-section-mobile">Integration</label>
+          <select
+            id="integration-section-mobile"
+            className="select h-9 w-full"
+            value={section}
+            onChange={(e) => setSectionWithSync(e.target.value)}
+          >
+            {integrationSections.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.label} {isConfigured(item.id) ? '✓' : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+    />
+  );
 
   return (
     <FixedPageShell
-      header={<h1 className="section-title">{title}</h1>}
+      header={header}
       bodyInnerClassName="space-y-6 p-4 sm:p-6"
+      onBodyScroll={handleBodyScroll}
       headerTestId="admin-integrations-page-header"
       bodyTestId="admin-integrations-page-body"
     >
-      <div className="md:hidden">
-        <label className="label">Integration</label>
-        <select className="select mt-1" value={section} onChange={(e) => setSectionWithSync(e.target.value)}>
-          {integrationSections.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.label} {isConfigured(item.id) ? '✓' : ''}
-            </option>
-          ))}
-        </select>
-      </div>
-
       {meta.decryptHealth?.hasWarnings && (
         <div className="rounded-xl border border-edge bg-raised/70 px-4 py-4">
           <p className="text-sm font-semibold text-ink">Integration key decryption warning</p>

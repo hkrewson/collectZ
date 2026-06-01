@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   CollectionPaginationFooter,
+  FixedPageShell,
   SectionTabs,
+  UtilityPageHeader,
   cx,
   detectBarcodeCapturePayloadFromFile,
   extractIdentifierCandidatesFromFile,
@@ -1019,22 +1021,25 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
     onToast?.('Batch scan stopped.', 'info');
   };
 
-  return (
-    <div className="h-full min-h-0 overflow-y-auto px-4 py-4 sm:px-6">
-      <div className="mx-auto max-w-7xl space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">Capture Inbox</h1>
-          <p className="mt-1 text-sm text-ghost">{activeLibrary?.name || 'Current library'}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
+  const [headerCompact, setHeaderCompact] = useState(false);
+  const handleBodyScroll = useCallback((event) => {
+    setHeaderCompact(event.currentTarget.scrollTop > 24);
+  }, []);
+
+  const header = (
+    <UtilityPageHeader
+      title="Capture Inbox"
+      subtitle={activeLibrary?.name || 'Current library'}
+      compact={headerCompact}
+      actions={(
+        <>
           <button
             type="button"
             className="btn-primary inline-flex items-center gap-2"
             onClick={openNewCapture}
           >
             {Icons?.Camera ? <Icons.Camera /> : null}
-            New capture
+            <span className={headerCompact ? 'hidden sm:inline' : ''}>New capture</span>
           </button>
           <button
             type="button"
@@ -1042,11 +1047,62 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
             onClick={batchMode ? stopBatchScan : startBatchScan}
           >
             {Icons?.Barcode ? <Icons.Barcode /> : null}
-            {batchMode ? 'Stop batch' : 'Batch scan'}
+            <span className={headerCompact ? 'hidden sm:inline' : ''}>{batchMode ? 'Stop batch' : 'Batch scan'}</span>
           </button>
+        </>
+      )}
+      controls={(
+        <div className="space-y-2">
+          <SectionTabs
+            tabs={STATUS_TABS}
+            activeId={status}
+            onChange={(next) => setStatus(next)}
+            showDivider={false}
+            className="min-w-0"
+            listClassName="gap-3"
+            buttonClassName="py-1.5 text-xs"
+            ariaLabel="Capture status"
+          />
+          <div className="grid gap-2 sm:flex sm:flex-wrap sm:items-center">
+            <select className="select h-9 sm:min-w-36" value={captureType} onChange={(event) => setCaptureType(event.target.value)}>
+              <option value="all">All captures</option>
+              {CAPTURE_TYPES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+            <select className="select h-9 sm:min-w-36" value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value)}>
+              {SOURCE_FILTERS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+            <input
+              className="input h-9 min-w-0 sm:w-64"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search title, barcode, OCR, note"
+            />
+            <button type="button" className="btn-ghost h-9" onClick={() => loadCaptures(1)}>Search</button>
+          </div>
+          <SectionTabs
+            tabs={reviewTabs}
+            activeId={reviewFilter}
+            onChange={(next) => setReviewFilter(next)}
+            showDivider={false}
+            className="min-w-0"
+            listClassName="gap-3"
+            buttonClassName="py-1.5 text-xs"
+            ariaLabel="Capture review filter"
+          />
         </div>
-      </div>
+      )}
+    />
+  );
 
+  return (
+    <FixedPageShell
+      header={header}
+      headerInnerClassName="mx-auto w-full max-w-7xl"
+      bodyInnerClassName="mx-auto w-full max-w-7xl space-y-4 px-4 pb-6 pt-4 sm:px-6"
+      onBodyScroll={handleBodyScroll}
+      headerTestId="capture-page-header"
+      bodyTestId="capture-page-body"
+    >
       {lastBatchSummary ? (
         <div className="border-y border-edge py-3" aria-label="Batch scan summary">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1156,49 +1212,6 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
         <div className="border-b border-edge pb-2">
           <div className="text-xs text-ghost">Photo</div>
           <div className="mt-1 text-xl font-semibold text-ink">{visibleCounts.photo}</div>
-        </div>
-      </div>
-
-      <div className="border-y border-edge py-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <SectionTabs
-            tabs={STATUS_TABS}
-            activeId={status}
-            onChange={(next) => setStatus(next)}
-            showDivider={false}
-            className="min-w-0"
-            listClassName="gap-3"
-            buttonClassName="py-1.5 text-xs"
-            ariaLabel="Capture status"
-          />
-          <div className="flex flex-wrap items-center gap-2">
-            <select className="select h-9 min-w-36" value={captureType} onChange={(event) => setCaptureType(event.target.value)}>
-              <option value="all">All captures</option>
-              {CAPTURE_TYPES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
-            <select className="select h-9 min-w-36" value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value)}>
-              {SOURCE_FILTERS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
-            <input
-              className="input h-9 w-64 max-w-full"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search title, barcode, OCR, note"
-            />
-            <button type="button" className="btn-ghost h-9" onClick={() => loadCaptures(1)}>Search</button>
-          </div>
-        </div>
-        <div className="mt-3 border-t border-edge/70 pt-3">
-          <SectionTabs
-            tabs={reviewTabs}
-            activeId={reviewFilter}
-            onChange={(next) => setReviewFilter(next)}
-            showDivider={false}
-            className="min-w-0"
-            listClassName="gap-3"
-            buttonClassName="py-1.5 text-xs"
-            ariaLabel="Capture review filter"
-          />
         </div>
       </div>
 
@@ -1446,7 +1459,6 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
         leadingContent={`${pagination.total || 0} captures`}
         className="px-0"
       />
-      </div>
-    </div>
+    </FixedPageShell>
   );
 }

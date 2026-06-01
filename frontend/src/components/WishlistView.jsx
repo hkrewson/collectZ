@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CollectionPaginationFooter, FixedPageShell, SectionTabs, cx } from './app/AppPrimitives';
+import { CollectionPaginationFooter, FixedPageShell, SectionTabs, UtilityPageHeader, cx } from './app/AppPrimitives';
 import { getOwnedFormatOptions } from './app/mediaFormats';
 
 const STATUS_TABS = [
@@ -1079,36 +1079,24 @@ export default function WishlistView({ apiCall, onToast, activeLibrary, Icons, S
     onToast?.('Showing the saved Wishlist item.', 'success');
   };
 
+  const [headerCompact, setHeaderCompact] = useState(false);
+  const handleBodyScroll = useCallback((event) => {
+    setHeaderCompact(event.currentTarget.scrollTop > 24);
+  }, []);
+
   const header = (
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">Wishlist</h1>
-          <p className="mt-1 text-sm text-ghost">{activeLibrary?.name || 'Current library'}</p>
-        </div>
+    <UtilityPageHeader
+      title="Wishlist"
+      subtitle={activeLibrary?.name || 'Current library'}
+      compact={headerCompact}
+      actions={(
         <button type="button" className="btn-primary inline-flex items-center gap-2" onClick={openNew}>
           {Icons?.Plus ? <Icons.Plus /> : null}
-          Add item
+          <span className={headerCompact ? 'hidden sm:inline' : ''}>Add item</span>
         </button>
-      </div>
-  );
-
-  return (
-    <FixedPageShell
-      header={header}
-      headerInnerClassName="mx-auto w-full max-w-[1180px]"
-      bodyInnerClassName="mx-auto w-full max-w-[1180px] space-y-4 px-4 pb-6 pt-4 sm:px-5 lg:px-6"
-      headerTestId="wishlist-page-header"
-      bodyTestId="wishlist-page-body"
-    >
-      <AppleItunesWishlistSearch
-        apiCall={apiCall}
-        onToast={onToast}
-        onSaved={() => loadWishlist(pagination.page || 1)}
-        onViewSaved={viewSavedAppleMatch}
-      />
-
-      <div className="border-y border-edge py-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      )}
+      controls={(
+        <div className="space-y-2">
           <SectionTabs
             tabs={STATUS_TABS}
             activeId={status}
@@ -1119,13 +1107,13 @@ export default function WishlistView({ apiCall, onToast, activeLibrary, Icons, S
             buttonClassName="py-1.5 text-xs"
             ariaLabel="Wishlist status"
           />
-          <div className="flex flex-wrap items-center gap-2">
-            <select className="select h-9 min-w-36" value={objectType} onChange={(event) => setObjectType(event.target.value)}>
+          <div className="grid gap-2 sm:flex sm:flex-wrap sm:items-center">
+            <select className="select h-9 sm:min-w-36" value={objectType} onChange={(event) => setObjectType(event.target.value)}>
               <option value="all">All types</option>
               {OBJECT_TYPES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
             <input
-              className="input h-9 w-64 max-w-full"
+              className="input h-9 min-w-0 sm:w-64"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search title, source, note"
@@ -1133,7 +1121,25 @@ export default function WishlistView({ apiCall, onToast, activeLibrary, Icons, S
             <button type="button" className="btn-ghost h-9" onClick={() => loadWishlist(1)}>Search</button>
           </div>
         </div>
-      </div>
+      )}
+    />
+  );
+
+  return (
+    <FixedPageShell
+      header={header}
+      headerInnerClassName="mx-auto w-full max-w-[1180px]"
+      bodyInnerClassName="mx-auto w-full max-w-[1180px] space-y-4 px-4 pb-6 pt-4 sm:px-5 lg:px-6"
+      onBodyScroll={handleBodyScroll}
+      headerTestId="wishlist-page-header"
+      bodyTestId="wishlist-page-body"
+    >
+      <AppleItunesWishlistSearch
+        apiCall={apiCall}
+        onToast={onToast}
+        onSaved={() => loadWishlist(pagination.page || 1)}
+        onViewSaved={viewSavedAppleMatch}
+      />
 
       {editorOpen ? (
         <div className="border-b border-edge/70 py-4">

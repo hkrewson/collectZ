@@ -244,6 +244,7 @@ test.describe('admin shell browser regressions', () => {
       { route: '/dashboard?tab=library-wishlist', heading: 'Wishlist', mobileTitle: 'Wishlist', header: 'wishlist-page-header', body: 'wishlist-page-body' },
       { route: '/dashboard?tab=library-loans', heading: 'Loans', mobileTitle: 'Loans', header: 'loans-page-header', body: 'loans-page-body' },
       { route: '/dashboard?tab=library-import', heading: 'Import Media', mobileTitle: 'Import', header: 'import-page-header', body: 'import-page-body' },
+      { route: '/dashboard?tab=library-capture', heading: 'Capture Inbox', mobileTitle: 'Capture', header: 'capture-page-header', body: 'capture-page-body' },
       { route: '/dashboard?tab=admin-integrations', heading: 'Integrations', mobileTitle: 'Integrations', header: 'admin-integrations-page-header', body: 'admin-integrations-page-body' }
     ];
 

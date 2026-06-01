@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.10.8",
+      "version": "3.10.8",
+      "date": null,
+      "status": "completed",
+      "summary": "This patch brings utility pages into the mobile header cleanup line. Wishlist, Import, Integrations, and Capture Inbox now use a shared utility page header pattern with their main search, filter, or section controls kept in the fixed page header and compacted after the user scrolls into the page content.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added a shared `UtilityPageHeader` primitive for utility-page title, subtitle, actions, and workflow-specific controls.",
+            "Extended `FixedPageShell` so utility pages can react to body scroll and compact their fixed header.",
+            "Moved Wishlist status/search filters into the fixed header and compacted the add action on scroll.",
+            "Moved Import source tabs into the fixed header so the source selector stays available while the import form scrolls.",
+            "Moved the mobile Integrations selector into the fixed header while keeping the desktop integration tabs in the page body.",
+            "Converted Capture Inbox to the fixed shell and moved capture status, source, search, and review filters into the shared utility header."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.10.7",
       "version": "3.10.7",
       "date": null,
@@ -170,14 +190,6 @@
           ]
         }
       ]
-    },
-    {
-      "title": "collectZ v3.9.15",
-      "version": "3.9.15",
-      "date": null,
-      "status": null,
-      "summary": "",
-      "details": []
     }
   ]
 }
