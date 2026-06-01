@@ -241,10 +241,10 @@ test.describe('admin shell browser regressions', () => {
     await signInThroughUi(page, adminCredentials);
 
     const pages = [
-      { route: '/dashboard?tab=library-wishlist', heading: 'Wishlist', mobileTitle: 'Wishlist', header: 'wishlist-page-header', body: 'wishlist-page-body' },
+      { route: '/dashboard?tab=library-wishlist', heading: 'Wishlist', mobileTitle: 'Wishlist', header: 'wishlist-page-header', body: 'wishlist-page-body', filterButton: /All types/, filterControl: 'Wishlist type' },
       { route: '/dashboard?tab=library-loans', heading: 'Loans', mobileTitle: 'Loans', header: 'loans-page-header', body: 'loans-page-body' },
       { route: '/dashboard?tab=library-import', heading: 'Import Media', mobileTitle: 'Import', header: 'import-page-header', body: 'import-page-body' },
-      { route: '/dashboard?tab=library-capture', heading: 'Capture Inbox', mobileTitle: 'Capture', header: 'capture-page-header', body: 'capture-page-body' },
+      { route: '/dashboard?tab=library-capture', heading: 'Capture Inbox', mobileTitle: 'Capture', header: 'capture-page-header', body: 'capture-page-body', filterButton: /All captures · All sources/, filterControl: 'Capture type' },
       { route: '/dashboard?tab=admin-integrations', heading: 'Integrations', mobileTitle: 'Integrations', header: 'admin-integrations-page-header', body: 'admin-integrations-page-body' }
     ];
 
@@ -263,6 +263,13 @@ test.describe('admin shell browser regressions', () => {
       await expect(body).toHaveCSS('overflow-y', 'auto');
       const headerBoxBefore = await readRect(header);
       expect(headerBoxBefore).toBeTruthy();
+      if (target.filterButton && target.filterControl) {
+        const filterToggle = header.getByRole('button', { name: target.filterButton });
+        await expect(filterToggle).toBeVisible();
+        await filterToggle.click();
+        await expect(header.getByLabel(target.filterControl)).toBeVisible();
+        await filterToggle.click();
+      }
 
       await body.evaluate((node) => {
         node.scrollTop = Math.min(360, node.scrollHeight - node.clientHeight);

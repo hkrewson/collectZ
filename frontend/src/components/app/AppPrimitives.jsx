@@ -104,6 +104,40 @@ export function UtilityPageHeader({
   );
 }
 
+export function MobileFilterDisclosure({
+  summary = 'Filters',
+  children,
+  className = '',
+  buttonClassName = '',
+  contentClassName = '',
+  Icons: IconSet = Icons
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className={cx('sm:hidden', className)}>
+      <button
+        type="button"
+        className={cx('btn-ghost h-9 w-full justify-between gap-3 px-3', buttonClassName)}
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+      >
+        <span className="min-w-0 truncate text-left">{summary}</span>
+        {IconSet?.ChevronDown ? (
+          <span className={cx('shrink-0 transition-transform duration-150', open && 'rotate-180')} aria-hidden="true">
+            <IconSet.ChevronDown />
+          </span>
+        ) : null}
+      </button>
+      {open ? (
+        <div className={cx('mt-2 space-y-2 border-t border-edge/60 pt-2', contentClassName)}>
+          {children}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function DrawerBackdrop({
   imagePath,
   className = 'h-48',

@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.10.9",
+      "version": "3.10.9",
+      "date": null,
+      "status": "completed",
+      "summary": "This patch keeps the mobile header cleanup moving by reducing secondary filter bulk on dense utility pages. Wishlist and Capture Inbox now keep search and primary actions immediately visible while putting secondary filters behind a compact mobile readback control.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added a shared mobile secondary-filter disclosure primitive.",
+            "Moved Wishlist type filtering behind a compact mobile readback while keeping desktop controls visible.",
+            "Moved Capture Inbox type, source, and review filters behind a compact mobile readback while keeping status primary.",
+            "Preserved live search behavior and removed redundant mobile Search-button chrome from these utility headers.",
+            "Added a backlog entry for the remaining header/search refinement work discovered during the UI/UX pass."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.10.8",
       "version": "3.10.8",
       "date": null,
@@ -168,25 +187,6 @@
             "Added exact row-level clues for missing-identifier Review items so users can see what kind of identifier would improve matching accuracy.",
             "Added a mobile Dashboard browser regression that checks the page does not exceed the viewport width.",
             "Kept desktop Dashboard layout behavior intact."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.9.16",
-      "version": "3.9.16",
-      "date": null,
-      "status": "complete",
-      "summary": "This patch makes Apple/iTunes Wishlist price history easier to understand by summarizing the latest price, lowest seen price, and snapshot count before the individual history entries.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added compact summary readback to the Wishlist price history panel.",
-            "Shows latest store price, lowest stored price, and number of stored snapshots when price history is opened.",
-            "Kept the existing individual snapshot list and target-met readback.",
-            "Kept price alerts, notification routing, charts, and review queue behavior out of scope.",
-            "Added regression coverage for the new price history summary."
           ]
         }
       ]

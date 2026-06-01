@@ -13,6 +13,44 @@ This file is the staging area for work that has not yet been assigned a release 
 - Keep the roadmap focused on milestone work only.
 - Update the roadmap, release notes, release feed, and verification steps together when a backlog item is promoted.
 
+## UI/UX Refinement Backlog
+
+These are unscheduled interface cleanup tasks discovered during the `3.10.x` mobile header and search work. Keep them versionless until selected and moved into the roadmap as numbered UI/UX milestones.
+
+### Backlog Item: Header and Search Surface Refinement
+**Type:** UI/UX refinement
+**Tags:** `ui`, `ux`, `mobile`, `headers`, `search`, `filters`, `density`
+**Status:** Active backlog; some groundwork exists through the shared page-header and utility-header primitives.
+
+**Goal:** Continue making mobile and desktop header/search surfaces compact, predictable, and deliberate without hiding important controls.
+
+**Why this work exists**
+- Mobile pages now keep the app header and page controls stationary, but some surfaces still spend too much vertical space on secondary controls.
+- Capture Inbox is the clearest example: status tabs, type/source filters, search, and review tabs are all useful, but together they can feel like a form-heavy control stack.
+- Wishlist, Capture Inbox, Import, and Integrations now share primitives, but their first-section spacing and secondary filter behavior still differ.
+- Search behavior is not fully normalized: some surfaces search live, some expose a Search button, and some do both.
+
+**Intent**
+- Keep primary actions and search easy to reach.
+- Move secondary filter detail behind compact mobile-only readback where it helps density.
+- Avoid page-specific one-off hiding rules when a shared primitive can handle the pattern.
+- Preserve desktop clarity while auditing whether desktop headers became too heavy during mobile cleanup.
+
+**Candidate subtasks**
+- Reduce secondary controls on compact mobile with a primary row plus a `More filters` or filter-readback control.
+- Normalize search submit behavior: prefer live/debounced search without a separate button on mobile unless a query is expensive.
+- Replace always-visible stacked dropdowns with tighter filter readback such as `All types · Scanner app · Needs choice`.
+- Unify first-section spacing under Wishlist, Capture Inbox, Import, and Integrations headers.
+- Review Wishlist and Capture Inbox desktop density after mobile compaction.
+- Consider a shared `MobileFilterSheet`, disclosure, or popover primitive before adding more per-page mobile filter logic.
+
+**Acceptance Criteria**
+- Mobile pages expose primary search/actions without forcing every secondary filter to stay visible.
+- Filter state remains readable before the user opens the secondary controls.
+- Search behavior is consistent enough that users do not wonder whether they need to press a Search button.
+- Desktop surfaces remain readable and do not inherit mobile-only compaction compromises.
+- Shared primitives carry the repeated behavior where possible.
+
 ## Maintenance and Security Review Backlog
 
 These are unscheduled maintenance, security, and CI hygiene tasks. They should stay versionless until selected and moved into the roadmap as a numbered maintenance or release-readiness milestone.

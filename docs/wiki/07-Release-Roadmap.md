@@ -6,6 +6,37 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.10.9 — Mobile Secondary Filter Compaction
+
+**Goal:** Continue the `3.10.x` mobile UI/UX cleanup by moving secondary filters on dense utility pages behind a compact mobile readback while keeping primary search and actions immediately available.
+
+### Scope
+
+- Add a shared mobile secondary-filter disclosure primitive.
+- Update Wishlist mobile controls so search remains primary and type filtering is summarized behind a compact filter control.
+- Update Capture Inbox mobile controls so status remains primary while type/source/review filters are summarized behind a compact filter control.
+- Keep desktop controls visible and unchanged in structure.
+- Preserve live search behavior; do not add new search-submit requirements.
+
+### Acceptance Criteria
+
+- Wishlist and Capture Inbox mobile headers use a primary search row plus compact secondary filter readback.
+- Secondary filters remain accessible and editable on mobile.
+- Desktop Wishlist and Capture Inbox retain visible filter controls.
+- Version metadata, release note, release feed, and Help > Releases include `3.10.9`.
+
+### Closeout
+
+- Status: completed.
+- Roadmap slice: `3.10.9 — Mobile Secondary Filter Compaction`.
+- Project docs/checklists used: `AGENTS.md`; `/Users/hamlin/.codex/skills/uncodixfy/SKILL.md`; `/Users/hamlin/.codex/plugins/cache/openai-bundled/browser/26.527.31326/skills/control-in-app-browser/SKILL.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.10.9.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild with `APP_VERSION=3.10.9` using the local source-build compose overlay; running `/api/health` reported frontend/backend/build `3.10.9`; Docker stack reported backend, database, and frontend healthy; backend logs reported `collectZ backend v3.10.9`; running backend env readback was verified with secrets redacted and showed `APP_EDITION=platform`, `APP_VERSION=3.10.9`, `NODE_ENV=development`, `SESSION_COOKIE_SECURE=false`, `TRUST_PROXY=0`, and a redacted DB URL; Help > Releases smoke served `3.10.9`; in-app Browser reached the rebuilt stack but redirected to `/login` because that browser session was unauthenticated.
+- CI/checks run locally: `npm --prefix frontend run build`; Docker backend/frontend build; targeted Playwright browser regression for mobile utility pages, mobile library search toolbars, and desktop library headings (`4` passed); Docker `npm run test:unit` (`300` passed); Docker `npm run test:openapi`; Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.10.9 npm run test:help-releases-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker `npm run test:init-parity`; Docker integration smoke; root dependency clean install with zero vulnerabilities; frontend dependency clean install with zero vulnerabilities; backend dependency clean install plus audit showed zero high/critical findings and the existing moderate `qs`/`express` findings; public export surface validation; release note heading check; version sync check; `git diff --check`. The default generated public compose stack tried to pull GHCR `latest` images and was blocked locally by a missing arm64 manifest, so the local rebuild used `docker-compose.localhost.yml`. The homelab edition boundary gate was not rerun in a homelab-mode source-built stack because the local source overlay explicitly sets platform mode; CI or a temporary homelab override remains authoritative for that gate. Local `gitleaks` and `trivy` binaries were not available, so CI remains authoritative for `secret-scan` and `image-security-and-sbom`.
+- Files changed for this slice: `app-meta.json`; `backend/app-meta.json`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `docs/releases/v3.10.9.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/CaptureInboxView.jsx`; `frontend/src/components/WishlistView.jsx`; `frontend/src/components/app/AppPrimitives.jsx`; `tests/playwright/specs/admin-shell.browser.spec.js`.
+- Risks/follow-ups: The mobile disclosure pattern is intentionally lightweight; if more pages need richer filter editing, promote the backlog follow-up into a shared mobile filter sheet/popover instead of adding page-specific disclosures. Desktop density for Wishlist and Capture Inbox still deserves a later visual audit after the mobile pass settles.
+- What remains in the milestone: nothing for `3.10.9`; the versionless `Header and Search Surface Refinement` backlog item now tracks remaining header/search polish.
+- Recommended commit message: `Release 3.10.9 with mobile secondary filter compaction`.
+
 ## Guiding Principles
 
 - Keep 1.x backward compatible with existing deployments.

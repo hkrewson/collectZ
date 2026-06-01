@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   CollectionPaginationFooter,
   FixedPageShell,
+  MobileFilterDisclosure,
   SectionTabs,
   UtilityPageHeader,
   cx,
@@ -1025,6 +1026,14 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
   const handleBodyScroll = useCallback((event) => {
     setHeaderCompact(event.currentTarget.scrollTop > 24);
   }, []);
+  const captureTypeFilterLabel = captureType === 'all' ? 'All captures' : typeLabel(captureType, CAPTURE_TYPES);
+  const sourceFilterLabel = typeLabel(sourceFilter, SOURCE_FILTERS);
+  const reviewFilterLabel = REVIEW_TABS.find((tab) => tab.id === reviewFilter)?.label || 'All';
+  const captureFilterSummary = [
+    captureTypeFilterLabel,
+    sourceFilterLabel,
+    reviewFilterLabel === 'All' ? null : reviewFilterLabel
+  ].filter(Boolean).join(' · ');
 
   const header = (
     <UtilityPageHeader
@@ -1063,7 +1072,34 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
             buttonClassName="py-1.5 text-xs"
             ariaLabel="Capture status"
           />
-          <div className="grid gap-2 sm:flex sm:flex-wrap sm:items-center">
+          <div className="grid gap-2 sm:hidden">
+            <input
+              className="input h-9 min-w-0"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search title, barcode, OCR, note"
+            />
+            <MobileFilterDisclosure summary={captureFilterSummary || 'Filters'} Icons={Icons}>
+              <select className="select h-9 w-full" value={captureType} onChange={(event) => setCaptureType(event.target.value)} aria-label="Capture type">
+                <option value="all">All captures</option>
+                {CAPTURE_TYPES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
+              <select className="select h-9 w-full" value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value)} aria-label="Capture source">
+                {SOURCE_FILTERS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
+              <SectionTabs
+                tabs={reviewTabs}
+                activeId={reviewFilter}
+                onChange={(next) => setReviewFilter(next)}
+                showDivider={false}
+                className="min-w-0"
+                listClassName="gap-3"
+                buttonClassName="py-1.5 text-xs"
+                ariaLabel="Capture review filter"
+              />
+            </MobileFilterDisclosure>
+          </div>
+          <div className="hidden gap-2 sm:flex sm:flex-wrap sm:items-center">
             <select className="select h-9 sm:min-w-36" value={captureType} onChange={(event) => setCaptureType(event.target.value)}>
               <option value="all">All captures</option>
               {CAPTURE_TYPES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
@@ -1084,7 +1120,7 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
             activeId={reviewFilter}
             onChange={(next) => setReviewFilter(next)}
             showDivider={false}
-            className="min-w-0"
+            className="hidden min-w-0 sm:block"
             listClassName="gap-3"
             buttonClassName="py-1.5 text-xs"
             ariaLabel="Capture review filter"

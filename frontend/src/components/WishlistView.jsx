@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CollectionPaginationFooter, FixedPageShell, SectionTabs, UtilityPageHeader, cx } from './app/AppPrimitives';
+import { CollectionPaginationFooter, FixedPageShell, MobileFilterDisclosure, SectionTabs, UtilityPageHeader, cx } from './app/AppPrimitives';
 import { getOwnedFormatOptions } from './app/mediaFormats';
 
 const STATUS_TABS = [
@@ -1083,6 +1083,9 @@ export default function WishlistView({ apiCall, onToast, activeLibrary, Icons, S
   const handleBodyScroll = useCallback((event) => {
     setHeaderCompact(event.currentTarget.scrollTop > 24);
   }, []);
+  const objectTypeFilterLabel = objectType === 'all'
+    ? 'All types'
+    : (OBJECT_TYPES.find((option) => option.value === objectType)?.label || 'Filtered type');
 
   const header = (
     <UtilityPageHeader
@@ -1107,7 +1110,21 @@ export default function WishlistView({ apiCall, onToast, activeLibrary, Icons, S
             buttonClassName="py-1.5 text-xs"
             ariaLabel="Wishlist status"
           />
-          <div className="grid gap-2 sm:flex sm:flex-wrap sm:items-center">
+          <div className="grid gap-2 sm:hidden">
+            <input
+              className="input h-9 min-w-0"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search title, source, note"
+            />
+            <MobileFilterDisclosure summary={objectTypeFilterLabel} Icons={Icons}>
+              <select className="select h-9 w-full" value={objectType} onChange={(event) => setObjectType(event.target.value)} aria-label="Wishlist type">
+                <option value="all">All types</option>
+                {OBJECT_TYPES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
+            </MobileFilterDisclosure>
+          </div>
+          <div className="hidden gap-2 sm:flex sm:flex-wrap sm:items-center">
             <select className="select h-9 sm:min-w-36" value={objectType} onChange={(event) => setObjectType(event.target.value)}>
               <option value="all">All types</option>
               {OBJECT_TYPES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
