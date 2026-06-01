@@ -244,7 +244,7 @@ test.describe('admin shell browser regressions', () => {
       { route: '/dashboard?tab=library-wishlist', heading: 'Wishlist', mobileTitle: 'Wishlist', header: 'wishlist-page-header', body: 'wishlist-page-body', filterButton: /All types/, filterControl: 'Wishlist type' },
       { route: '/dashboard?tab=library-loans', heading: 'Loans', mobileTitle: 'Loans', header: 'loans-page-header', body: 'loans-page-body' },
       { route: '/dashboard?tab=library-import', heading: 'Import Media', mobileTitle: 'Import', header: 'import-page-header', body: 'import-page-body' },
-      { route: '/dashboard?tab=library-capture', heading: 'Capture Inbox', mobileTitle: 'Capture', header: 'capture-page-header', body: 'capture-page-body', filterButton: /All captures · All sources/, filterControl: 'Capture type' },
+      { route: '/dashboard?tab=library-capture', heading: 'Capture Inbox', mobileTitle: 'Capture', header: 'capture-page-header', body: 'capture-page-body', filterButton: /Filter captures/, filterControl: 'Capture type', absentHeaderText: 'My Library' },
       { route: '/dashboard?tab=admin-integrations', heading: 'Integrations', mobileTitle: 'Integrations', header: 'admin-integrations-page-header', body: 'admin-integrations-page-body' }
     ];
 
@@ -260,6 +260,9 @@ test.describe('admin shell browser regressions', () => {
       const body = page.getByTestId(target.body);
       await expect(header).toBeVisible();
       await expect(body).toBeVisible();
+      if (target.absentHeaderText) {
+        await expect(header.getByText(target.absentHeaderText, { exact: true })).toHaveCount(0);
+      }
       await expect(body).toHaveCSS('overflow-y', 'auto');
       const headerBoxBefore = await readRect(header);
       expect(headerBoxBefore).toBeTruthy();
@@ -903,10 +906,15 @@ test.describe('admin shell browser regressions', () => {
       await page.goto('/dashboard?tab=library-capture');
       expect((await captureResponse).ok()).toBeTruthy();
       await expect(page.getByRole('heading', { name: 'Capture Inbox', exact: true })).toBeVisible();
-      await expect(page.getByRole('tablist', { name: 'Capture review filter' })).toBeVisible();
-      await expect(page.getByRole('tab', { name: /Needs choice/ })).toBeVisible();
-      await expect(page.getByRole('tab', { name: /Ready to add/ })).toBeVisible();
-      await expect(page.getByRole('tab', { name: /No match/ })).toBeVisible();
+      const captureFilterButton = page.getByRole('button', { name: /Filter captures/ });
+      await expect(captureFilterButton).toBeVisible();
+      await captureFilterButton.click();
+      const captureFilters = page.getByLabel('Capture filters');
+      await expect(captureFilters.getByRole('tablist', { name: 'Capture review filter' })).toBeVisible();
+      await expect(captureFilters.getByRole('tab', { name: /Needs choice/ })).toBeVisible();
+      await expect(captureFilters.getByRole('tab', { name: /Ready to add/ })).toBeVisible();
+      await expect(captureFilters.getByRole('tab', { name: /No match/ })).toBeVisible();
+      await captureFilterButton.click();
       await expect(page.getByRole('button', { name: 'Review scanner captures' })).toBeVisible();
       const scannerUiFilterResponse = page.waitForResponse((response) => (
         response.url().includes('/api/capture-items')
@@ -923,10 +931,12 @@ test.describe('admin shell browser regressions', () => {
         && response.url().includes('review_filter=needs_choice')
         && response.request().method() === 'GET'
       ));
-      await page.getByRole('tab', { name: /Needs choice/ }).click();
+      await captureFilterButton.click();
+      await captureFilters.getByRole('tab', { name: /Needs choice/ }).click();
       expect((await reviewFilterResponse).ok()).toBeTruthy();
       await expect(page.getByText(title, { exact: true })).toBeVisible();
-      await page.getByRole('tab', { name: /^All / }).click();
+      await captureFilters.getByRole('tab', { name: /^All / }).click();
+      await captureFilterButton.click();
       await expect(page.getByText(photoTitle, { exact: true })).toBeVisible();
       const replayConflictReview = page.getByLabel('Replay conflict review').first();
       const replayReason = page.getByLabel('Capture review reasons').filter({ hasText: 'Replay conflict' }).first();

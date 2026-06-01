@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.10.11",
+      "version": "3.10.11",
+      "date": null,
+      "status": "completed",
+      "summary": "This patch tightens the Capture Inbox header so the page keeps more usable space on mobile and uses the same compact action language as the rest of the current interface pass.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Removed the library subtitle from the Capture Inbox page header.",
+            "Kept `New capture` as an always-icon camera button.",
+            "Kept `Batch scan` as an always-icon barcode button.",
+            "Replaced separate capture/source/review controls with one compact filter button.",
+            "Added a shared funnel-style icon to the app icon set.",
+            "Updated browser regression coverage for the compact Capture Inbox header and filter menu."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.10.10",
       "version": "3.10.10",
       "date": null,
@@ -166,27 +186,6 @@
             "Made the mobile app header sticky with a stable z-index.",
             "Preserved the existing mobile header visuals, navigation behavior, and library page toolbars.",
             "Added browser regression coverage that scrolls mobile library pages and verifies the app header does not move or create horizontal overflow."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.10.1",
-      "version": "3.10.1",
-      "date": null,
-      "status": "completed",
-      "summary": "This patch tightens the mobile search and action areas across the main library surfaces so Library, Collectibles, Art, and Events feel more usable on phone-width screens.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Made mobile library toolbars more compact without introducing a new visual pattern.",
-            "Let Library search, quick filters, view toggles, sort, and add actions share predictable mobile rows.",
-            "Collapsed mobile title/action rows so view mode, sort, and add no longer consume a separate toolbar band.",
-            "Paired search with quick filters where possible, and kept bulk select controls out of the mobile header chrome.",
-            "Hid long library description copy on phone-width Collectibles, Art, and Events headers so controls start sooner.",
-            "Kept Events date filters visible while tightening their row layout.",
-            "Added a browser regression that checks mobile Library, Collectibles, and Events toolbars do not overflow and stay within expected compact heights."
           ]
         }
       ]

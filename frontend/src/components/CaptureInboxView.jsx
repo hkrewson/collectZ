@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   CollectionPaginationFooter,
   FixedPageShell,
-  MobileFilterDisclosure,
   SectionTabs,
   UtilityPageHeader,
   cx,
@@ -161,6 +160,72 @@ function isSafeExactIsbnMatch(match, barcode) {
 function findSafeExactIsbnMatch(matches = [], barcode = '') {
   const candidates = (Array.isArray(matches) ? matches : []).filter((match) => isSafeExactIsbnMatch(match, barcode));
   return candidates.length === 1 && matches.length === 1 ? candidates[0] : null;
+}
+
+function CaptureFilterMenu({
+  Icons,
+  open,
+  onToggle,
+  menuRef,
+  summary,
+  captureType,
+  setCaptureType,
+  sourceFilter,
+  setSourceFilter,
+  reviewTabs,
+  reviewFilter,
+  setReviewFilter
+}) {
+  const FilterIcon = Icons?.Filter || Icons?.List;
+
+  return (
+    <div className="relative shrink-0" ref={menuRef}>
+      <button
+        type="button"
+        className="btn-icon h-9 w-9"
+        aria-label={`Filter captures: ${summary || 'All filters'}`}
+        aria-expanded={open}
+        title="Filter"
+        onClick={onToggle}
+      >
+        {FilterIcon ? <FilterIcon /> : null}
+      </button>
+      {open ? (
+        <div
+          className="absolute right-0 z-30 mt-2 w-[min(20rem,calc(100vw-2rem))] space-y-3 rounded-lg border border-edge bg-deep p-3 shadow-deep"
+          role="group"
+          aria-label="Capture filters"
+        >
+          <label className="block">
+            <span className="mb-1 block text-xs text-ghost">Capture</span>
+            <select className="select h-9 w-full" value={captureType} onChange={(event) => setCaptureType(event.target.value)} aria-label="Capture type">
+              <option value="all">All captures</option>
+              {CAPTURE_TYPES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs text-ghost">Source</span>
+            <select className="select h-9 w-full" value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value)} aria-label="Capture source">
+              {SOURCE_FILTERS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+          </label>
+          <div>
+            <div className="mb-1 text-xs text-ghost">Review</div>
+            <SectionTabs
+              tabs={reviewTabs}
+              activeId={reviewFilter}
+              onChange={(next) => setReviewFilter(next)}
+              showDivider={false}
+              className="min-w-0"
+              listClassName="gap-3"
+              buttonClassName="py-1.5 text-xs"
+              ariaLabel="Capture review filter"
+            />
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 function Field({ label, className = '', children, asLabel = true }) {
@@ -488,7 +553,7 @@ function CaptureEditor({
   );
 }
 
-export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icons, Spinner }) {
+export default function CaptureInboxView({ apiCall, onToast, Icons, Spinner }) {
   const editorRef = useRef(null);
   const [items, setItems] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 50, total: 0, total_pages: 1 });
@@ -1023,9 +1088,22 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
   };
 
   const [headerCompact, setHeaderCompact] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const filterMenuRef = useRef(null);
   const handleBodyScroll = useCallback((event) => {
     setHeaderCompact(event.currentTarget.scrollTop > 24);
   }, []);
+  useEffect(() => {
+    if (!filterOpen) return undefined;
+    const handlePointerDown = (event) => {
+      if (!filterMenuRef.current) return;
+      if (filterMenuRef.current.contains(event.target)) return;
+      setFilterOpen(false);
+    };
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [filterOpen]);
+
   const captureTypeFilterLabel = captureType === 'all' ? 'All captures' : typeLabel(captureType, CAPTURE_TYPES);
   const sourceFilterLabel = typeLabel(sourceFilter, SOURCE_FILTERS);
   const reviewFilterLabel = REVIEW_TABS.find((tab) => tab.id === reviewFilter)?.label || 'All';
@@ -1038,25 +1116,27 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
   const header = (
     <UtilityPageHeader
       title="Capture Inbox"
-      subtitle={activeLibrary?.name || 'Current library'}
       compact={headerCompact}
+      titleClassName="whitespace-nowrap"
       actions={(
         <>
           <button
             type="button"
-            className="btn-primary inline-flex items-center gap-2"
+            className="btn-icon h-9 w-9"
             onClick={openNewCapture}
+            aria-label="New capture"
+            title="New capture"
           >
             {Icons?.Camera ? <Icons.Camera /> : null}
-            <span className={headerCompact ? 'hidden sm:inline' : ''}>New capture</span>
           </button>
           <button
             type="button"
-            className="btn-ghost inline-flex items-center gap-2"
+            className="btn-icon h-9 w-9"
             onClick={batchMode ? stopBatchScan : startBatchScan}
+            aria-label={batchMode ? 'Stop batch' : 'Batch scan'}
+            title={batchMode ? 'Stop batch' : 'Batch scan'}
           >
             {Icons?.Barcode ? <Icons.Barcode /> : null}
-            <span className={headerCompact ? 'hidden sm:inline' : ''}>{batchMode ? 'Stop batch' : 'Batch scan'}</span>
           </button>
         </>
       )}
@@ -1072,58 +1152,28 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
             buttonClassName="py-1.5 text-xs"
             ariaLabel="Capture status"
           />
-          <div className="grid gap-2 sm:hidden">
+          <div className="flex min-w-0 items-center gap-2">
             <input
-              className="input h-9 min-w-0"
+              className="input h-9 min-w-0 flex-1"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search title, barcode, OCR, note"
             />
-            <MobileFilterDisclosure summary={captureFilterSummary || 'Filters'} Icons={Icons}>
-              <select className="select h-9 w-full" value={captureType} onChange={(event) => setCaptureType(event.target.value)} aria-label="Capture type">
-                <option value="all">All captures</option>
-                {CAPTURE_TYPES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-              </select>
-              <select className="select h-9 w-full" value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value)} aria-label="Capture source">
-                {SOURCE_FILTERS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-              </select>
-              <SectionTabs
-                tabs={reviewTabs}
-                activeId={reviewFilter}
-                onChange={(next) => setReviewFilter(next)}
-                showDivider={false}
-                className="min-w-0"
-                listClassName="gap-3"
-                buttonClassName="py-1.5 text-xs"
-                ariaLabel="Capture review filter"
-              />
-            </MobileFilterDisclosure>
-          </div>
-          <div className="hidden gap-2 sm:flex sm:flex-wrap sm:items-center">
-            <select className="select h-9 sm:min-w-36" value={captureType} onChange={(event) => setCaptureType(event.target.value)}>
-              <option value="all">All captures</option>
-              {CAPTURE_TYPES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
-            <select className="select h-9 sm:min-w-36" value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value)}>
-              {SOURCE_FILTERS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
-            <input
-              className="input h-9 min-w-0 sm:w-64"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search title, barcode, OCR, note"
+            <CaptureFilterMenu
+              Icons={Icons}
+              open={filterOpen}
+              onToggle={() => setFilterOpen((current) => !current)}
+              menuRef={filterMenuRef}
+              summary={captureFilterSummary}
+              captureType={captureType}
+              setCaptureType={setCaptureType}
+              sourceFilter={sourceFilter}
+              setSourceFilter={setSourceFilter}
+              reviewTabs={reviewTabs}
+              reviewFilter={reviewFilter}
+              setReviewFilter={setReviewFilter}
             />
           </div>
-          <SectionTabs
-            tabs={reviewTabs}
-            activeId={reviewFilter}
-            onChange={(next) => setReviewFilter(next)}
-            showDivider={false}
-            className="hidden min-w-0 sm:block"
-            listClassName="gap-3"
-            buttonClassName="py-1.5 text-xs"
-            ariaLabel="Capture review filter"
-          />
         </div>
       )}
     />

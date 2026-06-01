@@ -6,6 +6,37 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.10.11 — Capture Inbox Header Compaction
+
+**Goal:** Tighten Capture Inbox header controls so mobile keeps more usable space while preserving capture, batch scan, and filter access.
+
+### Scope
+
+- Remove the library subtitle from the Capture Inbox page header.
+- Make New Capture and Batch Scan persistent icon buttons.
+- Merge capture type, source, and review filters behind one compact filter button.
+- Keep search live and visible.
+- Keep the change scoped to Capture Inbox and the shared icon set.
+
+### Acceptance Criteria
+
+- Capture Inbox mobile header shows `Capture Inbox` without the `My Library` subtitle.
+- New Capture is always a camera-icon button with accessible label.
+- Batch Scan is always a barcode-icon button with accessible label.
+- Capture type, source, and review controls are reachable through one filter menu.
+- Version metadata, release note, release feed, and Help > Releases include `3.10.11`.
+
+### Closeout
+
+- Status: completed.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/releases/v3.10.11.md`.
+- Runtime verification used: Docker rebuild at `APP_VERSION=3.10.11`, running `/api/health` version readback, Help > Releases smoke, in-app browser Capture Inbox visual verification, and platform/default stack boundary smokes.
+- CI/checks run: frontend build; backend unit; OpenAPI; init parity; migration rehearsal; integration smoke; RBAC regression; platform edition boundary; homelab edition boundary; targeted Capture Inbox browser regression; full browser regression with one interference failure rerun cleanly; observability evidence; release preflight; release-note heading check; version sync check; diff whitespace check.
+- Files changed: Capture Inbox UI, shared app icon primitives, browser regression coverage, version metadata, release note/feed, release evidence, and roadmap closeout.
+- Risks/follow-ups: the Capture Inbox filter menu remains page-local; promote the shared mobile filter sheet/popover backlog item before copying this pattern to more surfaces. CI still owns gitleaks, Trivy/SBOM, and stricter secure-cookie compose-smoke proof.
+- What remains in the milestone: nothing for `3.10.11`; continue the broader `3.10.x` mobile/interface cleanup with the next selected surface.
+- Recommended commit message: `Release 3.10.11 with Capture Inbox header compaction`.
+
 ## 3.10.10 — Live Search Submit Normalization
 
 **Goal:** Normalize search surfaces so search fields update results as the user types instead of requiring a separate Search submit button on mobile or desktop.

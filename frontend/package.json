@@ -1,6 +1,6 @@
 {
   "name": "collectz-frontend",
-  "version": "3.10.10",
+  "version": "3.10.11",
   "private": true,
   "dependencies": {
     "@zxing/browser": "^0.1.5",
