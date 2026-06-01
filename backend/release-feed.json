@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.10.10",
+      "version": "3.10.10",
+      "date": null,
+      "status": "completed",
+      "summary": "This patch standardizes search behavior across the app: search fields update results as the user types instead of requiring a separate Search button. Surfaces that call backend/provider search endpoints now use short debounce windows so the interface stays immediate without turning every keystroke into a hard submit action.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Removed remaining visible Search submit buttons from search/filter surfaces.",
+            "Kept Wishlist and Capture Inbox desktop search behavior aligned with their mobile live-search behavior.",
+            "Made Activity search reload automatically after search text changes.",
+            "Made Apple/iTunes Wishlist intake search automatically with debounce.",
+            "Made event object-link pickers search automatically while their panels are open.",
+            "Made media add/edit lookup matches update automatically from title or identifier."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.10.9",
       "version": "3.10.9",
       "date": null,
@@ -167,26 +187,6 @@
             "Hid long library description copy on phone-width Collectibles, Art, and Events headers so controls start sooner.",
             "Kept Events date filters visible while tightening their row layout.",
             "Added a browser regression that checks mobile Library, Collectibles, and Events toolbars do not overflow and stay within expected compact heights."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.10.0",
-      "version": "3.10.0",
-      "date": null,
-      "status": "in progress",
-      "summary": "This release starts the `3.10` usability and collection-maintenance line. The first slice keeps the Dashboard contained on mobile so recent syncs, recent activity, failure details, and panel content do not force horizontal page overflow.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Established `3.10` as a focused usability and collection-maintenance release line.",
-            "Hardened Dashboard panels, metric buttons, recent sync rows, recent activity rows, and long failed-sync messages against mobile horizontal overflow.",
-            "Renamed the Dashboard attention surface to `Review` and added compact mobile section tabs so Review categories stay readable on narrow screens.",
-            "Added exact row-level clues for missing-identifier Review items so users can see what kind of identifier would improve matching accuracy.",
-            "Added a mobile Dashboard browser regression that checks the page does not exceed the viewport width.",
-            "Kept desktop Dashboard layout behavior intact."
           ]
         }
       ]

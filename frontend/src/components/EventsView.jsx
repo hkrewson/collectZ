@@ -992,6 +992,15 @@ function EventAutographSignatureLinker({ eventId, artifact, apiCall, onLinked })
     }
   };
 
+  useEffect(() => {
+    if (!linkOpen) return undefined;
+    const timer = window.setTimeout(() => {
+      searchTargets();
+    }, 300);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linkOpen, searchTerm, targetType]);
+
   const linkTarget = async (candidate) => {
     const ownerId = getCandidateId(candidate);
     if (!ownerId || linkingId) return;
@@ -1075,19 +1084,8 @@ function EventAutographSignatureLinker({ eventId, artifact, apiCall, onLinked })
                 placeholder={targetType === 'art' ? 'Title, artist, series, or fandom' : 'Title, person, genre, or notes'}
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
-                    event.preventDefault();
-                    searchTargets();
-                  }
-                }}
               />
             </label>
-            <div className="flex items-end">
-              <button className="btn-secondary w-full md:w-auto" onClick={searchTargets} disabled={searching}>
-                {searching ? <><Spinner size={14} />Searching…</> : <><Icons.Search />Search</>}
-              </button>
-            </div>
           </div>
           {searchResults.length > 0 ? (
             <div className="mt-3 divide-y divide-edge/60 border-t border-edge/60">
@@ -1558,6 +1556,15 @@ function EventPurchasedItemsReadback({ eventId, apiCall }) {
     }
   };
 
+  useEffect(() => {
+    if (!linkOpen) return undefined;
+    const timer = window.setTimeout(() => {
+      searchPurchaseSources();
+    }, 300);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linkOpen, searchTerm, searchType]);
+
   const linkCandidate = async (candidate) => {
     const itemId = getCandidateId(candidate);
     if (!itemId) return;
@@ -1677,19 +1684,8 @@ function EventPurchasedItemsReadback({ eventId, apiCall }) {
                 placeholder={searchType === 'art' ? 'Title, fandom, artist, or series' : 'Title, fandom, category, or vendor'}
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
-                    event.preventDefault();
-                    searchPurchaseSources();
-                  }
-                }}
               />
             </label>
-            <div className="flex items-end">
-              <button className="btn-secondary w-full md:w-auto" onClick={searchPurchaseSources} disabled={searching}>
-                {searching ? <><Spinner size={14} />Searching…</> : <><Icons.Search />Search</>}
-              </button>
-            </div>
           </div>
           {searchResults.length > 0 ? (
             <div className="mt-3 divide-y divide-edge/60 border-t border-edge/60">

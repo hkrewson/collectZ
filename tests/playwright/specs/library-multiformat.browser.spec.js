@@ -446,7 +446,7 @@ test.describe('library multi-format browser regressions', () => {
       const storageState = await requestContext.storageState();
       await page.context().addCookies(storageState.cookies || []);
       await page.goto('/dashboard?tab=library-movies');
-      await page.getByRole('button', { name: 'Add', exact: true }).click();
+      await page.getByRole('button', { name: /Add/ }).first().click();
 
       await expect(page.getByRole('heading', { name: /add to library/i })).toBeVisible();
       await page.getByPlaceholder('Movie title').fill(title);
@@ -500,27 +500,26 @@ test.describe('library multi-format browser regressions', () => {
     }
   });
 
-  test('add drawer uses one universal search action instead of barcode-only lookup buttons', async ({ page }) => {
+  test('add drawer uses one live universal search panel instead of barcode-only lookup buttons', async ({ page }) => {
     const requestContext = await createSavedAdminRequestContext();
 
     try {
       await addSavedAdminCookies(page, requestContext);
       await page.goto('/dashboard?tab=library-movies');
       await expect(page.locator('article').first()).toBeVisible();
-      const toolbarAdd = page.getByRole('button', { name: 'Add', exact: true });
+      const toolbarAdd = page.getByRole('button', { name: /Add/ }).first();
       await expect(toolbarAdd).toBeVisible();
       await expect(toolbarAdd).toBeEnabled();
       await toolbarAdd.click();
 
       await expect(page.getByRole('heading', { name: /add to library/i })).toBeVisible();
       await expect(page.locator('[aria-label="Search panel"]')).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Search', exact: true })).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Search', exact: true })).toHaveCount(1);
+      await expect(page.getByRole('button', { name: 'Search', exact: true })).toHaveCount(0);
       await expect(page.getByRole('button', { name: 'Lookup', exact: true })).toHaveCount(0);
 
       await page.getByRole('button', { name: 'Book', exact: true }).click();
       await expect(page.getByPlaceholder('055357275X, 9780553572755, or 012345678901')).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Search', exact: true })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Search', exact: true })).toHaveCount(0);
       await expect(page.getByRole('button', { name: 'Scan', exact: true })).toBeVisible();
       await expect(page.getByRole('button', { name: 'Lookup', exact: true })).toHaveCount(0);
     } finally {
@@ -564,7 +563,7 @@ test.describe('library multi-format browser regressions', () => {
       await expect(page.getByRole('button', { name: 'Search', exact: true })).toHaveCount(0);
       await page.getByRole('button', { name: 'Search again', exact: true }).click();
       await expect(page.locator('[aria-label="Search panel"]')).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Search', exact: true })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Search', exact: true })).toHaveCount(0);
       await expect(page.getByPlaceholder('Movie title')).toHaveValue(title);
       await expect(page.getByPlaceholder('012345678901')).toHaveValue('4006381333931');
     } finally {
@@ -652,12 +651,9 @@ test.describe('library multi-format browser regressions', () => {
       const storageState = await requestContext.storageState();
       await page.context().addCookies(storageState.cookies || []);
       await page.goto('/dashboard?tab=library-movies');
-      await page.getByRole('button', { name: 'Add', exact: true }).click();
+      await page.getByRole('button', { name: /Add/ }).first().click();
 
       await expect(page.getByRole('heading', { name: /add to library/i })).toBeVisible();
-      await page.getByPlaceholder('Movie title').fill(title);
-      await page.getByPlaceholder('012345678901').fill(upc);
-
       const titleResponsePromise = page.waitForResponse((response) => (
         response.url().includes('/api/media/search-tmdb')
           && response.request().method() === 'POST'
@@ -666,7 +662,8 @@ test.describe('library multi-format browser regressions', () => {
         response.url().includes('/api/media/lookup-upc')
           && response.request().method() === 'POST'
       ));
-      await page.getByRole('button', { name: 'Search', exact: true }).click();
+      await page.getByPlaceholder('Movie title').fill(title);
+      await page.getByPlaceholder('012345678901').fill(upc);
       const [titleResponse, identifierResponse] = await Promise.all([titleResponsePromise, identifierResponsePromise]);
       expect(titleResponse.ok()).toBeTruthy();
       expect(identifierResponse.ok()).toBeTruthy();
@@ -832,15 +829,22 @@ test.describe('library multi-format browser regressions', () => {
 
       await addSavedAdminCookies(page);
       await page.goto('/dashboard?tab=library-movies');
-      await expect(page.getByRole('heading', { name: 'Library', exact: true })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Movies', exact: true })).toBeVisible();
       await expect(page.locator('article').first()).toBeVisible();
-      await page.getByRole('button', { name: 'Add', exact: true }).click();
+      await page.getByRole('button', { name: /Add/ }).first().click();
 
       await expect(page.getByRole('heading', { name: /add to library/i })).toBeVisible();
+      const titleResponsePromise = page.waitForResponse((response) => (
+        response.url().includes('/api/media/search-tmdb')
+          && response.request().method() === 'POST'
+      ));
+      const identifierResponsePromise = page.waitForResponse((response) => (
+        response.url().includes('/api/media/lookup-upc')
+          && response.request().method() === 'POST'
+      ));
       await page.getByPlaceholder('Movie title').fill(title);
       await page.getByPlaceholder('012345678901').fill(upc);
-
-      await page.getByRole('button', { name: 'Search', exact: true }).click();
+      await Promise.all([titleResponsePromise, identifierResponsePromise]);
       await expect(page.getByText(alternateTitle, { exact: true })).toBeVisible();
 
       await page.locator('button').filter({ has: page.getByText(alternateTitle, { exact: true }) }).first().click();

@@ -1113,7 +1113,6 @@ export default function CaptureInboxView({ apiCall, onToast, activeLibrary, Icon
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search title, barcode, OCR, note"
             />
-            <button type="button" className="btn-ghost h-9" onClick={() => loadCaptures(1)}>Search</button>
           </div>
           <SectionTabs
             tabs={reviewTabs}

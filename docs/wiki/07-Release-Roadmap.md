@@ -6,6 +6,36 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.10.10 — Live Search Submit Normalization
+
+**Goal:** Normalize search surfaces so search fields update results as the user types instead of requiring a separate Search submit button on mobile or desktop.
+
+### Scope
+
+- Remove remaining Search submit buttons from list/search surfaces.
+- Keep search fields live with short debounce where they call backend/provider endpoints.
+- Normalize Wishlist, Capture Inbox, Activity, event link pickers, Apple/iTunes Wishlist intake, and media add/edit lookup behavior.
+- Preserve non-search command buttons such as scan, preview, clear, refresh, and save actions.
+
+### Acceptance Criteria
+
+- Search fields update immediately or after a short debounce without a visible Search button.
+- Mobile and desktop use the same search-submit behavior.
+- Expensive/provider-backed lookup surfaces debounce automatically and avoid repeated empty-query calls.
+- Version metadata, release note, release feed, and Help > Releases include `3.10.10`.
+
+### Closeout
+
+- Status: completed.
+- Roadmap slice: `3.10.10 — Live Search Submit Normalization`.
+- Project docs/checklists used: `AGENTS.md`; `/Users/hamlin/.codex/skills/uncodixfy/SKILL.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/releases/v3.10.10.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild with `APP_VERSION=3.10.10` using the local source-build compose overlay; running `/api/health` reported frontend/backend/build `3.10.10`; Docker stack reported backend, database, and frontend healthy; backend logs reported `collectZ backend v3.10.10`; running backend env readback was verified with secrets redacted and showed `APP_EDITION=platform`, `APP_VERSION=3.10.10`, `NODE_ENV=development`, `SESSION_COOKIE_SECURE=false`, `TRUST_PROXY=0`, and a redacted DB URL; Help > Releases smoke served `3.10.10`.
+- CI/checks run locally: `npm --prefix frontend run build`; Docker backend/frontend build; Docker `npm run test:unit` (`300` passed); Docker `npm run test:openapi`; Docker `npm run test:init-parity`; Docker `BASE_URL=http://frontend:3000 EXPECTED_RELEASE_VERSION=3.10.10 npm run test:help-releases-smoke`; Docker `BASE_URL=http://frontend:3000 npm run test:rbac-regression`; Docker `BASE_URL=http://frontend:3000 npm run test:platform-edition-boundary`; Docker integration smoke; full Playwright browser regression (`75` passed, `4` skipped); root/frontend/backend dependency clean installs; frontend dependency audit with zero vulnerabilities; backend audit with zero high/critical findings and the existing moderate `qs`/`express` findings; observability release evidence (`9/9` passed); local release preflight; public export surface validation; release note heading check; `git diff --check`. Local preflight still marks CI secure-cookie compose smoke, gitleaks secret scan, and Trivy/SBOM image checks as CI-only/blocked in this development stack; the homelab edition boundary gate was not rerun in homelab mode because the local source overlay is platform-mode.
+- Files changed for this slice: `app-meta.json`; `backend/app-meta.json`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `docs/releases/v3.10.10.md`; `docs/wiki/07-Release-Roadmap.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; `frontend/src/components/ActivityFeedView.jsx`; `frontend/src/components/CaptureInboxView.jsx`; `frontend/src/components/EventsView.jsx`; `frontend/src/components/LibraryView.jsx`; `frontend/src/components/WishlistView.jsx`; `tests/playwright/specs/admin-shell.browser.spec.js`; `tests/playwright/specs/events-collectibles.browser.spec.js`; `tests/playwright/specs/library-multiformat.browser.spec.js`; `preflight-go-no-go.md`; `artifacts/observability-evidence/observability-release-evidence.json`.
+- Risks/follow-ups: Provider-backed live lookup now depends on frontend debounce timing; if provider traffic becomes noisy, promote backend/provider rate shaping instead of reintroducing visible Search submit buttons. Full browser regression required updating stale tests that still expected old page headings and Search buttons.
+- What remains in the milestone: nothing for `3.10.10`; continuing header/search polish remains in the versionless `Header and Search Surface Refinement` backlog item.
+- Recommended commit message: `Release 3.10.10 with live search submit normalization`.
+
 ## 3.10.9 — Mobile Secondary Filter Compaction
 
 **Goal:** Continue the `3.10.x` mobile UI/UX cleanup by moving secondary filters on dense utility pages behind a compact mobile readback while keeping primary search and actions immediately available.

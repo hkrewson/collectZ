@@ -726,9 +726,12 @@ export default function ActivityFeedView({
   };
 
   useEffect(() => {
-    load(1);
+    const timer = window.setTimeout(() => {
+      load(1);
+    }, 250);
+    return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [endpoint, pageSize, filter]);
+  }, [endpoint, pageSize, filter, search]);
 
   const headingClassName = embedded ? 'text-xl font-medium text-ink' : 'section-title';
   const wrapperClassName = embedded ? 'space-y-6' : 'h-full overflow-y-auto p-4 sm:p-6 space-y-6';
@@ -744,12 +747,8 @@ export default function ActivityFeedView({
           </p>
         ) : null}
       </div>
-      <form
+      <div
         className="flex gap-3 flex-wrap items-end border-y border-edge py-3"
-        onSubmit={(e) => {
-          e.preventDefault();
-          load(1, search);
-        }}
       >
         <label className="field flex-1 min-w-56">
           <span className="label">Search</span>
@@ -775,7 +774,7 @@ export default function ActivityFeedView({
             <option value={100}>100</option>
           </select>
         </label>
-      </form>
+      </div>
       <div className="flex items-center gap-2">
         <button onClick={() => load(Math.max(1, page - 1))} disabled={loading || page <= 1} className="btn-secondary btn-sm">Previous</button>
         <span className="text-xs text-ghost font-mono">Page {page}</span>

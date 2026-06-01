@@ -42,8 +42,8 @@ test.describe('events and collectibles browser regressions', () => {
       await page.setViewportSize({ width: 390, height: 844 });
       await signInThroughUi(page, userCredentials);
       await page.goto('/dashboard?tab=library-art');
-      await expect(page.getByRole('heading', { name: 'Art' })).toBeVisible();
-      await page.getByRole('button', { name: 'Add' }).click();
+      await expect(page.getByRole('button', { name: /Add/ }).first()).toBeVisible();
+      await page.getByRole('button', { name: /Add/ }).first().click();
       await expect(page.getByRole('heading', { name: 'Add Art' })).toBeVisible();
       await expect(page.getByText('Artwork image')).toBeVisible();
       await expect(page.getByRole('button', { name: /Add image/i })).toBeVisible();
@@ -259,7 +259,7 @@ test.describe('events and collectibles browser regressions', () => {
       await addPlaywrightBypassCookie(page.context());
       await addSessionCookie(page.context(), sessionToken);
       await page.goto('/dashboard?tab=library-events');
-      await expect(page.getByRole('heading', { name: 'Events' })).toBeVisible();
+      await expect(page.getByPlaceholder('Search title or location…')).toBeVisible();
       await page.getByPlaceholder('Search title or location…').fill(eventTitle);
       const eventCard = page.locator('article').filter({ hasText: eventTitle }).first();
       await expect(eventCard).toBeVisible();
@@ -349,7 +349,7 @@ test.describe('events and collectibles browser regressions', () => {
       await addPlaywrightBypassCookie(page.context());
       await addSessionCookie(page.context(), sessionToken);
       await page.goto('/dashboard?tab=library-events');
-      await expect(page.getByRole('heading', { name: 'Events' })).toBeVisible();
+      await expect(page.getByPlaceholder('Search title or location…')).toBeVisible();
       await page.getByRole('button', { name: 'List', exact: true }).click();
       await page.getByPlaceholder('Search title or location…').fill(eventTitle);
       const matchingEventCards = page.locator('article').filter({ hasText: eventTitle });
@@ -463,7 +463,7 @@ test.describe('events and collectibles browser regressions', () => {
       await addPlaywrightBypassCookie(page.context());
       await addSessionCookie(page.context(), sessionToken);
       await page.goto('/dashboard?tab=library-events');
-      await expect(page.getByRole('heading', { name: 'Events' })).toBeVisible();
+      await expect(page.getByPlaceholder('Search title or location…')).toBeVisible();
       await page.getByRole('button', { name: 'List', exact: true }).click();
       await page.getByPlaceholder('Search title or location…').fill(eventTitle);
       const eventCard = page.locator('article').filter({ hasText: eventTitle }).first();
@@ -547,7 +547,7 @@ test.describe('events and collectibles browser regressions', () => {
       await page.setViewportSize({ width: 390, height: 844 });
       await signInThroughUi(page, userCredentials);
       await page.goto('/dashboard?tab=library-events');
-      await expect(page.getByRole('heading', { name: 'Events' })).toBeVisible();
+      await expect(page.getByPlaceholder('Search title or location…')).toBeVisible();
       await page.getByPlaceholder('Search title or location…').fill(eventTitle);
       await expect(page.getByText(eventTitle, { exact: true }).first()).toBeVisible();
       await page.locator('article').filter({ hasText: eventTitle }).first().click();
@@ -665,7 +665,7 @@ test.describe('events and collectibles browser regressions', () => {
       await page.setViewportSize({ width: 390, height: 844 });
       await signInThroughUi(page, userCredentials);
       await page.goto('/dashboard?tab=library-events');
-      await expect(page.getByRole('heading', { name: 'Events' })).toBeVisible();
+      await expect(page.getByPlaceholder('Search title or location…')).toBeVisible();
       await page.getByPlaceholder('Search title or location…').fill(eventTitle);
       await expect(page.getByText(eventTitle, { exact: true }).first()).toBeVisible();
       await page.locator('article').filter({ hasText: eventTitle }).first().click();
@@ -808,7 +808,7 @@ test.describe('events and collectibles browser regressions', () => {
       await page.setViewportSize({ width: 390, height: 844 });
       await signInThroughUi(page, userCredentials);
       await page.goto('/dashboard?tab=library-events');
-      await expect(page.getByRole('heading', { name: 'Events' })).toBeVisible();
+      await expect(page.getByPlaceholder('Search title or location…')).toBeVisible();
       await page.getByPlaceholder('Search title or location…').fill(eventTitle);
       await expect(page.getByText(eventTitle, { exact: true }).first()).toBeVisible();
       await page.locator('article').filter({ hasText: eventTitle }).first().click();
@@ -944,7 +944,7 @@ test.describe('events and collectibles browser regressions', () => {
       await page.setViewportSize({ width: 390, height: 844 });
       await signInThroughUi(page, userCredentials);
       await page.goto('/dashboard?tab=library-events');
-      await expect(page.getByRole('heading', { name: 'Events' })).toBeVisible();
+      await expect(page.getByPlaceholder('Search title or location…')).toBeVisible();
       await page.getByPlaceholder('Search title or location…').fill(eventTitle);
       await expect(page.getByText(eventTitle, { exact: true }).first()).toBeVisible();
       await page.locator('article').filter({ hasText: eventTitle }).first().click();
@@ -1099,7 +1099,7 @@ test.describe('events and collectibles browser regressions', () => {
       await page.clock.setFixedTime(browserNow);
       await signInThroughUi(page, userCredentials);
       await page.goto('/dashboard?tab=library-events');
-      await expect(page.getByRole('heading', { name: 'Events' })).toBeVisible();
+      await expect(page.getByPlaceholder('Search title or location…')).toBeVisible();
       await page.getByPlaceholder('Search title or location…').fill(eventTitle);
       await expect(page.getByText(eventTitle, { exact: true }).first()).toBeVisible();
       await page.locator('article').filter({ hasText: eventTitle }).first().click();
@@ -1473,7 +1473,7 @@ test.describe('events and collectibles browser regressions', () => {
 
       await signInThroughUi(page, userCredentials);
       await page.goto('/dashboard?tab=library-events');
-      await expect(page.getByRole('heading', { name: 'Events' })).toBeVisible();
+      await expect(page.getByPlaceholder('Search title or location…')).toBeVisible();
 
       await page.getByPlaceholder('Search title or location…').fill(eventTitle);
       await expect(page.getByText(eventTitle, { exact: true }).first()).toBeVisible();
@@ -1486,8 +1486,7 @@ test.describe('events and collectibles browser regressions', () => {
       await autographPanel.getByRole('button', { name: 'Link signature' }).click();
       await autographPanel.locator('label:has-text("Target") select').selectOption('art');
       await autographPanel.getByPlaceholder('Title, artist, series, or fandom').fill(artTitle);
-      await autographPanel.getByRole('button', { name: 'Search' }).click();
-      await expect(autographPanel.getByText(artTitle, { exact: true })).toBeVisible();
+            await expect(autographPanel.getByText(artTitle, { exact: true })).toBeVisible();
       await autographPanel
         .locator('article')
         .filter({ hasText: artTitle })
@@ -1546,7 +1545,7 @@ test.describe('events and collectibles browser regressions', () => {
       await page.goto('/dashboard?tab=library-movies');
       await expect(page.getByRole('button', { name: 'Events' })).toBeVisible();
       await page.getByRole('button', { name: 'Events' }).click();
-      await expect(page.getByRole('heading', { name: 'Events' })).toBeVisible();
+      await expect(page.getByPlaceholder('Search title or location…')).toBeVisible();
       await page.getByRole('button', { name: 'Add' }).click();
       await expect(page.getByRole('heading', { name: 'Add Event' })).toBeVisible();
       await page.locator('label:has-text("Title *") input').fill(eventTitle);
@@ -1633,8 +1632,8 @@ test.describe('events and collectibles browser regressions', () => {
       await signInThroughUi(page, userCredentials);
 
       await page.goto('/dashboard?tab=library-events');
-      await expect(page.getByRole('heading', { name: 'Events' })).toBeVisible();
-      await page.getByRole('button', { name: 'Add' }).click();
+      await expect(page.getByPlaceholder('Search title or location…')).toBeVisible();
+      await page.getByRole('button', { name: /Add/ }).first().click();
       await expect(page.getByRole('heading', { name: 'Add Event' })).toBeVisible();
       await page.locator('label:has-text("Title *") input').fill(eventTitle);
       await page.locator('label:has-text("URL *") input').fill(`https://example.test/art-events/${Date.now()}`);
@@ -1644,8 +1643,8 @@ test.describe('events and collectibles browser regressions', () => {
       await expect(page.getByText(eventTitle, { exact: true }).first()).toBeVisible();
 
       await page.getByRole('button', { name: 'Art' }).click();
-      await expect(page.getByRole('heading', { name: 'Art' })).toBeVisible();
-      await page.getByRole('button', { name: 'Add' }).click();
+      await expect(page.getByRole('button', { name: /Add/ }).first()).toBeVisible();
+      await page.getByRole('button', { name: /Add/ }).first().click();
       await expect(page.getByRole('heading', { name: 'Add Art' })).toBeVisible();
       await expect(page.locator('label:has-text("Vendor") input')).toHaveCount(0);
       await expect(page.locator('label:has-text("Booth") input')).toHaveCount(0);
@@ -1655,7 +1654,7 @@ test.describe('events and collectibles browser regressions', () => {
       await page.getByRole('button', { name: 'Save' }).click();
       await expect(page.getByText(artWithoutEventTitle, { exact: true }).first()).toBeVisible();
 
-      await page.getByRole('button', { name: 'Add' }).click();
+      await page.getByRole('button', { name: /Add/ }).first().click();
       await expect(page.getByRole('heading', { name: 'Add Art' })).toBeVisible();
       await page.locator('label:has-text("Title *") input').fill(artWithEventTitle);
       await page.locator('label:has-text("Series") input').fill('Event Series');
@@ -1788,7 +1787,7 @@ test.describe('events and collectibles browser regressions', () => {
 
       await signInThroughUi(page, userCredentials);
       await page.goto('/dashboard?tab=library-events');
-      await expect(page.getByRole('heading', { name: 'Events' })).toBeVisible();
+      await expect(page.getByPlaceholder('Search title or location…')).toBeVisible();
 
       await page.getByPlaceholder('Search title or location…').fill(eventTitle);
       await expect(page.getByText(eventTitle, { exact: true }).first()).toBeVisible();
@@ -1800,8 +1799,7 @@ test.describe('events and collectibles browser regressions', () => {
       await purchaseSection.getByRole('button', { name: 'Link item' }).click();
       await purchaseSection.locator('label:has-text("Library") select').selectOption('art');
       await purchaseSection.getByPlaceholder('Title, fandom, artist, or series').fill(artTitle);
-      await purchaseSection.getByRole('button', { name: 'Search' }).click();
-      await expect(purchaseSection.getByText(artTitle, { exact: true })).toBeVisible();
+            await expect(purchaseSection.getByText(artTitle, { exact: true })).toBeVisible();
       await expect(purchaseSection.getByText('Art · Playwright Franchise · comic panel · Playwright Artist')).toBeVisible();
 
       await purchaseSection

@@ -269,6 +269,7 @@ test.describe('admin shell browser regressions', () => {
         await filterToggle.click();
         await expect(header.getByLabel(target.filterControl)).toBeVisible();
         await filterToggle.click();
+        await expect(header.getByRole('button', { name: 'Search' })).toHaveCount(0);
       }
 
       await body.evaluate((node) => {
@@ -708,7 +709,6 @@ test.describe('admin shell browser regressions', () => {
     await expect(applePanel.getByText('Updated 1 of 1')).toBeVisible();
     expect(refreshPayload?.status).toBe('active');
     await applePanel.getByLabel('Apple/iTunes search').fill('star wars');
-    await applePanel.getByRole('button', { name: 'Search' }).click();
     await expect(applePanel.getByRole('heading', { name: 'Star Wars: A New Hope' })).toBeVisible();
     await expect(applePanel.getByText('Star Wars: The Empire Strikes Back')).toBeVisible();
     await expect(applePanel.getByText('Saved: Watching')).toBeVisible();

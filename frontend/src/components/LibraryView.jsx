@@ -3181,13 +3181,23 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
   const runUniversalLookup = async (options = {}) => {
     const {
       identifierOverride = null,
-      forceIdentifierOnly = false
+      forceIdentifierOnly = false,
+      silent = false
     } = options;
     const title = forceIdentifierOnly ? '' : resolveLookupTitle();
     const identifier = resolveLookupIdentifier(identifierOverride);
 
     if (!title && !identifier) {
-      notify('Enter a title or identifier first', 'error');
+      if (silent) {
+        patchLookupPanel({ matches: [], error: null });
+      } else {
+        notify('Enter a title or identifier first', 'error');
+      }
+      return;
+    }
+
+    if (silent && title && title.length < 2 && !identifier) {
+      patchLookupPanel({ matches: [], error: null });
       return;
     }
 
@@ -3230,29 +3240,40 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
       patchLookupPanel({ matches });
 
       if (!matches.length) {
-        notify('No matches found', 'error');
+        if (!silent) notify('No matches found', 'error');
         return;
       }
 
       if (dualSource) {
-        const sharedMatches = matches.filter((match) => (match.lookupSources || []).length > 1).length;
-        if (sharedMatches > 0) {
-          notify(`Found ${matches.length} matches across title and identifier search`);
-        } else {
-          notify('Showing title and identifier matches together');
+        if (!silent) {
+          const sharedMatches = matches.filter((match) => (match.lookupSources || []).length > 1).length;
+          if (sharedMatches > 0) {
+            notify(`Found ${matches.length} matches across title and identifier search`);
+          } else {
+            notify('Showing title and identifier matches together');
+          }
         }
         return;
       }
 
-      notify(matches.length === 1 ? 'Found 1 match' : `Found ${matches.length} matches`);
+      if (!silent) notify(matches.length === 1 ? 'Found 1 match' : `Found ${matches.length} matches`);
     } catch (e) {
       const payload = e?.response?.data || null;
       patchLookupPanel({ error: payload });
-      notify(payload?.error || payload?.detail || 'Lookup failed', 'error');
+      if (!silent) notify(payload?.error || payload?.detail || 'Lookup failed', 'error');
     } finally {
       patchLookupPanel({ loading: false });
     }
   };
+
+  useEffect(() => {
+    if (!canUniversalLookup || !lookupPanelExpanded) return undefined;
+    const timer = window.setTimeout(() => {
+      runUniversalLookup({ silent: true });
+    }, 500);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canUniversalLookup, lookupPanelExpanded, form.media_type, form.title, form.year, form.release_date, form.upc, bookIdentifierInput, comicIdentifierInput]);
 
   const handleBookIdentifierChange = (value) => {
     const raw = String(value || '').toUpperCase();
@@ -3849,16 +3870,13 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
                         {isBook && <BookCaptureStatusCard state={bookCaptureState} />}
 
                         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-edge/60 pt-3">
-                          <div className="text-sm text-ghost">Use title or identifier.</div>
+                          <div className="text-sm text-ghost">Matches update from title or identifier.</div>
                           <div className="flex flex-wrap gap-2">
                             {appliedLookupSummary ? (
                               <button type="button" onClick={clearAppliedLookupSummary} className="btn-secondary btn-sm">
                                 Clear match
                               </button>
                             ) : null}
-                            <button type="button" onClick={() => runUniversalLookup()} disabled={lookupLoading} className="btn-secondary btn-sm min-w-[84px]">
-                              {lookupLoading ? <Spinner size={14} /> : <><Icons.Search />Search</>}
-                            </button>
                           </div>
                         </div>
 

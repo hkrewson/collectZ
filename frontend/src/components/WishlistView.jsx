@@ -562,10 +562,14 @@ function AppleItunesWishlistSearch({ apiCall, onToast, onSaved, onViewSaved }) {
     loadTargetHits();
   }, [loadScheduler, loadTargetHits]);
 
-  const searchApple = async (event) => {
-    event?.preventDefault?.();
+  const searchApple = useCallback(async () => {
     const query = term.trim();
-    if (!query) return;
+    if (query.length < 2) {
+      setMatches([]);
+      setSearched(false);
+      setError(null);
+      return;
+    }
     setLoading(true);
     setError(null);
     setSearched(true);
@@ -584,7 +588,14 @@ function AppleItunesWishlistSearch({ apiCall, onToast, onSaved, onViewSaved }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [apiCall, country, media, term]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      searchApple();
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [searchApple]);
 
   const saveMatch = async (match) => {
     const key = match.provider_key || match.id;
@@ -688,7 +699,7 @@ function AppleItunesWishlistSearch({ apiCall, onToast, onSaved, onViewSaved }) {
 
   return (
     <section className="border-y border-edge py-3">
-      <form className="grid max-w-[920px] grid-cols-1 items-end gap-2 md:grid-cols-[minmax(260px,1fr)_160px_96px_auto]" onSubmit={searchApple}>
+      <div className="grid max-w-[920px] grid-cols-1 items-end gap-2 md:grid-cols-[minmax(260px,1fr)_160px_96px]">
         <Field label="Apple/iTunes search">
           <input
             className="input h-9 w-full"
@@ -705,10 +716,7 @@ function AppleItunesWishlistSearch({ apiCall, onToast, onSaved, onViewSaved }) {
         <Field label="Country">
           <input className="input h-9 w-full uppercase" value={country} maxLength={2} onChange={(event) => setCountry(event.target.value.toUpperCase())} />
         </Field>
-        <button type="submit" className="btn-secondary h-9" disabled={loading || !term.trim()}>
-          {loading ? 'Searching...' : 'Search'}
-        </button>
-      </form>
+      </div>
       <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-ghost">
         <button type="button" className="btn-ghost h-8 text-xs" onClick={refreshSavedPrices} disabled={refreshingPrices}>
           {refreshingPrices ? 'Refreshing prices...' : 'Refresh saved prices'}
@@ -1135,7 +1143,6 @@ export default function WishlistView({ apiCall, onToast, activeLibrary, Icons, S
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search title, source, note"
             />
-            <button type="button" className="btn-ghost h-9" onClick={() => loadWishlist(1)}>Search</button>
           </div>
         </div>
       )}
