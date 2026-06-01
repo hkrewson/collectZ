@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.10.12",
+      "version": "3.10.12",
+      "date": null,
+      "status": "completed",
+      "summary": "This patch refines the Capture Inbox funnel menu by changing the cramped horizontal Review tabs into a compact two-column radio-style picker.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Kept Capture and Source as simple selects inside the funnel menu.",
+            "Replaced the Review tab strip inside the funnel with a two-column choice grid.",
+            "Preserved the same review filters and API behavior.",
+            "Updated browser regression coverage to expect the Review filter as radio-style choices."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.10.11",
       "version": "3.10.11",
       "date": null,
@@ -168,24 +186,6 @@
             "Converted Import to keep its page title and active-library readback fixed while source tabs and import controls scroll underneath.",
             "Converted Admin > Integrations to keep its page title fixed while integration settings scroll underneath.",
             "Added browser regression coverage for the three exception pages so page-level scrolling cannot carry their headers away again."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.10.2",
-      "version": "3.10.2",
-      "date": null,
-      "status": "completed",
-      "summary": "This patch stabilizes the mobile app header so the CollectZ/menu bar stays in place while library content scrolls underneath it.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Changed the dashboard shell to use dynamic viewport height on mobile-oriented browsers.",
-            "Made the mobile app header sticky with a stable z-index.",
-            "Preserved the existing mobile header visuals, navigation behavior, and library page toolbars.",
-            "Added browser regression coverage that scrolls mobile library pages and verifies the app header does not move or create horizontal overflow."
           ]
         }
       ]

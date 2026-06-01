@@ -910,10 +910,10 @@ test.describe('admin shell browser regressions', () => {
       await expect(captureFilterButton).toBeVisible();
       await captureFilterButton.click();
       const captureFilters = page.getByLabel('Capture filters');
-      await expect(captureFilters.getByRole('tablist', { name: 'Capture review filter' })).toBeVisible();
-      await expect(captureFilters.getByRole('tab', { name: /Needs choice/ })).toBeVisible();
-      await expect(captureFilters.getByRole('tab', { name: /Ready to add/ })).toBeVisible();
-      await expect(captureFilters.getByRole('tab', { name: /No match/ })).toBeVisible();
+      await expect(captureFilters.getByRole('radiogroup', { name: 'Capture review filter' })).toBeVisible();
+      await expect(captureFilters.getByRole('radio', { name: /Needs choice/ })).toBeVisible();
+      await expect(captureFilters.getByRole('radio', { name: /Ready to add/ })).toBeVisible();
+      await expect(captureFilters.getByRole('radio', { name: /No match/ })).toBeVisible();
       await captureFilterButton.click();
       await expect(page.getByRole('button', { name: 'Review scanner captures' })).toBeVisible();
       const scannerUiFilterResponse = page.waitForResponse((response) => (
@@ -932,10 +932,10 @@ test.describe('admin shell browser regressions', () => {
         && response.request().method() === 'GET'
       ));
       await captureFilterButton.click();
-      await captureFilters.getByRole('tab', { name: /Needs choice/ }).click();
+      await captureFilters.getByRole('radio', { name: /Needs choice/ }).click();
       expect((await reviewFilterResponse).ok()).toBeTruthy();
       await expect(page.getByText(title, { exact: true })).toBeVisible();
-      await captureFilters.getByRole('tab', { name: /^All / }).click();
+      await captureFilters.getByRole('radio', { name: /^All / }).click();
       await captureFilterButton.click();
       await expect(page.getByText(photoTitle, { exact: true })).toBeVisible();
       const replayConflictReview = page.getByLabel('Replay conflict review').first();

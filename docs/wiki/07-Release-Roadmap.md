@@ -6,6 +6,37 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.10.12 — Capture Inbox Review Filter Grid
+
+**Goal:** Keep Capture Inbox review filters inside the funnel menu while making them easier to scan and tap than the cramped horizontal tab strip.
+
+### Scope
+
+- Preserve the existing Capture Inbox funnel menu.
+- Keep Capture and Source as standard selects.
+- Render Review choices as a compact radio-style grid inside the funnel.
+- Keep review filter API behavior unchanged.
+- Keep the slice scoped to Capture Inbox and browser regression coverage.
+
+### Acceptance Criteria
+
+- Capture Inbox filter menu shows Capture and Source selects.
+- Review filters render as accessible radio-style choices instead of horizontal tabs.
+- Review choices fit cleanly in the popover on mobile.
+- Selecting `Needs choice` and returning to `All` still refreshes Capture Inbox results.
+- Version metadata, release note, release feed, and Help > Releases include `3.10.12`.
+
+### Closeout
+
+- Status: completed.
+- Project docs/checklists used: `AGENTS.md`, `/Users/hamlin/.codex/skills/uncodixfy/SKILL.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/releases/v3.10.12.md`.
+- Runtime verification used: Docker rebuild at `APP_VERSION=3.10.12`, running `/api/health` version readback, Help > Releases smoke, authenticated mobile Capture Inbox visual verification, and platform/default stack boundary smokes.
+- CI/checks run: frontend build; backend unit; OpenAPI; init parity; migration rehearsal; RBAC regression; platform edition boundary; homelab edition boundary; targeted Capture Inbox browser regression; full browser regression; observability evidence; release preflight; release-note heading check; version sync check; `git diff --check`; release artifact secret scan.
+- Files changed: Capture Inbox filter menu UI, Capture Inbox browser regression coverage, version metadata, release note/feed, release evidence, and roadmap closeout.
+- Risks/follow-ups: the Capture Inbox filter menu remains page-local; if this pattern repeats, promote the shared mobile filter sheet/popover backlog item before copying more custom menu logic. CI still owns gitleaks, Trivy/SBOM, and stricter secure-cookie compose-smoke proof.
+- What remains in the milestone: nothing for `3.10.12`; continue the broader `3.10.x` mobile/interface cleanup with the next selected surface.
+- Recommended commit message: `Release 3.10.12 with Capture Inbox review filter grid`.
+
 ## 3.10.11 — Capture Inbox Header Compaction
 
 **Goal:** Tighten Capture Inbox header controls so mobile keeps more usable space while preserving capture, batch scan, and filter access.

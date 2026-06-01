@@ -211,16 +211,29 @@ function CaptureFilterMenu({
           </label>
           <div>
             <div className="mb-1 text-xs text-ghost">Review</div>
-            <SectionTabs
-              tabs={reviewTabs}
-              activeId={reviewFilter}
-              onChange={(next) => setReviewFilter(next)}
-              showDivider={false}
-              className="min-w-0"
-              listClassName="gap-3"
-              buttonClassName="py-1.5 text-xs"
-              ariaLabel="Capture review filter"
-            />
+            <div className="grid grid-cols-2 gap-1.5" role="radiogroup" aria-label="Capture review filter">
+              {reviewTabs.map((tab) => {
+                const selected = tab.id === reviewFilter;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    className={cx(
+                      'flex min-h-8 items-center justify-between gap-2 rounded-md border px-2.5 py-1.5 text-left text-xs transition-colors',
+                      selected
+                        ? 'border-gold/70 bg-raised text-ink'
+                        : 'border-edge bg-surface/60 text-dim hover:border-muted hover:text-ink'
+                    )}
+                    onClick={() => setReviewFilter(tab.id)}
+                  >
+                    <span className="min-w-0 truncate">{tab.label}</span>
+                    <span className={cx('h-2 w-2 shrink-0 rounded-full border', selected ? 'border-gold bg-gold' : 'border-muted')} aria-hidden="true" />
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       ) : null}
