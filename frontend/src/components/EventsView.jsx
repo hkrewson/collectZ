@@ -5401,12 +5401,13 @@ export default function EventsView({ apiCall, onToast, currentUser = null, focus
         onAdd={() => setAdding(true)}
         addLabel="Add"
         addAriaLabel="Add event"
+        mobileIcon={Icons.Calendar}
+        mobileIconLabel="Events"
         Icons={Icons}
         compact={headerCompact}
         testId="events-mobile-header"
         toolbarTestId="events-mobile-toolbar"
-        toolbarClassName="grid-cols-2"
-        searchClassName="col-span-2 w-full sm:col-span-1 sm:w-56"
+        searchClassName="w-full sm:w-56"
       />
       {activeFilterCount > 0 ? (
         <div className="shrink-0 border-b border-edge bg-void/95 px-3 py-2 sm:px-6">

@@ -422,10 +422,11 @@ export default function LibraryLoansView({
         searchValue={searchInput}
         onSearchChange={setSearchInput}
         searchPlaceholder="Search title or borrower"
+        mobileIcon={Icons.Handoff}
+        mobileIconLabel="Loans"
         Icons={Icons}
         className="-mx-4 -mt-3 border-b-0 px-0 py-0 sm:-mx-6"
         searchClassName="w-full sm:w-80"
-        showTitleOnMobile
       />
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <SectionTabs

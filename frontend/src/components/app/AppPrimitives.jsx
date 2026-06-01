@@ -334,6 +334,8 @@ export function PageHeaderSearchToolbar({
   onAdd,
   addLabel = 'Add',
   addAriaLabel,
+  mobileIcon,
+  mobileIconLabel,
   Icons: IconSet = Icons,
   compact = false,
   showTitleOnMobile = false,
@@ -404,6 +406,26 @@ export function PageHeaderSearchToolbar({
       <span className="hidden sm:inline">{addLabel}</span>
     </button>
   ) : null;
+  const mobileTitle = mobileIconLabel || title || 'Current section';
+  const mobileInlineAdd = Boolean(mobileIcon && addButton);
+  const mobileToolbarGridClass = mobileIcon
+    ? mobileInlineAdd
+      ? 'grid-cols-[auto_minmax(0,1fr)_auto_auto]'
+      : 'grid-cols-[auto_minmax(0,1fr)_auto]'
+    : compact && addButton
+      ? 'grid-cols-[minmax(0,1fr)_auto_auto]'
+      : 'grid-cols-[minmax(0,1fr)_auto]';
+  const mobileIconNode = mobileIcon ? (
+    <div
+      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-edge bg-raised text-dim sm:hidden"
+      role="img"
+      aria-label={mobileTitle}
+      title={mobileTitle}
+    >
+      {typeof mobileIcon === 'function' ? React.createElement(mobileIcon) : mobileIcon}
+      <span className="sr-only">{mobileTitle}</span>
+    </div>
+  ) : null;
 
   return (
     <div
@@ -426,7 +448,7 @@ export function PageHeaderSearchToolbar({
               {filterCount > 0 ? <span className="badge badge-dim shrink-0">{resolvedFilterLabel}</span> : null}
             </div>
             {(viewTabs || sortButton || addButton) ? (
-              <div className={cx('shrink-0 items-center justify-end gap-1.5 sm:hidden', compact ? 'hidden' : 'flex')}>
+              <div className={cx('shrink-0 items-center justify-end gap-1.5 sm:hidden', (compact || mobileIcon) ? 'hidden' : 'flex')}>
                 {viewTabs}
                 {sortButton}
                 {addButton}
@@ -441,13 +463,12 @@ export function PageHeaderSearchToolbar({
         <div
           className={cx(
             'grid min-w-0 flex-1 gap-2 sm:flex sm:flex-wrap sm:items-center lg:justify-end',
-            compact && addButton
-              ? 'grid-cols-[minmax(0,1fr)_auto_auto]'
-              : 'grid-cols-[minmax(0,1fr)_auto]',
+            mobileToolbarGridClass,
             toolbarClassName
           )}
           data-testid={toolbarTestId}
         >
+          {mobileIconNode}
           {hasSearch ? (
             <div className={cx('relative min-w-0', searchClassName)}>
               <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ghost"><IconSet.Search /></span>
@@ -463,7 +484,7 @@ export function PageHeaderSearchToolbar({
           {extraControls && compact ? (
             <div className="hidden sm:contents">{extraControls}</div>
           ) : extraControls}
-          {compact && addButton ? <div className="sm:hidden">{addButton}</div> : null}
+          {(compact || mobileInlineAdd) && addButton ? <div className="sm:hidden">{addButton}</div> : null}
           {(viewTabs || sortButton || addButton) ? (
             <div className="hidden items-center justify-end gap-2 sm:flex">
               {viewTabs}
@@ -1511,6 +1532,17 @@ export const Icons = {
   Trash:       () => <Icon d="M3 6h18M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M9 6V4h6v2" />,
   Edit:        () => <Icon d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />,
   Film:        () => <Icon d="M2 8h20M2 16h20M7 2v20M17 2v20M2 4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4z" />,
+  MusicNote:   () => <Icon d="M9 18V5l11-2v13M9 18a3 3 0 1 1-3-3 3 3 0 0 1 3 3zM20 16a3 3 0 1 1-3-3 3 3 0 0 1 3 3zM9 8l11-2" />,
+  Palette:     () => <Icon d="M12 3a9 9 0 0 0 0 18h1.5a1.8 1.8 0 0 0 1.2-3.15 1.7 1.7 0 0 1 1.15-2.95H17a4 4 0 0 0 4-4c0-4.42-4.03-7.9-9-7.9zM7.5 10h.01M10 6.8h.01M14 6.8h.01M16.5 10h.01" />,
+  BookOpen:    () => <Icon d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v17H6.5A2.5 2.5 0 0 0 4 22V5.5zM20 5.5A2.5 2.5 0 0 0 17.5 3H13v17h4.5A2.5 2.5 0 0 1 20 22V5.5z" />,
+  Speech:      () => <Icon d="M21 11.5a7.5 7.5 0 0 1-7.5 7.5H8l-5 3 1.6-4.8A7.5 7.5 0 1 1 21 11.5z" />,
+  BoxOpen:     () => <Icon d="M3 8l9 4 9-4M3 8l3.5-4L12 6.5 17.5 4 21 8v9l-9 4-9-4V8zM12 12v9" />,
+  Calendar:    () => <Icon d="M7 2v4M17 2v4M3 9h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" />,
+  Handoff:     () => <Icon d="M7 11V6a2 2 0 0 1 4 0v4M11 10V5a2 2 0 0 1 4 0v7M15 12V7a2 2 0 0 1 4 0v7a7 7 0 0 1-7 7H9l-5-5a2 2 0 0 1 2.8-2.8L9 15" />,
+  Clapper:     () => <Icon d="M4 11h16v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-9zM4 11l2-7h4l-2 7M10 11l2-7h4l-2 7M16 11l2-7h2a2 2 0 0 1 2 2v5" />,
+  Tv:          () => <Icon d="M4 7h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2zM8 3l4 4 4-4" />,
+  InboxTray:   () => <Icon d="M4 4h16l2 10v5a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-5L4 4zM2 14h6l2 3h4l2-3h6" />,
+  Gamepad:     () => <Icon d="M7 15h.01M17 13h.01M15 17h.01M9 13h.01M8 10h8a6 6 0 0 1 5.8 4.5l.7 2.8A3 3 0 0 1 17.6 20l-2.1-2H8.5l-2.1 2a3 3 0 0 1-4.9-2.7l.7-2.8A6 6 0 0 1 8 10z" />,
   Filter:      () => <Icon d="M3 4h18l-7 8v6l-4 2v-8L3 4z" />,
   Barcode:     () => <Icon d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14M21 5v14" />,
   Camera:      () => <Icon d="M4 7h3l2-2h6l2 2h3a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />,

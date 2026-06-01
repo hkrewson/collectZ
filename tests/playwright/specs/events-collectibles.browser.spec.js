@@ -350,7 +350,6 @@ test.describe('events and collectibles browser regressions', () => {
       await addSessionCookie(page.context(), sessionToken);
       await page.goto('/dashboard?tab=library-events');
       await expect(page.getByPlaceholder('Search title or location…')).toBeVisible();
-      await page.getByRole('button', { name: 'List', exact: true }).click();
       await page.getByPlaceholder('Search title or location…').fill(eventTitle);
       const matchingEventCards = page.locator('article').filter({ hasText: eventTitle });
       await expect(matchingEventCards).toHaveCount(1);
@@ -464,7 +463,6 @@ test.describe('events and collectibles browser regressions', () => {
       await addSessionCookie(page.context(), sessionToken);
       await page.goto('/dashboard?tab=library-events');
       await expect(page.getByPlaceholder('Search title or location…')).toBeVisible();
-      await page.getByRole('button', { name: 'List', exact: true }).click();
       await page.getByPlaceholder('Search title or location…').fill(eventTitle);
       const eventCard = page.locator('article').filter({ hasText: eventTitle }).first();
       await expect(eventCard).toBeVisible();

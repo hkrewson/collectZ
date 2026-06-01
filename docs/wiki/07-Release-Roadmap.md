@@ -6,6 +6,37 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.10.13 — Icon-Led Mobile Library Headers
+
+**Goal:** Reduce duplicated mobile header text by moving the visible page cue into the library search row as a compact section icon while preserving accessible page titles.
+
+### Scope
+
+- Hide the mobile app shell page title visually while preserving screen-reader text.
+- Add a mobile section icon slot to the shared library search toolbar.
+- Map Audio, Art, Books, Comics, Collectibles, Events, Games, Loans, Movies, TV, and Capture Inbox to stable section icons.
+- Keep desktop page titles and layout unchanged.
+- Keep deeper filter-menu normalization as follow-up work.
+
+### Acceptance Criteria
+
+- Mobile library pages show a section icon next to the search field.
+- The page title remains available to assistive technology.
+- The visible mobile app shell no longer duplicates the current page title.
+- Desktop title/header behavior remains unchanged.
+- Version metadata, release note, release feed, and Help > Releases include `3.10.13`.
+
+### Closeout
+
+- Status: completed.
+- Project docs/checklists used: `AGENTS.md`, `/Users/hamlin/.codex/skills/uncodixfy/SKILL.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/releases/v3.10.13.md`.
+- Runtime verification used: Docker rebuild at `APP_VERSION=3.10.13`, running `/api/health` version readback, Help > Releases smoke, authenticated mobile visual checks for Movies and Capture Inbox, and platform/default stack boundary smokes.
+- CI/checks run: frontend build; backend unit; OpenAPI; init parity; migration rehearsal; RBAC regression; platform edition boundary; homelab edition boundary; targeted mobile header browser regression; full browser regression; observability evidence; release preflight; release-note heading check; version sync check; `git diff --check`; release artifact secret scan.
+- Files changed: shared page header/search toolbar primitive, mobile shell title treatment, shared icons, Library/Art/Collectibles/Events/Loans/Capture Inbox header wiring, browser regression coverage, version metadata, release note/feed, release evidence, and roadmap closeout.
+- Risks/follow-ups: library filter controls are still not fully normalized into a single funnel primitive; utility surfaces should move to the icon-led pattern only after the library version feels right in daily use. CI still owns gitleaks, Trivy/SBOM, and stricter secure-cookie compose-smoke proof.
+- What remains in the milestone: nothing for `3.10.13`; continue the broader `3.10.x` mobile/interface cleanup with the next selected surface.
+- Recommended commit message: `Release 3.10.13 with icon-led mobile library headers`.
+
 ## 3.10.12 — Capture Inbox Review Filter Grid
 
 **Goal:** Keep Capture Inbox review filters inside the funnel menu while making them easier to scan and tap than the cramped horizontal tab strip.

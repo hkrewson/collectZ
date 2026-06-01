@@ -4590,6 +4590,24 @@ export default function LibraryView({
         return 'titles';
     }
   }, [forcedMediaType]);
+  const mobileHeaderIcon = useMemo(() => {
+    switch (forcedMediaType) {
+      case 'movie':
+        return Icons.Clapper;
+      case 'tv':
+        return Icons.Tv;
+      case 'book':
+        return Icons.BookOpen;
+      case 'audio':
+        return Icons.MusicNote;
+      case 'game':
+        return Icons.Gamepad;
+      case 'comic_book':
+        return Icons.Speech;
+      default:
+        return Icons.Library;
+    }
+  }, [forcedMediaType]);
 
   const comicSeriesOptions = useMemo(() => {
     const map = new Map();
@@ -5033,6 +5051,8 @@ export default function LibraryView({
         onAdd={() => setAdding(true)}
         addLabel="Add"
         addAriaLabel="Add media"
+        mobileIcon={mobileHeaderIcon}
+        mobileIconLabel={title}
         Icons={Icons}
         compact={headerCompact}
         testId="library-mobile-header"

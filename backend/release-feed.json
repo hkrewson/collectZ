@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.10.13",
+      "version": "3.10.13",
+      "date": null,
+      "status": "completed",
+      "summary": "This patch makes mobile library headers more compact by moving the visible page cue into the search row as a section icon while preserving the page title for accessibility.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added icon-led mobile search rows to shared library headers.",
+            "Added section icons for Audio, Art, Books, Comics, Collectibles, Events, Games, Loans, Movies, TV, and Capture Inbox.",
+            "Kept page titles available as accessibility text.",
+            "Changed the mobile app shell title to screen-reader-only text so it no longer duplicates the page cue visually.",
+            "Preserved desktop title/header behavior."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.10.12",
       "version": "3.10.12",
       "date": null,
@@ -167,25 +186,6 @@
             "Converted Loans to use the shared `FixedPageShell` primitive.",
             "Kept the Loans title, search, status filters, and summary counters stationary while loan rows scroll underneath.",
             "Extended the mobile utility-page browser regression so Loans is covered with Wishlist, Import, and Admin > Integrations."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.10.3",
-      "version": "3.10.3",
-      "date": null,
-      "status": "completed",
-      "summary": "This patch brings Wishlist, Import, and Admin > Integrations onto the same fixed-header page pattern used by the library surfaces.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added a shared `FixedPageShell` primitive for pages with stationary headers and independently scrolling content.",
-            "Converted Wishlist to keep its title/add-item header fixed while wishlist search, filters, and rows scroll underneath.",
-            "Converted Import to keep its page title and active-library readback fixed while source tabs and import controls scroll underneath.",
-            "Converted Admin > Integrations to keep its page title fixed while integration settings scroll underneath.",
-            "Added browser regression coverage for the three exception pages so page-level scrolling cannot carry their headers away again."
           ]
         }
       ]

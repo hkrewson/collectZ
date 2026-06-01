@@ -1034,6 +1034,8 @@ export default function ArtView({ apiCall, onToast, focusTarget = null }) {
         onAdd={() => setAdding(true)}
         addLabel="Add Art"
         addAriaLabel="Add Art"
+        mobileIcon={Icons.Palette}
+        mobileIconLabel="Art"
         Icons={Icons}
         compact={headerCompact}
         testId="art-mobile-header"

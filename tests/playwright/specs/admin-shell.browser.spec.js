@@ -242,15 +242,19 @@ test.describe('admin shell browser regressions', () => {
 
     const pages = [
       { route: '/dashboard?tab=library-wishlist', heading: 'Wishlist', mobileTitle: 'Wishlist', header: 'wishlist-page-header', body: 'wishlist-page-body', filterButton: /All types/, filterControl: 'Wishlist type' },
-      { route: '/dashboard?tab=library-loans', heading: 'Loans', mobileTitle: 'Loans', header: 'loans-page-header', body: 'loans-page-body' },
+      { route: '/dashboard?tab=library-loans', heading: 'Loans', headingVisible: false, mobileTitle: 'Loans', header: 'loans-page-header', body: 'loans-page-body', iconLabel: 'Loans' },
       { route: '/dashboard?tab=library-import', heading: 'Import Media', mobileTitle: 'Import', header: 'import-page-header', body: 'import-page-body' },
-      { route: '/dashboard?tab=library-capture', heading: 'Capture Inbox', mobileTitle: 'Capture', header: 'capture-page-header', body: 'capture-page-body', filterButton: /Filter captures/, filterControl: 'Capture type', absentHeaderText: 'My Library' },
+      { route: '/dashboard?tab=library-capture', heading: 'Capture Inbox', headingVisible: false, mobileTitle: 'Capture', header: 'capture-page-header', body: 'capture-page-body', filterButton: /Filter captures/, filterControl: 'Capture type', absentHeaderText: 'My Library', iconLabel: 'Capture Inbox' },
       { route: '/dashboard?tab=admin-integrations', heading: 'Integrations', mobileTitle: 'Integrations', header: 'admin-integrations-page-header', body: 'admin-integrations-page-body' }
     ];
 
     for (const target of pages) {
       await page.goto(target.route);
-      await expect(page.getByRole('heading', { name: target.heading, exact: true })).toBeVisible();
+      if (target.headingVisible === false) {
+        await expect(page.getByRole('heading', { name: target.heading, exact: true })).toHaveCount(0);
+      } else {
+        await expect(page.getByRole('heading', { name: target.heading, exact: true })).toBeVisible();
+      }
       const appHeader = page.getByTestId('mobile-app-header');
       await expect(appHeader).toBeVisible();
       await expect(page.getByTestId('mobile-app-title')).toHaveText(target.mobileTitle);
@@ -260,12 +264,13 @@ test.describe('admin shell browser regressions', () => {
       const body = page.getByTestId(target.body);
       await expect(header).toBeVisible();
       await expect(body).toBeVisible();
+      if (target.iconLabel) {
+        await expect(header.getByRole('img', { name: target.iconLabel })).toBeVisible();
+      }
       if (target.absentHeaderText) {
         await expect(header.getByText(target.absentHeaderText, { exact: true })).toHaveCount(0);
       }
       await expect(body).toHaveCSS('overflow-y', 'auto');
-      const headerBoxBefore = await readRect(header);
-      expect(headerBoxBefore).toBeTruthy();
       if (target.filterButton && target.filterControl) {
         const filterToggle = header.getByRole('button', { name: target.filterButton });
         await expect(filterToggle).toBeVisible();
@@ -274,6 +279,8 @@ test.describe('admin shell browser regressions', () => {
         await filterToggle.click();
         await expect(header.getByRole('button', { name: 'Search' })).toHaveCount(0);
       }
+      const headerBoxBefore = await readRect(header);
+      expect(headerBoxBefore).toBeTruthy();
 
       await body.evaluate((node) => {
         node.scrollTop = Math.min(360, node.scrollHeight - node.clientHeight);

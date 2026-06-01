@@ -164,7 +164,7 @@ export default function DashboardShell({
           >
             <CollectzMark className="h-7 w-7 text-gold" title="" />
           </button>
-          <p className="min-w-0 truncate text-base font-semibold text-ink" data-testid="mobile-app-title">{mobileHeaderTitle}</p>
+          <p className="sr-only" data-testid="mobile-app-title">{mobileHeaderTitle}</p>
         </div>
 
         <SupportSessionBanner
