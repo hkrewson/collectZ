@@ -334,8 +334,6 @@ export function PageHeaderSearchToolbar({
   onAdd,
   addLabel = 'Add',
   addAriaLabel,
-  mobileIcon,
-  mobileIconLabel,
   Icons: IconSet = Icons,
   compact = false,
   showTitleOnMobile = false,
@@ -406,26 +404,9 @@ export function PageHeaderSearchToolbar({
       <span className="hidden sm:inline">{addLabel}</span>
     </button>
   ) : null;
-  const mobileTitle = mobileIconLabel || title || 'Current section';
-  const mobileInlineAdd = Boolean(mobileIcon && addButton);
-  const mobileToolbarGridClass = mobileIcon
-    ? mobileInlineAdd
-      ? 'grid-cols-[auto_minmax(0,1fr)_auto_auto]'
-      : 'grid-cols-[auto_minmax(0,1fr)_auto]'
-    : compact && addButton
-      ? 'grid-cols-[minmax(0,1fr)_auto_auto]'
-      : 'grid-cols-[minmax(0,1fr)_auto]';
-  const mobileIconNode = mobileIcon ? (
-    <div
-      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-edge bg-raised text-dim sm:hidden"
-      role="img"
-      aria-label={mobileTitle}
-      title={mobileTitle}
-    >
-      {typeof mobileIcon === 'function' ? React.createElement(mobileIcon) : mobileIcon}
-      <span className="sr-only">{mobileTitle}</span>
-    </div>
-  ) : null;
+  const mobileToolbarGridClass = compact && addButton
+    ? 'grid-cols-[minmax(0,1fr)_auto_auto]'
+    : 'grid-cols-[minmax(0,1fr)_auto]';
 
   return (
     <div
@@ -448,7 +429,7 @@ export function PageHeaderSearchToolbar({
               {filterCount > 0 ? <span className="badge badge-dim shrink-0">{resolvedFilterLabel}</span> : null}
             </div>
             {(viewTabs || sortButton || addButton) ? (
-              <div className={cx('shrink-0 items-center justify-end gap-1.5 sm:hidden', (compact || mobileIcon) ? 'hidden' : 'flex')}>
+              <div className={cx('shrink-0 items-center justify-end gap-1.5 sm:hidden', compact ? 'hidden' : 'flex')}>
                 {viewTabs}
                 {sortButton}
                 {addButton}
@@ -468,7 +449,6 @@ export function PageHeaderSearchToolbar({
           )}
           data-testid={toolbarTestId}
         >
-          {mobileIconNode}
           {hasSearch ? (
             <div className={cx('relative min-w-0', searchClassName)}>
               <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ghost"><IconSet.Search /></span>
@@ -484,7 +464,7 @@ export function PageHeaderSearchToolbar({
           {extraControls && compact ? (
             <div className="hidden sm:contents">{extraControls}</div>
           ) : extraControls}
-          {(compact || mobileInlineAdd) && addButton ? <div className="sm:hidden">{addButton}</div> : null}
+          {compact && addButton ? <div className="sm:hidden">{addButton}</div> : null}
           {(viewTabs || sortButton || addButton) ? (
             <div className="hidden items-center justify-end gap-2 sm:flex">
               {viewTabs}

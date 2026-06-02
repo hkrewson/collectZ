@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.10.14",
+      "version": "3.10.14",
+      "date": null,
+      "status": "completed",
+      "summary": "This patch corrects the mobile header icon placement so the current section icon lives in the top app header navigation button instead of taking space in the search toolbar row.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Moved mobile section icons into the shell header navigation button.",
+            "Removed the section icon slot from the shared mobile search toolbar.",
+            "Kept mobile page titles available as screen-reader text and in the navigation button label.",
+            "Updated Capture Inbox mobile readback to use the full page name.",
+            "Preserved desktop header behavior and existing search/filter/add toolbar behavior."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.10.13",
       "version": "3.10.13",
       "date": null,
@@ -169,23 +188,6 @@
             "Added active page title readback in the mobile app header, including Dashboard, Loans, Wishlist, Import, and Integrations.",
             "Updated the sidebar wordmark casing from `COLLECTZ` to `collectZ`.",
             "Extended mobile browser regression coverage for the compact app header and nav trigger."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.10.4",
-      "version": "3.10.4",
-      "date": null,
-      "status": "completed",
-      "summary": "This patch brings Loans onto the fixed-header page pattern added for the other utility pages in `3.10.3`.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Converted Loans to use the shared `FixedPageShell` primitive.",
-            "Kept the Loans title, search, status filters, and summary counters stationary while loan rows scroll underneath.",
-            "Extended the mobile utility-page browser regression so Loans is covered with Wishlist, Import, and Admin > Integrations."
           ]
         }
       ]

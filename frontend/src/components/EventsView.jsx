@@ -5401,8 +5401,6 @@ export default function EventsView({ apiCall, onToast, currentUser = null, focus
         onAdd={() => setAdding(true)}
         addLabel="Add"
         addAriaLabel="Add event"
-        mobileIcon={Icons.Calendar}
-        mobileIconLabel="Events"
         Icons={Icons}
         compact={headerCompact}
         testId="events-mobile-header"

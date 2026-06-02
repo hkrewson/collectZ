@@ -6,6 +6,37 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.10.14 — Mobile Header Section Icon Placement
+
+**Goal:** Correct the mobile icon-led header direction by putting the current section icon in the shell header/navigation button instead of the search toolbar row.
+
+### Scope
+
+- Render the active page/library section icon inside the compact mobile app shell navigation button.
+- Keep the mobile page title available as accessibility text and in the navigation button label.
+- Remove section icons from the shared search toolbar row so the row returns to search, filters, and add actions.
+- Use `Capture Inbox` as the full mobile title/readback for that surface.
+- Keep desktop headers and library search behavior unchanged.
+
+### Acceptance Criteria
+
+- Mobile library pages show the section icon in the top app header/nav trigger.
+- The search row no longer renders a separate section icon before the search field.
+- The nav trigger remains an accessible button with `Open navigation, <page title>` readback.
+- Capture Inbox uses the full `Capture Inbox` mobile readback.
+- Version metadata, release note, release feed, and Help > Releases include `3.10.14`.
+
+### Closeout
+
+- Status: completed.
+- Project docs/checklists used: `AGENTS.md`, `/Users/hamlin/.codex/skills/uncodixfy/SKILL.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/releases/v3.10.14.md`.
+- Runtime verification used: Docker rebuild at `APP_VERSION=3.10.14`, running `/api/health` version readback, Help > Releases smoke, authenticated mobile visual checks for Audio and Capture Inbox, and platform/default stack boundary smokes.
+- CI/checks run: frontend build; backend unit; OpenAPI; init parity; migration rehearsal; RBAC regression; platform edition boundary; homelab edition boundary; targeted mobile header browser regression; full browser regression; observability evidence; release preflight; release-note heading check; version sync check; `git diff --check`; release artifact secret scan.
+- Files changed: mobile shell icon mapping and accessibility label, shared page header/search toolbar icon-slot removal, library/art/collectibles/events/loans/Capture Inbox header wiring, browser regression coverage, version metadata, release note/feed, release evidence, and roadmap closeout.
+- Risks/follow-ups: the top shell header is now icon-only on mobile, so future utility pages should only get special icons where the cue helps; CI still owns gitleaks, Trivy/SBOM, and stricter secure-cookie compose-smoke proof.
+- What remains in the milestone: nothing for `3.10.14`; continue the broader `3.10.x` mobile/interface cleanup with the next selected surface.
+- Recommended commit message: `Release 3.10.14 with mobile header section icon placement`.
+
 ## 3.10.13 — Icon-Led Mobile Library Headers
 
 **Goal:** Reduce duplicated mobile header text by moving the visible page cue into the library search row as a compact section icon while preserving accessible page titles.

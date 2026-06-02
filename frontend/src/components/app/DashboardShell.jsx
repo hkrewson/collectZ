@@ -19,7 +19,7 @@ const MOBILE_HEADER_TITLES = {
   'library-games': 'Games',
   'library-comics': 'Comics',
   'library-wishlist': 'Wishlist',
-  'library-capture': 'Capture',
+  'library-capture': 'Capture Inbox',
   'library-loans': 'Loans',
   'library-art': 'Art',
   'library-collectibles': 'Collectibles',
@@ -37,8 +37,42 @@ const MOBILE_HEADER_TITLES = {
   'admin-feature-flags': 'Feature Flags'
 };
 
+const MOBILE_HEADER_ICONS = {
+  dashboard: Icons.Gauge,
+  library: Icons.Library,
+  'library-movies': Icons.Clapper,
+  'library-tv': Icons.Tv,
+  'library-books': Icons.BookOpen,
+  'library-audio': Icons.MusicNote,
+  'library-games': Icons.Gamepad,
+  'library-comics': Icons.Speech,
+  'library-wishlist': Icons.Star,
+  'library-capture': Icons.InboxTray,
+  'library-loans': Icons.Handoff,
+  'library-art': Icons.Palette,
+  'library-collectibles': Icons.BoxOpen,
+  'library-events': Icons.Calendar,
+  'library-import': Icons.Upload,
+  'library-import-review': Icons.Upload,
+  help: Icons.Library,
+  'support-inbox': Icons.Users,
+  profile: Icons.Profile,
+  'space-manage': Icons.Users,
+  'admin-merge-review': Icons.List,
+  'admin-settings': Icons.Settings,
+  'admin-integrations': Icons.Integrations,
+  'admin-activity': Icons.Activity,
+  'admin-spaces': Icons.Users,
+  'admin-users': Icons.Users,
+  'admin-feature-flags': Icons.Settings
+};
+
 function getMobileHeaderTitle(activeTab) {
   return MOBILE_HEADER_TITLES[String(activeTab || '')] || 'Dashboard';
+}
+
+function getMobileHeaderIcon(activeTab) {
+  return MOBILE_HEADER_ICONS[String(activeTab || '')] || CollectzMark;
 }
 
 export default function DashboardShell({
@@ -101,6 +135,7 @@ export default function DashboardShell({
   const supportStaffInEdition = supportHelpEnabled && ['admin', 'support_admin'].includes(String(user?.role || ''));
   const supportSessionActiveInEdition = supportHelpEnabled && Boolean(supportSession?.active);
   const mobileHeaderTitle = getMobileHeaderTitle(activeTab);
+  const MobileHeaderIcon = getMobileHeaderIcon(activeTab);
 
   return (
     <div className="flex h-dvh overflow-hidden bg-void">
@@ -158,11 +193,11 @@ export default function DashboardShell({
           <button
             onClick={() => setMobileNavOpen(true)}
             className="btn-icon h-10 w-10 shrink-0"
-            aria-label="Open navigation"
+            aria-label={`Open navigation, ${mobileHeaderTitle}`}
             aria-expanded={mobileNavOpen}
             data-testid="mobile-nav-toggle"
           >
-            <CollectzMark className="h-7 w-7 text-gold" title="" />
+            <MobileHeaderIcon className="h-6 w-6 text-gold" title="" />
           </button>
           <p className="sr-only" data-testid="mobile-app-title">{mobileHeaderTitle}</p>
         </div>

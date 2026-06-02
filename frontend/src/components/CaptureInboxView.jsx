@@ -1166,15 +1166,6 @@ export default function CaptureInboxView({ apiCall, onToast, Icons, Spinner }) {
             ariaLabel="Capture status"
           />
           <div className="flex min-w-0 items-center gap-2">
-            <div
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-edge bg-raised text-dim sm:hidden"
-              role="img"
-              aria-label="Capture Inbox"
-              title="Capture Inbox"
-            >
-              {Icons?.InboxTray ? <Icons.InboxTray /> : null}
-              <span className="sr-only">Capture Inbox</span>
-            </div>
             <input
               className="input h-9 min-w-0 flex-1"
               value={search}

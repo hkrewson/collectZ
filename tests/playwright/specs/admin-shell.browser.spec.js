@@ -114,8 +114,9 @@ test.describe('admin shell browser regressions', () => {
     await expect(appHeader.getByText('COLLECTZ')).toHaveCount(0);
     await expect(appHeader.getByText('Admin')).toHaveCount(0);
     await page.getByTestId('mobile-nav-toggle').click();
-    await expect(page.locator('aside').getByText('collectZ')).toBeVisible();
-    await page.getByRole('button', { name: 'Dashboard' }).click();
+    const sidebar = page.locator('aside');
+    await expect(sidebar.getByText('collectZ')).toBeVisible();
+    await sidebar.getByRole('button', { name: 'Dashboard', exact: true }).click();
     const dashboardTabs = page.getByRole('tablist', { name: 'Dashboard sections' });
     await expect(dashboardTabs).toBeVisible();
     await expect(dashboardTabs.getByRole('tab', { name: 'Review' })).toBeVisible();
@@ -171,6 +172,7 @@ test.describe('admin shell browser regressions', () => {
       await expect(appHeader).toBeVisible();
       await expect(appHeader).toHaveCSS('position', 'sticky');
       await expect(page.getByTestId('mobile-app-title')).toHaveText(target.mobileTitle);
+      await expect(appHeader.getByRole('button', { name: `Open navigation, ${target.mobileTitle}` })).toBeVisible();
       await expect(page.getByRole('heading', { name: target.desktopHeading, exact: true })).toHaveCount(0);
       const header = page.getByTestId(target.header);
       await expect(header).toBeVisible();
@@ -242,9 +244,9 @@ test.describe('admin shell browser regressions', () => {
 
     const pages = [
       { route: '/dashboard?tab=library-wishlist', heading: 'Wishlist', mobileTitle: 'Wishlist', header: 'wishlist-page-header', body: 'wishlist-page-body', filterButton: /All types/, filterControl: 'Wishlist type' },
-      { route: '/dashboard?tab=library-loans', heading: 'Loans', headingVisible: false, mobileTitle: 'Loans', header: 'loans-page-header', body: 'loans-page-body', iconLabel: 'Loans' },
+      { route: '/dashboard?tab=library-loans', heading: 'Loans', headingVisible: false, mobileTitle: 'Loans', header: 'loans-page-header', body: 'loans-page-body' },
       { route: '/dashboard?tab=library-import', heading: 'Import Media', mobileTitle: 'Import', header: 'import-page-header', body: 'import-page-body' },
-      { route: '/dashboard?tab=library-capture', heading: 'Capture Inbox', headingVisible: false, mobileTitle: 'Capture', header: 'capture-page-header', body: 'capture-page-body', filterButton: /Filter captures/, filterControl: 'Capture type', absentHeaderText: 'My Library', iconLabel: 'Capture Inbox' },
+      { route: '/dashboard?tab=library-capture', heading: 'Capture Inbox', headingVisible: false, mobileTitle: 'Capture Inbox', header: 'capture-page-header', body: 'capture-page-body', filterButton: /Filter captures/, filterControl: 'Capture type', absentHeaderText: 'My Library' },
       { route: '/dashboard?tab=admin-integrations', heading: 'Integrations', mobileTitle: 'Integrations', header: 'admin-integrations-page-header', body: 'admin-integrations-page-body' }
     ];
 
@@ -258,15 +260,13 @@ test.describe('admin shell browser regressions', () => {
       const appHeader = page.getByTestId('mobile-app-header');
       await expect(appHeader).toBeVisible();
       await expect(page.getByTestId('mobile-app-title')).toHaveText(target.mobileTitle);
+      await expect(appHeader.getByRole('button', { name: `Open navigation, ${target.mobileTitle}` })).toBeVisible();
       await expect(appHeader.getByText('COLLECTZ')).toHaveCount(0);
       await expect(appHeader.getByText('Admin')).toHaveCount(0);
       const header = page.getByTestId(target.header);
       const body = page.getByTestId(target.body);
       await expect(header).toBeVisible();
       await expect(body).toBeVisible();
-      if (target.iconLabel) {
-        await expect(header.getByRole('img', { name: target.iconLabel })).toBeVisible();
-      }
       if (target.absentHeaderText) {
         await expect(header.getByText(target.absentHeaderText, { exact: true })).toHaveCount(0);
       }

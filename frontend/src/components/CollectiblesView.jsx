@@ -664,8 +664,6 @@ export default function CollectiblesView({ apiCall, onToast, focusTarget = null 
         onAdd={() => setAdding(true)}
         addLabel={viewConfig.addLabel}
         addAriaLabel={viewConfig.addLabel}
-        mobileIcon={viewConfig.title === 'Art' ? Icons.Palette : Icons.BoxOpen}
-        mobileIconLabel={viewConfig.title}
         Icons={Icons}
         compact={headerCompact}
         testId="collectibles-mobile-header"
