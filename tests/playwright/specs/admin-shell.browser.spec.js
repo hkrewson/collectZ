@@ -39,13 +39,16 @@ test.describe('admin shell browser regressions', () => {
   test('dashboard command center is the default dashboard landing view', async ({ page }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
     await signInThroughUi(page, adminCredentials);
-    const summaryResponse = page.waitForResponse((response) => (
-      response.url().includes('/api/dashboard/summary') && response.request().method() === 'GET'
-    ));
+    const requestContext = await createAuthenticatedRequestContext(adminCredentials);
+    let summary;
+    try {
+      const summaryApiResponse = await requestContext.get('/api/dashboard/summary');
+      expect(summaryApiResponse.ok()).toBeTruthy();
+      summary = await summaryApiResponse.json();
+    } finally {
+      await requestContext.dispose();
+    }
     await page.goto('/dashboard');
-    const response = await summaryResponse;
-    expect(response.ok()).toBeTruthy();
-    const summary = await response.json();
     expect(summary?.attention_details).toBeTruthy();
     expect(Array.isArray(summary?.attention_details?.missing_cover_items)).toBeTruthy();
     expect(Array.isArray(summary?.attention_details?.missing_identifier_items)).toBeTruthy();

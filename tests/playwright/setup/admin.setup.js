@@ -12,6 +12,7 @@ test('bootstrap authenticated admin storage state', async ({ request }) => {
   const requestContext = await createAuthenticatedRequestContext(credentials);
   try {
     await updateFeatureFlag(requestContext, 'events_enabled', true);
+    await updateFeatureFlag(requestContext, 'collectibles_enabled', true);
   } finally {
     await requestContext.dispose();
   }

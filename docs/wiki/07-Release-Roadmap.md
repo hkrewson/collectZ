@@ -6,6 +6,35 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.10.19 — Browser Regression Feature Flag Stabilization
+
+**Goal:** Stabilize the admin shell browser regression in CI by making gated library-surface preconditions explicit and avoiding brittle page response-body reads.
+
+### Scope
+
+- Enable `collectibles_enabled` in Playwright browser setup alongside `events_enabled`.
+- Keep Art, Collectibles, and Events available for admin shell browser regression coverage.
+- Read dashboard summary assertion data through an authenticated Playwright request context.
+- Keep app runtime behavior unchanged.
+
+### Acceptance Criteria
+
+- Dashboard command center landing regression passes without browser response-body capture errors.
+- Mobile compact toolbar regression reaches Collectibles, Art, and Events instead of falling back to Movies.
+- Desktop section-heading regression reaches Art, Collectibles, and Events.
+- Version metadata, release note, release feed, and Help > Releases include `3.10.19`.
+
+### Closeout
+
+- Status: completed.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/releases/v3.10.19.md`, and the downloaded Playwright regression artifact.
+- Runtime verification used: targeted Playwright browser regression against the running local stack, Docker rebuild at `APP_VERSION=3.10.19`, running `/api/health` version readback, and Help > Releases smoke from the running stack.
+- CI/checks run: targeted admin shell browser regression for dashboard command center landing, mobile library search toolbars, and desktop section headings; backend unit tests; OpenAPI validation; in-container RBAC regression; platform edition boundary smoke.
+- Files changed: Playwright browser setup, admin shell browser regression coverage, version metadata, release note/feed, and roadmap closeout.
+- Risks/follow-ups: homelab edition boundary, dependency scan, secret scan, and image security/SBOM remain CI or alternate-topology gates for this test-only patch.
+- What remains in the milestone: nothing for `3.10.19`.
+- Recommended commit message: `Release 3.10.19 with browser regression feature flag stabilization`.
+
 ## 3.10.18 — Browser Regression Navigation Stabilization
 
 **Goal:** Stabilize the admin shell browser regression after the desktop/mobile header patches by making query-tab navigation in tests sync with the mounted dashboard shell state.
