@@ -227,13 +227,19 @@ test.describe('admin shell browser regressions', () => {
       { route: '/dashboard?tab=library-books', heading: 'Books' },
       { route: '/dashboard?tab=library-audio', heading: 'Audio' },
       { route: '/dashboard?tab=library-games', heading: 'Games' },
-      { route: '/dashboard?tab=library-comics', heading: 'Comics' }
+      { route: '/dashboard?tab=library-comics', heading: 'Comics' },
+      { route: '/dashboard?tab=library-art', heading: 'Art', absentText: 'Track original art, prints, and sketch commissions' },
+      { route: '/dashboard?tab=library-collectibles', heading: 'Collectibles', absentText: 'Keep convention pickups, exclusives, props, cards' },
+      { route: '/dashboard?tab=library-events', heading: 'Events', absentText: 'Track conventions, screenings, meetups' }
     ];
 
     for (const target of pages) {
       await page.goto(target.route);
       await expect(page.getByRole('heading', { name: target.heading, exact: true })).toBeVisible();
       await expect(page.getByRole('heading', { name: 'Library', exact: true })).toHaveCount(0);
+      if (target.absentText) {
+        await expect(page.getByText(target.absentText)).toHaveCount(0);
+      }
     }
   });
 

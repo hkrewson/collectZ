@@ -26,7 +26,6 @@ const VIEW_CONFIG = {
   entityNoun: 'collectible',
   detailFallback: 'Collectible',
   apiBasePath: '/collectibles',
-  description: 'Keep convention pickups, exclusives, props, cards, and shelf pieces feeling connected to the events they came from.',
   emptyState: 'No collectibles found. Add exclusives, props, cards, and shelf pieces here so they feel anchored to your events and vendors.',
   cameraTitle: 'Capture collectible image',
   cameraDescription: 'Capture a collectible image and attach it directly to this item.',
@@ -594,7 +593,6 @@ export default function CollectiblesView({ apiCall, onToast, focusTarget = null 
       <PageHeaderSearchToolbar
         title={viewConfig.title}
         total={pagination.total || items.length}
-        description={viewConfig.description}
         searchValue={search}
         onSearchChange={(value) => { setSearch(value); setPage(1); }}
         filters={(

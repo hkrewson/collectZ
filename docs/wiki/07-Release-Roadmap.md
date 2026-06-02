@@ -6,6 +6,36 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.10.17 — Desktop Library Header Copy Cleanup
+
+**Goal:** Remove descriptive page-header copy from desktop library-style pages so Art, Collectibles, and Events match the compact title/search/filter header pattern.
+
+### Scope
+
+- Remove the Art desktop header description.
+- Remove the Collectibles desktop header description.
+- Remove the Events desktop header description.
+- Preserve empty-state, drawer, and body copy.
+- Add browser regression coverage for the page-title-only desktop header behavior.
+
+### Acceptance Criteria
+
+- Desktop Art, Collectibles, and Events headers show the page title without descriptive copy.
+- Existing search/filter/add controls remain visible and unchanged.
+- Existing mobile shell/header behavior remains unchanged.
+- Version metadata, release note, release feed, and Help > Releases include `3.10.17`.
+
+### Closeout
+
+- Status: completed.
+- Project docs/checklists used: `AGENTS.md`, `/Users/hamlin/.codex/skills/uncodixfy/SKILL.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/releases/v3.10.17.md`.
+- Runtime verification used: Docker rebuild at `APP_VERSION=3.10.17`, running `/api/health` version readback, Help > Releases smoke, and targeted desktop library heading browser regression.
+- CI/checks run: frontend build; backend unit; OpenAPI; targeted desktop library heading browser regression; release-note heading check; version sync check; `git diff --check`.
+- Files changed: Art/Collectibles/Events header wiring, desktop header browser regression coverage, version metadata, release note/feed, and roadmap closeout.
+- Risks/follow-ups: full browser regression and edition boundary gates were not rerun for this small frontend copy-removal patch; CI remains authoritative for those broader release gates before publication.
+- What remains in the milestone: nothing for `3.10.17`; continue the broader `3.10.x` mobile/interface cleanup with the next selected surface.
+- Recommended commit message: `Release 3.10.17 with desktop library header copy cleanup`.
+
 ## 3.10.16 — Library Filter Menu Consolidation
 
 **Goal:** Put library filter controls behind one shared funnel menu on desktop and mobile so the compact search/header row stays focused on search, view mode, sort, and add actions.

@@ -993,7 +993,6 @@ export default function ArtView({ apiCall, onToast, focusTarget = null }) {
       <PageHeaderSearchToolbar
         title="Art"
         total={pagination.total || items.length}
-        description="Track original art, prints, and sketch commissions as their own library while keeping event purchase context attached."
         searchValue={search}
         onSearchChange={(value) => { setSearch(value); setPage(1); }}
         filters={(

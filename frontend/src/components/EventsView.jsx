@@ -5377,7 +5377,6 @@ export default function EventsView({ apiCall, onToast, currentUser = null, focus
       <PageHeaderSearchToolbar
         title="Events"
         total={pagination.total || items.length}
-        description="Track conventions, screenings, meetups, and the artifacts you picked up along the way."
         searchValue={search}
         onSearchChange={(value) => { setSearch(value); setPage(1); }}
         searchPlaceholder="Search title or location…"
