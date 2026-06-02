@@ -118,7 +118,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1042.0",
-    "axios": "^1.16.0",
+    "axios": "^1.16.1",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
