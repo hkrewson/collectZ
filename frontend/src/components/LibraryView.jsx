@@ -7,6 +7,7 @@ import {
   DisclosureList,
   DetailDrawerShell,
   DrawerBackdrop,
+  FilterMenu,
   PageHeaderSearchToolbar,
   CollectionPaginationFooter,
   cx,
@@ -4366,6 +4367,30 @@ export default function LibraryView({
     }
     return null;
   }, [forcedMediaType, mediaItems, platformInput, publisherInput, resolutionInput]);
+  const quickFilterActiveCount = quickFilterConfig && quickFilterConfig.value !== 'all' ? 1 : 0;
+  const reviewFilterActiveCount = filters.review_filter ? 1 : 0;
+  const libraryFilterActiveCount = quickFilterActiveCount + reviewFilterActiveCount;
+  const quickFilterLabel = quickFilterConfig
+    ? (quickFilterConfig.options.find((option) => option.value === quickFilterConfig.value)?.label || quickFilterConfig.label)
+    : '';
+  const libraryFilterSummary = libraryFilterActiveCount > 1
+    ? `${libraryFilterActiveCount} filters`
+    : (quickFilterActiveCount ? quickFilterLabel : activeReviewFilterLabel || 'All filters');
+  const shouldShowLibraryFilterMenu = Boolean(quickFilterConfig || filters.review_filter);
+  const clearQuickFilter = useCallback(() => {
+    if (!quickFilterConfig) return;
+    if (quickFilterConfig.key === 'resolution') {
+      setResolutionInput('all');
+      setFilters((f) => ({ ...f, resolution: 'all' }));
+    } else if (quickFilterConfig.key === 'platform') {
+      setPlatformInput('all');
+      setFilters((f) => ({ ...f, platform: 'all' }));
+    } else if (quickFilterConfig.key === 'publisher') {
+      setPublisherInput('all');
+      setFilters((f) => ({ ...f, publisher: 'all' }));
+    }
+    setPage(1);
+  }, [quickFilterConfig]);
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
@@ -4937,6 +4962,10 @@ export default function LibraryView({
     onClearReviewFilter?.();
     setPage(1);
   }, [onClearReviewFilter]);
+  const clearLibraryFilters = useCallback(() => {
+    if (quickFilterActiveCount) clearQuickFilter();
+    if (reviewFilterActiveCount) clearReviewFilter();
+  }, [clearQuickFilter, clearReviewFilter, quickFilterActiveCount, reviewFilterActiveCount]);
 
   const handleBulkDelete = useCallback(async () => {
     const targetIds = [...selectedIds];
@@ -4999,30 +5028,52 @@ export default function LibraryView({
         searchValue={searchInput}
         onSearchChange={setSearchInput}
         searchPlaceholder="Search title, director…"
-        filters={quickFilterConfig ? (
-          <select
-            className="select min-w-0 !w-36 sm:!w-48"
-            value={quickFilterConfig.value}
-            aria-label={quickFilterConfig.label}
-            onChange={(e) => {
-              const value = e.target.value;
-              if (quickFilterConfig.key === 'resolution') {
-                setResolutionInput(value);
-                setFilters((f) => ({ ...f, resolution: value }));
-              } else if (quickFilterConfig.key === 'platform') {
-                setPlatformInput(value);
-                setFilters((f) => ({ ...f, platform: value }));
-              } else if (quickFilterConfig.key === 'publisher') {
-                setPublisherInput(value);
-                setFilters((f) => ({ ...f, publisher: value }));
-              }
-              setPage(1);
-            }}
+        filters={shouldShowLibraryFilterMenu ? (
+          <FilterMenu
+            ariaLabel={`Filter ${title}`}
+            summary={libraryFilterSummary}
+            activeCount={libraryFilterActiveCount}
+            onClear={libraryFilterActiveCount ? clearLibraryFilters : null}
+            Icons={Icons}
           >
-            {quickFilterConfig.options.map((option) => (
-              <option key={option.value} value={option.value}>{option.label}</option>
-            ))}
-          </select>
+            {quickFilterConfig ? (
+              <label className="block">
+                <span className="mb-1 block text-xs text-ghost">{quickFilterConfig.label}</span>
+                <select
+                  className="select h-9 w-full"
+                  value={quickFilterConfig.value}
+                  aria-label={quickFilterConfig.label}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (quickFilterConfig.key === 'resolution') {
+                      setResolutionInput(value);
+                      setFilters((f) => ({ ...f, resolution: value }));
+                    } else if (quickFilterConfig.key === 'platform') {
+                      setPlatformInput(value);
+                      setFilters((f) => ({ ...f, platform: value }));
+                    } else if (quickFilterConfig.key === 'publisher') {
+                      setPublisherInput(value);
+                      setFilters((f) => ({ ...f, publisher: value }));
+                    }
+                    setPage(1);
+                  }}
+                >
+                  {quickFilterConfig.options.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            {filters.review_filter ? (
+              <div className="rounded-md border border-edge bg-surface/60 px-3 py-2 text-xs">
+                <div className="text-ghost">Review</div>
+                <div className="mt-1 flex items-center justify-between gap-3">
+                  <span className="min-w-0 truncate text-ink">{activeReviewFilterLabel}</span>
+                  <button type="button" className="btn-ghost btn-sm" onClick={clearReviewFilter}>Clear</button>
+                </div>
+              </div>
+            ) : null}
+          </FilterMenu>
         ) : null}
         viewMode={viewMode}
         onViewModeChange={setViewMode}

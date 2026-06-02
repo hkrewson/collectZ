@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CheckboxControl, CollectionPaginationFooter, CoverImagePicker, DetailDrawerShell, DrawerBackdrop, Icons, PageHeaderSearchToolbar, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { CheckboxControl, CollectionPaginationFooter, CoverImagePicker, DetailDrawerShell, DrawerBackdrop, FilterMenu, Icons, PageHeaderSearchToolbar, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
 import SignatureManager from './app/SignatureManager';
 
 const ART_MEDIUM_OPTIONS = [
@@ -787,14 +787,12 @@ export default function ArtView({ apiCall, onToast, focusTarget = null }) {
   const [viewMode, setViewMode] = useState('cards');
   const [eventFilter, setEventFilter] = useState('');
   const [exclusiveFilter, setExclusiveFilter] = useState('');
-  const [filterOpen, setFilterOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
   const [pagination, setPagination] = useState({ page: 1, limit: 50, total: 0, totalPages: 1, hasMore: false });
   const [editing, setEditing] = useState(null);
   const [detailId, setDetailId] = useState(null);
   const [adding, setAdding] = useState(false);
-  const filterMenuRef = useRef(null);
   const handleContentScroll = useCallback((event) => {
     const nextCompact = event.currentTarget.scrollTop > 24;
     setHeaderCompact((current) => (current === nextCompact ? current : nextCompact));
@@ -805,6 +803,16 @@ export default function ArtView({ apiCall, onToast, focusTarget = null }) {
     () => [search.trim(), eventFilter, exclusiveFilter].filter(Boolean).length,
     [eventFilter, exclusiveFilter, search]
   );
+  const menuFilterCount = useMemo(
+    () => [eventFilter, exclusiveFilter].filter(Boolean).length,
+    [eventFilter, exclusiveFilter]
+  );
+  const filterSummary = useMemo(() => {
+    const labels = [];
+    if (eventFilter) labels.push(events.find((evt) => String(evt.id) === String(eventFilter))?.title || 'Event');
+    if (exclusiveFilter) labels.push(exclusiveFilter === 'true' ? 'Exclusive only' : 'Non-exclusive only');
+    return labels.length ? labels.join(' · ') : 'All filters';
+  }, [eventFilter, events, exclusiveFilter]);
 
   const loadEvents = useCallback(async () => {
     try {
@@ -842,16 +850,6 @@ export default function ArtView({ apiCall, onToast, focusTarget = null }) {
     if (focusTarget?.entityType !== 'art' || !focusTarget?.entityId) return;
     setDetailId(Number(focusTarget.entityId));
   }, [focusTarget?.createdAt, focusTarget?.entityId, focusTarget?.entityType]);
-  useEffect(() => {
-    const onPointerDown = (event) => {
-      if (!filterMenuRef.current) return;
-      if (filterMenuRef.current.contains(event.target)) return;
-      setFilterOpen(false);
-    };
-    document.addEventListener('mousedown', onPointerDown);
-    return () => document.removeEventListener('mousedown', onPointerDown);
-  }, []);
-
   const closeDrawer = () => {
     setAdding(false);
     setEditing(null);
@@ -999,31 +997,48 @@ export default function ArtView({ apiCall, onToast, focusTarget = null }) {
         searchValue={search}
         onSearchChange={(value) => { setSearch(value); setPage(1); }}
         filters={(
-          <div className="relative" ref={filterMenuRef}>
-            <button className="btn-secondary" onClick={() => setFilterOpen((v) => !v)}>Filter<Icons.ChevronDown /></button>
-            {filterOpen ? (
-              <div className="absolute right-0 z-20 mt-2 w-80 space-y-3 rounded-lg border border-edge bg-raised p-3 shadow-lg">
-                <div>
-                  <p className="mb-2 text-xs text-ghost">Events</p>
-                  <select className="select w-full" value={eventFilter} onChange={(e) => { setEventFilter(e.target.value); setPage(1); }}>
-                    <option value="">All events</option>
-                    {events.map((evt) => <option key={evt.id} value={String(evt.id)}>{evt.title}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <p className="mb-2 text-xs text-ghost">Exclusives</p>
-                  <div className="flex gap-2">
-                    <button className={cx('btn-ghost btn-sm', exclusiveFilter === '' && 'bg-brand/20 text-brand')} onClick={() => { setExclusiveFilter(''); setPage(1); }}>All</button>
-                    <button className={cx('btn-ghost btn-sm', exclusiveFilter === 'true' && 'bg-brand/20 text-brand')} onClick={() => { setExclusiveFilter('true'); setPage(1); }}>Exclusive</button>
-                    <button className={cx('btn-ghost btn-sm', exclusiveFilter === 'false' && 'bg-brand/20 text-brand')} onClick={() => { setExclusiveFilter('false'); setPage(1); }}>Non-exclusive</button>
-                  </div>
-                </div>
-                <div className="flex justify-end border-t border-edge pt-1">
-                  <button className="btn-ghost btn-sm" onClick={() => { setEventFilter(''); setExclusiveFilter(''); setPage(1); }}>Clear filters</button>
-                </div>
+          <FilterMenu
+            ariaLabel="Filter Art"
+            summary={filterSummary}
+            activeCount={menuFilterCount}
+            onClear={menuFilterCount ? () => { setEventFilter(''); setExclusiveFilter(''); setPage(1); } : null}
+            Icons={Icons}
+          >
+            <label className="block">
+              <span className="mb-1 block text-xs text-ghost">Events</span>
+              <select className="select h-9 w-full" value={eventFilter} onChange={(e) => { setEventFilter(e.target.value); setPage(1); }} aria-label="Art event filter">
+                <option value="">All events</option>
+                {events.map((evt) => <option key={evt.id} value={String(evt.id)}>{evt.title}</option>)}
+              </select>
+            </label>
+            <div>
+              <div className="mb-1 text-xs text-ghost">Exclusives</div>
+              <div className="grid grid-cols-3 gap-1.5" role="radiogroup" aria-label="Art exclusive filter">
+                {[
+                  { value: '', label: 'All' },
+                  { value: 'true', label: 'Exclusive' },
+                  { value: 'false', label: 'Other' }
+                ].map((option) => {
+                  const selected = exclusiveFilter === option.value;
+                  return (
+                    <button
+                      key={option.value || 'all'}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      className={cx(
+                        'min-h-8 rounded-md border px-2 py-1.5 text-xs transition-colors',
+                        selected ? 'border-gold/70 bg-raised text-ink' : 'border-edge bg-surface/60 text-dim hover:border-muted hover:text-ink'
+                      )}
+                      onClick={() => { setExclusiveFilter(option.value); setPage(1); }}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
               </div>
-            ) : null}
-          </div>
+            </div>
+          </FilterMenu>
         )}
         filterCount={activeFilterCount}
         viewMode={viewMode}

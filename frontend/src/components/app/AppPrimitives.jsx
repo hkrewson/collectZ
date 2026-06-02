@@ -139,6 +139,70 @@ export function MobileFilterDisclosure({
   );
 }
 
+export function FilterMenu({
+  summary = 'All filters',
+  activeCount = 0,
+  ariaLabel = 'Filter',
+  children,
+  clearLabel = 'Clear filters',
+  onClear,
+  className = '',
+  menuClassName = '',
+  Icons: IconSet = Icons
+}) {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef(null);
+  const FilterIcon = IconSet?.Filter || IconSet?.List;
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const handleClick = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [open]);
+
+  return (
+    <div className={cx('relative shrink-0', className)} ref={menuRef}>
+      <button
+        type="button"
+        className="btn-icon relative h-9 w-9"
+        aria-label={`${ariaLabel}: ${summary || 'All filters'}`}
+        aria-expanded={open}
+        title="Filter"
+        onClick={() => setOpen((current) => !current)}
+      >
+        {FilterIcon ? <FilterIcon /> : null}
+        {activeCount > 0 ? (
+          <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full border border-void bg-brand px-1 text-[10px] font-semibold leading-none text-ink">
+            {activeCount}
+          </span>
+        ) : null}
+      </button>
+      {open ? (
+        <div
+          className={cx(
+            'absolute right-0 z-40 mt-2 w-[min(20rem,calc(100vw-2rem))] space-y-3 rounded-lg border border-edge bg-deep p-3 shadow-deep',
+            menuClassName
+          )}
+          role="group"
+          aria-label={ariaLabel}
+        >
+          {children}
+          {onClear ? (
+            <div className="flex justify-end border-t border-edge pt-2">
+              <button type="button" className="btn-ghost btn-sm" onClick={onClear}>
+                {clearLabel}
+              </button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function DrawerBackdrop({
   imagePath,
   className = 'h-48',
@@ -465,8 +529,7 @@ export function PageHeaderSearchToolbar({
       className={cx(
         'grid min-w-0 flex-1 gap-2 sm:hidden',
         mobileToolbarGridClass,
-        '[&_.btn-secondary]:h-9 [&_.btn-secondary]:w-9 [&_.btn-secondary]:overflow-hidden [&_.btn-secondary]:px-0 [&_.btn-secondary]:text-transparent [&_.btn-secondary_svg]:text-dim',
-        '[&_.select]:h-9 [&_.select]:w-9 [&_.select]:min-w-9 [&_.select]:overflow-hidden [&_.select]:px-0 [&_.select]:text-transparent'
+        '[&_.btn-secondary]:h-9 [&_.btn-secondary]:w-9 [&_.btn-secondary]:overflow-hidden [&_.btn-secondary]:px-0 [&_.btn-secondary]:text-transparent [&_.btn-secondary_svg]:text-dim'
       )}
       data-testid={toolbarTestId ? `${toolbarTestId}-shell` : undefined}
     >

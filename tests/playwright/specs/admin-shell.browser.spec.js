@@ -160,10 +160,10 @@ test.describe('admin shell browser regressions', () => {
     await signInThroughUi(page, adminCredentials);
 
     const pages = [
-      { route: '/dashboard?tab=library-movies', mobileTitle: 'Movies', desktopHeading: 'Movies', header: 'library-mobile-header', toolbar: 'library-mobile-toolbar', maxToolbarHeight: 44 },
-      { route: '/dashboard?tab=library-collectibles', mobileTitle: 'Collectibles', desktopHeading: 'Collectibles', header: 'collectibles-mobile-header', toolbar: 'collectibles-mobile-toolbar', maxToolbarHeight: 44 },
-      { route: '/dashboard?tab=library-art', mobileTitle: 'Art', desktopHeading: 'Art', header: 'art-mobile-header', toolbar: 'art-mobile-toolbar', maxToolbarHeight: 44 },
-      { route: '/dashboard?tab=library-events', mobileTitle: 'Events', desktopHeading: 'Events', header: 'events-mobile-header', toolbar: 'events-mobile-toolbar', maxToolbarHeight: 44 }
+      { route: '/dashboard?tab=library-movies', mobileTitle: 'Movies', desktopHeading: 'Movies', header: 'library-mobile-header', toolbar: 'library-mobile-toolbar', maxToolbarHeight: 44, filterLabel: /Filter Movies/ },
+      { route: '/dashboard?tab=library-collectibles', mobileTitle: 'Collectibles', desktopHeading: 'Collectibles', header: 'collectibles-mobile-header', toolbar: 'collectibles-mobile-toolbar', maxToolbarHeight: 44, filterLabel: /Filter Collectibles/ },
+      { route: '/dashboard?tab=library-art', mobileTitle: 'Art', desktopHeading: 'Art', header: 'art-mobile-header', toolbar: 'art-mobile-toolbar', maxToolbarHeight: 44, filterLabel: /Filter Art/ },
+      { route: '/dashboard?tab=library-events', mobileTitle: 'Events', desktopHeading: 'Events', header: 'events-mobile-header', toolbar: 'events-mobile-toolbar', maxToolbarHeight: 44, filterLabel: /Filter Events/ }
     ];
 
     for (const target of pages) {
@@ -184,6 +184,11 @@ test.describe('admin shell browser regressions', () => {
       expect(toolbarBox).toBeTruthy();
       expect(appHeaderBoxBefore.height).toBeLessThanOrEqual(64);
       expect(toolbarBox.height).toBeLessThanOrEqual(target.maxToolbarHeight);
+      const filterButton = toolbar.getByRole('button', { name: target.filterLabel });
+      await expect(filterButton).toBeVisible();
+      await filterButton.click();
+      await expect(page.getByRole('group', { name: target.filterLabel })).toBeVisible();
+      await filterButton.click();
       await page.evaluate(() => {
         window.scrollTo(0, 500);
         const scrollArea = Array.from(document.querySelectorAll('.scroll-area'))

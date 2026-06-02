@@ -1,6 +1,27 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.10.16",
+      "version": "3.10.16",
+      "date": null,
+      "status": "completed",
+      "summary": "This patch consolidates library filter controls into a single funnel menu so desktop and mobile pages stop carrying loose secondary filter fields in the main search toolbar.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added a shared `FilterMenu` primitive using the existing funnel icon.",
+            "Moved media library quick filters into the funnel menu.",
+            "Moved Art event and exclusive filters into the funnel menu.",
+            "Moved Collectibles category, event, and exclusive filters into the funnel menu.",
+            "Moved Events date range filters into the funnel menu.",
+            "Kept live search, view mode, sort, and add actions outside the filter menu.",
+            "Left Loans status tabs unchanged because they act as primary loan state tabs."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.10.15",
       "version": "3.10.15",
       "date": null,
@@ -168,25 +189,6 @@
             "Migrated media Library, Art, Collectibles, Events, and Loans onto the shared toolbar path.",
             "Added scroll-aware compaction for media Library, Art, Collectibles, and Events so the toolbar gives back vertical space while browsing.",
             "Kept page-specific filters local to each surface through toolbar slots instead of hiding business rules inside the primitive."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.10.6",
-      "version": "3.10.6",
-      "date": null,
-      "status": "completed",
-      "summary": "This patch clarifies page-title ownership across the library surfaces: desktop library pages now name the section being viewed, while mobile keeps location in the compact app header instead of repeating it in the page toolbar.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Changed desktop media library headings from generic `Library` to the active section name, such as `Movies`, `TV`, `Books`, `Audio`, `Games`, or `Comics`.",
-            "Kept the aggregate all-library review route labeled `Library`.",
-            "Hid duplicate page-title/count groups from mobile library, Art, Collectibles, and Events toolbars because the mobile app shell already shows the active page title.",
-            "Preserved mobile search, filter, view-toggle, sort, and add controls in their existing page toolbars.",
-            "Updated browser regression coverage for mobile shell title ownership and the new desktop media-library heading."
           ]
         }
       ]

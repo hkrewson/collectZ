@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CheckboxControl, CollectionPaginationFooter, CoverImagePicker, DetailDrawerShell, DrawerBackdrop, Icons, ImageSourceControl, PageHeaderSearchToolbar, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
+import { CheckboxControl, CollectionPaginationFooter, CoverImagePicker, DetailDrawerShell, DrawerBackdrop, FilterMenu, Icons, ImageSourceControl, PageHeaderSearchToolbar, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
 
 const DEFAULT_EVENT_FORM = {
   title: '',
@@ -5290,6 +5290,13 @@ export default function EventsView({ apiCall, onToast, currentUser = null, focus
 
   const supportsHover = useMemo(() => window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches, []);
   const activeFilterCount = useMemo(() => [search.trim(), fromDate, toDate].filter(Boolean).length, [fromDate, search, toDate]);
+  const dateFilterCount = useMemo(() => [fromDate, toDate].filter(Boolean).length, [fromDate, toDate]);
+  const filterSummary = useMemo(() => {
+    const labels = [];
+    if (fromDate) labels.push(`From ${toDisplayDate(fromDate)}`);
+    if (toDate) labels.push(`To ${toDisplayDate(toDate)}`);
+    return labels.length ? labels.join(' · ') : 'All filters';
+  }, [fromDate, toDate]);
   const handleContentScroll = useCallback((event) => {
     const nextCompact = event.currentTarget.scrollTop > 24;
     setHeaderCompact((current) => (current === nextCompact ? current : nextCompact));
@@ -5374,23 +5381,35 @@ export default function EventsView({ apiCall, onToast, currentUser = null, focus
         searchValue={search}
         onSearchChange={(value) => { setSearch(value); setPage(1); }}
         searchPlaceholder="Search title or location…"
-        extraControls={(
-          <>
-            <input
-              type="date"
-              className="input min-w-0"
-              value={fromDate}
-              onChange={(e) => { setFromDate(e.target.value); setPage(1); }}
-              title="From date"
-            />
-            <input
-              type="date"
-              className="input min-w-0"
-              value={toDate}
-              onChange={(e) => { setToDate(e.target.value); setPage(1); }}
-              title="To date"
-            />
-          </>
+        filters={(
+          <FilterMenu
+            ariaLabel="Filter Events"
+            summary={filterSummary}
+            activeCount={dateFilterCount}
+            onClear={dateFilterCount ? () => { setFromDate(''); setToDate(''); setPage(1); } : null}
+            Icons={Icons}
+          >
+            <label className="block">
+              <span className="mb-1 block text-xs text-ghost">From date</span>
+              <input
+                type="date"
+                className="input h-9 w-full"
+                value={fromDate}
+                onChange={(e) => { setFromDate(e.target.value); setPage(1); }}
+                aria-label="Event from date"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs text-ghost">To date</span>
+              <input
+                type="date"
+                className="input h-9 w-full"
+                value={toDate}
+                onChange={(e) => { setToDate(e.target.value); setPage(1); }}
+                aria-label="Event to date"
+              />
+            </label>
+          </FilterMenu>
         )}
         filterCount={activeFilterCount}
         viewMode={viewMode}

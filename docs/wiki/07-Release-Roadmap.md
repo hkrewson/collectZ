@@ -6,6 +6,40 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.10.16 — Library Filter Menu Consolidation
+
+**Goal:** Put library filter controls behind one shared funnel menu on desktop and mobile so the compact search/header row stays focused on search, view mode, sort, and add actions.
+
+### Scope
+
+- Add a shared `FilterMenu` primitive using the existing funnel icon.
+- Move media quick filters such as resolution, platform, and publisher into the funnel menu.
+- Move Art event and exclusive filters into the funnel menu.
+- Move Collectibles category, event, and exclusive filters into the funnel menu.
+- Move Events date range filters into the funnel menu.
+- Preserve live search, view mode, sort, and add controls outside the filter menu.
+- Leave Loans status tabs unchanged because they are primary loan-state tabs, not secondary filter controls.
+
+### Acceptance Criteria
+
+- Movies, Art, Collectibles, and Events each expose one filter button for their secondary filters.
+- Desktop and mobile use the same shared funnel menu primitive.
+- Filter menu buttons include active filter count/readback where applicable.
+- Filter controls remain usable from the opened menu on mobile.
+- The compact mobile shell toolbar does not horizontally overflow.
+- Version metadata, release note, release feed, and Help > Releases include `3.10.16`.
+
+### Closeout
+
+- Status: completed.
+- Project docs/checklists used: `AGENTS.md`, `/Users/hamlin/.codex/skills/uncodixfy/SKILL.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/releases/v3.10.16.md`.
+- Runtime verification used: Docker rebuild at `APP_VERSION=3.10.16`, running `/api/health` version readback, Help > Releases smoke, targeted mobile library shell/filter browser regression, full browser regression, and platform/default stack boundary smokes.
+- CI/checks run: frontend build; backend unit; OpenAPI; init parity; migration rehearsal; integration smoke; RBAC regression; platform edition boundary; homelab edition boundary; targeted mobile library shell/filter browser regression; full browser regression; Node 20 backend/frontend `npm ci --dry-run`; observability evidence; release preflight; release-note heading check; version sync check; `git diff --check`; release artifact secret scan.
+- Files changed: shared `FilterMenu` primitive, Library/Art/Collectibles/Events filter menu wiring, mobile browser regression coverage, version metadata, release note/feed, release evidence, and roadmap closeout.
+- Risks/follow-ups: utility pages still own their page-specific filter patterns; promote a shared mobile filter sheet only if those pages need deeper consolidation. CI remains authoritative for gitleaks, Trivy/SBOM, and stricter secure-cookie compose-smoke proof.
+- What remains in the milestone: nothing for `3.10.16`; continue the broader `3.10.x` mobile/interface cleanup with the next selected surface.
+- Recommended commit message: `Release 3.10.16 with library filter menu consolidation`.
+
 ## 3.10.15 — Mobile Shell Search Toolbar Placement
 
 **Goal:** Move the mobile search/add/filter controls into the compact shell header row beside the section icon so library pages stop spending a second band on primary browsing controls.
