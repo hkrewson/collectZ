@@ -6,6 +6,35 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.10.18 — Browser Regression Navigation Stabilization
+
+**Goal:** Stabilize the admin shell browser regression after the desktop/mobile header patches by making query-tab navigation in tests sync with the mounted dashboard shell state.
+
+### Scope
+
+- Add a small Playwright helper for dashboard query-tab navigation.
+- Use the helper in mobile library toolbar, desktop library heading, and mobile utility header regressions.
+- Correct Capture Inbox browser expectations now that its page heading is intentionally visible.
+- Keep app runtime behavior unchanged.
+
+### Acceptance Criteria
+
+- The three CI-failing admin shell browser cases pass locally.
+- The test verifies Art, Collectibles, and Events desktop headers without stale `Movies` state.
+- Capture Inbox utility header coverage matches the current page heading behavior.
+- Version metadata, release note, release feed, and Help > Releases include `3.10.18`.
+
+### Closeout
+
+- Status: completed.
+- Project docs/checklists used: `AGENTS.md`, `docs/releases/v3.10.18.md`, and the downloaded Playwright regression artifact.
+- Runtime verification used: Docker rebuild at `APP_VERSION=3.10.18`, running `/api/health` version readback, and Help > Releases smoke from the running stack.
+- CI/checks run: targeted admin shell browser regression for mobile library search toolbars, desktop section headings, and mobile utility stable headers; backend unit tests; OpenAPI validation; in-container RBAC regression; platform edition boundary smoke; release note heading check; version sync check; `git diff --check`.
+- Files changed: admin shell browser regression coverage, version metadata, release note/feed, and roadmap closeout.
+- Risks/follow-ups: the RBAC CI failure attached separately was a Docker Hub pull timeout before RBAC started; rerun CI or add pull retry/mirror behavior if it repeats. Homelab edition boundary, dependency scan, secret scan, and image security/SBOM remain CI or alternate-topology gates for this test-only patch.
+- What remains in the milestone: nothing for `3.10.18`.
+- Recommended commit message: `Release 3.10.18 with browser regression navigation stabilization`.
+
 ## 3.10.17 — Desktop Library Header Copy Cleanup
 
 **Goal:** Remove descriptive page-header copy from desktop library-style pages so Art, Collectibles, and Events match the compact title/search/filter header pattern.

@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.10.18",
+      "version": "3.10.18",
+      "date": null,
+      "status": "completed",
+      "summary": "This patch stabilizes the admin shell browser regression after the recent desktop/mobile header work by making dashboard tab navigation in the test follow the app's mounted route-sync behavior.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added a small Playwright helper that dispatches dashboard route state after query-tab navigation.",
+            "Updated the mobile compact toolbar regression to use that helper.",
+            "Updated the desktop library heading regression to use that helper.",
+            "Updated the mobile utility header regression to use that helper.",
+            "Corrected Capture Inbox expectations now that its page heading is intentionally visible."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.10.17",
       "version": "3.10.17",
       "date": null,
@@ -170,26 +189,6 @@
             "Moved Capture Inbox type, source, and review filters behind a compact mobile readback while keeping status primary.",
             "Preserved live search behavior and removed redundant mobile Search-button chrome from these utility headers.",
             "Added a backlog entry for the remaining header/search refinement work discovered during the UI/UX pass."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.10.8",
-      "version": "3.10.8",
-      "date": null,
-      "status": "completed",
-      "summary": "This patch brings utility pages into the mobile header cleanup line. Wishlist, Import, Integrations, and Capture Inbox now use a shared utility page header pattern with their main search, filter, or section controls kept in the fixed page header and compacted after the user scrolls into the page content.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added a shared `UtilityPageHeader` primitive for utility-page title, subtitle, actions, and workflow-specific controls.",
-            "Extended `FixedPageShell` so utility pages can react to body scroll and compact their fixed header.",
-            "Moved Wishlist status/search filters into the fixed header and compacted the add action on scroll.",
-            "Moved Import source tabs into the fixed header so the source selector stays available while the import form scrolls.",
-            "Moved the mobile Integrations selector into the fixed header while keeping the desktop integration tabs in the page body.",
-            "Converted Capture Inbox to the fixed shell and moved capture status, source, search, and review filters into the shared utility header."
           ]
         }
       ]

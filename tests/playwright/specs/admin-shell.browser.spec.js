@@ -30,6 +30,11 @@ async function readRect(locator) {
   });
 }
 
+async function gotoDashboardTab(page, route) {
+  await page.goto(route);
+  await page.evaluate(() => window.dispatchEvent(new PopStateEvent('popstate')));
+}
+
 test.describe('admin shell browser regressions', () => {
   test('dashboard command center is the default dashboard landing view', async ({ page }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
@@ -167,7 +172,7 @@ test.describe('admin shell browser regressions', () => {
     ];
 
     for (const target of pages) {
-      await page.goto(target.route);
+      await gotoDashboardTab(page, target.route);
       const appHeader = page.getByTestId('mobile-app-header');
       await expect(appHeader).toBeVisible();
       await expect(appHeader).toHaveCSS('position', 'sticky');
@@ -234,7 +239,7 @@ test.describe('admin shell browser regressions', () => {
     ];
 
     for (const target of pages) {
-      await page.goto(target.route);
+      await gotoDashboardTab(page, target.route);
       await expect(page.getByRole('heading', { name: target.heading, exact: true })).toBeVisible();
       await expect(page.getByRole('heading', { name: 'Library', exact: true })).toHaveCount(0);
       if (target.absentText) {
@@ -252,12 +257,12 @@ test.describe('admin shell browser regressions', () => {
       { route: '/dashboard?tab=library-wishlist', heading: 'Wishlist', mobileTitle: 'Wishlist', header: 'wishlist-page-header', body: 'wishlist-page-body', filterButton: /All types/, filterControl: 'Wishlist type' },
       { route: '/dashboard?tab=library-loans', heading: 'Loans', headingVisible: false, mobileTitle: 'Loans', header: 'loans-page-header', body: 'loans-page-body' },
       { route: '/dashboard?tab=library-import', heading: 'Import Media', mobileTitle: 'Import', header: 'import-page-header', body: 'import-page-body' },
-      { route: '/dashboard?tab=library-capture', heading: 'Capture Inbox', headingVisible: false, mobileTitle: 'Capture Inbox', header: 'capture-page-header', body: 'capture-page-body', filterButton: /Filter captures/, filterControl: 'Capture type', absentHeaderText: 'My Library' },
+      { route: '/dashboard?tab=library-capture', heading: 'Capture Inbox', mobileTitle: 'Capture Inbox', header: 'capture-page-header', body: 'capture-page-body', filterButton: /Filter captures/, filterControl: 'Capture type', absentHeaderText: 'My Library' },
       { route: '/dashboard?tab=admin-integrations', heading: 'Integrations', mobileTitle: 'Integrations', header: 'admin-integrations-page-header', body: 'admin-integrations-page-body' }
     ];
 
     for (const target of pages) {
-      await page.goto(target.route);
+      await gotoDashboardTab(page, target.route);
       if (target.headingVisible === false) {
         await expect(page.getByRole('heading', { name: target.heading, exact: true })).toHaveCount(0);
       } else {
