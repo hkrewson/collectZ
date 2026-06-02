@@ -6,6 +6,37 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.10.15 — Mobile Shell Search Toolbar Placement
+
+**Goal:** Move the mobile search/add/filter controls into the compact shell header row beside the section icon so library pages stop spending a second band on primary browsing controls.
+
+### Scope
+
+- Add a mobile shell toolbar slot next to the active section icon.
+- Let the shared `PageHeaderSearchToolbar` render mobile controls into that shell slot when requested.
+- Hide the duplicated page-local toolbar on mobile for the migrated library-style surfaces.
+- Apply the shell-inline toolbar to Library, Art, Collectibles, and Events.
+- Keep desktop page headers and search controls unchanged.
+
+### Acceptance Criteria
+
+- Mobile library-style pages show section icon, search, and add/filter controls in one top shell row.
+- The page-local search band is hidden on mobile for migrated surfaces.
+- The mobile shell header stays fixed while content scrolls.
+- The shell toolbar does not create horizontal overflow on mobile.
+- Version metadata, release note, release feed, and Help > Releases include `3.10.15`.
+
+### Closeout
+
+- Status: completed.
+- Project docs/checklists used: `AGENTS.md`, `/Users/hamlin/.codex/skills/uncodixfy/SKILL.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/14-Engineering-Delivery-Policy.md`, `docs/releases/v3.10.15.md`.
+- Runtime verification used: Docker rebuild at `APP_VERSION=3.10.15`, running `/api/health` version readback, Help > Releases smoke, targeted mobile shell/header browser regression, full browser regression, and platform/default stack boundary smokes.
+- CI/checks run: frontend build; backend unit; OpenAPI; init parity; migration rehearsal; RBAC regression; platform edition boundary; homelab edition boundary; targeted mobile shell/header browser regression; full browser regression; Node 20 backend/frontend `npm ci --dry-run`; observability evidence; release preflight; release-note heading check; version sync check; `git diff --check`; release artifact secret scan.
+- Files changed: mobile shell toolbar slot, shared page header/search toolbar viewport-aware shell portal, Library/Art/Collectibles/Events shell-inline toolbar wiring, mobile browser regression coverage, version metadata, release note/feed, release evidence, and roadmap closeout.
+- Risks/follow-ups: Events date filters remain desktop-only extra controls in this shell-inline slice; if mobile users need date filtering from the top row, promote a shared mobile filter/funnel primitive instead of placing large date inputs in the shell.
+- What remains in the milestone: nothing for `3.10.15`; continue the broader `3.10.x` mobile/interface cleanup with the next selected surface.
+- Recommended commit message: `Release 3.10.15 with mobile shell search toolbar placement`.
+
 ## 3.10.14 — Mobile Header Section Icon Placement
 
 **Goal:** Correct the mobile icon-led header direction by putting the current section icon in the shell header/navigation button instead of the search toolbar row.

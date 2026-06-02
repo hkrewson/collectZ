@@ -1036,6 +1036,7 @@ export default function ArtView({ apiCall, onToast, focusTarget = null }) {
         addAriaLabel="Add Art"
         Icons={Icons}
         compact={headerCompact}
+        mobileShellInline
         testId="art-mobile-header"
         toolbarTestId="art-mobile-toolbar"
       />

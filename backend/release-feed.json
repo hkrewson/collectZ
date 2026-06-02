@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.10.15",
+      "version": "3.10.15",
+      "date": null,
+      "status": "completed",
+      "summary": "This patch moves mobile library search controls into the compact shell header row beside the active section icon, removing the extra search band that was still taking vertical space.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added a mobile shell toolbar slot next to the current section icon.",
+            "Let the shared page search toolbar portal mobile controls into that shell slot.",
+            "Hid the page-local search toolbar on mobile when a shell-inline toolbar is active.",
+            "Applied the pattern to Library, Art, Collectibles, and Events surfaces.",
+            "Kept desktop page headers and toolbar behavior unchanged."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.10.14",
       "version": "3.10.14",
       "date": null,
@@ -168,26 +187,6 @@
             "Hid duplicate page-title/count groups from mobile library, Art, Collectibles, and Events toolbars because the mobile app shell already shows the active page title.",
             "Preserved mobile search, filter, view-toggle, sort, and add controls in their existing page toolbars.",
             "Updated browser regression coverage for mobile shell title ownership and the new desktop media-library heading."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.10.5",
-      "version": "3.10.5",
-      "date": null,
-      "status": "completed",
-      "summary": "This patch replaces the mobile brand-style app header with a compact utility header that keeps navigation accessible while giving the space back to the active page.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Replaced the mobile hamburger button with the collectZ mark as the navigation trigger.",
-            "Kept the navigation trigger accessible with the same open-navigation behavior and expanded-state readback.",
-            "Removed the mobile `COLLECTZ` wordmark and role/workspace readback from the app header.",
-            "Added active page title readback in the mobile app header, including Dashboard, Loans, Wishlist, Import, and Integrations.",
-            "Updated the sidebar wordmark casing from `COLLECTZ` to `collectZ`.",
-            "Extended mobile browser regression coverage for the compact app header and nav trigger."
           ]
         }
       ]

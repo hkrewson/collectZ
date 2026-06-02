@@ -160,10 +160,10 @@ test.describe('admin shell browser regressions', () => {
     await signInThroughUi(page, adminCredentials);
 
     const pages = [
-      { route: '/dashboard?tab=library-movies', mobileTitle: 'Movies', desktopHeading: 'Movies', header: 'library-mobile-header', toolbar: 'library-mobile-toolbar', maxHeaderHeight: 170, maxToolbarHeight: 44 },
-      { route: '/dashboard?tab=library-collectibles', mobileTitle: 'Collectibles', desktopHeading: 'Collectibles', header: 'collectibles-mobile-header', toolbar: 'collectibles-mobile-toolbar', maxHeaderHeight: 102, maxToolbarHeight: 44 },
-      { route: '/dashboard?tab=library-art', mobileTitle: 'Art', desktopHeading: 'Art', header: 'art-mobile-header', toolbar: 'art-mobile-toolbar', maxHeaderHeight: 102, maxToolbarHeight: 44 },
-      { route: '/dashboard?tab=library-events', mobileTitle: 'Events', desktopHeading: 'Events', header: 'events-mobile-header', toolbar: 'events-mobile-toolbar', maxHeaderHeight: 146, maxToolbarHeight: 88 }
+      { route: '/dashboard?tab=library-movies', mobileTitle: 'Movies', desktopHeading: 'Movies', header: 'library-mobile-header', toolbar: 'library-mobile-toolbar', maxToolbarHeight: 44 },
+      { route: '/dashboard?tab=library-collectibles', mobileTitle: 'Collectibles', desktopHeading: 'Collectibles', header: 'collectibles-mobile-header', toolbar: 'collectibles-mobile-toolbar', maxToolbarHeight: 44 },
+      { route: '/dashboard?tab=library-art', mobileTitle: 'Art', desktopHeading: 'Art', header: 'art-mobile-header', toolbar: 'art-mobile-toolbar', maxToolbarHeight: 44 },
+      { route: '/dashboard?tab=library-events', mobileTitle: 'Events', desktopHeading: 'Events', header: 'events-mobile-header', toolbar: 'events-mobile-toolbar', maxToolbarHeight: 44 }
     ];
 
     for (const target of pages) {
@@ -175,16 +175,14 @@ test.describe('admin shell browser regressions', () => {
       await expect(appHeader.getByRole('button', { name: `Open navigation, ${target.mobileTitle}` })).toBeVisible();
       await expect(page.getByRole('heading', { name: target.desktopHeading, exact: true })).toHaveCount(0);
       const header = page.getByTestId(target.header);
-      await expect(header).toBeVisible();
-      const toolbar = page.getByTestId(target.toolbar);
+      await expect(header).not.toBeVisible();
+      const toolbar = page.getByTestId(`${target.toolbar}-shell`);
       await expect(toolbar).toBeVisible();
       const appHeaderBoxBefore = await readRect(appHeader);
-      const headerBox = await readRect(header);
       const toolbarBox = await readRect(toolbar);
       expect(appHeaderBoxBefore).toBeTruthy();
-      expect(headerBox).toBeTruthy();
       expect(toolbarBox).toBeTruthy();
-      expect(headerBox.height).toBeLessThanOrEqual(target.maxHeaderHeight);
+      expect(appHeaderBoxBefore.height).toBeLessThanOrEqual(64);
       expect(toolbarBox.height).toBeLessThanOrEqual(target.maxToolbarHeight);
       await page.evaluate(() => {
         window.scrollTo(0, 500);
@@ -193,13 +191,10 @@ test.describe('admin shell browser regressions', () => {
         if (scrollArea) scrollArea.scrollTop = Math.min(500, scrollArea.scrollHeight - scrollArea.clientHeight);
       });
       const appHeaderBoxAfter = await readRect(appHeader);
-      const headerBoxAfter = await readRect(header);
       const toolbarBoxAfter = await readRect(toolbar);
       expect(appHeaderBoxAfter).toBeTruthy();
-      expect(headerBoxAfter).toBeTruthy();
       expect(toolbarBoxAfter).toBeTruthy();
       expect(Math.abs(appHeaderBoxAfter.y - appHeaderBoxBefore.y)).toBeLessThanOrEqual(1);
-      expect(headerBoxAfter.height).toBeLessThanOrEqual(headerBox.height);
       expect(toolbarBoxAfter.height).toBeLessThanOrEqual(toolbarBox.height);
 
       const overflow = await page.evaluate(() => {

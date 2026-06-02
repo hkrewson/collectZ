@@ -666,6 +666,7 @@ export default function CollectiblesView({ apiCall, onToast, focusTarget = null 
         addAriaLabel={viewConfig.addLabel}
         Icons={Icons}
         compact={headerCompact}
+        mobileShellInline
         testId="collectibles-mobile-header"
         toolbarTestId="collectibles-mobile-toolbar"
       />

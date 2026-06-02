@@ -5403,6 +5403,7 @@ export default function EventsView({ apiCall, onToast, currentUser = null, focus
         addAriaLabel="Add event"
         Icons={Icons}
         compact={headerCompact}
+        mobileShellInline
         testId="events-mobile-header"
         toolbarTestId="events-mobile-toolbar"
         searchClassName="w-full sm:w-56"

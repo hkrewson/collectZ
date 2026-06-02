@@ -5034,6 +5034,7 @@ export default function LibraryView({
         addAriaLabel="Add media"
         Icons={Icons}
         compact={headerCompact}
+        mobileShellInline
         testId="library-mobile-header"
         toolbarTestId="library-mobile-toolbar"
         searchClassName="sm:w-72"

@@ -199,6 +199,7 @@ export default function DashboardShell({
           >
             <MobileHeaderIcon className="h-6 w-6 text-gold" title="" />
           </button>
+          <div id="mobile-shell-toolbar-slot" className="min-w-0 flex-1" />
           <p className="sr-only" data-testid="mobile-app-title">{mobileHeaderTitle}</p>
         </div>
 

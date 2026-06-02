@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 export function routeFromPath(p) {
   if (p === '/register') return 'register';
@@ -336,6 +337,7 @@ export function PageHeaderSearchToolbar({
   addAriaLabel,
   Icons: IconSet = Icons,
   compact = false,
+  mobileShellInline = false,
   showTitleOnMobile = false,
   testId,
   toolbarTestId,
@@ -347,7 +349,31 @@ export function PageHeaderSearchToolbar({
   const hasViewToggle = viewMode && typeof onViewModeChange === 'function';
   const hasSort = typeof onToggleSort === 'function';
   const hasAdd = typeof onAdd === 'function';
+  const mobileCompact = compact || mobileShellInline;
+  const [mobileShellTarget, setMobileShellTarget] = useState(null);
+  const [useMobileShellToolbar, setUseMobileShellToolbar] = useState(false);
   const resolvedFilterLabel = filterLabel || `${filterCount} filter${filterCount === 1 ? '' : 's'} active`;
+
+  useEffect(() => {
+    if (!mobileShellInline || typeof document === 'undefined') {
+      setMobileShellTarget(null);
+      return undefined;
+    }
+    setMobileShellTarget(document.getElementById('mobile-shell-toolbar-slot'));
+    return () => setMobileShellTarget(null);
+  }, [mobileShellInline]);
+
+  useEffect(() => {
+    if (!mobileShellInline || typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      setUseMobileShellToolbar(false);
+      return undefined;
+    }
+    const query = window.matchMedia('(max-width: 639px)');
+    const update = () => setUseMobileShellToolbar(query.matches);
+    update();
+    query.addEventListener?.('change', update);
+    return () => query.removeEventListener?.('change', update);
+  }, [mobileShellInline]);
 
   const viewTabs = hasViewToggle ? (
     <SectionTabs
@@ -397,51 +423,94 @@ export function PageHeaderSearchToolbar({
     <button
       type="button"
       onClick={onAdd}
-      className={cx('btn-primary whitespace-nowrap', compact ? 'px-3' : 'px-3 sm:px-4')}
+      className={cx('btn-primary whitespace-nowrap', mobileCompact ? 'px-3' : 'px-3 sm:px-4')}
       aria-label={addAriaLabel || addLabel}
     >
       <IconSet.Plus />
       <span className="hidden sm:inline">{addLabel}</span>
     </button>
   ) : null;
-  const mobileToolbarGridClass = compact && addButton
+  const mobileToolbarGridClass = mobileCompact && addButton
     ? 'grid-cols-[minmax(0,1fr)_auto_auto]'
     : 'grid-cols-[minmax(0,1fr)_auto]';
-
-  return (
+  const toolbarControls = (
+    <>
+      {hasSearch ? (
+        <div className={cx('relative min-w-0', searchClassName)}>
+          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ghost"><IconSet.Search /></span>
+          <input
+            className="input w-full pl-9"
+            placeholder={searchPlaceholder}
+            value={searchValue}
+            onChange={(event) => onSearchChange(event.target.value)}
+          />
+        </div>
+      ) : null}
+      {filters}
+      {extraControls && mobileCompact ? (
+        <div className="hidden sm:contents">{extraControls}</div>
+      ) : extraControls}
+      {mobileCompact && addButton ? <div className="sm:hidden">{addButton}</div> : null}
+      {(viewTabs || sortButton || addButton) ? (
+        <div className="hidden items-center justify-end gap-2 sm:flex">
+          {viewTabs}
+          {sortButton}
+          {addButton}
+        </div>
+      ) : null}
+    </>
+  );
+  const mobileShellToolbar = useMobileShellToolbar && mobileShellTarget ? createPortal((
     <div
       className={cx(
-        'border-b border-edge bg-void/95 px-3 shrink-0 transition-[padding] duration-150 sm:px-6',
-        compact ? 'py-2' : 'py-2 sm:py-4',
-        className
+        'grid min-w-0 flex-1 gap-2 sm:hidden',
+        mobileToolbarGridClass,
+        '[&_.btn-secondary]:h-9 [&_.btn-secondary]:w-9 [&_.btn-secondary]:overflow-hidden [&_.btn-secondary]:px-0 [&_.btn-secondary]:text-transparent [&_.btn-secondary_svg]:text-dim',
+        '[&_.select]:h-9 [&_.select]:w-9 [&_.select]:min-w-9 [&_.select]:overflow-hidden [&_.select]:px-0 [&_.select]:text-transparent'
       )}
-      data-testid={testId}
+      data-testid={toolbarTestId ? `${toolbarTestId}-shell` : undefined}
     >
-      <div className={cx('flex flex-col gap-2 lg:flex-row lg:items-start', compact && 'lg:items-center')}>
-        <div className={cx('min-w-0', compact ? 'lg:max-w-64' : '')}>
-          <div className="flex items-center justify-end gap-2 sm:justify-between">
-            <div className={cx(
-              'min-w-0 flex-wrap items-center gap-3',
-              showTitleOnMobile ? 'flex' : 'hidden sm:flex'
-            )}>
-              <h1 className={cx('section-title !text-3xl', compact && '!text-2xl')}>{title}</h1>
-              {typeof total !== 'undefined' ? <span className="badge badge-dim shrink-0">{total}</span> : null}
-              {filterCount > 0 ? <span className="badge badge-dim shrink-0">{resolvedFilterLabel}</span> : null}
-            </div>
-            {(viewTabs || sortButton || addButton) ? (
-              <div className={cx('shrink-0 items-center justify-end gap-1.5 sm:hidden', compact ? 'hidden' : 'flex')}>
-                {viewTabs}
-                {sortButton}
-                {addButton}
+      {toolbarControls}
+    </div>
+  ), mobileShellTarget) : null;
+
+  return (
+    <>
+      {mobileShellToolbar}
+      {!useMobileShellToolbar ? (
+        <div
+        className={cx(
+          'border-b border-edge bg-void/95 px-3 shrink-0 transition-[padding] duration-150 sm:px-6',
+          compact ? 'py-2' : 'py-2 sm:py-4',
+          className
+        )}
+        data-testid={testId}
+      >
+        <div className={cx('flex flex-col gap-2 lg:flex-row lg:items-start', compact && 'lg:items-center')}>
+          <div className={cx('min-w-0', compact ? 'lg:max-w-64' : '')}>
+            <div className="flex items-center justify-end gap-2 sm:justify-between">
+              <div className={cx(
+                'min-w-0 flex-wrap items-center gap-3',
+                showTitleOnMobile ? 'flex' : 'hidden sm:flex'
+              )}>
+                <h1 className={cx('section-title !text-3xl', compact && '!text-2xl')}>{title}</h1>
+                {typeof total !== 'undefined' ? <span className="badge badge-dim shrink-0">{total}</span> : null}
+                {filterCount > 0 ? <span className="badge badge-dim shrink-0">{resolvedFilterLabel}</span> : null}
               </div>
+              {(viewTabs || sortButton || addButton) ? (
+                <div className={cx('shrink-0 items-center justify-end gap-1.5 sm:hidden', mobileCompact ? 'hidden' : 'flex')}>
+                  {viewTabs}
+                  {sortButton}
+                  {addButton}
+                </div>
+              ) : null}
+            </div>
+            {description ? (
+              <p className={cx('mt-1 hidden text-sm text-ghost sm:block', compact && 'lg:hidden')}>{description}</p>
             ) : null}
           </div>
-          {description ? (
-            <p className={cx('mt-1 hidden text-sm text-ghost sm:block', compact && 'lg:hidden')}>{description}</p>
-          ) : null}
-        </div>
 
-        <div
+          <div
           className={cx(
             'grid min-w-0 flex-1 gap-2 sm:flex sm:flex-wrap sm:items-center lg:justify-end',
             mobileToolbarGridClass,
@@ -449,32 +518,12 @@ export function PageHeaderSearchToolbar({
           )}
           data-testid={toolbarTestId}
         >
-          {hasSearch ? (
-            <div className={cx('relative min-w-0', searchClassName)}>
-              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ghost"><IconSet.Search /></span>
-              <input
-                className="input w-full pl-9"
-                placeholder={searchPlaceholder}
-                value={searchValue}
-                onChange={(event) => onSearchChange(event.target.value)}
-              />
-            </div>
-          ) : null}
-          {filters}
-          {extraControls && compact ? (
-            <div className="hidden sm:contents">{extraControls}</div>
-          ) : extraControls}
-          {compact && addButton ? <div className="sm:hidden">{addButton}</div> : null}
-          {(viewTabs || sortButton || addButton) ? (
-            <div className="hidden items-center justify-end gap-2 sm:flex">
-              {viewTabs}
-              {sortButton}
-              {addButton}
-            </div>
-          ) : null}
+            {toolbarControls}
+          </div>
         </div>
       </div>
-    </div>
+      ) : null}
+    </>
   );
 }
 
