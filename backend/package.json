@@ -117,7 +117,7 @@
     "test:capture-image-ocr-smoke": "node scripts/capture-image-ocr-smoke.js"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1042.0",
+    "@aws-sdk/client-s3": "^3.1058.0",
     "axios": "^1.16.0",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.6",
