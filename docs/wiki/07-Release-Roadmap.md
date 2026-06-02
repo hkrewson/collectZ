@@ -6,6 +6,35 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.10.20 — Desktop Library Header Control Cleanup
+
+**Goal:** Quiet the right side of desktop library headers after the search/filter consolidation by reducing secondary control weight without removing controls.
+
+### Scope
+
+- Tighten shared library header view-toggle spacing.
+- Make the desktop add action icon-only while preserving accessible labels and titles.
+- Group view/sort controls more tightly.
+- Keep mobile compact header behavior unchanged.
+
+### Acceptance Criteria
+
+- Desktop library headers keep search, filter, view, sort, and add controls available.
+- The large visible `+ Add` label is removed from the shared desktop header control cluster.
+- Frontend build passes.
+- Version metadata, release note, release feed, and Help > Releases include `3.10.20`.
+
+### Closeout
+
+- Status: completed.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/releases/v3.10.20.md`, and `uncodixfy`.
+- Runtime verification used: Docker rebuild at `APP_VERSION=3.10.20`, running `/api/health` version readback, Help > Releases smoke from the running stack, and desktop Events header screenshot verification.
+- CI/checks run: frontend Vite build; targeted admin shell browser regression for mobile library search toolbars and desktop section headings.
+- Files changed: shared page header toolbar primitive, version metadata, release note/feed, and roadmap closeout.
+- Risks/follow-ups: homelab edition boundary, dependency scan, secret scan, and image security/SBOM remain CI or alternate-topology gates for this frontend presentation patch.
+- What remains in the milestone: nothing for `3.10.20`.
+- Recommended commit message: `Release 3.10.20 with desktop library header control cleanup`.
+
 ## 3.10.19 — Browser Regression Feature Flag Stabilization
 
 **Goal:** Stabilize the admin shell browser regression in CI by making gated library-surface preconditions explicit and avoiding brittle page response-body reads.

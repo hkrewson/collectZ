@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.10.20",
+      "version": "3.10.20",
+      "date": null,
+      "status": "completed",
+      "summary": "This patch quiets the right side of desktop library headers by making secondary controls more compact while keeping search, filter, view, sort, and add actions available.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Tightened the shared library header view toggle spacing.",
+            "Made the desktop add action icon-only while preserving accessible labels and titles.",
+            "Grouped view/sort controls more tightly so search and filter remain the primary desktop header controls.",
+            "Kept the existing mobile compact header behavior intact."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.10.19",
       "version": "3.10.19",
       "date": null,
@@ -167,26 +185,6 @@
             "Replaced separate capture/source/review controls with one compact filter button.",
             "Added a shared funnel-style icon to the app icon set.",
             "Updated browser regression coverage for the compact Capture Inbox header and filter menu."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.10.10",
-      "version": "3.10.10",
-      "date": null,
-      "status": "completed",
-      "summary": "This patch standardizes search behavior across the app: search fields update results as the user types instead of requiring a separate Search button. Surfaces that call backend/provider search endpoints now use short debounce windows so the interface stays immediate without turning every keystroke into a hard submit action.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Removed remaining visible Search submit buttons from search/filter surfaces.",
-            "Kept Wishlist and Capture Inbox desktop search behavior aligned with their mobile live-search behavior.",
-            "Made Activity search reload automatically after search text changes.",
-            "Made Apple/iTunes Wishlist intake search automatically with debounce.",
-            "Made event object-link pickers search automatically while their panels are open.",
-            "Made media add/edit lookup matches update automatically from title or identifier."
           ]
         }
       ]

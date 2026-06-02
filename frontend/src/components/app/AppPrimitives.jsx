@@ -467,8 +467,8 @@ export function PageHeaderSearchToolbar({
       showDivider={false}
       ariaLabel={viewAriaLabel}
       className="shrink-0"
-      listClassName={compact ? 'gap-1.5' : 'gap-2'}
-      buttonClassName={compact ? 'px-1.5 py-1.5' : 'px-2'}
+      listClassName={compact ? 'gap-1' : 'gap-1'}
+      buttonClassName={compact ? 'px-1.5 py-1.5' : 'px-1.5 py-1.5'}
     />
   ) : null;
 
@@ -487,11 +487,12 @@ export function PageHeaderSearchToolbar({
     <button
       type="button"
       onClick={onAdd}
-      className={cx('btn-primary whitespace-nowrap', mobileCompact ? 'px-3' : 'px-3 sm:px-4')}
+      className={cx('btn-primary whitespace-nowrap', mobileCompact ? 'px-3' : 'px-3 sm:w-10 sm:px-0')}
       aria-label={addAriaLabel || addLabel}
+      title={addAriaLabel || addLabel}
     >
       <IconSet.Plus />
-      <span className="hidden sm:inline">{addLabel}</span>
+      <span className="hidden">{addLabel}</span>
     </button>
   ) : null;
   const mobileToolbarGridClass = mobileCompact && addButton
@@ -516,10 +517,14 @@ export function PageHeaderSearchToolbar({
       ) : extraControls}
       {mobileCompact && addButton ? <div className="sm:hidden">{addButton}</div> : null}
       {(viewTabs || sortButton || addButton) ? (
-        <div className="hidden items-center justify-end gap-2 sm:flex">
-          {viewTabs}
-          {sortButton}
-          {addButton}
+        <div className="hidden items-center justify-end gap-1.5 sm:flex">
+          {(viewTabs || sortButton) ? (
+            <div className="flex items-center gap-1.5">
+              {viewTabs}
+              {sortButton}
+            </div>
+          ) : null}
+          {addButton ? <div className="ml-1.5">{addButton}</div> : null}
         </div>
       ) : null}
     </>
