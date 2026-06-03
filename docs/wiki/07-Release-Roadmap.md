@@ -6,6 +6,37 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.10.25 — React 19 Runtime Compatibility
+
+**Goal:** Upgrade the frontend React runtime pair to React 19 while proving the existing Vite app shell and key browser flows still run correctly.
+
+### Scope
+
+- Update frontend `react` to `19.2.6`.
+- Update frontend `react-dom` to `19.2.6`.
+- Keep the existing `react-dom/client` `createRoot` entrypoint.
+- Verify frontend build and representative browser regression coverage.
+
+### Acceptance Criteria
+
+- Frontend package manifest and lockfile remain in sync.
+- Frontend install completes from the lockfile.
+- Frontend build passes.
+- Running stack reports `3.10.25`.
+- Help > Releases includes `3.10.25`.
+- Representative browser regression passes against the running stack.
+
+### Closeout
+
+- Status: completed.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/releases/v3.10.25.md`, and `build-web-apps:react-best-practices`.
+- Runtime verification used: Docker backend/frontend rebuild at `APP_VERSION=3.10.25`, running `/api/health` version readback, Help > Releases smoke from the running stack, and targeted browser regression against the React 19 frontend.
+- CI/checks run: backend and frontend `npm ci --no-fund` under Node 20 Docker; backend and frontend high-severity npm audit; backend unit tests; OpenAPI validation; frontend Vite build under Node 20 Docker; targeted browser regression for admin shell and capture/library surfaces; in-stack RBAC regression; platform edition boundary smoke; release note heading check; version/lockfile sync check.
+- Files changed: frontend package manifest/lockfile, version metadata, release note/feed, and roadmap closeout.
+- Risks/follow-ups: React 19 is a major frontend runtime upgrade, so full CI browser regression and normal mobile/desktop use should watch for rendering or interaction regressions. The frontend clean install still emits the known ZXing Node engine warning from `3.10.23`. Homelab edition boundary, secret scan, image security/SBOM, and full compose-smoke remain CI or alternate-topology gates for this frontend dependency patch.
+- What remains in the milestone: nothing for `3.10.25`.
+- Recommended commit message: `Release 3.10.25 with React 19 runtime compatibility`.
+
 ## 3.10.24 — Zod 4 Validation Compatibility
 
 **Goal:** Upgrade the backend validation library to Zod 4 while preserving collectZ's request validation response shape.

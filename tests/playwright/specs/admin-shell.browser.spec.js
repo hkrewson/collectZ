@@ -30,6 +30,14 @@ async function readRect(locator) {
   });
 }
 
+async function readMeasuredRect(locator) {
+  await expect.poll(async () => {
+    const rect = await readRect(locator);
+    return Math.round(rect.height);
+  }).toBeGreaterThan(0);
+  return readRect(locator);
+}
+
 async function gotoDashboardTab(page, route) {
   await page.goto(route);
   await page.evaluate(() => window.dispatchEvent(new PopStateEvent('popstate')));
@@ -187,7 +195,7 @@ test.describe('admin shell browser regressions', () => {
       const toolbar = page.getByTestId(`${target.toolbar}-shell`);
       await expect(toolbar).toBeVisible();
       const appHeaderBoxBefore = await readRect(appHeader);
-      const toolbarBox = await readRect(toolbar);
+      const toolbarBox = await readMeasuredRect(toolbar);
       expect(appHeaderBoxBefore).toBeTruthy();
       expect(toolbarBox).toBeTruthy();
       expect(appHeaderBoxBefore.height).toBeLessThanOrEqual(64);
@@ -204,7 +212,7 @@ test.describe('admin shell browser regressions', () => {
         if (scrollArea) scrollArea.scrollTop = Math.min(500, scrollArea.scrollHeight - scrollArea.clientHeight);
       });
       const appHeaderBoxAfter = await readRect(appHeader);
-      const toolbarBoxAfter = await readRect(toolbar);
+      const toolbarBoxAfter = await readMeasuredRect(toolbar);
       expect(appHeaderBoxAfter).toBeTruthy();
       expect(toolbarBoxAfter).toBeTruthy();
       expect(Math.abs(appHeaderBoxAfter.y - appHeaderBoxBefore.y)).toBeLessThanOrEqual(1);

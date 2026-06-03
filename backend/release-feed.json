@@ -1,6 +1,23 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.10.25",
+      "version": "3.10.25",
+      "date": null,
+      "status": "completed",
+      "summary": "This patch upgrades the frontend React runtime pair to React 19 and verifies the existing app shell, library surfaces, and browser regression coverage still run against the upgraded renderer.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Updated frontend `react` from `^18.2.0` to `^19.2.6`.",
+            "Updated frontend `react-dom` from `^18.2.0` to `^19.2.6`.",
+            "Kept the existing Vite entrypoint using `react-dom/client` and `createRoot`."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.10.24",
       "version": "3.10.24",
       "date": null,
@@ -160,25 +177,6 @@
             "Moved Events date range filters into the funnel menu.",
             "Kept live search, view mode, sort, and add actions outside the filter menu.",
             "Left Loans status tabs unchanged because they act as primary loan state tabs."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.10.15",
-      "version": "3.10.15",
-      "date": null,
-      "status": "completed",
-      "summary": "This patch moves mobile library search controls into the compact shell header row beside the active section icon, removing the extra search band that was still taking vertical space.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added a mobile shell toolbar slot next to the current section icon.",
-            "Let the shared page search toolbar portal mobile controls into that shell slot.",
-            "Hid the page-local search toolbar on mobile when a shell-inline toolbar is active.",
-            "Applied the pattern to Library, Art, Collectibles, and Events surfaces.",
-            "Kept desktop page headers and toolbar behavior unchanged."
           ]
         }
       ]
