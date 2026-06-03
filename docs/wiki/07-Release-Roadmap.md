@@ -6,6 +6,38 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.10.22 — Dependency PR Cleanup
+
+**Goal:** Reduce the open dependency PR backlog by consolidating safe non-major app dependency bumps and straightforward CI action bumps into one verified maintenance patch.
+
+### Scope
+
+- Update safe backend dependency PRs for Express 4, AWS S3, Nodemailer, Helmet, Postgres, Axios, Fast XML Parser, express-rate-limit, and csv-parse.
+- Update the frontend Vite patch PR.
+- Update straightforward CI action PRs for upload-artifact and Trivy.
+- Keep risky major upgrades and dependency conflicts out of this patch.
+
+### Acceptance Criteria
+
+- Backend and frontend package manifests and lockfiles remain in sync.
+- Backend and frontend installs complete from lockfiles.
+- Frontend build passes.
+- Backend unit/OpenAPI checks pass.
+- Running stack reports `3.10.22`.
+- Help > Releases includes `3.10.22`.
+- Remaining PRs are clearly identified as follow-up risk decisions.
+
+### Closeout
+
+- Status: completed.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, and `docs/releases/v3.10.22.md`.
+- Runtime verification used: Docker backend/frontend rebuild at `APP_VERSION=3.10.22`, running `/api/health` version readback, and Help > Releases smoke from the running stack.
+- CI/checks run: backend and frontend `npm ci --no-fund` under Node 20 Docker; backend and frontend high-severity npm audit; backend unit tests; OpenAPI validation; frontend Vite build under Node 20 Docker; in-stack RBAC regression; platform edition boundary smoke; release note heading check; version/lockfile sync check.
+- Files changed: package manifests/lockfiles, CI workflows, version metadata, release note/feed, and roadmap closeout.
+- Risks/follow-ups: React 19, Tailwind 4, Express 5, Zod 4, and ZXing updates remain separate review items; the ZXing PR pair currently has a peer dependency conflict. Homelab edition boundary, secret scan, image security/SBOM, and full compose-smoke remain CI or alternate-topology gates for this dependency-maintenance patch.
+- What remains in the milestone: nothing for `3.10.22`.
+- Recommended commit message: `Release 3.10.22 with dependency PR cleanup`.
+
 ## 3.10.21 — Library View Mode Menu
 
 **Goal:** Replace the always-visible desktop Cards/List buttons in shared library headers with one compact view-mode menu whose icon reflects the active layout.

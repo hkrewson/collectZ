@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.10.22",
+      "version": "3.10.22",
+      "date": null,
+      "status": "completed",
+      "summary": "This patch consolidates the safe dependency and workflow updates from the open PR backlog so the remaining pull requests are easier to reason about.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Updated backend runtime dependencies for Express 4, AWS S3, Nodemailer, Helmet, Postgres, Axios, Fast XML Parser, rate limiting, and CSV parsing.",
+            "Updated frontend Vite to the current open patch release.",
+            "Updated CI workflow actions for upload-artifact and Trivy.",
+            "Left major or compatibility-sensitive PRs out of this slice for separate review."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.10.21",
       "version": "3.10.21",
       "date": null,
@@ -165,24 +183,6 @@
             "Kept page titles available as accessibility text.",
             "Changed the mobile app shell title to screen-reader-only text so it no longer duplicates the page cue visually.",
             "Preserved desktop title/header behavior."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.10.12",
-      "version": "3.10.12",
-      "date": null,
-      "status": "completed",
-      "summary": "This patch refines the Capture Inbox funnel menu by changing the cramped horizontal Review tabs into a compact two-column radio-style picker.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Kept Capture and Source as simple selects inside the funnel menu.",
-            "Replaced the Review tab strip inside the funnel with a two-column choice grid.",
-            "Preserved the same review filters and API behavior.",
-            "Updated browser regression coverage to expect the Review filter as radio-style choices."
           ]
         }
       ]
