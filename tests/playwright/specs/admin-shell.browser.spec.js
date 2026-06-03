@@ -60,11 +60,18 @@ test.describe('admin shell browser regressions', () => {
     expect(summary?.attention_details).toBeTruthy();
     expect(Array.isArray(summary?.attention_details?.missing_cover_items)).toBeTruthy();
     expect(Array.isArray(summary?.attention_details?.missing_identifier_items)).toBeTruthy();
+    expect(Array.isArray(summary?.attention_details?.sparse_metadata_items)).toBeTruthy();
     const missingIdentifierSample = summary.attention_details.missing_identifier_items[0] || null;
     if (missingIdentifierSample) {
       expect(Array.isArray(missingIdentifierSample.review_reasons)).toBeTruthy();
       expect(Array.isArray(missingIdentifierSample.recommended_identifiers)).toBeTruthy();
-      expect(missingIdentifierSample.review_reasons).toContain('No recognized identifier on record');
+      expect(missingIdentifierSample.review_finding_type).toBe('missing_identifier');
+    }
+    const sparseMetadataSample = summary.attention_details.sparse_metadata_items[0] || null;
+    if (sparseMetadataSample) {
+      expect(Array.isArray(sparseMetadataSample.review_reasons)).toBeTruthy();
+      expect(Array.isArray(sparseMetadataSample.recommended_metadata)).toBeTruthy();
+      expect(sparseMetadataSample.review_finding_type).toBe('sparse_metadata');
     }
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Review' })).toBeVisible();
@@ -72,10 +79,16 @@ test.describe('admin shell browser regressions', () => {
     await expect(page.getByRole('tab', { name: /Failed syncs/ })).toBeVisible();
     await expect(page.getByRole('tab', { name: /Missing covers/ })).toBeVisible();
     await expect(page.getByRole('tab', { name: /Missing identifiers/ })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /Sparse metadata/ })).toBeVisible();
     if (missingIdentifierSample) {
       const reviewPanel = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Review' }) }).first();
       await reviewPanel.getByRole('tablist', { name: 'Review sections' }).getByRole('tab', { name: /Missing identifiers/ }).click();
-      await expect(reviewPanel.getByText('No recognized identifier on record').first()).toBeVisible();
+      await expect(reviewPanel.getByText(missingIdentifierSample.review_reasons[0]).first()).toBeVisible();
+    }
+    if (sparseMetadataSample) {
+      const reviewPanel = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Review' }) }).first();
+      await reviewPanel.getByRole('tablist', { name: 'Review sections' }).getByRole('tab', { name: /Sparse metadata/ }).click();
+      await expect(reviewPanel.getByText('Record is missing helpful descriptive metadata').first()).toBeVisible();
     }
     await expect(page.getByRole('heading', { name: 'Provider health' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Quick actions' })).toHaveCount(0);
@@ -110,7 +123,25 @@ test.describe('admin shell browser regressions', () => {
       expect(reviewItem).toBeTruthy();
       await expect(page.getByRole('heading', { name: 'Library' })).toBeVisible();
       await expect(page.getByText('Missing identifiers across all library types')).toBeVisible();
-      await expect(page.getByText('No recognized identifier on record').first()).toBeVisible();
+      await expect(page.getByText(reviewItem.review_reasons[0]).first()).toBeVisible();
+    }
+    if (Number(summary?.collection?.sparse_metadata || 0) > 0) {
+      await page.goto('/dashboard');
+      await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+      const mediaReviewResponse = page.waitForResponse((mediaResponse) => (
+        mediaResponse.url().includes('/api/media')
+        && mediaResponse.url().includes('review_filter=sparse_metadata')
+        && mediaResponse.request().method() === 'GET'
+      ));
+      await page.getByRole('button', { name: /Open sparse metadata review/i }).click();
+      const reviewResponse = await mediaReviewResponse;
+      expect(reviewResponse.ok()).toBeTruthy();
+      const reviewPayload = await reviewResponse.json();
+      const reviewItem = Array.isArray(reviewPayload?.items) ? reviewPayload.items.find((item) => Array.isArray(item.recommended_metadata) && item.recommended_metadata.length > 0) : null;
+      expect(reviewItem).toBeTruthy();
+      await expect(page.getByRole('heading', { name: 'Library' })).toBeVisible();
+      await expect(page.getByText('Sparse metadata across all library types')).toBeVisible();
+      await expect(page.getByText('Record is missing helpful descriptive metadata').first()).toBeVisible();
     }
   });
 
@@ -144,13 +175,19 @@ test.describe('admin shell browser regressions', () => {
     await expect(reviewTabs.getByRole('tab', { name: /Failed syncs/ })).toBeVisible();
     await expect(reviewTabs.getByRole('tab', { name: /Missing covers/ })).toBeVisible();
     await expect(reviewTabs.getByRole('tab', { name: /Missing identifiers/ })).toBeVisible();
-    const metricButtons = page.getByRole('button', { name: /Open (items|missing covers|missing identifiers) review/i });
-    await expect(metricButtons).toHaveCount(3);
+    await expect(reviewTabs.getByRole('tab', { name: /Sparse metadata/ })).toBeVisible();
+    const metricButtons = page.getByRole('button', { name: /Open (items|missing covers|missing identifiers|sparse metadata) review/i });
+    await expect(metricButtons).toHaveCount(4);
     const firstMetricBox = await metricButtons.nth(0).boundingBox();
-    const lastMetricBox = await metricButtons.nth(2).boundingBox();
+    const secondMetricBox = await metricButtons.nth(1).boundingBox();
+    const thirdMetricBox = await metricButtons.nth(2).boundingBox();
+    const lastMetricBox = await metricButtons.nth(3).boundingBox();
     expect(firstMetricBox).toBeTruthy();
+    expect(secondMetricBox).toBeTruthy();
+    expect(thirdMetricBox).toBeTruthy();
     expect(lastMetricBox).toBeTruthy();
-    expect(Math.abs(firstMetricBox.y - lastMetricBox.y)).toBeLessThanOrEqual(2);
+    expect(Math.abs(firstMetricBox.y - secondMetricBox.y)).toBeLessThanOrEqual(2);
+    expect(Math.abs(thirdMetricBox.y - lastMetricBox.y)).toBeLessThanOrEqual(2);
     await dashboardTabs.getByRole('tab', { name: 'Syncs' }).click();
     await expect(page.getByRole('heading', { name: 'Recent syncs' })).toBeVisible();
     await dashboardTabs.getByRole('tab', { name: 'Activity' }).click();

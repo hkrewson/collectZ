@@ -89,7 +89,11 @@ const {
 } = require('../services/mediaIdentityAliases');
 const { buildOwnedFormatsPayload, buildMergedOwnedFormatsPayload, getOwnedFormatLabel } = require('../services/mediaFormats');
 const { compareReleaseVersions, parseReleaseMarkdown } = require('../services/releaseNotes');
-const { buildMissingIdentifierReviewClues } = require('../services/reviewClues');
+const {
+  buildMediaHealthReview,
+  buildMissingIdentifierReviewClues,
+  buildSparseMetadataReviewClues
+} = require('../services/reviewClues');
 const {
   SUPPORT_ACCESS_APPROVAL_TTL_DAYS,
   getSupportAccessExpiryTimestamp,
@@ -6131,9 +6135,11 @@ results.push(run('dashboard command center is authenticated scoped dashboard def
   assert.ok(dashboardRoutesSource.includes("router.get('/dashboard/summary'"));
   assert.ok(dashboardRoutesSource.includes('plex_reconciliation_reviews'));
   assert.ok(dashboardRoutesSource.includes('missing_identifiers'));
+  assert.ok(dashboardRoutesSource.includes('sparse_metadata'));
   assert.ok(dashboardRoutesSource.includes('attention_details'));
   assert.ok(dashboardRoutesSource.includes('missing_cover_items'));
   assert.ok(dashboardRoutesSource.includes('missing_identifier_items'));
+  assert.ok(dashboardRoutesSource.includes('sparse_metadata_items'));
   assert.ok(dashboardRoutesSource.includes('summarizeProviderRow'));
   assert.ok(openApiSource.includes('"/api/dashboard/summary"'));
   assert.ok(openApiSource.includes('"DashboardSummary"'));
@@ -6141,31 +6147,47 @@ results.push(run('dashboard command center is authenticated scoped dashboard def
   assert.ok(openApiSource.includes('"review_filter"'));
   assert.ok(openApiSource.includes('"missing_covers"'));
   assert.ok(openApiSource.includes('"missing_identifiers"'));
+  assert.ok(openApiSource.includes('"sparse_metadata"'));
   assert.ok(openApiSource.includes('"review_reasons"'));
   assert.ok(openApiSource.includes('"recommended_identifiers"'));
+  assert.ok(openApiSource.includes('"recommended_metadata"'));
   assert.ok(dashboardRoutesSource.includes('buildMissingIdentifierReviewClues'));
+  assert.ok(dashboardRoutesSource.includes('buildSparseMetadataReviewClues'));
   assert.ok(mediaRoutesSource.includes('applyMediaReviewClues'));
   assert.ok(mediaRoutesSource.includes('normalizedReviewFilter'));
   assert.ok(mediaRoutesSource.includes("media.poster_path"));
-  assert.ok(mediaRoutesSource.includes("media.type_details->>'google_books_id'"));
+  assert.ok(mediaRoutesSource.includes('buildMissingIdentifierReviewSql'));
+  assert.ok(mediaRoutesSource.includes('buildSparseMetadataReviewSql'));
   assert.deepStrictEqual(getRequiredPatScopesForRequest({ originalUrl: '/api/dashboard/summary', method: 'GET' }), ['media:read']);
 }));
 
-results.push(run('media review clues explain missing identifier rows by type', () => {
-  assert.ok(reviewCluesServiceSource.includes('No recognized identifier on record'));
+results.push(run('media review clues classify identifiers separately from sparse metadata', () => {
+  assert.ok(reviewCluesServiceSource.includes('Physical audio item has no retail identifier'));
+  assert.ok(reviewCluesServiceSource.includes('Record is missing helpful descriptive metadata'));
   assert.deepStrictEqual(buildMissingIdentifierReviewClues({ media_type: 'book', type_details: {} }), {
-    review_reasons: ['No recognized identifier on record'],
+    review_finding_type: 'missing_identifier',
+    review_reasons: ['No book identifier on record'],
     recommended_identifiers: ['ISBN', 'Google Books ID']
   });
   assert.deepStrictEqual(buildMissingIdentifierReviewClues({ media_type: 'movie', type_details: {} }).recommended_identifiers, ['TMDB ID', 'Plex identity']);
   assert.deepStrictEqual(buildMissingIdentifierReviewClues({ media_type: 'tv_series', type_details: {} }).recommended_identifiers, ['TMDB ID', 'Plex identity']);
   assert.deepStrictEqual(buildMissingIdentifierReviewClues({ media_type: 'comic_book', type_details: {} }).recommended_identifiers, ['UPC/ISBN', 'provider issue identity']);
-  assert.deepStrictEqual(buildMissingIdentifierReviewClues({ media_type: 'audio', type_details: {} }).recommended_identifiers, ['UPC']);
-  assert.deepStrictEqual(buildMissingIdentifierReviewClues({ media_type: 'game', type_details: {} }).recommended_identifiers, ['UPC']);
+  assert.deepStrictEqual(buildMissingIdentifierReviewClues({ media_type: 'audio', owned_formats: ['cd'], type_details: {} }).recommended_identifiers, ['UPC/EAN']);
+  assert.deepStrictEqual(buildMissingIdentifierReviewClues({ media_type: 'game', owned_formats: ['disc'], type_details: {} }).recommended_identifiers, ['UPC/EAN']);
   assert.deepStrictEqual(buildMissingIdentifierReviewClues({ media_type: 'book', type_details: { isbn: '9780553572773' } }), {
+    review_finding_type: null,
     review_reasons: [],
     recommended_identifiers: []
   });
+  assert.strictEqual(buildMissingIdentifierReviewClues({ media_type: 'audio', owned_formats: ['digital'], type_details: {} }).review_finding_type, null);
+  assert.deepStrictEqual(buildSparseMetadataReviewClues({ media_type: 'audio', owned_formats: ['digital'], type_details: {} }), {
+    review_finding_type: 'sparse_metadata',
+    review_reasons: ['Record is missing helpful descriptive metadata'],
+    recommended_metadata: ['artist', 'year']
+  });
+  assert.strictEqual(buildMissingIdentifierReviewClues({ media_type: 'game', owned_formats: ['digital'], type_details: {} }).review_finding_type, null);
+  assert.deepStrictEqual(buildMediaHealthReview({ media_type: 'game', owned_formats: ['digital'], type_details: {} }).review_finding_type, 'sparse_metadata');
+  assert.strictEqual(buildMediaHealthReview({ media_type: 'comic_book', type_details: { series: 'Alpha Flight', issue_number: '1' } }).review_finding_type, 'sparse_metadata');
 }));
 
 results.push(run('dashboard command center frontend owns first-screen attention workflow', () => {

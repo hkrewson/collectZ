@@ -74,9 +74,14 @@ function itemMeta(item) {
 
 function reviewClue(item) {
   const reasons = Array.isArray(item?.review_reasons) ? item.review_reasons.filter(Boolean) : [];
-  const recommended = Array.isArray(item?.recommended_identifiers) ? item.recommended_identifiers.filter(Boolean) : [];
+  const identifierRecommendations = Array.isArray(item?.recommended_identifiers) ? item.recommended_identifiers.filter(Boolean) : [];
+  const metadataRecommendations = Array.isArray(item?.recommended_metadata) ? item.recommended_metadata.filter(Boolean) : [];
   const reason = reasons[0] || '';
-  const recommendation = recommended.length ? `Add ${recommended.join(' or ')}.` : '';
+  const recommendation = identifierRecommendations.length
+    ? `Add ${identifierRecommendations.join(' or ')}.`
+    : metadataRecommendations.length
+      ? `Add ${metadataRecommendations.join(', ')}.`
+      : '';
   return [reason, recommendation].filter(Boolean).join('. ').replace('..', '.');
 }
 
@@ -228,6 +233,9 @@ export default function DashboardCommandCenterView({
   const missingIdentifierItems = Array.isArray(summary?.attention_details?.missing_identifier_items)
     ? summary.attention_details.missing_identifier_items
     : [];
+  const sparseMetadataItems = Array.isArray(summary?.attention_details?.sparse_metadata_items)
+    ? summary.attention_details.sparse_metadata_items
+    : [];
   const attentionCounts = useMemo(
     () => Object.fromEntries(attention.map((item) => [item.id, Number(item.count || 0)])),
     [attention]
@@ -294,6 +302,23 @@ export default function DashboardCommandCenterView({
       )
     },
     {
+      id: 'sparse-metadata',
+      label: 'Sparse metadata',
+      shortLabel: 'Meta',
+      count: attentionCounts['sparse-metadata'] || sparseMetadataItems.length,
+      content: (
+        <div className="space-y-2">
+          <AttentionListHeader
+            count={attentionCounts['sparse-metadata'] || sparseMetadataItems.length}
+            itemCount={sparseMetadataItems.length}
+            actionLabel="View all"
+            onAction={() => openLibrary('sparse_metadata')}
+          />
+          <MediaAttentionList items={sparseMetadataItems} emptyText="No sparse metadata items found." />
+        </div>
+      )
+    },
+    {
       id: 'plex-conflicts',
       label: 'Plex conflicts',
       shortLabel: 'Plex',
@@ -316,7 +341,7 @@ export default function DashboardCommandCenterView({
         <EmptyLine>No open Plex reconciliation conflicts in this scope.</EmptyLine>
       )
     }
-  ], [attentionCounts, failedJobs, missingCoverItems, missingIdentifierItems, plexConflictAttention]);
+  ], [attentionCounts, failedJobs, missingCoverItems, missingIdentifierItems, sparseMetadataItems, plexConflictAttention]);
 
   const activeAttention = attentionTabs.find((tab) => tab.id === activeAttentionTab) || attentionTabs[0];
 
@@ -490,7 +515,7 @@ export default function DashboardCommandCenterView({
         </button>
       </div>
 
-      <div className="mb-4 grid min-w-0 grid-cols-3 gap-2">
+      <div className="mb-4 grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4">
         <MetricButton label="Items" value={summary?.collection?.total_items || 0} onClick={() => openLibrary(null)} />
         <MetricButton
           label="Missing covers"
@@ -503,6 +528,12 @@ export default function DashboardCommandCenterView({
           value={summary?.collection?.missing_identifiers || 0}
           onClick={() => openLibrary('missing_identifiers')}
           disabled={!Number(summary?.collection?.missing_identifiers || 0)}
+        />
+        <MetricButton
+          label="Sparse metadata"
+          value={summary?.collection?.sparse_metadata || 0}
+          onClick={() => openLibrary('sparse_metadata')}
+          disabled={!Number(summary?.collection?.sparse_metadata || 0)}
         />
       </div>
 

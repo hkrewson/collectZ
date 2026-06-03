@@ -96,7 +96,11 @@ const { normalizeDeliciousRow } = require('../services/deliciousNormalize');
 const { normalizeIdentifierSet, normalizeIsbn } = require('../services/importIdentifiers');
 const { syncNormalizedMetadataForMedia } = require('../services/mediaTaxonomy');
 const { normalizeTypeDetails } = require('../services/typeDetails');
-const { applyMediaReviewClues } = require('../services/reviewClues');
+const {
+  applyMediaReviewClues,
+  buildMissingIdentifierReviewSql,
+  buildSparseMetadataReviewSql
+} = require('../services/reviewClues');
 const {
   buildBookNormalizationIdentity,
   buildComicNormalizationIdentity,
@@ -9931,13 +9935,9 @@ router.get('/', asyncHandler(async (req, res) => {
   if (normalizedReviewFilter === 'missing_covers' || normalizedReviewFilter === 'missing_cover') {
     where += ` AND COALESCE(NULLIF(TRIM(media.poster_path), ''), NULL) IS NULL`;
   } else if (normalizedReviewFilter === 'missing_identifiers' || normalizedReviewFilter === 'missing_identifier') {
-    where += ` AND COALESCE(NULLIF(TRIM(media.upc), ''), NULL) IS NULL
-      AND media.tmdb_id IS NULL
-      AND COALESCE(NULLIF(TRIM(media.type_details->>'isbn'), ''), NULL) IS NULL
-      AND COALESCE(NULLIF(TRIM(media.type_details->>'isbn13'), ''), NULL) IS NULL
-      AND COALESCE(NULLIF(TRIM(media.type_details->>'google_books_id'), ''), NULL) IS NULL
-      AND COALESCE(NULLIF(TRIM(media.type_details->>'plex_rating_key'), ''), NULL) IS NULL
-      AND COALESCE(NULLIF(TRIM(media.type_details->>'kavita_series_id'), ''), NULL) IS NULL`;
+    where += ` AND ${buildMissingIdentifierReviewSql('media')}`;
+  } else if (normalizedReviewFilter === 'sparse_metadata' || normalizedReviewFilter === 'missing_metadata' || normalizedReviewFilter === 'metadata') {
+    where += ` AND ${buildSparseMetadataReviewSql('media')}`;
   }
 
   if (normalizedSearch) {

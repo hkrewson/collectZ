@@ -6,6 +6,38 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.11.0 — Collection Health Rules and Identifier Expectations
+
+**Goal:** Replace the broad missing-identifier review rule with media-type, format, source, and provider-aware collection health rules.
+
+### Scope
+
+- Split collection review findings into `missing_identifier` and `sparse_metadata`.
+- Keep identifier-first review for books, movies, TV, comics, and physical retail audio/game rows where stable IDs are useful.
+- Stop flagging digital/manual audio and games as missing identifiers solely because they lack UPC.
+- Add sparse metadata review clues for records that are usable but need fields such as artist, year, platform, format, creator, or series/issue data.
+- Update Dashboard Review, Library review filters, OpenAPI, release notes, and tests for the new classification contract.
+
+### Acceptance Criteria
+
+- Digital/manual audio rows are not flagged as missing identifiers solely because they lack UPC.
+- Physical retail items can still receive UPC/EAN recommendations when appropriate.
+- Review distinguishes identifier gaps from sparse metadata gaps.
+- Each finding tells the user what is missing and why it matters.
+- Existing Dashboard Review and Library review flows continue to work with the new classification.
+- Runtime verification includes representative real-row evidence, not only source inspection.
+
+### Closeout
+
+- Status: completed.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/08-Backlog.md`, and `docs/releases/v3.11.0.md`.
+- Runtime verification used: Docker backend/frontend rebuild at `APP_VERSION=3.11.0`, running `/api/health` version readback, Help > Releases smoke from the running stack, targeted Dashboard browser regression, and `backend/scripts/collection-health-runtime-proof.js` against the running database.
+- CI/checks run: source syntax checks for changed backend scripts/routes; backend and frontend `npm ci --no-fund` under Node 20 Docker; backend and frontend high-severity npm audit; backend unit tests; OpenAPI validation; frontend Vite build under Node 20 Docker; in-stack RBAC regression; platform edition boundary smoke; init parity; observability release evidence with host Docker access; local release preflight; release note heading check; version/release-feed sync check; `git diff --check`; targeted Playwright browser regression for Dashboard Review and mobile Dashboard layout.
+- Files changed: collection-health review classifier, Dashboard summary route, media list review filters, Dashboard and Library review UI, OpenAPI, backend unit tests, Dashboard browser regression, runtime-proof script, version metadata, release note/feed, roadmap, backlog promotion cleanup, and release evidence artifacts.
+- Risks/follow-ups: the first-pass sparse metadata rules intentionally exclude Art and Collectibles until domain-specific health expectations are defined; large movie/comic missing-identifier counts remain visible and may need separate tuning; CI still owns secure-cookie compose smoke, gitleaks secret scan, Trivy image security/SBOM, and homelab edition boundary verification for the release branch.
+- What remains in the milestone: nothing for `3.11.0`.
+- Recommended commit message: `Release 3.11.0 with collection health rules and identifier expectations`.
+
 ## 3.10.28 — Dependency PR and CI Security Coverage Review
 
 **Goal:** Turn the open dependency/security PR queue into a documented maintenance decision and add low-cost source code scanning coverage.

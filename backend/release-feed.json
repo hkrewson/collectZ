@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.11.0",
+      "version": "3.11.0",
+      "date": null,
+      "status": "completed",
+      "summary": "This minor release starts the collection-health rule model. Review now separates true identifier gaps from sparse metadata, so digital/manual records are not pushed toward impossible identifiers while physical retail items can still ask for UPC/EAN when that is useful.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added a shared backend review classifier for `missing_identifier` and `sparse_metadata`.",
+            "Updated Dashboard Review with a separate Metadata lane and row-level clues.",
+            "Updated Library review filters so Dashboard can open either missing identifiers or sparse metadata directly.",
+            "Changed audio/game identifier expectations so digital rows can ask for artist, year, platform, or format metadata instead of UPC.",
+            "Kept physical audio/game rows eligible for UPC/EAN recommendations.",
+            "Updated OpenAPI and tests for the expanded review fields."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.10.28",
       "version": "3.10.28",
       "date": null,
@@ -157,23 +177,6 @@
             "Made the desktop add action icon-only while preserving accessible labels and titles.",
             "Grouped view/sort controls more tightly so search and filter remain the primary desktop header controls.",
             "Kept the existing mobile compact header behavior intact."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.10.19",
-      "version": "3.10.19",
-      "date": null,
-      "status": "completed",
-      "summary": "This patch stabilizes the admin shell browser regression in CI by making the test setup enable the gated library surfaces it asserts against and by avoiding brittle browser response-body reads for dashboard summary data.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Browser setup now enables both `events_enabled` and `collectibles_enabled`.",
-            "The dashboard command center regression reads `/api/dashboard/summary` through the authenticated Playwright request context instead of parsing a page network response body.",
-            "The mobile compact toolbar and desktop section-heading regressions now run with Art, Collectibles, and Events available in the CI fixture state."
           ]
         }
       ]

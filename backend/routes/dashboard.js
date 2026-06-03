@@ -4,7 +4,12 @@ const { asyncHandler } = require('../middleware/errors');
 const { authenticateToken } = require('../middleware/auth');
 const { enforceScopeAccess } = require('../middleware/scopeAccess');
 const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
-const { buildMissingIdentifierReviewClues } = require('../services/reviewClues');
+const {
+  buildMissingIdentifierReviewClues,
+  buildMissingIdentifierReviewSql,
+  buildSparseMetadataReviewClues,
+  buildSparseMetadataReviewSql
+} = require('../services/reviewClues');
 
 const router = express.Router();
 
@@ -108,13 +113,8 @@ function shapeActivity(row) {
 }
 
 const MISSING_COVER_SQL = `COALESCE(NULLIF(TRIM(m.poster_path), ''), NULL) IS NULL`;
-const MISSING_IDENTIFIER_SQL = `COALESCE(NULLIF(TRIM(m.upc), ''), NULL) IS NULL
-             AND m.tmdb_id IS NULL
-             AND COALESCE(NULLIF(TRIM(m.type_details->>'isbn'), ''), NULL) IS NULL
-             AND COALESCE(NULLIF(TRIM(m.type_details->>'isbn13'), ''), NULL) IS NULL
-             AND COALESCE(NULLIF(TRIM(m.type_details->>'google_books_id'), ''), NULL) IS NULL
-             AND COALESCE(NULLIF(TRIM(m.type_details->>'plex_rating_key'), ''), NULL) IS NULL
-             AND COALESCE(NULLIF(TRIM(m.type_details->>'kavita_series_id'), ''), NULL) IS NULL`;
+const MISSING_IDENTIFIER_SQL = buildMissingIdentifierReviewSql('m');
+const SPARSE_METADATA_SQL = buildSparseMetadataReviewSql('m');
 
 function shapeMediaAttentionItem(row, reviewFilter = '') {
   const details = safeJson(row.type_details, {});
@@ -130,6 +130,7 @@ function shapeMediaAttentionItem(row, reviewFilter = '') {
     author: details.author || null,
     provider_name: details.provider_name || null,
     import_source: row.import_source || null,
+    owned_formats: Array.isArray(row.owned_formats) ? row.owned_formats : [],
     updated_at: row.updated_at || null,
     created_at: row.created_at || null
   };
@@ -137,6 +138,12 @@ function shapeMediaAttentionItem(row, reviewFilter = '') {
     return {
       ...payload,
       ...buildMissingIdentifierReviewClues(row)
+    };
+  }
+  if (reviewFilter === 'sparse_metadata') {
+    return {
+      ...payload,
+      ...buildSparseMetadataReviewClues(row)
     };
   }
   return payload;
@@ -199,6 +206,7 @@ router.get('/dashboard/summary', asyncHandler(async (req, res) => {
     mediaCounts,
     missingCoverItems,
     missingIdentifierItems,
+    sparseMetadataItems,
     failedJobs,
     recentJobs,
     openReviews,
@@ -210,13 +218,14 @@ router.get('/dashboard/summary', asyncHandler(async (req, res) => {
       `SELECT
          COUNT(*)::int AS total,
          COUNT(*) FILTER (WHERE ${MISSING_COVER_SQL})::int AS missing_covers,
-         COUNT(*) FILTER (WHERE ${MISSING_IDENTIFIER_SQL})::int AS missing_identifiers
+         COUNT(*) FILTER (WHERE ${MISSING_IDENTIFIER_SQL})::int AS missing_identifiers,
+         COUNT(*) FILTER (WHERE ${SPARSE_METADATA_SQL})::int AS sparse_metadata
        FROM media m
        WHERE 1=1${mediaScopeClause}`,
       mediaParams
     ),
     pool.query(
-      `SELECT m.id, m.title, m.media_type, m.year, m.format, m.poster_path, m.type_details, m.import_source, m.updated_at, m.created_at
+      `SELECT m.id, m.title, m.media_type, m.year, m.format, m.poster_path, m.type_details, m.import_source, m.owned_formats, m.updated_at, m.created_at
        FROM media m
        WHERE ${MISSING_COVER_SQL}${mediaScopeClause}
        ORDER BY m.updated_at DESC NULLS LAST, m.id DESC
@@ -224,9 +233,17 @@ router.get('/dashboard/summary', asyncHandler(async (req, res) => {
       mediaParams
     ),
     pool.query(
-      `SELECT m.id, m.title, m.media_type, m.year, m.format, m.poster_path, m.upc, m.tmdb_id, m.type_details, m.import_source, m.updated_at, m.created_at
+      `SELECT m.id, m.title, m.media_type, m.year, m.format, m.poster_path, m.upc, m.tmdb_id, m.type_details, m.import_source, m.owned_formats, m.updated_at, m.created_at
        FROM media m
        WHERE ${MISSING_IDENTIFIER_SQL}${mediaScopeClause}
+       ORDER BY m.updated_at DESC NULLS LAST, m.id DESC
+       LIMIT 8`,
+      mediaParams
+    ),
+    pool.query(
+      `SELECT m.id, m.title, m.media_type, m.year, m.format, m.poster_path, m.upc, m.tmdb_id, m.type_details, m.import_source, m.owned_formats, m.updated_at, m.created_at
+       FROM media m
+       WHERE ${SPARSE_METADATA_SQL}${mediaScopeClause}
        ORDER BY m.updated_at DESC NULLS LAST, m.id DESC
        LIMIT 8`,
       mediaParams
@@ -285,6 +302,7 @@ router.get('/dashboard/summary', asyncHandler(async (req, res) => {
   const openReviewCount = toCount(openReviews.rows[0]?.open_count);
   const missingCoverCount = toCount(mediaRow.missing_covers);
   const missingIdentifierCount = toCount(mediaRow.missing_identifiers);
+  const sparseMetadataCount = toCount(mediaRow.sparse_metadata);
   const failedJobCount = Array.isArray(failedJobs.rows) ? failedJobs.rows.length : 0;
 
   const attention = [
@@ -320,6 +338,14 @@ router.get('/dashboard/summary', asyncHandler(async (req, res) => {
       severity: missingIdentifierCount > 0 ? 'info' : 'ok',
       target_tab: 'dashboard',
       description: missingIdentifierCount > 0 ? 'Some items lack UPC, ISBN, TMDB, Plex, Kavita, or Google Books identifiers.' : 'Identifiers look covered in this scope.'
+    },
+    {
+      id: 'sparse-metadata',
+      label: 'Sparse metadata',
+      count: sparseMetadataCount,
+      severity: sparseMetadataCount > 0 ? 'info' : 'ok',
+      target_tab: 'dashboard',
+      description: sparseMetadataCount > 0 ? 'Some items have enough identity but need descriptive fields for better matching and display.' : 'Metadata clues look covered in this scope.'
     }
   ];
 
@@ -329,12 +355,14 @@ router.get('/dashboard/summary', asyncHandler(async (req, res) => {
     collection: {
       total_items: toCount(mediaRow.total),
       missing_covers: missingCoverCount,
-      missing_identifiers: missingIdentifierCount
+      missing_identifiers: missingIdentifierCount,
+      sparse_metadata: sparseMetadataCount
     },
     attention,
     attention_details: {
       missing_cover_items: missingCoverItems.rows.map(shapeMediaAttentionItem),
-      missing_identifier_items: missingIdentifierItems.rows.map((row) => shapeMediaAttentionItem(row, 'missing_identifiers'))
+      missing_identifier_items: missingIdentifierItems.rows.map((row) => shapeMediaAttentionItem(row, 'missing_identifiers')),
+      sparse_metadata_items: sparseMetadataItems.rows.map((row) => shapeMediaAttentionItem(row, 'sparse_metadata'))
     },
     failed_sync_jobs: failedJobs.rows.map((row) => ({
       id: row.id,

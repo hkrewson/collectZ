@@ -1022,10 +1022,20 @@
                   "items": { "type": "string" },
                   "description": "Optional row-level review clues for review-filtered lists."
                 },
+                "review_finding_type": {
+                  "type": ["string", "null"],
+                  "enum": ["missing_identifier", "sparse_metadata", null],
+                  "description": "Optional Dashboard/Library review finding family for review-filtered lists."
+                },
                 "recommended_identifiers": {
                   "type": "array",
                   "items": { "type": "string" },
                   "description": "Optional identifier types that would improve match accuracy for this row."
+                },
+                "recommended_metadata": {
+                  "type": "array",
+                  "items": { "type": "string" },
+                  "description": "Optional descriptive fields that would improve matching, search, or display for this row."
                 }
               },
               "required": ["id", "title", "media_type"]
@@ -3137,9 +3147,10 @@
             "properties": {
               "total_items": { "type": "integer" },
               "missing_covers": { "type": "integer" },
-              "missing_identifiers": { "type": "integer" }
+              "missing_identifiers": { "type": "integer" },
+              "sparse_metadata": { "type": "integer" }
             },
-            "required": ["total_items", "missing_covers", "missing_identifiers"]
+            "required": ["total_items", "missing_covers", "missing_identifiers", "sparse_metadata"]
           },
           "attention": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
           "attention_details": {
@@ -3153,7 +3164,20 @@
                   "type": "object",
                   "properties": {
                     "review_reasons": { "type": "array", "items": { "type": "string" } },
+                    "review_finding_type": { "type": ["string", "null"], "enum": ["missing_identifier", "sparse_metadata", null] },
                     "recommended_identifiers": { "type": "array", "items": { "type": "string" } }
+                  },
+                  "additionalProperties": true
+                }
+              },
+              "sparse_metadata_items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "review_reasons": { "type": "array", "items": { "type": "string" } },
+                    "review_finding_type": { "type": ["string", "null"], "enum": ["missing_identifier", "sparse_metadata", null] },
+                    "recommended_metadata": { "type": "array", "items": { "type": "string" } }
                   },
                   "additionalProperties": true
                 }
@@ -7880,7 +7904,7 @@
             "description": "Optional Dashboard/Library attention filter for all-media review lists.",
             "schema": {
               "type": "string",
-              "enum": ["missing_covers", "missing_identifiers"]
+              "enum": ["missing_covers", "missing_identifiers", "sparse_metadata"]
             }
           }
         ],

@@ -59,12 +59,14 @@ function normalizeReviewFilter(value) {
   const normalized = String(raw || '').trim().toLowerCase().replace(/-/g, '_');
   if (normalized === 'missing_covers' || normalized === 'missing_cover') return 'missing_covers';
   if (normalized === 'missing_identifiers' || normalized === 'missing_identifier') return 'missing_identifiers';
+  if (normalized === 'sparse_metadata' || normalized === 'missing_metadata' || normalized === 'metadata') return 'sparse_metadata';
   return '';
 }
 
 function reviewFilterLabel(value) {
   if (value === 'missing_covers') return 'Missing covers';
   if (value === 'missing_identifiers') return 'Missing identifiers';
+  if (value === 'sparse_metadata') return 'Sparse metadata';
   return 'Review filter';
 }
 
@@ -426,9 +428,14 @@ function compareComicIssueOrder(aItem, bItem) {
 
 function reviewClue(item) {
   const reasons = Array.isArray(item?.review_reasons) ? item.review_reasons.filter(Boolean) : [];
-  const recommended = Array.isArray(item?.recommended_identifiers) ? item.recommended_identifiers.filter(Boolean) : [];
+  const identifierRecommendations = Array.isArray(item?.recommended_identifiers) ? item.recommended_identifiers.filter(Boolean) : [];
+  const metadataRecommendations = Array.isArray(item?.recommended_metadata) ? item.recommended_metadata.filter(Boolean) : [];
   const reason = reasons[0] || '';
-  const recommendation = recommended.length ? `Add ${recommended.join(' or ')}.` : '';
+  const recommendation = identifierRecommendations.length
+    ? `Add ${identifierRecommendations.join(' or ')}.`
+    : metadataRecommendations.length
+      ? `Add ${metadataRecommendations.join(', ')}.`
+      : '';
   return [reason, recommendation].filter(Boolean).join('. ').replace('..', '.');
 }
 
