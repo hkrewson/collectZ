@@ -4,17 +4,18 @@ This checklist is enforced for tagged release runs (`v*`) via CI preflight.
 
 ## Required Gates
 
-All of the following must pass:
+All blocking gates must pass. Advisory gates must be reviewed and explicitly accounted for in release closeout.
 
-1. Secret scan.
-2. Dependency vulnerability scan.
-3. Migration check (including init parity + rehearsal evidence).
-4. Compose smoke check.
-5. RBAC regression check.
-6. Browser regression check.
-7. Homelab edition boundary smoke check.
-8. Platform edition boundary smoke check.
-9. Image security scan + SBOM generation.
+1. CodeQL code scanning should be reviewed when present. It is advisory at introduction and may become blocking after the baseline is understood.
+2. Secret scan.
+3. Dependency vulnerability scan.
+4. Migration check (including init parity + rehearsal evidence).
+5. Compose smoke check.
+6. RBAC regression check.
+7. Browser regression check.
+8. Homelab edition boundary smoke check.
+9. Platform edition boundary smoke check.
+10. Image security scan + SBOM generation.
 
 ## Release Closeout Must-Do
 
@@ -30,12 +31,13 @@ Minimum closeout expectation:
 6. Run init parity / migration rehearsal checks in an environment with database access.
 7. Run production dependency audit checks for backend and frontend.
 8. Generate observability release evidence with `npm --prefix backend run test:observability-evidence` and review the resulting artifact for passed persistence, collector-path, non-blocking failure, backend-restore, and final-health checks.
-9. Confirm the remaining CI-only gates are green, especially gitleaks, compose smoke, RBAC, Trivy, and SBOM generation.
-10. Confirm the Playwright browser-regression gate is green and its artifacts are available when failures occur.
-11. Confirm the homelab edition boundary gate is green so the live `homelab` stack still exposes only the shared mounted surfaces and keeps platform-only APIs unmounted.
-12. Confirm the platform edition boundary gate is green so the live `platform` stack still preserves invite-based registration and the tenant/admin control-plane APIs that must remain mounted.
-13. Confirm `latest` and moving minor tags are release-publish outputs, while `stable` remains a separate manual promotion decision.
-14. When any of `rbac-regression`, `browser-regression`, `homelab-edition-boundary`, or `platform-edition-boundary` fail, inspect the exact failing artifact or step log and repair the concrete runtime/spec assumption locally before calling the release push-ready.
+9. Review CodeQL alerts if the workflow has run for the branch or release commit.
+10. Confirm the remaining CI-only gates are green, especially gitleaks, compose smoke, RBAC, Trivy, and SBOM generation.
+11. Confirm the Playwright browser-regression gate is green and its artifacts are available when failures occur.
+12. Confirm the homelab edition boundary gate is green so the live `homelab` stack still exposes only the shared mounted surfaces and keeps platform-only APIs unmounted.
+13. Confirm the platform edition boundary gate is green so the live `platform` stack still preserves invite-based registration and the tenant/admin control-plane APIs that must remain mounted.
+14. Confirm `latest` and moving minor tags are release-publish outputs, while `stable` remains a separate manual promotion decision.
+15. When any of `rbac-regression`, `browser-regression`, `homelab-edition-boundary`, or `platform-edition-boundary` fail, inspect the exact failing artifact or step log and repair the concrete runtime/spec assumption locally before calling the release push-ready.
 
 Stable promotion expectation:
 

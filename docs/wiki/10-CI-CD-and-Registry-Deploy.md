@@ -59,6 +59,7 @@ Migration safety in CI:
 
 Security and release gates in CI:
 
+- CodeQL code scanning for JavaScript/TypeScript source analysis.
 - Secret leak scan (gitleaks) against repository history and current tree.
 - Dependency vulnerability scan (`npm audit`) on backend/frontend dependencies.
 - RBAC regression gate (API-level ownership/role/scope allow-deny checks).
@@ -77,6 +78,12 @@ Security and release gates in CI:
   - security headers (`x-content-type-options`, `x-frame-options`, `strict-transport-security`) are present,
   - CSRF/session cookies are issued with secure attributes (`Secure`, `SameSite=Strict`, and `HttpOnly` for session),
   - unauthenticated `/api/auth/me` returns `401`.
+
+Source code scanning:
+
+- `.github/workflows/codeql.yml` runs CodeQL for JavaScript/TypeScript on pushes, pull requests, a weekly schedule, and manual dispatch.
+- CodeQL is an advisory source-analysis layer at introduction; it does not replace dependency scanning, gitleaks, Trivy, SBOM, RBAC, browser regression, or edition-boundary gates.
+- Maintain `docs/wiki/49-Dependency-PR-and-CI-Security-Coverage.md` as the coverage map for dependency PR disposition and CI security posture.
 
 Playwright packaging boundary:
 

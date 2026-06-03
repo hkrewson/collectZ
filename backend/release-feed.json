@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.10.28",
+      "version": "3.10.28",
+      "date": null,
+      "status": "completed",
+      "summary": "This patch turns the dependency PR cleanup into a documented security-maintenance process and adds GitHub CodeQL source scanning for JavaScript/TypeScript. It keeps CodeQL advisory at introduction while preserving the existing release gates for dependency audit, secret scan, image security, SBOM, runtime smoke, RBAC, browser regression, and edition boundaries.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added `.github/workflows/codeql.yml` for JavaScript/TypeScript CodeQL analysis on push, pull request, weekly schedule, and manual dispatch.",
+            "Added `docs/wiki/49-Dependency-PR-and-CI-Security-Coverage.md` with open PR dispositions and a CI security coverage map.",
+            "Updated CI/release docs to include CodeQL as an advisory source-scanning layer.",
+            "Moved the selected dependency/security backlog item out of the backlog and into the numbered roadmap.",
+            "Documented that `@zxing/library@0.23.0` remains deferred until its browser peer relationship is intentionally resolved."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.10.27",
       "version": "3.10.27",
       "date": null,
@@ -155,25 +174,6 @@
             "Browser setup now enables both `events_enabled` and `collectibles_enabled`.",
             "The dashboard command center regression reads `/api/dashboard/summary` through the authenticated Playwright request context instead of parsing a page network response body.",
             "The mobile compact toolbar and desktop section-heading regressions now run with Art, Collectibles, and Events available in the CI fixture state."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.10.18",
-      "version": "3.10.18",
-      "date": null,
-      "status": "completed",
-      "summary": "This patch stabilizes the admin shell browser regression after the recent desktop/mobile header work by making dashboard tab navigation in the test follow the app's mounted route-sync behavior.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added a small Playwright helper that dispatches dashboard route state after query-tab navigation.",
-            "Updated the mobile compact toolbar regression to use that helper.",
-            "Updated the desktop library heading regression to use that helper.",
-            "Updated the mobile utility header regression to use that helper.",
-            "Corrected Capture Inbox expectations now that its page heading is intentionally visible."
           ]
         }
       ]

@@ -6,6 +6,37 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.10.28 — Dependency PR and CI Security Coverage Review
+
+**Goal:** Turn the open dependency/security PR queue into a documented maintenance decision and add low-cost source code scanning coverage.
+
+### Scope
+
+- Inventory open Dependabot PRs with current merge/check state.
+- Document PR dispositions for already-absorbed dependency work and the remaining ZXing library decision.
+- Add GitHub CodeQL scanning for JavaScript/TypeScript source analysis.
+- Document the CI security coverage map and the posture for CodeQL, Snyk, GitGuardian, dependency audit, gitleaks, Trivy, SBOM, RBAC, browser, and edition-boundary gates.
+- Keep broader supply-chain additions such as OSV/Scorecard, license scanning, and SBOM diffing as follow-up options rather than adding them all at once.
+
+### Acceptance Criteria
+
+- Open PRs have a documented disposition and rationale.
+- CodeQL has a workflow and an introduction posture.
+- CI/security documentation explains what each current gate proves.
+- `3.10.28` release artifacts are synced and visible in Help > Releases.
+- No new secrets or credentials are introduced.
+
+### Closeout
+
+- Status: completed.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/49-Dependency-PR-and-CI-Security-Coverage.md`, GitHub CodeQL/code scanning documentation, and CodeQL project documentation.
+- Runtime verification used: Docker backend/frontend rebuild at `APP_VERSION=3.10.28`, running `/api/health` version readback, Help > Releases smoke from the running stack, and targeted browser regression against the rebuilt frontend.
+- CI/checks run: workflow YAML parse; version sync check; release note heading check; release-feed latest-version check; backend and frontend `npm ci --no-fund` under Node 20 Docker; backend and frontend high-severity npm audit; backend unit tests; OpenAPI validation; frontend Vite build under Node 20 Docker; in-stack RBAC regression; platform edition boundary smoke; targeted Playwright browser regression.
+- Files changed: CodeQL workflow, dependency PR/CI security coverage doc, CI/release docs, backlog promotion cleanup, version metadata, release note, and release feed.
+- Risks/follow-ups: CodeQL is introduced as advisory until the first baseline run is understood; `@zxing/library@0.23.0` remains deferred pending a peer-compatibility decision with `@zxing/browser`. CodeQL execution, gitleaks, Trivy/SBOM, homelab edition boundary, and full publish workflow remain GitHub Actions or alternate-topology gates for this CI-maintenance patch.
+- What remains in the milestone: nothing for `3.10.28`.
+- Recommended commit message: `Release 3.10.28 with dependency PR and CI security coverage review`.
+
 ## 3.10.27 — Express 5 Runtime Compatibility
 
 **Goal:** Upgrade the backend Express runtime to Express 5 while preserving route registration, middleware behavior, and auth/scope boundaries.
