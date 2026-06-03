@@ -1,6 +1,6 @@
 {
   "name": "collectz-backend",
-  "version": "3.10.23",
+  "version": "3.10.24",
   "description": "collectZ Backend API",
   "main": "server.js",
   "scripts": {
@@ -132,7 +132,7 @@
     "multer": "^2.1.1",
     "nodemailer": "^8.0.8",
     "pg": "^8.21.0",
-    "zod": "^3.22.4"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"

@@ -1,6 +1,23 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.10.24",
+      "version": "3.10.24",
+      "date": null,
+      "status": "completed",
+      "summary": "This patch upgrades the backend validation library to Zod 4 and keeps collectZ's request-validation error shaping compatible with the new error surface.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Updated backend `zod` from `^3.22.4` to `^4.4.3`.",
+            "Updated validation middleware to read `ZodError.issues`, while retaining a fallback for older error shapes.",
+            "Kept validation failure responses in the same `{ error, details }` structure used by existing clients."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.10.23",
       "version": "3.10.23",
       "date": null,
@@ -162,25 +179,6 @@
             "Hid the page-local search toolbar on mobile when a shell-inline toolbar is active.",
             "Applied the pattern to Library, Art, Collectibles, and Events surfaces.",
             "Kept desktop page headers and toolbar behavior unchanged."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.10.14",
-      "version": "3.10.14",
-      "date": null,
-      "status": "completed",
-      "summary": "This patch corrects the mobile header icon placement so the current section icon lives in the top app header navigation button instead of taking space in the search toolbar row.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Moved mobile section icons into the shell header navigation button.",
-            "Removed the section icon slot from the shared mobile search toolbar.",
-            "Kept mobile page titles available as screen-reader text and in the navigation button label.",
-            "Updated Capture Inbox mobile readback to use the full page name.",
-            "Preserved desktop header behavior and existing search/filter/add toolbar behavior."
           ]
         }
       ]

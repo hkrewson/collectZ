@@ -6,6 +6,37 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.10.24 — Zod 4 Validation Compatibility
+
+**Goal:** Upgrade the backend validation library to Zod 4 while preserving collectZ's request validation response shape.
+
+### Scope
+
+- Update backend `zod` to `4.4.3`.
+- Keep validation middleware compatible with the Zod 4 `issues` error surface.
+- Preserve existing validation failure responses for clients.
+- Verify backend validation/unit coverage and key auth/scope gates.
+
+### Acceptance Criteria
+
+- Backend package manifest and lockfile remain in sync.
+- Backend install completes from the lockfile.
+- Backend unit/OpenAPI checks pass.
+- Running stack reports `3.10.24`.
+- Help > Releases includes `3.10.24`.
+- RBAC and platform boundary smokes still pass against the running stack.
+
+### Closeout
+
+- Status: completed.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, and `docs/releases/v3.10.24.md`.
+- Runtime verification used: Docker backend/frontend rebuild at `APP_VERSION=3.10.24`, running `/api/health` version readback, and Help > Releases smoke from the running stack.
+- CI/checks run: backend and frontend `npm ci --no-fund` under Node 20 Docker; backend and frontend high-severity npm audit; backend unit tests; OpenAPI validation; frontend Vite build under Node 20 Docker; in-stack RBAC regression; platform edition boundary smoke; release note heading check; version/lockfile sync check.
+- Files changed: backend validation middleware, backend package manifest/lockfile, version metadata, release note/feed, and roadmap closeout.
+- Risks/follow-ups: Zod 4 is a major validation-library upgrade, so validation edge cases should be watched in CI and normal import/scanner/admin use. The frontend clean install still emits the known ZXing Node engine warning from `3.10.23`. Homelab edition boundary, secret scan, image security/SBOM, and full compose-smoke remain CI or alternate-topology gates for this backend dependency patch.
+- What remains in the milestone: nothing for `3.10.24`.
+- Recommended commit message: `Release 3.10.24 with Zod 4 validation compatibility`.
+
 ## 3.10.23 — ZXing Barcode Decoder Upgrade
 
 **Goal:** Upgrade the browser barcode decoder dependency pair used by Capture Inbox and library lookup capture without crossing the published ZXing peer dependency boundary.
