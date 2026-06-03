@@ -1,6 +1,6 @@
 {
   "name": "collectz-backend",
-  "version": "3.10.26",
+  "version": "3.10.27",
   "description": "collectZ Backend API",
   "main": "server.js",
   "scripts": {
@@ -123,7 +123,7 @@
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "csv-parse": "^6.2.1",
-    "express": "^4.22.2",
+    "express": "^5.2.1",
     "express-rate-limit": "^8.5.2",
     "express-session": "^1.17.3",
     "fast-xml-parser": "^5.8.0",
@@ -139,7 +139,6 @@
   },
   "overrides": {
     "follow-redirects": "1.16.0",
-    "path-to-regexp": "0.1.13",
     "nodemon": {
       "minimatch": "10.2.3"
     }

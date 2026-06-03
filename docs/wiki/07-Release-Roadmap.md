@@ -6,6 +6,37 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.10.27 — Express 5 Runtime Compatibility
+
+**Goal:** Upgrade the backend Express runtime to Express 5 while preserving route registration, middleware behavior, and auth/scope boundaries.
+
+### Scope
+
+- Update backend `express` to `5.2.1`.
+- Remove the legacy `path-to-regexp` override that conflicts with Express 5's router.
+- Verify backend route registration and OpenAPI validation.
+- Verify the running Docker stack starts and serves health/readback on Express 5.
+
+### Acceptance Criteria
+
+- Backend package manifest and lockfile remain in sync.
+- Backend install completes from the lockfile.
+- Backend unit/OpenAPI checks pass.
+- Running stack reports `3.10.27`.
+- Help > Releases includes `3.10.27`.
+- RBAC and platform boundary smokes still pass against the running stack.
+
+### Closeout
+
+- Status: completed.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/releases/v3.10.27.md`, and the official Express 5 migration guide.
+- Runtime verification used: Docker backend/frontend rebuild at `APP_VERSION=3.10.27`, running `/api/health` version readback, Help > Releases smoke from the running stack, and targeted browser regression against the Express 5 backend.
+- CI/checks run: backend and frontend `npm ci --no-fund` under Node 20 Docker; backend and frontend high-severity npm audit; backend unit tests; OpenAPI validation; frontend Vite build under Node 20 Docker; targeted browser regression for admin shell and capture/library surfaces; in-stack RBAC regression; platform edition boundary smoke; release note heading check; version/lockfile sync check.
+- Files changed: backend package manifest/lockfile, version metadata, release note/feed, and roadmap closeout.
+- Risks/follow-ups: Express 5 has stricter route path matching than Express 4, so full CI browser/API regression and normal API use should watch for missed edge routes. The frontend clean install still emits the known ZXing Node engine warning from `3.10.23`. Homelab edition boundary, secret scan, image security/SBOM, and full compose-smoke remain CI or alternate-topology gates for this backend dependency patch.
+- What remains in the milestone: nothing for `3.10.27`.
+- Recommended commit message: `Release 3.10.27 with Express 5 runtime compatibility`.
+
 ## 3.10.26 — Tailwind 4 Vite Pipeline Compatibility
 
 **Goal:** Upgrade the frontend Tailwind build pipeline to Tailwind CSS 4 while preserving collectZ's existing design tokens and browser-facing UI behavior.

@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.10.27",
+      "version": "3.10.27",
+      "date": null,
+      "status": "completed",
+      "summary": "This patch upgrades the backend Express runtime to Express 5 and removes the old Express 4-era `path-to-regexp` override so route registration, middleware, and API error handling run on the supported Express 5 router stack.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Updated backend `express` from `^4.22.2` to `^5.2.1`.",
+            "Removed the backend `path-to-regexp` override that forced the legacy `0.1.x` matcher.",
+            "Verified the Express 5 router uses its compatible `path-to-regexp` dependency.",
+            "Confirmed existing route registration, OpenAPI validation, and unit coverage still pass."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.10.26",
       "version": "3.10.26",
       "date": null,
@@ -156,25 +174,6 @@
             "Updated the desktop library heading regression to use that helper.",
             "Updated the mobile utility header regression to use that helper.",
             "Corrected Capture Inbox expectations now that its page heading is intentionally visible."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.10.17",
-      "version": "3.10.17",
-      "date": null,
-      "status": "completed",
-      "summary": "This patch removes descriptive header copy from desktop Art, Collectibles, and Events library pages so library headers stay compact and consistent with the newer title/search/filter pattern.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Removed the Art header description.",
-            "Removed the Collectibles header description.",
-            "Removed the Events header description.",
-            "Added browser regression coverage so those desktop headers keep page-title-only behavior.",
-            "Kept empty-state and drawer body copy unchanged."
           ]
         }
       ]
