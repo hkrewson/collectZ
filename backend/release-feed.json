@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.10.26",
+      "version": "3.10.26",
+      "date": null,
+      "status": "completed",
+      "summary": "This patch upgrades the frontend Tailwind build pipeline to Tailwind CSS 4 and uses the dedicated Vite plugin while preserving the existing collectZ design tokens and component CSS.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Updated frontend `tailwindcss` from `^3.4.0` to `^4.3.0`.",
+            "Added `@tailwindcss/vite` and wired it into the Vite plugin list.",
+            "Replaced the old `@tailwind` CSS directives with the Tailwind 4 import plus a compatibility `@config` reference to the existing JavaScript Tailwind config.",
+            "Removed the obsolete PostCSS Tailwind/autoprefixer pipeline.",
+            "Flattened local component `@apply` recipes that chained through custom CSS classes so Tailwind 4 can compile them."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.10.25",
       "version": "3.10.25",
       "date": null,
@@ -156,27 +175,6 @@
             "Removed the Events header description.",
             "Added browser regression coverage so those desktop headers keep page-title-only behavior.",
             "Kept empty-state and drawer body copy unchanged."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.10.16",
-      "version": "3.10.16",
-      "date": null,
-      "status": "completed",
-      "summary": "This patch consolidates library filter controls into a single funnel menu so desktop and mobile pages stop carrying loose secondary filter fields in the main search toolbar.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added a shared `FilterMenu` primitive using the existing funnel icon.",
-            "Moved media library quick filters into the funnel menu.",
-            "Moved Art event and exclusive filters into the funnel menu.",
-            "Moved Collectibles category, event, and exclusive filters into the funnel menu.",
-            "Moved Events date range filters into the funnel menu.",
-            "Kept live search, view mode, sort, and add actions outside the filter menu.",
-            "Left Loans status tabs unchanged because they act as primary loan state tabs."
           ]
         }
       ]

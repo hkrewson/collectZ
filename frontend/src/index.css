@@ -1,8 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=JetBrains+Mono:wght@400;500&display=swap');
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@config "../tailwind.config.js";
 
 @layer base {
   :root {
@@ -94,23 +93,31 @@
   }
 
   .btn-primary {
-    @apply btn px-4 h-9
+    @apply inline-flex items-center justify-center gap-2 rounded font-sans font-medium
+           text-sm leading-none transition-all duration-150 cursor-pointer
+           select-none whitespace-nowrap px-4 h-9
            bg-gold text-void hover:bg-gold-300 active:bg-gold-500
            shadow-sm hover:shadow-glow;
   }
 
   .btn-secondary {
-    @apply btn px-4 h-9
+    @apply inline-flex items-center justify-center gap-2 rounded font-sans font-medium
+           text-sm leading-none transition-all duration-150 cursor-pointer
+           select-none whitespace-nowrap px-4 h-9
            bg-raised border border-edge text-dim hover:text-ink hover:border-muted
            hover:bg-surface;
   }
 
   .btn-ghost {
-    @apply btn px-3 h-9 text-dim hover:text-ink hover:bg-raised;
+    @apply inline-flex items-center justify-center gap-2 rounded font-sans font-medium
+           text-sm leading-none transition-all duration-150 cursor-pointer
+           select-none whitespace-nowrap px-3 h-9 text-dim hover:text-ink hover:bg-raised;
   }
 
   .btn-danger {
-    @apply btn px-4 h-9
+    @apply inline-flex items-center justify-center gap-2 rounded font-sans font-medium
+           text-sm leading-none transition-all duration-150 cursor-pointer
+           select-none whitespace-nowrap px-4 h-9
            bg-err/10 border border-err/30 text-err hover:bg-err/20;
   }
 
@@ -123,7 +130,9 @@
   }
 
   .btn-icon {
-    @apply btn w-9 h-9 p-0 bg-raised border border-edge text-dim
+    @apply inline-flex items-center justify-center gap-2 rounded font-sans font-medium
+           text-sm leading-none transition-all duration-150 cursor-pointer
+           select-none whitespace-nowrap w-9 h-9 p-0 bg-raised border border-edge text-dim
            hover:text-ink hover:border-muted;
   }
 
@@ -135,7 +144,9 @@
   }
 
   .input-lg {
-    @apply input h-11 px-4 text-base;
+    @apply w-full h-11 px-4 text-base bg-surface border border-edge rounded text-ink
+           placeholder-ghost focus:border-gold/60 focus:ring-1 focus:ring-gold/40
+           transition-colors duration-150;
   }
 
   .textarea {
@@ -145,7 +156,9 @@
   }
 
   .select {
-    @apply input pr-8 cursor-pointer appearance-none bg-no-repeat;
+    @apply w-full h-9 px-3 text-sm bg-surface border border-edge rounded text-ink
+           placeholder-ghost focus:border-gold/60 focus:ring-1 focus:ring-gold/40
+           transition-colors duration-150 pr-8 cursor-pointer appearance-none bg-no-repeat;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234a5a78' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
     background-position: right 10px center;
   }
@@ -172,11 +185,11 @@
     @apply inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium;
   }
 
-  .badge-gold   { @apply badge bg-gold/15 text-gold border border-gold/20; }
-  .badge-ok     { @apply badge bg-ok/10 text-ok border border-ok/20; }
-  .badge-warn   { @apply badge bg-warn/10 text-warn border border-warn/20; }
-  .badge-err    { @apply badge bg-err/10 text-err border border-err/20; }
-  .badge-dim    { @apply badge bg-muted/30 text-dim border border-ghost/20; }
+  .badge-gold   { @apply inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-gold/15 text-gold border border-gold/20; }
+  .badge-ok     { @apply inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-ok/10 text-ok border border-ok/20; }
+  .badge-warn   { @apply inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-warn/10 text-warn border border-warn/20; }
+  .badge-err    { @apply inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-err/10 border border-err/30 text-err; }
+  .badge-dim    { @apply inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-muted/30 text-dim border border-ghost/20; }
 
   /* ── Nav item ────────────────────────────────────────────────── */
   .nav-item {

@@ -1,5 +1,7 @@
 const { defineConfig, loadEnv } = require('vite');
 const react = require('@vitejs/plugin-react');
+const tailwindcssPlugin = require('@tailwindcss/vite');
+const tailwindcss = tailwindcssPlugin.default || tailwindcssPlugin;
 
 module.exports = defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
@@ -17,7 +19,7 @@ module.exports = defineConfig(({ mode }) => {
   };
 
   return {
-    plugins: [react()],
+    plugins: [react(), tailwindcss()],
     optimizeDeps: {
       noDiscovery: true
     },

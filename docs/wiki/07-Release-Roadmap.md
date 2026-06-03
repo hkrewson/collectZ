@@ -6,6 +6,38 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.10.26 — Tailwind 4 Vite Pipeline Compatibility
+
+**Goal:** Upgrade the frontend Tailwind build pipeline to Tailwind CSS 4 while preserving collectZ's existing design tokens and browser-facing UI behavior.
+
+### Scope
+
+- Update frontend `tailwindcss` to `4.3.0`.
+- Add the dedicated `@tailwindcss/vite` plugin and wire it into Vite.
+- Keep the existing JavaScript Tailwind config via Tailwind 4 compatibility `@config`.
+- Replace the old PostCSS/Tailwind directive setup with the Tailwind 4 import path.
+- Verify frontend build and representative browser regression coverage.
+
+### Acceptance Criteria
+
+- Frontend package manifest and lockfile remain in sync.
+- Frontend install completes from the lockfile.
+- Frontend build passes with Tailwind 4.
+- Running stack reports `3.10.26`.
+- Help > Releases includes `3.10.26`.
+- Representative browser regression passes against the running stack.
+
+### Closeout
+
+- Status: completed.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/releases/v3.10.26.md`, and the official Tailwind CSS v4 upgrade guide.
+- Runtime verification used: Docker backend/frontend rebuild at `APP_VERSION=3.10.26`, running `/api/health` version readback, Help > Releases smoke from the running stack, and targeted browser regression against the Tailwind 4 frontend.
+- CI/checks run: frontend `npm ci --no-fund` under Node 20 Docker; frontend high-severity npm audit; frontend Vite build under Node 20 Docker; targeted browser regression for admin shell and capture/library surfaces; in-stack RBAC regression; platform edition boundary smoke; release note heading check; version/lockfile sync check.
+- Files changed: frontend package manifest/lockfile, Vite/Tailwind CSS configuration, version metadata, release note/feed, and roadmap closeout.
+- Risks/follow-ups: Tailwind 4 is a major CSS toolchain upgrade, so full CI browser regression and normal mobile/desktop use should watch for visual drift. The frontend clean install still emits the known ZXing Node engine warning from `3.10.23`. Homelab edition boundary, secret scan, image security/SBOM, and full compose-smoke remain CI or alternate-topology gates for this frontend dependency patch.
+- What remains in the milestone: nothing for `3.10.26`.
+- Recommended commit message: `Release 3.10.26 with Tailwind 4 Vite pipeline compatibility`.
+
 ## 3.10.25 — React 19 Runtime Compatibility
 
 **Goal:** Upgrade the frontend React runtime pair to React 19 while proving the existing Vite app shell and key browser flows still run correctly.
