@@ -6,6 +6,37 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.10.23 — ZXing Barcode Decoder Upgrade
+
+**Goal:** Upgrade the browser barcode decoder dependency pair used by Capture Inbox and library lookup capture without crossing the published ZXing peer dependency boundary.
+
+### Scope
+
+- Update `@zxing/browser` to `0.2.0`.
+- Update `@zxing/library` to the compatible `0.22.0` peer range.
+- Keep `@zxing/library@0.23.0` deferred until the browser package declares compatibility or a separate override decision is made.
+- Verify barcode decoder loading in the capture/library scanner surfaces.
+
+### Acceptance Criteria
+
+- Frontend package manifest and lockfile remain in sync.
+- Frontend install completes from the lockfile.
+- Frontend build passes.
+- Capture Inbox and library lookup scanner surfaces still load without runtime errors.
+- Running stack reports `3.10.23`.
+- Help > Releases includes `3.10.23`.
+
+### Closeout
+
+- Status: completed.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, and `docs/releases/v3.10.23.md`.
+- Runtime verification used: Docker backend/frontend rebuild at `APP_VERSION=3.10.23`, running `/api/health` version readback, Help > Releases smoke from the running stack, and targeted browser scanner-surface regression.
+- CI/checks run: frontend `npm ci --no-fund` under Node 20 Docker; frontend high-severity npm audit; frontend Vite build under Node 20 Docker; targeted browser regression for scanner surfaces; release note heading check; version/lockfile sync check.
+- Files changed: frontend package manifest/lockfile, version metadata, release note/feed, and roadmap closeout.
+- Risks/follow-ups: `@zxing/library@0.22.0` emits a Node 20 engine warning because its package metadata advertises Node `>=24.0.0`, although collectZ uses it in browser barcode decoding and local install/build gates passed. `@zxing/library@0.23.0` remains deferred until `@zxing/browser` declares compatibility or we choose a tested override. Homelab edition boundary, secret scan, image security/SBOM, and full compose-smoke remain CI or alternate-topology gates for this frontend dependency patch.
+- What remains in the milestone: nothing for `3.10.23`.
+- Recommended commit message: `Release 3.10.23 with ZXing barcode decoder upgrade`.
+
 ## 3.10.22 — Dependency PR Cleanup
 
 **Goal:** Reduce the open dependency PR backlog by consolidating safe non-major app dependency bumps and straightforward CI action bumps into one verified maintenance patch.

@@ -1,6 +1,23 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.10.23",
+      "version": "3.10.23",
+      "date": null,
+      "status": "completed",
+      "summary": "This patch upgrades the browser barcode decoder packages used by Capture Inbox and library lookup capture while keeping the version pair within the published ZXing peer dependency contract.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Updated `@zxing/browser` from `0.1.5` to `0.2.0`.",
+            "Updated `@zxing/library` from `0.21.3` to `0.22.0`, which is the compatible peer range required by the browser package.",
+            "Kept the newer `@zxing/library@0.23.0` PR out of this slice because the current browser package does not declare compatibility with it."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.10.22",
       "version": "3.10.22",
       "date": null,
@@ -164,25 +181,6 @@
             "Kept mobile page titles available as screen-reader text and in the navigation button label.",
             "Updated Capture Inbox mobile readback to use the full page name.",
             "Preserved desktop header behavior and existing search/filter/add toolbar behavior."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.10.13",
-      "version": "3.10.13",
-      "date": null,
-      "status": "completed",
-      "summary": "This patch makes mobile library headers more compact by moving the visible page cue into the search row as a section icon while preserving the page title for accessibility.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added icon-led mobile search rows to shared library headers.",
-            "Added section icons for Audio, Art, Books, Comics, Collectibles, Events, Games, Loans, Movies, TV, and Capture Inbox.",
-            "Kept page titles available as accessibility text.",
-            "Changed the mobile app shell title to screen-reader-only text so it no longer duplicates the page cue visually.",
-            "Preserved desktop title/header behavior."
           ]
         }
       ]
