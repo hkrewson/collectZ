@@ -417,6 +417,8 @@ export function PageHeaderSearchToolbar({
   const [mobileShellTarget, setMobileShellTarget] = useState(null);
   const [useMobileShellToolbar, setUseMobileShellToolbar] = useState(false);
   const resolvedFilterLabel = filterLabel || `${filterCount} filter${filterCount === 1 ? '' : 's'} active`;
+  const [viewMenuOpen, setViewMenuOpen] = useState(false);
+  const viewMenuRef = useRef(null);
 
   useEffect(() => {
     if (!mobileShellInline || typeof document === 'undefined') {
@@ -439,37 +441,72 @@ export function PageHeaderSearchToolbar({
     return () => query.removeEventListener?.('change', update);
   }, [mobileShellInline]);
 
-  const viewTabs = hasViewToggle ? (
-    <SectionTabs
-      tabs={[
-        {
-          id: 'cards',
-          label: (
-            <>
-              <span aria-hidden="true"><IconSet.Film /></span>
-              <span className="sr-only">Cards</span>
-            </>
-          )
-        },
-        {
-          id: 'list',
-          label: (
-            <>
-              <span aria-hidden="true"><IconSet.List /></span>
-              <span className="sr-only">List</span>
-            </>
-          )
-        }
-      ]}
-      activeId={viewMode}
-      onChange={onViewModeChange}
-      semantics="buttons"
-      showDivider={false}
-      ariaLabel={viewAriaLabel}
-      className="shrink-0"
-      listClassName={compact ? 'gap-1' : 'gap-1'}
-      buttonClassName={compact ? 'px-1.5 py-1.5' : 'px-1.5 py-1.5'}
-    />
+  useEffect(() => {
+    if (!viewMenuOpen) return undefined;
+    const handlePointerDown = (event) => {
+      if (viewMenuRef.current && !viewMenuRef.current.contains(event.target)) setViewMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [viewMenuOpen]);
+
+  const viewOptions = [
+    { id: 'cards', label: 'Grid view', Icon: IconSet.Film },
+    { id: 'list', label: 'List view', Icon: IconSet.List }
+  ];
+  const activeViewOption = viewOptions.find((option) => option.id === viewMode) || viewOptions[0];
+  const ActiveViewIcon = activeViewOption?.Icon || IconSet.Film;
+  const viewMenu = hasViewToggle ? (
+    <div className="relative shrink-0" ref={viewMenuRef}>
+      <button
+        type="button"
+        className="btn h-9 w-12 gap-1 border border-edge bg-raised p-0 text-dim hover:border-muted hover:text-ink"
+        aria-label={`${viewAriaLabel}: ${activeViewOption.label}`}
+        aria-haspopup="menu"
+        aria-expanded={viewMenuOpen}
+        title={`${viewAriaLabel}: ${activeViewOption.label}`}
+        onClick={() => setViewMenuOpen((current) => !current)}
+      >
+        <ActiveViewIcon />
+        <IconSet.ChevronDown />
+      </button>
+      {viewMenuOpen ? (
+        <div
+          className="absolute right-0 z-40 mt-2 min-w-36 rounded-md border border-edge bg-deep py-1 shadow-deep"
+          role="menu"
+          aria-label={viewAriaLabel}
+        >
+          {viewOptions.map((option) => {
+            const OptionIcon = option.Icon;
+            const selected = option.id === viewMode;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                role="menuitemradio"
+                aria-checked={selected}
+                className={cx(
+                  'flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors',
+                  selected ? 'text-ink' : 'text-ghost hover:bg-raised/60 hover:text-ink'
+                )}
+                onClick={() => {
+                  onViewModeChange(option.id);
+                  setViewMenuOpen(false);
+                }}
+              >
+                <OptionIcon />
+                <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                {selected && IconSet.Check ? (
+                  <span className="text-gold" aria-hidden="true">
+                    <IconSet.Check />
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
   ) : null;
 
   const sortButton = hasSort ? (
@@ -516,11 +553,11 @@ export function PageHeaderSearchToolbar({
         <div className="hidden sm:contents">{extraControls}</div>
       ) : extraControls}
       {mobileCompact && addButton ? <div className="sm:hidden">{addButton}</div> : null}
-      {(viewTabs || sortButton || addButton) ? (
+      {(viewMenu || sortButton || addButton) ? (
         <div className="hidden items-center justify-end gap-1.5 sm:flex">
-          {(viewTabs || sortButton) ? (
+          {(viewMenu || sortButton) ? (
             <div className="flex items-center gap-1.5">
-              {viewTabs}
+              {viewMenu}
               {sortButton}
             </div>
           ) : null}
@@ -565,9 +602,9 @@ export function PageHeaderSearchToolbar({
                 {typeof total !== 'undefined' ? <span className="badge badge-dim shrink-0">{total}</span> : null}
                 {filterCount > 0 ? <span className="badge badge-dim shrink-0">{resolvedFilterLabel}</span> : null}
               </div>
-              {(viewTabs || sortButton || addButton) ? (
+              {(viewMenu || sortButton || addButton) ? (
                 <div className={cx('shrink-0 items-center justify-end gap-1.5 sm:hidden', mobileCompact ? 'hidden' : 'flex')}>
-                  {viewTabs}
+                  {viewMenu}
                   {sortButton}
                   {addButton}
                 </div>
@@ -1621,6 +1658,7 @@ export const Icons = {
   List:        () => <Icon d="M4 7h16M4 12h16M4 17h16" />,
   Profile:     () => <Icon d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />,
   Integrations:() => <Icon d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 17h6M17 14v6" />,
+  Check:       () => <Icon d="M20 6L9 17l-5-5" size={16} />,
   ChevronDown: () => <Icon d="M6 9l6 6 6-6" size={16} />,
   ChevronRight:() => <Icon d="M9 18l6-6-6-6" size={16} />,
   ChevronLeft: () => <Icon d="M15 18l-6-6 6-6" size={16} />,

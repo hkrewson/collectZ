@@ -6,6 +6,37 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.10.21 — Library View Mode Menu
+
+**Goal:** Replace the always-visible desktop Cards/List buttons in shared library headers with one compact view-mode menu whose icon reflects the active layout.
+
+### Scope
+
+- Add a shared view-mode menu inside `PageHeaderSearchToolbar`.
+- Show the current layout icon in the trigger.
+- List supported layout choices as menu items.
+- Keep search, filter, sort, and add controls available.
+- Keep this scoped to currently supported Grid/List layouts.
+
+### Acceptance Criteria
+
+- Desktop library headers show a single view-mode trigger instead of separate Cards/List buttons.
+- The trigger reflects the active layout.
+- The menu lists Grid view and List view choices and marks the selected option.
+- Selecting a menu item changes the active layout.
+- Version metadata, release note, release feed, and Help > Releases include `3.10.21`.
+
+### Closeout
+
+- Status: completed.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/releases/v3.10.21.md`, `uncodixfy`, and `build-web-apps:frontend-app-builder`.
+- Runtime verification used: Docker frontend rebuild at `APP_VERSION=3.10.21`, running `/api/health` version readback, Help > Releases smoke from the running stack, and desktop Events header menu screenshot/interaction verification.
+- CI/checks run: frontend Vite build; targeted Playwright browser regression for mobile library toolbar compaction and desktop section headings.
+- Files changed: shared page header toolbar primitive, version metadata, release note/feed, and roadmap closeout.
+- Risks/follow-ups: homelab edition boundary, dependency scan, secret scan, and image security/SBOM remain CI or alternate-topology gates for this frontend presentation patch.
+- What remains in the milestone: nothing for `3.10.21`.
+- Recommended commit message: `Release 3.10.21 with library view mode menu`.
+
 ## 3.10.20 — Desktop Library Header Control Cleanup
 
 **Goal:** Quiet the right side of desktop library headers after the search/filter consolidation by reducing secondary control weight without removing controls.
