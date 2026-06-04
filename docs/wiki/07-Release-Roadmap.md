@@ -6,6 +6,34 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.12.3 — Collection Health Identifier Rule Tuning
+
+**Goal:** Tune Dashboard Review missing-identifier rules so collectZ does not ask users for impossible or low-value identifiers when the record already has a useful barcode or source identity.
+
+### Scope
+
+- Treat UPC/barcode as a useful identity for books, movies, and TV rows when deciding whether they belong in Missing IDs.
+- Keep provider/TMDB/Google/ISBN identities valuable, but do not require users to manually supply them when another stable identifier exists.
+- Keep physical audio and game UPC expectations from `3.11.0` intact.
+- Keep comic rules unchanged when a row has series/issue identity or provider issue identity.
+- Preserve Dashboard Review as the resolution surface and keep standalone Review pages out of scope.
+
+### Acceptance Criteria
+
+- Movie and TV rows with UPC/barcode are not flagged as Missing IDs solely because TMDB/Plex identity is absent.
+- Book rows with UPC/barcode are not flagged as Missing IDs solely because ISBN/Google Books identity is absent.
+- Rows with no useful identity still appear in Missing IDs with clear clues.
+- Existing sparse metadata and missing cover behavior remains unchanged.
+- Release notes, release feed, version metadata, and regression coverage are updated for `3.12.3`.
+
+### Closeout
+
+- Status: completed in `3.12.3`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.12.3`; `/api/health` reported backend/frontend/build `3.12.3`.
+- Rule proof: `backend/scripts/collection-health-runtime-proof.js` reported `upc_book_missing_identifier=0`, `upc_movie_missing_identifier=0`, `upc_tv_missing_identifier=0`, and `digital_audio_missing_identifier=0`.
+- Verification: backend unit tests, OpenAPI validation, init parity, Help > Releases smoke, RBAC regression, platform boundary, homelab boundary, targeted Dashboard Review browser regression, dependency audits, observability evidence, local release preflight, release-note section check, app-meta mirror check, artifact secret hygiene scan, and `git diff --check`.
+- CI follow-through: full CI compose-smoke, secret-scan, image security, and SBOM remain CI gates for the pushed commit.
+
 ## 3.12.2 — Dashboard Review Assisted Resolution
 
 **Goal:** Make Dashboard Review row resolution feel like guided collection cleanup instead of a wide manual metadata form.

@@ -6193,6 +6193,9 @@ results.push(run('media review clues classify identifiers separately from sparse
     review_reasons: [],
     recommended_identifiers: []
   });
+  assert.strictEqual(buildMissingIdentifierReviewClues({ media_type: 'book', upc: '9780553572773', type_details: {} }).review_finding_type, null);
+  assert.strictEqual(buildMissingIdentifierReviewClues({ media_type: 'movie', upc: '0707541997928', type_details: {} }).review_finding_type, null);
+  assert.strictEqual(buildMissingIdentifierReviewClues({ media_type: 'tv_series', upc: '012345678905', type_details: {} }).review_finding_type, null);
   assert.strictEqual(buildMissingIdentifierReviewClues({ media_type: 'audio', owned_formats: ['digital'], type_details: {} }).review_finding_type, null);
   assert.deepStrictEqual(buildSparseMetadataReviewClues({ media_type: 'audio', owned_formats: ['digital'], type_details: {} }), {
     review_finding_type: 'sparse_metadata',

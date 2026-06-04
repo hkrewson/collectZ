@@ -55,6 +55,39 @@ These are unscheduled interface cleanup tasks discovered during the `3.10.x` mob
 
 These are product-level capability gaps discovered from the current shape of the app. They are not immediate implementation commitments and should stay versionless until one is selected and moved into the roadmap as a numbered milestone.
 
+### Backlog Item: Dashboard Review Rules and Drawer-First Resolution
+**Type:** Product/UI maintenance track
+**Tags:** `dashboard`, `review`, `collection-health`, `metadata`, `identifiers`, `ux`
+**Status:** Active backlog; first slices shipped through Dashboard Review, but follow-up rule and drawer refinements remain.
+
+**Goal:** Keep collection review work inside Dashboard Review rows and drawers, while making the review rules and drawer actions smart enough that users are not asked to do provider-matching work the app should attempt first.
+
+**Why this work exists**
+- Dashboard Review has proven to be the useful surface for collection cleanup.
+- A separate Review page/nav item duplicated Dashboard and Library review filters without adding enough value.
+- The drawer model is the right resolution surface, but the rules and available drawer actions still need iteration by media type and source.
+- Some missing-identifier rows may reflect provider enrichment gaps, weak imported titles, or source-specific repair needs rather than missing data the user should manually know.
+
+**Intent**
+- Treat Dashboard Review as the primary collection-health review surface.
+- Resolve review findings from rows and drawers instead of adding new top-level pages.
+- Prefer app-assisted lookup, enrichment, upload, title cleanup, and source repair before manual identifier entry.
+- Keep manual fields available as fallback controls, not the main interaction.
+
+**Candidate subtasks**
+- Tune collection-health rules so rows are not flagged for impossible or low-value identifiers.
+- Make identifier expectations media-type, format, source, and provider aware.
+- Improve Dashboard Review drawer actions by type: movie/TV provider search, book ISBN/Google Books lookup, comic issue matching, cover upload/enrichment, title cleanup, and source repair where appropriate.
+- Add dismiss/defer only inside Dashboard Review rows/drawers if smarter rules still leave legitimate `not needed` or `not now` cases.
+- Document and preserve the product rule that standalone Review pages/nav items are out of scope unless a future workflow cannot reasonably live in Dashboard Review.
+
+**Acceptance Criteria**
+- Future review work starts by asking what the Dashboard row/drawer cannot solve before proposing a new page.
+- Missing-identifier findings distinguish true identity absence from provider enrichment gaps.
+- Drawer actions are specific to the media type and review reason.
+- Users can resolve common review rows without needing to manually research provider IDs.
+- Dismiss/defer, if added, is scoped to the row/drawer workflow and does not create a separate review destination.
+
 ### Backlog Item: Collection Health and Audit Dashboard
 **Type:** Deferred milestone
 **Tags:** `product`, `health`, `audit`, `metadata`, `maintenance`

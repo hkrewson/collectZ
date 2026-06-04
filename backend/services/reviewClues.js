@@ -51,10 +51,12 @@ function buildMissingIdentifierReviewSql(alias = 'media') {
 
   return `((
       ${alias}.media_type = 'book'
+      AND ${upcMissing}
       AND ${bookIdentityMissing}
       AND ${providerIdentityMissing}
     ) OR (
       ${alias}.media_type IN ('movie', 'tv_series', 'tv_episode')
+      AND ${upcMissing}
       AND ${alias}.tmdb_id IS NULL
       AND ${plexIdentityMissing}
       AND ${providerIdentityMissing}
@@ -135,12 +137,17 @@ function hasProviderIdentity(row = {}) {
 
 function hasBookIdentity(row = {}) {
   const detailsRow = safeDetails(row);
-  return Boolean(firstText(detailsRow.isbn, detailsRow.isbn13, detailsRow.google_books_id, detailsRow.calibre_entry_id)) || hasProviderIdentity(row);
+  return hasText(row.upc)
+    || Boolean(firstText(detailsRow.isbn, detailsRow.isbn13, detailsRow.google_books_id, detailsRow.calibre_entry_id))
+    || hasProviderIdentity(row);
 }
 
 function hasMovieIdentity(row = {}) {
   const detailsRow = safeDetails(row);
-  return hasText(row.tmdb_id) || Boolean(firstText(detailsRow.plex_rating_key, detailsRow.plex_item_key)) || hasProviderIdentity(row);
+  return hasText(row.upc)
+    || hasText(row.tmdb_id)
+    || Boolean(firstText(detailsRow.plex_rating_key, detailsRow.plex_item_key))
+    || hasProviderIdentity(row);
 }
 
 function hasComicIdentity(row = {}) {

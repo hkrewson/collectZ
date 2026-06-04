@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.12.3",
+      "version": "3.12.3",
+      "date": null,
+      "status": "completed",
+      "summary": "This patch tunes Dashboard Review's Missing IDs rules so barcode-backed books, movies, and TV records are no longer treated as needing manual provider identifiers.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Treats UPC/barcode as a useful identity for books when deciding whether a row belongs in `Review > IDs`.",
+            "Treats UPC/barcode as a useful identity for movies and TV rows when TMDB or Plex identity is absent.",
+            "Keeps physical audio and physical game UPC expectations intact.",
+            "Keeps comic issue identity behavior unchanged.",
+            "Adds unit coverage and runtime proof checks so UPC-bearing books, movies, and TV rows do not regress back into Missing IDs.",
+            "Adds the broader Dashboard Review rules and drawer-first resolution track to the backlog so future review work stays anchored in Dashboard rows and drawers."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.12.2",
       "version": "3.12.2",
       "date": null,
@@ -168,23 +188,6 @@
             "Updated backend `zod` from `^3.22.4` to `^4.4.3`.",
             "Updated validation middleware to read `ZodError.issues`, while retaining a fallback for older error shapes.",
             "Kept validation failure responses in the same `{ error, details }` structure used by existing clients."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.10.23",
-      "version": "3.10.23",
-      "date": null,
-      "status": "completed",
-      "summary": "This patch upgrades the browser barcode decoder packages used by Capture Inbox and library lookup capture while keeping the version pair within the published ZXing peer dependency contract.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Updated `@zxing/browser` from `0.1.5` to `0.2.0`.",
-            "Updated `@zxing/library` from `0.21.3` to `0.22.0`, which is the compatible peer range required by the browser package.",
-            "Kept the newer `@zxing/library@0.23.0` PR out of this slice because the current browser package does not declare compatibility with it."
           ]
         }
       ]

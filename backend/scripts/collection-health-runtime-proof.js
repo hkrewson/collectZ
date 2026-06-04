@@ -28,7 +28,22 @@ async function main() {
         WHERE m.media_type = 'audio'
           AND COALESCE(m.owned_formats, ARRAY[]::text[]) && ARRAY['cd', 'vinyl', 'cassette', 'eight_track', 'four_track', 'vhs']::text[]
           AND ${missingIdentifierSql}
-      )::int AS physical_audio_missing_identifier
+      )::int AS physical_audio_missing_identifier,
+      COUNT(*) FILTER (
+        WHERE m.media_type = 'book'
+          AND COALESCE(NULLIF(TRIM(m.upc), ''), NULL) IS NOT NULL
+          AND ${missingIdentifierSql}
+      )::int AS upc_book_missing_identifier,
+      COUNT(*) FILTER (
+        WHERE m.media_type = 'movie'
+          AND COALESCE(NULLIF(TRIM(m.upc), ''), NULL) IS NOT NULL
+          AND ${missingIdentifierSql}
+      )::int AS upc_movie_missing_identifier,
+      COUNT(*) FILTER (
+        WHERE m.media_type IN ('tv_series', 'tv_episode')
+          AND COALESCE(NULLIF(TRIM(m.upc), ''), NULL) IS NOT NULL
+          AND ${missingIdentifierSql}
+      )::int AS upc_tv_missing_identifier
     FROM media m
   `);
 
@@ -48,7 +63,16 @@ async function main() {
     LIMIT 12
   `);
 
-  console.log(JSON.stringify({ summary: summary.rows[0], samples: samples.rows }, null, 2));
+  const proof = { summary: summary.rows[0], samples: samples.rows };
+  const failures = [
+    ['upc_book_missing_identifier', proof.summary.upc_book_missing_identifier],
+    ['upc_movie_missing_identifier', proof.summary.upc_movie_missing_identifier],
+    ['upc_tv_missing_identifier', proof.summary.upc_tv_missing_identifier]
+  ].filter(([, count]) => Number(count || 0) > 0);
+  console.log(JSON.stringify(proof, null, 2));
+  if (failures.length > 0) {
+    throw new Error(`UPC-bearing rows still flagged as missing identifiers: ${failures.map(([key, count]) => `${key}=${count}`).join(', ')}`);
+  }
 }
 
 main()
