@@ -243,6 +243,15 @@ test.describe('admin shell browser regressions', () => {
     expect((await detailResponse).ok()).toBeTruthy();
     await expect(page.getByTestId('dashboard-review-drawer')).toBeVisible();
     await expect(page.getByText('Why it is here')).toBeVisible();
+    if (reviewKind === 'missing identifiers') {
+      await expect(page.getByText('Search for a match')).toBeVisible();
+      await expect(page.getByPlaceholder('Search title')).toBeVisible();
+    }
+    if (reviewKind === 'missing covers') {
+      await expect(page.getByText('Cover image')).toBeVisible();
+      await expect(page.getByText('Upload cover')).toBeVisible();
+    }
+    await expect(page.getByText('Manual details')).toBeVisible();
     await expect(page.getByRole('button', { name: /Save/ })).toBeVisible();
   });
 

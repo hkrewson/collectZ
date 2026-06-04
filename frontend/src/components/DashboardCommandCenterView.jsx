@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import SyncJobDetailDrawer from './SyncJobDetailDrawer';
-import { DetailDrawerShell, SectionTabs } from './app/AppPrimitives';
+import { CoverImagePicker, DetailDrawerShell, SectionTabs, inferTmdbSearchType, posterUrl } from './app/AppPrimitives';
 
 const DASHBOARD_SAMPLE_LIMIT = 5;
 const DASHBOARD_SECTION_TABS = [
@@ -230,8 +230,11 @@ function buildReviewForm(record) {
   fields.forEach(([field, _label, bucket]) => {
     values[field] = fieldValueForRecord(record, field, bucket);
   });
+  values.title = coerceFieldValue(record?.title);
   values.year = coerceFieldValue(record?.year);
   values.format = coerceFieldValue(record?.format);
+  values.tmdb_media_type = coerceFieldValue(record?.tmdb_media_type);
+  values.tmdb_url = coerceFieldValue(record?.tmdb_url);
   return values;
 }
 
@@ -248,6 +251,30 @@ function ReviewField({ field, label, value, onChange }) {
   );
 }
 
+function lookupCandidateTitle(candidate) {
+  return candidate?.title || candidate?.name || candidate?.normalizedTitle || 'Untitled match';
+}
+
+function lookupCandidateYear(candidate) {
+  if (candidate?.release_year) return candidate.release_year;
+  if (candidate?.year) return candidate.year;
+  const releaseDate = candidate?.release_date || candidate?.first_air_date;
+  return releaseDate ? String(releaseDate).slice(0, 4) : '';
+}
+
+function lookupCandidateImage(candidate) {
+  return candidate?.poster_path || candidate?.image || candidate?.type_details?.poster_path || null;
+}
+
+function lookupProviderLabel(mediaType) {
+  if (mediaType === 'movie' || mediaType === 'tv_series') return 'TMDB';
+  if (mediaType === 'book') return 'Google Books';
+  if (mediaType === 'comic_book') return 'Metron';
+  if (mediaType === 'audio') return 'Discogs';
+  if (mediaType === 'game') return 'Game search';
+  return 'Provider';
+}
+
 function MediaReviewDrawer({
   item,
   reviewType,
@@ -256,25 +283,39 @@ function MediaReviewDrawer({
   loading,
   saving,
   error,
+  coverUploading,
+  lookupQuery,
+  lookupYear,
+  lookupMatches,
+  lookupLoading,
+  lookupError,
   onChange,
+  onCoverSelect,
+  onLookupQueryChange,
+  onLookupYearChange,
+  onRunLookup,
+  onApplyLookup,
   onSave,
   onClose,
   Spinner
 }) {
   const mediaType = record?.media_type || item?.media_type || 'movie';
   const fields = DETAIL_FIELDS_BY_TYPE[mediaType] || DETAIL_FIELDS_BY_TYPE.movie;
+  const manualFields = fields.filter(([field]) => reviewType !== 'missing-covers' || field !== 'poster_path');
   const clue = reviewClue(item);
   const recommendation = [
     ...(Array.isArray(item?.recommended_identifiers) ? item.recommended_identifiers : []),
     ...(Array.isArray(item?.recommended_metadata) ? item.recommended_metadata : [])
   ].filter(Boolean);
+  const canLookup = reviewType === 'missing-identifiers';
+  const canUploadCover = reviewType === 'missing-covers';
 
   return (
-    <DetailDrawerShell onClose={onClose} panelClassName="max-w-xl" testId="dashboard-review-drawer">
-      <div className="space-y-4">
+    <DetailDrawerShell onClose={onClose} panelClassName="max-w-lg" testId="dashboard-review-drawer">
+      <div className="space-y-4 p-4 sm:p-5">
         <div>
-          <p className="text-xs uppercase tracking-wide text-ghost">Dashboard Review</p>
-          <h2 className="mt-1 text-xl font-semibold text-ink">{record?.title || item?.title || 'Untitled'}</h2>
+          <p className="text-xs font-medium text-ghost">Dashboard Review</p>
+          <h2 className="mt-1 text-lg font-semibold text-ink">{form.title || record?.title || item?.title || 'Untitled'}</h2>
           <p className="mt-1 text-sm text-ghost">{itemMeta(record || item)}</p>
         </div>
 
@@ -294,19 +335,109 @@ function MediaReviewDrawer({
           </div>
         ) : (
           <form className="space-y-4" onSubmit={(event) => { event.preventDefault(); onSave(); }}>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <ReviewField field="year" label="Year" value={form.year} onChange={onChange} />
-              <ReviewField field="format" label="Format" value={form.format} onChange={onChange} />
-              {fields.map(([field, label]) => (
-                <ReviewField
-                  key={`${mediaType}:${field}`}
-                  field={field}
-                  label={label}
-                  value={form[field]}
-                  onChange={onChange}
+            {canUploadCover ? (
+              <div className="rounded-lg border border-edge bg-panel p-3">
+                <CoverImagePicker
+                  label="Cover image"
+                  imagePath={form.poster_path}
+                  emptyLabel="Upload cover"
+                  replaceLabel="Replace cover"
+                  className="max-w-36"
+                  disabled={coverUploading || saving}
+                  onSelectFile={onCoverSelect}
+                  onRemove={() => onChange('poster_path', '')}
                 />
-              ))}
-            </div>
+                <label className="mt-3 block min-w-0">
+                  <span className="text-xs font-medium text-ghost">Image URL/path</span>
+                  <input
+                    className="input mt-1 w-full"
+                    value={form.poster_path || ''}
+                    onChange={(event) => onChange('poster_path', event.target.value)}
+                    placeholder="Paste a cover URL or upload an image"
+                  />
+                </label>
+                {coverUploading ? <p className="mt-2 text-xs text-ghost">Uploading cover...</p> : null}
+              </div>
+            ) : null}
+
+            {canLookup ? (
+              <div className="rounded-lg border border-edge bg-panel p-3">
+                <p className="text-sm font-medium text-ink">Search for a match</p>
+                <p className="mt-1 text-xs leading-5 text-ghost">
+                  Use this when the title, year, or imported name may be keeping collectZ from matching the item.
+                </p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_7rem_auto]">
+                  <label className="min-w-0">
+                    <span className="sr-only">Search title</span>
+                    <input
+                      className="input w-full"
+                      value={lookupQuery}
+                      onChange={(event) => onLookupQueryChange(event.target.value)}
+                      placeholder="Search title"
+                    />
+                  </label>
+                  <label className="min-w-0">
+                    <span className="sr-only">Year</span>
+                    <input
+                      className="input w-full"
+                      value={lookupYear}
+                      onChange={(event) => onLookupYearChange(event.target.value)}
+                      placeholder="Year"
+                    />
+                  </label>
+                  <button type="button" className="btn-secondary" onClick={onRunLookup} disabled={lookupLoading || saving}>
+                    {lookupLoading ? 'Searching' : 'Search'}
+                  </button>
+                </div>
+                {lookupError ? <p className="mt-2 text-xs text-err">{lookupError}</p> : null}
+                {lookupMatches.length ? (
+                  <div className="mt-3 divide-y divide-edge overflow-hidden rounded-lg border border-edge">
+                    {lookupMatches.slice(0, 5).map((candidate, index) => {
+                      const title = lookupCandidateTitle(candidate);
+                      const year = lookupCandidateYear(candidate);
+                      const image = lookupCandidateImage(candidate);
+                      return (
+                        <button
+                          key={`${candidate.id || candidate.provider_item_id || title}:${index}`}
+                          type="button"
+                          onClick={() => onApplyLookup(candidate)}
+                          className="flex w-full items-center gap-3 bg-raised/20 px-3 py-2 text-left transition hover:bg-raised/45"
+                        >
+                          <span className="relative h-12 w-8 shrink-0 overflow-hidden rounded border border-edge bg-abyss">
+                            {posterUrl(image) ? <img src={posterUrl(image)} alt="" className="h-full w-full object-cover" /> : null}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-medium text-ink">{title}</span>
+                            <span className="mt-0.5 block truncate text-xs text-ghost">
+                              {[lookupProviderLabel(mediaType), year].filter(Boolean).join(' · ')}
+                            </span>
+                          </span>
+                          <span className="shrink-0 text-xs font-medium text-accent">Use</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            <details className="rounded-lg border border-edge bg-panel p-3" open={!canLookup && !canUploadCover}>
+              <summary className="cursor-pointer text-sm font-medium text-ink">Manual details</summary>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <ReviewField field="title" label="Title" value={form.title} onChange={onChange} />
+                <ReviewField field="year" label="Year" value={form.year} onChange={onChange} />
+                <ReviewField field="format" label="Format" value={form.format} onChange={onChange} />
+                {manualFields.map(([field, label]) => (
+                  <ReviewField
+                    key={`${mediaType}:${field}`}
+                    field={field}
+                    label={label}
+                    value={form[field]}
+                    onChange={onChange}
+                  />
+                ))}
+              </div>
+            </details>
             {error ? <p className="rounded-lg border border-err/40 bg-err/10 p-3 text-sm text-err">{error}</p> : null}
             <div className="flex justify-end gap-2 border-t border-edge pt-3">
               <button type="button" className="btn-secondary" onClick={onClose} disabled={saving}>
@@ -371,6 +502,12 @@ export default function DashboardCommandCenterView({
   const [reviewLoading, setReviewLoading] = useState(false);
   const [reviewSaving, setReviewSaving] = useState(false);
   const [reviewError, setReviewError] = useState('');
+  const [reviewCoverUploading, setReviewCoverUploading] = useState(false);
+  const [reviewLookupQuery, setReviewLookupQuery] = useState('');
+  const [reviewLookupYear, setReviewLookupYear] = useState('');
+  const [reviewLookupMatches, setReviewLookupMatches] = useState([]);
+  const [reviewLookupLoading, setReviewLookupLoading] = useState(false);
+  const [reviewLookupError, setReviewLookupError] = useState('');
 
   const loadSummary = useCallback(async () => {
     setLoading(true);
@@ -439,11 +576,17 @@ export default function DashboardCommandCenterView({
     setSelectedReviewRecord(null);
     setReviewForm(buildReviewForm(item));
     setReviewError('');
+    setReviewLookupQuery(item?.title || '');
+    setReviewLookupYear(item?.year ? String(item.year) : '');
+    setReviewLookupMatches([]);
+    setReviewLookupError('');
     setReviewLoading(true);
     try {
       const record = await apiCall('get', `/media/${item.id}`);
       setSelectedReviewRecord(record);
       setReviewForm(buildReviewForm(record));
+      setReviewLookupQuery(record?.title || item?.title || '');
+      setReviewLookupYear(record?.year ? String(record.year) : (item?.year ? String(item.year) : ''));
     } catch (err) {
       const message = err?.response?.data?.error || 'Failed to load this review item';
       setReviewError(message);
@@ -460,10 +603,136 @@ export default function DashboardCommandCenterView({
     setReviewError('');
     setReviewLoading(false);
     setReviewSaving(false);
+    setReviewCoverUploading(false);
+    setReviewLookupQuery('');
+    setReviewLookupYear('');
+    setReviewLookupMatches([]);
+    setReviewLookupError('');
+    setReviewLookupLoading(false);
   };
 
   const updateReviewField = (field, value) => {
     setReviewForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const uploadReviewCover = async (file) => {
+    if (!file) return;
+    setReviewCoverUploading(true);
+    setReviewError('');
+    try {
+      const body = new FormData();
+      body.append('cover', file);
+      const uploaded = await apiCall('post', '/media/upload-cover', body, { headers: { 'Content-Type': 'multipart/form-data' } });
+      if (!uploaded?.path) throw new Error('Cover upload did not return a path');
+      setReviewForm((current) => ({ ...current, poster_path: uploaded.path }));
+      onToast?.('Cover image uploaded', 'success');
+    } catch (err) {
+      const message = err?.response?.data?.error || err.message || 'Cover upload failed';
+      setReviewError(message);
+      onToast?.(message, 'error');
+    } finally {
+      setReviewCoverUploading(false);
+    }
+  };
+
+  const searchReviewMatches = async () => {
+    const record = selectedReviewRecord || selectedReview?.item;
+    const mediaType = record?.media_type || 'movie';
+    const title = String(reviewLookupQuery || reviewForm.title || record?.title || '').trim();
+    if (!title) {
+      setReviewLookupError('Enter a title to search.');
+      return;
+    }
+
+    setReviewLookupLoading(true);
+    setReviewLookupError('');
+    setReviewLookupMatches([]);
+    try {
+      let matches = [];
+      if (mediaType === 'movie' || mediaType === 'tv_series') {
+        matches = await apiCall('post', '/media/search-tmdb', {
+          title,
+          year: String(reviewLookupYear || reviewForm.year || '').trim() || undefined,
+          mediaType: inferTmdbSearchType(mediaType)
+        });
+      } else if (mediaType === 'book') {
+        const data = await apiCall('post', '/media/enrich/book/search', {
+          title,
+          author: String(reviewForm.author || record?.type_details?.author || '').trim()
+        });
+        matches = data?.matches || [];
+      } else if (mediaType === 'comic_book') {
+        const data = await apiCall('post', '/media/enrich/comic/search', { title });
+        matches = data?.matches || [];
+      } else if (mediaType === 'audio') {
+        const data = await apiCall('post', '/media/enrich/audio/search', {
+          title,
+          artist: String(reviewForm.artist || record?.type_details?.artist || '').trim()
+        });
+        matches = data?.matches || [];
+      } else if (mediaType === 'game') {
+        const data = await apiCall('post', '/media/enrich/game/search', { title });
+        matches = data?.matches || [];
+      }
+      setReviewLookupMatches(Array.isArray(matches) ? matches : []);
+      if (!matches?.length) setReviewLookupError('No matches found. Try a shorter or corrected title.');
+    } catch (err) {
+      const message = err?.response?.data?.error || err.message || 'Search failed';
+      setReviewLookupError(message);
+      onToast?.(message, 'error');
+    } finally {
+      setReviewLookupLoading(false);
+    }
+  };
+
+  const applyReviewMatch = (candidate) => {
+    const record = selectedReviewRecord || selectedReview?.item;
+    const mediaType = record?.media_type || 'movie';
+    const title = lookupCandidateTitle(candidate);
+    const year = lookupCandidateYear(candidate);
+    const image = lookupCandidateImage(candidate);
+    const next = {};
+
+    if (title) next.title = title;
+    if (year) next.year = String(year);
+    if (image) next.poster_path = image;
+
+    if (mediaType === 'movie' || mediaType === 'tv_series') {
+      const tmdbType = candidate?.tmdb_media_type || inferTmdbSearchType(mediaType);
+      if (candidate?.id) {
+        next.tmdb_id = String(candidate.id);
+        next.tmdb_media_type = tmdbType;
+        next.tmdb_url = `https://www.themoviedb.org/${tmdbType}/${candidate.id}`;
+      }
+    } else if (mediaType === 'book') {
+      const details = candidate?.type_details || {};
+      if (details.isbn) next.isbn = details.isbn;
+      if (details.isbn13) next.isbn13 = details.isbn13;
+      if (candidate?.id) next.google_books_id = String(candidate.id);
+      if (details.author) next.author = details.author;
+      if (details.publisher) next.publisher = details.publisher;
+    } else if (mediaType === 'comic_book') {
+      const details = candidate?.type_details || {};
+      if (details.series) next.series = details.series;
+      if (details.issue_number) next.issue_number = details.issue_number;
+      if (details.provider_issue_id || candidate?.id) next.provider_issue_id = String(details.provider_issue_id || candidate.id);
+      if (details.publisher) next.publisher = details.publisher;
+      if (details.isbn) next.isbn = details.isbn;
+      if (details.isbn13) next.isbn13 = details.isbn13;
+    } else if (mediaType === 'audio') {
+      const details = candidate?.type_details || {};
+      if (details.artist) next.artist = details.artist;
+      if (details.album || title) next.album = details.album || title;
+      if (details.track_count) next.track_count = String(details.track_count);
+    } else if (mediaType === 'game') {
+      const details = candidate?.type_details || {};
+      if (details.platform) next.platform = details.platform;
+      if (details.developer) next.developer = details.developer;
+      if (candidate?.provider_item_id || candidate?.id) next.provider_item_id = String(candidate.provider_item_id || candidate.id);
+    }
+
+    setReviewForm((current) => ({ ...current, ...next }));
+    onToast?.('Match details applied. Save to update the item.', 'success');
   };
 
   const saveReviewItem = async () => {
@@ -481,8 +750,11 @@ export default function DashboardCommandCenterView({
       payload[field] = field === 'year' ? Number(nextValue) || nextValue : nextValue;
     };
 
+    applyTopField('title');
     applyTopField('year');
     applyTopField('format');
+    applyTopField('tmdb_media_type');
+    applyTopField('tmdb_url');
 
     fields.forEach(([field, _label, bucket]) => {
       const nextValue = String(reviewForm[field] || '').trim();
@@ -859,7 +1131,18 @@ export default function DashboardCommandCenterView({
           loading={reviewLoading}
           saving={reviewSaving}
           error={reviewError}
+          coverUploading={reviewCoverUploading}
+          lookupQuery={reviewLookupQuery}
+          lookupYear={reviewLookupYear}
+          lookupMatches={reviewLookupMatches}
+          lookupLoading={reviewLookupLoading}
+          lookupError={reviewLookupError}
           onChange={updateReviewField}
+          onCoverSelect={uploadReviewCover}
+          onLookupQueryChange={setReviewLookupQuery}
+          onLookupYearChange={setReviewLookupYear}
+          onRunLookup={searchReviewMatches}
+          onApplyLookup={applyReviewMatch}
           onSave={saveReviewItem}
           onClose={closeReviewItem}
           Spinner={Spinner}

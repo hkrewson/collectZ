@@ -6162,11 +6162,17 @@ results.push(run('dashboard command center is authenticated scoped dashboard def
 }));
 
 results.push(run('dashboard review owns inline media resolution instead of a standalone review route', () => {
+  const dashboardReviewSource = fs.readFileSync(path.resolve(__dirname, '..', '..', 'frontend/src/components/DashboardCommandCenterView.jsx'), 'utf8');
   assert.ok(!serverSource.includes("routes/reviewQueue"));
   assert.ok(!openApiSource.includes('"/api/review-queue"'));
   assert.ok(!personalAccessTokenSource.includes('/api/review-queue'));
   assert.ok(dashboardRoutesSource.includes('attention_details'));
-  assert.ok(fs.readFileSync(path.resolve(__dirname, '..', '..', 'frontend/src/components/DashboardCommandCenterView.jsx'), 'utf8').includes('MediaReviewDrawer'));
+  assert.ok(dashboardReviewSource.includes('MediaReviewDrawer'));
+  assert.ok(dashboardReviewSource.includes('/media/upload-cover'));
+  assert.ok(dashboardReviewSource.includes('/media/search-tmdb'));
+  assert.ok(dashboardReviewSource.includes('/media/enrich/book/search'));
+  assert.ok(dashboardReviewSource.includes('Search for a match'));
+  assert.ok(dashboardReviewSource.includes('Upload cover'));
 }));
 
 results.push(run('media review clues classify identifiers separately from sparse metadata', () => {

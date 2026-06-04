@@ -1,6 +1,27 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.12.2",
+      "version": "3.12.2",
+      "date": null,
+      "status": "completed",
+      "summary": "This patch improves the Dashboard Review drawer so missing-cover and missing-identifier rows feel like actionable review work instead of wide manual edit forms.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Made the Dashboard Review drawer narrower, padded, and focused around the review action first.",
+            "Added direct cover upload to missing-cover review rows using the existing media cover upload path.",
+            "Kept a cover URL/path field as a fallback for pasted or provider-hosted images.",
+            "Added provider search to missing-identifier review rows so users can search by corrected title/year and apply candidate data.",
+            "Applying a match can stage title, year, cover, and provider identity details before saving.",
+            "Moved broad manual fields behind a `Manual details` section so manual identifier entry is available but no longer the primary path.",
+            "Added source-contract and browser coverage for assisted review drawer behavior."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.12.1",
       "version": "3.12.1",
       "date": null,
@@ -164,24 +185,6 @@
             "Updated `@zxing/browser` from `0.1.5` to `0.2.0`.",
             "Updated `@zxing/library` from `0.21.3` to `0.22.0`, which is the compatible peer range required by the browser package.",
             "Kept the newer `@zxing/library@0.23.0` PR out of this slice because the current browser package does not declare compatibility with it."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.10.22",
-      "version": "3.10.22",
-      "date": null,
-      "status": "completed",
-      "summary": "This patch consolidates the safe dependency and workflow updates from the open PR backlog so the remaining pull requests are easier to reason about.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Updated backend runtime dependencies for Express 4, AWS S3, Nodemailer, Helmet, Postgres, Axios, Fast XML Parser, rate limiting, and CSV parsing.",
-            "Updated frontend Vite to the current open patch release.",
-            "Updated CI workflow actions for upload-artifact and Trivy.",
-            "Left major or compatibility-sensitive PRs out of this slice for separate review."
           ]
         }
       ]

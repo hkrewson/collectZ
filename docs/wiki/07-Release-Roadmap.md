@@ -6,6 +6,39 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.12.2 — Dashboard Review Assisted Resolution
+
+**Goal:** Make Dashboard Review row resolution feel like guided collection cleanup instead of a wide manual metadata form.
+
+### Scope
+
+- Tighten the Dashboard Review drawer width, padding, and hierarchy.
+- Keep the row clue visible, but place the highest-value resolution action before manual fields.
+- For missing covers, expose direct image upload using the existing media cover upload path while keeping URL/path entry as a fallback.
+- For missing identifiers, expose provider search by editable title/year so collectZ can help find matches instead of asking the user to know provider IDs.
+- Allow applying a candidate to stage title, year, cover, and provider identity details before saving through the existing media update API.
+- Keep manual fields available as a fallback under a compact `Manual details` section.
+- Do not change the rules that decide which rows qualify as missing identifiers in this patch.
+
+### Acceptance Criteria
+
+- Missing-cover rows open a Dashboard Review drawer with an upload affordance and URL/path fallback.
+- Missing-identifier rows open a Dashboard Review drawer with search-by-title/year and candidate apply behavior.
+- Manual ID/metadata fields remain available but are not the first interaction.
+- Saving still uses existing authenticated, scope-enforced media update routes.
+- Release notes, release feed, version metadata, and regression coverage are updated for `3.12.2`.
+
+### Closeout
+
+- Status: completed.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, and `docs/releases/v3.12.2.md`.
+- Runtime verification used: Docker backend/frontend rebuild at `APP_VERSION=3.12.2`, running `/api/health` version readback, Help > Releases smoke from the running stack, and targeted Dashboard Review browser regression.
+- CI/checks run: backend unit tests under Node 20 Docker; OpenAPI validation; frontend Vite build under Node 20 Docker; Docker backend/frontend build; running-stack Help > Releases smoke; targeted Playwright browser regression for Dashboard Review assisted drawer behavior; in-stack RBAC regression; platform edition boundary smoke; init parity; observability release evidence; local release preflight; dependency audits; `git diff --check`.
+- Files changed: Dashboard Review drawer UI, review search/upload wiring, browser regression coverage, unit source-contract coverage, version metadata, release note/feed, and roadmap.
+- Risks/follow-ups: collection-health identifier rules are unchanged, so some rows may still ask for identifiers when the better product move is title cleanup or enrichment repair; that remains the separate review-rules follow-up.
+- What remains in the milestone: nothing for `3.12.2`.
+- Recommended commit message: `Release 3.12.2 with Dashboard review assisted resolution`.
+
 ## 3.12.1 — Dashboard Review Inline Resolution
 
 **Goal:** Correct the first Review Queue direction by making Dashboard Review rows actionable in place instead of adding a separate Review destination that duplicates Dashboard and Library review filters.
