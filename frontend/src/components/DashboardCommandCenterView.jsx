@@ -352,6 +352,13 @@ function lookupContextValue(record = {}) {
   return '';
 }
 
+function reviewDecisionFindingType(reviewType) {
+  if (reviewType === 'missing-covers') return 'missing_covers';
+  if (reviewType === 'missing-identifiers') return 'missing_identifiers';
+  if (reviewType === 'sparse-metadata') return 'sparse_metadata';
+  return '';
+}
+
 function MediaReviewDrawer({
   item,
   reviewType,
@@ -359,6 +366,7 @@ function MediaReviewDrawer({
   form,
   loading,
   saving,
+  decisionSaving,
   error,
   coverUploading,
   lookupQuery,
@@ -372,6 +380,7 @@ function MediaReviewDrawer({
   onLookupContextChange,
   onRunLookup,
   onApplyLookup,
+  onReviewDecision,
   onSave,
   onClose,
   Spinner
@@ -387,6 +396,7 @@ function MediaReviewDrawer({
   const canLookup = reviewType === 'missing-identifiers';
   const canUploadCover = reviewType === 'missing-covers';
   const lookupConfig = lookupActionConfig(mediaType);
+  const busy = saving || Boolean(decisionSaving);
 
   return (
     <DetailDrawerShell onClose={onClose} panelClassName="max-w-lg" testId="dashboard-review-drawer">
@@ -421,7 +431,7 @@ function MediaReviewDrawer({
                   emptyLabel="Upload cover"
                   replaceLabel="Replace cover"
                   className="max-w-36"
-                  disabled={coverUploading || saving}
+                  disabled={coverUploading || busy}
                   onSelectFile={onCoverSelect}
                   onRemove={() => onChange('poster_path', '')}
                 />
@@ -465,7 +475,7 @@ function MediaReviewDrawer({
                       />
                     </label>
                   ) : null}
-                  <button type="button" className="btn-secondary" onClick={onRunLookup} disabled={lookupLoading || saving}>
+                  <button type="button" className="btn-secondary" onClick={onRunLookup} disabled={lookupLoading || busy}>
                     {lookupLoading ? 'Searching' : 'Search'}
                   </button>
                 </div>
@@ -519,13 +529,23 @@ function MediaReviewDrawer({
               </div>
             </details>
             {error ? <p className="rounded-lg border border-err/40 bg-err/10 p-3 text-sm text-err">{error}</p> : null}
-            <div className="flex justify-end gap-2 border-t border-edge pt-3">
-              <button type="button" className="btn-secondary" onClick={onClose} disabled={saving}>
-                Cancel
-              </button>
-              <button type="submit" className="btn-primary" disabled={saving || !record}>
-                {saving ? 'Saving' : `Save ${reviewType === 'missing-covers' ? 'cover' : 'updates'}`}
-              </button>
+            <div className="flex flex-col gap-3 border-t border-edge pt-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-wrap gap-2">
+                <button type="button" className="btn-secondary" onClick={() => onReviewDecision?.('defer')} disabled={busy || !record}>
+                  {decisionSaving === 'defer' ? 'Deferring' : 'Defer 7 days'}
+                </button>
+                <button type="button" className="btn-secondary" onClick={() => onReviewDecision?.('dismiss')} disabled={busy || !record}>
+                  {decisionSaving === 'dismiss' ? 'Dismissing' : 'Dismiss'}
+                </button>
+              </div>
+              <div className="flex justify-end gap-2">
+                <button type="button" className="btn-secondary" onClick={onClose} disabled={busy}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary" disabled={busy || !record}>
+                  {saving ? 'Saving' : `Save ${reviewType === 'missing-covers' ? 'cover' : 'updates'}`}
+                </button>
+              </div>
             </div>
           </form>
         )}
@@ -581,6 +601,7 @@ export default function DashboardCommandCenterView({
   const [reviewForm, setReviewForm] = useState({});
   const [reviewLoading, setReviewLoading] = useState(false);
   const [reviewSaving, setReviewSaving] = useState(false);
+  const [reviewDecisionSaving, setReviewDecisionSaving] = useState('');
   const [reviewError, setReviewError] = useState('');
   const [reviewCoverUploading, setReviewCoverUploading] = useState(false);
   const [reviewLookupQuery, setReviewLookupQuery] = useState('');
@@ -683,6 +704,7 @@ export default function DashboardCommandCenterView({
     setReviewError('');
     setReviewLoading(false);
     setReviewSaving(false);
+    setReviewDecisionSaving('');
     setReviewCoverUploading(false);
     setReviewLookupQuery('');
     setReviewLookupContext('');
@@ -868,6 +890,30 @@ export default function DashboardCommandCenterView({
       onToast?.(message, 'error');
     } finally {
       setReviewSaving(false);
+    }
+  };
+
+  const applyReviewDecision = async (action) => {
+    const record = selectedReviewRecord || selectedReview?.item;
+    const findingType = reviewDecisionFindingType(selectedReview?.reviewType);
+    if (!record?.id || !findingType) return;
+    setReviewDecisionSaving(action);
+    setReviewError('');
+    try {
+      await apiCall('post', '/dashboard/review-decisions', {
+        media_id: Number(record.id),
+        finding_type: findingType,
+        action
+      });
+      onToast?.(action === 'defer' ? 'Review item deferred for 7 days' : 'Review item dismissed until it changes', 'success');
+      closeReviewItem();
+      await loadSummary();
+    } catch (err) {
+      const message = err?.response?.data?.error || 'Failed to update this review item';
+      setReviewError(message);
+      onToast?.(message, 'error');
+    } finally {
+      setReviewDecisionSaving('');
     }
   };
 
@@ -1210,6 +1256,7 @@ export default function DashboardCommandCenterView({
           form={reviewForm}
           loading={reviewLoading}
           saving={reviewSaving}
+          decisionSaving={reviewDecisionSaving}
           error={reviewError}
           coverUploading={reviewCoverUploading}
           lookupQuery={reviewLookupQuery}
@@ -1223,6 +1270,7 @@ export default function DashboardCommandCenterView({
           onLookupContextChange={setReviewLookupContext}
           onRunLookup={searchReviewMatches}
           onApplyLookup={applyReviewMatch}
+          onReviewDecision={applyReviewDecision}
           onSave={saveReviewItem}
           onClose={closeReviewItem}
           Spinner={Spinner}

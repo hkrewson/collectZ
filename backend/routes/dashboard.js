@@ -3,7 +3,9 @@ const pool = require('../db/pool');
 const { asyncHandler } = require('../middleware/errors');
 const { authenticateToken } = require('../middleware/auth');
 const { enforceScopeAccess } = require('../middleware/scopeAccess');
+const { validate, dashboardReviewDecisionSchema } = require('../middleware/validate');
 const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
+const { logActivity } = require('../services/audit');
 const {
   buildMissingIdentifierReviewClues,
   buildMissingIdentifierReviewSql,
@@ -115,6 +117,37 @@ function shapeActivity(row) {
 const MISSING_COVER_SQL = `COALESCE(NULLIF(TRIM(m.poster_path), ''), NULL) IS NULL`;
 const MISSING_IDENTIFIER_SQL = buildMissingIdentifierReviewSql('m');
 const SPARSE_METADATA_SQL = buildSparseMetadataReviewSql('m');
+const REVIEW_FINDING_TYPES = new Set(['missing_covers', 'missing_identifiers', 'sparse_metadata']);
+
+function normalizeReviewFindingType(value) {
+  const normalized = String(value || '').trim().replace(/-/g, '_');
+  return REVIEW_FINDING_TYPES.has(normalized) ? normalized : null;
+}
+
+function normalizeReviewDecisionAction(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'defer' || normalized === 'deferred') return 'deferred';
+  if (normalized === 'dismiss' || normalized === 'dismissed') return 'dismissed';
+  return null;
+}
+
+function activeReviewDecisionSql(mediaAlias, findingType) {
+  return `NOT EXISTS (
+    SELECT 1
+    FROM media_review_decisions mrd
+    WHERE mrd.media_id = ${mediaAlias}.id
+      AND mrd.finding_type = '${findingType}'
+      AND (mrd.media_updated_at IS NULL OR ${mediaAlias}.updated_at <= mrd.media_updated_at)
+      AND (
+        mrd.action = 'dismissed'
+        OR (mrd.action = 'deferred' AND mrd.deferred_until > CURRENT_TIMESTAMP)
+      )
+  )`;
+}
+
+const MISSING_COVER_ACTIVE_SQL = `(${MISSING_COVER_SQL} AND ${activeReviewDecisionSql('m', 'missing_covers')})`;
+const MISSING_IDENTIFIER_ACTIVE_SQL = `(${MISSING_IDENTIFIER_SQL} AND ${activeReviewDecisionSql('m', 'missing_identifiers')})`;
+const SPARSE_METADATA_ACTIVE_SQL = `(${SPARSE_METADATA_SQL} AND ${activeReviewDecisionSql('m', 'sparse_metadata')})`;
 
 function shapeMediaAttentionItem(row, reviewFilter = '') {
   const details = safeJson(row.type_details, {});
@@ -148,6 +181,69 @@ function shapeMediaAttentionItem(row, reviewFilter = '') {
   }
   return payload;
 }
+
+router.post('/dashboard/review-decisions', validate(dashboardReviewDecisionSchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const mediaId = Number(req.body.media_id);
+  const findingType = normalizeReviewFindingType(req.body.finding_type);
+  const action = normalizeReviewDecisionAction(req.body.action);
+  if (!findingType || !action) {
+    return res.status(400).json({ error: 'Invalid review decision' });
+  }
+
+  const mediaParams = [mediaId];
+  const mediaScopeClause = appendScopeSql(mediaParams, scopeContext, {
+    spaceColumn: 'm.space_id',
+    libraryColumn: 'm.library_id'
+  });
+  const mediaResult = await pool.query(
+    `SELECT m.id, m.title, m.updated_at, m.space_id, m.library_id
+     FROM media m
+     WHERE m.id = $1${mediaScopeClause}
+     LIMIT 1`,
+    mediaParams
+  );
+  const media = mediaResult.rows[0];
+  if (!media) return res.status(404).json({ error: 'Review item not found' });
+
+  const insertResult = await pool.query(
+    `INSERT INTO media_review_decisions (
+       media_id, finding_type, action, media_updated_at, deferred_until,
+       note, library_id, space_id, created_by
+     )
+     VALUES (
+       $1, $2, $3, $4,
+       CASE WHEN $3 = 'deferred' THEN CURRENT_TIMESTAMP + INTERVAL '7 days' ELSE NULL END,
+       $5, $6, $7, $8
+     )
+     RETURNING id, media_id, finding_type, action, deferred_until, created_at`,
+    [
+      media.id,
+      findingType,
+      action,
+      media.updated_at || null,
+      req.body.note || null,
+      media.library_id || null,
+      media.space_id || null,
+      req.user?.id || null
+    ]
+  );
+
+  const decision = insertResult.rows[0];
+  await logActivity(req, `dashboard.review.${action}`, 'media', media.id, {
+    title: media.title || null,
+    finding_type: findingType,
+    decision_id: decision.id,
+    deferred_until: decision.deferred_until || null,
+    spaceId: media.space_id || null,
+    libraryId: media.library_id || null
+  });
+
+  res.status(201).json({
+    ok: true,
+    decision
+  });
+}));
 
 router.get('/dashboard/summary', asyncHandler(async (req, res) => {
   const scopeContext = resolveScopeContext(req);
@@ -217,9 +313,9 @@ router.get('/dashboard/summary', asyncHandler(async (req, res) => {
     pool.query(
       `SELECT
          COUNT(*)::int AS total,
-         COUNT(*) FILTER (WHERE ${MISSING_COVER_SQL})::int AS missing_covers,
-         COUNT(*) FILTER (WHERE ${MISSING_IDENTIFIER_SQL})::int AS missing_identifiers,
-         COUNT(*) FILTER (WHERE ${SPARSE_METADATA_SQL})::int AS sparse_metadata
+         COUNT(*) FILTER (WHERE ${MISSING_COVER_ACTIVE_SQL})::int AS missing_covers,
+         COUNT(*) FILTER (WHERE ${MISSING_IDENTIFIER_ACTIVE_SQL})::int AS missing_identifiers,
+         COUNT(*) FILTER (WHERE ${SPARSE_METADATA_ACTIVE_SQL})::int AS sparse_metadata
        FROM media m
        WHERE 1=1${mediaScopeClause}`,
       mediaParams
@@ -227,7 +323,7 @@ router.get('/dashboard/summary', asyncHandler(async (req, res) => {
     pool.query(
       `SELECT m.id, m.title, m.media_type, m.year, m.format, m.poster_path, m.type_details, m.import_source, m.owned_formats, m.updated_at, m.created_at
        FROM media m
-       WHERE ${MISSING_COVER_SQL}${mediaScopeClause}
+       WHERE ${MISSING_COVER_ACTIVE_SQL}${mediaScopeClause}
        ORDER BY m.updated_at DESC NULLS LAST, m.id DESC
        LIMIT 8`,
       mediaParams
@@ -235,7 +331,7 @@ router.get('/dashboard/summary', asyncHandler(async (req, res) => {
     pool.query(
       `SELECT m.id, m.title, m.media_type, m.year, m.format, m.poster_path, m.upc, m.tmdb_id, m.type_details, m.import_source, m.owned_formats, m.updated_at, m.created_at
        FROM media m
-       WHERE ${MISSING_IDENTIFIER_SQL}${mediaScopeClause}
+       WHERE ${MISSING_IDENTIFIER_ACTIVE_SQL}${mediaScopeClause}
        ORDER BY m.updated_at DESC NULLS LAST, m.id DESC
        LIMIT 8`,
       mediaParams
@@ -243,7 +339,7 @@ router.get('/dashboard/summary', asyncHandler(async (req, res) => {
     pool.query(
       `SELECT m.id, m.title, m.media_type, m.year, m.format, m.poster_path, m.upc, m.tmdb_id, m.type_details, m.import_source, m.owned_formats, m.updated_at, m.created_at
        FROM media m
-       WHERE ${SPARSE_METADATA_SQL}${mediaScopeClause}
+       WHERE ${SPARSE_METADATA_ACTIVE_SQL}${mediaScopeClause}
        ORDER BY m.updated_at DESC NULLS LAST, m.id DESC
        LIMIT 8`,
       mediaParams

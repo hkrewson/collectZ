@@ -68,6 +68,20 @@ const titleArtistSearchSchema = z.object({
   artist: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable())
 });
 
+const dashboardReviewDecisionSchema = z.object({
+  media_id: z.number().int().positive(),
+  finding_type: z.enum([
+    'missing_covers',
+    'missing-covers',
+    'missing_identifiers',
+    'missing-identifiers',
+    'sparse_metadata',
+    'sparse-metadata'
+  ]),
+  action: z.enum(['defer', 'deferred', 'dismiss', 'dismissed']),
+  note: z.preprocess(emptyStringToNull, z.string().trim().max(500).optional().nullable())
+});
+
 const normalizeLookupCode = (value) => {
   const raw = String(value || '');
   return raw
@@ -1097,6 +1111,7 @@ module.exports = {
   simpleSearchSchema,
   titleAuthorSearchSchema,
   titleArtistSearchSchema,
+  dashboardReviewDecisionSchema,
   upcLookupSchema,
   barcodeLookupSchema,
   barcodeImportSchema,

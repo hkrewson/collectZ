@@ -6,6 +6,37 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.12.5 — Dashboard Review Defer and Dismiss
+
+**Goal:** Let users resolve legitimate `not now` and `not needed` Dashboard Review rows inside the existing drawer workflow without creating a standalone Review destination.
+
+### Scope
+
+- Keep Dashboard Review as the only product surface for this work.
+- Add a scoped decision model for media review findings.
+- Support `Defer 7 days` for temporary cleanup.
+- Support `Dismiss` until the media row changes.
+- Suppress active decisions from Dashboard Review counts and row samples.
+- Add drawer actions beside the existing save/cancel controls.
+- Document the authenticated API contract and keep PAT scope behavior explicit.
+
+### Acceptance Criteria
+
+- Dashboard Review drawers expose `Defer 7 days` and `Dismiss`.
+- Defer hides the selected finding for seven days.
+- Dismiss hides the selected finding while the media row remains unchanged.
+- Updating the media row allows the finding to reappear if the row still qualifies.
+- No standalone Review page/nav item is introduced.
+- Release notes, release feed, version metadata, OpenAPI, migration/init parity, and regression coverage are updated for `3.12.5`.
+
+### Closeout
+
+- Status: completed in `3.12.5`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.12.5`; `/api/health` reported backend/frontend/build `3.12.5`.
+- UI evidence: Dashboard Review drawer renders `Defer 7 days` and `Dismiss` actions and refreshes the Dashboard summary after a decision.
+- Verification: backend unit tests, OpenAPI validation, Docker frontend build, init parity, Help > Releases smoke, targeted Dashboard Review browser regression, RBAC regression, platform boundary, homelab boundary, dependency audits, observability evidence, local release preflight, release-note section check, app-meta mirror check, artifact secret hygiene scan, and `git diff --check`.
+- CI follow-through: full CI compose-smoke, secret-scan, image security, and SBOM remain CI gates for the pushed commit.
+
 ## 3.12.4 — Dashboard Review Type-Specific Drawer Actions
 
 **Goal:** Make Dashboard Review drawers guide users toward the right repair action by media type instead of presenting the same generic provider search controls for every Missing IDs row.

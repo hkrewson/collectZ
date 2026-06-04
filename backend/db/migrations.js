@@ -4424,6 +4424,31 @@ const MIGRATIONS = [
       CREATE INDEX IF NOT EXISTS idx_wanted_item_price_history_scope_checked
         ON wanted_item_price_history(space_id, library_id, checked_at DESC);
     `
+  },
+  {
+    version: 106,
+    description: 'Add Dashboard Review decision tracking',
+    up: `
+      CREATE TABLE IF NOT EXISTS media_review_decisions (
+        id SERIAL PRIMARY KEY,
+        media_id INTEGER NOT NULL REFERENCES media(id) ON DELETE CASCADE,
+        finding_type VARCHAR(40) NOT NULL CHECK (finding_type IN ('missing_covers', 'missing_identifiers', 'sparse_metadata')),
+        action VARCHAR(20) NOT NULL CHECK (action IN ('deferred', 'dismissed')),
+        media_updated_at TIMESTAMP,
+        deferred_until TIMESTAMP,
+        note TEXT,
+        library_id INTEGER,
+        space_id INTEGER,
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_media_review_decisions_media_finding_created
+        ON media_review_decisions(media_id, finding_type, created_at DESC);
+
+      CREATE INDEX IF NOT EXISTS idx_media_review_decisions_scope_finding_created
+        ON media_review_decisions(space_id, library_id, finding_type, created_at DESC);
+    `
   }
 ];
 

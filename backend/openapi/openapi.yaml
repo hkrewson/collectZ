@@ -3129,6 +3129,51 @@
         "type": "string",
         "description": "Prometheus text exposition format."
       },
+      "DashboardReviewDecisionRequest": {
+        "type": "object",
+        "properties": {
+          "media_id": { "type": "integer", "minimum": 1 },
+          "finding_type": {
+            "type": "string",
+            "enum": ["missing_covers", "missing_identifiers", "sparse_metadata"]
+          },
+          "action": {
+            "type": "string",
+            "enum": ["defer", "deferred", "dismiss", "dismissed"]
+          },
+          "note": { "type": ["string", "null"], "maxLength": 500 }
+        },
+        "required": ["media_id", "finding_type", "action"],
+        "additionalProperties": false
+      },
+      "DashboardReviewDecision": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "media_id": { "type": "integer" },
+          "finding_type": {
+            "type": "string",
+            "enum": ["missing_covers", "missing_identifiers", "sparse_metadata"]
+          },
+          "action": {
+            "type": "string",
+            "enum": ["deferred", "dismissed"]
+          },
+          "deferred_until": { "type": ["string", "null"], "format": "date-time" },
+          "created_at": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "media_id", "finding_type", "action", "created_at"],
+        "additionalProperties": true
+      },
+      "DashboardReviewDecisionResponse": {
+        "type": "object",
+        "properties": {
+          "ok": { "type": "boolean" },
+          "decision": { "$ref": "#/components/schemas/DashboardReviewDecision" }
+        },
+        "required": ["ok", "decision"],
+        "additionalProperties": false
+      },
       "DashboardSummary": {
         "type": "object",
         "description": "Authenticated, active-scope operational dashboard summary for the Dashboard command center.",
@@ -3785,6 +3830,67 @@
           },
           "403": {
             "description": "The active or requested scope is not accessible",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard/review-decisions": {
+      "post": {
+        "tags": ["Dashboard"],
+        "summary": "Defer or dismiss a Dashboard Review finding",
+        "description": "Records a Dashboard Review decision for the authenticated user's active scope. Deferred findings are hidden for seven days. Dismissed findings stay hidden until the underlying media row changes.",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/DashboardReviewDecisionRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Dashboard Review decision recorded",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DashboardReviewDecisionResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid review decision request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication is required",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "403": {
+            "description": "The active or requested scope is not accessible",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "404": {
+            "description": "Review media item was not found in scope",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/Error" }

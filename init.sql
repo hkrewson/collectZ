@@ -163,6 +163,20 @@ CREATE TABLE IF NOT EXISTS wanted_item_price_history (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS media_review_decisions (
+    id SERIAL PRIMARY KEY,
+    media_id INTEGER NOT NULL REFERENCES media(id) ON DELETE CASCADE,
+    finding_type VARCHAR(40) NOT NULL CHECK (finding_type IN ('missing_covers', 'missing_identifiers', 'sparse_metadata')),
+    action VARCHAR(20) NOT NULL CHECK (action IN ('deferred', 'dismissed')),
+    media_updated_at TIMESTAMP,
+    deferred_until TIMESTAMP,
+    note TEXT,
+    library_id INTEGER,
+    space_id INTEGER,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS capture_items (
     id SERIAL PRIMARY KEY,
     title VARCHAR(500),
@@ -1412,6 +1426,10 @@ CREATE INDEX IF NOT EXISTS idx_wanted_item_price_history_provider_key
     WHERE provider_key IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_wanted_item_price_history_scope_checked
     ON wanted_item_price_history(space_id, library_id, checked_at DESC);
+CREATE INDEX IF NOT EXISTS idx_media_review_decisions_media_finding_created
+    ON media_review_decisions(media_id, finding_type, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_media_review_decisions_scope_finding_created
+    ON media_review_decisions(space_id, library_id, finding_type, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_capture_items_library_status ON capture_items(library_id, status, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_capture_items_space_status ON capture_items(space_id, status, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_capture_items_barcode
@@ -1726,5 +1744,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (102, 'Repair Kavita chapter issue cover proxy paths'),
     (103, 'Add scoped wishlist and acquisition tracking'),
     (104, 'Add mobile capture inbox foundation'),
-    (105, 'Add wishlist price history snapshots')
+    (105, 'Add wishlist price history snapshots'),
+    (106, 'Add Dashboard Review decision tracking')
 ON CONFLICT (version) DO NOTHING;

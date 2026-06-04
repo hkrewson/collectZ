@@ -1,6 +1,27 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.12.5",
+      "version": "3.12.5",
+      "date": null,
+      "status": "completed",
+      "summary": "This patch adds scoped defer and dismiss actions to Dashboard Review drawers so legitimate `not now` and `not needed` items can be handled without creating a separate Review page.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added `media_review_decisions` to track Dashboard Review decisions by media item and finding type.",
+            "Dashboard Review counts and row samples now hide active deferred or dismissed findings.",
+            "Deferred findings are hidden for seven days.",
+            "Dismissed findings are hidden until the underlying media row changes.",
+            "Added drawer actions for `Defer 7 days` and `Dismiss` beside the existing save controls.",
+            "Added an authenticated `POST /api/dashboard/review-decisions` endpoint and OpenAPI contract.",
+            "Added source-contract coverage for migration/init parity, endpoint shape, PAT scope behavior, and UI controls."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.12.4",
       "version": "3.12.4",
       "date": null,
@@ -176,23 +197,6 @@
             "Replaced the old `@tailwind` CSS directives with the Tailwind 4 import plus a compatibility `@config` reference to the existing JavaScript Tailwind config.",
             "Removed the obsolete PostCSS Tailwind/autoprefixer pipeline.",
             "Flattened local component `@apply` recipes that chained through custom CSS classes so Tailwind 4 can compile them."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.10.25",
-      "version": "3.10.25",
-      "date": null,
-      "status": "completed",
-      "summary": "This patch upgrades the frontend React runtime pair to React 19 and verifies the existing app shell, library surfaces, and browser regression coverage still run against the upgraded renderer.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Updated frontend `react` from `^18.2.0` to `^19.2.6`.",
-            "Updated frontend `react-dom` from `^18.2.0` to `^19.2.6`.",
-            "Kept the existing Vite entrypoint using `react-dom/client` and `createRoot`."
           ]
         }
       ]
