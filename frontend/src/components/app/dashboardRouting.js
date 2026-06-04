@@ -1,5 +1,6 @@
 export const VALID_DASHBOARD_TABS = new Set([
   'dashboard',
+  'review-queue',
   'help',
   'support-inbox',
   'library',
@@ -52,6 +53,13 @@ function normalizeDashboardTab(tab) {
 
 export function readDashboardStateFromUrl() {
   const path = String(window.location.pathname || '');
+  if (path === '/review' || path === '/review/') {
+    return {
+      tab: 'review-queue',
+      integrationSection: DEFAULT_INTEGRATION_SECTION
+    };
+  }
+
   const libMatch = path.match(/^\/library\/(movies|tv|books|audio|art|games|comics|wishlist|capture|loans|collectibles|events|other|import|import-review)\/?$/);
   if (libMatch) {
     const slug = libMatch[1];

@@ -6,6 +6,43 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.12.0 — Unified Review Queue Foundation
+
+**Goal:** Add one Review surface that aggregates existing reviewable signals and points users back to the workflow that owns each decision.
+
+### Scope
+
+- Promote `Unified Review Queue` from the backlog into the `3.12.0` roadmap.
+- Add a read-only `GET /api/review-queue` endpoint for active-scope review items.
+- Aggregate existing signals from:
+  - Library health: missing covers, missing identifiers, sparse metadata.
+  - Capture Inbox: candidate choice, ready-to-import captures, lookup/OCR problems.
+  - Wishlist: Apple/iTunes target-price hits.
+  - Plex: open reconciliation conflicts for admins.
+  - Sync jobs: recent failed syncs.
+- Add a compact Review page with search, source/type filters, source counts, and direct workflow actions.
+- Keep resolution, defer, and dismiss semantics in the owning workflows for this foundation slice.
+
+### Acceptance Criteria
+
+- Reviewable items have a clear source, reason, and next action.
+- Review items include a stable readback shape: source, affected object, reason, available action, status, and audit/context where available.
+- The Review page can filter by source/type and search visible review items.
+- Opening a Library review item lands in the matching Library review filter.
+- Existing Dashboard Review, Capture Inbox, Wishlist, Plex conflicts, and Import surfaces continue to work.
+- OpenAPI, release notes, release feed, and browser/unit coverage are updated for the new endpoint and page.
+
+### Closeout
+
+- Status: completed.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/08-Backlog.md`, and `docs/releases/v3.12.0.md`.
+- Runtime verification used: Docker backend/frontend rebuild at `APP_VERSION=3.12.0`, running `/api/health` version readback, Help > Releases smoke from the running stack, and targeted Dashboard/Review Queue browser regression.
+- CI/checks run: source syntax checks for changed backend routes/services; backend and frontend `npm ci --no-fund` under Node 20 Docker; backend and frontend high-severity npm audit; backend unit tests under Node 20 Docker; OpenAPI validation; frontend Vite build under Node 20 Docker; Docker backend/frontend build; running-stack Help > Releases smoke; targeted Playwright browser regression for Dashboard and Review Queue; in-stack RBAC regression; platform edition boundary smoke; init parity; observability release evidence; local release preflight; `git diff --check`.
+- Files changed: Review Queue backend route, server route mount, PAT scope mapping, Review Queue UI, app shell routing/nav/header allowlists, OpenAPI, unit source-contract coverage, Dashboard browser regression, version metadata, release note/feed, roadmap, backlog promotion cleanup, and release evidence artifacts.
+- Risks/follow-ups: this foundation keeps resolution, dismiss, and defer behavior in source workflows; inline queue resolution and auditable queue-level decisions remain follow-up work. Capture subtype counts are deliberately lower priority than source counts in the first readback slice. CI-only secure-cookie compose smoke, gitleaks secret scan, Trivy image security/SBOM, and homelab edition boundary still need their normal CI or alternate-topology runs.
+- What remains in the milestone: nothing for `3.12.0`.
+- Recommended commit message: `Release 3.12.0 with unified review queue foundation`.
+
 ## 3.11.0 — Collection Health Rules and Identifier Expectations
 
 **Goal:** Replace the broad missing-identifier review rule with media-type, format, source, and provider-aware collection health rules.

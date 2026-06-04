@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.12.0",
+      "version": "3.12.0",
+      "date": null,
+      "status": "completed",
+      "summary": "This minor release adds the first unified Review queue. Instead of forcing reviewable work to stay scattered across Dashboard, Library, Capture Inbox, Wishlist, Plex, and Import, collectZ now has one read-only queue that explains what needs attention and links back to the workflow that owns the fix.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added `GET /api/review-queue` for active-scope review readback.",
+            "Added a Review page in the app navigation.",
+            "Aggregated Library health items, Capture Inbox review items, Apple/iTunes target-price hits, Plex reconciliation conflicts, and failed syncs.",
+            "Added source/type filters, search, source counts, and workflow actions.",
+            "Kept resolution actions in the existing owning surfaces for this foundation slice.",
+            "Updated OpenAPI, route scope mapping, unit source-contract coverage, and browser regression coverage."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.11.0",
       "version": "3.11.0",
       "date": null,
@@ -159,24 +179,6 @@
             "The trigger shows the active layout icon and opens a small menu with Grid view and List view options.",
             "The selected layout is marked in the menu while preserving accessible menu semantics.",
             "Existing search, filter, sort, and add controls remain available."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.10.20",
-      "version": "3.10.20",
-      "date": null,
-      "status": "completed",
-      "summary": "This patch quiets the right side of desktop library headers by making secondary controls more compact while keeping search, filter, view, sort, and add actions available.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Tightened the shared library header view toggle spacing.",
-            "Made the desktop add action icon-only while preserving accessible labels and titles.",
-            "Grouped view/sort controls more tightly so search and filter remain the primary desktop header controls.",
-            "Kept the existing mobile compact header behavior intact."
           ]
         }
       ]

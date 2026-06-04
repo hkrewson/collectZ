@@ -3194,6 +3194,76 @@
         "required": ["scope", "generated_at", "collection", "attention", "attention_details", "providers", "upcoming_events", "recent_activity"],
         "additionalProperties": true
       },
+      "ReviewQueueItem": {
+        "type": "object",
+        "description": "Read-only aggregate review queue item that points back to the owning workflow.",
+        "properties": {
+          "id": { "type": "string" },
+          "source": { "type": "string", "enum": ["library", "capture", "wishlist", "plex", "sync"] },
+          "source_label": { "type": "string" },
+          "type": {
+            "type": "string",
+            "enum": [
+              "missing_cover",
+              "missing_identifier",
+              "sparse_metadata",
+              "capture_choice",
+              "capture_ready",
+              "capture_problem",
+              "price_hit",
+              "plex_conflict",
+              "failed_sync"
+            ]
+          },
+          "label": { "type": "string" },
+          "status": { "type": "string" },
+          "severity": { "type": "string" },
+          "title": { "type": "string" },
+          "summary": { "type": ["string", "null"] },
+          "reason": { "type": ["string", "null"] },
+          "confidence": { "type": ["number", "null"] },
+          "object": { "type": "object", "additionalProperties": true },
+          "action": {
+            "type": "object",
+            "properties": {
+              "label": { "type": "string" },
+              "target_tab": { "type": "string" },
+              "target_section": { "type": ["string", "null"] },
+              "review_filter": { "type": ["string", "null"] }
+            },
+            "additionalProperties": true
+          },
+          "audit": { "type": ["object", "null"], "additionalProperties": true },
+          "created_at": { "type": ["string", "null"], "format": "date-time" },
+          "updated_at": { "type": ["string", "null"], "format": "date-time" },
+          "review_reasons": { "type": "array", "items": { "type": "string" } },
+          "recommended_identifiers": { "type": "array", "items": { "type": "string" } },
+          "recommended_metadata": { "type": "array", "items": { "type": "string" } }
+        },
+        "required": ["id", "source", "type", "label", "status", "title", "object", "action"],
+        "additionalProperties": true
+      },
+      "ReviewQueueResponse": {
+        "type": "object",
+        "description": "Read-only unified review queue assembled from existing reviewable workflows.",
+        "properties": {
+          "ok": { "type": "boolean" },
+          "generated_at": { "type": "string", "format": "date-time" },
+          "filters": { "type": "object", "additionalProperties": true },
+          "counts": {
+            "type": "object",
+            "properties": {
+              "total": { "type": "integer" },
+              "by_source": { "type": "object", "additionalProperties": { "type": "integer" } },
+              "by_type": { "type": "object", "additionalProperties": { "type": "integer" } }
+            },
+            "required": ["total", "by_source", "by_type"]
+          },
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/ReviewQueueItem" } }
+        },
+        "required": ["ok", "generated_at", "filters", "counts", "items"],
+        "additionalProperties": true
+      },
       "WantedItem": {
         "type": "object",
         "properties": {
@@ -3751,6 +3821,71 @@
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/Health" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/review-queue": {
+      "get": {
+        "tags": ["Dashboard"],
+        "summary": "Read the active-scope unified Review queue",
+        "description": "Returns read-only review items aggregated from existing source workflows such as Library health, Capture Inbox, Wishlist target-price hits, Plex conflicts, and failed sync jobs. Items include actions that point clients back to the owning workflow for resolution.",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "name": "source",
+            "in": "query",
+            "schema": { "type": "string", "enum": ["all", "library", "capture", "wishlist", "plex", "sync"] }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "missing_cover",
+                "missing_identifier",
+                "sparse_metadata",
+                "capture_choice",
+                "capture_ready",
+                "capture_problem",
+                "price_hit",
+                "plex_conflict",
+                "failed_sync"
+              ]
+            }
+          },
+          { "name": "search", "in": "query", "schema": { "type": "string" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 50 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Unified review queue readback",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ReviewQueueResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication is required",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "403": {
+            "description": "The active or requested scope is not accessible",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
               }
             }
           }

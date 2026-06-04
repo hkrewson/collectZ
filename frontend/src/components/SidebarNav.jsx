@@ -197,6 +197,9 @@ export default function SidebarNav({
           {canUseLibraryShell && isTabAllowed('dashboard') && (
             <NavLink id="dashboard" icon={<Icons.Gauge />} label="Dashboard" />
           )}
+          {canUseLibraryShell && isTabAllowed('review-queue') && (
+            <NavLink id="review-queue" icon={<Icons.List />} label="Review" />
+          )}
 
           {!collapsed && user && showLibrarySwitcher && (
             <div className="mb-3 space-y-1">

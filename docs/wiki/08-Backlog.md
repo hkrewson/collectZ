@@ -55,42 +55,6 @@ These are unscheduled interface cleanup tasks discovered during the `3.10.x` mob
 
 These are product-level capability gaps discovered from the current shape of the app. They are not immediate implementation commitments and should stay versionless until one is selected and moved into the roadmap as a numbered milestone.
 
-### Backlog Item: Unified Review Queue
-**Type:** Deferred milestone
-**Tags:** `product`, `review`, `imports`, `metadata`, `duplicates`
-**Status:** Active backlog; not yet implemented as one unified product surface.
-
-**Goal:** Centralize uncertain states from scanner, Plex, Kavita, enrichment, duplicate detection, and imports.
-
-**Intent**
-- Give users one predictable place to resolve uncertain or partial work instead of hunting through provider-specific screens.
-- Preserve the provider-specific evidence that already exists while making the user workflow feel like "review these things" instead of "debug these integrations."
-
-**Current state**
-- Capture Inbox can hold scanner/capture work.
-- Plex reconciliation conflicts have their own review surface.
-- Dashboard/Needs Attention can show missing covers, missing identifiers, failed syncs, and Plex conflicts.
-- Apple/iTunes target-price hits can be reviewed in Wishlist.
-- These are separate surfaces; there is no single queue with shared statuses, ownership, or resolution semantics.
-
-**Scope**
-- Capture candidate selection, conflict review, sparse import review, missing-cover review, and low-confidence metadata decisions.
-- Preserve provider-specific readback while giving users one place to resolve uncertain work.
-- Define a common review item shape: source, affected object, reason, confidence, proposed action, available actions, status, and audit trail.
-- Start with readback/links before trying to move every provider workflow into one giant editor.
-
-**Candidate subtasks**
-- Inventory existing reviewable states and map them to a shared review-item taxonomy.
-- Add a backend readback endpoint that aggregates existing reviewable items without changing their source workflows.
-- Add a compact review queue UI with source/type filters and direct links to the owning workflow.
-- Add shared dismiss/defer semantics only where they can be audited without losing provider-specific evidence.
-- Later: allow inline resolution for simple cases such as missing covers, sparse imports, duplicate candidates, and target-price hits.
-
-**Acceptance Criteria**
-- Reviewable items have a clear source, reason, and next action.
-- Resolving a review item updates the relevant object or provider workflow.
-- Dismissed or deferred review decisions remain auditable.
-
 ### Backlog Item: Collection Health and Audit Dashboard
 **Type:** Deferred milestone
 **Tags:** `product`, `health`, `audit`, `metadata`, `maintenance`

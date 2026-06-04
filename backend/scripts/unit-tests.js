@@ -154,6 +154,7 @@ const {
 const { isServiceAccountPrefixAllowed } = require('../services/serviceAccountKeys');
 const authRoutesSource = fs.readFileSync(require.resolve('../routes/auth'), 'utf8');
 const dashboardRoutesSource = fs.readFileSync(require.resolve('../routes/dashboard'), 'utf8');
+const reviewQueueRoutesSource = fs.readFileSync(require.resolve('../routes/reviewQueue'), 'utf8');
 const wishlistRoutesSource = fs.readFileSync(require.resolve('../routes/wishlist'), 'utf8');
 const appleItunesServiceSource = fs.readFileSync(require.resolve('../services/appleItunes'), 'utf8');
 const {
@@ -6159,6 +6160,28 @@ results.push(run('dashboard command center is authenticated scoped dashboard def
   assert.ok(mediaRoutesSource.includes('buildMissingIdentifierReviewSql'));
   assert.ok(mediaRoutesSource.includes('buildSparseMetadataReviewSql'));
   assert.deepStrictEqual(getRequiredPatScopesForRequest({ originalUrl: '/api/dashboard/summary', method: 'GET' }), ['media:read']);
+}));
+
+results.push(run('unified review queue aggregates existing review workflows', () => {
+  assert.ok(serverSource.includes("const reviewQueueRouter = require('./routes/reviewQueue');"));
+  assert.ok(serverSource.includes("app.use('/api', reviewQueueRouter);"));
+  assert.ok(reviewQueueRoutesSource.includes("router.use('/review-queue', authenticateToken);"));
+  assert.ok(reviewQueueRoutesSource.includes("router.use('/review-queue', enforceScopeAccess({ allowedHintRoles: ['admin'] }));"));
+  assert.ok(reviewQueueRoutesSource.includes("router.get('/review-queue'"));
+  assert.ok(reviewQueueRoutesSource.includes('buildMissingIdentifierReviewSql'));
+  assert.ok(reviewQueueRoutesSource.includes('buildSparseMetadataReviewSql'));
+  assert.ok(reviewQueueRoutesSource.includes('capture_items'));
+  assert.ok(reviewQueueRoutesSource.includes('wanted_items'));
+  assert.ok(reviewQueueRoutesSource.includes('plex_reconciliation_reviews'));
+  assert.ok(reviewQueueRoutesSource.includes('sync_jobs'));
+  assert.ok(reviewQueueRoutesSource.includes("target_tab: 'library'"));
+  assert.ok(reviewQueueRoutesSource.includes("target_tab: 'library-capture'"));
+  assert.ok(reviewQueueRoutesSource.includes("target_tab: 'library-wishlist'"));
+  assert.ok(reviewQueueRoutesSource.includes("target_tab: 'admin-integrations'"));
+  assert.ok(openApiSource.includes('"/api/review-queue"'));
+  assert.ok(openApiSource.includes('"ReviewQueueResponse"'));
+  assert.ok(openApiSource.includes('"ReviewQueueItem"'));
+  assert.deepStrictEqual(getRequiredPatScopesForRequest({ originalUrl: '/api/review-queue', method: 'GET' }), ['media:read']);
 }));
 
 results.push(run('media review clues classify identifiers separately from sparse metadata', () => {

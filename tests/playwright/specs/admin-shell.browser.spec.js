@@ -207,6 +207,46 @@ test.describe('admin shell browser regressions', () => {
     expect(overflow.root).toBeLessThanOrEqual(1);
   });
 
+  test('unified review queue surfaces source workflow links', async ({ page }) => {
+    const adminCredentials = await ensureSavedAdminCredentials();
+    await signInThroughUi(page, adminCredentials);
+    const requestContext = await createAuthenticatedRequestContext(adminCredentials);
+    let queuePayload;
+    try {
+      const queueResponse = await requestContext.get('/api/review-queue?limit=20');
+      expect(queueResponse.ok()).toBeTruthy();
+      queuePayload = await queueResponse.json();
+    } finally {
+      await requestContext.dispose();
+    }
+    expect(queuePayload?.ok).toBeTruthy();
+    expect(Array.isArray(queuePayload?.items)).toBeTruthy();
+    expect(queuePayload?.counts?.by_source).toBeTruthy();
+
+    const queueResponse = page.waitForResponse((response) => (
+      response.url().includes('/api/review-queue') && response.request().method() === 'GET'
+    ));
+    await page.goto('/dashboard?tab=review-queue');
+    expect((await queueResponse).ok()).toBeTruthy();
+    await expect(page.getByRole('heading', { name: 'Review' })).toBeVisible();
+    await expect(page.getByLabel('Search review items')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Review filters/ })).toBeVisible();
+    await expect(page.getByText('Queue')).toBeVisible();
+
+    const libraryItem = (queuePayload.items || []).find((item) => item?.source === 'library' && item?.action?.review_filter);
+    if (libraryItem) {
+      const mediaReviewResponse = page.waitForResponse((response) => (
+        response.url().includes('/api/media')
+        && response.url().includes(`review_filter=${libraryItem.action.review_filter}`)
+        && response.request().method() === 'GET'
+      ));
+      const row = page.locator('section').filter({ hasText: 'Queue' }).getByText(libraryItem.title).first().locator('xpath=ancestor::div[contains(@class, "border-b")][1]');
+      await row.getByRole('button', { name: 'Open' }).click();
+      expect((await mediaReviewResponse).ok()).toBeTruthy();
+      await expect(page.getByRole('heading', { name: 'Library' })).toBeVisible();
+    }
+  });
+
   test('mobile library search toolbars stay compact', async ({ page }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
     await page.setViewportSize({ width: 390, height: 844 });
