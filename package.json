@@ -17,6 +17,7 @@
     "stack:ps": "docker compose --env-file .env ps",
     "stack:ps:homelab": "docker compose --env-file .env ps",
     "stack:ps:platform": "docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml ps",
+    "ops:sizing": "node ops/sizing/collectz-sizing-snapshot.js",
     "test:edition-boundaries:local": "docker compose --env-file .env exec -T -e BASE_URL=http://frontend:3000 backend npm run test:homelab-edition-boundary && docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T -e BASE_URL=http://frontend:3000 backend npm run test:platform-edition-boundary"
   },
   "devDependencies": {

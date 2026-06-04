@@ -81,6 +81,7 @@ Thumbs.db
 coverage/
 .nyc_output/
 artifacts/playwright/
+artifacts/sizing/
 
 # Temporary files
 tmp/
