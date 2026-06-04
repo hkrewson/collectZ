@@ -1036,6 +1036,18 @@
                   "type": "array",
                   "items": { "type": "string" },
                   "description": "Optional descriptive fields that would improve matching, search, or display for this row."
+                },
+                "review_lookup_title": {
+                  "type": ["string", "null"],
+                  "description": "Optional cleaned title suggestion for assisted review lookup."
+                },
+                "review_lookup_context": {
+                  "type": ["string", "null"],
+                  "description": "Optional media-type-specific lookup context such as year, author, artist, or platform."
+                },
+                "review_next_action": {
+                  "type": ["string", "null"],
+                  "description": "Optional plain-language next action for resolving the review row."
                 }
               },
               "required": ["id", "title", "media_type"]
@@ -3210,7 +3222,10 @@
                   "properties": {
                     "review_reasons": { "type": "array", "items": { "type": "string" } },
                     "review_finding_type": { "type": ["string", "null"], "enum": ["missing_identifier", "sparse_metadata", null] },
-                    "recommended_identifiers": { "type": "array", "items": { "type": "string" } }
+                    "recommended_identifiers": { "type": "array", "items": { "type": "string" } },
+                    "review_lookup_title": { "type": ["string", "null"] },
+                    "review_lookup_context": { "type": ["string", "null"] },
+                    "review_next_action": { "type": ["string", "null"] }
                   },
                   "additionalProperties": true
                 }
@@ -3222,7 +3237,10 @@
                   "properties": {
                     "review_reasons": { "type": "array", "items": { "type": "string" } },
                     "review_finding_type": { "type": ["string", "null"], "enum": ["missing_identifier", "sparse_metadata", null] },
-                    "recommended_metadata": { "type": "array", "items": { "type": "string" } }
+                    "recommended_metadata": { "type": "array", "items": { "type": "string" } },
+                    "review_lookup_title": { "type": ["string", "null"] },
+                    "review_lookup_context": { "type": ["string", "null"] },
+                    "review_next_action": { "type": ["string", "null"] }
                   },
                   "additionalProperties": true
                 }

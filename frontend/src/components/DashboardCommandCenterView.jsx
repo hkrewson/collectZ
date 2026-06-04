@@ -359,6 +359,14 @@ function reviewDecisionFindingType(reviewType) {
   return '';
 }
 
+function suggestedReviewLookupTitle(item = {}, record = {}) {
+  return item?.review_lookup_title || record?.review_lookup_title || record?.title || item?.title || '';
+}
+
+function suggestedReviewLookupContext(item = {}, record = {}) {
+  return item?.review_lookup_context || record?.review_lookup_context || lookupContextValue(record) || lookupContextValue(item);
+}
+
 function MediaReviewDrawer({
   item,
   reviewType,
@@ -380,6 +388,7 @@ function MediaReviewDrawer({
   onLookupContextChange,
   onRunLookup,
   onApplyLookup,
+  onUseLookupTitle,
   onReviewDecision,
   onSave,
   onClose,
@@ -396,6 +405,10 @@ function MediaReviewDrawer({
   const canLookup = reviewType === 'missing-identifiers';
   const canUploadCover = reviewType === 'missing-covers';
   const lookupConfig = lookupActionConfig(mediaType);
+  const nextAction = item?.review_next_action || record?.review_next_action || '';
+  const canUseLookupTitle = canLookup
+    && String(lookupQuery || '').trim()
+    && String(lookupQuery || '').trim() !== String(form.title || '').trim();
   const busy = saving || Boolean(decisionSaving);
 
   return (
@@ -411,6 +424,7 @@ function MediaReviewDrawer({
           <div className="rounded-lg border border-edge bg-raised/30 p-3">
             <p className="text-sm font-medium text-ink">Why it is here</p>
             <p className="mt-1 text-sm text-dim">{clue}</p>
+            {nextAction ? <p className="mt-2 text-xs leading-5 text-ghost">{nextAction}</p> : null}
             {recommendation.length ? (
               <p className="mt-2 text-xs text-ghost">Recommended: {recommendation.join(', ')}</p>
             ) : null}
@@ -454,6 +468,11 @@ function MediaReviewDrawer({
                 <p className="mt-1 text-xs leading-5 text-ghost">
                   {lookupConfig.help}
                 </p>
+                {canUseLookupTitle ? (
+                  <button type="button" className="mt-2 text-xs font-medium text-accent hover:text-ink" onClick={onUseLookupTitle} disabled={busy}>
+                    Use search text as title
+                  </button>
+                ) : null}
                 <div className={`mt-3 grid gap-2 ${lookupConfig.contextKey ? 'sm:grid-cols-[1fr_9rem_auto]' : 'sm:grid-cols-[1fr_auto]'}`}>
                   <label className="min-w-0">
                     <span className="sr-only">{lookupConfig.queryLabel}</span>
@@ -677,8 +696,8 @@ export default function DashboardCommandCenterView({
     setSelectedReviewRecord(null);
     setReviewForm(buildReviewForm(item));
     setReviewError('');
-    setReviewLookupQuery(item?.title || '');
-    setReviewLookupContext(lookupContextValue(item));
+    setReviewLookupQuery(suggestedReviewLookupTitle(item));
+    setReviewLookupContext(suggestedReviewLookupContext(item));
     setReviewLookupMatches([]);
     setReviewLookupError('');
     setReviewLoading(true);
@@ -686,8 +705,8 @@ export default function DashboardCommandCenterView({
       const record = await apiCall('get', `/media/${item.id}`);
       setSelectedReviewRecord(record);
       setReviewForm(buildReviewForm(record));
-      setReviewLookupQuery(record?.title || item?.title || '');
-      setReviewLookupContext(lookupContextValue(record) || lookupContextValue(item));
+      setReviewLookupQuery(suggestedReviewLookupTitle(item, record));
+      setReviewLookupContext(suggestedReviewLookupContext(item, record));
     } catch (err) {
       const message = err?.response?.data?.error || 'Failed to load this review item';
       setReviewError(message);
@@ -715,6 +734,13 @@ export default function DashboardCommandCenterView({
 
   const updateReviewField = (field, value) => {
     setReviewForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const useLookupTitleForReview = () => {
+    const title = String(reviewLookupQuery || '').trim();
+    if (!title) return;
+    setReviewForm((current) => ({ ...current, title }));
+    onToast?.('Search text copied to title. Save to update the item.', 'success');
   };
 
   const uploadReviewCover = async (file) => {
@@ -1270,6 +1296,7 @@ export default function DashboardCommandCenterView({
           onLookupContextChange={setReviewLookupContext}
           onRunLookup={searchReviewMatches}
           onApplyLookup={applyReviewMatch}
+          onUseLookupTitle={useLookupTitleForReview}
           onReviewDecision={applyReviewDecision}
           onSave={saveReviewItem}
           onClose={closeReviewItem}

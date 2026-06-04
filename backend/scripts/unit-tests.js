@@ -6154,6 +6154,9 @@ results.push(run('dashboard command center is authenticated scoped dashboard def
   assert.ok(openApiSource.includes('"review_reasons"'));
   assert.ok(openApiSource.includes('"recommended_identifiers"'));
   assert.ok(openApiSource.includes('"recommended_metadata"'));
+  assert.ok(openApiSource.includes('"review_lookup_title"'));
+  assert.ok(openApiSource.includes('"review_lookup_context"'));
+  assert.ok(openApiSource.includes('"review_next_action"'));
   assert.ok(dashboardRoutesSource.includes('buildMissingIdentifierReviewClues'));
   assert.ok(dashboardRoutesSource.includes('buildSparseMetadataReviewClues'));
   assert.ok(dashboardRoutesSource.includes("router.post('/dashboard/review-decisions'"));
@@ -6190,6 +6193,8 @@ results.push(run('dashboard review owns inline media resolution instead of a sta
   assert.ok(dashboardReviewSource.includes('Search comic issue'));
   assert.ok(dashboardReviewSource.includes('Search Discogs'));
   assert.ok(dashboardReviewSource.includes('lookupContextValue'));
+  assert.ok(dashboardReviewSource.includes('suggestedReviewLookupTitle'));
+  assert.ok(dashboardReviewSource.includes('Use search text as title'));
   assert.ok(dashboardReviewSource.includes('Upload cover'));
   assert.ok(dashboardReviewSource.includes('reviewDecisionFindingType'));
   assert.ok(dashboardReviewSource.includes('/dashboard/review-decisions'));
@@ -6200,11 +6205,28 @@ results.push(run('dashboard review owns inline media resolution instead of a sta
 results.push(run('media review clues classify identifiers separately from sparse metadata', () => {
   assert.ok(reviewCluesServiceSource.includes('Physical audio item has no retail identifier'));
   assert.ok(reviewCluesServiceSource.includes('Record is missing helpful descriptive metadata'));
+  assert.ok(reviewCluesServiceSource.includes('buildReviewLookupGuidance'));
+  assert.ok(reviewCluesServiceSource.includes('Search by corrected title or year before entering provider IDs by hand.'));
   assert.deepStrictEqual(buildMissingIdentifierReviewClues({ media_type: 'book', type_details: {} }), {
     review_finding_type: 'missing_identifier',
     review_reasons: ['No book identifier on record'],
-    recommended_identifiers: ['ISBN', 'Google Books ID']
+    recommended_identifiers: ['ISBN', 'Google Books ID'],
+    review_lookup_title: '',
+    review_lookup_context: '',
+    review_next_action: 'Search by corrected title or author before entering ISBN by hand.'
   });
+  assert.strictEqual(
+    buildMissingIdentifierReviewClues({ media_type: 'movie', title: 'Example.Movie.1080p.mkv', year: 1982, type_details: {} }).review_lookup_title,
+    'Example Movie'
+  );
+  assert.strictEqual(
+    buildMissingIdentifierReviewClues({ media_type: 'movie', title: 'The Thing [1080p]', year: 1982, type_details: {} }).review_lookup_title,
+    'The Thing'
+  );
+  assert.strictEqual(
+    buildMissingIdentifierReviewClues({ media_type: 'audio', title: 'Album', owned_formats: ['cd'], type_details: { artist: 'Example Artist' } }).review_lookup_context,
+    'Example Artist'
+  );
   assert.deepStrictEqual(buildMissingIdentifierReviewClues({ media_type: 'movie', type_details: {} }).recommended_identifiers, ['TMDB ID', 'Plex identity']);
   assert.deepStrictEqual(buildMissingIdentifierReviewClues({ media_type: 'tv_series', type_details: {} }).recommended_identifiers, ['TMDB ID', 'Plex identity']);
   assert.deepStrictEqual(buildMissingIdentifierReviewClues({ media_type: 'comic_book', type_details: {} }).recommended_identifiers, ['UPC/ISBN', 'provider issue identity']);
@@ -6222,7 +6244,10 @@ results.push(run('media review clues classify identifiers separately from sparse
   assert.deepStrictEqual(buildSparseMetadataReviewClues({ media_type: 'audio', owned_formats: ['digital'], type_details: {} }), {
     review_finding_type: 'sparse_metadata',
     review_reasons: ['Record is missing helpful descriptive metadata'],
-    recommended_metadata: ['artist', 'year']
+    recommended_metadata: ['artist', 'year'],
+    review_lookup_title: '',
+    review_lookup_context: '',
+    review_next_action: 'Search by album title and artist before entering a retail barcode by hand.'
   });
   assert.strictEqual(buildMissingIdentifierReviewClues({ media_type: 'game', owned_formats: ['digital'], type_details: {} }).review_finding_type, null);
   assert.deepStrictEqual(buildMediaHealthReview({ media_type: 'game', owned_formats: ['digital'], type_details: {} }).review_finding_type, 'sparse_metadata');

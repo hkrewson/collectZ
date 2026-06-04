@@ -115,6 +115,108 @@ function firstText(...values) {
   return values.find(hasText) || null;
 }
 
+function compactWhitespace(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function looksTechnicalBracketValue(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) return false;
+  if (/^(19|20)\d{2}$/.test(normalized)) return true;
+  return [
+    '1080p',
+    '720p',
+    '2160p',
+    '4k',
+    'uhd',
+    'hdr',
+    'hdr10',
+    'dv',
+    'x264',
+    'x265',
+    'h264',
+    'h265',
+    'hevc',
+    'bluray',
+    'blu-ray',
+    'bdrip',
+    'webrip',
+    'web-dl',
+    'webdl',
+    'dvdrip',
+    'aac',
+    'flac',
+    'mp3',
+    'cbz',
+    'cbr',
+    'epub',
+    'pdf'
+  ].some((token) => normalized.includes(token));
+}
+
+function buildReviewLookupTitle(row = {}) {
+  const detailsRow = safeDetails(row);
+  const fallback = compactWhitespace(row.title || '');
+  const sourceTitle = firstText(detailsRow.title, detailsRow.album, detailsRow.series, row.title) || '';
+  let title = compactWhitespace(sourceTitle);
+
+  title = title.replace(/\.(mkv|mp4|avi|mov|m4v|mp3|flac|m4a|cbz|cbr|epub|pdf)$/i, '');
+  title = title.replace(/[_]+/g, ' ');
+  if (/\w\.\w/.test(title)) title = title.replace(/\./g, ' ');
+  title = title.replace(/\b(1080p|720p|2160p|4k|uhd|hdr10?|x264|x265|h264|h265|hevc|bluray|blu-ray|bdrip|webrip|web-dl|webdl|dvdrip|aac|flac|mp3|cbz|cbr|epub|pdf)\b/gi, ' ');
+  title = title.replace(/\s*[\[\(]([^\]\)]{2,48})[\]\)]\s*/g, (match, bracketValue) => (
+    looksTechnicalBracketValue(bracketValue) ? ' ' : match
+  ));
+  title = title.replace(/\s*[\[\(]\s*[\]\)]\s*/g, ' ');
+  title = compactWhitespace(title);
+  return title || fallback;
+}
+
+function buildReviewLookupContext(row = {}) {
+  const detailsRow = safeDetails(row);
+  switch (mediaType(row)) {
+    case 'book':
+      return compactWhitespace(detailsRow.author || '');
+    case 'movie':
+    case 'tv_series':
+    case 'tv_episode':
+      return hasText(row.year) ? String(row.year) : '';
+    case 'audio':
+      return compactWhitespace(detailsRow.artist || '');
+    case 'game':
+      return compactWhitespace(detailsRow.platform || '');
+    default:
+      return '';
+  }
+}
+
+function buildReviewNextAction(row = {}) {
+  switch (mediaType(row)) {
+    case 'book':
+      return 'Search by corrected title or author before entering ISBN by hand.';
+    case 'movie':
+    case 'tv_series':
+    case 'tv_episode':
+      return 'Search by corrected title or year before entering provider IDs by hand.';
+    case 'comic_book':
+      return 'Search by corrected series and issue wording before entering issue IDs by hand.';
+    case 'audio':
+      return 'Search by album title and artist before entering a retail barcode by hand.';
+    case 'game':
+      return 'Search by game title and platform before entering a retail barcode by hand.';
+    default:
+      return 'Search by corrected title before entering identifiers by hand.';
+  }
+}
+
+function buildReviewLookupGuidance(row = {}) {
+  return {
+    review_lookup_title: buildReviewLookupTitle(row),
+    review_lookup_context: buildReviewLookupContext(row),
+    review_next_action: buildReviewNextAction(row)
+  };
+}
+
 function mediaType(row = {}) {
   return String(row.media_type || '').trim().toLowerCase();
 }
@@ -228,7 +330,8 @@ function buildMissingIdentifierReviewClues(row = {}) {
   return {
     review_finding_type: 'missing_identifier',
     review_reasons: [recommendation.reason],
-    recommended_identifiers: recommendation.recommended_identifiers
+    recommended_identifiers: recommendation.recommended_identifiers,
+    ...buildReviewLookupGuidance(row)
   };
 }
 
@@ -277,7 +380,8 @@ function buildSparseMetadataReviewClues(row = {}) {
   return {
     review_finding_type: 'sparse_metadata',
     review_reasons: ['Record is missing helpful descriptive metadata'],
-    recommended_metadata: missing
+    recommended_metadata: missing,
+    ...buildReviewLookupGuidance(row)
   };
 }
 
@@ -310,6 +414,7 @@ module.exports = {
   buildMediaHealthReview,
   buildMissingIdentifierReviewClues,
   buildMissingIdentifierReviewSql,
+  buildReviewLookupGuidance,
   buildSparseMetadataReviewClues,
   buildSparseMetadataReviewSql,
   applyMediaReviewClues

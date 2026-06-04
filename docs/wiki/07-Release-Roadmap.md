@@ -6,6 +6,36 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.12.6 — Dashboard Review Title Cleanup and Enrichment Hints
+
+**Goal:** Help users repair Dashboard Review rows by correcting lookup/search context first, instead of making manual provider identifier entry feel like the default answer.
+
+### Scope
+
+- Keep Dashboard Review as the resolution surface.
+- Add backend review clue fields for suggested lookup title, lookup context, and next action.
+- Clean obvious file/import noise from assisted lookup titles.
+- Prefill Dashboard Review lookup fields from the backend review guidance.
+- Let users copy the search text into the title before saving when the title itself is the likely issue.
+- Keep manual identifier fields available as fallback controls.
+
+### Acceptance Criteria
+
+- Missing-ID and sparse-metadata rows can include `review_lookup_title`, `review_lookup_context`, and `review_next_action`.
+- Dashboard Review drawers use the suggested lookup title/context when opening a row.
+- Noisy filename-like title fragments are reduced before lookup guidance is shown.
+- Users can copy the search text into the record title from the drawer.
+- No standalone Review page/nav item is introduced.
+- Release notes, release feed, version metadata, OpenAPI, and regression coverage are updated for `3.12.6`.
+
+### Closeout
+
+- Status: completed in `3.12.6`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.12.6`; `/api/health` reported backend/frontend/build `3.12.6`.
+- UI evidence: Dashboard Review drawer keeps assisted lookup in place and exposes `Use search text as title` when the lookup text differs from the saved title.
+- Verification: backend unit tests, OpenAPI validation, Docker frontend build, Docker runtime rebuild, init parity, Help > Releases smoke, targeted Dashboard Review browser regression, RBAC regression, platform boundary, isolated homelab boundary, dependency audits, observability evidence, local release preflight, app-meta mirror check, artifact secret hygiene scan, and `git diff --check`.
+- CI follow-through: full CI compose-smoke, secret-scan, image security, and SBOM remain CI gates for the pushed commit.
+
 ## 3.12.5 — Dashboard Review Defer and Dismiss
 
 **Goal:** Let users resolve legitimate `not now` and `not needed` Dashboard Review rows inside the existing drawer workflow without creating a standalone Review destination.
