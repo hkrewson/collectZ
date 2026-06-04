@@ -1,6 +1,28 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.12.4",
+      "version": "3.12.4",
+      "date": null,
+      "status": "completed",
+      "summary": "This patch makes Dashboard Review Missing IDs drawers more specific to the item being reviewed instead of showing the same generic search controls for every media type.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added type-specific lookup guidance in Dashboard Review drawers.",
+            "Movie and TV review rows now keep TMDB search with year context.",
+            "Book review rows now show Google Books search with author context.",
+            "Comic review rows now show comic issue search without a misleading year field.",
+            "Audio review rows now show Discogs search with artist context.",
+            "Game review rows now show game search with platform context when available.",
+            "Kept manual identifier fields available as fallback controls.",
+            "Updated browser and unit source-contract coverage for the drawer search surface."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.12.3",
       "version": "3.12.3",
       "date": null,
@@ -171,23 +193,6 @@
             "Updated frontend `react` from `^18.2.0` to `^19.2.6`.",
             "Updated frontend `react-dom` from `^18.2.0` to `^19.2.6`.",
             "Kept the existing Vite entrypoint using `react-dom/client` and `createRoot`."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.10.24",
-      "version": "3.10.24",
-      "date": null,
-      "status": "completed",
-      "summary": "This patch upgrades the backend validation library to Zod 4 and keeps collectZ's request-validation error shaping compatible with the new error surface.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Updated backend `zod` from `^3.22.4` to `^4.4.3`.",
-            "Updated validation middleware to read `ZodError.issues`, while retaining a fallback for older error shapes.",
-            "Kept validation failure responses in the same `{ error, details }` structure used by existing clients."
           ]
         }
       ]

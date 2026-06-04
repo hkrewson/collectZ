@@ -6171,7 +6171,11 @@ results.push(run('dashboard review owns inline media resolution instead of a sta
   assert.ok(dashboardReviewSource.includes('/media/upload-cover'));
   assert.ok(dashboardReviewSource.includes('/media/search-tmdb'));
   assert.ok(dashboardReviewSource.includes('/media/enrich/book/search'));
-  assert.ok(dashboardReviewSource.includes('Search for a match'));
+  assert.ok(dashboardReviewSource.includes('Search TMDB'));
+  assert.ok(dashboardReviewSource.includes('Search Google Books'));
+  assert.ok(dashboardReviewSource.includes('Search comic issue'));
+  assert.ok(dashboardReviewSource.includes('Search Discogs'));
+  assert.ok(dashboardReviewSource.includes('lookupContextValue'));
   assert.ok(dashboardReviewSource.includes('Upload cover'));
 }));
 

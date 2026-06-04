@@ -6,6 +6,38 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.12.4 — Dashboard Review Type-Specific Drawer Actions
+
+**Goal:** Make Dashboard Review drawers guide users toward the right repair action by media type instead of presenting the same generic provider search controls for every Missing IDs row.
+
+### Scope
+
+- Keep Dashboard Review as the resolution surface.
+- Make Missing IDs lookup copy and secondary fields media-type aware.
+- Use TMDB + year for movies and TV.
+- Use Google Books + author for books.
+- Use comic issue search without a fake year field.
+- Use Discogs + artist for audio.
+- Use game search with platform context where available.
+- Keep manual identifier fields available as fallback controls.
+
+### Acceptance Criteria
+
+- Missing-ID drawers show a provider-specific search title and guidance.
+- Book rows expose author context for lookup instead of a year-only search shape.
+- Audio rows expose artist context for lookup.
+- Comic rows do not show a misleading year field for issue matching.
+- Movie/TV rows keep year-assisted TMDB lookup.
+- Release notes, release feed, version metadata, and regression coverage are updated for `3.12.4`.
+
+### Closeout
+
+- Status: completed in `3.12.4`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.12.4`; `/api/health` reported backend/frontend/build `3.12.4`.
+- UI evidence: Dashboard Review Missing IDs drawer now renders provider-specific lookup headings and context fields through `lookupActionConfig`.
+- Verification: backend unit tests, OpenAPI validation, Docker frontend build, init parity, Help > Releases smoke, targeted Dashboard Review browser regression, RBAC regression, platform boundary, homelab boundary, dependency audits, observability evidence, local release preflight, release-note section check, app-meta mirror check, artifact secret hygiene scan, and `git diff --check`.
+- CI follow-through: full CI compose-smoke, secret-scan, image security, and SBOM remain CI gates for the pushed commit.
+
 ## 3.12.3 — Collection Health Identifier Rule Tuning
 
 **Goal:** Tune Dashboard Review missing-identifier rules so collectZ does not ask users for impossible or low-value identifiers when the record already has a useful barcode or source identity.

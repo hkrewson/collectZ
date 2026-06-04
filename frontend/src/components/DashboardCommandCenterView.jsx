@@ -275,6 +275,83 @@ function lookupProviderLabel(mediaType) {
   return 'Provider';
 }
 
+function lookupActionConfig(mediaType) {
+  if (mediaType === 'movie' || mediaType === 'tv_series') {
+    return {
+      title: 'Search TMDB',
+      help: 'Use title and year when the imported name is too rough for an automatic movie or TV match.',
+      queryLabel: 'Title',
+      queryPlaceholder: 'Search title',
+      contextLabel: 'Year',
+      contextPlaceholder: 'Year',
+      contextKey: 'year'
+    };
+  }
+  if (mediaType === 'book') {
+    return {
+      title: 'Search Google Books',
+      help: 'Use title and author when the row may be a variant, alternate title, or barcode-only book.',
+      queryLabel: 'Title',
+      queryPlaceholder: 'Search title',
+      contextLabel: 'Author',
+      contextPlaceholder: 'Author',
+      contextKey: 'author'
+    };
+  }
+  if (mediaType === 'comic_book') {
+    return {
+      title: 'Search comic issue',
+      help: 'Use series and issue wording when the row needs provider issue identity or cleaner issue metadata.',
+      queryLabel: 'Series or issue title',
+      queryPlaceholder: 'Series or issue title',
+      contextLabel: '',
+      contextPlaceholder: '',
+      contextKey: ''
+    };
+  }
+  if (mediaType === 'audio') {
+    return {
+      title: 'Search Discogs',
+      help: 'Use album title and artist when a physical audio item needs a retail or release identity.',
+      queryLabel: 'Album title',
+      queryPlaceholder: 'Album title',
+      contextLabel: 'Artist',
+      contextPlaceholder: 'Artist',
+      contextKey: 'artist'
+    };
+  }
+  if (mediaType === 'game') {
+    return {
+      title: 'Search games',
+      help: 'Use the game title; platform stays visible below as context for choosing the right match.',
+      queryLabel: 'Game title',
+      queryPlaceholder: 'Game title',
+      contextLabel: 'Platform',
+      contextPlaceholder: 'Platform',
+      contextKey: 'platform'
+    };
+  }
+  return {
+    title: 'Search for a match',
+    help: 'Use this when the title or imported name may be keeping collectZ from matching the item.',
+    queryLabel: 'Search title',
+    queryPlaceholder: 'Search title',
+    contextLabel: '',
+    contextPlaceholder: '',
+    contextKey: ''
+  };
+}
+
+function lookupContextValue(record = {}) {
+  const mediaType = record?.media_type || 'movie';
+  const details = record?.type_details && typeof record.type_details === 'object' ? record.type_details : {};
+  if (mediaType === 'movie' || mediaType === 'tv_series') return coerceFieldValue(record?.year);
+  if (mediaType === 'book') return coerceFieldValue(details.author);
+  if (mediaType === 'audio') return coerceFieldValue(details.artist);
+  if (mediaType === 'game') return coerceFieldValue(details.platform);
+  return '';
+}
+
 function MediaReviewDrawer({
   item,
   reviewType,
@@ -285,14 +362,14 @@ function MediaReviewDrawer({
   error,
   coverUploading,
   lookupQuery,
-  lookupYear,
+  lookupContext,
   lookupMatches,
   lookupLoading,
   lookupError,
   onChange,
   onCoverSelect,
   onLookupQueryChange,
-  onLookupYearChange,
+  onLookupContextChange,
   onRunLookup,
   onApplyLookup,
   onSave,
@@ -309,6 +386,7 @@ function MediaReviewDrawer({
   ].filter(Boolean);
   const canLookup = reviewType === 'missing-identifiers';
   const canUploadCover = reviewType === 'missing-covers';
+  const lookupConfig = lookupActionConfig(mediaType);
 
   return (
     <DetailDrawerShell onClose={onClose} panelClassName="max-w-lg" testId="dashboard-review-drawer">
@@ -362,29 +440,31 @@ function MediaReviewDrawer({
 
             {canLookup ? (
               <div className="rounded-lg border border-edge bg-panel p-3">
-                <p className="text-sm font-medium text-ink">Search for a match</p>
+                <p className="text-sm font-medium text-ink">{lookupConfig.title}</p>
                 <p className="mt-1 text-xs leading-5 text-ghost">
-                  Use this when the title, year, or imported name may be keeping collectZ from matching the item.
+                  {lookupConfig.help}
                 </p>
-                <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_7rem_auto]">
+                <div className={`mt-3 grid gap-2 ${lookupConfig.contextKey ? 'sm:grid-cols-[1fr_9rem_auto]' : 'sm:grid-cols-[1fr_auto]'}`}>
                   <label className="min-w-0">
-                    <span className="sr-only">Search title</span>
+                    <span className="sr-only">{lookupConfig.queryLabel}</span>
                     <input
                       className="input w-full"
                       value={lookupQuery}
                       onChange={(event) => onLookupQueryChange(event.target.value)}
-                      placeholder="Search title"
+                      placeholder={lookupConfig.queryPlaceholder}
                     />
                   </label>
-                  <label className="min-w-0">
-                    <span className="sr-only">Year</span>
-                    <input
-                      className="input w-full"
-                      value={lookupYear}
-                      onChange={(event) => onLookupYearChange(event.target.value)}
-                      placeholder="Year"
-                    />
-                  </label>
+                  {lookupConfig.contextKey ? (
+                    <label className="min-w-0">
+                      <span className="sr-only">{lookupConfig.contextLabel}</span>
+                      <input
+                        className="input w-full"
+                        value={lookupContext}
+                        onChange={(event) => onLookupContextChange(event.target.value)}
+                        placeholder={lookupConfig.contextPlaceholder}
+                      />
+                    </label>
+                  ) : null}
                   <button type="button" className="btn-secondary" onClick={onRunLookup} disabled={lookupLoading || saving}>
                     {lookupLoading ? 'Searching' : 'Search'}
                   </button>
@@ -504,7 +584,7 @@ export default function DashboardCommandCenterView({
   const [reviewError, setReviewError] = useState('');
   const [reviewCoverUploading, setReviewCoverUploading] = useState(false);
   const [reviewLookupQuery, setReviewLookupQuery] = useState('');
-  const [reviewLookupYear, setReviewLookupYear] = useState('');
+  const [reviewLookupContext, setReviewLookupContext] = useState('');
   const [reviewLookupMatches, setReviewLookupMatches] = useState([]);
   const [reviewLookupLoading, setReviewLookupLoading] = useState(false);
   const [reviewLookupError, setReviewLookupError] = useState('');
@@ -577,7 +657,7 @@ export default function DashboardCommandCenterView({
     setReviewForm(buildReviewForm(item));
     setReviewError('');
     setReviewLookupQuery(item?.title || '');
-    setReviewLookupYear(item?.year ? String(item.year) : '');
+    setReviewLookupContext(lookupContextValue(item));
     setReviewLookupMatches([]);
     setReviewLookupError('');
     setReviewLoading(true);
@@ -586,7 +666,7 @@ export default function DashboardCommandCenterView({
       setSelectedReviewRecord(record);
       setReviewForm(buildReviewForm(record));
       setReviewLookupQuery(record?.title || item?.title || '');
-      setReviewLookupYear(record?.year ? String(record.year) : (item?.year ? String(item.year) : ''));
+      setReviewLookupContext(lookupContextValue(record) || lookupContextValue(item));
     } catch (err) {
       const message = err?.response?.data?.error || 'Failed to load this review item';
       setReviewError(message);
@@ -605,7 +685,7 @@ export default function DashboardCommandCenterView({
     setReviewSaving(false);
     setReviewCoverUploading(false);
     setReviewLookupQuery('');
-    setReviewLookupYear('');
+    setReviewLookupContext('');
     setReviewLookupMatches([]);
     setReviewLookupError('');
     setReviewLookupLoading(false);
@@ -652,13 +732,13 @@ export default function DashboardCommandCenterView({
       if (mediaType === 'movie' || mediaType === 'tv_series') {
         matches = await apiCall('post', '/media/search-tmdb', {
           title,
-          year: String(reviewLookupYear || reviewForm.year || '').trim() || undefined,
+          year: String(reviewLookupContext || reviewForm.year || '').trim() || undefined,
           mediaType: inferTmdbSearchType(mediaType)
         });
       } else if (mediaType === 'book') {
         const data = await apiCall('post', '/media/enrich/book/search', {
           title,
-          author: String(reviewForm.author || record?.type_details?.author || '').trim()
+          author: String(reviewLookupContext || reviewForm.author || record?.type_details?.author || '').trim()
         });
         matches = data?.matches || [];
       } else if (mediaType === 'comic_book') {
@@ -667,7 +747,7 @@ export default function DashboardCommandCenterView({
       } else if (mediaType === 'audio') {
         const data = await apiCall('post', '/media/enrich/audio/search', {
           title,
-          artist: String(reviewForm.artist || record?.type_details?.artist || '').trim()
+          artist: String(reviewLookupContext || reviewForm.artist || record?.type_details?.artist || '').trim()
         });
         matches = data?.matches || [];
       } else if (mediaType === 'game') {
@@ -1133,14 +1213,14 @@ export default function DashboardCommandCenterView({
           error={reviewError}
           coverUploading={reviewCoverUploading}
           lookupQuery={reviewLookupQuery}
-          lookupYear={reviewLookupYear}
+          lookupContext={reviewLookupContext}
           lookupMatches={reviewLookupMatches}
           lookupLoading={reviewLookupLoading}
           lookupError={reviewLookupError}
           onChange={updateReviewField}
           onCoverSelect={uploadReviewCover}
           onLookupQueryChange={setReviewLookupQuery}
-          onLookupYearChange={setReviewLookupYear}
+          onLookupContextChange={setReviewLookupContext}
           onRunLookup={searchReviewMatches}
           onApplyLookup={applyReviewMatch}
           onSave={saveReviewItem}

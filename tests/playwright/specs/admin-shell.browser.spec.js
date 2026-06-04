@@ -244,8 +244,8 @@ test.describe('admin shell browser regressions', () => {
     await expect(page.getByTestId('dashboard-review-drawer')).toBeVisible();
     await expect(page.getByText('Why it is here')).toBeVisible();
     if (reviewKind === 'missing identifiers') {
-      await expect(page.getByText('Search for a match')).toBeVisible();
-      await expect(page.getByPlaceholder('Search title')).toBeVisible();
+      await expect(page.getByText(/Search (TMDB|Google Books|comic issue|Discogs|games)/)).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Search' })).toBeVisible();
     }
     if (reviewKind === 'missing covers') {
       await expect(page.getByText('Cover image')).toBeVisible();
