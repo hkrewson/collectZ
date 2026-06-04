@@ -1,6 +1,27 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.12.1",
+      "version": "3.12.1",
+      "date": null,
+      "status": "completed",
+      "summary": "This patch corrects the Review direction from `3.12.0`. Instead of adding another navigation destination that mirrors Dashboard and Library review filters, Dashboard Review rows now open an inline drawer for the exact media record that needs attention.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Removed the standalone Review navigation item and Review page.",
+            "Removed the read-only `/api/review-queue` endpoint and its OpenAPI contract.",
+            "Changed Dashboard Review rows for missing covers, missing identifiers, and sparse metadata into actionable rows.",
+            "Added a Dashboard Review drawer that fetches the selected media record and saves focused metadata/identifier updates through the existing media update API.",
+            "Removed `View all` buttons from Dashboard Review so the primary path is row-to-drawer resolution.",
+            "Changed Dashboard health counters for missing covers, missing identifiers, and sparse metadata to focus the matching Review tab instead of sending users to a temporary Library review page.",
+            "Allowed book and comic `type_details` to store ISBN-13 and Google Books IDs, matching the identifiers already used by review clues."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.12.0",
       "version": "3.12.0",
       "date": null,
@@ -161,24 +182,6 @@
             "Updated frontend Vite to the current open patch release.",
             "Updated CI workflow actions for upload-artifact and Trivy.",
             "Left major or compatibility-sensitive PRs out of this slice for separate review."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.10.21",
-      "version": "3.10.21",
-      "date": null,
-      "status": "completed",
-      "summary": "This patch replaces the always-visible Cards/List buttons in shared library headers with a compact view-mode menu whose trigger reflects the current layout.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added a shared view-mode menu to the page header toolbar.",
-            "The trigger shows the active layout icon and opens a small menu with Grid view and List view options.",
-            "The selected layout is marked in the menu while preserving accessible menu semantics.",
-            "Existing search, filter, sort, and add controls remain available."
           ]
         }
       ]

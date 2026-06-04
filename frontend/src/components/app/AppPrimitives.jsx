@@ -8,8 +8,6 @@ export function routeFromPath(p) {
   if (p === '/verify-email') return 'verify';
   if (p === '/now-playing') return 'now-playing';
   if (
-    p === '/review' ||
-    p.startsWith('/review/') ||
     p === '/dashboard' ||
     p.startsWith('/dashboard/') ||
     p.startsWith('/admin/') ||

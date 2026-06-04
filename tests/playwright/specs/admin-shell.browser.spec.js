@@ -207,44 +207,43 @@ test.describe('admin shell browser regressions', () => {
     expect(overflow.root).toBeLessThanOrEqual(1);
   });
 
-  test('unified review queue surfaces source workflow links', async ({ page }) => {
+  test('dashboard review rows open inline item drawer', async ({ page }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
     await signInThroughUi(page, adminCredentials);
     const requestContext = await createAuthenticatedRequestContext(adminCredentials);
-    let queuePayload;
+    let summaryPayload;
     try {
-      const queueResponse = await requestContext.get('/api/review-queue?limit=20');
-      expect(queueResponse.ok()).toBeTruthy();
-      queuePayload = await queueResponse.json();
+      const summaryResponse = await requestContext.get('/api/dashboard/summary');
+      expect(summaryResponse.ok()).toBeTruthy();
+      summaryPayload = await summaryResponse.json();
     } finally {
       await requestContext.dispose();
     }
-    expect(queuePayload?.ok).toBeTruthy();
-    expect(Array.isArray(queuePayload?.items)).toBeTruthy();
-    expect(queuePayload?.counts?.by_source).toBeTruthy();
 
-    const queueResponse = page.waitForResponse((response) => (
-      response.url().includes('/api/review-queue') && response.request().method() === 'GET'
+    const reviewKind = summaryPayload?.attention_details?.missing_identifier_items?.[0]
+      ? 'missing identifiers'
+      : summaryPayload?.attention_details?.missing_cover_items?.[0]
+        ? 'missing covers'
+        : 'sparse metadata';
+    const item = reviewKind === 'missing identifiers'
+      ? summaryPayload?.attention_details?.missing_identifier_items?.[0]
+      : reviewKind === 'missing covers'
+        ? summaryPayload?.attention_details?.missing_cover_items?.[0]
+        : summaryPayload?.attention_details?.sparse_metadata_items?.[0];
+    if (!item) return;
+
+    await page.goto('/dashboard?tab=dashboard');
+    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+    await page.getByRole('button', { name: new RegExp(`Open ${reviewKind} review`, 'i') }).click();
+    const escapedTitle = String(item.title || 'Untitled').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const detailResponse = page.waitForResponse((response) => (
+      response.url().includes(`/api/media/${item.id}`) && response.request().method() === 'GET'
     ));
-    await page.goto('/dashboard?tab=review-queue');
-    expect((await queueResponse).ok()).toBeTruthy();
-    await expect(page.getByRole('heading', { name: 'Review' })).toBeVisible();
-    await expect(page.getByLabel('Search review items')).toBeVisible();
-    await expect(page.getByRole('button', { name: /Review filters/ })).toBeVisible();
-    await expect(page.getByText('Queue')).toBeVisible();
-
-    const libraryItem = (queuePayload.items || []).find((item) => item?.source === 'library' && item?.action?.review_filter);
-    if (libraryItem) {
-      const mediaReviewResponse = page.waitForResponse((response) => (
-        response.url().includes('/api/media')
-        && response.url().includes(`review_filter=${libraryItem.action.review_filter}`)
-        && response.request().method() === 'GET'
-      ));
-      const row = page.locator('section').filter({ hasText: 'Queue' }).getByText(libraryItem.title).first().locator('xpath=ancestor::div[contains(@class, "border-b")][1]');
-      await row.getByRole('button', { name: 'Open' }).click();
-      expect((await mediaReviewResponse).ok()).toBeTruthy();
-      await expect(page.getByRole('heading', { name: 'Library' })).toBeVisible();
-    }
+    await page.getByRole('button', { name: new RegExp(escapedTitle) }).first().click();
+    expect((await detailResponse).ok()).toBeTruthy();
+    await expect(page.getByTestId('dashboard-review-drawer')).toBeVisible();
+    await expect(page.getByText('Why it is here')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Save/ })).toBeVisible();
   });
 
   test('mobile library search toolbars stay compact', async ({ page }) => {

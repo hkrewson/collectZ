@@ -9,7 +9,6 @@ import { getSafeDashboardTab, isSupportHelpEnabled } from './productEdition';
 
 const MOBILE_HEADER_TITLES = {
   dashboard: 'Dashboard',
-  'review-queue': 'Review',
   help: 'Help',
   'support-inbox': 'Support Inbox',
   library: 'Library',
@@ -40,7 +39,6 @@ const MOBILE_HEADER_TITLES = {
 
 const MOBILE_HEADER_ICONS = {
   dashboard: Icons.Gauge,
-  'review-queue': Icons.List,
   library: Icons.Library,
   'library-movies': Icons.Clapper,
   'library-tv': Icons.Tv,

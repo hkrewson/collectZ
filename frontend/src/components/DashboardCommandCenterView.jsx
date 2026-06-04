@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import SyncJobDetailDrawer from './SyncJobDetailDrawer';
-import { SectionTabs } from './app/AppPrimitives';
+import { DetailDrawerShell, SectionTabs } from './app/AppPrimitives';
 
 const DASHBOARD_SAMPLE_LIMIT = 5;
 const DASHBOARD_SECTION_TABS = [
@@ -120,22 +120,17 @@ function MetricButton({ label, value, onClick, disabled = false }) {
   );
 }
 
-function AttentionListHeader({ count, itemCount, actionLabel, onAction }) {
+function AttentionListHeader({ count, itemCount }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-2">
       <p className="text-xs text-ghost">
         Showing {Math.min(itemCount, DASHBOARD_SAMPLE_LIMIT)} of {count}
       </p>
-      {onAction ? (
-        <button type="button" className="btn-secondary btn-sm" onClick={onAction}>
-          {actionLabel}
-        </button>
-      ) : null}
     </div>
   );
 }
 
-function MediaAttentionList({ items, emptyText }) {
+function MediaAttentionList({ items, emptyText, reviewType, onOpenItem }) {
   if (!items.length) return <EmptyLine>{emptyText}</EmptyLine>;
   const visibleItems = items.slice(0, DASHBOARD_SAMPLE_LIMIT);
   return (
@@ -143,19 +138,188 @@ function MediaAttentionList({ items, emptyText }) {
       {visibleItems.map((item) => {
         const clue = reviewClue(item);
         return (
-          <div key={item.id} className="bg-raised/20 px-3 py-2">
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => onOpenItem?.(item, reviewType)}
+            className="w-full bg-raised/20 px-3 py-2 text-left transition hover:bg-raised/45"
+          >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-ink">{item.title || 'Untitled'}</p>
                 <p className="mt-1 truncate text-xs text-ghost">{itemMeta(item)}</p>
                 {clue ? <p className="mt-1 break-words text-xs text-dim">{clue}</p> : null}
               </div>
-              <span className="shrink-0 text-xs text-ghost">#{item.id}</span>
+              <span className="shrink-0 text-xs font-medium text-accent">Open</span>
             </div>
-          </div>
+          </button>
         );
       })}
     </div>
+  );
+}
+
+const DETAIL_FIELDS_BY_TYPE = {
+  movie: [
+    ['tmdb_id', 'TMDB ID', 'top'],
+    ['upc', 'UPC / barcode', 'top'],
+    ['poster_path', 'Cover image URL/path', 'top'],
+    ['edition', 'Edition', 'detail'],
+    ['provider_name', 'Provider', 'detail'],
+    ['provider_item_id', 'Provider ID', 'detail']
+  ],
+  tv_series: [
+    ['tmdb_id', 'TMDB ID', 'top'],
+    ['upc', 'UPC / barcode', 'top'],
+    ['poster_path', 'Cover image URL/path', 'top']
+  ],
+  book: [
+    ['isbn', 'ISBN', 'detail'],
+    ['isbn13', 'ISBN-13', 'detail'],
+    ['google_books_id', 'Google Books ID', 'detail'],
+    ['upc', 'UPC / barcode', 'top'],
+    ['poster_path', 'Cover image URL/path', 'top'],
+    ['author', 'Author', 'detail'],
+    ['publisher', 'Publisher', 'detail'],
+    ['edition', 'Edition', 'detail'],
+    ['kavita_series_id', 'Kavita series ID', 'detail']
+  ],
+  comic_book: [
+    ['series', 'Series', 'detail'],
+    ['issue_number', 'Issue #', 'detail'],
+    ['provider_issue_id', 'Provider issue ID', 'detail'],
+    ['isbn', 'ISBN', 'detail'],
+    ['isbn13', 'ISBN-13', 'detail'],
+    ['google_books_id', 'Google Books ID', 'detail'],
+    ['upc', 'UPC / barcode', 'top'],
+    ['poster_path', 'Cover image URL/path', 'top'],
+    ['publisher', 'Publisher', 'detail'],
+    ['kavita_series_id', 'Kavita series ID', 'detail']
+  ],
+  audio: [
+    ['upc', 'UPC / barcode', 'top'],
+    ['poster_path', 'Cover image URL/path', 'top'],
+    ['artist', 'Artist', 'detail'],
+    ['album', 'Album', 'detail'],
+    ['track_count', 'Track count', 'detail']
+  ],
+  game: [
+    ['upc', 'UPC / barcode', 'top'],
+    ['poster_path', 'Cover image URL/path', 'top'],
+    ['platform', 'Platform', 'detail'],
+    ['developer', 'Developer', 'detail'],
+    ['provider_name', 'Provider', 'detail'],
+    ['provider_item_id', 'Provider ID', 'detail']
+  ]
+};
+
+function coerceFieldValue(value) {
+  if (value === undefined || value === null) return '';
+  return String(value);
+}
+
+function fieldValueForRecord(record, field, bucket) {
+  if (bucket === 'detail') return coerceFieldValue(record?.type_details?.[field]);
+  return coerceFieldValue(record?.[field]);
+}
+
+function buildReviewForm(record) {
+  const mediaType = record?.media_type || 'movie';
+  const fields = DETAIL_FIELDS_BY_TYPE[mediaType] || DETAIL_FIELDS_BY_TYPE.movie;
+  const values = {};
+  fields.forEach(([field, _label, bucket]) => {
+    values[field] = fieldValueForRecord(record, field, bucket);
+  });
+  values.year = coerceFieldValue(record?.year);
+  values.format = coerceFieldValue(record?.format);
+  return values;
+}
+
+function ReviewField({ field, label, value, onChange }) {
+  return (
+    <label className="block min-w-0">
+      <span className="text-xs font-medium text-ghost">{label}</span>
+      <input
+        className="input mt-1 w-full"
+        value={value || ''}
+        onChange={(event) => onChange(field, event.target.value)}
+      />
+    </label>
+  );
+}
+
+function MediaReviewDrawer({
+  item,
+  reviewType,
+  record,
+  form,
+  loading,
+  saving,
+  error,
+  onChange,
+  onSave,
+  onClose,
+  Spinner
+}) {
+  const mediaType = record?.media_type || item?.media_type || 'movie';
+  const fields = DETAIL_FIELDS_BY_TYPE[mediaType] || DETAIL_FIELDS_BY_TYPE.movie;
+  const clue = reviewClue(item);
+  const recommendation = [
+    ...(Array.isArray(item?.recommended_identifiers) ? item.recommended_identifiers : []),
+    ...(Array.isArray(item?.recommended_metadata) ? item.recommended_metadata : [])
+  ].filter(Boolean);
+
+  return (
+    <DetailDrawerShell onClose={onClose} panelClassName="max-w-xl" testId="dashboard-review-drawer">
+      <div className="space-y-4">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-ghost">Dashboard Review</p>
+          <h2 className="mt-1 text-xl font-semibold text-ink">{record?.title || item?.title || 'Untitled'}</h2>
+          <p className="mt-1 text-sm text-ghost">{itemMeta(record || item)}</p>
+        </div>
+
+        {clue ? (
+          <div className="rounded-lg border border-edge bg-raised/30 p-3">
+            <p className="text-sm font-medium text-ink">Why it is here</p>
+            <p className="mt-1 text-sm text-dim">{clue}</p>
+            {recommendation.length ? (
+              <p className="mt-2 text-xs text-ghost">Recommended: {recommendation.join(', ')}</p>
+            ) : null}
+          </div>
+        ) : null}
+
+        {loading ? (
+          <div className="flex min-h-40 items-center justify-center">
+            <Spinner size={28} />
+          </div>
+        ) : (
+          <form className="space-y-4" onSubmit={(event) => { event.preventDefault(); onSave(); }}>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <ReviewField field="year" label="Year" value={form.year} onChange={onChange} />
+              <ReviewField field="format" label="Format" value={form.format} onChange={onChange} />
+              {fields.map(([field, label]) => (
+                <ReviewField
+                  key={`${mediaType}:${field}`}
+                  field={field}
+                  label={label}
+                  value={form[field]}
+                  onChange={onChange}
+                />
+              ))}
+            </div>
+            {error ? <p className="rounded-lg border border-err/40 bg-err/10 p-3 text-sm text-err">{error}</p> : null}
+            <div className="flex justify-end gap-2 border-t border-edge pt-3">
+              <button type="button" className="btn-secondary" onClick={onClose} disabled={saving}>
+                Cancel
+              </button>
+              <button type="submit" className="btn-primary" disabled={saving || !record}>
+                {saving ? 'Saving' : `Save ${reviewType === 'missing-covers' ? 'cover' : 'updates'}`}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </DetailDrawerShell>
   );
 }
 
@@ -201,6 +365,12 @@ export default function DashboardCommandCenterView({
   const [activeDashboardTab, setActiveDashboardTab] = useState('attention');
   const [activeAttentionTab, setActiveAttentionTab] = useState('failed-syncs');
   const [selectedSyncJob, setSelectedSyncJob] = useState(null);
+  const [selectedReview, setSelectedReview] = useState(null);
+  const [selectedReviewRecord, setSelectedReviewRecord] = useState(null);
+  const [reviewForm, setReviewForm] = useState({});
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [reviewSaving, setReviewSaving] = useState(false);
+  const [reviewError, setReviewError] = useState('');
 
   const loadSummary = useCallback(async () => {
     setLoading(true);
@@ -258,6 +428,97 @@ export default function DashboardCommandCenterView({
     setActiveTab?.('library');
   };
 
+  const focusReviewTab = (tabId) => {
+    setActiveDashboardTab('attention');
+    setActiveAttentionTab(tabId);
+  };
+
+  const openReviewItem = useCallback(async (item, reviewType) => {
+    if (!item?.id) return;
+    setSelectedReview({ item, reviewType });
+    setSelectedReviewRecord(null);
+    setReviewForm(buildReviewForm(item));
+    setReviewError('');
+    setReviewLoading(true);
+    try {
+      const record = await apiCall('get', `/media/${item.id}`);
+      setSelectedReviewRecord(record);
+      setReviewForm(buildReviewForm(record));
+    } catch (err) {
+      const message = err?.response?.data?.error || 'Failed to load this review item';
+      setReviewError(message);
+      onToast?.(message, 'error');
+    } finally {
+      setReviewLoading(false);
+    }
+  }, [apiCall, onToast]);
+
+  const closeReviewItem = () => {
+    setSelectedReview(null);
+    setSelectedReviewRecord(null);
+    setReviewForm({});
+    setReviewError('');
+    setReviewLoading(false);
+    setReviewSaving(false);
+  };
+
+  const updateReviewField = (field, value) => {
+    setReviewForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const saveReviewItem = async () => {
+    const record = selectedReviewRecord;
+    if (!record?.id) return;
+    const mediaType = record.media_type || 'movie';
+    const fields = DETAIL_FIELDS_BY_TYPE[mediaType] || DETAIL_FIELDS_BY_TYPE.movie;
+    const payload = { media_type: mediaType };
+    const nextTypeDetails = { ...(record.type_details || {}) };
+    let hasDetailChange = false;
+
+    const applyTopField = (field) => {
+      const nextValue = String(reviewForm[field] || '').trim();
+      if (!nextValue || nextValue === coerceFieldValue(record[field])) return;
+      payload[field] = field === 'year' ? Number(nextValue) || nextValue : nextValue;
+    };
+
+    applyTopField('year');
+    applyTopField('format');
+
+    fields.forEach(([field, _label, bucket]) => {
+      const nextValue = String(reviewForm[field] || '').trim();
+      if (!nextValue) return;
+      if (bucket === 'detail') {
+        if (nextValue !== coerceFieldValue(record.type_details?.[field])) {
+          nextTypeDetails[field] = nextValue;
+          hasDetailChange = true;
+        }
+      } else if (nextValue !== coerceFieldValue(record[field])) {
+        payload[field] = nextValue;
+      }
+    });
+
+    if (hasDetailChange) payload.type_details = nextTypeDetails;
+    if (Object.keys(payload).length <= 1) {
+      closeReviewItem();
+      return;
+    }
+
+    setReviewSaving(true);
+    setReviewError('');
+    try {
+      await apiCall('patch', `/media/${record.id}`, payload);
+      onToast?.('Review item updated', 'success');
+      closeReviewItem();
+      await loadSummary();
+    } catch (err) {
+      const message = err?.response?.data?.error || 'Failed to save review item';
+      setReviewError(message);
+      onToast?.(message, 'error');
+    } finally {
+      setReviewSaving(false);
+    }
+  };
+
   const plexConflictAttention = attention.find((item) => item.id === 'plex-conflicts');
   const attentionTabs = useMemo(() => [
     {
@@ -277,10 +538,13 @@ export default function DashboardCommandCenterView({
           <AttentionListHeader
             count={attentionCounts['missing-covers'] || missingCoverItems.length}
             itemCount={missingCoverItems.length}
-            actionLabel="View all"
-            onAction={() => openLibrary('missing_covers')}
           />
-          <MediaAttentionList items={missingCoverItems} emptyText="No items without cover art found." />
+          <MediaAttentionList
+            items={missingCoverItems}
+            emptyText="No items without cover art found."
+            reviewType="missing-covers"
+            onOpenItem={openReviewItem}
+          />
         </div>
       )
     },
@@ -294,10 +558,13 @@ export default function DashboardCommandCenterView({
           <AttentionListHeader
             count={attentionCounts['missing-identifiers'] || missingIdentifierItems.length}
             itemCount={missingIdentifierItems.length}
-            actionLabel="View all"
-            onAction={() => openLibrary('missing_identifiers')}
           />
-          <MediaAttentionList items={missingIdentifierItems} emptyText="No items missing identifiers found." />
+          <MediaAttentionList
+            items={missingIdentifierItems}
+            emptyText="No items missing identifiers found."
+            reviewType="missing-identifiers"
+            onOpenItem={openReviewItem}
+          />
         </div>
       )
     },
@@ -311,10 +578,13 @@ export default function DashboardCommandCenterView({
           <AttentionListHeader
             count={attentionCounts['sparse-metadata'] || sparseMetadataItems.length}
             itemCount={sparseMetadataItems.length}
-            actionLabel="View all"
-            onAction={() => openLibrary('sparse_metadata')}
           />
-          <MediaAttentionList items={sparseMetadataItems} emptyText="No sparse metadata items found." />
+          <MediaAttentionList
+            items={sparseMetadataItems}
+            emptyText="No sparse metadata items found."
+            reviewType="sparse-metadata"
+            onOpenItem={openReviewItem}
+          />
         </div>
       )
     },
@@ -341,7 +611,7 @@ export default function DashboardCommandCenterView({
         <EmptyLine>No open Plex reconciliation conflicts in this scope.</EmptyLine>
       )
     }
-  ], [attentionCounts, failedJobs, missingCoverItems, missingIdentifierItems, sparseMetadataItems, plexConflictAttention]);
+  ], [attentionCounts, failedJobs, missingCoverItems, missingIdentifierItems, sparseMetadataItems, plexConflictAttention, openReviewItem]);
 
   const activeAttention = attentionTabs.find((tab) => tab.id === activeAttentionTab) || attentionTabs[0];
 
@@ -520,19 +790,19 @@ export default function DashboardCommandCenterView({
         <MetricButton
           label="Missing covers"
           value={summary?.collection?.missing_covers || 0}
-          onClick={() => openLibrary('missing_covers')}
+          onClick={() => focusReviewTab('missing-covers')}
           disabled={!Number(summary?.collection?.missing_covers || 0)}
         />
         <MetricButton
           label="Missing identifiers"
           value={summary?.collection?.missing_identifiers || 0}
-          onClick={() => openLibrary('missing_identifiers')}
+          onClick={() => focusReviewTab('missing-identifiers')}
           disabled={!Number(summary?.collection?.missing_identifiers || 0)}
         />
         <MetricButton
           label="Sparse metadata"
           value={summary?.collection?.sparse_metadata || 0}
-          onClick={() => openLibrary('sparse_metadata')}
+          onClick={() => focusReviewTab('sparse-metadata')}
           disabled={!Number(summary?.collection?.sparse_metadata || 0)}
         />
       </div>
@@ -576,6 +846,22 @@ export default function DashboardCommandCenterView({
           jobId={selectedSyncJob.id}
           initialJob={selectedSyncJob}
           onClose={() => setSelectedSyncJob(null)}
+          Spinner={Spinner}
+        />
+      ) : null}
+
+      {selectedReview ? (
+        <MediaReviewDrawer
+          item={selectedReview.item}
+          reviewType={selectedReview.reviewType}
+          record={selectedReviewRecord}
+          form={reviewForm}
+          loading={reviewLoading}
+          saving={reviewSaving}
+          error={reviewError}
+          onChange={updateReviewField}
+          onSave={saveReviewItem}
+          onClose={closeReviewItem}
           Spinner={Spinner}
         />
       ) : null}

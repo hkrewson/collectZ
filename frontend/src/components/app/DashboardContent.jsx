@@ -8,7 +8,6 @@ import AdminSettingsView from '../AdminSettingsView';
 import AdminIntegrationsView from '../AdminIntegrationsView';
 import AdminSpacesView from '../AdminSpacesView';
 import DashboardCommandCenterView from '../DashboardCommandCenterView';
-import ReviewQueueView from '../ReviewQueueView';
 import LibraryView from '../LibraryView';
 import LibraryLoansView from '../LibraryLoansView';
 import WishlistView from '../WishlistView';
@@ -129,19 +128,6 @@ export default function DashboardContent({
           setLibraryReviewFilter={setLibraryReviewFilter}
           activeSpace={activeSpace}
           activeLibrary={activeLibrary}
-          Icons={Icons}
-          Spinner={Spinner}
-        />
-      );
-    case 'review-queue':
-      return (
-        <ReviewQueueView
-          key={`review-queue:${scopeKey}`}
-          apiCall={apiCall}
-          onToast={showToast}
-          setActiveTab={setActiveTab}
-          setActiveIntegrationSection={setActiveIntegrationSection}
-          setLibraryReviewFilter={setLibraryReviewFilter}
           Icons={Icons}
           Spinner={Spinner}
         />

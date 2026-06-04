@@ -6,6 +6,39 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.12.1 — Dashboard Review Inline Resolution
+
+**Goal:** Correct the first Review Queue direction by making Dashboard Review rows actionable in place instead of adding a separate Review destination that duplicates Dashboard and Library review filters.
+
+### Scope
+
+- Remove the standalone Review nav item, page, route mapping, API endpoint, and OpenAPI contract from `3.12.0`.
+- Keep Dashboard Review as the primary review surface for library health work.
+- Make missing-cover, missing-identifier, and sparse-metadata rows open an inline drawer for the exact media record.
+- Show the row clue in the drawer and expose focused fields for identifiers, cover URL/path, format, year, and media-type-specific metadata.
+- Save updates through the existing authenticated, scope-enforced media update API.
+- Remove Dashboard Review `View all` buttons and make health counters focus the matching Review tab instead of opening temporary Library review pages.
+
+### Acceptance Criteria
+
+- Dashboard Review rows open a drawer for the selected item.
+- The drawer explains why the item is flagged and offers relevant editable fields.
+- Saving a valid update closes the drawer and refreshes Dashboard Review.
+- Standalone Review is no longer visible in navigation and `/api/review-queue` is no longer part of the OpenAPI contract.
+- Existing Library review filters continue to work when users arrive there directly.
+- Release notes, release feed, version metadata, and regression coverage are updated for `3.12.1`.
+
+### Closeout
+
+- Status: completed.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, and `docs/releases/v3.12.1.md`.
+- Runtime verification used: Docker backend/frontend rebuild at `APP_VERSION=3.12.1`, running `/api/health` version readback, Help > Releases smoke from the running stack, and targeted Dashboard Review browser regression.
+- CI/checks run: source syntax checks for changed backend files; backend and frontend `npm ci --no-fund` under Node 20 Docker; backend and frontend high-severity npm audit; backend unit tests under Node 20 Docker; OpenAPI validation; frontend Vite build under Node 20 Docker; Docker backend/frontend build; running-stack Help > Releases smoke; targeted Playwright browser regression for Dashboard Review inline drawer; in-stack RBAC regression; platform edition boundary smoke; init parity; observability release evidence; local release preflight; `git diff --check`.
+- Files changed: Dashboard Review UI, app shell nav/routing allowlists, removed Review Queue route/page, media type-detail allowlist, OpenAPI, unit/browser tests, version metadata, release note/feed, and roadmap.
+- Risks/follow-ups: cover fixes currently accept URL/path input rather than a richer upload or enrichment action; Capture Inbox, Wishlist, Plex conflicts, and failed syncs still resolve in their owning surfaces; broader dismiss/defer semantics remain future work.
+- What remains in the milestone: nothing for `3.12.1`.
+- Recommended commit message: `Release 3.12.1 with Dashboard review inline resolution`.
+
 ## 3.12.0 — Unified Review Queue Foundation
 
 **Goal:** Add one Review surface that aggregates existing reviewable signals and points users back to the workflow that owns each decision.

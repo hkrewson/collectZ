@@ -40,7 +40,6 @@ const spaceIntegrationsRouter = require('./routes/spaceIntegrations');
 const librariesRouter = require('./routes/libraries');
 const spacesRouter = require('./routes/spaces');
 const dashboardRouter = require('./routes/dashboard');
-const reviewQueueRouter = require('./routes/reviewQueue');
 const wishlistRouter = require('./routes/wishlist');
 const captureItemsRouter = require('./routes/captureItems');
 const eventsRouter = require('./routes/events');
@@ -286,7 +285,6 @@ if (!HOMELAB_EDITION) {
 // for backward compatibility with existing frontend calls
 app.use('/api', authRouter);
 app.use('/api', dashboardRouter);
-app.use('/api', reviewQueueRouter);
 app.use('/api', wishlistRouter);
 app.use('/api', captureItemsRouter);
 app.use('/api/media', mediaRouter);

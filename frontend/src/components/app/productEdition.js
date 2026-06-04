@@ -55,7 +55,6 @@ export function getHomelabAllowedTabs({
   const normalizedRole = String(userRole || '').trim().toLowerCase();
   const allowed = new Set([
     'dashboard',
-    'review-queue',
     'help',
     'profile',
     'library',

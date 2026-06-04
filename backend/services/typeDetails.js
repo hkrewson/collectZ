@@ -5,6 +5,8 @@ const TYPE_DETAILS_ALLOWED_BY_MEDIA_TYPE = {
   book: [
     'author',
     'isbn',
+    'isbn13',
+    'google_books_id',
     'publisher',
     'edition',
     'provider_name',
@@ -66,6 +68,8 @@ const TYPE_DETAILS_ALLOWED_BY_MEDIA_TYPE = {
   comic_book: [
     'author',
     'isbn',
+    'isbn13',
+    'google_books_id',
     'publisher',
     'edition',
     'series',
