@@ -20,28 +20,36 @@ These are unscheduled interface cleanup tasks discovered during the `3.10.x` mob
 ### Backlog Item: Header and Search Surface Refinement
 **Type:** UI/UX refinement
 **Tags:** `ui`, `ux`, `mobile`, `headers`, `search`, `filters`, `density`
-**Status:** Mostly completed across the `3.10.x` UI/UX line; keep only for specific surface regressions or deliberately selected follow-up polish.
+**Status:** Completed across the `3.10.x` UI/UX line. Closed as a backlog item; add a new specific backlog item if a future header/search regression or polish target appears.
 
-**Goal:** Continue making mobile and desktop header/search surfaces compact, predictable, and deliberate without hiding important controls.
+**Goal:** Completed the broad mobile and desktop header/search refinement pass by making the surfaces compact, predictable, and deliberate without hiding important controls.
 
 **Why this work exists**
 - The `3.10.x` UI/UX line stabilized mobile shell/page headers, fixed utility-page headers, introduced shared page-header/search primitives, normalized live search, compacted utility filters, moved library filtering into funnel menus, and replaced grid/list button pairs with a layout menu.
 - The broad "headers are too large and inconsistent" problem is no longer open-ended backlog work.
-- Any future work here should start from a concrete page/screenshot/regression, not from the original broad cleanup frame.
+- This task is closed so future work starts from a concrete page/screenshot/regression instead of reopening the original broad cleanup frame.
 
-**Intent**
-- Keep primary actions and search easy to reach.
-- Move secondary filter detail behind compact mobile-only readback where it helps density.
-- Avoid page-specific one-off hiding rules when a shared primitive can handle the pattern.
-- Preserve desktop clarity while auditing whether desktop headers became too heavy during mobile cleanup.
+**Completed intent**
+- Primary actions and search stay easy to reach.
+- Secondary filter detail moved behind compact readback where it helped density.
+- Repeated header/search behavior moved into shared primitives instead of page-specific one-off hiding rules.
+- Desktop clarity was preserved while mobile density improved.
 
-**Candidate subtasks**
-- Address page-specific header/search regressions found in real use.
-- Continue improving accessibility labels for icon-only actions as new header controls are added.
-- Revisit search-in-shell only if fixed page headers still consume too much vertical space after the current compaction work.
-- Keep any future filter-menu work on shared primitives rather than returning to one-off page logic.
+**Closed scope**
+- Mobile app/header stability was completed.
+- Utility-page fixed headers were completed for Wishlist, Import, Integrations, Capture Inbox, and Loans.
+- Shared page-header/search primitives were added for library-style and utility pages.
+- Search behavior was normalized to live updates instead of explicit Search buttons.
+- Secondary filters were compacted into funnel menus where useful.
+- Library layout controls were consolidated into a layout menu.
+- Desktop header copy was cleaned up so library-style pages use compact section-specific headings.
+- Mobile section icons and accessibility labels were added for the header/search surfaces.
 
-**Acceptance Criteria**
+**Future work rule**
+- Do not reopen this broad task for general polish.
+- If more work is needed, add a new backlog item with the affected surface, observed problem, intended behavior, and acceptance criteria.
+
+**Completion criteria**
 - Mobile pages expose primary search/actions without forcing every secondary filter to stay visible.
 - Filter state remains readable before the user opens the secondary controls.
 - Search behavior is consistent enough that users do not wonder whether they need to press a Search button.
