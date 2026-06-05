@@ -145,6 +145,14 @@ function activeReviewDecisionSql(mediaAlias, findingType) {
   )`;
 }
 
+function activeReviewDecisionPredicate(mediaAlias, decisionAlias) {
+  return `(${decisionAlias}.media_updated_at IS NULL OR ${mediaAlias}.updated_at <= ${decisionAlias}.media_updated_at)
+    AND (
+      ${decisionAlias}.action = 'dismissed'
+      OR (${decisionAlias}.action = 'deferred' AND ${decisionAlias}.deferred_until > CURRENT_TIMESTAMP)
+    )`;
+}
+
 const MISSING_COVER_ACTIVE_SQL = `(${MISSING_COVER_SQL} AND ${activeReviewDecisionSql('m', 'missing_covers')})`;
 const MISSING_IDENTIFIER_ACTIVE_SQL = `(${MISSING_IDENTIFIER_SQL} AND ${activeReviewDecisionSql('m', 'missing_identifiers')})`;
 const SPARSE_METADATA_ACTIVE_SQL = `(${SPARSE_METADATA_SQL} AND ${activeReviewDecisionSql('m', 'sparse_metadata')})`;
@@ -180,6 +188,21 @@ function shapeMediaAttentionItem(row, reviewFilter = '') {
     };
   }
   return payload;
+}
+
+function shapeReviewDecisionRow(row = {}) {
+  return {
+    id: row.id,
+    media_id: row.media_id,
+    title: row.title || 'Untitled',
+    media_type: row.media_type || null,
+    year: row.year || null,
+    format: row.format || null,
+    finding_type: row.finding_type,
+    action: row.action,
+    deferred_until: row.deferred_until || null,
+    created_at: row.created_at || null
+  };
 }
 
 router.post('/dashboard/review-decisions', validate(dashboardReviewDecisionSchema), asyncHandler(async (req, res) => {
@@ -242,6 +265,46 @@ router.post('/dashboard/review-decisions', validate(dashboardReviewDecisionSchem
   res.status(201).json({
     ok: true,
     decision
+  });
+}));
+
+router.delete('/dashboard/review-decisions/:id', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const decisionId = Number(req.params.id);
+  if (!Number.isFinite(decisionId) || decisionId <= 0) {
+    return res.status(400).json({ error: 'Invalid review decision id' });
+  }
+
+  const params = [decisionId];
+  const scopeClause = appendScopeSql(params, scopeContext, {
+    spaceColumn: 'm.space_id',
+    libraryColumn: 'm.library_id'
+  });
+  const result = await pool.query(
+    `DELETE FROM media_review_decisions mrd
+     USING media m
+     WHERE mrd.id = $1
+       AND m.id = mrd.media_id${scopeClause}
+     RETURNING
+       mrd.id, mrd.media_id, mrd.finding_type, mrd.action, mrd.deferred_until, mrd.created_at,
+       m.title, m.media_type, m.year, m.format, m.space_id, m.library_id`,
+    params
+  );
+  const row = result.rows[0];
+  if (!row) return res.status(404).json({ error: 'Review decision not found' });
+
+  await logActivity(req, 'dashboard.review.restored', 'media', row.media_id, {
+    title: row.title || null,
+    finding_type: row.finding_type,
+    decision_id: row.id,
+    previous_action: row.action,
+    spaceId: row.space_id || null,
+    libraryId: row.library_id || null
+  });
+
+  res.json({
+    ok: true,
+    decision: shapeReviewDecisionRow(row)
   });
 }));
 
@@ -308,7 +371,8 @@ router.get('/dashboard/summary', asyncHandler(async (req, res) => {
     openReviews,
     upcomingEvents,
     recentActivity,
-    integrationResult
+    integrationResult,
+    hiddenReviewDecisions
   ] = await Promise.all([
     pool.query(
       `SELECT
@@ -391,6 +455,17 @@ router.get('/dashboard/summary', asyncHandler(async (req, res) => {
        ORDER BY updated_at DESC, id DESC
        LIMIT 1`,
       integrationParams
+    ),
+    pool.query(
+      `SELECT DISTINCT ON (mrd.media_id, mrd.finding_type)
+         mrd.id, mrd.media_id, mrd.finding_type, mrd.action, mrd.deferred_until, mrd.created_at,
+         m.title, m.media_type, m.year, m.format
+       FROM media_review_decisions mrd
+       JOIN media m ON m.id = mrd.media_id
+       WHERE ${activeReviewDecisionPredicate('m', 'mrd')}${mediaScopeClause}
+       ORDER BY mrd.media_id, mrd.finding_type, mrd.created_at DESC, mrd.id DESC
+       LIMIT 20`,
+      mediaParams
     )
   ]);
 
@@ -458,7 +533,8 @@ router.get('/dashboard/summary', asyncHandler(async (req, res) => {
     attention_details: {
       missing_cover_items: missingCoverItems.rows.map(shapeMediaAttentionItem),
       missing_identifier_items: missingIdentifierItems.rows.map((row) => shapeMediaAttentionItem(row, 'missing_identifiers')),
-      sparse_metadata_items: sparseMetadataItems.rows.map((row) => shapeMediaAttentionItem(row, 'sparse_metadata'))
+      sparse_metadata_items: sparseMetadataItems.rows.map((row) => shapeMediaAttentionItem(row, 'sparse_metadata')),
+      hidden_review_decisions: hiddenReviewDecisions.rows.map(shapeReviewDecisionRow)
     },
     failed_sync_jobs: failedJobs.rows.map((row) => ({
       id: row.id,

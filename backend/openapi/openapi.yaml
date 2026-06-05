@@ -3186,6 +3186,24 @@
         "required": ["ok", "decision"],
         "additionalProperties": false
       },
+      "DashboardReviewDecisionList": {
+        "type": "array",
+        "description": "Active deferred or dismissed Dashboard Review decisions hidden from the current Review lists.",
+        "items": {
+          "allOf": [
+            { "$ref": "#/components/schemas/DashboardReviewDecision" },
+            {
+              "type": "object",
+              "properties": {
+                "title": { "type": "string" },
+                "media_type": { "type": ["string", "null"] },
+                "year": { "type": ["integer", "null"] },
+                "format": { "type": ["string", "null"] }
+              }
+            }
+          ]
+        }
+      },
       "DashboardSummary": {
         "type": "object",
         "description": "Authenticated, active-scope operational dashboard summary for the Dashboard command center.",
@@ -3244,7 +3262,8 @@
                   },
                   "additionalProperties": true
                 }
-              }
+              },
+              "hidden_review_decisions": { "$ref": "#/components/schemas/DashboardReviewDecisionList" }
             },
             "additionalProperties": true
           },
@@ -3909,6 +3928,67 @@
           },
           "404": {
             "description": "Review media item was not found in scope",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard/review-decisions/{id}": {
+      "delete": {
+        "tags": ["Dashboard"],
+        "summary": "Restore a hidden Dashboard Review finding",
+        "description": "Deletes a scoped Dashboard Review defer/dismiss decision so the finding can appear again if the media row still qualifies.",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dashboard Review decision restored",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DashboardReviewDecisionResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid review decision id",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication is required",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "403": {
+            "description": "The active or requested scope is not accessible",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "404": {
+            "description": "Review decision was not found in scope",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/Error" }

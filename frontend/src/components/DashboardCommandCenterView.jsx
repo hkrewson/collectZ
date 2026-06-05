@@ -159,6 +159,45 @@ function MediaAttentionList({ items, emptyText, reviewType, onOpenItem }) {
   );
 }
 
+function reviewFindingLabel(value) {
+  const normalized = String(value || '').replace(/_/g, '-');
+  if (normalized === 'missing-covers') return 'Missing cover';
+  if (normalized === 'missing-identifiers') return 'Missing IDs';
+  if (normalized === 'sparse-metadata') return 'Metadata';
+  return 'Review';
+}
+
+function HiddenReviewDecisionList({ decisions, restoringId, onRestore }) {
+  if (!decisions.length) return null;
+  return (
+    <details className="rounded-lg border border-edge bg-raised/20">
+      <summary className="cursor-pointer px-3 py-2 text-sm font-medium text-ink">
+        Hidden review items <span className="ml-2 text-xs font-normal tabular-nums text-ghost">{decisions.length}</span>
+      </summary>
+      <div className="divide-y divide-edge border-t border-edge">
+        {decisions.map((decision) => (
+          <div key={decision.id} className="flex items-start justify-between gap-3 px-3 py-2">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium text-ink">{decision.title || 'Untitled'}</p>
+              <p className="mt-1 truncate text-xs text-ghost">
+                {[reviewFindingLabel(decision.finding_type), decision.action === 'deferred' && decision.deferred_until ? `until ${formatDateTime(decision.deferred_until)}` : decision.action].filter(Boolean).join(' · ')}
+              </p>
+            </div>
+            <button
+              type="button"
+              className="btn-secondary btn-sm shrink-0"
+              onClick={() => onRestore?.(decision)}
+              disabled={restoringId === decision.id}
+            >
+              {restoringId === decision.id ? 'Restoring' : 'Restore'}
+            </button>
+          </div>
+        ))}
+      </div>
+    </details>
+  );
+}
+
 const DETAIL_FIELDS_BY_TYPE = {
   movie: [
     ['tmdb_id', 'TMDB ID', 'top'],
@@ -628,6 +667,7 @@ export default function DashboardCommandCenterView({
   const [reviewLookupMatches, setReviewLookupMatches] = useState([]);
   const [reviewLookupLoading, setReviewLookupLoading] = useState(false);
   const [reviewLookupError, setReviewLookupError] = useState('');
+  const [reviewRestoreId, setReviewRestoreId] = useState(null);
 
   const loadSummary = useCallback(async () => {
     setLoading(true);
@@ -662,6 +702,9 @@ export default function DashboardCommandCenterView({
     : [];
   const sparseMetadataItems = Array.isArray(summary?.attention_details?.sparse_metadata_items)
     ? summary.attention_details.sparse_metadata_items
+    : [];
+  const hiddenReviewDecisions = Array.isArray(summary?.attention_details?.hidden_review_decisions)
+    ? summary.attention_details.hidden_review_decisions
     : [];
   const attentionCounts = useMemo(
     () => Object.fromEntries(attention.map((item) => [item.id, Number(item.count || 0)])),
@@ -943,6 +986,21 @@ export default function DashboardCommandCenterView({
     }
   };
 
+  const restoreReviewDecision = async (decision) => {
+    if (!decision?.id) return;
+    setReviewRestoreId(decision.id);
+    try {
+      await apiCall('delete', `/dashboard/review-decisions/${decision.id}`);
+      onToast?.('Review item restored', 'success');
+      await loadSummary();
+    } catch (err) {
+      const message = err?.response?.data?.error || 'Failed to restore this review item';
+      onToast?.(message, 'error');
+    } finally {
+      setReviewRestoreId(null);
+    }
+  };
+
   const plexConflictAttention = attention.find((item) => item.id === 'plex-conflicts');
   const attentionTabs = useMemo(() => [
     {
@@ -1075,6 +1133,11 @@ export default function DashboardCommandCenterView({
         <div className="min-w-0" role="tabpanel" aria-label={activeAttention.label}>
           {activeAttention.content}
         </div>
+        <HiddenReviewDecisionList
+          decisions={hiddenReviewDecisions}
+          restoringId={reviewRestoreId}
+          onRestore={restoreReviewDecision}
+        />
       </div>
     </Panel>
   );

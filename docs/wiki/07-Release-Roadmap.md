@@ -6,6 +6,35 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.12.7 — Dashboard Review Hidden Decision Readback
+
+**Goal:** Keep defer/dismiss reversible inside Dashboard Review by showing active hidden review decisions and letting users restore them without adding a standalone Review page.
+
+### Scope
+
+- Keep Dashboard Review as the only product surface for hidden review decisions.
+- Include active deferred/dismissed review decisions in the Dashboard summary payload.
+- Add a scoped restore action for hidden review decisions.
+- Render a compact collapsed hidden-items list inside the Dashboard Review panel.
+- Preserve defer/dismiss suppression rules and media row change behavior.
+
+### Acceptance Criteria
+
+- Dashboard summary returns active hidden review decisions for the current scope.
+- Hidden decisions include enough row context to identify the media item and finding type.
+- Users can restore a hidden decision from Dashboard Review.
+- Restoring a decision refreshes the Dashboard summary and allows the finding to reappear if it still qualifies.
+- No standalone Review page/nav item is introduced.
+- Release notes, release feed, version metadata, OpenAPI, and regression coverage are updated for `3.12.7`.
+
+### Closeout
+
+- Status: completed in `3.12.7`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.12.7`; `/api/health` reported backend/frontend/build `3.12.7`.
+- UI evidence: Dashboard Review keeps hidden defer/dismiss decisions inside a compact collapsed `Hidden review items` readback and restores items without adding a standalone Review page/nav item.
+- Verification: backend unit tests, OpenAPI validation, Docker frontend build, Docker runtime rebuild, init parity, Help > Releases smoke, targeted Dashboard Review browser regression, RBAC regression, platform boundary, isolated homelab boundary, dependency audits, observability evidence, local release preflight, app-meta mirror check, artifact secret hygiene scan, and `git diff --check`.
+- CI follow-through: full CI compose-smoke, secret-scan, image security, and SBOM remain CI gates for the pushed commit.
+
 ## 3.12.6 — Dashboard Review Title Cleanup and Enrichment Hints
 
 **Goal:** Help users repair Dashboard Review rows by correcting lookup/search context first, instead of making manual provider identifier entry feel like the default answer.

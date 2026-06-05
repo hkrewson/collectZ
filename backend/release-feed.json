@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.12.7",
+      "version": "3.12.7",
+      "date": null,
+      "status": "completed",
+      "summary": "This patch makes Dashboard Review defer/dismiss decisions visible and reversible from the same Review panel, without adding a standalone Review page.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added active hidden review decisions to the Dashboard summary payload.",
+            "Added a scoped restore endpoint for Dashboard Review defer/dismiss decisions.",
+            "Added a compact collapsed `Hidden review items` section inside Dashboard Review.",
+            "Restoring a hidden item removes the decision and refreshes the Dashboard summary.",
+            "Added OpenAPI and source-contract coverage for hidden decision readback and restore behavior."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.12.6",
       "version": "3.12.6",
       "date": null,
@@ -180,24 +199,6 @@
             "Updated CI/release docs to include CodeQL as an advisory source-scanning layer.",
             "Moved the selected dependency/security backlog item out of the backlog and into the numbered roadmap.",
             "Documented that `@zxing/library@0.23.0` remains deferred until its browser peer relationship is intentionally resolved."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.10.27",
-      "version": "3.10.27",
-      "date": null,
-      "status": "completed",
-      "summary": "This patch upgrades the backend Express runtime to Express 5 and removes the old Express 4-era `path-to-regexp` override so route registration, middleware, and API error handling run on the supported Express 5 router stack.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Updated backend `express` from `^4.22.2` to `^5.2.1`.",
-            "Removed the backend `path-to-regexp` override that forced the legacy `0.1.x` matcher.",
-            "Verified the Express 5 router uses its compatible `path-to-regexp` dependency.",
-            "Confirmed existing route registration, OpenAPI validation, and unit coverage still pass."
           ]
         }
       ]

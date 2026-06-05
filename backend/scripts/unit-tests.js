@@ -6143,8 +6143,10 @@ results.push(run('dashboard command center is authenticated scoped dashboard def
   assert.ok(dashboardRoutesSource.includes('summarizeProviderRow'));
   assert.ok(openApiSource.includes('"/api/dashboard/summary"'));
   assert.ok(openApiSource.includes('"/api/dashboard/review-decisions"'));
+  assert.ok(openApiSource.includes('"/api/dashboard/review-decisions/{id}"'));
   assert.ok(openApiSource.includes('"DashboardReviewDecisionRequest"'));
   assert.ok(openApiSource.includes('"DashboardReviewDecisionResponse"'));
+  assert.ok(openApiSource.includes('"DashboardReviewDecisionList"'));
   assert.ok(openApiSource.includes('"DashboardSummary"'));
   assert.ok(openApiSource.includes('"attention_details"'));
   assert.ok(openApiSource.includes('"review_filter"'));
@@ -6157,14 +6159,19 @@ results.push(run('dashboard command center is authenticated scoped dashboard def
   assert.ok(openApiSource.includes('"review_lookup_title"'));
   assert.ok(openApiSource.includes('"review_lookup_context"'));
   assert.ok(openApiSource.includes('"review_next_action"'));
+  assert.ok(openApiSource.includes('"hidden_review_decisions"'));
   assert.ok(dashboardRoutesSource.includes('buildMissingIdentifierReviewClues'));
   assert.ok(dashboardRoutesSource.includes('buildSparseMetadataReviewClues'));
   assert.ok(dashboardRoutesSource.includes("router.post('/dashboard/review-decisions'"));
+  assert.ok(dashboardRoutesSource.includes("router.delete('/dashboard/review-decisions/:id'"));
   assert.ok(dashboardRoutesSource.includes('media_review_decisions'));
   assert.ok(dashboardRoutesSource.includes("mrd.action = 'dismissed'"));
   assert.ok(dashboardRoutesSource.includes("mrd.action = 'deferred'"));
   assert.ok(dashboardRoutesSource.includes("CURRENT_TIMESTAMP + INTERVAL '7 days'"));
   assert.ok(dashboardRoutesSource.includes('dashboard.review.${action}'));
+  assert.ok(dashboardRoutesSource.includes('dashboard.review.restored'));
+  assert.ok(dashboardRoutesSource.includes('hiddenReviewDecisions'));
+  assert.ok(dashboardRoutesSource.includes('shapeReviewDecisionRow'));
   assert.ok(validateMiddlewareSource.includes('dashboardReviewDecisionSchema'));
   assert.ok(migrationsSource.includes('version: 106'));
   assert.ok(migrationsSource.includes('CREATE TABLE IF NOT EXISTS media_review_decisions'));
@@ -6176,6 +6183,7 @@ results.push(run('dashboard command center is authenticated scoped dashboard def
   assert.ok(mediaRoutesSource.includes('buildSparseMetadataReviewSql'));
   assert.deepStrictEqual(getRequiredPatScopesForRequest({ originalUrl: '/api/dashboard/summary', method: 'GET' }), ['media:read']);
   assert.deepStrictEqual(getRequiredPatScopesForRequest({ originalUrl: '/api/dashboard/review-decisions', method: 'POST' }), ['media:write']);
+  assert.deepStrictEqual(getRequiredPatScopesForRequest({ originalUrl: '/api/dashboard/review-decisions/1', method: 'DELETE' }), ['media:write']);
 }));
 
 results.push(run('dashboard review owns inline media resolution instead of a standalone review route', () => {
@@ -6198,6 +6206,9 @@ results.push(run('dashboard review owns inline media resolution instead of a sta
   assert.ok(dashboardReviewSource.includes('Upload cover'));
   assert.ok(dashboardReviewSource.includes('reviewDecisionFindingType'));
   assert.ok(dashboardReviewSource.includes('/dashboard/review-decisions'));
+  assert.ok(dashboardReviewSource.includes('HiddenReviewDecisionList'));
+  assert.ok(dashboardReviewSource.includes('Hidden review items'));
+  assert.ok(dashboardReviewSource.includes('Review item restored'));
   assert.ok(dashboardReviewSource.includes('Defer 7 days'));
   assert.ok(dashboardReviewSource.includes('Dismiss'));
 }));
