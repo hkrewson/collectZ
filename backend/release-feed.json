@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.12.14",
+      "version": "3.12.14",
+      "date": null,
+      "status": null,
+      "summary": "This patch makes the Dashboard use its compact tabbed layout at every width, so wide screens no longer spread Review, Syncs, Activity, Health, and Events into separate panels.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Dashboard section tabs are now the standard layout on desktop and mobile.",
+            "The wide-screen multi-panel Dashboard layout was removed.",
+            "Dashboard Review lists can now show more sample rows before users need to drill into another surface.",
+            "Existing Dashboard Review drawer behavior, provider health, recent syncs, recent activity, and upcoming events content are unchanged."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.12.13",
       "version": "3.12.13",
       "date": null,
@@ -167,28 +185,6 @@
             "Added drawer actions for `Defer 7 days` and `Dismiss` beside the existing save controls.",
             "Added an authenticated `POST /api/dashboard/review-decisions` endpoint and OpenAPI contract.",
             "Added source-contract coverage for migration/init parity, endpoint shape, PAT scope behavior, and UI controls."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.12.4",
-      "version": "3.12.4",
-      "date": null,
-      "status": "completed",
-      "summary": "This patch makes Dashboard Review Missing IDs drawers more specific to the item being reviewed instead of showing the same generic search controls for every media type.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added type-specific lookup guidance in Dashboard Review drawers.",
-            "Movie and TV review rows now keep TMDB search with year context.",
-            "Book review rows now show Google Books search with author context.",
-            "Comic review rows now show comic issue search without a misleading year field.",
-            "Audio review rows now show Discogs search with artist context.",
-            "Game review rows now show game search with platform context when available.",
-            "Kept manual identifier fields available as fallback controls.",
-            "Updated browser and unit source-contract coverage for the drawer search surface."
           ]
         }
       ]

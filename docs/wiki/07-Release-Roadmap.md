@@ -6,6 +6,33 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.12.14 — Dashboard Standard Tabbed Layout
+
+**Goal:** Make the cleaner tabbed Dashboard composition the standard layout at every width instead of switching wide screens into multiple spread-out panels.
+
+### Scope
+
+- Keep Dashboard as the only product surface for this work.
+- Use the existing Dashboard section tabs for desktop and mobile.
+- Remove the wide-screen split panel/grid fallback so Review, Syncs, Activity, Health, and Events behave consistently.
+- Increase Dashboard sample rows so the Review tab can show more items without sending users away from the Dashboard.
+- Do not add user layout preferences, new dashboard cards, schema changes, or a standalone Review page/nav item.
+
+### Acceptance Criteria
+
+- Dashboard section tabs are visible at wide and narrow widths.
+- Wide Dashboard no longer spreads Review, Health, Syncs, Activity, and Events into separate simultaneous panels.
+- Review lists show more row samples in the Dashboard tabbed view.
+- Release notes, release feed, version metadata, and regression coverage are updated for `3.12.14`.
+
+### Closeout
+
+- Status: completed in `3.12.14`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.12.14`; `/api/health` reported backend/frontend/build `3.12.14`.
+- UI evidence: Dashboard now uses one tabbed section layout across desktop and mobile, with the wide multi-panel grid removed and Review lists showing up to eight sample rows.
+- Verification: backend unit tests, OpenAPI validation, frontend Vite build, Docker frontend build, Docker runtime rebuild, init parity, API integration smoke, Help > Releases smoke, targeted Dashboard browser regression, RBAC regression, platform boundary, isolated homelab boundary, dependency audits, observability evidence, local release preflight, app-meta mirror check, release-note section check, artifact secret hygiene scan, and `git diff --check`.
+- CI follow-through: full CI compose-smoke, secret-scan, image security, SBOM, and full browser-regression remain CI gates for the pushed commit.
+
 ## 3.12.13 — Dashboard Review Sparse Metadata Lookup
 
 **Goal:** Let sparse-metadata Dashboard Review rows use assisted lookup before asking users to manually fill missing descriptive fields.

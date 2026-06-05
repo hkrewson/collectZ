@@ -6228,6 +6228,10 @@ results.push(run('dashboard review owns inline media resolution instead of a sta
   assert.ok(dashboardReviewSource.includes('Use provider lookup first.'));
   assert.ok(dashboardReviewSource.includes("reviewType === 'missing-identifiers' || reviewType === 'sparse-metadata'"));
   assert.ok(dashboardReviewSource.includes('Use lookup when the source can fill missing details.'));
+  assert.ok(dashboardReviewSource.includes('const DASHBOARD_SAMPLE_LIMIT = 8;'));
+  assert.ok(dashboardReviewSource.includes('idBase="dashboard-sections"'));
+  assert.ok(!dashboardReviewSource.includes('xl:grid xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.72fr)]'));
+  assert.ok(!dashboardReviewSource.includes('dashboard-mobile-sections'));
   assert.ok(dashboardReviewSource.includes('Defer 7 days'));
   assert.ok(dashboardReviewSource.includes('Dismiss'));
 }));

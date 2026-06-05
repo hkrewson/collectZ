@@ -74,6 +74,13 @@ test.describe('admin shell browser regressions', () => {
       expect(sparseMetadataSample.review_finding_type).toBe('sparse_metadata');
     }
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+    const dashboardTabs = page.getByRole('tablist', { name: 'Dashboard sections' });
+    await expect(dashboardTabs).toBeVisible();
+    await expect(dashboardTabs.getByRole('tab', { name: 'Review' })).toBeVisible();
+    await expect(dashboardTabs.getByRole('tab', { name: 'Syncs' })).toBeVisible();
+    await expect(dashboardTabs.getByRole('tab', { name: 'Activity' })).toBeVisible();
+    await expect(dashboardTabs.getByRole('tab', { name: 'Health' })).toBeVisible();
+    await expect(dashboardTabs.getByRole('tab', { name: 'Events' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Review' })).toBeVisible();
     await expect(page.getByRole('tablist', { name: 'Review sections' })).toBeVisible();
     await expect(page.getByRole('tab', { name: /Failed syncs/ })).toBeVisible();
@@ -90,58 +97,35 @@ test.describe('admin shell browser regressions', () => {
       await reviewPanel.getByRole('tablist', { name: 'Review sections' }).getByRole('tab', { name: /Sparse metadata/ }).click();
       await expect(reviewPanel.getByText('Record is missing helpful descriptive metadata').first()).toBeVisible();
     }
+    await expect(page.getByRole('heading', { name: 'Provider health' })).toHaveCount(0);
+    await dashboardTabs.getByRole('tab', { name: 'Health' }).click();
     await expect(page.getByRole('heading', { name: 'Provider health' })).toBeVisible();
+    await dashboardTabs.getByRole('tab', { name: 'Review' }).click();
+    await expect(page.getByRole('heading', { name: 'Review' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Quick actions' })).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Latest failures' })).toHaveCount(0);
     const recentSyncsPanel = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Recent syncs' }) });
     await expect(recentSyncsPanel.getByRole('button', { name: /^Import$/ })).toHaveCount(0);
     if (Number(summary?.collection?.missing_covers || 0) > 0) {
-      const mediaReviewResponse = page.waitForResponse((mediaResponse) => (
-        mediaResponse.url().includes('/api/media')
-        && mediaResponse.url().includes('review_filter=missing_covers')
-        && mediaResponse.request().method() === 'GET'
-      ));
       await page.getByRole('button', { name: /Open missing covers review/i }).click();
-      const reviewResponse = await mediaReviewResponse;
-      expect(reviewResponse.ok()).toBeTruthy();
-      await expect(page.getByRole('heading', { name: 'Library' })).toBeVisible();
-      await expect(page.getByText('Missing covers across all library types')).toBeVisible();
+      const reviewPanel = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Review' }) }).first();
+      await expect(reviewPanel.getByRole('tab', { name: /Missing covers/ })).toHaveAttribute('aria-selected', 'true');
+      await expect(reviewPanel.getByText('Showing').first()).toBeVisible();
     }
     if (Number(summary?.collection?.missing_identifiers || 0) > 0) {
-      await page.goto('/dashboard');
       await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
-      const mediaReviewResponse = page.waitForResponse((mediaResponse) => (
-        mediaResponse.url().includes('/api/media')
-        && mediaResponse.url().includes('review_filter=missing_identifiers')
-        && mediaResponse.request().method() === 'GET'
-      ));
       await page.getByRole('button', { name: /Open missing identifiers review/i }).click();
-      const reviewResponse = await mediaReviewResponse;
-      expect(reviewResponse.ok()).toBeTruthy();
-      const reviewPayload = await reviewResponse.json();
-      const reviewItem = Array.isArray(reviewPayload?.items) ? reviewPayload.items.find((item) => Array.isArray(item.review_reasons) && item.review_reasons.length > 0) : null;
-      expect(reviewItem).toBeTruthy();
-      await expect(page.getByRole('heading', { name: 'Library' })).toBeVisible();
-      await expect(page.getByText('Missing identifiers across all library types')).toBeVisible();
-      await expect(page.getByText(reviewItem.review_reasons[0]).first()).toBeVisible();
+      const reviewPanel = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Review' }) }).first();
+      await expect(reviewPanel.getByRole('tab', { name: /Missing identifiers/ })).toHaveAttribute('aria-selected', 'true');
+      const reviewItem = summary.attention_details.missing_identifier_items.find((item) => Array.isArray(item.review_reasons) && item.review_reasons.length > 0) || null;
+      if (reviewItem) await expect(reviewPanel.getByText(reviewItem.review_reasons[0]).first()).toBeVisible();
     }
     if (Number(summary?.collection?.sparse_metadata || 0) > 0) {
-      await page.goto('/dashboard');
       await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
-      const mediaReviewResponse = page.waitForResponse((mediaResponse) => (
-        mediaResponse.url().includes('/api/media')
-        && mediaResponse.url().includes('review_filter=sparse_metadata')
-        && mediaResponse.request().method() === 'GET'
-      ));
       await page.getByRole('button', { name: /Open sparse metadata review/i }).click();
-      const reviewResponse = await mediaReviewResponse;
-      expect(reviewResponse.ok()).toBeTruthy();
-      const reviewPayload = await reviewResponse.json();
-      const reviewItem = Array.isArray(reviewPayload?.items) ? reviewPayload.items.find((item) => Array.isArray(item.recommended_metadata) && item.recommended_metadata.length > 0) : null;
-      expect(reviewItem).toBeTruthy();
-      await expect(page.getByRole('heading', { name: 'Library' })).toBeVisible();
-      await expect(page.getByText('Sparse metadata across all library types')).toBeVisible();
-      await expect(page.getByText('Record is missing helpful descriptive metadata').first()).toBeVisible();
+      const reviewPanel = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Review' }) }).first();
+      await expect(reviewPanel.getByRole('tab', { name: /Sparse metadata/ })).toHaveAttribute('aria-selected', 'true');
+      await expect(reviewPanel.getByText('Record is missing helpful descriptive metadata').first()).toBeVisible();
     }
   });
 

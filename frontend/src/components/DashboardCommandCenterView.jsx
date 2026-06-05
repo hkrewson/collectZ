@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import SyncJobDetailDrawer from './SyncJobDetailDrawer';
 import { CoverImagePicker, DetailDrawerShell, SectionTabs, inferTmdbSearchType, posterUrl } from './app/AppPrimitives';
 
-const DASHBOARD_SAMPLE_LIMIT = 5;
+const DASHBOARD_SAMPLE_LIMIT = 8;
 const DASHBOARD_SECTION_TABS = [
   { id: 'attention', label: 'Review' },
   { id: 'syncs', label: 'Syncs' },
@@ -1456,7 +1456,7 @@ export default function DashboardCommandCenterView({
         />
       </div>
 
-      <div className="mb-3 xl:hidden">
+      <div className="mb-3">
         <SectionTabs
           tabs={DASHBOARD_SECTION_TABS}
           activeId={activeDashboardTab}
@@ -1465,28 +1465,17 @@ export default function DashboardCommandCenterView({
           listClassName="gap-3"
           buttonClassName="py-1.5 text-xs"
           ariaLabel="Dashboard sections"
-          idBase="dashboard-mobile-sections"
+          idBase="dashboard-sections"
         />
       </div>
 
       <div
-        id={`dashboard-mobile-sections-panel-${activeDashboardTab}`}
+        id={`dashboard-sections-panel-${activeDashboardTab}`}
         role="tabpanel"
-        aria-labelledby={`dashboard-mobile-sections-tab-${activeDashboardTab}`}
-        className="min-w-0 xl:hidden"
+        aria-labelledby={`dashboard-sections-tab-${activeDashboardTab}`}
+        className="min-w-0"
       >
         {dashboardSectionContent[activeDashboardTab] || attentionPanel}
-      </div>
-
-      <div className="hidden min-w-0 gap-4 xl:grid xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.72fr)]">
-        {attentionPanel}
-        {providerHealthPanel}
-      </div>
-
-      <div className="mt-4 hidden min-w-0 gap-4 xl:grid xl:grid-cols-3">
-        {recentSyncsPanel}
-        {recentActivityPanel}
-        {upcomingEventsPanel}
       </div>
 
       {selectedSyncJob ? (
