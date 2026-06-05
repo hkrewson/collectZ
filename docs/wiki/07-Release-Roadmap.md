@@ -6,6 +6,32 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.12.16 — Frontend Override Cleanup
+
+**Goal:** Remove stale CRA/Webpack-era frontend package overrides after the Vite-only build contract is in place, while keeping the one active security override still used by the current dependency tree.
+
+### Scope
+
+- Delete the ignored local `frontend/build/` CRA artifact so source scans no longer pick up stale bundled output.
+- Remove frontend package overrides for dependencies no longer present in the Vite lockfile.
+- Keep the active `follow-redirects` override because it is still present through Axios.
+- Refresh the frontend lockfile with a current Node/npm runtime.
+- Update source-contract tests, release notes, release feed, and version metadata.
+
+### Acceptance Criteria
+
+- `frontend/package.json` keeps only active, intentional overrides.
+- Removed override targets are absent from the current frontend lockfile.
+- `frontend/build/` is not present as stale local CRA output.
+- Frontend build, dependency audit, Docker runtime rebuild, Help > Releases smoke, and targeted browser regression pass.
+
+### Closeout
+
+- Status: completed in `3.12.16`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.12.16`; `/api/health` reported backend/frontend/build `3.12.16`.
+- Verification: frontend lockfile refresh with Node 24, backend unit tests, OpenAPI validation, frontend Vite build, Docker frontend build, Docker runtime rebuild, Help > Releases smoke, targeted browser regression, dependency audits, release-note section check, app-meta mirror check, and `git diff --check`.
+- CI follow-through: full CI compose-smoke, secret-scan, image security, SBOM, RBAC regression, platform boundary, homelab boundary, and full browser-regression remain CI gates for the pushed commit.
+
 ## 3.12.15 — Vite Compatibility Shim Removal
 
 **Goal:** Remove the remaining CRA-era frontend compatibility shims now that the Vite-first runtime has baked through multiple releases without React behavior or browser-regression instability.

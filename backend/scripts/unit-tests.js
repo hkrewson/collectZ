@@ -4984,6 +4984,20 @@ results.push(run('frontend package and vite scaffold support the Vite-first buil
   assert.strictEqual(frontendPackageJson.scripts['build:cra'], undefined);
   assert.strictEqual(frontendPackageJson.scripts.test, undefined);
   assert.strictEqual(frontendPackageJson.scripts.eject, undefined);
+  assert.deepStrictEqual(Object.keys(frontendPackageJson.overrides || {}), ['follow-redirects']);
+  [
+    '@eslint/eslintrc',
+    '@humanwhocodes/config-array',
+    'babel-plugin-istanbul',
+    'eslint',
+    'eslint-plugin-react',
+    'fork-ts-checker-webpack-plugin',
+    'react-scripts',
+    'rollup-plugin-terser',
+    'terser-webpack-plugin'
+  ].forEach((overrideName) => {
+    assert.strictEqual(frontendPackageJson.overrides?.[overrideName], undefined);
+  });
   assert.ok(frontendViteConfigSource.includes('VITE_PROXY_TARGET'));
   assert.ok(!frontendViteConfigSource.includes('REACT_APP_'));
   assert.ok(!frontendViteConfigSource.includes('process.env.REACT_APP_'));
