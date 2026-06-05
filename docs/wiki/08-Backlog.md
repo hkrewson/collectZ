@@ -63,9 +63,9 @@ These are product-level capability gaps discovered from the current shape of the
 ### Backlog Item: Dashboard Review Rules and Drawer-First Resolution
 **Type:** Product/UI maintenance track
 **Tags:** `dashboard`, `review`, `collection-health`, `metadata`, `identifiers`, `ux`
-**Status:** Mostly completed across `3.11.0` and `3.12.1` through `3.12.14`; keep as a narrow maintenance track for real review-rule false positives and drawer action gaps.
+**Status:** Completed across `3.11.0` and `3.12.1` through `3.12.14`. Closed as a backlog item; add a new specific backlog item if future real data exposes a review-rule false positive, missing drawer action, or repair flow gap.
 
-**Goal:** Keep collection review work inside Dashboard Review rows and drawers, while making the review rules and drawer actions smart enough that users are not asked to do provider-matching work the app should attempt first.
+**Goal:** Completed the Dashboard Review row/drawer resolution model so collection review work stays inside Dashboard Review, and common review rows guide users toward app-assisted repair before manual provider matching.
 
 **Why this work exists**
 - Dashboard Review has proven to be the useful surface for collection cleanup.
@@ -73,25 +73,37 @@ These are product-level capability gaps discovered from the current shape of the
 - The drawer model is the right resolution surface, but the rules and available drawer actions still need iteration by media type and source.
 - Some missing-identifier rows may reflect provider enrichment gaps, weak imported titles, or source-specific repair needs rather than missing data the user should manually know.
 
-**Current state**
+**Completed state**
 - `3.11.0` separated true identifier gaps from sparse metadata so digital/manual records are not pushed toward impossible identifiers.
 - `3.12.1` removed the standalone Review page/nav item and made Dashboard Review rows open inline drawers.
 - `3.12.2` through `3.12.14` added assisted resolution, identifier rule tuning, type-specific drawer actions, defer/dismiss, title cleanup hints, hidden decision readback, decision history, known identity, pending updates, save readiness, manual fallback guidance, sparse metadata lookup, and the standard tabbed Dashboard layout.
 - The product rule is now proven: collection-health review work belongs in Dashboard Review rows and drawers unless a future workflow clearly cannot fit there.
 
-**Intent**
+**Completed intent**
 - Treat Dashboard Review as the primary collection-health review surface.
 - Resolve review findings from rows and drawers instead of adding new top-level pages.
 - Prefer app-assisted lookup, enrichment, upload, title cleanup, and source repair before manual identifier entry.
 - Keep manual fields available as fallback controls, not the main interaction.
 
-**Candidate subtasks**
-- Tune collection-health rules only when real collection rows show repeated false positives or low-value review flags.
-- Add new drawer actions only for specific missing repair paths, such as a provider/source that needs a better lookup, cover repair, or title cleanup flow.
-- Keep defer/dismiss scoped to Dashboard Review rows and drawers; do not reintroduce a standalone Review page/nav item without a new product reason.
-- Keep Dashboard Review sample sizing and layout tuned around the standard tabbed Dashboard rather than the old wide multi-panel layout.
+**Closed scope**
+- True identifier gaps were separated from sparse metadata review findings.
+- Standalone Review page/nav behavior was removed.
+- Dashboard Review rows open inline drawers for the exact row.
+- Missing-cover rows support upload and fallback cover path repair.
+- Missing-identifier rows support assisted lookup and candidate apply behavior.
+- Sparse-metadata rows support assisted lookup while preserving manual fallback fields.
+- Identifier rules were tuned for digital/manual/source-linked records.
+- Drawer guidance is media-aware and treats manual entry as fallback.
+- Defer, dismiss, restore, hidden decision readback, and decision history were added inside Dashboard Review.
+- Known identity, pending updates, and save-readiness readback were added to drawers.
+- Dashboard Review now uses the standard tabbed Dashboard layout.
 
-**Acceptance Criteria**
+**Future work rule**
+- Do not reopen this broad task for general review polish.
+- Do not reintroduce a standalone Review page/nav item unless a future workflow clearly cannot fit inside Dashboard Review rows/drawers.
+- If more work is needed, add a new backlog item with the affected review category, observed false positive or missing action, intended repair path, and acceptance criteria.
+
+**Completion criteria**
 - Future review work starts by asking what the Dashboard row/drawer cannot solve before proposing a new page.
 - Missing-identifier findings distinguish true identity absence from provider enrichment gaps.
 - Drawer actions are specific to the media type and review reason.
