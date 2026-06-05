@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.12.12",
+      "version": "3.12.12",
+      "date": null,
+      "status": null,
+      "summary": "This patch clarifies Dashboard Review drawer repair flow by labeling the lower editable details section as a manual fallback and adding short type-aware guidance.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Dashboard Review drawers now call the editable lower section `Manual fallback`.",
+            "Missing-identifier drawers point users toward lookup first, then manual title or metadata cleanup when that is the better fix.",
+            "Missing-cover drawers point users toward cover upload first.",
+            "Sparse-metadata drawers keep the fallback fields open with concise guidance to add known descriptive data and leave uncertain values blank."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.12.11",
       "version": "3.12.11",
       "date": null,
@@ -173,27 +191,6 @@
             "Keeps comic issue identity behavior unchanged.",
             "Adds unit coverage and runtime proof checks so UPC-bearing books, movies, and TV rows do not regress back into Missing IDs.",
             "Adds the broader Dashboard Review rules and drawer-first resolution track to the backlog so future review work stays anchored in Dashboard rows and drawers."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.12.2",
-      "version": "3.12.2",
-      "date": null,
-      "status": "completed",
-      "summary": "This patch improves the Dashboard Review drawer so missing-cover and missing-identifier rows feel like actionable review work instead of wide manual edit forms.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Made the Dashboard Review drawer narrower, padded, and focused around the review action first.",
-            "Added direct cover upload to missing-cover review rows using the existing media cover upload path.",
-            "Kept a cover URL/path field as a fallback for pasted or provider-hosted images.",
-            "Added provider search to missing-identifier review rows so users can search by corrected title/year and apply candidate data.",
-            "Applying a match can stage title, year, cover, and provider identity details before saving.",
-            "Moved broad manual fields behind a `Manual details` section so manual identifier entry is available but no longer the primary path.",
-            "Added source-contract and browser coverage for assisted review drawer behavior."
           ]
         }
       ]

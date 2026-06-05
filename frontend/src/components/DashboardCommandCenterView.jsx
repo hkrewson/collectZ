@@ -522,6 +522,23 @@ function lookupContextValue(record = {}) {
   return '';
 }
 
+function manualFallbackGuidance({ reviewType, mediaType, canLookup, canUploadCover }) {
+  if (canLookup) {
+    if (mediaType === 'book') return 'Use book lookup first. Edit these fields only when the title, author, or known ISBN is the better fix.';
+    if (mediaType === 'comic_book') return 'Use comic lookup first. Edit these fields when the series or issue wording needs cleanup.';
+    if (mediaType === 'audio') return 'Use album lookup first. Edit these fields when artist or format cleanup is the better fix.';
+    if (mediaType === 'game') return 'Use game lookup first. Edit these fields when platform or title cleanup is the better fix.';
+    return 'Use provider lookup first. Edit these fields only when title or year cleanup is the better fix.';
+  }
+  if (canUploadCover) {
+    return 'Upload a cover above when possible. Use these fields only when title, year, or format cleanup helps the match.';
+  }
+  if (reviewType === 'sparse-metadata') {
+    return 'Add the missing descriptive fields you know. Leave uncertain values blank.';
+  }
+  return 'Use these fields as a fallback when the assisted action cannot resolve the row.';
+}
+
 function reviewDecisionFindingType(reviewType) {
   if (reviewType === 'missing-covers') return 'missing_covers';
   if (reviewType === 'missing-identifiers') return 'missing_identifiers';
@@ -576,6 +593,7 @@ function MediaReviewDrawer({
   const canUploadCover = reviewType === 'missing-covers';
   const lookupConfig = lookupActionConfig(mediaType);
   const nextAction = item?.review_next_action || record?.review_next_action || '';
+  const manualGuidance = manualFallbackGuidance({ reviewType, mediaType, canLookup, canUploadCover });
   const canUseLookupTitle = canLookup
     && String(lookupQuery || '').trim()
     && String(lookupQuery || '').trim() !== String(form.title || '').trim();
@@ -711,7 +729,8 @@ function MediaReviewDrawer({
             ) : null}
 
             <details className="rounded-lg border border-edge bg-panel p-3" open={!canLookup && !canUploadCover}>
-              <summary className="cursor-pointer text-sm font-medium text-ink">Manual details</summary>
+              <summary className="cursor-pointer text-sm font-medium text-ink">Manual fallback</summary>
+              <p className="mt-2 text-xs leading-5 text-ghost">{manualGuidance}</p>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 <ReviewField field="title" label="Title" value={form.title} onChange={onChange} />
                 <ReviewField field="year" label="Year" value={form.year} onChange={onChange} />

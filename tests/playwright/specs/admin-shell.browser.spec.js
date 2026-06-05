@@ -251,7 +251,7 @@ test.describe('admin shell browser regressions', () => {
       await expect(page.getByText('Cover image')).toBeVisible();
       await expect(page.getByText('Upload cover')).toBeVisible();
     }
-    await expect(page.getByText('Manual details')).toBeVisible();
+    await expect(page.getByText('Manual fallback')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Defer 7 days' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Dismiss' })).toBeVisible();
     await expect(page.getByRole('button', { name: /Save/ })).toBeVisible();

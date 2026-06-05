@@ -6223,6 +6223,9 @@ results.push(run('dashboard review owns inline media resolution instead of a sta
   assert.ok(dashboardReviewSource.includes('Save updates to apply these changes.'));
   assert.ok(dashboardReviewSource.includes('hasPendingUpdates'));
   assert.ok(dashboardReviewSource.includes('Make a change before saving.'));
+  assert.ok(dashboardReviewSource.includes('manualFallbackGuidance'));
+  assert.ok(dashboardReviewSource.includes('Manual fallback'));
+  assert.ok(dashboardReviewSource.includes('Use provider lookup first.'));
   assert.ok(dashboardReviewSource.includes('Defer 7 days'));
   assert.ok(dashboardReviewSource.includes('Dismiss'));
 }));
