@@ -523,6 +523,11 @@ function lookupContextValue(record = {}) {
 }
 
 function manualFallbackGuidance({ reviewType, mediaType, canLookup, canUploadCover }) {
+  if (reviewType === 'sparse-metadata') {
+    return canLookup
+      ? 'Use lookup when the source can fill missing details. Add only the descriptive fields you know by hand.'
+      : 'Add the missing descriptive fields you know. Leave uncertain values blank.';
+  }
   if (canLookup) {
     if (mediaType === 'book') return 'Use book lookup first. Edit these fields only when the title, author, or known ISBN is the better fix.';
     if (mediaType === 'comic_book') return 'Use comic lookup first. Edit these fields when the series or issue wording needs cleanup.';
@@ -532,9 +537,6 @@ function manualFallbackGuidance({ reviewType, mediaType, canLookup, canUploadCov
   }
   if (canUploadCover) {
     return 'Upload a cover above when possible. Use these fields only when title, year, or format cleanup helps the match.';
-  }
-  if (reviewType === 'sparse-metadata') {
-    return 'Add the missing descriptive fields you know. Leave uncertain values blank.';
   }
   return 'Use these fields as a fallback when the assisted action cannot resolve the row.';
 }
@@ -589,7 +591,7 @@ function MediaReviewDrawer({
     ...(Array.isArray(item?.recommended_identifiers) ? item.recommended_identifiers : []),
     ...(Array.isArray(item?.recommended_metadata) ? item.recommended_metadata : [])
   ].filter(Boolean);
-  const canLookup = reviewType === 'missing-identifiers';
+  const canLookup = reviewType === 'missing-identifiers' || reviewType === 'sparse-metadata';
   const canUploadCover = reviewType === 'missing-covers';
   const lookupConfig = lookupActionConfig(mediaType);
   const nextAction = item?.review_next_action || record?.review_next_action || '';
@@ -728,7 +730,7 @@ function MediaReviewDrawer({
               </div>
             ) : null}
 
-            <details className="rounded-lg border border-edge bg-panel p-3" open={!canLookup && !canUploadCover}>
+            <details className="rounded-lg border border-edge bg-panel p-3" open={reviewType === 'sparse-metadata' || (!canLookup && !canUploadCover)}>
               <summary className="cursor-pointer text-sm font-medium text-ink">Manual fallback</summary>
               <p className="mt-2 text-xs leading-5 text-ghost">{manualGuidance}</p>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">

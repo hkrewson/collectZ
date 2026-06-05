@@ -6226,6 +6226,8 @@ results.push(run('dashboard review owns inline media resolution instead of a sta
   assert.ok(dashboardReviewSource.includes('manualFallbackGuidance'));
   assert.ok(dashboardReviewSource.includes('Manual fallback'));
   assert.ok(dashboardReviewSource.includes('Use provider lookup first.'));
+  assert.ok(dashboardReviewSource.includes("reviewType === 'missing-identifiers' || reviewType === 'sparse-metadata'"));
+  assert.ok(dashboardReviewSource.includes('Use lookup when the source can fill missing details.'));
   assert.ok(dashboardReviewSource.includes('Defer 7 days'));
   assert.ok(dashboardReviewSource.includes('Dismiss'));
 }));

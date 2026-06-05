@@ -243,7 +243,7 @@ test.describe('admin shell browser regressions', () => {
     expect((await detailResponse).ok()).toBeTruthy();
     await expect(page.getByTestId('dashboard-review-drawer')).toBeVisible();
     await expect(page.getByText('Why it is here')).toBeVisible();
-    if (reviewKind === 'missing identifiers') {
+    if (reviewKind === 'missing identifiers' || reviewKind === 'sparse metadata') {
       await expect(page.getByText(/Search (TMDB|Google Books|comic issue|Discogs|games)/)).toBeVisible();
       await expect(page.getByRole('button', { name: 'Search' })).toBeVisible();
     }

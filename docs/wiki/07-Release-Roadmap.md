@@ -6,6 +6,33 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.12.13 — Dashboard Review Sparse Metadata Lookup
+
+**Goal:** Let sparse-metadata Dashboard Review rows use assisted lookup before asking users to manually fill missing descriptive fields.
+
+### Scope
+
+- Keep Dashboard Review as the only product surface for this work.
+- Enable the existing assisted lookup section for `Sparse metadata` review rows.
+- Keep sparse-metadata manual fallback fields open by default, so users can still add known details directly.
+- Reuse existing provider search, candidate apply, pending update readback, save readiness, and defer/dismiss behavior.
+- Do not add a standalone Review page/nav item, schema change, or new API contract.
+
+### Acceptance Criteria
+
+- Sparse-metadata drawers show provider lookup controls for the row media type.
+- Sparse-metadata drawers still show the `Manual fallback` fields open by default.
+- Applying a lookup candidate can stage missing descriptive fields and make Save available through existing pending update logic.
+- Release notes, release feed, version metadata, and regression coverage are updated for `3.12.13`.
+
+### Closeout
+
+- Status: completed in `3.12.13`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.12.13`; `/api/health` reported backend/frontend/build `3.12.13`.
+- UI evidence: Dashboard Review sparse-metadata drawers now show assisted lookup controls while keeping `Manual fallback` fields open by default for known details.
+- Verification: backend unit tests, OpenAPI validation, Docker frontend build, Docker runtime rebuild, init parity, API integration smoke, Help > Releases smoke, targeted Dashboard Review browser regression, RBAC regression, platform boundary, isolated homelab boundary, dependency audits, observability evidence, local release preflight, app-meta mirror check, release-note section check, artifact secret hygiene scan, and `git diff --check`.
+- CI follow-through: full CI compose-smoke, secret-scan, image security, SBOM, and full browser-regression remain CI gates for the pushed commit.
+
 ## 3.12.12 — Dashboard Review Manual Fallback Guidance
 
 **Goal:** Make Dashboard Review drawers clearer about when manual fields are a fallback, so users are guided toward lookup, upload, title cleanup, or enrichment repair before hand-entering identifiers.

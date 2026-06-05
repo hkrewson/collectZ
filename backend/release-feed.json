@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.12.13",
+      "version": "3.12.13",
+      "date": null,
+      "status": null,
+      "summary": "This patch lets Dashboard Review sparse-metadata rows use the same assisted lookup flow as missing-identifier rows, while keeping manual fallback fields available.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Sparse-metadata review drawers now show media-specific provider lookup controls.",
+            "Sparse-metadata drawers keep `Manual fallback` fields open by default.",
+            "Applying a lookup candidate can stage title, year, cover, provider identity, or type-specific metadata through the existing pending-update readback.",
+            "Save readiness, defer, dismiss, and drawer-only review behavior are unchanged."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.12.12",
       "version": "3.12.12",
       "date": null,
@@ -171,26 +189,6 @@
             "Game review rows now show game search with platform context when available.",
             "Kept manual identifier fields available as fallback controls.",
             "Updated browser and unit source-contract coverage for the drawer search surface."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.12.3",
-      "version": "3.12.3",
-      "date": null,
-      "status": "completed",
-      "summary": "This patch tunes Dashboard Review's Missing IDs rules so barcode-backed books, movies, and TV records are no longer treated as needing manual provider identifiers.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Treats UPC/barcode as a useful identity for books when deciding whether a row belongs in `Review > IDs`.",
-            "Treats UPC/barcode as a useful identity for movies and TV rows when TMDB or Plex identity is absent.",
-            "Keeps physical audio and physical game UPC expectations intact.",
-            "Keeps comic issue identity behavior unchanged.",
-            "Adds unit coverage and runtime proof checks so UPC-bearing books, movies, and TV rows do not regress back into Missing IDs.",
-            "Adds the broader Dashboard Review rules and drawer-first resolution track to the backlog so future review work stays anchored in Dashboard rows and drawers."
           ]
         }
       ]
