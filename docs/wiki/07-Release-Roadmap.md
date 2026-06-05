@@ -6,6 +6,35 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.12.9 — Dashboard Review Identity Snapshot
+
+**Goal:** Show the identifiers and provider/source identity collectZ already knows inside Dashboard Review drawers before asking users to repair a row.
+
+### Scope
+
+- Keep Dashboard Review as the only product surface for identity readback.
+- Add a compact `Known identity` section to Dashboard Review drawers.
+- Read existing UPC, TMDB, ISBN, Google Books, provider, Kavita, and Plex-like identity fields from the loaded media record.
+- Show an explicit empty state when no recognized identifier is present.
+- Keep manual fields and assisted lookup behavior unchanged.
+- Do not introduce a standalone Review page/nav item.
+
+### Acceptance Criteria
+
+- Dashboard Review drawers show known identifiers/source context before the manual details section.
+- Rows with no known identity say so plainly.
+- The readback is compact on mobile and does not add a new large help panel.
+- No backend schema or API contract change is required.
+- Release notes, release feed, version metadata, and regression coverage are updated for `3.12.9`.
+
+### Closeout
+
+- Status: completed in `3.12.9`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.12.9`; `/api/health` reported backend/frontend/build `3.12.9`.
+- UI evidence: Dashboard Review drawers now show compact `Known identity` readback for existing UPC, TMDB, ISBN, Google Books, provider, Kavita, and Plex-like identity values, with a plain empty state when none are present.
+- Verification: backend unit tests, OpenAPI validation, Docker frontend build, Docker runtime rebuild, init parity, Help > Releases smoke, targeted Dashboard Review browser regression, RBAC regression, platform boundary, isolated homelab boundary, dependency audits, observability evidence, local release preflight, app-meta mirror check, release-note section check, artifact secret hygiene scan, and `git diff --check`.
+- CI follow-through: full CI compose-smoke, secret-scan, image security, and SBOM remain CI gates for the pushed commit.
+
 ## 3.12.8 — Dashboard Review Decision History Readback
 
 **Goal:** Show recent defer/dismiss/restore context inside Dashboard Review drawers so users understand why a finding returned without adding a standalone Review page.

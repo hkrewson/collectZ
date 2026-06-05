@@ -6215,6 +6215,9 @@ results.push(run('dashboard review owns inline media resolution instead of a sta
   assert.ok(dashboardReviewSource.includes('Review item restored'));
   assert.ok(dashboardReviewSource.includes('ReviewDecisionHistory'));
   assert.ok(dashboardReviewSource.includes('Recent review decisions'));
+  assert.ok(dashboardReviewSource.includes('ReviewIdentitySnapshot'));
+  assert.ok(dashboardReviewSource.includes('Known identity'));
+  assert.ok(dashboardReviewSource.includes('No recognized identifier on this record yet.'));
   assert.ok(dashboardReviewSource.includes('Defer 7 days'));
   assert.ok(dashboardReviewSource.includes('Dismiss'));
 }));

@@ -200,6 +200,53 @@ function ReviewDecisionHistory({ history }) {
   );
 }
 
+function addIdentitySnapshotItem(items, label, value) {
+  const normalized = coerceFieldValue(value).trim();
+  if (!normalized) return;
+  if (items.some((item) => item.label === label && item.value === normalized)) return;
+  items.push({ label, value: normalized });
+}
+
+function reviewIdentitySnapshotItems(record = {}) {
+  const details = record?.type_details && typeof record.type_details === 'object' ? record.type_details : {};
+  const items = [];
+  addIdentitySnapshotItem(items, 'UPC / barcode', record.upc);
+  addIdentitySnapshotItem(items, 'TMDB ID', record.tmdb_id);
+  addIdentitySnapshotItem(items, 'TMDB type', record.tmdb_media_type);
+  addIdentitySnapshotItem(items, 'TMDB URL', record.tmdb_url);
+  addIdentitySnapshotItem(items, 'ISBN', details.isbn);
+  addIdentitySnapshotItem(items, 'ISBN-13', details.isbn13);
+  addIdentitySnapshotItem(items, 'Google Books ID', details.google_books_id);
+  addIdentitySnapshotItem(items, 'Provider', details.provider_name || record.provider_name || record.import_source);
+  addIdentitySnapshotItem(items, 'Provider ID', details.provider_item_id);
+  addIdentitySnapshotItem(items, 'Provider issue ID', details.provider_issue_id);
+  addIdentitySnapshotItem(items, 'Kavita series ID', details.kavita_series_id);
+  addIdentitySnapshotItem(items, 'Kavita chapter ID', details.kavita_chapter_id || details.kavita_first_chapter_id);
+  addIdentitySnapshotItem(items, 'Plex identity', details.plex_item_key || details.plex_rating_key);
+  return items;
+}
+
+function ReviewIdentitySnapshot({ record }) {
+  const items = reviewIdentitySnapshotItems(record);
+  return (
+    <div className="rounded-lg border border-edge bg-panel p-3">
+      <p className="text-sm font-medium text-ink">Known identity</p>
+      {items.length ? (
+        <div className="mt-2 divide-y divide-edge">
+          {items.map((item) => (
+            <div key={`${item.label}:${item.value}`} className="grid grid-cols-[7rem_1fr] gap-3 py-1.5 text-sm first:pt-0 last:pb-0">
+              <span className="text-xs text-ghost">{item.label}</span>
+              <span className="min-w-0 break-words text-xs text-dim">{item.value}</span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-1 text-sm text-dim">No recognized identifier on this record yet.</p>
+      )}
+    </div>
+  );
+}
+
 function HiddenReviewDecisionList({ decisions, restoringId, onRestore }) {
   if (!decisions.length) return null;
   return (
@@ -483,6 +530,7 @@ function MediaReviewDrawer({
     && String(lookupQuery || '').trim() !== String(form.title || '').trim();
   const busy = saving || Boolean(decisionSaving);
   const decisionHistory = Array.isArray(item?.review_decision_history) ? item.review_decision_history : [];
+  const identityRecord = record || item || {};
 
   return (
     <DetailDrawerShell onClose={onClose} panelClassName="max-w-lg" testId="dashboard-review-drawer">
@@ -505,6 +553,8 @@ function MediaReviewDrawer({
         ) : null}
 
         <ReviewDecisionHistory history={decisionHistory} />
+
+        <ReviewIdentitySnapshot record={identityRecord} />
 
         {loading ? (
           <div className="flex min-h-40 items-center justify-center">

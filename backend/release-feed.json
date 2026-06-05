@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.12.9",
+      "version": "3.12.9",
+      "date": null,
+      "status": "completed",
+      "summary": "This patch adds a compact known-identity readback to Dashboard Review drawers, so users can see what collectZ already knows before deciding whether lookup, title cleanup, cover upload, or manual details are needed.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added a `Known identity` section to Dashboard Review drawers.",
+            "Shows existing UPC/barcode, TMDB, ISBN, Google Books, provider, Kavita, and Plex-like identity values when present.",
+            "Shows a plain empty state when the record has no recognized identifier yet.",
+            "Kept assisted lookup, cover upload, manual details, defer/dismiss, and decision history behavior unchanged.",
+            "Preserved the drawer-first product rule: no standalone Review page or nav item."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.12.8",
       "version": "3.12.8",
       "date": null,
@@ -179,26 +198,6 @@
             "Added source/type filters, search, source counts, and workflow actions.",
             "Kept resolution actions in the existing owning surfaces for this foundation slice.",
             "Updated OpenAPI, route scope mapping, unit source-contract coverage, and browser regression coverage."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.11.0",
-      "version": "3.11.0",
-      "date": null,
-      "status": "completed",
-      "summary": "This minor release starts the collection-health rule model. Review now separates true identifier gaps from sparse metadata, so digital/manual records are not pushed toward impossible identifiers while physical retail items can still ask for UPC/EAN when that is useful.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added a shared backend review classifier for `missing_identifier` and `sparse_metadata`.",
-            "Updated Dashboard Review with a separate Metadata lane and row-level clues.",
-            "Updated Library review filters so Dashboard can open either missing identifiers or sparse metadata directly.",
-            "Changed audio/game identifier expectations so digital rows can ask for artist, year, platform, or format metadata instead of UPC.",
-            "Kept physical audio/game rows eligible for UPC/EAN recommendations.",
-            "Updated OpenAPI and tests for the expanded review fields."
           ]
         }
       ]
