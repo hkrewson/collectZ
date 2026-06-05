@@ -6,6 +6,35 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.12.17 — Frontend Node 24 Builder Alignment
+
+**Goal:** Align the frontend Docker build runtime with the current Vite/ZXing dependency contract so clean container builds no longer rely on a Node 20 engine-warning exception.
+
+### Scope
+
+- Move the frontend Docker build stage from Node 20 to Node 24.
+- Keep the backend runtime image on Node 20 for this patch; this is a frontend build-tool/runtime alignment only.
+- Keep `@zxing/browser@0.2.0` and `@zxing/library@0.22.0` in their current compatible peer range.
+- Do not merge the `@zxing/library@0.23.0` dependency PR until browser peer compatibility is explicitly proven.
+- Add a source-contract assertion so the frontend Docker builder stays aligned with the Node 24 dependency tree.
+- Update release notes, release feed, version metadata, and dependency PR documentation.
+
+### Acceptance Criteria
+
+- Frontend Dockerfile uses a Node 24 builder image.
+- Frontend package manifest and lockfile remain synchronized at `3.12.17`.
+- Frontend clean install/build completes under Node 24 without the previous ZXing Node 20 engine warning.
+- Docker runtime rebuild, Help > Releases smoke, backend unit/OpenAPI checks, dependency audits, and targeted browser regression pass.
+
+### Closeout
+
+- Status: completed in `3.12.17`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/49-Dependency-PR-and-CI-Security-Coverage.md`, and `docs/releases/v3.12.17.md`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.12.17`; `/api/health` reported backend/frontend/build `3.12.17`; Docker frontend image build used `node:24-alpine` and no longer emitted the previous ZXing Node 20 engine warning.
+- Verification: frontend lockfile refresh with Node 24; backend unit tests; OpenAPI validation; frontend clean install/build under Node 24; Docker backend/frontend build; Docker runtime rebuild; Help > Releases smoke; API integration smoke; init parity; migration rehearsal; observability evidence; local release preflight; targeted browser regression; isolated RBAC regression; platform boundary; isolated homelab boundary; dependency audits; release-note section check; version/app-meta sync; and `git diff --check`.
+- CI follow-through: full CI compose-smoke, secret-scan, image security, SBOM, and full browser-regression remain CI gates for the pushed commit.
+- What remains: `@zxing/library@0.23.0` remains deferred until `@zxing/browser` peer compatibility is proven or an explicit override decision is made.
+
 ## 3.12.16 — Frontend Override Cleanup
 
 **Goal:** Remove stale CRA/Webpack-era frontend package overrides after the Vite-only build contract is in place, while keeping the one active security override still used by the current dependency tree.

@@ -5011,6 +5011,8 @@ results.push(run('frontend package and vite scaffold support the Vite-first buil
   assert.ok(frontendViteConfigSource.includes("outDir: 'dist'"));
   assert.ok(frontendViteIndexHtmlSource.includes('src="/src/main.jsx"'));
   assert.ok(frontendViteIndexHtmlSource.includes('<div id="root"></div>'));
+  assert.ok(frontendDockerfileSource.includes('FROM node:24-alpine AS builder'));
+  assert.ok(!frontendDockerfileSource.includes('FROM node:20-alpine AS builder'));
   assert.ok(frontendDockerfileSource.includes('ARG VITE_API_URL=/api'));
   assert.ok(!frontendDockerfileSource.includes('REACT_APP_'));
   assert.ok(frontendDockerfileSource.includes('RUN npm run build'));

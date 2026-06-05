@@ -10,7 +10,7 @@ Verified with `gh pr list` on 2026-06-03.
 |---:|---|---|---|
 | `#77` | Dependabot: `react-dom` `19.2.6` to `19.2.7` | Mergeable; GitGuardian and Snyk green | Covered by local `3.10.25` React runtime compatibility work. Close or let GitHub mark obsolete after local commits are pushed. |
 | `#76` | Dependabot: `react` `19.2.6` to `19.2.7` | Mergeable; GitGuardian and Snyk green | Covered by local `3.10.25` React runtime compatibility work. Close or let GitHub mark obsolete after local commits are pushed. |
-| `#71` | Dependabot: `@zxing/library` `0.22.0` to `0.23.0` | Mergeable; GitGuardian and Snyk green | Keep open/deferred. `@zxing/browser@0.2.0` currently peers with `@zxing/library ^0.22.0`; treat this as an intentional compatibility patch, not a blind merge. |
+| `#71` | Dependabot: `@zxing/library` `0.22.0` to `0.23.0` | Mergeable; GitGuardian and Snyk green | Keep open/deferred. `@zxing/browser@0.2.0` currently peers with `@zxing/library ^0.22.0`; treat this as an intentional compatibility patch, not a blind merge. The Node 20 engine warning from `@zxing/library@0.22.0` is handled separately by the `3.12.17` frontend Node 24 builder alignment. |
 | `#65` | Dependabot: `@zxing/browser` `0.1.5` to `0.2.0` | Conflicting; GitGuardian and Snyk green | Covered by local `3.10.23` ZXing browser decoder upgrade. Close or let GitHub mark obsolete after local commits are pushed. |
 | `#14` | Dependabot: `express` `4.22.1` to `5.2.1` | Conflicting; no current check rollup | Covered by local `3.10.27` Express 5 runtime compatibility work. Close or let GitHub mark obsolete after local commits are pushed. |
 
@@ -49,6 +49,7 @@ Initial posture is advisory. After the first baseline run is clean and false-pos
 - Do not blindly merge PRs that cross major versions, peer dependency boundaries, framework runtimes, router/parser behavior, auth/session behavior, migration tooling, or image/build tooling.
 - Document high vulnerabilities in the matching release note with owner and target milestone.
 - Keep `@zxing/library@0.23.0` deferred until the browser peer boundary is resolved or explicitly overridden with runtime proof.
+- Treat frontend build-runtime changes separately from ZXing package-version changes; the supported `0.22.0` decoder pair now expects the frontend Docker builder to run on Node 24.
 
 ## Follow-Up Options
 

@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.12.17",
+      "version": "3.12.17",
+      "date": null,
+      "status": null,
+      "summary": "This patch aligns the frontend Docker build image with the current Vite and ZXing dependency contract by moving the frontend builder from Node 20 to Node 24.",
+      "details": []
+    },
+    {
       "title": "collectZ v3.12.16",
       "version": "3.12.16",
       "date": null,
@@ -141,25 +149,6 @@
             "Kept the history scoped to the same media item and finding type.",
             "Preserved the drawer-first product rule: no standalone Review page or nav item.",
             "Updated OpenAPI and source-contract coverage for review decision history."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.12.7",
-      "version": "3.12.7",
-      "date": null,
-      "status": "completed",
-      "summary": "This patch makes Dashboard Review defer/dismiss decisions visible and reversible from the same Review panel, without adding a standalone Review page.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added active hidden review decisions to the Dashboard summary payload.",
-            "Added a scoped restore endpoint for Dashboard Review defer/dismiss decisions.",
-            "Added a compact collapsed `Hidden review items` section inside Dashboard Review.",
-            "Restoring a hidden item removes the decision and refreshes the Dashboard summary.",
-            "Added OpenAPI and source-contract coverage for hidden decision readback and restore behavior."
           ]
         }
       ]
