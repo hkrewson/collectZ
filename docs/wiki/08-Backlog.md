@@ -20,15 +20,14 @@ These are unscheduled interface cleanup tasks discovered during the `3.10.x` mob
 ### Backlog Item: Header and Search Surface Refinement
 **Type:** UI/UX refinement
 **Tags:** `ui`, `ux`, `mobile`, `headers`, `search`, `filters`, `density`
-**Status:** Active backlog; some groundwork exists through the shared page-header and utility-header primitives.
+**Status:** Mostly completed across the `3.10.x` UI/UX line; keep only for specific surface regressions or deliberately selected follow-up polish.
 
 **Goal:** Continue making mobile and desktop header/search surfaces compact, predictable, and deliberate without hiding important controls.
 
 **Why this work exists**
-- Mobile pages now keep the app header and page controls stationary, but some surfaces still spend too much vertical space on secondary controls.
-- Capture Inbox is the clearest example: status tabs, type/source filters, search, and review tabs are all useful, but together they can feel like a form-heavy control stack.
-- Wishlist, Capture Inbox, Import, and Integrations now share primitives, but their first-section spacing and secondary filter behavior still differ.
-- Search behavior is not fully normalized: some surfaces search live, some expose a Search button, and some do both.
+- The `3.10.x` UI/UX line stabilized mobile shell/page headers, fixed utility-page headers, introduced shared page-header/search primitives, normalized live search, compacted utility filters, moved library filtering into funnel menus, and replaced grid/list button pairs with a layout menu.
+- The broad "headers are too large and inconsistent" problem is no longer open-ended backlog work.
+- Any future work here should start from a concrete page/screenshot/regression, not from the original broad cleanup frame.
 
 **Intent**
 - Keep primary actions and search easy to reach.
@@ -37,12 +36,10 @@ These are unscheduled interface cleanup tasks discovered during the `3.10.x` mob
 - Preserve desktop clarity while auditing whether desktop headers became too heavy during mobile cleanup.
 
 **Candidate subtasks**
-- Reduce secondary controls on compact mobile with a primary row plus a `More filters` or filter-readback control.
-- Normalize search submit behavior: prefer live/debounced search without a separate button on mobile unless a query is expensive.
-- Replace always-visible stacked dropdowns with tighter filter readback such as `All types · Scanner app · Needs choice`.
-- Unify first-section spacing under Wishlist, Capture Inbox, Import, and Integrations headers.
-- Review Wishlist and Capture Inbox desktop density after mobile compaction.
-- Consider a shared `MobileFilterSheet`, disclosure, or popover primitive before adding more per-page mobile filter logic.
+- Address page-specific header/search regressions found in real use.
+- Continue improving accessibility labels for icon-only actions as new header controls are added.
+- Revisit search-in-shell only if fixed page headers still consume too much vertical space after the current compaction work.
+- Keep any future filter-menu work on shared primitives rather than returning to one-off page logic.
 
 **Acceptance Criteria**
 - Mobile pages expose primary search/actions without forcing every secondary filter to stay visible.
@@ -58,7 +55,7 @@ These are product-level capability gaps discovered from the current shape of the
 ### Backlog Item: Dashboard Review Rules and Drawer-First Resolution
 **Type:** Product/UI maintenance track
 **Tags:** `dashboard`, `review`, `collection-health`, `metadata`, `identifiers`, `ux`
-**Status:** Active backlog; first slices shipped through Dashboard Review, but follow-up rule and drawer refinements remain.
+**Status:** Mostly completed across `3.11.0` and `3.12.1` through `3.12.14`; keep as a narrow maintenance track for real review-rule false positives and drawer action gaps.
 
 **Goal:** Keep collection review work inside Dashboard Review rows and drawers, while making the review rules and drawer actions smart enough that users are not asked to do provider-matching work the app should attempt first.
 
@@ -68,6 +65,12 @@ These are product-level capability gaps discovered from the current shape of the
 - The drawer model is the right resolution surface, but the rules and available drawer actions still need iteration by media type and source.
 - Some missing-identifier rows may reflect provider enrichment gaps, weak imported titles, or source-specific repair needs rather than missing data the user should manually know.
 
+**Current state**
+- `3.11.0` separated true identifier gaps from sparse metadata so digital/manual records are not pushed toward impossible identifiers.
+- `3.12.1` removed the standalone Review page/nav item and made Dashboard Review rows open inline drawers.
+- `3.12.2` through `3.12.14` added assisted resolution, identifier rule tuning, type-specific drawer actions, defer/dismiss, title cleanup hints, hidden decision readback, decision history, known identity, pending updates, save readiness, manual fallback guidance, sparse metadata lookup, and the standard tabbed Dashboard layout.
+- The product rule is now proven: collection-health review work belongs in Dashboard Review rows and drawers unless a future workflow clearly cannot fit there.
+
 **Intent**
 - Treat Dashboard Review as the primary collection-health review surface.
 - Resolve review findings from rows and drawers instead of adding new top-level pages.
@@ -75,11 +78,10 @@ These are product-level capability gaps discovered from the current shape of the
 - Keep manual fields available as fallback controls, not the main interaction.
 
 **Candidate subtasks**
-- Tune collection-health rules so rows are not flagged for impossible or low-value identifiers.
-- Make identifier expectations media-type, format, source, and provider aware.
-- Improve Dashboard Review drawer actions by type: movie/TV provider search, book ISBN/Google Books lookup, comic issue matching, cover upload/enrichment, title cleanup, and source repair where appropriate.
-- Add dismiss/defer only inside Dashboard Review rows/drawers if smarter rules still leave legitimate `not needed` or `not now` cases.
-- Document and preserve the product rule that standalone Review pages/nav items are out of scope unless a future workflow cannot reasonably live in Dashboard Review.
+- Tune collection-health rules only when real collection rows show repeated false positives or low-value review flags.
+- Add new drawer actions only for specific missing repair paths, such as a provider/source that needs a better lookup, cover repair, or title cleanup flow.
+- Keep defer/dismiss scoped to Dashboard Review rows and drawers; do not reintroduce a standalone Review page/nav item without a new product reason.
+- Keep Dashboard Review sample sizing and layout tuned around the standard tabbed Dashboard rather than the old wide multi-panel layout.
 
 **Acceptance Criteria**
 - Future review work starts by asking what the Dashboard row/drawer cannot solve before proposing a new page.
@@ -91,7 +93,7 @@ These are product-level capability gaps discovered from the current shape of the
 ### Backlog Item: Collection Health and Audit Dashboard
 **Type:** Deferred milestone
 **Tags:** `product`, `health`, `audit`, `metadata`, `maintenance`
-**Status:** Partially served by Dashboard/Needs Attention; full health/audit workflow is not implemented.
+**Status:** Partially served by Dashboard Review and the `3.11`/`3.12` review-rule work; full trend/audit workflow is not implemented.
 
 **Goal:** Show collection maintenance health across libraries and workspaces.
 
@@ -100,9 +102,10 @@ These are product-level capability gaps discovered from the current shape of the
 - Separate "things need attention" from "the collection has measurable health gaps over time."
 
 **Current state**
-- Dashboard can surface counts and sample lists for missing covers, missing identifiers, failed syncs, and Plex conflicts.
+- Dashboard Review can surface counts and sample lists for missing covers, missing identifiers, sparse metadata, failed syncs, and Plex conflicts.
+- Dashboard Review rows now have row-level clues, inline drawers, assisted repair, defer/dismiss, hidden decision readback, known identity, pending updates, and save-readiness controls.
 - Provider health and recent activity exist as operational readback.
-- There is no dedicated health/audit view with severity, source, trend, filtering, or repair status.
+- There is no dedicated health/audit view with severity, source, trend, cross-library filtering, or longitudinal repair status.
 
 **Scope**
 - Surface missing identifiers, missing covers, duplicate candidates, stale syncs, failed imports, unlinked provider rows, and low-confidence metadata.
@@ -112,8 +115,8 @@ These are product-level capability gaps discovered from the current shape of the
 
 **Candidate subtasks**
 - Define health finding categories and severity rules.
-- Add scoped backend summary endpoints for counts and sample rows.
-- Add filtered drill-down lists for missing covers and missing identifiers.
+- Reuse Dashboard Review findings where possible instead of creating a second review destination.
+- Add trend/history readback only if the Dashboard Review snapshot is not enough to understand health over time.
 - Add stale-sync and failed-import diagnostics that link back to sync job/activity evidence.
 - Add a maintenance history/readback path so dismissed or resolved findings do not reappear without context.
 
@@ -189,7 +192,7 @@ These are product-level capability gaps discovered from the current shape of the
 ### Backlog Item: People and Places Model
 **Type:** Deferred milestone
 **Tags:** `product`, `people`, `places`, `identity`, `events`
-**Status:** Partially implemented for artists and event attendees; broader scoped identity model remains backlog.
+**Status:** Partially implemented for Art artist records and event-local attendees; broader scoped identity model remains backlog.
 
 **Goal:** Introduce reusable scoped identities for creators, vendors, venues, friends, publishers, stores, and event-related people.
 
@@ -198,8 +201,8 @@ These are product-level capability gaps discovered from the current shape of the
 - Keep identity scoped to a workspace unless a later milestone explicitly defines a broader boundary.
 
 **Current state**
-- Reusable Artist records exist for artwork entry.
-- Event attendees can be linked to app users for current-user/self attendee behavior.
+- Reusable Artist records for Art shipped in `3.4.152`, including inline creation, reuse, links, notes, role readback, and other-works navigation.
+- Event attendees can be linked to app users for current-user/self attendee behavior, and event-local people/group/meetup readback exists from the event social planning work.
 - Vendor, venue, publisher, store, friend/contact, and broader creator identities are still mostly free text or object-local fields.
 
 **Scope**
@@ -222,7 +225,7 @@ These are product-level capability gaps discovered from the current shape of the
 ### Backlog Item: Reusable Collectible Traits Across Libraries
 **Type:** Deferred milestone
 **Tags:** `product`, `collectibles`, `metadata`, `traits`, `cross-library`
-**Status:** Active backlog; concept approved, not yet promoted or versioned.
+**Status:** Partially served by Art signed/numbered metadata, reusable artists, and event-acquired fields; a generalized cross-library trait model is not implemented.
 
 **Goal:** Add reusable collectible traits that can be surfaced in existing object drawers without creating new top-level libraries for every collectible category.
 
@@ -230,6 +233,11 @@ These are product-level capability gaps discovered from the current shape of the
 - Many collectible concepts apply across Books, Comics, Games, Art, Media, and Collectibles: signed, numbered, graded, certified, variant, bundled, and event-acquired.
 - Modeling each category as its own library would make the app heavier and harder to maintain.
 - Shared traits let collectZ improve specificity while keeping existing library surfaces intact.
+
+**Current state**
+- Art already has item-local signature, print number/run, dimensions, linked event, vendor/booth, exclusive, and reusable artist behavior.
+- Some libraries have local format/source/signature-like fields, but there is no shared trait schema or shared drawer behavior across Books, Comics, Games, Media, Art, and Collectibles.
+- This task should not restart the already-shipped Art-specific work; it should decide what becomes reusable outside Art.
 
 **Intent**
 - Treat traits as optional object capabilities shown only when useful for the selected library/type.
@@ -270,7 +278,7 @@ These are product-level capability gaps discovered from the current shape of the
 ### Backlog Item: Physical Media Edition and Variant Modeling
 **Type:** Deferred milestone
 **Tags:** `media`, `games`, `books`, `variants`, `editions`, `physical-media`
-**Status:** Active backlog; should build on reusable collectible traits when selected.
+**Status:** Active backlog; some local format/source fields exist, but edition/variant modeling is not generalized.
 
 **Goal:** Improve how collectZ represents physical media variants such as SteelBooks, slipcovers, screeners, promo/demo discs, limited-run releases, collector editions, ARCs, and book printings.
 
@@ -278,6 +286,11 @@ These are product-level capability gaps discovered from the current shape of the
 - SteelBooks, slipcovers, DVD/Blu-ray/VHS variants, and limited packaging should generally stay in the same media/library family as the owned title.
 - Games need platform/source behavior similar to movie/TV format, plus region, publisher line, collector edition, promo/demo, and limited-run distinctions.
 - Books need edition/printing and limited-run fields for first editions, later printings, ARCs, advance reader copies, and numbered editions.
+
+**Current state**
+- Media rows can already carry formats and source/provider identity, and Art can carry numbered-print details.
+- Games, Books, Movies/TV, and Audio do not yet share a deliberate edition/variant vocabulary.
+- This item should not create duplicate Collectibles rows for ordinary format variants.
 
 **Scope**
 - Treat SteelBook, slipcover, screener, promo disc, and packaging variants as edition/format metadata on media rows.
@@ -307,7 +320,7 @@ These are product-level capability gaps discovered from the current shape of the
 ### Backlog Item: Certification, Grading, and Provenance Traits
 **Type:** Deferred milestone
 **Tags:** `collectibles`, `comics`, `books`, `art`, `grading`, `coa`, `provenance`
-**Status:** Active backlog; should be promoted only after trait attachment rules are clear.
+**Status:** Active backlog; signature/provenance-adjacent fields exist in Art, but generalized grading/COA/provenance support is not implemented.
 
 **Goal:** Add consistent certificate, grading, and provenance support across collectible-like objects without tying it to one category.
 
@@ -315,6 +328,11 @@ These are product-level capability gaps discovered from the current shape of the
 - CGC/CBCS graded comics, graded cards, graded games, signed books/comics, COAs, witnessed signatures, authenticated autographs, and provenance documents share a common evidence model.
 - Users need to know whether a signature or collectible claim is self-entered, witnessed, certified, or backed by a document/image.
 - Grading overlays and badges may be useful, but the underlying data should come first.
+
+**Current state**
+- Art can record signed/numbered/event/vendor context, but it does not provide a reusable certificate/provenance attachment model.
+- Comics, Books, Games, Collectibles, and Media do not yet share grade, cert number, issuer, COA, slab/case, or provenance readback.
+- Any future visual badge/overlay should follow stored data rather than define the data model.
 
 **Scope**
 - Support grading company, grade, cert number, slab/case notes, and optional cert URL/image.
@@ -344,7 +362,7 @@ These are product-level capability gaps discovered from the current shape of the
 ### Backlog Item: Related Object and Bundle Relationships
 **Type:** Deferred milestone
 **Tags:** `collections`, `relationships`, `bundles`, `box-sets`, `collectibles`, `events`
-**Status:** Active backlog; relationship model only, not automatic duplication.
+**Status:** Active backlog; event/art context links exist, but general object-to-object bundle relationships are not implemented.
 
 **Goal:** Link items that belong together, such as box sets, bundled trading cards, collector-edition extras, strategy guides, soundtrack inserts, posters, pins, and event-acquired companion objects.
 
@@ -352,6 +370,11 @@ These are product-level capability gaps discovered from the current shape of the
 - Some objects naturally belong to another owned item without becoming the same record.
 - Automatic duplication into another library would create "which row is canonical?" confusion.
 - A relationship model can show "included with" or "part of" context while preserving each object's owning library.
+
+**Current state**
+- Art and event workflows can carry event/vendor/booth context, and event social planning has its own local relationship/readback model.
+- There is no general relationship model for "included with," "part of box set," "companion to," or linked cross-library extras.
+- The previously discussed "replicate/sync into Collectibles" idea should remain out of scope unless a later milestone proves duplication is truly needed.
 
 **Scope**
 - Support relationships such as `part_of`, `includes`, `included_with`, `companion_to`, `purchased_with`, and `event_acquired_with`.
@@ -445,6 +468,7 @@ These are product-level capability gaps discovered from the current shape of the
 ### Backlog Item: Apple/iTunes Wishlist Price Watch Follow-ups
 **Type:** Deferred milestone
 **Tags:** `wishlist`, `apple-itunes`, `price-watch`, `notifications`, `review`
+**Status:** Mostly completed for search/save/refresh/history/scheduler/target-hit workflow; remaining work is optional notification and richer price-history polish only.
 
 **Goal:** Preserve future Apple/iTunes Wishlist price-watch ideas without treating them as current priority work.
 
@@ -454,10 +478,10 @@ These are product-level capability gaps discovered from the current shape of the
 
 **Scope**
 - Add optional price-drop notification behavior for target-price hits.
-- Route target-price hits into a broader review queue if the Unified Review Queue is selected.
 - Improve price-history UX with trends, lowest-seen readback, or compact charts.
 - Research better Apple movie/catalog matching only if Apple/iTunes movie acquisition tracking becomes important.
 - Keep scheduled polling conservative, opt-in, and rate-limit aware.
+- Keep target-price hit handling inside Wishlist unless a future Dashboard Review or notification workflow proves it needs a broader routing surface.
 
 **Out of scope**
 - Do not add auto-purchase behavior.
@@ -474,14 +498,14 @@ These are product-level capability gaps discovered from the current shape of the
 These tasks are intentionally ordered so quick hygiene work does not get buried under larger UI refactors.
 
 ### Active UI/UX Review Callouts
-**Status:** Active working frame for the current UI/UX round; keep referencing these items as pages and patches are selected until this round is intentionally closed.
+**Status:** Mostly completed through the `3.10.x` UI/UX line; keep as a historical working frame and only reopen with a concrete page-level issue.
 
 **Goal:** Keep the remaining high-value webapp polish findings visible while continuing focused page-by-page UI/UX cleanup.
 
 **Current verified context**
-- Running-stack visual review at `3.10.6` showed the mobile library headers are much improved: no horizontal overflow, compact page chrome, stable pagination, and cleaner search/filter/action placement.
-- The app's visual language is settling into a coherent dark, dense, operational product style.
-- Remaining issues are mostly hierarchy, repeated chrome, and surface-specific density rather than a broad redesign problem.
+- Running-stack visual review at `3.10.6` showed the mobile library headers were much improved: no horizontal overflow, compact page chrome, stable pagination, and cleaner search/filter/action placement.
+- Later `3.10.x` patches added shared header/search primitives, utility-page header compaction, live search normalization, Capture Inbox filter compaction, icon-led mobile library headers, desktop header cleanup, funnel filters, and layout-menu controls.
+- The active broad UI/UX round is effectively closed; future UI work should be promoted from concrete page-level issues, not from this general callout list.
 
 **Important follow-up tasks**
 - `Mobile Page Title Deduplication for Non-Library Pages`
