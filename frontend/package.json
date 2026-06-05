@@ -1,6 +1,6 @@
 {
   "name": "collectz-frontend",
-  "version": "3.12.14",
+  "version": "3.12.15",
   "private": true,
   "dependencies": {
     "@zxing/browser": "^0.2.0",
@@ -77,11 +77,8 @@
   },
   "scripts": {
     "start": "vite",
-    "dev:vite": "vite",
     "build": "vite build",
-    "build:vite": "vite build",
-    "preview": "vite preview --host 0.0.0.0",
-    "preview:vite": "vite preview --host 0.0.0.0"
+    "preview": "vite preview --host 0.0.0.0"
   },
   "browserslist": {
     "production": [

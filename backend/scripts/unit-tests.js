@@ -4668,10 +4668,9 @@ results.push(run('public compose source keeps homelab-safe cookie defaults in th
   assert.ok(!dockerComposeSource.includes('CSRF_COOKIE_NAME'));
   assert.ok(!dockerComposeSource.includes('session_token_homelab'));
   assert.ok(!dockerComposeSource.includes('csrf_token_homelab'));
-  assert.ok(frontendDockerfileSource.includes('ARG REACT_APP_CSRF_COOKIE_NAME=csrf_token'));
   assert.ok(frontendDockerfileSource.includes('ARG VITE_CSRF_COOKIE_NAME=csrf_token'));
-  assert.ok(frontendViteConfigSource.includes("const csrfCookieName = env.VITE_CSRF_COOKIE_NAME || env.REACT_APP_CSRF_COOKIE_NAME || 'csrf_token';"));
-  assert.ok(useApiClientSource.includes("readFrontendEnv('VITE_CSRF_COOKIE_NAME', 'REACT_APP_CSRF_COOKIE_NAME', 'csrf_token')"));
+  assert.ok(!frontendDockerfileSource.includes('REACT_APP_CSRF_COOKIE_NAME'));
+  assert.ok(useApiClientSource.includes("readFrontendEnv('VITE_CSRF_COOKIE_NAME', 'csrf_token')"));
 }));
 
 results.push(run('pat.hasPersonalAccessTokenScope matches exact scopes and admin wildcard', () => {
@@ -4978,24 +4977,29 @@ results.push(run('frontend package and vite scaffold support the Vite-first buil
   assert.strictEqual(frontendPackageJson.scripts.start, 'vite');
   assert.strictEqual(frontendPackageJson.scripts.build, 'vite build');
   assert.strictEqual(frontendPackageJson.scripts.preview, 'vite preview --host 0.0.0.0');
-  assert.strictEqual(frontendPackageJson.scripts['dev:vite'], 'vite');
-  assert.strictEqual(frontendPackageJson.scripts['build:vite'], 'vite build');
+  assert.strictEqual(frontendPackageJson.scripts['dev:vite'], undefined);
+  assert.strictEqual(frontendPackageJson.scripts['build:vite'], undefined);
+  assert.strictEqual(frontendPackageJson.scripts['preview:vite'], undefined);
   assert.strictEqual(frontendPackageJson.scripts['start:cra'], undefined);
   assert.strictEqual(frontendPackageJson.scripts['build:cra'], undefined);
   assert.strictEqual(frontendPackageJson.scripts.test, undefined);
   assert.strictEqual(frontendPackageJson.scripts.eject, undefined);
-  assert.ok(frontendViteConfigSource.includes('VITE_API_URL'));
+  assert.ok(frontendViteConfigSource.includes('VITE_PROXY_TARGET'));
+  assert.ok(!frontendViteConfigSource.includes('REACT_APP_'));
+  assert.ok(!frontendViteConfigSource.includes('process.env.REACT_APP_'));
   assert.ok(frontendEnvSource.includes('import.meta.env'));
-  assert.ok(frontendAppSource.includes("readFrontendEnv('VITE_APP_VERSION', 'REACT_APP_VERSION'"));
-  assert.ok(useApiClientSource.includes("readFrontendEnv('VITE_API_URL', 'REACT_APP_API_URL', '/api')"));
+  assert.ok(frontendEnvSource.includes('viteEnv[viteKey]'));
+  assert.ok(!frontendEnvSource.includes('process.env'));
+  assert.ok(frontendAppSource.includes("readFrontendEnv('VITE_APP_VERSION'"));
+  assert.ok(useApiClientSource.includes("readFrontendEnv('VITE_API_URL', '/api')"));
   assert.ok(frontendViteConfigSource.includes("'/api'"));
   assert.ok(frontendViteConfigSource.includes("'/uploads'"));
   assert.ok(frontendViteConfigSource.includes("outDir: 'dist'"));
   assert.ok(frontendViteIndexHtmlSource.includes('src="/src/main.jsx"'));
   assert.ok(frontendViteIndexHtmlSource.includes('<div id="root"></div>'));
   assert.ok(frontendDockerfileSource.includes('ARG VITE_API_URL=/api'));
-  assert.ok(frontendDockerfileSource.indexOf('ARG VITE_API_URL=/api') < frontendDockerfileSource.indexOf('ARG REACT_APP_API_URL=/api'));
-  assert.ok(frontendDockerfileSource.includes('RUN npm run build:vite'));
+  assert.ok(!frontendDockerfileSource.includes('REACT_APP_'));
+  assert.ok(frontendDockerfileSource.includes('RUN npm run build'));
   assert.ok(frontendDockerfileSource.includes('COPY --from=builder /app/dist /usr/share/nginx/html'));
 }));
 

@@ -812,31 +812,6 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - Backend/frontend deployable images remain versioned and published as they are today.
 - The publication and consumption flow is documented clearly enough for a separate Apple app repo to implement it without guesswork.
 
-### Backlog Item: Deferred Vite Compatibility Shim Removal
-**Type:** Deferred milestone
-**Tags:** `frontend`, `vite`, `react`, `cleanup`, `compatibility`, `3.6-candidate`, `3.7-candidate`
-
-**Goal:** Remove the remaining CRA-era frontend compatibility shims after the Vite-first runtime has baked long enough to prove there are no React behavior regressions.
-
-**Follow-up timing**
-- Revisit this item when planning `3.6` or `3.7`.
-- Promote only if no React behavior issues, frontend env regressions, Docker build regressions, or browser-regression instability have appeared since the `3.4.21` Vite env cleanup.
-- If React/Vite behavior issues appear before `3.6`/`3.7`, keep this item deferred and treat the compatibility shims as safety rails until the issues are understood.
-
-**Scope**
-- Remove `REACT_APP_*` fallback reads from frontend source once `VITE_*` is proven safe everywhere.
-- Remove legacy `REACT_APP_*` Docker build args/env plumbing from `frontend/Dockerfile`.
-- Remove the `process.env.REACT_APP_*` define bridge from `frontend/vite.config.js`.
-- Decide whether the explicit `build:vite`, `dev:vite`, and `preview:vite` aliases still add clarity or should be removed once Vite is no longer a transition concern.
-- Update docs, CI checks, and unit source assertions so `VITE_*` is the only maintained frontend env contract.
-
-**Acceptance Criteria**
-- Frontend source reads Vite env through `import.meta.env` / the shared Vite env helper without `REACT_APP_*` fallback.
-- Docker and CI frontend build args expose only `VITE_*` frontend configuration.
-- Docs no longer describe `REACT_APP_*` as supported configuration, except in historical release notes.
-- Docker-first frontend build, default homelab boundary, explicit platform boundary, and browser regression pass after removal.
-- The release closeout explicitly confirms no observed React behavior regressions triggered the deferral guard.
-
 ### Backlog Item: Public Homelab Repo Promotion and Export Workflow
 **Type:** Deferred milestone
 **Tags:** `major-feature`, `infra`, `risk`, `homelab`, `repo-promotion`

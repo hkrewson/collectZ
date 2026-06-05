@@ -16,23 +16,19 @@ The frontend now runs on a Vite-first toolchain:
   - `npm --prefix frontend run start`
   - `npm --prefix frontend run build`
   - `npm --prefix frontend run preview`
-- Explicit Vite aliases remain available:
-  - `npm --prefix frontend run dev:vite`
-  - `npm --prefix frontend run build:vite`
-  - `npm --prefix frontend run preview:vite`
 
 Current runtime contract:
 
 - Docker and CI use the Vite production build path for the nginx-served frontend image.
 - Local maintainer defaults use the same Vite toolchain as production.
-- The legacy CRA rollback rail has been removed along with `react-scripts`.
+- The legacy CRA rollback rail and `REACT_APP_*` compatibility shims have been removed along with `react-scripts`.
 - The Vite dev server proxies `/api` and `/uploads` to `http://localhost:3001` by default. Override with `VITE_PROXY_TARGET` when your backend is running elsewhere.
 - Preferred frontend env names:
   - `VITE_API_URL`
   - `VITE_APP_VERSION`
   - `VITE_DEBUG`
   - `VITE_CSRF_COOKIE_NAME`
-- Legacy `REACT_APP_*` names still work as build-time compatibility shims, but new local, Docker, and CI configuration should use `VITE_*`.
+- `REACT_APP_*` names are no longer supported frontend configuration. Use `VITE_*` for local, Docker, and CI configuration.
 
 ## First Startup
 

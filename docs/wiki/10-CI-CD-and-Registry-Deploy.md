@@ -42,7 +42,6 @@ Pipeline behavior:
 - Injects build metadata during build:
   - backend image: `APP_VERSION` and `GIT_SHA`
   - frontend image: `VITE_APP_VERSION`, `VITE_GIT_SHA`, and `VITE_BUILD_DATE`
-  - legacy frontend `REACT_APP_*` names remain compatibility shims only, not the preferred CI contract.
   - `GIT_SHA` is injected as short SHA for cleaner UI display where surfaced.
 
 Result: nav/version + `/api/health` build fields come from image build, not operator runtime commands.

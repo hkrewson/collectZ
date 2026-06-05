@@ -6,6 +6,35 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.12.15 — Vite Compatibility Shim Removal
+
+**Goal:** Remove the remaining CRA-era frontend compatibility shims now that the Vite-first runtime has baked through multiple releases without React behavior or browser-regression instability.
+
+### Scope
+
+- Remove `REACT_APP_*` fallback reads from frontend source and keep `VITE_*` as the only maintained frontend env contract.
+- Remove legacy `REACT_APP_*` Docker build args/env plumbing from `frontend/Dockerfile`.
+- Remove the `process.env.REACT_APP_*` define bridge from `frontend/vite.config.js`.
+- Remove transitional `dev:vite`, `build:vite`, and `preview:vite` script aliases; `start`, `build`, and `preview` remain the Vite commands.
+- Update docs, unit source-contract assertions, release notes, release feed, and version metadata.
+
+### Acceptance Criteria
+
+- Frontend source reads Vite env through `import.meta.env` / the shared Vite env helper without `REACT_APP_*` fallback.
+- Docker and CI frontend build args expose only `VITE_*` frontend configuration.
+- Docs no longer describe `REACT_APP_*` as supported configuration, except in historical release notes.
+- Docker-first frontend build, platform boundary, homelab boundary, and targeted browser regression pass after removal.
+- Release closeout confirms no observed React behavior regressions triggered the deferral guard.
+
+### Closeout
+
+- Status: completed in `3.12.15`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.12.15`; `/api/health` reported backend/frontend/build `3.12.15`.
+- UI/runtime evidence: frontend build and browser regression passed with Vite-only env reads and no `process.env.REACT_APP_*` bridge.
+- Verification: backend unit tests, OpenAPI validation, frontend Vite build, Docker frontend build, Docker runtime rebuild, init parity, API integration smoke, Help > Releases smoke, targeted browser regression, RBAC regression, platform boundary, isolated homelab boundary, dependency audits, observability evidence, local release preflight, app-meta mirror check, release-note section check, artifact secret hygiene scan, and `git diff --check`.
+- Deferral guard: no React behavior issues, frontend env regressions, Docker build regressions, or browser-regression instability were observed in the Vite-first releases since `3.4.21`.
+- CI follow-through: full CI compose-smoke, secret-scan, image security, SBOM, and full browser-regression remain CI gates for the pushed commit.
+
 ## 3.12.14 — Dashboard Standard Tabbed Layout
 
 **Goal:** Make the cleaner tabbed Dashboard composition the standard layout at every width instead of switching wide screens into multiple spread-out panels.

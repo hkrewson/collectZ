@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.12.15",
+      "version": "3.12.15",
+      "date": null,
+      "status": null,
+      "summary": "This patch removes the remaining CRA-era frontend compatibility shims now that the Vite-first frontend path has baked through multiple releases without React or browser-regression instability.",
+      "details": []
+    },
+    {
       "title": "collectZ v3.12.14",
       "version": "3.12.14",
       "date": null,
@@ -164,27 +172,6 @@
             "Added a drawer action to copy the search text into the record title when the title itself is the likely problem.",
             "Kept manual identifier fields available as fallback controls.",
             "Updated OpenAPI and source-contract coverage for the new review guidance fields."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.12.5",
-      "version": "3.12.5",
-      "date": null,
-      "status": "completed",
-      "summary": "This patch adds scoped defer and dismiss actions to Dashboard Review drawers so legitimate `not now` and `not needed` items can be handled without creating a separate Review page.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added `media_review_decisions` to track Dashboard Review decisions by media item and finding type.",
-            "Dashboard Review counts and row samples now hide active deferred or dismissed findings.",
-            "Deferred findings are hidden for seven days.",
-            "Dismissed findings are hidden until the underlying media row changes.",
-            "Added drawer actions for `Defer 7 days` and `Dismiss` beside the existing save controls.",
-            "Added an authenticated `POST /api/dashboard/review-decisions` endpoint and OpenAPI contract.",
-            "Added source-contract coverage for migration/init parity, endpoint shape, PAT scope behavior, and UI controls."
           ]
         }
       ]

@@ -161,7 +161,7 @@ When `STORAGE_PROVIDER=s3`, configure:
 - `VITE_DEBUG` (default: `0`)
 - `VITE_CSRF_COOKIE_NAME` (default: `csrf_token`)
 
-Legacy `REACT_APP_*` names remain build-time compatibility shims only. Prefer `VITE_*` for new local, Docker, and CI configuration.
+Legacy `REACT_APP_*` names are no longer supported frontend configuration. Use `VITE_*` for local, Docker, and CI configuration.
 
 ## Version Metadata
 

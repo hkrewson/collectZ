@@ -20,7 +20,7 @@ import {
   normalizeProductEdition
 } from './components/app/productEdition';
 
-const APP_VERSION = readFrontendEnv('VITE_APP_VERSION', 'REACT_APP_VERSION', appMeta.frontend || appMeta.version || 'unknown');
+const APP_VERSION = readFrontendEnv('VITE_APP_VERSION', appMeta.frontend || appMeta.version || 'unknown');
 const SUPPORT_SUMMARY_POLL_MS = 60000;
 
 export default function App() {
