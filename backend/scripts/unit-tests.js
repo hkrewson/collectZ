@@ -6221,6 +6221,8 @@ results.push(run('dashboard review owns inline media resolution instead of a sta
   assert.ok(dashboardReviewSource.includes('ReviewPendingUpdates'));
   assert.ok(dashboardReviewSource.includes('Pending updates'));
   assert.ok(dashboardReviewSource.includes('Save updates to apply these changes.'));
+  assert.ok(dashboardReviewSource.includes('hasPendingUpdates'));
+  assert.ok(dashboardReviewSource.includes('Make a change before saving.'));
   assert.ok(dashboardReviewSource.includes('Defer 7 days'));
   assert.ok(dashboardReviewSource.includes('Dismiss'));
 }));

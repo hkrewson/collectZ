@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.12.11",
+      "version": "3.12.11",
+      "date": null,
+      "status": null,
+      "summary": "This patch tightens Dashboard Review drawer saves so Save is only available when there are actual pending updates. No-op submits now keep the drawer open and explain that a change is needed before saving.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Dashboard Review drawers reuse the pending-update comparison as the source of truth for Save readiness.",
+            "The Save button is disabled until lookup, upload, or manual edits create pending updates.",
+            "No-op submit paths now show `Make a change before saving.` instead of silently closing the drawer.",
+            "Defer, dismiss, and cancel behavior remains independent of pending edits."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.12.10",
       "version": "3.12.10",
       "date": null,
@@ -176,27 +194,6 @@
             "Applying a match can stage title, year, cover, and provider identity details before saving.",
             "Moved broad manual fields behind a `Manual details` section so manual identifier entry is available but no longer the primary path.",
             "Added source-contract and browser coverage for assisted review drawer behavior."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.12.1",
-      "version": "3.12.1",
-      "date": null,
-      "status": "completed",
-      "summary": "This patch corrects the Review direction from `3.12.0`. Instead of adding another navigation destination that mirrors Dashboard and Library review filters, Dashboard Review rows now open an inline drawer for the exact media record that needs attention.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Removed the standalone Review navigation item and Review page.",
-            "Removed the read-only `/api/review-queue` endpoint and its OpenAPI contract.",
-            "Changed Dashboard Review rows for missing covers, missing identifiers, and sparse metadata into actionable rows.",
-            "Added a Dashboard Review drawer that fetches the selected media record and saves focused metadata/identifier updates through the existing media update API.",
-            "Removed `View all` buttons from Dashboard Review so the primary path is row-to-drawer resolution.",
-            "Changed Dashboard health counters for missing covers, missing identifiers, and sparse metadata to focus the matching Review tab instead of sending users to a temporary Library review page.",
-            "Allowed book and comic `type_details` to store ISBN-13 and Google Books IDs, matching the identifiers already used by review clues."
           ]
         }
       ]

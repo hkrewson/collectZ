@@ -280,8 +280,7 @@ function reviewPendingUpdateItems(record = {}, form = {}) {
   return items;
 }
 
-function ReviewPendingUpdates({ record, form }) {
-  const items = reviewPendingUpdateItems(record, form);
+function ReviewPendingUpdates({ items = [] }) {
   if (!items.length) return null;
   return (
     <div className="rounded-lg border border-edge bg-raised/20 p-3">
@@ -583,6 +582,8 @@ function MediaReviewDrawer({
   const busy = saving || Boolean(decisionSaving);
   const decisionHistory = Array.isArray(item?.review_decision_history) ? item.review_decision_history : [];
   const identityRecord = record || item || {};
+  const pendingUpdates = reviewPendingUpdateItems(record, form);
+  const hasPendingUpdates = pendingUpdates.length > 0;
 
   return (
     <DetailDrawerShell onClose={onClose} panelClassName="max-w-lg" testId="dashboard-review-drawer">
@@ -608,7 +609,7 @@ function MediaReviewDrawer({
 
         <ReviewIdentitySnapshot record={identityRecord} />
 
-        <ReviewPendingUpdates record={record} form={form} />
+        <ReviewPendingUpdates items={pendingUpdates} />
 
         {loading ? (
           <div className="flex min-h-40 items-center justify-center">
@@ -740,7 +741,7 @@ function MediaReviewDrawer({
                 <button type="button" className="btn-secondary" onClick={onClose} disabled={busy}>
                   Cancel
                 </button>
-                <button type="submit" className="btn-primary" disabled={busy || !record}>
+                <button type="submit" className="btn-primary" disabled={busy || !record || !hasPendingUpdates}>
                   {saving ? 'Saving' : `Save ${reviewType === 'missing-covers' ? 'cover' : 'updates'}`}
                 </button>
               </div>
@@ -1082,7 +1083,7 @@ export default function DashboardCommandCenterView({
 
     if (hasDetailChange) payload.type_details = nextTypeDetails;
     if (Object.keys(payload).length <= 1) {
-      closeReviewItem();
+      setReviewError('Make a change before saving.');
       return;
     }
 

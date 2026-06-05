@@ -6,6 +6,35 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.12.11 — Dashboard Review Save Readiness
+
+**Goal:** Keep Dashboard Review drawer saves honest by enabling Save only when the drawer has staged updates, and by avoiding silent drawer close on no-op submits.
+
+### Scope
+
+- Keep Dashboard Review as the only product surface for this work.
+- Reuse the existing pending-update comparison that powers the `Pending updates` readback.
+- Disable the drawer Save action when no pending changes are present.
+- Keep `Defer 7 days`, `Dismiss`, and `Cancel` available when appropriate.
+- Show a plain no-op submit message if the form is submitted without any pending changes.
+- Do not add a standalone Review page/nav item, schema change, or new API contract.
+
+### Acceptance Criteria
+
+- Save is disabled until lookup, upload, or manual edits create pending updates.
+- Attempting a no-op submit keeps the drawer open and explains that a change is needed before saving.
+- Pending update readback and Save availability stay in sync.
+- Defer and dismiss remain available independently of pending edits.
+- Release notes, release feed, version metadata, and regression coverage are updated for `3.12.11`.
+
+### Closeout
+
+- Status: completed in `3.12.11`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.12.11`; `/api/health` reported backend/frontend/build `3.12.11`.
+- UI evidence: Dashboard Review drawers now disable Save until the same pending-update comparison used by the readback finds staged changes, while defer/dismiss remain available.
+- Verification: backend unit tests, OpenAPI validation, Docker frontend build, Docker runtime rebuild, init parity, API integration smoke, Help > Releases smoke, targeted Dashboard Review browser regression, RBAC regression, platform boundary, isolated homelab boundary, dependency audits, observability evidence, local release preflight, app-meta mirror check, release-note section check, artifact secret hygiene scan, and `git diff --check`.
+- CI follow-through: full CI compose-smoke, secret-scan, image security, SBOM, and full browser-regression remain CI gates for the pushed commit.
+
 ## 3.12.10 — Dashboard Review Pending Update Readback
 
 **Goal:** Show staged Dashboard Review drawer changes before saving, so lookup, upload, and manual edits are visible as pending work rather than hidden in form fields.
