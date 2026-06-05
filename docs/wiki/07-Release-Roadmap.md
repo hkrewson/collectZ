@@ -6,6 +6,35 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.12.10 — Dashboard Review Pending Update Readback
+
+**Goal:** Show staged Dashboard Review drawer changes before saving, so lookup, upload, and manual edits are visible as pending work rather than hidden in form fields.
+
+### Scope
+
+- Keep Dashboard Review as the only product surface for this work.
+- Add a compact `Pending updates` section to Dashboard Review drawers.
+- Derive pending updates from differences between the loaded media record and the current drawer form.
+- Show pending title, year, format, cover, provider, and type-detail values that will be saved.
+- Keep assisted lookup, cover upload, identity readback, manual details, and defer/dismiss behavior unchanged.
+- Do not introduce a standalone Review page/nav item.
+
+### Acceptance Criteria
+
+- Applying a lookup candidate makes staged values visible before Save.
+- Uploading or pasting a cover path makes the pending cover value visible before Save.
+- Manual edits make pending values visible without adding another workflow.
+- The pending readback disappears when there are no staged changes.
+- Release notes, release feed, version metadata, and regression coverage are updated for `3.12.10`.
+
+### Closeout
+
+- Status: completed in `3.12.10`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.12.10`; `/api/health` reported backend/frontend/build `3.12.10`.
+- UI evidence: Dashboard Review drawers now show compact `Pending updates` readback when lookup, cover upload/path, or manual edits stage values that differ from the loaded media record.
+- Verification: backend unit tests, OpenAPI validation, Docker frontend build, Docker runtime rebuild, init parity, Help > Releases smoke, targeted Dashboard Review browser regression, RBAC regression, platform boundary, isolated homelab boundary, dependency audits, observability evidence, local release preflight, app-meta mirror check, release-note section check, artifact secret hygiene scan, and `git diff --check`.
+- CI follow-through: full CI compose-smoke, secret-scan, image security, and SBOM remain CI gates for the pushed commit.
+
 ## 3.12.9 — Dashboard Review Identity Snapshot
 
 **Goal:** Show the identifiers and provider/source identity collectZ already knows inside Dashboard Review drawers before asking users to repair a row.

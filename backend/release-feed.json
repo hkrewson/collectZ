@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.12.10",
+      "version": "3.12.10",
+      "date": null,
+      "status": "completed",
+      "summary": "This patch adds a compact pending-update readback to Dashboard Review drawers, so users can see what lookup, cover upload, or manual edits have staged before saving the record.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added a `Pending updates` section to Dashboard Review drawers.",
+            "Derives pending rows by comparing the loaded media record with the current drawer form.",
+            "Shows staged title, year, format, cover, provider, and type-specific metadata values when they differ from the saved record.",
+            "Keeps assisted lookup, cover upload, known identity readback, manual details, defer/dismiss, and decision history behavior unchanged.",
+            "Preserved the drawer-first product rule: no standalone Review page or nav item."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.12.9",
       "version": "3.12.9",
       "date": null,
@@ -178,26 +197,6 @@
             "Removed `View all` buttons from Dashboard Review so the primary path is row-to-drawer resolution.",
             "Changed Dashboard health counters for missing covers, missing identifiers, and sparse metadata to focus the matching Review tab instead of sending users to a temporary Library review page.",
             "Allowed book and comic `type_details` to store ISBN-13 and Google Books IDs, matching the identifiers already used by review clues."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.12.0",
-      "version": "3.12.0",
-      "date": null,
-      "status": "completed",
-      "summary": "This minor release adds the first unified Review queue. Instead of forcing reviewable work to stay scattered across Dashboard, Library, Capture Inbox, Wishlist, Plex, and Import, collectZ now has one read-only queue that explains what needs attention and links back to the workflow that owns the fix.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added `GET /api/review-queue` for active-scope review readback.",
-            "Added a Review page in the app navigation.",
-            "Aggregated Library health items, Capture Inbox review items, Apple/iTunes target-price hits, Plex reconciliation conflicts, and failed syncs.",
-            "Added source/type filters, search, source counts, and workflow actions.",
-            "Kept resolution actions in the existing owning surfaces for this foundation slice.",
-            "Updated OpenAPI, route scope mapping, unit source-contract coverage, and browser regression coverage."
           ]
         }
       ]

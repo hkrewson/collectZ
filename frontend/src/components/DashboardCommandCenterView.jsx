@@ -247,6 +247,58 @@ function ReviewIdentitySnapshot({ record }) {
   );
 }
 
+const REVIEW_PENDING_TOP_FIELDS = [
+  ['title', 'Title'],
+  ['year', 'Year'],
+  ['format', 'Format'],
+  ['tmdb_media_type', 'TMDB type'],
+  ['tmdb_url', 'TMDB URL']
+];
+
+function reviewPendingUpdateItems(record = {}, form = {}) {
+  if (!record || !form) return [];
+  const mediaType = record.media_type || 'movie';
+  const fields = DETAIL_FIELDS_BY_TYPE[mediaType] || DETAIL_FIELDS_BY_TYPE.movie;
+  const items = [];
+
+  const addPending = (field, label, currentValue) => {
+    const nextValue = coerceFieldValue(form[field]).trim();
+    if (!nextValue || nextValue === coerceFieldValue(currentValue).trim()) return;
+    if (items.some((item) => item.field === field)) return;
+    items.push({ field, label, value: nextValue });
+  };
+
+  REVIEW_PENDING_TOP_FIELDS.forEach(([field, label]) => {
+    addPending(field, label, record[field]);
+  });
+
+  fields.forEach(([field, label, bucket]) => {
+    const currentValue = bucket === 'detail' ? record.type_details?.[field] : record[field];
+    addPending(field, label, currentValue);
+  });
+
+  return items;
+}
+
+function ReviewPendingUpdates({ record, form }) {
+  const items = reviewPendingUpdateItems(record, form);
+  if (!items.length) return null;
+  return (
+    <div className="rounded-lg border border-edge bg-raised/20 p-3">
+      <p className="text-sm font-medium text-ink">Pending updates</p>
+      <div className="mt-2 divide-y divide-edge">
+        {items.map((item) => (
+          <div key={item.field} className="grid grid-cols-[7rem_1fr] gap-3 py-1.5 first:pt-0 last:pb-0">
+            <span className="text-xs text-ghost">{item.label}</span>
+            <span className="min-w-0 break-words text-xs text-dim">{item.value}</span>
+          </div>
+        ))}
+      </div>
+      <p className="mt-2 text-xs text-ghost">Save updates to apply these changes.</p>
+    </div>
+  );
+}
+
 function HiddenReviewDecisionList({ decisions, restoringId, onRestore }) {
   if (!decisions.length) return null;
   return (
@@ -555,6 +607,8 @@ function MediaReviewDrawer({
         <ReviewDecisionHistory history={decisionHistory} />
 
         <ReviewIdentitySnapshot record={identityRecord} />
+
+        <ReviewPendingUpdates record={record} form={form} />
 
         {loading ? (
           <div className="flex min-h-40 items-center justify-center">
