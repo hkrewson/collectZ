@@ -167,6 +167,39 @@ function reviewFindingLabel(value) {
   return 'Review';
 }
 
+function reviewDecisionLabel(action, previousAction) {
+  const normalized = String(action || '').replace('dashboard.review.', '');
+  if (normalized === 'restored') {
+    return previousAction ? `Restored after ${previousAction}` : 'Restored';
+  }
+  if (normalized === 'deferred') return 'Deferred';
+  if (normalized === 'dismissed') return 'Dismissed';
+  return 'Updated';
+}
+
+function ReviewDecisionHistory({ history }) {
+  const items = Array.isArray(history) ? history.filter(Boolean).slice(0, 3) : [];
+  if (!items.length) return null;
+  return (
+    <div className="rounded-lg border border-edge bg-panel p-3">
+      <p className="text-sm font-medium text-ink">Recent review decisions</p>
+      <div className="mt-2 divide-y divide-edge">
+        {items.map((entry) => (
+          <div key={entry.id || `${entry.action}:${entry.created_at}`} className="flex items-start justify-between gap-3 py-2 first:pt-0 last:pb-0">
+            <div className="min-w-0">
+              <p className="text-sm text-ink">{reviewDecisionLabel(entry.action, entry.previous_action)}</p>
+              {entry.action === 'dashboard.review.deferred' && entry.deferred_until ? (
+                <p className="mt-0.5 text-xs text-ghost">Hidden until {formatDateTime(entry.deferred_until)}</p>
+              ) : null}
+            </div>
+            <span className="shrink-0 text-xs text-ghost">{formatDateTime(entry.created_at)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function HiddenReviewDecisionList({ decisions, restoringId, onRestore }) {
   if (!decisions.length) return null;
   return (
@@ -449,6 +482,7 @@ function MediaReviewDrawer({
     && String(lookupQuery || '').trim()
     && String(lookupQuery || '').trim() !== String(form.title || '').trim();
   const busy = saving || Boolean(decisionSaving);
+  const decisionHistory = Array.isArray(item?.review_decision_history) ? item.review_decision_history : [];
 
   return (
     <DetailDrawerShell onClose={onClose} panelClassName="max-w-lg" testId="dashboard-review-drawer">
@@ -469,6 +503,8 @@ function MediaReviewDrawer({
             ) : null}
           </div>
         ) : null}
+
+        <ReviewDecisionHistory history={decisionHistory} />
 
         {loading ? (
           <div className="flex min-h-40 items-center justify-center">

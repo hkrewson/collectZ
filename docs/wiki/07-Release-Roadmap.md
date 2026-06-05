@@ -6,6 +6,34 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.12.8 — Dashboard Review Decision History Readback
+
+**Goal:** Show recent defer/dismiss/restore context inside Dashboard Review drawers so users understand why a finding returned without adding a standalone Review page.
+
+### Scope
+
+- Keep Dashboard Review as the only product surface for review history readback.
+- Add recent review decision activity to Dashboard Review row payloads.
+- Show compact decision history inside the Dashboard Review drawer.
+- Include defer, dismiss, and restore actions for the same media row and finding type.
+- Keep hidden-decision restore behavior from `3.12.7` unchanged.
+
+### Acceptance Criteria
+
+- Dashboard Review sample rows can include `review_decision_history`.
+- The drawer shows recent review decisions when history exists.
+- Decision history is scoped to the current media row and finding type.
+- No standalone Review page/nav item is introduced.
+- Release notes, release feed, version metadata, OpenAPI, and regression coverage are updated for `3.12.8`.
+
+### Closeout
+
+- Status: completed in `3.12.8`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.12.8`; `/api/health` reported backend/frontend/build `3.12.8`.
+- UI evidence: Dashboard Review drawers show a compact `Recent review decisions` block when the row has prior defer, dismiss, or restore activity.
+- Verification: backend unit tests, OpenAPI validation, Docker frontend build, Docker runtime rebuild, init parity, Help > Releases smoke, targeted Dashboard Review browser regression, RBAC regression, platform boundary, isolated homelab boundary, dependency audits, observability evidence, local release preflight, app-meta mirror check, release-note section check, artifact secret hygiene scan, and `git diff --check`.
+- CI follow-through: full CI compose-smoke, secret-scan, image security, and SBOM remain CI gates for the pushed commit.
+
 ## 3.12.7 — Dashboard Review Hidden Decision Readback
 
 **Goal:** Keep defer/dismiss reversible inside Dashboard Review by showing active hidden review decisions and letting users restore them without adding a standalone Review page.

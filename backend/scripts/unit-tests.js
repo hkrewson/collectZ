@@ -6146,6 +6146,7 @@ results.push(run('dashboard command center is authenticated scoped dashboard def
   assert.ok(openApiSource.includes('"/api/dashboard/review-decisions/{id}"'));
   assert.ok(openApiSource.includes('"DashboardReviewDecisionRequest"'));
   assert.ok(openApiSource.includes('"DashboardReviewDecisionResponse"'));
+  assert.ok(openApiSource.includes('"DashboardReviewDecisionHistory"'));
   assert.ok(openApiSource.includes('"DashboardReviewDecisionList"'));
   assert.ok(openApiSource.includes('"DashboardSummary"'));
   assert.ok(openApiSource.includes('"attention_details"'));
@@ -6159,6 +6160,7 @@ results.push(run('dashboard command center is authenticated scoped dashboard def
   assert.ok(openApiSource.includes('"review_lookup_title"'));
   assert.ok(openApiSource.includes('"review_lookup_context"'));
   assert.ok(openApiSource.includes('"review_next_action"'));
+  assert.ok(openApiSource.includes('"review_decision_history"'));
   assert.ok(openApiSource.includes('"hidden_review_decisions"'));
   assert.ok(dashboardRoutesSource.includes('buildMissingIdentifierReviewClues'));
   assert.ok(dashboardRoutesSource.includes('buildSparseMetadataReviewClues'));
@@ -6170,6 +6172,8 @@ results.push(run('dashboard command center is authenticated scoped dashboard def
   assert.ok(dashboardRoutesSource.includes("CURRENT_TIMESTAMP + INTERVAL '7 days'"));
   assert.ok(dashboardRoutesSource.includes('dashboard.review.${action}'));
   assert.ok(dashboardRoutesSource.includes('dashboard.review.restored'));
+  assert.ok(dashboardRoutesSource.includes('reviewDecisionHistorySql'));
+  assert.ok(dashboardRoutesSource.includes('review_decision_history'));
   assert.ok(dashboardRoutesSource.includes('hiddenReviewDecisions'));
   assert.ok(dashboardRoutesSource.includes('shapeReviewDecisionRow'));
   assert.ok(validateMiddlewareSource.includes('dashboardReviewDecisionSchema'));
@@ -6209,6 +6213,8 @@ results.push(run('dashboard review owns inline media resolution instead of a sta
   assert.ok(dashboardReviewSource.includes('HiddenReviewDecisionList'));
   assert.ok(dashboardReviewSource.includes('Hidden review items'));
   assert.ok(dashboardReviewSource.includes('Review item restored'));
+  assert.ok(dashboardReviewSource.includes('ReviewDecisionHistory'));
+  assert.ok(dashboardReviewSource.includes('Recent review decisions'));
   assert.ok(dashboardReviewSource.includes('Defer 7 days'));
   assert.ok(dashboardReviewSource.includes('Dismiss'));
 }));

@@ -153,6 +153,38 @@ function activeReviewDecisionPredicate(mediaAlias, decisionAlias) {
     )`;
 }
 
+function reviewDecisionHistorySql(mediaAlias, findingType) {
+  return `COALESCE((
+    SELECT jsonb_agg(
+      jsonb_build_object(
+        'id', recent_review.id,
+        'action', recent_review.action,
+        'created_at', recent_review.created_at,
+        'decision_id', recent_review.decision_id,
+        'previous_action', recent_review.previous_action,
+        'deferred_until', recent_review.deferred_until
+      )
+      ORDER BY recent_review.created_at DESC, recent_review.id DESC
+    )
+    FROM (
+      SELECT
+        al.id,
+        al.action,
+        al.created_at,
+        al.details->>'decision_id' AS decision_id,
+        al.details->>'previous_action' AS previous_action,
+        al.details->>'deferred_until' AS deferred_until
+      FROM activity_log al
+      WHERE al.entity_type = 'media'
+        AND al.entity_id = ${mediaAlias}.id
+        AND al.action IN ('dashboard.review.deferred', 'dashboard.review.dismissed', 'dashboard.review.restored')
+        AND al.details->>'finding_type' = '${findingType}'
+      ORDER BY al.created_at DESC, al.id DESC
+      LIMIT 3
+    ) recent_review
+  ), '[]'::jsonb) AS review_decision_history`;
+}
+
 const MISSING_COVER_ACTIVE_SQL = `(${MISSING_COVER_SQL} AND ${activeReviewDecisionSql('m', 'missing_covers')})`;
 const MISSING_IDENTIFIER_ACTIVE_SQL = `(${MISSING_IDENTIFIER_SQL} AND ${activeReviewDecisionSql('m', 'missing_identifiers')})`;
 const SPARSE_METADATA_ACTIVE_SQL = `(${SPARSE_METADATA_SQL} AND ${activeReviewDecisionSql('m', 'sparse_metadata')})`;
@@ -173,7 +205,8 @@ function shapeMediaAttentionItem(row, reviewFilter = '') {
     import_source: row.import_source || null,
     owned_formats: Array.isArray(row.owned_formats) ? row.owned_formats : [],
     updated_at: row.updated_at || null,
-    created_at: row.created_at || null
+    created_at: row.created_at || null,
+    review_decision_history: Array.isArray(row.review_decision_history) ? row.review_decision_history : []
   };
   if (reviewFilter === 'missing_identifiers') {
     return {
@@ -385,7 +418,9 @@ router.get('/dashboard/summary', asyncHandler(async (req, res) => {
       mediaParams
     ),
     pool.query(
-      `SELECT m.id, m.title, m.media_type, m.year, m.format, m.poster_path, m.type_details, m.import_source, m.owned_formats, m.updated_at, m.created_at
+      `SELECT
+         m.id, m.title, m.media_type, m.year, m.format, m.poster_path, m.type_details, m.import_source, m.owned_formats, m.updated_at, m.created_at,
+         ${reviewDecisionHistorySql('m', 'missing_covers')}
        FROM media m
        WHERE ${MISSING_COVER_ACTIVE_SQL}${mediaScopeClause}
        ORDER BY m.updated_at DESC NULLS LAST, m.id DESC
@@ -393,7 +428,9 @@ router.get('/dashboard/summary', asyncHandler(async (req, res) => {
       mediaParams
     ),
     pool.query(
-      `SELECT m.id, m.title, m.media_type, m.year, m.format, m.poster_path, m.upc, m.tmdb_id, m.type_details, m.import_source, m.owned_formats, m.updated_at, m.created_at
+      `SELECT
+         m.id, m.title, m.media_type, m.year, m.format, m.poster_path, m.upc, m.tmdb_id, m.type_details, m.import_source, m.owned_formats, m.updated_at, m.created_at,
+         ${reviewDecisionHistorySql('m', 'missing_identifiers')}
        FROM media m
        WHERE ${MISSING_IDENTIFIER_ACTIVE_SQL}${mediaScopeClause}
        ORDER BY m.updated_at DESC NULLS LAST, m.id DESC
@@ -401,7 +438,9 @@ router.get('/dashboard/summary', asyncHandler(async (req, res) => {
       mediaParams
     ),
     pool.query(
-      `SELECT m.id, m.title, m.media_type, m.year, m.format, m.poster_path, m.upc, m.tmdb_id, m.type_details, m.import_source, m.owned_formats, m.updated_at, m.created_at
+      `SELECT
+         m.id, m.title, m.media_type, m.year, m.format, m.poster_path, m.upc, m.tmdb_id, m.type_details, m.import_source, m.owned_formats, m.updated_at, m.created_at,
+         ${reviewDecisionHistorySql('m', 'sparse_metadata')}
        FROM media m
        WHERE ${SPARSE_METADATA_ACTIVE_SQL}${mediaScopeClause}
        ORDER BY m.updated_at DESC NULLS LAST, m.id DESC

@@ -3186,6 +3186,26 @@
         "required": ["ok", "decision"],
         "additionalProperties": false
       },
+      "DashboardReviewDecisionHistory": {
+        "type": "array",
+        "description": "Recent Dashboard Review decision activity for the same media row and finding type.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "integer" },
+            "action": {
+              "type": "string",
+              "enum": ["dashboard.review.deferred", "dashboard.review.dismissed", "dashboard.review.restored"]
+            },
+            "created_at": { "type": "string", "format": "date-time" },
+            "decision_id": { "type": ["string", "null"] },
+            "previous_action": { "type": ["string", "null"] },
+            "deferred_until": { "type": ["string", "null"] }
+          },
+          "required": ["id", "action", "created_at"],
+          "additionalProperties": true
+        }
+      },
       "DashboardReviewDecisionList": {
         "type": "array",
         "description": "Active deferred or dismissed Dashboard Review decisions hidden from the current Review lists.",
@@ -3238,6 +3258,7 @@
                 "items": {
                   "type": "object",
                   "properties": {
+                    "review_decision_history": { "$ref": "#/components/schemas/DashboardReviewDecisionHistory" },
                     "review_reasons": { "type": "array", "items": { "type": "string" } },
                     "review_finding_type": { "type": ["string", "null"], "enum": ["missing_identifier", "sparse_metadata", null] },
                     "recommended_identifiers": { "type": "array", "items": { "type": "string" } },
@@ -3253,6 +3274,7 @@
                 "items": {
                   "type": "object",
                   "properties": {
+                    "review_decision_history": { "$ref": "#/components/schemas/DashboardReviewDecisionHistory" },
                     "review_reasons": { "type": "array", "items": { "type": "string" } },
                     "review_finding_type": { "type": ["string", "null"], "enum": ["missing_identifier", "sparse_metadata", null] },
                     "recommended_metadata": { "type": "array", "items": { "type": "string" } },

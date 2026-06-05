@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.12.8",
+      "version": "3.12.8",
+      "date": null,
+      "status": "completed",
+      "summary": "This patch adds recent review decision context to Dashboard Review drawers, so users can see prior defer, dismiss, and restore activity when a finding returns.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added recent Dashboard Review decision activity to review row payloads.",
+            "Added a compact `Recent review decisions` section to the Dashboard Review drawer.",
+            "Kept the history scoped to the same media item and finding type.",
+            "Preserved the drawer-first product rule: no standalone Review page or nav item.",
+            "Updated OpenAPI and source-contract coverage for review decision history."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.12.7",
       "version": "3.12.7",
       "date": null,
@@ -180,25 +199,6 @@
             "Changed audio/game identifier expectations so digital rows can ask for artist, year, platform, or format metadata instead of UPC.",
             "Kept physical audio/game rows eligible for UPC/EAN recommendations.",
             "Updated OpenAPI and tests for the expanded review fields."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.10.28",
-      "version": "3.10.28",
-      "date": null,
-      "status": "completed",
-      "summary": "This patch turns the dependency PR cleanup into a documented security-maintenance process and adds GitHub CodeQL source scanning for JavaScript/TypeScript. It keeps CodeQL advisory at introduction while preserving the existing release gates for dependency audit, secret scan, image security, SBOM, runtime smoke, RBAC, browser regression, and edition boundaries.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added `.github/workflows/codeql.yml` for JavaScript/TypeScript CodeQL analysis on push, pull request, weekly schedule, and manual dispatch.",
-            "Added `docs/wiki/49-Dependency-PR-and-CI-Security-Coverage.md` with open PR dispositions and a CI security coverage map.",
-            "Updated CI/release docs to include CodeQL as an advisory source-scanning layer.",
-            "Moved the selected dependency/security backlog item out of the backlog and into the numbered roadmap.",
-            "Documented that `@zxing/library@0.23.0` remains deferred until its browser peer relationship is intentionally resolved."
           ]
         }
       ]
