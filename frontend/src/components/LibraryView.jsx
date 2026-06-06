@@ -8,6 +8,7 @@ import {
   DetailDrawerShell,
   DrawerBackdrop,
   FilterMenu,
+  CollectibleGradingEditor,
   CollectibleTraitPills,
   CollectibleTraitReadback,
   PageHeaderSearchToolbar,
@@ -1481,6 +1482,16 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
 
         <div className="flex-1 overflow-y-auto scroll-area p-6 space-y-6">
           {!showLoanFocusedView ? <CollectibleTraitReadback traits={item.collectible_traits} /> : null}
+          {!showLoanFocusedView ? (
+            <CollectibleGradingEditor
+              apiCall={apiCall}
+              ownerType="media"
+              ownerId={item.id}
+              traits={item.collectible_traits}
+              onSaved={() => onValuationUpdated?.(item.id)}
+              onToast={onToast}
+            />
+          ) : null}
           {!showLoanFocusedView && item.overview && (
             <div className={cx(isBook || isComic ? 'max-w-3xl' : '')}>
               <p className="label mb-2">Overview</p>

@@ -343,9 +343,9 @@ These are product-level capability gaps discovered from the current shape of the
 - Existing manually entered Art/signature data is not lost or silently reinterpreted.
 
 ### Backlog Item: Collectible Grading Editors
-**Type:** Deferred milestone
+**Type:** Promoted milestone
 **Tags:** `collectibles`, `comics`, `games`, `cards`, `grading`, `ui`
-**Status:** Active backlog; grading is named in the reusable trait model but there is no editor or stored grade workflow yet.
+**Status:** Promoted to `3.14.2 — Collectible Grading Editors` in [07-Release-Roadmap.md](07-Release-Roadmap.md).
 
 **Goal:** Let users record and read back grading details for collectible-like objects such as slabbed comics, graded cards, graded games, and other certified items.
 

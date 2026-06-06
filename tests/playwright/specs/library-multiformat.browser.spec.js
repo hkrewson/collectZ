@@ -547,6 +547,8 @@ test.describe('library multi-format browser regressions', () => {
       await addSavedAdminCookies(page, requestContext);
       await page.goto('/dashboard?tab=library-movies');
       await expect(page.getByRole('button', { name: 'All Movies', exact: true })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Add media' })).toBeVisible();
+      await expect(page.locator('article').first()).toBeVisible();
 
       const searchInput = page.getByPlaceholder('Search title, director…');
       await searchInput.fill(title);
@@ -651,7 +653,10 @@ test.describe('library multi-format browser regressions', () => {
       const storageState = await requestContext.storageState();
       await page.context().addCookies(storageState.cookies || []);
       await page.goto('/dashboard?tab=library-movies');
-      await page.getByRole('button', { name: /Add/ }).first().click();
+      const addMediaButton = page.getByRole('button', { name: 'Add media' }).first();
+      await expect(addMediaButton).toBeVisible();
+      await expect(addMediaButton).toBeEnabled();
+      await addMediaButton.click();
 
       await expect(page.getByRole('heading', { name: /add to library/i })).toBeVisible();
       const titleResponsePromise = page.waitForResponse((response) => (

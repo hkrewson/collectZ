@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CheckboxControl, CollectionPaginationFooter, CollectibleTraitPills, CollectibleTraitReadback, CoverImagePicker, DetailDrawerShell, DrawerBackdrop, FilterMenu, Icons, PageHeaderSearchToolbar, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
+import { CheckboxControl, CollectionPaginationFooter, CollectibleGradingEditor, CollectibleTraitPills, CollectibleTraitReadback, CoverImagePicker, DetailDrawerShell, DrawerBackdrop, FilterMenu, Icons, PageHeaderSearchToolbar, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
 
 const CATEGORY_OPTIONS = [
   { key: 'lego', label: 'Lego' },
@@ -148,7 +148,7 @@ function CollectibleRow({ item, supportsHover, onOpen, onEdit, onDelete, viewCon
   );
 }
 
-function CollectibleDetailDrawer({ collectibleId, apiCall, categories, events, onClose, onEdit, onDeleted, viewConfig }) {
+function CollectibleDetailDrawer({ collectibleId, apiCall, categories, events, onClose, onEdit, onDeleted, viewConfig, onToast }) {
   const [item, setItem] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -215,6 +215,14 @@ function CollectibleDetailDrawer({ collectibleId, apiCall, categories, events, o
           {!loading && item ? (
             <>
               <CollectibleTraitReadback traits={item.collectible_traits} />
+              <CollectibleGradingEditor
+                apiCall={apiCall}
+                ownerType="collectible"
+                ownerId={item.id}
+                traits={item.collectible_traits}
+                onSaved={load}
+                onToast={onToast}
+              />
               <div className="grid grid-cols-1 gap-x-8 gap-y-5 text-sm md:grid-cols-2">
                 <DetailField label="Classification">{itemTypeLabel}</DetailField>
                 <DetailField label="Series">{item.series}</DetailField>
@@ -762,6 +770,7 @@ export default function CollectiblesView({ apiCall, onToast, focusTarget = null 
           onEdit={(item) => { setDetailId(null); setEditing(item); }}
           onDeleted={load}
           viewConfig={viewConfig}
+          onToast={onToast}
         />
       ) : null}
     </div>

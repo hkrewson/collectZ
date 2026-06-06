@@ -106,6 +106,58 @@ test.describe('events and collectibles browser regressions', () => {
     }
   });
 
+  test('art drawer can add and remove grading trait details', async ({ page }) => {
+    const adminCredentials = await ensureSavedAdminCredentials();
+    const adminRequestContext = await createAuthenticatedRequestContext(adminCredentials);
+    const userCredentials = await createFreshUserCredentials();
+    const userRequestContext = await createAuthenticatedRequestContext(userCredentials);
+    const artTitle = `Playwright Graded Art ${Date.now()}`;
+    const originalFlagsPayload = await getFeatureFlags(adminRequestContext);
+    const originalFlags = Array.isArray(originalFlagsPayload?.flags) ? originalFlagsPayload.flags : [];
+    const originalCollectiblesEnabled = Boolean(originalFlags.find((flag) => flag?.key === 'collectibles_enabled')?.enabled);
+
+    await deleteArtByExactTitle(userRequestContext, artTitle).catch(() => {});
+    try {
+      if (!originalCollectiblesEnabled) {
+        await updateFeatureFlag(adminRequestContext, 'collectibles_enabled', true);
+      }
+
+      await postWithCsrf(userRequestContext, '/api/art', {
+        title: artTitle,
+        medium: 'print'
+      }, 201);
+
+      await signInThroughUi(page, userCredentials);
+      await page.goto('/dashboard?tab=library-art');
+      const artCard = page.locator('article').filter({ hasText: artTitle }).first();
+      await expect(artCard).toBeVisible();
+      await artCard.click();
+
+      const gradingSection = page.locator('section').filter({ hasText: 'Grading' }).first();
+      await expect(gradingSection).toBeVisible();
+      await gradingSection.getByRole('button', { name: 'Add' }).click();
+      await gradingSection.getByRole('combobox', { name: 'Grader' }).selectOption('CGC');
+      await gradingSection.getByRole('textbox', { name: 'Grade', exact: true }).fill('9.8');
+      await gradingSection.getByRole('textbox', { name: 'Certificate #' }).fill('PW-GRADE-001');
+      await gradingSection.getByRole('button', { name: 'Save' }).click();
+
+      await expect(gradingSection.getByText('CGC 9.8')).toBeVisible();
+      await expect(gradingSection.getByText('Cert: PW-GRADE-001')).toBeVisible();
+      await expect(page.locator('section').filter({ hasText: 'Collectible details' }).getByText('CGC 9.8')).toBeVisible();
+
+      await gradingSection.getByRole('button', { name: 'Edit' }).click();
+      await gradingSection.getByRole('button', { name: 'Remove' }).click();
+      await expect(gradingSection.getByText('CGC 9.8')).not.toBeVisible();
+    } finally {
+      await deleteArtByExactTitle(userRequestContext, artTitle).catch(() => {});
+      if (!originalCollectiblesEnabled) {
+        await updateFeatureFlag(adminRequestContext, 'collectibles_enabled', false).catch(() => {});
+      }
+      await userRequestContext.dispose();
+      await adminRequestContext.dispose();
+    }
+  });
+
   test('artwork entry can create and reuse a linked artist record', async ({ page }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
     const adminRequestContext = await createAuthenticatedRequestContext(adminCredentials);

@@ -6,6 +6,34 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.14.2 — Collectible Grading Editors
+
+**Goal:** Let users add, edit, remove, and read back structured grading details on collectible-like records using the reusable trait persistence contract introduced in `3.14.1`.
+
+### Scope
+
+- Add a compact grading editor to existing detail drawers for Library media, Art, and Collectibles.
+- Persist grading data through `/api/collectible-traits/{ownerType}/{ownerId}/grading` with the `graded` family.
+- Capture grader/company, grade, certificate number, slab notes, and grading date as structured trait payload/details.
+- Keep ordinary add/edit flows lightweight; users only see the grading editor in the existing record drawer.
+- Keep this slice local/manual: no external grading registry lookup, valuation changes, or COA/provenance attachment workflow.
+
+### Acceptance Criteria
+
+- Users can add, edit, and remove grading details on supported media, Art, and Collectibles records.
+- Saved grading details appear in existing `collectible_traits` readback and compact trait pills.
+- Grading readback remains distinct from personal ratings, condition, notes, and valuation.
+- Release notes, release feed, version metadata, targeted browser coverage, and Docker runtime verification are updated for `3.14.2`.
+
+### Closeout
+
+- Status: completed in `3.14.2`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/08-Backlog.md`, and `docs/releases/v3.14.2.md`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.14.2`; `/api/health` reported version/frontend/backend/build `3.14.2`; running-stack Help > Releases served `3.14.2`; restored the platform stack after the isolated homelab boundary smoke.
+- Verification: backend unit tests (`304` passed) locally and in-stack; OpenAPI validation locally and in-stack; frontend Vite build; Docker runtime rebuild; Help > Releases smoke; init parity; migration rehearsal; observability evidence (`9/9` checks passed); local release preflight; backend/frontend production dependency audits (`0` vulnerabilities); RBAC regression; platform boundary; homelab boundary against local `3.14.2` images; targeted grading browser coverage; full Playwright browser regression (`78` passed, `4` expected skips); version/release-feed sync; and `git diff --check`.
+- CI follow-through: stricter CI compose-smoke secure-cookie settings, secret-scan, CodeQL review, Trivy image security, and SBOM generation remain remote CI gates for the pushed commit.
+- What remains: COA/provenance editing, bundle relationships, and library-specific edition editors remain active backlog slices on top of the reusable trait contract.
+
 ## 3.14.1 — Reusable Collectible Trait Persistence
 
 **Goal:** Add the durable backend persistence contract that future grading, COA/provenance, bundle, and edition editors can use while preserving the `3.14.0` derived readback contract.

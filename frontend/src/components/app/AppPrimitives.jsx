@@ -2022,6 +2022,189 @@ export function CollectibleTraitReadback({ traits = [], className = '' }) {
   );
 }
 
+const GRADER_OPTIONS = ['CGC', 'CBCS', 'PSA', 'Beckett', 'WATA', 'VGA', 'Other'];
+
+function cleanTraitText(value) {
+  return String(value || '').trim();
+}
+
+function findGradingTrait(traits = []) {
+  return Array.isArray(traits)
+    ? traits.find((trait) => trait?.family === 'graded' || trait?.key === 'grading')
+    : null;
+}
+
+function buildGradingForm(trait = null) {
+  const payload = trait?.payload && typeof trait.payload === 'object' ? trait.payload : {};
+  const details = Array.isArray(trait?.details) ? trait.details : [];
+  const detailValue = (label) => details.find((detail) => String(detail?.label || '').toLowerCase() === label)?.value || '';
+  return {
+    company: cleanTraitText(payload.company || payload.grader || detailValue('grader') || detailValue('company')),
+    grade: cleanTraitText(payload.grade || detailValue('grade')),
+    certificateNumber: cleanTraitText(payload.certificate_number || payload.certificateNumber || detailValue('cert') || detailValue('certificate')),
+    slabNotes: cleanTraitText(payload.slab_notes || payload.slabNotes || detailValue('slab')),
+    gradedOn: cleanTraitText(payload.graded_on || payload.gradedOn || detailValue('graded'))
+  };
+}
+
+function buildGradingTraitPayload(form = {}) {
+  const company = cleanTraitText(form.company);
+  const grade = cleanTraitText(form.grade);
+  const certificateNumber = cleanTraitText(form.certificateNumber);
+  const slabNotes = cleanTraitText(form.slabNotes);
+  const gradedOn = cleanTraitText(form.gradedOn);
+  const details = [
+    company ? { label: 'Grader', value: company } : null,
+    grade ? { label: 'Grade', value: grade } : null,
+    certificateNumber ? { label: 'Cert', value: certificateNumber } : null,
+    slabNotes ? { label: 'Slab', value: slabNotes } : null,
+    gradedOn ? { label: 'Graded', value: gradedOn } : null
+  ].filter(Boolean);
+  const summary = [company, grade].filter(Boolean).join(' ') || 'Graded';
+  return {
+    key: 'grading',
+    family: 'graded',
+    label: 'Grade',
+    summary,
+    tone: 'brand',
+    details,
+    payload: {
+      company: company || null,
+      grade: grade || null,
+      certificate_number: certificateNumber || null,
+      slab_notes: slabNotes || null,
+      graded_on: gradedOn || null
+    },
+    source: 'manual'
+  };
+}
+
+export function CollectibleGradingEditor({
+  apiCall,
+  ownerType,
+  ownerId,
+  traits = [],
+  onSaved,
+  onToast,
+  className = ''
+}) {
+  const currentTrait = findGradingTrait(traits);
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState(() => buildGradingForm(currentTrait));
+
+  useEffect(() => {
+    setForm(buildGradingForm(currentTrait));
+    setEditing(false);
+  }, [currentTrait?.key, currentTrait?.summary, ownerId]);
+
+  if (!apiCall || !ownerType || !ownerId) return null;
+
+  const updateField = (key, value) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const save = async (event) => {
+    event.preventDefault();
+    if (saving) return;
+    const payload = buildGradingTraitPayload(form);
+    if (!payload.payload.company && !payload.payload.grade && !payload.payload.certificate_number) {
+      onToast?.('Add a grader, grade, or certificate number first', 'error');
+      return;
+    }
+    setSaving(true);
+    try {
+      await apiCall('put', `/collectible-traits/${ownerType}/${ownerId}/grading`, payload);
+      await onSaved?.();
+      setEditing(false);
+      onToast?.('Grading details saved');
+    } catch (error) {
+      onToast?.(error?.response?.data?.error || 'Failed to save grading details', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const remove = async () => {
+    if (!currentTrait || saving) return;
+    setSaving(true);
+    try {
+      await apiCall('delete', `/collectible-traits/${ownerType}/${ownerId}/grading`);
+      await onSaved?.();
+      setEditing(false);
+      onToast?.('Grading details removed');
+    } catch (error) {
+      onToast?.(error?.response?.data?.error || 'Failed to remove grading details', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <section className={cx('rounded-lg border border-edge bg-surface/35 p-3', className)}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-ink">Grading</p>
+          {currentTrait && !editing ? (
+            <p className="mt-1 text-sm text-dim">{currentTrait.summary || 'Graded'}</p>
+          ) : (
+            <p className="mt-1 text-xs leading-5 text-ghost">Record slab or certification details when this item has them.</p>
+          )}
+        </div>
+        {!editing ? (
+          <button type="button" className="btn-ghost btn-sm shrink-0" onClick={() => setEditing(true)}>
+            {currentTrait ? 'Edit' : 'Add'}
+          </button>
+        ) : null}
+      </div>
+      {currentTrait && !editing && Array.isArray(currentTrait.details) && currentTrait.details.length ? (
+        <p className="mt-2 text-xs leading-5 text-ghost">
+          {currentTrait.details
+            .filter((detail) => detail?.label && detail?.value)
+            .map((detail) => `${detail.label}: ${detail.value}`)
+            .join(' · ')}
+        </p>
+      ) : null}
+      {editing ? (
+        <form className="mt-3 space-y-3" onSubmit={save}>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="field">
+              <span className="label">Grader</span>
+              <select className="select" value={form.company} onChange={(event) => updateField('company', event.target.value)}>
+                <option value="">Select grader</option>
+                {GRADER_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
+              </select>
+            </label>
+            <label className="field">
+              <span className="label">Grade</span>
+              <input className="input" value={form.grade} onChange={(event) => updateField('grade', event.target.value)} placeholder="9.8" />
+            </label>
+            <label className="field">
+              <span className="label">Certificate #</span>
+              <input className="input" value={form.certificateNumber} onChange={(event) => updateField('certificateNumber', event.target.value)} />
+            </label>
+            <label className="field">
+              <span className="label">Graded on</span>
+              <input className="input" type="date" value={form.gradedOn} onChange={(event) => updateField('gradedOn', event.target.value)} />
+            </label>
+            <label className="field sm:col-span-2">
+              <span className="label">Slab notes</span>
+              <textarea className="textarea min-h-[72px]" value={form.slabNotes} onChange={(event) => updateField('slabNotes', event.target.value)} />
+            </label>
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {currentTrait ? (
+              <button type="button" className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={remove} disabled={saving}>Remove</button>
+            ) : null}
+            <button type="button" className="btn-ghost btn-sm" onClick={() => { setEditing(false); setForm(buildGradingForm(currentTrait)); }} disabled={saving}>Cancel</button>
+            <button type="submit" className="btn-primary btn-sm" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+          </div>
+        </form>
+      ) : null}
+    </section>
+  );
+}
+
 export function Toast({ message, type = 'ok', onDismiss }) {
   useEffect(() => {
     const t = setTimeout(onDismiss, 3500);

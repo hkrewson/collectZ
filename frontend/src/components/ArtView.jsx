@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CheckboxControl, CollectionPaginationFooter, CollectibleTraitPills, CollectibleTraitReadback, CoverImagePicker, DetailDrawerShell, DrawerBackdrop, FilterMenu, Icons, PageHeaderSearchToolbar, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
+import { CheckboxControl, CollectionPaginationFooter, CollectibleGradingEditor, CollectibleTraitPills, CollectibleTraitReadback, CoverImagePicker, DetailDrawerShell, DrawerBackdrop, FilterMenu, Icons, PageHeaderSearchToolbar, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
 import SignatureManager from './app/SignatureManager';
 
 const ART_MEDIUM_OPTIONS = [
@@ -320,7 +320,7 @@ function ArtRow({ item, supportsHover, onOpen, onEdit, onDelete }) {
   );
 }
 
-function ArtDetailDrawer({ artId, apiCall, events, onClose, onEdit, onDeleted, onViewArtistWorks }) {
+function ArtDetailDrawer({ artId, apiCall, events, onClose, onEdit, onDeleted, onViewArtistWorks, onToast }) {
   const [item, setItem] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -411,6 +411,14 @@ function ArtDetailDrawer({ artId, apiCall, events, onClose, onEdit, onDeleted, o
           {!loading && item ? (
             <>
             <CollectibleTraitReadback traits={item.collectible_traits} />
+            <CollectibleGradingEditor
+              apiCall={apiCall}
+              ownerType="art"
+              ownerId={item.id}
+              traits={item.collectible_traits}
+              onSaved={load}
+              onToast={onToast}
+            />
             <div className="md:hidden">
               <CompactDetailRow label="Dimensions">{dimensionsSummary}</CompactDetailRow>
               <CompactDetailRow label="Status">{statusSummary || 'Standard'}</CompactDetailRow>
@@ -1129,6 +1137,7 @@ export default function ArtView({ apiCall, onToast, focusTarget = null }) {
           onEdit={(item) => { setDetailId(null); setEditing(item); }}
           onDeleted={load}
           onViewArtistWorks={viewArtistWorks}
+          onToast={onToast}
         />
       ) : null}
     </div>
