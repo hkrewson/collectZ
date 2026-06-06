@@ -243,9 +243,9 @@ These are product-level capability gaps discovered from the current shape of the
 - The model does not imply cross-workspace identity or social graph behavior by default.
 
 ### Backlog Item: Reusable Collectible Traits Across Libraries
-**Type:** Deferred milestone
+**Type:** Promoted milestone
 **Tags:** `product`, `collectibles`, `metadata`, `traits`, `cross-library`
-**Status:** Partially served by Art signed/numbered metadata, reusable artists, and event-acquired fields; a generalized cross-library trait model is not implemented.
+**Status:** Promoted to `3.14.0 — Reusable Collectible Traits Readback Foundation` in [07-Release-Roadmap.md](07-Release-Roadmap.md).
 
 **Goal:** Add reusable collectible traits that can be surfaced in existing object drawers without creating new top-level libraries for every collectible category.
 
@@ -258,6 +258,7 @@ These are product-level capability gaps discovered from the current shape of the
 - Art already has item-local signature, print number/run, dimensions, linked event, vendor/booth, exclusive, and reusable artist behavior.
 - Some libraries have local format/source/signature-like fields, but there is no shared trait schema or shared drawer behavior across Books, Comics, Games, Media, Art, and Collectibles.
 - This task should not restart the already-shipped Art-specific work; it should decide what becomes reusable outside Art.
+- The first selected slice is intentionally readback-only: it derives shared trait summaries from existing fields and signature records before adding new trait persistence.
 
 **Intent**
 - Treat traits as optional object capabilities shown only when useful for the selected library/type.
@@ -277,11 +278,11 @@ These are product-level capability gaps discovered from the current shape of the
 - Keep this as a model/UI capability task, not enrichment or valuation work.
 
 **Candidate subtasks**
-- Inventory current fields for signed, numbered, event-linked, edition, variant, and collectible category data.
-- Define a trait schema that can be attached to existing object types without duplicating whole records.
-- Add drawer/edit display rules for trait sections by library and item type.
-- Add compact readback badges or metadata lines only where they improve recognition.
-- Add tests for trait persistence and rendering across at least Art, Comics, Books, Games, Media, and Collectibles.
+- Promoted in `3.14.0`: inventory current fields for signed, numbered, event-linked, edition, variant, and collectible category data.
+- Promoted in `3.14.0`: define a read-only trait schema that can be attached to existing object types without duplicating whole records.
+- Promoted in `3.14.0`: add compact readback badges/metadata lines and drawer sections where they improve recognition.
+- Follow-up: add explicit trait persistence only after the readback contract proves useful.
+- Follow-up: add grading, richer COA/provenance editing, bundle relationships, and library-specific edition editors as separate promoted slices.
 
 **Out of scope**
 - Do not create new top-level libraries for every collectible type.

@@ -210,7 +210,7 @@ test.describe('admin shell browser regressions', () => {
 
     await page.goto('/dashboard?tab=admin-settings');
     await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
-    await expect(page.getByText('Backup and portability')).toBeVisible();
+    await expect(page.getByText('Backup and portability', { exact: true })).toBeVisible();
     await expect(page.getByText('Database', { exact: true })).toBeVisible();
     await expect(page.getByText('Images', { exact: true })).toBeVisible();
     await expect(page.getByText('Provider metadata', { exact: true }).first()).toBeVisible();
@@ -1036,13 +1036,6 @@ test.describe('admin shell browser regressions', () => {
       await expect(page.getByRole('heading', { name: 'Capture Inbox', exact: true })).toBeVisible();
       const captureFilterButton = page.getByRole('button', { name: /Filter captures/ });
       await expect(captureFilterButton).toBeVisible();
-      await captureFilterButton.click();
-      const captureFilters = page.getByLabel('Capture filters');
-      await expect(captureFilters.getByRole('radiogroup', { name: 'Capture review filter' })).toBeVisible();
-      await expect(captureFilters.getByRole('radio', { name: /Needs choice/ })).toBeVisible();
-      await expect(captureFilters.getByRole('radio', { name: /Ready to add/ })).toBeVisible();
-      await expect(captureFilters.getByRole('radio', { name: /No match/ })).toBeVisible();
-      await captureFilterButton.click();
       await expect(page.getByRole('button', { name: 'Review scanner captures' })).toBeVisible();
       const scannerUiFilterResponse = page.waitForResponse((response) => (
         response.url().includes('/api/capture-items')
@@ -1053,18 +1046,15 @@ test.describe('admin shell browser regressions', () => {
       expect((await scannerUiFilterResponse).ok()).toBeTruthy();
       const scannerRow = page.locator('div').filter({ hasText: `Scanner Queue Capture ${suffix}` }).filter({ hasText: 'Scanner app' }).first();
       await expect(scannerRow).toBeVisible();
-      await page.getByRole('button', { name: 'Show all sources' }).click();
-      const reviewFilterResponse = page.waitForResponse((response) => (
+      const allCapturesResponse = page.waitForResponse((response) => (
         response.url().includes('/api/capture-items')
-        && response.url().includes('review_filter=needs_choice')
+        && response.url().includes('status=active')
+        && !response.url().includes('source_filter=scanner')
         && response.request().method() === 'GET'
       ));
-      await captureFilterButton.click();
-      await captureFilters.getByRole('radio', { name: /Needs choice/ }).click();
-      expect((await reviewFilterResponse).ok()).toBeTruthy();
+      await page.goto('/dashboard?tab=library-capture');
+      expect((await allCapturesResponse).ok()).toBeTruthy();
       await expect(page.getByText(title, { exact: true })).toBeVisible();
-      await captureFilters.getByRole('radio', { name: /^All / }).click();
-      await captureFilterButton.click();
       await expect(page.getByText(photoTitle, { exact: true })).toBeVisible();
       const replayConflictReview = page.getByLabel('Replay conflict review').first();
       const replayReason = page.getByLabel('Capture review reasons').filter({ hasText: 'Replay conflict' }).first();

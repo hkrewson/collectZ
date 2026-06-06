@@ -1967,6 +1967,61 @@ export function ObjectPosterCard({
   );
 }
 
+export function CollectibleTraitPills({ traits = [], limit = 4, className = '' }) {
+  const visibleTraits = Array.isArray(traits)
+    ? traits.filter((trait) => trait?.label || trait?.summary).slice(0, limit)
+    : [];
+  if (visibleTraits.length === 0) return null;
+  return (
+    <div className={cx('flex flex-wrap gap-2', className)}>
+      {visibleTraits.map((trait, index) => (
+        <span
+          key={trait.key || `${trait.family || 'trait'}-${index}`}
+          className={cx(
+            'inline-flex min-w-0 items-center rounded-md border px-2 py-1 text-[11px] font-medium',
+            trait.tone === 'brand'
+              ? 'border-brand/30 bg-brand/10 text-brand'
+              : 'border-edge bg-surface text-dim'
+          )}
+          title={trait.summary || trait.label}
+        >
+          <span className="truncate">{trait.summary || trait.label}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+export function CollectibleTraitReadback({ traits = [], className = '' }) {
+  const visibleTraits = Array.isArray(traits)
+    ? traits.filter((trait) => trait?.label || trait?.summary)
+    : [];
+  if (visibleTraits.length === 0) return null;
+  return (
+    <section className={cx('rounded-lg border border-edge bg-surface/45 p-3', className)}>
+      <p className="text-xs font-medium uppercase tracking-[0.14em] text-ghost">Collectible details</p>
+      <div className="mt-3 space-y-2">
+        {visibleTraits.map((trait, index) => (
+          <div key={trait.key || `${trait.family || 'trait'}-${index}`} className="grid grid-cols-[7rem_minmax(0,1fr)] gap-3 text-sm">
+            <p className="text-ghost">{trait.label || 'Detail'}</p>
+            <div className="min-w-0">
+              <p className="text-ink">{trait.summary || trait.label}</p>
+              {Array.isArray(trait.details) && trait.details.length ? (
+                <p className="mt-1 text-xs leading-5 text-ghost">
+                  {trait.details
+                    .filter((detail) => detail?.label && detail?.value)
+                    .map((detail) => `${detail.label}: ${detail.value}`)
+                    .join(' · ')}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function Toast({ message, type = 'ok', onDismiss }) {
   useEffect(() => {
     const t = setTimeout(onDismiss, 3500);

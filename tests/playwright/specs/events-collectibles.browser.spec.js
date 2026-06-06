@@ -91,6 +91,11 @@ test.describe('events and collectibles browser regressions', () => {
       await expect(artCard).toBeVisible();
       await expect(artCard.getByText('#150/200 Signed Print')).toBeVisible();
       await expect(artCard.locator('.badge')).toHaveCount(0);
+
+      await artCard.click();
+      await expect(page.getByText('Collectible details')).toBeVisible();
+      await expect(page.getByText('Signed copy').first()).toBeVisible();
+      await expect(page.getByText('#150/200').first()).toBeVisible();
     } finally {
       await deleteArtByExactTitle(userRequestContext, artTitle).catch(() => {});
       if (!originalCollectiblesEnabled) {

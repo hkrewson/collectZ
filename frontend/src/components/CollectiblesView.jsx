@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CheckboxControl, CollectionPaginationFooter, CoverImagePicker, DetailDrawerShell, DrawerBackdrop, FilterMenu, Icons, PageHeaderSearchToolbar, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
+import { CheckboxControl, CollectionPaginationFooter, CollectibleTraitPills, CollectibleTraitReadback, CoverImagePicker, DetailDrawerShell, DrawerBackdrop, FilterMenu, Icons, PageHeaderSearchToolbar, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
 
 const CATEGORY_OPTIONS = [
   { key: 'lego', label: 'Lego' },
@@ -100,6 +100,7 @@ function CollectibleCard({ item, supportsHover, onOpen, onEdit, onDelete, viewCo
       subtitle={`${item.franchise ? `${item.franchise} · ` : ''}${item.series ? `${item.series} · ` : ''}${item.event_title ? `${item.event_title} · ` : ''}${classificationLabel}`}
       meta={
         <>
+          <CollectibleTraitPills traits={item.collectible_traits} limit={3} />
           {item.franchise ? <FilterPill>{item.franchise}</FilterPill> : null}
           {item.artist ? <FilterPill>{item.artist}</FilterPill> : null}
           {item.vendor ? <FilterPill>{item.vendor}</FilterPill> : null}
@@ -136,6 +137,7 @@ function CollectibleRow({ item, supportsHover, onOpen, onEdit, onDelete, viewCon
           {item.event_title ? <FilterPill>{item.event_title}</FilterPill> : null}
           {item.exclusive ? <FilterPill tone="brand">Exclusive</FilterPill> : null}
         </div>
+        <CollectibleTraitPills traits={item.collectible_traits} limit={3} className="mt-2" />
       </div>
       <span className="text-xs text-ghost font-mono">#{item.id}</span>
       <div className={cx('flex gap-2 transition-opacity duration-150', supportsHover ? 'opacity-0 group-hover:opacity-100' : 'opacity-100')}>
@@ -212,6 +214,7 @@ function CollectibleDetailDrawer({ collectibleId, apiCall, categories, events, o
           {loading ? <div className="flex items-center gap-2 text-dim"><Spinner size={16} />Loading…</div> : null}
           {!loading && item ? (
             <>
+              <CollectibleTraitReadback traits={item.collectible_traits} />
               <div className="grid grid-cols-1 gap-x-8 gap-y-5 text-sm md:grid-cols-2">
                 <DetailField label="Classification">{itemTypeLabel}</DetailField>
                 <DetailField label="Series">{item.series}</DetailField>

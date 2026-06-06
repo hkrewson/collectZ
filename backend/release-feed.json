@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.14.0",
+      "version": "3.14.0",
+      "date": null,
+      "status": null,
+      "summary": "This minor release starts the reusable collectible traits milestone with a shared readback contract for special item details that already exist across the app.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added backend `collectible_traits` summaries for media, Art, and Collectibles responses.",
+            "Derived shared traits from existing data instead of adding new required fields.",
+            "Covers signed/autographed, numbered/limited, certificate/proof, event-acquired/exclusive, and edition/variant readback where current data supports it.",
+            "Added compact trait chips and drawer readback in Library, Art, and Collectibles surfaces.",
+            "Added an OpenAPI `CollectibleTrait` schema and documented optional trait arrays on concrete response schemas.",
+            "Promoted the selected backlog task into the roadmap as `3.14.0`."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.13.0",
       "version": "3.13.0",
       "date": null,
@@ -131,25 +151,6 @@
             "Derives pending rows by comparing the loaded media record with the current drawer form.",
             "Shows staged title, year, format, cover, provider, and type-specific metadata values when they differ from the saved record.",
             "Keeps assisted lookup, cover upload, known identity readback, manual details, defer/dismiss, and decision history behavior unchanged.",
-            "Preserved the drawer-first product rule: no standalone Review page or nav item."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.12.9",
-      "version": "3.12.9",
-      "date": null,
-      "status": "completed",
-      "summary": "This patch adds a compact known-identity readback to Dashboard Review drawers, so users can see what collectZ already knows before deciding whether lookup, title cleanup, cover upload, or manual details are needed.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added a `Known identity` section to Dashboard Review drawers.",
-            "Shows existing UPC/barcode, TMDB, ISBN, Google Books, provider, Kavita, and Plex-like identity values when present.",
-            "Shows a plain empty state when the record has no recognized identifier yet.",
-            "Kept assisted lookup, cover upload, manual details, defer/dismiss, and decision history behavior unchanged.",
             "Preserved the drawer-first product rule: no standalone Review page or nav item."
           ]
         }

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CheckboxControl, CollectionPaginationFooter, CoverImagePicker, DetailDrawerShell, DrawerBackdrop, FilterMenu, Icons, PageHeaderSearchToolbar, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
+import { CheckboxControl, CollectionPaginationFooter, CollectibleTraitPills, CollectibleTraitReadback, CoverImagePicker, DetailDrawerShell, DrawerBackdrop, FilterMenu, Icons, PageHeaderSearchToolbar, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
 import SignatureManager from './app/SignatureManager';
 
 const ART_MEDIUM_OPTIONS = [
@@ -283,6 +283,7 @@ function ArtCard({ item, supportsHover, onOpen, onEdit, onDelete }) {
       supportsHover={supportsHover}
       onOpen={() => onOpen(item)}
       subtitle={subtitle || 'Artwork'}
+      meta={Array.isArray(item.collectible_traits) && item.collectible_traits.length ? <CollectibleTraitPills traits={item.collectible_traits} limit={3} /> : null}
       onEdit={() => onEdit(item)}
       onDelete={() => onDelete(item.id)}
     />
@@ -308,6 +309,7 @@ function ArtRow({ item, supportsHover, onOpen, onEdit, onDelete }) {
           {item.signed ? <FilterPill tone="brand">Signed</FilterPill> : null}
           {item.exclusive ? <FilterPill tone="brand">Exclusive</FilterPill> : null}
         </div>
+        <CollectibleTraitPills traits={item.collectible_traits} limit={3} className="mt-2" />
       </div>
       <span className="text-xs text-ghost font-mono">#{item.id}</span>
       <div className={cx('flex gap-2 transition-opacity duration-150', supportsHover ? 'opacity-0 group-hover:opacity-100' : 'opacity-100')}>
@@ -408,6 +410,7 @@ function ArtDetailDrawer({ artId, apiCall, events, onClose, onEdit, onDeleted, o
           {loading ? <div className="flex items-center gap-2 text-dim"><Spinner size={16} />Loading…</div> : null}
           {!loading && item ? (
             <>
+            <CollectibleTraitReadback traits={item.collectible_traits} />
             <div className="md:hidden">
               <CompactDetailRow label="Dimensions">{dimensionsSummary}</CompactDetailRow>
               <CompactDetailRow label="Status">{statusSummary || 'Standard'}</CompactDetailRow>

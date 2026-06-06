@@ -242,6 +242,7 @@ const useSessionBootstrapSource = readFrontendSource(path.join('components', 'ap
 const nowPlayingViewSource = readFrontendSource(path.join('components', 'NowPlayingView'));
 const eventsViewSource = readFrontendSource(path.join('components', 'EventsView'));
 const artViewSource = readFrontendSource(path.join('components', 'ArtView'));
+const collectiblesViewSource = readFrontendSource(path.join('components', 'CollectiblesView'));
 const signatureManagerSource = readFrontendSource(path.join('components', 'app', 'SignatureManager'));
 const backendPackageJson = JSON.parse(fs.readFileSync(require.resolve('../package.json'), 'utf8'));
 const frontendPackageJson = JSON.parse(fs.readFileSync(require.resolve('../../frontend/package.json'), 'utf8'));
@@ -380,6 +381,8 @@ const spaceLifecycleSmokeSource = fs.readFileSync(require.resolve('../scripts/sp
 const dashboardSpec = JSON.parse(fs.readFileSync(require.resolve('../../ops/monitoring/grafana/dashboards/collectz-overview.json'), 'utf8'));
 const alertRulesSource = fs.readFileSync(require.resolve('../../docs/alerts/collectz-alert-rules.yaml'), 'utf8');
 const bookComicNormalizationSource = fs.readFileSync(require.resolve('../services/bookComicNormalization'), 'utf8');
+const collectibleTraitsSource = fs.readFileSync(require.resolve('../services/collectibleTraits'), 'utf8');
+const { buildCollectibleTraits, formatNumberedValue } = require('../services/collectibleTraits');
 
 async function run(name, fn) {
   try {
@@ -4481,6 +4484,44 @@ results.push(run('alert rules include Delicious no-match ratio warning', () => {
   assert.ok(alertRulesSource.includes('>= 100'));
 }));
 
+results.push(run('collectible trait readback derives shared trait summaries without new persistence', () => {
+  assert.strictEqual(formatNumberedValue(150, 200), '#150/200');
+  const traits = buildCollectibleTraits({
+    row: {
+      media_type: 'book',
+      signed_by: 'Author Name',
+      signed_role: 'author',
+      signed_on: '2026-06-01',
+      print_number: 12,
+      print_run: 100,
+      event_title: 'San Diego ComicCon 2026',
+      vendor: 'Booth Vendor',
+      exclusive: true,
+      type_details: { edition: 'Limited hardcover' }
+    },
+    signatures: [
+      {
+        signer_name: 'Author Name',
+        signer_role: 'Author',
+        signed_on: '2026-06-01',
+        proof_path: '/uploads/signature.jpg',
+        is_primary: true,
+        proofs: [{ proof_type: 'coa', label: 'COA', proof_path: '/uploads/coa.jpg' }]
+      }
+    ]
+  });
+  assert.deepStrictEqual(traits.map((trait) => trait.family), ['signed', 'numbered', 'certificate', 'event_acquired', 'edition_variant']);
+  assert.ok(traits.find((trait) => trait.key === 'signed')?.summary.includes('Author Name'));
+  assert.ok(traits.find((trait) => trait.key === 'numbered_limited')?.summary.includes('#12/100'));
+  assert.ok(collectibleTraitsSource.includes('buildCollectibleTraits'));
+  assert.ok(collectibleTraitsSource.includes('buildEventAcquiredTrait'));
+  assert.ok(mediaRoutesSource.includes('collectible_traits: buildCollectibleTraits'));
+  assert.ok(collectiblesRoutesSource.includes('collectible_traits: buildCollectibleTraits'));
+  assert.ok(libraryViewSource.includes('CollectibleTraitReadback'));
+  assert.ok(artViewSource.includes('CollectibleTraitPills'));
+  assert.ok(collectiblesViewSource.includes('CollectibleTraitPills'));
+}));
+
 results.push(run('openapi baseline documents key auth admin and media endpoints', () => {
   const spec = JSON.parse(openApiSource);
   assert.strictEqual(spec.info.title, 'collectZ API');
@@ -4503,6 +4544,10 @@ results.push(run('openapi baseline documents key auth admin and media endpoints'
   assert.ok(spec.paths['/api/auth/service-account-keys']);
   assert.ok(spec.paths['/api/admin/loan-reminder-operations']);
   assert.ok(spec.components.schemas.LoanReminderOperationsResponse);
+  assert.ok(spec.components.schemas.CollectibleTrait);
+  assert.ok(spec.components.schemas.MediaListResponse.properties.items.items.properties.collectible_traits);
+  assert.ok(spec.components.schemas.ArtRecord.properties.collectible_traits);
+  assert.ok(spec.components.schemas.NativeArtRecord.properties.collectible_traits);
   assert.ok(spec.components.schemas.AutomaticLoanReminderRunRecord);
   assert.ok(spec.components.schemas.AutomaticLoanReminderFailureRecord);
   assert.ok(!spec.paths['/api/admin/invites']);

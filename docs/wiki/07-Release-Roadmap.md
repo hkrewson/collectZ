@@ -6,6 +6,34 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.14.0 — Reusable Collectible Traits Readback Foundation
+
+**Goal:** Start the reusable collectible traits milestone by giving existing signed, numbered, certified/provenance, edition, and event-acquired fields a shared readback contract across library surfaces.
+
+### Scope
+
+- Add a backend `collectible_traits` readback shape derived from existing media, Art, and Collectibles fields.
+- Reuse existing signature records, Art print number/run fields, event/vendor/exclusive fields, and media edition/type-details fields instead of adding new persistence in this first slice.
+- Surface compact trait chips and drawer readback in Library, Art, and Collectibles UI.
+- Document the optional trait response schema in OpenAPI.
+- Keep this first slice non-mutating: no new trait table, no grading editor, no generalized COA upload workflow, no bundle relationship model, and no valuation/enrichment behavior.
+
+### Acceptance Criteria
+
+- Media, Art, and Collectibles responses can include `collectible_traits` arrays with stable `key`, `family`, `label`, `summary`, `tone`, and `details` fields.
+- Existing signed, numbered/limited, certificate/proof, event-acquired/exclusive, and edition/variant data can render through the same UI primitives.
+- Ordinary add/edit workflows remain lightweight; users are not forced to fill collectible details for normal entries.
+- Release notes, release feed, version metadata, and targeted runtime/browser verification are updated for `3.14.0`.
+
+### Closeout
+
+- Status: completed in `3.14.0`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/08-Backlog.md`, `docs/releases/v3.14.0.md`, and `backend/openapi/openapi.yaml`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.14.0`; `/api/health` reported version/frontend/backend/build `3.14.0`; running-stack Help > Releases served `3.14.0`; restored platform stack passed platform boundary smoke after the homelab boundary check.
+- Verification: service/route syntax checks; backend unit tests (`303` passed) locally and in-stack; OpenAPI validation locally and in-stack; frontend Vite build locally and in Docker; Docker runtime rebuild; Help > Releases smoke; API integration smoke; init parity; migration rehearsal; observability evidence (`9/9` checks passed); local release preflight; backend/frontend production dependency audits (`0` vulnerabilities); RBAC regression; platform boundary; homelab boundary against local `3.14.0` images; full Playwright browser regression (`77` passed, `4` skipped); version/release-feed sync; and `git diff --check`.
+- CI follow-through: stricter CI compose-smoke secure-cookie settings, secret-scan, CodeQL review, Trivy image security, and SBOM generation remain remote CI gates for the pushed commit.
+- What remains: explicit trait persistence, grading editors, richer COA/provenance editing, bundle relationships, and library-specific edition editors remain follow-up backlog/promoted slices.
+
 ## 3.13.0 — Backup, Export, and Portability UX Foundation
 
 **Goal:** Make backup/export confidence visible in the app by adding an admin-facing read-only portability surface before any one-click export or restore automation.

@@ -35,6 +35,7 @@ const {
   resolveCategoryKey,
   resolveCategoryLabel
 } = require('../services/collectibles');
+const { buildCollectibleTraits } = require('../services/collectibleTraits');
 const { isFeatureEnabled } = require('../services/featureFlags');
 
 const router = express.Router();
@@ -87,7 +88,7 @@ const serializeCollectibleRow = (row) => {
   const vendor = row.vendor || null;
   const booth = row.booth || null;
   const legacyVendorValue = row.booth_or_vendor || null;
-  return {
+  const serialized = {
     ...row,
     subtype: row.subtype || row.item_type || 'collectible',
     category_key: row.category_key || resolveCategoryKey(row.category) || null,
@@ -100,6 +101,10 @@ const serializeCollectibleRow = (row) => {
     booth,
     booth_or_vendor: vendor && booth ? `${vendor} / ${booth}` : (vendor || booth || legacyVendorValue || null)
   };
+  return {
+    ...serialized,
+    collectible_traits: buildCollectibleTraits({ row: serialized })
+  };
 };
 
 const serializeNativeArtRow = (row) => {
@@ -107,7 +112,7 @@ const serializeNativeArtRow = (row) => {
   const booth = row.booth || null;
   const signatures = Array.isArray(row.signatures) ? row.signatures : [];
   const primarySignature = signatures.find((signature) => signature.is_primary) || signatures[0] || null;
-  return {
+  const serialized = {
     id: row.source_collectible_id || row.id,
     native_art_id: row.id,
     source_collectible_id: row.source_collectible_id || null,
@@ -158,6 +163,10 @@ const serializeNativeArtRow = (row) => {
     notes: row.notes || null,
     created_at: row.created_at,
     updated_at: row.updated_at
+  };
+  return {
+    ...serialized,
+    collectible_traits: buildCollectibleTraits({ row: serialized, signatures })
   };
 };
 

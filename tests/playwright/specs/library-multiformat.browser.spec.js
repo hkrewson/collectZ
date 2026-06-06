@@ -446,7 +446,7 @@ test.describe('library multi-format browser regressions', () => {
       const storageState = await requestContext.storageState();
       await page.context().addCookies(storageState.cookies || []);
       await page.goto('/dashboard?tab=library-movies');
-      await page.getByRole('button', { name: /Add/ }).first().click();
+      await page.getByRole('button', { name: /Add media/i }).first().click();
 
       await expect(page.getByRole('heading', { name: /add to library/i })).toBeVisible();
       await page.getByPlaceholder('Movie title').fill(title);

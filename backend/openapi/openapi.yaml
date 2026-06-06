@@ -1087,6 +1087,11 @@
                 "valuation_currency": { "type": ["string", "null"] },
                 "valuation_source": { "type": ["string", "null"] },
                 "valuation_last_updated": { "type": ["string", "null"], "format": "date-time" },
+                "collectible_traits": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/CollectibleTrait" },
+                  "description": "Read-only shared collectible trait summaries derived from existing signature, edition, numbered, and event-acquired fields."
+                },
                 "review_reasons": {
                   "type": "array",
                   "items": { "type": "string" },
@@ -1491,6 +1496,32 @@
         },
         "required": ["runtime", "latest_run", "recent_runs", "recent_failures"]
       },
+      "CollectibleTrait": {
+        "type": "object",
+        "description": "Read-only shared collectible trait summary derived from existing item fields and signature/provenance records.",
+        "properties": {
+          "key": { "type": "string" },
+          "family": {
+            "type": "string",
+            "enum": ["signed", "numbered", "certificate", "event_acquired", "edition_variant"]
+          },
+          "label": { "type": "string" },
+          "summary": { "type": "string" },
+          "tone": { "type": "string", "enum": ["default", "brand"] },
+          "details": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "label": { "type": "string" },
+                "value": { "type": "string" }
+              },
+              "required": ["label", "value"]
+            }
+          }
+        },
+        "required": ["key", "family", "label", "summary", "tone", "details"]
+      },
       "ArtRecord": {
         "type": "object",
         "properties": {
@@ -1539,6 +1570,10 @@
           "signed_event_id": { "type": ["integer", "null"] },
           "signature_proof_path": { "type": ["string", "null"] },
           "signature_notes": { "type": ["string", "null"] },
+          "collectible_traits": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/CollectibleTrait" }
+          },
           "image_path": { "type": ["string", "null"] },
           "notes": { "type": ["string", "null"] },
           "created_at": { "type": "string", "format": "date-time" },
@@ -1572,6 +1607,10 @@
           "signatures": {
             "type": "array",
             "items": { "$ref": "#/components/schemas/SignatureRecord" }
+          },
+          "collectible_traits": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/CollectibleTrait" }
           },
           "image_path": { "type": ["string", "null"] },
           "notes": { "type": ["string", "null"] },

@@ -147,6 +147,7 @@ const {
   syncPrimarySignatureRecord,
   buildLegacyMediaSignature
 } = require('../services/signatures');
+const { buildCollectibleTraits } = require('../services/collectibleTraits');
 const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
 const { isFeatureEnabledForSpace } = require('../services/featureFlags');
 const { enforceScopeAccess } = require('../middleware/scopeAccess');
@@ -627,12 +628,16 @@ function parseOwnedFormatsInput(mediaType, rawValue, fallbackFormat = null) {
 
 function normalizeMediaRecord(row = {}) {
   const payload = buildOwnedFormatsPayload(row.media_type || 'movie', row.owned_formats, row.format);
-  return {
+  const normalized = {
     ...row,
     owned_formats: payload.ownedFormats,
     format: payload.format,
     cast: row.cast || row.cast_members || null,
     plex_linked: Boolean(row.plex_linked)
+  };
+  return {
+    ...normalized,
+    collectible_traits: buildCollectibleTraits({ row: normalized })
   };
 }
 
@@ -641,7 +646,8 @@ async function attachSignaturesToMediaRecord(row = {}) {
   const signatures = await loadSignatureRecordsForOwner(pool, { ownerType: 'media', ownerId: row.id });
   return {
     ...row,
-    signatures
+    signatures,
+    collectible_traits: buildCollectibleTraits({ row, signatures })
   };
 }
 

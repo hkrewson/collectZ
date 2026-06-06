@@ -8,6 +8,8 @@ import {
   DetailDrawerShell,
   DrawerBackdrop,
   FilterMenu,
+  CollectibleTraitPills,
+  CollectibleTraitReadback,
   PageHeaderSearchToolbar,
   CollectionPaginationFooter,
   cx,
@@ -574,6 +576,7 @@ function MediaListRow({ item, onOpen, onEdit, onDelete, onRating, supportsHover,
           <p className="text-xs text-ok mt-0.5 inline-flex items-center gap-1"><Icons.Check />All seasons completed</p>
         )}
         {clue ? <p className="mt-0.5 break-words text-xs text-dim">{clue}</p> : null}
+        <CollectibleTraitPills traits={item.collectible_traits} limit={3} className="mt-1" />
         {item.genre && <p className="text-xs text-ghost/70 mt-0.5 truncate">{item.genre}</p>}
       </div>
       <div onClick={(e) => e.stopPropagation()} className="sm:shrink-0"><StarRating value={userRatingToStars(item.user_rating)} onChange={(r) => onRating(item.id, starsToUserRating(r))} /></div>
@@ -1477,6 +1480,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
         <div className="divider" />
 
         <div className="flex-1 overflow-y-auto scroll-area p-6 space-y-6">
+          {!showLoanFocusedView ? <CollectibleTraitReadback traits={item.collectible_traits} /> : null}
           {!showLoanFocusedView && item.overview && (
             <div className={cx(isBook || isComic ? 'max-w-3xl' : '')}>
               <p className="label mb-2">Overview</p>
