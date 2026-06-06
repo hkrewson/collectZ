@@ -36,6 +36,7 @@ const {
   resolveCategoryLabel
 } = require('../services/collectibles');
 const { buildCollectibleTraits } = require('../services/collectibleTraits');
+const { loadTraitRecords, loadTraitRecordsForOwner } = require('../services/collectibleTraitRecords');
 const { isFeatureEnabled } = require('../services/featureFlags');
 
 const router = express.Router();
@@ -88,6 +89,7 @@ const serializeCollectibleRow = (row) => {
   const vendor = row.vendor || null;
   const booth = row.booth || null;
   const legacyVendorValue = row.booth_or_vendor || null;
+  const persistedTraits = Array.isArray(row.persisted_collectible_traits) ? row.persisted_collectible_traits : [];
   const serialized = {
     ...row,
     subtype: row.subtype || row.item_type || 'collectible',
@@ -103,7 +105,7 @@ const serializeCollectibleRow = (row) => {
   };
   return {
     ...serialized,
-    collectible_traits: buildCollectibleTraits({ row: serialized })
+    collectible_traits: buildCollectibleTraits({ row: { ...serialized, persisted_collectible_traits: persistedTraits } })
   };
 };
 
@@ -111,6 +113,7 @@ const serializeNativeArtRow = (row) => {
   const vendor = row.vendor || null;
   const booth = row.booth || null;
   const signatures = Array.isArray(row.signatures) ? row.signatures : [];
+  const persistedTraits = Array.isArray(row.persisted_collectible_traits) ? row.persisted_collectible_traits : [];
   const primarySignature = signatures.find((signature) => signature.is_primary) || signatures[0] || null;
   const serialized = {
     id: row.source_collectible_id || row.id,
@@ -166,7 +169,7 @@ const serializeNativeArtRow = (row) => {
   };
   return {
     ...serialized,
-    collectible_traits: buildCollectibleTraits({ row: serialized, signatures })
+    collectible_traits: buildCollectibleTraits({ row: { ...serialized, persisted_collectible_traits: persistedTraits }, signatures })
   };
 };
 
@@ -379,16 +382,35 @@ const attachSignaturesToArtRows = async (rows = []) => {
   const artRows = Array.isArray(rows) ? rows : [];
   const ids = artRows.map((row) => Number(row.id || 0)).filter(Boolean);
   const signaturesByOwner = await loadSignatureRecords(pool, { ownerType: 'art', ownerIds: ids });
+  const traitsByOwner = await loadTraitRecords(pool, { ownerType: 'art', ownerIds: ids });
   return artRows.map((row) => ({
     ...row,
-    signatures: signaturesByOwner.get(Number(row.id || 0)) || []
+    signatures: signaturesByOwner.get(Number(row.id || 0)) || [],
+    persisted_collectible_traits: traitsByOwner.get(Number(row.id || 0)) || []
   }));
 };
 
 const attachSignaturesToArtRow = async (row) => {
   if (!row?.id) return row;
   const signatures = await loadSignatureRecordsForOwner(pool, { ownerType: 'art', ownerId: row.id });
-  return { ...row, signatures };
+  const persistedTraits = await loadTraitRecordsForOwner(pool, { ownerType: 'art', ownerId: row.id });
+  return { ...row, signatures, persisted_collectible_traits: persistedTraits };
+};
+
+const attachPersistedTraitsToCollectibleRows = async (rows = []) => {
+  const collectibleRows = Array.isArray(rows) ? rows : [];
+  const ids = collectibleRows.map((row) => Number(row.id || 0)).filter(Boolean);
+  const traitsByOwner = await loadTraitRecords(pool, { ownerType: 'collectible', ownerIds: ids });
+  return collectibleRows.map((row) => ({
+    ...row,
+    persisted_collectible_traits: traitsByOwner.get(Number(row.id || 0)) || []
+  }));
+};
+
+const attachPersistedTraitsToCollectibleRow = async (row) => {
+  if (!row?.id) return row;
+  const persistedTraits = await loadTraitRecordsForOwner(pool, { ownerType: 'collectible', ownerId: row.id });
+  return { ...row, persisted_collectible_traits: persistedTraits };
 };
 
 const buildArtSignaturePayload = (payload = {}) => ({
@@ -822,8 +844,9 @@ router.get(COLLECTIBLE_ROUTE_PATHS, asyncHandler(async (req, res) => {
     params
   );
   const total = Number(countResult.rows[0]?.total || 0);
+  const rowsWithTraits = await attachPersistedTraitsToCollectibleRows(rows.rows);
   res.json({
-    items: rows.rows.map(serializeCollectibleRow),
+    items: rowsWithTraits.map(serializeCollectibleRow),
     pagination: {
       page,
       limit,
@@ -871,7 +894,7 @@ router.get(COLLECTIBLE_DETAIL_PATHS, asyncHandler(async (req, res) => {
     params
   );
   if (!result.rows[0]) return res.status(404).json({ error: `${routeConfig.entityLabel === 'art' ? 'Art item' : 'Collectible'} not found` });
-  res.json(serializeCollectibleRow(result.rows[0]));
+  res.json(serializeCollectibleRow(await attachPersistedTraitsToCollectibleRow(result.rows[0])));
 }));
 
 const createArt = asyncHandler(async (req, res) => {

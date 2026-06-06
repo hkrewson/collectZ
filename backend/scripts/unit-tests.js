@@ -184,6 +184,7 @@ const spacesRoutesSource = fs.readFileSync(require.resolve('../routes/spaces'), 
 const adminRoutesSource = fs.readFileSync(require.resolve('../routes/admin'), 'utf8');
 const eventsRoutesSource = fs.readFileSync(require.resolve('../routes/events'), 'utf8');
 const collectiblesRoutesSource = fs.readFileSync(require.resolve('../routes/collectibles'), 'utf8');
+const collectibleTraitsRoutesSource = fs.readFileSync(require.resolve('../routes/collectibleTraits'), 'utf8');
 const integrationsRoutesSource = fs.readFileSync(require.resolve('../routes/integrations'), 'utf8');
 const spaceIntegrationsRoutesSource = fs.readFileSync(require.resolve('../routes/spaceIntegrations'), 'utf8');
 const integrationsServiceSource = fs.readFileSync(require.resolve('../services/integrations'), 'utf8');
@@ -382,7 +383,9 @@ const dashboardSpec = JSON.parse(fs.readFileSync(require.resolve('../../ops/moni
 const alertRulesSource = fs.readFileSync(require.resolve('../../docs/alerts/collectz-alert-rules.yaml'), 'utf8');
 const bookComicNormalizationSource = fs.readFileSync(require.resolve('../services/bookComicNormalization'), 'utf8');
 const collectibleTraitsSource = fs.readFileSync(require.resolve('../services/collectibleTraits'), 'utf8');
+const collectibleTraitRecordsSource = fs.readFileSync(require.resolve('../services/collectibleTraitRecords'), 'utf8');
 const { buildCollectibleTraits, formatNumberedValue } = require('../services/collectibleTraits');
+const { normalizeTraitPayload } = require('../services/collectibleTraitRecords');
 
 async function run(name, fn) {
   try {
@@ -4484,7 +4487,7 @@ results.push(run('alert rules include Delicious no-match ratio warning', () => {
   assert.ok(alertRulesSource.includes('>= 100'));
 }));
 
-results.push(run('collectible trait readback derives shared trait summaries without new persistence', () => {
+results.push(run('collectible trait readback derives shared trait summaries and merges persisted traits', () => {
   assert.strictEqual(formatNumberedValue(150, 200), '#150/200');
   const traits = buildCollectibleTraits({
     row: {
@@ -4513,13 +4516,68 @@ results.push(run('collectible trait readback derives shared trait summaries with
   assert.deepStrictEqual(traits.map((trait) => trait.family), ['signed', 'numbered', 'certificate', 'event_acquired', 'edition_variant']);
   assert.ok(traits.find((trait) => trait.key === 'signed')?.summary.includes('Author Name'));
   assert.ok(traits.find((trait) => trait.key === 'numbered_limited')?.summary.includes('#12/100'));
+  const persistedTraits = buildCollectibleTraits({
+    row: {
+      signed_by: 'Derived Signer',
+      persisted_collectible_traits: [
+        {
+          trait_key: 'signed',
+          family: 'signed',
+          label: 'Signed',
+          summary: 'Stored signed readback',
+          tone: 'brand',
+          details: [{ label: 'Signer', value: 'Persisted Signer' }]
+        },
+        {
+          trait_key: 'graded',
+          family: 'graded',
+          label: 'Graded',
+          summary: 'CGC 9.8',
+          tone: 'brand',
+          details: [{ label: 'Grade', value: '9.8' }]
+        }
+      ]
+    }
+  });
+  assert.strictEqual(persistedTraits.find((trait) => trait.key === 'signed')?.summary, 'Stored signed readback');
+  assert.ok(persistedTraits.find((trait) => trait.key === 'graded'));
   assert.ok(collectibleTraitsSource.includes('buildCollectibleTraits'));
   assert.ok(collectibleTraitsSource.includes('buildEventAcquiredTrait'));
+  assert.ok(collectibleTraitsSource.includes('mergeCollectibleTraits'));
   assert.ok(mediaRoutesSource.includes('collectible_traits: buildCollectibleTraits'));
+  assert.ok(mediaRoutesSource.includes('attachPersistedTraitsToMediaRows'));
   assert.ok(collectiblesRoutesSource.includes('collectible_traits: buildCollectibleTraits'));
+  assert.ok(collectiblesRoutesSource.includes('attachPersistedTraitsToCollectibleRows'));
   assert.ok(libraryViewSource.includes('CollectibleTraitReadback'));
   assert.ok(artViewSource.includes('CollectibleTraitPills'));
   assert.ok(collectiblesViewSource.includes('CollectibleTraitPills'));
+}));
+
+results.push(run('collectible trait persistence contract is scoped and documented', () => {
+  const normalized = normalizeTraitPayload({
+    key: 'CGC Grade',
+    family: 'graded',
+    label: 'Graded',
+    summary: 'CGC 9.8',
+    tone: 'brand',
+    details: [{ label: 'Certificate', value: '12345' }],
+    payload: { company: 'CGC', grade: '9.8' }
+  });
+  assert.strictEqual(normalized.trait_key, 'cgc_grade');
+  assert.strictEqual(normalized.family, 'graded');
+  assert.strictEqual(normalized.details[0].label, 'Certificate');
+  assert.ok(migrationsSource.includes('version: 107'));
+  assert.ok(migrationsSource.includes('CREATE TABLE IF NOT EXISTS collectible_trait_records'));
+  assert.ok(migrationsSource.includes("owner_type VARCHAR(30) NOT NULL CHECK (owner_type IN ('media', 'art', 'collectible'))"));
+  assert.ok(collectibleTraitRecordsSource.includes('resolveTraitOwner'));
+  assert.ok(collectibleTraitRecordsSource.includes('upsertTraitRecord'));
+  assert.ok(collectibleTraitRecordsSource.includes('archiveTraitRecord'));
+  assert.ok(collectibleTraitsRoutesSource.includes("router.use('/collectible-traits', authenticateToken);"));
+  assert.ok(collectibleTraitsRoutesSource.includes("router.put('/collectible-traits/:ownerType/:ownerId', upsertTraitHandler);"));
+  assert.ok(collectibleTraitsRoutesSource.includes("router.put('/collectible-traits/:ownerType/:ownerId/:traitKey', upsertTraitHandler);"));
+  assert.ok(serverSource.includes("const collectibleTraitsRouter = require('./routes/collectibleTraits');"));
+  assert.ok(serverSource.includes("app.use('/api', collectibleTraitsRouter);"));
+  assert.ok(personalAccessTokenSource.includes("path.startsWith('/api/collectible-traits')"));
 }));
 
 results.push(run('openapi baseline documents key auth admin and media endpoints', () => {
@@ -4545,6 +4603,10 @@ results.push(run('openapi baseline documents key auth admin and media endpoints'
   assert.ok(spec.paths['/api/admin/loan-reminder-operations']);
   assert.ok(spec.components.schemas.LoanReminderOperationsResponse);
   assert.ok(spec.components.schemas.CollectibleTrait);
+  assert.ok(spec.components.schemas.CollectibleTraitRecord);
+  assert.ok(spec.components.schemas.CollectibleTraitUpsertRequest);
+  assert.ok(spec.paths['/api/collectible-traits/{ownerType}/{ownerId}']);
+  assert.ok(spec.paths['/api/collectible-traits/{ownerType}/{ownerId}/{traitKey}']);
   assert.ok(spec.components.schemas.MediaListResponse.properties.items.items.properties.collectible_traits);
   assert.ok(spec.components.schemas.ArtRecord.properties.collectible_traits);
   assert.ok(spec.components.schemas.NativeArtRecord.properties.collectible_traits);

@@ -165,16 +165,57 @@ function buildEditionTrait(row = {}) {
 
 function buildCollectibleTraits({ row = {}, signatures = null } = {}) {
   const signatureRows = signatures || row.signatures || [];
-  return [
+  const persistedTraits = asArray(row.persisted_collectible_traits || row.persisted_traits)
+    .map(normalizePersistedTrait)
+    .filter(Boolean);
+  const derivedTraits = [
     buildSignedTrait(row, signatureRows),
     buildNumberedTrait(row),
     buildCertificateTrait(signatureRows),
     buildEventAcquiredTrait(row),
     buildEditionTrait(row)
   ].filter(Boolean);
+  return mergeCollectibleTraits(persistedTraits, derivedTraits);
+}
+
+function normalizePersistedTrait(trait = {}) {
+  const key = cleanString(trait.key || trait.trait_key);
+  const family = cleanString(trait.family);
+  const label = cleanString(trait.label);
+  if (!key || !family || !label) return null;
+  const details = asArray(trait.details)
+    .map((detail) => {
+      const detailLabel = cleanString(detail?.label);
+      const value = cleanString(detail?.value);
+      if (!detailLabel || !value) return null;
+      return { label: detailLabel, value };
+    })
+    .filter(Boolean);
+  return {
+    key,
+    family,
+    label,
+    summary: cleanString(trait.summary) || label,
+    tone: cleanString(trait.tone) || 'default',
+    details
+  };
+}
+
+function mergeCollectibleTraits(primaryTraits = [], fallbackTraits = []) {
+  const seen = new Set();
+  const merged = [];
+  for (const trait of [...asArray(primaryTraits), ...asArray(fallbackTraits)]) {
+    const normalized = normalizePersistedTrait(trait);
+    if (!normalized || seen.has(normalized.key)) continue;
+    seen.add(normalized.key);
+    merged.push(normalized);
+  }
+  return merged;
 }
 
 module.exports = {
   buildCollectibleTraits,
-  formatNumberedValue
+  formatNumberedValue,
+  mergeCollectibleTraits,
+  normalizePersistedTrait
 };

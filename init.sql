@@ -202,6 +202,27 @@ CREATE TABLE IF NOT EXISTS capture_items (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS collectible_trait_records (
+    id SERIAL PRIMARY KEY,
+    owner_type VARCHAR(30) NOT NULL CHECK (owner_type IN ('media', 'art', 'collectible')),
+    owner_id INTEGER NOT NULL,
+    trait_key VARCHAR(80) NOT NULL,
+    family VARCHAR(40) NOT NULL CHECK (family IN ('signed', 'numbered', 'certificate', 'event_acquired', 'edition_variant', 'graded', 'bundle', 'provenance')),
+    label VARCHAR(120) NOT NULL,
+    summary TEXT,
+    tone VARCHAR(20) NOT NULL DEFAULT 'default' CHECK (tone IN ('default', 'brand', 'warning', 'danger', 'success')),
+    details JSONB NOT NULL DEFAULT '[]'::jsonb,
+    payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+    source VARCHAR(80) NOT NULL DEFAULT 'manual',
+    source_context JSONB NOT NULL DEFAULT '{}'::jsonb,
+    library_id INTEGER,
+    space_id INTEGER,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    archived_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS media_loan_reminders (
     id SERIAL PRIMARY KEY,
     loan_id INTEGER NOT NULL REFERENCES media_loans(id) ON DELETE CASCADE,
@@ -1438,6 +1459,15 @@ CREATE INDEX IF NOT EXISTS idx_capture_items_barcode
 CREATE INDEX IF NOT EXISTS idx_capture_items_wanted_item
     ON capture_items(wanted_item_id)
     WHERE wanted_item_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_collectible_trait_records_owner_key_active
+    ON collectible_trait_records(owner_type, owner_id, trait_key)
+    WHERE archived_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_collectible_trait_records_owner_active
+    ON collectible_trait_records(owner_type, owner_id, updated_at DESC)
+    WHERE archived_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_collectible_trait_records_scope_family_active
+    ON collectible_trait_records(space_id, library_id, family, updated_at DESC)
+    WHERE archived_at IS NULL;
 
 -- Updated-at trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -1465,6 +1495,10 @@ BEGIN
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_capture_items_updated_at') THEN
         CREATE TRIGGER update_capture_items_updated_at BEFORE UPDATE ON capture_items
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_collectible_trait_records_updated_at') THEN
+        CREATE TRIGGER update_collectible_trait_records_updated_at BEFORE UPDATE ON collectible_trait_records
             FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_media_variants_updated_at') THEN
@@ -1745,5 +1779,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (103, 'Add scoped wishlist and acquisition tracking'),
     (104, 'Add mobile capture inbox foundation'),
     (105, 'Add wishlist price history snapshots'),
-    (106, 'Add Dashboard Review decision tracking')
+    (106, 'Add Dashboard Review decision tracking'),
+    (107, 'Add reusable collectible trait persistence')
 ON CONFLICT (version) DO NOTHING;

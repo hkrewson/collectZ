@@ -148,6 +148,7 @@ const {
   buildLegacyMediaSignature
 } = require('../services/signatures');
 const { buildCollectibleTraits } = require('../services/collectibleTraits');
+const { loadTraitRecords, loadTraitRecordsForOwner } = require('../services/collectibleTraitRecords');
 const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
 const { isFeatureEnabledForSpace } = require('../services/featureFlags');
 const { enforceScopeAccess } = require('../middleware/scopeAccess');
@@ -628,6 +629,7 @@ function parseOwnedFormatsInput(mediaType, rawValue, fallbackFormat = null) {
 
 function normalizeMediaRecord(row = {}) {
   const payload = buildOwnedFormatsPayload(row.media_type || 'movie', row.owned_formats, row.format);
+  const persistedTraits = Array.isArray(row.persisted_collectible_traits) ? row.persisted_collectible_traits : [];
   const normalized = {
     ...row,
     owned_formats: payload.ownedFormats,
@@ -637,18 +639,30 @@ function normalizeMediaRecord(row = {}) {
   };
   return {
     ...normalized,
-    collectible_traits: buildCollectibleTraits({ row: normalized })
+    collectible_traits: buildCollectibleTraits({ row: { ...normalized, persisted_collectible_traits: persistedTraits } })
   };
 }
 
 async function attachSignaturesToMediaRecord(row = {}) {
   if (!row?.id) return row;
   const signatures = await loadSignatureRecordsForOwner(pool, { ownerType: 'media', ownerId: row.id });
+  const persistedTraits = await loadTraitRecordsForOwner(pool, { ownerType: 'media', ownerId: row.id });
   return {
     ...row,
     signatures,
-    collectible_traits: buildCollectibleTraits({ row, signatures })
+    persisted_collectible_traits: persistedTraits,
+    collectible_traits: buildCollectibleTraits({ row: { ...row, persisted_collectible_traits: persistedTraits }, signatures })
   };
+}
+
+async function attachPersistedTraitsToMediaRows(rows = []) {
+  const mediaRows = Array.isArray(rows) ? rows : [];
+  const ids = mediaRows.map((row) => Number(row.id || 0)).filter(Boolean);
+  const traitsByOwner = await loadTraitRecords(pool, { ownerType: 'media', ownerIds: ids });
+  return mediaRows.map((row) => {
+    const persistedTraits = traitsByOwner.get(Number(row.id || 0)) || [];
+    return normalizeMediaRecord({ ...row, persisted_collectible_traits: persistedTraits });
+  });
 }
 
 async function syncMediaPrimarySignature(row = {}, userId = null) {
@@ -10132,7 +10146,8 @@ router.get('/', asyncHandler(async (req, res) => {
      OFFSET $${params.length}`,
     params
   );
-  const normalizedItems = result.rows.map((row) => applyMediaReviewClues(normalizeMediaRecord(row), normalizedReviewFilter));
+  const rowsWithTraits = await attachPersistedTraitsToMediaRows(result.rows);
+  const normalizedItems = rowsWithTraits.map((row) => applyMediaReviewClues(row, normalizedReviewFilter));
   const totalPages = total > 0 ? Math.ceil(total / limitNum) : 1;
   res.json({
     items: normalizedItems,
@@ -10432,7 +10447,7 @@ router.get('/comic-series/issues', asyncHandler(async (req, res) => {
     params
   );
 
-  const normalizedItems = result.rows.map((row) => normalizeMediaRecord(row));
+  const normalizedItems = await attachPersistedTraitsToMediaRows(result.rows);
   const totalPages = total > 0 ? Math.ceil(total / limitNum) : 1;
   res.json({
     items: normalizedItems,

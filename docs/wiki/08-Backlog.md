@@ -301,9 +301,9 @@ These are product-level capability gaps discovered from the current shape of the
 - The UI makes special collectible details readable without making ordinary add/edit flows feel heavier.
 
 ### Backlog Item: Reusable Collectible Trait Persistence
-**Type:** Deferred milestone
+**Type:** Promoted milestone
 **Tags:** `product`, `collectibles`, `metadata`, `traits`, `schema`, `cross-library`
-**Status:** Active backlog; `3.14.0` added derived trait readback only, not explicit persisted trait records.
+**Status:** Promoted to `3.14.1 — Reusable Collectible Trait Persistence` in [07-Release-Roadmap.md](07-Release-Roadmap.md).
 
 **Goal:** Add a durable trait storage model so signed, numbered, certified, graded, variant, bundled, and event-acquired details can be edited consistently across libraries instead of only being derived from existing fields.
 

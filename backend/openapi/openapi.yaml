@@ -1498,16 +1498,16 @@
       },
       "CollectibleTrait": {
         "type": "object",
-        "description": "Read-only shared collectible trait summary derived from existing item fields and signature/provenance records.",
+        "description": "Shared collectible trait summary. Traits may be derived from compatibility fields or persisted through the collectible trait API.",
         "properties": {
           "key": { "type": "string" },
           "family": {
             "type": "string",
-            "enum": ["signed", "numbered", "certificate", "event_acquired", "edition_variant"]
+            "enum": ["signed", "numbered", "certificate", "event_acquired", "edition_variant", "graded", "bundle", "provenance"]
           },
           "label": { "type": "string" },
           "summary": { "type": "string" },
-          "tone": { "type": "string", "enum": ["default", "brand"] },
+          "tone": { "type": "string", "enum": ["default", "brand", "warning", "danger", "success"] },
           "details": {
             "type": "array",
             "items": {
@@ -1521,6 +1521,64 @@
           }
         },
         "required": ["key", "family", "label", "summary", "tone", "details"]
+      },
+      "CollectibleTraitRecord": {
+        "allOf": [
+          { "$ref": "#/components/schemas/CollectibleTrait" },
+          {
+            "type": "object",
+            "properties": {
+              "id": { "type": "integer" },
+              "owner_type": { "type": "string", "enum": ["media", "art", "collectible"] },
+              "owner_id": { "type": "integer" },
+              "trait_key": { "type": "string" },
+              "payload": { "type": "object", "additionalProperties": true },
+              "source": { "type": "string" },
+              "source_context": { "type": "object", "additionalProperties": true },
+              "library_id": { "type": ["integer", "null"] },
+              "space_id": { "type": ["integer", "null"] },
+              "created_at": { "type": ["string", "null"], "format": "date-time" },
+              "updated_at": { "type": ["string", "null"], "format": "date-time" }
+            },
+            "required": ["id", "owner_type", "owner_id", "trait_key", "payload", "source", "source_context"]
+          }
+        ]
+      },
+      "CollectibleTraitOwner": {
+        "type": "object",
+        "properties": {
+          "owner_type": { "type": "string", "enum": ["media", "art", "collectible"] },
+          "owner_id": { "type": "integer" },
+          "library_id": { "type": ["integer", "null"] },
+          "space_id": { "type": ["integer", "null"] }
+        },
+        "required": ["owner_type", "owner_id"]
+      },
+      "CollectibleTraitUpsertRequest": {
+        "type": "object",
+        "properties": {
+          "key": { "type": "string" },
+          "trait_key": { "type": "string" },
+          "family": { "type": "string", "enum": ["signed", "numbered", "certificate", "event_acquired", "edition_variant", "graded", "bundle", "provenance"] },
+          "label": { "type": "string" },
+          "summary": { "type": "string" },
+          "tone": { "type": "string", "enum": ["default", "brand", "warning", "danger", "success"] },
+          "details": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "label": { "type": "string" },
+                "value": { "type": "string" }
+              },
+              "required": ["label", "value"]
+            }
+          },
+          "payload": { "type": "object", "additionalProperties": true },
+          "source": { "type": "string" },
+          "source_context": { "type": "object", "additionalProperties": true }
+        },
+        "required": ["family"]
       },
       "ArtRecord": {
         "type": "object",
@@ -8218,6 +8276,214 @@
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/collectible-traits/{ownerType}/{ownerId}": {
+      "get": {
+        "tags": ["Media"],
+        "summary": "List persisted collectible traits for an item",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "name": "ownerType",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "enum": ["media", "art", "collectible"] }
+          },
+          {
+            "name": "ownerId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Persisted collectible traits",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "owner": { "$ref": "#/components/schemas/CollectibleTraitOwner" },
+                    "traits": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/CollectibleTraitRecord" }
+                    }
+                  },
+                  "required": ["owner", "traits"]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Trait owner not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["Media"],
+        "summary": "Create or update a persisted collectible trait",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "name": "ownerType",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "enum": ["media", "art", "collectible"] }
+          },
+          {
+            "name": "ownerId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CollectibleTraitUpsertRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Persisted collectible trait",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "owner": { "$ref": "#/components/schemas/CollectibleTraitOwner" },
+                    "trait": { "$ref": "#/components/schemas/CollectibleTraitRecord" }
+                  },
+                  "required": ["owner", "trait"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid trait payload",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/collectible-traits/{ownerType}/{ownerId}/{traitKey}": {
+      "put": {
+        "tags": ["Media"],
+        "summary": "Create or update a persisted collectible trait by key",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "name": "ownerType",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "enum": ["media", "art", "collectible"] }
+          },
+          {
+            "name": "ownerId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          },
+          {
+            "name": "traitKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CollectibleTraitUpsertRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Persisted collectible trait",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "owner": { "$ref": "#/components/schemas/CollectibleTraitOwner" },
+                    "trait": { "$ref": "#/components/schemas/CollectibleTraitRecord" }
+                  },
+                  "required": ["owner", "trait"]
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Media"],
+        "summary": "Archive a persisted collectible trait",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "name": "ownerType",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "enum": ["media", "art", "collectible"] }
+          },
+          {
+            "name": "ownerId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          },
+          {
+            "name": "traitKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Archived collectible trait",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "owner": { "$ref": "#/components/schemas/CollectibleTraitOwner" },
+                    "trait": { "$ref": "#/components/schemas/CollectibleTraitRecord" },
+                    "archived": { "type": "boolean" }
+                  },
+                  "required": ["owner", "trait", "archived"]
+                }
               }
             }
           }

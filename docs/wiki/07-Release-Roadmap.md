@@ -6,6 +6,34 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.14.1 — Reusable Collectible Trait Persistence
+
+**Goal:** Add the durable backend persistence contract that future grading, COA/provenance, bundle, and edition editors can use while preserving the `3.14.0` derived readback contract.
+
+### Scope
+
+- Add a reusable `collectible_trait_records` persistence table for `media`, `art`, and `collectible` owners.
+- Add scoped trait API endpoints under `/api/collectible-traits/{ownerType}/{ownerId}` for listing, upserting, and archiving trait records.
+- Fold persisted trait records into existing `collectible_traits` readback before derived compatibility traits with the same key.
+- Keep this backend/API slice editor-light: no grading editor, COA upload UI, bundle editor, or library-specific edition form yet.
+- Document the persistence API and expanded trait families in OpenAPI.
+
+### Acceptance Criteria
+
+- Persisted traits are scoped to existing owner records and active workspace/library context.
+- Existing media, Art, and Collectibles responses still include `collectible_traits`; stored traits can override derived readback by key.
+- Personal access token scope mapping treats the trait API as collection data, not admin/platform data.
+- Release notes, release feed, version metadata, migration checks, OpenAPI validation, and Docker runtime verification are updated for `3.14.1`.
+
+### Closeout
+
+- Status: completed in `3.14.1`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/08-Backlog.md`, `docs/releases/v3.14.1.md`, and `backend/openapi/openapi.yaml`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.14.1`; migration `107` applied in-stack; `/api/health` reported version/frontend/backend/build `3.14.1`; running-stack Help > Releases served `3.14.1`; restored the platform stack after the isolated homelab boundary smoke.
+- Verification: service/route syntax checks; backend unit tests (`304` passed) locally and in-stack; OpenAPI validation locally and in-stack; frontend Vite build; Docker runtime rebuild; Help > Releases smoke; API integration smoke; init parity; migration rehearsal; observability evidence (`9/9` checks passed); local release preflight; backend/frontend production dependency audits (`0` vulnerabilities); RBAC regression; platform boundary; homelab boundary against local `3.14.1` images; full Playwright browser regression; version/release-feed sync; and `git diff --check`.
+- CI follow-through: stricter CI compose-smoke secure-cookie settings, secret-scan, CodeQL review, Trivy image security, and SBOM generation remain remote CI gates for the pushed commit.
+- What remains: grading editors, richer COA/provenance editing, bundle relationships, and library-specific edition editors remain active backlog/promoted slices on top of this persistence contract.
+
 ## 3.14.0 — Reusable Collectible Traits Readback Foundation
 
 **Goal:** Start the reusable collectible traits milestone by giving existing signed, numbered, certified/provenance, edition, and event-acquired fields a shared readback contract across library surfaces.

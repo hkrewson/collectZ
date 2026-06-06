@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.14.1",
+      "version": "3.14.1",
+      "date": null,
+      "status": null,
+      "summary": "This patch continues the reusable collectible traits line by adding the backend persistence contract that future grading, COA/provenance, bundle, and edition editors can build on.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added migration `107` for `collectible_trait_records`.",
+            "Added scoped persisted trait APIs under `/api/collectible-traits/{ownerType}/{ownerId}`.",
+            "Supported trait owners: media, Art, and Collectibles.",
+            "Persisted traits now merge into existing `collectible_traits` readback before derived compatibility traits with the same key.",
+            "Expanded the OpenAPI trait contract for stored traits and future families such as graded, bundle, and provenance.",
+            "Added personal access token scope mapping for the trait API as collection data."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.14.0",
       "version": "3.14.0",
       "date": null,
@@ -133,25 +153,6 @@
             "The Save button is disabled until lookup, upload, or manual edits create pending updates.",
             "No-op submit paths now show `Make a change before saving.` instead of silently closing the drawer.",
             "Defer, dismiss, and cancel behavior remains independent of pending edits."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.12.10",
-      "version": "3.12.10",
-      "date": null,
-      "status": "completed",
-      "summary": "This patch adds a compact pending-update readback to Dashboard Review drawers, so users can see what lookup, cover upload, or manual edits have staged before saving the record.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added a `Pending updates` section to Dashboard Review drawers.",
-            "Derives pending rows by comparing the loaded media record with the current drawer form.",
-            "Shows staged title, year, format, cover, provider, and type-specific metadata values when they differ from the saved record.",
-            "Keeps assisted lookup, cover upload, known identity readback, manual details, defer/dismiss, and decision history behavior unchanged.",
-            "Preserved the drawer-first product rule: no standalone Review page or nav item."
           ]
         }
       ]
