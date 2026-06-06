@@ -473,7 +473,7 @@ test.describe('library multi-format browser regressions', () => {
       await expect(resultCard).toBeVisible();
       await resultCard.click();
       await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
-      await page.getByRole('button', { name: 'Edit', exact: true }).click();
+      await page.getByTestId('media-detail-edit-button').click();
 
       await expect(page.getByRole('heading', { name: /edit media/i })).toBeVisible();
       await page.getByRole('button', { name: 'Blu-ray', exact: true }).click();
@@ -494,6 +494,67 @@ test.describe('library multi-format browser regressions', () => {
       expect(stored).not.toBeNull();
       expect(stored.owned_formats).toEqual(['dvd', 'uhd', 'digital']);
       expect(stored.format).toBe('4K UHD');
+    } finally {
+      await deleteMediaByExactTitle(requestContext, title).catch(() => {});
+      await requestContext.dispose();
+    }
+  });
+
+  test('media drawer can save book edition variant details', async ({ page }) => {
+    const credentials = await createFreshUserCredentials();
+    const requestContext = await createAuthenticatedRequestContext(credentials);
+    const title = `Playwright Edition Book ${Date.now()}`;
+
+    await deleteMediaByExactTitle(requestContext, title).catch(() => {});
+
+    try {
+      await postWithCsrf(requestContext, '/api/media', {
+        title,
+        media_type: 'book',
+        format: 'Hardcover',
+        owned_formats: ['hardcover'],
+        type_details: {
+          author: 'Edition Test Author'
+        }
+      }, 201);
+
+      const storageState = await requestContext.storageState();
+      await page.context().addCookies(storageState.cookies || []);
+      await page.goto('/dashboard?tab=library-books');
+      await page.getByPlaceholder('Search title, director…').fill(title);
+
+      const resultCard = page.locator('article').filter({
+        has: page.getByText(title, { exact: true })
+      }).first();
+      await expect(resultCard).toBeVisible();
+      await resultCard.click();
+
+      const editionSection = page.getByTestId('edition-variant-editor');
+      await expect(editionSection).toBeVisible();
+      await editionSection.getByRole('button', { name: 'Add' }).click();
+      await editionSection.getByRole('textbox', { name: 'Edition' }).fill('First edition');
+      await editionSection.getByRole('textbox', { name: 'Printing' }).fill('Second printing');
+      await editionSection.getByRole('checkbox', { name: 'ARC / advance copy' }).check();
+      await editionSection.getByRole('textbox', { name: 'Number' }).fill('42');
+      await editionSection.getByRole('textbox', { name: 'Run' }).fill('500');
+
+      const saveResponsePromise = page.waitForResponse((response) => (
+        response.url().includes(`/api/collectible-traits/media/`)
+          && response.url().includes('/edition_variant')
+          && response.request().method() === 'PUT'
+      ));
+      await editionSection.getByRole('button', { name: 'Save' }).click();
+      const saveResponse = await saveResponsePromise;
+      expect(saveResponse.status()).toBe(200);
+
+      await expect(editionSection.getByText('First edition · Second printing · ARC / advance copy · #42/500')).toBeVisible();
+      await expect(editionSection.getByText('Edition: First edition · Printing: Second printing')).toBeVisible();
+
+      const stored = await findExactMediaByTitle(requestContext, title);
+      const editionTrait = (stored?.collectible_traits || []).find((trait) => trait.family === 'edition_variant');
+      expect(editionTrait).toBeTruthy();
+      expect(editionTrait.summary).toContain('First edition');
+      expect(editionTrait.summary).toContain('#42/500');
     } finally {
       await deleteMediaByExactTitle(requestContext, title).catch(() => {});
       await requestContext.dispose();

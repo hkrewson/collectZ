@@ -2024,6 +2024,106 @@ export function CollectibleTraitReadback({ traits = [], className = '' }) {
 
 const GRADER_OPTIONS = ['CGC', 'CBCS', 'PSA', 'Beckett', 'WATA', 'VGA', 'Other'];
 const PROVENANCE_TYPE_OPTIONS = ['COA', 'Receipt', 'Witnessed signature', 'Vendor record', 'Event record', 'Other'];
+const EDITION_MEDIA_CONFIG = {
+  book: {
+    title: 'Book edition',
+    help: 'Record printing, ARC, first edition, or limited-run details for this copy.',
+    fields: [
+      { key: 'edition', label: 'Edition', placeholder: 'First edition' },
+      { key: 'printing', label: 'Printing', placeholder: 'Second printing' },
+      { key: 'publisher_line', label: 'Publisher line', placeholder: 'Del Rey Legends' }
+    ],
+    flags: [
+      { key: 'first_edition', label: 'First edition' },
+      { key: 'arc', label: 'ARC / advance copy' },
+      { key: 'limited_release', label: 'Limited release' }
+    ],
+    numbered: true
+  },
+  comic_book: {
+    title: 'Comic edition',
+    help: 'Record cover, printing, run, or issue variant details for this copy.',
+    fields: [
+      { key: 'variant', label: 'Variant cover', placeholder: 'Virgin variant' },
+      { key: 'printing', label: 'Printing', placeholder: 'Second printing' },
+      { key: 'run_context', label: 'Run / volume', placeholder: 'Vol. 2' }
+    ],
+    flags: [
+      { key: 'newsstand', label: 'Newsstand' },
+      { key: 'direct_edition', label: 'Direct edition' },
+      { key: 'limited_release', label: 'Limited release' }
+    ],
+    numbered: true
+  },
+  game: {
+    title: 'Game edition',
+    help: 'Record platform, region, release type, or collector edition details.',
+    fields: [
+      { key: 'platform', label: 'Platform', placeholder: 'PlayStation 5' },
+      { key: 'region', label: 'Region', placeholder: 'North America' },
+      { key: 'release_line', label: 'Release line', placeholder: 'Limited Run Games' }
+    ],
+    flags: [
+      { key: 'collector_edition', label: 'Collector edition' },
+      { key: 'limited_release', label: 'Limited release' },
+      { key: 'promo_demo', label: 'Promo / demo' }
+    ]
+  },
+  audio: {
+    title: 'Audio edition',
+    help: 'Record pressing, color, promo, or limited-release details for this copy.',
+    fields: [
+      { key: 'variant', label: 'Variant', placeholder: 'Clear vinyl' },
+      { key: 'pressing', label: 'Pressing', placeholder: '2024 remaster' },
+      { key: 'release_line', label: 'Release line', placeholder: 'Record Store Day' }
+    ],
+    flags: [
+      { key: 'limited_release', label: 'Limited release' },
+      { key: 'promo_demo', label: 'Promo copy' }
+    ],
+    numbered: true
+  },
+  movie: {
+    title: 'Movie edition',
+    help: 'Record package, release, screener, or promo-disc details for this copy.',
+    fields: [
+      { key: 'package_variant', label: 'Package', placeholder: 'SteelBook' },
+      { key: 'release_edition', label: 'Release edition', placeholder: "Director's cut" },
+      { key: 'region', label: 'Region', placeholder: 'Region A' }
+    ],
+    flags: [
+      { key: 'slipcover', label: 'Slipcover' },
+      { key: 'screener', label: 'Screener' },
+      { key: 'promo_demo', label: 'Promo disc' }
+    ]
+  },
+  tv_series: {
+    title: 'TV edition',
+    help: 'Record package, complete-series, screener, or release edition details.',
+    fields: [
+      { key: 'package_variant', label: 'Package', placeholder: 'Complete series box' },
+      { key: 'release_edition', label: 'Release edition', placeholder: 'Collector edition' },
+      { key: 'region', label: 'Region', placeholder: 'Region 1' }
+    ],
+    flags: [
+      { key: 'complete_series', label: 'Complete series' },
+      { key: 'screener', label: 'Screener' },
+      { key: 'limited_release', label: 'Limited release' }
+    ]
+  },
+  tv_episode: {
+    title: 'TV edition',
+    help: 'Record package, screener, or release edition details.',
+    fields: [
+      { key: 'release_edition', label: 'Release edition', placeholder: 'Screener' },
+      { key: 'region', label: 'Region', placeholder: 'Region 1' }
+    ],
+    flags: [
+      { key: 'screener', label: 'Screener' },
+      { key: 'promo_demo', label: 'Promo disc' }
+    ]
+  }
+};
 
 function cleanTraitText(value) {
   return String(value || '').trim();
@@ -2043,6 +2143,96 @@ function findProvenanceTrait(traits = []) {
   return Array.isArray(traits)
     ? traits.find((trait) => trait?.family === 'provenance' || trait?.key === 'provenance')
     : null;
+}
+
+function findEditionVariantTrait(traits = []) {
+  return Array.isArray(traits)
+    ? traits.find((trait) => trait?.family === 'edition_variant' || trait?.key === 'edition_variant')
+    : null;
+}
+
+function editionConfigForMediaType(mediaType = '') {
+  return EDITION_MEDIA_CONFIG[String(mediaType || '').trim()] || EDITION_MEDIA_CONFIG.movie;
+}
+
+function buildEditionForm(trait = null, mediaType = 'movie') {
+  const config = editionConfigForMediaType(mediaType);
+  const payload = trait?.payload && typeof trait.payload === 'object' ? trait.payload : {};
+  const details = Array.isArray(trait?.details) ? trait.details : [];
+  const fields = {};
+  for (const field of config.fields || []) {
+    fields[field.key] = cleanTraitText(payload[field.key] || detailValue(details, field.label.toLowerCase()));
+  }
+  const flags = {};
+  for (const flag of config.flags || []) {
+    flags[flag.key] = Boolean(payload[flag.key]);
+  }
+  return {
+    fields,
+    flags,
+    number: cleanTraitText(payload.number || detailValue(details, 'number')),
+    run: cleanTraitText(payload.run || detailValue(details, 'run')),
+    notes: cleanTraitText(payload.notes || detailValue(details, 'notes'))
+  };
+}
+
+function humanizeEditionFlag(key = '') {
+  return String(key || '')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function buildEditionTraitPayload(form = {}, mediaType = 'movie') {
+  const config = editionConfigForMediaType(mediaType);
+  const fieldDetails = (config.fields || [])
+    .map((field) => {
+      const value = cleanTraitText(form.fields?.[field.key]);
+      return value ? { label: field.label, value } : null;
+    })
+    .filter(Boolean);
+  const flagDetails = (config.flags || [])
+    .map((flag) => (form.flags?.[flag.key] ? { label: flag.label, value: 'Yes' } : null))
+    .filter(Boolean);
+  const number = cleanTraitText(form.number);
+  const run = cleanTraitText(form.run);
+  const notes = cleanTraitText(form.notes);
+  const numberedSummary = number && run ? `#${number}/${run}` : (number ? `#${number}` : (run ? `Run ${run}` : ''));
+  const details = [
+    ...fieldDetails,
+    ...flagDetails,
+    number ? { label: 'Number', value: number } : null,
+    run ? { label: 'Run', value: run } : null,
+    notes ? { label: 'Notes', value: notes } : null
+  ].filter(Boolean);
+  const summaryParts = [
+    ...fieldDetails.slice(0, 2).map((detail) => detail.value),
+    ...flagDetails.slice(0, 2).map((detail) => detail.label),
+    numberedSummary
+  ].filter(Boolean);
+  const payload = {
+    media_type: mediaType || null,
+    notes: notes || null
+  };
+  for (const field of config.fields || []) {
+    payload[field.key] = cleanTraitText(form.fields?.[field.key]) || null;
+  }
+  for (const flag of config.flags || []) {
+    payload[flag.key] = Boolean(form.flags?.[flag.key]);
+  }
+  if (config.numbered) {
+    payload.number = number || null;
+    payload.run = run || null;
+  }
+  return {
+    key: 'edition_variant',
+    family: 'edition_variant',
+    label: 'Edition',
+    summary: summaryParts.join(' · ') || 'Edition details',
+    tone: 'default',
+    details,
+    payload,
+    source: 'manual'
+  };
 }
 
 function buildGradingForm(trait = null) {
@@ -2398,6 +2588,167 @@ export function CollectibleProvenanceEditor({
             ) : null}
             <button type="button" className="btn-ghost btn-sm" onClick={() => { setEditing(false); setForm(buildProvenanceForm(currentTrait)); }} disabled={saving}>Cancel</button>
             <button type="submit" className="btn-primary btn-sm" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+          </div>
+        </form>
+      ) : null}
+    </section>
+  );
+}
+
+export function EditionVariantEditor({
+  apiCall,
+  ownerType,
+  ownerId,
+  mediaType = 'movie',
+  traits = [],
+  onSaved,
+  onToast,
+  className = ''
+}) {
+  const config = editionConfigForMediaType(mediaType);
+  const currentTrait = findEditionVariantTrait(traits);
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState(() => buildEditionForm(currentTrait, mediaType));
+
+  useEffect(() => {
+    setForm(buildEditionForm(currentTrait, mediaType));
+    setEditing(false);
+  }, [currentTrait?.key, currentTrait?.summary, mediaType, ownerId]);
+
+  if (!apiCall || !ownerType || !ownerId) return null;
+
+  const updateField = (key, value) => {
+    setForm((prev) => ({
+      ...prev,
+      fields: {
+        ...(prev.fields || {}),
+        [key]: value
+      }
+    }));
+  };
+
+  const updateFlag = (key, value) => {
+    setForm((prev) => ({
+      ...prev,
+      flags: {
+        ...(prev.flags || {}),
+        [key]: Boolean(value)
+      }
+    }));
+  };
+
+  const save = async (event) => {
+    event.preventDefault();
+    if (saving) return;
+    const payload = buildEditionTraitPayload(form, mediaType);
+    if (!Array.isArray(payload.details) || payload.details.length === 0) {
+      onToast?.('Add at least one edition detail first', 'error');
+      return;
+    }
+    setSaving(true);
+    try {
+      await apiCall('put', `/collectible-traits/${ownerType}/${ownerId}/edition_variant`, payload);
+      await onSaved?.();
+      setEditing(false);
+      onToast?.('Edition details saved');
+    } catch (error) {
+      onToast?.(error?.response?.data?.error || 'Failed to save edition details', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const remove = async () => {
+    if (!currentTrait || saving) return;
+    setSaving(true);
+    try {
+      await apiCall('delete', `/collectible-traits/${ownerType}/${ownerId}/edition_variant`);
+      await onSaved?.();
+      setEditing(false);
+      onToast?.('Edition details removed');
+    } catch (error) {
+      onToast?.(error?.response?.data?.error || 'Failed to remove edition details', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <section className={cx('rounded-lg border border-edge bg-surface/35 p-3', className)} data-testid="edition-variant-editor">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-ink">{config.title}</p>
+          {currentTrait && !editing ? (
+            <p className="mt-1 text-sm text-dim">{currentTrait.summary || 'Edition details'}</p>
+          ) : (
+            <p className="mt-1 text-xs leading-5 text-ghost">{config.help}</p>
+          )}
+        </div>
+        {!editing ? (
+          <button type="button" className="btn-ghost btn-sm shrink-0" onClick={() => setEditing(true)}>
+            {currentTrait ? 'Edit' : 'Add'}
+          </button>
+        ) : null}
+      </div>
+      {currentTrait && !editing && Array.isArray(currentTrait.details) && currentTrait.details.length ? (
+        <p className="mt-2 text-xs leading-5 text-ghost">
+          {currentTrait.details
+            .filter((detail) => detail?.label && detail?.value)
+            .map((detail) => `${detail.label}: ${detail.value}`)
+            .join(' · ')}
+        </p>
+      ) : null}
+      {editing ? (
+        <form className="mt-3 space-y-3" onSubmit={save}>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {(config.fields || []).map((field) => (
+              <label className="field" key={field.key}>
+                <span className="label">{field.label}</span>
+                <input
+                  className="input"
+                  value={form.fields?.[field.key] || ''}
+                  onChange={(event) => updateField(field.key, event.target.value)}
+                  placeholder={field.placeholder}
+                />
+              </label>
+            ))}
+            {config.numbered ? (
+              <>
+                <label className="field">
+                  <span className="label">Number</span>
+                  <input className="input" value={form.number} onChange={(event) => setForm((prev) => ({ ...prev, number: event.target.value }))} placeholder="150" />
+                </label>
+                <label className="field">
+                  <span className="label">Run</span>
+                  <input className="input" value={form.run} onChange={(event) => setForm((prev) => ({ ...prev, run: event.target.value }))} placeholder="200" />
+                </label>
+              </>
+            ) : null}
+            {(config.flags || []).length ? (
+              <div className="grid gap-2 sm:col-span-2 sm:grid-cols-2">
+                {config.flags.map((flag) => (
+                  <CheckboxControl
+                    key={flag.key}
+                    checked={Boolean(form.flags?.[flag.key])}
+                    onChange={(event) => updateFlag(flag.key, event.target.checked)}
+                  >
+                    {flag.label || humanizeEditionFlag(flag.key)}
+                  </CheckboxControl>
+                ))}
+              </div>
+            ) : null}
+            <label className="field sm:col-span-2">
+              <span className="label">Notes</span>
+              <textarea className="textarea min-h-[72px]" value={form.notes} onChange={(event) => setForm((prev) => ({ ...prev, notes: event.target.value }))} />
+            </label>
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {currentTrait ? (
+              <button type="button" className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={remove} disabled={saving}>Remove</button>
+            ) : null}
+            <button type="button" className="btn-ghost btn-sm" onClick={() => { setEditing(false); setForm(buildEditionForm(currentTrait, mediaType)); }} disabled={saving}>Cancel</button>
+            <button type="submit" className="btn-primary btn-sm" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
           </div>
         </form>
       ) : null}

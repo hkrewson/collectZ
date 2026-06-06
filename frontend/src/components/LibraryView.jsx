@@ -7,6 +7,7 @@ import {
   DisclosureList,
   DetailDrawerShell,
   DrawerBackdrop,
+  EditionVariantEditor,
   FilterMenu,
   CollectibleGradingEditor,
   CollectibleProvenanceEditor,
@@ -1485,6 +1486,17 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
         <div className="flex-1 overflow-y-auto scroll-area p-6 space-y-6">
           {!showLoanFocusedView ? <CollectibleTraitReadback traits={item.collectible_traits} /> : null}
           {!showLoanFocusedView ? (
+            <EditionVariantEditor
+              apiCall={apiCall}
+              ownerType="media"
+              ownerId={item.id}
+              mediaType={item.media_type}
+              traits={item.collectible_traits}
+              onSaved={() => onValuationUpdated?.(item.id)}
+              onToast={onToast}
+            />
+          ) : null}
+          {!showLoanFocusedView ? (
             <CollectibleGradingEditor
               apiCall={apiCall}
               ownerType="media"
@@ -2473,7 +2485,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
               Find possible duplicates
             </button>
           ) : null}
-          <button onClick={() => onEdit(item)} className="btn-ghost flex-1"><Icons.Edit />Edit</button>
+          <button onClick={() => onEdit(item)} className="btn-ghost flex-1" data-testid="media-detail-edit-button"><Icons.Edit />Edit</button>
           <button
             onClick={() => { if (window.confirm('Delete this item?')) { onDelete(item.id); onClose(); } }}
             className="btn-ghost text-err hover:bg-err/10"

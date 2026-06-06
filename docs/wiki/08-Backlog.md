@@ -466,7 +466,7 @@ These are product-level capability gaps discovered from the current shape of the
 ### Backlog Item: Library-Specific Edition Editors
 **Type:** Deferred milestone
 **Tags:** `media`, `books`, `games`, `comics`, `editions`, `variants`, `ui`
-**Status:** Active backlog; edition/variant readback exists only through existing fields and broad physical-media planning.
+**Status:** Promoted to `3.14.5 — Library-Specific Edition Editors` in [07-Release-Roadmap.md](07-Release-Roadmap.md).
 
 **Goal:** Add practical edition/variant editors tailored to each library so users can distinguish physical/digital copies, printings, platform variants, limited releases, ARCs, screeners, and collector editions.
 

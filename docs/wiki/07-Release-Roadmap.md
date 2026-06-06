@@ -6,6 +6,37 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.14.5 — Library-Specific Edition Editors
+
+**Goal:** Let users record edition and variant details in library-specific language without creating duplicate collectible records.
+
+**Status:** Completed in `3.14.5`.
+
+### Scope
+
+- Add a compact Edition drawer editor for Library records.
+- Reuse the persisted `edition_variant` trait family instead of adding a new media table shape.
+- Tailor fields by media type: book edition/printing/ARC, comic variant/printing, game platform/region/collector edition, movie/TV package/screener details, and audio pressing/limited release details.
+- Keep Art print fields on the existing Art workflow so numbered print behavior does not regress.
+
+### Acceptance Criteria
+
+- Users can add, edit, and remove edition details from media drawers.
+- Edition details use practical labels for books, comics, games, audio, movies, and TV.
+- Saved edition details appear in existing trait readback and compact list/card pills.
+- Ordinary record creation and editing remains unchanged.
+- Release notes, release feed, version metadata, targeted browser coverage, and Docker runtime verification are updated for `3.14.5`.
+
+### Closeout
+
+- Status: completed in `3.14.5`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/08-Backlog.md`, and `docs/releases/v3.14.5.md`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.14.5`; `/api/health` reported version/frontend/backend/build `3.14.5`; running-stack Help > Releases served `3.14.5`; temporarily recreated the homelab-shaped stack for boundary smoke and restored the platform-local stack afterward.
+- Verification: frontend Vite build locally and in Docker; backend unit tests (`304` passed) locally and in-stack; OpenAPI validation locally and in-stack; Docker runtime rebuild; Help > Releases smoke; init parity; migration rehearsal; observability evidence (`9/9` checks passed); local release preflight; backend/frontend production dependency audits (`0` vulnerabilities); RBAC regression; platform boundary; homelab boundary against local `3.14.5` images; targeted edition browser coverage; full Playwright browser regression (`81` passed, `4` expected skips); version/release-feed sync; and `git diff --check`.
+- Blocked/CI follow-through: local `gitleaks`, `trivy`, and SBOM tools remain unavailable, so `secret-scan` and `image-security-and-sbom` remain CI-only; strict CI secure-cookie `compose-smoke` remains CI-only from this local development stack; CodeQL is advisory per current release checklist and must be reviewed in GitHub when available.
+- Risks/follow-ups: more library-specific presets, provider-derived edition suggestions, deeper edition-to-relationship workflows, and later valuation/scarcity behavior remain future work.
+- What remains in 3.14: the reusable collectible trait follow-up set is complete for readback, persistence, grading, provenance, relationships, and library-specific edition editing.
+
 ## 3.14.4 — Bundle Relationship Workflows
 
 **Goal:** Let users link bundled, companion, purchased-with, and event-acquired records without duplicating canonical objects across libraries.

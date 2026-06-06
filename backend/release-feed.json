@@ -1,6 +1,27 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.14.5",
+      "version": "3.14.5",
+      "date": null,
+      "status": null,
+      "summary": "This patch adds practical edition and variant editing to Library drawers using the reusable collectible trait contract.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added a compact Edition drawer section for Library records.",
+            "Edition controls now change by media type instead of using one generic variant field.",
+            "Books support edition, printing, publisher line, ARC, first edition, limited release, and numbered-run details.",
+            "Comics support variant cover, printing, run context, newsstand/direct edition, limited release, and numbered-run details.",
+            "Games support platform, region, release line, collector edition, limited release, and promo/demo state.",
+            "Movies, TV, and Audio support package, release, pressing, screener/promo, and limited-release style details.",
+            "Saved edition details appear through existing collectible trait readback and compact trait pills."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.14.4",
       "version": "3.14.4",
       "date": null,
@@ -141,24 +162,6 @@
       "status": null,
       "summary": "This patch removes the remaining CRA-era frontend compatibility shims now that the Vite-first frontend path has baked through multiple releases without React or browser-regression instability.",
       "details": []
-    },
-    {
-      "title": "collectZ v3.12.14",
-      "version": "3.12.14",
-      "date": null,
-      "status": null,
-      "summary": "This patch makes the Dashboard use its compact tabbed layout at every width, so wide screens no longer spread Review, Syncs, Activity, Health, and Events into separate panels.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Dashboard section tabs are now the standard layout on desktop and mobile.",
-            "The wide-screen multi-panel Dashboard layout was removed.",
-            "Dashboard Review lists can now show more sample rows before users need to drill into another surface.",
-            "Existing Dashboard Review drawer behavior, provider health, recent syncs, recent activity, and upcoming events content are unchanged."
-          ]
-        }
-      ]
     }
   ]
 }
