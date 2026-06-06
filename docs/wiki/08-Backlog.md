@@ -281,8 +281,12 @@ These are product-level capability gaps discovered from the current shape of the
 - Promoted in `3.14.0`: inventory current fields for signed, numbered, event-linked, edition, variant, and collectible category data.
 - Promoted in `3.14.0`: define a read-only trait schema that can be attached to existing object types without duplicating whole records.
 - Promoted in `3.14.0`: add compact readback badges/metadata lines and drawer sections where they improve recognition.
-- Follow-up: add explicit trait persistence only after the readback contract proves useful.
-- Follow-up: add grading, richer COA/provenance editing, bundle relationships, and library-specific edition editors as separate promoted slices.
+- Follow-up: promote the explicit backlog objects below as separate slices when selected:
+  - Reusable Collectible Trait Persistence.
+  - Collectible Grading Editors.
+  - COA and Provenance Editing.
+  - Bundle Relationship Workflows.
+  - Library-Specific Edition Editors.
 
 **Out of scope**
 - Do not create new top-level libraries for every collectible type.
@@ -296,10 +300,215 @@ These are product-level capability gaps discovered from the current shape of the
 - Existing library objects remain the canonical records unless a later relationship task intentionally links a companion object.
 - The UI makes special collectible details readable without making ordinary add/edit flows feel heavier.
 
+### Backlog Item: Reusable Collectible Trait Persistence
+**Type:** Deferred milestone
+**Tags:** `product`, `collectibles`, `metadata`, `traits`, `schema`, `cross-library`
+**Status:** Active backlog; `3.14.0` added derived trait readback only, not explicit persisted trait records.
+
+**Goal:** Add a durable trait storage model so signed, numbered, certified, graded, variant, bundled, and event-acquired details can be edited consistently across libraries instead of only being derived from existing fields.
+
+**Why this work exists**
+- `3.14.0` proved that shared trait readback is useful, but it intentionally did not introduce a trait table or generalized trait editing contract.
+- Existing fields are uneven by library: Art has rich numbered/event context, signatures use shared signature records, and other libraries mostly have format/source/provider fields.
+- Future grading, COA, bundle, and edition workflows need a stable persistence layer so they do not each invent their own storage shape.
+
+**Intent**
+- Treat traits as optional capabilities attached to existing canonical objects.
+- Keep ordinary add/edit flows lightweight; only show trait editors when a user chooses to add those details or the library/type naturally supports them.
+- Preserve compatibility projections from existing fields while making the shared trait model the durable source for new generalized trait data.
+
+**Scope**
+- Define a shared trait persistence contract for supported owner types: media titles, books, comics, games, art, collectibles, and any future object types selected deliberately.
+- Support trait family, trait payload, source/provenance, visibility/readback labels, and archived/deleted state.
+- Backfill or project existing Art numbered/event fields and signature records only where it reduces duplication and does not risk data loss.
+- Add API and OpenAPI shapes for reading and updating trait records.
+- Update drawer/readback components to prefer persisted traits while preserving the derived `collectible_traits` response contract.
+
+**Candidate subtasks**
+- Design migration and rollback behavior for a shared trait table or equivalent scoped storage.
+- Define per-family validation for signed, numbered, graded, certificate/provenance, edition/variant, bundle/relationship, and event-acquired traits.
+- Add service helpers that merge persisted traits with derived compatibility traits.
+- Add API tests for create, update, archive, owner scoping, and cross-workspace isolation.
+- Add UI smoke coverage that proves existing readback still works after persistence is introduced.
+
+**Out of scope**
+- Do not build grading, COA, bundle, or library-specific edition editors in the persistence slice unless explicitly promoted together.
+- Do not create new top-level libraries or duplicate canonical objects.
+- Do not add external registry, valuation, or marketplace enrichment.
+
+**Acceptance Criteria**
+- A future trait editor can persist data without creating a one-off table per library.
+- Existing 3.14.0 trait readback remains compatible.
+- Trait records are scoped, auditable, and safe across workspaces.
+- Existing manually entered Art/signature data is not lost or silently reinterpreted.
+
+### Backlog Item: Collectible Grading Editors
+**Type:** Deferred milestone
+**Tags:** `collectibles`, `comics`, `games`, `cards`, `grading`, `ui`
+**Status:** Active backlog; grading is named in the reusable trait model but there is no editor or stored grade workflow yet.
+
+**Goal:** Let users record and read back grading details for collectible-like objects such as slabbed comics, graded cards, graded games, and other certified items.
+
+**Why this work exists**
+- Grading is a common collectible trait, but it should not be represented as a generic note or badge-only UI.
+- Grading details need structured fields: grader/company, grade, certificate number, slab/case notes, cert link/image, and optional grading date.
+- The UI should help users distinguish grading from ordinary condition, rating, or personal quality scores.
+
+**Intent**
+- Build grading as a structured trait editor on top of explicit trait persistence once that exists.
+- Keep grading available only where it makes sense for the library/type.
+- Make grading readable in drawers and list/poster surfaces without crowding ordinary non-graded items.
+
+**Scope**
+- Add compact drawer controls for grading company, grade, certificate number, slab/case notes, and cert reference.
+- Support known grader labels where useful, while allowing custom text.
+- Surface grade/cert summaries in object drawers and compact row/card readback.
+- Consider optional grade overlay/badge treatment only after structured readback is in place.
+
+**Candidate subtasks**
+- Define grade field validation and display formatting.
+- Add editor/readback for Comics, Collectibles/cards, Games, and selected Art/media objects.
+- Add tests for graded comic, graded card, graded game, and custom grader entry.
+- Verify grade readback does not conflict with personal star ratings or media ratings.
+
+**Out of scope**
+- Do not integrate with CGC, CBCS, PSA, Beckett, WATA, VGA, or registry APIs in the first grading editor slice.
+- Do not calculate valuation from grade.
+- Do not require grades for any object type.
+
+**Acceptance Criteria**
+- Users can add, edit, and remove grading details on supported objects.
+- Grading readback is distinct from condition, ratings, and notes.
+- Non-graded objects remain visually quiet.
+- Stored grade data can support future registry lookup or valuation work without another schema redesign.
+
+### Backlog Item: COA and Provenance Editing
+**Type:** Deferred milestone
+**Tags:** `collectibles`, `art`, `books`, `comics`, `signatures`, `coa`, `provenance`, `attachments`
+**Status:** Active backlog; signature proof records exist, but generalized COA/provenance editing is not available across collectible-like objects.
+
+**Goal:** Add a structured way to record certificate of authenticity and provenance details for signed, numbered, limited, certified, or otherwise evidence-backed items.
+
+**Why this work exists**
+- Users need to distinguish "I entered this manually" from "this has a COA, witnessed signature, receipt, event source, or supporting document."
+- Existing signature proof support is useful but too narrow for COAs, receipts, provenance documents, and authenticated non-signature collectibles.
+- Provenance should improve confidence without forcing users to expose private file paths or secret storage details.
+
+**Intent**
+- Build COA/provenance as an evidence trait that can attach to supported objects and other trait records.
+- Keep it human-readable: issuer/source, certificate number, proof type, event/vendor context, attachment/reference, notes.
+- Use clear readback rather than decorative badges as the primary trust surface.
+
+**Scope**
+- Add COA/provenance editor fields for issuer, certificate number, proof type, source/vendor, event, proof URL or uploaded attachment, and notes.
+- Support provenance attached to signatures, numbered/limited runs, grading, Art, Collectibles, Comics, Books, Games, and selected Media objects.
+- Redact or abstract stored file paths where user-facing readback does not need raw storage details.
+- Add drawer summaries that explain what evidence exists.
+
+**Candidate subtasks**
+- Define a shared evidence/provenance payload shape.
+- Decide whether proof attachments live in the existing upload/proof model or a new trait attachment helper.
+- Add create/edit/remove controls with compact default state.
+- Add tests for signed book with COA, certified art print, authenticated collectible, and event/vendor provenance.
+
+**Out of scope**
+- Do not verify authenticity with external services in the first slice.
+- Do not estimate value from provenance.
+- Do not require COA/provenance for signed items.
+- Do not expose private local paths, credentials, or raw storage implementation details.
+
+**Acceptance Criteria**
+- Users can record COA/provenance details where relevant.
+- Drawer readback explains evidence without making unsupported claims.
+- Attachments/references can be added without leaking sensitive storage paths.
+- Existing signature proof workflows remain compatible.
+
+### Backlog Item: Bundle Relationship Workflows
+**Type:** Deferred milestone
+**Tags:** `collections`, `relationships`, `bundles`, `box-sets`, `collectibles`, `events`, `cross-library`
+**Status:** Active backlog; related-object intent exists, but no explicit bundle workflow has been promoted.
+
+**Goal:** Give users a deliberate workflow for linking bundled or companion objects without duplicating canonical records across libraries.
+
+**Why this work exists**
+- Box sets, collector editions, bundled trading cards, soundtrack inserts, strategy guides, posters, pins, merch, and event pickup extras often belong together.
+- Automatically copying rows into Collectibles creates ambiguous ownership and duplicate editing paths.
+- A relationship workflow lets collectZ show "included with" and "part of" context while keeping each item in its natural library.
+
+**Intent**
+- Treat bundles as relationships, not as hidden synced duplicates.
+- Make relationship direction and meaning clear from both sides where useful.
+- Keep the first workflow simple enough for manual linking before considering automated bundle extraction.
+
+**Scope**
+- Support relationship types such as `part_of`, `includes`, `included_with`, `companion_to`, `purchased_with`, and `event_acquired_with`.
+- Add link/unlink controls from object drawers.
+- Add readback sections such as "Included items", "Part of box set", or "Related collectibles".
+- Support cross-library links among Media, Books, Comics, Games, Art, Collectibles, and Events where useful.
+
+**Candidate subtasks**
+- Inventory current event/art/media link behavior and avoid duplicating existing relationships.
+- Define relationship table/API shape, direction labels, and delete/archive behavior.
+- Add drawer controls for creating and removing relationships.
+- Add tests for bundled card, box set child/parent, game strategy guide, and poster linked to movie/comic/event.
+
+**Out of scope**
+- Do not automatically create Collectibles rows when a box-set checkbox is selected.
+- Do not add ownership hierarchy accounting, quantity management, or valuation rollups in the first slice.
+- Do not turn object relationships into a social graph or broad knowledge graph.
+
+**Acceptance Criteria**
+- Users can link related objects without duplicating canonical records.
+- Relationship direction is clear and reversible.
+- Editing or deleting one object does not silently destroy another.
+- Bundle context is visible from both sides where it helps.
+
+### Backlog Item: Library-Specific Edition Editors
+**Type:** Deferred milestone
+**Tags:** `media`, `books`, `games`, `comics`, `editions`, `variants`, `ui`
+**Status:** Active backlog; edition/variant readback exists only through existing fields and broad physical-media planning.
+
+**Goal:** Add practical edition/variant editors tailored to each library so users can distinguish physical/digital copies, printings, platform variants, limited releases, ARCs, screeners, and collector editions.
+
+**Why this work exists**
+- Edition and variant details are not the same across libraries: book printings, game platforms, movie formats, comic variants, and Art print runs need different labels and controls.
+- A single generic "variant" field would be easy to add but hard to use consistently.
+- Users should be able to identify what they own without turning every record into a collectible object.
+
+**Intent**
+- Build edition editors that use shared trait/readback patterns while respecting library-specific language.
+- Keep variants attached to the canonical library record unless a separate related object is intentionally created.
+- Make edition details visible enough to distinguish owned copies, not so loud that ordinary records look overdesigned.
+
+**Scope**
+- Books: edition, printing, ARC/advance reader copy, first edition, limited/numbered release, publisher line.
+- Comics: variant cover, printing, issue/run context, graded/slab compatibility, signed/COA compatibility.
+- Games: platform, region, physical/digital source, collector edition, limited-run release, promo/demo state.
+- Movies/TV/Audio: format/package variants such as SteelBook, slipcover, screener, promo disc, vinyl variant, limited release.
+- Art: print/edition fields that build on existing numbered-run behavior without regressing the Art workflow.
+
+**Candidate subtasks**
+- Inventory current format/platform/edition fields by library.
+- Define per-library editor controls and compact readback labels.
+- Add API validation and OpenAPI examples for supported edition details.
+- Add tests for book printing/ARC, comic variant, game platform/region, media SteelBook/screener, and art print run.
+
+**Out of scope**
+- Do not build direct provider syncs or storefront account integrations.
+- Do not add hardware/peripheral inventory here.
+- Do not create duplicate Collectibles rows for ordinary variants.
+- Do not add valuation, scarcity scoring, or marketplace pricing.
+
+**Acceptance Criteria**
+- Users can record edition/variant details in the language of the selected library.
+- Edition details are visible in drawers and compact list/card readback.
+- Ordinary records remain easy to create and edit.
+- Edition data can support future bundle/provenance/valuation work without another model reset.
+
 ### Backlog Item: Physical Media Edition and Variant Modeling
 **Type:** Deferred milestone
 **Tags:** `media`, `games`, `books`, `variants`, `editions`, `physical-media`
-**Status:** Active backlog; some local format/source fields exist, but edition/variant modeling is not generalized.
+**Status:** Active backlog; retained as the broader discovery umbrella for `Library-Specific Edition Editors`.
 
 **Goal:** Improve how collectZ represents physical media variants such as SteelBooks, slipcovers, screeners, promo/demo discs, limited-run releases, collector editions, ARCs, and book printings.
 
@@ -341,7 +550,7 @@ These are product-level capability gaps discovered from the current shape of the
 ### Backlog Item: Certification, Grading, and Provenance Traits
 **Type:** Deferred milestone
 **Tags:** `collectibles`, `comics`, `books`, `art`, `grading`, `coa`, `provenance`
-**Status:** Active backlog; signature/provenance-adjacent fields exist in Art, but generalized grading/COA/provenance support is not implemented.
+**Status:** Active backlog; retained as the broader discovery umbrella for `Collectible Grading Editors` and `COA and Provenance Editing`.
 
 **Goal:** Add consistent certificate, grading, and provenance support across collectible-like objects without tying it to one category.
 
@@ -383,7 +592,7 @@ These are product-level capability gaps discovered from the current shape of the
 ### Backlog Item: Related Object and Bundle Relationships
 **Type:** Deferred milestone
 **Tags:** `collections`, `relationships`, `bundles`, `box-sets`, `collectibles`, `events`
-**Status:** Active backlog; event/art context links exist, but general object-to-object bundle relationships are not implemented.
+**Status:** Active backlog; retained as the broader discovery umbrella for `Bundle Relationship Workflows`.
 
 **Goal:** Link items that belong together, such as box sets, bundled trading cards, collector-edition extras, strategy guides, soundtrack inserts, posters, pins, and event-acquired companion objects.
 
