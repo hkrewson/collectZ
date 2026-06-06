@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.15.1",
+      "version": "3.15.1",
+      "date": null,
+      "status": null,
+      "summary": "This patch adds an explicit export format choice to the backup and portability workflow.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Admin Settings now lets admins choose between `JSON archive` and `CSV archive` before downloading an export.",
+            "`POST /api/admin/settings/portability/export` accepts `format: \"json\"` or `format: \"csv\"`.",
+            "JSON remains the default `.json.gz` portability archive.",
+            "CSV downloads a `.csv.zip` archive with manifest, restore guidance, uploads manifest, and one CSV per exported table.",
+            "JSON and CSV export paths share the same backend redaction behavior."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.15.0",
       "version": "3.15.0",
       "date": null,
@@ -166,14 +185,6 @@
       "date": null,
       "status": null,
       "summary": "This patch aligns the frontend Docker build image with the current Vite and ZXing dependency contract by moving the frontend builder from Node 20 to Node 24.",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.12.16",
-      "version": "3.12.16",
-      "date": null,
-      "status": null,
-      "summary": "This patch finishes a small post-Vite dependency hygiene pass by removing stale CRA/Webpack-era frontend package overrides that no longer apply to the current Vite dependency tree.",
       "details": []
     }
   ]

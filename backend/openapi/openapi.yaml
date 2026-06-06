@@ -7069,16 +7069,38 @@
           { "cookieSession": [], "csrfHeader": [] },
           { "bearerAuth": [] }
         ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "format": {
+                    "type": "string",
+                    "enum": ["json", "csv"],
+                    "default": "json",
+                    "description": "Export format. JSON returns a gzip-compressed portability archive. CSV returns a zip containing one CSV per exported table."
+                  }
+                }
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
-            "description": "Gzip-compressed collectZ portability export JSON",
+            "description": "Redacted collectZ portability export archive",
             "headers": {
               "Content-Disposition": {
                 "schema": { "type": "string" },
                 "description": "Attachment filename for the generated export."
               },
               "X-CollectZ-Export-Format": {
-                "schema": { "type": "string", "const": "collectz.portability.export.v1" }
+                "schema": {
+                  "type": "string",
+                  "enum": ["collectz.portability.export.v1", "collectz.portability.csv.v1"]
+                }
               }
             },
             "content": {
@@ -7087,6 +7109,13 @@
                   "type": "string",
                   "format": "binary",
                   "description": "Gzip-compressed JSON matching PortabilityExportManifest after decompression."
+                }
+              },
+              "application/zip": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary",
+                  "description": "Zip archive containing manifest, restore guidance, uploads manifest, and one CSV per exported database table."
                 }
               }
             }

@@ -224,9 +224,11 @@ function BackupPortabilityCard({
   loading,
   error,
   exporting,
+  exportFormat,
   lastExportedAt,
   onRefresh,
   onExport,
+  onExportFormatChange,
   Spinner
 }) {
   const checks = Array.isArray(data?.checks) ? data.checks : [];
@@ -245,11 +247,22 @@ function BackupPortabilityCard({
             Read-only status for database records, uploaded images, provider metadata, and restore guidance.
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+          <label className="sr-only" htmlFor="portability-export-format">Export format</label>
+          <select
+            id="portability-export-format"
+            className="form-select h-9 min-w-[136px] text-sm"
+            value={exportFormat}
+            onChange={(event) => onExportFormatChange(event.target.value)}
+            disabled={loading || exporting}
+          >
+            <option value="json">JSON archive</option>
+            <option value="csv">CSV archive</option>
+          </select>
           <button type="button" className="btn-secondary btn-sm" onClick={onRefresh} disabled={loading || exporting}>
             {loading ? <Spinner size={14} /> : 'Refresh'}
           </button>
-          <button type="button" className="btn-primary btn-sm" onClick={onExport} disabled={loading || exporting}>
+          <button type="button" className="btn-primary btn-sm" onClick={() => onExport(exportFormat)} disabled={loading || exporting}>
             {exporting ? <Spinner size={14} /> : 'Download export'}
           </button>
         </div>
@@ -275,6 +288,9 @@ function BackupPortabilityCard({
                 <p className="text-sm font-medium text-ink">Manual export</p>
                 <p className="mt-1 text-sm text-ghost">
                   {data.export_capabilities?.manual_archive?.note || 'Download a redacted collectZ export bundle.'}
+                </p>
+                <p className="mt-1 text-xs text-muted">
+                  JSON is the portable archive. CSV downloads a zip with one spreadsheet file per exported table.
                 </p>
               </div>
               <span className={`text-sm font-medium ${statusClass(data.export_capabilities?.manual_archive?.status)}`}>
@@ -418,6 +434,7 @@ export default function AdminSettingsView({
   const [portabilityError, setPortabilityError] = useState('');
   const [loadingPortability, setLoadingPortability] = useState(false);
   const [exportingPortability, setExportingPortability] = useState(false);
+  const [portabilityExportFormat, setPortabilityExportFormat] = useState('json');
   const [lastPortabilityExportedAt, setLastPortabilityExportedAt] = useState('');
   const visibleFlagKeySet = useMemo(() => new Set(visibleFlagKeys), [visibleFlagKeys]);
 
@@ -515,15 +532,16 @@ export default function AdminSettingsView({
     loadPortabilityStatus();
   }, [loadPortabilityStatus]);
 
-  const downloadPortabilityExport = useCallback(async () => {
+  const downloadPortabilityExport = useCallback(async (format = 'json') => {
     if (!portabilityEndpoint) return;
+    const safeFormat = format === 'csv' ? 'csv' : 'json';
     setExportingPortability(true);
     setPortabilityError('');
     try {
-      const response = await apiCall('post', `${portabilityEndpoint}/export`, {}, { responseType: 'blob', rawResponse: true });
+      const response = await apiCall('post', `${portabilityEndpoint}/export`, { format: safeFormat }, { responseType: 'blob', rawResponse: true });
       const disposition = String(response?.headers?.['content-disposition'] || '');
       const filenameMatch = disposition.match(/filename="?([^"]+)"?/i);
-      const filename = filenameMatch?.[1] || `collectz-export-${Date.now()}.json.gz`;
+      const filename = filenameMatch?.[1] || `collectz-export-${Date.now()}.${safeFormat === 'csv' ? 'csv.zip' : 'json.gz'}`;
       const blob = response instanceof Blob ? response : response?.data;
       if (!(blob instanceof Blob)) throw new Error('Export response was not a downloadable file');
       const url = URL.createObjectURL(blob);
@@ -534,8 +552,8 @@ export default function AdminSettingsView({
       anchor.click();
       anchor.remove();
       URL.revokeObjectURL(url);
-      setLastPortabilityExportedAt(new Date().toLocaleString());
-      onToast('Export downloaded');
+      setLastPortabilityExportedAt(`${safeFormat.toUpperCase()} ${new Date().toLocaleString()}`);
+      onToast(`${safeFormat.toUpperCase()} export downloaded`);
       await loadPortabilityStatus();
     } catch (error) {
       const message = error?.response?.data?.error || error?.message || 'Failed to download export';
@@ -673,9 +691,11 @@ export default function AdminSettingsView({
             loading={loadingPortability}
             error={portabilityError}
             exporting={exportingPortability}
+            exportFormat={portabilityExportFormat}
             lastExportedAt={lastPortabilityExportedAt}
             onRefresh={loadPortabilityStatus}
             onExport={downloadPortabilityExport}
+            onExportFormatChange={setPortabilityExportFormat}
             Spinner={Spinner}
           />
         ) : null}

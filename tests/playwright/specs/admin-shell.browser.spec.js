@@ -219,6 +219,15 @@ test.describe('admin shell browser regressions', () => {
       expect(exportPayload?.manifest?.includes?.integration_secrets).toBe(false);
       expect(Array.isArray(exportPayload?.database?.tables)).toBeTruthy();
       expect(exportPayload?.uploads?.included_files).toBe(false);
+      const csvResponse = await postWithCsrf(requestContext, '/api/admin/settings/portability/export', { format: 'csv' });
+      expect(csvResponse.ok()).toBeTruthy();
+      expect(csvResponse.headers()['content-type']).toContain('application/zip');
+      expect(csvResponse.headers()['content-disposition']).toContain('.csv.zip');
+      expect(csvResponse.headers()['x-collectz-export-format']).toBe('collectz.portability.csv.v1');
+      const csvBytes = await csvResponse.body();
+      expect(csvBytes.readUInt32LE(0)).toBe(0x04034b50);
+      expect(csvBytes.includes(Buffer.from('manifest.csv'))).toBeTruthy();
+      expect(csvBytes.includes(Buffer.from('collectz.portability.csv.v1'))).toBeTruthy();
     } finally {
       await requestContext.dispose();
     }
@@ -226,6 +235,7 @@ test.describe('admin shell browser regressions', () => {
     await page.goto('/dashboard?tab=admin-settings');
     await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
     await expect(page.getByText('Backup and portability', { exact: true })).toBeVisible();
+    await expect(page.getByLabel('Export format')).toBeVisible();
     await expect(page.getByText('Database', { exact: true })).toBeVisible();
     await expect(page.getByText('Images', { exact: true })).toBeVisible();
     await expect(page.getByText('Provider metadata', { exact: true }).first()).toBeVisible();

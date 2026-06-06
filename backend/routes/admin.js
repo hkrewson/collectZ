@@ -27,7 +27,7 @@ const { getRequestOrigin } = require('../services/requestOrigin');
 const { syncLibraryMembershipsForSpaceUser } = require('../services/libraries');
 const { hashInviteToken } = require('../services/invites');
 const { issuePasswordResetToken } = require('../services/passwordResets');
-const { buildPortabilityExportArchive, buildPortabilityStatus } = require('../services/portability');
+const { buildPortabilityCsvArchive, buildPortabilityExportArchive, buildPortabilityStatus } = require('../services/portability');
 
 const commonRouter = express.Router();
 const platformRouter = express.Router();
@@ -98,7 +98,16 @@ commonRouter.get('/settings/portability', asyncHandler(async (_req, res) => {
   res.json(await buildPortabilityStatus());
 }));
 
-commonRouter.post('/settings/portability/export', asyncHandler(async (_req, res) => {
+commonRouter.post('/settings/portability/export', asyncHandler(async (req, res) => {
+  const format = String(req.body?.format || req.query?.format || 'json').trim().toLowerCase();
+  if (format === 'csv') {
+    const archive = await buildPortabilityCsvArchive();
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${archive.filename}"`);
+    res.setHeader('X-CollectZ-Export-Format', 'collectz.portability.csv.v1');
+    res.send(archive.buffer);
+    return;
+  }
   const archive = await buildPortabilityExportArchive();
   res.setHeader('Content-Type', 'application/gzip');
   res.setHeader('Content-Disposition', `attachment; filename="${archive.filename}"`);

@@ -6,6 +6,36 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.15.1 — JSON and CSV Export Format Choice
+
+**Goal:** Let admins choose between a portable JSON export archive and a spreadsheet-friendly CSV export archive.
+
+### Scope
+
+- Add an explicit export `format` option to the admin portability export endpoint.
+- Keep `json` as the default gzip-compressed collectZ portability archive.
+- Add `csv` as a zip archive containing manifest, restore guidance, uploads manifest, and one CSV per exported table.
+- Surface the format choice in Admin Settings without adding new restore behavior, background jobs, or binary image bundling.
+- Keep backend redaction shared across JSON and CSV formats.
+
+### Acceptance Criteria
+
+- Admin Settings lets users choose JSON archive or CSV archive before downloading.
+- `POST /api/admin/settings/portability/export` documents and accepts `format: "json" | "csv"`.
+- JSON exports retain the existing `.json.gz` response.
+- CSV exports return `.csv.zip` with one CSV per table and a manifest file.
+- Release notes, release feed, version metadata, and targeted settings/runtime verification are updated for `3.15.1`.
+
+### Closeout
+
+- Status: completed in `3.15.1`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, `docs/wiki/08-Backup-and-Restore.md`, `docs/wiki/08-Backlog.md`, `docs/releases/v3.15.1.md`, and `backend/openapi/openapi.yaml`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.15.1` using the local compose override; `/api/health` reported version/frontend/backend/build `3.15.1`; running backend env reported `APP_EDITION=platform`, `APP_VERSION=3.15.1`, and a redacted DB URL; Help > Releases served `3.15.1`; targeted admin browser coverage verified JSON `.json.gz` and CSV `.csv.zip` exports from the authenticated admin route; temporary homelab-shaped stack verification passed and left no `3.15.1` temp containers or env files behind.
+- Verification: backend service/route syntax checks; Docker backend unit tests (`304` passed); Docker OpenAPI validation; Docker backend/frontend rebuild; Help > Releases smoke; targeted admin settings/export browser regression (`2` passed); full Playwright browser regression (`81` passed, `4` skipped); RBAC regression; platform edition boundary; homelab edition boundary against a temporary local stack; backend and frontend production dependency audits (`0` vulnerabilities); version sync; release note heading check; targeted changed-file and Playwright artifact secret-pattern scans; and `git diff --check`.
+- CI follow-through: stricter CI `compose-smoke`, repository-history `secret-scan`, CodeQL review, and `image-security-and-sbom` remain remote GitHub Actions gates for the pushed commit. Local evidence covered running-stack health, auth-scoped browser behavior, dependency audit, RBAC, and edition boundaries.
+- Risks/follow-ups: CSV exports are spreadsheet-friendly snapshots, not restore automation; uploaded image binaries, scheduled backup freshness checks, and restore rehearsal UI remain separate follow-up work.
+- What remains in the milestone: nothing for `3.15.1`; follow-up backup/restore work remains in the backlog instead of this release slice.
+
 ## 3.14.5 — Library-Specific Edition Editors
 
 **Goal:** Let users record edition and variant details in library-specific language without creating duplicate collectible records.
