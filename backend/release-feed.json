@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.14.4",
+      "version": "3.14.4",
+      "date": null,
+      "status": null,
+      "summary": "This patch adds manual relationship workflows for linking related records without duplicating them across libraries.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added a scoped `object_relationships` persistence table and migration.",
+            "Added authenticated relationship APIs for searching link targets, listing relationships for a record, saving links, and unlinking archived relationships.",
+            "Added a compact `Related` drawer section for Library, Art, and Collectibles records.",
+            "Relationship types include includes, part of, included with, companion to, purchased with, and event acquired with.",
+            "Relationship readback shows the related record title, record family, optional subtitle context, and optional note from both sides."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.14.3",
       "version": "3.14.3",
       "date": null,
@@ -137,24 +156,6 @@
             "The wide-screen multi-panel Dashboard layout was removed.",
             "Dashboard Review lists can now show more sample rows before users need to drill into another surface.",
             "Existing Dashboard Review drawer behavior, provider health, recent syncs, recent activity, and upcoming events content are unchanged."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.12.13",
-      "version": "3.12.13",
-      "date": null,
-      "status": null,
-      "summary": "This patch lets Dashboard Review sparse-metadata rows use the same assisted lookup flow as missing-identifier rows, while keeping manual fallback fields available.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Sparse-metadata review drawers now show media-specific provider lookup controls.",
-            "Sparse-metadata drawers keep `Manual fallback` fields open by default.",
-            "Applying a lookup candidate can stage title, year, cover, provider identity, or type-specific metadata through the existing pending-update readback.",
-            "Save readiness, defer, dismiss, and drawer-only review behavior are unchanged."
           ]
         }
       ]

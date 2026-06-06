@@ -12,6 +12,7 @@ import {
   CollectibleProvenanceEditor,
   CollectibleTraitPills,
   CollectibleTraitReadback,
+  ObjectRelationshipEditor,
   PageHeaderSearchToolbar,
   CollectionPaginationFooter,
   cx,
@@ -1500,6 +1501,14 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
               ownerId={item.id}
               traits={item.collectible_traits}
               onSaved={() => onValuationUpdated?.(item.id)}
+              onToast={onToast}
+            />
+          ) : null}
+          {!showLoanFocusedView ? (
+            <ObjectRelationshipEditor
+              apiCall={apiCall}
+              ownerType="media"
+              ownerId={item.id}
               onToast={onToast}
             />
           ) : null}

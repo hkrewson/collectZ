@@ -1580,6 +1580,53 @@
         },
         "required": ["family"]
       },
+      "ObjectRelationshipOwner": {
+        "type": "object",
+        "properties": {
+          "owner_type": { "type": "string", "enum": ["media", "art", "collectible", "event"] },
+          "owner_id": { "type": "integer" },
+          "title": { "type": ["string", "null"] },
+          "subtitle": { "type": ["string", "null"] },
+          "library_id": { "type": ["integer", "null"] },
+          "space_id": { "type": ["integer", "null"] }
+        },
+        "required": ["owner_type", "owner_id"]
+      },
+      "ObjectRelationshipRecord": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "relationship_type": {
+            "type": "string",
+            "enum": ["part_of", "includes", "included_with", "companion_to", "purchased_with", "event_acquired_with"]
+          },
+          "label": { "type": ["string", "null"] },
+          "notes": { "type": ["string", "null"] },
+          "source": { "$ref": "#/components/schemas/ObjectRelationshipOwner" },
+          "target": { "$ref": "#/components/schemas/ObjectRelationshipOwner" },
+          "counterpart": { "$ref": "#/components/schemas/ObjectRelationshipOwner" },
+          "direction": { "type": "string", "enum": ["outgoing", "incoming"] },
+          "library_id": { "type": ["integer", "null"] },
+          "space_id": { "type": ["integer", "null"] },
+          "created_at": { "type": ["string", "null"], "format": "date-time" },
+          "updated_at": { "type": ["string", "null"], "format": "date-time" }
+        },
+        "required": ["id", "relationship_type", "source", "target", "counterpart", "direction"]
+      },
+      "ObjectRelationshipCreateRequest": {
+        "type": "object",
+        "properties": {
+          "relationship_type": {
+            "type": "string",
+            "enum": ["part_of", "includes", "included_with", "companion_to", "purchased_with", "event_acquired_with"]
+          },
+          "target_type": { "type": "string", "enum": ["media", "art", "collectible", "event"] },
+          "target_id": { "type": "integer" },
+          "label": { "type": ["string", "null"] },
+          "notes": { "type": ["string", "null"] }
+        },
+        "required": ["relationship_type", "target_type", "target_id"]
+      },
       "ArtRecord": {
         "type": "object",
         "properties": {
@@ -8483,6 +8530,208 @@
                     "archived": { "type": "boolean" }
                   },
                   "required": ["owner", "trait", "archived"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/object-relationships/search": {
+      "get": {
+        "tags": ["Media"],
+        "summary": "Search scoped records that can be linked as object relationships",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string", "minLength": 2 }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "schema": { "type": "string", "enum": ["all", "media", "art", "collectible", "event"], "default": "all" }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 25, "default": 12 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Relationship target candidates",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "matches": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/ObjectRelationshipOwner" }
+                    }
+                  },
+                  "required": ["matches"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/object-relationships/{ownerType}/{ownerId}": {
+      "get": {
+        "tags": ["Media"],
+        "summary": "List relationships for a scoped record",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "name": "ownerType",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "enum": ["media", "art", "collectible", "event"] }
+          },
+          {
+            "name": "ownerId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Relationships for the owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "owner": { "$ref": "#/components/schemas/ObjectRelationshipOwner" },
+                    "relationships": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/ObjectRelationshipRecord" }
+                    }
+                  },
+                  "required": ["owner", "relationships"]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Relationship owner not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Media"],
+        "summary": "Create or update a relationship from a scoped record to another record",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "name": "ownerType",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "enum": ["media", "art", "collectible", "event"] }
+          },
+          {
+            "name": "ownerId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ObjectRelationshipCreateRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Relationship saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "owner": { "$ref": "#/components/schemas/ObjectRelationshipOwner" },
+                    "relationship": { "$ref": "#/components/schemas/ObjectRelationshipRecord" }
+                  },
+                  "required": ["owner", "relationship"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid relationship payload",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/object-relationships/{ownerType}/{ownerId}/{relationshipId}": {
+      "delete": {
+        "tags": ["Media"],
+        "summary": "Archive a relationship for a scoped record",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "name": "ownerType",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "enum": ["media", "art", "collectible", "event"] }
+          },
+          {
+            "name": "ownerId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          },
+          {
+            "name": "relationshipId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Relationship archived",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "owner": { "$ref": "#/components/schemas/ObjectRelationshipOwner" },
+                    "relationship": { "$ref": "#/components/schemas/ObjectRelationshipRecord" },
+                    "archived": { "type": "boolean" }
+                  },
+                  "required": ["owner", "relationship", "archived"]
                 }
               }
             }

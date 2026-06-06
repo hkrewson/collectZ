@@ -219,6 +219,67 @@ test.describe('events and collectibles browser regressions', () => {
     }
   });
 
+  test('art drawer can link and unlink a collectible relationship', async ({ page }) => {
+    const adminCredentials = await ensureSavedAdminCredentials();
+    const adminRequestContext = await createAuthenticatedRequestContext(adminCredentials);
+    const userCredentials = await createFreshUserCredentials();
+    const userRequestContext = await createAuthenticatedRequestContext(userCredentials);
+    const suffix = Date.now();
+    const artTitle = `Playwright Bundle Art ${suffix}`;
+    const collectibleTitle = `Playwright Bundle Collectible ${suffix}`;
+    const originalFlagsPayload = await getFeatureFlags(adminRequestContext);
+    const originalFlags = Array.isArray(originalFlagsPayload?.flags) ? originalFlagsPayload.flags : [];
+    const originalCollectiblesEnabled = Boolean(originalFlags.find((flag) => flag?.key === 'collectibles_enabled')?.enabled);
+
+    await deleteArtByExactTitle(userRequestContext, artTitle).catch(() => {});
+    await deleteCollectiblesByExactTitle(userRequestContext, collectibleTitle).catch(() => {});
+    try {
+      if (!originalCollectiblesEnabled) {
+        await updateFeatureFlag(adminRequestContext, 'collectibles_enabled', true);
+      }
+
+      await postWithCsrf(userRequestContext, '/api/art', {
+        title: artTitle,
+        medium: 'print'
+      }, 201);
+      await postWithCsrf(userRequestContext, '/api/collectibles', {
+        title: collectibleTitle,
+        category: 'Toys'
+      }, 201);
+
+      await signInThroughUi(page, userCredentials);
+      await page.goto('/dashboard?tab=library-art');
+      const artCard = page.locator('article').filter({ hasText: artTitle }).first();
+      await expect(artCard).toBeVisible();
+      await artCard.click();
+
+      const relatedSection = page.locator('section').filter({ hasText: 'Related' }).first();
+      await expect(relatedSection).toBeVisible();
+      await relatedSection.getByRole('button', { name: 'Add' }).click();
+      await relatedSection.getByRole('combobox', { name: 'Relationship' }).selectOption('includes');
+      await relatedSection.getByRole('combobox', { name: 'Look in' }).selectOption('collectible');
+      await relatedSection.getByRole('textbox', { name: 'Find record' }).fill(collectibleTitle);
+      await expect(relatedSection.getByRole('button', { name: new RegExp(collectibleTitle) })).toBeVisible();
+      await relatedSection.getByRole('button', { name: new RegExp(collectibleTitle) }).click();
+      await relatedSection.getByRole('textbox', { name: 'Notes' }).fill('Box insert');
+      await relatedSection.getByRole('button', { name: 'Save link' }).click();
+
+      await expect(relatedSection.getByText(`Includes: ${collectibleTitle}`)).toBeVisible();
+      await expect(relatedSection.getByText(/Collectibles · Toys · Box insert/)).toBeVisible();
+
+      await relatedSection.getByRole('button', { name: 'Unlink' }).click();
+      await expect(relatedSection.getByText(`Includes: ${collectibleTitle}`)).not.toBeVisible();
+    } finally {
+      await deleteArtByExactTitle(userRequestContext, artTitle).catch(() => {});
+      await deleteCollectiblesByExactTitle(userRequestContext, collectibleTitle).catch(() => {});
+      if (!originalCollectiblesEnabled) {
+        await updateFeatureFlag(adminRequestContext, 'collectibles_enabled', false).catch(() => {});
+      }
+      await userRequestContext.dispose();
+      await adminRequestContext.dispose();
+    }
+  });
+
   test('artwork entry can create and reuse a linked artist record', async ({ page }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
     const adminRequestContext = await createAuthenticatedRequestContext(adminCredentials);

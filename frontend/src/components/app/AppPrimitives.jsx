@@ -2405,6 +2405,234 @@ export function CollectibleProvenanceEditor({
   );
 }
 
+const RELATIONSHIP_TYPE_OPTIONS = [
+  ['includes', 'Includes'],
+  ['part_of', 'Part of'],
+  ['included_with', 'Included with'],
+  ['companion_to', 'Companion to'],
+  ['purchased_with', 'Purchased with'],
+  ['event_acquired_with', 'Event acquired with']
+];
+
+const RELATIONSHIP_TARGET_OPTIONS = [
+  ['all', 'All records'],
+  ['media', 'Library items'],
+  ['art', 'Art'],
+  ['collectible', 'Collectibles'],
+  ['event', 'Events']
+];
+
+function relationshipLabel(value) {
+  return RELATIONSHIP_TYPE_OPTIONS.find(([key]) => key === value)?.[1] || 'Related';
+}
+
+function relationshipTypeLabel(value) {
+  return RELATIONSHIP_TARGET_OPTIONS.find(([key]) => key === value)?.[1] || 'Record';
+}
+
+export function ObjectRelationshipEditor({
+  apiCall,
+  ownerType,
+  ownerId,
+  onToast,
+  className = ''
+}) {
+  const [relationships, setRelationships] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [relationshipType, setRelationshipType] = useState('includes');
+  const [targetType, setTargetType] = useState('all');
+  const [query, setQuery] = useState('');
+  const [matches, setMatches] = useState([]);
+  const [selectedTarget, setSelectedTarget] = useState(null);
+  const [notes, setNotes] = useState('');
+
+  const loadRelationships = useCallback(async () => {
+    if (!apiCall || !ownerType || !ownerId) return;
+    setLoading(true);
+    try {
+      const payload = await apiCall('get', `/object-relationships/${ownerType}/${ownerId}`);
+      setRelationships(Array.isArray(payload?.relationships) ? payload.relationships : []);
+    } catch (error) {
+      onToast?.(error?.response?.data?.error || 'Failed to load related records', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [apiCall, ownerType, ownerId, onToast]);
+
+  useEffect(() => {
+    setEditing(false);
+    setQuery('');
+    setMatches([]);
+    setSelectedTarget(null);
+    setNotes('');
+    loadRelationships();
+  }, [ownerType, ownerId, loadRelationships]);
+
+  useEffect(() => {
+    if (!editing || !apiCall || cleanTraitText(query).length < 2) {
+      setMatches([]);
+      return undefined;
+    }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        const payload = await apiCall('get', `/object-relationships/search?type=${encodeURIComponent(targetType)}&q=${encodeURIComponent(query)}&limit=10`);
+        if (!cancelled) {
+          const found = Array.isArray(payload?.matches) ? payload.matches : [];
+          setMatches(found.filter((match) => !(match.owner_type === ownerType && Number(match.owner_id) === Number(ownerId))));
+        }
+      } catch (error) {
+        if (!cancelled) onToast?.(error?.response?.data?.error || 'Failed to search related records', 'error');
+      }
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [apiCall, editing, ownerId, ownerType, onToast, query, targetType]);
+
+  if (!apiCall || !ownerType || !ownerId) return null;
+
+  const save = async (event) => {
+    event.preventDefault();
+    if (!selectedTarget || saving) {
+      onToast?.('Choose a related record first', 'error');
+      return;
+    }
+    setSaving(true);
+    try {
+      await apiCall('post', `/object-relationships/${ownerType}/${ownerId}`, {
+        relationship_type: relationshipType,
+        target_type: selectedTarget.owner_type,
+        target_id: selectedTarget.owner_id,
+        notes: cleanTraitText(notes) || null
+      });
+      await loadRelationships();
+      setEditing(false);
+      setQuery('');
+      setMatches([]);
+      setSelectedTarget(null);
+      setNotes('');
+      onToast?.('Related record saved');
+    } catch (error) {
+      onToast?.(error?.response?.data?.error || 'Failed to save related record', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const remove = async (relationshipId) => {
+    if (!relationshipId || saving) return;
+    setSaving(true);
+    try {
+      await apiCall('delete', `/object-relationships/${ownerType}/${ownerId}/${relationshipId}`);
+      await loadRelationships();
+      onToast?.('Related record removed');
+    } catch (error) {
+      onToast?.(error?.response?.data?.error || 'Failed to remove related record', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <section className={cx('rounded-lg border border-edge bg-surface/35 p-3', className)}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-ink">Related</p>
+          <p className="mt-1 text-xs leading-5 text-ghost">Link box sets, bundle pieces, companion records, or event-acquired items without duplicating records.</p>
+        </div>
+        {!editing ? (
+          <button type="button" className="btn-ghost btn-sm shrink-0" onClick={() => setEditing(true)}>
+            Add
+          </button>
+        ) : null}
+      </div>
+
+      {loading ? <p className="mt-3 text-xs text-ghost">Loading related records…</p> : null}
+      {!loading && relationships.length > 0 ? (
+        <div className="mt-3 space-y-2">
+          {relationships.map((relationship) => (
+            <div key={relationship.id} className="flex items-start justify-between gap-3 rounded-md border border-edge/70 bg-void/20 px-3 py-2">
+              <div className="min-w-0">
+                <p className="text-sm text-ink">
+                  <span className="text-dim">{relationshipLabel(relationship.relationship_type)}: </span>
+                  {relationship.counterpart?.title || 'Related record'}
+                </p>
+                <p className="mt-1 text-xs text-ghost">
+                  {relationshipTypeLabel(relationship.counterpart?.owner_type)}
+                  {relationship.counterpart?.subtitle ? ` · ${relationship.counterpart.subtitle}` : ''}
+                  {relationship.notes ? ` · ${relationship.notes}` : ''}
+                </p>
+              </div>
+              <button type="button" className="btn-ghost btn-xs shrink-0 text-err hover:bg-err/10" disabled={saving} onClick={() => remove(relationship.id)}>Unlink</button>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {editing ? (
+        <form className="mt-3 space-y-3" onSubmit={save}>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="field">
+              <span className="label">Relationship</span>
+              <select className="select" value={relationshipType} onChange={(event) => setRelationshipType(event.target.value)}>
+                {RELATIONSHIP_TYPE_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+            </label>
+            <label className="field">
+              <span className="label">Look in</span>
+              <select className="select" value={targetType} onChange={(event) => { setTargetType(event.target.value); setSelectedTarget(null); }}>
+                {RELATIONSHIP_TARGET_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+            </label>
+            <label className="field sm:col-span-2">
+              <span className="label">Find record</span>
+              <input className="input" value={query} onChange={(event) => { setQuery(event.target.value); setSelectedTarget(null); }} placeholder="Search title or event" />
+            </label>
+          </div>
+
+          {matches.length > 0 ? (
+            <div className="max-h-48 overflow-y-auto rounded-md border border-edge bg-void/20 p-1">
+              {matches.map((match) => {
+                const active = selectedTarget?.owner_type === match.owner_type && Number(selectedTarget?.owner_id) === Number(match.owner_id);
+                return (
+                  <button
+                    key={`${match.owner_type}:${match.owner_id}`}
+                    type="button"
+                    className={cx('flex w-full items-start justify-between gap-3 rounded px-3 py-2 text-left transition-colors hover:bg-muted/20', active && 'bg-brand/10 text-brand')}
+                    onClick={() => setSelectedTarget(match)}
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium">{match.title}</span>
+                      <span className="block truncate text-xs text-ghost">{relationshipTypeLabel(match.owner_type)}{match.subtitle ? ` · ${match.subtitle}` : ''}</span>
+                    </span>
+                    {active ? <span className="text-xs font-medium">Selected</span> : null}
+                  </button>
+                );
+              })}
+            </div>
+          ) : cleanTraitText(query).length >= 2 ? (
+            <p className="text-xs text-ghost">No matching records found.</p>
+          ) : null}
+
+          <label className="field">
+            <span className="label">Notes</span>
+            <textarea className="textarea min-h-[64px]" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Optional context" />
+          </label>
+
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <button type="button" className="btn-ghost btn-sm" onClick={() => { setEditing(false); setSelectedTarget(null); setMatches([]); setQuery(''); setNotes(''); }} disabled={saving}>Cancel</button>
+            <button type="submit" className="btn-primary btn-sm" disabled={saving || !selectedTarget}>{saving ? 'Saving…' : 'Save link'}</button>
+          </div>
+        </form>
+      ) : null}
+    </section>
+  );
+}
+
 export function Toast({ message, type = 'ok', onDismiss }) {
   useEffect(() => {
     const t = setTimeout(onDismiss, 3500);

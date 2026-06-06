@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CheckboxControl, CollectionPaginationFooter, CollectibleGradingEditor, CollectibleProvenanceEditor, CollectibleTraitPills, CollectibleTraitReadback, CoverImagePicker, DetailDrawerShell, DrawerBackdrop, FilterMenu, Icons, PageHeaderSearchToolbar, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
+import { CheckboxControl, CollectionPaginationFooter, CollectibleGradingEditor, CollectibleProvenanceEditor, CollectibleTraitPills, CollectibleTraitReadback, CoverImagePicker, DetailDrawerShell, DrawerBackdrop, FilterMenu, Icons, ObjectRelationshipEditor, PageHeaderSearchToolbar, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
 import SignatureManager from './app/SignatureManager';
 
 const ART_MEDIUM_OPTIONS = [
@@ -425,6 +425,12 @@ function ArtDetailDrawer({ artId, apiCall, events, onClose, onEdit, onDeleted, o
               ownerId={item.id}
               traits={item.collectible_traits}
               onSaved={load}
+              onToast={onToast}
+            />
+            <ObjectRelationshipEditor
+              apiCall={apiCall}
+              ownerType="art"
+              ownerId={item.id}
               onToast={onToast}
             />
             <div className="md:hidden">

@@ -426,7 +426,7 @@ These are product-level capability gaps discovered from the current shape of the
 ### Backlog Item: Bundle Relationship Workflows
 **Type:** Deferred milestone
 **Tags:** `collections`, `relationships`, `bundles`, `box-sets`, `collectibles`, `events`, `cross-library`
-**Status:** Active backlog; related-object intent exists, but no explicit bundle workflow has been promoted.
+**Status:** Promoted to `3.14.4 — Bundle Relationship Workflows` in [07-Release-Roadmap.md](07-Release-Roadmap.md).
 
 **Goal:** Give users a deliberate workflow for linking bundled or companion objects without duplicating canonical records across libraries.
 

@@ -223,6 +223,23 @@ CREATE TABLE IF NOT EXISTS collectible_trait_records (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS object_relationships (
+    id SERIAL PRIMARY KEY,
+    source_type VARCHAR(30) NOT NULL CHECK (source_type IN ('media', 'art', 'collectible', 'event')),
+    source_id INTEGER NOT NULL,
+    target_type VARCHAR(30) NOT NULL CHECK (target_type IN ('media', 'art', 'collectible', 'event')),
+    target_id INTEGER NOT NULL,
+    relationship_type VARCHAR(40) NOT NULL CHECK (relationship_type IN ('part_of', 'includes', 'included_with', 'companion_to', 'purchased_with', 'event_acquired_with')),
+    label VARCHAR(160),
+    notes TEXT,
+    library_id INTEGER,
+    space_id INTEGER,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    archived_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS media_loan_reminders (
     id SERIAL PRIMARY KEY,
     loan_id INTEGER NOT NULL REFERENCES media_loans(id) ON DELETE CASCADE,
@@ -1468,6 +1485,18 @@ CREATE INDEX IF NOT EXISTS idx_collectible_trait_records_owner_active
 CREATE INDEX IF NOT EXISTS idx_collectible_trait_records_scope_family_active
     ON collectible_trait_records(space_id, library_id, family, updated_at DESC)
     WHERE archived_at IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_object_relationships_unique_active
+    ON object_relationships(source_type, source_id, target_type, target_id, relationship_type)
+    WHERE archived_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_object_relationships_source_active
+    ON object_relationships(source_type, source_id, updated_at DESC)
+    WHERE archived_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_object_relationships_target_active
+    ON object_relationships(target_type, target_id, updated_at DESC)
+    WHERE archived_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_object_relationships_scope_active
+    ON object_relationships(space_id, library_id, relationship_type, updated_at DESC)
+    WHERE archived_at IS NULL;
 
 -- Updated-at trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -1499,6 +1528,10 @@ BEGIN
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_collectible_trait_records_updated_at') THEN
         CREATE TRIGGER update_collectible_trait_records_updated_at BEFORE UPDATE ON collectible_trait_records
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_object_relationships_updated_at') THEN
+        CREATE TRIGGER update_object_relationships_updated_at BEFORE UPDATE ON object_relationships
             FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_media_variants_updated_at') THEN
@@ -1780,5 +1813,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (104, 'Add mobile capture inbox foundation'),
     (105, 'Add wishlist price history snapshots'),
     (106, 'Add Dashboard Review decision tracking'),
-    (107, 'Add reusable collectible trait persistence')
+    (107, 'Add reusable collectible trait persistence'),
+    (108, 'Add object relationship workflows')
 ON CONFLICT (version) DO NOTHING;

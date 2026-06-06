@@ -6,6 +6,35 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.14.4 — Bundle Relationship Workflows
+
+**Goal:** Let users link bundled, companion, purchased-with, and event-acquired records without duplicating canonical objects across libraries.
+
+**Status:** Completed in `3.14.4`.
+
+### Scope
+
+- Add a scoped object relationship persistence table for cross-library links.
+- Add authenticated APIs for target search, relationship readback, create/update, and unlink/archive behavior.
+- Add compact drawer controls for Library, Art, and Collectibles records.
+- Keep the workflow manual and drawer-first; do not create duplicate Collectibles rows or valuation rollups.
+
+### Acceptance Criteria
+
+- Users can link related objects without duplicating canonical records.
+- Relationship direction is clear from the source drawer and the related record drawer.
+- Unlinking archives the relationship without deleting either record.
+- OpenAPI, init SQL, release notes, release feed, version metadata, targeted browser coverage, and Docker runtime verification are updated for `3.14.4`.
+
+### Closeout
+
+- Status: completed in `3.14.4`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/08-Backlog.md`, `docs/releases/v3.14.4.md`, and `backend/openapi/openapi.yaml`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.14.4`; migration `108` applied in-stack; `/api/health` reported version/frontend/backend/build `3.14.4`; running-stack Help > Releases served `3.14.4`; temporarily recreated the homelab-shaped stack for boundary smoke and restored the platform-local stack afterward.
+- Verification: service/route syntax checks; backend unit tests (`304` passed) locally and in-stack; OpenAPI validation locally and in-stack; frontend Vite build locally and in Docker; Docker runtime rebuild; Help > Releases smoke; API integration smoke; init parity; migration rehearsal; observability evidence (`9/9` checks passed); local release preflight; backend/frontend production dependency audits (`0` vulnerabilities); RBAC regression; platform boundary; homelab boundary against local `3.14.4` images; targeted relationship browser coverage; full Playwright browser regression (`80` passed, `4` expected skips); version/release-feed sync; and `git diff --check`.
+- Blocked/CI follow-through: local `gitleaks`, `trivy`, and SBOM tools were unavailable, so `secret-scan` and `image-security-and-sbom` remain CI-only; strict CI secure-cookie `compose-smoke` remains CI-only from this local development stack; CodeQL is advisory per current release checklist and must be reviewed in GitHub when available.
+- Risks/follow-ups: richer bundle presets, relationship-specific summary groupings, relationship editing beyond unlink/recreate, and library-specific edition editors remain follow-up work.
+
 ## 3.14.3 — COA and Provenance Editing
 
 **Goal:** Let users record owner-level proof, COA, receipt, witnessed, or source details on collectible-like records using the reusable trait persistence contract.
