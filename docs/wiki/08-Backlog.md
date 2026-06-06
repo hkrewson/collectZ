@@ -664,6 +664,68 @@ These are product-level capability gaps discovered from the current shape of the
 - Existing rows keep working.
 - The taxonomy does not blur Art and Collectibles boundaries without an explicit future decision.
 
+### Backlog Item: Platform vs Workspace Boundary Clarification
+**Type:** Deferred milestone
+**Tags:** `platform`, `workspace`, `navigation`, `settings`, `integrations`, `backup`, `portability`
+**Status:** Active backlog; not yet promoted or versioned.
+
+**Goal:** Make the app’s navigation and settings model clearly separate workspace-owned collection work from platform-level setup.
+
+**Why this work exists**
+- The current nav has both `Workspace > Settings` and `Admin > Settings`, which makes it unclear whether settings apply to a workspace, a personal library, or the whole platform.
+- Provider integrations are especially confusing because workspace-scoped integration settings exist, but the platform-level Admin nav also exposes an editable integrations surface.
+- Platform admins need a clear path between their own workspace/library work and platform setup without accidentally configuring the wrong scope.
+
+**Intent**
+- Rename the current `Admin` nav group to `Platform`.
+- Treat `Workspace` as the home for library work, workspace settings, workspace members, workspace data backup/export/portability, and workspace-owned provider integrations.
+- Treat `Platform` as the home for platform setup: email delivery, self-registration, all workspaces, all members, platform activity, platform/runtime settings, and instance-wide backup/export.
+- Remove editable provider/data-sync integration overlap from the Platform nav.
+- Keep provider integrations operationally workspace-owned while allowing platform-provided inherited defaults for keyless or low-cost providers.
+
+**Current state**
+- `Workspace > Integrations` uses workspace-scoped endpoints such as `/api/spaces/:spaceId/integrations`.
+- `Admin > Integrations` uses `/api/admin/settings/integrations`, which makes platform-global and workspace-owned integration responsibilities feel ambiguous.
+- Media/import flows mostly use scoped workspace integration config, so the product behavior already leans workspace-owned.
+- Backup/export/portability currently appears from the admin settings surface even though both workspace and platform scopes need clear export stories.
+
+**Scope**
+- Rename the nav group from `Admin` to `Platform`.
+- Clarify settings page titles and helper text so every settings surface says whether it is workspace-scoped or platform-scoped.
+- Move or expose workspace backup/export/portability under `Workspace`.
+- Keep platform backup/export/portability under `Platform`, explicitly labeled as instance/platform-wide.
+- Remove editable data-sync provider sections from the Platform nav.
+- Keep true platform/runtime integration controls, such as logs and metrics, in Platform under clearer runtime/observability language.
+- Add inherited provider-default readback so workspace admins can tell whether a provider is workspace-configured, inherited from platform defaults, or not configured.
+- Allow keyless/low-cost providers such as UPCItemDB to be inherited by new or existing workspaces while remaining workspace-owned operationally.
+
+**Candidate subtasks**
+- Audit current nav tabs and settings surfaces for ambiguous `Admin`, `Settings`, and `Integrations` labels.
+- Rename the admin nav group to `Platform` and update active-page titles/accessibility text.
+- Split settings copy and layout into explicit Workspace vs Platform language.
+- Add workspace-scoped portability endpoints and UI, reusing the JSON/CSV export behavior but filtering records to the active workspace.
+- Update platform portability copy to clarify it is instance-wide.
+- Remove or hide editable data-sync provider sections from Platform integrations.
+- Preserve platform-only runtime/observability controls under clearer Platform wording.
+- Add integration readback fields such as `effective_source`, `workspace_configured`, `inherited_default`, and `workspace_can_override`.
+- Add tests proving workspace integration overrides beat inherited defaults.
+- Add browser tests for the revised nav and workspace/platform settings boundaries.
+
+**Out of scope**
+- Do not remove platform admin access to personal/workspace library work; platform admins should reach it by selecting/managing a workspace.
+- Do not make all libraries platform-global.
+- Do not build billing/subscription licensing in this task.
+- Do not remove workspace member/invite management.
+- Do not turn provider defaults into forced global provider configuration.
+
+**Acceptance Criteria**
+- Users can tell from nav labels and page copy whether they are changing workspace settings or platform settings.
+- Platform nav no longer exposes editable workspace/data-sync integration setup.
+- Workspace integrations are the clear place to configure Plex, Kavita, barcode, books, audio/music, games, comics, CWA, TMDB, and similar data providers.
+- Platform settings clearly contain platform-only setup and instance-wide backup/export.
+- Workspace settings clearly contain workspace-scoped preferences, members, integrations, and workspace export/portability.
+- Keyless provider defaults can be inherited without making users think the platform owns every workspace’s provider setup.
+
 ### Backlog Item: Backup, Export, and Portability UX
 **Type:** Promoted milestone
 **Tags:** `product`, `backup`, `export`, `portability`
