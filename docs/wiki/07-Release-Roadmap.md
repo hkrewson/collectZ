@@ -6,6 +6,34 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.14.3 — COA and Provenance Editing
+
+**Goal:** Let users record owner-level proof, COA, receipt, witnessed, or source details on collectible-like records using the reusable trait persistence contract.
+
+### Scope
+
+- Add a compact proof/provenance editor to existing detail drawers for Library media, Art, and Collectibles.
+- Persist provenance data through `/api/collectible-traits/{ownerType}/{ownerId}/provenance` with the `provenance` family.
+- Capture proof type, issuer/source, certificate number, acquired-from/source context, evidence date, reference, and notes as structured trait payload/details.
+- Keep reference readback privacy-conscious: user-facing details show that a reference exists without exposing raw local paths or storage implementation values.
+- Keep this slice local/manual: no external authenticity verification, file upload workflow, valuation changes, or nested attachment to a specific grading/signature trait.
+
+### Acceptance Criteria
+
+- Users can add, edit, and remove proof/provenance details on supported media, Art, and Collectibles records.
+- Saved proof details appear in existing `collectible_traits` readback and compact trait pills.
+- Reference values are stored for the owner record but drawer readback does not echo raw local path-style values.
+- Release notes, release feed, version metadata, targeted browser coverage, and Docker runtime verification are updated for `3.14.3`.
+
+### Closeout
+
+- Status: completed in `3.14.3`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/08-Backlog.md`, and `docs/releases/v3.14.3.md`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.14.3`; `/api/health` reported version/frontend/backend/build `3.14.3`; running-stack Help > Releases served `3.14.3`; restored the platform stack after the isolated homelab boundary smoke.
+- Verification: backend unit tests (`304` passed) locally and in-stack; OpenAPI validation locally and in-stack; frontend Vite build locally and in Docker; Docker runtime rebuild; Help > Releases smoke; API integration smoke; init parity; migration rehearsal; observability evidence (`9/9` checks passed); local release preflight; backend/frontend production dependency audits (`0` vulnerabilities); RBAC regression; platform boundary; homelab boundary against local `3.14.3` images; targeted provenance browser coverage; full Playwright browser regression (`79` passed, `4` expected skips) after an initial click-timing flake passed when rerun; version/release-feed sync; and `git diff --check`.
+- CI follow-through: stricter CI compose-smoke secure-cookie settings, secret-scan, CodeQL review, Trivy image security, and SBOM generation remain remote CI gates for the pushed commit.
+- What remains: bundle relationships and library-specific edition editors remain active backlog slices on top of the reusable trait contract; deeper proof attachment workflows and trait-to-trait evidence links remain out of scope for this patch.
+
 ## 3.14.2 — Collectible Grading Editors
 
 **Goal:** Let users add, edit, remove, and read back structured grading details on collectible-like records using the reusable trait persistence contract introduced in `3.14.1`.

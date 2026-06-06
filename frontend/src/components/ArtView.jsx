@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CheckboxControl, CollectionPaginationFooter, CollectibleGradingEditor, CollectibleTraitPills, CollectibleTraitReadback, CoverImagePicker, DetailDrawerShell, DrawerBackdrop, FilterMenu, Icons, PageHeaderSearchToolbar, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
+import { CheckboxControl, CollectionPaginationFooter, CollectibleGradingEditor, CollectibleProvenanceEditor, CollectibleTraitPills, CollectibleTraitReadback, CoverImagePicker, DetailDrawerShell, DrawerBackdrop, FilterMenu, Icons, PageHeaderSearchToolbar, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
 import SignatureManager from './app/SignatureManager';
 
 const ART_MEDIUM_OPTIONS = [
@@ -412,6 +412,14 @@ function ArtDetailDrawer({ artId, apiCall, events, onClose, onEdit, onDeleted, o
             <>
             <CollectibleTraitReadback traits={item.collectible_traits} />
             <CollectibleGradingEditor
+              apiCall={apiCall}
+              ownerType="art"
+              ownerId={item.id}
+              traits={item.collectible_traits}
+              onSaved={load}
+              onToast={onToast}
+            />
+            <CollectibleProvenanceEditor
               apiCall={apiCall}
               ownerType="art"
               ownerId={item.id}

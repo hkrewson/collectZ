@@ -9,6 +9,7 @@ import {
   DrawerBackdrop,
   FilterMenu,
   CollectibleGradingEditor,
+  CollectibleProvenanceEditor,
   CollectibleTraitPills,
   CollectibleTraitReadback,
   PageHeaderSearchToolbar,
@@ -1484,6 +1485,16 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
           {!showLoanFocusedView ? <CollectibleTraitReadback traits={item.collectible_traits} /> : null}
           {!showLoanFocusedView ? (
             <CollectibleGradingEditor
+              apiCall={apiCall}
+              ownerType="media"
+              ownerId={item.id}
+              traits={item.collectible_traits}
+              onSaved={() => onValuationUpdated?.(item.id)}
+              onToast={onToast}
+            />
+          ) : null}
+          {!showLoanFocusedView ? (
+            <CollectibleProvenanceEditor
               apiCall={apiCall}
               ownerType="media"
               ownerId={item.id}

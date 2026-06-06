@@ -2023,9 +2023,14 @@ export function CollectibleTraitReadback({ traits = [], className = '' }) {
 }
 
 const GRADER_OPTIONS = ['CGC', 'CBCS', 'PSA', 'Beckett', 'WATA', 'VGA', 'Other'];
+const PROVENANCE_TYPE_OPTIONS = ['COA', 'Receipt', 'Witnessed signature', 'Vendor record', 'Event record', 'Other'];
 
 function cleanTraitText(value) {
   return String(value || '').trim();
+}
+
+function detailValue(details = [], label) {
+  return details.find((detail) => String(detail?.label || '').toLowerCase() === label)?.value || '';
 }
 
 function findGradingTrait(traits = []) {
@@ -2034,16 +2039,21 @@ function findGradingTrait(traits = []) {
     : null;
 }
 
+function findProvenanceTrait(traits = []) {
+  return Array.isArray(traits)
+    ? traits.find((trait) => trait?.family === 'provenance' || trait?.key === 'provenance')
+    : null;
+}
+
 function buildGradingForm(trait = null) {
   const payload = trait?.payload && typeof trait.payload === 'object' ? trait.payload : {};
   const details = Array.isArray(trait?.details) ? trait.details : [];
-  const detailValue = (label) => details.find((detail) => String(detail?.label || '').toLowerCase() === label)?.value || '';
   return {
-    company: cleanTraitText(payload.company || payload.grader || detailValue('grader') || detailValue('company')),
-    grade: cleanTraitText(payload.grade || detailValue('grade')),
-    certificateNumber: cleanTraitText(payload.certificate_number || payload.certificateNumber || detailValue('cert') || detailValue('certificate')),
-    slabNotes: cleanTraitText(payload.slab_notes || payload.slabNotes || detailValue('slab')),
-    gradedOn: cleanTraitText(payload.graded_on || payload.gradedOn || detailValue('graded'))
+    company: cleanTraitText(payload.company || payload.grader || detailValue(details, 'grader') || detailValue(details, 'company')),
+    grade: cleanTraitText(payload.grade || detailValue(details, 'grade')),
+    certificateNumber: cleanTraitText(payload.certificate_number || payload.certificateNumber || detailValue(details, 'cert') || detailValue(details, 'certificate')),
+    slabNotes: cleanTraitText(payload.slab_notes || payload.slabNotes || detailValue(details, 'slab')),
+    gradedOn: cleanTraitText(payload.graded_on || payload.gradedOn || detailValue(details, 'graded'))
   };
 }
 
@@ -2197,6 +2207,196 @@ export function CollectibleGradingEditor({
               <button type="button" className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={remove} disabled={saving}>Remove</button>
             ) : null}
             <button type="button" className="btn-ghost btn-sm" onClick={() => { setEditing(false); setForm(buildGradingForm(currentTrait)); }} disabled={saving}>Cancel</button>
+            <button type="submit" className="btn-primary btn-sm" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+          </div>
+        </form>
+      ) : null}
+    </section>
+  );
+}
+
+function buildProvenanceForm(trait = null) {
+  const payload = trait?.payload && typeof trait.payload === 'object' ? trait.payload : {};
+  const details = Array.isArray(trait?.details) ? trait.details : [];
+  return {
+    proofType: cleanTraitText(payload.proof_type || payload.proofType || detailValue(details, 'type')),
+    issuer: cleanTraitText(payload.issuer || payload.authenticator || detailValue(details, 'issuer')),
+    certificateNumber: cleanTraitText(payload.certificate_number || payload.certificateNumber || detailValue(details, 'cert') || detailValue(details, 'certificate')),
+    source: cleanTraitText(payload.source_name || payload.sourceName || payload.vendor || detailValue(details, 'source')),
+    evidenceDate: cleanTraitText(payload.evidence_date || payload.evidenceDate || detailValue(details, 'date')),
+    reference: cleanTraitText(payload.reference || payload.proof_url || payload.proofUrl),
+    notes: cleanTraitText(payload.notes || detailValue(details, 'notes'))
+  };
+}
+
+function buildProvenanceTraitPayload(form = {}) {
+  const proofType = cleanTraitText(form.proofType);
+  const issuer = cleanTraitText(form.issuer);
+  const certificateNumber = cleanTraitText(form.certificateNumber);
+  const source = cleanTraitText(form.source);
+  const evidenceDate = cleanTraitText(form.evidenceDate);
+  const reference = cleanTraitText(form.reference);
+  const notes = cleanTraitText(form.notes);
+  const details = [
+    proofType ? { label: 'Type', value: proofType } : null,
+    issuer ? { label: 'Issuer', value: issuer } : null,
+    certificateNumber ? { label: 'Cert', value: certificateNumber } : null,
+    source ? { label: 'Source', value: source } : null,
+    evidenceDate ? { label: 'Date', value: evidenceDate } : null,
+    reference ? { label: 'Reference', value: 'Reference saved' } : null,
+    notes ? { label: 'Notes', value: notes } : null
+  ].filter(Boolean);
+  const summary = [
+    proofType || 'Evidence',
+    issuer ? `from ${issuer}` : null,
+    certificateNumber ? `#${certificateNumber}` : null
+  ].filter(Boolean).join(' ') || 'Proof recorded';
+  return {
+    key: 'provenance',
+    family: 'provenance',
+    label: 'Proof',
+    summary,
+    tone: 'success',
+    details,
+    payload: {
+      proof_type: proofType || null,
+      issuer: issuer || null,
+      certificate_number: certificateNumber || null,
+      source_name: source || null,
+      evidence_date: evidenceDate || null,
+      reference: reference || null,
+      notes: notes || null
+    },
+    source: 'manual'
+  };
+}
+
+export function CollectibleProvenanceEditor({
+  apiCall,
+  ownerType,
+  ownerId,
+  traits = [],
+  onSaved,
+  onToast,
+  className = ''
+}) {
+  const currentTrait = findProvenanceTrait(traits);
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState(() => buildProvenanceForm(currentTrait));
+
+  useEffect(() => {
+    setForm(buildProvenanceForm(currentTrait));
+    setEditing(false);
+  }, [currentTrait?.key, currentTrait?.summary, ownerId]);
+
+  if (!apiCall || !ownerType || !ownerId) return null;
+
+  const updateField = (key, value) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const save = async (event) => {
+    event.preventDefault();
+    if (saving) return;
+    const payload = buildProvenanceTraitPayload(form);
+    if (!payload.payload.proof_type && !payload.payload.issuer && !payload.payload.certificate_number && !payload.payload.source_name) {
+      onToast?.('Add a proof type, issuer, certificate number, or source first', 'error');
+      return;
+    }
+    setSaving(true);
+    try {
+      await apiCall('put', `/collectible-traits/${ownerType}/${ownerId}/provenance`, payload);
+      await onSaved?.();
+      setEditing(false);
+      onToast?.('Proof details saved');
+    } catch (error) {
+      onToast?.(error?.response?.data?.error || 'Failed to save proof details', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const remove = async () => {
+    if (!currentTrait || saving) return;
+    setSaving(true);
+    try {
+      await apiCall('delete', `/collectible-traits/${ownerType}/${ownerId}/provenance`);
+      await onSaved?.();
+      setEditing(false);
+      onToast?.('Proof details removed');
+    } catch (error) {
+      onToast?.(error?.response?.data?.error || 'Failed to remove proof details', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <section className={cx('rounded-lg border border-edge bg-surface/35 p-3', className)}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-ink">Proof</p>
+          {currentTrait && !editing ? (
+            <p className="mt-1 text-sm text-dim">{currentTrait.summary || 'Proof recorded'}</p>
+          ) : (
+            <p className="mt-1 text-xs leading-5 text-ghost">Record COA, receipt, witnessed, or source details when evidence exists.</p>
+          )}
+        </div>
+        {!editing ? (
+          <button type="button" className="btn-ghost btn-sm shrink-0" onClick={() => setEditing(true)}>
+            {currentTrait ? 'Edit' : 'Add'}
+          </button>
+        ) : null}
+      </div>
+      {currentTrait && !editing && Array.isArray(currentTrait.details) && currentTrait.details.length ? (
+        <p className="mt-2 text-xs leading-5 text-ghost">
+          {currentTrait.details
+            .filter((detail) => detail?.label && detail?.value)
+            .map((detail) => `${detail.label}: ${detail.value}`)
+            .join(' · ')}
+        </p>
+      ) : null}
+      {editing ? (
+        <form className="mt-3 space-y-3" onSubmit={save}>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="field">
+              <span className="label">Proof type</span>
+              <select className="select" value={form.proofType} onChange={(event) => updateField('proofType', event.target.value)}>
+                <option value="">Select proof</option>
+                {PROVENANCE_TYPE_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
+              </select>
+            </label>
+            <label className="field">
+              <span className="label">Issuer / source</span>
+              <input className="input" value={form.issuer} onChange={(event) => updateField('issuer', event.target.value)} placeholder="COA issuer or authenticator" />
+            </label>
+            <label className="field">
+              <span className="label">Certificate #</span>
+              <input className="input" value={form.certificateNumber} onChange={(event) => updateField('certificateNumber', event.target.value)} />
+            </label>
+            <label className="field">
+              <span className="label">Acquired from</span>
+              <input className="input" value={form.source} onChange={(event) => updateField('source', event.target.value)} placeholder="Vendor, event, or seller" />
+            </label>
+            <label className="field">
+              <span className="label">Evidence date</span>
+              <input className="input" type="date" value={form.evidenceDate} onChange={(event) => updateField('evidenceDate', event.target.value)} />
+            </label>
+            <label className="field">
+              <span className="label">Reference</span>
+              <input className="input" value={form.reference} onChange={(event) => updateField('reference', event.target.value)} placeholder="URL, file note, or storage reference" />
+            </label>
+            <label className="field sm:col-span-2">
+              <span className="label">Notes</span>
+              <textarea className="textarea min-h-[72px]" value={form.notes} onChange={(event) => updateField('notes', event.target.value)} />
+            </label>
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {currentTrait ? (
+              <button type="button" className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={remove} disabled={saving}>Remove</button>
+            ) : null}
+            <button type="button" className="btn-ghost btn-sm" onClick={() => { setEditing(false); setForm(buildProvenanceForm(currentTrait)); }} disabled={saving}>Cancel</button>
             <button type="submit" className="btn-primary btn-sm" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
           </div>
         </form>

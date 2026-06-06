@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.14.3",
+      "version": "3.14.3",
+      "date": null,
+      "status": null,
+      "summary": "This patch adds owner-level proof and provenance editing for collectible-like records.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added a compact Proof editor to Library, Art, and Collectibles detail drawers.",
+            "Proof details are stored through the reusable trait API as the `provenance` family.",
+            "Supported fields include proof type, issuer/source, certificate number, acquired-from/source context, evidence date, reference, and notes.",
+            "Saved proof details appear through existing collectible trait readback and trait pills.",
+            "Reference readback shows that a reference exists without echoing raw local path-style values in the drawer."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.14.2",
       "version": "3.14.2",
       "date": null,
@@ -136,24 +155,6 @@
             "Sparse-metadata drawers keep `Manual fallback` fields open by default.",
             "Applying a lookup candidate can stage title, year, cover, provider identity, or type-specific metadata through the existing pending-update readback.",
             "Save readiness, defer, dismiss, and drawer-only review behavior are unchanged."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.12.12",
-      "version": "3.12.12",
-      "date": null,
-      "status": null,
-      "summary": "This patch clarifies Dashboard Review drawer repair flow by labeling the lower editable details section as a manual fallback and adding short type-aware guidance.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Dashboard Review drawers now call the editable lower section `Manual fallback`.",
-            "Missing-identifier drawers point users toward lookup first, then manual title or metadata cleanup when that is the better fix.",
-            "Missing-cover drawers point users toward cover upload first.",
-            "Sparse-metadata drawers keep the fallback fields open with concise guidance to add known descriptive data and leave uncertain values blank."
           ]
         }
       ]

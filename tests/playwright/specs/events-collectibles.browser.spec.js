@@ -158,6 +158,67 @@ test.describe('events and collectibles browser regressions', () => {
     }
   });
 
+  test('art drawer can add and remove provenance proof details', async ({ page }) => {
+    const adminCredentials = await ensureSavedAdminCredentials();
+    const adminRequestContext = await createAuthenticatedRequestContext(adminCredentials);
+    const userCredentials = await createFreshUserCredentials();
+    const userRequestContext = await createAuthenticatedRequestContext(userCredentials);
+    const artTitle = `Playwright Provenance Art ${Date.now()}`;
+    const originalFlagsPayload = await getFeatureFlags(adminRequestContext);
+    const originalFlags = Array.isArray(originalFlagsPayload?.flags) ? originalFlagsPayload.flags : [];
+    const originalCollectiblesEnabled = Boolean(originalFlags.find((flag) => flag?.key === 'collectibles_enabled')?.enabled);
+
+    await deleteArtByExactTitle(userRequestContext, artTitle).catch(() => {});
+    try {
+      if (!originalCollectiblesEnabled) {
+        await updateFeatureFlag(adminRequestContext, 'collectibles_enabled', true);
+      }
+
+      await postWithCsrf(userRequestContext, '/api/art', {
+        title: artTitle,
+        medium: 'print'
+      }, 201);
+
+      await signInThroughUi(page, userCredentials);
+      await page.goto('/dashboard?tab=library-art');
+      const artCard = page.locator('article').filter({ hasText: artTitle }).first();
+      await expect(artCard).toBeVisible();
+      await artCard.click();
+
+      let proofSection = page.locator('section').filter({ hasText: 'Proof' }).filter({ has: page.getByRole('button', { name: 'Add' }) }).first();
+      await expect(proofSection).toBeVisible();
+      await proofSection.getByRole('button', { name: 'Add' }).click();
+      proofSection = page.locator('section').filter({ has: page.getByRole('combobox', { name: 'Proof type' }) }).first();
+      await proofSection.getByRole('combobox', { name: 'Proof type' }).selectOption('COA');
+      await proofSection.getByRole('textbox', { name: 'Issuer / source' }).fill('Studio certificate');
+      await proofSection.getByRole('textbox', { name: 'Certificate #' }).fill('PW-COA-001');
+      await proofSection.getByRole('textbox', { name: 'Acquired from' }).fill('San Diego ComicCon');
+      await proofSection.getByRole('textbox', { name: 'Reference' }).fill('/private/proofs/pw-coa-001.jpg');
+      await proofSection.getByRole('button', { name: 'Save' }).click();
+
+      proofSection = page.locator('section').filter({ hasText: 'Proof' }).filter({ has: page.getByRole('button', { name: 'Edit' }) }).first();
+      await expect(proofSection.getByText('COA from Studio certificate #PW-COA-001')).toBeVisible();
+      await expect(proofSection.getByText('Source: San Diego ComicCon')).toBeVisible();
+      await expect(proofSection.getByText('Reference: Reference saved')).toBeVisible();
+      await expect(proofSection.getByText('/private/proofs/pw-coa-001.jpg')).not.toBeVisible();
+      await expect(page.locator('section').filter({ hasText: 'Collectible details' }).getByText('COA from Studio certificate #PW-COA-001')).toBeVisible();
+
+      await proofSection.getByRole('button', { name: 'Edit' }).click();
+      proofSection = page.locator('section').filter({ has: page.getByRole('button', { name: 'Remove' }) }).filter({ has: page.getByRole('combobox', { name: 'Proof type' }) }).first();
+      await proofSection.getByRole('button', { name: 'Remove' }).click();
+      proofSection = page.locator('section').filter({ hasText: 'Proof' }).filter({ has: page.getByRole('button', { name: 'Add' }) }).first();
+      await expect(proofSection).toBeVisible();
+      await expect(page.locator('section').filter({ hasText: 'Collectible details' }).getByText('COA from Studio certificate #PW-COA-001')).not.toBeVisible();
+    } finally {
+      await deleteArtByExactTitle(userRequestContext, artTitle).catch(() => {});
+      if (!originalCollectiblesEnabled) {
+        await updateFeatureFlag(adminRequestContext, 'collectibles_enabled', false).catch(() => {});
+      }
+      await userRequestContext.dispose();
+      await adminRequestContext.dispose();
+    }
+  });
+
   test('artwork entry can create and reuse a linked artist record', async ({ page }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
     const adminRequestContext = await createAuthenticatedRequestContext(adminCredentials);

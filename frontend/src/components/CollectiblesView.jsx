@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CheckboxControl, CollectionPaginationFooter, CollectibleGradingEditor, CollectibleTraitPills, CollectibleTraitReadback, CoverImagePicker, DetailDrawerShell, DrawerBackdrop, FilterMenu, Icons, PageHeaderSearchToolbar, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
+import { CheckboxControl, CollectionPaginationFooter, CollectibleGradingEditor, CollectibleProvenanceEditor, CollectibleTraitPills, CollectibleTraitReadback, CoverImagePicker, DetailDrawerShell, DrawerBackdrop, FilterMenu, Icons, PageHeaderSearchToolbar, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
 
 const CATEGORY_OPTIONS = [
   { key: 'lego', label: 'Lego' },
@@ -216,6 +216,14 @@ function CollectibleDetailDrawer({ collectibleId, apiCall, categories, events, o
             <>
               <CollectibleTraitReadback traits={item.collectible_traits} />
               <CollectibleGradingEditor
+                apiCall={apiCall}
+                ownerType="collectible"
+                ownerId={item.id}
+                traits={item.collectible_traits}
+                onSaved={load}
+                onToast={onToast}
+              />
+              <CollectibleProvenanceEditor
                 apiCall={apiCall}
                 ownerType="collectible"
                 ownerId={item.id}

@@ -385,7 +385,7 @@ These are product-level capability gaps discovered from the current shape of the
 ### Backlog Item: COA and Provenance Editing
 **Type:** Deferred milestone
 **Tags:** `collectibles`, `art`, `books`, `comics`, `signatures`, `coa`, `provenance`, `attachments`
-**Status:** Active backlog; signature proof records exist, but generalized COA/provenance editing is not available across collectible-like objects.
+**Status:** Promoted to `3.14.3 — COA and Provenance Editing` in [07-Release-Roadmap.md](07-Release-Roadmap.md).
 
 **Goal:** Add a structured way to record certificate of authenticity and provenance details for signed, numbered, limited, certified, or otherwise evidence-backed items.
 
