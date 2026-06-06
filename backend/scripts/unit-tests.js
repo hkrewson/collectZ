@@ -94,6 +94,7 @@ const {
   buildMissingIdentifierReviewClues,
   buildSparseMetadataReviewClues
 } = require('../services/reviewClues');
+const { parseDatabaseUrl, formatBytes } = require('../services/portability');
 const {
   SUPPORT_ACCESS_APPROVAL_TTL_DAYS,
   getSupportAccessExpiryTimestamp,
@@ -186,6 +187,7 @@ const collectiblesRoutesSource = fs.readFileSync(require.resolve('../routes/coll
 const integrationsRoutesSource = fs.readFileSync(require.resolve('../routes/integrations'), 'utf8');
 const spaceIntegrationsRoutesSource = fs.readFileSync(require.resolve('../routes/spaceIntegrations'), 'utf8');
 const integrationsServiceSource = fs.readFileSync(require.resolve('../services/integrations'), 'utf8');
+const portabilityServiceSource = fs.readFileSync(require.resolve('../services/portability'), 'utf8');
 const supportRoutesSource = fs.readFileSync(require.resolve('../routes/support'), 'utf8');
 const signaturesServiceSource = fs.readFileSync(require.resolve('../services/signatures'), 'utf8');
 const eventSocialPlanningSmokeSource = fs.readFileSync(require.resolve('../scripts/event-social-planning-smoke'), 'utf8');
@@ -2373,6 +2375,8 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(adminRoutesSource.includes("platformRouter.get('/settings/email-delivery'"));
   assert.ok(adminRoutesSource.includes("platformRouter.put('/settings/email-delivery'"));
   assert.ok(adminRoutesSource.includes("platformRouter.post('/settings/email-delivery/test'"));
+  assert.ok(adminRoutesSource.includes("commonRouter.get('/settings/portability'"));
+  assert.ok(adminRoutesSource.includes('buildPortabilityStatus'));
   assert.ok(adminRoutesSource.includes("Unknown feature flag: ${key}"));
   assert.ok(integrationsRoutesSource.includes("const { resolveScopeContext } = require('../db/scopeContext');"));
   assert.ok(integrationsRoutesSource.includes('const scopeContext = resolveScopeContext(req);'));
@@ -2399,6 +2403,8 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(homelabSharedBrowserSpecSource.includes('/dashboard?tab=admin-settings'));
   assert.ok(homelabSharedBrowserSpecSource.includes('/dashboard?tab=admin-integrations&integration=barcode'));
   assert.ok(homelabSharedBrowserSpecSource.includes('/api/admin/settings/general'));
+  assert.ok(openApiSource.includes('/api/admin/settings/portability'));
+  assert.ok(openApiSource.includes('PortabilityStatusResponse'));
   assert.ok(homelabSharedBrowserSpecSource.includes('/api/admin/settings/integrations'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/auth/config'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/auth/me'));
@@ -6957,6 +6963,23 @@ results.push(run('observability endpoint control-plane source includes stored co
 results.push(run('feature flags source includes external log export flag', () => {
   const featureFlagsSource = require('fs').readFileSync(require.resolve('../services/featureFlags'), 'utf8');
   assert.ok(featureFlagsSource.includes('external_log_export_enabled'));
+}));
+
+results.push(run('portability status source keeps readback redacted and restore guidance explicit', () => {
+  const parsed = parseDatabaseUrl('postgresql://collectz:super-secret@example-db:5432/library');
+  assert.deepStrictEqual(parsed, {
+    configured: true,
+    host: 'example-db',
+    port: '5432',
+    database: 'library',
+    user: 'collectz'
+  });
+  assert.ok(!JSON.stringify(parsed).includes('super-secret'));
+  assert.strictEqual(formatBytes(1536), '1.5 KB');
+  assert.ok(portabilityServiceSource.includes('restore_guidance'));
+  assert.ok(portabilityServiceSource.includes('docs/wiki/08-Backup-and-Restore.md'));
+  assert.ok(portabilityServiceSource.includes('provider_metadata'));
+  assert.ok(portabilityServiceSource.includes('Uploaded images live in the configured uploads volume.'));
 }));
 
 Promise.all(results)

@@ -191,6 +191,34 @@ test.describe('admin shell browser regressions', () => {
     expect(overflow.root).toBeLessThanOrEqual(1);
   });
 
+  test('admin settings shows backup and portability readback', async ({ page }) => {
+    const adminCredentials = await ensureSavedAdminCredentials();
+    await signInThroughUi(page, adminCredentials);
+    const requestContext = await createAuthenticatedRequestContext(adminCredentials);
+    try {
+      const response = await requestContext.get('/api/admin/settings/portability');
+      expect(response.ok()).toBeTruthy();
+      const payload = await response.json();
+      expect(payload?.database?.reachable).toBe(true);
+      expect(typeof payload?.database?.host).toBe('string');
+      expect(JSON.stringify(payload)).not.toContain('password');
+      expect(Array.isArray(payload?.checks)).toBeTruthy();
+      expect(payload.checks.some((check) => check.key === 'database' && check.status === 'ok')).toBeTruthy();
+    } finally {
+      await requestContext.dispose();
+    }
+
+    await page.goto('/dashboard?tab=admin-settings');
+    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
+    await expect(page.getByText('Backup and portability')).toBeVisible();
+    await expect(page.getByText('Database', { exact: true })).toBeVisible();
+    await expect(page.getByText('Images', { exact: true })).toBeVisible();
+    await expect(page.getByText('Provider metadata', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('Export coverage', { exact: true })).toBeVisible();
+    await expect(page.getByText('Restore guidance', { exact: true })).toBeVisible();
+    await expect(page.getByText('docs/wiki/08-Backup-and-Restore.md')).toBeVisible();
+  });
+
   test('dashboard review rows open inline item drawer', async ({ page }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
     await signInThroughUi(page, adminCredentials);

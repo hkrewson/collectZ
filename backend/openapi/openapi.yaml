@@ -72,6 +72,76 @@
         "type": "object",
         "additionalProperties": true
       },
+      "PortabilityStatusResponse": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "generated_at": { "type": "string", "format": "date-time" },
+          "database": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "configured": { "type": "boolean" },
+              "host": { "type": ["string", "null"] },
+              "port": { "type": ["string", "null"] },
+              "database": { "type": ["string", "null"] },
+              "user": { "type": ["string", "null"] },
+              "ssl": { "type": "boolean" },
+              "reachable": { "type": "boolean" },
+              "checked_at": { "type": ["string", "null"], "format": "date-time" }
+            }
+          },
+          "storage": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "provider": { "type": "string" },
+              "location": { "type": "string" },
+              "configured": { "type": "boolean" },
+              "writable": { "type": ["boolean", "null"] },
+              "file_count": { "type": ["integer", "null"] },
+              "total_bytes": { "type": ["integer", "null"] },
+              "total_size": { "type": ["string", "null"] },
+              "note": { "type": "string" }
+            }
+          },
+          "export_capabilities": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "restore_guidance": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "docs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "label": { "type": "string" },
+                "path": { "type": "string" }
+              },
+              "required": ["label", "path"]
+            }
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "key": { "type": "string" },
+                "label": { "type": "string" },
+                "status": { "type": "string", "enum": ["ok", "warn", "error"] },
+                "detail": { "type": "string" }
+              },
+              "required": ["key", "label", "status", "detail"]
+            }
+          }
+        },
+        "required": ["generated_at", "database", "storage", "export_capabilities", "restore_guidance", "docs", "checks"]
+      },
       "Health": {
         "type": "object",
         "properties": {
@@ -6796,6 +6866,29 @@
                 "schema": { "type": "object", "additionalProperties": true }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/admin/settings/portability": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Read backup, export, and portability status",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "responses": {
+          "200": {
+            "description": "Backup, export, and portability readback",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PortabilityStatusResponse" }
+              }
+            }
+          },
+          "403": {
+            "description": "Admin role required"
           }
         }
       }

@@ -455,35 +455,14 @@ These are product-level capability gaps discovered from the current shape of the
 - The taxonomy does not blur Art and Collectibles boundaries without an explicit future decision.
 
 ### Backlog Item: Backup, Export, and Portability UX
-**Type:** Deferred milestone
-**Tags:** `product`, `backup`, `export`, `portability`, `homelab`
-**Status:** Active backlog; docs/runbooks exist, but in-app trust/readback is not implemented.
+**Type:** Promoted milestone
+**Tags:** `product`, `backup`, `export`, `portability`
+**Status:** Promoted to `3.13.0 — Backup, Export, and Portability UX Foundation` in [07-Release-Roadmap.md](07-Release-Roadmap.md).
 
-**Goal:** Make data trust visible in the app, not only in docs.
-
-**Intent**
-- Help self-hosted and platform users understand where their data lives, whether backup/export paths are healthy, and how portable their collection is.
-- Keep sensitive backup details redacted while making operational confidence visible.
-
-**Current state**
-- Public docs and runbooks describe configuration, backup/restore, environment, and deployment behavior.
-- The app does not provide an in-product backup/export status dashboard.
-
-**Scope**
-- Surface export data, export images, backup status, restore guidance, storage location readback, and portability checks.
-- Keep operator docs as the detailed runbook while giving users an in-app confidence/readiness surface.
-
-**Candidate subtasks**
-- Add read-only backend endpoints for database/storage/export capability readback.
-- Show storage locations and configured backup/export status with secrets redacted.
-- Add manual export actions only after readback and permissions are clear.
-- Add portability checks for database rows, uploaded media, provider-linked metadata, and release/runtime version.
-- Link to sanitized docs/runbooks from the in-app surface.
-
-**Acceptance Criteria**
-- Users can see whether backups and exports are configured and recent.
-- Export/restore guidance is visible from the app without exposing secrets.
-- Data portability coverage is clear for database records, images, and provider-linked metadata.
+**Promotion note**
+- The first selected slice is now tracked in the roadmap rather than duplicated here.
+- `3.13.0` is intentionally read-only: admin-facing database/storage/export capability readback, restore guidance, runbook readback, and portability checks.
+- Follow-up work such as one-click export archives, scheduled backups, restore rehearsal UI, or downloadable image bundles should be added as new backlog items only after the foundation has shipped and the product shape is clear.
 
 ### Backlog Item: Apple/iTunes Wishlist Price Watch Follow-ups
 **Type:** Deferred milestone

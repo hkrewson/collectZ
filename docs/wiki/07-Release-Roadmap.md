@@ -6,6 +6,33 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.13.0 — Backup, Export, and Portability UX Foundation
+
+**Goal:** Make backup/export confidence visible in the app by adding an admin-facing read-only portability surface before any one-click export or restore automation.
+
+### Scope
+
+- Add an admin-only backup and portability readback endpoint.
+- Surface database reachability, redacted database location, upload storage status, export coverage counts, provider metadata coverage, restore guidance, and the backup runbook path in Admin Settings.
+- Keep the first slice read-only: no restore button, no scheduled backups, no archive generation, and no background export jobs.
+- Keep sensitive values redacted; do not expose database passwords, object storage credentials, provider tokens, or backup command strings containing secrets.
+
+### Acceptance Criteria
+
+- Admin Settings shows a `Backup and portability` section with database, image storage, provider metadata, checks, export coverage, restore guidance, and runbook readback.
+- `GET /api/admin/settings/portability` is authenticated/admin-scoped and documented in OpenAPI.
+- The endpoint reports status from the running backend environment without returning secret values.
+- Release notes, release feed, version metadata, and targeted settings/runtime verification are updated for `3.13.0`.
+
+### Closeout
+
+- Status: completed in `3.13.0`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, `docs/wiki/08-Backup-and-Restore.md`, and `docs/releases/v3.13.0.md`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.13.0`; `/api/health` reported backend/frontend/build `3.13.0`; running-stack Help > Releases served `3.13.0`; Admin Settings portability browser regression rendered the new readback surface.
+- Verification: backend service/route syntax checks; backend unit coverage with Node 24; OpenAPI validation; Docker backend/frontend image builds; Docker runtime rebuild; Help > Releases smoke; API integration smoke; init parity; migration rehearsal; observability evidence; local release preflight; targeted Admin Settings browser regression; RBAC regression; platform boundary; homelab boundary; backend/frontend dependency audits; release-note section check; version/app-meta sync; secret-term review of touched release/runtime artifacts; and `git diff --check`.
+- CI follow-through: full CI `compose-smoke`, `browser-regression`, `secret-scan`, and `image-security-and-sbom` remain remote CI gates for the pushed commit.
+- What remains: nothing for `3.13.0`; follow-up work such as one-click export archives, scheduled backup freshness checks, restore rehearsal UI, and downloadable image bundles should be promoted separately when selected.
+
 ## 3.12.17 — Frontend Node 24 Builder Alignment
 
 **Goal:** Align the frontend Docker build runtime with the current Vite/ZXing dependency contract so clean container builds no longer rely on a Node 20 engine-warning exception.

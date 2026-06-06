@@ -213,6 +213,136 @@ function EmailDeliveryCard({
   );
 }
 
+function statusClass(status) {
+  if (status === 'ok' || status === 'available') return 'text-ok';
+  if (status === 'error') return 'text-err';
+  return 'text-warn';
+}
+
+function BackupPortabilityCard({ data, loading, error, onRefresh, Spinner }) {
+  const checks = Array.isArray(data?.checks) ? data.checks : [];
+  const coverage = Array.isArray(data?.export_capabilities?.database_records?.coverage)
+    ? data.export_capabilities.database_records.coverage
+    : [];
+  const docs = Array.isArray(data?.docs) ? data.docs : [];
+  const guidance = Array.isArray(data?.restore_guidance) ? data.restore_guidance : [];
+
+  return (
+    <div className="rounded-xl border border-edge bg-panel px-4 py-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-ink">Backup and portability</p>
+          <p className="mt-1 text-sm text-ghost">
+            Read-only status for database records, uploaded images, provider metadata, and restore guidance.
+          </p>
+        </div>
+        <button type="button" className="btn-secondary btn-sm" onClick={onRefresh} disabled={loading}>
+          {loading ? <Spinner size={14} /> : 'Refresh'}
+        </button>
+      </div>
+
+      {error ? (
+        <div className="mt-4 rounded-lg border border-err/30 bg-err/5 px-3 py-2 text-sm text-err">
+          {error}
+        </div>
+      ) : null}
+
+      {loading && !data ? (
+        <div className="mt-4 flex items-center gap-3 text-sm text-ghost">
+          <Spinner size={16} /> Loading backup and portability status…
+        </div>
+      ) : null}
+
+      {data ? (
+        <div className="mt-4 space-y-4">
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="rounded-lg border border-edge/80 bg-raised/40 px-3 py-3">
+              <p className="text-sm font-medium text-ink">Database</p>
+              <p className="mt-1 text-sm text-ghost">
+                {data.database?.database || 'Unknown database'} on {data.database?.host || 'unknown host'}
+              </p>
+              <p className={`mt-2 text-sm font-medium ${data.database?.reachable ? 'text-ok' : 'text-err'}`}>
+                {data.database?.reachable ? 'Reachable' : 'Unavailable'}
+              </p>
+            </div>
+            <div className="rounded-lg border border-edge/80 bg-raised/40 px-3 py-3">
+              <p className="text-sm font-medium text-ink">Images</p>
+              <p className="mt-1 text-sm text-ghost">{data.storage?.location || 'Unknown storage location'}</p>
+              <p className={`mt-2 text-sm font-medium ${data.storage?.configured ? 'text-ok' : 'text-warn'}`}>
+                {data.storage?.configured ? `${data.storage?.file_count ?? 'Unknown'} files` : 'Needs attention'}
+              </p>
+            </div>
+            <div className="rounded-lg border border-edge/80 bg-raised/40 px-3 py-3">
+              <p className="text-sm font-medium text-ink">Provider metadata</p>
+              <p className="mt-1 text-sm text-ghost">Identifiers and linked provider keys</p>
+              <p className={`mt-2 text-sm font-medium ${statusClass(data.export_capabilities?.provider_metadata?.status)}`}>
+                {data.export_capabilities?.provider_metadata?.linked_records ?? 0} linked records
+              </p>
+            </div>
+          </div>
+
+          {checks.length > 0 ? (
+            <div className="space-y-2">
+              {checks.map((check) => (
+                <div key={check.key} className="flex items-start justify-between gap-4 border-t border-edge/70 pt-3 first:border-t-0 first:pt-0">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-ink">{check.label}</p>
+                    <p className="mt-1 text-sm text-ghost">{check.detail}</p>
+                  </div>
+                  <span className={`shrink-0 text-sm font-medium ${statusClass(check.status)}`}>{check.status}</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          {coverage.length > 0 ? (
+            <div>
+              <p className="text-sm font-medium text-ink">Export coverage</p>
+              <dl className="mt-2 grid gap-x-4 gap-y-2 text-sm sm:grid-cols-2 lg:grid-cols-3">
+                {coverage.map((item) => (
+                  <div key={item.key} className="flex items-center justify-between gap-3 border-b border-edge/60 py-2">
+                    <dt className="text-ghost">{item.label}</dt>
+                    <dd className="font-medium text-ink">{item.count ?? 'n/a'}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          ) : null}
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div>
+              <p className="text-sm font-medium text-ink">Restore guidance</p>
+              <ol className="mt-2 space-y-2 text-sm text-ghost">
+                {guidance.map((item, index) => (
+                  <li key={item} className="flex gap-2">
+                    <span className="text-muted">{index + 1}.</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-ink">Runbook</p>
+              {docs.length > 0 ? (
+                <ul className="mt-2 space-y-2 text-sm text-ghost">
+                  {docs.map((doc) => (
+                    <li key={doc.path}>
+                      <span className="text-ink">{doc.label}</span>
+                      <span className="block font-mono text-xs text-muted">{doc.path}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-2 text-sm text-ghost">No runbook link is configured.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export default function AdminSettingsView({
   apiCall,
   onToast,
@@ -229,7 +359,8 @@ export default function AdminSettingsView({
   themeLabel = 'Theme',
   themeDescription = 'Choose whether collectZ follows your system appearance or stays fixed to a light or dark theme.',
   emptyFeatureFlagsMessage = 'No feature settings are currently available.',
-  emailDeliveryEndpoint = null
+  emailDeliveryEndpoint = null,
+  portabilityEndpoint = null
 }) {
   const [settings, setSettings] = useState({ theme: 'system', density: 'comfortable' });
   const [savingGeneral, setSavingGeneral] = useState(false);
@@ -252,6 +383,9 @@ export default function AdminSettingsView({
   });
   const [savingEmailDelivery, setSavingEmailDelivery] = useState(false);
   const [testingEmailDelivery, setTestingEmailDelivery] = useState(false);
+  const [portabilityStatus, setPortabilityStatus] = useState(null);
+  const [portabilityError, setPortabilityError] = useState('');
+  const [loadingPortability, setLoadingPortability] = useState(false);
   const visibleFlagKeySet = useMemo(() => new Set(visibleFlagKeys), [visibleFlagKeys]);
 
   useEffect(() => {
@@ -323,6 +457,30 @@ export default function AdminSettingsView({
       cancelled = true;
     };
   }, [apiCall, emailDeliveryEndpoint]);
+
+  const loadPortabilityStatus = useCallback(async () => {
+    if (!portabilityEndpoint) {
+      setPortabilityStatus(null);
+      setPortabilityError('');
+      setLoadingPortability(false);
+      return;
+    }
+    setLoadingPortability(true);
+    setPortabilityError('');
+    try {
+      const payload = await apiCall('get', portabilityEndpoint);
+      setPortabilityStatus(payload);
+    } catch (error) {
+      setPortabilityStatus(null);
+      setPortabilityError(error?.response?.data?.error || 'Failed to load backup and portability status');
+    } finally {
+      setLoadingPortability(false);
+    }
+  }, [apiCall, portabilityEndpoint]);
+
+  useEffect(() => {
+    loadPortabilityStatus();
+  }, [loadPortabilityStatus]);
 
   const updateTheme = async (theme) => {
     setSavingGeneral(true);
@@ -444,6 +602,15 @@ export default function AdminSettingsView({
           <div className="rounded-xl border border-err/30 bg-err/5 px-4 py-3 text-sm text-err">
             {emailDeliveryError}
           </div>
+        ) : null}
+        {portabilityEndpoint ? (
+          <BackupPortabilityCard
+            data={portabilityStatus}
+            loading={loadingPortability}
+            error={portabilityError}
+            onRefresh={loadPortabilityStatus}
+            Spinner={Spinner}
+          />
         ) : null}
         <div className="space-y-1">
           <ThemeSettingRow

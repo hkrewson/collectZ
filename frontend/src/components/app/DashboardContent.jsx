@@ -353,6 +353,7 @@ export default function DashboardContent({
           visibleFlagKeys={productEdition === 'homelab' ? undefined : ['self_registration_enabled']}
           emptyFeatureFlagsMessage={null}
           emailDeliveryEndpoint={productEdition === 'homelab' ? null : '/admin/settings/email-delivery'}
+          portabilityEndpoint="/admin/settings/portability"
         />
       );
     case 'admin-flags':

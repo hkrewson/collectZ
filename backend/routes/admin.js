@@ -27,6 +27,7 @@ const { getRequestOrigin } = require('../services/requestOrigin');
 const { syncLibraryMembershipsForSpaceUser } = require('../services/libraries');
 const { hashInviteToken } = require('../services/invites');
 const { issuePasswordResetToken } = require('../services/passwordResets');
+const { buildPortabilityStatus } = require('../services/portability');
 
 const commonRouter = express.Router();
 const platformRouter = express.Router();
@@ -91,6 +92,10 @@ commonRouter.put('/settings/general', validate(generalSettingsSchema), asyncHand
   );
   await logActivity(req, 'admin.settings.general.update', 'app_settings', 1, { theme, density });
   res.json(result.rows[0]);
+}));
+
+commonRouter.get('/settings/portability', asyncHandler(async (_req, res) => {
+  res.json(await buildPortabilityStatus());
 }));
 
 platformRouter.get('/settings/email-delivery', asyncHandler(async (_req, res) => {
