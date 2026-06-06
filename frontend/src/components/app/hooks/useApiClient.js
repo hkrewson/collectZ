@@ -12,7 +12,8 @@ export default function useApiClient() {
   const apiCall = useCallback(async (method, path, data, config = {}) => {
     const methodUpper = String(method || 'GET').toUpperCase();
     const needsCsrf = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(methodUpper);
-    const headers = { ...(config.headers || {}) };
+    const { rawResponse = false, ...axiosConfig } = config;
+    const headers = { ...(axiosConfig.headers || {}) };
     const playwrightBypassToken = readCookie('playwright_e2e_bypass');
 
     if (playwrightBypassToken && !headers['x-playwright-e2e-bypass']) {
@@ -36,7 +37,7 @@ export default function useApiClient() {
       method,
       url: `${API_URL}${path}`,
       data,
-      ...config,
+      ...axiosConfig,
       headers,
       withCredentials: true
     };
@@ -50,7 +51,7 @@ export default function useApiClient() {
       const existing = inFlightGetRequestsRef.current.get(requestKey);
       if (existing) return existing;
       const requestPromise = axios(requestConfig)
-        .then((response) => response.data)
+        .then((response) => (rawResponse ? response : response.data))
         .finally(() => {
           inFlightGetRequestsRef.current.delete(requestKey);
         });
@@ -59,7 +60,7 @@ export default function useApiClient() {
     }
 
     const response = await axios(requestConfig);
-    return response.data;
+    return rawResponse ? response : response.data;
   }, []);
 
   return { apiCall, apiUrl: API_URL };

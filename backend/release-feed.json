@@ -1,6 +1,27 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.15.0",
+      "version": "3.15.0",
+      "date": null,
+      "status": null,
+      "summary": "This minor release turns the backup and portability foundation into a real admin export action.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added an admin-only one-click export download in Admin Settings.",
+            "Added `POST /api/admin/settings/portability/export`.",
+            "Export downloads are gzip-compressed collectZ JSON bundles.",
+            "Export bundles include a manifest, app version, generation timestamp, portable database tables, upload-storage manifest, restore guidance, and redaction metadata.",
+            "Secret-looking fields and secret-looking URL parameters are recursively redacted before the export is written.",
+            "The existing portability readback now reports manual export capability.",
+            "Admin Settings shows the last successful export download for the current browser session."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.14.5",
       "version": "3.14.5",
       "date": null,
@@ -153,14 +174,6 @@
       "date": null,
       "status": null,
       "summary": "This patch finishes a small post-Vite dependency hygiene pass by removing stale CRA/Webpack-era frontend package overrides that no longer apply to the current Vite dependency tree.",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.12.15",
-      "version": "3.12.15",
-      "date": null,
-      "status": null,
-      "summary": "This patch removes the remaining CRA-era frontend compatibility shims now that the Vite-first frontend path has baked through multiple releases without React or browser-regression instability.",
       "details": []
     }
   ]

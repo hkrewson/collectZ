@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 const pool = require('../db/pool');
 const appMeta = require('../app-meta.json');
 
@@ -18,6 +19,9 @@ const PORTABLE_TABLES = [
   { key: 'libraries', label: 'Libraries', table: 'libraries' },
   { key: 'workspaces', label: 'Workspaces', table: 'spaces' }
 ];
+
+const SECRET_KEY_PATTERN = /(password|secret|token|api[_-]?key|access[_-]?key|private[_-]?key|credential|encryption)/i;
+const SECRET_URL_PARAM_PATTERN = /([?&](?:[^=&#]*(?:token|secret|password|api[_-]?key|access[_-]?key|credential)[^=&#]*)=)[^&#]*/gi;
 
 function parseDatabaseUrl(value = '') {
   const raw = String(value || '').trim();
@@ -86,6 +90,31 @@ async function walkDirectoryStats(dir) {
   return { fileCount, totalBytes };
 }
 
+async function walkDirectoryManifest(dir) {
+  const files = [];
+
+  async function visit(target) {
+    const entries = await fs.promises.readdir(target, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(target, entry.name);
+      if (entry.isDirectory()) {
+        await visit(fullPath);
+      } else if (entry.isFile()) {
+        const stat = await fs.promises.stat(fullPath);
+        files.push({
+          path: path.relative(dir, fullPath).split(path.sep).join('/'),
+          size_bytes: stat.size,
+          modified_at: stat.mtime.toISOString()
+        });
+      }
+    }
+  }
+
+  await visit(dir);
+  files.sort((a, b) => a.path.localeCompare(b.path));
+  return files;
+}
+
 async function getStorageReadback() {
   const provider = String(process.env.STORAGE_PROVIDER || 'local').trim().toLowerCase() || 'local';
   if (provider === 's3') {
@@ -138,6 +167,12 @@ async function countTable(client, table) {
   if (!(await tableExists(client, table))) return null;
   const result = await client.query(`SELECT COUNT(*)::int AS count FROM ${table}`);
   return Number(result.rows[0]?.count || 0);
+}
+
+async function readTableRows(client, table) {
+  if (!(await tableExists(client, table))) return null;
+  const result = await client.query(`SELECT to_jsonb(${table}) AS row FROM ${table} ORDER BY id ASC`);
+  return result.rows.map((item) => item.row || {});
 }
 
 async function getPortableCounts(client) {
@@ -214,6 +249,138 @@ function buildChecks({ databaseOk, storage, counts, providerLinkedCount }) {
   ];
 }
 
+function redactString(value) {
+  const raw = String(value);
+  SECRET_URL_PARAM_PATTERN.lastIndex = 0;
+  if (!SECRET_URL_PARAM_PATTERN.test(raw)) {
+    SECRET_URL_PARAM_PATTERN.lastIndex = 0;
+    return value;
+  }
+  SECRET_URL_PARAM_PATTERN.lastIndex = 0;
+  return raw.replace(SECRET_URL_PARAM_PATTERN, '$1[redacted]');
+}
+
+function redactPortableValue(value, stats = { redacted: 0 }) {
+  if (Array.isArray(value)) {
+    return value.map((item) => redactPortableValue(item, stats));
+  }
+  if (!value || typeof value !== 'object') {
+    if (typeof value === 'string') {
+      const redacted = redactString(value);
+      if (redacted !== value) stats.redacted += 1;
+      return redacted;
+    }
+    return value;
+  }
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  return Object.entries(value).reduce((next, [key, item]) => {
+    if (SECRET_KEY_PATTERN.test(String(key))) {
+      next[key] = '[redacted]';
+      stats.redacted += 1;
+      return next;
+    }
+    next[key] = redactPortableValue(item, stats);
+    return next;
+  }, {});
+}
+
+async function buildUploadsManifest(storage) {
+  if (storage.provider === 's3') {
+    return {
+      provider: 's3',
+      location: storage.location,
+      included_files: false,
+      files: [],
+      note: 'Object storage files are not bundled by this manual export; back up the bucket alongside this export.'
+    };
+  }
+
+  if (!storage.configured) {
+    return {
+      provider: storage.provider || 'local',
+      location: storage.location || '/app/uploads',
+      included_files: false,
+      files: [],
+      note: 'Uploads storage was not readable when the export was generated.'
+    };
+  }
+
+  const files = await walkDirectoryManifest(UPLOADS_DIR);
+  return {
+    provider: 'local',
+    location: '/app/uploads',
+    included_files: false,
+    files,
+    note: 'This export includes an uploads manifest only. Back up the uploads volume separately for image binaries.'
+  };
+}
+
+async function buildPortabilityExportPayload() {
+  const generatedAt = new Date().toISOString();
+  const status = await buildPortabilityStatus();
+  const client = await pool.connect();
+  const redactionStats = { redacted: 0 };
+
+  try {
+    const tables = [];
+    for (const item of PORTABLE_TABLES) {
+      const rows = await readTableRows(client, item.table);
+      tables.push({
+        key: item.key,
+        label: item.label,
+        table: item.table,
+        exists: Array.isArray(rows),
+        count: Array.isArray(rows) ? rows.length : null,
+        rows: Array.isArray(rows) ? redactPortableValue(rows, redactionStats) : []
+      });
+    }
+
+    const uploads = await buildUploadsManifest(status.storage || {});
+    const redactedStatus = redactPortableValue(status, redactionStats);
+    const redactedValueCount = redactionStats.redacted;
+    return {
+      manifest: {
+        format: 'collectz.portability.export.v1',
+        generated_at: generatedAt,
+        app: appMeta.app || 'collectZ',
+        version: appMeta.version || 'unknown',
+        includes: {
+          database_records: true,
+          upload_file_manifest: true,
+          upload_file_binaries: false,
+          integration_secrets: false,
+          restore_automation: false
+        },
+        redaction: {
+          enabled: true,
+          redacted_values: redactedValueCount
+        }
+      },
+      status: redactedStatus,
+      database: {
+        tables
+      },
+      uploads,
+      restore_guidance: status.restore_guidance || []
+    };
+  } finally {
+    client.release();
+  }
+}
+
+async function buildPortabilityExportArchive() {
+  const payload = await buildPortabilityExportPayload();
+  const json = JSON.stringify(payload, null, 2);
+  return {
+    payload,
+    buffer: zlib.gzipSync(Buffer.from(json, 'utf8'), { level: 9 }),
+    filename: `collectz-export-${String(payload.manifest.generated_at).replace(/[:.]/g, '-')}.json.gz`
+  };
+}
+
 async function buildPortabilityStatus() {
   const dbInfo = parseDatabaseUrl(process.env.DATABASE_URL);
   const storage = await getStorageReadback();
@@ -233,9 +400,15 @@ async function buildPortabilityStatus() {
       },
       storage,
       export_capabilities: {
+        manual_archive: {
+          status: 'available',
+          format: 'collectZ JSON gzip export',
+          includes_upload_binaries: false,
+          note: 'Manual exports include database rows and an uploads manifest. Back up upload binaries separately.'
+        },
         database_records: {
           status: 'available',
-          format: 'Postgres dump / future app export',
+          format: 'collectZ JSON export',
           coverage: counts
         },
         uploaded_images: {
@@ -269,7 +442,10 @@ async function buildPortabilityStatus() {
 }
 
 module.exports = {
+  buildPortabilityExportArchive,
+  buildPortabilityExportPayload,
   buildPortabilityStatus,
   parseDatabaseUrl,
-  formatBytes
+  formatBytes,
+  redactPortableValue
 };

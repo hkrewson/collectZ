@@ -142,6 +142,30 @@
         },
         "required": ["generated_at", "database", "storage", "export_capabilities", "restore_guidance", "docs", "checks"]
       },
+      "PortabilityExportManifest": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "manifest": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "format": { "type": "string", "const": "collectz.portability.export.v1" },
+              "generated_at": { "type": "string", "format": "date-time" },
+              "version": { "type": "string" },
+              "includes": { "type": "object", "additionalProperties": true },
+              "redaction": { "type": "object", "additionalProperties": true }
+            }
+          },
+          "status": { "$ref": "#/components/schemas/PortabilityStatusResponse" },
+          "database": { "type": "object", "additionalProperties": true },
+          "uploads": { "type": "object", "additionalProperties": true },
+          "restore_guidance": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      },
       "Health": {
         "type": "object",
         "properties": {
@@ -7028,6 +7052,42 @@
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/PortabilityStatusResponse" }
+              }
+            }
+          },
+          "403": {
+            "description": "Admin role required"
+          }
+        }
+      }
+    },
+    "/api/admin/settings/portability/export": {
+      "post": {
+        "tags": ["Admin"],
+        "summary": "Download a redacted backup export archive",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "responses": {
+          "200": {
+            "description": "Gzip-compressed collectZ portability export JSON",
+            "headers": {
+              "Content-Disposition": {
+                "schema": { "type": "string" },
+                "description": "Attachment filename for the generated export."
+              },
+              "X-CollectZ-Export-Format": {
+                "schema": { "type": "string", "const": "collectz.portability.export.v1" }
+              }
+            },
+            "content": {
+              "application/gzip": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary",
+                  "description": "Gzip-compressed JSON matching PortabilityExportManifest after decompression."
+                }
               }
             }
           },

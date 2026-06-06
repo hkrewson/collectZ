@@ -178,6 +178,36 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 - CI follow-through: stricter CI compose-smoke secure-cookie settings, secret-scan, CodeQL review, Trivy image security, and SBOM generation remain remote CI gates for the pushed commit.
 - What remains: explicit trait persistence, grading editors, richer COA/provenance editing, bundle relationships, and library-specific edition editors remain follow-up backlog/promoted slices.
 
+## 3.15.0 — One-Click Backup Export Archive
+
+**Goal:** Turn the backup/export portability foundation into a real admin action by generating a downloadable, redacted collectZ export archive from the running backend.
+
+### Scope
+
+- Add an admin-only export endpoint that generates a portable `.json.gz` bundle from the existing portability coverage tables.
+- Include a manifest, app version, generated timestamp, database record tables, upload-storage manifest, restore guidance, and export freshness readback.
+- Recursively redact secret-looking keys and values before writing export payloads.
+- Add an Admin Settings action to download the export and show the last generated export timestamp for the current browser session.
+- Keep this slice focused on manual one-click export: no restore button, no scheduled backup automation, no background jobs, and no image binary bundle yet.
+
+### Acceptance Criteria
+
+- Admin Settings `Backup and portability` includes a clear download action.
+- `POST /api/admin/settings/portability/export` is authenticated/admin-scoped and documented in OpenAPI.
+- The export response downloads a gzip-compressed JSON bundle with manifest, database tables, uploads manifest, restore guidance, and redaction metadata.
+- Existing portability readback includes manual export capability and freshness fields without exposing plaintext secrets.
+- Release notes, release feed, version metadata, and targeted settings/runtime verification are updated for `3.15.0`.
+
+### Closeout
+
+- Status: completed in `3.15.0`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, `docs/wiki/08-Backup-and-Restore.md`, `docs/wiki/08-Backlog.md`, `docs/releases/v3.15.0.md`, and `backend/openapi/openapi.yaml`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.15.0` using the local compose override; `/api/health` reported version/frontend/backend/build `3.15.0`; running backend env reported `APP_EDITION=platform`, `APP_VERSION=3.15.0`, and a redacted DB URL; Help > Releases served `3.15.0`; targeted admin browser coverage downloaded and decompressed the gzip export manifest from the live stack; temporary homelab-shaped stack verification passed and left no `3.15.0` temp containers or env files behind.
+- Verification: backend service/route syntax checks; Docker backend unit tests (`304` passed); Docker OpenAPI validation; Docker backend/frontend rebuild; Help > Releases smoke; targeted admin settings/export browser regression (`2` passed); full Playwright browser regression (`81` passed, `4` skipped); RBAC regression; platform edition boundary; homelab edition boundary against a temporary local stack; backend and frontend production dependency audits (`0` vulnerabilities); version sync; release note heading check; targeted changed-file and Playwright artifact secret-pattern scans; and `git diff --check`.
+- CI follow-through: stricter CI `compose-smoke`, repository-history `secret-scan`, CodeQL review, and `image-security-and-sbom` remain remote GitHub Actions gates for the pushed commit. Local evidence covered running-stack health, auth-scoped browser behavior, dependency audit, RBAC, and edition boundaries.
+- Risks/follow-ups: this manual export intentionally includes database records and an uploads manifest, but not upload image binaries; scheduled backup freshness checks, restore rehearsal UI, and downloadable image-binary bundles remain separate follow-up work.
+- What remains in the milestone: nothing for `3.15.0`; follow-up backup/restore work remains in the backlog instead of this release slice.
+
 ## 3.13.0 — Backup, Export, and Portability UX Foundation
 
 **Goal:** Make backup/export confidence visible in the app by adding an admin-facing read-only portability surface before any one-click export or restore automation.

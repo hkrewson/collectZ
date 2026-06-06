@@ -1,5 +1,6 @@
 'use strict';
 
+const zlib = require('zlib');
 const { test, expect } = require('@playwright/test');
 const { createSpaceFixture, deleteSpace } = require('../helpers/admin');
 const { ensureSavedAdminCredentials, createAuthenticatedRequestContext, fetchCsrfToken, postWithCsrf, requestWithCsrf } = require('../helpers/auth');
@@ -204,6 +205,20 @@ test.describe('admin shell browser regressions', () => {
       expect(JSON.stringify(payload)).not.toContain('password');
       expect(Array.isArray(payload?.checks)).toBeTruthy();
       expect(payload.checks.some((check) => check.key === 'database' && check.status === 'ok')).toBeTruthy();
+      expect(payload?.export_capabilities?.manual_archive?.status).toBe('available');
+      const exportResponse = await postWithCsrf(requestContext, '/api/admin/settings/portability/export', {});
+      expect(exportResponse.ok()).toBeTruthy();
+      expect(exportResponse.headers()['content-type']).toContain('application/gzip');
+      expect(exportResponse.headers()['content-disposition']).toContain('collectz-export');
+      expect(exportResponse.headers()['x-collectz-export-format']).toBe('collectz.portability.export.v1');
+      const exportBytes = await exportResponse.body();
+      expect(exportBytes.length).toBeGreaterThan(0);
+      const exportPayload = JSON.parse(zlib.gunzipSync(exportBytes).toString('utf8'));
+      expect(exportPayload?.manifest?.format).toBe('collectz.portability.export.v1');
+      expect(exportPayload?.manifest?.includes?.upload_file_binaries).toBe(false);
+      expect(exportPayload?.manifest?.includes?.integration_secrets).toBe(false);
+      expect(Array.isArray(exportPayload?.database?.tables)).toBeTruthy();
+      expect(exportPayload?.uploads?.included_files).toBe(false);
     } finally {
       await requestContext.dispose();
     }
@@ -214,6 +229,8 @@ test.describe('admin shell browser regressions', () => {
     await expect(page.getByText('Database', { exact: true })).toBeVisible();
     await expect(page.getByText('Images', { exact: true })).toBeVisible();
     await expect(page.getByText('Provider metadata', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('Manual export', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Download export' })).toBeVisible();
     await expect(page.getByText('Export coverage', { exact: true })).toBeVisible();
     await expect(page.getByText('Restore guidance', { exact: true })).toBeVisible();
     await expect(page.getByText('docs/wiki/08-Backup-and-Restore.md')).toBeVisible();

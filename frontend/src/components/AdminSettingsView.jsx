@@ -219,7 +219,16 @@ function statusClass(status) {
   return 'text-warn';
 }
 
-function BackupPortabilityCard({ data, loading, error, onRefresh, Spinner }) {
+function BackupPortabilityCard({
+  data,
+  loading,
+  error,
+  exporting,
+  lastExportedAt,
+  onRefresh,
+  onExport,
+  Spinner
+}) {
   const checks = Array.isArray(data?.checks) ? data.checks : [];
   const coverage = Array.isArray(data?.export_capabilities?.database_records?.coverage)
     ? data.export_capabilities.database_records.coverage
@@ -236,9 +245,14 @@ function BackupPortabilityCard({ data, loading, error, onRefresh, Spinner }) {
             Read-only status for database records, uploaded images, provider metadata, and restore guidance.
           </p>
         </div>
-        <button type="button" className="btn-secondary btn-sm" onClick={onRefresh} disabled={loading}>
-          {loading ? <Spinner size={14} /> : 'Refresh'}
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <button type="button" className="btn-secondary btn-sm" onClick={onRefresh} disabled={loading || exporting}>
+            {loading ? <Spinner size={14} /> : 'Refresh'}
+          </button>
+          <button type="button" className="btn-primary btn-sm" onClick={onExport} disabled={loading || exporting}>
+            {exporting ? <Spinner size={14} /> : 'Download export'}
+          </button>
+        </div>
       </div>
 
       {error ? (
@@ -255,6 +269,23 @@ function BackupPortabilityCard({ data, loading, error, onRefresh, Spinner }) {
 
       {data ? (
         <div className="mt-4 space-y-4">
+          <div className="rounded-lg border border-edge/80 bg-raised/40 px-3 py-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-ink">Manual export</p>
+                <p className="mt-1 text-sm text-ghost">
+                  {data.export_capabilities?.manual_archive?.note || 'Download a redacted collectZ export bundle.'}
+                </p>
+              </div>
+              <span className={`text-sm font-medium ${statusClass(data.export_capabilities?.manual_archive?.status)}`}>
+                {data.export_capabilities?.manual_archive?.status || 'available'}
+              </span>
+            </div>
+            <p className="mt-2 text-xs text-muted">
+              {lastExportedAt ? `Last downloaded ${lastExportedAt}` : 'No export downloaded in this browser session.'}
+            </p>
+          </div>
+
           <div className="grid gap-3 md:grid-cols-3">
             <div className="rounded-lg border border-edge/80 bg-raised/40 px-3 py-3">
               <p className="text-sm font-medium text-ink">Database</p>
@@ -386,6 +417,8 @@ export default function AdminSettingsView({
   const [portabilityStatus, setPortabilityStatus] = useState(null);
   const [portabilityError, setPortabilityError] = useState('');
   const [loadingPortability, setLoadingPortability] = useState(false);
+  const [exportingPortability, setExportingPortability] = useState(false);
+  const [lastPortabilityExportedAt, setLastPortabilityExportedAt] = useState('');
   const visibleFlagKeySet = useMemo(() => new Set(visibleFlagKeys), [visibleFlagKeys]);
 
   useEffect(() => {
@@ -481,6 +514,37 @@ export default function AdminSettingsView({
   useEffect(() => {
     loadPortabilityStatus();
   }, [loadPortabilityStatus]);
+
+  const downloadPortabilityExport = useCallback(async () => {
+    if (!portabilityEndpoint) return;
+    setExportingPortability(true);
+    setPortabilityError('');
+    try {
+      const response = await apiCall('post', `${portabilityEndpoint}/export`, {}, { responseType: 'blob', rawResponse: true });
+      const disposition = String(response?.headers?.['content-disposition'] || '');
+      const filenameMatch = disposition.match(/filename="?([^"]+)"?/i);
+      const filename = filenameMatch?.[1] || `collectz-export-${Date.now()}.json.gz`;
+      const blob = response instanceof Blob ? response : response?.data;
+      if (!(blob instanceof Blob)) throw new Error('Export response was not a downloadable file');
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      setLastPortabilityExportedAt(new Date().toLocaleString());
+      onToast('Export downloaded');
+      await loadPortabilityStatus();
+    } catch (error) {
+      const message = error?.response?.data?.error || error?.message || 'Failed to download export';
+      setPortabilityError(message);
+      onToast(message, 'error');
+    } finally {
+      setExportingPortability(false);
+    }
+  }, [apiCall, loadPortabilityStatus, onToast, portabilityEndpoint]);
 
   const updateTheme = async (theme) => {
     setSavingGeneral(true);
@@ -608,7 +672,10 @@ export default function AdminSettingsView({
             data={portabilityStatus}
             loading={loadingPortability}
             error={portabilityError}
+            exporting={exportingPortability}
+            lastExportedAt={lastPortabilityExportedAt}
             onRefresh={loadPortabilityStatus}
+            onExport={downloadPortabilityExport}
             Spinner={Spinner}
           />
         ) : null}

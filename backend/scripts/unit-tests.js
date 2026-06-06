@@ -94,7 +94,7 @@ const {
   buildMissingIdentifierReviewClues,
   buildSparseMetadataReviewClues
 } = require('../services/reviewClues');
-const { parseDatabaseUrl, formatBytes } = require('../services/portability');
+const { parseDatabaseUrl, formatBytes, redactPortableValue } = require('../services/portability');
 const {
   SUPPORT_ACCESS_APPROVAL_TTL_DAYS,
   getSupportAccessExpiryTimestamp,
@@ -2382,7 +2382,9 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(adminRoutesSource.includes("platformRouter.put('/settings/email-delivery'"));
   assert.ok(adminRoutesSource.includes("platformRouter.post('/settings/email-delivery/test'"));
   assert.ok(adminRoutesSource.includes("commonRouter.get('/settings/portability'"));
+  assert.ok(adminRoutesSource.includes("commonRouter.post('/settings/portability/export'"));
   assert.ok(adminRoutesSource.includes('buildPortabilityStatus'));
+  assert.ok(adminRoutesSource.includes('buildPortabilityExportArchive'));
   assert.ok(adminRoutesSource.includes("Unknown feature flag: ${key}"));
   assert.ok(integrationsRoutesSource.includes("const { resolveScopeContext } = require('../db/scopeContext');"));
   assert.ok(integrationsRoutesSource.includes('const scopeContext = resolveScopeContext(req);'));
@@ -2410,6 +2412,7 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(homelabSharedBrowserSpecSource.includes('/dashboard?tab=admin-integrations&integration=barcode'));
   assert.ok(homelabSharedBrowserSpecSource.includes('/api/admin/settings/general'));
   assert.ok(openApiSource.includes('/api/admin/settings/portability'));
+  assert.ok(openApiSource.includes('/api/admin/settings/portability/export'));
   assert.ok(openApiSource.includes('PortabilityStatusResponse'));
   assert.ok(homelabSharedBrowserSpecSource.includes('/api/admin/settings/integrations'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/auth/config'));
@@ -7087,6 +7090,25 @@ results.push(run('portability status source keeps readback redacted and restore 
   assert.ok(portabilityServiceSource.includes('docs/wiki/08-Backup-and-Restore.md'));
   assert.ok(portabilityServiceSource.includes('provider_metadata'));
   assert.ok(portabilityServiceSource.includes('Uploaded images live in the configured uploads volume.'));
+  assert.ok(portabilityServiceSource.includes('collectz.portability.export.v1'));
+  assert.ok(portabilityServiceSource.includes('upload_file_binaries: false'));
+  assert.ok(portabilityServiceSource.includes('SECRET_URL_PARAM_PATTERN'));
+  const redactionStats = { redacted: 0 };
+  const redacted = redactPortableValue({
+    title: 'Safe title',
+    api_key: 'secret-key',
+    nested: {
+      launch_url: 'https://example.test/read?token=secret-token&id=1',
+      checked_at: new Date('2026-06-01T12:00:00.000Z'),
+      provider_item_id: 'safe-provider-id'
+    }
+  }, redactionStats);
+  assert.strictEqual(redacted.title, 'Safe title');
+  assert.strictEqual(redacted.api_key, '[redacted]');
+  assert.strictEqual(redacted.nested.provider_item_id, 'safe-provider-id');
+  assert.strictEqual(redacted.nested.launch_url, 'https://example.test/read?token=[redacted]&id=1');
+  assert.strictEqual(redacted.nested.checked_at, '2026-06-01T12:00:00.000Z');
+  assert.strictEqual(redactionStats.redacted, 2);
 }));
 
 Promise.all(results)

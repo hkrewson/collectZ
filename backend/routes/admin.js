@@ -27,7 +27,7 @@ const { getRequestOrigin } = require('../services/requestOrigin');
 const { syncLibraryMembershipsForSpaceUser } = require('../services/libraries');
 const { hashInviteToken } = require('../services/invites');
 const { issuePasswordResetToken } = require('../services/passwordResets');
-const { buildPortabilityStatus } = require('../services/portability');
+const { buildPortabilityExportArchive, buildPortabilityStatus } = require('../services/portability');
 
 const commonRouter = express.Router();
 const platformRouter = express.Router();
@@ -96,6 +96,14 @@ commonRouter.put('/settings/general', validate(generalSettingsSchema), asyncHand
 
 commonRouter.get('/settings/portability', asyncHandler(async (_req, res) => {
   res.json(await buildPortabilityStatus());
+}));
+
+commonRouter.post('/settings/portability/export', asyncHandler(async (_req, res) => {
+  const archive = await buildPortabilityExportArchive();
+  res.setHeader('Content-Type', 'application/gzip');
+  res.setHeader('Content-Disposition', `attachment; filename="${archive.filename}"`);
+  res.setHeader('X-CollectZ-Export-Format', archive.payload?.manifest?.format || 'collectz.portability.export.v1');
+  res.send(archive.buffer);
 }));
 
 platformRouter.get('/settings/email-delivery', asyncHandler(async (_req, res) => {
