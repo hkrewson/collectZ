@@ -214,8 +214,8 @@ function EmailDeliveryCard({
 }
 
 function statusClass(status) {
-  if (status === 'ok' || status === 'available' || status === 'fresh') return 'text-ok';
-  if (status === 'error' || status === 'failed' || status === 'invalid') return 'text-err';
+  if (status === 'ok' || status === 'available' || status === 'fresh' || status === 'ready_for_manual_rehearsal') return 'text-ok';
+  if (status === 'error' || status === 'failed' || status === 'invalid' || status === 'blocked') return 'text-err';
   return 'text-warn';
 }
 
@@ -248,6 +248,8 @@ function BackupPortabilityCard({
   const docs = Array.isArray(data?.docs) ? data.docs : [];
   const guidance = Array.isArray(data?.restore_guidance) ? data.restore_guidance : [];
   const backupFreshness = data?.backup_freshness || null;
+  const restoreRehearsal = data?.restore_rehearsal || null;
+  const rehearsalSteps = Array.isArray(restoreRehearsal?.steps) ? restoreRehearsal.steps : [];
 
   return (
     <div className="rounded-xl border border-edge bg-panel px-4 py-4">
@@ -379,6 +381,34 @@ function BackupPortabilityCard({
                   <span className={`shrink-0 text-sm font-medium ${statusClass(check.status)}`}>{check.status}</span>
                 </div>
               ))}
+            </div>
+          ) : null}
+
+          {restoreRehearsal ? (
+            <div className="rounded-lg border border-edge/80 bg-raised/40 px-3 py-3">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-ink">Restore rehearsal</p>
+                  <p className="mt-1 text-sm text-ghost">{restoreRehearsal.summary}</p>
+                  <p className="mt-1 text-xs text-muted">No live restore action is available here.</p>
+                </div>
+                <span className={`text-sm font-medium ${statusClass(restoreRehearsal.status)}`}>
+                  {restoreRehearsal.status || 'manual'}
+                </span>
+              </div>
+              {rehearsalSteps.length > 0 ? (
+                <div className="mt-3 grid gap-2 md:grid-cols-2">
+                  {rehearsalSteps.map((step) => (
+                    <div key={step.key} className="rounded-md border border-edge/70 px-3 py-2">
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="text-sm font-medium text-ink">{step.label}</p>
+                        <span className={`shrink-0 text-xs font-medium ${statusClass(step.status)}`}>{step.status}</span>
+                      </div>
+                      <p className="mt-1 text-sm text-ghost">{step.detail}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </div>
           ) : null}
 

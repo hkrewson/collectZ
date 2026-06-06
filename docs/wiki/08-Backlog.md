@@ -729,7 +729,7 @@ These are product-level capability gaps discovered from the current shape of the
 ### Backlog Item: Backup, Export, and Portability UX
 **Type:** Promoted milestone
 **Tags:** `product`, `backup`, `export`, `portability`
-**Status:** Foundation completed in `3.13.0`; one-click export archive follow-up promoted to `3.15.0 — One-Click Backup Export Archive`; JSON/CSV format choice promoted to `3.15.1 — JSON and CSV Export Format Choice`; browser-friendly export download packaging promoted to `3.15.2 — Browser-Friendly Backup Export Downloads`; backup freshness readback promoted to `3.15.3 — Backup Freshness Readback` in [07-Release-Roadmap.md](07-Release-Roadmap.md).
+**Status:** Foundation completed in `3.13.0`; one-click export archive follow-up promoted to `3.15.0 — One-Click Backup Export Archive`; JSON/CSV format choice promoted to `3.15.1 — JSON and CSV Export Format Choice`; browser-friendly export download packaging promoted to `3.15.2 — Browser-Friendly Backup Export Downloads`; backup freshness readback promoted to `3.15.3 — Backup Freshness Readback`; restore rehearsal readiness promoted to `3.15.4 — Restore Rehearsal Readiness` in [07-Release-Roadmap.md](07-Release-Roadmap.md).
 
 **Promotion note**
 - The first selected slice is now tracked in the roadmap rather than duplicated here.
@@ -738,7 +738,8 @@ These are product-level capability gaps discovered from the current shape of the
 - `3.15.1` adds explicit JSON-vs-CSV export choice; CSV downloads as a zip with manifest, restore guidance, uploads manifest, and one CSV per exported table.
 - `3.15.2` removes unnecessary archive wrappers for browser friendliness: JSON downloads as one plain `.json` file, and CSV mode lists separate downloadable CSV files instead of one zip or one unwieldy CSV.
 - `3.15.3` adds optional external-backup freshness readback through a marker-file contract.
-- Remaining follow-up work such as restore rehearsal UI, downloadable image binary bundles, and workspace-scoped portability placement should be added as new backlog items after the manual export and freshness shapes are verified.
+- `3.15.4` adds non-destructive restore rehearsal readiness readback and UI checklist.
+- Remaining follow-up work such as downloadable image binary bundles and workspace-scoped portability placement should be added as new backlog items after the manual export, freshness, and rehearsal shapes are verified.
 
 ### Backlog Item: Apple/iTunes Wishlist Price Watch Follow-ups
 **Type:** Deferred milestone

@@ -6,6 +6,34 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.15.4 — Restore Rehearsal Readiness
+
+**Goal:** Let admins see whether the current export, backup freshness, image storage, and manual dry-run inputs are ready for a restore rehearsal in a separate test stack.
+
+### Scope
+
+- Add a non-destructive `restore_rehearsal` readback object to the admin portability status response.
+- Surface a compact Restore rehearsal card in Admin Settings with database export, backup freshness, uploaded image binary, and restore dry-run steps.
+- Update the backup runbook with a manual restore rehearsal checklist.
+- Keep collectZ from performing live restore automation or destructive restore actions.
+
+### Acceptance Criteria
+
+- Admin Settings shows Restore rehearsal status and steps without adding a restore button.
+- The API response marks restore rehearsal as `destructive: false`.
+- The checklist makes uploaded image binaries explicit: exports include an uploads manifest, while volume/object-storage binaries must be copied separately.
+- OpenAPI, release notes, release feed, version metadata, and targeted runtime verification are updated for `3.15.4`.
+
+### Closeout
+
+- Status: completed in `3.15.4`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, `docs/wiki/08-Backup-and-Restore.md`, `docs/wiki/08-Backlog.md`, `docs/releases/v3.15.4.md`, and `backend/openapi/openapi.yaml`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.15.4` using the local compose override; `/api/health` reported version/frontend/backend/build `3.15.4`; running backend env reported `APP_EDITION=platform`, `APP_VERSION=3.15.4`, `NODE_ENV=development`, and a redacted DB URL; frontend/backend containers were healthy; Help > Releases served `3.15.4`; targeted admin browser coverage verified the backup/portability API and visible Restore rehearsal card; temporary homelab-shaped stack verification passed, then the platform-local stack was restored and rechecked.
+- Verification: backend service/script syntax checks; Docker backend unit tests (`304` passed); Docker OpenAPI validation; Docker backend/frontend rebuild; frontend production build during Docker rebuild; Help > Releases smoke; targeted admin settings/export browser regression (`2` passed including setup); RBAC regression; platform edition boundary; homelab edition boundary against a temporary local stack; backend and frontend production dependency audits (`0` vulnerabilities) through local release preflight; observability release evidence (`9/9` checks passed); version sync; release note heading/security-marker check; targeted changed-file secret-pattern scan; and `git diff --check`.
+- CI follow-through: stricter CI `compose-smoke`, repository-history `secret-scan`, full `browser-regression`, and `image-security-and-sbom` remain remote GitHub Actions gates for the pushed commit. Local preflight marked secure-cookie compose smoke blocked because the development stack runs with `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`; local `trivy`, `syft`, and `gitleaks` tools were unavailable.
+- Risks/follow-ups: this is a readiness checklist only; it does not restore data, create database dumps, or bundle uploaded image binaries. Downloadable image binary bundles and workspace-scoped portability placement remain follow-up work.
+- What remains in the milestone: nothing for `3.15.4`; remaining backup/portability follow-ups stay in the backlog instead of this release slice.
+
 ## 3.15.3 — Backup Freshness Readback
 
 **Goal:** Let admins see whether an external scheduled backup process has reported a recent successful backup, without making collectZ perform backup or restore automation itself.

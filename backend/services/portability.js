@@ -87,6 +87,59 @@ function formatAgeHours(value) {
   return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
 }
 
+function buildRestoreRehearsalReadback({ databaseOk, storage, backupFreshness, counts } = {}) {
+  const totalPortableRows = Array.isArray(counts)
+    ? counts.reduce((sum, item) => sum + (Number(item.count || 0) || 0), 0)
+    : 0;
+  const freshnessStatus = String(backupFreshness?.status || '').trim().toLowerCase();
+  const freshnessOk = freshnessStatus === 'fresh';
+  const storageOk = Boolean(storage?.configured);
+  const steps = [
+    {
+      key: 'database_export',
+      label: 'Database export',
+      status: databaseOk && totalPortableRows > 0 ? 'ok' : 'warn',
+      detail: databaseOk && totalPortableRows > 0
+        ? `${totalPortableRows} database rows are visible to the portability export.`
+        : 'No portable database rows are visible yet.'
+    },
+    {
+      key: 'backup_freshness',
+      label: 'Backup freshness',
+      status: freshnessOk ? 'ok' : 'warn',
+      detail: freshnessOk
+        ? backupFreshness.detail
+        : 'Connect a backup marker or confirm the latest host backup before rehearsal.'
+    },
+    {
+      key: 'image_binaries',
+      label: 'Uploaded image binaries',
+      status: storageOk ? 'manual' : 'warn',
+      detail: storageOk
+        ? 'Export includes an uploads manifest only; copy the uploads volume or object storage separately.'
+        : 'Uploads storage is not readable from this backend runtime.'
+    },
+    {
+      key: 'restore_dry_run',
+      label: 'Restore dry run',
+      status: 'manual',
+      detail: 'Use a separate test stack, restore the database dump and uploads, then validate health before touching live data.'
+    }
+  ];
+  const hasError = steps.some((step) => step.status === 'error');
+  const hasWarn = steps.some((step) => step.status === 'warn');
+
+  return {
+    status: hasError ? 'blocked' : hasWarn ? 'needs_attention' : 'ready_for_manual_rehearsal',
+    destructive: false,
+    last_checked_at: new Date().toISOString(),
+    summary: hasWarn
+      ? 'Restore rehearsal needs at least one manual check before it is trustworthy.'
+      : 'Restore rehearsal has the expected inputs for a manual dry run.',
+    steps
+  };
+}
+
 async function getBackupFreshnessReadback(options = {}) {
   const now = options.now instanceof Date ? options.now : new Date();
   const maxAgeHours = parsePositiveNumber(
@@ -644,6 +697,12 @@ async function buildPortabilityStatus() {
     const dbNow = await client.query('SELECT NOW() AS checked_at');
     const counts = await getPortableCounts(client);
     const providerLinkedCount = await getProviderLinkedCount(client);
+    const restoreRehearsal = buildRestoreRehearsalReadback({
+      databaseOk: true,
+      storage,
+      backupFreshness,
+      counts
+    });
     return {
       generated_at: new Date().toISOString(),
       database: {
@@ -654,6 +713,7 @@ async function buildPortabilityStatus() {
       },
       storage,
       backup_freshness: backupFreshness,
+      restore_rehearsal: restoreRehearsal,
       export_capabilities: {
         manual_archive: {
           status: 'available',
@@ -682,6 +742,7 @@ async function buildPortabilityStatus() {
         'Back up the database with pg_dump from the Docker host.',
         'Back up the uploads volume or object storage bucket with the database snapshot.',
         'If you run scheduled backups, write a JSON status marker and set COLLECTZ_BACKUP_STATUS_PATH so collectZ can report freshness.',
+        'Rehearse restore in a separate test stack before trusting a backup plan.',
         'Restore into a stopped app runtime, then restart backend and frontend.',
         'Validate with container health, backend logs, and a Help > Releases readback.'
       ],
@@ -707,5 +768,6 @@ module.exports = {
   parseDatabaseUrl,
   formatBytes,
   redactPortableValue,
-  getBackupFreshnessReadback
+  getBackupFreshnessReadback,
+  buildRestoreRehearsalReadback
 };

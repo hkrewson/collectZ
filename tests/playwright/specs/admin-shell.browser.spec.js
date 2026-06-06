@@ -206,6 +206,9 @@ test.describe('admin shell browser regressions', () => {
       expect(payload.checks.some((check) => check.key === 'backup_freshness')).toBeTruthy();
       expect(payload?.backup_freshness?.status).toBeTruthy();
       expect(typeof payload?.backup_freshness?.detail).toBe('string');
+      expect(payload?.restore_rehearsal?.destructive).toBe(false);
+      expect(Array.isArray(payload?.restore_rehearsal?.steps)).toBeTruthy();
+      expect(payload.restore_rehearsal.steps.some((step) => step.key === 'restore_dry_run')).toBeTruthy();
       expect(payload?.export_capabilities?.manual_archive?.status).toBe('available');
       const exportResponse = await postWithCsrf(requestContext, '/api/admin/settings/portability/export', {});
       expect(exportResponse.ok()).toBeTruthy();
@@ -244,6 +247,7 @@ test.describe('admin shell browser regressions', () => {
     await expect(page.getByText('Images', { exact: true })).toBeVisible();
     await expect(page.getByText('Provider metadata', { exact: true }).first()).toBeVisible();
     await expect(page.getByText('Backup freshness', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('Restore rehearsal', { exact: true }).first()).toBeVisible();
     await expect(page.getByText('Manual export', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Download JSON' })).toBeVisible();
     await page.getByLabel('Export format').selectOption('csv');

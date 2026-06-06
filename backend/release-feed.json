@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.15.4",
+      "version": "3.15.4",
+      "date": null,
+      "status": null,
+      "summary": "This patch adds a non-destructive restore rehearsal readback so admins can tell whether they have the pieces needed to practice a restore in a separate test stack.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added `restore_rehearsal` to `GET /api/admin/settings/portability`.",
+            "Admin Settings now shows a Restore rehearsal card with database export, backup freshness, uploaded image binary, and restore dry-run checks.",
+            "The restore rehearsal response explicitly reports `destructive: false`.",
+            "Restore guidance now calls out rehearsal in a separate test stack.",
+            "The backup runbook now includes a restore rehearsal checklist."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.15.3",
       "version": "3.15.3",
       "date": null,
@@ -172,26 +191,6 @@
             "Persisted traits now merge into existing `collectible_traits` readback before derived compatibility traits with the same key.",
             "Expanded the OpenAPI trait contract for stored traits and future families such as graded, bundle, and provenance.",
             "Added personal access token scope mapping for the trait API as collection data."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.14.0",
-      "version": "3.14.0",
-      "date": null,
-      "status": null,
-      "summary": "This minor release starts the reusable collectible traits milestone with a shared readback contract for special item details that already exist across the app.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added backend `collectible_traits` summaries for media, Art, and Collectibles responses.",
-            "Derived shared traits from existing data instead of adding new required fields.",
-            "Covers signed/autographed, numbered/limited, certificate/proof, event-acquired/exclusive, and edition/variant readback where current data supports it.",
-            "Added compact trait chips and drawer readback in Library, Art, and Collectibles surfaces.",
-            "Added an OpenAPI `CollectibleTrait` schema and documented optional trait arrays on concrete response schemas.",
-            "Promoted the selected backlog task into the roadmap as `3.14.0`."
           ]
         }
       ]

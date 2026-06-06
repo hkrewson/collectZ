@@ -126,6 +126,34 @@
             },
             "required": ["configured", "status", "checked_at", "max_age_hours", "marker_path", "detail"]
           },
+          "restore_rehearsal": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": ["ready_for_manual_rehearsal", "needs_attention", "blocked"]
+              },
+              "destructive": { "type": "boolean" },
+              "last_checked_at": { "type": "string", "format": "date-time" },
+              "summary": { "type": "string" },
+              "steps": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "key": { "type": "string" },
+                    "label": { "type": "string" },
+                    "status": { "type": "string", "enum": ["ok", "warn", "error", "manual"] },
+                    "detail": { "type": "string" }
+                  },
+                  "required": ["key", "label", "status", "detail"]
+                }
+              }
+            },
+            "required": ["status", "destructive", "last_checked_at", "summary", "steps"]
+          },
           "export_capabilities": {
             "type": "object",
             "additionalProperties": true
@@ -161,7 +189,7 @@
             }
           }
         },
-        "required": ["generated_at", "database", "storage", "backup_freshness", "export_capabilities", "restore_guidance", "docs", "checks"]
+        "required": ["generated_at", "database", "storage", "backup_freshness", "restore_rehearsal", "export_capabilities", "restore_guidance", "docs", "checks"]
       },
       "PortabilityExportManifest": {
         "type": "object",

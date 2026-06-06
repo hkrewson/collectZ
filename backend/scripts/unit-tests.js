@@ -99,7 +99,8 @@ const {
   formatBytes,
   redactPortableValue,
   buildPortabilityCsvFiles,
-  getBackupFreshnessReadback
+  getBackupFreshnessReadback,
+  buildRestoreRehearsalReadback
 } = require('../services/portability');
 const {
   SUPPORT_ACCESS_APPROVAL_TTL_DAYS,
@@ -7105,8 +7106,32 @@ results.push(run('portability status source keeps readback redacted and restore 
   assert.ok(portabilityServiceSource.includes('upload_file_binaries: false'));
   assert.ok(portabilityServiceSource.includes('COLLECTZ_BACKUP_STATUS_PATH'));
   assert.ok(portabilityServiceSource.includes('backup_freshness'));
+  assert.ok(portabilityServiceSource.includes('restore_rehearsal'));
+  assert.ok(portabilityServiceSource.includes('Restore dry run'));
   assert.ok(portabilityServiceSource.includes('SECRET_URL_PARAM_PATTERN'));
   assert.ok(portabilityServiceSource.includes("formats: ['json', 'csv']"));
+  const rehearsal = buildRestoreRehearsalReadback({
+    databaseOk: true,
+    storage: { configured: true },
+    backupFreshness: {
+      status: 'fresh',
+      detail: 'Last successful backup was 1 hour ago.'
+    },
+    counts: [{ count: 2 }]
+  });
+  assert.strictEqual(rehearsal.destructive, false);
+  assert.strictEqual(rehearsal.status, 'ready_for_manual_rehearsal');
+  assert.ok(rehearsal.steps.some((step) => step.key === 'restore_dry_run' && step.status === 'manual'));
+  const rehearsalNeedsAttention = buildRestoreRehearsalReadback({
+    databaseOk: true,
+    storage: { configured: true },
+    backupFreshness: {
+      status: 'not_configured',
+      detail: 'No marker.'
+    },
+    counts: [{ count: 2 }]
+  });
+  assert.strictEqual(rehearsalNeedsAttention.status, 'needs_attention');
   const notConfigured = await getBackupFreshnessReadback({
     markerPath: '',
     now: new Date('2026-06-06T12:00:00.000Z')
