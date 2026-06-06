@@ -667,13 +667,14 @@ These are product-level capability gaps discovered from the current shape of the
 ### Backlog Item: Backup, Export, and Portability UX
 **Type:** Promoted milestone
 **Tags:** `product`, `backup`, `export`, `portability`
-**Status:** Foundation completed in `3.13.0`; one-click export archive follow-up promoted to `3.15.0 — One-Click Backup Export Archive`; JSON/CSV format choice promoted to `3.15.1 — JSON and CSV Export Format Choice` in [07-Release-Roadmap.md](07-Release-Roadmap.md).
+**Status:** Foundation completed in `3.13.0`; one-click export archive follow-up promoted to `3.15.0 — One-Click Backup Export Archive`; JSON/CSV format choice promoted to `3.15.1 — JSON and CSV Export Format Choice`; browser-friendly export download packaging promoted to `3.15.2 — Browser-Friendly Backup Export Downloads` in [07-Release-Roadmap.md](07-Release-Roadmap.md).
 
 **Promotion note**
 - The first selected slice is now tracked in the roadmap rather than duplicated here.
 - `3.13.0` is intentionally read-only: admin-facing database/storage/export capability readback, restore guidance, runbook readback, and portability checks.
 - `3.15.0` promotes the first manual export action: a downloadable, redacted `.json.gz` export bundle with manifest, record tables, uploads manifest, restore guidance, and freshness readback.
 - `3.15.1` adds explicit JSON-vs-CSV export choice; CSV downloads as a zip with manifest, restore guidance, uploads manifest, and one CSV per exported table.
+- `3.15.2` removes unnecessary archive wrappers for browser friendliness: JSON downloads as one plain `.json` file, and CSV mode lists separate downloadable CSV files instead of one zip or one unwieldy CSV.
 - Remaining follow-up work such as scheduled backups, restore rehearsal UI, or downloadable image binary bundles should be added as new backlog items after the manual export shape is verified.
 
 ### Backlog Item: Apple/iTunes Wishlist Price Watch Follow-ups

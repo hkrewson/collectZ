@@ -7081,7 +7081,11 @@
                     "type": "string",
                     "enum": ["json", "csv"],
                     "default": "json",
-                    "description": "Export format. JSON returns a gzip-compressed portability archive. CSV returns a zip containing one CSV per exported table."
+                    "description": "Export format. JSON returns one plain JSON portability file. CSV without a file key returns a download list; CSV with a file key returns one CSV file."
+                  },
+                  "file": {
+                    "type": "string",
+                    "description": "CSV file key to download when format is csv, such as manifest, restore_guidance, uploads_manifest, or table:media."
                   }
                 }
               }
@@ -7090,11 +7094,11 @@
         },
         "responses": {
           "200": {
-            "description": "Redacted collectZ portability export archive",
+            "description": "Redacted collectZ portability export or CSV file list/download",
             "headers": {
               "Content-Disposition": {
                 "schema": { "type": "string" },
-                "description": "Attachment filename for the generated export."
+                "description": "Attachment filename for direct JSON and CSV file downloads."
               },
               "X-CollectZ-Export-Format": {
                 "schema": {
@@ -7104,18 +7108,38 @@
               }
             },
             "content": {
-              "application/gzip": {
+              "application/json": {
                 "schema": {
-                  "type": "string",
-                  "format": "binary",
-                  "description": "Gzip-compressed JSON matching PortabilityExportManifest after decompression."
+                  "oneOf": [
+                    { "$ref": "#/components/schemas/PortabilityExportManifest" },
+                    {
+                      "type": "object",
+                      "required": ["format", "files"],
+                      "properties": {
+                        "format": { "type": "string", "enum": ["collectz.portability.csv.v1"] },
+                        "files": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": ["key", "label", "filename"],
+                            "properties": {
+                              "key": { "type": "string" },
+                              "label": { "type": "string" },
+                              "filename": { "type": "string" },
+                              "row_count": { "type": "integer", "nullable": true }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
                 }
               },
-              "application/zip": {
+              "text/csv": {
                 "schema": {
                   "type": "string",
                   "format": "binary",
-                  "description": "Zip archive containing manifest, restore guidance, uploads manifest, and one CSV per exported database table."
+                  "description": "One selected CSV export file."
                 }
               }
             }

@@ -1,6 +1,4 @@
 'use strict';
-
-const zlib = require('zlib');
 const { test, expect } = require('@playwright/test');
 const { createSpaceFixture, deleteSpace } = require('../helpers/admin');
 const { ensureSavedAdminCredentials, createAuthenticatedRequestContext, fetchCsrfToken, postWithCsrf, requestWithCsrf } = require('../helpers/auth');
@@ -208,26 +206,29 @@ test.describe('admin shell browser regressions', () => {
       expect(payload?.export_capabilities?.manual_archive?.status).toBe('available');
       const exportResponse = await postWithCsrf(requestContext, '/api/admin/settings/portability/export', {});
       expect(exportResponse.ok()).toBeTruthy();
-      expect(exportResponse.headers()['content-type']).toContain('application/gzip');
-      expect(exportResponse.headers()['content-disposition']).toContain('collectz-export');
+      expect(exportResponse.headers()['content-type']).toContain('application/json');
+      expect(exportResponse.headers()['content-disposition']).toContain('.json');
       expect(exportResponse.headers()['x-collectz-export-format']).toBe('collectz.portability.export.v1');
-      const exportBytes = await exportResponse.body();
-      expect(exportBytes.length).toBeGreaterThan(0);
-      const exportPayload = JSON.parse(zlib.gunzipSync(exportBytes).toString('utf8'));
+      const exportPayload = JSON.parse((await exportResponse.body()).toString('utf8'));
       expect(exportPayload?.manifest?.format).toBe('collectz.portability.export.v1');
       expect(exportPayload?.manifest?.includes?.upload_file_binaries).toBe(false);
       expect(exportPayload?.manifest?.includes?.integration_secrets).toBe(false);
       expect(Array.isArray(exportPayload?.database?.tables)).toBeTruthy();
       expect(exportPayload?.uploads?.included_files).toBe(false);
-      const csvResponse = await postWithCsrf(requestContext, '/api/admin/settings/portability/export', { format: 'csv' });
+      const csvListResponse = await postWithCsrf(requestContext, '/api/admin/settings/portability/export', { format: 'csv' });
+      expect(csvListResponse.ok()).toBeTruthy();
+      expect(csvListResponse.headers()['content-type']).toContain('application/json');
+      const csvList = await csvListResponse.json();
+      expect(csvList?.format).toBe('collectz.portability.csv.v1');
+      expect(csvList.files.some((file) => file.key === 'manifest' && file.filename.endsWith('.csv'))).toBeTruthy();
+      const csvResponse = await postWithCsrf(requestContext, '/api/admin/settings/portability/export', { format: 'csv', file: 'manifest' });
       expect(csvResponse.ok()).toBeTruthy();
-      expect(csvResponse.headers()['content-type']).toContain('application/zip');
-      expect(csvResponse.headers()['content-disposition']).toContain('.csv.zip');
+      expect(csvResponse.headers()['content-type']).toContain('text/csv');
+      expect(csvResponse.headers()['content-disposition']).toContain('.csv');
       expect(csvResponse.headers()['x-collectz-export-format']).toBe('collectz.portability.csv.v1');
-      const csvBytes = await csvResponse.body();
-      expect(csvBytes.readUInt32LE(0)).toBe(0x04034b50);
-      expect(csvBytes.includes(Buffer.from('manifest.csv'))).toBeTruthy();
-      expect(csvBytes.includes(Buffer.from('collectz.portability.csv.v1'))).toBeTruthy();
+      const csvText = (await csvResponse.body()).toString('utf8');
+      expect(csvText).toContain('format,collectz.portability.csv.v1');
+      expect(csvText).toContain('generated_at');
     } finally {
       await requestContext.dispose();
     }
@@ -240,9 +241,12 @@ test.describe('admin shell browser regressions', () => {
     await expect(page.getByText('Images', { exact: true })).toBeVisible();
     await expect(page.getByText('Provider metadata', { exact: true }).first()).toBeVisible();
     await expect(page.getByText('Manual export', { exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Download export' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Download JSON' })).toBeVisible();
+    await page.getByLabel('Export format').selectOption('csv');
+    await expect(page.getByRole('button', { name: /Manifest/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Restore guidance/ })).toBeVisible();
     await expect(page.getByText('Export coverage', { exact: true })).toBeVisible();
-    await expect(page.getByText('Restore guidance', { exact: true })).toBeVisible();
+    await expect(page.getByText('Restore guidance', { exact: true }).last()).toBeVisible();
     await expect(page.getByText('docs/wiki/08-Backup-and-Restore.md')).toBeVisible();
   });
 

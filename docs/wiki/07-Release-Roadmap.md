@@ -6,6 +6,36 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.15.2 — Browser-Friendly Backup Export Downloads
+
+**Goal:** Make backup exports easier for browsers and users to handle by avoiding unnecessary archive wrappers.
+
+### Scope
+
+- Change JSON backup exports from gzip-compressed `.json.gz` downloads to one plain `.json` download.
+- Change CSV backup exports from one `.csv.zip` archive to a file-list flow with one downloadable CSV per manifest/table.
+- Keep CSV exports split by concern so users do not receive one unwieldy all-data CSV.
+- Update Admin Settings so CSV mode presents individual download buttons for manifest, restore guidance, uploads manifest, and each exported table.
+- Keep backend redaction, auth, and read-only export behavior unchanged.
+
+### Acceptance Criteria
+
+- Admin Settings downloads JSON as a plain `.json` file.
+- Admin Settings CSV mode lists separate CSV files instead of downloading an archive.
+- `POST /api/admin/settings/portability/export` returns a CSV file list when `format: "csv"` has no file key.
+- `POST /api/admin/settings/portability/export` returns one `text/csv` file when `format: "csv"` includes a file key.
+- OpenAPI, release notes, release feed, version metadata, and targeted settings/runtime verification are updated for `3.15.2`.
+
+### Closeout
+
+- Status: completed in `3.15.2`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, `docs/wiki/08-Backup-and-Restore.md`, `docs/wiki/08-Backlog.md`, `docs/releases/v3.15.2.md`, and `backend/openapi/openapi.yaml`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.15.2` using the local compose override; `/api/health` reported version/frontend/backend/build `3.15.2`; running backend env reported `APP_EDITION=platform`, `APP_VERSION=3.15.2`, and a redacted DB URL; frontend/backend containers were healthy; Help > Releases served `3.15.2`; targeted admin browser coverage verified plain JSON download, CSV file-list response, and single CSV download from the authenticated admin route; temporary homelab-shaped stack verification passed and left no `3.15.2` temp containers behind.
+- Verification: backend service/route syntax checks; Docker backend unit tests (`304` passed); Docker OpenAPI validation; Docker backend/frontend rebuild; Help > Releases smoke; in-stack API integration smoke; targeted admin settings/export browser regression (`2` passed); full Playwright browser regression (`81` passed, `4` skipped); RBAC regression; platform edition boundary; homelab edition boundary against a temporary local stack; backend and frontend production dependency audits (`0` vulnerabilities); version sync; release note heading check; targeted changed-file and new-release-note secret-pattern scans; and `git diff --check`.
+- CI follow-through: stricter CI `compose-smoke`, repository-history `secret-scan`, CodeQL review, and `image-security-and-sbom` remain remote GitHub Actions gates for the pushed commit. Local evidence covered running-stack health, in-stack API integration smoke, auth-scoped browser behavior, dependency audit, RBAC, edition boundaries, and changed-file secret hygiene. Local `trivy`, `syft`, and `gitleaks` tools were unavailable.
+- Risks/follow-ups: CSV exports remain spreadsheet-friendly snapshots, not restore automation; uploaded image binaries, scheduled backup freshness checks, and restore rehearsal UI remain separate follow-up work.
+- What remains in the milestone: nothing for `3.15.2`; follow-up backup/restore work remains in the backlog instead of this release slice.
+
 ## 3.15.1 — JSON and CSV Export Format Choice
 
 **Goal:** Let admins choose between a portable JSON export archive and a spreadsheet-friendly CSV export archive.

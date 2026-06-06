@@ -27,7 +27,7 @@ const { getRequestOrigin } = require('../services/requestOrigin');
 const { syncLibraryMembershipsForSpaceUser } = require('../services/libraries');
 const { hashInviteToken } = require('../services/invites');
 const { issuePasswordResetToken } = require('../services/passwordResets');
-const { buildPortabilityCsvArchive, buildPortabilityExportArchive, buildPortabilityStatus } = require('../services/portability');
+const { buildPortabilityCsvFileExport, buildPortabilityJsonExport, buildPortabilityStatus } = require('../services/portability');
 
 const commonRouter = express.Router();
 const platformRouter = express.Router();
@@ -101,15 +101,23 @@ commonRouter.get('/settings/portability', asyncHandler(async (_req, res) => {
 commonRouter.post('/settings/portability/export', asyncHandler(async (req, res) => {
   const format = String(req.body?.format || req.query?.format || 'json').trim().toLowerCase();
   if (format === 'csv') {
-    const archive = await buildPortabilityCsvArchive();
-    res.setHeader('Content-Type', 'application/zip');
+    const fileKey = String(req.body?.file || req.query?.file || '').trim();
+    const archive = await buildPortabilityCsvFileExport(fileKey);
+    if (!fileKey) {
+      res.json({
+        format: 'collectz.portability.csv.v1',
+        files: archive.files
+      });
+      return;
+    }
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${archive.filename}"`);
     res.setHeader('X-CollectZ-Export-Format', 'collectz.portability.csv.v1');
     res.send(archive.buffer);
     return;
   }
-  const archive = await buildPortabilityExportArchive();
-  res.setHeader('Content-Type', 'application/gzip');
+  const archive = await buildPortabilityJsonExport();
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename="${archive.filename}"`);
   res.setHeader('X-CollectZ-Export-Format', archive.payload?.manifest?.format || 'collectz.portability.export.v1');
   res.send(archive.buffer);

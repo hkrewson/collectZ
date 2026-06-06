@@ -2,7 +2,6 @@
 
 const fs = require('fs');
 const path = require('path');
-const zlib = require('zlib');
 const pool = require('../db/pool');
 const appMeta = require('../app-meta.json');
 
@@ -24,14 +23,6 @@ const SECRET_KEY_PATTERN = /(password|secret|token|api[_-]?key|access[_-]?key|pr
 const SECRET_URL_PARAM_PATTERN = /([?&](?:[^=&#]*(?:token|secret|password|api[_-]?key|access[_-]?key|credential)[^=&#]*)=)[^&#]*/gi;
 const JSON_EXPORT_FORMAT = 'collectz.portability.export.v1';
 const CSV_EXPORT_FORMAT = 'collectz.portability.csv.v1';
-const ZIP_STORE_METHOD = 0;
-const CRC32_TABLE = Array.from({ length: 256 }, (_, index) => {
-  let value = index;
-  for (let bit = 0; bit < 8; bit += 1) {
-    value = (value & 1) ? (0xedb88320 ^ (value >>> 1)) : (value >>> 1);
-  }
-  return value >>> 0;
-});
 
 function parseDatabaseUrl(value = '') {
   const raw = String(value || '').trim();
@@ -297,82 +288,6 @@ function redactPortableValue(value, stats = { redacted: 0 }) {
   }, {});
 }
 
-function crc32(buffer) {
-  let crc = 0xffffffff;
-  for (const byte of buffer) {
-    crc = CRC32_TABLE[(crc ^ byte) & 0xff] ^ (crc >>> 8);
-  }
-  return (crc ^ 0xffffffff) >>> 0;
-}
-
-function getDosDateTime(date = new Date()) {
-  const year = Math.max(1980, date.getFullYear());
-  return {
-    time: (date.getHours() << 11) | (date.getMinutes() << 5) | Math.floor(date.getSeconds() / 2),
-    date: ((year - 1980) << 9) | ((date.getMonth() + 1) << 5) | date.getDate()
-  };
-}
-
-function buildZipArchive(files) {
-  const localParts = [];
-  const centralParts = [];
-  let offset = 0;
-  const now = getDosDateTime();
-
-  for (const file of files) {
-    const nameBuffer = Buffer.from(file.name, 'utf8');
-    const data = Buffer.isBuffer(file.data) ? file.data : Buffer.from(String(file.data || ''), 'utf8');
-    const checksum = crc32(data);
-    const localHeader = Buffer.alloc(30);
-    localHeader.writeUInt32LE(0x04034b50, 0);
-    localHeader.writeUInt16LE(20, 4);
-    localHeader.writeUInt16LE(0x0800, 6);
-    localHeader.writeUInt16LE(ZIP_STORE_METHOD, 8);
-    localHeader.writeUInt16LE(now.time, 10);
-    localHeader.writeUInt16LE(now.date, 12);
-    localHeader.writeUInt32LE(checksum, 14);
-    localHeader.writeUInt32LE(data.length, 18);
-    localHeader.writeUInt32LE(data.length, 22);
-    localHeader.writeUInt16LE(nameBuffer.length, 26);
-    localHeader.writeUInt16LE(0, 28);
-    localParts.push(localHeader, nameBuffer, data);
-
-    const centralHeader = Buffer.alloc(46);
-    centralHeader.writeUInt32LE(0x02014b50, 0);
-    centralHeader.writeUInt16LE(20, 4);
-    centralHeader.writeUInt16LE(20, 6);
-    centralHeader.writeUInt16LE(0x0800, 8);
-    centralHeader.writeUInt16LE(ZIP_STORE_METHOD, 10);
-    centralHeader.writeUInt16LE(now.time, 12);
-    centralHeader.writeUInt16LE(now.date, 14);
-    centralHeader.writeUInt32LE(checksum, 16);
-    centralHeader.writeUInt32LE(data.length, 20);
-    centralHeader.writeUInt32LE(data.length, 24);
-    centralHeader.writeUInt16LE(nameBuffer.length, 28);
-    centralHeader.writeUInt16LE(0, 30);
-    centralHeader.writeUInt16LE(0, 32);
-    centralHeader.writeUInt16LE(0, 34);
-    centralHeader.writeUInt16LE(0, 36);
-    centralHeader.writeUInt32LE(0, 38);
-    centralHeader.writeUInt32LE(offset, 42);
-    centralParts.push(centralHeader, nameBuffer);
-    offset += localHeader.length + nameBuffer.length + data.length;
-  }
-
-  const centralOffset = offset;
-  const centralSize = centralParts.reduce((sum, part) => sum + part.length, 0);
-  const endRecord = Buffer.alloc(22);
-  endRecord.writeUInt32LE(0x06054b50, 0);
-  endRecord.writeUInt16LE(0, 4);
-  endRecord.writeUInt16LE(0, 6);
-  endRecord.writeUInt16LE(files.length, 8);
-  endRecord.writeUInt16LE(files.length, 10);
-  endRecord.writeUInt32LE(centralSize, 12);
-  endRecord.writeUInt32LE(centralOffset, 16);
-  endRecord.writeUInt16LE(0, 20);
-  return Buffer.concat([...localParts, ...centralParts, endRecord]);
-}
-
 function csvCell(value) {
   if (value === null || value === undefined) return '';
   if (value instanceof Date) return value.toISOString();
@@ -392,41 +307,82 @@ function csvRows(rows) {
   return `${rows.map((row) => row.map(csvEscape).join(',')).join('\n')}\n`;
 }
 
-function tableRowsToCsv(rows) {
-  const columns = Array.from(rows.reduce((set, row) => {
-    Object.keys(row || {}).forEach((key) => set.add(key));
-    return set;
-  }, new Set()));
-  columns.sort((a, b) => {
+function sortedRecordKeys(row = {}) {
+  return Object.keys(row || {}).sort((a, b) => {
     if (a === 'id') return -1;
     if (b === 'id') return 1;
     return a.localeCompare(b);
   });
-  if (!columns.length) {
-    return csvRows([['id']]);
-  }
+}
+
+function keyValueCsv(values) {
+  return csvRows([
+    ['key', 'value'],
+    ...Object.entries(values || {})
+  ]);
+}
+
+function tableRowsToCsv(rows) {
+  const columns = Array.from(rows.reduce((set, row) => {
+    sortedRecordKeys(row).forEach((key) => set.add(key));
+    return set;
+  }, new Set()));
+  if (!columns.length) columns.push('id');
   return csvRows([
     columns,
     ...rows.map((row) => columns.map((column) => row?.[column] ?? ''))
   ]);
 }
 
-function manifestToCsv(manifest) {
-  return csvRows([
-    ['key', 'value'],
-    ['format', CSV_EXPORT_FORMAT],
-    ['json_format', manifest?.format || JSON_EXPORT_FORMAT],
-    ['generated_at', manifest?.generated_at || ''],
-    ['app', manifest?.app || 'collectZ'],
-    ['version', manifest?.version || 'unknown'],
-    ['database_records', manifest?.includes?.database_records ? 'true' : 'false'],
-    ['upload_file_manifest', manifest?.includes?.upload_file_manifest ? 'true' : 'false'],
-    ['upload_file_binaries', manifest?.includes?.upload_file_binaries ? 'true' : 'false'],
-    ['integration_secrets', manifest?.includes?.integration_secrets ? 'true' : 'false'],
-    ['restore_automation', manifest?.includes?.restore_automation ? 'true' : 'false'],
-    ['redaction_enabled', manifest?.redaction?.enabled ? 'true' : 'false'],
-    ['redacted_values', manifest?.redaction?.redacted_values ?? 0]
-  ]);
+function buildPortabilityCsvFiles(payload) {
+  const generatedAt = String(payload.manifest?.generated_at || new Date().toISOString()).replace(/[:.]/g, '-');
+  const prefix = `collectz-export-${generatedAt}`;
+  return [
+    {
+      key: 'manifest',
+      label: 'Manifest',
+      filename: `${prefix}-manifest.csv`,
+      data: keyValueCsv({
+        format: CSV_EXPORT_FORMAT,
+        json_format: payload.manifest?.format || JSON_EXPORT_FORMAT,
+        generated_at: payload.manifest?.generated_at || '',
+        app: payload.manifest?.app || 'collectZ',
+        version: payload.manifest?.version || 'unknown',
+        database_records: payload.manifest?.includes?.database_records ? 'true' : 'false',
+        upload_file_manifest: payload.manifest?.includes?.upload_file_manifest ? 'true' : 'false',
+        upload_file_binaries: payload.manifest?.includes?.upload_file_binaries ? 'true' : 'false',
+        integration_secrets: payload.manifest?.includes?.integration_secrets ? 'true' : 'false',
+        restore_automation: payload.manifest?.includes?.restore_automation ? 'true' : 'false',
+        redaction_enabled: payload.manifest?.redaction?.enabled ? 'true' : 'false',
+        redacted_values: payload.manifest?.redaction?.redacted_values ?? 0
+      })
+    },
+    {
+      key: 'restore_guidance',
+      label: 'Restore guidance',
+      filename: `${prefix}-restore-guidance.csv`,
+      data: csvRows([
+        ['step', 'guidance'],
+        ...(payload.restore_guidance || []).map((item, index) => [index + 1, item])
+      ])
+    },
+    {
+      key: 'uploads_manifest',
+      label: 'Uploads manifest',
+      filename: `${prefix}-uploads-manifest.csv`,
+      data: csvRows([
+        ['path', 'size_bytes', 'modified_at'],
+        ...((payload.uploads?.files || []).map((file) => [file.path, file.size_bytes, file.modified_at]))
+      ])
+    },
+    ...((payload.database?.tables || []).map((table) => ({
+      key: `table:${table.key}`,
+      label: table.label,
+      filename: `${prefix}-${table.key}.csv`,
+      data: tableRowsToCsv(table.rows || []),
+      row_count: table.count || 0
+    })))
+  ];
 }
 
 async function buildUploadsManifest(storage) {
@@ -513,46 +469,36 @@ async function buildPortabilityExportPayload() {
   }
 }
 
-async function buildPortabilityExportArchive() {
+async function buildPortabilityJsonExport() {
   const payload = await buildPortabilityExportPayload();
   const json = JSON.stringify(payload, null, 2);
   return {
     payload,
-    buffer: zlib.gzipSync(Buffer.from(json, 'utf8'), { level: 9 }),
-    filename: `collectz-export-${String(payload.manifest.generated_at).replace(/[:.]/g, '-')}.json.gz`
+    buffer: Buffer.from(json, 'utf8'),
+    filename: `collectz-export-${String(payload.manifest.generated_at).replace(/[:.]/g, '-')}.json`
   };
 }
 
-async function buildPortabilityCsvArchive() {
+async function buildPortabilityCsvFileExport(fileKey) {
   const payload = await buildPortabilityExportPayload();
-  const generatedAt = String(payload.manifest.generated_at).replace(/[:.]/g, '-');
-  const files = [
-    { name: 'manifest.csv', data: manifestToCsv(payload.manifest) },
-    {
-      name: 'restore_guidance.csv',
-      data: csvRows([
-        ['step', 'guidance'],
-        ...(payload.restore_guidance || []).map((item, index) => [index + 1, item])
-      ])
-    },
-    {
-      name: 'uploads_manifest.csv',
-      data: csvRows([
-        ['path', 'size_bytes', 'modified_at'],
-        ...((payload.uploads?.files || []).map((file) => [file.path, file.size_bytes, file.modified_at]))
-      ])
-    },
-    ...((payload.database?.tables || []).map((table, index) => ({
-      name: `tables/${String(index + 1).padStart(2, '0')}-${table.key}.csv`,
-      data: tableRowsToCsv(table.rows || [])
-    })))
-  ];
-
+  const files = buildPortabilityCsvFiles(payload);
+  if (!fileKey) {
+    return {
+      payload,
+      files: files.map(({ key, label, filename, row_count }) => ({ key, label, filename, row_count }))
+    };
+  }
+  const file = files.find((item) => item.key === fileKey);
+  if (!file) {
+    const error = new Error('Unknown CSV export file');
+    error.status = 400;
+    throw error;
+  }
   return {
     payload,
-    buffer: buildZipArchive(files),
-    filename: `collectz-export-${generatedAt}.csv.zip`,
-    file_count: files.length
+    buffer: Buffer.from(file.data, 'utf8'),
+    filename: file.filename,
+    file
   };
 }
 
@@ -577,10 +523,10 @@ async function buildPortabilityStatus() {
       export_capabilities: {
         manual_archive: {
           status: 'available',
-          format: 'collectZ JSON gzip export or CSV zip export',
+          format: 'collectZ JSON export or CSV file exports',
           formats: ['json', 'csv'],
           includes_upload_binaries: false,
-          note: 'Manual exports include database rows and an uploads manifest. JSON is best for portability; CSV is best for spreadsheet review. Back up upload binaries separately.'
+          note: 'Manual exports include database rows and an uploads manifest. JSON is best for portability; CSV files are best for spreadsheet review. Back up upload binaries separately.'
         },
         database_records: {
           status: 'available',
@@ -618,10 +564,10 @@ async function buildPortabilityStatus() {
 }
 
 module.exports = {
-  buildPortabilityExportArchive,
-  buildPortabilityCsvArchive,
+  buildPortabilityJsonExport,
+  buildPortabilityCsvFileExport,
   buildPortabilityExportPayload,
-  buildZipArchive,
+  buildPortabilityCsvFiles,
   buildPortabilityStatus,
   parseDatabaseUrl,
   formatBytes,

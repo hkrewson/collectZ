@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.15.2",
+      "version": "3.15.2",
+      "date": null,
+      "status": null,
+      "summary": "This patch adjusts backup export downloads so browsers receive plain JSON files and individual CSV files instead of archive wrappers.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "JSON backup exports now download as a single plain `.json` file.",
+            "CSV exports now expose a list of downloadable files instead of one zipped archive.",
+            "Admin Settings shows separate CSV download buttons for the manifest, restore guidance, uploads manifest, and each exported table.",
+            "The export API can return the CSV file list or one selected CSV file by key.",
+            "OpenAPI and browser regression coverage now document and verify the plain JSON and per-file CSV behavior."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.15.1",
       "version": "3.15.1",
       "date": null,
@@ -178,14 +197,6 @@
           ]
         }
       ]
-    },
-    {
-      "title": "collectZ v3.12.17",
-      "version": "3.12.17",
-      "date": null,
-      "status": null,
-      "summary": "This patch aligns the frontend Docker build image with the current Vite and ZXing dependency contract by moving the frontend builder from Node 20 to Node 24.",
-      "details": []
     }
   ]
 }

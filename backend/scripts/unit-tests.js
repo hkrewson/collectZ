@@ -94,7 +94,7 @@ const {
   buildMissingIdentifierReviewClues,
   buildSparseMetadataReviewClues
 } = require('../services/reviewClues');
-const { parseDatabaseUrl, formatBytes, redactPortableValue, buildZipArchive } = require('../services/portability');
+const { parseDatabaseUrl, formatBytes, redactPortableValue, buildPortabilityCsvFiles } = require('../services/portability');
 const {
   SUPPORT_ACCESS_APPROVAL_TTL_DAYS,
   getSupportAccessExpiryTimestamp,
@@ -2384,8 +2384,8 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(adminRoutesSource.includes("commonRouter.get('/settings/portability'"));
   assert.ok(adminRoutesSource.includes("commonRouter.post('/settings/portability/export'"));
   assert.ok(adminRoutesSource.includes('buildPortabilityStatus'));
-  assert.ok(adminRoutesSource.includes('buildPortabilityExportArchive'));
-  assert.ok(adminRoutesSource.includes('buildPortabilityCsvArchive'));
+  assert.ok(adminRoutesSource.includes('buildPortabilityJsonExport'));
+  assert.ok(adminRoutesSource.includes('buildPortabilityCsvFileExport'));
   assert.ok(adminRoutesSource.includes("format === 'csv'"));
   assert.ok(adminRoutesSource.includes("Unknown feature flag: ${key}"));
   assert.ok(integrationsRoutesSource.includes("const { resolveScopeContext } = require('../db/scopeContext');"));
@@ -2416,7 +2416,7 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(openApiSource.includes('/api/admin/settings/portability'));
   assert.ok(openApiSource.includes('/api/admin/settings/portability/export'));
   assert.ok(openApiSource.includes('collectz.portability.csv.v1'));
-  assert.ok(openApiSource.includes('application/zip'));
+  assert.ok(openApiSource.includes('text/csv'));
   assert.ok(openApiSource.includes('PortabilityStatusResponse'));
   assert.ok(homelabSharedBrowserSpecSource.includes('/api/admin/settings/integrations'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/auth/config'));
@@ -7115,10 +7115,34 @@ results.push(run('portability status source keeps readback redacted and restore 
   assert.strictEqual(redacted.nested.launch_url, 'https://example.test/read?token=[redacted]&id=1');
   assert.strictEqual(redacted.nested.checked_at, '2026-06-01T12:00:00.000Z');
   assert.strictEqual(redactionStats.redacted, 2);
-  const zip = buildZipArchive([{ name: 'manifest.csv', data: 'key,value\nformat,collectz.portability.csv.v1\n' }]);
-  assert.strictEqual(zip.readUInt32LE(0), 0x04034b50);
-  assert.ok(zip.includes(Buffer.from('manifest.csv')));
-  assert.ok(zip.includes(Buffer.from('collectz.portability.csv.v1')));
+  const csvFiles = buildPortabilityCsvFiles({
+    manifest: {
+      format: 'collectz.portability.export.v1',
+      generated_at: '2026-06-06T00:00:00.000Z',
+      version: '3.15.2'
+    },
+    restore_guidance: ['Restore the database before copying uploaded files.'],
+    uploads: {
+      files: [{ path: 'covers/example.jpg', size: 1234, modified_at: '2026-06-06T00:00:00.000Z' }]
+    },
+    database: {
+      tables: [
+        {
+          key: 'media',
+          label: 'Library items',
+          count: 1,
+          rows: [{ id: 1, title: 'Example title' }]
+        }
+      ]
+    }
+  });
+  assert.ok(csvFiles.some((file) => file.key === 'manifest' && file.filename.endsWith('-manifest.csv')));
+  assert.ok(csvFiles.some((file) => file.key === 'uploads_manifest' && file.data.includes('covers/example.jpg')));
+  const mediaCsv = csvFiles.find((file) => file.key === 'table:media');
+  assert.ok(mediaCsv);
+  assert.strictEqual(mediaCsv.row_count, 1);
+  assert.ok(mediaCsv.data.includes('id,title'));
+  assert.ok(mediaCsv.data.includes('1,Example title'));
 }));
 
 Promise.all(results)
