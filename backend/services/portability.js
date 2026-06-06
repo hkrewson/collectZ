@@ -23,6 +23,7 @@ const SECRET_KEY_PATTERN = /(password|secret|token|api[_-]?key|access[_-]?key|pr
 const SECRET_URL_PARAM_PATTERN = /([?&](?:[^=&#]*(?:token|secret|password|api[_-]?key|access[_-]?key|credential)[^=&#]*)=)[^&#]*/gi;
 const JSON_EXPORT_FORMAT = 'collectz.portability.export.v1';
 const CSV_EXPORT_FORMAT = 'collectz.portability.csv.v1';
+const DEFAULT_BACKUP_FRESHNESS_HOURS = 24;
 
 function parseDatabaseUrl(value = '') {
   const raw = String(value || '').trim();
@@ -67,6 +68,131 @@ function formatBytes(value) {
     unitIndex += 1;
   }
   return `${size >= 10 || unitIndex === 0 ? Math.round(size) : size.toFixed(1)} ${units[unitIndex]}`;
+}
+
+function parsePositiveNumber(value, fallback) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function parseOptionalDate(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatAgeHours(value) {
+  if (value === null || value === undefined || !Number.isFinite(Number(value))) return null;
+  const rounded = Math.round(Number(value) * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+}
+
+async function getBackupFreshnessReadback(options = {}) {
+  const now = options.now instanceof Date ? options.now : new Date();
+  const maxAgeHours = parsePositiveNumber(
+    options.maxAgeHours ?? process.env.COLLECTZ_BACKUP_FRESHNESS_HOURS ?? process.env.BACKUP_FRESHNESS_HOURS,
+    DEFAULT_BACKUP_FRESHNESS_HOURS
+  );
+  const markerPath = String(
+    options.markerPath ?? process.env.COLLECTZ_BACKUP_STATUS_PATH ?? process.env.BACKUP_STATUS_PATH ?? ''
+  ).trim();
+  const base = {
+    checked_at: now.toISOString(),
+    max_age_hours: maxAgeHours,
+    marker_path: markerPath || null
+  };
+
+  if (!markerPath) {
+    return {
+      ...base,
+      configured: false,
+      status: 'not_configured',
+      last_success_at: null,
+      last_started_at: null,
+      age_hours: null,
+      detail: 'No backup status marker is configured. Set COLLECTZ_BACKUP_STATUS_PATH to let collectZ read scheduled backup freshness.'
+    };
+  }
+
+  let raw;
+  try {
+    raw = await fs.promises.readFile(markerPath, 'utf8');
+  } catch (error) {
+    return {
+      ...base,
+      configured: true,
+      status: 'unavailable',
+      last_success_at: null,
+      last_started_at: null,
+      age_hours: null,
+      detail: `Backup status marker could not be read: ${error.message || 'unavailable'}`
+    };
+  }
+
+  let marker;
+  try {
+    marker = JSON.parse(raw);
+  } catch (_) {
+    return {
+      ...base,
+      configured: true,
+      status: 'invalid',
+      last_success_at: null,
+      last_started_at: null,
+      age_hours: null,
+      detail: 'Backup status marker is not valid JSON.'
+    };
+  }
+
+  const reportedStatus = String(marker.status || marker.state || '').trim().toLowerCase();
+  const lastSuccess = parseOptionalDate(marker.last_success_at || marker.lastSuccessfulAt || marker.completed_at);
+  const lastStarted = parseOptionalDate(marker.last_started_at || marker.lastStartedAt || marker.started_at);
+  const ageHours = lastSuccess ? Math.max(0, (now.getTime() - lastSuccess.getTime()) / 36e5) : null;
+  const backupLabel = marker.backup_file || marker.filename || marker.path || null;
+  const backupSizeBytes = Number.isFinite(Number(marker.size_bytes)) ? Number(marker.size_bytes) : null;
+
+  if (['failed', 'error'].includes(reportedStatus)) {
+    return {
+      ...base,
+      configured: true,
+      status: 'failed',
+      last_success_at: lastSuccess ? lastSuccess.toISOString() : null,
+      last_started_at: lastStarted ? lastStarted.toISOString() : null,
+      age_hours: ageHours,
+      backup_label: backupLabel,
+      backup_size: backupSizeBytes === null ? null : formatBytes(backupSizeBytes),
+      detail: marker.message || marker.error || 'The most recent backup marker reports a failed backup.'
+    };
+  }
+
+  if (!lastSuccess) {
+    return {
+      ...base,
+      configured: true,
+      status: 'warn',
+      last_success_at: null,
+      last_started_at: lastStarted ? lastStarted.toISOString() : null,
+      age_hours: null,
+      backup_label: backupLabel,
+      backup_size: backupSizeBytes === null ? null : formatBytes(backupSizeBytes),
+      detail: 'Backup status marker exists, but it does not report a successful backup timestamp.'
+    };
+  }
+
+  const fresh = ageHours <= maxAgeHours;
+  return {
+    ...base,
+    configured: true,
+    status: fresh ? 'fresh' : 'stale',
+    last_success_at: lastSuccess.toISOString(),
+    last_started_at: lastStarted ? lastStarted.toISOString() : null,
+    age_hours: ageHours,
+    backup_label: backupLabel,
+    backup_size: backupSizeBytes === null ? null : formatBytes(backupSizeBytes),
+    detail: fresh
+      ? `Last successful backup was ${formatAgeHours(ageHours)} hours ago.`
+      : `Last successful backup was ${formatAgeHours(ageHours)} hours ago, which is older than the ${maxAgeHours}-hour freshness target.`
+  };
 }
 
 async function walkDirectoryStats(dir) {
@@ -208,7 +334,7 @@ async function getProviderLinkedCount(client) {
   return Number(result.rows[0]?.count || 0);
 }
 
-function buildChecks({ databaseOk, storage, counts, providerLinkedCount }) {
+function buildChecks({ databaseOk, storage, counts, providerLinkedCount, backupFreshness }) {
   const totalPortableRows = counts.reduce((sum, item) => sum + (Number(item.count || 0) || 0), 0);
   return [
     {
@@ -240,6 +366,12 @@ function buildChecks({ databaseOk, storage, counts, providerLinkedCount }) {
       detail: providerLinkedCount > 0
         ? `${providerLinkedCount} library records have provider or identifier metadata.`
         : 'No provider-linked media metadata is visible yet.'
+    },
+    {
+      key: 'backup_freshness',
+      label: 'Backup freshness',
+      status: backupFreshness?.status === 'fresh' ? 'ok' : backupFreshness?.status === 'failed' || backupFreshness?.status === 'invalid' ? 'error' : 'warn',
+      detail: backupFreshness?.detail || 'Backup freshness has not been checked yet.'
     },
     {
       key: 'runtime_version',
@@ -505,6 +637,7 @@ async function buildPortabilityCsvFileExport(fileKey) {
 async function buildPortabilityStatus() {
   const dbInfo = parseDatabaseUrl(process.env.DATABASE_URL);
   const storage = await getStorageReadback();
+  const backupFreshness = await getBackupFreshnessReadback();
   const client = await pool.connect();
 
   try {
@@ -520,6 +653,7 @@ async function buildPortabilityStatus() {
         checked_at: dbNow.rows[0]?.checked_at || null
       },
       storage,
+      backup_freshness: backupFreshness,
       export_capabilities: {
         manual_archive: {
           status: 'available',
@@ -547,6 +681,7 @@ async function buildPortabilityStatus() {
       restore_guidance: [
         'Back up the database with pg_dump from the Docker host.',
         'Back up the uploads volume or object storage bucket with the database snapshot.',
+        'If you run scheduled backups, write a JSON status marker and set COLLECTZ_BACKUP_STATUS_PATH so collectZ can report freshness.',
         'Restore into a stopped app runtime, then restart backend and frontend.',
         'Validate with container health, backend logs, and a Help > Releases readback.'
       ],
@@ -556,7 +691,7 @@ async function buildPortabilityStatus() {
           path: 'docs/wiki/08-Backup-and-Restore.md'
         }
       ],
-      checks: buildChecks({ databaseOk: true, storage, counts, providerLinkedCount })
+      checks: buildChecks({ databaseOk: true, storage, counts, providerLinkedCount, backupFreshness })
     };
   } finally {
     client.release();
@@ -571,5 +706,6 @@ module.exports = {
   buildPortabilityStatus,
   parseDatabaseUrl,
   formatBytes,
-  redactPortableValue
+  redactPortableValue,
+  getBackupFreshnessReadback
 };

@@ -94,7 +94,13 @@ const {
   buildMissingIdentifierReviewClues,
   buildSparseMetadataReviewClues
 } = require('../services/reviewClues');
-const { parseDatabaseUrl, formatBytes, redactPortableValue, buildPortabilityCsvFiles } = require('../services/portability');
+const {
+  parseDatabaseUrl,
+  formatBytes,
+  redactPortableValue,
+  buildPortabilityCsvFiles,
+  getBackupFreshnessReadback
+} = require('../services/portability');
 const {
   SUPPORT_ACCESS_APPROVAL_TTL_DAYS,
   getSupportAccessExpiryTimestamp,
@@ -7079,7 +7085,7 @@ results.push(run('feature flags source includes external log export flag', () =>
   assert.ok(featureFlagsSource.includes('external_log_export_enabled'));
 }));
 
-results.push(run('portability status source keeps readback redacted and restore guidance explicit', () => {
+results.push(run('portability status source keeps readback redacted and restore guidance explicit', async () => {
   const parsed = parseDatabaseUrl('postgresql://collectz:super-secret@example-db:5432/library');
   assert.deepStrictEqual(parsed, {
     configured: true,
@@ -7097,8 +7103,42 @@ results.push(run('portability status source keeps readback redacted and restore 
   assert.ok(portabilityServiceSource.includes('collectz.portability.export.v1'));
   assert.ok(portabilityServiceSource.includes('collectz.portability.csv.v1'));
   assert.ok(portabilityServiceSource.includes('upload_file_binaries: false'));
+  assert.ok(portabilityServiceSource.includes('COLLECTZ_BACKUP_STATUS_PATH'));
+  assert.ok(portabilityServiceSource.includes('backup_freshness'));
   assert.ok(portabilityServiceSource.includes('SECRET_URL_PARAM_PATTERN'));
   assert.ok(portabilityServiceSource.includes("formats: ['json', 'csv']"));
+  const notConfigured = await getBackupFreshnessReadback({
+    markerPath: '',
+    now: new Date('2026-06-06T12:00:00.000Z')
+  });
+  assert.strictEqual(notConfigured.status, 'not_configured');
+  assert.strictEqual(notConfigured.configured, false);
+  const markerPath = path.join(__dirname, '..', '..', 'tmp-backup-freshness-marker.json');
+  try {
+    await fs.promises.writeFile(markerPath, JSON.stringify({
+      status: 'ok',
+      last_success_at: '2026-06-06T06:00:00.000Z',
+      backup_file: 'collectz_20260606T060000Z.sql.gz',
+      size_bytes: 2048
+    }));
+    const fresh = await getBackupFreshnessReadback({
+      markerPath,
+      maxAgeHours: 24,
+      now: new Date('2026-06-06T12:00:00.000Z')
+    });
+    assert.strictEqual(fresh.status, 'fresh');
+    assert.strictEqual(fresh.backup_size, '2.0 KB');
+    assert.strictEqual(fresh.age_hours, 6);
+    const stale = await getBackupFreshnessReadback({
+      markerPath,
+      maxAgeHours: 4,
+      now: new Date('2026-06-06T12:00:00.000Z')
+    });
+    assert.strictEqual(stale.status, 'stale');
+    assert.ok(stale.detail.includes('4-hour freshness target'));
+  } finally {
+    await fs.promises.rm(markerPath, { force: true });
+  }
   const redactionStats = { redacted: 0 };
   const redacted = redactPortableValue({
     title: 'Safe title',

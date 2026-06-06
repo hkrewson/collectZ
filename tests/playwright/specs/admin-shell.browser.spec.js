@@ -203,6 +203,9 @@ test.describe('admin shell browser regressions', () => {
       expect(JSON.stringify(payload)).not.toContain('password');
       expect(Array.isArray(payload?.checks)).toBeTruthy();
       expect(payload.checks.some((check) => check.key === 'database' && check.status === 'ok')).toBeTruthy();
+      expect(payload.checks.some((check) => check.key === 'backup_freshness')).toBeTruthy();
+      expect(payload?.backup_freshness?.status).toBeTruthy();
+      expect(typeof payload?.backup_freshness?.detail).toBe('string');
       expect(payload?.export_capabilities?.manual_archive?.status).toBe('available');
       const exportResponse = await postWithCsrf(requestContext, '/api/admin/settings/portability/export', {});
       expect(exportResponse.ok()).toBeTruthy();
@@ -240,6 +243,7 @@ test.describe('admin shell browser regressions', () => {
     await expect(page.getByText('Database', { exact: true })).toBeVisible();
     await expect(page.getByText('Images', { exact: true })).toBeVisible();
     await expect(page.getByText('Provider metadata', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('Backup freshness', { exact: true }).first()).toBeVisible();
     await expect(page.getByText('Manual export', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Download JSON' })).toBeVisible();
     await page.getByLabel('Export format').selectOption('csv');

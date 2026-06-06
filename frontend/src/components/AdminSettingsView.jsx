@@ -214,8 +214,8 @@ function EmailDeliveryCard({
 }
 
 function statusClass(status) {
-  if (status === 'ok' || status === 'available') return 'text-ok';
-  if (status === 'error') return 'text-err';
+  if (status === 'ok' || status === 'available' || status === 'fresh') return 'text-ok';
+  if (status === 'error' || status === 'failed' || status === 'invalid') return 'text-err';
   return 'text-warn';
 }
 
@@ -247,6 +247,7 @@ function BackupPortabilityCard({
   ];
   const docs = Array.isArray(data?.docs) ? data.docs : [];
   const guidance = Array.isArray(data?.restore_guidance) ? data.restore_guidance : [];
+  const backupFreshness = data?.backup_freshness || null;
 
   return (
     <div className="rounded-xl border border-edge bg-panel px-4 py-4">
@@ -330,7 +331,7 @@ function BackupPortabilityCard({
             ) : null}
           </div>
 
-          <div className="grid gap-3 md:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-lg border border-edge/80 bg-raised/40 px-3 py-3">
               <p className="text-sm font-medium text-ink">Database</p>
               <p className="mt-1 text-sm text-ghost">
@@ -352,6 +353,17 @@ function BackupPortabilityCard({
               <p className="mt-1 text-sm text-ghost">Identifiers and linked provider keys</p>
               <p className={`mt-2 text-sm font-medium ${statusClass(data.export_capabilities?.provider_metadata?.status)}`}>
                 {data.export_capabilities?.provider_metadata?.linked_records ?? 0} linked records
+              </p>
+            </div>
+            <div className="rounded-lg border border-edge/80 bg-raised/40 px-3 py-3">
+              <p className="text-sm font-medium text-ink">Backup freshness</p>
+              <p className="mt-1 text-sm text-ghost">
+                {backupFreshness?.last_success_at
+                  ? `Last success ${new Date(backupFreshness.last_success_at).toLocaleString()}`
+                  : 'No scheduled backup marker connected'}
+              </p>
+              <p className={`mt-2 text-sm font-medium ${statusClass(backupFreshness?.status)}`}>
+                {backupFreshness?.status || 'not configured'}
               </p>
             </div>
           </div>

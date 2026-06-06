@@ -6,6 +6,35 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.15.3 — Backup Freshness Readback
+
+**Goal:** Let admins see whether an external scheduled backup process has reported a recent successful backup, without making collectZ perform backup or restore automation itself.
+
+### Scope
+
+- Add an optional backup status marker contract read by the backend from `COLLECTZ_BACKUP_STATUS_PATH`.
+- Add `backup_freshness` to the admin portability status response with configured state, marker path, last success timestamp, age, freshness target, status, and plain detail text.
+- Add a Backup freshness card and check row to Admin Settings.
+- Update the backup runbook with the marker JSON shape and freshness environment variables.
+- Keep manual JSON/CSV exports unchanged.
+
+### Acceptance Criteria
+
+- When no marker path is configured, Admin Settings says backup freshness is not connected instead of pretending backups are fresh.
+- When a marker reports a recent successful backup, status is `fresh`.
+- When a marker reports an old success, invalid JSON, unreadable file, or failed backup, status is surfaced as attention/error with useful detail.
+- OpenAPI, release notes, release feed, version metadata, and targeted runtime verification are updated for `3.15.3`.
+
+### Closeout
+
+- Status: completed in `3.15.3`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, `docs/wiki/08-Backup-and-Restore.md`, `docs/wiki/08-Backlog.md`, `docs/releases/v3.15.3.md`, and `backend/openapi/openapi.yaml`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.15.3` using the local compose override; `/api/health` reported version/frontend/backend/build `3.15.3`; running backend env reported `APP_EDITION=platform`, `APP_VERSION=3.15.3`, and a redacted DB URL; frontend/backend containers were healthy; Help > Releases served `3.15.3`; targeted admin browser coverage verified the backup freshness API object and visible card; temporary homelab-shaped stack verification passed with `APP_EDITION` absent, then the platform-local stack was restored and rechecked.
+- Verification: backend service/script syntax checks; Docker backend unit tests (`304` passed); Docker OpenAPI validation; Docker backend/frontend rebuild; frontend production build during Docker rebuild; Help > Releases smoke; targeted admin settings/export browser regression (`2` passed including setup); RBAC regression; platform edition boundary; homelab edition boundary against a temporary local stack; backend and frontend production dependency audits (`0` vulnerabilities) through local release preflight; observability release evidence (`9/9` checks passed); version sync; release note heading/security-marker check; targeted changed-file secret-pattern scan; and `git diff --check`.
+- CI follow-through: stricter CI `compose-smoke`, repository-history `secret-scan`, full `browser-regression`, and `image-security-and-sbom` remain remote GitHub Actions gates for the pushed commit. Local evidence covered running-stack health, auth-scoped browser behavior, dependency audit, RBAC, edition boundaries, and changed-file secret hygiene. Local `trivy`, `syft`, and `gitleaks` tools were unavailable.
+- Risks/follow-ups: this reads backup freshness from an external marker file; it does not run scheduled backups, restore data, or bundle uploaded image binaries.
+- What remains in the milestone: nothing for `3.15.3`; restore rehearsal UI, downloadable image binary bundles, and workspace-scoped portability placement remain follow-up work.
+
 ## 3.15.2 — Browser-Friendly Backup Export Downloads
 
 **Goal:** Make backup exports easier for browsers and users to handle by avoiding unnecessary archive wrappers.

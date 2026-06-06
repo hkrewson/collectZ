@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.15.3",
+      "version": "3.15.3",
+      "date": null,
+      "status": null,
+      "summary": "This patch lets the backup and portability surface show whether an external scheduled backup job has reported a recent successful run.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added optional backup freshness readback to `GET /api/admin/settings/portability`.",
+            "Added a marker-file contract using `COLLECTZ_BACKUP_STATUS_PATH` and `COLLECTZ_BACKUP_FRESHNESS_HOURS`.",
+            "Admin Settings now shows a compact Backup freshness card next to database, images, and provider metadata.",
+            "Backup checks now include a freshness row with plain status detail.",
+            "The backup runbook documents the scheduled-backup marker JSON shape."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.15.2",
       "version": "3.15.2",
       "date": null,
@@ -173,27 +192,6 @@
             "Added compact trait chips and drawer readback in Library, Art, and Collectibles surfaces.",
             "Added an OpenAPI `CollectibleTrait` schema and documented optional trait arrays on concrete response schemas.",
             "Promoted the selected backlog task into the roadmap as `3.14.0`."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.13.0",
-      "version": "3.13.0",
-      "date": null,
-      "status": null,
-      "summary": "This minor release starts the backup/export/portability product surface by adding read-only Admin Settings status for database records, uploaded images, provider metadata, restore guidance, and the backup runbook.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added an admin-only `GET /api/admin/settings/portability` readback endpoint.",
-            "Added a `Backup and portability` section to Admin Settings.",
-            "Shows database reachability with redacted database location details.",
-            "Shows uploaded image storage status, file count, and size when local uploads are visible to the backend.",
-            "Shows export coverage counts for collection records, wishlist rows, loans, captures, events, libraries, and workspaces.",
-            "Shows provider metadata coverage and restore guidance without exposing secret values.",
-            "Documented the endpoint in OpenAPI and moved the selected backlog item into the roadmap."
           ]
         }
       ]
