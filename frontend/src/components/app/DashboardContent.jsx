@@ -346,10 +346,10 @@ export default function DashboardContent({
           onToast={showToast}
           onSettingsChange={setUiSettings}
           Spinner={Spinner}
-          title="Settings"
-          description="Set shell defaults for this installation. Where workspace settings exist, they can override these choices."
-          themeLabel="Theme"
-          themeDescription="Choose whether collectZ follows your system appearance or stays fixed to a light or dark theme."
+          title="Platform Settings"
+          description="Configure instance-wide platform defaults, email delivery, registration behavior, and platform backup/export readback. Workspace settings and provider integrations live under Workspace."
+          themeLabel="Platform theme default"
+          themeDescription="Choose the default appearance for this platform. Workspace-level settings can override this where available."
           visibleFlagKeys={productEdition === 'homelab' ? undefined : ['self_registration_enabled']}
           emptyFeatureFlagsMessage={null}
           emailDeliveryEndpoint={productEdition === 'homelab' ? null : '/admin/settings/email-delivery'}
@@ -368,12 +368,12 @@ export default function DashboardContent({
           cx={cx}
           section={activeIntegrationSection}
           onSectionChange={setActiveIntegrationSection}
-          title="Integrations"
+          title={productEdition === 'homelab' ? 'Integrations' : 'Platform Runtime'}
           includeRuntimeSections={productEdition !== 'homelab'}
-          includeValuationSections={productEdition !== 'homelab'}
+          includeValuationSections={false}
           visibleSections={productEdition === 'homelab'
             ? ['audio', 'barcode', 'books', 'cwa', 'comics', 'games', 'kavita', 'plex', 'tmdb']
-            : ['audio', 'barcode', 'books', 'cwa', 'comics', 'pricecharting', 'ebay', 'games', 'kavita', 'plex', 'tmdb', 'logs', 'metrics']}
+            : ['logs', 'metrics']}
         />
       );
     default:

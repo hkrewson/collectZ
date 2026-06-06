@@ -29,9 +29,9 @@ const MOBILE_HEADER_TITLES = {
   profile: 'Profile',
   'space-manage': 'Workspace',
   'admin-merge-review': 'Merge Review',
-  'admin-settings': 'Settings',
-  'admin-integrations': 'Integrations',
-  'admin-activity': 'Activity',
+  'admin-settings': 'Platform Settings',
+  'admin-integrations': 'Platform Runtime',
+  'admin-activity': 'Platform Activity',
   'admin-spaces': 'All Workspaces',
   'admin-users': 'All Members',
   'admin-feature-flags': 'Feature Flags'

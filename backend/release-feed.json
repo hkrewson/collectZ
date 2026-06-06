@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.16.0",
+      "version": "3.16.0",
+      "date": null,
+      "status": null,
+      "summary": "This release clarifies the app boundary between workspace-owned collection work and platform-level setup.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Renamed the visible `Admin` nav group to `Platform`.",
+            "Renamed platform settings to `Platform Settings` with copy that explains the instance-wide scope.",
+            "Renamed workspace settings to `Workspace Settings` with copy that explains the selected-workspace scope.",
+            "Renamed workspace provider setup to `Workspace Integrations`.",
+            "Changed the hosted platform runtime surface to show platform runtime concerns instead of editable data-provider setup.",
+            "Dashboard provider health now points toward Workspace, where provider/data-sync setup belongs."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.15.4",
       "version": "3.15.4",
       "date": null,
@@ -171,26 +191,6 @@
             "Supported fields include grader, grade, certificate number, grading date, and slab notes.",
             "Saved grading details now appear through existing collectible trait readback and trait pills.",
             "The editor remains drawer-based so ordinary add/edit flows stay lightweight."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.14.1",
-      "version": "3.14.1",
-      "date": null,
-      "status": null,
-      "summary": "This patch continues the reusable collectible traits line by adding the backend persistence contract that future grading, COA/provenance, bundle, and edition editors can build on.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added migration `107` for `collectible_trait_records`.",
-            "Added scoped persisted trait APIs under `/api/collectible-traits/{ownerType}/{ownerId}`.",
-            "Supported trait owners: media, Art, and Collectibles.",
-            "Persisted traits now merge into existing `collectible_traits` readback before derived compatibility traits with the same key.",
-            "Expanded the OpenAPI trait contract for stored traits and future families such as graded, bundle, and provenance.",
-            "Added personal access token scope mapping for the trait API as collection data."
           ]
         }
       ]

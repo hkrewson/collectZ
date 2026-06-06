@@ -398,7 +398,8 @@ export default function SpaceManagerView({
                 onToast={onToast}
                 onSettingsChange={onSettingsChange}
                 Spinner={Spinner}
-                title={null}
+                title="Workspace Settings"
+                description="These settings apply to the selected workspace and its library work. Platform-wide setup remains under Platform."
                 embedded
                 generalSettingsEndpoint={`/spaces/${activeSpaceId}/settings/general`}
                 updateGeneralSettingsEndpoint={`/spaces/${activeSpaceId}/settings/general`}
@@ -712,7 +713,7 @@ export default function SpaceManagerView({
             Spinner={Spinner}
             cx={cx}
             endpointBase={`/spaces/${activeSpaceId}/integrations`}
-            title="Integrations"
+            title="Workspace Integrations"
             includeRuntimeSections={false}
             allowImports
             visibleSections={['audio', 'barcode', 'books', 'cwa', 'comics', 'games', 'kavita', 'plex', 'tmdb']}

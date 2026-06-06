@@ -2306,7 +2306,7 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(dashboardContentSource.includes("const supportStaffInEdition = supportHelpEnabled && ['admin', 'support_admin'].includes"));
   assert.ok(dashboardContentSource.includes("...(supportHelpEnabled ? ['support-inbox'] : []),"));
   assert.ok(sidebarNavSource.includes('getAllowedDashboardTabs'));
-  assert.ok(sidebarNavSource.includes('showAdminGroup'));
+  assert.ok(sidebarNavSource.includes('showPlatformGroup'));
   assert.ok(productEditionConfigSource.includes("return PRODUCT_EDITIONS.has(normalized) ? normalized : 'homelab';"));
   assert.ok(!dockerComposeSource.includes('APP_EDITION'));
   assert.ok(!publicComposeGeneratorSource.includes('APP_EDITION: \\${APP_EDITION:-homelab}'));
@@ -3181,7 +3181,9 @@ results.push(run('kavita workspace-owned administration implementation is wired 
   assert.ok(mediaRoutesSource.includes('loadWorkspaceKavitaIntegrationConfig(row.space_id || scopeContext?.spaceId || null)'));
   assert.ok(spaceManagerViewSource.includes("'kavita'"));
   assert.ok(dashboardContentSource.includes("['audio', 'barcode', 'books', 'cwa', 'comics', 'games', 'kavita', 'plex', 'tmdb']"));
-  assert.ok(dashboardContentSource.includes("['audio', 'barcode', 'books', 'cwa', 'comics', 'pricecharting', 'ebay', 'games', 'kavita', 'plex', 'tmdb', 'logs', 'metrics']"));
+  assert.ok(dashboardContentSource.includes("['logs', 'metrics']"));
+  assert.ok(spaceManagerViewSource.includes('title="Workspace Integrations"'));
+  assert.ok(dashboardContentSource.includes('title={productEdition === \'homelab\' ? \'Integrations\' : \'Platform Runtime\'}'));
   assert.ok(openApiSource.includes('/api/spaces/{id}/integrations/test-kavita'));
   assert.ok(kavitaImportSyncSmokeSource.includes('/integrations/test-kavita'));
   assert.ok(kavitaImportSyncSmokeSource.includes('workspaceOwnedSettings: true'));

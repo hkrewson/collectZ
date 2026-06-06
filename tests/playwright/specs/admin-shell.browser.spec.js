@@ -240,7 +240,7 @@ test.describe('admin shell browser regressions', () => {
     }
 
     await page.goto('/dashboard?tab=admin-settings');
-    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Platform Settings' })).toBeVisible();
     await expect(page.getByText('Backup and portability', { exact: true })).toBeVisible();
     await expect(page.getByLabel('Export format')).toBeVisible();
     await expect(page.getByText('Database', { exact: true })).toBeVisible();
@@ -407,7 +407,7 @@ test.describe('admin shell browser regressions', () => {
       { route: '/dashboard?tab=library-loans', heading: 'Loans', headingVisible: false, mobileTitle: 'Loans', header: 'loans-page-header', body: 'loans-page-body' },
       { route: '/dashboard?tab=library-import', heading: 'Import Media', mobileTitle: 'Import', header: 'import-page-header', body: 'import-page-body' },
       { route: '/dashboard?tab=library-capture', heading: 'Capture Inbox', mobileTitle: 'Capture Inbox', header: 'capture-page-header', body: 'capture-page-body', filterButton: /Filter captures/, filterControl: 'Capture type', absentHeaderText: 'My Library' },
-      { route: '/dashboard?tab=admin-integrations', heading: 'Integrations', mobileTitle: 'Integrations', header: 'admin-integrations-page-header', body: 'admin-integrations-page-body' }
+      { route: '/dashboard?tab=admin-integrations', heading: 'Platform Runtime', mobileTitle: 'Platform Runtime', header: 'admin-integrations-page-header', body: 'admin-integrations-page-body' }
     ];
 
     for (const target of pages) {
@@ -1262,28 +1262,19 @@ test.describe('admin shell browser regressions', () => {
     }
   });
 
-  test('integrations tabs switch and save feedback stays visible', async ({ page }) => {
+  test('platform runtime tabs switch and save feedback stays visible', async ({ page }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
     await signInThroughUi(page, adminCredentials);
     await page.goto('/dashboard?tab=admin-integrations&integration=logs');
-    await expect(page.getByRole('heading', { name: 'Integrations' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Platform Runtime' })).toBeVisible();
 
     const sectionTabs = page.getByRole('tablist', { name: 'Integration sections' });
     await expect(sectionTabs.getByRole('tab')).toHaveText([
-      'Audio',
-      'Barcode',
-      'Books',
-      'CWA OPDS',
-      'Comics',
-      'PriceCharting',
-      'eBay Browse',
-      'Games',
-      'Kavita',
       'External Logs',
-      'Metrics',
-      'Plex',
-      'TMDB'
+      'Metrics'
     ]);
+    await expect(sectionTabs.getByRole('tab', { name: 'Plex', exact: true })).toHaveCount(0);
+    await expect(sectionTabs.getByRole('tab', { name: 'Kavita', exact: true })).toHaveCount(0);
 
     await sectionTabs.getByRole('tab', { name: 'Metrics', exact: true }).click();
     const metricsSwitch = page.getByRole('switch', { name: /Metrics Export/i });

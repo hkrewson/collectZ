@@ -1208,7 +1208,7 @@ export default function AdminIntegrationsView({
     ? `${logLastValidation.status === 'passed' ? 'Passed' : logLastValidation.status === 'warning' ? 'Warning' : 'Failed'} · ${logLastValidation.backend || 'off'}`
     : 'Not yet run';
   const logsRuntimeSummary = logsRuntime
-    ? `${logsRuntime.effectiveState === 'ready' ? 'Ready' : logsRuntime.effectiveState === 'attention' ? 'Needs attention' : 'Disabled'} · ${logsRuntime.configSource === 'stored' ? 'Saved in Admin' : logsRuntime.configSource === 'env_override' ? 'Locked by runtime env' : 'Using runtime env defaults'}`
+    ? `${logsRuntime.effectiveState === 'ready' ? 'Ready' : logsRuntime.effectiveState === 'attention' ? 'Needs attention' : 'Disabled'} · ${logsRuntime.configSource === 'stored' ? 'Saved in Platform' : logsRuntime.configSource === 'env_override' ? 'Locked by runtime env' : 'Using runtime env defaults'}`
     : '';
   const [headerCompact, setHeaderCompact] = useState(false);
   const handleBodyScroll = useCallback((event) => {

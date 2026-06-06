@@ -84,7 +84,7 @@ export default function SidebarNav({
   const showLibrarySwitcher = canUseLibraryShell && !isAdmin && libraries.length > 1;
   const showDesktopHamburger = !collapsed;
   const canOpenSpaceSurface = Boolean(activeMembershipRole) || canManageActiveSpace;
-  const showAdminGroup = isAdmin && [
+  const showPlatformGroup = isAdmin && [
     isTabAllowed('admin-settings'),
     isTabAllowed('admin-merges'),
     isTabAllowed('admin-integrations'),
@@ -267,7 +267,7 @@ export default function SidebarNav({
           {canOpenSpaceSurface && isTabAllowed('space-manage') && (
             <NavLink id="space-manage" icon={<Icons.Users />} label="Workspace" />
           )}
-          {showAdminGroup && (
+          {showPlatformGroup && (
             <div>
               <button
                 onClick={() => setPlatformOpen((o) => !o)}
@@ -280,7 +280,7 @@ export default function SidebarNav({
                 <span className="shrink-0"><Icons.Settings /></span>
                 {!collapsed && (
                   <>
-                    <span className="flex-1 text-left">Admin</span>
+                    <span className="flex-1 text-left">Platform</span>
                     <span className={cx('transition-transform duration-200', platformOpen && 'rotate-180')}><Icons.ChevronDown /></span>
                   </>
                 )}
@@ -288,8 +288,8 @@ export default function SidebarNav({
               {platformOpen && !collapsed && (
                 <div className="mt-1 space-y-0.5">
                   {isTabAllowed('admin-merges') && <NavLink id="admin-merges" icon={null} label="Merge Review" sub />}
-                  {isTabAllowed('admin-settings') && <NavLink id="admin-settings" icon={null} label="Settings" sub />}
-                  {isTabAllowed('admin-integrations') && <NavLink id="admin-integrations" icon={null} label="Integrations" sub />}
+                  {isTabAllowed('admin-settings') && <NavLink id="admin-settings" icon={null} label="Platform Settings" sub />}
+                  {isTabAllowed('admin-integrations') && <NavLink id="admin-integrations" icon={null} label="Runtime" sub />}
                   {isTabAllowed('admin-activity') && <NavLink id="admin-activity" icon={null} label="Activity" sub />}
                   {isTabAllowed('admin-spaces') && <NavLink id="admin-spaces" icon={null} label="All Workspaces" sub />}
                   {isTabAllowed('admin-users') && <NavLink id="admin-users" icon={null} label="All Members" sub />}

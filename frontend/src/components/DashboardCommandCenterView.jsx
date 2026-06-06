@@ -1307,14 +1307,14 @@ export default function DashboardCommandCenterView({
   const providerHealthPanel = (
     <Panel
       title="Provider health"
-      action={<button type="button" className="btn-secondary btn-sm" onClick={() => go('admin-integrations')}>Settings</button>}
+      action={<button type="button" className="btn-secondary btn-sm" onClick={() => go('space-manage')}>Workspace</button>}
     >
       <div className="space-y-2">
         {providers.map((provider) => (
           <button
             key={provider.id}
             type="button"
-            onClick={() => go('admin-integrations', provider.id === 'kavita' ? 'kavita' : provider.id)}
+            onClick={() => go('space-manage')}
             className="w-full rounded-lg border border-edge bg-raised/25 px-3 py-2 text-left transition hover:bg-raised/60"
           >
             <div className="flex items-center justify-between gap-3">

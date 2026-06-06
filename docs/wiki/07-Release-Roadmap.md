@@ -6,6 +6,37 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.16.0 — Platform vs Workspace Boundary Clarification
+
+**Goal:** Make navigation and settings clearly distinguish workspace-owned collection work from platform-level setup.
+
+### Scope
+
+- Rename the visible `Admin` navigation group to `Platform` while keeping internal route IDs stable.
+- Make platform settings and workspace settings page copy explicit about scope.
+- Keep workspace-owned data provider integrations under `Workspace`.
+- Narrow the platform integrations surface to platform/runtime concerns such as logs and metrics.
+- Route Dashboard provider-health affordances toward Workspace instead of the platform integration surface.
+- Keep existing permissions and operational behavior intact; this milestone clarifies ownership and navigation boundaries rather than adding billing, licensing, or new provider capabilities.
+
+### Acceptance Criteria
+
+- Users can tell from nav labels, page titles, and helper copy whether they are changing workspace settings or platform settings.
+- Platform nav no longer presents editable Plex, Kavita, barcode, books, audio/music, games, comics, CWA, or TMDB setup as platform-owned configuration.
+- Workspace remains the visible place for provider/data-sync integrations.
+- Platform settings remain the visible place for instance-wide setup, email delivery, feature switches, and instance-wide backup/export/portability.
+- OpenAPI/release artifacts, version metadata, Help > Releases feed, and targeted runtime verification are updated for `3.16.0`.
+
+### Closeout
+
+- Status: completed in `3.16.0`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, `docs/wiki/08-Backlog.md`, and `docs/releases/v3.16.0.md`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.16.0` using the local platform compose override; `/api/health` reported version/frontend/backend/build `3.16.0`; running backend env reported `APP_EDITION=platform`, `APP_VERSION=3.16.0`, `NODE_ENV=development`, and a redacted DB URL; frontend/backend containers were healthy; Help > Releases served `3.16.0`; targeted admin browser coverage verified Platform Settings and Platform Runtime behavior; targeted workspace browser coverage verified Workspace Settings and Workspace Integrations; temporary homelab-shaped stack verification passed, then the platform-local stack was restored and rechecked.
+- Verification: frontend production build; Docker backend unit tests (`304` passed); Docker OpenAPI validation; Help > Releases smoke; targeted admin shell browser regression; targeted workspace manager browser regression; RBAC regression; platform edition boundary; homelab edition boundary against a temporary local stack; backend and frontend production dependency audits (`0` vulnerabilities) through local release preflight; observability release evidence (`9/9` checks passed); version sync; release note heading/security-marker check; targeted changed-file secret-pattern scan; and `git diff --check`.
+- CI follow-through: stricter CI `compose-smoke`, repository-history `secret-scan`, full `browser-regression`, and `image-security-and-sbom` remain remote GitHub Actions gates for the pushed commit. Local preflight marked secure-cookie compose smoke blocked because the development stack runs with `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`.
+- Risks/follow-ups: internal route IDs still use the existing `admin-*` names even though visible copy now says Platform; workspace-scoped backup/export/portability placement and inherited provider-default readback remain follow-up work. This slice clarified ownership and navigation boundaries without changing schemas, permissions, provider behavior, billing, or licensing.
+- What remains in the milestone: nothing for `3.16.0`; remaining workspace/platform boundary refinements stay in the backlog unless selected for a later release slice.
+
 ## 3.15.4 — Restore Rehearsal Readiness
 
 **Goal:** Let admins see whether the current export, backup freshness, image storage, and manual dry-run inputs are ready for a restore rehearsal in a separate test stack.
