@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.16.7",
+      "version": "3.16.7",
+      "date": null,
+      "status": null,
+      "summary": "This patch makes the top of the mobile navigation menu read as a compact utility row instead of a tall brand block.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Removed the visible mobile wordmark from the open navigation menu top row.",
+            "Kept the collectZ mark, release version, and close action available in a shorter row.",
+            "Replaced the shared icon-button styling on the mobile menu close action with a local compact button.",
+            "Kept desktop sidebar branding unchanged.",
+            "Tightened browser coverage so the mobile menu top row stays compact."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.16.6",
       "version": "3.16.6",
       "date": null,
@@ -164,25 +183,6 @@
             "Admin Settings now shows a compact Backup freshness card next to database, images, and provider metadata.",
             "Backup checks now include a freshness row with plain status detail.",
             "The backup runbook documents the scheduled-backup marker JSON shape."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.15.2",
-      "version": "3.15.2",
-      "date": null,
-      "status": null,
-      "summary": "This patch adjusts backup export downloads so browsers receive plain JSON files and individual CSV files instead of archive wrappers.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "JSON backup exports now download as a single plain `.json` file.",
-            "CSV exports now expose a list of downloadable files instead of one zipped archive.",
-            "Admin Settings shows separate CSV download buttons for the manifest, restore guidance, uploads manifest, and each exported table.",
-            "The export API can return the CSV file list or one selected CSV file by key.",
-            "OpenAPI and browser regression coverage now document and verify the plain JSON and per-file CSV behavior."
           ]
         }
       ]

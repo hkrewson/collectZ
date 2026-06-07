@@ -6,6 +6,35 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.16.7 — Compact Navigation Menu Top Row
+
+**Goal:** Make the top of the mobile navigation menu compact enough that Workspace/Platform and the first navigation choices are immediately visible.
+
+### Scope
+
+- Hide the visible `collectZ` wordmark in the mobile menu top row while keeping the collectZ mark.
+- Keep the release version link and close action accessible in the top row.
+- Replace the generic icon-button styling on the mobile menu close action with a local compact control.
+- Keep desktop sidebar branding and spacing unchanged.
+- Tighten browser coverage for the mobile navigation menu top-row height.
+
+### Acceptance Criteria
+
+- The mobile navigation menu opens with a compact utility top row instead of a tall brand block.
+- The collectZ mark, release version, and close affordance remain visible and accessible.
+- Desktop sidebar behavior remains unchanged.
+- Version metadata, release note, release feed, and focused runtime checks are updated for `3.16.7`.
+
+### Closeout
+
+- Status: completed in `3.16.7`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, and `docs/releases/v3.16.7.md`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.16.7` using the local platform compose override; `/api/health` reported version/frontend/backend/build `3.16.7`; backend/frontend containers were healthy; Help > Releases served `3.16.7`; targeted mobile browser coverage verified the navigation menu top row is compact and the close action is exposed.
+- Verification: Docker frontend production build; Docker backend unit tests; Docker OpenAPI validation; Help > Releases smoke; targeted mobile admin-shell browser regression; version sync; release note/feed regeneration; targeted changed-file secret-pattern scan; and `git diff --check`.
+- CI follow-through: stricter CI `compose-smoke`, `rbac-regression`, full `browser-regression`, `homelab-edition-boundary`, `platform-edition-boundary`, `dependency-scan`, `secret-scan`, and `image-security-and-sbom` remain remote GitHub Actions gates for the pushed commit.
+- Risks/follow-ups: none for this slice.
+- What remains in the milestone: nothing for `3.16.7`; additional navigation menu polish should be selected as its own future slice if needed.
+
 ## 3.16.6 — Compact Mobile Navigation Drawer Header
 
 **Goal:** Reduce the amount of vertical space used by the top of the mobile navigation drawer.

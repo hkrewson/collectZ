@@ -170,23 +170,25 @@ export default function SidebarNav({
         )}
       >
         <div
+          data-testid="navigation-menu-top"
           className={cx(
-            'flex items-center gap-2 border-b border-edge shrink-0 px-3 py-3 lg:gap-3 lg:px-4 lg:py-5',
+            'flex items-center gap-2 border-b border-edge shrink-0 px-3 py-2 lg:gap-3 lg:px-4 lg:py-5',
             collapsed ? 'justify-between px-2' : ''
           )}
         >
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center text-gold lg:h-10 lg:w-10">
-            <CollectzMark className="h-6 w-6 lg:h-8 lg:w-8" title={collapsed ? 'Collectz' : ''} />
+          <div className="flex h-6 w-6 shrink-0 items-center justify-center text-gold lg:h-10 lg:w-10">
+            <CollectzMark className="h-5 w-5 lg:h-8 lg:w-8" title={collapsed ? 'Collectz' : ''} />
           </div>
 
           {!collapsed && (
             <div className="min-w-0 flex-1">
-              <div className="text-sm font-semibold tracking-tight text-ink leading-none lg:text-base">collectZ</div>
+              <div className="hidden text-sm font-semibold tracking-tight text-ink leading-none lg:block lg:text-base">collectZ</div>
               <a
+                data-testid="navigation-menu-version"
                 href={releaseNotesUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="text-ghost text-[10px] font-mono leading-tight inline-block hover:text-ink"
+                className="text-ghost text-[10px] font-mono leading-none inline-block hover:text-ink"
                 title="Open release notes"
               >
                 v{appVersion}
@@ -197,7 +199,7 @@ export default function SidebarNav({
             <button
               type="button"
               onClick={mobileOpen ? onMobileClose : onToggle}
-              className="btn-icon h-9 w-9 lg:h-10 lg:w-10"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-edge bg-raised text-dim transition-colors hover:text-ink lg:h-10 lg:w-10"
               aria-label={mobileOpen ? 'Close navigation' : pinnedExpanded ? 'Collapse navigation' : 'Expand navigation'}
               title={mobileOpen ? 'Close navigation' : pinnedExpanded ? 'Collapse navigation' : 'Expand navigation'}
             >
