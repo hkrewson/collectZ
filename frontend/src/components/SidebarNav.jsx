@@ -138,12 +138,55 @@ export default function SidebarNav({
         aria-hidden="true"
         className={cx(
           'pointer-events-none absolute bottom-0 h-0.5 rounded-full transition-colors duration-150',
-          'w-24 max-w-[calc(100%-1.5rem)] bg-gold/35 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 group-hover:bg-gold/45 group-focus-visible:bg-gold/45',
+          'w-24 max-w-[calc(100%-1.5rem)] opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100',
           sub ? 'left-8' : 'left-3',
-          active && 'bg-gold opacity-100 group-hover:bg-gold group-focus-visible:bg-gold',
+          active
+            ? 'bg-gold opacity-100 group-hover:bg-gold group-focus-visible:bg-gold'
+            : 'bg-gold/35 group-hover:bg-gold/45 group-focus-visible:bg-gold/45',
           collapsed && !sub && 'left-4 right-4 w-auto max-w-none'
         )}
       />
+    );
+  };
+
+  const AccountMenuItem = ({ children, icon, onClick, href, external = false, danger = false, active = false }) => {
+    const content = (
+      <>
+        <span className="shrink-0">{icon}</span>
+        <span className="truncate">{children}</span>
+        <NavUnderline active={active} />
+      </>
+    );
+    const className = cx(
+      'group relative w-full flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors text-left',
+      danger ? 'text-dim hover:text-err focus-visible:text-err' : navStateClass(active),
+      'focus-visible:ring-0 focus-visible:ring-offset-0'
+    );
+
+    if (href) {
+      return (
+        <a
+          role="menuitem"
+          href={href}
+          target={external ? '_blank' : undefined}
+          rel={external ? 'noreferrer' : undefined}
+          className={className}
+          onClick={onClick}
+        >
+          {content}
+        </a>
+      );
+    }
+
+    return (
+      <button
+        type="button"
+        role="menuitem"
+        onClick={onClick}
+        className={className}
+      >
+        {content}
+      </button>
     );
   };
 
@@ -344,8 +387,9 @@ export default function SidebarNav({
             onClick={() => setAccountMenuOpen((open) => !open)}
             className={cx(
               'group relative w-full flex items-center gap-3 rounded px-3 py-2.5 text-left transition-colors',
-              navStateClass(activeTab === 'profile' || accountMenuOpen),
-              collapsed && 'justify-center px-0'
+              navStateClass(activeTab === 'profile'),
+              collapsed && 'justify-center px-0',
+              'focus-visible:ring-0 focus-visible:ring-offset-0'
             )}
             aria-haspopup="menu"
             aria-expanded={accountMenuOpen}
@@ -385,70 +429,57 @@ export default function SidebarNav({
                     <div className="text-[11px] text-ghost">Working in</div>
                     <div className="mt-0.5 text-sm font-medium text-ink">{isPlatformMode ? 'Platform' : 'Workspace'}</div>
                   </div>
-                  <button
-                    type="button"
-                    role="menuitem"
+                  <AccountMenuItem
+                    icon={isPlatformMode ? <Icons.Gauge /> : <Icons.Settings />}
                     onClick={() => {
                       setAccountMenuOpen(false);
                       onSelect(isPlatformMode ? 'dashboard' : 'admin-settings');
                       onMobileClose();
                     }}
-                    className="w-full flex items-center gap-3 rounded-md px-3 py-2 text-sm text-dim hover:bg-raised/60 hover:text-ink"
                   >
-                    {isPlatformMode ? <Icons.Gauge /> : <Icons.Settings />}
-                    <span>{isPlatformMode ? 'Workspace' : 'Platform'}</span>
-                  </button>
+                    {isPlatformMode ? 'Workspace' : 'Platform'}
+                  </AccountMenuItem>
                   <div className="my-1 border-t border-edge/70" />
                 </>
               )}
-              <button
-                type="button"
-                role="menuitem"
+              <AccountMenuItem
+                icon={<Icons.Profile />}
+                active={activeTab === 'profile'}
                 onClick={() => {
                   setAccountMenuOpen(false);
                   onSelect('profile');
                   onMobileClose();
                 }}
-                className="w-full flex items-center gap-3 rounded-md px-3 py-2 text-sm text-dim hover:bg-raised/60 hover:text-ink"
               >
-                <Icons.Profile />
-                <span>My profile</span>
-              </button>
-              <a
-                role="menuitem"
+                My profile
+              </AccountMenuItem>
+              <AccountMenuItem
+                icon={<DiscordIcon />}
                 href="https://discord.gg/ZV8f5nGT2R"
-                target="_blank"
-                rel="noreferrer"
-                className="w-full flex items-center gap-3 rounded-md px-3 py-2 text-sm text-dim hover:bg-raised/60 hover:text-ink"
+                external
                 onClick={() => setAccountMenuOpen(false)}
               >
-                <DiscordIcon />
-                <span>Discord</span>
-              </a>
-              <a
-                role="menuitem"
+                Discord
+              </AccountMenuItem>
+              <AccountMenuItem
+                icon={<GitHubIcon />}
                 href="https://github.com/hkrewson/collectZ"
-                target="_blank"
-                rel="noreferrer"
-                className="w-full flex items-center gap-3 rounded-md px-3 py-2 text-sm text-dim hover:bg-raised/60 hover:text-ink"
+                external
                 onClick={() => setAccountMenuOpen(false)}
               >
-                <GitHubIcon />
-                <span>GitHub</span>
-              </a>
+                GitHub
+              </AccountMenuItem>
               <div className="my-1 border-t border-edge/70" />
-              <button
-                type="button"
-                role="menuitem"
+              <AccountMenuItem
+                icon={<Icons.LogOut />}
+                danger
                 onClick={() => {
                   setAccountMenuOpen(false);
                   onLogout();
                 }}
-                className="w-full flex items-center gap-3 rounded-md px-3 py-2 text-sm text-dim hover:bg-err/10 hover:text-err"
               >
-                <Icons.LogOut />
-                <span>Sign out</span>
-              </button>
+                Sign out
+              </AccountMenuItem>
             </div>
           )}
         </div>

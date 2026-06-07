@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.16.18",
+      "version": "3.16.18",
+      "date": null,
+      "status": null,
+      "summary": "This patch tightens the sidebar underline interaction so selected items use the same bright blue as tab selection, while account menu rows use the same quieter hover treatment as the main navigation.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Fixed selected sidebar underlines so the active state uses the bright app blue instead of inheriting the muted hover color.",
+            "Kept inactive sidebar hover/focus underlines muted.",
+            "Removed the distracting active/focus outline from the account trigger when the profile menu is open.",
+            "Updated profile menu rows to use text hover plus muted underline feedback instead of gray block hover fills.",
+            "Kept the active profile row on a solid blue underline when the profile page is selected."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.16.17",
       "version": "3.16.17",
       "date": null,
@@ -171,24 +190,6 @@
             "Added a profile-menu action to switch between Workspace and Platform contexts.",
             "Kept the existing Workspace and Platform navigation separation unchanged after switching.",
             "Updated browser coverage so the sidebar starts with navigation and the profile menu owns context switching."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.16.8",
-      "version": "3.16.8",
-      "date": null,
-      "status": null,
-      "summary": "This patch applies the compact navigation menu top-row treatment to the expanded desktop sidebar as well as the mobile navigation menu.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Removed the desktop-only padding and icon-size overrides that kept the top navigation row tall.",
-            "Kept the desktop `collectZ` wordmark visible, but inside the same compact row.",
-            "Kept the mobile menu top row compact from `3.16.7`.",
-            "Added desktop-width browser coverage so the expanded sidebar top row cannot silently grow back."
           ]
         }
       ]

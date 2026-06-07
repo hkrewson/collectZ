@@ -6,6 +6,37 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.16.18 — Sidebar and Account Menu Underline Polish
+
+**Goal:** Make selected sidebar underlines match tab selection strength and bring the profile menu into the same underline interaction language.
+
+### Scope
+
+- Ensure selected sidebar underlines render in the bright app blue used by tab selection.
+- Keep inactive hover/focus sidebar underlines muted.
+- Remove the distracting account trigger outline when the profile menu is open.
+- Apply the same text hover plus muted underline treatment to account menu rows.
+- Keep the selected profile page state on a solid blue underline.
+- Preserve existing account actions, external links, sign-out behavior, and accessibility labels.
+
+### Acceptance Criteria
+
+- Active sidebar items use the bright app blue underline.
+- Hovered account menu rows do not use gray block highlights.
+- Profile menu rows show muted underline feedback on hover/focus.
+- Opening the profile menu does not make the bottom account trigger look selected unless the profile page is selected.
+- Version metadata, release note, release feed, and focused runtime checks are updated for `3.16.18`.
+
+### Closeout
+
+- Status: completed in `3.16.18`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, and `docs/releases/v3.16.18.md`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.16.18` using the local platform compose override; `/api/health` reported version/frontend/backend/build `3.16.18`; backend/frontend containers were healthy; Help > Releases served `3.16.18`; targeted Admin Shell browser coverage verified selected sidebar underlines after the account menu underline polish. An isolated homelab stack built from local sources also reported `3.16.18`, passed the homelab boundary smoke, and was removed.
+- Verification: frontend production build; local backend unit tests; Docker backend unit tests (`304` passed); Docker OpenAPI validation; Help > Releases smoke; targeted Admin Shell browser regression; RBAC regression; platform edition boundary; homelab edition boundary against an isolated local compose project; backend and frontend production dependency audits (`0` vulnerabilities); local API integration smoke; observability release evidence; local release preflight; version sync; release note/feed regeneration; targeted changed-file secret-pattern scan; and `git diff --check`.
+- CI follow-through: stricter CI `compose-smoke`, full `browser-regression`, `dependency-scan`, `secret-scan`, and `image-security-and-sbom` remain remote GitHub Actions gates for the pushed commit.
+- Risks/follow-ups: local preflight marks secure-cookie compose smoke, gitleaks, full browser-regression, and image/SBOM as CI-only or stricter remote gates; no product follow-up remains for this slice.
+- What remains in the milestone: nothing for `3.16.18`.
+
 ## 3.16.17 — Sidebar Hover Underline Refinement
 
 **Goal:** Make sidebar hover feedback match the new underline selection pattern without using gray row highlights.
