@@ -49,13 +49,14 @@ For milestone, release, runtime, monitoring, auth, migration, or deployment work
       - `compose-smoke`
       - `rbac-regression`
       - `browser-regression`
-      - `homelab-edition-boundary`
-      - `platform-edition-boundary`
+      - `runtime-smoke`
+        - Core runtime
+        - Control-plane runtime
       - `dependency-scan`
       - `secret-scan`
       - `image-security-and-sbom`
 16. For release/version/docs/auth/infra changes, do not call work complete until version sync, release-note requirements, init parity, and relevant regression gates have been checked or explicitly marked blocked.
-    - “Relevant regression gates” is not generic shorthand here; for semver or release-shaped closeout it includes `rbac-regression`, `browser-regression`, `homelab-edition-boundary`, and `platform-edition-boundary` unless the roadmap slice clearly proves one is out of scope.
+    - “Relevant regression gates” is not generic shorthand here; for semver or release-shaped closeout it includes `rbac-regression`, `browser-regression`, and `runtime-smoke` unless the roadmap slice clearly proves one is out of scope.
     - The assistant must verify that repo docs still explain what each gate is proving, what runtime/env assumptions it depends on, and what evidence/artifacts are expected when it fails.
 17. Every completed numbered roadmap milestone must end with a version closeout, even when the slice does not require a full release-shaped gate run.
    - A version closeout always includes semver/app-version sync, the matching `docs/releases/vX.Y.Z.md`, regenerated in-app release-feed data, and running-stack verification of recent Help > Releases entries.

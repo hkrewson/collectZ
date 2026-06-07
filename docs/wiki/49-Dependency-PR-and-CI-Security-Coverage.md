@@ -29,15 +29,14 @@ Verified with `gh pr list` on 2026-06-03.
 | Compose smoke | `.github/workflows/docker-publish.yml` `compose-smoke` | Built stack health, version readback, security headers, secure cookie attributes, unauthenticated auth behavior, and integration smoke. | Blocking for publish workflow. |
 | RBAC regression | `.github/workflows/docker-publish.yml` `rbac-regression` | API-level ownership, role, scope, and cross-type isolation behavior. | Blocking for publish workflow. |
 | Browser regression | `.github/workflows/docker-publish.yml` `browser-regression` | Playwright coverage against a live compose stack for key app flows. | Blocking for publish workflow. |
-| Homelab edition boundary | `.github/workflows/docker-publish.yml` `homelab-edition-boundary` | Shared/public runtime boundary remains mounted while private-only APIs stay unavailable. | Blocking for publish workflow. |
-| Platform edition boundary | `.github/workflows/docker-publish.yml` `platform-edition-boundary` | Private/platform control-plane surfaces remain available where expected. | Blocking for publish workflow. |
+| Runtime smoke | `.github/workflows/docker-publish.yml` `runtime-smoke` | Verifies both the core runtime surface and the control-plane runtime surface without exposing product edition naming in the public workflow labels. | Blocking for publish workflow. |
 | Image security and SBOM | `.github/workflows/docker-publish.yml` `image-security-and-sbom` | Backend/frontend images are scanned with Trivy and CycloneDX SBOMs are uploaded. Critical vulnerabilities block. | Blocking for publish workflow. |
 
 ## CodeQL Decision
 
 GitHub's CodeQL/code scanning documentation lists public repositories on GitHub.com as supported for CodeQL code scanning, and the CodeQL project describes CodeQL as free for open source. collectZ is a public repository, so adding CodeQL is appropriate as a low-cost source scanning layer.
 
-CodeQL does not replace the existing dependency, secret, image, RBAC, browser, or edition-boundary gates. It fills a different lane: source-level static analysis for JavaScript/TypeScript issues that dependency and container scanners do not prove.
+CodeQL does not replace the existing dependency, secret, image, RBAC, browser, or runtime-smoke gates. It fills a different lane: source-level static analysis for JavaScript/TypeScript issues that dependency and container scanners do not prove.
 
 Initial posture is advisory. After the first baseline run is clean and false-positive behavior is understood, maintainers can decide whether CodeQL should become a required branch-protection check.
 

@@ -13,9 +13,10 @@ All blocking gates must pass. Advisory gates must be reviewed and explicitly acc
 5. Compose smoke check.
 6. RBAC regression check.
 7. Browser regression check.
-8. Homelab edition boundary smoke check.
-9. Platform edition boundary smoke check.
-10. Image security scan + SBOM generation.
+8. Runtime smoke check.
+   - Core runtime.
+   - Control-plane runtime.
+9. Image security scan + SBOM generation.
 
 ## Release Closeout Must-Do
 
@@ -34,10 +35,11 @@ Minimum closeout expectation:
 9. Review CodeQL alerts if the workflow has run for the branch or release commit.
 10. Confirm the remaining CI-only gates are green, especially gitleaks, compose smoke, RBAC, Trivy, and SBOM generation.
 11. Confirm the Playwright browser-regression gate is green and its artifacts are available when failures occur.
-12. Confirm the homelab edition boundary gate is green so the live `homelab` stack still exposes only the shared mounted surfaces and keeps platform-only APIs unmounted.
-13. Confirm the platform edition boundary gate is green so the live `platform` stack still preserves invite-based registration and the tenant/admin control-plane APIs that must remain mounted.
-14. Confirm `latest` and moving minor tags are release-publish outputs, while `stable` remains a separate manual promotion decision.
-15. When any of `rbac-regression`, `browser-regression`, `homelab-edition-boundary`, or `platform-edition-boundary` fail, inspect the exact failing artifact or step log and repair the concrete runtime/spec assumption locally before calling the release push-ready.
+12. Confirm the `runtime-smoke` gate is green.
+13. Confirm the `Core runtime` step keeps the shared runtime surface mounted and keeps control-plane-only APIs unavailable.
+14. Confirm the `Control-plane runtime` step preserves invite-based registration and the tenant/admin control-plane APIs that must remain mounted.
+15. Confirm `latest` and moving minor tags are release-publish outputs, while `stable` remains a separate manual promotion decision.
+16. When any of `rbac-regression`, `browser-regression`, or `runtime-smoke` fail, inspect the exact failing artifact or step log and repair the concrete runtime/spec assumption locally before calling the release push-ready.
 
 Stable promotion expectation:
 

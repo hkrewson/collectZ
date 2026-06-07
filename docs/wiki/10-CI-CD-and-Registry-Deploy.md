@@ -63,8 +63,8 @@ Security and release gates in CI:
 - Dependency vulnerability scan (`npm audit`) on backend/frontend dependencies.
 - RBAC regression gate (API-level ownership/role/scope allow-deny checks).
 - Playwright browser-regression gate against the live compose stack for key auth/admin shell flows.
-- Homelab edition boundary smoke gate against the default compose stack to verify shared surfaces still work while private-only APIs stay unmounted.
-- Private edition boundary smoke gate against an explicitly configured private CI stack to verify invite-based registration plus tenant/admin control-plane surfaces remain mounted while the homelab split tightens elsewhere.
+- Runtime smoke gate with a `Core runtime` step that verifies shared surfaces still work while control-plane-only APIs stay unmounted.
+- Runtime smoke gate with a `Control-plane runtime` step that verifies invite-based registration plus tenant/admin control-plane surfaces remain mounted.
 - OpenAPI contract validation gate for key auth/admin/media endpoints.
 - Container image vulnerability scan (Trivy) for backend/frontend images.
 - SBOM generation (CycloneDX JSON) for backend/frontend images, uploaded as CI artifacts.
@@ -81,7 +81,7 @@ Security and release gates in CI:
 Source code scanning:
 
 - `.github/workflows/codeql.yml` runs CodeQL for JavaScript/TypeScript on pushes, pull requests, a weekly schedule, and manual dispatch.
-- CodeQL is an advisory source-analysis layer at introduction; it does not replace dependency scanning, gitleaks, Trivy, SBOM, RBAC, browser regression, or edition-boundary gates.
+- CodeQL is an advisory source-analysis layer at introduction; it does not replace dependency scanning, gitleaks, Trivy, SBOM, RBAC, browser regression, or runtime-smoke gates.
 - Maintain `docs/wiki/49-Dependency-PR-and-CI-Security-Coverage.md` as the coverage map for dependency PR disposition and CI security posture.
 
 Playwright packaging boundary:
@@ -169,7 +169,6 @@ Browser-regression expectation:
 
 - Maintain the root Playwright manifest and lockfile in git.
 - Keep `.github/workflows/docker-publish.yml` running the browser-regression gate before publish/release jobs.
-- Keep `.github/workflows/docker-publish.yml` running the homelab-edition-boundary gate before publish/release jobs so the public runtime boundary is enforced as a first-class contract.
-- Keep `.github/workflows/docker-publish.yml` running the private edition-boundary gate before publish/release jobs in private CI so the private control plane is proven to remain intact while homelab boundaries evolve.
+- Keep `.github/workflows/docker-publish.yml` running the `runtime-smoke` gate before publish/release jobs so both core and control-plane runtime contracts stay enforced.
 - Keep `.github/workflows/browser-captures.yml` as a separate manual screenshot-generation path for support/docs visuals instead of folding capture mode into the blocking regression gate.
 - Do not add Playwright browsers or the root test harness as dependencies of the shipped backend/frontend runtime images.
