@@ -120,3 +120,5 @@ Recommended rehearsal:
 8. Validate `/api/health`, backend logs, Help > Releases, sample library records, sample uploaded images, and at least one provider-linked record.
 
 Do not rehearse against the live database or live uploads volume. The app's Restore rehearsal readback is intentionally non-destructive and should be treated as a checklist, not as restore automation.
+
+For version upgrades that change workspace/library ownership or visibility, run the [Upgrade Preservation Audit](50-Upgrade-Preservation-Audit.md) against the restored copy before and after the target backend applies migrations.

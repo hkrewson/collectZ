@@ -7,6 +7,7 @@ This runbook is the repeatable process for testing the 2.0 schema migration safe
 - Validate schema/data migration behavior on a copy of production data.
 - Verify application startup and key workflows after migration.
 - Verify rollback procedure on rehearsal data.
+- For public-server upgrades where workspace/library access may change, also run the [Upgrade Preservation Audit](50-Upgrade-Preservation-Audit.md) before and after the rehearsal migration.
 
 ## Inputs
 

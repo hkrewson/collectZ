@@ -74,6 +74,7 @@
     "test:migration-rehearsal": "node scripts/migration-rehearsal.js",
     "test:init-parity": "node scripts/check-init-parity.js",
     "test:release-preflight-local": "node scripts/release-preflight-local.js",
+    "test:upgrade-preservation-audit": "node scripts/upgrade-preservation-audit.js",
     "test:observability-evidence": "node scripts/observability-release-evidence.js",
     "test:metadata-benchmark": "node scripts/benchmark-metadata-queries.js",
     "repair:comic-issues": "node scripts/repair-comic-issue-mismatches.js",
