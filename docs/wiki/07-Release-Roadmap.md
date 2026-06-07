@@ -6,6 +6,37 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.16.14 — Move Capture Inbox Under Import
+
+**Goal:** Treat Capture Inbox as an intake workflow under Import instead of a Library category.
+
+### Scope
+
+- Remove `Capture Inbox` from the Library navigation list.
+- Add `Capture Inbox` to the Import source tabs.
+- Keep `/dashboard?tab=library-capture` and existing capture deep links working.
+- Keep `Wishlist` in the Library navigation.
+- Make the `Import` nav item stay active while Capture Inbox is open.
+- Update browser and unit coverage for the new navigation ownership.
+
+### Acceptance Criteria
+
+- Library navigation no longer lists `Capture Inbox`.
+- Import shows `Capture Inbox` as a first-class intake tab.
+- Clicking the Import `Capture Inbox` tab opens the existing Capture Inbox workflow.
+- Existing Capture Inbox route, page title, filters, and actions remain unchanged.
+- Version metadata, release note, release feed, and focused runtime checks are updated for `3.16.14`.
+
+### Closeout
+
+- Status: completed in `3.16.14`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, and `docs/releases/v3.16.14.md`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.16.14` using the local platform compose override; `/api/health` reported version/frontend/backend/build `3.16.14`; backend/frontend containers were healthy; Help > Releases served `3.16.14`; targeted Import browser coverage verified the Import-owned Capture Inbox tab and route; targeted mobile utility coverage still passed after the navigation move. An isolated homelab stack built from local sources also reported `3.16.14`, passed the homelab boundary smoke, and was removed.
+- Verification: frontend production build; local backend unit tests; Docker backend unit tests (`304` passed); Docker OpenAPI validation; Help > Releases smoke; targeted Import browser regression; targeted Admin Shell mobile utility browser regression; RBAC regression; platform edition boundary; homelab edition boundary against an isolated local compose project; backend and frontend production dependency audits (`0` vulnerabilities); local API integration smoke; observability release evidence; local release preflight; version sync; release note/feed regeneration; targeted changed-file secret-pattern scan; and `git diff --check`.
+- CI follow-through: stricter CI `compose-smoke`, full `browser-regression`, `dependency-scan`, `secret-scan`, and `image-security-and-sbom` remain remote GitHub Actions gates for the pushed commit.
+- Risks/follow-ups: local preflight marks secure-cookie compose smoke, gitleaks, full browser-regression, and image/SBOM as CI-only or stricter remote gates; no product follow-up remains for this slice.
+- What remains in the milestone: nothing for `3.16.14`.
+
 ## 3.16.13 — Flatten Workspace Navigation and Platform Help Admin
 
 **Goal:** Make the sidebar match the new Workspace/Platform boundary by removing the old collapsible Workspace nav group and keeping Help Admin in the platform/support context.

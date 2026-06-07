@@ -240,6 +240,7 @@ const adminUsersViewSource = readFrontendSource(path.join('components', 'AdminUs
 const dashboardCommandCenterViewSource = readFrontendSource(path.join('components', 'DashboardCommandCenterView'));
 const syncJobDetailDrawerSource = readFrontendSource(path.join('components', 'SyncJobDetailDrawer'));
 const wishlistViewSource = readFrontendSource(path.join('components', 'WishlistView'));
+const importViewSource = readFrontendSource(path.join('components', 'ImportView'));
 const captureInboxViewSource = readFrontendSource(path.join('components', 'CaptureInboxView'));
 const adminIntegrationsViewSource = readFrontendSource(path.join('components', 'AdminIntegrationsView'));
 const spaceManagerViewSource = readFrontendSource(path.join('components', 'SpaceManagerView'));
@@ -6892,7 +6893,9 @@ results.push(run('mobile capture inbox foundation is scoped, routed, and reviewa
   assert.ok(openApiSource.includes('"CaptureItem"'));
   assert.ok(dashboardRoutingSource.includes("'library-capture'"));
   assert.ok(productEditionFrontendSource.includes("'library-capture'"));
-  assert.ok(sidebarNavSource.includes('Capture Inbox'));
+  assert.ok(importViewSource.includes("{ id: 'capture', label: 'Capture Inbox'"));
+  assert.ok(importViewSource.includes("onOpenCaptureInbox?.()"));
+  assert.ok(sidebarNavSource.includes("activeWhen={['library-capture']}"));
   assert.ok(dashboardContentSource.includes("case 'library-capture'"));
   assert.ok(dashboardContentSource.includes('CaptureInboxView'));
   assert.ok(captureInboxViewSource.includes("apiCall('get', `/capture-items?${params.toString()}`)"));

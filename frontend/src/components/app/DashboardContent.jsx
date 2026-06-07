@@ -264,6 +264,7 @@ export default function DashboardContent({
           Spinner={Spinner}
           cx={cx}
           activeLibrary={activeLibrary}
+          onOpenCaptureInbox={() => setActiveTab('library-capture')}
         />
       );
     case 'library-import-review':
@@ -281,6 +282,7 @@ export default function DashboardContent({
           Spinner={Spinner}
           cx={cx}
           activeLibrary={activeLibrary}
+          onOpenCaptureInbox={() => setActiveTab('library-capture')}
         />
       );
     case 'profile':

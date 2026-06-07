@@ -66,7 +66,6 @@ export default function SidebarNav({
     'library-games',
     'library-comics',
     'library-wishlist',
-    'library-capture',
     'library-loans',
     'library-collectibles',
     'library-events',
@@ -127,8 +126,8 @@ export default function SidebarNav({
     onToggle?.();
   };
 
-  const NavLink = ({ id, icon, label, sub = false, badge = null }) => {
-    const active = activeTab === id;
+  const NavLink = ({ id, icon, label, sub = false, badge = null, activeWhen = [] }) => {
+    const active = activeTab === id || activeWhen.includes(activeTab);
     return (
       <button
         onClick={() => {
@@ -261,12 +260,13 @@ export default function SidebarNav({
                 <NavLink id="library-movies" icon={null} label="Movies" sub />
                 <NavLink id="library-tv" icon={null} label="TV" sub />
                 <NavLink id="library-wishlist" icon={null} label="Wishlist" sub />
-                <NavLink id="library-capture" icon={null} label="Capture Inbox" sub />
               </div>
             )}
           </div>
           )}
-          {showWorkspaceNavigation && canUseLibraryShell && isTabAllowed('library-import') && <NavLink id="library-import" icon={<Icons.Upload />} label="Import" />}
+          {showWorkspaceNavigation && canUseLibraryShell && isTabAllowed('library-import') && (
+            <NavLink id="library-import" icon={<Icons.Upload />} label="Import" activeWhen={['library-capture']} />
+          )}
           {showWorkspaceHelp && (
             <NavLink
               id="help"

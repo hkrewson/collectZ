@@ -16,10 +16,12 @@ export default function ImportView({
   apiUrl,
   Icons,
   Spinner,
-  activeLibrary = null
+  activeLibrary = null,
+  onOpenCaptureInbox
 }) {
   const importSections = useMemo(
     () => ([
+      { id: 'capture', label: 'Capture Inbox', enabled: true },
       { id: 'calibre', label: 'Calibre', enabled: true },
       { id: 'csv', label: 'CSV', enabled: true },
       { id: 'delicious', label: 'Delicious', enabled: true },
@@ -27,7 +29,7 @@ export default function ImportView({
     ]),
     [canImportPlex]
   );
-  const firstEnabledSection = importSections.find((section) => section.enabled)?.id || 'csv';
+  const firstEnabledSection = importSections.find((section) => section.enabled && section.id !== 'capture')?.id || 'csv';
   const [tab, setTab] = useState(firstEnabledSection);
   const [busy, setBusy] = useState('');
   const [result, setResult] = useState('');
@@ -172,6 +174,13 @@ export default function ImportView({
     setHeaderCompact(event.currentTarget.scrollTop > 24);
   }, []);
   const enabledImportSections = importSections.filter((section) => section.enabled);
+  const handleImportSectionChange = useCallback((nextTab) => {
+    if (nextTab === 'capture') {
+      onOpenCaptureInbox?.();
+      return;
+    }
+    setTab(nextTab);
+  }, [onOpenCaptureInbox]);
 
   const header = (
     <UtilityPageHeader
@@ -179,11 +188,11 @@ export default function ImportView({
       subtitle={`Bring titles into ${activeLibrary?.name ? `“${activeLibrary.name}”` : 'your active library'} from files or connected services.`}
       compact={headerCompact}
       controls={(
-        <SectionTabs
-          tabs={enabledImportSections}
-          activeId={tab}
-          onChange={setTab}
-          ariaLabel="Import sources"
+          <SectionTabs
+            tabs={enabledImportSections}
+            activeId={tab}
+            onChange={handleImportSectionChange}
+            ariaLabel="Import sources"
           showDivider={false}
           listClassName="gap-5"
           buttonClassName="py-1.5 text-xs sm:text-sm"
