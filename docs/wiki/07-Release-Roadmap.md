@@ -6,6 +6,36 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.16.19 — Sidebar Brand Header Cleanup
+
+**Goal:** Simplify the sidebar brand header by aligning the mark with the navigation icon column and removing version clutter from the top chrome.
+
+### Scope
+
+- Move the expanded sidebar collectZ mark right enough to align with the navigation icons below it.
+- Remove the visible version number from the sidebar header.
+- Keep current version/build readback in Help > Releases instead of duplicating it in the primary navigation chrome.
+- Preserve the sidebar brand text, hamburger control, and compact header height.
+- Update browser coverage for the no-version sidebar header contract.
+
+### Acceptance Criteria
+
+- The expanded sidebar collectZ mark visually aligns with the nav icon column.
+- The sidebar header no longer renders the version badge/link.
+- Help > Releases remains the canonical in-app release/version readback.
+- Sidebar header browser coverage expects no version badge.
+- Version metadata, release note, release feed, and focused runtime checks are updated for `3.16.19`.
+
+### Closeout
+
+- Status: completed in `3.16.19`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, and `docs/releases/v3.16.19.md`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.16.19` using the local platform compose override; `/api/health` reported version/frontend/backend/build `3.16.19`; backend/frontend containers were healthy; Help > Releases served `3.16.19`; targeted Admin Shell browser coverage verified the sidebar header no longer renders the version badge in desktop and mobile navigation contexts. An isolated homelab stack built from local sources also reported `3.16.19`, passed the homelab boundary smoke, and was removed.
+- Verification: frontend production build; local backend unit tests; Docker backend unit tests (`304` passed); Docker OpenAPI validation; Help > Releases smoke; targeted Admin Shell browser regression for desktop and mobile nav header assertions; RBAC regression; platform edition boundary; homelab edition boundary against an isolated local compose project; backend and frontend production dependency audits (`0` vulnerabilities); local API integration smoke; observability release evidence; local release preflight; version sync; release note/feed regeneration; targeted changed-file secret-pattern scan; and `git diff --check`.
+- CI follow-through: stricter CI `compose-smoke`, full `browser-regression`, `dependency-scan`, `secret-scan`, and `image-security-and-sbom` remain remote GitHub Actions gates for the pushed commit.
+- Risks/follow-ups: local preflight marks secure-cookie compose smoke, gitleaks, full browser-regression, and image/SBOM as CI-only or stricter remote gates; consider an About row in Settings only if version readback outside Help > Releases becomes necessary.
+- What remains in the milestone: nothing for `3.16.19`.
+
 ## 3.16.18 — Sidebar and Account Menu Underline Polish
 
 **Goal:** Make selected sidebar underlines match tab selection strength and bring the profile menu into the same underline interaction language.

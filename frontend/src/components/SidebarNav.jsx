@@ -25,7 +25,6 @@ export default function SidebarNav({
   onToggle,
   mobileOpen,
   onMobileClose,
-  appVersion,
   spaces = [],
   activeSpaceId = null,
   libraries = [],
@@ -51,7 +50,6 @@ export default function SidebarNav({
     showCollectibles,
     showEvents
   });
-  const releaseNotesUrl = `https://github.com/hkrewson/collectZ/tree/main/docs/releases/v${appVersion}.md`;
   const [platformOpen, setPlatformOpen] = useState(true);
   const [libraryOpen, setLibraryOpen] = useState(true);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
@@ -235,23 +233,13 @@ export default function SidebarNav({
             collapsed ? 'justify-between px-2' : ''
           )}
         >
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center text-gold">
+          <div className={cx('flex h-7 w-7 shrink-0 items-center justify-center text-gold', !collapsed && 'ml-2')}>
             <CollectzMark className="h-6 w-6" title={collapsed ? 'Collectz' : ''} />
           </div>
 
           {!collapsed && (
             <div className="min-w-0 flex-1 lg:flex lg:items-baseline lg:gap-2">
               <div className="hidden text-sm font-semibold tracking-tight text-ink leading-none lg:block lg:text-base">collectZ</div>
-              <a
-                data-testid="navigation-menu-version"
-                href={releaseNotesUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="text-ghost text-[10px] font-mono leading-none inline-block hover:text-ink"
-                title="Open release notes"
-              >
-                v{appVersion}
-              </a>
             </div>
           )}
           {showDesktopHamburger && (

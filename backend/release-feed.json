@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.16.19",
+      "version": "3.16.19",
+      "date": null,
+      "status": null,
+      "summary": "This patch simplifies the sidebar brand header by aligning the collectZ mark with the navigation icon column and removing the version badge from the top chrome.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Shifted the expanded sidebar collectZ mark right so it lines up vertically with navigation icons.",
+            "Removed the visible version number from the sidebar header.",
+            "Kept Help > Releases as the canonical in-app place to read the current build and release history.",
+            "Updated browser coverage so the nav header no longer expects the version badge."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.16.18",
       "version": "3.16.18",
       "date": null,
@@ -171,25 +189,6 @@
             "Kept the `Working in` readback so the menu still explains the current context.",
             "Kept the Workspace/Platform switching behavior unchanged.",
             "Updated browser and source-contract coverage for the shorter labels."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.16.9",
-      "version": "3.16.9",
-      "date": null,
-      "status": null,
-      "summary": "This patch moves the Workspace/Platform context switch out of the main navigation body and into the profile menu.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Removed the permanent Workspace/Platform segmented switch from the sidebar navigation body.",
-            "Added current-context readback to the profile menu for platform admins.",
-            "Added a profile-menu action to switch between Workspace and Platform contexts.",
-            "Kept the existing Workspace and Platform navigation separation unchanged after switching.",
-            "Updated browser coverage so the sidebar starts with navigation and the profile menu owns context switching."
           ]
         }
       ]

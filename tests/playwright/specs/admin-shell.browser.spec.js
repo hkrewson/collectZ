@@ -146,7 +146,7 @@ test.describe('admin shell browser regressions', () => {
     await page.getByTestId('mobile-nav-toggle').click();
     const sidebar = page.locator('aside');
     const sidebarHeader = page.getByTestId('navigation-menu-top');
-    await expect(sidebarHeader.getByTestId('navigation-menu-version')).toHaveText(/^v3\./);
+    await expect(sidebarHeader.getByTestId('navigation-menu-version')).toHaveCount(0);
     await expect(sidebarHeader.getByRole('button', { name: 'Close navigation' })).toBeVisible();
     const sidebarHeaderBox = await sidebarHeader.boundingBox();
     expect(sidebarHeaderBox?.height || 0).toBeLessThanOrEqual(52);
@@ -1274,7 +1274,7 @@ test.describe('admin shell browser regressions', () => {
     const nav = page.locator('aside');
     const navTop = page.getByTestId('navigation-menu-top');
     await expect(navTop.getByText('collectZ')).toBeVisible();
-    await expect(navTop.getByTestId('navigation-menu-version')).toHaveText(/^v3\./);
+    await expect(navTop.getByTestId('navigation-menu-version')).toHaveCount(0);
     const navTopBox = await navTop.boundingBox();
     expect(navTopBox?.height || 0).toBeLessThanOrEqual(52);
 
