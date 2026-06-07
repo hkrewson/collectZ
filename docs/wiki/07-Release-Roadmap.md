@@ -6,6 +6,37 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.16.17 — Sidebar Hover Underline Refinement
+
+**Goal:** Make sidebar hover feedback match the new underline selection pattern without using gray row highlights.
+
+### Scope
+
+- Remove muted gray hover backgrounds from sidebar navigation items.
+- Add a muted blue hover/focus underline that appears only under the hovered or focused item.
+- Shorten sidebar underlines so they read closer to label width instead of spanning the full nav row.
+- Keep selected active items on a solid blue underline.
+- Preserve the collapsed-rail active indicator for grouped Library and Platform navigation.
+- Update unit/browser coverage for the sidebar underline contract.
+
+### Acceptance Criteria
+
+- Inactive sidebar items do not show a gray row highlight on hover.
+- Hovered or focused sidebar items show a muted blue underline.
+- Active sidebar items show a shorter solid blue underline.
+- Dashboard and Review browser coverage still prove selected active underlines render.
+- Version metadata, release note, release feed, and focused runtime checks are updated for `3.16.17`.
+
+### Closeout
+
+- Status: completed in `3.16.17`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, and `docs/releases/v3.16.17.md`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.16.17` using the local platform compose override; `/api/health` reported version/frontend/backend/build `3.16.17`; backend/frontend containers were healthy; Help > Releases served `3.16.17`; targeted Admin Shell browser coverage verified selected sidebar underlines after the hover underline refactor. An isolated homelab stack built from local sources also reported `3.16.17`, passed the homelab boundary smoke, and was removed.
+- Verification: frontend production build; local backend unit tests; Docker backend unit tests (`304` passed); Docker OpenAPI validation; Help > Releases smoke; targeted Admin Shell browser regression; RBAC regression; platform edition boundary; homelab edition boundary against an isolated local compose project; backend and frontend production dependency audits (`0` vulnerabilities); local API integration smoke; observability release evidence; local release preflight; version sync; release note/feed regeneration; targeted changed-file secret-pattern scan; and `git diff --check`.
+- CI follow-through: stricter CI `compose-smoke`, full `browser-regression`, `dependency-scan`, `secret-scan`, and `image-security-and-sbom` remain remote GitHub Actions gates for the pushed commit.
+- Risks/follow-ups: local preflight marks secure-cookie compose smoke, gitleaks, full browser-regression, and image/SBOM as CI-only or stricter remote gates; no product follow-up remains for this slice.
+- What remains in the milestone: nothing for `3.16.17`.
+
 ## 3.16.16 — Sidebar Underline Active State
 
 **Goal:** Make sidebar selection quieter and more consistent with the app's tab underline selection pattern.

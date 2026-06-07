@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.16.17",
+      "version": "3.16.17",
+      "date": null,
+      "status": null,
+      "summary": "This patch refines sidebar navigation feedback so hover and active states use compact blue underlines instead of gray row highlighting.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Removed muted gray hover backgrounds from sidebar navigation items.",
+            "Added a muted blue hover/focus underline that appears only under the hovered or focused item.",
+            "Shortened sidebar underlines so they read closer to the label width instead of spanning the full nav row.",
+            "Kept active selected items on a solid blue underline.",
+            "Preserved the collapsed-rail active indicator for grouped Library and Platform navigation.",
+            "Updated unit coverage for the hover underline contract."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.16.16",
       "version": "3.16.16",
       "date": null,
@@ -169,25 +189,6 @@
             "Kept the desktop `collectZ` wordmark visible, but inside the same compact row.",
             "Kept the mobile menu top row compact from `3.16.7`.",
             "Added desktop-width browser coverage so the expanded sidebar top row cannot silently grow back."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.16.7",
-      "version": "3.16.7",
-      "date": null,
-      "status": null,
-      "summary": "This patch makes the top of the mobile navigation menu read as a compact utility row instead of a tall brand block.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Removed the visible mobile wordmark from the open navigation menu top row.",
-            "Kept the collectZ mark, release version, and close action available in a shorter row.",
-            "Replaced the shared icon-button styling on the mobile menu close action with a local compact button.",
-            "Kept desktop sidebar branding unchanged.",
-            "Tightened browser coverage so the mobile menu top row stays compact."
           ]
         }
       ]

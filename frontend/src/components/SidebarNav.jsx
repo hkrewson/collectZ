@@ -128,19 +128,20 @@ export default function SidebarNav({
 
   const navStateClass = (active) => (
     active
-      ? 'text-ink hover:text-ink hover:bg-raised/30'
-      : 'text-dim hover:text-ink hover:bg-raised/50'
+      ? 'text-ink hover:text-ink'
+      : 'text-dim hover:text-ink'
   );
 
-  const ActiveUnderline = ({ active, sub = false }) => {
-    if (!active) return null;
+  const NavUnderline = ({ active, sub = false }) => {
     return (
       <span
         aria-hidden="true"
         className={cx(
-          'pointer-events-none absolute bottom-0 h-0.5 rounded-full bg-gold',
-          sub ? 'left-8 right-3' : 'left-3 right-3',
-          collapsed && !sub && 'left-4 right-4'
+          'pointer-events-none absolute bottom-0 h-0.5 rounded-full transition-colors duration-150',
+          'w-24 max-w-[calc(100%-1.5rem)] bg-gold/35 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 group-hover:bg-gold/45 group-focus-visible:bg-gold/45',
+          sub ? 'left-8' : 'left-3',
+          active && 'bg-gold opacity-100 group-hover:bg-gold group-focus-visible:bg-gold',
+          collapsed && !sub && 'left-4 right-4 w-auto max-w-none'
         )}
       />
     );
@@ -155,7 +156,7 @@ export default function SidebarNav({
           onMobileClose();
         }}
         className={cx(
-          'relative w-full flex items-center gap-3 rounded transition-colors duration-150 text-left',
+          'group relative w-full flex items-center gap-3 rounded transition-colors duration-150 text-left',
           sub ? 'pl-8 pr-3 py-2 text-sm' : 'px-3 py-2.5 text-sm font-medium',
           navStateClass(active),
           collapsed && !sub && 'justify-center px-0'
@@ -166,7 +167,7 @@ export default function SidebarNav({
         {!collapsed && badge !== null && badge !== undefined && (
           <span className="ml-auto badge badge-dim text-[10px] min-w-5 text-center">{badge}</span>
         )}
-        <ActiveUnderline active={active} sub={sub} />
+        <NavUnderline active={active} sub={sub} />
       </button>
     );
   };
@@ -255,7 +256,7 @@ export default function SidebarNav({
                 else setLibraryOpen((o) => !o);
               }}
               className={cx(
-                'relative w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded transition-colors',
+                'group relative w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded transition-colors',
                 navStateClass(isLibraryActive),
                 collapsed && 'justify-center px-0'
               )}
@@ -267,7 +268,7 @@ export default function SidebarNav({
                   <span className={cx('transition-transform duration-200', libraryOpen && 'rotate-180')}><Icons.ChevronDown /></span>
                 </>
               )}
-              <ActiveUnderline active={isLibraryActive && collapsed} />
+              <NavUnderline active={isLibraryActive && collapsed} />
             </button>
             {libraryOpen && !collapsed && (
               <div className="mt-1 space-y-1">
@@ -309,7 +310,7 @@ export default function SidebarNav({
               <button
                 onClick={() => setPlatformOpen((o) => !o)}
                 className={cx(
-                  'relative w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded transition-colors',
+                  'group relative w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded transition-colors',
                   navStateClass(isPlatformGroupActive),
                   collapsed && 'justify-center px-0'
                 )}
@@ -321,7 +322,7 @@ export default function SidebarNav({
                     <span className={cx('transition-transform duration-200', platformOpen && 'rotate-180')}><Icons.ChevronDown /></span>
                   </>
                 )}
-                <ActiveUnderline active={isPlatformGroupActive && collapsed} />
+                <NavUnderline active={isPlatformGroupActive && collapsed} />
               </button>
               {platformOpen && !collapsed && (
                 <div className="mt-1 space-y-0.5">
@@ -342,7 +343,7 @@ export default function SidebarNav({
             type="button"
             onClick={() => setAccountMenuOpen((open) => !open)}
             className={cx(
-              'relative w-full flex items-center gap-3 rounded px-3 py-2.5 text-left transition-colors',
+              'group relative w-full flex items-center gap-3 rounded px-3 py-2.5 text-left transition-colors',
               navStateClass(activeTab === 'profile' || accountMenuOpen),
               collapsed && 'justify-center px-0'
             )}
@@ -366,7 +367,7 @@ export default function SidebarNav({
                 </span>
               </>
             )}
-            <ActiveUnderline active={activeTab === 'profile'} />
+            <NavUnderline active={activeTab === 'profile'} />
           </button>
 
           {accountMenuOpen && (
