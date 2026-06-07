@@ -2174,7 +2174,11 @@ results.push(run('auth route source includes explicit support session endpoints'
   assert.ok(authRoutesSource.includes('stripHomelabSpaceContext('));
   assert.ok(authRoutesSource.includes('stripHomelabSpaceContextFromUser('));
   assert.ok(authRoutesSource.includes('const homelabEdition = isHomelabEdition(productEdition);'));
-  assert.ok(authRoutesSource.includes('} else if (!homelabEdition && existingUserCount > 0 && !selfRegistrationEnabled) {'));
+  assert.ok(authRoutesSource.includes("const inviteTokenForLookup = String(inviteToken || '').trim();"));
+  assert.ok(authRoutesSource.includes("WHERE $2 <> ''"));
+  assert.ok(authRoutesSource.includes('if (!homelabEdition && inviteTokenForLookup && !claimedInvite) {'));
+  assert.ok(authRoutesSource.includes('} else if (!homelabEdition && !claimedInvite && existingUserCount > 0 && !selfRegistrationEnabled) {'));
+  assert.ok(authRoutesSource.includes('if (registrationFailure) {'));
   assert.ok(authRoutesSource.includes('if (homelabEdition && requestedSpaceId) {'));
   assert.ok(authRoutesSource.includes("return res.status(403).json({ error: 'Homelab does not expose generic space selection' });"));
 }));

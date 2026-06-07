@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.16.33",
+      "version": "3.16.33",
+      "date": null,
+      "status": null,
+      "summary": "This patch continues maintained-source CodeQL cleanup by reshaping platform registration so invite lookup, public self-registration, and failure metrics are separated into explicit server-policy decisions.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Normalized platform invite tokens before lookup and always ran the bounded invite lookup for platform registration.",
+            "Kept invite-based onboarding, first-user bootstrap, SMTP-backed public self-registration, and homelab local-account registration behavior intact.",
+            "Centralized registration failure recording so user-provided invite-token presence no longer guards the auth metrics action.",
+            "Updated authentication documentation to reflect the current configurable platform self-registration behavior."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.16.32",
       "version": "3.16.32",
       "date": null,
@@ -166,26 +184,6 @@
             "Moved personal Sched ICS `&amp;` decoding after other entity replacements to prevent double-unescape behavior.",
             "Extracted support summary state/loading from the app shell so `frontend/src/App.jsx` stays under the CI hard line budget.",
             "Updated browser regression coverage for the current Platform Runtime and Workspace Integrations split so CI no longer expects stale provider tabs on the platform runtime surface."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.16.23",
-      "version": "3.16.23",
-      "date": null,
-      "status": null,
-      "summary": "This patch continues CodeQL baseline remediation by hardening log output against forged-line injection and documenting the intent-first process for unused-variable findings before broader cleanup.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Sanitized request, audit, and syslog collector log fields before writing untrusted values to console or log files.",
-            "Preserved Plex webhook and token redaction while also collapsing control characters in request URLs.",
-            "Added unit coverage for shared log-field sanitization.",
-            "Wired Delicious platform canonicalization through the sorted platform alias key list.",
-            "Added unit coverage for the longer `Xbox Series X` platform suffix so the alias ordering intent remains protected.",
-            "Documented the unused-variable triage rule in the backlog and selected roadmap slice."
           ]
         }
       ]

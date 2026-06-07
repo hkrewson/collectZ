@@ -414,33 +414,48 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
   const publicRegistrationAllowed = homelabEdition
     ? true
     : firstUserBootstrap || (selfRegistrationEnabled && smtpConfigured);
+  const inviteTokenForLookup = String(inviteToken || '').trim();
 
   let claimedInvite = null;
-  if (!homelabEdition && inviteToken) {
-    const tokenHash = hashInviteToken(inviteToken);
+  if (!homelabEdition) {
+    const tokenHash = hashInviteToken(inviteTokenForLookup);
     const invite = await pool.query(
       `SELECT * FROM invites
-       WHERE (token_hash = $1 OR token = $2)
+       WHERE $2 <> ''
+         AND (token_hash = $1 OR token = $2)
          AND used = false
          AND revoked = false
          AND expires_at > NOW()`,
-      [tokenHash, inviteToken]
+      [tokenHash, inviteTokenForLookup]
     );
-    if (invite.rows.length === 0) {
-      recordAuthEvent('register', 'failed');
-      return res.status(400).json({ error: 'Invalid or expired invite token' });
-    }
-    if (String(invite.rows[0].email).toLowerCase() !== String(email).toLowerCase()) {
+    if (invite.rows.length > 0 && String(invite.rows[0].email).toLowerCase() !== String(email).toLowerCase()) {
       recordAuthEvent('register', 'failed');
       return res.status(400).json({ error: 'Invite token is not valid for this email address' });
     }
-    claimedInvite = invite.rows[0];
-  } else if (!homelabEdition && existingUserCount > 0 && !selfRegistrationEnabled) {
+    claimedInvite = invite.rows[0] || null;
+  }
+
+  let registrationFailure = null;
+  if (!homelabEdition && inviteTokenForLookup && !claimedInvite) {
+    registrationFailure = {
+      status: 400,
+      body: { error: 'Invalid or expired invite token' }
+    };
+  } else if (!homelabEdition && !claimedInvite && existingUserCount > 0 && !selfRegistrationEnabled) {
+    registrationFailure = {
+      status: 400,
+      body: { error: 'An invite token is required to register' }
+    };
+  } else if (!claimedInvite && !publicRegistrationAllowed) {
+    registrationFailure = {
+      status: 503,
+      body: { error: 'Registration is temporarily unavailable until email verification delivery is configured' }
+    };
+  }
+
+  if (registrationFailure) {
     recordAuthEvent('register', 'failed');
-    return res.status(400).json({ error: 'An invite token is required to register' });
-  } else if (!publicRegistrationAllowed) {
-    recordAuthEvent('register', 'failed');
-    return res.status(503).json({ error: 'Registration is temporarily unavailable until email verification delivery is configured' });
+    return res.status(registrationFailure.status).json(registrationFailure.body);
   }
 
   const existingUser = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
@@ -485,7 +500,7 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
       syncClient.release();
     }
   }
-  if (inviteToken) {
+  if (claimedInvite) {
     await pool.query(
       'UPDATE invites SET used = true, used_by = $2, used_at = NOW() WHERE id = $1',
       [claimedInvite.id, result.rows[0].id]
@@ -586,7 +601,7 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
   await logActivity({ ...req, user: { id: result.rows[0].id, role: result.rows[0].role, email: result.rows[0].email } }, 'auth.user.register', 'user', result.rows[0].id, {
     email: result.rows[0].email,
     role: result.rows[0].role,
-    inviteTokenUsed: Boolean(inviteToken),
+    inviteTokenUsed: Boolean(claimedInvite),
     productEdition,
     invitedSpaceRole: claimedInvite?.space_role || null,
     activeLibraryId

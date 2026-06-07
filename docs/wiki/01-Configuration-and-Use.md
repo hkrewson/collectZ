@@ -58,7 +58,7 @@ npm run stack:up:homelab
 Registration logic:
 
 - If user count is `0`: first registered user becomes `admin` and no invite is required.
-- If user count is `> 0` in `platform`: invite token is required.
+- If user count is `> 0` in `platform`: an invite token remains valid onboarding, but public self-registration is also allowed when the `self_registration_enabled` feature flag is enabled and SMTP delivery is configured. If self-registration is disabled, an invite token is required.
 - If user count is `> 0` in `homelab`: additional local accounts can still self-register without an invite token inside the single-library household model.
 - The backend auth/bootstrap contract is the source of truth for the active edition shape:
   - `platform`: multi-workspace platform shell

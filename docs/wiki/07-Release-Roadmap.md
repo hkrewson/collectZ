@@ -6,6 +6,35 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.16.33 — CodeQL Registration Boundary Hardening
+
+**Goal:** Clear the maintained-source CodeQL registration `js/user-controlled-bypass` finding while preserving the intended platform invite and SMTP-backed self-registration flows.
+
+### Scope
+
+- Normalize invite token input before registration policy decisions.
+- Keep platform first-user bootstrap, invite-based onboarding, SMTP-backed public self-registration, and homelab local registration behavior intact.
+- Separate invite lookup from the centralized registration failure metrics action so user-provided invite-token presence does not guard the auth metrics call.
+- Correct authentication documentation to reflect the current platform self-registration contract.
+- Keep unrelated CSRF, ICS, and HTTP-to-file findings for later focused slices.
+
+### Acceptance Criteria
+
+- Configured maintained-source CodeQL reports `0` `js/user-controlled-bypass` findings.
+- Backend unit tests pass.
+- Authentication docs describe invite-required and public self-registration behavior accurately.
+- Version metadata, release note, release feed, and focused runtime checks are updated for `3.16.33`.
+
+### Closeout
+
+- Status: completed in `3.16.33`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/49-Dependency-PR-and-CI-Security-Coverage.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, `docs/wiki/01-Configuration-and-Use.md`, and `docs/releases/v3.16.33.md`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.16.33` using the CI build override; `/api/health` reported version/frontend/backend/build `3.16.33`; backend/frontend/db containers were healthy; backend container env reported `APP_VERSION=3.16.33`; Docker Help > Releases smoke served `3.16.33` as the newest entry.
+- Verification: backend route syntax check; host backend unit tests (`311` passed); frontend production build; Docker backend/frontend image rebuild and frontend production build; Docker backend unit tests (`311` passed); Docker Help > Releases smoke; host and Docker backend production dependency audits (`0` vulnerabilities); Dockerized frontend production dependency audit (`0` vulnerabilities); version sync; release note required heading check; release note/feed regeneration; local CodeQL CLI database creation with `.github/codeql/codeql-config.yml`; hosted-shape JavaScript/TypeScript security plus security-and-quality analysis (`15` total local SARIF results, with `0` `js/user-controlled-bypass` findings); observability release evidence (`9/9` checks passed); local release preflight; targeted release/artifact secret-pattern scan; and `git diff --check`.
+- Blocked/unverified: live GitHub CodeQL alert export remains unavailable from this shell; GitHub Actions must confirm hosted alert fingerprint/dedupe behavior after push. Local preflight still marks stricter secure-cookie compose smoke blocked because the local development stack runs `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`; repository-history `secret-scan`, full `browser-regression`, and `image-security-and-sbom` remain CI-only follow-through gates. Full `rbac-regression`, `runtime-smoke`, homelab edition boundary, and platform edition boundary were not rerun because this slice changes registration source shape, documentation, CodeQL baseline evidence, and version/release artifacts while preserving the existing registration contract; those gates remain CI follow-through for the pushed commit.
+- Risks/follow-ups: remaining maintained-source CodeQL findings continue through later selected remediation slices: reviewed ICS request-forgery modeling, custom CSRF middleware modeling, and intentional HTTP-to-file artifact/upload writes.
+- What remains in the milestone: nothing for `3.16.33`; broader CodeQL baseline remediation continues in later selected slices.
+
 ## 3.16.32 — CodeQL Graylog Digest Boundary Hardening
 
 **Goal:** Clear the maintained-source CodeQL Graylog SHA-256 digest finding while preserving the exact runtime value required by the Graylog observability evidence stack.
