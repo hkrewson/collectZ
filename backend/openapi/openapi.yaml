@@ -70,7 +70,38 @@
       },
       "IntegrationSettingsResponse": {
         "type": "object",
-        "additionalProperties": true
+        "additionalProperties": true,
+        "properties": {
+          "integrationScope": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "scope": {
+                "type": "string",
+                "enum": ["workspace"]
+              },
+              "sections": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "effective_source": {
+                      "type": "string",
+                      "enum": ["workspace", "default", "not_configured"]
+                    },
+                    "workspace_configured": { "type": "boolean" },
+                    "inherited_default": { "type": "boolean" },
+                    "workspace_can_override": { "type": "boolean" },
+                    "detail": { "type": "string" }
+                  },
+                  "required": ["effective_source", "workspace_configured", "inherited_default", "workspace_can_override", "detail"]
+                }
+              }
+            },
+            "required": ["scope", "sections"]
+          }
+        }
       },
       "PortabilityStatusResponse": {
         "type": "object",

@@ -71,6 +71,22 @@ function StatusBadge({ status, cx }) {
   return <span className={cx('badge', map[status] || 'badge-dim')}>{labels[status] || 'Unknown'}</span>;
 }
 
+function IntegrationSourceBadge({ source, cx }) {
+  if (!source) return null;
+  const effectiveSource = source.effective_source || 'default';
+  const label = effectiveSource === 'workspace'
+    ? 'Workspace'
+    : effectiveSource === 'default'
+      ? 'Default'
+      : 'Not configured';
+  const tone = effectiveSource === 'workspace'
+    ? 'badge-ok'
+    : effectiveSource === 'default'
+      ? 'badge-dim'
+      : 'badge-warn';
+  return <span className={cx('badge', tone)}>{label}</span>;
+}
+
 function IntegrationFeatureToggle({ feature, disabled, saving, onToggle }) {
   const enabled = Boolean(feature?.enabled);
   return (
@@ -480,6 +496,7 @@ export default function AdminIntegrationsView({
   const [savingFeatureKey, setSavingFeatureKey] = useState('');
   const [observabilityRuntime, setObservabilityRuntime] = useState({ logs: null, metrics: null });
   const [logExportControl, setLogExportControl] = useState(null);
+  const [integrationScope, setIntegrationScope] = useState(null);
 
   useEffect(() => {
     if (!externalSection || externalSection === section) return;
@@ -544,6 +561,7 @@ export default function AdminIntegrationsView({
       });
       setObservabilityRuntime(data.observabilityRuntime || { logs: null, metrics: null });
       setLogExportControl(data.logExportControl || null);
+      setIntegrationScope(data.integrationScope || null);
       setPlexDisplayToken(data.plexNowPlayingDisplayToken || { enabled: false, createdAt: null, lastUsedAt: null });
       setPlexWebhookReceiver(data.plexWebhookReceiver || { enabled: false, lastReceivedAt: null, lastEvent: null, receiverPath: '/api/plex/webhooks/[token]' });
       setPlexDisplayPreferences({
@@ -725,6 +743,7 @@ export default function AdminIntegrationsView({
       });
       setObservabilityRuntime(updated.observabilityRuntime || { logs: null, metrics: null });
       setLogExportControl(updated.logExportControl || null);
+      if (updated.integrationScope) setIntegrationScope(updated.integrationScope);
       if (updated.plexNowPlayingDisplayToken) setPlexDisplayToken(updated.plexNowPlayingDisplayToken);
       if (updated.plexWebhookReceiver) setPlexWebhookReceiver(updated.plexWebhookReceiver);
       if (updated.plexNowPlayingDisplayPreferences) {
@@ -1195,6 +1214,7 @@ export default function AdminIntegrationsView({
   const activeSectionLabel = integrationSections.find((s) => s.id === section)?.label || section;
   const activeSectionDescription = SECTION_DESCRIPTIONS[section] || SECTION_DESCRIPTIONS.audio;
   const activeSectionStatus = getSectionStatus(section);
+  const activeSectionSource = integrationScope?.sections?.[section] || null;
   const sectionFeature = SETTINGS_SECTION_FEATURES[section] ? featureFlagMap.get(SETTINGS_SECTION_FEATURES[section]) : null;
   const logsRuntime = observabilityRuntime.logs;
   const metricsRuntime = observabilityRuntime.metrics;
@@ -1279,8 +1299,16 @@ export default function AdminIntegrationsView({
             <h2 className="text-sm font-semibold tracking-wide uppercase text-dim">{activeSectionLabel}</h2>
             <p className="mt-1 text-xs text-ghost">{activeSectionDescription}</p>
           </div>
-          <StatusBadge status={activeSectionStatus} cx={cx} />
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+            <IntegrationSourceBadge source={activeSectionSource} cx={cx} />
+            <StatusBadge status={activeSectionStatus} cx={cx} />
+          </div>
         </div>
+        {activeSectionSource?.detail && (
+          <p className="rounded-lg border border-edge bg-raised/50 px-3 py-2 text-xs text-dim">
+            {activeSectionSource.detail}
+          </p>
+        )}
         {section === 'barcode' && <>
           <LabeledField label="Preset" cx={cx}><select className="select" value={form.barcodePreset} onChange={(e) => applyBarcodePreset(e.target.value)}>
             <option value="upcitemdb">UPCItemDB</option><option value="barcodelookup">BarcodeLookup</option>

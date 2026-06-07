@@ -3,7 +3,7 @@ const axios = require('axios');
 const pool = require('../db/pool');
 const { asyncHandler } = require('../middleware/errors');
 const { authenticateToken, requireSessionAuth } = require('../middleware/auth');
-const { deriveCwaBaseUrl, loadIntegrationConfigRow, loadScopedIntegrationConfig } = require('../services/integrations');
+const { deriveCwaBaseUrl, loadIntegrationConfigRow, loadScopedIntegrationConfig, normalizeIntegrationRecord } = require('../services/integrations');
 const { encryptSecret } = require('../services/crypto');
 const { buildIntegrationResponse } = require('../services/integrationResponse');
 const { resolveBarcodePreset } = require('../services/barcode');
@@ -65,8 +65,116 @@ async function requireManageableSpace(client, req, spaceId) {
   };
 }
 
-function buildSpaceIntegrationPayload(config) {
-  return buildIntegrationResponse(config);
+function normalizeArray(value) {
+  return Array.isArray(value) ? value.map((item) => String(item || '').trim()).filter(Boolean) : [];
+}
+
+function meaningfulText(value) {
+  return String(value || '').trim();
+}
+
+function buildSectionSource({ configured = false, defaultAvailable = true, detail = '' } = {}) {
+  const workspaceConfigured = Boolean(configured);
+  return {
+    effective_source: workspaceConfigured ? 'workspace' : (defaultAvailable ? 'default' : 'not_configured'),
+    workspace_configured: workspaceConfigured,
+    inherited_default: !workspaceConfigured && Boolean(defaultAvailable),
+    workspace_can_override: true,
+    detail: detail || (workspaceConfigured
+      ? 'Saved in this workspace.'
+      : defaultAvailable
+        ? 'Using collectZ defaults until this workspace saves its own settings.'
+        : 'No workspace settings or usable defaults are configured.')
+  };
+}
+
+function buildSpaceIntegrationPayload(config, { workspaceRow = null } = {}) {
+  const defaultConfig = normalizeIntegrationRecord(null);
+  const row = workspaceRow || null;
+  const hasRow = Boolean(row);
+  const differs = (rowValue, defaultValue) => {
+    const left = meaningfulText(rowValue);
+    const right = meaningfulText(defaultValue);
+    return left && left !== right;
+  };
+
+  const sources = {
+    barcode: buildSectionSource({
+      configured: hasRow && (
+        Boolean(row.barcode_api_key_encrypted) ||
+        differs(row.barcode_preset, defaultConfig.barcodePreset) ||
+        differs(row.barcode_api_url, defaultConfig.barcodeApiUrl)
+      )
+    }),
+    tmdb: buildSectionSource({
+      configured: hasRow && (
+        Boolean(row.tmdb_api_key_encrypted) ||
+        differs(row.tmdb_preset, defaultConfig.tmdbPreset) ||
+        differs(row.tmdb_api_url, defaultConfig.tmdbApiUrl)
+      )
+    }),
+    plex: buildSectionSource({
+      configured: hasRow && (
+        Boolean(row.plex_api_key_encrypted) ||
+        Boolean(meaningfulText(row.plex_api_url)) ||
+        normalizeArray(row.plex_library_sections).length > 0
+      )
+    }),
+    books: buildSectionSource({
+      configured: hasRow && (
+        Boolean(row.books_api_key_encrypted) ||
+        differs(row.books_preset, defaultConfig.booksPreset) ||
+        differs(row.books_api_url, defaultConfig.booksApiUrl)
+      )
+    }),
+    audio: buildSectionSource({
+      configured: hasRow && (
+        Boolean(row.audio_api_key_encrypted) ||
+        differs(row.audio_preset, defaultConfig.audioPreset) ||
+        differs(row.audio_api_url, defaultConfig.audioApiUrl)
+      )
+    }),
+    games: buildSectionSource({
+      configured: hasRow && (
+        Boolean(row.games_api_key_encrypted) ||
+        Boolean(row.games_client_secret_encrypted) ||
+        Boolean(meaningfulText(row.games_client_id)) ||
+        differs(row.games_preset, defaultConfig.gamesPreset) ||
+        differs(row.games_api_url, defaultConfig.gamesApiUrl)
+      )
+    }),
+    comics: buildSectionSource({
+      configured: hasRow && (
+        Boolean(row.comics_api_key_encrypted) ||
+        Boolean(meaningfulText(row.comics_username)) ||
+        differs(row.comics_preset, defaultConfig.comicsPreset) ||
+        differs(row.comics_api_url, defaultConfig.comicsApiUrl)
+      )
+    }),
+    cwa: buildSectionSource({
+      configured: hasRow && (
+        Boolean(row.cwa_password_encrypted) ||
+        Boolean(meaningfulText(row.cwa_opds_url)) ||
+        Boolean(meaningfulText(row.cwa_username))
+      ),
+      defaultAvailable: false
+    }),
+    kavita: buildSectionSource({
+      configured: hasRow && (
+        Boolean(row.kavita_api_key_encrypted) ||
+        Boolean(meaningfulText(row.kavita_base_url))
+      ),
+      defaultAvailable: false
+    })
+  };
+
+  return {
+    ...buildIntegrationResponse(config),
+    integrationScope: {
+      scope: 'workspace',
+      sections: sources
+    }
+  };
 }
 
 function resolveNextSpaceIntegrationState(body = {}, existing = null) {
@@ -379,8 +487,9 @@ router.get('/spaces/:spaceId/integrations', authenticateToken, requireSessionAut
     if (!space) return res.status(404).json({ error: 'Space not found' });
     if (space === false) return res.status(403).json({ error: 'Space management denied' });
 
+    const workspaceRow = await loadIntegrationConfigRow(spaceId, { allowFallback: false });
     const config = await loadScopedIntegrationConfig(spaceId);
-    res.json(buildSpaceIntegrationPayload(config));
+    res.json(buildSpaceIntegrationPayload(config, { workspaceRow }));
   } finally {
     client.release();
   }
@@ -420,7 +529,7 @@ router.put('/spaces/:spaceId/integrations', authenticateToken, requireSessionAut
       keyClears: nextState.keyClears
     });
 
-    res.json(buildSpaceIntegrationPayload(config));
+    res.json(buildSpaceIntegrationPayload(config, { workspaceRow: persisted }));
   } finally {
     client.release();
   }

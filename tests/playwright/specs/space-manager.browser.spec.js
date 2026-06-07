@@ -251,7 +251,12 @@ test.describe('space manager browser regressions', () => {
 
       await page.getByRole('button', { name: 'Integrations', exact: true }).click();
       await expect(page.getByRole('heading', { name: 'Workspace Integrations', exact: true })).toBeVisible();
+      await expect(page.getByText('Default', { exact: true })).toBeVisible();
+      await expect(page.getByText('Using collectZ defaults until this workspace saves its own settings.')).toBeVisible();
       await expect(page.getByRole('tab', { name: 'Kavita', exact: true })).toBeVisible();
+      await page.getByRole('tab', { name: 'Kavita', exact: true }).click();
+      await expect(page.getByText('Not configured', { exact: true })).toBeVisible();
+      await expect(page.getByText('No workspace settings or usable defaults are configured.')).toBeVisible();
       await expect(page.getByRole('button', { name: 'External Logs', exact: true })).toHaveCount(0);
       await expect(page.getByRole('button', { name: 'Metrics', exact: true })).toHaveCount(0);
     } finally {

@@ -6,6 +6,35 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.16.3 — Workspace Integration Source Readback
+
+**Goal:** Let workspace admins see whether each integration is workspace-configured, using collectZ defaults, or not configured.
+
+### Scope
+
+- Add workspace integration source metadata to `/api/spaces/:id/integrations`.
+- Surface a compact source badge in Workspace Integrations for provider sections.
+- Keep provider behavior, permissions, saved settings, and platform runtime controls unchanged.
+- Avoid exposing raw provider secrets or turning platform settings back into editable workspace provider configuration.
+
+### Acceptance Criteria
+
+- Workspace Integrations shows source readback for provider sections.
+- Workspace-configured sections are identified separately from default settings and unavailable providers.
+- Platform-only Logs and Metrics remain hidden from Workspace Integrations.
+- Existing integration responses remain backward-compatible for clients that ignore the new fields.
+- Version metadata, release note, release feed, and focused runtime checks are updated for `3.16.3`.
+
+### Closeout
+
+- Status: completed in `3.16.3`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, `docs/wiki/08-Backlog.md`, `backend/openapi/openapi.yaml`, and `docs/releases/v3.16.3.md`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.16.3` using the local platform compose override; `/api/health` reported version/frontend/backend/build `3.16.3`; running backend env reported `APP_EDITION=platform`, `APP_VERSION=3.16.3`, `NODE_ENV=development`, and a redacted DB URL; frontend/backend containers were healthy; Help > Releases served `3.16.3`; targeted browser coverage verified Workspace Integrations source readback and that platform-only Logs/Metrics stay hidden; the normal platform-local stack was restored after isolated homelab boundary verification.
+- Verification: frontend production build; host and Docker backend unit tests (`304` passed); host and Docker OpenAPI validation; Help > Releases smoke; targeted Workspace Integrations browser regression (`2` passed including setup); RBAC regression after one local dirty-dev DB registration retry; platform edition boundary; homelab edition boundary against an isolated local compose project; backend and frontend production dependency audits (`0` vulnerabilities) through local release preflight; observability release evidence (`9/9` checks passed); version sync; release note heading/security-marker check; targeted changed-file secret-pattern scan; and `git diff --check`.
+- CI follow-through: stricter CI `compose-smoke`, repository-history `secret-scan`, full `browser-regression`, and `image-security-and-sbom` remain remote GitHub Actions gates for the pushed commit. Local preflight marked secure-cookie compose smoke blocked because the development stack runs with `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`.
+- Risks/follow-ups: this adds source readback only; it does not change provider resolution, secret inheritance, or workspace override persistence. Workspace-scoped export/portability placement and internal route ID cleanup remain follow-up work.
+- What remains in the milestone: nothing for `3.16.3`; remaining workspace/platform boundary refinements stay in the backlog unless selected for a later release slice.
+
 ## 3.16.2 — Platform Workspace Mode Switch
 
 **Goal:** Make platform admins explicitly choose whether they are working in their workspace or in the platform control plane.

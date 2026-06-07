@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.16.3",
+      "version": "3.16.3",
+      "date": null,
+      "status": null,
+      "summary": "This patch makes Workspace Integrations explain whether each provider is using workspace-owned settings, collectZ defaults, or no usable configuration.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added `integrationScope` readback to workspace integration responses.",
+            "Workspace Integrations now shows a compact source badge for each provider section.",
+            "Provider sections identify `Workspace`, `Default`, or `Not configured` beside the existing connection status.",
+            "The source readback uses meaningful overrides such as saved keys, custom URLs, provider usernames, client IDs, Plex sections, CWA URL, and Kavita base URL."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.16.2",
       "version": "3.16.2",
       "date": null,
@@ -170,25 +188,6 @@
             "Games support platform, region, release line, collector edition, limited release, and promo/demo state.",
             "Movies, TV, and Audio support package, release, pressing, screener/promo, and limited-release style details.",
             "Saved edition details appear through existing collectible trait readback and compact trait pills."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.14.4",
-      "version": "3.14.4",
-      "date": null,
-      "status": null,
-      "summary": "This patch adds manual relationship workflows for linking related records without duplicating them across libraries.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added a scoped `object_relationships` persistence table and migration.",
-            "Added authenticated relationship APIs for searching link targets, listing relationships for a record, saving links, and unlinking archived relationships.",
-            "Added a compact `Related` drawer section for Library, Art, and Collectibles records.",
-            "Relationship types include includes, part of, included with, companion to, purchased with, and event acquired with.",
-            "Relationship readback shows the related record title, record family, optional subtitle context, and optional note from both sides."
           ]
         }
       ]
