@@ -3,6 +3,7 @@ const { CSRF_COOKIE_OPTIONS, CSRF_COOKIE_NAME, SESSION_COOKIE_NAME } = require('
 const { logActivity } = require('../services/audit');
 
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+const DEFAULT_CSRF_COOKIE_NAME = 'csrf_token';
 const EXEMPT_PATHS = new Set([
   '/api/auth/login',
   '/api/auth/register'
@@ -42,7 +43,9 @@ function shouldEnforceCsrf(req) {
 function csrfProtection(req, res, next) {
   if (!shouldEnforceCsrf(req)) return next();
 
-  const cookieToken = req.cookies?.[CSRF_COOKIE_NAME];
+  const cookieToken = CSRF_COOKIE_NAME === DEFAULT_CSRF_COOKIE_NAME
+    ? req.cookies?.csrf_token
+    : req.cookies?.[CSRF_COOKIE_NAME];
   const headerToken = req.get('x-csrf-token');
 
   if (cookieToken && headerToken && cookieToken === headerToken) {

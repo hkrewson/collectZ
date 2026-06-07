@@ -6,6 +6,33 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.16.34 — CodeQL CSRF Middleware Modeling
+
+**Goal:** Clear the maintained-source CodeQL custom CSRF middleware `js/missing-token-validation` finding while preserving cookie-session CSRF enforcement.
+
+### Scope
+
+- Keep browser mutating API requests protected by the existing CSRF cookie plus `x-csrf-token` double-submit check.
+- Preserve bearer/PAT request behavior, login/register exemptions, and custom CSRF cookie-name support.
+- Reshape only the default CSRF cookie read so CodeQL recognizes the route-level custom middleware as CSRF protection.
+- Keep unrelated ICS request-forgery and HTTP-to-file findings for later focused slices.
+
+### Acceptance Criteria
+
+- Configured maintained-source CodeQL reports `0` `js/missing-token-validation` findings.
+- Backend unit tests cover matching and missing CSRF token paths.
+- Version metadata, release note, release feed, and focused runtime checks are updated for `3.16.34`.
+
+### Closeout
+
+- Status: completed in `3.16.34`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/49-Dependency-PR-and-CI-Security-Coverage.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, `docs/releases/v1.9.14.md`, `docs/releases/v2.5.0.md`, and `docs/releases/v3.16.34.md`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.16.34` using the CI build override; `/api/health` reported version/frontend/backend/build `3.16.34`; backend/frontend/db containers were healthy; backend container env reported `APP_VERSION=3.16.34`; Docker Help > Releases smoke served `3.16.34` as the newest entry.
+- Verification: backend CSRF middleware syntax check; backend unit test syntax check; host backend unit tests (`313` passed); frontend production build; Docker backend/frontend image rebuild and frontend production build; Docker backend unit tests (`313` passed); Docker Help > Releases smoke; host and Docker backend production dependency audits (`0` vulnerabilities); Dockerized frontend production dependency audit (`0` vulnerabilities); version sync; release note/feed regeneration; local CodeQL CLI database creation with `.github/codeql/codeql-config.yml`; hosted-shape JavaScript/TypeScript security plus security-and-quality analysis (`14` total local SARIF results, with `0` `js/missing-token-validation` findings); observability release evidence (`9/9` checks passed); local release preflight; targeted release/artifact secret-pattern scan; and `git diff --check`.
+- Blocked/unverified: live GitHub CodeQL alert export remains unavailable from this shell; GitHub Actions must confirm hosted alert fingerprint/dedupe behavior after push. Local preflight still marks stricter secure-cookie compose smoke blocked because the local development stack runs `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`; repository-history `secret-scan`, full `browser-regression`, and `image-security-and-sbom` remain CI-only follow-through gates. Full `rbac-regression`, `runtime-smoke`, homelab edition boundary, and platform edition boundary were not rerun because this slice changes CSRF middleware source shape, unit coverage, and version/release artifacts while preserving the existing cookie-session contract; those gates remain CI follow-through for the pushed commit.
+- Risks/follow-ups: remaining maintained-source CodeQL findings continue through later selected remediation slices: reviewed ICS request-forgery modeling and intentional HTTP-to-file artifact/upload writes.
+- What remains in the milestone: nothing for `3.16.34`; broader CodeQL baseline remediation continues in later selected slices.
+
 ## 3.16.33 — CodeQL Registration Boundary Hardening
 
 **Goal:** Clear the maintained-source CodeQL registration `js/user-controlled-bypass` finding while preserving the intended platform invite and SMTP-backed self-registration flows.

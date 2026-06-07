@@ -1,6 +1,23 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.16.34",
+      "version": "3.16.34",
+      "date": null,
+      "status": null,
+      "summary": "This patch continues maintained-source CodeQL cleanup by making the existing custom CSRF middleware recognizable to CodeQL while preserving the browser cookie-session CSRF contract.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Kept mutating browser requests on the existing double-submit CSRF cookie and `x-csrf-token` header validation path.",
+            "Made the default `csrf_token` cookie read explicit when the deployment uses the default CSRF cookie name, while preserving custom `CSRF_COOKIE_NAME` support.",
+            "Added unit coverage for accepted matching CSRF tokens and rejected missing CSRF headers."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.16.33",
       "version": "3.16.33",
       "date": null,
@@ -162,28 +179,6 @@
             "Updated homelab settings copy so direct settings routes no longer render `Platform Settings`.",
             "Made the mobile shell title edition-aware for homelab settings and integrations.",
             "Added browser regression coverage proving homelab admins do not see Platform, Platform Settings, Runtime, or the account-menu Platform switch."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.16.24",
-      "version": "3.16.24",
-      "date": null,
-      "status": null,
-      "summary": "This patch continues CodeQL baseline remediation by replacing risky sanitizer and regex helper patterns with deterministic normalization, encoded image URLs, and runtime-generated smoke-test credentials.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Hardened shared frontend image URL handling so art and collectible image previews only render explicit safe image URL forms and encode DOM-bound image sources.",
-            "Replaced repeated-period review clue cleanup with a complete repeated-period collapse.",
-            "Replaced Kavita and request-origin slash trimming regexes with deterministic slash trimming helpers.",
-            "Replaced support issue-link and collectible trait-key regex normalization with bounded scanners.",
-            "Replaced automatic loan reminder smoke-test randomness and hardcoded transient password material with crypto-generated runtime values.",
-            "Moved personal Sched ICS `&amp;` decoding after other entity replacements to prevent double-unescape behavior.",
-            "Extracted support summary state/loading from the app shell so `frontend/src/App.jsx` stays under the CI hard line budget.",
-            "Updated browser regression coverage for the current Platform Runtime and Workspace Integrations split so CI no longer expects stale provider tabs on the platform runtime surface."
           ]
         }
       ]

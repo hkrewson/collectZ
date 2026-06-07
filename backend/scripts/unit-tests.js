@@ -150,7 +150,7 @@ const {
   buildLoanReminderDeliveryWindowKey
 } = require('../services/loanReminders');
 const metricsModule = require('../services/metrics');
-const { shouldEnforceCsrf } = require('../middleware/csrf');
+const { csrfProtection, shouldEnforceCsrf } = require('../middleware/csrf');
 const observabilityRuntimeSource = fs.readFileSync(require.resolve('../services/observabilityRuntime'), 'utf8');
 const releasePreflightLocalSource = fs.readFileSync(require.resolve('../scripts/release-preflight-local'), 'utf8');
 const ciComposeWriterSource = fs.readFileSync(require.resolve('../../scripts/write-ci-compose-overrides'), 'utf8');
@@ -4875,6 +4875,61 @@ results.push(run('csrf.shouldEnforceCsrf skips bearer-authenticated API requests
     headers: { authorization: 'Bearer test-token' },
     get: (name) => (String(name).toLowerCase() === 'authorization' ? 'Bearer test-token' : '')
   }), false);
+}));
+
+results.push(run('csrf.csrfProtection accepts matching default csrf cookie and header tokens', () => {
+  let nextCalled = false;
+  const req = {
+    method: 'PATCH',
+    originalUrl: '/api/media/1',
+    cookies: {
+      session_token: 'cookie-token',
+      csrf_token: 'csrf-token'
+    },
+    headers: {},
+    get: (name) => (String(name).toLowerCase() === 'x-csrf-token' ? 'csrf-token' : '')
+  };
+  const res = {
+    status() {
+      throw new Error('Expected matching CSRF token to call next');
+    }
+  };
+  csrfProtection(req, res, () => {
+    nextCalled = true;
+  });
+  assert.strictEqual(nextCalled, true);
+}));
+
+results.push(run('csrf.csrfProtection rejects missing csrf header for cookie-session writes', () => {
+  let statusCode = null;
+  let body = null;
+  let nextCalled = false;
+  const req = {
+    method: 'PATCH',
+    originalUrl: '/api/media/1',
+    cookies: {
+      session_token: 'cookie-token',
+      csrf_token: 'csrf-token'
+    },
+    headers: {},
+    get: () => ''
+  };
+  const res = {
+    status(code) {
+      statusCode = code;
+      return this;
+    },
+    json(payload) {
+      body = payload;
+      return this;
+    }
+  };
+  csrfProtection(req, res, () => {
+    nextCalled = true;
+  });
+  assert.strictEqual(nextCalled, false);
+  assert.strictEqual(statusCode, 403);
+  assert.deepStrictEqual(body, { error: 'CSRF validation failed' });
 }));
 
 results.push(run('public compose source keeps homelab-safe cookie defaults in the single tracked stack', () => {
