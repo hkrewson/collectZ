@@ -14,6 +14,11 @@ const { resolveAudioPreset, searchAudioByTitle } = require('../services/audio');
 const { resolveGamesPreset, searchGamesByTitle } = require('../services/games');
 const { resolveComicsPreset, searchComicsByTitle, fetchMetronCollectionIssues } = require('../services/comics');
 const { normalizeKavitaBaseUrl, testKavitaConnection } = require('../services/kavita');
+const {
+  buildPortabilityCsvFileExport,
+  buildPortabilityJsonExport,
+  buildPortabilityStatus
+} = require('../services/portability');
 const { normalizePositiveInteger } = require('../services/valuations');
 const { logActivity, logError } = require('../services/audit');
 const {
@@ -490,6 +495,67 @@ router.get('/spaces/:spaceId/integrations', authenticateToken, requireSessionAut
     const workspaceRow = await loadIntegrationConfigRow(spaceId, { allowFallback: false });
     const config = await loadScopedIntegrationConfig(spaceId);
     res.json(buildSpaceIntegrationPayload(config, { workspaceRow }));
+  } finally {
+    client.release();
+  }
+}));
+
+router.get('/spaces/:spaceId/portability', authenticateToken, requireSessionAuth, asyncHandler(async (req, res) => {
+  const spaceId = parseSpaceId(req.params.spaceId);
+  if (!spaceId) return res.status(400).json({ error: 'Valid space id is required' });
+
+  const client = await pool.connect();
+  try {
+    const space = await requireManageableSpace(client, req, spaceId);
+    if (space === false) return res.status(403).json({ error: 'Workspace admin access required' });
+    if (!space) return res.status(404).json({ error: 'Workspace not found' });
+    return res.json(await buildPortabilityStatus({
+      scope: 'workspace',
+      spaceId,
+      spaceName: space.name || space.slug || `Workspace ${spaceId}`
+    }));
+  } finally {
+    client.release();
+  }
+}));
+
+router.post('/spaces/:spaceId/portability/export', authenticateToken, requireSessionAuth, asyncHandler(async (req, res) => {
+  const spaceId = parseSpaceId(req.params.spaceId);
+  if (!spaceId) return res.status(400).json({ error: 'Valid space id is required' });
+
+  const client = await pool.connect();
+  try {
+    const space = await requireManageableSpace(client, req, spaceId);
+    if (space === false) return res.status(403).json({ error: 'Workspace admin access required' });
+    if (!space) return res.status(404).json({ error: 'Workspace not found' });
+
+    const scope = {
+      scope: 'workspace',
+      spaceId,
+      spaceName: space.name || space.slug || `Workspace ${spaceId}`
+    };
+    const format = String(req.body?.format || req.query?.format || 'json').trim().toLowerCase();
+    if (format === 'csv') {
+      const fileKey = String(req.body?.file || req.query?.file || '').trim();
+      const archive = await buildPortabilityCsvFileExport(fileKey, scope);
+      if (!fileKey) {
+        return res.json({
+          format: 'collectz.portability.csv.v1',
+          scope: archive.payload?.manifest?.scope || null,
+          files: archive.files
+        });
+      }
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${archive.filename}"`);
+      res.setHeader('X-CollectZ-Export-Format', 'collectz.portability.csv.v1');
+      return res.send(archive.buffer);
+    }
+
+    const archive = await buildPortabilityJsonExport(scope);
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${archive.filename}"`);
+    res.setHeader('X-CollectZ-Export-Format', archive.payload?.manifest?.format || 'collectz.portability.export.v1');
+    return res.send(archive.buffer);
   } finally {
     client.release();
   }

@@ -667,7 +667,7 @@ These are product-level capability gaps discovered from the current shape of the
 ### Backlog Item: Platform vs Workspace Boundary Clarification
 **Type:** Deferred milestone
 **Tags:** `platform`, `workspace`, `navigation`, `settings`, `integrations`, `backup`, `portability`
-**Status:** Promoted to `3.16.0 — Platform vs Workspace Boundary Clarification` in [07-Release-Roadmap.md](07-Release-Roadmap.md).
+**Status:** Promoted to the `3.16.x` Platform vs Workspace boundary line in [07-Release-Roadmap.md](07-Release-Roadmap.md); workspace portability placement completed in `3.16.4`.
 
 **Goal:** Make the app’s navigation and settings model clearly separate workspace-owned collection work from platform-level setup.
 

@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.16.4",
+      "version": "3.16.4",
+      "date": null,
+      "status": null,
+      "summary": "This patch moves backup/export readback into Workspace Settings while keeping Platform Settings clearly scoped to instance-wide backup/export.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added workspace-scoped portability status and export endpoints under `/api/spaces/:id/portability`.",
+            "Workspace Settings now shows `Workspace backup and portability` with scope readback for the selected workspace.",
+            "Workspace JSON/CSV exports reuse the existing redacted portability export behavior while filtering database rows to the selected workspace.",
+            "Platform Settings keeps its existing platform-wide export surface.",
+            "Portability status and export manifests now include explicit `scope` metadata."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.16.3",
       "version": "3.16.3",
       "date": null,
@@ -167,27 +186,6 @@
             "Secret-looking fields and secret-looking URL parameters are recursively redacted before the export is written.",
             "The existing portability readback now reports manual export capability.",
             "Admin Settings shows the last successful export download for the current browser session."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.14.5",
-      "version": "3.14.5",
-      "date": null,
-      "status": null,
-      "summary": "This patch adds practical edition and variant editing to Library drawers using the reusable collectible trait contract.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added a compact Edition drawer section for Library records.",
-            "Edition controls now change by media type instead of using one generic variant field.",
-            "Books support edition, printing, publisher line, ARC, first edition, limited release, and numbered-run details.",
-            "Comics support variant cover, printing, run context, newsstand/direct edition, limited release, and numbered-run details.",
-            "Games support platform, region, release line, collector edition, limited release, and promo/demo state.",
-            "Movies, TV, and Audio support package, release, pressing, screener/promo, and limited-release style details.",
-            "Saved edition details appear through existing collectible trait readback and compact trait pills."
           ]
         }
       ]

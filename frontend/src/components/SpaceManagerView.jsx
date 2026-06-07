@@ -405,6 +405,7 @@ export default function SpaceManagerView({
                 updateGeneralSettingsEndpoint={`/spaces/${activeSpaceId}/settings/general`}
                 featureFlagsEndpoint={`/spaces/${activeSpaceId}/feature-flags`}
                 featureFlagUpdatePath={(key) => `/spaces/${activeSpaceId}/feature-flags/${encodeURIComponent(key)}`}
+                portabilityEndpoint={`/spaces/${activeSpaceId}/portability`}
               />
             </div>
           </div>

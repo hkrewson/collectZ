@@ -59,6 +59,7 @@ function ThemeSettingRow({ value, saving, onChange, label = 'Theme', description
         {saving && <span className="text-xs text-ghost">Saving…</span>}
         <select
           className="select min-w-[8.5rem] bg-raised"
+          aria-label={label}
           value={value}
           disabled={saving}
           onChange={(e) => onChange(e.target.value)}
@@ -250,15 +251,23 @@ function BackupPortabilityCard({
   const backupFreshness = data?.backup_freshness || null;
   const restoreRehearsal = data?.restore_rehearsal || null;
   const rehearsalSteps = Array.isArray(restoreRehearsal?.steps) ? restoreRehearsal.steps : [];
+  const scope = data?.scope || {};
+  const isWorkspaceScope = scope.type === 'workspace';
+  const scopeLabel = scope.label || (isWorkspaceScope ? 'Current workspace' : 'Platform');
 
   return (
     <div className="rounded-xl border border-edge bg-panel px-4 py-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-ink">Backup and portability</p>
-          <p className="mt-1 text-sm text-ghost">
-            Read-only status for database records, uploaded images, provider metadata, and restore guidance.
+          <p className="text-sm font-medium text-ink">
+            {isWorkspaceScope ? 'Workspace backup and portability' : 'Backup and portability'}
           </p>
+          <p className="mt-1 text-sm text-ghost">
+            {isWorkspaceScope
+              ? 'Read-only status and exports for this workspace’s records, uploaded images, provider metadata, and restore guidance.'
+              : 'Read-only status for database records, uploaded images, provider metadata, and restore guidance.'}
+          </p>
+          {data ? <p className="mt-1 text-xs text-muted">Scope: {scopeLabel}</p> : null}
         </div>
         <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
           <label className="sr-only" htmlFor="portability-export-format">Export format</label>
@@ -342,6 +351,7 @@ function BackupPortabilityCard({
               <p className={`mt-2 text-sm font-medium ${data.database?.reachable ? 'text-ok' : 'text-err'}`}>
                 {data.database?.reachable ? 'Reachable' : 'Unavailable'}
               </p>
+              {isWorkspaceScope ? <p className="mt-1 text-xs text-muted">Rows are filtered to this workspace.</p> : null}
             </div>
             <div className="rounded-lg border border-edge/80 bg-raised/40 px-3 py-3">
               <p className="text-sm font-medium text-ink">Images</p>

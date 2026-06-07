@@ -98,6 +98,7 @@ const {
   parseDatabaseUrl,
   formatBytes,
   redactPortableValue,
+  normalizePortabilityScope,
   buildPortabilityCsvFiles,
   getBackupFreshnessReadback,
   buildRestoreRehearsalReadback
@@ -2394,6 +2395,9 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(adminRoutesSource.includes('buildPortabilityJsonExport'));
   assert.ok(adminRoutesSource.includes('buildPortabilityCsvFileExport'));
   assert.ok(adminRoutesSource.includes("format === 'csv'"));
+  assert.ok(spaceIntegrationsRoutesSource.includes("router.get('/spaces/:spaceId/portability'"));
+  assert.ok(spaceIntegrationsRoutesSource.includes("router.post('/spaces/:spaceId/portability/export'"));
+  assert.ok(spaceIntegrationsRoutesSource.includes("scope: 'workspace'"));
   assert.ok(adminRoutesSource.includes("Unknown feature flag: ${key}"));
   assert.ok(integrationsRoutesSource.includes("const { resolveScopeContext } = require('../db/scopeContext');"));
   assert.ok(integrationsRoutesSource.includes('const scopeContext = resolveScopeContext(req);'));
@@ -2422,6 +2426,8 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(homelabSharedBrowserSpecSource.includes('/api/admin/settings/general'));
   assert.ok(openApiSource.includes('/api/admin/settings/portability'));
   assert.ok(openApiSource.includes('/api/admin/settings/portability/export'));
+  assert.ok(openApiSource.includes('/api/spaces/{id}/portability'));
+  assert.ok(openApiSource.includes('/api/spaces/{id}/portability/export'));
   assert.ok(openApiSource.includes('collectz.portability.csv.v1'));
   assert.ok(openApiSource.includes('text/csv'));
   assert.ok(openApiSource.includes('PortabilityStatusResponse'));
@@ -7130,6 +7136,13 @@ results.push(run('portability status source keeps readback redacted and restore 
   assert.ok(portabilityServiceSource.includes('Restore dry run'));
   assert.ok(portabilityServiceSource.includes('SECRET_URL_PARAM_PATTERN'));
   assert.ok(portabilityServiceSource.includes("formats: ['json', 'csv']"));
+  assert.ok(portabilityServiceSource.includes('DIRECT_SPACE_TABLES'));
+  assert.ok(portabilityServiceSource.includes('scopedTableClause'));
+  assert.ok(portabilityServiceSource.includes('collectz-workspace-${scope.space_id'));
+  const platformScope = normalizePortabilityScope();
+  assert.deepStrictEqual(platformScope, { type: 'platform', space_id: null, label: 'Platform' });
+  const workspaceScope = normalizePortabilityScope({ scope: 'workspace', spaceId: 42, spaceName: 'Main Space' });
+  assert.deepStrictEqual(workspaceScope, { type: 'workspace', space_id: 42, label: 'Main Space' });
   const rehearsal = buildRestoreRehearsalReadback({
     databaseOk: true,
     storage: { configured: true },

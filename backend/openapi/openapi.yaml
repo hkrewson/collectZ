@@ -108,6 +108,16 @@
         "additionalProperties": true,
         "properties": {
           "generated_at": { "type": "string", "format": "date-time" },
+          "scope": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": { "type": "string", "enum": ["platform", "workspace"] },
+              "space_id": { "type": ["integer", "null"] },
+              "label": { "type": "string" }
+            },
+            "required": ["type", "space_id", "label"]
+          },
           "database": {
             "type": "object",
             "additionalProperties": true,
@@ -220,7 +230,7 @@
             }
           }
         },
-        "required": ["generated_at", "database", "storage", "backup_freshness", "restore_rehearsal", "export_capabilities", "restore_guidance", "docs", "checks"]
+        "required": ["generated_at", "scope", "database", "storage", "backup_freshness", "restore_rehearsal", "export_capabilities", "restore_guidance", "docs", "checks"]
       },
       "PortabilityExportManifest": {
         "type": "object",
@@ -233,6 +243,16 @@
               "format": { "type": "string", "const": "collectz.portability.export.v1" },
               "generated_at": { "type": "string", "format": "date-time" },
               "version": { "type": "string" },
+              "scope": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "type": { "type": "string", "enum": ["platform", "workspace"] },
+                  "space_id": { "type": ["integer", "null"] },
+                  "label": { "type": "string" }
+                },
+                "required": ["type", "space_id", "label"]
+              },
               "includes": { "type": "object", "additionalProperties": true },
               "redaction": { "type": "object", "additionalProperties": true }
             }
@@ -6351,6 +6371,138 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/spaces/{id}/portability": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "Read workspace backup, export, and portability status",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Workspace-scoped backup, export, and portability readback",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PortabilityStatusResponse" }
+              }
+            }
+          },
+          "403": {
+            "description": "Workspace admin access required"
+          }
+        }
+      }
+    },
+    "/api/spaces/{id}/portability/export": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Download a redacted workspace-scoped portability export",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "format": {
+                    "type": "string",
+                    "enum": ["json", "csv"],
+                    "default": "json",
+                    "description": "Export format. JSON returns one plain JSON portability file. CSV without a file key returns a download list; CSV with a file key returns one CSV file."
+                  },
+                  "file": {
+                    "type": "string",
+                    "description": "CSV file key to download when format is csv, such as manifest, restore_guidance, uploads_manifest, or table:media."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Redacted workspace portability export or CSV file list/download",
+            "headers": {
+              "Content-Disposition": {
+                "schema": { "type": "string" },
+                "description": "Attachment filename for direct JSON and CSV file downloads."
+              },
+              "X-CollectZ-Export-Format": {
+                "schema": {
+                  "type": "string",
+                  "enum": ["collectz.portability.export.v1", "collectz.portability.csv.v1"]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    { "$ref": "#/components/schemas/PortabilityExportManifest" },
+                    {
+                      "type": "object",
+                      "required": ["format", "files"],
+                      "properties": {
+                        "format": { "type": "string", "enum": ["collectz.portability.csv.v1"] },
+                        "scope": {
+                          "type": "object",
+                          "additionalProperties": true
+                        },
+                        "files": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": ["key", "label", "filename"],
+                            "properties": {
+                              "key": { "type": "string" },
+                              "label": { "type": "string" },
+                              "filename": { "type": "string" },
+                              "row_count": { "type": "integer", "nullable": true }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              "text/csv": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary",
+                  "description": "One selected CSV export file."
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Workspace admin access required"
           }
         }
       }

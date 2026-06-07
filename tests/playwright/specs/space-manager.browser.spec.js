@@ -284,6 +284,10 @@ test.describe('space manager browser regressions', () => {
         }]
       }, 201);
       const createdSpacePayload = await createdSpaceResponse.json();
+      const createdSpaceId = Number(createdSpacePayload?.space?.id || 0) || null;
+      const createdSpaceName = String(createdSpacePayload?.space?.name || '').trim();
+      expect(createdSpaceId).toBeTruthy();
+      expect(createdSpaceName).toBeTruthy();
       const invitePayload = Array.isArray(createdSpacePayload?.invite_results)
         ? createdSpacePayload.invite_results.find((invite) => String(invite?.email || '').toLowerCase() === ownerEmail.toLowerCase())
         : null;
@@ -320,13 +324,33 @@ test.describe('space manager browser regressions', () => {
       await expect(page.getByText('Collectibles Library', { exact: true })).toBeVisible();
       await expect(page.getByText('Slug', { exact: true })).toHaveCount(0);
       await expect(page.getByText('Description', { exact: true })).toHaveCount(0);
+      await expect(page.getByText('Workspace backup and portability', { exact: true })).toBeVisible();
+      await expect(page.getByText(`Scope: ${createdSpaceName}`, { exact: true })).toBeVisible();
+      await expect(page.getByText('Rows are filtered to this workspace.', { exact: true })).toBeVisible();
+
+      const portabilityResponse = await ownerContext.get(`/api/spaces/${createdSpaceId}/portability`);
+      expect(portabilityResponse.ok()).toBeTruthy();
+      const portabilityPayload = await portabilityResponse.json();
+      expect(portabilityPayload?.scope?.type).toBe('workspace');
+      expect(portabilityPayload?.scope?.space_id).toBe(createdSpaceId);
+      expect(portabilityPayload?.scope?.label).toBe(createdSpaceName);
+      expect(Array.isArray(portabilityPayload?.export_capabilities?.database_records?.coverage)).toBeTruthy();
+      const workspaceExportResponse = await postWithCsrf(ownerContext, `/api/spaces/${createdSpaceId}/portability/export`, {});
+      expect(workspaceExportResponse.ok()).toBeTruthy();
+      expect(workspaceExportResponse.headers()['content-disposition']).toContain(`collectz-workspace-${createdSpaceId}-export`);
+      const workspaceExportPayload = JSON.parse((await workspaceExportResponse.body()).toString('utf8'));
+      expect(workspaceExportPayload?.manifest?.scope?.type).toBe('workspace');
+      expect(workspaceExportPayload?.manifest?.scope?.space_id).toBe(createdSpaceId);
+      const mediaTable = workspaceExportPayload?.database?.tables?.find((item) => item.key === 'media');
+      expect(mediaTable).toBeTruthy();
+      expect((mediaTable.rows || []).every((row) => Number(row.space_id) === createdSpaceId)).toBeTruthy();
 
       const themeSavePromise = page.waitForResponse((response) => (
         response.url().includes('/api/spaces/')
         && response.url().includes('/settings/general')
         && response.request().method() === 'PUT'
       ));
-      await page.locator('select').first().selectOption('dark');
+      await page.getByLabel('Theme', { exact: true }).selectOption('dark');
       const themeSaveResponse = await themeSavePromise;
       expect(themeSaveResponse.ok()).toBeTruthy();
       const scopedSettingsResponse = await ownerContext.get('/api/settings/general');

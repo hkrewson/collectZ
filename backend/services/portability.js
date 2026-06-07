@@ -19,6 +19,17 @@ const PORTABLE_TABLES = [
   { key: 'workspaces', label: 'Workspaces', table: 'spaces' }
 ];
 
+const DIRECT_SPACE_TABLES = new Set([
+  'media',
+  'art_items',
+  'collectibles',
+  'events',
+  'wanted_items',
+  'media_loans',
+  'capture_items',
+  'libraries'
+]);
+
 const SECRET_KEY_PATTERN = /(password|secret|token|api[_-]?key|access[_-]?key|private[_-]?key|credential|encryption)/i;
 const SECRET_URL_PARAM_PATTERN = /([?&](?:[^=&#]*(?:token|secret|password|api[_-]?key|access[_-]?key|credential)[^=&#]*)=)[^&#]*/gi;
 const JSON_EXPORT_FORMAT = 'collectz.portability.export.v1';
@@ -87,7 +98,78 @@ function formatAgeHours(value) {
   return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
 }
 
-function buildRestoreRehearsalReadback({ databaseOk, storage, backupFreshness, counts } = {}) {
+function normalizePortabilityScope(options = {}) {
+  if (options.scope && typeof options.scope === 'object') {
+    return normalizePortabilityScope({
+      ...options.scope,
+      spaceId: options.scope.space_id || options.scope.spaceId
+    });
+  }
+  const requestedScope = String(options.scope || options.type || 'platform').trim().toLowerCase();
+  if (requestedScope === 'workspace') {
+    const spaceId = Number(options.spaceId || options.space_id || 0);
+    if (!Number.isFinite(spaceId) || spaceId <= 0) {
+      const error = new Error('Workspace portability requires a valid space id');
+      error.status = 400;
+      throw error;
+    }
+    const label = String(options.spaceName || options.label || '').trim() || `Workspace ${spaceId}`;
+    return {
+      type: 'workspace',
+      space_id: spaceId,
+      label
+    };
+  }
+
+  return {
+    type: 'platform',
+    space_id: null,
+    label: 'Platform'
+  };
+}
+
+function scopedTableClause(table, scope) {
+  if (!scope || scope.type !== 'workspace') {
+    return { where: '', params: [] };
+  }
+  if (DIRECT_SPACE_TABLES.has(table)) {
+    return { where: ' WHERE space_id = $1', params: [scope.space_id] };
+  }
+  if (table === 'spaces') {
+    return { where: ' WHERE id = $1', params: [scope.space_id] };
+  }
+  return { where: '', params: [] };
+}
+
+function scopedMediaIdentifierClause(scope) {
+  const identifierClause = `
+    (
+      tmdb_id IS NOT NULL
+       OR NULLIF(TRIM(COALESCE(upc, '')), '') IS NOT NULL
+       OR COALESCE(type_details, '{}'::jsonb) ?| ARRAY[
+         'isbn',
+         'isbn13',
+         'google_books_id',
+         'provider_name',
+         'provider_item_id',
+         'plex_rating_key',
+         'kavita_series_id'
+       ]
+    )
+  `;
+  if (scope?.type === 'workspace') {
+    return {
+      where: `WHERE space_id = $1 AND ${identifierClause}`,
+      params: [scope.space_id]
+    };
+  }
+  return {
+    where: `WHERE ${identifierClause}`,
+    params: []
+  };
+}
+
+function buildRestoreRehearsalReadback({ databaseOk, storage, backupFreshness, counts, scope } = {}) {
   const totalPortableRows = Array.isArray(counts)
     ? counts.reduce((sum, item) => sum + (Number(item.count || 0) || 0), 0)
     : 0;
@@ -100,7 +182,7 @@ function buildRestoreRehearsalReadback({ databaseOk, storage, backupFreshness, c
       label: 'Database export',
       status: databaseOk && totalPortableRows > 0 ? 'ok' : 'warn',
       detail: databaseOk && totalPortableRows > 0
-        ? `${totalPortableRows} database rows are visible to the portability export.`
+        ? `${totalPortableRows} ${scope?.type === 'workspace' ? 'workspace-scoped ' : ''}database rows are visible to the portability export.`
         : 'No portable database rows are visible yet.'
     },
     {
@@ -116,7 +198,9 @@ function buildRestoreRehearsalReadback({ databaseOk, storage, backupFreshness, c
       label: 'Uploaded image binaries',
       status: storageOk ? 'manual' : 'warn',
       detail: storageOk
-        ? 'Export includes an uploads manifest only; copy the uploads volume or object storage separately.'
+        ? scope?.type === 'workspace'
+          ? 'Export includes a storage manifest only; copy needed uploaded image binaries from the uploads volume or object storage separately.'
+          : 'Export includes an uploads manifest only; copy the uploads volume or object storage separately.'
         : 'Uploads storage is not readable from this backend runtime.'
     },
     {
@@ -343,51 +427,44 @@ async function tableExists(client, table) {
   return Boolean(result.rows[0]?.name);
 }
 
-async function countTable(client, table) {
+async function countTable(client, table, scope) {
   if (!(await tableExists(client, table))) return null;
-  const result = await client.query(`SELECT COUNT(*)::int AS count FROM ${table}`);
+  const clause = scopedTableClause(table, scope);
+  const result = await client.query(`SELECT COUNT(*)::int AS count FROM ${table}${clause.where}`, clause.params);
   return Number(result.rows[0]?.count || 0);
 }
 
-async function readTableRows(client, table) {
+async function readTableRows(client, table, scope) {
   if (!(await tableExists(client, table))) return null;
-  const result = await client.query(`SELECT to_jsonb(${table}) AS row FROM ${table} ORDER BY id ASC`);
+  const clause = scopedTableClause(table, scope);
+  const result = await client.query(`SELECT to_jsonb(${table}) AS row FROM ${table}${clause.where} ORDER BY id ASC`, clause.params);
   return result.rows.map((item) => item.row || {});
 }
 
-async function getPortableCounts(client) {
+async function getPortableCounts(client, scope) {
   const counts = [];
   for (const item of PORTABLE_TABLES) {
     counts.push({
       key: item.key,
       label: item.label,
-      count: await countTable(client, item.table)
+      count: await countTable(client, item.table, scope)
     });
   }
   return counts;
 }
 
-async function getProviderLinkedCount(client) {
+async function getProviderLinkedCount(client, scope) {
   if (!(await tableExists(client, 'media'))) return 0;
+  const clause = scopedMediaIdentifierClause(scope);
   const result = await client.query(`
     SELECT COUNT(*)::int AS count
     FROM media
-    WHERE tmdb_id IS NOT NULL
-       OR NULLIF(TRIM(COALESCE(upc, '')), '') IS NOT NULL
-       OR COALESCE(type_details, '{}'::jsonb) ?| ARRAY[
-         'isbn',
-         'isbn13',
-         'google_books_id',
-         'provider_name',
-         'provider_item_id',
-         'plex_rating_key',
-         'kavita_series_id'
-       ]
-  `);
+    ${clause.where}
+  `, clause.params);
   return Number(result.rows[0]?.count || 0);
 }
 
-function buildChecks({ databaseOk, storage, counts, providerLinkedCount, backupFreshness }) {
+function buildChecks({ databaseOk, storage, counts, providerLinkedCount, backupFreshness, scope }) {
   const totalPortableRows = counts.reduce((sum, item) => sum + (Number(item.count || 0) || 0), 0);
   return [
     {
@@ -401,7 +478,7 @@ function buildChecks({ databaseOk, storage, counts, providerLinkedCount, backupF
       label: 'Record coverage',
       status: totalPortableRows > 0 ? 'ok' : 'warn',
       detail: totalPortableRows > 0
-        ? `${totalPortableRows} portable database rows are visible to export planning.`
+        ? `${totalPortableRows} ${scope?.type === 'workspace' ? 'workspace-scoped ' : ''}portable database rows are visible to export planning.`
         : 'No portable collection rows were found yet.'
     },
     {
@@ -521,7 +598,10 @@ function tableRowsToCsv(rows) {
 
 function buildPortabilityCsvFiles(payload) {
   const generatedAt = String(payload.manifest?.generated_at || new Date().toISOString()).replace(/[:.]/g, '-');
-  const prefix = `collectz-export-${generatedAt}`;
+  const scope = payload.manifest?.scope || {};
+  const prefix = scope.type === 'workspace'
+    ? `collectz-workspace-${scope.space_id || 'current'}-export-${generatedAt}`
+    : `collectz-export-${generatedAt}`;
   return [
     {
       key: 'manifest',
@@ -533,6 +613,9 @@ function buildPortabilityCsvFiles(payload) {
         generated_at: payload.manifest?.generated_at || '',
         app: payload.manifest?.app || 'collectZ',
         version: payload.manifest?.version || 'unknown',
+        scope_type: scope.type || 'platform',
+        scope_label: scope.label || '',
+        scope_space_id: scope.space_id || '',
         database_records: payload.manifest?.includes?.database_records ? 'true' : 'false',
         upload_file_manifest: payload.manifest?.includes?.upload_file_manifest ? 'true' : 'false',
         upload_file_binaries: payload.manifest?.includes?.upload_file_binaries ? 'true' : 'false',
@@ -601,16 +684,45 @@ async function buildUploadsManifest(storage) {
   };
 }
 
-async function buildPortabilityExportPayload() {
+function buildManualExportNote(scope) {
+  if (scope.type === 'workspace') {
+    return 'Manual exports include database rows for this workspace and an uploads manifest. JSON is best for portability; CSV files are best for spreadsheet review. Back up upload binaries separately.';
+  }
+  return 'Manual exports include database rows and an uploads manifest. JSON is best for portability; CSV files are best for spreadsheet review. Back up upload binaries separately.';
+}
+
+function buildRestoreGuidance(scope) {
+  if (scope.type === 'workspace') {
+    return [
+      'Use the workspace export when you need a portable copy of one workspace.',
+      'Back up the uploads volume or object storage bucket with any workspace export that references images.',
+      'If you run scheduled backups, write a JSON status marker and set COLLECTZ_BACKUP_STATUS_PATH so collectZ can report freshness.',
+      'Rehearse restore in a separate test stack before trusting a backup plan.',
+      'Restore workspace data only after confirming the target workspace and import plan.',
+      'Validate with container health, backend logs, and a Help > Releases readback.'
+    ];
+  }
+  return [
+    'Back up the database with pg_dump from the Docker host.',
+    'Back up the uploads volume or object storage bucket with the database snapshot.',
+    'If you run scheduled backups, write a JSON status marker and set COLLECTZ_BACKUP_STATUS_PATH so collectZ can report freshness.',
+    'Rehearse restore in a separate test stack before trusting a backup plan.',
+    'Restore into a stopped app runtime, then restart backend and frontend.',
+    'Validate with container health, backend logs, and a Help > Releases readback.'
+  ];
+}
+
+async function buildPortabilityExportPayload(options = {}) {
+  const scope = normalizePortabilityScope(options);
   const generatedAt = new Date().toISOString();
-  const status = await buildPortabilityStatus();
+  const status = await buildPortabilityStatus({ scope });
   const client = await pool.connect();
   const redactionStats = { redacted: 0 };
 
   try {
     const tables = [];
     for (const item of PORTABLE_TABLES) {
-      const rows = await readTableRows(client, item.table);
+      const rows = await readTableRows(client, item.table, scope);
       tables.push({
         key: item.key,
         label: item.label,
@@ -630,6 +742,7 @@ async function buildPortabilityExportPayload() {
         generated_at: generatedAt,
         app: appMeta.app || 'collectZ',
         version: appMeta.version || 'unknown',
+        scope,
         includes: {
           database_records: true,
           upload_file_manifest: true,
@@ -654,18 +767,22 @@ async function buildPortabilityExportPayload() {
   }
 }
 
-async function buildPortabilityJsonExport() {
-  const payload = await buildPortabilityExportPayload();
+async function buildPortabilityJsonExport(options = {}) {
+  const payload = await buildPortabilityExportPayload(options);
   const json = JSON.stringify(payload, null, 2);
+  const scope = payload.manifest?.scope || {};
+  const prefix = scope.type === 'workspace'
+    ? `collectz-workspace-${scope.space_id || 'current'}-export`
+    : 'collectz-export';
   return {
     payload,
     buffer: Buffer.from(json, 'utf8'),
-    filename: `collectz-export-${String(payload.manifest.generated_at).replace(/[:.]/g, '-')}.json`
+    filename: `${prefix}-${String(payload.manifest.generated_at).replace(/[:.]/g, '-')}.json`
   };
 }
 
-async function buildPortabilityCsvFileExport(fileKey) {
-  const payload = await buildPortabilityExportPayload();
+async function buildPortabilityCsvFileExport(fileKey, options = {}) {
+  const payload = await buildPortabilityExportPayload(options);
   const files = buildPortabilityCsvFiles(payload);
   if (!fileKey) {
     return {
@@ -687,7 +804,8 @@ async function buildPortabilityCsvFileExport(fileKey) {
   };
 }
 
-async function buildPortabilityStatus() {
+async function buildPortabilityStatus(options = {}) {
+  const scope = normalizePortabilityScope(options);
   const dbInfo = parseDatabaseUrl(process.env.DATABASE_URL);
   const storage = await getStorageReadback();
   const backupFreshness = await getBackupFreshnessReadback();
@@ -695,16 +813,18 @@ async function buildPortabilityStatus() {
 
   try {
     const dbNow = await client.query('SELECT NOW() AS checked_at');
-    const counts = await getPortableCounts(client);
-    const providerLinkedCount = await getProviderLinkedCount(client);
+    const counts = await getPortableCounts(client, scope);
+    const providerLinkedCount = await getProviderLinkedCount(client, scope);
     const restoreRehearsal = buildRestoreRehearsalReadback({
       databaseOk: true,
       storage,
       backupFreshness,
-      counts
+      counts,
+      scope
     });
     return {
       generated_at: new Date().toISOString(),
+      scope,
       database: {
         ...dbInfo,
         ssl: process.env.DATABASE_SSL === 'true' || process.env.DATABASE_SSL === '1',
@@ -720,7 +840,7 @@ async function buildPortabilityStatus() {
           format: 'collectZ JSON export or CSV file exports',
           formats: ['json', 'csv'],
           includes_upload_binaries: false,
-          note: 'Manual exports include database rows and an uploads manifest. JSON is best for portability; CSV files are best for spreadsheet review. Back up upload binaries separately.'
+          note: buildManualExportNote(scope)
         },
         database_records: {
           status: 'available',
@@ -738,21 +858,14 @@ async function buildPortabilityStatus() {
           linked_records: providerLinkedCount
         }
       },
-      restore_guidance: [
-        'Back up the database with pg_dump from the Docker host.',
-        'Back up the uploads volume or object storage bucket with the database snapshot.',
-        'If you run scheduled backups, write a JSON status marker and set COLLECTZ_BACKUP_STATUS_PATH so collectZ can report freshness.',
-        'Rehearse restore in a separate test stack before trusting a backup plan.',
-        'Restore into a stopped app runtime, then restart backend and frontend.',
-        'Validate with container health, backend logs, and a Help > Releases readback.'
-      ],
+      restore_guidance: buildRestoreGuidance(scope),
       docs: [
         {
           label: 'Backup and Restore runbook',
           path: 'docs/wiki/08-Backup-and-Restore.md'
         }
       ],
-      checks: buildChecks({ databaseOk: true, storage, counts, providerLinkedCount, backupFreshness })
+      checks: buildChecks({ databaseOk: true, storage, counts, providerLinkedCount, backupFreshness, scope })
     };
   } finally {
     client.release();
@@ -768,6 +881,7 @@ module.exports = {
   parseDatabaseUrl,
   formatBytes,
   redactPortableValue,
+  normalizePortabilityScope,
   getBackupFreshnessReadback,
   buildRestoreRehearsalReadback
 };

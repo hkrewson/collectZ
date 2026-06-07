@@ -6,6 +6,36 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.16.4 — Workspace Backup and Portability Placement
+
+**Goal:** Put backup/export/portability readback in the right object space: workspace exports under Workspace, instance-wide exports under Platform.
+
+### Scope
+
+- Add workspace-scoped portability status and export endpoints.
+- Reuse the existing JSON/CSV portability export behavior while filtering workspace database rows to the selected workspace.
+- Add explicit scope metadata to portability status responses and export manifests.
+- Show workspace backup/export/portability readback from Workspace Settings.
+- Keep Platform Settings as the platform-wide backup/export surface.
+
+### Acceptance Criteria
+
+- Workspace Settings exposes backup and portability readback for the selected workspace.
+- Workspace exports identify their workspace scope and filter portable database rows to the selected workspace.
+- Platform Settings remains explicitly instance-wide and keeps its existing export behavior.
+- OpenAPI documents both platform and workspace portability surfaces.
+- Version metadata, release note, release feed, and focused runtime checks are updated for `3.16.4`.
+
+### Closeout
+
+- Status: completed in `3.16.4`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, `docs/wiki/08-Backlog.md`, `backend/openapi/openapi.yaml`, and `docs/releases/v3.16.4.md`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.16.4` using the local platform compose override; `/api/health` reported version/frontend/backend/build `3.16.4`; running backend env reported `APP_EDITION=platform`, `APP_VERSION=3.16.4`, and `NODE_ENV=development`; backend/frontend containers were healthy; Help > Releases served `3.16.4`; targeted browser coverage verified Workspace Settings and Platform Settings portability readback; an isolated homelab compose project passed homelab boundary verification and was removed.
+- Verification: Docker frontend production build; Docker backend unit tests (`304` passed); host and Docker OpenAPI validation; Help > Releases smoke; targeted Workspace Settings browser regression (`2` passed including setup); targeted Platform Settings portability browser regression (`2` passed including setup); RBAC regression; platform edition boundary; homelab edition boundary against an isolated local compose project; backend and frontend production dependency audits (`0` vulnerabilities); version sync; release note/feed regeneration; `git diff --check`; and targeted changed-file secret-pattern scan.
+- CI follow-through: stricter CI `compose-smoke`, repository-history `secret-scan`, full `browser-regression`, and `image-security-and-sbom` remain remote GitHub Actions gates for the pushed commit. Host frontend build and host unit tests remain blocked by the older local Node runtime (`??=` and `util/types` support), so Docker is authoritative for those gates.
+- Risks/follow-ups: upload binaries remain a separate backup responsibility; portability exports include upload manifests only. Internal route IDs still use the existing `admin-*` route names until a future route-cleanup slice is worth the churn. The local secret-pattern sweep found existing field names, encrypted-column names, and Playwright fixture credentials, but no new plaintext secret value was added by this slice.
+- What remains in the milestone: nothing for `3.16.4`; remaining workspace/platform boundary refinements stay in the backlog unless selected for a later release slice.
+
 ## 3.16.3 — Workspace Integration Source Readback
 
 **Goal:** Let workspace admins see whether each integration is workspace-configured, using collectZ defaults, or not configured.
