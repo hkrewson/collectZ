@@ -27,6 +27,17 @@ function deriveCwaBaseUrl(rawUrl = '') {
   }
 }
 
+function hostnameMatches(rawUrl = '', expectedHostname = '') {
+  const expected = String(expectedHostname || '').trim().toLowerCase();
+  if (!expected) return false;
+  try {
+    const hostname = new URL(String(rawUrl || '').trim()).hostname.toLowerCase();
+    return hostname === expected || hostname.endsWith(`.${expected}`);
+  } catch (_) {
+    return false;
+  }
+}
+
 const normalizeIntegrationRecord = (row) => {
   const envBarcodePreset = process.env.BARCODE_PRESET || process.env.BARCODE_PROVIDER || 'upcitemdb';
   const envTmdbPreset = process.env.TMDB_PRESET || 'tmdb';
@@ -109,7 +120,7 @@ const normalizeIntegrationRecord = (row) => {
   const resolvedAudioPreset = (row?.audio_preset || envAudioPreset) === 'theaudiodb'
     ? 'discogs'
     : (row?.audio_preset || envAudioPreset);
-  const resolvedAudioApiUrl = legacyAudioUrl.includes('theaudiodb.com')
+  const resolvedAudioApiUrl = hostnameMatches(legacyAudioUrl, 'theaudiodb.com')
     ? (audioPreset.apiUrl || process.env.AUDIO_API_URL || '')
     : (row?.audio_api_url || audioPreset.apiUrl || process.env.AUDIO_API_URL || '');
 

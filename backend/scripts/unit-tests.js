@@ -4265,7 +4265,7 @@ results.push(run('valuations.refreshMediaValuation falls back to eBay Browse aft
   const httpClient = {
     async get(url, options = {}) {
       requests.push({ url, params: options.params || null, headers: options.headers || null });
-      if (String(url).includes('pricecharting.com')) {
+      if (new URL(String(url)).hostname === 'www.pricecharting.com') {
         return { status: 200, data: {} };
       }
       return {
@@ -5735,6 +5735,15 @@ results.push(run('CSV import uploads stay in memory instead of reading request-c
   assert.ok(mediaRoutesSource.includes("req.file.buffer.toString('utf8')"));
   assert.ok(!mediaRoutesSource.includes('fs.promises.readFile(req.file.path'));
   assert.ok(!mediaRoutesSource.includes('fs.promises.unlink(req.file.path'));
+}));
+
+results.push(run('media identity alias SQL uses query parameters instead of escaped interpolation', () => {
+  assert.ok(mediaRoutesSource.includes('function appendMetadataKeyMatchSql'));
+  assert.ok(mediaRoutesSource.includes('function appendMetadataKeyAnySql'));
+  assert.ok(mediaRoutesSource.includes('mm."key" = ANY(${appendSqlParam(params, keys)}::text[])'));
+  assert.ok(!mediaRoutesSource.includes("aliasKey.replace(/'/g"));
+  assert.ok(!mediaRoutesSource.includes("key.replace(/'/g"));
+  assert.ok(!mediaRoutesSource.includes('ANY(ARRAY[${'));
 }));
 
 results.push(run('native art migration and shared event purchase backfill are wired for the 3.4.2 migration phase', () => {

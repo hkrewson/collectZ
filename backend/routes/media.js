@@ -168,6 +168,22 @@ const router = express.Router();
 
 const ALLOWED_COVER_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 
+function appendSqlParam(params, value) {
+  params.push(value);
+  return `$${params.length}`;
+}
+
+function appendMetadataKeyMatchSql(params, aliasKey) {
+  if (!aliasKey) return '';
+  return ` OR mm."key" = ${appendSqlParam(params, aliasKey)}`;
+}
+
+function appendMetadataKeyAnySql(params, aliasKeys = []) {
+  const keys = [...new Set(aliasKeys.filter(Boolean))];
+  if (keys.length === 0) return '';
+  return ` OR mm."key" = ANY(${appendSqlParam(params, keys)}::text[])`;
+}
+
 function sanitizeUploadFilename(originalName = '') {
   const base = path.basename(String(originalName || '').trim());
   if (!base) return 'upload.bin';
@@ -3948,23 +3964,23 @@ function getIdentifierMatchPriority({ mediaType, importSource }) {
 async function findExistingByIdentifier({ identifierType, identifierValue, normalizedMediaType, scopeContext = null }) {
   if (!identifierValue) return { row: null, conflict: false };
   const params = [normalizedMediaType, identifierValue];
+  let condition = '';
+  if (identifierType === 'isbn') {
+    const aliasKey = buildMediaIdentityAliasKey('isbn', identifierValue);
+    condition = `(COALESCE(m.type_details->>'isbn', '') = $2 OR (mm."key" = 'isbn' AND mm."value" = $2)${appendMetadataKeyMatchSql(params, aliasKey)})`;
+  } else if (identifierType === 'ean_upc') {
+    const aliasKey = buildMediaIdentityAliasKey('eanUpc', identifierValue);
+    condition = `(COALESCE(m.upc, '') = $2 OR (mm."key" IN ('ean', 'ean_upc', 'upc') AND mm."value" = $2)${appendMetadataKeyMatchSql(params, aliasKey)})`;
+  } else if (identifierType === 'asin') {
+    const aliasKey = buildMediaIdentityAliasKey('amazonItemId', identifierValue);
+    condition = `((mm."key" = 'amazon_item_id' AND mm."value" = $2)${appendMetadataKeyMatchSql(params, aliasKey)})`;
+  } else {
+    return { row: null, conflict: false };
+  }
   const scopeClause = appendScopeSql(params, scopeContext, {
     spaceColumn: 'm.space_id',
     libraryColumn: 'm.library_id'
   });
-  let condition = '';
-  if (identifierType === 'isbn') {
-    const aliasKey = buildMediaIdentityAliasKey('isbn', identifierValue);
-    condition = `(COALESCE(m.type_details->>'isbn', '') = $2 OR (mm."key" = 'isbn' AND mm."value" = $2)${aliasKey ? ` OR mm."key" = '${aliasKey.replace(/'/g, "''")}'` : ''})`;
-  } else if (identifierType === 'ean_upc') {
-    const aliasKey = buildMediaIdentityAliasKey('eanUpc', identifierValue);
-    condition = `(COALESCE(m.upc, '') = $2 OR (mm."key" IN ('ean', 'ean_upc', 'upc') AND mm."value" = $2)${aliasKey ? ` OR mm."key" = '${aliasKey.replace(/'/g, "''")}'` : ''})`;
-  } else if (identifierType === 'asin') {
-    const aliasKey = buildMediaIdentityAliasKey('amazonItemId', identifierValue);
-    condition = `((mm."key" = 'amazon_item_id' AND mm."value" = $2)${aliasKey ? ` OR mm."key" = '${aliasKey.replace(/'/g, "''")}'` : ''})`;
-  } else {
-    return { row: null, conflict: false };
-  }
 
   const result = await pool.query(
     `SELECT DISTINCT m.id
@@ -3991,6 +4007,8 @@ async function findExistingByProviderIds({ item, normalizedMediaType, normalized
     const providerItemAliasKey = buildMediaIdentityAliasKey('providerItemId', providerItemId);
     const calibreEntryAliasKey = buildMediaIdentityAliasKey('calibreEntryId', providerItemId);
     const params = [providerItemId, normalizedMediaType];
+    const providerItemAliasClause = appendMetadataKeyMatchSql(params, providerItemAliasKey);
+    const calibreEntryAliasClause = appendMetadataKeyMatchSql(params, calibreEntryAliasKey);
     const scopeClause = appendScopeSql(params, scopeContext, {
       spaceColumn: 'm.space_id',
       libraryColumn: 'm.library_id'
@@ -4005,8 +4023,8 @@ async function findExistingByProviderIds({ item, normalizedMediaType, normalized
            OR COALESCE(m.type_details->>'calibre_entry_id', '') = $1
            OR (mm."key" = 'provider_item_id' AND mm."value" = $1)
            OR (mm."key" = 'calibre_entry_id' AND mm."value" = $1)
-           ${providerItemAliasKey ? `OR mm."key" = '${providerItemAliasKey.replace(/'/g, "''")}'` : ''}
-           ${calibreEntryAliasKey ? `OR mm."key" = '${calibreEntryAliasKey.replace(/'/g, "''")}'` : ''}
+           ${providerItemAliasClause}
+           ${calibreEntryAliasClause}
          )
          ${scopeClause}
        ORDER BY m.id DESC
@@ -4025,6 +4043,7 @@ async function findExistingByProviderIds({ item, normalizedMediaType, normalized
     if (providerIssueId) {
       const providerIssueAliasKey = buildMediaIdentityAliasKey('providerIssueId', providerIssueId);
       const params = [providerIssueId, normalizedMediaType];
+      const providerIssueAliasClause = appendMetadataKeyMatchSql(params, providerIssueAliasKey);
       const scopeClause = appendScopeSql(params, scopeContext, {
         spaceColumn: 'm.space_id',
         libraryColumn: 'm.library_id'
@@ -4038,7 +4057,7 @@ async function findExistingByProviderIds({ item, normalizedMediaType, normalized
              COALESCE(m.type_details->>'provider_issue_id', '') = $1
              OR (mm."key" = 'provider_issue_id' AND mm."value" = $1)
              OR (mm."key" = 'metron_issue_id' AND mm."value" = $1)
-             ${providerIssueAliasKey ? `OR mm."key" = '${providerIssueAliasKey.replace(/'/g, "''")}'` : ''}
+             ${providerIssueAliasClause}
            )
            ${scopeClause}
          ORDER BY m.id DESC
@@ -4072,6 +4091,7 @@ async function findExistingByProviderIds({ item, normalizedMediaType, normalized
   if (plexGuid) {
     const plexGuidAliasKey = buildMediaIdentityAliasKey('plexGuid', plexGuid);
     const params = [plexGuid];
+    const plexGuidAliasClause = appendMetadataKeyMatchSql(params, plexGuidAliasKey);
     const scopeClause = appendScopeSql(params, scopeContext, {
       spaceColumn: 'm.space_id',
       libraryColumn: 'm.library_id'
@@ -4080,7 +4100,7 @@ async function findExistingByProviderIds({ item, normalizedMediaType, normalized
       `SELECT m.id
        FROM media m
        JOIN media_metadata mm ON mm.media_id = m.id
-       WHERE ((mm."key" = 'plex_guid' AND mm."value" = $1)${plexGuidAliasKey ? ` OR mm."key" = '${plexGuidAliasKey.replace(/'/g, "''")}'` : ''})
+       WHERE ((mm."key" = 'plex_guid' AND mm."value" = $1)${plexGuidAliasClause})
          ${scopeClause}
        ORDER BY m.id DESC
        LIMIT 1`,
@@ -4093,6 +4113,7 @@ async function findExistingByProviderIds({ item, normalizedMediaType, normalized
   if (plexRatingKey) {
     const plexItemAliasKey = buildMediaIdentityAliasKey('plexItemKey', plexRatingKey);
     const params = [plexRatingKey];
+    const plexItemAliasClause = appendMetadataKeyMatchSql(params, plexItemAliasKey);
     const scopeClause = appendScopeSql(params, scopeContext, {
       spaceColumn: 'm.space_id',
       libraryColumn: 'm.library_id'
@@ -4101,7 +4122,7 @@ async function findExistingByProviderIds({ item, normalizedMediaType, normalized
       `SELECT m.id
        FROM media m
        JOIN media_metadata mm ON mm.media_id = m.id
-       WHERE ((mm."key" = 'plex_item_key' AND mm."value" = $1)${plexItemAliasKey ? ` OR mm."key" = '${plexItemAliasKey.replace(/'/g, "''")}'` : ''})
+       WHERE ((mm."key" = 'plex_item_key' AND mm."value" = $1)${plexItemAliasClause})
          ${scopeClause}
        ORDER BY m.id DESC
        LIMIT 1`,
@@ -6301,60 +6322,62 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
         let existing = null;
 
         if (plexGuid) {
-        const plexGuidAliasKey = buildMediaIdentityAliasKey('plexGuid', plexGuid);
-        const byPlexGuidParams = [plexGuid];
-        const byPlexGuidScopeClause = appendScopeSql(byPlexGuidParams, scopeContext, {
-          spaceColumn: 'm.space_id',
-          libraryColumn: 'm.library_id'
-        });
-        const byPlexGuid = await pool.query(
-          `SELECT m.id
-           FROM media m
-           JOIN media_metadata mm ON mm.media_id = m.id
-           WHERE ((mm."key" = 'plex_guid' AND mm."value" = $1)${plexGuidAliasKey ? ` OR mm."key" = '${plexGuidAliasKey.replace(/'/g, "''")}'` : ''})
-             ${byPlexGuidScopeClause}
-           ORDER BY m.created_at DESC
-           LIMIT 1`,
-          byPlexGuidParams
-        );
+          const plexGuidAliasKey = buildMediaIdentityAliasKey('plexGuid', plexGuid);
+          const byPlexGuidParams = [plexGuid];
+          const plexGuidAliasClause = appendMetadataKeyMatchSql(byPlexGuidParams, plexGuidAliasKey);
+          const byPlexGuidScopeClause = appendScopeSql(byPlexGuidParams, scopeContext, {
+            spaceColumn: 'm.space_id',
+            libraryColumn: 'm.library_id'
+          });
+          const byPlexGuid = await pool.query(
+            `SELECT m.id
+             FROM media m
+             JOIN media_metadata mm ON mm.media_id = m.id
+             WHERE ((mm."key" = 'plex_guid' AND mm."value" = $1)${plexGuidAliasClause})
+               ${byPlexGuidScopeClause}
+             ORDER BY m.created_at DESC
+             LIMIT 1`,
+            byPlexGuidParams
+          );
           existing = byPlexGuid.rows[0] || null;
         }
 
         if (!existing && (plexItemKey || rawPlexItemKey)) {
-        const byPlexItemKeyCandidates = [...new Set([plexItemKey, rawPlexItemKey].filter(Boolean))];
-        const byPlexItemKeyAliasKeys = byPlexItemKeyCandidates
-          .map((value) => buildMediaIdentityAliasKey('plexItemKey', value))
-          .filter(Boolean);
-        const byPlexItemKeyParams = [byPlexItemKeyCandidates];
-        const byPlexItemKeyScopeClause = appendScopeSql(byPlexItemKeyParams, scopeContext, {
-          spaceColumn: 'm.space_id',
-          libraryColumn: 'm.library_id'
-        });
-        const byPlexItemKey = await pool.query(
-          `SELECT m.id
-           FROM media m
-           JOIN media_metadata mm ON mm.media_id = m.id
-           WHERE ((mm."key" = 'plex_item_key' AND mm."value" = ANY($1::text[]))${byPlexItemKeyAliasKeys.length ? ` OR mm."key" = ANY(ARRAY[${byPlexItemKeyAliasKeys.map((key) => `'${key.replace(/'/g, "''")}'`).join(', ')}]::text[])` : ''})
-             ${byPlexItemKeyScopeClause}
-           ORDER BY m.created_at DESC
-           LIMIT 1`,
-          byPlexItemKeyParams
-        );
+          const byPlexItemKeyCandidates = [...new Set([plexItemKey, rawPlexItemKey].filter(Boolean))];
+          const byPlexItemKeyAliasKeys = byPlexItemKeyCandidates
+            .map((value) => buildMediaIdentityAliasKey('plexItemKey', value))
+            .filter(Boolean);
+          const byPlexItemKeyParams = [byPlexItemKeyCandidates];
+          const byPlexItemKeyAliasClause = appendMetadataKeyAnySql(byPlexItemKeyParams, byPlexItemKeyAliasKeys);
+          const byPlexItemKeyScopeClause = appendScopeSql(byPlexItemKeyParams, scopeContext, {
+            spaceColumn: 'm.space_id',
+            libraryColumn: 'm.library_id'
+          });
+          const byPlexItemKey = await pool.query(
+            `SELECT m.id
+             FROM media m
+             JOIN media_metadata mm ON mm.media_id = m.id
+             WHERE ((mm."key" = 'plex_item_key' AND mm."value" = ANY($1::text[]))${byPlexItemKeyAliasClause})
+               ${byPlexItemKeyScopeClause}
+             ORDER BY m.created_at DESC
+             LIMIT 1`,
+            byPlexItemKeyParams
+          );
           existing = byPlexItemKey.rows[0] || null;
         }
 
         if (!existing && media.tmdb_id) {
-        const byTmdbParams = [media.tmdb_id, media.tmdb_media_type || 'movie'];
-        const byTmdbScopeClause = appendScopeSql(byTmdbParams, scopeContext);
-        const byTmdb = await pool.query(
-          `SELECT id
-           FROM media
-           WHERE tmdb_id = $1
-             AND COALESCE(tmdb_media_type, 'movie') = COALESCE($2, COALESCE(tmdb_media_type, 'movie'))
-             ${byTmdbScopeClause}
-           LIMIT 1`,
-          byTmdbParams
-        );
+          const byTmdbParams = [media.tmdb_id, media.tmdb_media_type || 'movie'];
+          const byTmdbScopeClause = appendScopeSql(byTmdbParams, scopeContext);
+          const byTmdb = await pool.query(
+            `SELECT id
+             FROM media
+             WHERE tmdb_id = $1
+               AND COALESCE(tmdb_media_type, 'movie') = COALESCE($2, COALESCE(tmdb_media_type, 'movie'))
+               ${byTmdbScopeClause}
+             LIMIT 1`,
+            byTmdbParams
+          );
           existing = byTmdb.rows[0] || null;
         }
 
@@ -6615,6 +6638,7 @@ async function findPlexReconciliationMatch(item = {}, scopeContext = null) {
   if (identity.plexGuid) {
     const plexGuidAliasKey = buildMediaIdentityAliasKey('plexGuid', identity.plexGuid);
     const params = [identity.plexGuid];
+    const plexGuidAliasClause = appendMetadataKeyMatchSql(params, plexGuidAliasKey);
     const scopeClause = appendScopeSql(params, scopeContext, {
       spaceColumn: 'm.space_id',
       libraryColumn: 'm.library_id'
@@ -6623,7 +6647,7 @@ async function findPlexReconciliationMatch(item = {}, scopeContext = null) {
       `SELECT ${selectColumns}
          FROM media m
          JOIN media_metadata mm ON mm.media_id = m.id
-        WHERE ((mm."key" = 'plex_guid' AND mm."value" = $1)${plexGuidAliasKey ? ` OR mm."key" = '${plexGuidAliasKey.replace(/'/g, "''")}'` : ''})
+        WHERE ((mm."key" = 'plex_guid' AND mm."value" = $1)${plexGuidAliasClause})
           ${scopeClause}
         ORDER BY m.created_at DESC
         LIMIT 1`,
@@ -6640,6 +6664,7 @@ async function findPlexReconciliationMatch(item = {}, scopeContext = null) {
       .map((value) => buildMediaIdentityAliasKey('plexItemKey', value))
       .filter(Boolean);
     const params = [plexItemKeyCandidates];
+    const plexItemAliasClause = appendMetadataKeyAnySql(params, plexItemAliasKeys);
     const scopeClause = appendScopeSql(params, scopeContext, {
       spaceColumn: 'm.space_id',
       libraryColumn: 'm.library_id'
@@ -6648,7 +6673,7 @@ async function findPlexReconciliationMatch(item = {}, scopeContext = null) {
       `SELECT ${selectColumns}
          FROM media m
          JOIN media_metadata mm ON mm.media_id = m.id
-        WHERE ((mm."key" = 'plex_item_key' AND mm."value" = ANY($1::text[]))${plexItemAliasKeys.length ? ` OR mm."key" = ANY(ARRAY[${plexItemAliasKeys.map((key) => `'${key.replace(/'/g, "''")}'`).join(', ')}]::text[])` : ''})
+        WHERE ((mm."key" = 'plex_item_key' AND mm."value" = ANY($1::text[]))${plexItemAliasClause})
           ${scopeClause}
         ORDER BY m.created_at DESC
         LIMIT 1`,

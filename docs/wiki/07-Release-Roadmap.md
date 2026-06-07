@@ -6,6 +6,35 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.16.22 — CodeQL SQL and URL Host Remediation
+
+**Goal:** Continue the local CodeQL baseline reduction by clearing backend SQL construction findings and URL substring-host validation findings.
+
+### Scope
+
+- Parameterize media identity alias SQL comparisons instead of interpolating escaped alias keys into query text.
+- Preserve ISBN, UPC/EAN, ASIN, provider item, Metron issue, and Plex identity alias matching behavior.
+- Replace broad URL substring checks with parsed hostname comparisons for legacy AudioDB fallback handling and library source-link labels.
+- Keep local CodeQL CLI analysis as the working alert source because GitHub code-scanning alert export is unavailable from this shell.
+
+### Acceptance Criteria
+
+- Local CodeQL reports `0` `js/sql-injection` findings.
+- Local CodeQL reports `0` `js/path-injection` findings.
+- Local CodeQL reports `0` `js/incomplete-url-substring-sanitization` findings.
+- Backend unit coverage asserts media identity alias SQL uses query parameters instead of escaped string interpolation.
+- Version metadata, release note, release feed, and focused runtime checks are updated for `3.16.22`.
+
+### Closeout
+
+- Status: completed in `3.16.22`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/49-Dependency-PR-and-CI-Security-Coverage.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, and `docs/releases/v3.16.22.md`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.16.22` using the local platform compose override; `/api/health` reported version/frontend/backend/build `3.16.22`; backend/frontend containers were healthy; Help > Releases served `3.16.22` as the newest entry. The homelab compose topology was also rebuilt from local sources at `3.16.22`, passed the homelab boundary smoke, and the local platform topology was restored afterward.
+- Verification: backend syntax checks for changed backend files; local backend unit tests (`307` passed); frontend production build; local CodeQL CLI database creation and JavaScript/TypeScript security plus security-and-quality analysis (`171` total local results, targeted rules `js/sql-injection`, `js/path-injection`, and `js/incomplete-url-substring-sanitization` at `0`); Docker backend unit tests (`307` passed); Docker OpenAPI validation; Help > Releases smoke; local API integration smoke through the frontend proxy; RBAC regression; platform edition boundary; homelab edition boundary; backend and frontend production dependency audits (`0` vulnerabilities); version sync; release note/feed regeneration; targeted changed-file secret-pattern scan; and `git diff --check`.
+- Blocked/unverified: live GitHub CodeQL alert export remains unavailable from this shell; local CodeQL CLI is the working source for this slice. CI-only `secret-scan`, `image-security-and-sbom`, and stricter remote publish gates remain GitHub Actions follow-through gates.
+- Risks/follow-ups: `js/request-forgery` still reports the Kavita and ICS fetch sinks even after the `3.16.21` guardrails; likely next work is either tighter source-level disposition/modeling or a product decision for admin-configured private connectors. Remaining source-backed findings include log injection, frontend DOM XSS review, insecure randomness in smoke tooling, regex DoS, and sanitizer precision issues.
+- What remains in the milestone: nothing for `3.16.22`; broader CodeQL baseline remediation continues in later selected slices.
+
 ## 3.16.21 — CodeQL Backend Input Boundary Hardening
 
 **Goal:** Reduce the initial CodeQL baseline by hardening the highest-risk backend SSRF and path-injection classes in the selected security-maintenance slice.

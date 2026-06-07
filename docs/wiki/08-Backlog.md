@@ -832,7 +832,7 @@ These are product-level capability gaps discovered from the current shape of the
 These are unscheduled security-maintenance tasks discovered from advisory scanning and release-gate follow-through. Keep them versionless until selected and moved into the roadmap as numbered milestones.
 
 ### Backlog Item: CodeQL Baseline Remediation
-**Status:** Promoted into `docs/wiki/07-Release-Roadmap.md` as `3.16.21 — CodeQL Backend Input Boundary Hardening`.
+**Status:** Active remediation is being promoted into numbered roadmap slices, including `3.16.21 — CodeQL Backend Input Boundary Hardening` and `3.16.22 — CodeQL SQL and URL Host Remediation`.
 
 ## UI/UX Cleanup Working Plan
 

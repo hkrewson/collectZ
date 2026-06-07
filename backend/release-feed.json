@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.16.22",
+      "version": "3.16.22",
+      "date": null,
+      "status": null,
+      "summary": "This patch continues CodeQL baseline remediation by clearing local SQL-injection and incomplete URL substring-host findings while preserving the existing media identity matching and provider-link labeling behavior.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Parameterized media identity alias SQL comparisons for ISBN, UPC/EAN, ASIN, provider item, Metron issue, and Plex alias matching.",
+            "Removed escaped alias-key interpolation from the affected media provider matching queries.",
+            "Added unit coverage that keeps media identity alias SQL on query parameters.",
+            "Replaced legacy AudioDB URL substring detection with parsed-hostname matching.",
+            "Replaced broad source-link hostname substring checks in the Library detail drawer with parsed hostname label matching.",
+            "Updated the PriceCharting unit-test mock to compare parsed hostnames instead of broad URL substrings."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.16.21",
       "version": "3.16.21",
       "date": null,
@@ -171,25 +191,6 @@
             "Kept normal users in `Help` from the Workspace menu.",
             "Moved `Help Admin` into the platform/support navigation context instead of showing it as a Workspace item.",
             "Updated browser and unit coverage so the sidebar contract expects the flattened Workspace links and platform-scoped Help Admin behavior."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.16.12",
-      "version": "3.16.12",
-      "date": null,
-      "status": null,
-      "summary": "This patch removes the redundant Workspace overview block so Workspace opens directly on the settings sections that users can act on.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Removed the large Workspace name, role, library, accessible workspace count, and visible library count block from the Workspace settings surface.",
-            "Removed the old in-page workspace selector from Workspace settings.",
-            "Kept workspace switching in the profile menu, where the app now treats Workspace and Platform as explicit contexts.",
-            "Kept Workspace Settings, Backup, Export, Integrations, People, and Activity tabs unchanged.",
-            "Updated browser coverage so it expects the useful Workspace sections instead of the old overview header."
           ]
         }
       ]

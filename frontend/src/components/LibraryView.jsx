@@ -60,6 +60,18 @@ const DEFAULT_MEDIA_FORM = {
 };
 const OVERVIEW_MAX_LENGTH = 10000;
 
+function hostnameMatches(hostname = '', expectedHostname = '') {
+  const value = String(hostname || '').trim().toLowerCase();
+  const expected = String(expectedHostname || '').trim().toLowerCase();
+  return Boolean(expected) && (value === expected || value.endsWith(`.${expected}`));
+}
+
+function hostnameIncludesLabel(hostname = '', label = '') {
+  const labels = String(hostname || '').trim().toLowerCase().split('.');
+  const expected = String(label || '').trim().toLowerCase();
+  return Boolean(expected) && labels.includes(expected);
+}
+
 function normalizeReviewFilter(value) {
   const raw = typeof value === 'string' ? value : value?.type;
   const normalized = String(raw || '').trim().toLowerCase().replace(/-/g, '_');
@@ -791,10 +803,10 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
     if (!value) return 'Open source';
     try {
       const host = new URL(value).hostname.toLowerCase();
-      if (host.includes('google')) return 'View on Google Books';
-      if (host.includes('openlibrary')) return 'View on Open Library';
-      if (host.includes('archive.org')) return 'View on Internet Archive';
-      if (host.includes('metron')) return 'View on Metron';
+      if (hostnameIncludesLabel(host, 'google')) return 'View on Google Books';
+      if (hostnameIncludesLabel(host, 'openlibrary')) return 'View on Open Library';
+      if (hostnameMatches(host, 'archive.org')) return 'View on Internet Archive';
+      if (hostnameIncludesLabel(host, 'metron')) return 'View on Metron';
     } catch {
       // fall back to provider-aware labels below
     }
@@ -823,15 +835,15 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
       const parsed = new URL(value);
       const host = parsed.hostname.toLowerCase();
       const path = parsed.pathname.toLowerCase();
-      if (providerName.includes('cwa_opds') || providerName.includes('calibre') || host.includes('calibre') || path.includes('/opds/')) {
+      if (providerName.includes('cwa_opds') || providerName.includes('calibre') || hostnameIncludesLabel(host, 'calibre') || path.includes('/opds/')) {
         return path.includes('/download/') ? 'Download on Calibre' : 'View on Calibre';
       }
-      if (providerName.includes('kavita') || host.includes('kavita')) return 'Open in Kavita';
-      if (host.includes('metron')) return 'View on Metron';
-      if (host.includes('comicvine')) return 'View on Comic Vine';
-      if (host.includes('leagueofcomicgeeks')) return 'View on League of Comic Geeks';
-      if (host.includes('marvel')) return 'View on Marvel';
-      if (host.includes('dc.com')) return 'View on DC';
+      if (providerName.includes('kavita') || hostnameIncludesLabel(host, 'kavita')) return 'Open in Kavita';
+      if (hostnameIncludesLabel(host, 'metron')) return 'View on Metron';
+      if (hostnameIncludesLabel(host, 'comicvine')) return 'View on Comic Vine';
+      if (hostnameIncludesLabel(host, 'leagueofcomicgeeks')) return 'View on League of Comic Geeks';
+      if (hostnameIncludesLabel(host, 'marvel')) return 'View on Marvel';
+      if (hostnameMatches(host, 'dc.com')) return 'View on DC';
     } catch {
       // fall back to provider-aware labels below
     }
