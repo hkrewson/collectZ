@@ -44,9 +44,9 @@ Initial posture is advisory. After the first baseline run is clean and false-pos
 
 Authoritative CodeQL baseline means the GitHub Actions scan over a clean checkout of committed, maintained JavaScript/TypeScript source. The workflow uses `.github/codeql/codeql-config.yml` to keep generated and local-only output out of the source-analysis baseline while preserving the broad `security-extended` and `security-and-quality` suites.
 
-The hosted workflow now keeps authoritative analysis on committed source and runs `security-extended` plus `security-and-quality` with `codeql-config.yml` and the local `.github/codeql/collectz-js-models` pack.
+The hosted workflow keeps authoritative analysis on committed source and runs `security-extended` plus `security-and-quality` with `codeql-config.yml`. The local `.github/codeql/collectz-js-models` model pack is used for exploratory local CLI scans only, because hosted CodeQL workflow inputs currently accept registry-scoped packs and do not support local pack paths.
 
-Exploratory local CLI runs may additionally load `codeql/javascript-queries:AlertSuppression.ql` for in-file suppression review. Those local-only results are still advisory until they reproduce against the hosted authoritative baseline.
+Exploratory local CLI runs may additionally load `codeql/javascript-queries:AlertSuppression.ql` and the local collectZ model pack for in-file suppression and model-coverage review. Those local-only results are still advisory until they reproduce against the hosted authoritative baseline.
 
 The config excludes generated/noisy paths such as `artifacts/**`, `backend/artifacts/**`, `frontend/artifacts/**`, Playwright reports, coverage output, build/dist output, dependency folders, and local SARIF exports. Those files may exist in a maintainer workspace after browser captures, release evidence generation, local builds, or exploratory CodeQL runs, but they are not shipped app source and should not drive product-security remediation unless the finding points back to maintained source.
 
