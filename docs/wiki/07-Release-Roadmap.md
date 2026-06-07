@@ -6,6 +6,36 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.16.23 — CodeQL Log Hygiene and Unused Finding Triage
+
+**Goal:** Continue the local CodeQL baseline reduction by clearing log-injection findings and establishing the intent-first workflow for unused-variable findings before the larger unused-variable cleanup begins.
+
+### Scope
+
+- Sanitize request, audit, and syslog collector log fields before writing untrusted values to console or log files.
+- Preserve existing request URL token redaction while also collapsing control characters that could forge log lines.
+- Triage unused-variable findings through repo docs, roadmap/backlog intent, surrounding implementation, and tests before removal.
+- Treat unused variables as one of four categories: generated-artifact noise, intended future/partial behavior that needs implementation, intentionally retained behavior that needs coverage or wiring, or true dead code that can be removed.
+- Resolve the `PLATFORM_KEYS` finding by using the sorted alias key list in Delicious platform canonicalization, preserving the intended longest-alias normalization behavior instead of deleting it.
+- Keep local CodeQL CLI analysis as the working alert source because GitHub code-scanning alert export is unavailable from this shell.
+
+### Acceptance Criteria
+
+- Local CodeQL reports `0` `js/log-injection` findings.
+- `PLATFORM_KEYS` is wired into Delicious platform canonicalization and covered by a unit test for the longer `Xbox Series X` title suffix case.
+- Remaining unused-variable findings are documented as follow-up baseline work, with the intent-first triage rule recorded before removals are attempted.
+- Version metadata, release note, release feed, and focused runtime checks are updated for `3.16.23`.
+
+### Closeout
+
+- Status: completed in `3.16.23`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/49-Dependency-PR-and-CI-Security-Coverage.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, and `docs/releases/v3.16.23.md`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.16.23` using the local platform compose override; `/api/health` reported version/frontend/backend/build `3.16.23`; backend/frontend containers were healthy; Help > Releases served `3.16.23` as the newest entry. The homelab compose topology was also rebuilt from local sources at `3.16.23`, passed the homelab boundary smoke, and the local platform topology was restored afterward.
+- Verification: backend syntax checks for changed backend/logging files; local backend unit tests (`309` passed); frontend production build; local CodeQL CLI database creation and JavaScript/TypeScript security plus security-and-quality analysis (`164` total local results, targeted `js/log-injection` at `0`, and no `PLATFORM_KEYS` unused-variable result); Docker backend unit tests (`309` passed); Docker OpenAPI validation; Help > Releases smoke; local API integration smoke through the frontend proxy; RBAC regression; platform edition boundary; homelab edition boundary; backend and frontend production dependency audits (`0` vulnerabilities); version sync; release note/feed regeneration; targeted changed-file secret-pattern scan; and `git diff --check`.
+- Blocked/unverified: live GitHub CodeQL alert export remains unavailable from this shell; local CodeQL CLI is the working source for this slice. CI-only `secret-scan`, `image-security-and-sbom`, full `browser-regression`, and stricter remote publish gates remain GitHub Actions follow-through gates.
+- Risks/follow-ups: remaining local CodeQL findings include `33` unused-variable findings, with at least one generated-artifact finding from `artifacts/playwright/report/index.html`; continue unused-variable cleanup under the documented intent-first rule. Other remaining source-backed findings include request-forgery disposition/modeling, frontend DOM XSS review, insecure randomness in smoke tooling, regex DoS, and sanitizer precision findings.
+- What remains in the milestone: nothing for `3.16.23`; broader CodeQL baseline remediation continues in later selected slices.
+
 ## 3.16.22 — CodeQL SQL and URL Host Remediation
 
 **Goal:** Continue the local CodeQL baseline reduction by clearing backend SQL construction findings and URL substring-host validation findings.

@@ -5,6 +5,12 @@ const REDACTED = '[REDACTED]';
 const SENSITIVE_KEY_PATTERN = /(authorization|cookie|session(_|-)?token|csrf(_|-)?token|api(_|-)?key|secret|password|token)$/i;
 const SENSITIVE_VALUE_PATTERN = /(bearer\s+[a-z0-9._~-]+|session_token=|csrf_token=)/i;
 
+const sanitizeLogField = (value = '') => String(value || '')
+  .replace(/[\r\n]+/g, '')
+  .replace(/\t+/g, ' ')
+  .replace(/[^\S\r\n]+/g, ' ')
+  .trim();
+
 const sanitizeAuditDetails = (value, key = '') => {
   if (value === null || value === undefined) return value;
 
@@ -75,21 +81,22 @@ const logActivity = async (req, action, entityType = null, entityId = null, deta
       });
       await maybeExportActivityLog(event);
     } catch (exportError) {
-      console.warn('Structured log export failed:', exportError.message);
+      console.warn('Structured log export failed:', sanitizeLogField(exportError.message));
     }
   } catch (error) {
-    console.error('Activity log write failed:', error.message);
+    console.error('Activity log write failed:', sanitizeLogField(error.message));
   }
 };
 
 const logError = (context, error) => {
-  const message = error?.message || String(error);
-  const status = error?.response?.status;
+  const safeContext = sanitizeLogField(context);
+  const message = sanitizeLogField(error?.message || String(error));
+  const status = sanitizeLogField(error?.response?.status);
   if (status) {
-    console.error(`[${context}] ${message} (HTTP ${status})`);
+    console.error(`context=${JSON.stringify(safeContext)} message=${JSON.stringify(message)} status=${JSON.stringify(status)}`);
   } else {
-    console.error(`[${context}] ${message}`);
+    console.error(`context=${JSON.stringify(safeContext)} message=${JSON.stringify(message)}`);
   }
 };
 
-module.exports = { logActivity, logError, extractRequestIp, sanitizeAuditDetails };
+module.exports = { logActivity, logError, extractRequestIp, sanitizeAuditDetails, sanitizeLogField };

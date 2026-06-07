@@ -13,11 +13,19 @@ const outputFile = process.env.SYSLOG_OUTPUT_FILE || '/var/log/collectz/collectz
 
 fs.mkdirSync(path.dirname(outputFile), { recursive: true });
 
+function sanitizeLogLine(value = '') {
+  return String(value || '')
+    .replace(/[\r\n]+/g, '')
+    .replace(/\t+/g, ' ')
+    .replace(/[^\S\r\n]+/g, ' ')
+    .trim();
+}
+
 function appendLine(line) {
-  const normalized = String(line).trim();
+  const normalized = sanitizeLogLine(line);
   if (!normalized) return;
   fs.appendFileSync(outputFile, `${normalized}\n`, 'utf8');
-  console.log(`[syslog-collector] ${normalized}`);
+  console.log(`[syslog-collector] line=${JSON.stringify(normalized)}`);
 }
 
 const tcpServer = net.createServer((socket) => {

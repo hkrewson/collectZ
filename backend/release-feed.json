@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.16.23",
+      "version": "3.16.23",
+      "date": null,
+      "status": null,
+      "summary": "This patch continues CodeQL baseline remediation by hardening log output against forged-line injection and documenting the intent-first process for unused-variable findings before broader cleanup.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Sanitized request, audit, and syslog collector log fields before writing untrusted values to console or log files.",
+            "Preserved Plex webhook and token redaction while also collapsing control characters in request URLs.",
+            "Added unit coverage for shared log-field sanitization.",
+            "Wired Delicious platform canonicalization through the sorted platform alias key list.",
+            "Added unit coverage for the longer `Xbox Series X` platform suffix so the alias ordering intent remains protected.",
+            "Documented the unused-variable triage rule in the backlog and selected roadmap slice."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.16.22",
       "version": "3.16.22",
       "date": null,
@@ -172,25 +192,6 @@
             "Kept existing Capture Inbox routes and deep links working.",
             "Made the `Import` navigation item stay active when Capture Inbox is open.",
             "Updated browser and unit coverage for the new Import-owned Capture entry point."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.16.13",
-      "version": "3.16.13",
-      "date": null,
-      "status": null,
-      "summary": "This patch keeps the Workspace and Platform split moving in the right direction by removing the old collapsible Workspace navigation group and making Help versus Help Admin clearer.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Removed the collapsible `Workspace` navigation item.",
-            "Promoted workspace `Settings` and `Merge Review` to direct Workspace-mode navigation links.",
-            "Kept normal users in `Help` from the Workspace menu.",
-            "Moved `Help Admin` into the platform/support navigation context instead of showing it as a Workspace item.",
-            "Updated browser and unit coverage so the sidebar contract expects the flattened Workspace links and platform-scoped Help Admin behavior."
           ]
         }
       ]

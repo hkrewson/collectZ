@@ -111,7 +111,8 @@ const {
   isSupportAccessApprovalActive
 } = require('../services/supportAccess');
 const { extractScopeHints, resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
-const { sanitizeAuditDetails } = require('../services/audit');
+const { sanitizeAuditDetails, sanitizeLogField: sanitizeAuditLogField } = require('../services/audit');
+const { sanitizeLogField: sanitizeRequestLogField, sanitizeRequestUrl } = require('../middleware/errors');
 const { buildGelfEvent, inferLevel, inferOutcome, truncateJsonValue, readExportConfig, promoteDetailFields, omitNilFields, formatSyslogMessage } = require('../services/logExport');
 const { requestIdMiddleware } = require('../middleware/requestId');
 const {
@@ -149,7 +150,6 @@ const {
 } = require('../services/loanReminders');
 const metricsModule = require('../services/metrics');
 const { shouldEnforceCsrf } = require('../middleware/csrf');
-const { sanitizeRequestUrl } = require('../middleware/errors');
 const observabilityRuntimeSource = fs.readFileSync(require.resolve('../services/observabilityRuntime'), 'utf8');
 const releasePreflightLocalSource = fs.readFileSync(require.resolve('../scripts/release-preflight-local'), 'utf8');
 const ciComposeWriterSource = fs.readFileSync(require.resolve('../../scripts/write-ci-compose-overrides'), 'utf8');
@@ -3711,6 +3711,15 @@ results.push(run('deliciousNormalize extracts platform and ASIN', () => {
   assert.strictEqual(out.ean, '0043396030145');
 }));
 
+results.push(run('deliciousNormalize uses longest platform aliases for title suffixes', () => {
+  const out = normalizeDeliciousRow({
+    title: 'Halo Infinite - Xbox Series X',
+    'item type': 'VideoGame'
+  });
+  assert.strictEqual(out.normalizedTitle, 'Halo Infinite');
+  assert.strictEqual(out.normalizedPlatform, 'Xbox Series X');
+}));
+
 results.push(run('importIdentifiers normalizes ISBN-10 to ISBN-13', () => {
   const isbn13 = normalizeIsbn('0-345-39180-2');
   assert.strictEqual(isbn13, '9780345391803');
@@ -3927,6 +3936,17 @@ results.push(run('audit.sanitizeAuditDetails redacts sensitive string patterns e
     reason: 'missing_token',
     resetTokenId: 22
   });
+}));
+
+results.push(run('log field sanitizers remove line breaks before console output', () => {
+  const webhookCredential = ['czpw', 'fixture'].join('_');
+  const queryCredential = ['czpw', 'other'].join('_');
+  assert.strictEqual(sanitizeAuditLogField('first\nsecond\tthird'), 'firstsecond third');
+  assert.strictEqual(sanitizeRequestLogField('GET\r\nX-Injected: yes'), 'GETX-Injected: yes');
+  assert.strictEqual(
+    sanitizeRequestUrl(`/api/plex/webhooks/${webhookCredential}\nnext?${'token'}=${queryCredential}`),
+    '/api/plex/webhooks/[REDACTED]?token=[REDACTED]'
+  );
 }));
 
 results.push(run('logExport.inferOutcome classifies failed and denied actions', () => {

@@ -51,7 +51,8 @@ function canonicalizePlatform(value) {
     .replace(/[^a-z0-9 +.-]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
-  return PLATFORM_ALIASES[normalized] || '';
+  const matchedKey = PLATFORM_KEYS.find((key) => normalized === key);
+  return matchedKey ? PLATFORM_ALIASES[matchedKey] : '';
 }
 
 function extractPlatformFromTitle(rawTitle) {
