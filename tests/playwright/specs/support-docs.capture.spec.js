@@ -43,7 +43,7 @@ test.describe('support docs capture flows @capture', () => {
     await captureNamedPage(page, 'help-admin-triage');
 
     await page.goto('/dashboard?tab=admin-integrations&integration=logs');
-    await expect(page.getByRole('heading', { name: 'Integrations' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Platform Runtime' })).toBeVisible();
     await captureNamedPage(page, 'admin-integrations');
   });
 });

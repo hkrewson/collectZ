@@ -16,7 +16,8 @@
             "Replaced support issue-link and collectible trait-key regex normalization with bounded scanners.",
             "Replaced automatic loan reminder smoke-test randomness and hardcoded transient password material with crypto-generated runtime values.",
             "Moved personal Sched ICS `&amp;` decoding after other entity replacements to prevent double-unescape behavior.",
-            "Extracted support summary state/loading from the app shell so `frontend/src/App.jsx` stays under the CI hard line budget."
+            "Extracted support summary state/loading from the app shell so `frontend/src/App.jsx` stays under the CI hard line budget.",
+            "Updated browser regression coverage for the current Platform Runtime and Workspace Integrations split so CI no longer expects stale provider tabs on the platform runtime surface."
           ]
         }
       ]

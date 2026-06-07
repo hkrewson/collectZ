@@ -10,6 +10,22 @@ async function openIntegrationsSection(page, name) {
   await expect(activeSectionRoot(page).getByRole('heading', { name, exact: true })).toBeVisible();
 }
 
+async function expectPlatformRuntime(page) {
+  await expect(page.getByRole('heading', { name: 'Platform Runtime' })).toBeVisible();
+  await expect(page.getByRole('tablist', { name: 'Integration sections' }).getByRole('tab')).toHaveText([
+    'External Logs',
+    'Metrics'
+  ]);
+}
+
+async function openWorkspaceIntegrations(page) {
+  await page.goto('/dashboard?tab=space-manage');
+  const workspaceSections = page.getByLabel('Workspace sections');
+  await expect(workspaceSections.getByRole('button', { name: 'Integrations', exact: true })).toBeVisible();
+  await workspaceSections.getByRole('button', { name: 'Integrations', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Workspace Integrations', exact: true })).toBeVisible();
+}
+
 function activeSectionRoot(page) {
   return page.locator('.space-y-4.min-w-0');
 }
@@ -46,24 +62,7 @@ test.describe('integrations browser regressions', () => {
     try {
       await signInThroughUi(page, adminCredentials);
       await page.goto('/dashboard?tab=admin-integrations&integration=logs');
-      await expect(page.getByRole('heading', { name: 'Integrations' })).toBeVisible();
-
-      const sectionTabs = page.getByRole('tablist', { name: 'Integration sections' });
-      await expect(sectionTabs.getByRole('tab')).toHaveText([
-        'Audio',
-        'Barcode',
-        'Books',
-        'CWA OPDS',
-        'Comics',
-        'PriceCharting',
-        'eBay Browse',
-        'Games',
-        'Kavita',
-        'External Logs',
-        'Metrics',
-        'Plex',
-        'TMDB'
-      ]);
+      await expectPlatformRuntime(page);
 
       await activeSectionRoot(page).locator('input[name="log_export_host"]').fill(logHost);
       await activeSectionRoot(page).locator('input[name="log_export_port"]').fill(logPort);
@@ -71,7 +70,7 @@ test.describe('integrations browser regressions', () => {
       await expect(page.getByText('LOGS settings saved')).toBeVisible();
 
       await page.reload();
-      await expect(page.getByRole('heading', { name: 'Integrations' })).toBeVisible();
+      await expectPlatformRuntime(page);
       await expect(activeSectionRoot(page).locator('input[name="log_export_host"]')).toHaveValue(logHost);
       await expect(activeSectionRoot(page).locator('input[name="log_export_port"]')).toHaveValue(logPort);
     } finally {
@@ -88,25 +87,7 @@ test.describe('integrations browser regressions', () => {
     try {
       await signInThroughUi(page, adminCredentials);
       await page.goto('/dashboard?tab=admin-integrations&integration=logs');
-      await expect(page.getByRole('heading', { name: 'Integrations' })).toBeVisible();
-
-      const sectionTabs = page.getByRole('tablist', { name: 'Integration sections' });
-      await expect(sectionTabs).toBeVisible();
-      await expect(sectionTabs.getByRole('tab')).toHaveText([
-        'Audio',
-        'Barcode',
-        'Books',
-        'CWA OPDS',
-        'Comics',
-        'PriceCharting',
-        'eBay Browse',
-        'Games',
-        'Kavita',
-        'External Logs',
-        'Metrics',
-        'Plex',
-        'TMDB',
-      ]);
+      await expectPlatformRuntime(page);
 
       await page.goto('/dashboard?tab=admin-integrations&integration=metrics');
       const metricsSwitch = page.getByRole('switch', { name: /Metrics Export/i });
@@ -123,7 +104,7 @@ test.describe('integrations browser regressions', () => {
       await expect(metricsSwitch).toHaveAttribute('aria-checked', nextChecked);
 
       await page.reload();
-      await expect(page.getByRole('heading', { name: 'Integrations' })).toBeVisible();
+      await expectPlatformRuntime(page);
       await expect(page.getByRole('switch', { name: /Metrics Export/i })).toHaveAttribute('aria-checked', nextChecked);
       await expect(page.getByRole('heading', { name: 'Runtime checks' })).toBeVisible();
       await expect(activeSectionRoot(page).getByText('/api/metrics', { exact: true })).toBeVisible();
@@ -291,8 +272,8 @@ test.describe('integrations browser regressions', () => {
     });
 
     await signInThroughUi(page, adminCredentials);
-    await page.goto('/dashboard?tab=admin-integrations&integration=plex');
-    await expect(page.getByRole('heading', { name: 'Integrations' })).toBeVisible();
+    await openWorkspaceIntegrations(page);
+    await openIntegrationsSection(page, 'Plex');
     await expect(page.getByText('Plex operating model')).toBeVisible();
     await expect(page.getByText('Scheduled sync', { exact: true })).toBeVisible();
     await expect(page.getByText('On, every 360 minutes')).toBeVisible();
