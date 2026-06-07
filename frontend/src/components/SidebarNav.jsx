@@ -303,7 +303,7 @@ export default function SidebarNav({
               </button>
               {workspaceOpen && !collapsed && (
                 <div className="mt-1 space-y-0.5">
-                  {isTabAllowed('space-manage') && <NavLink id="space-manage" icon={null} label="Settings & integrations" sub />}
+                  {isTabAllowed('space-manage') && <NavLink id="space-manage" icon={null} label="Settings" sub />}
                   {isTabAllowed('admin-merges') && <NavLink id="admin-merges" icon={null} label="Merge Review" sub />}
                 </div>
               )}

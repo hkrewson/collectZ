@@ -314,8 +314,9 @@ test.describe('space manager browser regressions', () => {
       await page.context().addCookies(storageState.cookies || []);
 
       await page.goto('/dashboard?tab=space-manage');
-      await expect(page.getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
-      await page.getByRole('button', { name: 'Settings', exact: true }).click();
+      const workspaceSections = page.getByLabel('Workspace sections');
+      await expect(workspaceSections.getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
+      await workspaceSections.getByRole('button', { name: 'Settings', exact: true }).click();
 
       await expect(page.getByRole('heading', { name: 'Workspace Settings', exact: true })).toBeVisible();
       await expect(page.getByLabel('Name', { exact: true })).toBeVisible();
@@ -324,9 +325,17 @@ test.describe('space manager browser regressions', () => {
       await expect(page.getByText('Collectibles Library', { exact: true })).toBeVisible();
       await expect(page.getByText('Slug', { exact: true })).toHaveCount(0);
       await expect(page.getByText('Description', { exact: true })).toHaveCount(0);
-      await expect(page.getByText('Workspace backup and portability', { exact: true })).toBeVisible();
+
+      await workspaceSections.getByRole('button', { name: 'Backup', exact: true }).click();
+      await expect(page.getByText('Review backup freshness, storage coverage, database reachability, and restore rehearsal guidance.', { exact: true })).toBeVisible();
       await expect(page.getByText(`Scope: ${createdSpaceName}`, { exact: true })).toBeVisible();
       await expect(page.getByText('Rows are filtered to this workspace.', { exact: true })).toBeVisible();
+      await expect(page.getByText('Manual export', { exact: true })).toHaveCount(0);
+
+      await workspaceSections.getByRole('button', { name: 'Export', exact: true }).click();
+      await expect(page.getByText('Download redacted workspace records, upload manifests, provider metadata, and restore guidance.', { exact: true })).toBeVisible();
+      await expect(page.getByText('Manual export', { exact: true })).toBeVisible();
+      await expect(page.getByText('Backup freshness', { exact: true })).toHaveCount(0);
 
       const portabilityResponse = await ownerContext.get(`/api/spaces/${createdSpaceId}/portability`);
       expect(portabilityResponse.ok()).toBeTruthy();
@@ -345,6 +354,7 @@ test.describe('space manager browser regressions', () => {
       expect(mediaTable).toBeTruthy();
       expect((mediaTable.rows || []).every((row) => Number(row.space_id) === createdSpaceId)).toBeTruthy();
 
+      await workspaceSections.getByRole('button', { name: 'Settings', exact: true }).click();
       const themeSavePromise = page.waitForResponse((response) => (
         response.url().includes('/api/spaces/')
         && response.url().includes('/settings/general')

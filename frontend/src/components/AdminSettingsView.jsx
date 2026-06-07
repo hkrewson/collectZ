@@ -227,6 +227,7 @@ function BackupPortabilityCard({
   exporting,
   exportFormat,
   lastExportedAt,
+  mode = 'combined',
   onRefresh,
   onExport,
   onExportFormatChange,
@@ -254,40 +255,60 @@ function BackupPortabilityCard({
   const scope = data?.scope || {};
   const isWorkspaceScope = scope.type === 'workspace';
   const scopeLabel = scope.label || (isWorkspaceScope ? 'Current workspace' : 'Platform');
+  const isBackupMode = mode === 'backup';
+  const isExportMode = mode === 'export';
+  const showExport = mode === 'combined' || isExportMode;
+  const showBackup = mode === 'combined' || isBackupMode;
+  const title = isExportMode
+    ? 'Export'
+    : isBackupMode
+      ? 'Backup'
+      : isWorkspaceScope
+        ? 'Workspace backup and portability'
+        : 'Backup and portability';
+  const description = isExportMode
+    ? 'Download redacted workspace records, upload manifests, provider metadata, and restore guidance.'
+    : isBackupMode
+      ? 'Review backup freshness, storage coverage, database reachability, and restore rehearsal guidance.'
+      : isWorkspaceScope
+        ? 'Read-only status and exports for this workspace’s records, uploaded images, provider metadata, and restore guidance.'
+        : 'Read-only status for database records, uploaded images, provider metadata, and restore guidance.';
 
   return (
     <div className="rounded-xl border border-edge bg-panel px-4 py-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-ink">
-            {isWorkspaceScope ? 'Workspace backup and portability' : 'Backup and portability'}
+            {title}
           </p>
           <p className="mt-1 text-sm text-ghost">
-            {isWorkspaceScope
-              ? 'Read-only status and exports for this workspace’s records, uploaded images, provider metadata, and restore guidance.'
-              : 'Read-only status for database records, uploaded images, provider metadata, and restore guidance.'}
+            {description}
           </p>
           {data ? <p className="mt-1 text-xs text-muted">Scope: {scopeLabel}</p> : null}
         </div>
         <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-          <label className="sr-only" htmlFor="portability-export-format">Export format</label>
-          <select
-            id="portability-export-format"
-            className="form-select h-9 min-w-[136px] text-sm"
-            value={exportFormat}
-            onChange={(event) => onExportFormatChange(event.target.value)}
-            disabled={loading || exporting}
-          >
-            <option value="json">JSON file</option>
-            <option value="csv">CSV files</option>
-          </select>
           <button type="button" className="btn-secondary btn-sm" onClick={onRefresh} disabled={loading || exporting}>
             {loading ? <Spinner size={14} /> : 'Refresh'}
           </button>
-          {exportFormat === 'json' ? (
-            <button type="button" className="btn-primary btn-sm" onClick={() => onExport('json')} disabled={loading || exporting}>
-              {exporting ? <Spinner size={14} /> : 'Download JSON'}
-            </button>
+          {showExport ? (
+            <>
+              <label className="sr-only" htmlFor="portability-export-format">Export format</label>
+              <select
+                id="portability-export-format"
+                className="form-select h-9 min-w-[136px] text-sm"
+                value={exportFormat}
+                onChange={(event) => onExportFormatChange(event.target.value)}
+                disabled={loading || exporting}
+              >
+                <option value="json">JSON file</option>
+                <option value="csv">CSV files</option>
+              </select>
+              {exportFormat === 'json' ? (
+                <button type="button" className="btn-primary btn-sm" onClick={() => onExport('json')} disabled={loading || exporting}>
+                  {exporting ? <Spinner size={14} /> : 'Download JSON'}
+                </button>
+              ) : null}
+            </>
           ) : null}
         </div>
       </div>
@@ -306,42 +327,45 @@ function BackupPortabilityCard({
 
       {data ? (
         <div className="mt-4 space-y-4">
-          <div className="rounded-lg border border-edge/80 bg-raised/40 px-3 py-3">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-ink">Manual export</p>
-                <p className="mt-1 text-sm text-ghost">
-                  {data.export_capabilities?.manual_archive?.note || 'Download a redacted collectZ export bundle.'}
-                </p>
-                <p className="mt-1 text-xs text-muted">
-                  JSON downloads one portable file. CSV downloads separate spreadsheet files by table.
-                </p>
+          {showExport ? (
+            <div className="rounded-lg border border-edge/80 bg-raised/40 px-3 py-3">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-ink">Manual export</p>
+                  <p className="mt-1 text-sm text-ghost">
+                    {data.export_capabilities?.manual_archive?.note || 'Download a redacted collectZ export bundle.'}
+                  </p>
+                  <p className="mt-1 text-xs text-muted">
+                    JSON downloads one portable file. CSV downloads separate spreadsheet files by table.
+                  </p>
+                </div>
+                <span className={`text-sm font-medium ${statusClass(data.export_capabilities?.manual_archive?.status)}`}>
+                  {data.export_capabilities?.manual_archive?.status || 'available'}
+                </span>
               </div>
-              <span className={`text-sm font-medium ${statusClass(data.export_capabilities?.manual_archive?.status)}`}>
-                {data.export_capabilities?.manual_archive?.status || 'available'}
-              </span>
+              <p className="mt-2 text-xs text-muted">
+                {lastExportedAt ? `Last downloaded ${lastExportedAt}` : 'No export downloaded in this browser session.'}
+              </p>
+              {exportFormat === 'csv' ? (
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {csvFiles.map((file) => (
+                    <button
+                      type="button"
+                      key={file.key}
+                      className="btn-secondary btn-sm justify-between"
+                      onClick={() => onExport('csv', file.key)}
+                      disabled={loading || exporting}
+                    >
+                      <span className="truncate">{file.label}</span>
+                      {typeof file.count === 'number' ? <span className="text-muted">{file.count}</span> : null}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
-            <p className="mt-2 text-xs text-muted">
-              {lastExportedAt ? `Last downloaded ${lastExportedAt}` : 'No export downloaded in this browser session.'}
-            </p>
-            {exportFormat === 'csv' ? (
-              <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {csvFiles.map((file) => (
-                  <button
-                    type="button"
-                    key={file.key}
-                    className="btn-secondary btn-sm justify-between"
-                    onClick={() => onExport('csv', file.key)}
-                    disabled={loading || exporting}
-                  >
-                    <span className="truncate">{file.label}</span>
-                    {typeof file.count === 'number' ? <span className="text-muted">{file.count}</span> : null}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </div>
+          ) : null}
 
+          {showBackup ? (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-lg border border-edge/80 bg-raised/40 px-3 py-3">
               <p className="text-sm font-medium text-ink">Database</p>
@@ -379,8 +403,9 @@ function BackupPortabilityCard({
               </p>
             </div>
           </div>
+          ) : null}
 
-          {checks.length > 0 ? (
+          {showBackup && checks.length > 0 ? (
             <div className="space-y-2">
               {checks.map((check) => (
                 <div key={check.key} className="flex items-start justify-between gap-4 border-t border-edge/70 pt-3 first:border-t-0 first:pt-0">
@@ -394,7 +419,7 @@ function BackupPortabilityCard({
             </div>
           ) : null}
 
-          {restoreRehearsal ? (
+          {showBackup && restoreRehearsal ? (
             <div className="rounded-lg border border-edge/80 bg-raised/40 px-3 py-3">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -422,7 +447,7 @@ function BackupPortabilityCard({
             </div>
           ) : null}
 
-          {coverage.length > 0 ? (
+          {showExport && coverage.length > 0 ? (
             <div>
               <p className="text-sm font-medium text-ink">Export coverage</p>
               <dl className="mt-2 grid gap-x-4 gap-y-2 text-sm sm:grid-cols-2 lg:grid-cols-3">
@@ -436,6 +461,7 @@ function BackupPortabilityCard({
             </div>
           ) : null}
 
+          {showBackup ? (
           <div className="grid gap-4 lg:grid-cols-2">
             <div>
               <p className="text-sm font-medium text-ink">Restore guidance</p>
@@ -464,6 +490,7 @@ function BackupPortabilityCard({
               )}
             </div>
           </div>
+          ) : null}
         </div>
       ) : null}
     </div>
@@ -483,11 +510,13 @@ export default function AdminSettingsView({
   title = 'Settings',
   description = null,
   embedded = false,
+  showGeneralSettings = true,
   themeLabel = 'Theme',
   themeDescription = 'Choose whether collectZ follows your system appearance or stays fixed to a light or dark theme.',
   emptyFeatureFlagsMessage = 'No feature settings are currently available.',
   emailDeliveryEndpoint = null,
-  portabilityEndpoint = null
+  portabilityEndpoint = null,
+  portabilityMode = 'combined'
 }) {
   const [settings, setSettings] = useState({ theme: 'system', density: 'comfortable' });
   const [savingGeneral, setSavingGeneral] = useState(false);
@@ -519,14 +548,15 @@ export default function AdminSettingsView({
   const visibleFlagKeySet = useMemo(() => new Set(visibleFlagKeys), [visibleFlagKeys]);
 
   useEffect(() => {
+    if (!showGeneralSettings) return;
     apiCall('get', generalSettingsEndpoint).then((data) => {
       setSettings(data);
       onSettingsChange?.(data);
     }).catch(() => {});
-  }, [apiCall, generalSettingsEndpoint, onSettingsChange]);
+  }, [apiCall, generalSettingsEndpoint, onSettingsChange, showGeneralSettings]);
 
   const loadFlags = useCallback(async () => {
-    if (visibleFlagKeys.length === 0) {
+    if (!showGeneralSettings || visibleFlagKeys.length === 0) {
       setFlags([]);
       setFlagsReadOnly(false);
       setFlagsError('');
@@ -548,7 +578,7 @@ export default function AdminSettingsView({
     } finally {
       setLoadingFlags(false);
     }
-  }, [apiCall, featureFlagsEndpoint, visibleFlagKeySet, visibleFlagKeys.length]);
+  }, [apiCall, featureFlagsEndpoint, showGeneralSettings, visibleFlagKeySet, visibleFlagKeys.length]);
 
   useEffect(() => {
     loadFlags();
@@ -784,46 +814,49 @@ export default function AdminSettingsView({
             onRefresh={loadPortabilityStatus}
             onExport={downloadPortabilityExport}
             onExportFormatChange={setPortabilityExportFormat}
+            mode={portabilityMode}
             Spinner={Spinner}
           />
         ) : null}
-        <div className="space-y-1">
-          <ThemeSettingRow
-            value={settings.theme}
-            saving={savingGeneral}
-            onChange={updateTheme}
-            label={themeLabel}
-            description={themeDescription}
-          />
-          {flagsReadOnly && (
-            <div className="p-3 text-sm text-warn">
-              Feature settings are read-only in this environment (`FEATURE_FLAGS_READ_ONLY=true`).
-            </div>
-          )}
-
-          {flagsError && (
-            <div className="p-3 text-sm text-err">
-              {flagsError}
-            </div>
-          )}
-          {loadingFlags && (
-            <div className="flex items-center gap-3 py-6 text-dim">
-              <Spinner size={16} /> Loading feature settings…
-            </div>
-          )}
-          {!loadingFlags && flags.length === 0 && emptyFeatureFlagsMessage ? (
-            <p className="py-6 text-sm text-ghost">{emptyFeatureFlagsMessage}</p>
-          ) : null}
-          {!loadingFlags && flags.map((feature) => (
-            <FeatureToggle
-              key={feature.key}
-              feature={feature}
-              disabled={flagsReadOnly || feature.envOverride !== null}
-              saving={savingFlagKey === feature.key}
-              onToggle={toggleFeature}
+        {showGeneralSettings ? (
+          <div className="space-y-1">
+            <ThemeSettingRow
+              value={settings.theme}
+              saving={savingGeneral}
+              onChange={updateTheme}
+              label={themeLabel}
+              description={themeDescription}
             />
-          ))}
-        </div>
+            {flagsReadOnly && (
+              <div className="p-3 text-sm text-warn">
+                Feature settings are read-only in this environment (`FEATURE_FLAGS_READ_ONLY=true`).
+              </div>
+            )}
+
+            {flagsError && (
+              <div className="p-3 text-sm text-err">
+                {flagsError}
+              </div>
+            )}
+            {loadingFlags && (
+              <div className="flex items-center gap-3 py-6 text-dim">
+                <Spinner size={16} /> Loading feature settings…
+              </div>
+            )}
+            {!loadingFlags && flags.length === 0 && emptyFeatureFlagsMessage ? (
+              <p className="py-6 text-sm text-ghost">{emptyFeatureFlagsMessage}</p>
+            ) : null}
+            {!loadingFlags && flags.map((feature) => (
+              <FeatureToggle
+                key={feature.key}
+                feature={feature}
+                disabled={flagsReadOnly || feature.envOverride !== null}
+                saving={savingFlagKey === feature.key}
+                onToggle={toggleFeature}
+              />
+            ))}
+          </div>
+        ) : null}
       </section>
     </div>
   );

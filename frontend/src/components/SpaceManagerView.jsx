@@ -297,6 +297,8 @@ export default function SpaceManagerView({
   const managerTabs = useMemo(() => ([
     ...(canManage ? [
       { id: 'settings', label: 'Settings' },
+      { id: 'backup', label: 'Backup' },
+      { id: 'export', label: 'Export' },
       { id: 'integrations', label: 'Integrations' },
       { id: 'people', label: 'People' }
     ] : []),
@@ -405,11 +407,48 @@ export default function SpaceManagerView({
                 updateGeneralSettingsEndpoint={`/spaces/${activeSpaceId}/settings/general`}
                 featureFlagsEndpoint={`/spaces/${activeSpaceId}/feature-flags`}
                 featureFlagUpdatePath={(key) => `/spaces/${activeSpaceId}/feature-flags/${encodeURIComponent(key)}`}
-                portabilityEndpoint={`/spaces/${activeSpaceId}/portability`}
               />
             </div>
           </div>
         )}
+
+        {canManage && managerTab === 'backup' && activeSpaceId ? (
+          <div className="max-w-3xl">
+            <AdminSettingsView
+              apiCall={apiCall}
+              onToast={onToast}
+              Spinner={Spinner}
+              title=""
+              description={null}
+              embedded
+              showGeneralSettings={false}
+              visibleFlagKeys={[]}
+              generalSettingsEndpoint={`/spaces/${activeSpaceId}/settings/general`}
+              updateGeneralSettingsEndpoint={`/spaces/${activeSpaceId}/settings/general`}
+              portabilityEndpoint={`/spaces/${activeSpaceId}/portability`}
+              portabilityMode="backup"
+            />
+          </div>
+        ) : null}
+
+        {canManage && managerTab === 'export' && activeSpaceId ? (
+          <div className="max-w-3xl">
+            <AdminSettingsView
+              apiCall={apiCall}
+              onToast={onToast}
+              Spinner={Spinner}
+              title=""
+              description={null}
+              embedded
+              showGeneralSettings={false}
+              visibleFlagKeys={[]}
+              generalSettingsEndpoint={`/spaces/${activeSpaceId}/settings/general`}
+              updateGeneralSettingsEndpoint={`/spaces/${activeSpaceId}/settings/general`}
+              portabilityEndpoint={`/spaces/${activeSpaceId}/portability`}
+              portabilityMode="export"
+            />
+          </div>
+        ) : null}
 
         {canManage && managerTab === 'people' && (
           <div className="space-y-4">

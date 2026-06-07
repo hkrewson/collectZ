@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.16.11",
+      "version": "3.16.11",
+      "date": null,
+      "status": null,
+      "summary": "This patch separates workspace backup readback from workspace export actions and shortens the Workspace navigation label to `Settings`.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Renamed the Workspace navigation child item from `Settings & integrations` to `Settings`.",
+            "Kept Workspace Integrations as its own workspace tab.",
+            "Moved workspace backup readback into a dedicated `Backup` tab.",
+            "Moved workspace export downloads and coverage into a dedicated `Export` tab.",
+            "Removed backup/export readback from the general Workspace Settings tab.",
+            "Kept the existing workspace portability API and export behavior unchanged."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.16.10",
       "version": "3.16.10",
       "date": null,
@@ -162,24 +182,6 @@
             "Workspace mode shows collection work, library tools, import, Help, Workspace settings/integrations, and workspace review tools.",
             "Platform mode shows platform-only surfaces such as Platform Settings, Runtime, Platform Activity, All Workspaces, and All Members.",
             "Merge Review remains under Workspace and is hidden from Platform mode."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.16.1",
-      "version": "3.16.1",
-      "date": null,
-      "status": null,
-      "summary": "This patch finishes the visible Platform vs Workspace boundary cleanup by moving Merge Review out of the Platform nav group.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Changed Workspace into an expandable sidebar group when workspace-owned tools are available.",
-            "Moved `Merge Review` under Workspace.",
-            "Kept Platform focused on platform-level settings, runtime, activity, workspaces, and members.",
-            "Preserved the existing internal merge-review route ID and behavior."
           ]
         }
       ]
