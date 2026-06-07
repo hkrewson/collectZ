@@ -6,6 +6,35 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.16.2 — Platform Workspace Mode Switch
+
+**Goal:** Make platform admins explicitly choose whether they are working in their workspace or in the platform control plane.
+
+### Scope
+
+- Add a visible Workspace/Platform navigation mode switch for platform admins.
+- In Workspace mode, show Dashboard, Library, Import, Help, Workspace settings/integrations, and workspace-owned review tools.
+- In Platform mode, show only platform control-plane surfaces: Platform Settings, Runtime, Platform Activity, All Workspaces, and All Members.
+- Keep permissions, routes, and data behavior unchanged; this slice clarifies the shell object-space model.
+
+### Acceptance Criteria
+
+- Platform admins have an explicit Workspace vs Platform choice in the sidebar.
+- Selecting Platform hides library/workspace navigation and opens Platform Settings.
+- Selecting Workspace hides platform navigation and opens Dashboard.
+- Merge Review remains workspace-owned and does not appear in Platform mode.
+- Version metadata, release note, release feed, and focused runtime checks are updated for `3.16.2`.
+
+### Closeout
+
+- Status: completed in `3.16.2`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, `docs/wiki/08-Backlog.md`, and `docs/releases/v3.16.2.md`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.16.2` using the local platform compose override; `/api/health` reported version/frontend/backend/build `3.16.2`; running backend env reported `APP_EDITION=platform`, `APP_VERSION=3.16.2`, and `NODE_ENV=development`; frontend/backend containers were healthy; Help > Releases served `3.16.2`; targeted browser coverage proved platform admins can switch between Workspace and Platform modes, with each mode hiding the other mode's navigation; the normal platform-local stack was restored after isolated homelab boundary verification.
+- Verification: frontend production build; host and Docker backend unit tests (`304` passed); Docker OpenAPI validation; Help > Releases smoke; targeted admin shell browser regression (`4` passed including setup); RBAC regression; platform edition boundary; homelab edition boundary against an isolated local compose project; backend and frontend production dependency audits (`0` vulnerabilities) through local release preflight; observability release evidence (`9/9` checks passed); version sync; release note heading/security-marker check; targeted changed-file secret-pattern scan; and `git diff --check`.
+- CI follow-through: stricter CI `compose-smoke`, repository-history `secret-scan`, full `browser-regression`, and `image-security-and-sbom` remain remote GitHub Actions gates for the pushed commit. Local preflight marked secure-cookie compose smoke blocked because the development stack runs with `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`.
+- Risks/follow-ups: this is a shell mode separation, not a route rename; internal route IDs still use the existing `admin-*` names. Workspace-scoped export/portability placement and inherited provider-default readback remain follow-up work.
+- What remains in the milestone: nothing for `3.16.2`; remaining workspace/platform boundary refinements stay in the backlog unless selected for a later release slice.
+
 ## 3.16.1 — Workspace Merge Review Navigation Placement
 
 **Goal:** Finish the visible Platform vs Workspace boundary cleanup by moving Merge Review out of the Platform nav group.

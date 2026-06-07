@@ -5156,9 +5156,16 @@ results.push(run('dashboard content exposes dedicated admin spaces control plane
 results.push(run('dashboard shell exposes merge review as workspace-scoped operator navigation', () => {
   assert.ok(dashboardRoutingSource.includes("'admin-merges'"));
   assert.ok(sidebarNavSource.includes("admin-merges"));
+  assert.ok(sidebarNavSource.includes('showPlatformModeSwitch'));
+  assert.ok(sidebarNavSource.includes('aria-label="Navigation mode"'));
+  assert.ok(sidebarNavSource.includes("onSelect('admin-settings')"));
+  assert.ok(sidebarNavSource.includes("onSelect('dashboard')"));
+  assert.ok(sidebarNavSource.includes('showWorkspaceNavigation'));
+  assert.ok(sidebarNavSource.includes('showPlatformNavigation'));
   assert.ok(sidebarNavSource.includes('showWorkspaceGroup'));
   assert.ok(sidebarNavSource.includes('Merge Review'));
-  assert.ok(sidebarNavSource.indexOf("isTabAllowed('admin-merges')") < sidebarNavSource.indexOf('{showPlatformGroup && ('));
+  assert.ok(sidebarNavSource.includes('{showWorkspaceNavigation && showWorkspaceGroup && ('));
+  assert.ok(sidebarNavSource.includes('{showPlatformNavigation && showPlatformGroup && ('));
   assert.ok(dashboardContentSource.includes("case 'admin-merges'"));
   assert.ok(dashboardContentSource.includes('AdminMergeReviewView'));
   assert.ok(productEditionFrontendSource.includes("allowed.add('admin-merges')"));

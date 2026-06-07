@@ -1262,19 +1262,31 @@ test.describe('admin shell browser regressions', () => {
     }
   });
 
-  test('sidebar keeps Merge Review under Workspace instead of Platform', async ({ page }) => {
+  test('sidebar separates Workspace and Platform navigation modes', async ({ page }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
     await signInThroughUi(page, adminCredentials);
     await page.goto('/dashboard?tab=dashboard');
 
     const nav = page.locator('aside');
-    await expect(nav.getByRole('button', { name: 'Workspace', exact: true })).toBeVisible();
-    await expect(nav.getByRole('button', { name: 'Merge Review', exact: true })).toBeVisible();
+    const modeSwitch = nav.getByRole('group', { name: 'Navigation mode' });
+    await expect(modeSwitch).toBeVisible();
+    await expect(modeSwitch.getByRole('button', { name: 'Workspace', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(modeSwitch.getByRole('button', { name: 'Platform', exact: true })).toHaveAttribute('aria-pressed', 'false');
 
-    await nav.getByRole('button', { name: 'Platform', exact: true }).click();
+    await expect(nav.getByRole('button', { name: 'Library', exact: true })).toBeVisible();
+    await expect(nav.getByRole('button', { name: 'Merge Review', exact: true })).toBeVisible();
     await expect(nav.getByRole('button', { name: 'Platform Settings', exact: true })).toHaveCount(0);
-    await expect(nav.getByRole('button', { name: 'Merge Review', exact: true })).toBeVisible();
 
+    await modeSwitch.getByRole('button', { name: 'Platform', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Platform Settings', exact: true })).toBeVisible();
+    await expect(modeSwitch.getByRole('button', { name: 'Platform', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(nav.getByRole('button', { name: 'Platform Settings', exact: true })).toBeVisible();
+    await expect(nav.getByRole('button', { name: 'Library', exact: true })).toHaveCount(0);
+    await expect(nav.getByRole('button', { name: 'Merge Review', exact: true })).toHaveCount(0);
+
+    await modeSwitch.getByRole('button', { name: 'Workspace', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible();
+    await expect(modeSwitch.getByRole('button', { name: 'Workspace', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await nav.getByRole('button', { name: 'Merge Review', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Merge Review', exact: true })).toBeVisible();
   });

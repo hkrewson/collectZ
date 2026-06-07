@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.16.2",
+      "version": "3.16.2",
+      "date": null,
+      "status": null,
+      "summary": "This patch makes platform admins explicitly choose between workspace/library work and the platform control plane.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added a Workspace/Platform mode switch to the sidebar for platform admins.",
+            "Workspace mode shows collection work, library tools, import, Help, Workspace settings/integrations, and workspace review tools.",
+            "Platform mode shows platform-only surfaces such as Platform Settings, Runtime, Platform Activity, All Workspaces, and All Members.",
+            "Merge Review remains under Workspace and is hidden from Platform mode."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.16.1",
       "version": "3.16.1",
       "date": null,
@@ -171,25 +189,6 @@
             "Added a compact `Related` drawer section for Library, Art, and Collectibles records.",
             "Relationship types include includes, part of, included with, companion to, purchased with, and event acquired with.",
             "Relationship readback shows the related record title, record family, optional subtitle context, and optional note from both sides."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.14.3",
-      "version": "3.14.3",
-      "date": null,
-      "status": null,
-      "summary": "This patch adds owner-level proof and provenance editing for collectible-like records.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added a compact Proof editor to Library, Art, and Collectibles detail drawers.",
-            "Proof details are stored through the reusable trait API as the `provenance` family.",
-            "Supported fields include proof type, issuer/source, certificate number, acquired-from/source context, evidence date, reference, and notes.",
-            "Saved proof details appear through existing collectible trait readback and trait pills.",
-            "Reference readback shows that a reference exists without echoing raw local path-style values in the drawer."
           ]
         }
       ]

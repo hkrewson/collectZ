@@ -85,7 +85,7 @@ export default function SidebarNav({
     'admin-merges'
   ].includes(activeTab);
   const isTabAllowed = (tabId) => !allowedTabs || allowedTabs.has(tabId);
-  const showLibrarySwitcher = canUseLibraryShell && !isAdmin && libraries.length > 1;
+  const showLibrarySwitcher = canUseLibraryShell && libraries.length > 1;
   const showDesktopHamburger = !collapsed;
   const canOpenSpaceSurface = Boolean(activeMembershipRole) || canManageActiveSpace;
   const showWorkspaceGroup = canOpenSpaceSurface && [
@@ -99,6 +99,10 @@ export default function SidebarNav({
     isTabAllowed('admin-spaces'),
     isTabAllowed('admin-users')
   ].some(Boolean);
+  const showPlatformModeSwitch = productEdition !== 'homelab' && isAdmin && showPlatformGroup && canUseLibraryShell;
+  const isPlatformMode = showPlatformModeSwitch && isPlatformGroupActive;
+  const showWorkspaceNavigation = !showPlatformModeSwitch || !isPlatformMode;
+  const showPlatformNavigation = !showPlatformModeSwitch || isPlatformMode;
   const profileImage = posterUrl(user?.image_path || '');
 
   useEffect(() => {
@@ -201,11 +205,44 @@ export default function SidebarNav({
           )}
         </div>
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto no-scrollbar">
-          {canUseLibraryShell && isTabAllowed('dashboard') && (
+          {showPlatformModeSwitch && !collapsed && (
+            <div role="group" className="mb-3 grid grid-cols-2 gap-1 rounded-md border border-edge bg-surface/40 p-1" aria-label="Navigation mode">
+              <button
+                type="button"
+                onClick={() => {
+                  onSelect('dashboard');
+                  onMobileClose();
+                }}
+                className={cx(
+                  'rounded px-2 py-1.5 text-xs font-medium transition-colors',
+                  !isPlatformMode ? 'bg-raised text-ink shadow-sm' : 'text-ghost hover:text-ink'
+                )}
+                aria-pressed={!isPlatformMode}
+              >
+                Workspace
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onSelect('admin-settings');
+                  onMobileClose();
+                }}
+                className={cx(
+                  'rounded px-2 py-1.5 text-xs font-medium transition-colors',
+                  isPlatformMode ? 'bg-raised text-ink shadow-sm' : 'text-ghost hover:text-ink'
+                )}
+                aria-pressed={isPlatformMode}
+              >
+                Platform
+              </button>
+            </div>
+          )}
+
+          {showWorkspaceNavigation && canUseLibraryShell && isTabAllowed('dashboard') && (
             <NavLink id="dashboard" icon={<Icons.Gauge />} label="Dashboard" />
           )}
 
-          {!collapsed && user && showLibrarySwitcher && (
+          {showWorkspaceNavigation && !collapsed && user && showLibrarySwitcher && (
             <div className="mb-3 space-y-1">
               <div className="flex items-center justify-between gap-2 px-1">
                 <span className="text-xs text-ghost">Library</span>
@@ -225,7 +262,7 @@ export default function SidebarNav({
             </div>
           )}
 
-          {canUseLibraryShell && (
+          {showWorkspaceNavigation && canUseLibraryShell && (
           <div>
             <button
               onClick={() => {
@@ -264,14 +301,16 @@ export default function SidebarNav({
             )}
           </div>
           )}
-          {canUseLibraryShell && isTabAllowed('library-import') && <NavLink id="library-import" icon={<Icons.Upload />} label="Import" />}
-          <NavLink
+          {showWorkspaceNavigation && canUseLibraryShell && isTabAllowed('library-import') && <NavLink id="library-import" icon={<Icons.Upload />} label="Import" />}
+          {showWorkspaceNavigation && (
+            <NavLink
             id="help"
             icon={<Icons.Activity />}
             label={getHelpNavLabel(productEdition, isSupportStaff)}
             badge={isSupportStaff ? supportBadgeCount : null}
-          />
-          {showWorkspaceGroup && (
+            />
+          )}
+          {showWorkspaceNavigation && showWorkspaceGroup && (
             <div>
               <button
                 onClick={() => {
@@ -300,7 +339,7 @@ export default function SidebarNav({
               )}
             </div>
           )}
-          {showPlatformGroup && (
+          {showPlatformNavigation && showPlatformGroup && (
             <div>
               <button
                 onClick={() => setPlatformOpen((o) => !o)}
