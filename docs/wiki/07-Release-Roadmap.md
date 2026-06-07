@@ -6,6 +6,34 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.16.5 — Platform Runtime Copy and Backlog Closeout
+
+**Goal:** Finish the small visible-copy cleanup left from the Platform vs Workspace boundary line and make the backlog reflect completed 3.16 work.
+
+### Scope
+
+- Change platform Logs/Metrics activity affordances from `Open integrations` to `Open runtime`.
+- Keep workspace provider activity affordances labeled as `Open integrations`.
+- Update the Platform vs Workspace backlog item with completed subtasks and remaining optional follow-ups.
+- Keep internal route IDs stable; this is not a broad `admin-*` route rename.
+
+### Acceptance Criteria
+
+- Platform runtime activity links use runtime wording for Logs and Metrics.
+- Workspace integration activity links still use integrations wording.
+- The backlog no longer describes already-completed 3.16 work as current ambiguity.
+- Version metadata, release note, release feed, and focused runtime checks are updated for `3.16.5`.
+
+### Closeout
+
+- Status: completed in `3.16.5`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, `docs/wiki/08-Backlog.md`, and `docs/releases/v3.16.5.md`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.16.5` using the local platform compose override; `/api/health` reported version/frontend/backend/build `3.16.5`; backend/frontend containers were healthy; Help > Releases served `3.16.5`; targeted browser coverage verified Platform Runtime remains accessible from the platform shell.
+- Verification: Docker frontend production build; Docker backend unit tests; Docker OpenAPI validation; Help > Releases smoke; targeted platform shell browser regression; RBAC regression; platform edition boundary; homelab edition boundary against an isolated local compose project; version sync; release note/feed regeneration; targeted changed-file secret-pattern scan; and `git diff --check`.
+- CI follow-through: stricter CI `compose-smoke`, repository-history `secret-scan`, full `browser-regression`, `dependency-scan`, and `image-security-and-sbom` remain remote GitHub Actions gates for the pushed commit.
+- Risks/follow-ups: internal route IDs still use the existing `admin-*` route names until a future route-cleanup slice is worth the churn. More explicit fixture coverage proving workspace integration overrides beat inherited defaults remains optional follow-up work.
+- What remains in the milestone: nothing for `3.16.5`; remaining workspace/platform boundary refinements stay in the backlog unless selected for a later release slice.
+
 ## 3.16.4 — Workspace Backup and Portability Placement
 
 **Goal:** Put backup/export/portability readback in the right object space: workspace exports under Workspace, instance-wide exports under Platform.

@@ -667,7 +667,7 @@ These are product-level capability gaps discovered from the current shape of the
 ### Backlog Item: Platform vs Workspace Boundary Clarification
 **Type:** Deferred milestone
 **Tags:** `platform`, `workspace`, `navigation`, `settings`, `integrations`, `backup`, `portability`
-**Status:** Promoted to the `3.16.x` Platform vs Workspace boundary line in [07-Release-Roadmap.md](07-Release-Roadmap.md); workspace portability placement completed in `3.16.4`.
+**Status:** Promoted to the `3.16.x` Platform vs Workspace boundary line in [07-Release-Roadmap.md](07-Release-Roadmap.md). Visible navigation, platform/workspace mode separation, workspace-owned integrations, workspace portability, and platform runtime copy have been completed through `3.16.5`.
 
 **Goal:** Make the app’s navigation and settings model clearly separate workspace-owned collection work from platform-level setup.
 
@@ -684,10 +684,11 @@ These are product-level capability gaps discovered from the current shape of the
 - Keep provider integrations operationally workspace-owned while allowing platform-provided inherited defaults for keyless or low-cost providers.
 
 **Current state**
-- `Workspace > Integrations` uses workspace-scoped endpoints such as `/api/spaces/:spaceId/integrations`.
-- `Admin > Integrations` uses `/api/admin/settings/integrations`, which makes platform-global and workspace-owned integration responsibilities feel ambiguous.
-- Media/import flows mostly use scoped workspace integration config, so the product behavior already leans workspace-owned.
-- Backup/export/portability currently appears from the admin settings surface even though both workspace and platform scopes need clear export stories.
+- `Workspace > Integrations` uses workspace-scoped endpoints such as `/api/spaces/:spaceId/integrations` and shows whether a provider is workspace-configured, inherited from defaults, or unavailable.
+- `Platform > Runtime` keeps platform-only Logs and Metrics controls while editable data-sync providers are hidden from the platform control plane.
+- Platform admins can explicitly switch between Workspace mode and Platform mode instead of seeing both object spaces mixed together.
+- Workspace backup/export/portability appears under Workspace Settings, while Platform Settings remains instance-wide.
+- Internal route IDs and component names still use some legacy `admin-*` / integrations naming; this is code-level debt, not a current user-facing ownership issue.
 
 **Scope**
 - Rename the nav group from `Admin` to `Platform`.
@@ -699,17 +700,21 @@ These are product-level capability gaps discovered from the current shape of the
 - Add inherited provider-default readback so workspace admins can tell whether a provider is workspace-configured, inherited from platform defaults, or not configured.
 - Allow keyless/low-cost providers such as UPCItemDB to be inherited by new or existing workspaces while remaining workspace-owned operationally.
 
-**Candidate subtasks**
-- Audit current nav tabs and settings surfaces for ambiguous `Admin`, `Settings`, and `Integrations` labels.
-- Rename the admin nav group to `Platform` and update active-page titles/accessibility text.
+**Completed subtasks**
+- Renamed the visible admin nav group to `Platform` and updated active-page titles/accessibility text.
+- Added a Workspace/Platform mode switch for platform admins.
+- Moved Merge Review into the Workspace group.
 - Split settings copy and layout into explicit Workspace vs Platform language.
-- Add workspace-scoped portability endpoints and UI, reusing the JSON/CSV export behavior but filtering records to the active workspace.
-- Update platform portability copy to clarify it is instance-wide.
-- Remove or hide editable data-sync provider sections from Platform integrations.
-- Preserve platform-only runtime/observability controls under clearer Platform wording.
-- Add integration readback fields such as `effective_source`, `workspace_configured`, `inherited_default`, and `workspace_can_override`.
-- Add tests proving workspace integration overrides beat inherited defaults.
-- Add browser tests for the revised nav and workspace/platform settings boundaries.
+- Added workspace-scoped portability endpoints and UI, reusing the JSON/CSV export behavior while filtering records to the active workspace.
+- Updated platform portability copy to clarify it is instance-wide.
+- Hid editable data-sync provider sections from Platform Runtime while preserving platform-only Logs and Metrics controls.
+- Added integration readback fields such as `effective_source`, `workspace_configured`, `inherited_default`, and `workspace_can_override`.
+- Added browser and source-level checks for the revised nav and workspace/platform settings boundaries.
+
+**Remaining candidate subtasks**
+- Rename legacy internal route IDs and component names such as `admin-integrations` / `AdminIntegrationsView` only if the churn becomes worth it.
+- Add more explicit fixture coverage proving workspace integration overrides beat inherited defaults.
+- Continue copy audits if a future surface still says Admin or Integrations when it is really Platform Runtime.
 
 **Out of scope**
 - Do not remove platform admin access to personal/workspace library work; platform admins should reach it by selecting/managing a workspace.

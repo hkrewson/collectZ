@@ -6517,6 +6517,8 @@ results.push(run('dashboard command center frontend owns first-screen attention 
   assert.ok(activityFeedViewSource.includes('buildPlexTimelineEntry'));
   assert.ok(activityFeedViewSource.includes('Plex ratings read from Plex'));
   assert.ok(activityFeedViewSource.includes('Plex watched state written to Plex'));
+  assert.ok(activityFeedViewSource.includes('PLATFORM_RUNTIME_SECTIONS'));
+  assert.ok(activityFeedViewSource.includes("'Open runtime'"));
   assert.ok(eventsRoutesSource.includes('buildEventActivityDetails'));
   assert.ok(eventsRoutesSource.includes('buildAttendeeActivityDetails'));
   assert.ok(eventsRoutesSource.includes('attendeeName: attendee.display_name'));

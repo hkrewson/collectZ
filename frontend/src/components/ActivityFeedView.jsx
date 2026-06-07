@@ -516,6 +516,8 @@ function inferIntegrationSection(entry, details) {
   return null;
 }
 
+const PLATFORM_RUNTIME_SECTIONS = new Set(['logs', 'metrics']);
+
 function buildTimelineLinks(entry, context) {
   const action = String(entry?.action || '');
   const details = entry?.details && typeof entry.details === 'object' ? entry.details : {};
@@ -595,7 +597,10 @@ function buildTimelineLinks(entry, context) {
     if (context === 'workspace') {
       push('Open integrations', { managerTab: 'integrations', integrationSection: section });
     } else {
-      push('Open integrations', { tab: 'admin-integrations', integrationSection: section });
+      push(PLATFORM_RUNTIME_SECTIONS.has(section) ? 'Open runtime' : 'Open integrations', {
+        tab: 'admin-integrations',
+        integrationSection: section
+      });
     }
   }
 

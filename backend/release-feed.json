@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.16.5",
+      "version": "3.16.5",
+      "date": null,
+      "status": null,
+      "summary": "This patch tightens the last visible Platform Runtime wording from the 3.16 boundary cleanup and updates the backlog to match the work already completed.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Activity links that point to platform Logs or Metrics now say `Open runtime` instead of `Open integrations`.",
+            "Workspace activity still points to `Open integrations` for workspace-owned provider setup.",
+            "The Platform vs Workspace backlog item now records completed 3.16 work and leaves only internal route cleanup or deeper override fixtures as follow-up candidates.",
+            "Source-level coverage protects the Platform Runtime activity action label."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.16.4",
       "version": "3.16.4",
       "date": null,
@@ -165,27 +183,6 @@
             "JSON remains the default `.json.gz` portability archive.",
             "CSV downloads a `.csv.zip` archive with manifest, restore guidance, uploads manifest, and one CSV per exported table.",
             "JSON and CSV export paths share the same backend redaction behavior."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.15.0",
-      "version": "3.15.0",
-      "date": null,
-      "status": null,
-      "summary": "This minor release turns the backup and portability foundation into a real admin export action.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added an admin-only one-click export download in Admin Settings.",
-            "Added `POST /api/admin/settings/portability/export`.",
-            "Export downloads are gzip-compressed collectZ JSON bundles.",
-            "Export bundles include a manifest, app version, generation timestamp, portable database tables, upload-storage manifest, restore guidance, and redaction metadata.",
-            "Secret-looking fields and secret-looking URL parameters are recursively redacted before the export is written.",
-            "The existing portability readback now reports manual export capability.",
-            "Admin Settings shows the last successful export download for the current browser session."
           ]
         }
       ]
