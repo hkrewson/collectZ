@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.16.28",
+      "version": "3.16.28",
+      "date": null,
+      "status": null,
+      "summary": "This patch makes the authoritative CodeQL baseline match the clean GitHub Actions checkout by excluding generated, dependency, report, coverage, build, and local SARIF output from maintained-source analysis.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added a repository CodeQL configuration for the maintained-source baseline.",
+            "Wired the CodeQL workflow to load the configuration while preserving JavaScript/TypeScript analysis and `security-extended,security-and-quality`.",
+            "Kept `AlertSuppression.ql` and the local collectZ JavaScript model pack documented for exploratory local CLI runs instead of passing CLI-only specifiers to the hosted CodeQL Action.",
+            "Added the local model pack manifest and request-forgery barrier model for exploratory CLI parity runs.",
+            "Documented the operating rule that generated-artifact findings are exploratory triage noise unless they trace back to maintained source.",
+            "Added unit-test coverage for the CodeQL workflow/config/model-pack wiring."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.16.27",
       "version": "3.16.27",
       "date": null,
@@ -169,25 +189,6 @@
             "Removed the visible version number from the sidebar header.",
             "Kept Help > Releases as the canonical in-app place to read the current build and release history.",
             "Updated browser coverage so the nav header no longer expects the version badge."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.16.18",
-      "version": "3.16.18",
-      "date": null,
-      "status": null,
-      "summary": "This patch tightens the sidebar underline interaction so selected items use the same bright blue as tab selection, while account menu rows use the same quieter hover treatment as the main navigation.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Fixed selected sidebar underlines so the active state uses the bright app blue instead of inheriting the muted hover color.",
-            "Kept inactive sidebar hover/focus underlines muted.",
-            "Removed the distracting active/focus outline from the account trigger when the profile menu is open.",
-            "Updated profile menu rows to use text hover plus muted underline feedback instead of gray block hover fills.",
-            "Kept the active profile row on a solid blue underline when the profile page is selected."
           ]
         }
       ]

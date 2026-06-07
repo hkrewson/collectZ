@@ -41,6 +41,34 @@ CodeQL does not replace the existing dependency, secret, image, RBAC, browser, o
 
 Initial posture is advisory. After the first baseline run is clean and false-positive behavior is understood, maintainers can decide whether CodeQL should become a required branch-protection check.
 
+## CodeQL Baseline Parity
+
+Authoritative CodeQL baseline means the GitHub Actions scan over a clean checkout of committed, maintained JavaScript/TypeScript source. The workflow uses `.github/codeql/codeql-config.yml` to keep generated and local-only output out of the source-analysis baseline while preserving the broad `security-extended` and `security-and-quality` suites.
+
+Exploratory local CLI runs may additionally load `codeql/javascript-queries:AlertSuppression.ql` and the local `.github/codeql/collectz-js-models` model pack to inspect in-source suppressions and local model behavior. Those runs are not the authoritative baseline because GitHub Actions rejected the pack-qualified `AlertSuppression.ql` specifier during `init`, and current GitHub docs do not describe JavaScript/TypeScript hosted model-pack support. Do not pass those local CLI specifiers through the hosted CodeQL Action workflow unless GitHub documents support for JavaScript/TypeScript local model packs and pack-qualified built-in query references in `github/codeql-action/init`.
+
+The config excludes generated/noisy paths such as `artifacts/**`, `backend/artifacts/**`, `frontend/artifacts/**`, Playwright reports, coverage output, build/dist output, dependency folders, and local SARIF exports. Those files may exist in a maintainer workspace after browser captures, release evidence generation, local builds, or exploratory CodeQL runs, but they are not shipped app source and should not drive product-security remediation unless the finding points back to maintained source.
+
+Local CodeQL runs should be made comparable to cloud by either starting from a clean checkout or using the same config file:
+
+```bash
+gh codeql database create /tmp/collectz-codeql-db \
+  --language=javascript-typescript \
+  --build-mode=none \
+  --source-root "$PWD" \
+  --codescanning-config .github/codeql/codeql-config.yml
+
+gh codeql database analyze /tmp/collectz-codeql-db \
+  codeql/javascript-queries:codeql-suites/javascript-security-extended.qls \
+  codeql/javascript-queries:codeql-suites/javascript-security-and-quality.qls \
+  --format=sarifv2.1.0 \
+  --output=/tmp/collectz-codeql-results.sarif \
+  --threads=0 \
+  --rerun
+```
+
+Local exploratory scans may intentionally include uncommitted/generated files or local-only query/model inputs, but findings from generated artifacts, Playwright reports, SARIF outputs, release evidence, coverage, dependency folders, local build output, or unsupported local-only CodeQL extensions are triage noise unless they identify a problem in maintained source. Raw local SARIF result counts are also not expected to equal GitHub code-scanning alert counts exactly because GitHub fingerprints, deduplicates, branches, and suppresses alerts before presenting them in the Security UI.
+
 ## Operating Policy
 
 - Treat Dependabot PRs as prompts to create intentional local maintenance patches when the dependency has runtime, peer, or major-version risk.
@@ -50,6 +78,7 @@ Initial posture is advisory. After the first baseline run is clean and false-pos
 - Document high vulnerabilities in the matching release note with owner and target milestone.
 - Keep `@zxing/library@0.23.0` deferred until the browser peer boundary is resolved or explicitly overridden with runtime proof.
 - Treat frontend build-runtime changes separately from ZXing package-version changes; the supported `0.22.0` decoder pair now expects the frontend Docker builder to run on Node 24.
+- Treat the clean GitHub Actions CodeQL baseline as authoritative for product security triage. Local generated-artifact findings are advisory context only unless they trace to committed maintained source.
 
 ## Follow-Up Options
 

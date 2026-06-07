@@ -287,6 +287,9 @@ const homelabEditionBoundarySmokeSource = fs.readFileSync(require.resolve('../sc
 const platformEditionBoundarySmokeSource = fs.readFileSync(require.resolve('../scripts/platform-edition-boundary-smoke'), 'utf8');
 const dockerPublishWorkflowSource = fs.readFileSync(require.resolve('../../.github/workflows/docker-publish.yml'), 'utf8');
 const codeqlWorkflowSource = fs.readFileSync(require.resolve('../../.github/workflows/codeql.yml'), 'utf8');
+const codeqlConfigSource = fs.readFileSync(require.resolve('../../.github/codeql/codeql-config.yml'), 'utf8');
+const codeqlModelPackSource = fs.readFileSync(require.resolve('../../.github/codeql/collectz-js-models/codeql-pack.yml'), 'utf8');
+const codeqlRequestForgeryModelSource = fs.readFileSync(require.resolve('../../.github/codeql/collectz-js-models/models/request-forgery.model.yml'), 'utf8');
 const stablePromotionWorkflowSource = fs.readFileSync(require.resolve('../../.github/workflows/promote-stable.yml'), 'utf8');
 const browserCapturesWorkflowSource = fs.readFileSync(require.resolve('../../.github/workflows/browser-captures.yml'), 'utf8');
 const nowPlayingViewerBrowserSpecSource = fs.readFileSync(require.resolve('../../tests/playwright/specs/now-playing-viewer.browser.spec.js'), 'utf8');
@@ -5789,8 +5792,27 @@ results.push(run('outbound URL policy blocks user-supplied ICS private hosts by 
 }));
 
 results.push(run('repo documents CodeQL request-forgery suppressions at reviewed outbound URL boundaries', () => {
-  assert.ok(!codeqlWorkflowSource.includes('collectz-js-models'));
-  assert.ok(codeqlWorkflowSource.includes('codeql/javascript-queries:AlertSuppression.ql'));
+  assert.ok(codeqlWorkflowSource.includes('config-file: ./.github/codeql/codeql-config.yml'));
+  assert.ok(codeqlWorkflowSource.includes('queries: security-extended,security-and-quality'));
+  assert.ok(!codeqlWorkflowSource.includes('codeql/javascript-queries:AlertSuppression.ql'));
+  assert.ok(!codeqlWorkflowSource.includes('packs: ./.github/codeql/collectz-js-models'));
+  for (const ignoredPath of [
+    'artifacts/**',
+    'backend/artifacts/**',
+    'frontend/artifacts/**',
+    '**/playwright-report/**',
+    '**/coverage/**',
+    '**/dist/**',
+    '**/build/**',
+    '**/node_modules/**',
+    '**/*.sarif'
+  ]) {
+    assert.ok(codeqlConfigSource.includes(ignoredPath), `Missing CodeQL ignored path: ${ignoredPath}`);
+  }
+  assert.ok(codeqlModelPackSource.includes('extensionTargets:'));
+  assert.ok(codeqlRequestForgeryModelSource.includes('extensible: barrierModel'));
+  assert.ok(codeqlRequestForgeryModelSource.includes('Member[assertPublicHttpUrl].ReturnValue'));
+  assert.ok(codeqlRequestForgeryModelSource.includes('Member[normalizeTrustedConnectorHttpUrl].ReturnValue'));
   assert.ok(outboundUrlPolicySource.includes('function normalizeTrustedConnectorHttpUrl'));
   assert.ok(outboundUrlPolicySource.includes('function assertPublicHttpUrl'));
   assert.ok(kavitaServiceSource.includes('normalizeTrustedConnectorHttpUrl(value)'));

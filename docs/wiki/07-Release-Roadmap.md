@@ -6,6 +6,35 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.16.28 — CodeQL Clean-Checkout Baseline Parity Policy
+
+**Goal:** Make local CodeQL and GitHub Actions CodeQL comparable by defining the authoritative baseline as committed maintained source from a clean checkout.
+
+### Scope
+
+- Add a CodeQL configuration that excludes generated artifacts, Playwright reports, coverage output, build/dist output, dependency folders, and local SARIF files from authoritative analysis.
+- Wire the CodeQL workflow to use the configuration while preserving JavaScript/TypeScript analysis and `security-extended,security-and-quality`.
+- Keep `AlertSuppression.ql` and the collectZ JavaScript model pack available only for exploratory local CLI runs instead of passing CLI-only specifiers to the hosted CodeQL Action or the authoritative parity command.
+- Document that local exploratory scans may surface uncommitted/generated findings, but those findings are triage noise unless they point back to maintained source.
+- Keep unused-variable remediation under the documented intent-first rule; do not remove unused variables in this slice.
+
+### Acceptance Criteria
+
+- `.github/workflows/codeql.yml` uses `.github/codeql/codeql-config.yml`.
+- The CodeQL config excludes the generated/noisy path families named in the security coverage docs.
+- Local CodeQL database creation with the configured baseline omits generated Playwright report and frontend build output.
+- Version metadata, release note, release feed, and focused runtime checks are updated for `3.16.28`.
+
+### Closeout
+
+- Status: completed in `3.16.28`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/49-Dependency-PR-and-CI-Security-Coverage.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, and `docs/releases/v3.16.28.md`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.16.28` using the local platform compose override; `/api/health` reported version/frontend/backend/build `3.16.28`; backend/frontend/db containers were healthy; Help > Releases authenticated smoke served `3.16.28` as the newest entry.
+- Verification: CodeQL workflow/config/model YAML parse; hosted CodeQL workflow query spec corrected to GitHub-supported `security-extended,security-and-quality`; CodeQL model-pack resolution for `.github/codeql/collectz-js-models`; local CodeQL CLI database creation with `.github/codeql/codeql-config.yml`; hosted-shape JavaScript/TypeScript security plus security-and-quality analysis (`74` total local SARIF results, including `4` active `js/request-forgery` results because the hosted workflow no longer passes the local-only `AlertSuppression.ql` specifier; no result locations under generated/noisy excluded paths); local backend unit tests (`311` passed); Docker backend unit tests (`311` passed); Docker production frontend build; Help > Releases smoke; backend and frontend production dependency audits (`0` vulnerabilities); version sync; release note/feed regeneration; targeted changed-diff secret-pattern scan; and `git diff --check`.
+- Blocked/unverified: live GitHub CodeQL alert export remains unavailable from this shell; GitHub Actions must confirm hosted CodeQL action behavior after push, including hosted alert fingerprint/dedupe behavior. The local collectZ model pack and `AlertSuppression.ql` remain local CLI parity inputs because GitHub's hosted CodeQL Action rejected the pack-qualified query specifier during `init`, and current GitHub docs describe model-pack workflow support for non-JavaScript languages. `actionlint` is not installed locally, so workflow validation is limited to YAML parsing plus CodeQL CLI config/model execution. CI-only repository-history `secret-scan`, `image-security-and-sbom`, stricter secure-cookie `compose-smoke`, and remote publish gates remain GitHub Actions follow-through gates. Full `browser-regression`, `rbac-regression`, `homelab-edition-boundary`, and `platform-edition-boundary` were not rerun because this slice changes CodeQL policy/config/workflow/docs/tests and version/release artifacts only; those gates remain CI follow-through for the pushed commit.
+- Risks/follow-ups: remaining maintained-source CodeQL findings still require normal intent-first remediation, including `31` active `js/unused-local-variable` findings in the configured local SARIF baseline. Generated-artifact findings should no longer be treated as product security issues unless they trace back to committed maintained source.
+- What remains in the milestone: nothing for `3.16.28`; broader CodeQL baseline remediation continues in later selected slices.
+
 ## 3.16.27 — CodeQL Request Forgery Boundary Triage
 
 **Goal:** Continue the local CodeQL baseline reduction by resolving the remaining request-forgery findings without breaking the documented homelab/LAN connector behavior.
