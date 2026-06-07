@@ -5853,7 +5853,8 @@ results.push(run('outbound URL policy blocks user-supplied ICS private hosts by 
 
 results.push(run('repo documents CodeQL request-forgery boundaries for maintained outbound URLs', () => {
   assert.ok(codeqlWorkflowSource.includes('config-file: ./.github/codeql/codeql-config.yml'));
-  assert.ok(codeqlWorkflowSource.includes('queries: security-extended,security-and-quality'));
+  assert.ok(codeqlWorkflowSource.includes('queries: ./.github/codeql/collectz-maintained-source.qls'));
+  assert.ok(codeqlConfigSource.includes('id: js/http-to-file-access'));
   assert.ok(!codeqlWorkflowSource.includes('packs: ./.github/codeql/collectz-js-models'));
   assert.ok(!codeqlWorkflowSource.includes('codeql/javascript-queries:AlertSuppression.ql'));
   for (const ignoredPath of [

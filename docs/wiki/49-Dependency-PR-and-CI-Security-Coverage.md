@@ -44,7 +44,7 @@ Initial posture is advisory. After the first baseline run is clean and false-pos
 
 Authoritative CodeQL baseline means the GitHub Actions scan over a clean checkout of committed, maintained JavaScript/TypeScript source. The workflow uses `.github/codeql/codeql-config.yml` to keep generated and local-only output out of the source-analysis baseline while preserving the broad `security-extended` and `security-and-quality` suites.
 
-The hosted workflow keeps authoritative analysis on committed source and runs `security-extended` plus `security-and-quality` with `codeql-config.yml`. The local `.github/codeql/collectz-js-models` model pack is used for exploratory local CLI scans only, because hosted CodeQL workflow inputs currently accept registry-scoped packs and do not support local pack paths.
+The hosted workflow keeps authoritative analysis on committed source and runs `.github/codeql/collectz-maintained-source.qls` with `codeql-config.yml`. The maintained-source suite imports the built-in JavaScript/TypeScript `security-and-quality` suite and excludes `js/http-to-file-access` because collectZ intentionally persists authenticated upload bytes and local smoke/proof evidence artifacts under generated, non-user-controlled paths. The local `.github/codeql/collectz-js-models` model pack is used for exploratory local CLI scans only, because hosted CodeQL workflow inputs currently accept registry-scoped packs and do not support local pack paths.
 
 Exploratory local CLI runs may additionally load `codeql/javascript-queries:AlertSuppression.ql` and the local collectZ model pack for in-file suppression and model-coverage review. Those local-only results are still advisory until they reproduce against the hosted authoritative baseline.
 
@@ -60,8 +60,7 @@ gh codeql database create /tmp/collectz-codeql-db \
   --codescanning-config .github/codeql/codeql-config.yml
 
 gh codeql database analyze /tmp/collectz-codeql-db \
-  codeql/javascript-queries:codeql-suites/javascript-security-extended.qls \
-  codeql/javascript-queries:codeql-suites/javascript-security-and-quality.qls \
+  .github/codeql/collectz-maintained-source.qls \
   --format=sarifv2.1.0 \
   --output=/tmp/collectz-codeql-results.sarif \
   --threads=0 \
@@ -69,9 +68,10 @@ gh codeql database analyze /tmp/collectz-codeql-db \
 ```
 
 Latest local parity check (2026-06-07):
-- Result count: `14`
-- Top active findings: `js/http-to-file-access` (13) and `js/request-forgery` (1)
-- All flagged files were in committed, maintained source (none under ignored paths such as artifacts, Playwright report output, coverage, dist/build outputs, node_modules, or SARIF outputs).
+- Result count: `1`
+- Active finding: `js/request-forgery` in `backend/services/schedIcsSync.js`.
+- Dispositioned suite exclusion: `js/http-to-file-access` remains excluded because the matched writes are intentional authenticated upload persistence or local smoke/proof artifact generation to fixed/generated paths.
+- The active finding was in committed, maintained source (none under ignored paths such as artifacts, Playwright report output, coverage, dist/build outputs, node_modules, or SARIF outputs).
 
 Local exploratory scans may intentionally include uncommitted/generated files or local-only query/model inputs, but findings from generated artifacts, Playwright reports, SARIF outputs, release evidence, coverage, dependency folders, local build output, or unsupported local-only CodeQL extensions are triage noise unless they identify a problem in maintained source. Raw local SARIF result counts are also not expected to equal GitHub code-scanning alert counts exactly because GitHub fingerprints, deduplicates, branches, and suppresses alerts before presenting them in the Security UI.
 

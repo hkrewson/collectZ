@@ -6,6 +6,35 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.16.35 — CodeQL HTTP-to-File Disposition
+
+**Goal:** Keep maintained-source CodeQL focused on actionable source findings by dispositioning the intentional authenticated upload and local artifact HTTP-to-file pattern without disabling the broader JavaScript/TypeScript security-and-quality suite.
+
+### Scope
+
+- Add a checked-in CodeQL suite for the collectZ maintained-source baseline.
+- Exclude only `js/http-to-file-access`, after confirming the active findings are intentional upload persistence or smoke/proof artifact writes to generated/fixed paths.
+- Preserve generated-output `paths-ignore` and keep the reviewed Sched ICS `js/request-forgery` finding visible for the next focused slice.
+- Keep version metadata, release notes, release feed, and runtime Help > Releases evidence aligned for `3.16.35`.
+
+### Acceptance Criteria
+
+- Configured maintained-source CodeQL runs the JavaScript/TypeScript `security-and-quality` suite minus only `js/http-to-file-access`.
+- Local maintained-source CodeQL reports `1` active finding: the reviewed Sched ICS `js/request-forgery` boundary.
+- Backend unit tests document the CodeQL workflow/config contract.
+- Version metadata, release note, release feed, and focused runtime checks are updated for `3.16.35`.
+
+### Closeout
+
+- Status: completed in `3.16.35`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/49-Dependency-PR-and-CI-Security-Coverage.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, GitHub CodeQL workflow configuration documentation, CodeQL query-suite documentation, and `docs/releases/v3.16.35.md`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.16.35` using `docker-compose.localhost.yml`; `/api/health` reported version/frontend/backend/build `3.16.35`; backend/frontend/db containers were healthy; backend container env reported `APP_VERSION=3.16.35`; Docker Help > Releases smoke served `3.16.35` as the newest entry.
+- Verification: syntax checks for `backend/services/storage.js`, `backend/scripts/unit-tests.js`, and `backend/scripts/export-release-feed.js`; host backend unit tests (`313` passed); frontend production build; OpenAPI validation; Docker backend/frontend image rebuild and frontend production build; Docker Help > Releases smoke; host backend and frontend production dependency audits (`0` vulnerabilities); version sync; release note/feed regeneration; local CodeQL CLI database creation with `.github/codeql/codeql-config.yml`; maintained-source CodeQL analysis with `.github/codeql/collectz-maintained-source.qls` (`1` active local SARIF result: `js/request-forgery` in `backend/services/schedIcsSync.js`); observability release evidence (`9/9` checks passed); local release preflight; targeted release/artifact secret-pattern scan; and `git diff --check`.
+- Blocked/unverified: live GitHub CodeQL alert export remains unavailable from this shell; GitHub Actions must confirm the hosted CodeQL Action accepts the checked-in `.qls` query suite path and preserves the same active-result shape after push. Local preflight still marks stricter secure-cookie `compose-smoke` blocked because the local development stack runs `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`; repository-history `secret-scan`, full `browser-regression`, and `image-security-and-sbom` remain CI-only follow-through gates. Full `rbac-regression`, `runtime-smoke`, homelab edition boundary, and platform edition boundary were not rerun because this slice changes CodeQL query selection/disposition, upload buffer normalization, docs, and version/release artifacts without changing auth, tenant scope, or runtime route behavior; those gates remain CI follow-through for the pushed commit.
+- Risks/follow-ups: the reviewed Sched ICS `js/request-forgery` finding remains active because the public/private DNS boundary is enforced in source but not modeled by hosted JavaScript CodeQL. Future HTTP-to-file issues will not appear through `js/http-to-file-access`; maintainers should rely on route-level upload validation, generated-key storage tests, and explicit review when changing upload or release-evidence writers.
+- Files changed: `.github/codeql/codeql-config.yml`; `.github/codeql/collectz-maintained-source.qls`; `.github/workflows/codeql.yml`; `app-meta.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `backend/app-meta.json`; `backend/package.json`; `backend/package-lock.json`; `backend/release-feed.json`; `backend/scripts/unit-tests.js`; `backend/services/storage.js`; `docs/releases/v3.16.35.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/49-Dependency-PR-and-CI-Security-Coverage.md`; `frontend/package.json`; `frontend/package-lock.json`; `frontend/src/app-meta.json`; and `preflight-go-no-go.md`.
+- What remains in the milestone: nothing for `3.16.35`; broader CodeQL baseline remediation continues with the reviewed Sched ICS request-forgery modeling/disposition slice.
+
 ## 3.16.34 — CodeQL CSRF Middleware Modeling
 
 **Goal:** Clear the maintained-source CodeQL custom CSRF middleware `js/missing-token-validation` finding while preserving cookie-session CSRF enforcement.

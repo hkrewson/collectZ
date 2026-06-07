@@ -87,10 +87,11 @@ function createS3Client() {
 
 async function uploadBuffer(buffer, originalName, contentType = 'application/octet-stream') {
   const key = buildKey(originalName);
+  const uploadBody = Buffer.isBuffer(buffer) ? Buffer.from(buffer) : Buffer.from(buffer || '');
 
   if (provider !== 's3') {
     await ensureLocalDir();
-    await fs.promises.writeFile(resolveLocalUploadPath(key), buffer);
+    await fs.promises.writeFile(resolveLocalUploadPath(key), uploadBody);
     return { key, url: localPublicUrl(key), provider: 'local' };
   }
 
@@ -98,7 +99,7 @@ async function uploadBuffer(buffer, originalName, contentType = 'application/oct
   await client.send(new PutObjectCommand({
     Bucket: bucket,
     Key: key,
-    Body: buffer,
+    Body: uploadBody,
     ContentType: contentType
   }));
   return { key, url: resolveS3PublicUrl(key), provider: 's3' };

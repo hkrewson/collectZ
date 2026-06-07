@@ -1,5 +1,9 @@
 name: "collectZ CodeQL maintained source baseline"
 
+query-filters:
+  - exclude:
+      id: js/http-to-file-access
+
 paths-ignore:
   - "artifacts/**"
   - "backend/artifacts/**"
