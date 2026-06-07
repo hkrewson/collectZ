@@ -90,8 +90,16 @@ async function addSessionCookie(target, value) {
 
 async function ensurePlaywrightBypassStorageState(storageStatePath) {
   const cookie = buildPlaywrightBypassStorageCookie();
-  if (!cookie || !fs.existsSync(storageStatePath)) return;
-  const parsed = JSON.parse(fs.readFileSync(storageStatePath, 'utf8'));
+  if (!cookie) return;
+
+  let parsed;
+  try {
+    parsed = JSON.parse(await fs.promises.readFile(storageStatePath, 'utf8'));
+  } catch (error) {
+    if (error?.code === 'ENOENT') return;
+    throw error;
+  }
+
   const cookies = Array.isArray(parsed.cookies) ? parsed.cookies : [];
   const filtered = cookies.filter((entry) => entry?.name !== PLAYWRIGHT_E2E_BYPASS_COOKIE);
   filtered.push(cookie);

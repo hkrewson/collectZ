@@ -14,6 +14,16 @@ const sourcesPath = path.join(rootDir, "sources.json");
 const customPath = path.join(rootDir, "custom", "templates.json");
 const outputPath = path.join(distDir, "templates.json");
 const reportPath = path.join(distDir, "sources-report.json");
+const TRUSTED_TEMPLATE_SOURCES = new Map([
+  [
+    "portainer-default-v3",
+    "https://raw.githubusercontent.com/portainer/templates/v3/templates.json",
+  ],
+  [
+    "tomchantler",
+    "https://raw.githubusercontent.com/tomchantler/portainer-templates/master/templates.json",
+  ],
+]);
 
 function templateKey(template) {
   const explicitId = template.id || template.Id || template.uuid;
@@ -52,8 +62,46 @@ async function readJson(filePath) {
 }
 
 async function fetchJson(url) {
-  const body = await requestText(url, 0);
+  const body = await requestText(assertTrustedSourceUrl(url), 0);
   return JSON.parse(body);
+}
+
+function assertTrustedSourceUrl(url) {
+  const parsed = new URL(String(url || ""));
+  if (parsed.protocol !== "https:") {
+    throw new Error("Template sources must use HTTPS");
+  }
+
+  const normalized = parsed.toString();
+  if (![...TRUSTED_TEMPLATE_SOURCES.values()].includes(normalized)) {
+    throw new Error(`Untrusted template source: ${normalized}`);
+  }
+
+  return normalized;
+}
+
+function assertTrustedSourceEntry(source) {
+  const id = String(source?.id || "").trim();
+  const expectedUrl = TRUSTED_TEMPLATE_SOURCES.get(id);
+  if (!expectedUrl) {
+    throw new Error(`Untrusted template source id: ${id || "unknown"}`);
+  }
+
+  const url = assertTrustedSourceUrl(source?.url);
+  if (url !== expectedUrl) {
+    throw new Error(`Unexpected URL for template source: ${id}`);
+  }
+
+  return { id, url };
+}
+
+function resolveDistOutputPath(targetPath) {
+  const fullPath = path.resolve(targetPath);
+  const distRoot = `${path.resolve(distDir)}${path.sep}`;
+  if (!fullPath.startsWith(distRoot)) {
+    throw new Error(`Invalid template output path: ${targetPath}`);
+  }
+  return fullPath;
 }
 
 function requestText(url, redirectCount) {
@@ -120,8 +168,9 @@ async function main() {
     }
 
     try {
-      const json = await fetchJson(source.url);
-      const parsed = parseTemplateDocument(json, source.id);
+      const trustedSource = assertTrustedSourceEntry(source);
+      const json = await fetchJson(trustedSource.url);
+      const parsed = parseTemplateDocument(json, trustedSource.id);
       let added = 0;
       let replaced = 0;
 
@@ -136,16 +185,16 @@ async function main() {
       }
 
       report.sources.push({
-        id: source.id,
+        id: trustedSource.id,
         kind: "remote",
-        url: source.url,
+        url: trustedSource.url,
         totalTemplates: parsed.templates.length,
         added,
         replaced,
       });
     } catch (error) {
       report.errors.push(
-        `${source.id}: ${error?.message || "Unknown fetch error"}`,
+        `${source?.id || "unknown"}: ${error?.message || "Unknown fetch error"}`,
       );
     }
   }
@@ -190,8 +239,16 @@ async function main() {
   };
 
   await mkdir(distDir, { recursive: true });
-  await writeFile(outputPath, `${JSON.stringify(output, null, 2)}\n`, "utf8");
-  await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+  await writeFile(
+    resolveDistOutputPath(outputPath),
+    `${JSON.stringify(output, null, 2)}\n`,
+    "utf8",
+  );
+  await writeFile(
+    resolveDistOutputPath(reportPath),
+    `${JSON.stringify(report, null, 2)}\n`,
+    "utf8",
+  );
 
   console.log(
     `Built ${templates.length} templates (${report.errors.length} errors) -> ${outputPath}`,

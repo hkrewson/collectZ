@@ -5,6 +5,7 @@ const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 
 const provider = String(process.env.STORAGE_PROVIDER || 'local').toLowerCase();
 const localUploadsDir = path.resolve(process.cwd(), 'uploads');
+const LOCAL_UPLOAD_KEY_PATTERN = /^\d{13}-[a-f0-9]{12}(?:\.[a-z0-9]{1,9})?$/;
 
 function sanitizeExt(originalName = '') {
   const ext = path.extname(String(originalName || '')).toLowerCase();
@@ -17,6 +18,24 @@ function buildKey(originalName = '') {
   const stamp = Date.now();
   const rand = crypto.randomBytes(6).toString('hex');
   return `${stamp}-${rand}${ext}`;
+}
+
+function assertLocalUploadKey(key = '') {
+  const value = String(key || '');
+  if (!LOCAL_UPLOAD_KEY_PATTERN.test(value)) {
+    throw new Error('Invalid local upload key');
+  }
+  return value;
+}
+
+function resolveLocalUploadPath(key = '') {
+  const uploadKey = assertLocalUploadKey(key);
+  const fullPath = path.resolve(localUploadsDir, uploadKey);
+  const uploadsRoot = `${localUploadsDir}${path.sep}`;
+  if (!fullPath.startsWith(uploadsRoot)) {
+    throw new Error('Invalid local upload path');
+  }
+  return fullPath;
 }
 
 async function ensureLocalDir() {
@@ -71,7 +90,7 @@ async function uploadBuffer(buffer, originalName, contentType = 'application/oct
 
   if (provider !== 's3') {
     await ensureLocalDir();
-    await fs.promises.writeFile(path.join(localUploadsDir, key), buffer);
+    await fs.promises.writeFile(resolveLocalUploadPath(key), buffer);
     return { key, url: localPublicUrl(key), provider: 'local' };
   }
 
@@ -90,7 +109,7 @@ async function readLocalUploadBuffer(publicPath = '') {
   if (!value.startsWith('/uploads/')) return null;
   const key = path.basename(value);
   if (!key || key !== value.slice('/uploads/'.length)) return null;
-  const fullPath = path.join(localUploadsDir, key);
+  const fullPath = resolveLocalUploadPath(key);
   return fs.promises.readFile(fullPath);
 }
 

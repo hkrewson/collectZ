@@ -6,6 +6,36 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.16.31 — CodeQL File, Template, and Connector Boundary Hardening
+
+**Goal:** Continue the maintained-source CodeQL baseline cleanup by reducing file/HTTP, filesystem race, and trusted connector findings without removing intended upload, evidence, or integration behavior.
+
+### Scope
+
+- Remove the Playwright storage-state check-then-write race.
+- Constrain backend local upload keys and local upload file paths while preserving local and S3 upload support.
+- Restrict Portainer template source fetching to the committed HTTPS upstreams and confine template output writes to the dist directory.
+- Reshape Kavita connector requests so the request path is fixed while the normalized admin-configured connector host remains in Axios `baseURL`.
+- Keep intentional release/smoke evidence, template generation, and uploaded-file persistence findings documented for later disposition when the behavior is required.
+
+### Acceptance Criteria
+
+- Configured maintained-source CodeQL reports `0` `js/file-system-race` findings.
+- Configured maintained-source CodeQL reports `0` `js/file-access-to-http` findings.
+- Configured maintained-source CodeQL reports `0` Kavita `js/request-forgery` findings.
+- Backend unit tests pass after the source-shape updates.
+- Version metadata, release note, release feed, and focused runtime checks are updated for `3.16.31`.
+
+### Closeout
+
+- Status: completed in `3.16.31`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/49-Dependency-PR-and-CI-Security-Coverage.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, and `docs/releases/v3.16.31.md`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.16.31` using the local platform compose override; `/api/health` reported version/frontend/backend/build `3.16.31`; backend/frontend/db containers were healthy; Help > Releases authenticated smoke served `3.16.31` as the newest entry.
+- Verification: syntax checks for changed backend scripts/services, Playwright helper, and Portainer template builder; Portainer template builder smoke (`624` templates, `0` errors, with generated dist output intentionally excluded from the commit); local backend unit tests (`311` passed); frontend production build; Docker backend unit tests (`311` passed); Docker production frontend build during image rebuild; Docker Help > Releases smoke; Docker backend production dependency audit (`0` vulnerabilities); frontend runtime image/static asset and in-compose nginx config validation; version sync; release note/feed regeneration; local CodeQL CLI database creation with `.github/codeql/codeql-config.yml`; hosted-shape JavaScript/TypeScript security plus security-and-quality analysis (`17` total local SARIF results, with `0` `js/file-system-race`, `0` `js/file-access-to-http`, and `0` Kavita `js/request-forgery` findings); targeted changed-diff secret-pattern review; and `git diff --check`.
+- Blocked/unverified: live GitHub CodeQL alert export remains unavailable from this shell; GitHub Actions must confirm hosted alert fingerprint/dedupe behavior after push. Host-side production dependency audits failed before vulnerability analysis with npm parser errors against the local lockfile shape, so Docker install/audit output is the local dependency evidence for this slice. CI-only repository-history `secret-scan`, `image-security-and-sbom`, stricter secure-cookie `compose-smoke`, and remote publish gates remain GitHub Actions follow-through gates. Full `browser-regression`, `rbac-regression`, `runtime-smoke`, `homelab-edition-boundary`, and `platform-edition-boundary` were not rerun because this slice changes CodeQL boundary hardening, smoke/test helper code, builder source, and version/release artifacts only; those gates remain CI follow-through for the pushed commit.
+- Risks/follow-ups: remaining maintained-source CodeQL findings are outside this boundary-hardening slice and continue through later selected CodeQL remediation slices: reviewed ICS request-forgery modeling, custom CSRF middleware modeling, registration-flow bypass modeling, Graylog-required SHA-256 root-secret setting, and intentional HTTP-to-file artifact/upload writes.
+- What remains in the milestone: nothing for `3.16.31`; broader CodeQL baseline remediation continues in later selected slices.
+
 ## 3.16.30 — CodeQL Maintained-Source Quality Finding Triage
 
 **Goal:** Clear maintained-source CodeQL low-risk quality findings after the unused/dead-code pass without changing intended behavior.

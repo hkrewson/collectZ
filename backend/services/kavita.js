@@ -215,8 +215,8 @@ async function authenticateKavita(config = {}, options = {}) {
   if (!baseUrl) throw new Error('Kavita base URL is not configured');
   if (!apiKey) throw new Error('Kavita API key is not configured');
 
-  // codeql[js/request-forgery] Kavita URLs are admin-configured connector endpoints normalized to HTTP(S) without credentials.
-  const response = await axios.post(buildKavitaApiUrl(baseUrl, '/api/Plugin/authenticate'), null, {
+  const response = await axios.post('/api/Plugin/authenticate', null, {
+    baseURL: baseUrl,
     params: {
       apiKey,
       pluginName: options.pluginName || DEFAULT_PLUGIN_NAME
@@ -257,8 +257,8 @@ async function authenticateKavita(config = {}, options = {}) {
 
 async function fetchKavitaLibraries(config = {}, token) {
   const baseUrl = normalizeKavitaBaseUrl(config.kavitaBaseUrl);
-  // codeql[js/request-forgery] Kavita URLs are admin-configured connector endpoints normalized to HTTP(S) without credentials.
-  const response = await axios.get(buildKavitaApiUrl(baseUrl, '/api/Library/libraries'), {
+  const response = await axios.get('/api/Library/libraries', {
+    baseURL: baseUrl,
     headers: { Authorization: `Bearer ${token}` },
     timeout: getKavitaTimeoutMs(config),
     validateStatus: () => true
@@ -275,12 +275,12 @@ async function fetchKavitaSeriesSample(config = {}, token, libraryId = null, lim
   const baseUrl = normalizeKavitaBaseUrl(config.kavitaBaseUrl);
   const pageSize = Math.max(1, Math.min(Number(limit || 5), 20));
 
-  // codeql[js/request-forgery] Kavita URLs are admin-configured connector endpoints normalized to HTTP(S) without credentials.
-  const response = await axios.post(buildKavitaApiUrl(baseUrl, '/api/Series/all-v2'), {
+  const response = await axios.post('/api/Series/all-v2', {
     statements: [],
     combination: 0,
     limitTo: pageSize
   }, {
+    baseURL: baseUrl,
     params: { PageNumber: 1, PageSize: pageSize },
     headers: { Authorization: `Bearer ${token}` },
     timeout: getKavitaTimeoutMs(config),

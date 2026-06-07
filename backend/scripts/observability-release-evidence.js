@@ -52,7 +52,7 @@ function runProcess(command, args, { env = process.env, cwd = repoRoot } = {}) {
   });
 }
 
-function randomPassword(prefix = 'collectz') {
+function randomRuntimeSecret(prefix = 'collectz') {
   return `${prefix}-${crypto.randomBytes(12).toString('hex')}!A9`;
 }
 
@@ -100,11 +100,15 @@ function dockerCommand(name, args, options = {}) {
   return runCommand(name, 'docker', args, options);
 }
 
-function graylogStackEnv(password) {
+function graylogRootSecretSha2(rootSecret) {
+  return crypto.createHash('sha256').update(rootSecret).digest('hex');
+}
+
+function graylogStackEnv(rootSecret) {
   return {
     ...process.env,
     GRAYLOG_PASSWORD_SECRET: 'collectz-observability-evidence-secret',
-    GRAYLOG_ROOT_PASSWORD_SHA2: crypto.createHash('sha256').update(password).digest('hex'),
+    GRAYLOG_ROOT_PASSWORD_SHA2: graylogRootSecretSha2(rootSecret),
     GRAYLOG_HTTP_EXTERNAL_URI: 'http://127.0.0.1:9000/'
   };
 }
@@ -190,7 +194,7 @@ function backendRebuildCheck(name, envOverrides) {
 function createTempAdmin() {
   const suffix = Date.now();
   const email = `observability-evidence-${suffix}@example.com`;
-  const password = randomPassword('collectz-admin');
+  const password = randomRuntimeSecret('collectz-admin');
   const script = [
     'const bcrypt=require("bcrypt");',
     'const pool=require("./db/pool");',
@@ -306,7 +310,7 @@ function runLokiCollectorSmoke() {
 }
 
 function runGraylogCollectorSmoke() {
-  const graylogPassword = randomPassword('collectz-graylog');
+  const graylogPassword = randomRuntimeSecret('collectz-graylog');
   const stackEnv = graylogStackEnv(graylogPassword);
   return withTempAdmin('graylog_collector_smoke', (tempAdmin) => {
     const steps = [];

@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.16.31",
+      "version": "3.16.31",
+      "date": null,
+      "status": null,
+      "summary": "This patch continues the maintained-source CodeQL baseline cleanup by hardening file/HTTP boundaries, removing a Playwright storage-state race, and reshaping Kavita connector calls so CodeQL and the intended trusted-connector boundary agree.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Removed the Playwright storage-state check-then-write race by reading the auth state directly and handling missing files through `ENOENT`.",
+            "Added strict generated-key validation and path confinement for backend local upload writes and reads.",
+            "Restricted the Portainer template builder to the two committed HTTPS upstream template sources and confined generated output writes to `portainer-templates/dist`.",
+            "Changed the Kavita connection test/sample calls to use fixed endpoint paths with the normalized admin-configured base URL in Axios config.",
+            "Clarified the Graylog evidence script's runtime-secret naming around the required `GRAYLOG_ROOT_PASSWORD_SHA2` setting.",
+            "Updated source-shape unit coverage for the CodeQL request-forgery boundary expectations."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.16.30",
       "version": "3.16.30",
       "date": null,
@@ -168,26 +188,6 @@
             "Replaced legacy AudioDB URL substring detection with parsed-hostname matching.",
             "Replaced broad source-link hostname substring checks in the Library detail drawer with parsed hostname label matching.",
             "Updated the PriceCharting unit-test mock to compare parsed hostnames instead of broad URL substrings."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.16.21",
-      "version": "3.16.21",
-      "date": null,
-      "status": null,
-      "summary": "This patch starts the CodeQL baseline remediation work by hardening backend input boundaries for user-supplied calendar feeds, Kavita connector URLs, and CSV import upload handling.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added a shared outbound URL policy for user-supplied ICS feeds.",
-            "Blocked non-HTTP(S), credential-bearing, localhost, private, loopback, and link-local ICS feed targets by default.",
-            "Added `ALLOW_PRIVATE_ICS_FEEDS=true` for deliberate private-feed deployments or controlled local test topologies.",
-            "Tightened Kavita base URL normalization to HTTP(S) URLs without embedded credentials while preserving LAN-hosted Kavita support.",
-            "Moved generic, Calibre, and Delicious CSV imports to multer memory buffers instead of request-controlled temp file paths.",
-            "Added unit coverage for the URL policy, Kavita normalization, and in-memory CSV import boundary."
           ]
         }
       ]

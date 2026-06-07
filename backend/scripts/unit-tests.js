@@ -5792,7 +5792,7 @@ results.push(run('outbound URL policy blocks user-supplied ICS private hosts by 
   );
 }));
 
-results.push(run('repo documents CodeQL request-forgery suppressions at reviewed outbound URL boundaries', () => {
+results.push(run('repo documents CodeQL request-forgery boundaries for maintained outbound URLs', () => {
   assert.ok(codeqlWorkflowSource.includes('config-file: ./.github/codeql/codeql-config.yml'));
   assert.ok(codeqlWorkflowSource.includes('queries: security-extended,security-and-quality'));
   assert.ok(!codeqlWorkflowSource.includes('codeql/javascript-queries:AlertSuppression.ql'));
@@ -5817,8 +5817,10 @@ results.push(run('repo documents CodeQL request-forgery suppressions at reviewed
   assert.ok(outboundUrlPolicySource.includes('function normalizeTrustedConnectorHttpUrl'));
   assert.ok(outboundUrlPolicySource.includes('function assertPublicHttpUrl'));
   assert.ok(kavitaServiceSource.includes('normalizeTrustedConnectorHttpUrl(value)'));
-  assert.strictEqual((kavitaServiceSource.match(/codeql\[js\/request-forgery\]/g) || []).length, 3);
-  assert.ok(kavitaServiceSource.includes('admin-configured connector endpoints normalized to HTTP(S) without credentials'));
+  assert.ok(kavitaServiceSource.includes("axios.post('/api/Plugin/authenticate'"));
+  assert.ok(kavitaServiceSource.includes("axios.get('/api/Library/libraries'"));
+  assert.ok(kavitaServiceSource.includes("axios.post('/api/Series/all-v2'"));
+  assert.ok(kavitaServiceSource.includes('baseURL: baseUrl'));
   assert.strictEqual((schedIcsSyncSource.match(/codeql\[js\/request-forgery\]/g) || []).length, 1);
   assert.ok(schedIcsSyncSource.includes('safeUrl is returned by assertPublicHttpUrl'));
 }));
