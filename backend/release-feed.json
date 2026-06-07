@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.16.16",
+      "version": "3.16.16",
+      "date": null,
+      "status": null,
+      "summary": "This patch replaces the heavy sidebar active highlight with a quieter blue underline that matches the app's tab selection language.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Replaced the large raised active block on sidebar nav items with a compact blue underline.",
+            "Kept selected nav text readable without changing routes or permissions.",
+            "Kept Library and Platform parent rows calm while visible child rows own the selected underline.",
+            "Preserved a collapsed-rail indicator for grouped Library and Platform navigation.",
+            "Updated browser and unit coverage for the new sidebar active-state contract."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.16.15",
       "version": "3.16.15",
       "date": null,
@@ -169,25 +188,6 @@
             "Replaced the shared icon-button styling on the mobile menu close action with a local compact button.",
             "Kept desktop sidebar branding unchanged.",
             "Tightened browser coverage so the mobile menu top row stays compact."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.16.6",
-      "version": "3.16.6",
-      "date": null,
-      "status": null,
-      "summary": "This patch reduces the mobile navigation drawer header height so the drawer opens closer to the actual navigation choices.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Tightened the mobile drawer brand row spacing.",
-            "Reduced the mobile collectZ mark and wordmark sizing inside the open drawer.",
-            "Kept the desktop sidebar spacing unchanged.",
-            "The drawer action button now closes the mobile drawer when the drawer is open.",
-            "Browser coverage now protects the compact mobile drawer header height."
           ]
         }
       ]

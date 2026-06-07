@@ -5185,6 +5185,9 @@ results.push(run('dashboard shell exposes merge review as workspace-scoped opera
   assert.ok(sidebarNavSource.includes('showWorkspaceSettingsLink'));
   assert.ok(sidebarNavSource.includes('showWorkspaceMergeReviewLink'));
   assert.ok(sidebarNavSource.includes('showPlatformHelpAdmin'));
+  assert.ok(sidebarNavSource.includes('const ActiveUnderline'));
+  assert.ok(sidebarNavSource.includes('bg-gold'));
+  assert.ok(sidebarNavSource.includes('navStateClass(active)'));
   assert.ok(sidebarNavSource.includes('label="Help"'));
   assert.ok(sidebarNavSource.includes('label="Help Admin"'));
   assert.ok(sidebarNavSource.includes('label="Review" sub'));

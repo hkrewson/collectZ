@@ -1281,6 +1281,7 @@ test.describe('admin shell browser regressions', () => {
     await expect(nav.getByRole('group', { name: 'Navigation mode' })).toHaveCount(0);
 
     await expect(nav.getByRole('button', { name: 'Library', exact: true })).toBeVisible();
+    await expect(nav.getByRole('button', { name: 'Dashboard', exact: true }).locator('span.bg-gold')).toBeVisible();
     await expect(nav.getByRole('button', { name: 'Workspace', exact: true })).toHaveCount(0);
     await expect(nav.getByRole('button', { name: 'Help', exact: true })).toBeVisible();
     await expect(nav.getByRole('button', { name: 'Help Admin', exact: true })).toHaveCount(0);
@@ -1309,6 +1310,7 @@ test.describe('admin shell browser regressions', () => {
     await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible();
     await nav.getByRole('button', { name: 'Review', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Merge Review', exact: true })).toBeVisible();
+    await expect(nav.getByRole('button', { name: 'Review', exact: true }).locator('span.bg-gold')).toBeVisible();
   });
 
   test('platform runtime tabs switch and save feedback stays visible', async ({ page }) => {

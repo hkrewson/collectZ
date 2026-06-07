@@ -126,6 +126,26 @@ export default function SidebarNav({
     onToggle?.();
   };
 
+  const navStateClass = (active) => (
+    active
+      ? 'text-ink hover:text-ink hover:bg-raised/30'
+      : 'text-dim hover:text-ink hover:bg-raised/50'
+  );
+
+  const ActiveUnderline = ({ active, sub = false }) => {
+    if (!active) return null;
+    return (
+      <span
+        aria-hidden="true"
+        className={cx(
+          'pointer-events-none absolute bottom-0 h-0.5 rounded-full bg-gold',
+          sub ? 'left-8 right-3' : 'left-3 right-3',
+          collapsed && !sub && 'left-4 right-4'
+        )}
+      />
+    );
+  };
+
   const NavLink = ({ id, icon, label, sub = false, badge = null, activeWhen = [] }) => {
     const active = activeTab === id || activeWhen.includes(activeTab);
     return (
@@ -135,9 +155,9 @@ export default function SidebarNav({
           onMobileClose();
         }}
         className={cx(
-          'w-full flex items-center gap-3 rounded transition-all duration-150 text-left',
+          'relative w-full flex items-center gap-3 rounded transition-colors duration-150 text-left',
           sub ? 'pl-8 pr-3 py-2 text-sm' : 'px-3 py-2.5 text-sm font-medium',
-          active ? 'bg-raised border border-edge text-ink' : 'text-dim hover:text-ink hover:bg-raised/50',
+          navStateClass(active),
           collapsed && !sub && 'justify-center px-0'
         )}
       >
@@ -146,6 +166,7 @@ export default function SidebarNav({
         {!collapsed && badge !== null && badge !== undefined && (
           <span className="ml-auto badge badge-dim text-[10px] min-w-5 text-center">{badge}</span>
         )}
+        <ActiveUnderline active={active} sub={sub} />
       </button>
     );
   };
@@ -234,8 +255,8 @@ export default function SidebarNav({
                 else setLibraryOpen((o) => !o);
               }}
               className={cx(
-                'w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded transition-all',
-                isLibraryActive ? 'bg-raised border border-edge text-ink' : 'text-dim hover:text-ink hover:bg-raised/50',
+                'relative w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded transition-colors',
+                navStateClass(isLibraryActive),
                 collapsed && 'justify-center px-0'
               )}
             >
@@ -246,6 +267,7 @@ export default function SidebarNav({
                   <span className={cx('transition-transform duration-200', libraryOpen && 'rotate-180')}><Icons.ChevronDown /></span>
                 </>
               )}
+              <ActiveUnderline active={isLibraryActive && collapsed} />
             </button>
             {libraryOpen && !collapsed && (
               <div className="mt-1 space-y-1">
@@ -287,8 +309,8 @@ export default function SidebarNav({
               <button
                 onClick={() => setPlatformOpen((o) => !o)}
                 className={cx(
-                  'w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded transition-all',
-                  isPlatformGroupActive ? 'bg-raised border border-edge text-ink' : 'text-dim hover:text-ink hover:bg-raised/50',
+                  'relative w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded transition-colors',
+                  navStateClass(isPlatformGroupActive),
                   collapsed && 'justify-center px-0'
                 )}
               >
@@ -299,6 +321,7 @@ export default function SidebarNav({
                     <span className={cx('transition-transform duration-200', platformOpen && 'rotate-180')}><Icons.ChevronDown /></span>
                   </>
                 )}
+                <ActiveUnderline active={isPlatformGroupActive && collapsed} />
               </button>
               {platformOpen && !collapsed && (
                 <div className="mt-1 space-y-0.5">
@@ -319,8 +342,8 @@ export default function SidebarNav({
             type="button"
             onClick={() => setAccountMenuOpen((open) => !open)}
             className={cx(
-              'w-full flex items-center gap-3 rounded px-3 py-2.5 text-left transition-all',
-              activeTab === 'profile' || accountMenuOpen ? 'bg-raised border border-edge text-ink' : 'text-dim hover:text-ink hover:bg-raised/50',
+              'relative w-full flex items-center gap-3 rounded px-3 py-2.5 text-left transition-colors',
+              navStateClass(activeTab === 'profile' || accountMenuOpen),
               collapsed && 'justify-center px-0'
             )}
             aria-haspopup="menu"
@@ -343,6 +366,7 @@ export default function SidebarNav({
                 </span>
               </>
             )}
+            <ActiveUnderline active={activeTab === 'profile'} />
           </button>
 
           {accountMenuOpen && (
