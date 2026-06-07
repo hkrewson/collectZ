@@ -5,7 +5,7 @@ import DashboardContent from './DashboardContent';
 import SupportSessionBanner from './SupportSessionBanner';
 import { DEFAULT_INTEGRATION_SECTION } from './dashboardRouting';
 import { ImportStatusDock, Toast, Icons, Spinner, cx } from './AppPrimitives';
-import { getSafeDashboardTab, isSupportHelpEnabled } from './productEdition';
+import { getSafeDashboardTab, isHomelabEdition, isSupportHelpEnabled } from './productEdition';
 
 const MOBILE_HEADER_TITLES = {
   dashboard: 'Dashboard',
@@ -67,8 +67,11 @@ const MOBILE_HEADER_ICONS = {
   'admin-feature-flags': Icons.Settings
 };
 
-function getMobileHeaderTitle(activeTab) {
-  return MOBILE_HEADER_TITLES[String(activeTab || '')] || 'Dashboard';
+function getMobileHeaderTitle(activeTab, productEdition) {
+  const tab = String(activeTab || '');
+  if (isHomelabEdition(productEdition) && tab === 'admin-settings') return 'Settings';
+  if (isHomelabEdition(productEdition) && tab === 'admin-integrations') return 'Integrations';
+  return MOBILE_HEADER_TITLES[tab] || 'Dashboard';
 }
 
 function getMobileHeaderIcon(activeTab) {
@@ -134,7 +137,7 @@ export default function DashboardShell({
   const supportHelpEnabled = isSupportHelpEnabled(productEdition);
   const supportStaffInEdition = supportHelpEnabled && ['admin', 'support_admin'].includes(String(user?.role || ''));
   const supportSessionActiveInEdition = supportHelpEnabled && Boolean(supportSession?.active);
-  const mobileHeaderTitle = getMobileHeaderTitle(activeTab);
+  const mobileHeaderTitle = getMobileHeaderTitle(activeTab, productEdition);
   const MobileHeaderIcon = getMobileHeaderIcon(activeTab);
 
   return (

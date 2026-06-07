@@ -6,6 +6,34 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.16.25 — Homelab Platform Navigation Boundary Fix
+
+**Goal:** Fix the homelab shell boundary so Platform navigation artifacts cannot appear when the backend reports the homelab product edition.
+
+### Scope
+
+- Gate Platform sidebar navigation behind the platform product edition instead of admin role alone.
+- Keep homelab admin settings and integrations available as local `Settings` and `Integrations` entries.
+- Remove platform language from homelab settings copy and mobile shell titles.
+- Add browser coverage for the exact homelab admin nav leak.
+
+### Acceptance Criteria
+
+- Homelab admins do not see the Platform nav group, `Platform Settings`, `Runtime`, or the account-menu Platform switch.
+- Homelab admins can still open local Settings and Integrations.
+- Direct homelab settings and integrations routes render homelab-safe titles.
+- Version metadata, release note, release feed, and focused runtime checks are updated for `3.16.25`.
+
+### Closeout
+
+- Status: completed in `3.16.25`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, and `docs/releases/v3.16.25.md`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.16.25`; `/api/health` reported version/frontend/backend/build `3.16.25`; backend/frontend containers were healthy; Help > Releases served `3.16.25` as the newest entry; an isolated homelab stack on port `3125` also reported version/frontend/backend/build `3.16.25` and passed the homelab edition boundary.
+- Verification: frontend production build; local backend unit tests; Docker backend unit tests; Docker OpenAPI validation; targeted homelab browser regression; RBAC regression; platform edition boundary; isolated homelab edition boundary; Help > Releases smoke; observability release evidence; local release preflight; version sync; release note/feed regeneration; and `git diff --check`.
+- Blocked/unverified: CI-only repository-history `secret-scan`, `image-security-and-sbom`, and stricter remote publish gates remain GitHub Actions follow-through gates.
+- Risks/follow-ups: none known for this boundary leak; broader CodeQL and dependency security work continues in later selected slices.
+- What remains in the milestone: nothing for `3.16.25`.
+
 ## 3.16.24 — CodeQL Sanitizer and Runtime Helper Remediation
 
 **Goal:** Continue the local CodeQL baseline reduction by clearing focused sanitizer, regex DoS, DOM image-source, and smoke-tool randomness findings without deleting intended behavior.

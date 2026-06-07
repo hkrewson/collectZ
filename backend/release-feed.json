@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.16.25",
+      "version": "3.16.25",
+      "date": null,
+      "status": null,
+      "summary": "This patch fixes a homelab edition shell leak where admin users could still see Platform navigation artifacts after the workspace/platform navigation split.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Gated Platform sidebar navigation behind the platform product edition instead of admin role alone.",
+            "Kept homelab admin settings and integrations available as local `Settings` and `Integrations` links.",
+            "Updated homelab settings copy so direct settings routes no longer render `Platform Settings`.",
+            "Made the mobile shell title edition-aware for homelab settings and integrations.",
+            "Added browser regression coverage proving homelab admins do not see Platform, Platform Settings, Runtime, or the account-menu Platform switch."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.16.24",
       "version": "3.16.24",
       "date": null,
@@ -173,27 +192,6 @@
             "Kept Library and Platform parent rows calm while visible child rows own the selected underline.",
             "Preserved a collapsed-rail indicator for grouped Library and Platform navigation.",
             "Updated browser and unit coverage for the new sidebar active-state contract."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.16.15",
-      "version": "3.16.15",
-      "date": null,
-      "status": null,
-      "summary": "This patch cleans up the Workspace sidebar by keeping primary library categories together and moving Loans, Review, and Wishlist into a separated Library utility group.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Moved `Loans` below the primary library category list.",
-            "Renamed the visible `Merge Review` sidebar entry to `Review`.",
-            "Moved `Review` into the Library section instead of showing it as a separate Workspace item.",
-            "Kept the existing Merge Review route and page behavior.",
-            "Kept `Wishlist` in the separated Library utility group.",
-            "Kept `Import`, `Help`, and `Settings` as direct Workspace navigation items.",
-            "Updated browser and unit coverage for the new navigation structure."
           ]
         }
       ]

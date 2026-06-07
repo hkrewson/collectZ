@@ -3211,7 +3211,7 @@ results.push(run('kavita workspace-owned administration implementation is wired 
   assert.ok(dashboardContentSource.includes("['audio', 'barcode', 'books', 'cwa', 'comics', 'games', 'kavita', 'plex', 'tmdb']"));
   assert.ok(dashboardContentSource.includes("['logs', 'metrics']"));
   assert.ok(spaceManagerViewSource.includes('title="Workspace Integrations"'));
-  assert.ok(dashboardContentSource.includes('title={productEdition === \'homelab\' ? \'Integrations\' : \'Platform Runtime\'}'));
+  assert.ok(dashboardContentSource.includes("title={homelabEdition ? 'Integrations' : 'Platform Runtime'}"));
   assert.ok(openApiSource.includes('/api/spaces/{id}/integrations/test-kavita'));
   assert.ok(openApiSource.includes('"integrationScope"'));
   assert.ok(openApiSource.includes('"effective_source"'));
@@ -5230,8 +5230,12 @@ results.push(run('dashboard shell exposes merge review as workspace-scoped opera
   assert.ok(sidebarNavSource.includes("'dashboard'"));
   assert.ok(sidebarNavSource.includes('showWorkspaceNavigation'));
   assert.ok(sidebarNavSource.includes('showPlatformNavigation'));
+  assert.ok(sidebarNavSource.includes('const platformNavigationAllowed = !homelabEdition;'));
+  assert.ok(sidebarNavSource.includes('const showPlatformGroup = platformNavigationAllowed && isAdmin'));
   assert.ok(sidebarNavSource.includes('showWorkspaceHelp'));
   assert.ok(sidebarNavSource.includes('showWorkspaceSettingsLink'));
+  assert.ok(sidebarNavSource.includes('showHomelabAdminSettingsLink'));
+  assert.ok(sidebarNavSource.includes('showHomelabAdminIntegrationsLink'));
   assert.ok(sidebarNavSource.includes('showWorkspaceMergeReviewLink'));
   assert.ok(sidebarNavSource.includes('showPlatformHelpAdmin'));
   assert.ok(sidebarNavSource.includes('const NavUnderline'));

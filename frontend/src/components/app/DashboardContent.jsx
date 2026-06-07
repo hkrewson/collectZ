@@ -18,7 +18,7 @@ import ArtView from '../ArtView';
 import ForbiddenView from '../ForbiddenView';
 import SpaceManagerView from '../SpaceManagerView';
 import HelpView from '../HelpView';
-import { getSafeHelpTab, isSupportHelpEnabled } from './productEdition';
+import { getSafeHelpTab, isHomelabEdition, isSupportHelpEnabled } from './productEdition';
 
 const forcedMediaTypeByTab = {
   'library-movies': 'movie',
@@ -90,6 +90,7 @@ export default function DashboardContent({
   const [timelineFocus, setTimelineFocus] = React.useState(null);
   const isAdminTab = String(activeTab || '').startsWith('admin-');
   const supportHelpEnabled = isSupportHelpEnabled(productEdition);
+  const homelabEdition = isHomelabEdition(productEdition);
   const supportStaffInEdition = supportHelpEnabled && ['admin', 'support_admin'].includes(String(user?.role || ''));
   const supportAdminAllowedTabs = new Set([
     'help',
@@ -348,13 +349,17 @@ export default function DashboardContent({
           onToast={showToast}
           onSettingsChange={setUiSettings}
           Spinner={Spinner}
-          title="Platform Settings"
-          description="Configure instance-wide platform defaults, email delivery, registration behavior, and platform backup/export readback. Workspace settings and provider integrations live under Workspace."
-          themeLabel="Platform theme default"
-          themeDescription="Choose the default appearance for this platform. Workspace-level settings can override this where available."
-          visibleFlagKeys={productEdition === 'homelab' ? undefined : ['self_registration_enabled']}
+          title={homelabEdition ? 'Settings' : 'Platform Settings'}
+          description={homelabEdition
+            ? 'Configure local app defaults, available library features, and backup/export readback for this install.'
+            : 'Configure instance-wide platform defaults, email delivery, registration behavior, and platform backup/export readback. Workspace settings and provider integrations live under Workspace.'}
+          themeLabel={homelabEdition ? 'Theme' : 'Platform theme default'}
+          themeDescription={homelabEdition
+            ? 'Choose the default appearance for this install.'
+            : 'Choose the default appearance for this platform. Workspace-level settings can override this where available.'}
+          visibleFlagKeys={homelabEdition ? undefined : ['self_registration_enabled']}
           emptyFeatureFlagsMessage={null}
-          emailDeliveryEndpoint={productEdition === 'homelab' ? null : '/admin/settings/email-delivery'}
+          emailDeliveryEndpoint={homelabEdition ? null : '/admin/settings/email-delivery'}
           portabilityEndpoint="/admin/settings/portability"
         />
       );
@@ -370,10 +375,10 @@ export default function DashboardContent({
           cx={cx}
           section={activeIntegrationSection}
           onSectionChange={setActiveIntegrationSection}
-          title={productEdition === 'homelab' ? 'Integrations' : 'Platform Runtime'}
-          includeRuntimeSections={productEdition !== 'homelab'}
+          title={homelabEdition ? 'Integrations' : 'Platform Runtime'}
+          includeRuntimeSections={!homelabEdition}
           includeValuationSections={false}
-          visibleSections={productEdition === 'homelab'
+          visibleSections={homelabEdition
             ? ['audio', 'barcode', 'books', 'cwa', 'comics', 'games', 'kavita', 'plex', 'tmdb']
             : ['logs', 'metrics']}
         />

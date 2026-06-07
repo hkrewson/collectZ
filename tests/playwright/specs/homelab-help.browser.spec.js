@@ -53,8 +53,15 @@ test.describe('homelab help edition regressions', () => {
       await expect(page.getByRole('button', { name: 'All Members', exact: true })).toHaveCount(0);
       await expect(page.getByRole('button', { name: 'Activity', exact: true })).toHaveCount(0);
       await expect(page.getByRole('button', { name: 'Workspace', exact: true })).toHaveCount(0);
+      await expect(page.getByRole('button', { name: 'Platform', exact: true })).toHaveCount(0);
+      await expect(page.getByRole('button', { name: 'Platform Settings', exact: true })).toHaveCount(0);
+      await expect(page.getByRole('button', { name: 'Runtime', exact: true })).toHaveCount(0);
       await expect(page.getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
       await expect(page.getByRole('button', { name: 'Integrations', exact: true })).toBeVisible();
+      await page.getByRole('button', { name: 'Account menu' }).click();
+      const accountMenu = page.getByRole('menu', { name: 'Account' });
+      await expect(accountMenu.getByRole('menuitem', { name: 'Platform', exact: true })).toHaveCount(0);
+      await page.keyboard.press('Escape');
       await openHelpSurface(page, 'Help');
       await assertHomelabHelpSurface(page);
 
