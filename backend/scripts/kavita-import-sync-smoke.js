@@ -623,7 +623,7 @@ async function readImportedProviderRow(libraryId, providerItemId) {
 
 function dateReadbackStartsWith(value, expectedPrefix) {
   if (!value) return false;
-  if (String(value || '').startsWith(expectedPrefix)) return true;
+  if (String(value).startsWith(expectedPrefix)) return true;
   const parsed = new Date(value);
   return Number.isFinite(parsed.getTime()) && parsed.toISOString().startsWith(expectedPrefix);
 }

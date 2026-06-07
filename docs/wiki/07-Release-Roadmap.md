@@ -6,6 +6,37 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.16.30 — CodeQL Maintained-Source Quality Finding Triage
+
+**Goal:** Clear maintained-source CodeQL low-risk quality findings after the unused/dead-code pass without changing intended behavior.
+
+### Scope
+
+- Review remaining maintained-source findings for trivial conditionals, template-looking strings, incompatible comparisons, duplicate object properties, and useless comparisons.
+- Remove unreachable fallback branches only where surrounding control flow already proves the value.
+- Preserve intended support-thread, Art filter, active-scope, collection relink, log-export, and Playwright fixture behavior.
+- Keep security-oriented CodeQL findings, including file/HTTP access, request forgery, CSRF modeling, password-hash modeling, filesystem race, and user-controlled bypass classes, for later focused slices.
+
+### Acceptance Criteria
+
+- Configured maintained-source CodeQL reports `0` `js/trivial-conditional` findings.
+- Configured maintained-source CodeQL reports `0` `js/template-syntax-in-string-literal` findings.
+- Configured maintained-source CodeQL reports `0` `js/comparison-between-incompatible-types` findings.
+- Configured maintained-source CodeQL reports `0` `js/overwritten-property` findings.
+- Configured maintained-source CodeQL reports `0` `js/useless-comparison-test` findings.
+- Backend unit tests and frontend production build pass after the cleanup.
+- Version metadata, release note, release feed, and focused runtime checks are updated for `3.16.30`.
+
+### Closeout
+
+- Status: completed in `3.16.30`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/49-Dependency-PR-and-CI-Security-Coverage.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, and `docs/releases/v3.16.30.md`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.16.30` using the local platform compose override; `/api/health` reported version/frontend/backend/build `3.16.30`; backend/frontend/db containers were healthy; Help > Releases authenticated smoke served `3.16.30` as the newest entry.
+- Verification: backend syntax checks for changed backend routes/services/scripts; Playwright helper syntax check; local backend unit tests (`311` passed); frontend production build; Docker backend unit tests (`311` passed); Docker production frontend build during image rebuild; Help > Releases smoke; backend and frontend production dependency audits (`0` vulnerabilities); version sync; release note/feed regeneration; local CodeQL CLI database creation with `.github/codeql/codeql-config.yml`; hosted-shape JavaScript/TypeScript security plus security-and-quality analysis (`22` total local SARIF results, `0` findings for the targeted quality classes); targeted changed-diff secret-pattern scan; and `git diff --check`.
+- Blocked/unverified: live GitHub CodeQL alert export remains unavailable from this shell; GitHub Actions must confirm hosted alert fingerprint/dedupe behavior after push. CI-only repository-history `secret-scan`, `image-security-and-sbom`, stricter secure-cookie `compose-smoke`, and remote publish gates remain GitHub Actions follow-through gates. Full `browser-regression`, `rbac-regression`, `homelab-edition-boundary`, and `platform-edition-boundary` were not rerun because this slice changes CodeQL quality cleanup, tests, frontend source shape, and version/release artifacts only; those gates remain CI follow-through for the pushed commit.
+- Risks/follow-ups: remaining maintained-source CodeQL findings are outside this quality cleanup class and continue through later selected CodeQL remediation slices, especially file/HTTP access, reviewed request-forgery modeling, filesystem race, CSRF modeling, password-hash modeling, and user-controlled bypass classes.
+- What remains in the milestone: nothing for `3.16.30`; broader CodeQL baseline remediation continues in later selected slices.
+
 ## 3.16.29 — CodeQL Maintained-Source Unused Finding Triage
 
 **Goal:** Clear maintained-source CodeQL unused-local-variable and dead-assignment findings under the documented intent-first rule.

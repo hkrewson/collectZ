@@ -5891,10 +5891,10 @@ async function addCollectionItem({
        RETURNING id`,
       [
         collectionId,
-        mediaId || null,
+        mediaId,
         Number.isFinite(Number(confidenceScore)) ? Number(confidenceScore) : null,
         sourcePayload ? JSON.stringify(sourcePayload) : null,
-        containedTitle || null
+        containedTitle
       ]
     );
     if (relink.rows[0]?.id) return relink.rows[0].id;

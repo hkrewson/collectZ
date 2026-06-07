@@ -234,7 +234,7 @@ function promoteDetailFields(details) {
   return Object.entries(DETAIL_PROMOTION_MAP).reduce((acc, [detailKey, fieldName]) => {
     const value = details[detailKey];
     if (value === undefined || value === null) return acc;
-    if ((value !== null && typeof value === 'object') || Array.isArray(value)) return acc;
+    if (typeof value === 'object' || Array.isArray(value)) return acc;
     if (typeof value === 'boolean') {
       acc[fieldName] = value ? 'true' : 'false';
       return acc;

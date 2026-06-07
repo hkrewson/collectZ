@@ -5039,7 +5039,7 @@ results.push(run('library service source ensures default scope before returning 
   assert.ok(libraryServiceSource.includes('SET active_space_id = $2,'));
   assert.ok(libraryServiceSource.includes('const activeLibrary = userRow.active_library_id'));
   assert.ok(libraryServiceSource.includes('if (!spaceId && activeLibrary) {'));
-  assert.ok(libraryServiceSource.includes('let libraryId = activeLibrary && Number(activeLibrary.space_id || 0) === Number(spaceId || 0)'));
+  assert.ok(libraryServiceSource.includes('let libraryId = activeLibrary && Number(activeLibrary.space_id || 0) === Number(spaceId)'));
   assert.ok(libraryServiceSource.includes('AND suspended_at IS NULL'));
   assert.ok(libraryServiceSource.includes('async function syncLibraryMembershipsForSpaceUser'));
   assert.ok(libraryServiceSource.includes('const productEdition = getProductEdition();'));

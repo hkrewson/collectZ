@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.16.30",
+      "version": "3.16.30",
+      "date": null,
+      "status": null,
+      "summary": "This patch clears the maintained-source CodeQL quality findings for trivial conditionals, template-looking strings, incompatible comparisons, duplicate object properties, and useless comparisons without changing intended runtime behavior.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Removed unreachable fallback checks where surrounding branches already prove active invite, media, library, support-thread, and log-export values.",
+            "Fixed the Art filter strip and shared `Icons.Check` definition so the rendered behavior stays the same without duplicate guard/object-property noise.",
+            "Rewrote the Playwright support helper's detached-library fixture script to build suffix-based names explicitly instead of embedding template-looking text inside ordinary strings.",
+            "Updated source-shape unit coverage for the clarified default-scope library comparison."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.16.29",
       "version": "3.16.29",
       "date": null,
@@ -170,25 +188,6 @@
             "Tightened Kavita base URL normalization to HTTP(S) URLs without embedded credentials while preserving LAN-hosted Kavita support.",
             "Moved generic, Calibre, and Delicious CSV imports to multer memory buffers instead of request-controlled temp file paths.",
             "Added unit coverage for the URL policy, Kavita normalization, and in-memory CSV import boundary."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.16.20",
-      "version": "3.16.20",
-      "date": null,
-      "status": null,
-      "summary": "This patch keeps the collapsed sidebar brand mark aligned with the navigation icon column. It continues the 3.16 sidebar cleanup without changing routes, permissions, or the existing hamburger collapse behavior.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Centered the collapsed sidebar brand header content in the narrow rail.",
-            "Kept the collectZ mark visually in line with the collapsed navigation icons.",
-            "Kept collapsed icon-only nav buttons accessible by preserving their text labels as `aria-label` values.",
-            "Preserved the expanded sidebar header behavior from `3.16.19`.",
-            "Left the hamburger/collapse affordance unchanged while the top-brand-as-collapse-control idea remains a product follow-up."
           ]
         }
       ]

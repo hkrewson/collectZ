@@ -106,7 +106,7 @@ function safeDetails(row = {}) {
 }
 
 function hasText(value) {
-  return typeof value === 'string' ? value.trim().length > 0 : value !== null && value !== undefined && value !== '';
+  return typeof value === 'string' ? value.trim().length > 0 : value !== null && value !== undefined;
 }
 
 function firstText(...values) {

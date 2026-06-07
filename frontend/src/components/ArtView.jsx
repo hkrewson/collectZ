@@ -1012,14 +1012,12 @@ export default function ArtView({ apiCall, onToast, focusTarget = null }) {
       />
       {activeFilterCount > 0 ? (
         <div className="shrink-0 border-b border-edge bg-void/95 px-3 py-2 sm:px-6">
-        {activeFilterCount > 0 ? (
           <div className="flex flex-wrap gap-2">
             {search.trim() ? <FilterPill>{`Search: ${search.trim()}`}</FilterPill> : null}
             {eventFilter ? <FilterPill>{`Event: ${events.find((evt) => String(evt.id) === String(eventFilter))?.title || eventFilter}`}</FilterPill> : null}
             {exclusiveFilter ? <FilterPill>{exclusiveFilter === 'true' ? 'Exclusive only' : 'Non-exclusive only'}</FilterPill> : null}
             <button className="btn-ghost btn-sm" onClick={() => { setEventFilter(''); setExclusiveFilter(''); setSearch(''); setPage(1); }}>Clear filters</button>
           </div>
-        ) : null}
       </div>
       ) : null}
       <div className="flex-1 overflow-y-auto scroll-area p-6" onScroll={handleContentScroll}>

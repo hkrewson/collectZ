@@ -438,7 +438,7 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
   } else if (!homelabEdition && existingUserCount > 0 && !selfRegistrationEnabled) {
     recordAuthEvent('register', 'failed');
     return res.status(400).json({ error: 'An invite token is required to register' });
-  } else if (!claimedInvite && !publicRegistrationAllowed) {
+  } else if (!publicRegistrationAllowed) {
     recordAuthEvent('register', 'failed');
     return res.status(503).json({ error: 'Registration is temporarily unavailable until email verification delivery is configured' });
   }

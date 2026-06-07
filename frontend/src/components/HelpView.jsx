@@ -1135,7 +1135,7 @@ export default function HelpView({
                 <SectionTabPanel activeId={threadViewTab} tabKey="reply" idBase="support-thread-views" className="flex-1 min-h-0">
                   {isSupportStaff ? (
                   <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-4 bg-abyss/40">
-                    {selectedRequest && selectedRequest.status !== 'closed' ? (
+                    {selectedRequest.status !== 'closed' ? (
                       <form className="space-y-4 max-w-3xl" onSubmit={submitReply}>
                         <div className="space-y-1">
                           <h3 className="text-sm font-semibold text-ink">Reply to requester</h3>
@@ -1156,9 +1156,7 @@ export default function HelpView({
                       </form>
                     ) : (
                       <div className="border border-dashed border-edge p-4 text-sm text-ghost">
-                        {selectedRequest
-                          ? 'This case is closed. Reopen it first if you need to send another support reply.'
-                          : 'Select a request from the queue to reply.'}
+                        This case is closed. Reopen it first if you need to send another support reply.
                       </div>
                     )}
                   </div>
@@ -1167,8 +1165,7 @@ export default function HelpView({
                 <SectionTabPanel activeId={threadViewTab} tabKey="triage" idBase="support-thread-views" className="flex-1 min-h-0">
                   {isSupportStaff ? (
                   <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-4 bg-abyss/40">
-                    {selectedRequest ? (
-                      <form className="space-y-4 max-w-3xl" onSubmit={saveTriage}>
+                    <form className="space-y-4 max-w-3xl" onSubmit={saveTriage}>
                         <div className="border border-edge/70 px-4 py-3 space-y-2">
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="text-xs text-ghost">Linked engineering work</p>
@@ -1245,12 +1242,7 @@ export default function HelpView({
                         <button type="submit" className="btn-primary" disabled={triageSaving}>
                           {triageSaving ? <><Spinner size={14} />Saving…</> : <><Icons.Check />Save triage</>}
                         </button>
-                      </form>
-                    ) : (
-                      <div className="border border-dashed border-edge p-4 text-sm text-ghost">
-                        Select a request from the queue to classify it, add repo linkage, or save an internal note.
-                      </div>
-                    )}
+                    </form>
                   </div>
                   ) : null}
                 </SectionTabPanel>

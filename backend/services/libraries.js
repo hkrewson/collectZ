@@ -292,7 +292,7 @@ async function ensureUserDefaultScope(userId, options = {}) {
       );
     }
 
-    let libraryId = activeLibrary && Number(activeLibrary.space_id || 0) === Number(spaceId || 0)
+    let libraryId = activeLibrary && Number(activeLibrary.space_id || 0) === Number(spaceId)
       ? activeLibrary.id
       : null;
 
