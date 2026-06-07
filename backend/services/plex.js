@@ -1227,7 +1227,7 @@ const fetchPlexImageAsset = async (config, key) => {
 const fetchPlexLibraryItems = async (config, sectionIds = []) => {
   const sections = sectionIds.length > 0 ? sectionIds : (config.plexLibrarySections || []);
   const uniqueSections = [...new Set(sections.map(String).filter(Boolean))];
-  let sectionTypeMap = new Map();
+  let sectionTypeMap;
   try {
     const discovered = await fetchPlexSections(config);
     sectionTypeMap = new Map(

@@ -16,7 +16,6 @@ const backendPackageJson = require(path.join(repoRoot, 'backend', 'package.json'
 const frontendPackageJson = require(path.join(repoRoot, 'frontend', 'package.json'));
 
 const baseUrl = (process.env.RELEASE_PREFLIGHT_BASE_URL || 'http://localhost:3000').replace(/\/+$/, '');
-const apiBaseUrl = `${baseUrl}/api`;
 const dependencyAuditDir = path.join(repoRoot, 'artifacts', 'dependency-audit');
 const reportPath = process.env.RELEASE_PREFLIGHT_REPORT
   ? path.resolve(process.env.RELEASE_PREFLIGHT_REPORT)

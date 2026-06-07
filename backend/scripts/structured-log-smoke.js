@@ -140,7 +140,7 @@ async function pollForExportedEvent(action, requestId) {
 }
 
 async function main() {
-  console.log('Ensuring Graylog GELF UDP input exists...');
+  console.log(`Ensuring Graylog GELF UDP input exists for ${SMOKE_REQUEST_ID}...`);
   await ensureGraylogGelfUdpInput();
   const found = await withStructuredLogSmokeEvent(async ({ action, requestId }) => {
     console.log('Polling Graylog for exported event...');

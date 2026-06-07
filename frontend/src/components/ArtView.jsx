@@ -557,7 +557,7 @@ function ArtDetailDrawer({ artId, apiCall, events, onClose, onEdit, onDeleted, o
   );
 }
 
-function ArtDrawer({ initial, events, saving, error, notice, apiCall, onClose, onSave, onDelete, onClearImage, onUploadSignatureProof, onRemoveSignatureProof, onSignatureChange }) {
+function ArtDrawer({ initial, events, saving, error, notice, apiCall, onClose, onSave, onDelete, onClearImage, onSignatureChange }) {
   const primaryInitialSignature = initial?.signatures?.find((signature) => signature.is_primary) || initial?.signatures?.[0] || null;
   const [form, setForm] = useState(() => ({
     ...DEFAULT_FORM,
@@ -583,8 +583,6 @@ function ArtDrawer({ initial, events, saving, error, notice, apiCall, onClose, o
     booth: initial?.booth || ''
   }));
   const [imageFile, setImageFile] = useState(null);
-  const [proofFile, setProofFile] = useState(null);
-  const [proofWorking, setProofWorking] = useState(false);
   const tabs = useMemo(() => ([
     { id: 'core', label: 'Core Details' },
     { id: 'signatures', label: 'Signatures' },
@@ -617,39 +615,11 @@ function ArtDrawer({ initial, events, saving, error, notice, apiCall, onClose, o
       booth: initial?.booth || ''
     });
     setImageFile(null);
-    setProofFile(null);
-    setProofWorking(false);
     setActiveTab('core');
   }, [initial, primaryInitialSignature]);
 
   const showPurchaseContext = hasPurchaseContext(form);
-  const submit = () => onSave(form, imageFile, proofFile);
-  const currentProofPath = form.signature_proof_path || '';
-
-  const uploadSignatureProof = async () => {
-    if (!initial?.id || !proofFile || !onUploadSignatureProof) return;
-    setProofWorking(true);
-    try {
-      const updated = await onUploadSignatureProof(initial.id, proofFile);
-      const nextPath = updated?.signature_proof_path || updated?.proof_path || '';
-      setForm((prev) => ({ ...prev, signed: true, signature_proof_path: nextPath }));
-      setProofFile(null);
-    } finally {
-      setProofWorking(false);
-    }
-  };
-
-  const removeSignatureProof = async () => {
-    if (!initial?.id || !currentProofPath || !onRemoveSignatureProof) return;
-    setProofWorking(true);
-    try {
-      await onRemoveSignatureProof(initial.id);
-      setForm((prev) => ({ ...prev, signature_proof_path: '' }));
-      setProofFile(null);
-    } finally {
-      setProofWorking(false);
-    }
-  };
+  const submit = () => onSave(form, imageFile);
 
   const applySignatureChange = ({ owner, signatures }) => {
     const nextSignatures = Array.isArray(signatures) ? signatures : (owner?.signatures || []);
@@ -883,23 +853,7 @@ export default function ArtView({ apiCall, onToast, focusTarget = null }) {
     setNotice('');
   };
 
-  const uploadSignatureProof = async (id, proofFile) => {
-    if (!id || !proofFile) return null;
-    const formData = new FormData();
-    formData.append('proof', proofFile);
-    const updated = await api('post', `/art/${id}/upload-signature-proof`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
-    onToast?.('Signature proof uploaded');
-    return updated;
-  };
-
-  const removeSignatureProof = async (id) => {
-    if (!id) return null;
-    const updated = await api('delete', `/art/${id}/signature-proof`);
-    onToast?.('Signature proof removed');
-    return updated;
-  };
-
-  const saveArt = async (form, imageFile, proofFile) => {
+  const saveArt = async (form, imageFile) => {
     if (!String(form.title || '').trim()) return;
     setSaving(true);
     setError('');
@@ -952,13 +906,6 @@ export default function ArtView({ apiCall, onToast, focusTarget = null }) {
           setError(parseUploadError(uploadErr?.response?.data?.error || uploadErr?.message));
         }
       }
-      if (proofFile && id) {
-        try {
-          await uploadSignatureProof(id, proofFile);
-        } catch (uploadErr) {
-          setError(parseUploadError(uploadErr?.response?.data?.error || uploadErr?.message));
-        }
-      }
       onToast?.(editing?.id ? 'Art saved' : 'Art created');
       setNotice(editing?.id ? 'Art saved' : 'Art created');
       setAdding(false);
@@ -995,22 +942,6 @@ export default function ArtView({ apiCall, onToast, focusTarget = null }) {
     setSearch(artistName);
     setPage(1);
     setDetailId(null);
-  };
-
-  const uploadSignatureProofFromDrawer = async (id, proofFile) => {
-    const updated = await uploadSignatureProof(id, proofFile);
-    const refreshed = await api('get', `/art/${id}`);
-    setEditing(refreshed);
-    await load();
-    return updated;
-  };
-
-  const removeSignatureProofFromDrawer = async (id) => {
-    const updated = await removeSignatureProof(id);
-    const refreshed = await api('get', `/art/${id}`);
-    setEditing(refreshed);
-    await load();
-    return updated;
   };
 
   return (
@@ -1137,8 +1068,6 @@ export default function ArtView({ apiCall, onToast, focusTarget = null }) {
           onSave={saveArt}
           onDelete={editing?.id ? () => deleteArt(editing.id) : null}
           onClearImage={clearImage}
-          onUploadSignatureProof={uploadSignatureProofFromDrawer}
-          onRemoveSignatureProof={removeSignatureProofFromDrawer}
           onSignatureChange={load}
         />
       ) : null}

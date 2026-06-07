@@ -80,16 +80,6 @@ function automatedResult(name, command, args, result, startedAt, durationMs) {
   };
 }
 
-function blockedCheck(name, reason, guidance) {
-  return {
-    name,
-    kind: 'manual_or_future_automation',
-    status: 'blocked',
-    reason,
-    guidance
-  };
-}
-
 function summarize(checks) {
   return checks.reduce((acc, check) => {
     acc.total += 1;

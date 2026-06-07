@@ -368,7 +368,6 @@ test.describe('events and collectibles browser regressions', () => {
     const adminRequestContext = await createAuthenticatedRequestContext(adminCredentials);
     const userCredentials = await createFreshUserCredentials();
     const userRequestContext = await createAuthenticatedRequestContext(userCredentials);
-    const expectedSelfName = String(userCredentials?.name || 'You').trim() || 'You';
     const suffix = Date.now();
     const eventTitle = `Playwright Mobile Social Event ${suffix}`;
     const originalFlagsPayload = await getFeatureFlags(adminRequestContext);

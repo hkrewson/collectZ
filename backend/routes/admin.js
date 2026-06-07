@@ -301,7 +301,7 @@ async function createInitialSpaceInvite({ client, req, spaceId, email, role, exp
     });
   }
 
-  let delivery = { attempted: false, sent: false, reason: 'smtp_not_configured' };
+  let delivery;
   try {
     delivery = await sendInviteEmail({
       to: invite.email,
@@ -1682,7 +1682,7 @@ platformRouter.post('/users/:id/password-reset', asyncHandler(async (req, res) =
       exposureMode: 'admin_copy_link'
     });
   }
-  let delivery = { attempted: false, sent: false, reason: 'smtp_not_configured' };
+  let delivery;
   try {
     delivery = await sendPasswordResetEmail({
       to: email,

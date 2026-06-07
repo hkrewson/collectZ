@@ -2380,7 +2380,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged, currentUser = n
     setError('');
     setNotice('');
     try {
-      let selfAttendeeResult = { attendee: selfAttendee, created: false };
+      let selfAttendeeResult;
       if (kind === 'attendee') {
         if (attendeeNameMatch && !attendeeDuplicateAcknowledged) {
           if (attendeeNameMatch.kind === 'self-suggestion') {

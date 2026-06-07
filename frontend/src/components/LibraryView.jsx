@@ -2879,7 +2879,6 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
   }));
   const [lookupCaptureLoading, setLookupCaptureLoading] = useState(false);
   const [coverUploadLoading, setCoverUploadLoading] = useState(false);
-  const [proofFile, setProofFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
   const [msgType, setMsgType] = useState('ok');
@@ -3665,34 +3664,6 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
     event.target.value = '';
     if (!file) return;
     await uploadCoverImage(file);
-  };
-
-  const uploadSigningProof = async () => {
-    if (!proofFile) return;
-    if (!form.id) {
-      notify('Save item first, then upload signing proof', 'error');
-      return;
-    }
-    const body = new FormData();
-    body.append('proof', proofFile);
-    try {
-      const data = await apiCall('post', `/media/${form.id}/upload-signing-proof`, body, { headers: { 'Content-Type': 'multipart/form-data' } });
-      set({ signed_proof_path: data.signed_proof_path || '' });
-      notify('Signing proof uploaded');
-    } catch (e) {
-      notify(e.response?.data?.error || 'Signing proof upload failed', 'error');
-    }
-  };
-
-  const removeSigningProof = async () => {
-    if (!form.id || !form.signed_proof_path) return;
-    try {
-      await apiCall('delete', `/media/${form.id}/signing-proof`);
-      set({ signed_proof_path: '' });
-      notify('Signing proof removed');
-    } catch (e) {
-      notify(e.response?.data?.error || 'Failed to remove signing proof', 'error');
-    }
   };
 
   const applySignatureChange = ({ owner, signatures }) => {

@@ -19,7 +19,6 @@ function details(alias, key) {
 
 function buildMissingIdentifierReviewSql(alias = 'media') {
   const upcMissing = sqlBlank(`${alias}.upc`);
-  const upcPresent = sqlPresent(`${alias}.upc`);
   const providerIdentityMissing = [
     details(alias, 'provider_item_id'),
     details(alias, 'provider_issue_id'),
@@ -27,7 +26,6 @@ function buildMissingIdentifierReviewSql(alias = 'media') {
     details(alias, 'apple_itunes_track_id'),
     details(alias, 'apple_itunes_collection_id')
   ].map(sqlBlank).join(' AND ');
-  const providerIdentityPresent = `NOT (${providerIdentityMissing})`;
   const bookIdentityMissing = [
     details(alias, 'isbn'),
     details(alias, 'isbn13'),

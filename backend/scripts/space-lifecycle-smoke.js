@@ -276,7 +276,7 @@ async function main() {
     });
     spaceIds.push(Number(suspendSpace.id), Number(removalSpace.id), Number(transferSpace.id));
 
-    const suspendOwnerMembership = await addSpaceMembership({
+    await addSpaceMembership({
       spaceId: suspendSpace.id,
       userId: suspendOwner.id,
       role: 'owner',
@@ -288,7 +288,7 @@ async function main() {
       role: 'member',
       createdBy: suspendOwner.id
     });
-    const removalOwnerMembership = await addSpaceMembership({
+    await addSpaceMembership({
       spaceId: removalSpace.id,
       userId: removalOwner.id,
       role: 'owner',

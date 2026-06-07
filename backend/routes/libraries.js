@@ -16,7 +16,6 @@ const { logActivity } = require('../services/audit');
 const {
   listLibrariesForUser,
   getAccessibleLibrary,
-  ensureUserDefaultLibrary,
   ensureUserDefaultScope,
   syncLibraryMembershipsForSpaceUser,
   repairUserStateAfterLibraryAccessLoss
@@ -54,7 +53,7 @@ router.get('/libraries', asyncHandler(async (req, res) => {
   const resolvedActiveLibraryId = req.user.activeLibraryId || (libraries[0]?.id || null);
   res.json(stripHomelabSpaceContext({
     libraries,
-    active_space_id: req.user.scopeSpaceId ?? req.user.activeSpaceId ?? (libraries[0]?.space_id || null),
+    active_space_id: activeSpaceId ?? (libraries[0]?.space_id || null),
     active_library_id: resolvedActiveLibraryId
   }, productEdition));
 }));

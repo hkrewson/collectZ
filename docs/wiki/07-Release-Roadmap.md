@@ -6,6 +6,34 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.16.29 — CodeQL Maintained-Source Unused Finding Triage
+
+**Goal:** Clear maintained-source CodeQL unused-local-variable and dead-assignment findings under the documented intent-first rule.
+
+### Scope
+
+- Review each unused/dead local finding against repo docs, release notes, source-shape tests, and nearby implementation before removal.
+- Remove verified-dead imports, helper locals, assignments, script variables, frontend drawer state, and Playwright locals.
+- Preserve and wire intended behavior where CodeQL found useful but unwired code, including request-scope library response shaping, support timeline public action filtering, and media upload filename sanitization.
+- Keep Art/media proof upload UI aligned with the shared `SignatureManager` workflow documented in the signature-proof releases while preserving backend/OpenAPI compatibility endpoint coverage.
+
+### Acceptance Criteria
+
+- Configured maintained-source CodeQL reports `0` `js/unused-local-variable` findings.
+- Configured maintained-source CodeQL reports `0` `js/useless-assignment-to-local` findings.
+- Backend unit tests and frontend production build pass after the cleanup.
+- Version metadata, release note, release feed, and focused runtime checks are updated for `3.16.29`.
+
+### Closeout
+
+- Status: completed in `3.16.29`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/49-Dependency-PR-and-CI-Security-Coverage.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, `docs/releases/v3.4.10.md`, `docs/releases/v3.4.16.md`, `docs/releases/v3.4.19.md`, and `docs/releases/v3.16.29.md`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.16.29` using the local platform compose override; `/api/health` reported version/frontend/backend/build `3.16.29`; backend/frontend/db containers were healthy; Help > Releases authenticated smoke served `3.16.29` as the newest entry.
+- Verification: backend syntax checks for changed backend routes/services/scripts; local backend unit tests (`311` passed); frontend production build; Docker backend unit tests (`311` passed); Docker production frontend build during image rebuild; Help > Releases smoke; backend and frontend production dependency audits (`0` vulnerabilities); version sync; release note/feed regeneration; local CodeQL CLI database creation with `.github/codeql/codeql-config.yml`; hosted-shape JavaScript/TypeScript security plus security-and-quality analysis (`36` total local SARIF results, `0` `js/unused-local-variable`, `0` `js/useless-assignment-to-local`); targeted changed-diff secret-pattern scan; and `git diff --check`.
+- Blocked/unverified: live GitHub CodeQL alert export remains unavailable from this shell; GitHub Actions must confirm hosted alert fingerprint/dedupe behavior after push. CI-only repository-history `secret-scan`, `image-security-and-sbom`, stricter secure-cookie `compose-smoke`, and remote publish gates remain GitHub Actions follow-through gates. Full `browser-regression`, `rbac-regression`, `homelab-edition-boundary`, and `platform-edition-boundary` were not rerun because this slice changes CodeQL unused/dead-code cleanup, docs/tests, frontend source shape, and version/release artifacts only; those gates remain CI follow-through for the pushed commit.
+- Risks/follow-ups: remaining maintained-source CodeQL findings are outside the unused/dead-code cleanup class and continue through later selected CodeQL remediation slices.
+- What remains in the milestone: nothing for `3.16.29`; broader CodeQL baseline remediation continues in later selected slices.
+
 ## 3.16.28 — CodeQL Clean-Checkout Baseline Parity Policy
 
 **Goal:** Make local CodeQL and GitHub Actions CodeQL comparable by defining the authoritative baseline as committed maintained source from a clean checkout.

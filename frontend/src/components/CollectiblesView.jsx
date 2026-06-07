@@ -181,6 +181,7 @@ function CollectibleDetailDrawer({ collectibleId, apiCall, categories, events, o
   const itemTypeLabel = getCollectibleClassificationLabel(item);
   const showPurchaseContext = true;
   const factSummary = [
+    resolvedCategory,
     item?.franchise,
     item?.series,
     resolvedEvent,

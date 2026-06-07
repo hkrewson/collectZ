@@ -3,10 +3,6 @@
 
 const pool = require('../db/pool');
 
-function assert(condition, message) {
-  if (!condition) throw new Error(message);
-}
-
 async function main() {
   const typeRows = await pool.query(`
     SELECT media_type, COUNT(*)::int AS count

@@ -1,9 +1,8 @@
 const express = require('express');
-const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const pool = require('../db/pool');
 const { asyncHandler } = require('../middleware/errors');
-const { authenticateToken, requireRole, requireSessionAuth, SESSION_COOKIE_OPTIONS, SESSION_COOKIE_NAME, CSRF_COOKIE_NAME } = require('../middleware/auth');
+const { authenticateToken, requireRole, requireSessionAuth, SESSION_COOKIE_OPTIONS, SESSION_COOKIE_NAME } = require('../middleware/auth');
 const {
   validate,
   registerSchema,

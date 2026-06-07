@@ -943,7 +943,7 @@ router.post('/spaces/:id/members/:memberId/password-reset', asyncHandler(async (
       });
     }
 
-    let delivery = { attempted: false, sent: false, reason: 'smtp_not_configured' };
+    let delivery;
     try {
       delivery = await sendPasswordResetEmail({
         to: target.email,
@@ -1192,7 +1192,7 @@ router.post('/spaces/:id/invites', validate(spaceInviteCreateSchema), asyncHandl
       });
     }
 
-    let delivery = { attempted: false, sent: false, reason: 'smtp_not_configured' };
+    let delivery;
     try {
       delivery = await sendInviteEmail({
         to: invite.email,

@@ -1,6 +1,5 @@
 const express = require('express');
 const multer = require('multer');
-const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 const pool = require('../db/pool');
@@ -106,7 +105,6 @@ const {
   buildComicNormalizationIdentity,
   CANONICAL_SELECTION_REASON,
   chooseCanonicalRow,
-  normalizeDigits,
   normalizeText,
   normalizeIssueToken
 } = require('../services/bookComicNormalization');
@@ -152,10 +150,9 @@ const { loadTraitRecords, loadTraitRecordsForOwner } = require('../services/coll
 const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
 const { isFeatureEnabledForSpace } = require('../services/featureFlags');
 const { enforceScopeAccess } = require('../middleware/scopeAccess');
-const { ensureUserDefaultLibrary, ensureUserDefaultScope } = require('../services/libraries');
+const { ensureUserDefaultScope } = require('../services/libraries');
 const { refreshMediaValuation } = require('../services/valuations');
 const {
-  normalizeLoanDateValue,
   buildLoanReminderPhase,
   wasLoanReminderSentToday,
   formatMediaLoanRow,
@@ -2304,18 +2301,6 @@ function buildMergeTechnicalDetails({
     applied_at: row?.applied_at || null,
     reverted_at: row?.reverted_at || null
   };
-}
-
-function formatManualMergeRejectionReasonLabel(reasonCode = '') {
-  const normalized = String(reasonCode || '').trim();
-  const labels = {
-    different_title_identity: 'Different title identity',
-    different_volume_or_edition: 'Different volume or edition',
-    different_season_or_part: 'Different season or part',
-    collection_wrapper_only: 'Collection wrapper only',
-    other: 'Other'
-  };
-  return labels[normalized] || null;
 }
 
 function formatMergeRationaleLabel(token = '') {
@@ -12545,7 +12530,8 @@ router.post('/upload-cover', memoryImageUpload.single('cover'), asyncHandler(asy
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
   }
-  const stored = await uploadBuffer(req.file.buffer, req.file.originalname, req.file.mimetype);
+  const uploadFilename = sanitizeUploadFilename(req.file.originalname);
+  const stored = await uploadBuffer(req.file.buffer, uploadFilename, req.file.mimetype);
   res.json({ path: stored.url, provider: stored.provider });
 }));
 
@@ -12663,7 +12649,8 @@ router.post('/:id/signatures/:signatureId/proof', memoryImageUpload.single('proo
   const currentSignatures = await loadSignatureRecordsForOwner(pool, { ownerType: 'media', ownerId: mediaId });
   const existingSignature = currentSignatures.find((signature) => Number(signature.id) === signatureId) || null;
   if (!existingSignature) return res.status(404).json({ error: 'Signature record not found' });
-  const stored = await uploadBuffer(req.file.buffer, req.file.originalname, req.file.mimetype);
+  const uploadFilename = sanitizeUploadFilename(req.file.originalname);
+  const stored = await uploadBuffer(req.file.buffer, uploadFilename, req.file.mimetype);
   const proofMutation = await addSignatureProof(pool, {
     ownerType: 'media',
     ownerId: mediaId,
@@ -12673,7 +12660,7 @@ router.post('/:id/signatures/:signatureId/proof', memoryImageUpload.single('proo
     label: req.body.label,
     notes: req.body.notes,
     provider: stored.provider,
-    originalFilename: req.file.originalname,
+    originalFilename: uploadFilename,
     mimeType: req.file.mimetype,
     createdBy: req.user.id
   });
@@ -12865,7 +12852,8 @@ router.post('/:id/upload-signing-proof', memoryImageUpload.single('proof'), asyn
   if (access.status === 403) return res.status(403).json({ error: 'Not authorized to edit this media item' });
 
   const previousPath = access.row?.signed_proof_path || null;
-  const stored = await uploadBuffer(req.file.buffer, req.file.originalname, req.file.mimetype);
+  const uploadFilename = sanitizeUploadFilename(req.file.originalname);
+  const stored = await uploadBuffer(req.file.buffer, uploadFilename, req.file.mimetype);
   const updated = await pool.query(
     `UPDATE media
      SET signed_proof_path = $1
@@ -13068,7 +13056,6 @@ router.get('/import/template-csv', asyncHandler(async (_req, res) => {
 router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, res) => {
   const scopeContext = resolveScopeContext(req);
   const valuationMode = resolveValuationExecutionMode(req);
-  const enrichmentMode = resolveImportEnrichmentExecutionMode(req);
   if (!req.file) {
     return res.status(400).json({ error: 'CSV file is required (multipart field: file)' });
   }

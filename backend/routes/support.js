@@ -531,8 +531,8 @@ platformRouter.get('/requests/:id', authenticateToken, asyncHandler(async (req, 
 
     const supportStaff = isSupportStaff(req);
     const timelineActionParams = supportStaff
-      ? ['support.request.created', 'support.request.status.updated', 'support.request.access.updated', 'support.request.triage.updated', 'auth.support_session.started', 'auth.support_session.ended']
-      : ['support.request.created', 'support.request.status.updated', 'support.request.access.updated', 'auth.support_session.started', 'auth.support_session.ended'];
+      ? [...PUBLIC_SUPPORT_TIMELINE_ACTIONS, 'support.request.triage.updated']
+      : [...PUBLIC_SUPPORT_TIMELINE_ACTIONS];
     const timelineResult = await client.query(
       `SELECT al.id,
               al.action,

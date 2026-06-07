@@ -243,7 +243,7 @@ async function main() {
        WHERE id = $1`,
       [duplicateId]
     );
-    const metadataRestored = await pool.query(
+    await pool.query(
       `SELECT "key", "value"
        FROM media_metadata
        WHERE media_id = $1

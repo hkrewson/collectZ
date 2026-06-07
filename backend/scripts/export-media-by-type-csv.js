@@ -146,7 +146,7 @@ async function loginOrBootstrap(client) {
 async function fetchAllItemsForType(client, mediaType) {
   const items = [];
   let page = 1;
-  let totalPages = 1;
+  let totalPages;
 
   do {
     const response = await client.request(

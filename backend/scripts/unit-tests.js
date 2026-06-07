@@ -183,7 +183,6 @@ const captureItemsRoutesSource = fs.readFileSync(require.resolve('../routes/capt
 const captureImageOcrServiceSource = fs.readFileSync(require.resolve('../services/captureImageOcr'), 'utf8');
 const mediaRoutesSource = fs.readFileSync(require.resolve('../routes/media'), 'utf8');
 const reviewCluesServiceSource = fs.readFileSync(require.resolve('../services/reviewClues'), 'utf8');
-const manualMergeRecommendationsServiceSource = fs.readFileSync(require.resolve('../services/manualMergeRecommendations'), 'utf8');
 const openApiSource = fs.readFileSync(require.resolve('../openapi/openapi.yaml'), 'utf8');
 const docsRoutesSource = fs.readFileSync(require.resolve('../routes/docs'), 'utf8');
 const metricsRoutesSource = fs.readFileSync(require.resolve('../routes/metrics'), 'utf8');
@@ -5096,7 +5095,7 @@ results.push(run('library routes shape /libraries payload from request scope ins
   assert.ok(!librariesRoutesSource.includes('const userScopeResult = await pool.query('));
   assert.ok(librariesRoutesSource.includes('const activeSpaceId = Number(req.user.scopeSpaceId || req.user.activeSpaceId || 0) || null;'));
   assert.ok(librariesRoutesSource.includes('const resolvedActiveLibraryId = req.user.activeLibraryId || (libraries[0]?.id || null);'));
-  assert.ok(librariesRoutesSource.includes('active_space_id: req.user.scopeSpaceId ?? req.user.activeSpaceId ?? (libraries[0]?.space_id || null),'));
+  assert.ok(librariesRoutesSource.includes('active_space_id: activeSpaceId ?? (libraries[0]?.space_id || null),'));
 }));
 
 results.push(run('homelab edition helpers strip surfaced space context while preserving shared library flows', () => {
@@ -6053,8 +6052,6 @@ results.push(run('shared signature proof attachments support Art upload removal 
   assert.ok(collectiblesRoutesSource.includes('buildArtSignaturePayloadFromRecord'));
   assert.ok(mediaRoutesSource.includes('const updated = await pool.query'));
   assert.ok(mediaRoutesSource.includes('signed_proof_path: null'));
-  assert.ok(artViewSource.includes('/upload-signature-proof'));
-  assert.ok(artViewSource.includes('/signature-proof'));
   assert.ok(artViewSource.includes('Proof file upload and removal live on each signature record below'));
   assert.ok(libraryViewSource.includes('Proof file upload and removal live on each signature record below'));
   assert.ok(signatureManagerSource.includes('/proof'));

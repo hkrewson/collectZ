@@ -2489,7 +2489,7 @@ router.post('/events/:id/artifacts', validate(eventArtifactCreateSchema), asyncH
     [eventId, artifact_type, title, description || null, image_path || null, price ?? null, vendor || null, req.user.id]
   );
   let row = created.rows[0];
-  const signature = await syncEventArtifactSignature({
+  await syncEventArtifactSignature({
     artifact: row,
     event: eventResult.rows[0],
     payload: req.body,
@@ -2566,7 +2566,7 @@ router.patch('/events/:id/artifacts/:artifactId', validate(eventArtifactUpdateSc
     return res.status(404).json({ error: 'Artifact not found' });
   }
   let row = result.rows[0];
-  const signature = await syncEventArtifactSignature({
+  await syncEventArtifactSignature({
     artifact: row,
     event: eventResult.rows[0],
     payload: req.body,
