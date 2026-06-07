@@ -5172,9 +5172,12 @@ results.push(run('dashboard shell exposes merge review as workspace-scoped opera
   assert.ok(dashboardRoutingSource.includes("'admin-merges'"));
   assert.ok(sidebarNavSource.includes("admin-merges"));
   assert.ok(sidebarNavSource.includes('showPlatformModeSwitch'));
-  assert.ok(sidebarNavSource.includes('aria-label="Navigation mode"'));
-  assert.ok(sidebarNavSource.includes("onSelect('admin-settings')"));
-  assert.ok(sidebarNavSource.includes("onSelect('dashboard')"));
+  assert.ok(!sidebarNavSource.includes('aria-label="Navigation mode"'));
+  assert.ok(sidebarNavSource.includes('Switch to Platform'));
+  assert.ok(sidebarNavSource.includes('Switch to Workspace'));
+  assert.ok(sidebarNavSource.includes('Working in'));
+  assert.ok(sidebarNavSource.includes("'admin-settings'"));
+  assert.ok(sidebarNavSource.includes("'dashboard'"));
   assert.ok(sidebarNavSource.includes('showWorkspaceNavigation'));
   assert.ok(sidebarNavSource.includes('showPlatformNavigation'));
   assert.ok(sidebarNavSource.includes('showWorkspaceGroup'));

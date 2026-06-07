@@ -6,6 +6,36 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.16.9 — Profile Menu Workspace Platform Switch
+
+**Goal:** Move the Workspace/Platform context switch out of the main navigation body so the sidebar starts with actual navigation.
+
+### Scope
+
+- Remove the permanent Workspace/Platform segmented switch from the sidebar navigation body.
+- Add current-context readback to the profile menu for platform admins.
+- Add a profile-menu action that switches between Workspace and Platform contexts.
+- Keep the existing Workspace and Platform navigation separation unchanged after switching.
+- Add browser coverage for profile-menu context switching and absence of the old nav-body switch.
+
+### Acceptance Criteria
+
+- The expanded sidebar no longer shows a permanent Workspace/Platform switch above Dashboard.
+- Platform admins can open the profile menu, see the current context, and switch to the other context.
+- Switching to Platform still shows Platform Settings and hides Workspace navigation.
+- Switching to Workspace still shows Dashboard and Workspace navigation.
+- Version metadata, release note, release feed, and focused runtime checks are updated for `3.16.9`.
+
+### Closeout
+
+- Status: completed in `3.16.9`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, and `docs/releases/v3.16.9.md`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.16.9` using the local platform compose override; `/api/health` reported version/frontend/backend/build `3.16.9`; backend/frontend containers were healthy; Help > Releases served `3.16.9`; targeted browser coverage verified profile-menu Workspace/Platform switching and absence of the old nav-body switch.
+- Verification: Docker frontend production build; Docker backend unit tests; Docker OpenAPI validation; Help > Releases smoke; targeted admin-shell browser regression; RBAC regression; platform edition boundary; homelab edition boundary against an isolated local compose project; version sync; release note/feed regeneration; targeted changed-file secret-pattern scan; and `git diff --check`.
+- CI follow-through: stricter CI `compose-smoke`, full `browser-regression`, `dependency-scan`, `secret-scan`, and `image-security-and-sbom` remain remote GitHub Actions gates for the pushed commit.
+- Risks/follow-ups: none for this slice.
+- What remains in the milestone: nothing for `3.16.9`; additional navigation menu polish should be selected as its own future slice if needed.
+
 ## 3.16.8 — Compact Navigation Menu Top Row Across Breakpoints
 
 **Goal:** Apply the compact navigation menu top-row treatment to the expanded desktop sidebar, not only the mobile drawer.

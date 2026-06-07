@@ -208,39 +208,6 @@ export default function SidebarNav({
           )}
         </div>
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto no-scrollbar">
-          {showPlatformModeSwitch && !collapsed && (
-            <div role="group" className="mb-3 grid grid-cols-2 gap-1 rounded-md border border-edge bg-surface/40 p-1" aria-label="Navigation mode">
-              <button
-                type="button"
-                onClick={() => {
-                  onSelect('dashboard');
-                  onMobileClose();
-                }}
-                className={cx(
-                  'rounded px-2 py-1.5 text-xs font-medium transition-colors',
-                  !isPlatformMode ? 'bg-raised text-ink shadow-sm' : 'text-ghost hover:text-ink'
-                )}
-                aria-pressed={!isPlatformMode}
-              >
-                Workspace
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  onSelect('admin-settings');
-                  onMobileClose();
-                }}
-                className={cx(
-                  'rounded px-2 py-1.5 text-xs font-medium transition-colors',
-                  isPlatformMode ? 'bg-raised text-ink shadow-sm' : 'text-ghost hover:text-ink'
-                )}
-                aria-pressed={isPlatformMode}
-              >
-                Platform
-              </button>
-            </div>
-          )}
-
           {showWorkspaceNavigation && canUseLibraryShell && isTabAllowed('dashboard') && (
             <NavLink id="dashboard" icon={<Icons.Gauge />} label="Dashboard" />
           )}
@@ -414,6 +381,28 @@ export default function SidebarNav({
                 collapsed ? 'bottom-3 left-full ml-2 w-52' : 'bottom-full left-3 right-3 mb-2'
               )}
             >
+              {showPlatformModeSwitch && (
+                <>
+                  <div className="px-3 py-2">
+                    <div className="text-[11px] text-ghost">Working in</div>
+                    <div className="mt-0.5 text-sm font-medium text-ink">{isPlatformMode ? 'Platform' : 'Workspace'}</div>
+                  </div>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setAccountMenuOpen(false);
+                      onSelect(isPlatformMode ? 'dashboard' : 'admin-settings');
+                      onMobileClose();
+                    }}
+                    className="w-full flex items-center gap-3 rounded-md px-3 py-2 text-sm text-dim hover:bg-raised/60 hover:text-ink"
+                  >
+                    {isPlatformMode ? <Icons.Gauge /> : <Icons.Settings />}
+                    <span>{isPlatformMode ? 'Switch to Workspace' : 'Switch to Platform'}</span>
+                  </button>
+                  <div className="my-1 border-t border-edge/70" />
+                </>
+              )}
               <button
                 type="button"
                 role="menuitem"

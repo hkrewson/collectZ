@@ -1278,25 +1278,26 @@ test.describe('admin shell browser regressions', () => {
     const navTopBox = await navTop.boundingBox();
     expect(navTopBox?.height || 0).toBeLessThanOrEqual(52);
 
-    const modeSwitch = nav.getByRole('group', { name: 'Navigation mode' });
-    await expect(modeSwitch).toBeVisible();
-    await expect(modeSwitch.getByRole('button', { name: 'Workspace', exact: true })).toHaveAttribute('aria-pressed', 'true');
-    await expect(modeSwitch.getByRole('button', { name: 'Platform', exact: true })).toHaveAttribute('aria-pressed', 'false');
+    await expect(nav.getByRole('group', { name: 'Navigation mode' })).toHaveCount(0);
 
     await expect(nav.getByRole('button', { name: 'Library', exact: true })).toBeVisible();
     await expect(nav.getByRole('button', { name: 'Merge Review', exact: true })).toBeVisible();
     await expect(nav.getByRole('button', { name: 'Platform Settings', exact: true })).toHaveCount(0);
 
-    await modeSwitch.getByRole('button', { name: 'Platform', exact: true }).click();
+    await nav.getByRole('button', { name: 'Account menu' }).click();
+    const accountMenu = page.getByRole('menu', { name: 'Account' });
+    await expect(accountMenu.getByText('Working in')).toBeVisible();
+    await expect(accountMenu.getByText('Workspace', { exact: true })).toBeVisible();
+    await accountMenu.getByRole('menuitem', { name: 'Switch to Platform' }).click();
     await expect(page.getByRole('heading', { name: 'Platform Settings', exact: true })).toBeVisible();
-    await expect(modeSwitch.getByRole('button', { name: 'Platform', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await expect(nav.getByRole('button', { name: 'Platform Settings', exact: true })).toBeVisible();
     await expect(nav.getByRole('button', { name: 'Library', exact: true })).toHaveCount(0);
     await expect(nav.getByRole('button', { name: 'Merge Review', exact: true })).toHaveCount(0);
 
-    await modeSwitch.getByRole('button', { name: 'Workspace', exact: true }).click();
+    await nav.getByRole('button', { name: 'Account menu' }).click();
+    await expect(accountMenu.getByText('Platform', { exact: true })).toBeVisible();
+    await accountMenu.getByRole('menuitem', { name: 'Switch to Workspace' }).click();
     await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible();
-    await expect(modeSwitch.getByRole('button', { name: 'Workspace', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await nav.getByRole('button', { name: 'Merge Review', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Merge Review', exact: true })).toBeVisible();
   });
