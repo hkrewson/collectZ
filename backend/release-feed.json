@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.16.1",
+      "version": "3.16.1",
+      "date": null,
+      "status": null,
+      "summary": "This patch finishes the visible Platform vs Workspace boundary cleanup by moving Merge Review out of the Platform nav group.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Changed Workspace into an expandable sidebar group when workspace-owned tools are available.",
+            "Moved `Merge Review` under Workspace.",
+            "Kept Platform focused on platform-level settings, runtime, activity, workspaces, and members.",
+            "Preserved the existing internal merge-review route ID and behavior."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.16.0",
       "version": "3.16.0",
       "date": null,
@@ -172,25 +190,6 @@
             "Supported fields include proof type, issuer/source, certificate number, acquired-from/source context, evidence date, reference, and notes.",
             "Saved proof details appear through existing collectible trait readback and trait pills.",
             "Reference readback shows that a reference exists without echoing raw local path-style values in the drawer."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.14.2",
-      "version": "3.14.2",
-      "date": null,
-      "status": null,
-      "summary": "This patch adds the first editable workflow on top of reusable collectible traits: manual grading details for supported collection records.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added a compact grading editor to Library, Art, and Collectibles detail drawers.",
-            "Grading details are stored through the reusable trait API as the `graded` family.",
-            "Supported fields include grader, grade, certificate number, grading date, and slab notes.",
-            "Saved grading details now appear through existing collectible trait readback and trait pills.",
-            "The editor remains drawer-based so ordinary add/edit flows stay lightweight."
           ]
         }
       ]

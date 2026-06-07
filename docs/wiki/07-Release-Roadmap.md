@@ -6,6 +6,34 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.16.1 — Workspace Merge Review Navigation Placement
+
+**Goal:** Finish the visible Platform vs Workspace boundary cleanup by moving Merge Review out of the Platform nav group.
+
+### Scope
+
+- Render Workspace as an expandable nav group when workspace-owned tools are available.
+- Keep Workspace settings/integrations and Merge Review together under the Workspace group.
+- Remove Merge Review from the visible Platform group while keeping the existing internal route ID stable.
+- Keep permissions, merge behavior, and workspace scope unchanged.
+
+### Acceptance Criteria
+
+- Merge Review no longer appears under Platform in the sidebar.
+- Platform nav remains limited to instance/platform surfaces such as Platform Settings, Runtime, Activity, All Workspaces, and All Members.
+- Workspace nav exposes Merge Review as a workspace-owned review tool.
+- Version metadata, release note, release feed, and focused runtime checks are updated for `3.16.1`.
+
+### Closeout
+
+- Status: completed in `3.16.1`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, `docs/wiki/08-Backlog.md`, and `docs/releases/v3.16.1.md`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.16.1` using the local platform compose override; `/api/health` reported version/frontend/backend/build `3.16.1`; running backend env reported `APP_EDITION=platform`, `APP_VERSION=3.16.1`, and `NODE_ENV=development`; frontend/backend containers were healthy; Help > Releases served `3.16.1`; targeted browser coverage proved Merge Review remains visible under Workspace while Platform can be collapsed without hiding it; targeted browser coverage also rechecked Platform Runtime and the merge review workflow.
+- Verification: frontend production build; host and Docker backend unit tests (`304` passed); Docker OpenAPI validation; Help > Releases smoke; targeted admin shell browser regression (`4` passed including setup); RBAC regression; platform edition boundary; homelab edition boundary against an isolated local compose project; backend and frontend production dependency audits (`0` vulnerabilities) through local release preflight; observability release evidence (`9/9` checks passed); version sync; release note heading/security-marker check; targeted changed-file secret-pattern scan; and `git diff --check`.
+- CI follow-through: stricter CI `compose-smoke`, repository-history `secret-scan`, full `browser-regression`, and `image-security-and-sbom` remain remote GitHub Actions gates for the pushed commit. Local preflight marked secure-cookie compose smoke blocked because the development stack runs with `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`.
+- Risks/follow-ups: the visible navigation now matches the boundary, but internal route IDs still use the existing `admin-*` names until a future route-cleanup slice is worth the churn.
+- What remains in the milestone: nothing for `3.16.1`; remaining workspace/platform boundary refinements stay in the backlog unless selected for a later release slice.
+
 ## 3.16.0 — Platform vs Workspace Boundary Clarification
 
 **Goal:** Make navigation and settings clearly distinguish workspace-owned collection work from platform-level setup.

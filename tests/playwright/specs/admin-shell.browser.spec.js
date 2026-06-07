@@ -1262,6 +1262,23 @@ test.describe('admin shell browser regressions', () => {
     }
   });
 
+  test('sidebar keeps Merge Review under Workspace instead of Platform', async ({ page }) => {
+    const adminCredentials = await ensureSavedAdminCredentials();
+    await signInThroughUi(page, adminCredentials);
+    await page.goto('/dashboard?tab=dashboard');
+
+    const nav = page.locator('aside');
+    await expect(nav.getByRole('button', { name: 'Workspace', exact: true })).toBeVisible();
+    await expect(nav.getByRole('button', { name: 'Merge Review', exact: true })).toBeVisible();
+
+    await nav.getByRole('button', { name: 'Platform', exact: true }).click();
+    await expect(nav.getByRole('button', { name: 'Platform Settings', exact: true })).toHaveCount(0);
+    await expect(nav.getByRole('button', { name: 'Merge Review', exact: true })).toBeVisible();
+
+    await nav.getByRole('button', { name: 'Merge Review', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Merge Review', exact: true })).toBeVisible();
+  });
+
   test('platform runtime tabs switch and save feedback stays visible', async ({ page }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
     await signInThroughUi(page, adminCredentials);
