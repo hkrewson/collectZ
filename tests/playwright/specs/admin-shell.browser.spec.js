@@ -1272,6 +1272,12 @@ test.describe('admin shell browser regressions', () => {
     await page.goto('/dashboard?tab=dashboard');
 
     const nav = page.locator('aside');
+    const navTop = page.getByTestId('navigation-menu-top');
+    await expect(navTop.getByText('collectZ')).toBeVisible();
+    await expect(navTop.getByTestId('navigation-menu-version')).toHaveText(/^v3\./);
+    const navTopBox = await navTop.boundingBox();
+    expect(navTopBox?.height || 0).toBeLessThanOrEqual(52);
+
     const modeSwitch = nav.getByRole('group', { name: 'Navigation mode' });
     await expect(modeSwitch).toBeVisible();
     await expect(modeSwitch.getByRole('button', { name: 'Workspace', exact: true })).toHaveAttribute('aria-pressed', 'true');

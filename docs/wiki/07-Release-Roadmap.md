@@ -6,6 +6,34 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.16.8 — Compact Navigation Menu Top Row Across Breakpoints
+
+**Goal:** Apply the compact navigation menu top-row treatment to the expanded desktop sidebar, not only the mobile drawer.
+
+### Scope
+
+- Remove the desktop-only padding and icon-size overrides that kept the navigation top row tall.
+- Keep the desktop `collectZ` wordmark visible while making the row compact.
+- Preserve the compact mobile menu top row from `3.16.7`.
+- Add browser coverage for the desktop-expanded sidebar top-row height.
+
+### Acceptance Criteria
+
+- The expanded desktop sidebar top row is compact and no longer consumes a large brand-block area.
+- The mobile navigation menu top row remains compact.
+- The collectZ mark, app version, and navigation close/collapse affordance remain visible and accessible.
+- Version metadata, release note, release feed, and focused runtime checks are updated for `3.16.8`.
+
+### Closeout
+
+- Status: completed in `3.16.8`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, and `docs/releases/v3.16.8.md`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.16.8` using the local platform compose override; `/api/health` reported version/frontend/backend/build `3.16.8`; backend/frontend containers were healthy; Help > Releases served `3.16.8`; targeted browser coverage verified mobile and desktop-expanded navigation top rows are compact.
+- Verification: Docker frontend production build; Docker backend unit tests; Docker OpenAPI validation; Help > Releases smoke; targeted admin-shell browser regression for mobile and desktop navigation; version sync; release note/feed regeneration; targeted changed-file secret-pattern scan; and `git diff --check`.
+- CI follow-through: stricter CI `compose-smoke`, `rbac-regression`, full `browser-regression`, `homelab-edition-boundary`, `platform-edition-boundary`, `dependency-scan`, `secret-scan`, and `image-security-and-sbom` remain remote GitHub Actions gates for the pushed commit.
+- Risks/follow-ups: none for this slice.
+- What remains in the milestone: nothing for `3.16.8`; additional navigation menu polish should be selected as its own future slice if needed.
+
 ## 3.16.7 — Compact Navigation Menu Top Row
 
 **Goal:** Make the top of the mobile navigation menu compact enough that Workspace/Platform and the first navigation choices are immediately visible.
