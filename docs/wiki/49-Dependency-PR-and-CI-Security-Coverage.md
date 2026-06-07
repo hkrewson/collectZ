@@ -68,6 +68,11 @@ gh codeql database analyze /tmp/collectz-codeql-db \
   --rerun
 ```
 
+Latest local parity check (2026-06-07):
+- Result count: `14`
+- Top active findings: `js/http-to-file-access` (13) and `js/request-forgery` (1)
+- All flagged files were in committed, maintained source (none under ignored paths such as artifacts, Playwright report output, coverage, dist/build outputs, node_modules, or SARIF outputs).
+
 Local exploratory scans may intentionally include uncommitted/generated files or local-only query/model inputs, but findings from generated artifacts, Playwright reports, SARIF outputs, release evidence, coverage, dependency folders, local build output, or unsupported local-only CodeQL extensions are triage noise unless they identify a problem in maintained source. Raw local SARIF result counts are also not expected to equal GitHub code-scanning alert counts exactly because GitHub fingerprints, deduplicates, branches, and suppresses alerts before presenting them in the Security UI.
 
 ## Operating Policy
