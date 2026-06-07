@@ -3619,6 +3619,12 @@ results.push(run('repo includes merge evidence backfill tooling for older duplic
 results.push(run('media route source uses title candidate fallback for tmdb lookups', () => {
   assert.ok(mediaRoutesSource.includes('findBestTmdbCandidate'));
   assert.ok(mediaRoutesSource.includes('buildLookupTitleCandidates'));
+  assert.ok(mediaRoutesSource.includes('function unwrapShortLookupTitleDescriptors'));
+  assert.ok(mediaRoutesSource.includes('function removeLookupTitleSequenceDescriptors'));
+  assert.ok(mediaRoutesSource.includes('LOOKUP_TITLE_SEQUENCE_WORDS'));
+  assert.ok(mediaRoutesSource.includes("const closeChar = char === '[' ? ']' : char === '(' ? ')' : '';"));
+  assert.ok(mediaRoutesSource.includes('descriptorLength > 80'));
+  assert.ok(mediaRoutesSource.includes('isLookupTitleSequenceValue(tokens[index + 2])'));
   assert.ok(mediaRoutesSource.includes('tmdb:title_variant_hit'));
   assert.ok(mediaRoutesSource.includes('lookupTitleCandidates'));
   assert.ok(mediaRoutesSource.includes('tmdbPosterLookupNoMatch'));

@@ -6,6 +6,33 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.16.26 — CodeQL Media Title Sanitizer Precision
+
+**Goal:** Continue the local CodeQL baseline reduction by clearing the media lookup-title multi-character sanitizer findings without deleting intended title-normalization behavior.
+
+### Scope
+
+- Replace regex-based parenthetical and bracket descriptor unwrapping in media lookup title normalization with a bounded scanner.
+- Preserve imported/exported title candidate behavior for short parenthetical and bracketed descriptors.
+- Keep unused-variable remediation under the documented intent-first rule; do not remove unused variables in this slice.
+- Keep local CodeQL CLI analysis as the working alert source because GitHub code-scanning alert export is unavailable from this shell.
+
+### Acceptance Criteria
+
+- Local CodeQL reports `0` `js/incomplete-multi-character-sanitization` findings.
+- Media lookup title normalization still preserves short descriptor text while bounding descriptor length.
+- Version metadata, release note, release feed, and focused runtime checks are updated for `3.16.26`.
+
+### Closeout
+
+- Status: completed in `3.16.26`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, and `docs/releases/v3.16.26.md`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.16.26` using the local platform compose override; `/api/health` reported version/frontend/backend/build `3.16.26`; backend/frontend containers were healthy; Help > Releases authenticated smoke served `3.16.26` as the newest entry.
+- Verification: backend syntax check; local backend unit tests (`310` passed); fresh local CodeQL CLI database creation and JavaScript/TypeScript security plus security-and-quality analysis (`152` total local results, targeted `js/incomplete-multi-character-sanitization` at `0`); Docker backend unit tests (`310` passed); Docker OpenAPI validation; Help > Releases smoke; backend and frontend production dependency audits (`0` vulnerabilities); version sync; release note/feed regeneration; targeted changed-diff secret-pattern scan; and `git diff --check`.
+- Blocked/unverified: live GitHub CodeQL alert export remains unavailable from this shell; local CodeQL CLI is the working source for this slice. CI-only repository-history `secret-scan`, `image-security-and-sbom`, and stricter remote publish gates remain GitHub Actions follow-through gates. Full `browser-regression`, `rbac-regression`, `homelab-edition-boundary`, and `platform-edition-boundary` were not rerun because this slice only changes backend provider lookup title normalization plus version/release artifacts; those gates remain CI follow-through for the pushed commit.
+- Risks/follow-ups: remaining local CodeQL findings include `32` unused-variable findings under the documented intent-first rule, `4` request-forgery findings, and lower-priority quality findings. The new lookup title scanner intentionally preserves short parenthetical/bracket descriptor text for provider matching; watch imported/exported title lookup quality after CI.
+- What remains in the milestone: nothing for `3.16.26`; broader CodeQL baseline remediation continues in later selected slices.
+
 ## 3.16.25 — Homelab Platform Navigation Boundary Fix
 
 **Goal:** Fix the homelab shell boundary so Platform navigation artifacts cannot appear when the backend reports the homelab product edition.

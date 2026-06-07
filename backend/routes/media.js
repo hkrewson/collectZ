@@ -3204,6 +3204,66 @@ function normalizeTitleForMatch(value) {
     .trim();
 }
 
+function unwrapShortLookupTitleDescriptors(value = '') {
+  const source = String(value || '');
+  let output = '';
+  let index = 0;
+  while (index < source.length) {
+    const char = source[index];
+    const closeChar = char === '[' ? ']' : char === '(' ? ')' : '';
+    if (!closeChar) {
+      output += char;
+      index += 1;
+      continue;
+    }
+    const closeIndex = source.indexOf(closeChar, index + 1);
+    const descriptorLength = closeIndex - index - 1;
+    if (closeIndex === -1 || descriptorLength < 1 || descriptorLength > 80) {
+      output += char;
+      index += 1;
+      continue;
+    }
+    output += ` ${source.slice(index + 1, closeIndex)} `;
+    index = closeIndex + 1;
+  }
+  return output;
+}
+
+const LOOKUP_TITLE_SEQUENCE_WORDS = new Set([
+  'one',
+  'two',
+  'three',
+  'four',
+  'five',
+  'six',
+  'seven',
+  'eight',
+  'nine',
+  'ten'
+]);
+
+function isLookupTitleSequenceValue(value = '') {
+  const normalized = String(value || '').toLowerCase();
+  return LOOKUP_TITLE_SEQUENCE_WORDS.has(normalized) || /^\d+$/.test(normalized);
+}
+
+function removeLookupTitleSequenceDescriptors(value = '') {
+  const tokens = String(value || '').split(/(\s+)/);
+  const output = [];
+  for (let index = 0; index < tokens.length; index += 1) {
+    const token = tokens[index];
+    const lowerToken = token.toLowerCase();
+    if ((lowerToken === 'part' || lowerToken === 'chapter')
+      && /^\s+$/.test(tokens[index + 1] || '')
+      && isLookupTitleSequenceValue(tokens[index + 2])) {
+      index += 2;
+      continue;
+    }
+    output.push(token);
+  }
+  return output.join('');
+}
+
 function normalizeLookupTitle(value = '', mediaType = 'movie') {
   let text = String(value || '').trim();
   if (!text) return '';
@@ -3229,14 +3289,10 @@ function normalizeLookupTitle(value = '', mediaType = 'movie') {
   if (mediaType === 'game') {
     text = text.replace(/\bfor\s+(xbox|playstation|nintendo|switch|wii|pc)\b.*$/ig, '');
   }
-  text = text
-    .replace(/\[([^\]]{1,80})\]/g, ' $1 ')
-    .replace(/\(([^)]{1,80})\)/g, ' $1 ')
+  text = removeLookupTitleSequenceDescriptors(unwrapShortLookupTitleDescriptors(text))
     .replace(/\buncut\b/ig, '')
     .replace(/\btheatrical\s+version\b/ig, '')
     .replace(/\bseason\s+\d+\b/ig, '')
-    .replace(/\bpart\s+(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\b/ig, '')
-    .replace(/\bchapter\s+(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\b/ig, '')
     .replace(/\bvol(?:ume)?\.?\s*[ivxlcdm\d]+\b/ig, '')
     .replace(/\bdisc\s*[ivxlcdm\d]+\b/ig, '');
   // Remove trailing parenthetical/bracket descriptors.

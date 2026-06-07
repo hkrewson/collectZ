@@ -1,6 +1,23 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.16.26",
+      "version": "3.16.26",
+      "date": null,
+      "status": null,
+      "summary": "This patch continues CodeQL baseline remediation by replacing media lookup-title descriptor unwrapping with bounded scanner logic that preserves intended title candidate behavior.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Replaced regex-based parenthetical and bracket descriptor unwrapping in media lookup title normalization with a bounded scanner.",
+            "Preserved short descriptor text for TMDB title candidate matching while keeping an explicit descriptor length limit.",
+            "Added backend unit source coverage for the scanner-based lookup-title contract."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.16.25",
       "version": "3.16.25",
       "date": null,
@@ -173,25 +190,6 @@
             "Kept active selected items on a solid blue underline.",
             "Preserved the collapsed-rail active indicator for grouped Library and Platform navigation.",
             "Updated unit coverage for the hover underline contract."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.16.16",
-      "version": "3.16.16",
-      "date": null,
-      "status": null,
-      "summary": "This patch replaces the heavy sidebar active highlight with a quieter blue underline that matches the app's tab selection language.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Replaced the large raised active block on sidebar nav items with a compact blue underline.",
-            "Kept selected nav text readable without changing routes or permissions.",
-            "Kept Library and Platform parent rows calm while visible child rows own the selected underline.",
-            "Preserved a collapsed-rail indicator for grouped Library and Platform navigation.",
-            "Updated browser and unit coverage for the new sidebar active-state contract."
           ]
         }
       ]

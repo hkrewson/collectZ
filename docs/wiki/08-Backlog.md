@@ -832,7 +832,7 @@ These are product-level capability gaps discovered from the current shape of the
 These are unscheduled security-maintenance tasks discovered from advisory scanning and release-gate follow-through. Keep them versionless until selected and moved into the roadmap as numbered milestones.
 
 ### Backlog Item: CodeQL Baseline Remediation
-**Status:** Active remediation is being promoted into numbered roadmap slices, including `3.16.21 — CodeQL Backend Input Boundary Hardening`, `3.16.22 — CodeQL SQL and URL Host Remediation`, `3.16.23 — CodeQL Log Hygiene and Unused Finding Triage`, and `3.16.24 — CodeQL Sanitizer and Runtime Helper Remediation`.
+**Status:** Active remediation is being promoted into numbered roadmap slices, including `3.16.21 — CodeQL Backend Input Boundary Hardening`, `3.16.22 — CodeQL SQL and URL Host Remediation`, `3.16.23 — CodeQL Log Hygiene and Unused Finding Triage`, `3.16.24 — CodeQL Sanitizer and Runtime Helper Remediation`, and `3.16.26 — CodeQL Media Title Sanitizer Precision`.
 
 **Unused-variable working rule:** Do not delete unused variables only to quiet CodeQL. For each unused-variable finding, consult repo docs, the roadmap/backlog, nearby code, and existing tests first. Classify the finding as generated-artifact noise, intended behavior that needs wiring or implementation, intentionally retained behavior that needs coverage, or true dead code. Implement or cover intended behavior when project intent exists, as with the Delicious `PLATFORM_KEYS` alias ordering, and remove only verified dead code.
 
