@@ -6,6 +6,38 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.16.20 — Collapsed Sidebar Mark Alignment
+
+**Goal:** Keep the collapsed sidebar brand mark visually aligned with the rail navigation icons.
+
+### Scope
+
+- Center the collapsed sidebar brand header content in the narrow rail.
+- Keep the collectZ mark in line with the collapsed navigation icons.
+- Preserve accessible labels for collapsed icon-only nav buttons.
+- Preserve the expanded sidebar header alignment from `3.16.19`.
+- Preserve the existing hamburger/collapse behavior for this slice.
+- Keep Help > Releases as the canonical version/build readback.
+
+### Acceptance Criteria
+
+- The collapsed sidebar collectZ mark aligns with the centered nav icons.
+- Collapsed icon-only nav buttons keep their accessible names.
+- The expanded sidebar header remains unchanged from `3.16.19`.
+- The hamburger/collapse control keeps its existing behavior.
+- No route, auth, workspace, platform, or navigation ownership behavior changes.
+- Version metadata, release note, release feed, and focused runtime checks are updated for `3.16.20`.
+
+### Closeout
+
+- Status: completed in `3.16.20`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, and `docs/releases/v3.16.20.md`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.16.20` using the local platform compose override; `/api/health` reported version/frontend/backend/build `3.16.20`; backend/frontend containers were healthy; Help > Releases served `3.16.20`; targeted Admin Shell browser coverage verified collapsed sidebar mark alignment and accessible icon labels. An isolated homelab stack built from local sources also reported `3.16.20`, passed the homelab boundary smoke, and was removed.
+- Verification: frontend production build; local backend unit tests; Docker backend unit tests (`304` passed); Docker OpenAPI validation; Help > Releases smoke; targeted Admin Shell browser regression; RBAC regression; platform edition boundary; homelab edition boundary against an isolated local compose project; backend and frontend production dependency audits (`0` vulnerabilities); local API integration smoke; observability release evidence; local release preflight; version sync; release note/feed regeneration; targeted changed-file secret-pattern scan; and `git diff --check`.
+- CI follow-through: stricter CI `compose-smoke`, full `browser-regression`, `dependency-scan`, `secret-scan`, and `image-security-and-sbom` remain remote GitHub Actions gates for the pushed commit.
+- Risks/follow-ups: local preflight marks secure-cookie compose smoke, gitleaks, full browser-regression, and image/SBOM as CI-only or stricter remote gates; evaluate replacing the hamburger with a clear accessible brand-header collapse affordance in a future sidebar interaction patch.
+- What remains in the milestone: nothing for `3.16.20`.
+
 ## 3.16.19 — Sidebar Brand Header Cleanup
 
 **Goal:** Simplify the sidebar brand header by aligning the mark with the navigation icon column and removing version clutter from the top chrome.

@@ -192,6 +192,7 @@ export default function SidebarNav({
     const active = activeTab === id || activeWhen.includes(activeTab);
     return (
       <button
+        aria-label={label}
         onClick={() => {
           onSelect(id);
           onMobileClose();
@@ -230,7 +231,7 @@ export default function SidebarNav({
           data-testid="navigation-menu-top"
           className={cx(
             'flex items-center gap-2 border-b border-edge shrink-0 px-3 py-1.5',
-            collapsed ? 'justify-between px-2' : ''
+            collapsed ? 'justify-center px-0' : ''
           )}
         >
           <div className={cx('flex h-7 w-7 shrink-0 items-center justify-center text-gold', !collapsed && 'ml-2')}>

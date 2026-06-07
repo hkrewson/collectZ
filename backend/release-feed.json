@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.16.20",
+      "version": "3.16.20",
+      "date": null,
+      "status": null,
+      "summary": "This patch keeps the collapsed sidebar brand mark aligned with the navigation icon column. It continues the 3.16 sidebar cleanup without changing routes, permissions, or the existing hamburger collapse behavior.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Centered the collapsed sidebar brand header content in the narrow rail.",
+            "Kept the collectZ mark visually in line with the collapsed navigation icons.",
+            "Kept collapsed icon-only nav buttons accessible by preserving their text labels as `aria-label` values.",
+            "Preserved the expanded sidebar header behavior from `3.16.19`.",
+            "Left the hamburger/collapse affordance unchanged while the top-brand-as-collapse-control idea remains a product follow-up."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.16.19",
       "version": "3.16.19",
       "date": null,
@@ -171,24 +190,6 @@
             "Moved workspace export downloads and coverage into a dedicated `Export` tab.",
             "Removed backup/export readback from the general Workspace Settings tab.",
             "Kept the existing workspace portability API and export behavior unchanged."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.16.10",
-      "version": "3.16.10",
-      "date": null,
-      "status": null,
-      "summary": "This patch shortens the profile-menu Workspace/Platform context switch labels.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Changed the profile-menu context action from `Switch to Workspace` / `Switch to Platform` to `Workspace` / `Platform`.",
-            "Kept the `Working in` readback so the menu still explains the current context.",
-            "Kept the Workspace/Platform switching behavior unchanged.",
-            "Updated browser and source-contract coverage for the shorter labels."
           ]
         }
       ]

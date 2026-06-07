@@ -1277,6 +1277,15 @@ test.describe('admin shell browser regressions', () => {
     await expect(navTop.getByTestId('navigation-menu-version')).toHaveCount(0);
     const navTopBox = await navTop.boundingBox();
     expect(navTopBox?.height || 0).toBeLessThanOrEqual(52);
+    await navTop.getByRole('button', { name: 'Collapse navigation' }).click();
+    await expect(navTop.getByText('collectZ')).toBeHidden();
+    const collapsedMarkBox = await navTop.locator('svg').first().boundingBox();
+    const collapsedDashboardIconBox = await nav.getByRole('button', { name: 'Dashboard', exact: true }).locator('svg').first().boundingBox();
+    const collapsedMarkCenter = (collapsedMarkBox?.x || 0) + (collapsedMarkBox?.width || 0) / 2;
+    const collapsedDashboardIconCenter = (collapsedDashboardIconBox?.x || 0) + (collapsedDashboardIconBox?.width || 0) / 2;
+    expect(Math.abs(collapsedMarkCenter - collapsedDashboardIconCenter)).toBeLessThanOrEqual(2);
+    await navTop.click();
+    await expect(navTop.getByText('collectZ')).toBeVisible();
 
     await expect(nav.getByRole('group', { name: 'Navigation mode' })).toHaveCount(0);
 
