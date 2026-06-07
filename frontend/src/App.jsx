@@ -14,6 +14,7 @@ import useSessionBootstrap from './components/app/hooks/useSessionBootstrap';
 import useMediaApi from './components/app/hooks/useMediaApi';
 import useRootAppearance from './components/app/hooks/useRootAppearance';
 import { readFrontendEnv } from './components/app/frontendEnv';
+import useSupportSummary from './components/app/hooks/useSupportSummary';
 import {
   getSafeDashboardTab,
   isSupportHelpEnabled,
@@ -40,18 +41,6 @@ export default function App() {
   const [featureFlags, setFeatureFlags] = useState({
     events_enabled: null,
     collectibles_enabled: null
-  });
-  const [supportSummary, setSupportSummary] = useState({
-    open: 0,
-    answered: 0,
-    closed: 0,
-    bugs: 0,
-    features: 0,
-    metrics: {
-      time_to_open_seconds: 0,
-      time_to_close_seconds: 0,
-      closed_this_month: 0
-    }
   });
   const [toast, setToast] = useState(null);
   const showToast = useCallback((message, type = 'ok') => setToast({ message, type }), []);
@@ -90,6 +79,7 @@ export default function App() {
   const supportHelpEnabled = isSupportHelpEnabled(productEdition);
   const supportStaffInEdition = supportHelpEnabled && ['admin', 'support_admin'].includes(String(user?.role || ''));
   const supportSessionActiveInEdition = supportHelpEnabled && Boolean(supportSession?.active);
+  const { supportSummary, loadSupportSummary } = useSupportSummary({ apiCall, showToast, supportStaffInEdition });
   const nowPlayingDisplayToken = route === 'now-playing'
     ? new URLSearchParams(window.location.search).get('token') || ''
     : '';
@@ -202,48 +192,6 @@ export default function App() {
       }));
     }
   }, [apiCall, user]);
-
-  const loadSupportSummary = useCallback(async ({ silent = false } = {}) => {
-    if (!supportStaffInEdition) {
-      setSupportSummary({
-        open: 0,
-        answered: 0,
-        closed: 0,
-        bugs: 0,
-        features: 0,
-        metrics: {
-          time_to_open_seconds: 0,
-          time_to_close_seconds: 0,
-          closed_this_month: 0
-        }
-      });
-      return null;
-    }
-    try {
-      const payload = await apiCall('get', '/support/staff/summary');
-      const nextQueue = payload?.queue || {};
-      const nextMetrics = payload?.metrics || {};
-      const normalized = {
-        open: Number(nextQueue.open || 0),
-        answered: Number(nextQueue.answered || 0),
-        closed: Number(nextQueue.closed || 0),
-        bugs: Number(nextQueue.bugs || 0),
-        features: Number(nextQueue.features || 0),
-        metrics: {
-          time_to_open_seconds: Number(nextMetrics.time_to_open_seconds || 0),
-          time_to_close_seconds: Number(nextMetrics.time_to_close_seconds || 0),
-          closed_this_month: Number(nextMetrics.closed_this_month || 0)
-        }
-      };
-      setSupportSummary(normalized);
-      return normalized;
-    } catch (error) {
-      if (!silent) {
-        showToast(error.response?.data?.error || 'Failed to load support summary', 'error');
-      }
-      return null;
-    }
-  }, [apiCall, showToast, supportStaffInEdition]);
 
   const loadAuthScope = useCallback(async ({ silent = false } = {}) => {
     if (!user) return null;
