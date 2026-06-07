@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.16.21",
+      "version": "3.16.21",
+      "date": null,
+      "status": null,
+      "summary": "This patch starts the CodeQL baseline remediation work by hardening backend input boundaries for user-supplied calendar feeds, Kavita connector URLs, and CSV import upload handling.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added a shared outbound URL policy for user-supplied ICS feeds.",
+            "Blocked non-HTTP(S), credential-bearing, localhost, private, loopback, and link-local ICS feed targets by default.",
+            "Added `ALLOW_PRIVATE_ICS_FEEDS=true` for deliberate private-feed deployments or controlled local test topologies.",
+            "Tightened Kavita base URL normalization to HTTP(S) URLs without embedded credentials while preserving LAN-hosted Kavita support.",
+            "Moved generic, Calibre, and Delicious CSV imports to multer memory buffers instead of request-controlled temp file paths.",
+            "Added unit coverage for the URL policy, Kavita normalization, and in-memory CSV import boundary."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.16.20",
       "version": "3.16.20",
       "date": null,
@@ -170,26 +190,6 @@
             "Kept workspace switching in the profile menu, where the app now treats Workspace and Platform as explicit contexts.",
             "Kept Workspace Settings, Backup, Export, Integrations, People, and Activity tabs unchanged.",
             "Updated browser coverage so it expects the useful Workspace sections instead of the old overview header."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.16.11",
-      "version": "3.16.11",
-      "date": null,
-      "status": null,
-      "summary": "This patch separates workspace backup readback from workspace export actions and shortens the Workspace navigation label to `Settings`.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Renamed the Workspace navigation child item from `Settings & integrations` to `Settings`.",
-            "Kept Workspace Integrations as its own workspace tab.",
-            "Moved workspace backup readback into a dedicated `Backup` tab.",
-            "Moved workspace export downloads and coverage into a dedicated `Export` tab.",
-            "Removed backup/export readback from the general Workspace Settings tab.",
-            "Kept the existing workspace portability API and export behavior unchanged."
           ]
         }
       ]

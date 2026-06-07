@@ -185,11 +185,7 @@ const imageFileFilter = (_req, file, cb) => {
   return cb(null, true);
 };
 
-const tempDiskStorage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, 'uploads/'),
-  filename: (_req, file, cb) => cb(null, `${Date.now()}-${sanitizeUploadFilename(file.originalname)}`)
-});
-const tempUpload = multer({ storage: tempDiskStorage, limits: { fileSize: 10 * 1024 * 1024 } });
+const tempUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 const memoryImageUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 }, fileFilter: imageFileFilter });
 
 const MEDIA_TYPES = ['movie', 'tv_series', 'tv_episode', 'book', 'audio', 'game', 'comic_book'];
@@ -12995,12 +12991,7 @@ router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, r
   if (!req.file) {
     return res.status(400).json({ error: 'CSV file is required (multipart field: file)' });
   }
-  let text = '';
-  try {
-    text = await fs.promises.readFile(req.file.path, 'utf8');
-  } finally {
-    await fs.promises.unlink(req.file.path).catch(() => {});
-  }
+  const text = Buffer.isBuffer(req.file.buffer) ? req.file.buffer.toString('utf8') : '';
 
   let parsed;
   try {
@@ -13165,12 +13156,7 @@ router.post('/import-csv/calibre', tempUpload.single('file'), asyncHandler(async
   if (!req.file) {
     return res.status(400).json({ error: 'Calibre CSV file is required (multipart field: file)' });
   }
-  let text = '';
-  try {
-    text = await fs.promises.readFile(req.file.path, 'utf8');
-  } finally {
-    await fs.promises.unlink(req.file.path).catch(() => {});
-  }
+  const text = Buffer.isBuffer(req.file.buffer) ? req.file.buffer.toString('utf8') : '';
 
   let parsed;
   try {
@@ -13734,12 +13720,7 @@ router.post('/import-csv/delicious', tempUpload.single('file'), asyncHandler(asy
   if (!req.file) {
     return res.status(400).json({ error: 'Delicious CSV file is required (multipart field: file)' });
   }
-  let text = '';
-  try {
-    text = await fs.promises.readFile(req.file.path, 'utf8');
-  } finally {
-    await fs.promises.unlink(req.file.path).catch(() => {});
-  }
+  const text = Buffer.isBuffer(req.file.buffer) ? req.file.buffer.toString('utf8') : '';
 
   let parsed;
   try {

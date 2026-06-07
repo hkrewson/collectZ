@@ -832,45 +832,7 @@ These are product-level capability gaps discovered from the current shape of the
 These are unscheduled security-maintenance tasks discovered from advisory scanning and release-gate follow-through. Keep them versionless until selected and moved into the roadmap as numbered milestones.
 
 ### Backlog Item: CodeQL Baseline Remediation
-**Type:** Security maintenance
-**Priority:** P0 for critical/high runtime security findings; P1 for medium security hygiene; P2 for quality-only cleanup.
-**Tags:** `security`, `codeql`, `source-scanning`, `backend`, `frontend`, `ci`
-**Status:** Active backlog; GitHub CodeQL is advisory, and the initial `main` baseline has 99 open alerts to triage and reduce.
-
-**Goal:** Triage and remediate the initial GitHub CodeQL baseline so source-scanning findings are understood, high-risk runtime issues are fixed first, and remaining advisory noise has a documented disposition.
-
-**Current verified context**
-- GitHub CodeQL analysis `1321711401` for `main` commit `885bbb60e25e1b7d47e7f288464b447db02dcebe` reported 99 open results on 2026-06-03.
-- The workflow scanned 239 JavaScript files and 5 GitHub Actions files, then uploaded results successfully.
-- Open alert severity split at review time: 4 critical, 27 high, 20 medium, and 48 quality/correctness-only findings.
-- CodeQL is currently advisory per `docs/wiki/49-Dependency-PR-and-CI-Security-Coverage.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, and `docs/wiki/10-CI-CD-and-Registry-Deploy.md`.
-
-**Priority order**
-- P0: Remediate or explicitly disposition the critical/high runtime security findings first: SSRF, SQL injection, path injection, registration/auth guard logic, CSRF posture, DOM XSS, incomplete sanitization, insecure randomness, password-hash evidence handling, regex DoS, and domain validation.
-- P1: Remediate medium security hygiene findings: log injection and file/network-to-file write paths in runtime, ops, smoke, and template scripts.
-- P2: Clean up quality-only findings after the security baseline is controlled: unused variables, useless assignments, trivial conditionals, overwritten object properties, template-string mistakes, and incompatible comparisons.
-
-**Candidate subtasks**
-- Promote this item into a numbered roadmap milestone before implementation.
-- Capture the current CodeQL alert export in release evidence without committing secret-bearing logs or credentials.
-- Group fixes by runtime risk and affected surface rather than trying to clear all 99 findings in one patch.
-- Start with backend SSRF and SQL/path injection findings in Kavita, ICS sync, and media import flows.
-- Review auth/CSRF findings against the edition-boundary and registration policy before changing behavior.
-- Review frontend XSS and URL/domain checks with browser regression coverage.
-- Add focused tests for each fixed security class before relying on CodeQL alert closure.
-- Re-run CodeQL in GitHub Actions for authoritative alert closure, since the local CodeQL CLI is not installed by default.
-
-**Out of scope**
-- Do not promote CodeQL to a required branch-protection gate until the baseline has been remediated or dispositioned.
-- Do not suppress broad rule families to make the count look clean without reviewing the underlying findings.
-- Do not mix unrelated release/version work into the remediation milestone unless the promoted slice explicitly requires release closeout.
-
-**Acceptance Criteria**
-- Critical and high CodeQL security findings are fixed or have specific, documented false-positive dispositions.
-- Medium security findings are fixed or tracked with clear owner/risk notes.
-- Quality-only findings are either cleaned up or separated into a lower-priority cleanup milestone.
-- GitHub CodeQL rerun shows the expected alert reduction for the promoted slice.
-- Relevant regression gates are run or explicitly marked blocked according to the release checklist used by the promoted milestone.
+**Status:** Promoted into `docs/wiki/07-Release-Roadmap.md` as `3.16.21 — CodeQL Backend Input Boundary Hardening`.
 
 ## UI/UX Cleanup Working Plan
 

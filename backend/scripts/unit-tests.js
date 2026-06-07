@@ -50,6 +50,7 @@ const {
   buildKavitaSeriesProviderItemId,
   buildKavitaChapterProviderItemId,
   parseKavitaComicIssueLikeSeriesTitle,
+  normalizeKavitaBaseUrl,
   normalizeKavitaLibraryType,
   isKavitaComicLibraryType,
   normalizeKavitaChapterIssueRows
@@ -134,6 +135,11 @@ process.env.INTEGRATION_ENCRYPTION_KEY = process.env.INTEGRATION_ENCRYPTION_KEY 
 const { buildIntegrationResponse } = require('../services/integrationResponse');
 const { buildCompactJobSummary, formatSyncJob } = require('../services/syncJobs');
 const { ICS_FETCH_USER_AGENT, fetchIcsText, parseIcsEvents, parseIcsCatalogSessions, linkPersonalPlansToCatalogSessions } = require('../services/schedIcsSync');
+const {
+  parseHttpUrl,
+  isPrivateAddress,
+  assertPublicHttpUrl
+} = require('../services/outboundUrlPolicy');
 const {
   buildLoanReminderPhase,
   wasLoanReminderSentToday,
@@ -2879,6 +2885,10 @@ results.push(run('repo includes Kavita import sync smoke coverage for repeat syn
 }));
 
 results.push(run('kavita launch URL helpers build secret-free native web routes', () => {
+  assert.strictEqual(normalizeKavitaBaseUrl('http://192.168.1.50:5000/'), 'http://192.168.1.50:5000');
+  assert.strictEqual(normalizeKavitaBaseUrl('https://kavita.example/root/'), 'https://kavita.example/root');
+  assert.strictEqual(normalizeKavitaBaseUrl('file:///etc/passwd'), '');
+  assert.strictEqual(normalizeKavitaBaseUrl('https://user:secret@kavita.example/root'), '');
   assert.strictEqual(buildKavitaSeriesProviderItemId(8602), 'kavita:series:8602');
   assert.strictEqual(buildKavitaChapterProviderItemId(9702), 'kavita:chapter:9702');
   assert.strictEqual(buildKavitaSeriesWebUrl('https://kavita.example/root/', 87, 8602), 'https://kavita.example/root/library/87/series/8602');
@@ -5689,13 +5699,42 @@ results.push(run('personal Sched ICS fetch sends provider-friendly calendar head
       status: 200,
       text: async () => 'BEGIN:VCALENDAR\nVERSION:2.0\nEND:VCALENDAR'
     };
-  });
+  }, { lookup: async () => [{ address: '93.184.216.34', family: 4 }] });
 
   assert.strictEqual(text.includes('BEGIN:VCALENDAR'), true);
   assert.strictEqual(calls.length, 1);
+  assert.strictEqual(calls[0].url, 'https://example.test/personal.ics');
   assert.strictEqual(calls[0].options.method, 'GET');
   assert.strictEqual(calls[0].options.headers['User-Agent'], ICS_FETCH_USER_AGENT);
   assert.ok(calls[0].options.headers.Accept.includes('text/calendar'));
+}));
+
+results.push(run('outbound URL policy blocks user-supplied ICS private hosts by default', async () => {
+  assert.strictEqual(parseHttpUrl('webcal://calendar.example.test/feed.ics', { allowWebcal: true }).toString(), 'https://calendar.example.test/feed.ics');
+  assert.strictEqual(parseHttpUrl('https://user:secret@example.test/feed.ics'), null);
+  assert.strictEqual(isPrivateAddress('127.0.0.1'), true);
+  assert.strictEqual(isPrivateAddress('192.168.1.20'), true);
+  assert.strictEqual(isPrivateAddress('93.184.216.34'), false);
+
+  await assert.rejects(
+    () => assertPublicHttpUrl('https://localhost/feed.ics', { lookup: async () => [{ address: '127.0.0.1', family: 4 }] }),
+    /localhost/
+  );
+  await assert.rejects(
+    () => assertPublicHttpUrl('https://calendar.example.test/feed.ics', { lookup: async () => [{ address: '10.0.0.4', family: 4 }] }),
+    /private/
+  );
+  assert.strictEqual(
+    await assertPublicHttpUrl('https://calendar.example.test/feed.ics', { lookup: async () => [{ address: '93.184.216.34', family: 4 }] }),
+    'https://calendar.example.test/feed.ics'
+  );
+}));
+
+results.push(run('CSV import uploads stay in memory instead of reading request-controlled temp paths', () => {
+  assert.ok(mediaRoutesSource.includes('const tempUpload = multer({ storage: multer.memoryStorage()'));
+  assert.ok(mediaRoutesSource.includes("req.file.buffer.toString('utf8')"));
+  assert.ok(!mediaRoutesSource.includes('fs.promises.readFile(req.file.path'));
+  assert.ok(!mediaRoutesSource.includes('fs.promises.unlink(req.file.path'));
 }));
 
 results.push(run('native art migration and shared event purchase backfill are wired for the 3.4.2 migration phase', () => {

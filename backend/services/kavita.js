@@ -1,4 +1,5 @@
 const axios = require('axios');
+const { parseHttpUrl } = require('./outboundUrlPolicy');
 
 const DEFAULT_TIMEOUT_MS = 20000;
 const DEFAULT_PLUGIN_NAME = 'collectZ';
@@ -9,12 +10,9 @@ const DEFAULT_IMPORT_MAX_VOLUME_DETAILS = 250;
 function normalizeKavitaBaseUrl(rawUrl = '') {
   const value = String(rawUrl || '').trim().replace(/\/+$/, '');
   if (!value) return '';
-  try {
-    const parsed = new URL(value);
-    return parsed.origin + parsed.pathname.replace(/\/+$/, '');
-  } catch (_) {
-    return '';
-  }
+  const parsed = parseHttpUrl(value);
+  if (!parsed) return '';
+  return parsed.origin + parsed.pathname.replace(/\/+$/, '');
 }
 
 function buildKavitaWebUrl(baseUrl = '', path = '') {

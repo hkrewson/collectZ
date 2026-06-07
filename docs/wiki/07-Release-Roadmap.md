@@ -6,6 +6,38 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.16.21 — CodeQL Backend Input Boundary Hardening
+
+**Goal:** Reduce the initial CodeQL baseline by hardening the highest-risk backend SSRF and path-injection classes in the selected security-maintenance slice.
+
+### Scope
+
+- Tighten Kavita base URL normalization so workspace-owned connector URLs must be HTTP(S) and cannot include embedded credentials.
+- Preserve LAN/private Kavita connector support for homelab deployments because Kavita commonly runs on trusted local infrastructure.
+- Add an outbound URL policy for user-supplied ICS feeds that rejects credentials, non-HTTP(S) schemes, localhost, private, loopback, and link-local hosts by default.
+- Keep a deliberate `ALLOW_PRIVATE_ICS_FEEDS=true` backend escape hatch for controlled private-feed deployments and local test topologies.
+- Move CSV import uploads off request-controlled temp file paths and read import payloads from multer memory buffers.
+- Add focused unit coverage for the new CodeQL guardrails and keep the broader CodeQL baseline advisory until GitHub Actions confirms alert reduction.
+
+### Acceptance Criteria
+
+- Kavita URLs still build secret-free native web and proxy routes for valid HTTP(S) connector bases.
+- Kavita rejects `file:` and credential-bearing base URLs before outbound requests are built.
+- User-supplied ICS fetches reject localhost/private destinations unless `ALLOW_PRIVATE_ICS_FEEDS=true` is explicitly configured.
+- Generic, Calibre, and Delicious CSV imports no longer read from or unlink `req.file.path`.
+- Backend unit coverage proves the URL policy and in-memory import boundary.
+- Version metadata, release note, release feed, and focused runtime checks are updated for `3.16.21`.
+
+### Closeout
+
+- Status: completed in `3.16.21`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/49-Dependency-PR-and-CI-Security-Coverage.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, and `docs/releases/v3.16.21.md`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.16.21` using the local platform compose override; `/api/health` reported version/frontend/backend/build `3.16.21`; backend/frontend containers were healthy; Help > Releases served `3.16.21` as the newest entry. The homelab compose topology was also rebuilt from local sources at `3.16.21`, passed the homelab boundary smoke, and the local platform topology was restored afterward.
+- Verification: backend syntax checks for changed services/routes/tests; local backend unit tests (`306` passed); Docker backend unit tests (`306` passed); Docker OpenAPI validation; Help > Releases smoke; local API integration smoke through the frontend proxy; RBAC regression; platform edition boundary; homelab edition boundary; backend and frontend production dependency audits (`0` vulnerabilities); version sync; release note/feed regeneration; targeted changed-file secret-pattern scan; and `git diff --check`.
+- Blocked/unverified: live GitHub CodeQL alert export could not be fetched from this shell because the GitHub REST `code-scanning/alerts` endpoint returned `404` for the authenticated token; the authoritative CodeQL alert reduction must be confirmed by rerunning the GitHub Actions CodeQL workflow after push. CI-only `secret-scan`, `image-security-and-sbom`, and stricter remote publish gates remain GitHub Actions follow-through gates.
+- Risks/follow-ups: `ALLOW_PRIVATE_ICS_FEEDS=true` is available for intentional private calendar deployments, but it should stay off unless the operator accepts the private-feed SSRF tradeoff. Continue the CodeQL baseline work for remaining P0/P1 findings, especially SQL injection, auth/CSRF posture, frontend XSS, incomplete sanitization, insecure randomness, regex DoS, and domain validation.
+- What remains in the milestone: nothing for `3.16.21`; broader CodeQL baseline remediation continues in later selected slices.
+
 ## 3.16.20 — Collapsed Sidebar Mark Alignment
 
 **Goal:** Keep the collapsed sidebar brand mark visually aligned with the rail navigation icons.

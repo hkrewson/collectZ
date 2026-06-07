@@ -2,6 +2,7 @@
 
 const crypto = require('crypto');
 const { encryptSecret, decryptSecretWithStatus } = require('./crypto');
+const { assertPublicHttpUrl, shouldAllowPrivateIcsFeeds } = require('./outboundUrlPolicy');
 
 const ICS_SOURCE_TYPE = 'sched_ics';
 const CATALOG_ICS_SOURCE_TYPE = 'sched_catalog_ics';
@@ -269,11 +270,16 @@ async function removePersonalIcsSource(pool, { eventId, userId }) {
   return result.rows[0] || null;
 }
 
-async function fetchIcsText(feedUrl, fetchImpl = fetch) {
+async function fetchIcsText(feedUrl, fetchImpl = fetch, options = {}) {
+  const safeUrl = await assertPublicHttpUrl(feedUrl, {
+    allowWebcal: true,
+    allowPrivateHosts: options.allowPrivateHosts === true || shouldAllowPrivateIcsFeeds(),
+    lookup: options.lookup
+  });
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), DEFAULT_FETCH_TIMEOUT_MS);
   try {
-    const response = await fetchImpl(feedUrl, {
+    const response = await fetchImpl(safeUrl, {
       method: 'GET',
       headers: {
         Accept: 'text/calendar, application/calendar+json;q=0.8, text/plain;q=0.7, */*;q=0.5',
@@ -321,7 +327,7 @@ async function linkPersonalPlansToCatalogSessions(pool, { eventId, userId = null
   return { linked: result.rowCount || 0 };
 }
 
-async function syncPersonalIcsSource(pool, { source, eventId, userId, fetchImpl = fetch }) {
+async function syncPersonalIcsSource(pool, { source, eventId, userId, fetchImpl = fetch, fetchOptions = {} }) {
   const sourceId = Number(source?.id || 0);
   if (!sourceId) throw new Error('Missing personal ICS source');
   const decrypted = decryptSecretWithStatus(source.feed_url_encrypted, 'event_personal_ics_sources.feed_url_encrypted');
@@ -337,7 +343,7 @@ async function syncPersonalIcsSource(pool, { source, eventId, userId, fetchImpl 
 
   await pool.query(`UPDATE event_personal_ics_sources SET sync_status = 'running', last_error = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = $1`, [sourceId]);
   try {
-    const text = await fetchIcsText(decrypted.value, fetchImpl);
+    const text = await fetchIcsText(decrypted.value, fetchImpl, fetchOptions);
     const items = parseIcsEvents(text);
     const seenRefs = [];
     let created = 0;
@@ -466,8 +472,8 @@ async function syncPersonalIcsSource(pool, { source, eventId, userId, fetchImpl 
   }
 }
 
-async function importCatalogIcsSource(pool, { eventId, userId, feedUrl, fetchImpl = fetch }) {
-  const text = await fetchIcsText(feedUrl, fetchImpl);
+async function importCatalogIcsSource(pool, { eventId, userId, feedUrl, fetchImpl = fetch, fetchOptions = {} }) {
+  const text = await fetchIcsText(feedUrl, fetchImpl, fetchOptions);
   const items = parseIcsCatalogSessions(text);
   const savedItems = [];
   let created = 0;
