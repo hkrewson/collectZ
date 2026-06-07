@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.16.13",
+      "version": "3.16.13",
+      "date": null,
+      "status": null,
+      "summary": "This patch keeps the Workspace and Platform split moving in the right direction by removing the old collapsible Workspace navigation group and making Help versus Help Admin clearer.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Removed the collapsible `Workspace` navigation item.",
+            "Promoted workspace `Settings` and `Merge Review` to direct Workspace-mode navigation links.",
+            "Kept normal users in `Help` from the Workspace menu.",
+            "Moved `Help Admin` into the platform/support navigation context instead of showing it as a Workspace item.",
+            "Updated browser and unit coverage so the sidebar contract expects the flattened Workspace links and platform-scoped Help Admin behavior."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.16.12",
       "version": "3.16.12",
       "date": null,
@@ -165,24 +184,6 @@
             "Workspace JSON/CSV exports reuse the existing redacted portability export behavior while filtering database rows to the selected workspace.",
             "Platform Settings keeps its existing platform-wide export surface.",
             "Portability status and export manifests now include explicit `scope` metadata."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.16.3",
-      "version": "3.16.3",
-      "date": null,
-      "status": null,
-      "summary": "This patch makes Workspace Integrations explain whether each provider is using workspace-owned settings, collectZ defaults, or no usable configuration.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added `integrationScope` readback to workspace integration responses.",
-            "Workspace Integrations now shows a compact source badge for each provider section.",
-            "Provider sections identify `Workspace`, `Default`, or `Not configured` beside the existing connection status.",
-            "The source readback uses meaningful overrides such as saved keys, custom URLs, provider usernames, client IDs, Plex sections, CWA URL, and Kavita base URL."
           ]
         }
       ]

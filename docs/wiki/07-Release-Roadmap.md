@@ -6,6 +6,36 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.16.13 — Flatten Workspace Navigation and Platform Help Admin
+
+**Goal:** Make the sidebar match the new Workspace/Platform boundary by removing the old collapsible Workspace nav group and keeping Help Admin in the platform/support context.
+
+### Scope
+
+- Remove the collapsible `Workspace` navigation item.
+- Show workspace `Settings` and `Merge Review` as direct Workspace-mode navigation links.
+- Keep the Workspace menu label as `Help` for normal workspace use.
+- Show `Help Admin` only for platform/support navigation contexts.
+- Update sidebar, browser, and unit coverage for the flattened navigation contract.
+
+### Acceptance Criteria
+
+- Workspace mode no longer renders a collapsible `Workspace` nav item.
+- Workspace mode exposes direct `Settings`, `Merge Review`, and `Help` links when allowed.
+- Platform mode exposes `Help Admin` and hides Workspace-only links.
+- Approved support sessions can still reach tenant Workspace Settings while the session is active.
+- Version metadata, release note, release feed, and focused runtime checks are updated for `3.16.13`.
+
+### Closeout
+
+- Status: completed in `3.16.13`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, and `docs/releases/v3.16.13.md`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.16.13` using the local platform compose override; `/api/health` reported version/frontend/backend/build `3.16.13`; backend/frontend containers were healthy; Help > Releases served `3.16.13`; targeted browser coverage verified flattened Workspace navigation, platform-scoped Help Admin, approved support-session tenant Settings access, and full Workspace settings/fallback behavior. An isolated homelab stack built from local sources also reported `3.16.13`, passed the homelab boundary smoke, and was removed.
+- Verification: frontend production build; Docker backend unit tests (`304` passed); Docker OpenAPI validation; Help > Releases smoke; targeted Admin Shell browser regression; approved support-session browser regression; full Workspace browser regression (`11` passed including setup); RBAC regression; platform edition boundary; homelab edition boundary against an isolated local compose project; backend and frontend production dependency audits (`0` vulnerabilities); local API integration smoke; observability release evidence (`9/9` checks passed); local release preflight; version sync; release note/feed regeneration; targeted changed-file secret-pattern scan; and `git diff --check`.
+- CI follow-through: stricter CI `compose-smoke`, full `browser-regression`, `dependency-scan`, `secret-scan`, and `image-security-and-sbom` remain remote GitHub Actions gates for the pushed commit.
+- Risks/follow-ups: local preflight marks secure-cookie compose smoke, gitleaks, full browser-regression, and image/SBOM as CI-only or stricter remote gates; no product follow-up remains for this slice.
+- What remains in the milestone: nothing for `3.16.13`.
+
 ## 3.16.12 — Remove Workspace Overview Header
 
 **Goal:** Remove the redundant Workspace overview block now that Workspace and Platform context switching lives in the profile menu.

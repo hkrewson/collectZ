@@ -26,7 +26,6 @@ async function openPageForRequestContext(browser, requestContext) {
 }
 
 async function expectManageableFallbackWorkspace(page, excludedSpaceName) {
-  await expect(page.getByRole('button', { name: 'Workspace', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Access Restricted' })).toHaveCount(0);
   if (excludedSpaceName) {
     await expect(page.getByText(excludedSpaceName, { exact: true })).toHaveCount(0);
@@ -34,7 +33,7 @@ async function expectManageableFallbackWorkspace(page, excludedSpaceName) {
 }
 
 test.describe('space manager browser regressions', () => {
-  test('workspace member can open Workspace and see workspace-scoped activity entries', async ({ page }) => {
+  test('workspace member can open Settings and see workspace-scoped activity entries', async ({ page }) => {
     const credentials = await createFreshUserCredentials();
     const requestContext = await createAuthenticatedRequestContext(credentials);
     const title = `Playwright Space Activity ${Date.now()}`;
@@ -52,7 +51,7 @@ test.describe('space manager browser regressions', () => {
       await page.context().addCookies(storageState.cookies || []);
       await page.goto('/dashboard?tab=space-manage');
 
-      await expect(page.getByRole('button', { name: 'Workspace', exact: true })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
       await expect(page.getByLabel('Workspace sections').getByRole('button', { name: 'Activity', exact: true })).toBeVisible();
 
       await page.getByLabel('Workspace sections').getByRole('button', { name: 'Activity', exact: true }).click();
@@ -242,7 +241,7 @@ test.describe('space manager browser regressions', () => {
 
       await page.goto('/dashboard?tab=space-manage');
       const workspaceSections = page.getByLabel('Workspace sections');
-      await expect(page.getByRole('button', { name: 'Workspace', exact: true })).toBeVisible();
+      await expect(page.getByRole('navigation').getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
       await expect(workspaceSections.getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
       await expect(workspaceSections.getByRole('button', { name: 'Integrations', exact: true })).toBeVisible();
       await expect(workspaceSections.getByRole('button', { name: 'People', exact: true })).toBeVisible();
@@ -587,7 +586,7 @@ test.describe('space manager browser regressions', () => {
 
       ({ context: memberBrowserContext, page: memberPage } = await openPageForRequestContext(browser, memberContext));
       await memberPage.goto('/dashboard');
-      await expect(memberPage.getByRole('button', { name: 'Workspace', exact: true })).toBeVisible();
+      await expect(memberPage.getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
       await memberPage.goto('/dashboard?tab=space-manage');
       await expectManageableFallbackWorkspace(memberPage, createdSpaceName);
 
@@ -611,7 +610,7 @@ test.describe('space manager browser regressions', () => {
       expect(memberSpacesAfterRestore.spaces.some((space) => Number(space.id) === createdSpaceId)).toBeTruthy();
 
       await memberPage.goto('/dashboard');
-      await expect(memberPage.getByRole('button', { name: 'Workspace', exact: true })).toBeVisible();
+      await expect(memberPage.getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
       await memberPage.goto('/dashboard?tab=space-manage');
       await expect(memberPage.getByRole('heading', { name: 'Access Restricted' })).toHaveCount(0);
       await expect(memberPage.getByRole('button', { name: 'Activity', exact: true })).toBeVisible();
@@ -736,7 +735,7 @@ test.describe('space manager browser regressions', () => {
 
       ({ context: memberBrowserContext, page: memberPage } = await openPageForRequestContext(browser, memberContext));
       await memberPage.goto('/dashboard');
-      await expect(memberPage.getByRole('button', { name: 'Workspace', exact: true })).toBeVisible();
+      await expect(memberPage.getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
       await memberPage.goto('/dashboard?tab=space-manage');
       await expectManageableFallbackWorkspace(memberPage, createdSpaceName);
 

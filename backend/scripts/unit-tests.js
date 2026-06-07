@@ -2610,7 +2610,7 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
   assert.ok(spaceManagerBrowserSpecSource.includes('expectManageableFallbackWorkspace'));
   assert.ok(spaceManagerBrowserSpecSource.includes("getByLabel('Workspace sections')"));
   assert.ok(spaceManagerBrowserSpecSource.includes("{ name: 'Settings', exact: true })).toBeVisible()"));
-  assert.ok(spaceManagerBrowserSpecSource.includes("getByRole('button', { name: 'Workspace', exact: true })).toBeVisible()"));
+  assert.ok(adminShellBrowserSpecSource.includes("getByRole('button', { name: 'Workspace', exact: true })).toHaveCount(0)"));
   assert.ok(boundaryBrowserSpecSource.includes('support_admin'));
   assert.ok(boundaryBrowserSpecSource.includes('/dashboard?tab=admin-integrations&integration=logs'));
   assert.ok(boundaryBrowserSpecSource.includes("toHaveURL(/tab=help/)"));
@@ -5180,9 +5180,15 @@ results.push(run('dashboard shell exposes merge review as workspace-scoped opera
   assert.ok(sidebarNavSource.includes("'dashboard'"));
   assert.ok(sidebarNavSource.includes('showWorkspaceNavigation'));
   assert.ok(sidebarNavSource.includes('showPlatformNavigation'));
-  assert.ok(sidebarNavSource.includes('showWorkspaceGroup'));
+  assert.ok(sidebarNavSource.includes('showWorkspaceHelp'));
+  assert.ok(sidebarNavSource.includes('showWorkspaceSettingsLink'));
+  assert.ok(sidebarNavSource.includes('showWorkspaceMergeReviewLink'));
+  assert.ok(sidebarNavSource.includes('showPlatformHelpAdmin'));
+  assert.ok(sidebarNavSource.includes('label="Help"'));
+  assert.ok(sidebarNavSource.includes('label="Help Admin"'));
   assert.ok(sidebarNavSource.includes('Merge Review'));
-  assert.ok(sidebarNavSource.includes('{showWorkspaceNavigation && showWorkspaceGroup && ('));
+  assert.ok(sidebarNavSource.includes('{showWorkspaceNavigation && showWorkspaceSettingsLink && ('));
+  assert.ok(sidebarNavSource.includes('{showWorkspaceNavigation && showWorkspaceMergeReviewLink && ('));
   assert.ok(sidebarNavSource.includes('{showPlatformNavigation && showPlatformGroup && ('));
   assert.ok(dashboardContentSource.includes("case 'admin-merges'"));
   assert.ok(dashboardContentSource.includes('AdminMergeReviewView'));

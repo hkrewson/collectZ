@@ -13,7 +13,7 @@ const { openHelpSurface } = require('../helpers/session');
 test.use({ storageState: { cookies: [], origins: [] } });
 
 test.describe('approved support session browser regressions', () => {
-  test('support admin can start tenant access only from an approved request and gets Workspace only while the session is active', async ({ page }) => {
+  test('support admin can start tenant access only from an approved request and gets tenant Settings only while the session is active', async ({ page }) => {
     const suffix = Date.now();
     const requesterCredentials = await createFreshUserCredentials({ role: 'user', name: 'Playwright Requester' });
     const supportAdminCredentials = await createFreshUserCredentials({ role: 'support_admin', name: 'Playwright Support Admin' });
@@ -52,7 +52,9 @@ test.describe('approved support session browser regressions', () => {
       await expect(page.getByText('Support session active')).toBeVisible();
       await expect(page.getByText(new RegExp(`Request: ${requestKey}`))).toBeVisible();
       await expect(page.getByText(new RegExp(`Case: ${requestSubject}`))).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Workspace' })).toBeVisible();
+      const nav = page.getByRole('navigation');
+      await expect(nav.getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Workspace', exact: true })).toHaveCount(0);
 
       const switchedLibraryName = String(extraLibrary?.name || `Support Session Library ${suffix}`);
       const switchedLibraryId = String(extraLibrary?.id || '');
@@ -80,7 +82,7 @@ test.describe('approved support session browser regressions', () => {
       await expect(supportLibrarySelect).not.toHaveValue(switchedLibraryId);
       await expect(page.getByText(new RegExp(`Library: ${switchedLibraryName}`))).toHaveCount(0);
 
-      await page.getByRole('button', { name: 'Workspace', exact: true }).click();
+      await nav.getByRole('button', { name: 'Settings', exact: true }).click();
       await expect(page).toHaveURL(/tab=space-manage/);
       await expect(page.getByRole('button', { name: 'Activity', exact: true })).toBeVisible();
 

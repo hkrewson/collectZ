@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Icons, cx, isInteractiveTarget, posterUrl } from './app/AppPrimitives';
 import CollectzMark from './CollectzMark';
-import { getAllowedDashboardTabs, getHelpNavLabel, isSupportHelpEnabled } from './app/productEdition';
+import { getAllowedDashboardTabs, isSupportHelpEnabled } from './app/productEdition';
 
 const DiscordIcon = () => (
   <svg viewBox="0 0 16 16" fill="currentColor" className="w-5 h-5" aria-hidden="true">
@@ -53,7 +53,6 @@ export default function SidebarNav({
   });
   const releaseNotesUrl = `https://github.com/hkrewson/collectZ/tree/main/docs/releases/v${appVersion}.md`;
   const [platformOpen, setPlatformOpen] = useState(true);
-  const [workspaceOpen, setWorkspaceOpen] = useState(true);
   const [libraryOpen, setLibraryOpen] = useState(true);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const accountMenuRef = useRef(null);
@@ -80,18 +79,12 @@ export default function SidebarNav({
     'admin-spaces',
     'admin-users'
   ].includes(activeTab);
-  const isWorkspaceGroupActive = [
-    'space-manage',
-    'admin-merges'
-  ].includes(activeTab);
   const isTabAllowed = (tabId) => !allowedTabs || allowedTabs.has(tabId);
   const showLibrarySwitcher = canUseLibraryShell && libraries.length > 1;
   const showDesktopHamburger = !collapsed;
   const canOpenSpaceSurface = Boolean(activeMembershipRole) || canManageActiveSpace;
-  const showWorkspaceGroup = canOpenSpaceSurface && [
-    isTabAllowed('space-manage'),
-    isTabAllowed('admin-merges')
-  ].some(Boolean);
+  const showWorkspaceSettingsLink = canOpenSpaceSurface && isTabAllowed('space-manage');
+  const showWorkspaceMergeReviewLink = canOpenSpaceSurface && isTabAllowed('admin-merges');
   const showPlatformGroup = isAdmin && [
     isTabAllowed('admin-settings'),
     isTabAllowed('admin-integrations'),
@@ -103,6 +96,8 @@ export default function SidebarNav({
   const isPlatformMode = showPlatformModeSwitch && isPlatformGroupActive;
   const showWorkspaceNavigation = !showPlatformModeSwitch || !isPlatformMode;
   const showPlatformNavigation = !showPlatformModeSwitch || isPlatformMode;
+  const showWorkspaceHelp = showWorkspaceNavigation && !isSupportAdmin;
+  const showPlatformHelpAdmin = isSupportStaff && (isSupportAdmin || (showPlatformNavigation && isPlatformMode));
   const profileImage = posterUrl(user?.image_path || '');
 
   useEffect(() => {
@@ -272,42 +267,21 @@ export default function SidebarNav({
           </div>
           )}
           {showWorkspaceNavigation && canUseLibraryShell && isTabAllowed('library-import') && <NavLink id="library-import" icon={<Icons.Upload />} label="Import" />}
-          {showWorkspaceNavigation && (
+          {showWorkspaceHelp && (
             <NavLink
-            id="help"
-            icon={<Icons.Activity />}
-            label={getHelpNavLabel(productEdition, isSupportStaff)}
-            badge={isSupportStaff ? supportBadgeCount : null}
+              id="help"
+              icon={<Icons.Activity />}
+              label="Help"
             />
           )}
-          {showWorkspaceNavigation && showWorkspaceGroup && (
-            <div>
-              <button
-                onClick={() => {
-                  if (collapsed) onSelect('space-manage');
-                  else setWorkspaceOpen((open) => !open);
-                }}
-                className={cx(
-                  'w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded transition-all',
-                  isWorkspaceGroupActive ? 'bg-raised border border-edge text-ink' : 'text-dim hover:text-ink hover:bg-raised/50',
-                  collapsed && 'justify-center px-0'
-                )}
-              >
-                <span className="shrink-0"><Icons.Users /></span>
-                {!collapsed && (
-                  <>
-                    <span className="flex-1 text-left">Workspace</span>
-                    <span className={cx('transition-transform duration-200', workspaceOpen && 'rotate-180')}><Icons.ChevronDown /></span>
-                  </>
-                )}
-              </button>
-              {workspaceOpen && !collapsed && (
-                <div className="mt-1 space-y-0.5">
-                  {isTabAllowed('space-manage') && <NavLink id="space-manage" icon={null} label="Settings" sub />}
-                  {isTabAllowed('admin-merges') && <NavLink id="admin-merges" icon={null} label="Merge Review" sub />}
-                </div>
-              )}
-            </div>
+          {showWorkspaceNavigation && showWorkspaceSettingsLink && (
+            <NavLink id="space-manage" icon={<Icons.Settings />} label="Settings" />
+          )}
+          {showWorkspaceNavigation && showWorkspaceMergeReviewLink && (
+            <NavLink id="admin-merges" icon={<Icons.Activity />} label="Merge Review" />
+          )}
+          {showPlatformHelpAdmin && (
+            <NavLink id="help" icon={<Icons.Activity />} label="Help Admin" badge={supportBadgeCount} />
           )}
           {showPlatformNavigation && showPlatformGroup && (
             <div>

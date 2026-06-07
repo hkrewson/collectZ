@@ -1281,6 +1281,10 @@ test.describe('admin shell browser regressions', () => {
     await expect(nav.getByRole('group', { name: 'Navigation mode' })).toHaveCount(0);
 
     await expect(nav.getByRole('button', { name: 'Library', exact: true })).toBeVisible();
+    await expect(nav.getByRole('button', { name: 'Workspace', exact: true })).toHaveCount(0);
+    await expect(nav.getByRole('button', { name: 'Help', exact: true })).toBeVisible();
+    await expect(nav.getByRole('button', { name: 'Help Admin', exact: true })).toHaveCount(0);
+    await expect(nav.getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
     await expect(nav.getByRole('button', { name: 'Merge Review', exact: true })).toBeVisible();
     await expect(nav.getByRole('button', { name: 'Platform Settings', exact: true })).toHaveCount(0);
 
@@ -1290,8 +1294,11 @@ test.describe('admin shell browser regressions', () => {
     await expect(accountMenu.getByText('Workspace', { exact: true })).toBeVisible();
     await accountMenu.getByRole('menuitem', { name: 'Platform' }).click();
     await expect(page.getByRole('heading', { name: 'Platform Settings', exact: true })).toBeVisible();
+    await expect(nav.getByRole('button', { name: 'Help', exact: true })).toHaveCount(0);
+    await expect(nav.getByRole('button', { name: /^Help Admin/ })).toBeVisible();
     await expect(nav.getByRole('button', { name: 'Platform Settings', exact: true })).toBeVisible();
     await expect(nav.getByRole('button', { name: 'Library', exact: true })).toHaveCount(0);
+    await expect(nav.getByRole('button', { name: 'Settings', exact: true })).toHaveCount(0);
     await expect(nav.getByRole('button', { name: 'Merge Review', exact: true })).toHaveCount(0);
 
     await nav.getByRole('button', { name: 'Account menu' }).click();
