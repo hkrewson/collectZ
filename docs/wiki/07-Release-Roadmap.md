@@ -6,6 +6,35 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.16.27 — CodeQL Request Forgery Boundary Triage
+
+**Goal:** Continue the local CodeQL baseline reduction by resolving the remaining request-forgery findings without breaking the documented homelab/LAN connector behavior.
+
+### Scope
+
+- Review the Kavita and personal Sched ICS request-forgery findings against the existing connector and feed-fetching intent.
+- Preserve admin-configured LAN/private Kavita support while keeping URL parsing limited to HTTP(S) without credentials.
+- Keep user-supplied ICS feed fetching behind `assertPublicHttpUrl`, including the existing localhost/private/DNS guardrails and explicit operator escape hatch.
+- Ensure CodeQL alert suppression is source-local, documented, and represented in the workflow SARIF by running `AlertSuppression.ql`.
+- Keep unused-variable remediation under the documented intent-first rule; do not remove unused variables in this slice.
+
+### Acceptance Criteria
+
+- Local CodeQL with `AlertSuppression.ql` reports `0` active `js/request-forgery` findings.
+- The four reviewed request-forgery sinks carry in-source suppressions tied to documented runtime URL boundaries.
+- Backend unit coverage guards the shared trusted connector URL helper, the ICS public URL helper, and the CodeQL suppression wiring.
+- Version metadata, release note, release feed, and focused runtime checks are updated for `3.16.27`.
+
+### Closeout
+
+- Status: completed in `3.16.27`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, and `docs/releases/v3.16.27.md`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.16.27` using the local platform compose override; `/api/health` reported version/frontend/backend/build `3.16.27`; backend/frontend/db containers were healthy; Help > Releases authenticated smoke served `3.16.27` as the newest entry.
+- Verification: backend syntax checks for changed backend files; local backend unit tests (`311` passed); fresh local CodeQL CLI database creation and JavaScript/TypeScript security plus security-and-quality analysis with `AlertSuppression.ql` (`152` total local results, `4` in-source suppressed and `0` active `js/request-forgery` findings); CodeQL query resolution for `codeql/javascript-queries:AlertSuppression.ql`; Docker backend unit tests (`311` passed); Docker OpenAPI validation; Help > Releases smoke; backend and frontend production dependency audits (`0` vulnerabilities); version sync; release note/feed regeneration; targeted changed-line secret-pattern scan; and `git diff --check`.
+- Blocked/unverified: live GitHub CodeQL alert export remains unavailable from this shell; local CodeQL CLI is the working source for this slice. GitHub Actions must confirm the CodeQL workflow accepts the explicit `AlertSuppression.ql` query and marks the four reviewed alerts suppressed in code scanning. CI-only repository-history `secret-scan`, `image-security-and-sbom`, stricter secure-cookie `compose-smoke`, and remote publish gates remain GitHub Actions follow-through gates. Full `browser-regression`, `rbac-regression`, `homelab-edition-boundary`, and `platform-edition-boundary` were not rerun because this slice changes backend URL-boundary helpers, CodeQL suppression wiring, and version/release artifacts only; those gates remain CI follow-through for the pushed commit.
+- Risks/follow-ups: remaining local CodeQL findings include `32` unused-variable findings under the documented intent-first rule and lower-priority quality findings. The Kavita suppressions intentionally preserve admin-configured LAN/private connector support; the ICS path still depends on `assertPublicHttpUrl` and the documented operator-only private-feed escape hatch. Watch the hosted CodeQL run after push because workflow query syntax is locally resolvable but not yet confirmed by GitHub Actions in this shell.
+- What remains in the milestone: nothing for `3.16.27`; broader CodeQL baseline remediation continues in later selected slices.
+
 ## 3.16.26 — CodeQL Media Title Sanitizer Precision
 
 **Goal:** Continue the local CodeQL baseline reduction by clearing the media lookup-title multi-character sanitizer findings without deleting intended title-normalization behavior.

@@ -1,5 +1,5 @@
 const axios = require('axios');
-const { parseHttpUrl } = require('./outboundUrlPolicy');
+const { normalizeTrustedConnectorHttpUrl } = require('./outboundUrlPolicy');
 
 const DEFAULT_TIMEOUT_MS = 20000;
 const DEFAULT_PLUGIN_NAME = 'collectZ';
@@ -26,9 +26,7 @@ function trimLeadingSlashes(value) {
 function normalizeKavitaBaseUrl(rawUrl = '') {
   const value = trimTrailingSlashes(String(rawUrl || '').trim());
   if (!value) return '';
-  const parsed = parseHttpUrl(value);
-  if (!parsed) return '';
-  return parsed.origin + trimTrailingSlashes(parsed.pathname);
+  return normalizeTrustedConnectorHttpUrl(value);
 }
 
 function buildKavitaWebUrl(baseUrl = '', path = '') {
@@ -217,6 +215,7 @@ async function authenticateKavita(config = {}, options = {}) {
   if (!baseUrl) throw new Error('Kavita base URL is not configured');
   if (!apiKey) throw new Error('Kavita API key is not configured');
 
+  // codeql[js/request-forgery] Kavita URLs are admin-configured connector endpoints normalized to HTTP(S) without credentials.
   const response = await axios.post(buildKavitaApiUrl(baseUrl, '/api/Plugin/authenticate'), null, {
     params: {
       apiKey,
@@ -258,6 +257,7 @@ async function authenticateKavita(config = {}, options = {}) {
 
 async function fetchKavitaLibraries(config = {}, token) {
   const baseUrl = normalizeKavitaBaseUrl(config.kavitaBaseUrl);
+  // codeql[js/request-forgery] Kavita URLs are admin-configured connector endpoints normalized to HTTP(S) without credentials.
   const response = await axios.get(buildKavitaApiUrl(baseUrl, '/api/Library/libraries'), {
     headers: { Authorization: `Bearer ${token}` },
     timeout: getKavitaTimeoutMs(config),
@@ -275,6 +275,7 @@ async function fetchKavitaSeriesSample(config = {}, token, libraryId = null, lim
   const baseUrl = normalizeKavitaBaseUrl(config.kavitaBaseUrl);
   const pageSize = Math.max(1, Math.min(Number(limit || 5), 20));
 
+  // codeql[js/request-forgery] Kavita URLs are admin-configured connector endpoints normalized to HTTP(S) without credentials.
   const response = await axios.post(buildKavitaApiUrl(baseUrl, '/api/Series/all-v2'), {
     statements: [],
     combination: 0,

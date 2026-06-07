@@ -3,6 +3,14 @@ const net = require('net');
 
 const PRIVATE_HOST_ALLOW_ENV = 'ALLOW_PRIVATE_ICS_FEEDS';
 
+function trimTrailingSlashes(value) {
+  let text = String(value || '');
+  while (text.endsWith('/')) {
+    text = text.slice(0, -1);
+  }
+  return text;
+}
+
 function parseHttpUrl(rawUrl = '', { allowWebcal = false } = {}) {
   const normalized = String(rawUrl || '').trim();
   const value = allowWebcal ? normalized.replace(/^webcal:/i, 'https:') : normalized;
@@ -16,6 +24,12 @@ function parseHttpUrl(rawUrl = '', { allowWebcal = false } = {}) {
   } catch (_) {
     return null;
   }
+}
+
+function normalizeTrustedConnectorHttpUrl(rawUrl = '') {
+  const parsed = parseHttpUrl(rawUrl);
+  if (!parsed) return '';
+  return parsed.origin + trimTrailingSlashes(parsed.pathname);
 }
 
 function isPrivateIpv4(address = '') {
@@ -84,6 +98,7 @@ function shouldAllowPrivateIcsFeeds() {
 module.exports = {
   PRIVATE_HOST_ALLOW_ENV,
   parseHttpUrl,
+  normalizeTrustedConnectorHttpUrl,
   isPrivateAddress,
   isLocalhostName,
   assertPublicHttpUrl,

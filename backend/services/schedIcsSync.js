@@ -279,6 +279,7 @@ async function fetchIcsText(feedUrl, fetchImpl = fetch, options = {}) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), DEFAULT_FETCH_TIMEOUT_MS);
   try {
+    // codeql[js/request-forgery] safeUrl is returned by assertPublicHttpUrl, which rejects credentials and private hosts by default.
     const response = await fetchImpl(safeUrl, {
       method: 'GET',
       headers: {

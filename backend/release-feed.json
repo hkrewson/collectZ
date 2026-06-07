@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.16.27",
+      "version": "3.16.27",
+      "date": null,
+      "status": null,
+      "summary": "This patch continues CodeQL baseline remediation by documenting and testing the reviewed outbound URL boundaries for Kavita connector requests and personal Sched ICS feed fetching.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added a shared trusted connector URL normalizer for admin-configured HTTP(S) integrations that rejects credentials and fragments while preserving LAN Kavita support.",
+            "Updated Kavita URL normalization to use the shared trusted connector boundary.",
+            "Added in-source CodeQL request-forgery suppressions at the reviewed Kavita and ICS request sinks, backed by unit coverage for the helper contracts and suppression wiring.",
+            "Added the JavaScript `AlertSuppression.ql` query to the CodeQL workflow so in-source suppressions are represented in SARIF/code scanning."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.16.26",
       "version": "3.16.26",
       "date": null,
@@ -170,26 +188,6 @@
             "Removed the distracting active/focus outline from the account trigger when the profile menu is open.",
             "Updated profile menu rows to use text hover plus muted underline feedback instead of gray block hover fills.",
             "Kept the active profile row on a solid blue underline when the profile page is selected."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.16.17",
-      "version": "3.16.17",
-      "date": null,
-      "status": null,
-      "summary": "This patch refines sidebar navigation feedback so hover and active states use compact blue underlines instead of gray row highlighting.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Removed muted gray hover backgrounds from sidebar navigation items.",
-            "Added a muted blue hover/focus underline that appears only under the hovered or focused item.",
-            "Shortened sidebar underlines so they read closer to the label width instead of spanning the full nav row.",
-            "Kept active selected items on a solid blue underline.",
-            "Preserved the collapsed-rail active indicator for grouped Library and Platform navigation.",
-            "Updated unit coverage for the hover underline contract."
           ]
         }
       ]

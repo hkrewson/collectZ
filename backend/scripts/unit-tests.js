@@ -138,6 +138,7 @@ const { buildCompactJobSummary, formatSyncJob } = require('../services/syncJobs'
 const { ICS_FETCH_USER_AGENT, fetchIcsText, parseIcsEvents, parseIcsCatalogSessions, linkPersonalPlansToCatalogSessions } = require('../services/schedIcsSync');
 const {
   parseHttpUrl,
+  normalizeTrustedConnectorHttpUrl,
   isPrivateAddress,
   assertPublicHttpUrl
 } = require('../services/outboundUrlPolicy');
@@ -285,6 +286,7 @@ const homelabSharedBrowserSpecSource = fs.readFileSync(require.resolve('../../te
 const homelabEditionBoundarySmokeSource = fs.readFileSync(require.resolve('../scripts/homelab-edition-boundary-smoke'), 'utf8');
 const platformEditionBoundarySmokeSource = fs.readFileSync(require.resolve('../scripts/platform-edition-boundary-smoke'), 'utf8');
 const dockerPublishWorkflowSource = fs.readFileSync(require.resolve('../../.github/workflows/docker-publish.yml'), 'utf8');
+const codeqlWorkflowSource = fs.readFileSync(require.resolve('../../.github/workflows/codeql.yml'), 'utf8');
 const stablePromotionWorkflowSource = fs.readFileSync(require.resolve('../../.github/workflows/promote-stable.yml'), 'utf8');
 const browserCapturesWorkflowSource = fs.readFileSync(require.resolve('../../.github/workflows/browser-captures.yml'), 'utf8');
 const nowPlayingViewerBrowserSpecSource = fs.readFileSync(require.resolve('../../tests/playwright/specs/now-playing-viewer.browser.spec.js'), 'utf8');
@@ -300,6 +302,8 @@ const releaseRoadmapSource = fs.readFileSync(require.resolve('../../docs/wiki/07
 const backlogSource = fs.readFileSync(require.resolve('../../docs/wiki/08-Backlog.md'), 'utf8');
 const plexPmsModernizationDocSource = fs.readFileSync(require.resolve('../../docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md'), 'utf8');
 const plexServiceSource = fs.readFileSync(require.resolve('../services/plex'), 'utf8');
+const outboundUrlPolicySource = fs.readFileSync(require.resolve('../services/outboundUrlPolicy'), 'utf8');
+const kavitaServiceSource = fs.readFileSync(require.resolve('../services/kavita'), 'utf8');
 const plexProviderDiscoverySmokeSource = fs.readFileSync(require.resolve('../scripts/plex-provider-discovery-smoke'), 'utf8');
 const plexProviderReadbackSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-provider-readback-smoke'), 'utf8');
 const plexProviderImportParitySmokeSource = fs.readFileSync(require.resolve('../scripts/plex-provider-import-parity-smoke'), 'utf8');
@@ -2892,6 +2896,7 @@ results.push(run('kavita launch URL helpers build secret-free native web routes'
   assert.strictEqual(normalizeKavitaBaseUrl('https://kavita.example/root///'), 'https://kavita.example/root');
   assert.strictEqual(normalizeKavitaBaseUrl('file:///etc/passwd'), '');
   assert.strictEqual(normalizeKavitaBaseUrl('https://user:secret@kavita.example/root'), '');
+  assert.strictEqual(normalizeTrustedConnectorHttpUrl('http://192.168.1.50:5000/root/'), 'http://192.168.1.50:5000/root');
   assert.strictEqual(buildKavitaSeriesProviderItemId(8602), 'kavita:series:8602');
   assert.strictEqual(buildKavitaChapterProviderItemId(9702), 'kavita:chapter:9702');
   assert.strictEqual(buildKavitaSeriesWebUrl('https://kavita.example/root/', 87, 8602), 'https://kavita.example/root/library/87/series/8602');
@@ -5781,6 +5786,18 @@ results.push(run('outbound URL policy blocks user-supplied ICS private hosts by 
     await assertPublicHttpUrl('https://calendar.example.test/feed.ics', { lookup: async () => [{ address: '93.184.216.34', family: 4 }] }),
     'https://calendar.example.test/feed.ics'
   );
+}));
+
+results.push(run('repo documents CodeQL request-forgery suppressions at reviewed outbound URL boundaries', () => {
+  assert.ok(!codeqlWorkflowSource.includes('collectz-js-models'));
+  assert.ok(codeqlWorkflowSource.includes('codeql/javascript-queries:AlertSuppression.ql'));
+  assert.ok(outboundUrlPolicySource.includes('function normalizeTrustedConnectorHttpUrl'));
+  assert.ok(outboundUrlPolicySource.includes('function assertPublicHttpUrl'));
+  assert.ok(kavitaServiceSource.includes('normalizeTrustedConnectorHttpUrl(value)'));
+  assert.strictEqual((kavitaServiceSource.match(/codeql\[js\/request-forgery\]/g) || []).length, 3);
+  assert.ok(kavitaServiceSource.includes('admin-configured connector endpoints normalized to HTTP(S) without credentials'));
+  assert.strictEqual((schedIcsSyncSource.match(/codeql\[js\/request-forgery\]/g) || []).length, 1);
+  assert.ok(schedIcsSyncSource.includes('safeUrl is returned by assertPublicHttpUrl'));
 }));
 
 results.push(run('CSV import uploads stay in memory instead of reading request-controlled temp paths', () => {
