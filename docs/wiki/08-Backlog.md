@@ -56,6 +56,59 @@ These are unscheduled interface cleanup tasks discovered during the `3.10.x` mob
 - Desktop surfaces remain readable and do not inherit mobile-only compaction compromises.
 - Shared primitives carry the repeated behavior where possible.
 
+### Backlog Item: Sidebar Hamburger Removal and Brand Collapse Affordance
+**Type:** UI/UX refinement
+**Tags:** `ui`, `ux`, `sidebar`, `navigation`, `accessibility`, `density`
+**Status:** Active backlog; not yet promoted or versioned.
+
+**Goal:** Remove the standalone hamburger button from the sidebar header and make the top brand/header area the clear, accessible collapse/expand control.
+
+**Why this work exists**
+- The `3.16.x` navigation cleanup made sidebar selection, hover states, workspace/platform separation, and brand alignment much quieter.
+- After that cleanup, the hamburger button started to feel visually heavier and less integrated than the rest of the navigation language.
+- The collapsed rail already treats the brand mark as the visual clue for the app shell; the expanded header could become the intentional collapse target if the affordance is obvious enough.
+
+**Intent**
+- Reduce top-sidebar chrome without hiding navigation behavior.
+- Make the brand/header area behave as a deliberate button, not a mystery click target.
+- Preserve keyboard, pointer, screen-reader, and mobile drawer behavior.
+- Keep the sidebar mark aligned with the navigation icon column in both expanded and collapsed states.
+
+**Current state**
+- `3.16.19` removed the visible version number from the sidebar header.
+- `3.16.20` centered the collapsed sidebar mark with the icon rail and preserved accessible labels for collapsed icon-only nav items.
+- The hamburger button still owns the visible expand/collapse action in the expanded sidebar.
+- The collapsed rail can expand from the rail area, but the expanded header still relies on the hamburger as the explicit collapse control.
+
+**Scope**
+- Remove the standalone hamburger icon/button from the desktop sidebar header.
+- Make the sidebar brand/header area the expand/collapse button on desktop.
+- Keep `aria-label`, `aria-expanded`, title text, keyboard activation, focus-visible styling, and pointer cursor behavior explicit.
+- Add hover/focus treatment that makes the clickable header area discoverable without returning to a large gray block style.
+- Preserve mobile drawer close/open behavior; do not remove the mobile close affordance unless a separate mobile-safe pattern replaces it.
+- Keep Help > Releases as the version/build readback location.
+
+**Candidate subtasks**
+- Decide the exact desktop header affordance: full brand row button, mark-only button, or compact brand group with a subtle underline/chevron cue.
+- Audit current collapsed-rail click behavior and make it consistent with the expanded header button.
+- Add browser coverage for mouse click, keyboard activation, accessible name, and collapsed/expanded visual state.
+- Verify desktop and mobile separately so mobile users still have an obvious way to close the drawer.
+- Confirm sidebar header height and icon alignment remain stable after removing the button.
+
+**Out of scope**
+- Do not reintroduce the version number in the sidebar header.
+- Do not move search or page controls into the sidebar.
+- Do not change workspace/platform navigation ownership.
+- Do not redesign the account/profile menu as part of this task.
+
+**Acceptance Criteria**
+- The standalone hamburger button is gone from the desktop sidebar header.
+- The brand/header area clearly communicates and performs expand/collapse.
+- The control is accessible by screen reader and keyboard.
+- Mobile drawer behavior remains obvious and usable.
+- Collapsed and expanded sidebar marks remain aligned with the nav icon column.
+- Browser coverage proves the new collapse/expand affordance.
+
 ## Product-Level Feature Gaps
 
 These are product-level capability gaps discovered from the current shape of the app. They are not immediate implementation commitments and should stay versionless until one is selected and moved into the roadmap as a numbered milestone.
