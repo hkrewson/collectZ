@@ -6,6 +6,34 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.16.6 — Compact Mobile Navigation Drawer Header
+
+**Goal:** Reduce the amount of vertical space used by the top of the mobile navigation drawer.
+
+### Scope
+
+- Tighten the mobile drawer brand row spacing and icon sizing.
+- Keep desktop sidebar spacing unchanged.
+- Make the drawer header action close the mobile drawer when the drawer is open.
+- Add browser coverage for the compact drawer header height.
+
+### Acceptance Criteria
+
+- The mobile drawer opens with a noticeably shorter top brand block.
+- The collectZ mark, app name, version, and close affordance remain visible and accessible.
+- Desktop sidebar behavior remains unchanged.
+- Version metadata, release note, release feed, and focused runtime checks are updated for `3.16.6`.
+
+### Closeout
+
+- Status: completed in `3.16.6`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, and `docs/releases/v3.16.6.md`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.16.6` using the local platform compose override; `/api/health` reported version/frontend/backend/build `3.16.6`; backend/frontend containers were healthy; Help > Releases served `3.16.6`; targeted mobile browser coverage verified the drawer header is compact and the close action is exposed.
+- Verification: Docker frontend production build; Docker backend unit tests; Docker OpenAPI validation; Help > Releases smoke; targeted mobile admin-shell browser regression; version sync; release note/feed regeneration; targeted changed-file secret-pattern scan; and `git diff --check`.
+- CI follow-through: stricter CI `compose-smoke`, `rbac-regression`, full `browser-regression`, `homelab-edition-boundary`, `platform-edition-boundary`, `dependency-scan`, `secret-scan`, and `image-security-and-sbom` remain remote GitHub Actions gates for the pushed commit.
+- Risks/follow-ups: none for this slice.
+- What remains in the milestone: nothing for `3.16.6`; additional mobile shell polish should be selected as its own future slice if needed.
+
 ## 3.16.5 — Platform Runtime Copy and Backlog Closeout
 
 **Goal:** Finish the small visible-copy cleanup left from the Platform vs Workspace boundary line and make the backlog reflect completed 3.16 work.

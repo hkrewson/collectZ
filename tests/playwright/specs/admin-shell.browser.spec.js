@@ -146,6 +146,10 @@ test.describe('admin shell browser regressions', () => {
     await page.getByTestId('mobile-nav-toggle').click();
     const sidebar = page.locator('aside');
     await expect(sidebar.getByText('collectZ')).toBeVisible();
+    const sidebarHeader = sidebar.locator('> div').first();
+    await expect(sidebarHeader.getByRole('button', { name: 'Close navigation' })).toBeVisible();
+    const sidebarHeaderBox = await sidebarHeader.boundingBox();
+    expect(sidebarHeaderBox?.height || 0).toBeLessThanOrEqual(72);
     await sidebar.getByRole('button', { name: 'Dashboard', exact: true }).click();
     const dashboardTabs = page.getByRole('tablist', { name: 'Dashboard sections' });
     await expect(dashboardTabs).toBeVisible();

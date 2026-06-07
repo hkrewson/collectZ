@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.16.6",
+      "version": "3.16.6",
+      "date": null,
+      "status": null,
+      "summary": "This patch reduces the mobile navigation drawer header height so the drawer opens closer to the actual navigation choices.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Tightened the mobile drawer brand row spacing.",
+            "Reduced the mobile collectZ mark and wordmark sizing inside the open drawer.",
+            "Kept the desktop sidebar spacing unchanged.",
+            "The drawer action button now closes the mobile drawer when the drawer is open.",
+            "Browser coverage now protects the compact mobile drawer header height."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.16.5",
       "version": "3.16.5",
       "date": null,
@@ -164,25 +183,6 @@
             "Admin Settings shows separate CSV download buttons for the manifest, restore guidance, uploads manifest, and each exported table.",
             "The export API can return the CSV file list or one selected CSV file by key.",
             "OpenAPI and browser regression coverage now document and verify the plain JSON and per-file CSV behavior."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.15.1",
-      "version": "3.15.1",
-      "date": null,
-      "status": null,
-      "summary": "This patch adds an explicit export format choice to the backup and portability workflow.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Admin Settings now lets admins choose between `JSON archive` and `CSV archive` before downloading an export.",
-            "`POST /api/admin/settings/portability/export` accepts `format: \"json\"` or `format: \"csv\"`.",
-            "JSON remains the default `.json.gz` portability archive.",
-            "CSV downloads a `.csv.zip` archive with manifest, restore guidance, uploads manifest, and one CSV per exported table.",
-            "JSON and CSV export paths share the same backend redaction behavior."
           ]
         }
       ]

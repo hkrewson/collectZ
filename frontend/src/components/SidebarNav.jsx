@@ -171,22 +171,22 @@ export default function SidebarNav({
       >
         <div
           className={cx(
-            'flex items-center gap-3 px-4 py-5 border-b border-edge shrink-0',
+            'flex items-center gap-2 border-b border-edge shrink-0 px-3 py-3 lg:gap-3 lg:px-4 lg:py-5',
             collapsed ? 'justify-between px-2' : ''
           )}
         >
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center text-gold">
-            <CollectzMark className="h-8 w-8" title={collapsed ? 'Collectz' : ''} />
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center text-gold lg:h-10 lg:w-10">
+            <CollectzMark className="h-6 w-6 lg:h-8 lg:w-8" title={collapsed ? 'Collectz' : ''} />
           </div>
 
           {!collapsed && (
             <div className="min-w-0 flex-1">
-              <div className="text-base font-semibold tracking-tight text-ink leading-none">collectZ</div>
+              <div className="text-sm font-semibold tracking-tight text-ink leading-none lg:text-base">collectZ</div>
               <a
                 href={releaseNotesUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="text-ghost text-[10px] font-mono mt-0.5 inline-block hover:text-ink"
+                className="text-ghost text-[10px] font-mono leading-tight inline-block hover:text-ink"
                 title="Open release notes"
               >
                 v{appVersion}
@@ -195,10 +195,11 @@ export default function SidebarNav({
           )}
           {showDesktopHamburger && (
             <button
-              onClick={onToggle}
-              className="btn-icon hidden lg:inline-flex"
-              aria-label={pinnedExpanded ? 'Collapse navigation' : 'Expand navigation'}
-              title={pinnedExpanded ? 'Collapse navigation' : 'Expand navigation'}
+              type="button"
+              onClick={mobileOpen ? onMobileClose : onToggle}
+              className="btn-icon h-9 w-9 lg:h-10 lg:w-10"
+              aria-label={mobileOpen ? 'Close navigation' : pinnedExpanded ? 'Collapse navigation' : 'Expand navigation'}
+              title={mobileOpen ? 'Close navigation' : pinnedExpanded ? 'Collapse navigation' : 'Expand navigation'}
             >
               <Icons.Menu />
             </button>
