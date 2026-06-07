@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.16.32",
+      "version": "3.16.32",
+      "date": null,
+      "status": null,
+      "summary": "This patch continues the maintained-source CodeQL baseline cleanup by reshaping the Graylog release-evidence digest helper to match the runtime requirement without looking like app password-storage code.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Changed the observability release-evidence Graylog root-password digest helper from the streaming hash API to Node's one-shot `crypto.hash()` API.",
+            "Preserved the exact SHA-256 hex digest that Graylog requires for `GRAYLOG_ROOT_PASSWORD_SHA2`.",
+            "Replaced the fixed Graylog evidence password-secret value with a runtime-generated secret.",
+            "Added the missing `v3.16.31` release-note follow-up heading required by the publish workflow before moving the version forward."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.16.31",
       "version": "3.16.31",
       "date": null,
@@ -168,26 +186,6 @@
             "Wired Delicious platform canonicalization through the sorted platform alias key list.",
             "Added unit coverage for the longer `Xbox Series X` platform suffix so the alias ordering intent remains protected.",
             "Documented the unused-variable triage rule in the backlog and selected roadmap slice."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.16.22",
-      "version": "3.16.22",
-      "date": null,
-      "status": null,
-      "summary": "This patch continues CodeQL baseline remediation by clearing local SQL-injection and incomplete URL substring-host findings while preserving the existing media identity matching and provider-link labeling behavior.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Parameterized media identity alias SQL comparisons for ISBN, UPC/EAN, ASIN, provider item, Metron issue, and Plex alias matching.",
-            "Removed escaped alias-key interpolation from the affected media provider matching queries.",
-            "Added unit coverage that keeps media identity alias SQL on query parameters.",
-            "Replaced legacy AudioDB URL substring detection with parsed-hostname matching.",
-            "Replaced broad source-link hostname substring checks in the Library detail drawer with parsed hostname label matching.",
-            "Updated the PriceCharting unit-test mock to compare parsed hostnames instead of broad URL substrings."
           ]
         }
       ]

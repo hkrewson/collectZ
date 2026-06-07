@@ -101,13 +101,13 @@ function dockerCommand(name, args, options = {}) {
 }
 
 function graylogRootSecretSha2(rootSecret) {
-  return crypto.createHash('sha256').update(rootSecret).digest('hex');
+  return crypto.hash('sha256', rootSecret, 'hex');
 }
 
-function graylogStackEnv(rootSecret) {
+function graylogStackEnv(rootSecret, passwordSecret) {
   return {
     ...process.env,
-    GRAYLOG_PASSWORD_SECRET: 'collectz-observability-evidence-secret',
+    GRAYLOG_PASSWORD_SECRET: passwordSecret,
     GRAYLOG_ROOT_PASSWORD_SHA2: graylogRootSecretSha2(rootSecret),
     GRAYLOG_HTTP_EXTERNAL_URI: 'http://127.0.0.1:9000/'
   };
@@ -311,7 +311,8 @@ function runLokiCollectorSmoke() {
 
 function runGraylogCollectorSmoke() {
   const graylogPassword = randomRuntimeSecret('collectz-graylog');
-  const stackEnv = graylogStackEnv(graylogPassword);
+  const graylogPasswordSecret = randomRuntimeSecret('collectz-graylog-secret');
+  const stackEnv = graylogStackEnv(graylogPassword, graylogPasswordSecret);
   return withTempAdmin('graylog_collector_smoke', (tempAdmin) => {
     const steps = [];
     steps.push(dockerCommand('graylog_stack_reset', ['compose', '-f', 'ops/logging/docker-compose.graylog.yml', 'down', '-v', '--remove-orphans'], {

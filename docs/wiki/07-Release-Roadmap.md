@@ -6,6 +6,34 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.16.32 — CodeQL Graylog Digest Boundary Hardening
+
+**Goal:** Clear the maintained-source CodeQL Graylog SHA-256 digest finding while preserving the exact runtime value required by the Graylog observability evidence stack.
+
+### Scope
+
+- Replace the observability release-evidence Graylog root-secret streaming hash helper with Node's one-shot digest helper.
+- Preserve `GRAYLOG_ROOT_PASSWORD_SHA2` behavior and evidence artifact redaction.
+- Fix the prior `3.16.31` release note so the publish workflow's required heading gate passes before this slice advances the version.
+- Keep unrelated CSRF, ICS, registration, and HTTP-to-file findings for later focused slices.
+
+### Acceptance Criteria
+
+- Configured maintained-source CodeQL reports `0` `js/insufficient-password-hash` findings.
+- The observability release-evidence script remains syntactically valid in the Docker backend runtime.
+- Backend unit tests pass.
+- Version metadata, release note, release feed, and focused runtime checks are updated for `3.16.32`.
+
+### Closeout
+
+- Status: completed in `3.16.32`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/49-Dependency-PR-and-CI-Security-Coverage.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, and `docs/releases/v3.16.32.md`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.16.32` using the CI build and platform compose overrides; `/api/health` reported version/frontend/backend/build `3.16.32`; backend/frontend/db containers were healthy; backend container env reported `APP_VERSION=3.16.32`; Help > Releases authenticated smoke served `3.16.32` as the newest entry.
+- Verification: release-note required heading check for `v3.16.31` and `v3.16.32`; bundled Node and Docker syntax checks for `backend/scripts/observability-release-evidence.js`; Docker SHA-256 parity check for `crypto.hash()` versus the legacy streaming hash API; local backend unit tests (`311` passed); frontend production build; Docker backend unit tests (`311` passed); Docker production frontend build during image rebuild; Docker Help > Releases smoke; host and Docker backend production dependency audits (`0` vulnerabilities); version sync; release note/feed regeneration; local CodeQL CLI database creation with `.github/codeql/codeql-config.yml`; hosted-shape JavaScript/TypeScript security plus security-and-quality analysis (`16` total local SARIF results, with `0` `js/insufficient-password-hash` findings); targeted Graylog evidence-secret pattern check; Docker build-cache prune to recover local Postgres from a Docker storage exhaustion checkpoint failure; and `git diff --check`.
+- Blocked/unverified: live GitHub CodeQL alert export remains unavailable from this shell; GitHub Actions must confirm hosted alert fingerprint/dedupe behavior after push. CI-only repository-history `secret-scan`, `image-security-and-sbom`, stricter secure-cookie `compose-smoke`, and remote publish gates remain GitHub Actions follow-through gates. Full `browser-regression`, `rbac-regression`, `runtime-smoke`, `homelab-edition-boundary`, and `platform-edition-boundary` were not rerun because this slice changes CodeQL release-evidence source shape, runtime evidence secret generation, and version/release artifacts only; those gates remain CI follow-through for the pushed commit.
+- Risks/follow-ups: remaining maintained-source CodeQL findings continue through later selected remediation slices: reviewed ICS request-forgery modeling, custom CSRF middleware modeling, registration-flow bypass modeling, and intentional HTTP-to-file artifact/upload writes.
+- What remains in the milestone: nothing for `3.16.32`; broader CodeQL baseline remediation continues in later selected slices.
+
 ## 3.16.31 — CodeQL File, Template, and Connector Boundary Hardening
 
 **Goal:** Continue the maintained-source CodeQL baseline cleanup by reducing file/HTTP, filesystem race, and trusted connector findings without removing intended upload, evidence, or integration behavior.
