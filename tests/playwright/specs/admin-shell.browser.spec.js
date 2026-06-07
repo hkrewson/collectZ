@@ -1285,7 +1285,8 @@ test.describe('admin shell browser regressions', () => {
     await expect(nav.getByRole('button', { name: 'Help', exact: true })).toBeVisible();
     await expect(nav.getByRole('button', { name: 'Help Admin', exact: true })).toHaveCount(0);
     await expect(nav.getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
-    await expect(nav.getByRole('button', { name: 'Merge Review', exact: true })).toBeVisible();
+    await expect(nav.getByRole('button', { name: 'Merge Review', exact: true })).toHaveCount(0);
+    await expect(nav.getByRole('button', { name: 'Review', exact: true })).toBeVisible();
     await expect(nav.getByRole('button', { name: 'Platform Settings', exact: true })).toHaveCount(0);
 
     await nav.getByRole('button', { name: 'Account menu' }).click();
@@ -1300,12 +1301,13 @@ test.describe('admin shell browser regressions', () => {
     await expect(nav.getByRole('button', { name: 'Library', exact: true })).toHaveCount(0);
     await expect(nav.getByRole('button', { name: 'Settings', exact: true })).toHaveCount(0);
     await expect(nav.getByRole('button', { name: 'Merge Review', exact: true })).toHaveCount(0);
+    await expect(nav.getByRole('button', { name: 'Review', exact: true })).toHaveCount(0);
 
     await nav.getByRole('button', { name: 'Account menu' }).click();
     await expect(accountMenu.getByText('Platform', { exact: true })).toBeVisible();
     await accountMenu.getByRole('menuitem', { name: 'Workspace' }).click();
     await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible();
-    await nav.getByRole('button', { name: 'Merge Review', exact: true }).click();
+    await nav.getByRole('button', { name: 'Review', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Merge Review', exact: true })).toBeVisible();
   });
 

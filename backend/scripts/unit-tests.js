@@ -5187,9 +5187,11 @@ results.push(run('dashboard shell exposes merge review as workspace-scoped opera
   assert.ok(sidebarNavSource.includes('showPlatformHelpAdmin'));
   assert.ok(sidebarNavSource.includes('label="Help"'));
   assert.ok(sidebarNavSource.includes('label="Help Admin"'));
-  assert.ok(sidebarNavSource.includes('Merge Review'));
+  assert.ok(sidebarNavSource.includes('label="Review" sub'));
+  assert.ok(sidebarNavSource.includes("id=\"admin-merges\""));
+  assert.ok(sidebarNavSource.includes("'admin-merges'"));
   assert.ok(sidebarNavSource.includes('{showWorkspaceNavigation && showWorkspaceSettingsLink && ('));
-  assert.ok(sidebarNavSource.includes('{showWorkspaceNavigation && showWorkspaceMergeReviewLink && ('));
+  assert.ok(sidebarNavSource.includes('{showWorkspaceMergeReviewLink && <NavLink id="admin-merges"'));
   assert.ok(sidebarNavSource.includes('{showPlatformNavigation && showPlatformGroup && ('));
   assert.ok(dashboardContentSource.includes("case 'admin-merges'"));
   assert.ok(dashboardContentSource.includes('AdminMergeReviewView'));

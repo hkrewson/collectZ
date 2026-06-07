@@ -1,6 +1,27 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.16.15",
+      "version": "3.16.15",
+      "date": null,
+      "status": null,
+      "summary": "This patch cleans up the Workspace sidebar by keeping primary library categories together and moving Loans, Review, and Wishlist into a separated Library utility group.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Moved `Loans` below the primary library category list.",
+            "Renamed the visible `Merge Review` sidebar entry to `Review`.",
+            "Moved `Review` into the Library section instead of showing it as a separate Workspace item.",
+            "Kept the existing Merge Review route and page behavior.",
+            "Kept `Wishlist` in the separated Library utility group.",
+            "Kept `Import`, `Help`, and `Settings` as direct Workspace navigation items.",
+            "Updated browser and unit coverage for the new navigation structure."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.16.14",
       "version": "3.16.14",
       "date": null,
@@ -167,24 +188,6 @@
             "Kept the desktop sidebar spacing unchanged.",
             "The drawer action button now closes the mobile drawer when the drawer is open.",
             "Browser coverage now protects the compact mobile drawer header height."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.16.5",
-      "version": "3.16.5",
-      "date": null,
-      "status": null,
-      "summary": "This patch tightens the last visible Platform Runtime wording from the 3.16 boundary cleanup and updates the backlog to match the work already completed.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Activity links that point to platform Logs or Metrics now say `Open runtime` instead of `Open integrations`.",
-            "Workspace activity still points to `Open integrations` for workspace-owned provider setup.",
-            "The Platform vs Workspace backlog item now records completed 3.16 work and leaves only internal route cleanup or deeper override fixtures as follow-up candidates.",
-            "Source-level coverage protects the Platform Runtime activity action label."
           ]
         }
       ]

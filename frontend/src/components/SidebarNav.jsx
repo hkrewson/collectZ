@@ -69,7 +69,7 @@ export default function SidebarNav({
     'library-loans',
     'library-collectibles',
     'library-events',
-    'library-import'
+    'admin-merges'
   ].includes(activeTab);
   const isPlatformGroupActive = [
     'admin-settings',
@@ -256,9 +256,11 @@ export default function SidebarNav({
                 {showCollectibles && <NavLink id="library-collectibles" icon={null} label="Collectibles" sub />}
                 {showEvents && <NavLink id="library-events" icon={null} label="Events" sub />}
                 <NavLink id="library-games" icon={null} label="Games" sub />
-                <NavLink id="library-loans" icon={null} label="Loans" sub />
                 <NavLink id="library-movies" icon={null} label="Movies" sub />
                 <NavLink id="library-tv" icon={null} label="TV" sub />
+                <div className="my-1 border-t border-edge/70" />
+                <NavLink id="library-loans" icon={null} label="Loans" sub />
+                {showWorkspaceMergeReviewLink && <NavLink id="admin-merges" icon={null} label="Review" sub />}
                 <NavLink id="library-wishlist" icon={null} label="Wishlist" sub />
               </div>
             )}
@@ -276,9 +278,6 @@ export default function SidebarNav({
           )}
           {showWorkspaceNavigation && showWorkspaceSettingsLink && (
             <NavLink id="space-manage" icon={<Icons.Settings />} label="Settings" />
-          )}
-          {showWorkspaceNavigation && showWorkspaceMergeReviewLink && (
-            <NavLink id="admin-merges" icon={<Icons.Activity />} label="Merge Review" />
           )}
           {showPlatformHelpAdmin && (
             <NavLink id="help" icon={<Icons.Activity />} label="Help Admin" badge={supportBadgeCount} />

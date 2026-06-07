@@ -6,6 +6,38 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.16.15 — Library Navigation Utility Group
+
+**Goal:** Keep the Library navigation organized around primary library categories while grouping Loans, Review, and Wishlist as library-adjacent utilities.
+
+### Scope
+
+- Move `Loans` out of the primary library category run and into the separated lower Library group.
+- Rename the visible `Merge Review` nav item to `Review`.
+- Move `Review` under Library instead of leaving it as a standalone Workspace navigation item.
+- Keep the existing Merge Review route and page behavior.
+- Keep `Wishlist` in the separated Library utility group.
+- Keep `Import`, `Help`, and `Settings` as direct Workspace navigation items.
+- Update browser and unit coverage for the new navigation ownership.
+
+### Acceptance Criteria
+
+- Library navigation lists primary collection categories first: Audio, Art, Books, Comics, Collectibles, Events, Games, Movies, and TV.
+- Library navigation then shows Loans, Review, and Wishlist as a separated utility group.
+- Workspace navigation no longer shows a standalone `Merge Review` item.
+- Clicking `Review` opens the existing Merge Review surface.
+- Version metadata, release note, release feed, and focused runtime checks are updated for `3.16.15`.
+
+### Closeout
+
+- Status: completed in `3.16.15`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, and `docs/releases/v3.16.15.md`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.16.15` using the local platform compose override; `/api/health` reported version/frontend/backend/build `3.16.15`; backend/frontend containers were healthy; Help > Releases served `3.16.15`; targeted Admin Shell browser coverage verified `Review` under Library and no standalone `Merge Review` Workspace item. An isolated homelab stack built from local sources also reported `3.16.15`, passed the homelab boundary smoke, and was removed.
+- Verification: frontend production build; local backend unit tests; Docker backend unit tests (`304` passed); Docker OpenAPI validation; Help > Releases smoke; targeted Admin Shell browser regression; RBAC regression rerun in isolation after an initial local parallel-smoke collision with platform-boundary setup; platform edition boundary; homelab edition boundary against an isolated local compose project; backend and frontend production dependency audits (`0` vulnerabilities); local API integration smoke; observability release evidence; local release preflight; version sync; release note/feed regeneration; targeted changed-file secret-pattern scan; and `git diff --check`.
+- CI follow-through: stricter CI `compose-smoke`, full `browser-regression`, `dependency-scan`, `secret-scan`, and `image-security-and-sbom` remain remote GitHub Actions gates for the pushed commit.
+- Risks/follow-ups: local preflight marks secure-cookie compose smoke, gitleaks, full browser-regression, and image/SBOM as CI-only or stricter remote gates; no product follow-up remains for this slice.
+- What remains in the milestone: nothing for `3.16.15`.
+
 ## 3.16.14 — Move Capture Inbox Under Import
 
 **Goal:** Treat Capture Inbox as an intake workflow under Import instead of a Library category.
