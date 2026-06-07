@@ -831,6 +831,67 @@ These are product-level capability gaps discovered from the current shape of the
 
 These are unscheduled security-maintenance tasks discovered from advisory scanning and release-gate follow-through. Keep them versionless until selected and moved into the roadmap as numbered milestones.
 
+### Backlog Item: Local CI/CD Release Gate and Pre-Push Automation
+**Type:** Deferred infrastructure milestone
+**Tags:** `ci`, `release`, `security`, `codeql`, `automation`, `pre-push`, `local-ci`
+**Status:** Active backlog; not yet promoted or versioned.
+
+**Goal:** Build a reliable local CI/CD gate that can run the full release-quality validation stack before any push, reducing dependence on public GitHub Actions logs while keeping automated security and runtime checks hard to miss.
+
+**Why this work exists**
+- Public GitHub Actions currently exposes workflow/job/step labels and some runtime concepts even when secrets are protected.
+- Moving the repository private would likely affect free hosted CodeQL/code-scanning and consume private Actions minutes.
+- GitLab Community Edition can run CI, but it does not cleanly replace GitHub's free public-repo CodeQL and Dependabot experience without assembling additional tools.
+- A local or private-runner release gate lets maintainers validate the same meaningful checks before push while preserving the option to keep GitHub as the public release/mirror surface.
+
+**Intent**
+- Make local CI/CD the normal pre-push safety net, not an optional memory task.
+- Keep GitHub Actions useful as a public follow-through gate where appropriate, but avoid relying on public CI labels/logs as the only release protection.
+- Preserve the security value of CodeQL, dependency auditing, secret scanning, image scanning, browser regression, RBAC, and runtime-smoke checks.
+- Give Codex and maintainers one explicit command/process to run before a push.
+
+**Current state**
+- GitHub Actions runs release gates publicly, including dependency scan, secret scan, compose smoke, RBAC, browser regression, `runtime-smoke`, image security/SBOM, and CodeQL.
+- Local scripts already exist for many checks, but they are not packaged as one durable pre-push gate.
+- Some gates require Docker, which is available in the local development environment.
+- CodeQL local CLI has been used for baseline remediation, but local/cloud parity and generated-artifact exclusion need to stay explicit.
+
+**Scope**
+- Add one documented local release-gate command, for example `npm run release:local-gate`.
+- Include version/release artifact checks, backend unit tests, OpenAPI validation, frontend build, browser regression, RBAC regression, runtime-smoke, dependency audits, secret scan, CodeQL local CLI, image scan/SBOM where practical, and `git diff --check`.
+- Make the gate produce a local evidence summary that is useful but does not write secrets or plaintext credentials.
+- Decide whether the gate should run as:
+  - a manual required command in Codex/maintainer workflow,
+  - a Git pre-push hook,
+  - a local task runner wrapper,
+  - or a private runner job.
+- If a Git hook is used, provide an intentional bypass path with a required reason so emergency pushes are possible but visible.
+- Keep the gate aligned with `.github/workflows/docker-publish.yml` so local and hosted checks do not drift.
+- Document how to run the gate against the current working tree and how to run a clean-checkout/parity variant.
+
+**Candidate subtasks**
+- Inventory current local scripts and map them to the release gates in `docs/wiki/17-Release-Go-No-Go-Checklist.md`.
+- Add a local gate runner that executes the selected checks in a predictable order with clear failure summaries.
+- Add CodeQL local parity setup that excludes generated artifacts and distinguishes raw local SARIF results from GitHub code-scanning alerts.
+- Add or document local secret-scan and dependency-scan commands that match CI behavior.
+- Add a local pre-push hook installer or documented Git hook template.
+- Update `AGENTS.md` or a repo workflow doc so Codex treats the local gate as required before push/release handoff.
+- Add evidence hygiene checks so generated reports do not include secrets.
+- Decide whether to keep public GitHub Actions as a smaller follow-through suite, a mirror-only suite, or the full release gate.
+
+**Out of scope**
+- Do not replace GitHub Actions, GitHub CodeQL, Dependabot, or GHCR publication in the first slice.
+- Do not build a GitLab canonical-repo migration in this task.
+- Do not push sanitized public mirror automation unless a separate mirror/export milestone is selected.
+- Do not make the gate depend on paid services as a first requirement.
+
+**Acceptance Criteria**
+- A maintainer or Codex can run one local command before push and get a clear pass/fail summary for release-relevant checks.
+- The required pre-push expectation is documented and hard to miss in the repo workflow.
+- The gate includes the security checks we most care about, or explicitly reports which ones are unavailable locally and why.
+- Generated evidence avoids plaintext secrets and does not create noisy CodeQL input.
+- Local gate behavior stays aligned with the public CI release gate names and intent.
+
 ### Backlog Item: CodeQL Baseline Remediation
 **Status:** Active remediation is being promoted into numbered roadmap slices, including `3.16.21 — CodeQL Backend Input Boundary Hardening`, `3.16.22 — CodeQL SQL and URL Host Remediation`, `3.16.23 — CodeQL Log Hygiene and Unused Finding Triage`, `3.16.24 — CodeQL Sanitizer and Runtime Helper Remediation`, `3.16.26 — CodeQL Media Title Sanitizer Precision`, `3.16.27 — CodeQL Request Forgery Boundary Triage`, and `3.16.28 — CodeQL Clean-Checkout Baseline Parity Policy`.
 
