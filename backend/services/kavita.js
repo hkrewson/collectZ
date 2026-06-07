@@ -7,12 +7,28 @@ const DEFAULT_IMPORT_PAGE_SIZE = 100;
 const DEFAULT_IMPORT_MAX_PAGES = 20;
 const DEFAULT_IMPORT_MAX_VOLUME_DETAILS = 250;
 
+function trimTrailingSlashes(value) {
+  let text = String(value || '');
+  while (text.endsWith('/')) {
+    text = text.slice(0, -1);
+  }
+  return text;
+}
+
+function trimLeadingSlashes(value) {
+  let text = String(value || '');
+  while (text.startsWith('/')) {
+    text = text.slice(1);
+  }
+  return text;
+}
+
 function normalizeKavitaBaseUrl(rawUrl = '') {
-  const value = String(rawUrl || '').trim().replace(/\/+$/, '');
+  const value = trimTrailingSlashes(String(rawUrl || '').trim());
   if (!value) return '';
   const parsed = parseHttpUrl(value);
   if (!parsed) return '';
-  return parsed.origin + parsed.pathname.replace(/\/+$/, '');
+  return parsed.origin + trimTrailingSlashes(parsed.pathname);
 }
 
 function buildKavitaWebUrl(baseUrl = '', path = '') {
@@ -20,13 +36,13 @@ function buildKavitaWebUrl(baseUrl = '', path = '') {
   if (!normalizedBase) return '';
   const suffix = String(path || '').trim();
   if (!suffix) return normalizedBase;
-  return `${normalizedBase}/${suffix.replace(/^\/+/, '')}`;
+  return `${normalizedBase}/${trimLeadingSlashes(suffix)}`;
 }
 
 function buildKavitaApiUrl(baseUrl = '', path = '') {
   const normalizedBase = normalizeKavitaBaseUrl(baseUrl);
   if (!normalizedBase) return '';
-  const normalizedPath = String(path || '').replace(/^\/+/, '');
+  const normalizedPath = trimLeadingSlashes(path);
   return `${normalizedBase}/${normalizedPath}`;
 }
 

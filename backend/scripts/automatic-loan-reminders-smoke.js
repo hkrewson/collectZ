@@ -1,6 +1,7 @@
 'use strict';
 
 const bcrypt = require('bcrypt');
+const crypto = require('crypto');
 const net = require('net');
 const pool = require('../db/pool');
 const { ensureUserDefaultScope } = require('../services/libraries');
@@ -276,9 +277,9 @@ async function loadReminderEventsForLoans(loanIds = []) {
 }
 
 async function main() {
-  const suffix = `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+  const suffix = `${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
   const email = `auto-loan-reminders-${suffix}@example.com`;
-  const password = 'Collectz!234567890123456789';
+  const password = `Collectz-${crypto.randomBytes(18).toString('base64url')}-1!`;
   const client = new HttpClient('automatic-loan-reminders-smoke');
   const smtp = new FakeSmtpServer();
   const previousSmtpSettings = await loadSmtpAppSettingsSnapshot();

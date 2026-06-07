@@ -82,7 +82,7 @@ function reviewClue(item) {
     : metadataRecommendations.length
       ? `Add ${metadataRecommendations.join(', ')}.`
       : '';
-  return [reason, recommendation].filter(Boolean).join('. ').replace('..', '.');
+  return [reason, recommendation].filter(Boolean).join('. ').replace(/\.{2,}/g, '.');
 }
 
 function Panel({ title, action, children, className = '' }) {

@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.16.24",
+      "version": "3.16.24",
+      "date": null,
+      "status": null,
+      "summary": "This patch continues CodeQL baseline remediation by replacing risky sanitizer and regex helper patterns with deterministic normalization, encoded image URLs, and runtime-generated smoke-test credentials.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Hardened shared frontend image URL handling so art and collectible image previews only render explicit safe image URL forms and encode DOM-bound image sources.",
+            "Replaced repeated-period review clue cleanup with a complete repeated-period collapse.",
+            "Replaced Kavita and request-origin slash trimming regexes with deterministic slash trimming helpers.",
+            "Replaced support issue-link and collectible trait-key regex normalization with bounded scanners.",
+            "Replaced automatic loan reminder smoke-test randomness and hardcoded transient password material with crypto-generated runtime values.",
+            "Moved personal Sched ICS `&amp;` decoding after other entity replacements to prevent double-unescape behavior."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.16.23",
       "version": "3.16.23",
       "date": null,
@@ -172,26 +192,6 @@
             "Kept `Wishlist` in the separated Library utility group.",
             "Kept `Import`, `Help`, and `Settings` as direct Workspace navigation items.",
             "Updated browser and unit coverage for the new navigation structure."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.16.14",
-      "version": "3.16.14",
-      "date": null,
-      "status": null,
-      "summary": "This patch treats Capture Inbox as an intake workflow instead of a Library category by moving its entry point under Import.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Removed `Capture Inbox` from the Library navigation list.",
-            "Kept `Wishlist` in Library.",
-            "Added `Capture Inbox` as a first-class tab on the Import surface.",
-            "Kept existing Capture Inbox routes and deep links working.",
-            "Made the `Import` navigation item stay active when Capture Inbox is open.",
-            "Updated browser and unit coverage for the new Import-owned Capture entry point."
           ]
         }
       ]

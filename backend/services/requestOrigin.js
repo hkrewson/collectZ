@@ -1,5 +1,9 @@
 function trimTrailingSlash(value) {
-  return String(value || '').replace(/\/+$/, '');
+  let text = String(value || '');
+  while (text.endsWith('/')) {
+    text = text.slice(0, -1);
+  }
+  return text;
 }
 
 function firstHeaderValue(value) {

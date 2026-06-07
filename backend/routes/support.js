@@ -103,8 +103,20 @@ function normalizeRepoIssueNumber(value) {
 function extractRepoIssueNumberFromUrl(value) {
   const normalized = String(value || '').trim();
   if (!normalized) return null;
-  const match = normalized.match(/\/issues\/(\d+)(?:\/)?(?:[#?].*)?$/i);
-  return match ? normalizeRepoIssueNumber(match[1]) : null;
+  const marker = '/issues/';
+  const markerIndex = normalized.toLowerCase().lastIndexOf(marker);
+  if (markerIndex < 0) return null;
+  const afterMarker = normalized.slice(markerIndex + marker.length);
+  let digits = '';
+  for (const char of afterMarker) {
+    if (char >= '0' && char <= '9') {
+      digits += char;
+      continue;
+    }
+    if (char === '/' || char === '?' || char === '#') break;
+    return null;
+  }
+  return digits ? normalizeRepoIssueNumber(digits) : null;
 }
 
 function buildRepoIssueUrl(issueNumber) {

@@ -454,7 +454,7 @@ function reviewClue(item) {
     : metadataRecommendations.length
       ? `Add ${metadataRecommendations.join(', ')}.`
       : '';
-  return [reason, recommendation].filter(Boolean).join('. ').replace('..', '.');
+  return [reason, recommendation].filter(Boolean).join('. ').replace(/\.{2,}/g, '.');
 }
 
 function MediaCard({ item, onOpen, onEdit, onDelete, onRating, supportsHover, selected = false, onToggleSelect = null, onSelectionGesture = null, selectionEnabled = false }) {

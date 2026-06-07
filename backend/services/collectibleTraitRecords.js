@@ -25,14 +25,39 @@ function normalizeOwnerType(value) {
   return VALID_OWNER_TYPES.has(ownerType) ? ownerType : null;
 }
 
+function isTraitKeyChar(char) {
+  const code = char.charCodeAt(0);
+  return (code >= 97 && code <= 122)
+    || (code >= 48 && code <= 57)
+    || char === '_'
+    || char === ':'
+    || char === '-';
+}
+
+function trimBoundaryChar(value, char) {
+  let start = 0;
+  let end = value.length;
+  while (start < end && value[start] === char) start += 1;
+  while (end > start && value[end - 1] === char) end -= 1;
+  return value.slice(start, end);
+}
+
 function normalizeTraitKey(value, fallbackFamily = null) {
   const raw = cleanString(value || fallbackFamily, 80);
   if (!raw) return null;
-  const key = raw
-    .toLowerCase()
-    .replace(/[^a-z0-9_:-]+/g, '_')
-    .replace(/^_+|_+$/g, '')
-    .slice(0, 80);
+  let key = '';
+  let previousReplacement = false;
+  for (const char of raw.toLowerCase()) {
+    if (isTraitKeyChar(char)) {
+      key += char;
+      previousReplacement = false;
+    } else if (!previousReplacement) {
+      key += '_';
+      previousReplacement = true;
+    }
+    if (key.length >= 80) break;
+  }
+  key = trimBoundaryChar(key, '_');
   return key || null;
 }
 

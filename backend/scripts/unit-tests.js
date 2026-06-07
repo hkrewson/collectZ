@@ -2237,6 +2237,8 @@ results.push(run('support route source includes request creation, releases feed,
   assert.ok(supportRoutesSource.includes('buildDerivedExpiredSupportAccessEvent'));
   assert.ok(supportRoutesSource.includes('timelineResult'));
   assert.ok(supportRoutesSource.includes('normalizeTrackedWorkLink'));
+  assert.ok(supportRoutesSource.includes("const marker = '/issues/';"));
+  assert.ok(!supportRoutesSource.includes('normalized.match(/\\/issues\\/'));
   assert.ok(supportRoutesSource.includes('Linked engineering issue is now #'));
 }));
 
@@ -2887,6 +2889,7 @@ results.push(run('repo includes Kavita import sync smoke coverage for repeat syn
 results.push(run('kavita launch URL helpers build secret-free native web routes', () => {
   assert.strictEqual(normalizeKavitaBaseUrl('http://192.168.1.50:5000/'), 'http://192.168.1.50:5000');
   assert.strictEqual(normalizeKavitaBaseUrl('https://kavita.example/root/'), 'https://kavita.example/root');
+  assert.strictEqual(normalizeKavitaBaseUrl('https://kavita.example/root///'), 'https://kavita.example/root');
   assert.strictEqual(normalizeKavitaBaseUrl('file:///etc/passwd'), '');
   assert.strictEqual(normalizeKavitaBaseUrl('https://user:secret@kavita.example/root'), '');
   assert.strictEqual(buildKavitaSeriesProviderItemId(8602), 'kavita:series:8602');
@@ -3316,7 +3319,7 @@ results.push(run('kavita metadata writeback contract remains opt-in and preview-
 }));
 
 results.push(run('AppPrimitives keeps authenticated collectZ API image paths same-origin', () => {
-  assert.ok(appPrimitivesSource.includes("if (path.startsWith('/api/')) return path;"));
+  assert.ok(appPrimitivesSource.includes("if (value.startsWith('/api/')) return encodedPath;"));
 }));
 
 results.push(run('repo includes comic query contract smoke coverage for paginated server-backed issue ordering', () => {
@@ -3549,6 +3552,16 @@ results.push(run('LibraryView renders compact lookup thumbnails for provider sea
   assert.ok(libraryViewSource.includes("aria-label=\"Search result thumbnail\""));
   assert.ok(libraryViewSource.includes('const thumbnailSrc = posterUrl(resolveLookupThumbnailPath(m));'));
   assert.ok(libraryViewSource.includes("className=\"relative mt-0.5 h-16 w-11 shrink-0 overflow-hidden rounded-[4px] border border-edge/70 bg-panel\""));
+}));
+
+results.push(run('shared posterUrl rejects unsafe image protocols while preserving trusted image paths', () => {
+  assert.ok(appPrimitivesSource.includes("value.startsWith('http://') || value.startsWith('https://')"));
+  assert.ok(appPrimitivesSource.includes("value.startsWith('blob:')"));
+  assert.ok(appPrimitivesSource.includes("value.startsWith('/api/')"));
+  assert.ok(appPrimitivesSource.includes("value.startsWith('/uploads/')"));
+  assert.ok(appPrimitivesSource.includes("value.includes('/p/')"));
+  assert.ok(!appPrimitivesSource.includes("if (path.startsWith('http')) return path;"));
+  assert.ok(!appPrimitivesSource.includes('return path;'));
 }));
 
 results.push(run('LibraryView keeps a detail header band when media items only have cover art', () => {
@@ -4627,8 +4640,14 @@ results.push(run('collectible trait persistence contract is scoped and documente
     payload: { company: 'CGC', grade: '9.8' }
   });
   assert.strictEqual(normalized.trait_key, 'cgc_grade');
+  assert.strictEqual(normalizeTraitPayload({
+    key: '  ** CGC Grade / Signed! ',
+    family: 'signed'
+  }).trait_key, 'cgc_grade_signed');
   assert.strictEqual(normalized.family, 'graded');
   assert.strictEqual(normalized.details[0].label, 'Certificate');
+  assert.ok(collectibleTraitRecordsSource.includes('function trimBoundaryChar'));
+  assert.ok(!collectibleTraitRecordsSource.includes("replace(/[^a-z0-9_:-]+/g, '_'"));
   assert.ok(migrationsSource.includes('version: 107'));
   assert.ok(migrationsSource.includes('CREATE TABLE IF NOT EXISTS collectible_trait_records'));
   assert.ok(migrationsSource.includes("owner_type VARCHAR(30) NOT NULL CHECK (owner_type IN ('media', 'art', 'collectible'))"));
@@ -5304,6 +5323,10 @@ results.push(run('library loans workflow is wired into dashboard navigation rout
   assert.ok(backendPackageJson.scripts['test:library-loans-workflow-smoke']);
   assert.ok(backendPackageJson.scripts['test:library-loan-reminder-workflow-smoke']);
   assert.ok(backendPackageJson.scripts['test:automatic-loan-reminders-smoke']);
+  assert.ok(automaticLoanRemindersSmokeSource.includes("crypto.randomBytes(4).toString('hex')"));
+  assert.ok(automaticLoanRemindersSmokeSource.includes("crypto.randomBytes(18).toString('base64url')"));
+  assert.ok(!automaticLoanRemindersSmokeSource.includes('Math.' + 'random()'));
+  assert.ok(!automaticLoanRemindersSmokeSource.includes("const password = '"));
 }));
 
 results.push(run('art library surface is promoted through shared collectible contracts without losing event linkage', () => {

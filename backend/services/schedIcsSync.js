@@ -55,7 +55,6 @@ function decodeIcsText(value) {
 function decodeHtmlEntities(value) {
   return String(value || '')
     .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
     .replace(/&lt;/gi, '<')
     .replace(/&gt;/gi, '>')
     .replace(/&quot;/gi, '"')
@@ -68,6 +67,7 @@ function decodeHtmlEntities(value) {
       const point = parseInt(code, 16);
       return Number.isFinite(point) ? String.fromCodePoint(point) : '';
     })
+    .replace(/&amp;/gi, '&')
     .trim();
 }
 

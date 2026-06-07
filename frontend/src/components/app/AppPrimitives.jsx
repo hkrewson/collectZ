@@ -17,15 +17,25 @@ export function routeFromPath(p) {
 }
 
 export function posterUrl(path) {
-  if (!path) return '';
-  if (path.startsWith('http')) return path;
-  if (path.startsWith('/uploads/') || path.startsWith('/')) {
-    if (path.startsWith('/api/')) return path;
-    if (path.startsWith('/t/') || path.match(/\/p\//)) return `https://image.tmdb.org/t/p/w500${path}`;
-    if (path.startsWith('/uploads/')) return path;
-    return `https://image.tmdb.org/t/p/w500${path}`;
+  const value = String(path || '').trim();
+  if (!value) return '';
+  if (value.startsWith('blob:')) return encodeURI(value);
+  if (value.startsWith('http://') || value.startsWith('https://')) {
+    try {
+      const parsed = new URL(value);
+      return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? encodeURI(parsed.href) : '';
+    } catch (_) {
+      return '';
+    }
   }
-  return path;
+  if (value.startsWith('/uploads/') || value.startsWith('/')) {
+    const encodedPath = encodeURI(value);
+    if (value.startsWith('/api/')) return encodedPath;
+    if (value.startsWith('/t/') || value.includes('/p/')) return `https://image.tmdb.org/t/p/w500${encodedPath}`;
+    if (value.startsWith('/uploads/')) return encodedPath;
+    return `https://image.tmdb.org/t/p/w500${encodedPath}`;
+  }
+  return '';
 }
 
 export function cx(...classes) {

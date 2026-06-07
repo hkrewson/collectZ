@@ -1,8 +1,8 @@
 {
   "app": "collectZ",
-  "version": "3.16.23",
-  "frontend": "3.16.23",
-  "backend": "3.16.23",
-  "userAgent": "collectZ/3.16.23 (+https://github.com/hkrewson/collectZ)",
-  "build": "v3.16.23"
+  "version": "3.16.24",
+  "frontend": "3.16.24",
+  "backend": "3.16.24",
+  "userAgent": "collectZ/3.16.24 (+https://github.com/hkrewson/collectZ)",
+  "build": "v3.16.24"
 }
