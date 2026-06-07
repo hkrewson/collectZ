@@ -6,6 +6,35 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.16.12 — Remove Workspace Overview Header
+
+**Goal:** Remove the redundant Workspace overview block now that Workspace and Platform context switching lives in the profile menu.
+
+### Scope
+
+- Remove the large Workspace name, role, library, accessible workspace count, and visible library count block from the Workspace settings surface.
+- Remove the old in-page workspace selector from Workspace settings.
+- Keep workspace switching in the profile menu.
+- Keep Workspace Settings, Backup, Export, Integrations, People, and Activity tabs unchanged.
+- Update browser coverage for the new Workspace settings shape.
+
+### Acceptance Criteria
+
+- Workspace settings opens directly to the Workspace section tabs.
+- The old role/library/count readback no longer appears above the Workspace tabs.
+- Workspace switching remains available from the profile menu instead of the Workspace settings page.
+- Version metadata, release note, release feed, and focused runtime checks are updated for `3.16.12`.
+
+### Closeout
+
+- Status: completed in `3.16.12`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, and `docs/releases/v3.16.12.md`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.16.12` using the local platform compose override; `/api/health` reported version/frontend/backend/build `3.16.12`; backend/frontend containers were healthy; Help > Releases served `3.16.12`; full Workspace browser coverage verified the tab-first Workspace settings surface and route-level fallback. An isolated homelab stack built from local sources also reported `3.16.12`, passed the homelab boundary smoke, and was removed.
+- Verification: frontend production build; Docker backend unit tests (`304` passed); Docker OpenAPI validation; Help > Releases smoke; full Workspace browser regression (`11` passed including setup); RBAC regression; platform edition boundary; homelab edition boundary against an isolated local compose project; backend and frontend production dependency audits (`0` vulnerabilities); observability release evidence (`9/9` checks passed); local release preflight; version sync; release note/feed regeneration; targeted changed-file secret-pattern scan; and `git diff --check`.
+- CI follow-through: stricter CI `compose-smoke`, full `browser-regression`, `dependency-scan`, `secret-scan`, and `image-security-and-sbom` remain remote GitHub Actions gates for the pushed commit.
+- Risks/follow-ups: none for this slice.
+- What remains in the milestone: nothing for `3.16.12`.
+
 ## 3.16.11 — Workspace Backup and Export Tabs
 
 **Goal:** Make Workspace settings read as settings only, while keeping workspace backup and export work in clear, separate tabs.

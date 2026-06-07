@@ -29,7 +29,7 @@ async function expectManageableFallbackWorkspace(page, excludedSpaceName) {
   await expect(page.getByRole('button', { name: 'Workspace', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Access Restricted' })).toHaveCount(0);
   if (excludedSpaceName) {
-    await expect(page.getByRole('heading', { name: excludedSpaceName, exact: true })).toHaveCount(0);
+    await expect(page.getByText(excludedSpaceName, { exact: true })).toHaveCount(0);
   }
 }
 
@@ -53,12 +53,9 @@ test.describe('space manager browser regressions', () => {
       await page.goto('/dashboard?tab=space-manage');
 
       await expect(page.getByRole('button', { name: 'Workspace', exact: true })).toBeVisible();
-      await expect(page.getByRole('heading', { name: /Playwright Space/ })).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Activity', exact: true })).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Settings', exact: true })).toHaveCount(0);
-      await expect(page.getByRole('button', { name: 'People', exact: true })).toHaveCount(0);
+      await expect(page.getByLabel('Workspace sections').getByRole('button', { name: 'Activity', exact: true })).toBeVisible();
 
-      await page.getByRole('button', { name: 'Activity', exact: true }).click();
+      await page.getByLabel('Workspace sections').getByRole('button', { name: 'Activity', exact: true }).click();
       await expect(page.getByRole('heading', { name: 'Timeline', exact: true })).toBeVisible();
       await expect(page.getByText('Library item added').first()).toBeVisible();
       await expect(page.getByText(title).first()).toBeVisible();
@@ -244,12 +241,13 @@ test.describe('space manager browser regressions', () => {
       await page.context().addCookies(storageState.cookies || []);
 
       await page.goto('/dashboard?tab=space-manage');
+      const workspaceSections = page.getByLabel('Workspace sections');
       await expect(page.getByRole('button', { name: 'Workspace', exact: true })).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Integrations', exact: true })).toBeVisible();
-      await expect(page.getByRole('button', { name: 'People', exact: true })).toBeVisible();
+      await expect(workspaceSections.getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
+      await expect(workspaceSections.getByRole('button', { name: 'Integrations', exact: true })).toBeVisible();
+      await expect(workspaceSections.getByRole('button', { name: 'People', exact: true })).toBeVisible();
 
-      await page.getByRole('button', { name: 'Integrations', exact: true }).click();
+      await workspaceSections.getByRole('button', { name: 'Integrations', exact: true }).click();
       await expect(page.getByRole('heading', { name: 'Workspace Integrations', exact: true })).toBeVisible();
       await expect(page.getByText('Default', { exact: true })).toBeVisible();
       await expect(page.getByText('Using collectZ defaults until this workspace saves its own settings.')).toBeVisible();
@@ -753,7 +751,7 @@ test.describe('space manager browser regressions', () => {
     }
   });
 
-  test('opening Workspace switches to a manageable workspace when current scope is only member-level', async ({ page }) => {
+  test('Workspace route switches to a manageable workspace when current scope is only member-level', async ({ page }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
     const adminContext = await createAuthenticatedRequestContext(adminCredentials);
     const timestamp = Date.now();
@@ -823,13 +821,13 @@ test.describe('space manager browser regressions', () => {
       const storageState = await ownerContext.storageState();
       await page.context().addCookies(storageState.cookies || []);
 
-      await page.goto('/dashboard');
-      await page.getByRole('button', { name: 'Workspace', exact: true }).click();
+      await page.goto('/dashboard?tab=space-manage');
 
-      await expect(page.getByRole('heading', { name: `Playwright Owned Space ${timestamp}`, exact: true })).toBeVisible();
-      await expect(page.getByText('Role: admin')).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Integrations', exact: true })).toBeVisible();
+      const workspaceSections = page.getByLabel('Workspace sections');
+      await expect(workspaceSections.getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
+      await expect(workspaceSections.getByRole('button', { name: 'Integrations', exact: true })).toBeVisible();
+      await expect(page.getByRole('heading', { name: `Playwright Owned Space ${timestamp}`, exact: true })).toHaveCount(0);
+      await expect(page.getByText('Role: admin')).toHaveCount(0);
     } finally {
       await ownerContext?.dispose();
       await adminContext.dispose();

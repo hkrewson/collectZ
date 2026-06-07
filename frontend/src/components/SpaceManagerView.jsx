@@ -28,13 +28,9 @@ function KebabIcon() {
 export default function SpaceManagerView({
   apiCall,
   onToast,
-  spaces,
   activeSpace,
   activeSpaceId,
   activeMembershipRole,
-  libraries,
-  activeLibraryId,
-  onSpaceSelect,
   onScopeRefresh,
   onSettingsChange,
   Icons,
@@ -58,16 +54,10 @@ export default function SpaceManagerView({
   const [managerTab, setManagerTab] = useState('settings');
   const [peopleTab, setPeopleTab] = useState('members');
   const [openMemberMenuId, setOpenMemberMenuId] = useState(null);
-  const [switchingSpace, setSwitchingSpace] = useState(false);
   const memberLoadSeqRef = useRef(0);
   const inviteLoadSeqRef = useRef(0);
 
   const canManage = ['owner', 'admin'].includes(activeMembershipRole);
-  const selectableSpaces = useMemo(() => spaces, [spaces]);
-  const activeLibrary = useMemo(
-    () => libraries.find((library) => Number(library.id) === Number(activeLibraryId || 0)) || null,
-    [activeLibraryId, libraries]
-  );
 
   useEffect(() => {
     setEditingSpace({
@@ -310,52 +300,8 @@ export default function SpaceManagerView({
     return invites.filter((invite) => !invite.used && !invite.revoked && new Date(invite.expires_at).getTime() > Date.now());
   }, [invites, showInviteHistory]);
 
-  const switchSpace = async (spaceIdRaw) => {
-    const nextSpaceId = Number(spaceIdRaw || 0) || null;
-    if (!nextSpaceId || nextSpaceId === Number(activeSpaceId || 0) || !onSpaceSelect) return;
-    setSwitchingSpace(true);
-    try {
-      await onSpaceSelect(nextSpaceId);
-    } finally {
-      setSwitchingSpace(false);
-    }
-  };
-
   return (
-    <div className="h-full overflow-y-auto p-4 sm:p-6 space-y-8">
-      <div>
-        <div className="flex flex-wrap items-end gap-4">
-          <div className="min-w-0 flex-1">
-            <h1 className="section-title">{activeSpace?.name || 'Workspace'}</h1>
-            <p className="mt-2 text-sm text-ghost">
-              {activeMembershipRole ? `Role: ${activeMembershipRole}` : 'Role unavailable'}
-              {activeLibrary?.name ? ` · Library: ${activeLibrary.name}` : ''}
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <span className="badge badge-dim">{spaces.length} accessible workspace{spaces.length === 1 ? '' : 's'}</span>
-              <span className="badge badge-dim">{libraries.length} visible librar{libraries.length === 1 ? 'y' : 'ies'}</span>
-            </div>
-          </div>
-          {selectableSpaces.length > 1 ? (
-            <label className="field min-w-[220px] max-w-sm">
-              <span className="label">Viewing workspace</span>
-              <select
-                className="select"
-                value={activeSpaceId || ''}
-                onChange={(event) => switchSpace(event.target.value)}
-                disabled={switchingSpace}
-              >
-                {selectableSpaces.map((space) => (
-                  <option key={space.id} value={space.id}>
-                    {space.name} ({space.membership_role || 'member'})
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : null}
-        </div>
-      </div>
-
+    <div className="h-full overflow-y-auto p-4 sm:p-6 space-y-5">
       {!canManage && (
         <div>
           <p className="text-sm text-ghost">

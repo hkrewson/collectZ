@@ -394,10 +394,47 @@ export default function App() {
     : user?.role === 'support_admin'
       ? supportSessionActiveInEdition
       : ['owner', 'admin'].includes(activeMembershipRole);
+  const fallbackManageableSpace = spaces.find((space) => ['owner', 'admin'].includes(String(space?.membership_role || ''))) || null;
   const scopeKey = `${activeSpaceId || 'none'}:${activeLibraryId || 'none'}`;
   const collapsed = !pinnedExpanded;
 
   useEffect(() => {
+    if (!(route === 'dashboard' && authChecked && user)) return;
+    if (
+      activeTab !== 'space-manage'
+      || canManageActiveSpace
+      || supportSessionActiveInEdition
+      || supportStaffInEdition
+      || !fallbackManageableSpace
+      || Number(fallbackManageableSpace.id) === Number(activeSpaceId || 0)
+    ) {
+      return;
+    }
+    handleSpaceSelect(fallbackManageableSpace.id, { silent: true });
+  }, [
+    activeSpaceId,
+    activeTab,
+    authChecked,
+    canManageActiveSpace,
+    fallbackManageableSpace,
+    handleSpaceSelect,
+    route,
+    supportSessionActiveInEdition,
+    supportStaffInEdition,
+    user
+  ]);
+
+  useEffect(() => {
+    if (
+      activeTab === 'space-manage'
+      && !canManageActiveSpace
+      && !supportSessionActiveInEdition
+      && !supportStaffInEdition
+      && fallbackManageableSpace
+      && Number(fallbackManageableSpace.id) !== Number(activeSpaceId || 0)
+    ) {
+      return;
+    }
     const nextTab = getSafeDashboardTab(productEdition, activeTab, {
       userRole: user?.role,
       supportSessionActive: supportSessionActiveInEdition,
@@ -408,7 +445,9 @@ export default function App() {
     if (nextTab !== activeTab) setActiveTab(nextTab);
   }, [
     activeTab,
+    activeSpaceId,
     canManageActiveSpace,
+    fallbackManageableSpace,
     featureFlags.collectibles_enabled,
     featureFlags.events_enabled,
     productEdition,
