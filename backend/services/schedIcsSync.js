@@ -1,8 +1,14 @@
 'use strict';
 
 const crypto = require('crypto');
+const dns = require('dns');
 const { encryptSecret, decryptSecretWithStatus } = require('./crypto');
-const { assertPublicHttpUrl, shouldAllowPrivateIcsFeeds } = require('./outboundUrlPolicy');
+const {
+  parseHttpUrl,
+  isLocalhostName,
+  isPrivateAddress,
+  shouldAllowPrivateIcsFeeds
+} = require('./outboundUrlPolicy');
 
 const ICS_SOURCE_TYPE = 'sched_ics';
 const CATALOG_ICS_SOURCE_TYPE = 'sched_catalog_ics';
@@ -10,6 +16,33 @@ const MAX_ICS_BYTES = 2 * 1024 * 1024;
 const DEFAULT_FETCH_TIMEOUT_MS = 15000;
 const ICS_FETCH_USER_AGENT = 'collectZ calendar-sync (+https://github.com/hkrewson/collectZ)';
 const GENERIC_CATALOG_CATEGORIES = new Set(['program', 'programs', 'programming', 'schedule', 'sched', 'session', 'sessions']);
+const DEFAULT_HOST_LOOKUP = dns.promises.lookup;
+
+async function assertPublicIcsUrl(feedUrl, { allowPrivateHosts = false, lookup = DEFAULT_HOST_LOOKUP } = {}) {
+  const parsed = parseHttpUrl(feedUrl, { allowWebcal: true });
+  if (!parsed) {
+    throw new Error('URL must use http or https and must not include credentials');
+  }
+
+  if (allowPrivateHosts) return parsed.toString();
+
+  const hostname = parsed.hostname;
+  if (isLocalhostName(hostname)) {
+    throw new Error('URL host must not be localhost');
+  }
+  if (isPrivateAddress(hostname)) {
+    throw new Error(`URL host must not be private, loopback, or link-local: ${hostname}`);
+  }
+
+  const addresses = await lookup(hostname, { all: true, verbatim: true });
+  const resolved = Array.isArray(addresses) ? addresses : [addresses];
+  const privateMatch = (resolved || []).find((entry) => isPrivateAddress(entry?.address));
+  if (privateMatch) {
+    throw new Error(`URL host resolves to a private, loopback, or link-local address: ${privateMatch.address}`);
+  }
+
+  return parsed.toString();
+}
 
 function normalizeText(value) {
   return String(value || '').trim();
@@ -271,7 +304,7 @@ async function removePersonalIcsSource(pool, { eventId, userId }) {
 }
 
 async function fetchIcsText(feedUrl, fetchImpl = fetch, options = {}) {
-  const safeUrl = await assertPublicHttpUrl(feedUrl, {
+  const safeUrl = await assertPublicIcsUrl(feedUrl, {
     allowWebcal: true,
     allowPrivateHosts: options.allowPrivateHosts === true || shouldAllowPrivateIcsFeeds(),
     lookup: options.lookup
@@ -279,7 +312,6 @@ async function fetchIcsText(feedUrl, fetchImpl = fetch, options = {}) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), DEFAULT_FETCH_TIMEOUT_MS);
   try {
-    // codeql[js/request-forgery] safeUrl is returned by assertPublicHttpUrl, which rejects credentials and private hosts by default.
     const response = await fetchImpl(safeUrl, {
       method: 'GET',
       headers: {

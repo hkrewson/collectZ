@@ -5854,8 +5854,8 @@ results.push(run('outbound URL policy blocks user-supplied ICS private hosts by 
 results.push(run('repo documents CodeQL request-forgery boundaries for maintained outbound URLs', () => {
   assert.ok(codeqlWorkflowSource.includes('config-file: ./.github/codeql/codeql-config.yml'));
   assert.ok(codeqlWorkflowSource.includes('queries: security-extended,security-and-quality'));
+  assert.ok(codeqlWorkflowSource.includes('packs: ./.github/codeql/collectz-js-models'));
   assert.ok(!codeqlWorkflowSource.includes('codeql/javascript-queries:AlertSuppression.ql'));
-  assert.ok(!codeqlWorkflowSource.includes('packs: ./.github/codeql/collectz-js-models'));
   for (const ignoredPath of [
     'artifacts/**',
     'backend/artifacts/**',
@@ -5880,9 +5880,10 @@ results.push(run('repo documents CodeQL request-forgery boundaries for maintaine
   assert.ok(kavitaServiceSource.includes("axios.get('/api/Library/libraries'"));
   assert.ok(kavitaServiceSource.includes("axios.post('/api/Series/all-v2'"));
   assert.ok(kavitaServiceSource.includes('baseURL: baseUrl'));
-  assert.strictEqual((schedIcsSyncSource.match(/codeql\[js\/request-forgery\]/g) || []).length, 1);
-  assert.ok(schedIcsSyncSource.includes('safeUrl is returned by assertPublicHttpUrl'));
-}));
+  assert.ok(schedIcsSyncSource.includes('function assertPublicIcsUrl'));
+  assert.ok(schedIcsSyncSource.includes('parseHttpUrl'));
+  assert.ok(schedIcsSyncSource.includes('assertPublicIcsUrl('));
+  }));
 
 results.push(run('CSV import uploads stay in memory instead of reading request-controlled temp paths', () => {
   assert.ok(mediaRoutesSource.includes('const tempUpload = multer({ storage: multer.memoryStorage()'));

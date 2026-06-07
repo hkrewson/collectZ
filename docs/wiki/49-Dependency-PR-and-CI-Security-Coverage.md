@@ -44,7 +44,9 @@ Initial posture is advisory. After the first baseline run is clean and false-pos
 
 Authoritative CodeQL baseline means the GitHub Actions scan over a clean checkout of committed, maintained JavaScript/TypeScript source. The workflow uses `.github/codeql/codeql-config.yml` to keep generated and local-only output out of the source-analysis baseline while preserving the broad `security-extended` and `security-and-quality` suites.
 
-Exploratory local CLI runs may additionally load `codeql/javascript-queries:AlertSuppression.ql` and the local `.github/codeql/collectz-js-models` model pack to inspect in-source suppressions and local model behavior. Those runs are not the authoritative baseline because GitHub Actions rejected the pack-qualified `AlertSuppression.ql` specifier during `init`, and current GitHub docs do not describe JavaScript/TypeScript hosted model-pack support. Do not pass those local CLI specifiers through the hosted CodeQL Action workflow unless GitHub documents support for JavaScript/TypeScript local model packs and pack-qualified built-in query references in `github/codeql-action/init`.
+The hosted workflow now keeps authoritative analysis on committed source and runs `security-extended` plus `security-and-quality` with `codeql-config.yml` and the local `.github/codeql/collectz-js-models` pack.
+
+Exploratory local CLI runs may additionally load `codeql/javascript-queries:AlertSuppression.ql` for in-file suppression review. Those local-only results are still advisory until they reproduce against the hosted authoritative baseline.
 
 The config excludes generated/noisy paths such as `artifacts/**`, `backend/artifacts/**`, `frontend/artifacts/**`, Playwright reports, coverage output, build/dist output, dependency folders, and local SARIF exports. Those files may exist in a maintainer workspace after browser captures, release evidence generation, local builds, or exploratory CodeQL runs, but they are not shipped app source and should not drive product-security remediation unless the finding points back to maintained source.
 
