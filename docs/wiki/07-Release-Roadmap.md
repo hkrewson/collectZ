@@ -6,6 +6,34 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.16.10 — Profile Menu Context Switch Copy
+
+**Goal:** Shorten the profile-menu Workspace/Platform context switch labels now that the menu already says `Working in`.
+
+### Scope
+
+- Change the context switch action labels from `Switch to Workspace` / `Switch to Platform` to `Workspace` / `Platform`.
+- Keep the `Working in` current-context readback.
+- Keep context switching behavior unchanged.
+- Update browser and source-contract coverage for the shorter menu labels.
+
+### Acceptance Criteria
+
+- The profile menu shows `Working in` plus the current context.
+- The alternate context action is labeled only `Workspace` or `Platform`.
+- Switching contexts still routes to Dashboard or Platform Settings as before.
+- Version metadata, release note, release feed, and focused runtime checks are updated for `3.16.10`.
+
+### Closeout
+
+- Status: completed in `3.16.10`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, and `docs/releases/v3.16.10.md`.
+- Runtime evidence: rebuilt backend/frontend with Docker at `APP_VERSION=3.16.10` using the local platform compose override; `/api/health` reported version/frontend/backend/build `3.16.10`; backend/frontend containers were healthy; Help > Releases served `3.16.10`; targeted browser coverage verified profile-menu Workspace/Platform switching with the shorter labels.
+- Verification: Docker frontend production build; Docker backend unit tests; Docker OpenAPI validation; Help > Releases smoke; targeted admin-shell browser regression; RBAC regression; platform edition boundary; homelab edition boundary against an isolated local compose project; version sync; release note/feed regeneration; targeted changed-file secret-pattern scan; and `git diff --check`.
+- CI follow-through: stricter CI `compose-smoke`, full `browser-regression`, `dependency-scan`, `secret-scan`, and `image-security-and-sbom` remain remote GitHub Actions gates for the pushed commit.
+- Risks/follow-ups: none for this slice.
+- What remains in the milestone: nothing for `3.16.10`; additional navigation menu polish should be selected as its own future slice if needed.
+
 ## 3.16.9 — Profile Menu Workspace Platform Switch
 
 **Goal:** Move the Workspace/Platform context switch out of the main navigation body so the sidebar starts with actual navigation.

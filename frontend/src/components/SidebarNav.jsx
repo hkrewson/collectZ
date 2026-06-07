@@ -398,7 +398,7 @@ export default function SidebarNav({
                     className="w-full flex items-center gap-3 rounded-md px-3 py-2 text-sm text-dim hover:bg-raised/60 hover:text-ink"
                   >
                     {isPlatformMode ? <Icons.Gauge /> : <Icons.Settings />}
-                    <span>{isPlatformMode ? 'Switch to Workspace' : 'Switch to Platform'}</span>
+                    <span>{isPlatformMode ? 'Workspace' : 'Platform'}</span>
                   </button>
                   <div className="my-1 border-t border-edge/70" />
                 </>

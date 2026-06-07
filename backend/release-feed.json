@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.16.10",
+      "version": "3.16.10",
+      "date": null,
+      "status": null,
+      "summary": "This patch shortens the profile-menu Workspace/Platform context switch labels.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Changed the profile-menu context action from `Switch to Workspace` / `Switch to Platform` to `Workspace` / `Platform`.",
+            "Kept the `Working in` readback so the menu still explains the current context.",
+            "Kept the Workspace/Platform switching behavior unchanged.",
+            "Updated browser and source-contract coverage for the shorter labels."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.16.9",
       "version": "3.16.9",
       "date": null,
@@ -162,26 +180,6 @@
             "Moved `Merge Review` under Workspace.",
             "Kept Platform focused on platform-level settings, runtime, activity, workspaces, and members.",
             "Preserved the existing internal merge-review route ID and behavior."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.16.0",
-      "version": "3.16.0",
-      "date": null,
-      "status": null,
-      "summary": "This release clarifies the app boundary between workspace-owned collection work and platform-level setup.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Renamed the visible `Admin` nav group to `Platform`.",
-            "Renamed platform settings to `Platform Settings` with copy that explains the instance-wide scope.",
-            "Renamed workspace settings to `Workspace Settings` with copy that explains the selected-workspace scope.",
-            "Renamed workspace provider setup to `Workspace Integrations`.",
-            "Changed the hosted platform runtime surface to show platform runtime concerns instead of editable data-provider setup.",
-            "Dashboard provider health now points toward Workspace, where provider/data-sync setup belongs."
           ]
         }
       ]
