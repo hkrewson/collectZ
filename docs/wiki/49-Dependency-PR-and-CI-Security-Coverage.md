@@ -23,6 +23,7 @@ Verified with `gh pr list` on 2026-06-03.
 | Dependabot | `.github/dependabot.yml` | Weekly npm and GitHub Actions update PRs. | Advisory until PR selected. |
 | Snyk PR checks | GitHub/Snyk integration | External dependency/security signal on Dependabot PRs. | Advisory unless configured as required in GitHub branch protection. |
 | GitGuardian | GitHub/GitGuardian integration | External secret scanning signal on PRs. | Advisory unless configured as required in GitHub branch protection. |
+| Local CI/CD release gate | `npm run release:local-gate` | Pre-push maintainer validation for version/release metadata, backend unit tests, OpenAPI, frontend build, dependency audits, local preflight, and diff hygiene. | Required local handoff expectation; hosted CI remains authoritative for public release gates. |
 | Secret scan | `.github/workflows/docker-publish.yml` `secret-scan` | Gitleaks scans repository history/current tree and enforces zero SARIF findings. | Blocking for publish workflow. |
 | CodeQL code scanning | `.github/workflows/codeql.yml` | Static source analysis for JavaScript/TypeScript security and quality issues. Uploads code scanning alerts to GitHub Security. | Advisory at introduction; promote to required only after the first clean baseline is understood. |
 | Migration check | `.github/workflows/docker-publish.yml` `migration-check` | Unit tests, OpenAPI, migrations, init parity, and migration rehearsal against ephemeral Postgres. | Blocking for publish workflow. |

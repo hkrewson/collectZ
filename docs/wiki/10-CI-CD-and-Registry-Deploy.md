@@ -58,6 +58,7 @@ Migration safety in CI:
 
 Security and release gates in CI:
 
+- Local CI/CD release gate (`npm run release:local-gate`) for pre-push maintainer validation before public CI runs.
 - CodeQL code scanning for JavaScript/TypeScript source analysis.
 - Secret leak scan (gitleaks) against repository history and current tree.
 - Dependency vulnerability scan (`npm audit`) on backend/frontend dependencies.
@@ -83,6 +84,7 @@ Source code scanning:
 - `.github/workflows/codeql.yml` runs CodeQL for JavaScript/TypeScript on pushes, pull requests, a weekly schedule, and manual dispatch.
 - CodeQL is an advisory source-analysis layer at introduction; it does not replace dependency scanning, gitleaks, Trivy, SBOM, RBAC, browser regression, or runtime-smoke gates.
 - Maintain `docs/wiki/49-Dependency-PR-and-CI-Security-Coverage.md` as the coverage map for dependency PR disposition and CI security posture.
+- Use `npm run release:local-gate:full` when local CodeQL, secret scan, runtime smoke, browser regression, and image/SBOM readiness should be attempted before push.
 
 Playwright packaging boundary:
 
@@ -168,6 +170,7 @@ docker compose --env-file .env up -d
 Browser-regression expectation:
 
 - Maintain the root Playwright manifest and lockfile in git.
+- Run `npm run release:local-gate` before push, or install the opt-in hook with `npm run release:install-hooks`.
 - Keep `.github/workflows/docker-publish.yml` running the browser-regression gate before publish/release jobs.
 - Keep `.github/workflows/docker-publish.yml` running the `runtime-smoke` gate before publish/release jobs so both core and control-plane runtime contracts stay enforced.
 - Keep `.github/workflows/browser-captures.yml` as a separate manual screenshot-generation path for support/docs visuals instead of folding capture mode into the blocking regression gate.

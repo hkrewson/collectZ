@@ -153,6 +153,9 @@ const metricsModule = require('../services/metrics');
 const { csrfProtection, shouldEnforceCsrf } = require('../middleware/csrf');
 const observabilityRuntimeSource = fs.readFileSync(require.resolve('../services/observabilityRuntime'), 'utf8');
 const releasePreflightLocalSource = fs.readFileSync(require.resolve('../scripts/release-preflight-local'), 'utf8');
+const localReleaseGateSource = fs.readFileSync(require.resolve('../../scripts/local-release-gate'), 'utf8');
+const localRuntimeSmokeSource = fs.readFileSync(require.resolve('../../scripts/local-runtime-smoke'), 'utf8');
+const localGitHooksInstallerSource = fs.readFileSync(require.resolve('../../scripts/install-local-git-hooks'), 'utf8');
 const ciComposeWriterSource = fs.readFileSync(require.resolve('../../scripts/write-ci-compose-overrides'), 'utf8');
 const artMigrationBackfillSmokeSource = fs.readFileSync(require.resolve('../scripts/art-migration-backfill-smoke'), 'utf8');
 const nativeArtReadCutoverSmokeSource = fs.readFileSync(require.resolve('../scripts/native-art-read-cutover-smoke'), 'utf8');
@@ -3620,6 +3623,35 @@ results.push(run('repo includes local release preflight helper coverage for depe
   assert.ok(releasePreflightLocalSource.includes('/api/auth/csrf-token'));
   assert.ok(releasePreflightLocalSource.includes('/api/auth/me'));
   assert.ok(releasePreflightLocalSource.includes('npm audit'));
+}));
+
+results.push(run('repo includes local CI/CD release gate and opt-in pre-push hook tooling', () => {
+  assert.strictEqual(rootPackageJson.scripts['release:local-gate'], 'node scripts/local-release-gate.js');
+  assert.strictEqual(rootPackageJson.scripts['release:local-gate:full'], 'node scripts/local-release-gate.js --profile=full');
+  assert.strictEqual(rootPackageJson.scripts['release:install-hooks'], 'node scripts/install-local-git-hooks.js');
+  assert.strictEqual(rootPackageJson.scripts['test:runtime-smoke:local'], 'node scripts/local-runtime-smoke.js');
+  assert.ok(localReleaseGateSource.includes("profile: 'standard'"));
+  assert.ok(localReleaseGateSource.includes("profile: 'full'"));
+  assert.ok(localReleaseGateSource.includes("artifacts', 'local-ci'"));
+  assert.ok(localReleaseGateSource.includes('local-release-gate.json'));
+  assert.ok(localReleaseGateSource.includes('local-release-gate.md'));
+  assert.ok(localReleaseGateSource.includes('test:release-preflight-local'));
+  assert.ok(localReleaseGateSource.includes('collectz-maintained-source.qls'));
+  assert.ok(localReleaseGateSource.includes('gitleaks'));
+  assert.ok(localReleaseGateSource.includes('test:runtime-smoke:local'));
+  assert.ok(localReleaseGateSource.includes('PLAYWRIGHT_E2E_BYPASS_TOKEN'));
+  assert.ok(localReleaseGateSource.includes('trivy'));
+  assert.ok(localReleaseGateSource.includes('redacts common secret-bearing output patterns'));
+  assert.ok(localRuntimeSmokeSource.includes('collectz-local-runtime-'));
+  assert.ok(localRuntimeSmokeSource.includes('docker-compose.build.yml'));
+  assert.ok(localRuntimeSmokeSource.includes('docker-compose.platform.yml'));
+  assert.ok(localRuntimeSmokeSource.includes('test:core-runtime-smoke'));
+  assert.ok(localRuntimeSmokeSource.includes('test:control-plane-runtime-smoke'));
+  assert.ok(localGitHooksInstallerSource.includes('collectZ managed local release gate hook'));
+  assert.ok(localGitHooksInstallerSource.includes('COLLECTZ_SKIP_LOCAL_GATE'));
+  assert.ok(localGitHooksInstallerSource.includes('npm run release:local-gate'));
+  assert.ok(localGitHooksInstallerSource.includes('--force'));
+  assert.ok(localGitHooksInstallerSource.includes('codeql[js/file-system-race]'));
 }));
 
 results.push(run('repo includes merge evidence backfill tooling for older duplicate attach history rows', () => {

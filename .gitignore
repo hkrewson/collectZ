@@ -80,6 +80,7 @@ Thumbs.db
 # Testing
 coverage/
 .nyc_output/
+artifacts/local-ci/
 artifacts/playwright/
 artifacts/sizing/
 

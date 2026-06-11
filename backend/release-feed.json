@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.17.0",
+      "version": "3.17.0",
+      "date": null,
+      "status": null,
+      "summary": "This release adds the first local CI/CD gate for collectZ maintainers, giving pre-push work one standard command that checks release, test, dependency, and evidence readiness before public CI runs.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added `npm run release:local-gate` for the standard local pre-push validation profile.",
+            "Added `npm run release:local-gate:full` for heavier local checks such as CodeQL, secret scanning, runtime smoke, browser regression, and image/SBOM readiness when local tools and runtime state are available.",
+            "Added `npm run release:install-hooks` to install an opt-in pre-push hook that runs the standard local gate.",
+            "Added local gate reports under `artifacts/local-ci/` with redaction for common secret-bearing output patterns.",
+            "Documented the local CI/CD workflow, blocked-gate semantics, hook bypass expectation, and relationship to hosted CI.",
+            "Promoted the local CI/CD backlog item into the roadmap as the first `3.17.0` infrastructure slice."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.16.36",
       "version": "3.16.36",
       "date": null,
@@ -162,24 +182,6 @@
             "Added the local model pack manifest and request-forgery barrier model for exploratory CLI parity runs.",
             "Documented the operating rule that generated-artifact findings are exploratory triage noise unless they trace back to maintained source.",
             "Added unit-test coverage for the CodeQL workflow/config/model-pack wiring."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.16.27",
-      "version": "3.16.27",
-      "date": null,
-      "status": null,
-      "summary": "This patch continues CodeQL baseline remediation by documenting and testing the reviewed outbound URL boundaries for Kavita connector requests and personal Sched ICS feed fetching.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added a shared trusted connector URL normalizer for admin-configured HTTP(S) integrations that rejects credentials and fragments while preserving LAN Kavita support.",
-            "Updated Kavita URL normalization to use the shared trusted connector boundary.",
-            "Added in-source CodeQL request-forgery suppressions at the reviewed Kavita and ICS request sinks, backed by unit coverage for the helper contracts and suppression wiring.",
-            "Added the JavaScript `AlertSuppression.ql` query to the CodeQL workflow so in-source suppressions are represented in SARIF/code scanning."
           ]
         }
       ]

@@ -834,7 +834,7 @@ These are unscheduled security-maintenance tasks discovered from advisory scanni
 ### Backlog Item: Local CI/CD Release Gate and Pre-Push Automation
 **Type:** Deferred infrastructure milestone
 **Tags:** `ci`, `release`, `security`, `codeql`, `automation`, `pre-push`, `local-ci`
-**Status:** Active backlog; not yet promoted or versioned.
+**Status:** Promoted to `3.17.0 — Local CI/CD Release Gate Foundation` in [07-Release-Roadmap.md](07-Release-Roadmap.md). Remaining follow-up after the foundation should be added as narrower local-gate tasks.
 
 **Goal:** Build a reliable local CI/CD gate that can run the full release-quality validation stack before any push, reducing dependence on public GitHub Actions logs while keeping automated security and runtime checks hard to miss.
 

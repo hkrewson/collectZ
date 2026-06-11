@@ -28,18 +28,20 @@ Minimum closeout expectation:
 2. Confirm the matching release note exists and includes the required security triage markers.
 3. Regenerate the in-app release snapshot consumed by `Help > Releases` and confirm the latest semver appears in that feed.
 4. Run backend unit tests.
-5. Generate a local preflight report with `npm --prefix backend run test:release-preflight-local` so the current dependency-audit artifacts and `preflight-go-no-go.md` reflect the live local release evidence.
-6. Run init parity / migration rehearsal checks in an environment with database access.
-7. Run production dependency audit checks for backend and frontend.
-8. Generate observability release evidence with `npm --prefix backend run test:observability-evidence` and review the resulting artifact for passed persistence, collector-path, non-blocking failure, backend-restore, and final-health checks.
-9. Review CodeQL alerts if the workflow has run for the branch or release commit.
-10. Confirm the remaining CI-only gates are green, especially gitleaks, compose smoke, RBAC, Trivy, and SBOM generation.
-11. Confirm the Playwright browser-regression gate is green and its artifacts are available when failures occur.
-12. Confirm the `runtime-smoke` gate is green.
-13. Confirm the `Core runtime` step keeps the shared runtime surface mounted and keeps control-plane-only APIs unavailable.
-14. Confirm the `Control-plane runtime` step preserves invite-based registration and the tenant/admin control-plane APIs that must remain mounted.
-15. Confirm `latest` and moving minor tags are release-publish outputs, while `stable` remains a separate manual promotion decision.
-16. When any of `rbac-regression`, `browser-regression`, or `runtime-smoke` fail, inspect the exact failing artifact or step log and repair the concrete runtime/spec assumption locally before calling the release push-ready.
+5. Run `npm run release:local-gate` so the standard local gate checks version/release metadata, backend unit tests, OpenAPI, frontend build, dependency audits, local preflight, and diff hygiene.
+6. For release handoff, run `npm run release:local-gate:full -- --fail-on-blocked` when local CodeQL, secret scan, runtime smoke, browser regression, and image/SBOM readiness should stop on blocked heavy gates.
+7. Generate or refresh a local preflight report with `npm --prefix backend run test:release-preflight-local` when you need the standalone `preflight-go-no-go.md` evidence outside the local gate.
+8. Run init parity / migration rehearsal checks in an environment with database access when not already covered by the local preflight evidence.
+9. Run production dependency audit checks for backend and frontend when not already covered by the local gate.
+10. Generate observability release evidence with `npm --prefix backend run test:observability-evidence` and review the resulting artifact for passed persistence, collector-path, non-blocking failure, backend-restore, and final-health checks.
+11. Review CodeQL alerts if the workflow has run for the branch or release commit.
+12. Confirm the remaining CI-only gates are green, especially gitleaks, compose smoke, RBAC, Trivy, and SBOM generation.
+13. Confirm the Playwright browser-regression gate is green and its artifacts are available when failures occur.
+14. Confirm the `runtime-smoke` gate is green.
+15. Confirm the `Core runtime` step keeps the shared runtime surface mounted and keeps control-plane-only APIs unavailable.
+16. Confirm the `Control-plane runtime` step preserves invite-based registration and the tenant/admin control-plane APIs that must remain mounted.
+17. Confirm `latest` and moving minor tags are release-publish outputs, while `stable` remains a separate manual promotion decision.
+18. When any of `rbac-regression`, `browser-regression`, or `runtime-smoke` fail, inspect the exact failing artifact or step log and repair the concrete runtime/spec assumption locally before calling the release push-ready.
 
 Stable promotion expectation:
 

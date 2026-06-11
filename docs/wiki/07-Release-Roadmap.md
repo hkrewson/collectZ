@@ -6,6 +6,38 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.17.0 — Local CI/CD Release Gate Foundation
+
+**Goal:** Promote the local CI/CD backlog task into a concrete pre-push release gate foundation so maintainers and Codex have one standard local command before pushing.
+
+### Scope
+
+- Add a root `release:local-gate` command for the standard pre-push validation profile.
+- Add a root `release:local-gate:full` command for heavier local security/runtime checks when optional tools and runtime state are available.
+- Add an opt-in local pre-push hook installer with an explicit bypass reason path.
+- Write local gate evidence under `artifacts/local-ci/` without environment dumps or plaintext secret material.
+- Document the local gate workflow and its relationship to hosted CI.
+- Keep public GitHub Actions, CodeQL, Dependabot, and GHCR publication intact in this slice.
+
+### Acceptance Criteria
+
+- `npm run release:local-gate` runs a standard local gate covering version/release metadata, release notes/feed, backend unit tests, OpenAPI validation, frontend build, dependency audits, local preflight, and `git diff --check`.
+- `npm run release:local-gate:full` adds heavier gates for CodeQL, gitleaks, runtime smoke, browser regression, and image/SBOM readiness where local tools are available.
+- `npm run release:install-hooks` installs an opt-in pre-push hook that runs the standard local gate and supports an explicit reason-based bypass.
+- Local evidence is written to `artifacts/local-ci/` and avoids writing env vars or unredacted common secret-bearing output.
+- Version metadata, release note, release feed, and local runtime readback are aligned for `3.17.0`.
+
+### Closeout
+
+- Status: completed in `3.17.0`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/49-Dependency-PR-and-CI-Security-Coverage.md`, `docs/wiki/50-Local-CI-CD-Release-Gate.md`, and `docs/releases/v3.17.0.md`.
+- Runtime evidence: rebuilt the local Docker stack from source with `APP_VERSION=3.17.0` using `docker-compose.yml` plus `docker-compose.localhost.yml`; `/api/health` reported `version/frontend/backend/build=3.17.0`; backend container env reported `APP_VERSION=3.17.0`; Docker Help > Releases smoke served `3.17.0` as the newest entry; `npm --prefix backend run test:observability-evidence` refreshed `artifacts/observability-evidence/observability-release-evidence.json` for `3.17.0` with `9/9` checks passing.
+- Verification: script syntax checks for `scripts/local-release-gate.js`, `scripts/local-runtime-smoke.js`, `scripts/install-local-git-hooks.js`, and `backend/scripts/unit-tests.js`; backend unit tests (`314` passed); OpenAPI validation; frontend production build; `npm run release:local-gate` standard profile (`11` passed, `0` failed, `0` blocked); partial full-profile local gate for `codeql,runtime-smoke` (`CodeQL 2 total results, 0 active`; isolated core and control-plane runtime smoke passed); Docker Help > Releases smoke; local release preflight; targeted changed-file secret-pattern scan; and `git diff --check` through the local gate.
+- Blocked/unverified: `gitleaks` and `trivy` are not installed in this shell, and `PLAYWRIGHT_E2E_BYPASS_TOKEN` is not set, so full-profile `secret-scan`, `image-security-and-sbom`, and full `browser-regression` remain hosted CI or locally provisioned follow-through gates. Local preflight still marks stricter secure-cookie `compose-smoke` blocked because the normal development stack uses `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`; the isolated full-profile runtime smoke now covers the core/control-plane runtime contract locally.
+- Risks/follow-ups: local image/SBOM wiring remains a follow-up before `npm run release:local-gate:full -- --fail-on-blocked` can be expected to pass on a fully provisioned maintainer machine. The public-repo sanitization task remains the next backlog item after this local CI/CD foundation.
+- Files changed: `.gitignore`; `AGENTS.md`; `app-meta.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `backend/app-meta.json`; `backend/package-lock.json`; `backend/package.json`; `backend/release-feed.json`; `backend/scripts/unit-tests.js`; `docs/releases/v3.17.0.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/49-Dependency-PR-and-CI-Security-Coverage.md`; `docs/wiki/50-Local-CI-CD-Release-Gate.md`; `frontend/package-lock.json`; `frontend/package.json`; `frontend/src/app-meta.json`; `package.json`; `preflight-go-no-go.md`; `scripts/install-local-git-hooks.js`; `scripts/local-release-gate.js`; and `scripts/local-runtime-smoke.js`.
+- What remains in the milestone: nothing for `3.17.0`; hosted CI must still confirm the pushed commit, and the next backlog item is public repository sanitization.
+
 ## 3.16.36 — CodeQL Request Forgery Disposition
 
 **Goal:** Complete the maintained-source CodeQL baseline by dispositioning the reviewed Sched ICS request-forgery boundary while preserving the runtime URL guardrails that enforce the public/private DNS policy in source.

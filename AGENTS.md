@@ -65,6 +65,9 @@ For milestone, release, runtime, monitoring, auth, migration, or deployment work
    - ensure the matching `docs/releases/vX.Y.Z.md` exists,
    - regenerate any release-feed snapshot used by the app,
    - verify the running stack can still serve recent Help > Releases entries.
+18a. Before any push-ready or release-shaped handoff, run `npm run release:local-gate` unless explicitly blocked or the user has explicitly scoped the work away from push/release readiness.
+   - For release handoff, prefer `npm run release:local-gate:full -- --fail-on-blocked` when local CodeQL, secret scan, runtime smoke, browser regression, and image/SBOM readiness should stop on blocked heavy gates.
+   - If the local gate cannot run, state the blocked gate, why it is blocked, and which hosted CI gate must confirm it after push.
 19. If a change introduces work from a later roadmap milestone, pause and call out the milestone boundary before continuing.
 20. For OpenAPI, metrics, dashboard, alerting, or monitoring changes, keep implementation, docs/specs, and validation artifacts in sync before calling the slice complete.
 21. Never treat localhost, transient, fixture, smoke-test, or release-evidence credentials as safe to expose in plaintext.

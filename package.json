@@ -18,7 +18,10 @@
     "stack:ps:homelab": "docker compose --env-file .env ps",
     "stack:ps:platform": "docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml ps",
     "ops:sizing": "node ops/sizing/collectz-sizing-snapshot.js",
-    "test:runtime-smoke:local": "docker compose --env-file .env exec -T -e BASE_URL=http://frontend:3000 backend npm run test:core-runtime-smoke && docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T -e BASE_URL=http://frontend:3000 backend npm run test:control-plane-runtime-smoke",
+    "release:local-gate": "node scripts/local-release-gate.js",
+    "release:local-gate:full": "node scripts/local-release-gate.js --profile=full",
+    "release:install-hooks": "node scripts/install-local-git-hooks.js",
+    "test:runtime-smoke:local": "node scripts/local-runtime-smoke.js",
     "test:edition-boundaries:local": "npm run test:runtime-smoke:local"
   },
   "devDependencies": {
