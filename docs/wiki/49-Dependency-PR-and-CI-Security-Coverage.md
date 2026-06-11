@@ -44,9 +44,9 @@ Initial posture is advisory. After the first baseline run is clean and false-pos
 
 Authoritative CodeQL baseline means the GitHub Actions scan over a clean checkout of committed, maintained JavaScript/TypeScript source. The workflow uses `.github/codeql/codeql-config.yml` to keep generated and local-only output out of the source-analysis baseline while preserving the broad `security-extended` and `security-and-quality` suites.
 
-The hosted workflow keeps authoritative analysis on committed source and runs `.github/codeql/collectz-maintained-source.qls` with `codeql-config.yml`. The maintained-source suite imports the built-in JavaScript/TypeScript `security-and-quality` suite and excludes `js/http-to-file-access` because collectZ intentionally persists authenticated upload bytes and local smoke/proof evidence artifacts under generated, non-user-controlled paths. The local `.github/codeql/collectz-js-models` model pack is used for exploratory local CLI scans only, because hosted CodeQL workflow inputs currently accept registry-scoped packs and do not support local pack paths.
+The hosted workflow keeps authoritative analysis on committed source and runs `.github/codeql/collectz-maintained-source.qls` with `codeql-config.yml`. The maintained-source suite imports the built-in JavaScript/TypeScript `security-and-quality` suite and the config filters disposition `js/http-to-file-access` and the reviewed Sched ICS `js/request-forgery` boundary because collectZ intentionally persists authenticated upload bytes under generated, non-user-controlled paths and enforces the ICS public/private DNS policy in source even though hosted JavaScript CodeQL does not model that helper precisely. JavaScript/TypeScript model packs are not currently supported by CodeQL, so the checked-in `.github/codeql/collectz-js-models` pack is kept only as reference material; the local request-forgery parity check in this slice comes from the in-source `// codeql[js/request-forgery]` suppression on the reviewed sink.
 
-Exploratory local CLI runs may additionally load `codeql/javascript-queries:AlertSuppression.ql` and the local collectZ model pack for in-file suppression and model-coverage review. Those local-only results are still advisory until they reproduce against the hosted authoritative baseline.
+Exploratory local CLI runs may additionally load `codeql/javascript-queries:AlertSuppression.ql` for in-file suppression review. Those local-only results are still advisory until they reproduce against the hosted authoritative baseline.
 
 The config excludes generated/noisy paths such as `artifacts/**`, `backend/artifacts/**`, `frontend/artifacts/**`, Playwright reports, coverage output, build/dist output, dependency folders, and local SARIF exports. Those files may exist in a maintainer workspace after browser captures, release evidence generation, local builds, or exploratory CodeQL runs, but they are not shipped app source and should not drive product-security remediation unless the finding points back to maintained source.
 
@@ -67,11 +67,11 @@ gh codeql database analyze /tmp/collectz-codeql-db \
   --rerun
 ```
 
-Latest local parity check (2026-06-07):
-- Result count: `1`
-- Active finding: `js/request-forgery` in `backend/services/schedIcsSync.js`.
-- Dispositioned suite exclusion: `js/http-to-file-access` remains excluded because the matched writes are intentional authenticated upload persistence or local smoke/proof artifact generation to fixed/generated paths.
-- The active finding was in committed, maintained source (none under ignored paths such as artifacts, Playwright report output, coverage, dist/build outputs, node_modules, or SARIF outputs).
+Latest local parity check (2026-06-10):
+- Result count: `1` suppressed `js/request-forgery` result, `0` active findings.
+- Active findings: `0`.
+- Dispositioned suite exclusions: `js/http-to-file-access` remains excluded because the matched writes are intentional authenticated upload persistence or local smoke/proof artifact generation to fixed/generated paths, and `js/request-forgery` is source-suppressed because the ICS URL guard enforces the public/private DNS policy in source even though the hosted JavaScript analysis does not model that helper precisely.
+- The previously reviewed findings were in committed, maintained source (none under ignored paths such as artifacts, Playwright report output, coverage, dist/build outputs, node_modules, or SARIF outputs).
 
 Local exploratory scans may intentionally include uncommitted/generated files or local-only query/model inputs, but findings from generated artifacts, Playwright reports, SARIF outputs, release evidence, coverage, dependency folders, local build output, or unsupported local-only CodeQL extensions are triage noise unless they identify a problem in maintained source. Raw local SARIF result counts are also not expected to equal GitHub code-scanning alert counts exactly because GitHub fingerprints, deduplicates, branches, and suppresses alerts before presenting them in the Security UI.
 

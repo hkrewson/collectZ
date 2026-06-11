@@ -287,6 +287,7 @@ const platformEditionBoundarySmokeSource = fs.readFileSync(require.resolve('../s
 const dockerPublishWorkflowSource = fs.readFileSync(require.resolve('../../.github/workflows/docker-publish.yml'), 'utf8');
 const codeqlWorkflowSource = fs.readFileSync(require.resolve('../../.github/workflows/codeql.yml'), 'utf8');
 const codeqlConfigSource = fs.readFileSync(require.resolve('../../.github/codeql/codeql-config.yml'), 'utf8');
+const codeqlMaintainedSourceSuite = fs.readFileSync(require.resolve('../../.github/codeql/collectz-maintained-source.qls'), 'utf8');
 const codeqlModelPackSource = fs.readFileSync(require.resolve('../../.github/codeql/collectz-js-models/codeql-pack.yml'), 'utf8');
 const codeqlRequestForgeryModelSource = fs.readFileSync(require.resolve('../../.github/codeql/collectz-js-models/models/request-forgery.model.yml'), 'utf8');
 const stablePromotionWorkflowSource = fs.readFileSync(require.resolve('../../.github/workflows/promote-stable.yml'), 'utf8');
@@ -5854,7 +5855,9 @@ results.push(run('outbound URL policy blocks user-supplied ICS private hosts by 
 results.push(run('repo documents CodeQL request-forgery boundaries for maintained outbound URLs', () => {
   assert.ok(codeqlWorkflowSource.includes('config-file: ./.github/codeql/codeql-config.yml'));
   assert.ok(codeqlWorkflowSource.includes('queries: ./.github/codeql/collectz-maintained-source.qls'));
+  assert.ok(codeqlMaintainedSourceSuite.includes('AlertSuppression.ql'));
   assert.ok(codeqlConfigSource.includes('id: js/http-to-file-access'));
+  assert.ok(codeqlConfigSource.includes('id: js/request-forgery'));
   assert.ok(!codeqlWorkflowSource.includes('packs: ./.github/codeql/collectz-js-models'));
   assert.ok(!codeqlWorkflowSource.includes('codeql/javascript-queries:AlertSuppression.ql'));
   for (const ignoredPath of [
@@ -5873,6 +5876,7 @@ results.push(run('repo documents CodeQL request-forgery boundaries for maintaine
   assert.ok(codeqlModelPackSource.includes('extensionTargets:'));
   assert.ok(codeqlRequestForgeryModelSource.includes('extensible: barrierModel'));
   assert.ok(codeqlRequestForgeryModelSource.includes('Member[assertPublicHttpUrl].ReturnValue'));
+  assert.ok(codeqlRequestForgeryModelSource.includes('Member[assertPublicIcsUrl].ReturnValue'));
   assert.ok(codeqlRequestForgeryModelSource.includes('Member[normalizeTrustedConnectorHttpUrl].ReturnValue'));
   assert.ok(outboundUrlPolicySource.includes('function normalizeTrustedConnectorHttpUrl'));
   assert.ok(outboundUrlPolicySource.includes('function assertPublicHttpUrl'));
@@ -5884,6 +5888,7 @@ results.push(run('repo documents CodeQL request-forgery boundaries for maintaine
   assert.ok(schedIcsSyncSource.includes('function assertPublicIcsUrl'));
   assert.ok(schedIcsSyncSource.includes('parseHttpUrl'));
   assert.ok(schedIcsSyncSource.includes('assertPublicIcsUrl('));
+  assert.ok(schedIcsSyncSource.includes('codeql[js/request-forgery]'));
   }));
 
 results.push(run('CSV import uploads stay in memory instead of reading request-controlled temp paths', () => {

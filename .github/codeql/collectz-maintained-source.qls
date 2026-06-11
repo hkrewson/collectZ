@@ -1,4 +1,6 @@
 - import: codeql-suites/javascript-security-and-quality.qls
   from: codeql/javascript-queries
+- query: AlertSuppression.ql
+  from: codeql/javascript-queries
 - exclude:
     id: js/http-to-file-access

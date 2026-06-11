@@ -6,6 +6,33 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.16.36 — CodeQL Request Forgery Disposition
+
+**Goal:** Complete the maintained-source CodeQL baseline by dispositioning the reviewed Sched ICS request-forgery boundary while preserving the runtime URL guardrails that enforce the public/private DNS policy in source.
+
+### Scope
+
+- Keep the existing maintained-source suite and generated-output path ignores.
+- Disposition the reviewed Sched ICS `js/request-forgery` finding once the runtime helper and DNS/IP checks are verified as the real security boundary.
+- Keep version metadata, release notes, release feed, and runtime Help > Releases evidence aligned for `3.16.36`.
+
+### Acceptance Criteria
+
+- Configured maintained-source CodeQL reports `0` active findings.
+- Backend unit tests document the CodeQL workflow/config contract.
+- Version metadata, release note, release feed, and focused runtime checks are updated for `3.16.36`.
+
+### Closeout
+
+- Status: completed in `3.16.36`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/49-Dependency-PR-and-CI-Security-Coverage.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, and `docs/wiki/06-Versioning-and-Build-Metadata.md`.
+- Runtime evidence: rebuilt the local stack with `APP_VERSION=3.16.36` using `docker-compose.yml` plus `docker-compose.localhost.yml`; `docker compose ... exec backend node -p "require('./package.json').version"` returned `3.16.36`; `/api/health` reported `version/frontend/backend/build=3.16.36`; Help > Releases served `3.16.36` as the latest entry; `npm --prefix backend run test:observability-evidence` refreshed `artifacts/observability-evidence/observability-release-evidence.json` for `3.16.36`.
+- Verification: backend unit tests (`313` passed); local fresh CodeQL database creation and maintained-source analysis with `.github/codeql/collectz-maintained-source.qls` (`0` active findings, `1` suppressed `js/request-forgery` result); release-feed regeneration; local release preflight regeneration with all required local gates passing except the intentionally blocked CI-only gates noted below; targeted changed-file diff check (`git diff --check`); and runtime Help > Releases smoke against the live stack.
+- Blocked/unverified: local preflight still marks `compose-smoke` as blocked because the local development stack is intentionally running `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`; `secret-scan`, `browser-regression`, and `image-security-and-sbom` remain CI-only follow-through gates. Hosted GitHub CodeQL alert export still needs confirmation on the pushed commit.
+- Risks/follow-ups: the reviewed Sched ICS request-forgery finding is suppressed rather than rewritten because the helper enforces the public/private DNS boundary in source and the hosted JavaScript analysis does not model that helper precisely. Future HTTP-to-file issues remain intentionally excluded at the workflow layer only when they point at generated, non-user-controlled persistence paths.
+- Files changed: `.github/codeql/codeql-config.yml`; `.github/codeql/collectz-js-models/models/request-forgery.model.yml`; `.github/codeql/collectz-maintained-source.qls`; `app-meta.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `backend/app-meta.json`; `backend/package-lock.json`; `backend/package.json`; `backend/release-feed.json`; `backend/scripts/unit-tests.js`; `backend/services/schedIcsSync.js`; `docs/releases/v3.16.36.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/49-Dependency-PR-and-CI-Security-Coverage.md`; `frontend/package-lock.json`; `frontend/package.json`; `frontend/src/app-meta.json`; and `preflight-go-no-go.md`.
+- What remains in the milestone: none.
+
 ## 3.16.35 — CodeQL HTTP-to-File Disposition
 
 **Goal:** Keep maintained-source CodeQL focused on actionable source findings by dispositioning the intentional authenticated upload and local artifact HTTP-to-file pattern without disabling the broader JavaScript/TypeScript security-and-quality suite.

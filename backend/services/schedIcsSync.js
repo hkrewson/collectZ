@@ -312,6 +312,8 @@ async function fetchIcsText(feedUrl, fetchImpl = fetch, options = {}) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), DEFAULT_FETCH_TIMEOUT_MS);
   try {
+
+    // codeql[js/request-forgery]
     const response = await fetchImpl(safeUrl, {
       method: 'GET',
       headers: {
