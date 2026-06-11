@@ -304,6 +304,8 @@ const ciBuildComposeSource = fs.existsSync(ciBuildComposePath)
 const publicComposeGeneratorSource = fs.readFileSync(require.resolve('../../scripts/generate-public-compose'), 'utf8');
 const ciComposeOverrideGeneratorSource = fs.readFileSync(require.resolve('../../scripts/write-ci-compose-overrides'), 'utf8');
 const publicExportValidatorSource = fs.readFileSync(require.resolve('../../scripts/validate-public-export-surface'), 'utf8');
+const publicExportManifestSource = fs.readFileSync(require.resolve('../../public-export.manifest.json'), 'utf8');
+const publicExportSanitizationDocSource = fs.readFileSync(require.resolve('../../docs/wiki/51-Public-Repository-Sanitization.md'), 'utf8');
 const releaseRoadmapSource = fs.readFileSync(require.resolve('../../docs/wiki/07-Release-Roadmap.md'), 'utf8');
 const backlogSource = fs.readFileSync(require.resolve('../../docs/wiki/08-Backlog.md'), 'utf8');
 const plexPmsModernizationDocSource = fs.readFileSync(require.resolve('../../docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md'), 'utf8');
@@ -2342,6 +2344,13 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(!dockerComposeSource.includes('IMAGE_TAG'));
   assert.ok(publicComposeGeneratorSource.includes('Deployment compose for prebuilt collectZ images'));
   assert.ok(publicExportValidatorSource.includes('Public export surface validation passed.'));
+  assert.ok(publicExportValidatorSource.includes('public-export.manifest.json'));
+  assert.ok(publicExportValidatorSource.includes('clean-commits-only'));
+  assert.ok(publicExportManifestSource.includes('"strategy": "private-source-to-clean-public-mirror"'));
+  assert.ok(publicExportManifestSource.includes('"publicHistoryPolicy": "clean-commits-only"'));
+  assert.ok(publicExportManifestSource.includes('"docs/wiki/"'));
+  assert.ok(publicExportSanitizationDocSource.includes('The public repository is a clean mirror generated from an approved export manifest.'));
+  assert.ok(publicExportSanitizationDocSource.includes('This slice does not push a public mirror.'));
   assert.ok(dockerComposeSource.includes('${FRONTEND_PORT:-3000}:3000'));
   assert.ok(serverSource.includes('const HOMELAB_EDITION = isHomelabEdition();'));
   assert.ok(serverSource.includes("app.use('/api/auth', authPlatformRouter);"));

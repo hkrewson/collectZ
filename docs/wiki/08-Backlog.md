@@ -895,68 +895,9 @@ These are unscheduled security-maintenance tasks discovered from advisory scanni
 ### Backlog Item: Public Repository Sanitization and Git History Export
 **Type:** Deferred infrastructure milestone
 **Tags:** `public-repo`, `sanitization`, `git-history`, `mirror`, `release`, `security`, `docs`
-**Status:** Active backlog; should follow `Local CI/CD Release Gate and Pre-Push Automation`.
+**Status:** Promoted into roadmap slice `3.18.0 — Public Repository Sanitization Strategy`.
 
-**Goal:** Define and implement a sanitized public repository/export model after local CI/CD is reliable, so public source and commit history expose only intentionally public objects while private maintainer workflow, CI, roadmap, and operational details stay out of the public surface.
-
-**Why this work exists**
-- A single public repo makes CI labels, maintainer docs, historical commits, generated artifacts, and internal implementation language visible even when secrets are protected.
-- GitHub does not support file-level public/private visibility inside one repository.
-- Making the primary repo private can affect free CodeQL/code-scanning and private Actions usage.
-- A sanitized public mirror/export can preserve public visibility for installable code, containers, and user-facing docs without exposing the full maintainer source-of-truth structure.
-
-**Dependency**
-- This work should follow the local CI/CD release gate because sanitized public publishing should happen only after private/local validation is reliable.
-- Do not start mirror/export automation until the local gate can prove the candidate tree before it is published.
-
-**Intent**
-- Keep a private or maintainer-owned source of truth with full CI/CD, release evidence, roadmap, backlog, and operational docs.
-- Publish a public repository or branch that contains only approved source, public deployment files, public docs, and release metadata.
-- Avoid mirroring private git history into the public repository.
-- Keep GHCR containers and release artifacts available as the public runtime distribution path.
-
-**Current state**
-- The main GitHub repo is public and contains active CI, maintainer docs, backlog/roadmap, workflow labels, and historical commits.
-- Some public-surface cleanup has already happened across `3.8.x` and `3.16.x`, including env/compose cleanup, public docs pruning, and neutral CI labels.
-- `Public Homelab Repo Promotion and Export Workflow` exists as related backlog work, but it does not yet fully cover git-history sanitization or a private-source/public-mirror operating model.
-
-**Scope**
-- Decide whether the public surface should be:
-  - a separate GitHub repository,
-  - a generated export branch,
-  - release source archives,
-  - or a combination of public repo plus release artifacts.
-- Define an allowlist of paths that may appear publicly.
-- Define a denylist of paths that must never appear publicly, including private CI, maintainer docs, internal roadmap/backlog, release evidence, generated artifacts, local credentials, platform/control-plane runbooks, and historical troubleshooting bundles.
-- Build an export process that creates a clean public commit without private git history.
-- Add validation that fails the export if denied paths, secret patterns, internal labels, or generated evidence artifacts are present.
-- Document how public commits map back to private/source-of-truth versions without exposing private commit metadata unnecessarily.
-- Decide whether public issues/discussions live in the public mirror or remain separate.
-- Ensure public container tags, release notes, and install docs continue to point users to the correct runtime artifacts.
-
-**Candidate subtasks**
-- Audit current tracked files and classify them as public, private, generated, release-only, or remove.
-- Compare the existing `Public Homelab Repo Promotion and Export Workflow` backlog item and either merge, supersede, or cross-reference it.
-- Create a path allowlist and export manifest.
-- Add a script that builds a temporary clean tree and commits it to a public mirror target without prior history.
-- Add a sanitization check for `.github/workflows`, `docs/wiki`, artifacts, private compose overrides, runtime evidence, old env examples, and internal-only labels.
-- Add a public-docs pass that produces user-facing setup, update, security policy, and release notes without maintainer-only backlog detail.
-- Decide how Dependabot/CodeQL or public checks should run in the sanitized repo, if at all.
-- Add rollback guidance for an accidental public export leak.
-
-**Out of scope**
-- Do not rewrite the current repository history in place without a separate, explicit migration plan.
-- Do not remove local/private CI/CD protections.
-- Do not publish platform/control-plane operational docs or maintainer release evidence.
-- Do not rely on `.gitignore` alone as a sanitization boundary.
-- Do not treat public GHCR containers as proof that all source and docs are safe to mirror.
-
-**Acceptance Criteria**
-- Future maintainers can tell exactly what belongs in the public repository and what must stay private.
-- The public export process creates clean commits that do not include private history.
-- Sanitization validation catches denied paths, generated artifacts, secret-like content, and internal-only CI/docs language before publication.
-- Public users still have enough source/docs to deploy, update, inspect, and trust the runtime.
-- The relationship between private source-of-truth releases, public mirror commits, and public container tags is documented.
+**Moved to roadmap:** The selected scope now lives in `docs/wiki/07-Release-Roadmap.md` so the active milestone has one source of truth. The remaining follow-up after `3.18.0` is export-builder automation that creates and publishes the clean public mirror only after explicit maintainer approval.
 
 ### Backlog Item: CodeQL Baseline Remediation
 **Status:** Active remediation is being promoted into numbered roadmap slices, including `3.16.21 — CodeQL Backend Input Boundary Hardening`, `3.16.22 — CodeQL SQL and URL Host Remediation`, `3.16.23 — CodeQL Log Hygiene and Unused Finding Triage`, `3.16.24 — CodeQL Sanitizer and Runtime Helper Remediation`, `3.16.26 — CodeQL Media Title Sanitizer Precision`, `3.16.27 — CodeQL Request Forgery Boundary Triage`, `3.16.28 — CodeQL Clean-Checkout Baseline Parity Policy`, `3.16.29 — CodeQL Maintained-Source Unused Finding Triage`, `3.16.30 — CodeQL Maintained-Source Quality Finding Triage`, `3.16.31 — CodeQL File, Template, and Connector Boundary Hardening`, `3.16.32 — CodeQL Graylog Digest Boundary Hardening`, `3.16.33 — CodeQL Registration Boundary Hardening`, `3.16.34 — CodeQL CSRF Middleware Modeling`, and `3.16.35 — CodeQL HTTP-to-File Disposition`.

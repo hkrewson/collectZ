@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.18.0",
+      "version": "3.18.0",
+      "date": null,
+      "status": null,
+      "summary": "This release defines the public repository sanitization strategy for collectZ: a private source-of-truth repository can generate a clean public mirror without exposing maintainer workflow, release evidence, roadmap/backlog detail, local overrides, or private git history.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added `public-export.manifest.json` as the first machine-readable public mirror contract.",
+            "Extended `npm run validate:public-export` so it requires the manifest, clean public history policy, required denylists, and local-gate publication expectation.",
+            "Added maintainer documentation for the private-source/public-mirror operating model, public mirror contents, publication workflow, public checks stance, and accidental leak response.",
+            "Promoted the public repository sanitization backlog item into the `3.18.0` roadmap slice.",
+            "Kept actual mirror publication and clean export commit automation as a follow-up."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.17.0",
       "version": "3.17.0",
       "date": null,
@@ -162,26 +181,6 @@
             "Preserved intended behavior where CodeQL identified useful but unwired code, including request-scope library response shaping, support timeline public action filtering, and media upload filename sanitization.",
             "Aligned Art and media drawer proof handling with the documented shared `SignatureManager` workflow while keeping backend/OpenAPI compatibility endpoint coverage.",
             "Kept the unused-variable cleanup under the documented intent-first rule from the CodeQL backlog."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.16.28",
-      "version": "3.16.28",
-      "date": null,
-      "status": null,
-      "summary": "This patch makes the authoritative CodeQL baseline match the clean GitHub Actions checkout by excluding generated, dependency, report, coverage, build, and local SARIF output from maintained-source analysis.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added a repository CodeQL configuration for the maintained-source baseline.",
-            "Wired the CodeQL workflow to load the configuration while preserving JavaScript/TypeScript analysis and `security-extended,security-and-quality`.",
-            "Kept `AlertSuppression.ql` and the local collectZ JavaScript model pack documented for exploratory local CLI runs instead of passing CLI-only specifiers to the hosted CodeQL Action.",
-            "Added the local model pack manifest and request-forgery barrier model for exploratory CLI parity runs.",
-            "Documented the operating rule that generated-artifact findings are exploratory triage noise unless they trace back to maintained source.",
-            "Added unit-test coverage for the CodeQL workflow/config/model-pack wiring."
           ]
         }
       ]

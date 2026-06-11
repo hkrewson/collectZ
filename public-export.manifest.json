@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "strategy": "private-source-to-clean-public-mirror",
+  "publicHistoryPolicy": "clean-commits-only",
+  "publicMirror": {
+    "defaultBranch": "main",
+    "includeGitHistory": false,
+    "publishFromLocalGate": true,
+    "containerRegistry": "ghcr.io/hkrewson"
+  },
+  "allowedPathPrefixes": [
+    "backend/",
+    "frontend/",
+    "docs/releases/",
+    "scripts/",
+    "setup.sh",
+    "README.md",
+    "SECURITY.md",
+    "LICENSE",
+    "docker-compose.yml",
+    "env.example",
+    "package.json",
+    "package-lock.json",
+    "app-meta.json",
+    "public-export.manifest.json"
+  ],
+  "deniedPathPrefixes": [
+    ".github/",
+    ".ci/",
+    "artifacts/",
+    "docs/wiki/",
+    "ops/",
+    "tests/playwright/artifacts/",
+    "playwright-report/",
+    "test-results/",
+    "node_modules/",
+    "backend/node_modules/",
+    "frontend/node_modules/"
+  ],
+  "deniedExactPaths": [
+    ".env",
+    ".env.local",
+    ".env.production",
+    "docker-compose.localhost.yml",
+    "preflight-go-no-go.md"
+  ],
+  "deniedContentPatterns": [
+    "APP_EDITION",
+    "PLAYWRIGHT_E2E_BYPASS_TOKEN",
+    "ALLOW_SESSION_BEARER_FALLBACK",
+    "runtime-smoke",
+    "control-plane",
+    "release evidence",
+    "roadmap",
+    "backlog"
+  ],
+  "requiredPublicDocs": [
+    "README.md",
+    "SECURITY.md",
+    "docs/releases/"
+  ],
+  "notes": [
+    "The public mirror is generated from a private source-of-truth checkout after local validation, not by pushing or mirroring private git history.",
+    "The allowlist defines the first export contract. A path must be intentionally allowed before it can appear in a generated public tree.",
+    "The denylist wins over the allowlist."
+  ]
+}

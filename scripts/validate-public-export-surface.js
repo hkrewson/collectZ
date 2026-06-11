@@ -7,9 +7,14 @@ const { execFileSync } = require('child_process');
 
 const root = path.resolve(__dirname, '..');
 const errors = [];
+const manifestPath = path.join(root, 'public-export.manifest.json');
 
 function read(relativePath) {
   return fs.readFileSync(path.join(root, relativePath), 'utf8');
+}
+
+function readJson(relativePath) {
+  return JSON.parse(read(relativePath));
 }
 
 function fail(message) {
@@ -27,6 +32,92 @@ function trackedFiles(patterns) {
     return [];
   }
 }
+
+function isUnderDeniedPrefix(relativePath, deniedPrefixes) {
+  const normalizedPath = relativePath.replace(/\/$/, '');
+  return deniedPrefixes
+    .map((item) => item.replace(/\/$/, ''))
+    .some((prefix) => normalizedPath === prefix || normalizedPath.startsWith(`${prefix}/`));
+}
+
+function validateManifest() {
+  if (!fs.existsSync(manifestPath)) {
+    fail('public-export.manifest.json is required for public mirror boundary validation.');
+    return;
+  }
+
+  let manifest;
+  try {
+    manifest = readJson('public-export.manifest.json');
+  } catch (error) {
+    fail(`public-export.manifest.json is not valid JSON: ${error.message}`);
+    return;
+  }
+
+  if (manifest.strategy !== 'private-source-to-clean-public-mirror') {
+    fail('public-export.manifest.json must declare strategy private-source-to-clean-public-mirror.');
+  }
+  if (manifest.publicHistoryPolicy !== 'clean-commits-only') {
+    fail('public-export.manifest.json must require clean-commits-only public history.');
+  }
+  if (manifest.publicMirror?.includeGitHistory !== false) {
+    fail('public-export.manifest.json must explicitly disable private git history in the public mirror.');
+  }
+  if (manifest.publicMirror?.publishFromLocalGate !== true) {
+    fail('public-export.manifest.json must require public export after the local release gate.');
+  }
+
+  const allowPrefixes = manifest.allowedPathPrefixes || [];
+  const denyPrefixes = manifest.deniedPathPrefixes || [];
+  const denyExact = manifest.deniedExactPaths || [];
+  const deniedContentPatterns = manifest.deniedContentPatterns || [];
+  const requiredPublicDocs = manifest.requiredPublicDocs || [];
+
+  for (const required of ['backend/', 'frontend/', 'docs/releases/', 'docker-compose.yml', 'env.example', 'README.md']) {
+    if (!allowPrefixes.includes(required)) {
+      fail(`public-export.manifest.json must allow required public surface ${required}.`);
+    }
+  }
+
+  for (const required of ['.github/', '.ci/', 'artifacts/', 'docs/wiki/', 'ops/']) {
+    if (!denyPrefixes.includes(required)) {
+      fail(`public-export.manifest.json must deny private source path ${required}.`);
+    }
+  }
+
+  for (const required of ['.env', 'docker-compose.localhost.yml', 'preflight-go-no-go.md']) {
+    if (!denyExact.includes(required)) {
+      fail(`public-export.manifest.json must deny private/generated file ${required}.`);
+    }
+  }
+
+  for (const required of ['APP_EDITION', 'PLAYWRIGHT_E2E_BYPASS_TOKEN', 'ALLOW_SESSION_BEARER_FALLBACK']) {
+    if (!deniedContentPatterns.includes(required)) {
+      fail(`public-export.manifest.json must deny content pattern ${required}.`);
+    }
+  }
+
+  for (const required of ['README.md', 'SECURITY.md', 'docs/releases/']) {
+    if (!requiredPublicDocs.includes(required)) {
+      fail(`public-export.manifest.json must require public doc ${required}.`);
+    }
+  }
+
+  for (const required of requiredPublicDocs) {
+    if (!fs.existsSync(path.join(root, required))) {
+      fail(`Required public doc path does not exist: ${required}`);
+    }
+  }
+
+  for (const allowed of allowPrefixes) {
+    const normalizedAllowed = allowed.replace(/\/$/, '');
+    if (denyExact.includes(normalizedAllowed) || isUnderDeniedPrefix(normalizedAllowed, denyPrefixes)) {
+      fail(`public-export.manifest.json allows denied path ${allowed}.`);
+    }
+  }
+}
+
+validateManifest();
 
 const rootComposeFiles = trackedFiles(['docker-compose*.yml', 'docker-compose*.yaml'])
   .filter((file) => !file.includes('/'))

@@ -6,6 +6,44 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.18.0 — Public Repository Sanitization Strategy
+
+**Goal:** Promote the public repository sanitization backlog item into a concrete private-source/public-mirror contract so public source can stay inspectable and deployable without exposing private maintainer workflow, roadmap/backlog detail, release evidence, local runtime overrides, or private git history.
+
+### Scope
+
+- Define the public repository operating model: private source of truth, generated clean public mirror, GHCR runtime artifacts, and explicit maintainer publish action.
+- Add a machine-readable public export manifest with allowlisted public paths, denied private/generated paths, denied content patterns, and clean-history policy.
+- Extend public export validation so the manifest is required and cannot allow private git history or private source paths.
+- Document the public mirror strategy, publication workflow, public checks stance, and accidental leak response.
+- Cross-reference and supersede the overlapping `Public Homelab Repo Promotion and Export Workflow` intent where this strategy gives the broader git-history/export model.
+- Keep actual public mirror publication and clean-tree commit automation out of this first slice.
+
+### Acceptance Criteria
+
+- `public-export.manifest.json` defines a conservative first public mirror contract.
+- `npm run validate:public-export` fails if the manifest is missing, weakens the clean-history policy, omits required denied paths, or allows a denied path.
+- Maintainer docs explain what belongs in the public mirror and what must stay private.
+- The backlog item is promoted into this roadmap slice rather than duplicated in both files.
+- Version metadata, release notes, Help > Releases feed, and running-stack readback are aligned for `3.18.0`.
+
+### Active Slice Notes
+
+- This slice intentionally does not push to a public mirror and does not rewrite current repository history.
+- The next implementation slice should add the export builder that creates a temporary public tree and clean public commit from `public-export.manifest.json`.
+- Public GitHub CodeQL/Dependabot checks remain useful, but private/local gates stay authoritative before any public export.
+
+### Closeout
+
+- Status: completed in `3.18.0`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/50-Local-CI-CD-Release-Gate.md`, `docs/wiki/51-Public-Repository-Sanitization.md`, and `docs/releases/v3.18.0.md`.
+- Runtime evidence: rebuilt the local Docker stack from source with `APP_VERSION=3.18.0` using `docker-compose.yml` plus `docker-compose.localhost.yml`; backend and frontend containers became healthy; `/api/health` reported `version/frontend/backend/build=3.18.0`; Docker Help > Releases smoke served `3.18.0` as the newest entry; `npm --prefix backend run test:observability-evidence` refreshed `artifacts/observability-evidence/observability-release-evidence.json` for `3.18.0` with `9/9` checks passing.
+- Verification: `node --check scripts/validate-public-export-surface.js`; `npm run validate:public-export`; backend unit tests (`314` passed); OpenAPI validation; frontend production build; Docker backend/frontend build; Docker Help > Releases smoke; observability release evidence; `npm run release:local-gate` standard profile (`11` passed, `0` failed, `0` blocked); targeted added-line secret-pattern scan; and `git diff --check`.
+- Blocked/unverified: local preflight still marks stricter secure-cookie `compose-smoke` blocked because the normal development stack uses `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`; `secret-scan`, `browser-regression`, and `image-security-and-sbom` remain CI or locally provisioned full-profile follow-through gates.
+- Risks/follow-ups: this slice defines the export policy and validator contract but does not publish a public mirror. The next slice should add an export builder that creates a temporary public tree from `public-export.manifest.json`, validates denied paths/content, and creates a clean public commit only after explicit maintainer approval.
+- Files changed: `app-meta.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `backend/app-meta.json`; `backend/package-lock.json`; `backend/package.json`; `backend/release-feed.json`; `backend/scripts/unit-tests.js`; `docs/releases/v3.18.0.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/51-Public-Repository-Sanitization.md`; `frontend/package-lock.json`; `frontend/package.json`; `frontend/src/app-meta.json`; `preflight-go-no-go.md`; `public-export.manifest.json`; and `scripts/validate-public-export-surface.js`.
+- What remains in the milestone: nothing for `3.18.0`; public mirror export-builder automation remains the next follow-up if we want to generate and publish the mirror.
+
 ## 3.17.0 — Local CI/CD Release Gate Foundation
 
 **Goal:** Promote the local CI/CD backlog task into a concrete pre-push release gate foundation so maintainers and Codex have one standard local command before pushing.
