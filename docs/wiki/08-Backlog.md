@@ -1208,7 +1208,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 **Tags:** `public-repo`, `private-source`, `mirror`, `publication`, `ci`, `security`, `docs`, `subscription-readiness`
 **Status:** Active backlog; not yet promoted or versioned.
 
-**Goal:** Complete the repo operating-model transition by publishing a reviewed public mirror from the generated export tree, then making the current source-of-truth repository private.
+**Goal:** Complete the repo operating-model transition by publishing a reviewed public deployment mirror from the generated export tree, then making the current source-of-truth repository private.
 
 **Why this work exists**
 - `3.17.0` added a local release gate foundation so the private source tree can be validated before public publication.
@@ -1218,7 +1218,8 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 
 **Intent**
 - Treat the private source repo as the maintainer workspace for roadmap, backlog, release evidence, local runtime detail, and full CI/release history.
-- Treat the public mirror as a clean, user-facing source surface with inspectable app code, public setup docs, release notes, and deployable compose/env references.
+- Treat the first public mirror as a clean, user-facing deployment surface with public setup docs, deployable compose/env references, version metadata, and GHCR image references.
+- Keep application source private until a separate source-publication boundary is intentionally designed and reviewed.
 - Preserve public trust signals without exposing private workflow details, roadmap/backlog context, local evidence, private git history, or internal runtime-boundary labels.
 - Keep mirror publication as an explicit maintainer action, separate from ordinary source-repo commits, pushes, or release closeout.
 
@@ -1235,8 +1236,9 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - Update public-facing repository links in app metadata, README, setup docs, security policy, and generated public-export surfaces so they point to the public mirror rather than the private source repository.
 - Generate a fresh public export from a passing local gate.
 - Review the generated public tree before publication:
-  - confirm app source, public setup files, public release notes, and version metadata are present,
+  - confirm public setup files, version metadata, security policy, license, and deployable compose/env references are present,
   - confirm `.github/`, `.ci/`, `docs/wiki/`, local runtime overrides, artifacts, release evidence, logs, traces, screenshots, and private source history are absent,
+  - confirm application source folders such as `backend/` and `frontend/` are absent until a separate source-publication boundary exists,
   - run the public export validator and a targeted secret/content scan.
 - Create the public GitHub mirror repository.
 - Add the chosen public remote inside `public-export/`, not in the private source repo.
@@ -1265,11 +1267,12 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - Do not rewrite the private source repository history in this task.
 - Do not push the public mirror from ordinary `git push` or release-closeout automation.
 - Do not publish `docs/wiki`, private release evidence, local logs/artifacts, or private CI workflow internals to the public mirror.
+- Do not publish application source in the first deployment mirror.
 - Do not move roadmap/backlog planning into the public mirror.
 - Do not implement billing, subscription enforcement, or hosted-product behavior in this task.
 
 **Acceptance Criteria**
-- A public mirror repository exists and contains only the approved generated public export surface.
+- A public mirror repository exists and contains only the approved generated public deployment export surface.
 - Public-facing GitHub links point to the public mirror.
 - The generated public tree passes export validation and targeted secret/content scanning before publication.
 - The public mirror has clean git history that does not include private source-of-truth commits.

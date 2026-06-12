@@ -4,17 +4,18 @@ This document defines the collectZ public repository strategy. It is maintainer 
 
 ## Goal
 
-collectZ should be publicly inspectable and deployable without exposing private maintainer workflow, release evidence, roadmap/backlog planning, local runtime details, or historical troubleshooting artifacts. The public surface should be generated from a validated source tree, not maintained by hand and not created by mirroring private git history.
+collectZ should be publicly deployable without exposing private maintainer workflow, release evidence, roadmap/backlog planning, local runtime details, source-level runtime boundary terms, or historical troubleshooting artifacts. The public surface should be generated from a validated source tree, not maintained by hand and not created by mirroring private git history.
 
 ## Operating model
 
 - The private source-of-truth repository remains the place where maintainers work, run local CI/CD, keep roadmap/backlog context, and collect release evidence.
-- The public repository is a clean mirror generated from an approved export manifest.
+- The public repository is a clean deployment mirror generated from an approved export manifest.
 - The selected public mirror target is `https://github.com/hkrewson/collectz`.
 - Public commits are clean export commits. They do not include private source-of-truth git history.
 - GHCR images remain the primary runtime distribution path for deployed containers.
 - Public release notes and public deployment files must line up with the container tags they describe.
 - Hosted GitHub security features may still run on the public mirror, but they are not the only validation gate. The private/local release gate must pass before a public export is produced.
+- Application source remains private until a separate source-publication boundary is intentionally designed and reviewed.
 
 ## Export manifest
 
@@ -31,13 +32,12 @@ The current validator is `npm run validate:public-export`. It checks both the ex
 
 ## Public mirror contents
 
-The intended public mirror should include:
+The first public mirror should include:
 
-- application source required to inspect and build the runtime,
 - public deployment files such as `docker-compose.yml` and `env.example`,
-- public release notes,
 - a public README, security policy, setup/update guidance, and license,
-- version metadata needed to identify the published runtime.
+- version metadata needed to identify the published runtime,
+- references to GHCR runtime images.
 
 The public mirror must not include:
 
@@ -49,6 +49,7 @@ The public mirror must not include:
 - `.env` files or secret-bearing config,
 - platform/control-plane runbooks and internal operational docs,
 - private source-of-truth git history.
+- application source until a source-publication boundary is separately designed.
 
 ## Publication workflow
 

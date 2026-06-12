@@ -9,20 +9,13 @@
     "containerRegistry": "ghcr.io/hkrewson"
   },
   "allowedPathPrefixes": [
-    "backend/",
-    "frontend/",
-    "docs/releases/",
-    "scripts/",
     "setup.sh",
     "README.md",
     "SECURITY.md",
     "LICENSE",
     "docker-compose.yml",
     "env.example",
-    "package.json",
-    "package-lock.json",
-    "app-meta.json",
-    "public-export.manifest.json"
+    "app-meta.json"
   ],
   "deniedPathPrefixes": [
     ".github/",
@@ -54,19 +47,15 @@
     "control-plane"
   ],
   "contentScanPathPrefixes": [
-    "README.md",
-    "SECURITY.md",
-    "setup.sh",
-    "docker-compose.yml",
-    "env.example"
+    "*"
   ],
   "requiredPublicDocs": [
     "README.md",
-    "SECURITY.md",
-    "docs/releases/"
+    "SECURITY.md"
   ],
   "notes": [
     "The public mirror is generated from a private source-of-truth checkout after local validation, not by pushing or mirroring private git history.",
+    "The first public mirror is a deployment mirror for GHCR containers, public setup docs, and public metadata. Application source stays in the private source-of-truth repository until a separate source-publication boundary is designed.",
     "The allowlist defines the first export contract. A path must be intentionally allowed before it can appear in a generated public tree.",
     "The denylist wins over the allowlist."
   ]

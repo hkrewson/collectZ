@@ -179,7 +179,8 @@ function validateExportTree(outputPath, manifest) {
   }
 
   for (const file of files) {
-    if (!looksTextual(file) || !isUnderPrefix(file, contentScanPrefixes)) continue;
+    const scanAllText = contentScanPrefixes.includes('*');
+    if (!looksTextual(file) || (!scanAllText && !isUnderPrefix(file, contentScanPrefixes))) continue;
     const source = fs.readFileSync(path.join(outputPath, file), 'utf8');
     for (const pattern of deniedContentPatterns) {
       if (source.includes(pattern)) {

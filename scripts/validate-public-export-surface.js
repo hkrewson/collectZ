@@ -74,9 +74,14 @@ function validateManifest() {
   const requiredPublicDocs = manifest.requiredPublicDocs || [];
   const contentScanPrefixes = manifest.contentScanPathPrefixes || [];
 
-  for (const required of ['backend/', 'frontend/', 'docs/releases/', 'docker-compose.yml', 'env.example', 'README.md']) {
+  for (const required of ['docker-compose.yml', 'env.example', 'README.md']) {
     if (!allowPrefixes.includes(required)) {
       fail(`public-export.manifest.json must allow required public surface ${required}.`);
+    }
+  }
+  for (const privateSourcePrefix of ['backend/', 'frontend/']) {
+    if (allowPrefixes.includes(privateSourcePrefix)) {
+      fail(`public-export.manifest.json must not export ${privateSourcePrefix} until a separate public source boundary exists.`);
     }
   }
 
@@ -98,16 +103,14 @@ function validateManifest() {
     }
   }
 
-  for (const required of ['README.md', 'SECURITY.md', 'docs/releases/']) {
+  for (const required of ['README.md', 'SECURITY.md']) {
     if (!requiredPublicDocs.includes(required)) {
       fail(`public-export.manifest.json must require public doc ${required}.`);
     }
   }
 
-  for (const required of ['README.md', 'SECURITY.md', 'setup.sh', 'docker-compose.yml', 'env.example']) {
-    if (!contentScanPrefixes.includes(required)) {
-      fail(`public-export.manifest.json must content-scan public surface ${required}.`);
-    }
+  if (!contentScanPrefixes.includes('*')) {
+    fail('public-export.manifest.json must content-scan all exported text files with "*".');
   }
 
   for (const required of requiredPublicDocs) {
