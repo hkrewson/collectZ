@@ -831,74 +831,6 @@ These are product-level capability gaps discovered from the current shape of the
 
 These are unscheduled security-maintenance tasks discovered from advisory scanning and release-gate follow-through. Keep them versionless until selected and moved into the roadmap as numbered milestones.
 
-### Backlog Item: Local CI/CD Release Gate and Pre-Push Automation
-**Type:** Deferred infrastructure milestone
-**Tags:** `ci`, `release`, `security`, `codeql`, `automation`, `pre-push`, `local-ci`
-**Status:** Promoted to `3.17.0 — Local CI/CD Release Gate Foundation` in [07-Release-Roadmap.md](07-Release-Roadmap.md). Remaining follow-up after the foundation should be added as narrower local-gate tasks.
-
-**Goal:** Build a reliable local CI/CD gate that can run the full release-quality validation stack before any push, reducing dependence on public GitHub Actions logs while keeping automated security and runtime checks hard to miss.
-
-**Why this work exists**
-- Public GitHub Actions currently exposes workflow/job/step labels and some runtime concepts even when secrets are protected.
-- Moving the repository private would likely affect free hosted CodeQL/code-scanning and consume private Actions minutes.
-- GitLab Community Edition can run CI, but it does not cleanly replace GitHub's free public-repo CodeQL and Dependabot experience without assembling additional tools.
-- A local or private-runner release gate lets maintainers validate the same meaningful checks before push while preserving the option to keep GitHub as the public release/mirror surface.
-
-**Intent**
-- Make local CI/CD the normal pre-push safety net, not an optional memory task.
-- Keep GitHub Actions useful as a public follow-through gate where appropriate, but avoid relying on public CI labels/logs as the only release protection.
-- Preserve the security value of CodeQL, dependency auditing, secret scanning, image scanning, browser regression, RBAC, and runtime-smoke checks.
-- Give Codex and maintainers one explicit command/process to run before a push.
-
-**Current state**
-- GitHub Actions runs release gates publicly, including dependency scan, secret scan, compose smoke, RBAC, browser regression, `runtime-smoke`, image security/SBOM, and CodeQL.
-- Local scripts already exist for many checks, but they are not packaged as one durable pre-push gate.
-- Some gates require Docker, which is available in the local development environment.
-- CodeQL local CLI has been used for baseline remediation, but local/cloud parity and generated-artifact exclusion need to stay explicit.
-
-**Scope**
-- Add one documented local release-gate command, for example `npm run release:local-gate`.
-- Include version/release artifact checks, backend unit tests, OpenAPI validation, frontend build, browser regression, RBAC regression, runtime-smoke, dependency audits, secret scan, CodeQL local CLI, image scan/SBOM where practical, and `git diff --check`.
-- Make the gate produce a local evidence summary that is useful but does not write secrets or plaintext credentials.
-- Decide whether the gate should run as:
-  - a manual required command in Codex/maintainer workflow,
-  - a Git pre-push hook,
-  - a local task runner wrapper,
-  - or a private runner job.
-- If a Git hook is used, provide an intentional bypass path with a required reason so emergency pushes are possible but visible.
-- Keep the gate aligned with `.github/workflows/docker-publish.yml` so local and hosted checks do not drift.
-- Document how to run the gate against the current working tree and how to run a clean-checkout/parity variant.
-
-**Candidate subtasks**
-- Inventory current local scripts and map them to the release gates in `docs/wiki/17-Release-Go-No-Go-Checklist.md`.
-- Add a local gate runner that executes the selected checks in a predictable order with clear failure summaries.
-- Add CodeQL local parity setup that excludes generated artifacts and distinguishes raw local SARIF results from GitHub code-scanning alerts.
-- Add or document local secret-scan and dependency-scan commands that match CI behavior.
-- Add a local pre-push hook installer or documented Git hook template.
-- Update `AGENTS.md` or a repo workflow doc so Codex treats the local gate as required before push/release handoff.
-- Add evidence hygiene checks so generated reports do not include secrets.
-- Decide whether to keep public GitHub Actions as a smaller follow-through suite, a mirror-only suite, or the full release gate.
-
-**Out of scope**
-- Do not replace GitHub Actions, GitHub CodeQL, Dependabot, or GHCR publication in the first slice.
-- Do not build a GitLab canonical-repo migration in this task.
-- Do not push sanitized public mirror automation unless a separate mirror/export milestone is selected.
-- Do not make the gate depend on paid services as a first requirement.
-
-**Acceptance Criteria**
-- A maintainer or Codex can run one local command before push and get a clear pass/fail summary for release-relevant checks.
-- The required pre-push expectation is documented and hard to miss in the repo workflow.
-- The gate includes the security checks we most care about, or explicitly reports which ones are unavailable locally and why.
-- Generated evidence avoids plaintext secrets and does not create noisy CodeQL input.
-- Local gate behavior stays aligned with the public CI release gate names and intent.
-
-### Backlog Item: Public Repository Sanitization and Git History Export
-**Type:** Deferred infrastructure milestone
-**Tags:** `public-repo`, `sanitization`, `git-history`, `mirror`, `release`, `security`, `docs`
-**Status:** Promoted into roadmap slice `3.18.0 — Public Repository Sanitization Strategy`.
-
-**Moved to roadmap:** The selected scope now lives in `docs/wiki/07-Release-Roadmap.md` so the active milestone has one source of truth. The remaining follow-up after `3.18.0` is export-builder automation that creates and publishes the clean public mirror only after explicit maintainer approval.
-
 ### Backlog Item: CodeQL Baseline Remediation
 **Status:** Active remediation is being promoted into numbered roadmap slices, including `3.16.21 — CodeQL Backend Input Boundary Hardening`, `3.16.22 — CodeQL SQL and URL Host Remediation`, `3.16.23 — CodeQL Log Hygiene and Unused Finding Triage`, `3.16.24 — CodeQL Sanitizer and Runtime Helper Remediation`, `3.16.26 — CodeQL Media Title Sanitizer Precision`, `3.16.27 — CodeQL Request Forgery Boundary Triage`, `3.16.28 — CodeQL Clean-Checkout Baseline Parity Policy`, `3.16.29 — CodeQL Maintained-Source Unused Finding Triage`, `3.16.30 — CodeQL Maintained-Source Quality Finding Triage`, `3.16.31 — CodeQL File, Template, and Connector Boundary Hardening`, `3.16.32 — CodeQL Graylog Digest Boundary Hardening`, `3.16.33 — CodeQL Registration Boundary Hardening`, `3.16.34 — CodeQL CSRF Middleware Modeling`, and `3.16.35 — CodeQL HTTP-to-File Disposition`.
 
@@ -1271,35 +1203,78 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - Backend/frontend deployable images remain versioned and published as they are today.
 - The publication and consumption flow is documented clearly enough for a separate Apple app repo to implement it without guesswork.
 
-### Backlog Item: Public Homelab Repo Promotion and Export Workflow
-**Type:** Deferred milestone
-**Tags:** `major-feature`, `infra`, `risk`, `homelab`, `repo-promotion`
-**Status:** Partially completed by public-compose/env/docs cleanup; remaining work is actual publication/export automation.
+### Backlog Item: Private Source and Public Mirror Cutover
+**Type:** Deferred infrastructure milestone
+**Tags:** `public-repo`, `private-source`, `mirror`, `publication`, `ci`, `security`, `docs`, `subscription-readiness`
+**Status:** Active backlog; not yet promoted or versioned.
 
-**Goal:** Prepare the public homelab repo promotion and export workflow after the shared-core boundary settles.
+**Goal:** Complete the repo operating-model transition by publishing a reviewed public mirror from the generated export tree, then making the current source-of-truth repository private.
+
+**Why this work exists**
+- `3.17.0` added a local release gate foundation so the private source tree can be validated before public publication.
+- `3.18.0` defined the public repository sanitization strategy and export contract in `docs/wiki/51-Public-Repository-Sanitization.md`.
+- `3.18.1` added `npm run public:export`, which creates a validated `public-export/` tree and optional clean local commit without pushing.
+- The remaining work is not source sanitization strategy or export generation; it is the operational cutover: choose the public mirror, connect the generated repository to GitHub, review the public surface, and only then make the source repository private.
+
+**Intent**
+- Treat the private source repo as the maintainer workspace for roadmap, backlog, release evidence, local runtime detail, and full CI/release history.
+- Treat the public mirror as a clean, user-facing source surface with inspectable app code, public setup docs, release notes, and deployable compose/env references.
+- Preserve public trust signals without exposing private workflow details, roadmap/backlog context, local evidence, private git history, or internal runtime-boundary labels.
+- Keep mirror publication as an explicit maintainer action, separate from ordinary source-repo commits, pushes, or release closeout.
 
 **Current state**
-- Public homelab compose and private platform surface scrub work shipped in `3.4.20`.
-- Public environment/docs cleanup shipped across the `3.8.x` line, including simplified env examples and public homelab reference updates.
-- GHCR image publication exists for backend/frontend runtime images.
-- A separate public repo/export workflow is not yet automated or documented as a repeatable release operation.
+- `public-export.manifest.json` defines the approved public export surface.
+- `npm run validate:public-export` validates the export contract and denylist.
+- `npm run public:export -- --force --commit` creates a separate clean local git repository inside `public-export/`.
+- `public-export/` is ignored from the private source tree and is not pushed automatically.
+- Public mirror target, GitHub remote, mirror CI, and final source-repo privacy cutover have not been selected or executed.
 
 **Scope**
-- Define how shared-core content is packaged for public release.
-- Define how publication and update flow work for the homelab repo.
-- Keep the public repo free of private platform shell surfaces.
-- Make the promotion path intentional instead of ad hoc.
+- Choose the public mirror repository name and URL.
+- Update public-facing repository links in app metadata, README, setup docs, security policy, and generated public-export surfaces so they point to the public mirror rather than the private source repository.
+- Generate a fresh public export from a passing local gate.
+- Review the generated public tree before publication:
+  - confirm app source, public setup files, public release notes, and version metadata are present,
+  - confirm `.github/`, `.ci/`, `docs/wiki/`, local runtime overrides, artifacts, release evidence, logs, traces, screenshots, and private source history are absent,
+  - run the public export validator and a targeted secret/content scan.
+- Create the public GitHub mirror repository.
+- Add the chosen public remote inside `public-export/`, not in the private source repo.
+- Push the clean public export commit only after explicit maintainer approval.
+- Decide whether the public mirror should use GitHub Issues/Discussions as the user-facing support surface.
+- After the public mirror is reviewed and reachable, make the current source-of-truth repository private.
+- Document the maintainer process for subsequent releases:
+  - run private/local gates,
+  - build public export,
+  - review public tree,
+  - push mirror update intentionally,
+  - then push or tag private source as appropriate.
 
-**Remaining subtasks**
-- Decide whether the public homelab artifact is a separate repository, release asset bundle, or generated export branch.
-- Add an export validation checklist that proves no private platform-only docs, env knobs, credentials, or internal runbooks leak into the public artifact.
-- Document how `latest` and stable tags map to public deployment updates.
-- Add release automation only after the exported artifact boundary is stable enough to maintain.
+**Public mirror CI and trust signals**
+- Add or adapt public mirror CI only after the mirror target exists.
+- Keep visible public job and step names neutral, product-facing, and free of private operational labels.
+- Favor lightweight public checks that build trust:
+  - install/build validation,
+  - dependency audit or Dependabot,
+  - CodeQL/code scanning when available,
+  - public export surface validation,
+  - container image or SBOM checks if they can run without exposing private workflow context.
+- Keep the private/local gate authoritative for release readiness; public mirror CI is a public confidence signal, not the only validation source.
+
+**Out of scope**
+- Do not rewrite the private source repository history in this task.
+- Do not push the public mirror from ordinary `git push` or release-closeout automation.
+- Do not publish `docs/wiki`, private release evidence, local logs/artifacts, or private CI workflow internals to the public mirror.
+- Do not move roadmap/backlog planning into the public mirror.
+- Do not implement billing, subscription enforcement, or hosted-product behavior in this task.
 
 **Acceptance Criteria**
-- The public homelab repo contains no private platform shell surfaces.
-- The packaging and publication flow is documented and repeatable.
-- Update flow from the private source into the public repo is clear and intentional.
+- A public mirror repository exists and contains only the approved generated public export surface.
+- Public-facing GitHub links point to the public mirror.
+- The generated public tree passes export validation and targeted secret/content scanning before publication.
+- The public mirror has clean git history that does not include private source-of-truth commits.
+- Public CI/check labels are neutral and do not expose private operational boundaries.
+- The private source repository can be made private without losing a public inspectable/deployable source surface.
+- The maintainer workflow clearly separates private source commits from explicit public mirror publication.
 
 ### Backlog Item: Personal Workspace Offboarding, Archive Retention, and Recovery
 **Type:** Deferred milestone
