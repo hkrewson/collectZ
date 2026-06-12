@@ -1,29 +1,29 @@
 export const PLATFORM_PRODUCT_EDITION = 'platform';
-export const HOMELAB_PRODUCT_EDITION = 'homelab';
+export const LOCAL_PRODUCT_EDITION = 'homelab';
 export const DEFAULT_PLATFORM_TAB = 'dashboard';
 
 export function normalizeProductEdition(value) {
-  return String(value || '').trim().toLowerCase() === HOMELAB_PRODUCT_EDITION
-    ? HOMELAB_PRODUCT_EDITION
+  return String(value || '').trim().toLowerCase() === LOCAL_PRODUCT_EDITION
+    ? LOCAL_PRODUCT_EDITION
     : PLATFORM_PRODUCT_EDITION;
 }
 
-export function isHomelabEdition(value) {
-  return normalizeProductEdition(value) === HOMELAB_PRODUCT_EDITION;
+export function isLocalProductEdition(value) {
+  return normalizeProductEdition(value) === LOCAL_PRODUCT_EDITION;
 }
 
 export function getHelpSurfaceTitle(productEdition, isSupportStaff) {
-  if (isHomelabEdition(productEdition)) return 'Help';
+  if (isLocalProductEdition(productEdition)) return 'Help';
   return isSupportStaff ? 'Help Admin' : 'Help Center';
 }
 
 export function getHelpNavLabel(productEdition, isSupportStaff) {
-  if (isHomelabEdition(productEdition)) return 'Help';
+  if (isLocalProductEdition(productEdition)) return 'Help';
   return isSupportStaff ? 'Help Admin' : 'Help';
 }
 
 export function getHelpTabDefinitions(productEdition, isSupportStaff) {
-  if (isHomelabEdition(productEdition)) {
+  if (isLocalProductEdition(productEdition)) {
     return [
       { id: 'guidance', label: 'Guidance' },
       { id: 'releases', label: 'Releases' }
@@ -44,10 +44,10 @@ export function getSafeHelpTab(productEdition, isSupportStaff, requestedTab) {
 }
 
 export function isSupportHelpEnabled(productEdition) {
-  return !isHomelabEdition(productEdition);
+  return !isLocalProductEdition(productEdition);
 }
 
-export function getHomelabAllowedTabs({
+export function getLocalRuntimeAllowedTabs({
   userRole,
   showCollectibles = true,
   showEvents = true
@@ -95,11 +95,11 @@ export function getSupportAdminAllowedTabs(productEdition, {
     'profile'
   ]);
 
-  if (!isHomelabEdition(productEdition)) {
+  if (!isLocalProductEdition(productEdition)) {
     allowed.add('support-inbox');
   }
 
-  if (!isHomelabEdition(productEdition) && supportSessionActive && canManageActiveSpace) {
+  if (!isLocalProductEdition(productEdition) && supportSessionActive && canManageActiveSpace) {
     allowed.add('space-manage');
   }
 
@@ -110,7 +110,7 @@ export function getAllowedDashboardTabs(productEdition, options = {}) {
   if (String(options?.userRole || '').trim().toLowerCase() === 'support_admin') {
     return getSupportAdminAllowedTabs(productEdition, options);
   }
-  if (isHomelabEdition(productEdition)) return getHomelabAllowedTabs(options);
+  if (isLocalProductEdition(productEdition)) return getLocalRuntimeAllowedTabs(options);
   return null;
 }
 
@@ -123,7 +123,7 @@ export function getDefaultDashboardTab(productEdition, { userRole } = {}) {
 export function getSafeDashboardTab(productEdition, requestedTab, options = {}) {
   const allowed = getAllowedDashboardTabs(productEdition, options);
   const normalizedRequested = String(requestedTab || '').trim();
-  if (isHomelabEdition(productEdition) && normalizedRequested === 'support-inbox') {
+  if (isLocalProductEdition(productEdition) && normalizedRequested === 'support-inbox') {
     return 'help';
   }
   if (!allowed) return normalizedRequested || getDefaultDashboardTab(productEdition, options);

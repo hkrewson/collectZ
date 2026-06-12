@@ -5,7 +5,7 @@ import DashboardContent from './DashboardContent';
 import SupportSessionBanner from './SupportSessionBanner';
 import { DEFAULT_INTEGRATION_SECTION } from './dashboardRouting';
 import { ImportStatusDock, Toast, Icons, Spinner, cx } from './AppPrimitives';
-import { getSafeDashboardTab, isHomelabEdition, isSupportHelpEnabled } from './productEdition';
+import { getSafeDashboardTab, isLocalProductEdition, isSupportHelpEnabled } from './productEdition';
 
 const MOBILE_HEADER_TITLES = {
   dashboard: 'Dashboard',
@@ -69,8 +69,8 @@ const MOBILE_HEADER_ICONS = {
 
 function getMobileHeaderTitle(activeTab, productEdition) {
   const tab = String(activeTab || '');
-  if (isHomelabEdition(productEdition) && tab === 'admin-settings') return 'Settings';
-  if (isHomelabEdition(productEdition) && tab === 'admin-integrations') return 'Integrations';
+  if (isLocalProductEdition(productEdition) && tab === 'admin-settings') return 'Settings';
+  if (isLocalProductEdition(productEdition) && tab === 'admin-integrations') return 'Integrations';
   return MOBILE_HEADER_TITLES[tab] || 'Dashboard';
 }
 

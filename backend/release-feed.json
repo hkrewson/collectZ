@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.18.4",
+      "version": "3.18.4",
+      "date": null,
+      "status": null,
+      "summary": "This patch replaces frontend helper and state names that used private deployment language with neutral local-runtime wording. It keeps the existing backend contract value intact, but makes the frontend source less tied to private product labels.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Renamed frontend runtime helper names away from private deployment terminology.",
+            "Renamed navigation and dashboard state variables to use `localRuntime` wording.",
+            "Preserved the existing backend `product_edition` contract behavior for compatibility.",
+            "Reduced the public-source boundary audit from `27` findings across `5` files to `12` findings across `3` files."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.18.3",
       "version": "3.18.3",
       "date": null,
@@ -163,24 +181,6 @@
             "Kept invite-based onboarding, first-user bootstrap, SMTP-backed public self-registration, and homelab local-account registration behavior intact.",
             "Centralized registration failure recording so user-provided invite-token presence no longer guards the auth metrics action.",
             "Updated authentication documentation to reflect the current configurable platform self-registration behavior."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.16.32",
-      "version": "3.16.32",
-      "date": null,
-      "status": null,
-      "summary": "This patch continues the maintained-source CodeQL baseline cleanup by reshaping the Graylog release-evidence digest helper to match the runtime requirement without looking like app password-storage code.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Changed the observability release-evidence Graylog root-password digest helper from the streaming hash API to Node's one-shot `crypto.hash()` API.",
-            "Preserved the exact SHA-256 hex digest that Graylog requires for `GRAYLOG_ROOT_PASSWORD_SHA2`.",
-            "Replaced the fixed Graylog evidence password-secret value with a runtime-generated secret.",
-            "Added the missing `v3.16.31` release-note follow-up heading required by the publish workflow before moving the version forward."
           ]
         }
       ]

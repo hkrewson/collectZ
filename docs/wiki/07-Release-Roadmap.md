@@ -6,6 +6,34 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.18.4 — Public Source Boundary Frontend Runtime Naming Cleanup
+
+**Goal:** Retire frontend helper and state names that used private deployment language while preserving the current backend runtime contract.
+
+### Scope
+
+- Rename frontend product-edition helper names to neutral local-runtime wording.
+- Rename sidebar and dashboard runtime booleans and derived navigation flags to use neutral local-runtime wording.
+- Preserve the existing backend `product_edition` value handling for compatibility.
+- Keep backend OpenAPI contract renaming out of this slice.
+
+### Acceptance Criteria
+
+- `npm run audit:public-source-boundary` drops frontend helper-name findings while preserving the remaining contract findings.
+- Frontend production build passes.
+- Version metadata, release notes, Help > Releases feed, and running-stack readback are aligned for `3.18.4`.
+
+### Closeout
+
+- Status: completed in `3.18.4`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/50-Local-CI-CD-Release-Gate.md`, `docs/wiki/51-Public-Repository-Sanitization.md`, and `docs/releases/v3.18.4.md`.
+- Runtime evidence: rebuilt the local Docker stack from source with `APP_VERSION=3.18.4`; backend and frontend containers became healthy; `/api/health` reported `version/frontend/backend/build=3.18.4`; Docker Help > Releases smoke served `3.18.4` as the newest entry; observability release evidence refreshed with all checks passing.
+- Verification: `npm run audit:public-source-boundary` reported `12` findings across `3` files, down from `27` findings across `5` files; frontend production build passed; backend unit tests passed; OpenAPI validation passed through the local release gate; local release gate passed; public export regenerated with clean local commit `658d3746abe3` and no push.
+- Blocked/unverified: `secret-scan`, `browser-regression`, and `image-security-and-sbom` remain CI or locally provisioned full-profile follow-through gates. Public source publication remains blocked by backend OpenAPI runtime contract fields and one frontend compatibility constant.
+- Risks/follow-ups: backend OpenAPI runtime contract fields still carry the remaining source-boundary blockers; the frontend still preserves the legacy local-runtime value constant for compatibility.
+- Files changed: `app-meta.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `backend/app-meta.json`; `backend/package-lock.json`; `backend/package.json`; `backend/release-feed.json`; `backend/scripts/unit-tests.js`; `docs/releases/v3.18.4.md`; `docs/wiki/07-Release-Roadmap.md`; `frontend/package-lock.json`; `frontend/package.json`; `frontend/src/app-meta.json`; `frontend/src/components/SidebarNav.jsx`; `frontend/src/components/app/DashboardContent.jsx`; `frontend/src/components/app/DashboardShell.jsx`; `frontend/src/components/app/productEdition.js`; and `preflight-go-no-go.md`.
+- What remains in the milestone: nothing for `3.18.4`; continue source-boundary cleanup by addressing the public API/runtime contract naming.
+
 ## 3.18.3 — Public Source Boundary Operations Language Cleanup
 
 **Goal:** Retire the `control plane` source-publication blocker category from candidate frontend and OpenAPI public source surfaces.

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Icons, cx, isInteractiveTarget, posterUrl } from './app/AppPrimitives';
 import CollectzMark from './CollectzMark';
-import { getAllowedDashboardTabs, isHomelabEdition, isSupportHelpEnabled } from './app/productEdition';
+import { getAllowedDashboardTabs, isLocalProductEdition, isSupportHelpEnabled } from './app/productEdition';
 
 const DiscordIcon = () => (
   <svg viewBox="0 0 16 16" fill="currentColor" className="w-5 h-5" aria-hidden="true">
@@ -40,7 +40,7 @@ export default function SidebarNav({
 }) {
   const isAdmin = user?.role === 'admin';
   const isSupportAdmin = user?.role === 'support_admin';
-  const homelabEdition = isHomelabEdition(productEdition);
+  const localRuntime = isLocalProductEdition(productEdition);
   const supportHelpEnabled = isSupportHelpEnabled(productEdition);
   const isSupportStaff = supportHelpEnabled && (isAdmin || isSupportAdmin);
   const canUseLibraryShell = !isSupportAdmin || !supportHelpEnabled;
@@ -81,11 +81,11 @@ export default function SidebarNav({
   const showLibrarySwitcher = canUseLibraryShell && libraries.length > 1;
   const showDesktopHamburger = !collapsed;
   const canOpenSpaceSurface = Boolean(activeMembershipRole) || canManageActiveSpace;
-  const showWorkspaceSettingsLink = !homelabEdition && canOpenSpaceSurface && isTabAllowed('space-manage');
+  const showWorkspaceSettingsLink = !localRuntime && canOpenSpaceSurface && isTabAllowed('space-manage');
   const showWorkspaceMergeReviewLink = canOpenSpaceSurface && isTabAllowed('admin-merges');
-  const showHomelabAdminSettingsLink = homelabEdition && isAdmin && isTabAllowed('admin-settings');
-  const showHomelabAdminIntegrationsLink = homelabEdition && isAdmin && isTabAllowed('admin-integrations');
-  const platformNavigationAllowed = !homelabEdition;
+  const showLocalAdminSettingsLink = localRuntime && isAdmin && isTabAllowed('admin-settings');
+  const showLocalAdminIntegrationsLink = localRuntime && isAdmin && isTabAllowed('admin-integrations');
+  const platformNavigationAllowed = !localRuntime;
   const showPlatformGroup = platformNavigationAllowed && isAdmin && [
     isTabAllowed('admin-settings'),
     isTabAllowed('admin-integrations'),
@@ -338,10 +338,10 @@ export default function SidebarNav({
           {showWorkspaceNavigation && showWorkspaceSettingsLink && (
             <NavLink id="space-manage" icon={<Icons.Settings />} label="Settings" />
           )}
-          {showWorkspaceNavigation && showHomelabAdminSettingsLink && (
+          {showWorkspaceNavigation && showLocalAdminSettingsLink && (
             <NavLink id="admin-settings" icon={<Icons.Settings />} label="Settings" />
           )}
-          {showWorkspaceNavigation && showHomelabAdminIntegrationsLink && (
+          {showWorkspaceNavigation && showLocalAdminIntegrationsLink && (
             <NavLink id="admin-integrations" icon={<Icons.Integrations />} label="Integrations" />
           )}
           {showPlatformHelpAdmin && (
