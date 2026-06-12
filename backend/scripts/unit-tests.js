@@ -2552,6 +2552,7 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(rootPackageJson.scripts['stack:up:platform']);
   assert.ok(rootPackageJson.scripts['compose:generate']);
   assert.ok(rootPackageJson.scripts['validate:public-export']);
+  assert.ok(rootPackageJson.scripts['audit:public-source-boundary']);
   assert.ok(rootPackageJson.scripts['stack:up:homelab'].includes('docker compose --env-file .env up -d'));
   assert.ok(rootPackageJson.scripts['stack:up:platform'].includes('docker-compose.localhost.yml'));
   assert.ok(rootPackageJson.scripts['stack:ps:homelab']);

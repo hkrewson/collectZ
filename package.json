@@ -8,6 +8,7 @@
     "test:browser:ui": "playwright test --ui",
     "compose:generate": "node scripts/generate-public-compose.js",
     "validate:public-export": "node scripts/validate-public-export-surface.js",
+    "audit:public-source-boundary": "node scripts/audit-public-source-boundary.js",
     "public:export": "node scripts/build-public-export.js",
     "stack:up": "docker compose --env-file .env up -d",
     "stack:up:homelab": "docker compose --env-file .env up -d",

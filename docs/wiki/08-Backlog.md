@@ -1214,6 +1214,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - `3.17.0` added a local release gate foundation so the private source tree can be validated before public publication.
 - `3.18.0` defined the public repository sanitization strategy and export contract in `docs/wiki/51-Public-Repository-Sanitization.md`.
 - `3.18.1` added `npm run public:export`, which creates a validated `public-export/` tree and optional clean local commit without pushing.
+- `3.18.2` added `npm run audit:public-source-boundary`, which shows frontend/OpenAPI source publication is still blocked by runtime contract terminology and private operations labels.
 - The remaining work is not source sanitization strategy or export generation; it is the operational cutover: choose the public mirror, connect the generated repository to GitHub, review the public surface, and only then make the source repository private.
 
 **Intent**

@@ -6,6 +6,43 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.18.2 — Public Source Boundary Audit
+
+**Goal:** Continue the public mirror work by adding a maintained-source audit that identifies exactly which frontend and OpenAPI surfaces still block a useful public source mirror.
+
+### Scope
+
+- Add `npm run audit:public-source-boundary` as the local source-publication audit entry point.
+- Scan candidate public source surfaces: frontend source/build metadata and the backend OpenAPI contract.
+- Report blocking files, line numbers, patterns, categories, and intended dispositions into ignored local artifacts.
+- Keep application source denied in the public export until the audit findings are resolved or intentionally excluded.
+- Document the audit workflow in the private public-repository sanitization strategy.
+- Keep public mirror publication and broader runtime terminology refactors out of this slice.
+
+### Acceptance Criteria
+
+- The audit command runs locally and writes `artifacts/public-export/public-source-boundary-audit.json`.
+- The audit identifies current source-publication blockers without failing the existing install/support mirror export.
+- Public export validation still passes with application source denied.
+- Version metadata, release notes, Help > Releases feed, and running-stack readback are aligned for `3.18.2`.
+
+### Active Slice Notes
+
+- The public mirror remains an install/support mirror in this slice.
+- The first audit baseline found source-publication blockers in OpenAPI runtime contract names, frontend runtime naming, and a few operations labels.
+- Follow-up patches should retire these blockers by category before adding frontend source or OpenAPI back to `public-export.manifest.json`.
+
+### Closeout
+
+- Status: completed in `3.18.2`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/50-Local-CI-CD-Release-Gate.md`, `docs/wiki/51-Public-Repository-Sanitization.md`, and `docs/releases/v3.18.2.md`.
+- Runtime evidence: rebuilt the local Docker stack from source with `APP_VERSION=3.18.2` using `docker-compose.yml` plus `docker-compose.localhost.yml`; backend and frontend containers became healthy; `/api/health` reported `version/frontend/backend/build=3.18.2`; backend container env reported `APP_VERSION=3.18.2`; Docker Help > Releases smoke served `3.18.2` as the newest entry; observability release evidence refreshed with `9/9` checks passing.
+- Verification: `node --check scripts/audit-public-source-boundary.js`; `npm run audit:public-source-boundary` reported `32` source-publication blockers across `6` files; `npm run validate:public-export`; backend unit tests through `npm run release:local-gate`; OpenAPI validation; frontend production build; backend and frontend dependency audits; local release preflight; Docker backend/frontend rebuild; Docker Help > Releases smoke; public export generation with clean local commit `d2ceb0212517`; generated public export tree scan confirmed guarded private terms were absent; and `git diff --check` through the local gate.
+- Blocked/unverified: `secret-scan`, `browser-regression`, and `image-security-and-sbom` remain CI or locally provisioned full-profile follow-through gates. The source-publication blockers are intentionally not resolved in this slice.
+- Risks/follow-ups: the audit is a map, not the cleanup itself. The next patches should retire blockers by category, starting with frontend runtime naming and OpenAPI public contract terminology, before adding source paths back to `public-export.manifest.json`.
+- Files changed: `app-meta.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `backend/app-meta.json`; `backend/package-lock.json`; `backend/package.json`; `backend/release-feed.json`; `backend/scripts/unit-tests.js`; `docs/releases/v3.18.2.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/51-Public-Repository-Sanitization.md`; `frontend/package-lock.json`; `frontend/package.json`; `frontend/src/app-meta.json`; `package.json`; `preflight-go-no-go.md`; and `scripts/audit-public-source-boundary.js`.
+- What remains in the milestone: nothing for `3.18.2`; public source publication remains blocked until the audit findings are resolved or intentionally excluded.
+
 ## 3.18.1 — Public Mirror Export Builder Automation
 
 **Goal:** Add the local public mirror export builder promised by `3.18.0`, so maintainers can generate a sanitized public tree and optional clean local commit from `public-export.manifest.json` without pushing or publishing automatically.

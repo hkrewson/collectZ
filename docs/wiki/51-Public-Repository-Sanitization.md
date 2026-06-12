@@ -51,6 +51,25 @@ The public mirror must not include:
 - private source-of-truth git history.
 - application source until a source-publication boundary is separately designed.
 
+## Source-publication boundary audit
+
+Before adding frontend source, OpenAPI, or backend implementation paths back into `public-export.manifest.json`, run:
+
+```bash
+npm run audit:public-source-boundary
+```
+
+The audit scans the candidate public source surfaces and writes a JSON report under `artifacts/public-export/`. It currently treats the following as source-publication blockers:
+
+- private runtime selector names,
+- private product/runtime contract field names,
+- private deployment language,
+- private operations labels,
+- auth/test bypass labels,
+- maintainer-only documentation paths.
+
+The first useful source mirror should not be produced by weakening the export allowlist. It should be produced by resolving or intentionally excluding the audit findings until the source surfaces are public-safe by design.
+
 ## Publication workflow
 
 The first public mirror automation should follow this order:

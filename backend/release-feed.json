@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.18.2",
+      "version": "3.18.2",
+      "date": null,
+      "status": null,
+      "summary": "This release adds the first explicit public-source boundary audit. The public mirror remains an install/support mirror for now, but maintainers can now measure exactly which frontend and OpenAPI source surfaces still block a useful source mirror.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added `npm run audit:public-source-boundary` to scan candidate source-publication surfaces.",
+            "Added a JSON audit report under ignored local artifacts so blockers can be reviewed without committing evidence files.",
+            "Tracked blocker categories for private runtime language, runtime contract names, operations wording, auth/test bypass labels, and private docs references.",
+            "Updated public mirror docs and sanitizer strategy to make clear that application source remains private until this boundary is intentionally cleaned.",
+            "Tightened the public export contract so source folders stay denied until the audit findings are resolved."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.18.1",
       "version": "3.18.1",
       "date": null,
@@ -164,24 +183,6 @@
             "Changed the Kavita connection test/sample calls to use fixed endpoint paths with the normalized admin-configured base URL in Axios config.",
             "Clarified the Graylog evidence script's runtime-secret naming around the required `GRAYLOG_ROOT_PASSWORD_SHA2` setting.",
             "Updated source-shape unit coverage for the CodeQL request-forgery boundary expectations."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.16.30",
-      "version": "3.16.30",
-      "date": null,
-      "status": null,
-      "summary": "This patch clears the maintained-source CodeQL quality findings for trivial conditionals, template-looking strings, incompatible comparisons, duplicate object properties, and useless comparisons without changing intended runtime behavior.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Removed unreachable fallback checks where surrounding branches already prove active invite, media, library, support-thread, and log-export values.",
-            "Fixed the Art filter strip and shared `Icons.Check` definition so the rendered behavior stays the same without duplicate guard/object-property noise.",
-            "Rewrote the Playwright support helper's detached-library fixture script to build suffix-based names explicitly instead of embedding template-looking text inside ordinary strings.",
-            "Updated source-shape unit coverage for the clarified default-scope library comparison."
           ]
         }
       ]
