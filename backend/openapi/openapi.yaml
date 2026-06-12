@@ -8177,7 +8177,7 @@
       },
       "post": {
         "tags": ["Admin"],
-        "summary": "Create a new space from the server-admin control plane",
+        "summary": "Create a new workspace from the admin workspace manager",
         "security": [
           { "cookieSession": [], "csrfHeader": [] }
         ],
@@ -8314,7 +8314,7 @@
     "/api/admin/spaces/{id}/members": {
       "post": {
         "tags": ["Admin"],
-        "summary": "Add a user to a space from the platform control plane",
+        "summary": "Add a user to a workspace from the admin workspace manager",
         "security": [
           { "cookieSession": [], "csrfHeader": [] }
         ],
@@ -8365,7 +8365,7 @@
     "/api/admin/spaces/{id}/invites": {
       "post": {
         "tags": ["Admin"],
-        "summary": "Create a space-scoped invite from the platform control plane",
+        "summary": "Create a workspace-scoped invite from the admin workspace manager",
         "security": [
           { "cookieSession": [], "csrfHeader": [] }
         ],
@@ -8416,7 +8416,7 @@
     "/api/admin/spaces/{id}/invites/{inviteId}/revoke": {
       "patch": {
         "tags": ["Admin"],
-        "summary": "Revoke a space-scoped invite from the platform control plane",
+        "summary": "Revoke a workspace-scoped invite from the admin workspace manager",
         "security": [
           { "cookieSession": [], "csrfHeader": [] }
         ],

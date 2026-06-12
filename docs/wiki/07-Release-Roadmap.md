@@ -6,6 +6,34 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.18.3 — Public Source Boundary Operations Language Cleanup
+
+**Goal:** Retire the `control plane` source-publication blocker category from candidate frontend and OpenAPI public source surfaces.
+
+### Scope
+
+- Replace the admin workspace page description with neutral workspace-management language.
+- Replace OpenAPI admin workspace summaries that used internal operations wording.
+- Keep historical release notes and private roadmap language unchanged.
+- Keep application source denied in the public export until all audit blockers are resolved or intentionally excluded.
+
+### Acceptance Criteria
+
+- `npm run audit:public-source-boundary` reports no `control plane` findings.
+- OpenAPI validation still passes.
+- Version metadata, release notes, Help > Releases feed, and running-stack readback are aligned for `3.18.3`.
+
+### Closeout
+
+- Status: completed in `3.18.3`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/50-Local-CI-CD-Release-Gate.md`, `docs/wiki/51-Public-Repository-Sanitization.md`, and `docs/releases/v3.18.3.md`.
+- Runtime evidence: rebuilt the local Docker stack from source with `APP_VERSION=3.18.3`; backend and frontend containers became healthy; `/api/health` reported `version/frontend/backend/build=3.18.3`; Docker Help > Releases smoke served `3.18.3` as the newest entry; observability release evidence refreshed with all checks passing.
+- Verification: `npm run audit:public-source-boundary` reported `27` findings across `5` files with no `control plane` findings; OpenAPI validation passed; local release gate passed; public export regenerated with a clean local commit and no push.
+- Blocked/unverified: `secret-scan`, `browser-regression`, and `image-security-and-sbom` remain CI or locally provisioned full-profile follow-through gates. Public source publication remains blocked by `product_edition`, `edition_contract`, and `homelab` findings.
+- Risks/follow-ups: the next source-boundary cleanup should address frontend runtime naming or the OpenAPI runtime contract fields before adding source paths back to `public-export.manifest.json`.
+- Files changed: `app-meta.json`; `backend/app-meta.json`; `backend/openapi/openapi.yaml`; `backend/package-lock.json`; `backend/package.json`; `backend/release-feed.json`; `docs/releases/v3.18.3.md`; `docs/wiki/07-Release-Roadmap.md`; `frontend/package-lock.json`; `frontend/package.json`; `frontend/src/app-meta.json`; `frontend/src/components/AdminSpacesView.jsx`; `preflight-go-no-go.md`; and `artifacts/observability-evidence/observability-release-evidence.json`.
+- What remains in the milestone: nothing for `3.18.3`; continue source-boundary cleanup by retiring the remaining audit findings by category.
+
 ## 3.18.2 — Public Source Boundary Audit
 
 **Goal:** Continue the public mirror work by adding a maintained-source audit that identifies exactly which frontend and OpenAPI surfaces still block a useful public source mirror.

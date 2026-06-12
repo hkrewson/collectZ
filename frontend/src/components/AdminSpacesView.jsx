@@ -556,7 +556,7 @@ export default function AdminSpacesView({
       <div className="space-y-2">
         <h1 className="section-title">All Workspaces</h1>
         <p className="text-sm text-ghost max-w-3xl">
-          Platform control plane for global admins. Create workspaces, recover owners, and run explicit support sessions without falling back to casual tenant-workspace browsing.
+          Workspace administration for global admins. Create workspaces, recover owners, and run explicit support sessions without falling back to casual tenant-workspace browsing.
         </p>
       </div>
 
