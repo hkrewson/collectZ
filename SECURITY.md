@@ -14,7 +14,7 @@ collectZ supports security fixes through release channels instead of long-lived 
 ## Release Channels
 
 - `latest` is the newest published release. It receives new features and fixes first.
-- `stable` is the recommended homelab release. It trails `latest` until a release has passed CI, soaked in maintainer use for at least seven days, and has no known blocker open.
+- `stable` is the recommended self-hosted release. It trails `latest` until a release has passed CI, soaked in maintainer use for at least seven days, and has no known blocker open.
 - Exact version tags such as `3.4.110` are immutable release pins.
 - Moving minor tags such as `3.4` point to the newest published release in that minor line and are not the same as `stable`.
 
@@ -26,7 +26,7 @@ A release is eligible for `stable` when:
 
 - it has been published as `latest` for at least seven days,
 - all release gates passed,
-- the maintainer homelab has run it successfully,
+- the maintainers have run it successfully,
 - no known blocker or rollback issue is open.
 
 ## Reporting a Vulnerability

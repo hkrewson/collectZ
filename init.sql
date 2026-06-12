@@ -5,7 +5,7 @@
 --
 -- DO NOT add ad-hoc ALTER TABLE statements here — use a new migration instead.
 -- DO NOT add seed users here. The first user to register becomes admin automatically
--- when the user table is empty. See docs/wiki/01-Configuration-and-Use.md.
+-- when the user table is empty.
 
 -- Users table
 CREATE TABLE IF NOT EXISTS users (
@@ -1760,7 +1760,7 @@ INSERT INTO schema_migrations (version, description) VALUES
     (51, 'Add explicit support request access approval state'),
     (52, 'Link support sessions to approved support requests'),
     (53, 'Add support request updated_at trigger parity'),
-    (54, 'Add observability endpoint control-plane fields'),
+    (54, 'Add observability endpoint runtime fields'),
     (55, 'Add observability endpoint validation fields'),
     (56, 'Add observability endpoint label fields'),
     (57, 'Add observability endpoint debug field'),

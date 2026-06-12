@@ -35,7 +35,7 @@ The current validator is `npm run validate:public-export`. It checks both the ex
 The first public mirror should include:
 
 - public deployment files such as `docker-compose.yml` and `env.example`,
-- a public README, security policy, setup/update guidance, and license,
+- a public README, security policy, and setup/update guidance,
 - version metadata needed to identify the published runtime,
 - references to GHCR runtime images.
 

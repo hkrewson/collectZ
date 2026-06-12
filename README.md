@@ -133,38 +133,15 @@ curl http://localhost:3000/api/health
 
 Release notes are also available in the app under Help/Releases.
 
-## Developer Notes
+## Public Mirror Notes
 
-Canonical version metadata lives in:
+This public repository is intended for self-hosted installation, updates, security policy, and public support context around the prebuilt GHCR images.
 
-- `app-meta.json`
-- `backend/app-meta.json`
-- `frontend/src/app-meta.json`
-- `backend/package.json`
-- `frontend/package.json`
-
-After changing the root metadata, sync mirrors with:
-
-```bash
-node scripts/sync-app-meta.js
-```
-
-Regenerate the in-app release feed with:
-
-```bash
-node backend/scripts/export-release-feed.js
-```
-
-For source-built local development, use the local override:
-
-```bash
-APP_VERSION=$(node -p "require('./app-meta.json').version") \
-docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml up -d --build
-```
+The application source of truth, maintainer planning notes, release workflow details, and internal automation are kept separately. Public releases are published as clean mirror commits, not by exposing private git history.
 
 ## Documentation
 
-This README, `SECURITY.md`, `env.example`, `setup.sh`, and the in-app Help/Releases area are the public documentation entry points for now.
+This README, `SECURITY.md`, `env.example`, `setup.sh`, `docs/public/`, and the in-app Help/Releases area are the public documentation entry points for now.
 
 The maintainer knowledge base is kept separate from the public mirror because it includes planning notes, release workflow details, and operational context that are not written as end-user documentation.
 

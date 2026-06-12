@@ -2355,7 +2355,8 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(publicExportManifestSource.includes('"docs/wiki/"'));
   assert.ok(publicExportManifestSource.includes('"backend/artifacts/"'));
   assert.ok(publicExportManifestSource.includes('"contentScanPathPrefixes"'));
-  assert.ok(publicExportSanitizationDocSource.includes('The public repository is a clean mirror generated from an approved export manifest.'));
+  assert.ok(publicExportSanitizationDocSource.includes('The public repository is a clean deployment mirror generated from an approved export manifest.'));
+  assert.ok(publicExportSanitizationDocSource.includes('Application source remains private until a separate source-publication boundary is intentionally designed and reviewed.'));
   assert.ok(publicExportSanitizationDocSource.includes('This workflow does not push a public mirror.'));
   assert.ok(dockerComposeSource.includes('${FRONTEND_PORT:-3000}:3000'));
   assert.ok(serverSource.includes('const HOMELAB_EDITION = isHomelabEdition();'));

@@ -74,14 +74,47 @@ function validateManifest() {
   const requiredPublicDocs = manifest.requiredPublicDocs || [];
   const contentScanPrefixes = manifest.contentScanPathPrefixes || [];
 
-  for (const required of ['docker-compose.yml', 'env.example', 'README.md']) {
+  for (const required of ['docs/public/', 'docker-compose.yml', 'env.example', 'README.md']) {
     if (!allowPrefixes.includes(required)) {
       fail(`public-export.manifest.json must allow required public surface ${required}.`);
     }
   }
-  for (const privateSourcePrefix of ['backend/', 'frontend/']) {
-    if (allowPrefixes.includes(privateSourcePrefix)) {
-      fail(`public-export.manifest.json must not export ${privateSourcePrefix} until a separate public source boundary exists.`);
+  for (const broadSourcePrefix of ['backend/', 'frontend/']) {
+    if (allowPrefixes.includes(broadSourcePrefix)) {
+      fail(`public-export.manifest.json must use curated ${broadSourcePrefix} paths instead of exporting the entire directory.`);
+    }
+  }
+  for (const privateSourcePrefix of [
+    'backend/.dockerignore',
+    'backend/Dockerfile',
+    'backend/app-meta.json',
+    'backend/config/',
+    'backend/db/',
+    'backend/healthcheck.js',
+    'backend/middleware/',
+    'backend/openapi/',
+    'backend/package-lock.json',
+    'backend/package.json',
+    'backend/release-feed.json',
+    'backend/routes/',
+    'backend/scripts/',
+    'backend/server.js',
+    'backend/services/',
+    'backend/test/',
+    'frontend/.dockerignore',
+    'frontend/Dockerfile',
+    'frontend/index.html',
+    'frontend/nginx.conf',
+    'frontend/package-lock.json',
+    'frontend/package.json',
+    'frontend/public/',
+    'frontend/src/',
+    'frontend/tailwind.config.js',
+    'frontend/vite.config.js',
+    'frontend/dist/'
+  ]) {
+    if (!denyPrefixes.includes(privateSourcePrefix)) {
+      fail(`public-export.manifest.json must deny private/generated source path ${privateSourcePrefix}.`);
     }
   }
 
@@ -97,7 +130,16 @@ function validateManifest() {
     }
   }
 
-  for (const required of ['APP_EDITION', 'PLAYWRIGHT_E2E_BYPASS_TOKEN', 'ALLOW_SESSION_BEARER_FALLBACK']) {
+  for (const required of [
+    'APP_EDITION',
+    'PLAYWRIGHT_E2E_BYPASS_TOKEN',
+    'ALLOW_SESSION_BEARER_FALLBACK',
+    'runtime-smoke',
+    'control-plane',
+    'docs/wiki',
+    'homelab edition',
+    'platform edition'
+  ]) {
     if (!deniedContentPatterns.includes(required)) {
       fail(`public-export.manifest.json must deny content pattern ${required}.`);
     }
