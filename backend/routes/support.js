@@ -23,7 +23,7 @@ const sharedRouter = express.Router();
 const platformRouter = express.Router();
 
 const SUPPORT_STAFF_ROLES = new Set(['admin', 'support_admin']);
-const DEFAULT_REPO_ISSUE_BASE_URL = 'https://github.com/hkrewson/collectZ/issues';
+const DEFAULT_REPO_ISSUE_BASE_URL = 'https://github.com/hkrewson/collectz/issues';
 const PUBLIC_SUPPORT_TIMELINE_ACTIONS = new Set([
   'support.request.created',
   'support.request.status.updated',

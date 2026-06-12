@@ -14,7 +14,7 @@ const ICS_SOURCE_TYPE = 'sched_ics';
 const CATALOG_ICS_SOURCE_TYPE = 'sched_catalog_ics';
 const MAX_ICS_BYTES = 2 * 1024 * 1024;
 const DEFAULT_FETCH_TIMEOUT_MS = 15000;
-const ICS_FETCH_USER_AGENT = 'collectZ calendar-sync (+https://github.com/hkrewson/collectZ)';
+const ICS_FETCH_USER_AGENT = 'collectZ calendar-sync (+https://github.com/hkrewson/collectz)';
 const GENERIC_CATALOG_CATEGORIES = new Set(['program', 'programs', 'programming', 'schedule', 'sched', 'session', 'sessions']);
 const DEFAULT_HOST_LOOKUP = dns.promises.lookup;
 

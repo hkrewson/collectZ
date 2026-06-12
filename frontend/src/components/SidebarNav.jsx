@@ -462,7 +462,7 @@ export default function SidebarNav({
               </AccountMenuItem>
               <AccountMenuItem
                 icon={<GitHubIcon />}
-                href="https://github.com/hkrewson/collectZ"
+                href="https://github.com/hkrewson/collectz"
                 external
                 onClick={() => setAccountMenuOpen(false)}
               >

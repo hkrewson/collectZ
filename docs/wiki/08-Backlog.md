@@ -1227,10 +1227,11 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - `npm run validate:public-export` validates the export contract and denylist.
 - `npm run public:export -- --force --commit` creates a separate clean local git repository inside `public-export/`.
 - `public-export/` is ignored from the private source tree and is not pushed automatically.
-- Public mirror target, GitHub remote, mirror CI, and final source-repo privacy cutover have not been selected or executed.
+- Public mirror target has been selected as `https://github.com/hkrewson/collectz`.
+- Public mirror GitHub remote, mirror CI, first publication, and final source-repo privacy cutover have not been executed.
 
 **Scope**
-- Choose the public mirror repository name and URL.
+- Keep the public mirror repository target as `https://github.com/hkrewson/collectz`.
 - Update public-facing repository links in app metadata, README, setup docs, security policy, and generated public-export surfaces so they point to the public mirror rather than the private source repository.
 - Generate a fresh public export from a passing local gate.
 - Review the generated public tree before publication:

@@ -28,7 +28,7 @@ const COMICS_PRESETS = {
 
 const APP_USER_AGENT = process.env.APP_USER_AGENT
   || appMeta.userAgent
-  || `${appMeta.app || 'collectZ'}/${appMeta.backend || appMeta.version || 'unknown'} (+https://github.com/hkrewson/collectZ)`;
+  || `${appMeta.app || 'collectZ'}/${appMeta.backend || appMeta.version || 'unknown'} (+https://github.com/hkrewson/collectz)`;
 const METRON_REQUESTS_PER_MINUTE = Math.max(1, Number(process.env.METRON_REQUESTS_PER_MINUTE || 20));
 const METRON_DAILY_MAX_REQUESTS = Math.max(1, Number(process.env.METRON_DAILY_MAX_REQUESTS || 5000));
 const METRON_MIN_INTERVAL_MS = Math.ceil(60000 / METRON_REQUESTS_PER_MINUTE);

@@ -10,6 +10,7 @@ collectZ should be publicly inspectable and deployable without exposing private 
 
 - The private source-of-truth repository remains the place where maintainers work, run local CI/CD, keep roadmap/backlog context, and collect release evidence.
 - The public repository is a clean mirror generated from an approved export manifest.
+- The selected public mirror target is `https://github.com/hkrewson/collectz`.
 - Public commits are clean export commits. They do not include private source-of-truth git history.
 - GHCR images remain the primary runtime distribution path for deployed containers.
 - Public release notes and public deployment files must line up with the container tags they describe.

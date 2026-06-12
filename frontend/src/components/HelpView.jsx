@@ -67,7 +67,7 @@ const TRACKING_STATUS_OPTIONS = [
   { value: 'declined', label: 'Declined' }
 ];
 
-const DEFAULT_REPO_ISSUE_BASE_URL = 'https://github.com/hkrewson/collectZ/issues';
+const DEFAULT_REPO_ISSUE_BASE_URL = 'https://github.com/hkrewson/collectz/issues';
 
 function formatTimestamp(value) {
   if (!value) return 'Unknown';
