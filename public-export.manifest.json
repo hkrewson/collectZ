@@ -28,8 +28,10 @@
     ".github/",
     ".ci/",
     "artifacts/",
+    "backend/artifacts/",
     "docs/wiki/",
     "ops/",
+    "public-export/",
     "tests/playwright/artifacts/",
     "playwright-report/",
     "test-results/",
@@ -49,10 +51,14 @@
     "PLAYWRIGHT_E2E_BYPASS_TOKEN",
     "ALLOW_SESSION_BEARER_FALLBACK",
     "runtime-smoke",
-    "control-plane",
-    "release evidence",
-    "roadmap",
-    "backlog"
+    "control-plane"
+  ],
+  "contentScanPathPrefixes": [
+    "README.md",
+    "SECURITY.md",
+    "setup.sh",
+    "docker-compose.yml",
+    "env.example"
   ],
   "requiredPublicDocs": [
     "README.md",

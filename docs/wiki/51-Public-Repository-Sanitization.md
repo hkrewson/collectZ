@@ -26,7 +26,7 @@ The manifest is intentionally conservative:
 - `deniedContentPatterns` lists private runtime/control labels and maintainer-only terms the export validator must keep out of public setup surfaces.
 - The denylist wins over the allowlist.
 
-The current validator is `npm run validate:public-export`. It checks both the existing public setup surface and the manifest contract. Future mirror automation must run this validator before writing any public tree.
+The current validator is `npm run validate:public-export`. It checks both the existing public setup surface and the manifest contract. Public mirror automation must run this validator before writing any public tree.
 
 ## Public mirror contents
 
@@ -60,7 +60,11 @@ The first public mirror automation should follow this order:
 5. Tag or annotate the public commit with the collectZ release version and container tag.
 6. Push only after the maintainer explicitly chooses to publish.
 
-This slice does not push a public mirror. It defines the contract and validation boundary the mirror automation must use.
+The export builder is `npm run public:export`. By default, it creates or refreshes `public-export/` only after the standard local release gate report is current and passing. Use `npm run public:export -- --force` to replace an existing local export tree.
+
+To create a local clean commit inside the generated tree, run `npm run public:export -- --force --commit`. This initializes a separate git repository inside `public-export/`, commits the generated files with clean history, and still does not push anywhere.
+
+This workflow does not push a public mirror. Publishing remains an explicit maintainer action after reviewing the generated tree.
 
 ## Public issues and checks
 
@@ -80,4 +84,4 @@ If a denied path, secret-like value, or private-only artifact is accidentally pu
 
 ## Follow-up automation
 
-Future work should add an export builder that creates the temporary public tree and clean public commit. That builder should be separate from normal git push behavior and should require an explicit maintainer publish action.
+Future work should add a publish command or handoff checklist once the public mirror target exists. That command should stay separate from normal git push behavior and should require an explicit maintainer publish action.

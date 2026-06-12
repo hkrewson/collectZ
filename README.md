@@ -83,7 +83,7 @@ Useful optional configuration:
 - `TMDB_API_KEY`, `COMICS_API_KEY`, `BARCODE_API_KEY`, `PLEX_API_KEY`, and other provider keys as needed
 - `SMTP_*` values for invites, password reset, and email flows
 
-See [Deployment Environment Reference](docs/wiki/48-Deployment-Environment-Reference.md) for operator-safe optional settings. The older [Environment Variables](docs/wiki/02-Environment-Variables.md) page is a broader maintainer reference.
+Provider keys, SMTP, and storage settings can also be managed in the app where supported. Keep required secrets in `.env` and do not commit that file.
 
 ## Integrations
 
@@ -164,19 +164,9 @@ docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost
 
 ## Documentation
 
-The `docs/wiki/` directory is currently a maintainer knowledge base, not a polished public wiki. It contains a mix of user/operator docs, engineering runbooks, roadmap history, release policy, and integration contracts.
+This README, `SECURITY.md`, `env.example`, `setup.sh`, and the in-app Help/Releases area are the public documentation entry points for now.
 
-Good public/operator entry points:
-
-- [Configuration and Use](docs/wiki/01-Configuration-and-Use.md)
-- [Deployment Environment Reference](docs/wiki/48-Deployment-Environment-Reference.md)
-- [Docker Compose Setup](docs/wiki/03-Docker-Compose-Setup.md)
-- [CI/CD and Registry Deploy](docs/wiki/10-CI-CD-and-Registry-Deploy.md)
-- [Backup and Restore](docs/wiki/08-Backup-and-Restore.md)
-- [Kavita Integration Setup](docs/wiki/41-Kavita-Integration-Setup.md)
-- [Personal Access Tokens](docs/wiki/25-Personal-Access-Tokens.md)
-
-Internal/planning-heavy docs such as the roadmap, backlog, delivery policy, release gates, and integration contracts are useful to maintainers but are not written as end-user documentation yet.
+The maintainer knowledge base is kept separate from the public mirror because it includes planning notes, release workflow details, and operational context that are not written as end-user documentation.
 
 ## Troubleshooting
 

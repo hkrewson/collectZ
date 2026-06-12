@@ -304,6 +304,7 @@ const ciBuildComposeSource = fs.existsSync(ciBuildComposePath)
 const publicComposeGeneratorSource = fs.readFileSync(require.resolve('../../scripts/generate-public-compose'), 'utf8');
 const ciComposeOverrideGeneratorSource = fs.readFileSync(require.resolve('../../scripts/write-ci-compose-overrides'), 'utf8');
 const publicExportValidatorSource = fs.readFileSync(require.resolve('../../scripts/validate-public-export-surface'), 'utf8');
+const publicExportBuilderSource = fs.readFileSync(require.resolve('../../scripts/build-public-export'), 'utf8');
 const publicExportManifestSource = fs.readFileSync(require.resolve('../../public-export.manifest.json'), 'utf8');
 const publicExportSanitizationDocSource = fs.readFileSync(require.resolve('../../docs/wiki/51-Public-Repository-Sanitization.md'), 'utf8');
 const releaseRoadmapSource = fs.readFileSync(require.resolve('../../docs/wiki/07-Release-Roadmap.md'), 'utf8');
@@ -2346,11 +2347,16 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(publicExportValidatorSource.includes('Public export surface validation passed.'));
   assert.ok(publicExportValidatorSource.includes('public-export.manifest.json'));
   assert.ok(publicExportValidatorSource.includes('clean-commits-only'));
+  assert.ok(publicExportBuilderSource.includes('assertLocalGateCurrent'));
+  assert.ok(publicExportBuilderSource.includes('createCleanCommit'));
+  assert.ok(publicExportBuilderSource.includes('pushed: false'));
   assert.ok(publicExportManifestSource.includes('"strategy": "private-source-to-clean-public-mirror"'));
   assert.ok(publicExportManifestSource.includes('"publicHistoryPolicy": "clean-commits-only"'));
   assert.ok(publicExportManifestSource.includes('"docs/wiki/"'));
+  assert.ok(publicExportManifestSource.includes('"backend/artifacts/"'));
+  assert.ok(publicExportManifestSource.includes('"contentScanPathPrefixes"'));
   assert.ok(publicExportSanitizationDocSource.includes('The public repository is a clean mirror generated from an approved export manifest.'));
-  assert.ok(publicExportSanitizationDocSource.includes('This slice does not push a public mirror.'));
+  assert.ok(publicExportSanitizationDocSource.includes('This workflow does not push a public mirror.'));
   assert.ok(dockerComposeSource.includes('${FRONTEND_PORT:-3000}:3000'));
   assert.ok(serverSource.includes('const HOMELAB_EDITION = isHomelabEdition();'));
   assert.ok(serverSource.includes("app.use('/api/auth', authPlatformRouter);"));

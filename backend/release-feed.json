@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.18.1",
+      "version": "3.18.1",
+      "date": null,
+      "status": null,
+      "summary": "This release adds the local public mirror export builder for the sanitization strategy introduced in `3.18.0`. It can generate a reviewed public tree and optional clean local commit without pushing or publishing anything automatically.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added `npm run public:export` for building a sanitized local public export tree from `public-export.manifest.json`.",
+            "Added optional `--commit` support to initialize a separate git repository inside the export tree and create a clean public export commit.",
+            "Added local-gate enforcement so normal exports require a current passing `npm run release:local-gate` report.",
+            "Added export-tree validation for denied paths, symlinks, setup-surface content patterns, and secret-like public setup values.",
+            "Updated the public README language so the generated mirror does not depend on maintainer-only `docs/wiki` paths."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.18.0",
       "version": "3.18.0",
       "date": null,
@@ -163,24 +182,6 @@
             "Fixed the Art filter strip and shared `Icons.Check` definition so the rendered behavior stays the same without duplicate guard/object-property noise.",
             "Rewrote the Playwright support helper's detached-library fixture script to build suffix-based names explicitly instead of embedding template-looking text inside ordinary strings.",
             "Updated source-shape unit coverage for the clarified default-scope library comparison."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.16.29",
-      "version": "3.16.29",
-      "date": null,
-      "status": null,
-      "summary": "This patch clears the maintained-source CodeQL unused-local-variable and dead-assignment classes while preserving documented behavior that was intentionally present.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Removed verified-dead imports, helper locals, and stale assignments from backend routes, services, smoke scripts, unit tests, frontend drawers, and Playwright coverage.",
-            "Preserved intended behavior where CodeQL identified useful but unwired code, including request-scope library response shaping, support timeline public action filtering, and media upload filename sanitization.",
-            "Aligned Art and media drawer proof handling with the documented shared `SignatureManager` workflow while keeping backend/OpenAPI compatibility endpoint coverage.",
-            "Kept the unused-variable cleanup under the documented intent-first rule from the CodeQL backlog."
           ]
         }
       ]

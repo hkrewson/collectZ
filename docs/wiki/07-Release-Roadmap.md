@@ -6,6 +6,44 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.18.1 — Public Mirror Export Builder Automation
+
+**Goal:** Add the local public mirror export builder promised by `3.18.0`, so maintainers can generate a sanitized public tree and optional clean local commit from `public-export.manifest.json` without pushing or publishing automatically.
+
+### Scope
+
+- Add `npm run public:export` as the local export builder entry point.
+- Copy only tracked files allowed by `public-export.manifest.json`, while enforcing denied paths and exact-file denylists.
+- Validate the generated tree for denied paths, symlinks, setup-surface denied content patterns, and secret-like public setup values.
+- Require a current passing local release gate report by default, with an explicit skip flag for isolated diagnostics.
+- Support optional clean local commit creation inside the generated export tree without adding remotes or pushing.
+- Update public README wording so the generated mirror does not depend on maintainer-only `docs/wiki` paths.
+
+### Acceptance Criteria
+
+- `npm run public:export -- --force` creates a sanitized local export tree after a current local gate.
+- `npm run public:export -- --force --commit` creates a clean local git commit inside the export tree and reports the commit hash.
+- The builder reports `pushed: false` and contains no remote/push behavior.
+- The export report is written under ignored local artifacts.
+- Version metadata, release notes, Help > Releases feed, and running-stack readback are aligned for `3.18.1`.
+
+### Active Slice Notes
+
+- This slice does not choose or push to a public mirror target.
+- The generated `public-export/` tree is ignored local output and should be reviewed before any separate publish action.
+- Historical release notes remain exportable but are not part of the setup-surface content-pattern scan because they contain old runtime terminology and command examples.
+
+### Closeout
+
+- Status: completed in `3.18.1`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/50-Local-CI-CD-Release-Gate.md`, `docs/wiki/51-Public-Repository-Sanitization.md`, and `docs/releases/v3.18.1.md`.
+- Runtime evidence: rebuilt the local Docker stack from source with `APP_VERSION=3.18.1` using `docker-compose.yml` plus `docker-compose.localhost.yml`; backend and frontend containers became healthy; `/api/health` reported `version/frontend/backend/build=3.18.1`; Docker Help > Releases smoke served `3.18.1` as the newest entry; `npm --prefix backend run test:observability-evidence` refreshed `artifacts/observability-evidence/observability-release-evidence.json` for `3.18.1` after an initial rebuild-overlap run failed on `loki_collector_smoke`.
+- Verification: `node --check scripts/build-public-export.js`; `node --check scripts/validate-public-export-surface.js`; `npm run validate:public-export`; backend unit tests (`314` passed); OpenAPI validation; frontend production build; Docker backend/frontend build; Docker Help > Releases smoke; observability release evidence; `npm run release:local-gate` standard profile (`11` passed, `0` failed, `0` blocked); `npm run public:export -- --force` copied `703` files with `pushed=false`; `npm run public:export -- --force --commit` created ignored local export commit `3c9c2d5f6b28`; generated export tree check confirmed `.github`, `docs/wiki`, artifacts, and local compose overrides were absent; targeted added-line secret-pattern scan; and `git diff --check`.
+- Blocked/unverified: local preflight still marks stricter secure-cookie `compose-smoke` blocked because the normal development stack uses `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`; `secret-scan`, `browser-regression`, and `image-security-and-sbom` remain CI or locally provisioned full-profile follow-through gates.
+- Risks/follow-ups: the builder creates an ignored local export tree and optional clean local commit only. A future publish handoff can add the chosen public mirror remote/branch workflow, but it must remain explicit and must not run as part of ordinary git push.
+- Files changed: `.gitignore`; `README.md`; `app-meta.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `backend/app-meta.json`; `backend/package-lock.json`; `backend/package.json`; `backend/release-feed.json`; `backend/scripts/unit-tests.js`; `docs/releases/v3.18.1.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/51-Public-Repository-Sanitization.md`; `frontend/package-lock.json`; `frontend/package.json`; `frontend/src/app-meta.json`; `package.json`; `preflight-go-no-go.md`; `public-export.manifest.json`; `scripts/build-public-export.js`; and `scripts/validate-public-export-surface.js`.
+- What remains in the milestone: nothing for `3.18.1`; choosing a real public mirror target and adding an explicit publish handoff remain future work.
+
 ## 3.18.0 — Public Repository Sanitization Strategy
 
 **Goal:** Promote the public repository sanitization backlog item into a concrete private-source/public-mirror contract so public source can stay inspectable and deployable without exposing private maintainer workflow, roadmap/backlog detail, release evidence, local runtime overrides, or private git history.
