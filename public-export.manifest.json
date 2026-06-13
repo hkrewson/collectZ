@@ -15,7 +15,14 @@
     "docker-compose.yml",
     "env.example",
     "app-meta.json",
-    "docs/public/"
+    "docs/public/",
+    "backend/openapi/",
+    "frontend/index.html",
+    "frontend/package-lock.json",
+    "frontend/package.json",
+    "frontend/src/",
+    "frontend/tailwind.config.js",
+    "frontend/vite.config.js"
   ],
   "deniedPathPrefixes": [
     ".github/",
@@ -30,7 +37,6 @@
     "backend/db/",
     "backend/healthcheck.js",
     "backend/middleware/",
-    "backend/openapi/",
     "backend/package-lock.json",
     "backend/package.json",
     "backend/release-feed.json",
@@ -46,14 +52,8 @@
     "frontend/.dockerignore",
     "frontend/dist/",
     "frontend/Dockerfile",
-    "frontend/index.html",
     "frontend/nginx.conf",
-    "frontend/package-lock.json",
-    "frontend/package.json",
     "frontend/public/",
-    "frontend/src/",
-    "frontend/tailwind.config.js",
-    "frontend/vite.config.js",
     "tests/playwright/artifacts/",
     "playwright-report/",
     "test-results/",
@@ -75,6 +75,8 @@
     "runtime-smoke",
     "control-plane",
     "docs/wiki",
+    "support_admin",
+    "server-admin",
     "homelab edition",
     "platform edition"
   ],
@@ -87,7 +89,7 @@
   ],
   "notes": [
     "The public mirror is generated from a private source-of-truth checkout after local validation, not by pushing or mirroring private git history.",
-    "The first public mirror includes deployment files, public setup docs, and version metadata for the GHCR containers. Application implementation source stays in the private source-of-truth repository until the runtime-boundary language is made public-safe.",
+    "The first public mirror includes deployment files, public setup docs, audited frontend source, the public OpenAPI contract, and version metadata for the GHCR containers. Backend implementation source stays in the private source-of-truth repository.",
     "The allowlist defines the first export contract. A path must be intentionally allowed before it can appear in a generated public tree.",
     "The denylist wins over the allowlist."
   ]

@@ -6,6 +6,35 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.18.6 — Public Mirror Frontend Source Export
+
+**Goal:** Expand the generated public mirror to include the audited frontend source surface and public OpenAPI contract while keeping backend implementation source private.
+
+### Scope
+
+- Add `backend/openapi/` to the public export allowlist.
+- Add curated frontend source/build files to the public export allowlist.
+- Keep backend implementation, private CI, maintainer docs, generated builds, local overrides, and evidence artifacts denied.
+- Update public export validation policy and maintainer documentation for the new source-publication boundary.
+
+### Acceptance Criteria
+
+- `npm run audit:public-source-boundary` reports zero findings.
+- `npm run validate:public-export` passes with the curated source paths allowed.
+- Public export generation includes frontend source and OpenAPI, rejects denied paths/content, and creates a clean local public commit without pushing.
+- Version metadata, release notes, Help > Releases feed, and running-stack readback are aligned for `3.18.6`.
+
+### Closeout
+
+- Status: completed in `3.18.6`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/50-Local-CI-CD-Release-Gate.md`, `docs/wiki/51-Public-Repository-Sanitization.md`, and `docs/releases/v3.18.6.md`.
+- Runtime evidence: rebuilt the local Docker stack from source with `APP_VERSION=3.18.6`; backend and frontend containers became healthy; `/api/health` reported `version/frontend/backend/build=3.18.6`; Docker Help > Releases smoke served `3.18.6` as the newest entry; observability release evidence refreshed with all checks passing.
+- Verification: `npm run audit:public-source-boundary` reported `0` findings across the curated source candidates; `npm run validate:public-export` passed; backend unit tests passed; OpenAPI validation passed; frontend production build passed; local release gate passed with `11` passed, `0` failed, `0` blocked; public export regenerated `62` files with clean local public commit `fd5eefeb35f1` and no push; manual public-export scan found no guarded terms.
+- Blocked/unverified: `secret-scan`, `browser-regression`, and `image-security-and-sbom` remain CI or locally provisioned full-profile follow-through gates.
+- Risks/follow-ups: backend implementation source remains private; public mirror publication still requires an explicit maintainer push from the generated `public-export` repository. The frontend source now avoids raw internal role labels through a shared frontend constant, but backend RBAC source remains private and retains the real server-side role contract.
+- Files changed: `app-meta.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `backend/app-meta.json`; `backend/package-lock.json`; `backend/package.json`; `backend/release-feed.json`; `backend/scripts/unit-tests.js`; `docs/releases/v3.18.6.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/51-Public-Repository-Sanitization.md`; `frontend/package-lock.json`; `frontend/package.json`; `frontend/src/App.jsx`; `frontend/src/app-meta.json`; `frontend/src/components/AdminUsersView.jsx`; `frontend/src/components/HelpView.jsx`; `frontend/src/components/SidebarNav.jsx`; `frontend/src/components/SupportInboxView.jsx`; `frontend/src/components/app/DashboardContent.jsx`; `frontend/src/components/app/DashboardShell.jsx`; `frontend/src/components/app/SupportSessionBanner.jsx`; `frontend/src/components/app/productEdition.js`; `preflight-go-no-go.md`; `public-export.manifest.json`; `scripts/audit-public-source-boundary.js`; and `scripts/validate-public-export-surface.js`.
+- What remains in the milestone: nothing for `3.18.6`; the next publication step is maintainer-controlled push of the generated `public-export` repository to the public remote.
+
 ## 3.18.5 — Public Runtime Contract Alias
 
 **Goal:** Retire the remaining source-boundary findings by publishing public-safe runtime contract names while preserving backend compatibility fields.

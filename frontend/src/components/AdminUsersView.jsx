@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { SUPPORT_STAFF_ROLE } from './app/productEdition';
 
-const USER_ROLES = ['admin', 'support_admin', 'user', 'viewer'];
+const USER_ROLES = ['admin', SUPPORT_STAFF_ROLE, 'user', 'viewer'];
 
 function formatSpaceMemberships(spaces) {
   if (!Array.isArray(spaces) || spaces.length === 0) return 'No workspace memberships';
@@ -146,7 +147,7 @@ export default function AdminUsersView({ apiCall, onToast, currentUserId, Icons,
         <div className="space-y-3">
           <h1 className="section-title">Members</h1>
           <p className="text-sm text-ghost max-w-3xl">
-            Platform-level member administration. Tenant invites and workspace governance live in the workspace-specific controls, not in this server-admin screen.
+            Platform-level member administration. Tenant invites and workspace governance live in the workspace-specific controls, not in this member administration screen.
           </p>
         </div>
         {loadError && <p className="text-sm text-err">{loadError}</p>}

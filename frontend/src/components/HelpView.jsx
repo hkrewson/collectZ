@@ -5,7 +5,8 @@ import {
   getHelpSurfaceTitle,
   getHelpTabDefinitions,
   getSafeHelpTab,
-  isSupportHelpEnabled
+  isSupportHelpEnabled,
+  SUPPORT_STAFF_ROLE
 } from './app/productEdition';
 
 const HELP_ARTICLES = [
@@ -160,7 +161,7 @@ function actorLabel(message) {
   if (message?.author_role === 'system') return 'System';
   if (message?.author_name) return message.author_name;
   if (message?.author_email) return message.author_email;
-  if (message?.author_role === 'support_admin') return 'Support';
+  if (message?.author_role === SUPPORT_STAFF_ROLE) return 'Support';
   if (message?.author_role === 'admin') return 'Admin';
   return 'You';
 }
@@ -266,7 +267,7 @@ export default function HelpView({
   const threadEndRef = useRef(null);
   const triageRequestIdRef = useRef(null);
   const supportHelpEnabled = useMemo(() => isSupportHelpEnabled(productEdition), [productEdition]);
-  const isSupportStaff = supportHelpEnabled && ['admin', 'support_admin'].includes(String(user?.role || ''));
+  const isSupportStaff = supportHelpEnabled && ['admin', SUPPORT_STAFF_ROLE].includes(String(user?.role || ''));
   const helpTitle = useMemo(() => getHelpSurfaceTitle(productEdition, isSupportStaff), [productEdition, isSupportStaff]);
   const requestStatusTone = useMemo(() => ({
     open: 'badge-warn',

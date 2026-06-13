@@ -19,7 +19,8 @@ import {
   getSafeDashboardTab,
   isSupportHelpEnabled,
   LEGACY_PRODUCT_FIELD,
-  normalizeProductEdition
+  normalizeProductEdition,
+  SUPPORT_STAFF_ROLE
 } from './components/app/productEdition';
 
 const APP_VERSION = readFrontendEnv('VITE_APP_VERSION', appMeta.frontend || appMeta.version || 'unknown');
@@ -78,7 +79,7 @@ export default function App() {
   }, [setUser]);
   const productEdition = normalizeProductEdition(user?.runtime_mode || user?.[LEGACY_PRODUCT_FIELD]);
   const supportHelpEnabled = isSupportHelpEnabled(productEdition);
-  const supportStaffInEdition = supportHelpEnabled && ['admin', 'support_admin'].includes(String(user?.role || ''));
+  const supportStaffInEdition = supportHelpEnabled && ['admin', SUPPORT_STAFF_ROLE].includes(String(user?.role || ''));
   const supportSessionActiveInEdition = supportHelpEnabled && Boolean(supportSession?.active);
   const { supportSummary, loadSupportSummary } = useSupportSummary({ apiCall, showToast, supportStaffInEdition });
   const nowPlayingDisplayToken = route === 'now-playing'
@@ -340,7 +341,7 @@ export default function App() {
   const activeMembershipRole = activeSpace?.membership_role || null;
   const canManageActiveSpace = user?.role === 'admin'
     ? supportSessionActiveInEdition || ['owner', 'admin'].includes(activeMembershipRole)
-    : user?.role === 'support_admin'
+    : user?.role === SUPPORT_STAFF_ROLE
       ? supportSessionActiveInEdition
       : ['owner', 'admin'].includes(activeMembershipRole);
   const fallbackManageableSpace = spaces.find((space) => ['owner', 'admin'].includes(String(space?.membership_role || ''))) || null;

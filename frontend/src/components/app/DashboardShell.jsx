@@ -5,7 +5,7 @@ import DashboardContent from './DashboardContent';
 import SupportSessionBanner from './SupportSessionBanner';
 import { DEFAULT_INTEGRATION_SECTION } from './dashboardRouting';
 import { ImportStatusDock, Toast, Icons, Spinner, cx } from './AppPrimitives';
-import { getSafeDashboardTab, isLocalProductEdition, isSupportHelpEnabled } from './productEdition';
+import { getSafeDashboardTab, isLocalProductEdition, isSupportHelpEnabled, SUPPORT_STAFF_ROLE } from './productEdition';
 
 const MOBILE_HEADER_TITLES = {
   dashboard: 'Dashboard',
@@ -135,7 +135,7 @@ export default function DashboardShell({
 }) {
   const desktopNavExpanded = !collapsed;
   const supportHelpEnabled = isSupportHelpEnabled(productEdition);
-  const supportStaffInEdition = supportHelpEnabled && ['admin', 'support_admin'].includes(String(user?.role || ''));
+  const supportStaffInEdition = supportHelpEnabled && ['admin', SUPPORT_STAFF_ROLE].includes(String(user?.role || ''));
   const supportSessionActiveInEdition = supportHelpEnabled && Boolean(supportSession?.active);
   const mobileHeaderTitle = getMobileHeaderTitle(activeTab, productEdition);
   const MobileHeaderIcon = getMobileHeaderIcon(activeTab);

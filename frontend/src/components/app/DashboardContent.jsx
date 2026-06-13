@@ -18,7 +18,7 @@ import ArtView from '../ArtView';
 import ForbiddenView from '../ForbiddenView';
 import SpaceManagerView from '../SpaceManagerView';
 import HelpView from '../HelpView';
-import { getSafeHelpTab, isLocalProductEdition, isSupportHelpEnabled } from './productEdition';
+import { getSafeHelpTab, isLocalProductEdition, isSupportHelpEnabled, SUPPORT_STAFF_ROLE } from './productEdition';
 
 const forcedMediaTypeByTab = {
   'library-movies': 'movie',
@@ -91,7 +91,7 @@ export default function DashboardContent({
   const isAdminTab = String(activeTab || '').startsWith('admin-');
   const supportHelpEnabled = isSupportHelpEnabled(productEdition);
   const localRuntime = isLocalProductEdition(productEdition);
-  const supportStaffInEdition = supportHelpEnabled && ['admin', 'support_admin'].includes(String(user?.role || ''));
+  const supportStaffInEdition = supportHelpEnabled && ['admin', SUPPORT_STAFF_ROLE].includes(String(user?.role || ''));
   const supportAdminAllowedTabs = new Set([
     'help',
     'profile',
@@ -102,7 +102,7 @@ export default function DashboardContent({
     return <ForbiddenView detail="Admin permissions are required to access this view." />;
   }
 
-  if (user?.role === 'support_admin' && !supportAdminAllowedTabs.has(String(activeTab || ''))) {
+  if (user?.role === SUPPORT_STAFF_ROLE && !supportAdminAllowedTabs.has(String(activeTab || ''))) {
     return <ForbiddenView detail="Support admins stay in the support surface by default and cannot browse tenant library data without a later approved support workflow." />;
   }
 

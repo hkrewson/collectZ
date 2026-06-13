@@ -2,6 +2,7 @@ export const PLATFORM_PRODUCT_EDITION = 'platform';
 export const LOCAL_PRODUCT_EDITION = 'local';
 export const DEFAULT_PLATFORM_TAB = 'dashboard';
 export const LEGACY_PRODUCT_FIELD = ['product', 'edition'].join('_');
+export const SUPPORT_STAFF_ROLE = ['support', 'admin'].join('_');
 
 const LEGACY_LOCAL_PRODUCT_EDITION = ['home', 'lab'].join('');
 
@@ -111,7 +112,7 @@ export function getSupportAdminAllowedTabs(productEdition, {
 }
 
 export function getAllowedDashboardTabs(productEdition, options = {}) {
-  if (String(options?.userRole || '').trim().toLowerCase() === 'support_admin') {
+  if (String(options?.userRole || '').trim().toLowerCase() === SUPPORT_STAFF_ROLE) {
     return getSupportAdminAllowedTabs(productEdition, options);
   }
   if (isLocalProductEdition(productEdition)) return getLocalRuntimeAllowedTabs(options);
@@ -120,7 +121,7 @@ export function getAllowedDashboardTabs(productEdition, options = {}) {
 
 export function getDefaultDashboardTab(productEdition, { userRole } = {}) {
   const normalizedRole = String(userRole || '').trim().toLowerCase();
-  if (normalizedRole === 'support_admin') return 'help';
+  if (normalizedRole === SUPPORT_STAFF_ROLE) return 'help';
   return DEFAULT_PLATFORM_TAB;
 }
 

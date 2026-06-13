@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { SUPPORT_STAFF_ROLE } from './app/productEdition';
 
 const SUPPORT_INBOX_POLL_MS = 30000;
 
@@ -14,7 +15,7 @@ function formatTimestamp(value) {
 function actorLabel(message) {
   if (message?.author_name) return message.author_name;
   if (message?.author_email) return message.author_email;
-  if (message?.author_role === 'support_admin') return 'Support';
+  if (message?.author_role === SUPPORT_STAFF_ROLE) return 'Support';
   if (message?.author_role === 'admin') return 'Admin';
   return 'Member';
 }
@@ -292,7 +293,7 @@ export default function SupportInboxView({ apiCall, onToast, Spinner, Icons }) {
                   <ThreadBubble
                     key={message.id}
                     message={message}
-                    isSupportReply={['support_admin', 'admin'].includes(String(message.author_role || ''))}
+                    isSupportReply={[SUPPORT_STAFF_ROLE, 'admin'].includes(String(message.author_role || ''))}
                   />
                 ))}
                 <div ref={threadEndRef} />

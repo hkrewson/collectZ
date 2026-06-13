@@ -92,7 +92,6 @@ function validateManifest() {
     'backend/db/',
     'backend/healthcheck.js',
     'backend/middleware/',
-    'backend/openapi/',
     'backend/package-lock.json',
     'backend/package.json',
     'backend/release-feed.json',
@@ -103,14 +102,8 @@ function validateManifest() {
     'backend/test/',
     'frontend/.dockerignore',
     'frontend/Dockerfile',
-    'frontend/index.html',
     'frontend/nginx.conf',
-    'frontend/package-lock.json',
-    'frontend/package.json',
     'frontend/public/',
-    'frontend/src/',
-    'frontend/tailwind.config.js',
-    'frontend/vite.config.js',
     'frontend/dist/'
   ]) {
     if (!denyPrefixes.includes(privateSourcePrefix)) {
@@ -137,6 +130,8 @@ function validateManifest() {
     'runtime-smoke',
     'control-plane',
     'docs/wiki',
+    'support_admin',
+    'server-admin',
     'homelab edition',
     'platform edition'
   ]) {

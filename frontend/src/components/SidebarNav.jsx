@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Icons, cx, isInteractiveTarget, posterUrl } from './app/AppPrimitives';
 import CollectzMark from './CollectzMark';
-import { getAllowedDashboardTabs, isLocalProductEdition, isSupportHelpEnabled } from './app/productEdition';
+import { getAllowedDashboardTabs, isLocalProductEdition, isSupportHelpEnabled, SUPPORT_STAFF_ROLE } from './app/productEdition';
 
 const DiscordIcon = () => (
   <svg viewBox="0 0 16 16" fill="currentColor" className="w-5 h-5" aria-hidden="true">
@@ -39,7 +39,7 @@ export default function SidebarNav({
   productEdition = 'platform'
 }) {
   const isAdmin = user?.role === 'admin';
-  const isSupportAdmin = user?.role === 'support_admin';
+  const isSupportAdmin = user?.role === SUPPORT_STAFF_ROLE;
   const localRuntime = isLocalProductEdition(productEdition);
   const supportHelpEnabled = isSupportHelpEnabled(productEdition);
   const isSupportStaff = supportHelpEnabled && (isAdmin || isSupportAdmin);

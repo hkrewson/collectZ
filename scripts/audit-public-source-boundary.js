@@ -67,6 +67,16 @@ const SOURCE_BOUNDARY_PATTERNS = [
     pattern: 'docs/wiki',
     category: 'private documentation path',
     disposition: 'Replace with public docs references before source publication.'
+  },
+  {
+    pattern: 'support_admin',
+    category: 'private role label',
+    disposition: 'Avoid exposing internal role identifiers in public source.'
+  },
+  {
+    pattern: 'server-admin',
+    category: 'private operations label',
+    disposition: 'Replace with neutral admin wording before source publication.'
   }
 ];
 

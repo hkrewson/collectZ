@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.18.6",
+      "version": "3.18.6",
+      "date": null,
+      "status": null,
+      "summary": "This patch expands the generated public mirror beyond install/support files by adding the audited frontend source surface and public OpenAPI contract to the export manifest. Backend implementation source remains private.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added `backend/openapi/` to the public export allowlist.",
+            "Added curated frontend source/build files to the public export allowlist: `frontend/index.html`, `frontend/package.json`, `frontend/package-lock.json`, `frontend/src/`, `frontend/tailwind.config.js`, and `frontend/vite.config.js`.",
+            "Updated public export validation policy to allow those audited paths while continuing to deny backend implementation, private CI, maintainer docs, artifacts, generated builds, and local overrides.",
+            "Updated maintainer public-repository documentation to reflect the new source-publication boundary."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.18.5",
       "version": "3.18.5",
       "date": null,
@@ -164,23 +182,6 @@
             "Pointed the CodeQL workflow at the checked-in maintained-source suite while keeping the existing generated-output `paths-ignore` config.",
             "Documented that the excluded HTTP-to-file findings are expected authenticated upload persistence or local smoke/proof artifact writes to fixed/generated paths.",
             "Normalized upload payloads to a Buffer copy before local or S3 persistence."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.16.34",
-      "version": "3.16.34",
-      "date": null,
-      "status": null,
-      "summary": "This patch continues maintained-source CodeQL cleanup by making the existing custom CSRF middleware recognizable to CodeQL while preserving the browser cookie-session CSRF contract.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Kept mutating browser requests on the existing double-submit CSRF cookie and `x-csrf-token` header validation path.",
-            "Made the default `csrf_token` cookie read explicit when the deployment uses the default CSRF cookie name, while preserving custom `CSRF_COOKIE_NAME` support.",
-            "Added unit coverage for accepted matching CSRF tokens and rejected missing CSRF headers."
           ]
         }
       ]

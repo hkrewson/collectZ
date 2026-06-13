@@ -15,7 +15,7 @@ collectZ should be publicly deployable without exposing private maintainer workf
 - GHCR images remain the primary runtime distribution path for deployed containers.
 - Public release notes and public deployment files must line up with the container tags they describe.
 - Hosted GitHub security features may still run on the public mirror, but they are not the only validation gate. The private/local release gate must pass before a public export is produced.
-- Application source remains private until a separate source-publication boundary is intentionally designed and reviewed.
+- Backend implementation source remains private. Audited frontend source and the OpenAPI contract can be exported once `npm run audit:public-source-boundary` reports zero findings.
 
 ## Export manifest
 
@@ -32,12 +32,14 @@ The current validator is `npm run validate:public-export`. It checks both the ex
 
 ## Public mirror contents
 
-The first public mirror should include:
+The public mirror should include:
 
 - public deployment files such as `docker-compose.yml` and `env.example`,
 - a public README, security policy, and setup/update guidance,
 - version metadata needed to identify the published runtime,
-- references to GHCR runtime images.
+- references to GHCR runtime images,
+- audited frontend source and build metadata,
+- the public OpenAPI contract.
 
 The public mirror must not include:
 
@@ -49,11 +51,11 @@ The public mirror must not include:
 - `.env` files or secret-bearing config,
 - platform/control-plane runbooks and internal operational docs,
 - private source-of-truth git history.
-- application source until a source-publication boundary is separately designed.
+- backend implementation source until a source-publication boundary is separately designed.
 
 ## Source-publication boundary audit
 
-Before adding frontend source, OpenAPI, or backend implementation paths back into `public-export.manifest.json`, run:
+Before adding or expanding frontend source, OpenAPI, or backend implementation paths in `public-export.manifest.json`, run:
 
 ```bash
 npm run audit:public-source-boundary
@@ -68,7 +70,7 @@ The audit scans the candidate public source surfaces and writes a JSON report un
 - auth/test bypass labels,
 - maintainer-only documentation paths.
 
-The first useful source mirror should not be produced by weakening the export allowlist. It should be produced by resolving or intentionally excluding the audit findings until the source surfaces are public-safe by design.
+A useful source mirror should not be produced by weakening the export allowlist. It should be produced by resolving or intentionally excluding the audit findings until the source surfaces are public-safe by design.
 
 ## Publication workflow
 
