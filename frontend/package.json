@@ -1,0 +1,40 @@
+{
+  "name": "collectz-frontend",
+  "version": "3.18.6",
+  "private": true,
+  "dependencies": {
+    "@zxing/browser": "^0.2.0",
+    "@zxing/library": "^0.22.0",
+    "axios": "^1.15.0",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "tesseract.js": "^7.0.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.0",
+    "@vitejs/plugin-react": "^6.0.1",
+    "esbuild": "^0.28.0",
+    "tailwindcss": "^4.3.0",
+    "vite": "^8.0.14"
+  },
+  "overrides": {
+    "follow-redirects": "1.16.0"
+  },
+  "scripts": {
+    "start": "vite",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}
