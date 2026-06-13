@@ -52,6 +52,8 @@ const {
   getProductEdition,
   isHomelabEdition,
   buildEditionContract,
+  buildRuntimeContract,
+  getPublicRuntimeMode,
   resolvePersistedActiveSpaceId,
   stripHomelabSpaceContext,
   stripHomelabSpaceContextFromUser
@@ -372,6 +374,8 @@ async function buildPublicAuthConfig() {
     : firstUserBootstrap || (registrationRequested && smtpConfigured);
 
   return {
+    runtime_mode: getPublicRuntimeMode(productEdition),
+    runtime_contract: buildRuntimeContract(productEdition),
     product_edition: productEdition,
     edition_contract: buildEditionContract(productEdition),
     register_available: registerAvailable,
@@ -610,6 +614,8 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
   res.json({
     user: {
       ...stripHomelabSpaceContextFromUser(result.rows[0], getProductEdition()),
+      runtime_mode: getPublicRuntimeMode(getProductEdition()),
+      runtime_contract: buildRuntimeContract(getProductEdition()),
       active_space_id: stripHomelabSpaceContext({ active_space_id: activeSpaceId }, getProductEdition()).active_space_id,
       active_library_id: activeLibraryId
     }
@@ -657,6 +663,8 @@ router.post('/login', validate(loginSchema), asyncHandler(async (req, res) => {
   res.json({
     user: {
       ...stripHomelabSpaceContextFromUser(userWithoutPassword, getProductEdition()),
+      runtime_mode: getPublicRuntimeMode(getProductEdition()),
+      runtime_contract: buildRuntimeContract(getProductEdition()),
       active_space_id: stripHomelabSpaceContext({ active_space_id: activeSpaceId }, getProductEdition()).active_space_id,
       active_library_id: activeLibraryId
     }
@@ -786,6 +794,8 @@ router.post('/email-verification/consume', validate(emailVerificationConsumeSche
   res.json({
     user: {
       ...stripHomelabSpaceContextFromUser(me, getProductEdition()),
+      runtime_mode: getPublicRuntimeMode(getProductEdition()),
+      runtime_contract: buildRuntimeContract(getProductEdition()),
       active_space_id: stripHomelabSpaceContext({ active_space_id: ensuredScope.spaceId }, getProductEdition()).active_space_id,
       active_library_id: ensuredScope.libraryId
     }
@@ -972,6 +982,8 @@ router.get('/me', authenticateToken, asyncHandler(async (req, res) => {
   const row = result.rows[0];
   res.json(stripHomelabSpaceContextFromUser({
     ...row,
+    runtime_mode: getPublicRuntimeMode(getProductEdition()),
+    runtime_contract: buildRuntimeContract(getProductEdition()),
     product_edition: getProductEdition(),
     edition_contract: buildEditionContract(getProductEdition()),
     active_space_id: req.user.scopeSpaceId ?? req.user.activeSpaceId ?? row.active_space_id ?? null,
@@ -1299,6 +1311,8 @@ router.get('/profile', authenticateToken, asyncHandler(async (req, res) => {
   const row = result.rows[0];
   res.json(stripHomelabSpaceContextFromUser({
     ...row,
+    runtime_mode: getPublicRuntimeMode(getProductEdition()),
+    runtime_contract: buildRuntimeContract(getProductEdition()),
     product_edition: getProductEdition(),
     edition_contract: buildEditionContract(getProductEdition()),
     active_space_id: req.user.scopeSpaceId ?? req.user.activeSpaceId ?? row.active_space_id ?? null,

@@ -35,6 +35,18 @@ function buildEditionContract(edition = null) {
   };
 }
 
+function getPublicRuntimeMode(edition = null) {
+  return isHomelabEdition(edition) ? 'local' : 'platform';
+}
+
+function buildRuntimeContract(edition = null) {
+  const contract = buildEditionContract(edition);
+  return {
+    ...contract,
+    shell: getPublicRuntimeMode(edition)
+  };
+}
+
 function stripHomelabSpaceContext(payload, edition = null) {
   if (!isHomelabEdition(edition)) return payload;
   if (!payload || typeof payload !== 'object') return payload;
@@ -64,6 +76,8 @@ module.exports = {
   getProductEdition,
   isHomelabEdition,
   buildEditionContract,
+  getPublicRuntimeMode,
+  buildRuntimeContract,
   stripHomelabSpaceContext,
   stripHomelabSpaceContextFromUser,
   resolvePersistedActiveSpaceId

@@ -287,8 +287,8 @@
           "role": { "type": "string" },
           "email_verified": { "type": "boolean" },
           "email_verified_at": { "type": ["string", "null"], "format": "date-time" },
-          "product_edition": { "type": "string", "enum": ["platform", "homelab"] },
-          "edition_contract": { "$ref": "#/components/schemas/EditionContract" },
+          "runtime_mode": { "type": "string", "enum": ["platform", "local"] },
+          "runtime_contract": { "$ref": "#/components/schemas/RuntimeContract" },
           "active_space_id": { "type": ["integer", "null"] },
           "active_library_id": { "type": ["integer", "null"] },
           "created_at": { "type": "string", "format": "date-time" },
@@ -296,10 +296,10 @@
         },
         "required": ["id", "email", "name", "role"]
       },
-      "EditionContract": {
+      "RuntimeContract": {
         "type": "object",
         "properties": {
-          "shell": { "type": "string", "enum": ["platform", "homelab"] },
+          "shell": { "type": "string", "enum": ["platform", "local"] },
           "library_model": { "type": "string", "enum": ["multi_workspace_platform", "single_library_household"] },
           "additional_user_model": { "type": "string", "enum": ["workspace_memberships", "local_accounts"] },
           "workspace_surface": { "type": "boolean" },
@@ -361,8 +361,8 @@
       "AuthConfigResponse": {
         "type": "object",
         "properties": {
-          "product_edition": { "type": "string", "enum": ["platform", "homelab"] },
-          "edition_contract": { "$ref": "#/components/schemas/EditionContract" },
+          "runtime_mode": { "type": "string", "enum": ["platform", "local"] },
+          "runtime_contract": { "$ref": "#/components/schemas/RuntimeContract" },
           "register_available": { "type": "boolean" },
           "invite_required": { "type": "boolean" },
           "first_user_bootstrap": { "type": "boolean" },
@@ -370,7 +370,7 @@
           "email_verification_required": { "type": "boolean" },
           "smtp_configured": { "type": ["boolean", "null"] }
         },
-        "required": ["product_edition", "edition_contract", "register_available", "invite_required", "first_user_bootstrap", "password_reset_available", "email_verification_required", "smtp_configured"]
+        "required": ["runtime_mode", "runtime_contract", "register_available", "invite_required", "first_user_bootstrap", "password_reset_available", "email_verification_required", "smtp_configured"]
       },
       "EmailVerificationRequest": {
         "type": "object",
@@ -5399,7 +5399,7 @@
         },
         "responses": {
           "200": {
-            "description": "Invite or homelab registration succeeded and a browser session was issued",
+            "description": "Invite or local registration succeeded and a browser session was issued",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/LoginResponse" }

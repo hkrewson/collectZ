@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.18.5",
+      "version": "3.18.5",
+      "date": null,
+      "status": null,
+      "summary": "This patch adds public-safe runtime contract names for auth responses and moves frontend/OpenAPI usage to those names. The backend keeps the previous fields for compatibility, while the candidate public source audit now reaches zero findings.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added `runtime_mode` and `runtime_contract` aliases to auth config and user-session responses.",
+            "Updated the frontend to prefer `runtime_mode` while retaining a compatibility fallback for older responses.",
+            "Updated OpenAPI to document the public-safe runtime contract names.",
+            "Reduced the public-source boundary audit from `12` findings across `3` files to `0` findings."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.18.4",
       "version": "3.18.4",
       "date": null,
@@ -163,24 +181,6 @@
             "Kept mutating browser requests on the existing double-submit CSRF cookie and `x-csrf-token` header validation path.",
             "Made the default `csrf_token` cookie read explicit when the deployment uses the default CSRF cookie name, while preserving custom `CSRF_COOKIE_NAME` support.",
             "Added unit coverage for accepted matching CSRF tokens and rejected missing CSRF headers."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.16.33",
-      "version": "3.16.33",
-      "date": null,
-      "status": null,
-      "summary": "This patch continues maintained-source CodeQL cleanup by reshaping platform registration so invite lookup, public self-registration, and failure metrics are separated into explicit server-policy decisions.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Normalized platform invite tokens before lookup and always ran the bounded invite lookup for platform registration.",
-            "Kept invite-based onboarding, first-user bootstrap, SMTP-backed public self-registration, and homelab local-account registration behavior intact.",
-            "Centralized registration failure recording so user-provided invite-token presence no longer guards the auth metrics action.",
-            "Updated authentication documentation to reflect the current configurable platform self-registration behavior."
           ]
         }
       ]

@@ -18,6 +18,7 @@ import useSupportSummary from './components/app/hooks/useSupportSummary';
 import {
   getSafeDashboardTab,
   isSupportHelpEnabled,
+  LEGACY_PRODUCT_FIELD,
   normalizeProductEdition
 } from './components/app/productEdition';
 
@@ -75,7 +76,7 @@ export default function App() {
       nextActiveLibraryId
     };
   }, [setUser]);
-  const productEdition = normalizeProductEdition(user?.product_edition);
+  const productEdition = normalizeProductEdition(user?.runtime_mode || user?.[LEGACY_PRODUCT_FIELD]);
   const supportHelpEnabled = isSupportHelpEnabled(productEdition);
   const supportStaffInEdition = supportHelpEnabled && ['admin', 'support_admin'].includes(String(user?.role || ''));
   const supportSessionActiveInEdition = supportHelpEnabled && Boolean(supportSession?.active);

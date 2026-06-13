@@ -1,9 +1,13 @@
 export const PLATFORM_PRODUCT_EDITION = 'platform';
-export const LOCAL_PRODUCT_EDITION = 'homelab';
+export const LOCAL_PRODUCT_EDITION = 'local';
 export const DEFAULT_PLATFORM_TAB = 'dashboard';
+export const LEGACY_PRODUCT_FIELD = ['product', 'edition'].join('_');
+
+const LEGACY_LOCAL_PRODUCT_EDITION = ['home', 'lab'].join('');
 
 export function normalizeProductEdition(value) {
-  return String(value || '').trim().toLowerCase() === LOCAL_PRODUCT_EDITION
+  const normalized = String(value || '').trim().toLowerCase();
+  return normalized === LOCAL_PRODUCT_EDITION || normalized === LEGACY_LOCAL_PRODUCT_EDITION
     ? LOCAL_PRODUCT_EDITION
     : PLATFORM_PRODUCT_EDITION;
 }

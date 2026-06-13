@@ -6,6 +6,35 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.18.5 — Public Runtime Contract Alias
+
+**Goal:** Retire the remaining source-boundary findings by publishing public-safe runtime contract names while preserving backend compatibility fields.
+
+### Scope
+
+- Add `runtime_mode` and `runtime_contract` aliases to auth config and authenticated user responses.
+- Move frontend runtime-mode consumption to the new public-safe field with a compatibility fallback.
+- Update OpenAPI to document `runtime_mode` and `runtime_contract`.
+- Keep legacy backend response fields available for existing clients.
+- Keep adding source paths to the public export manifest out of this slice.
+
+### Acceptance Criteria
+
+- `npm run audit:public-source-boundary` reports zero findings.
+- Backend unit tests, OpenAPI validation, and frontend build pass.
+- Version metadata, release notes, Help > Releases feed, and running-stack readback are aligned for `3.18.5`.
+
+### Closeout
+
+- Status: completed in `3.18.5`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/50-Local-CI-CD-Release-Gate.md`, `docs/wiki/51-Public-Repository-Sanitization.md`, and `docs/releases/v3.18.5.md`.
+- Runtime evidence: rebuilt the local Docker stack from source with `APP_VERSION=3.18.5`; backend and frontend containers became healthy; `/api/health` reported `version/frontend/backend/build=3.18.5`; Docker Help > Releases smoke served `3.18.5` as the newest entry; observability release evidence refreshed with all checks passing.
+- Verification: `npm run audit:public-source-boundary` reported `0` findings; backend unit tests passed; OpenAPI validation passed; frontend production build passed; local release gate passed; public export regenerated with clean local commit `5ea775f6f68f` and no push.
+- Blocked/unverified: `secret-scan`, `browser-regression`, and `image-security-and-sbom` remain CI or locally provisioned full-profile follow-through gates.
+- Risks/follow-ups: the public export still publishes only the install/support mirror; adding frontend/OpenAPI source paths to `public-export.manifest.json` is the next distinct source-publication step. The legacy backend compatibility fields remain present and can be removed only after clients move to `runtime_mode` and `runtime_contract`.
+- Files changed: `app-meta.json`; `artifacts/observability-evidence/observability-release-evidence.json`; `backend/app-meta.json`; `backend/config/productEdition.js`; `backend/openapi/openapi.yaml`; `backend/package-lock.json`; `backend/package.json`; `backend/release-feed.json`; `backend/routes/auth.js`; `backend/scripts/unit-tests.js`; `docs/releases/v3.18.5.md`; `docs/wiki/07-Release-Roadmap.md`; `frontend/package-lock.json`; `frontend/package.json`; `frontend/src/App.jsx`; `frontend/src/app-meta.json`; `frontend/src/components/app/productEdition.js`; and `preflight-go-no-go.md`.
+- What remains in the milestone: nothing for `3.18.5`; the next source-publication step is deciding which source paths to add back to the public export manifest.
+
 ## 3.18.4 — Public Source Boundary Frontend Runtime Naming Cleanup
 
 **Goal:** Retire frontend helper and state names that used private deployment language while preserving the current backend runtime contract.

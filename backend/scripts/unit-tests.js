@@ -2317,9 +2317,14 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(authRoutesSource.includes('product_edition: getProductEdition()'));
   assert.ok(authRoutesSource.includes('edition_contract: buildEditionContract(getProductEdition())'));
   assert.ok(authRoutesSource.includes('edition_contract: buildEditionContract(productEdition)'));
-  assert.ok(openApiSource.includes('"product_edition"'));
-  assert.ok(openApiSource.includes('"EditionContract"'));
-  assert.ok(openApiSource.includes('"edition_contract"'));
+  assert.ok(authRoutesSource.includes('runtime_mode: getPublicRuntimeMode('));
+  assert.ok(authRoutesSource.includes('runtime_contract: buildRuntimeContract('));
+  assert.ok(openApiSource.includes('"runtime_mode"'));
+  assert.ok(openApiSource.includes('"RuntimeContract"'));
+  assert.ok(openApiSource.includes('"runtime_contract"'));
+  assert.ok(!openApiSource.includes('"product_edition"'));
+  assert.ok(!openApiSource.includes('"EditionContract"'));
+  assert.ok(!openApiSource.includes('"edition_contract"'));
   assert.ok(productEditionFrontendSource.includes('getHelpTabDefinitions'));
   assert.ok(productEditionFrontendSource.includes('getHelpSurfaceTitle'));
   assert.ok(productEditionFrontendSource.includes('getAllowedDashboardTabs'));
