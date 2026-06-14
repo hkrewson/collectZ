@@ -88,7 +88,7 @@ Useful optional configuration:
 - `TMDB_API_KEY`, `COMICS_API_KEY`, `BARCODE_API_KEY`, `PLEX_API_KEY`, and other provider keys as needed
 - `SMTP_*` values for invites, password reset, and email flows
 
-Provider keys, SMTP, and storage settings can also be managed in the app where supported. Keep required secrets in `.env` and do not commit that file.
+Provider keys, SMTP, and storage settings can also be managed in the app where supported.
 
 ## Integrations
 
