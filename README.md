@@ -2,6 +2,11 @@
 
 collectZ is a self-hosted collection management app capable of tracking media, books, comics, games, art, events, loans, wishlists, and more.
 
+## AI-Assisted Development
+
+collectZ is a human-directed, AI-built software project. Most of the code, documentation, tests, and release-support work has been generated or modified by AI coding tools, primarily OpenAI Codex with occasional code review by Anthropic Claude. Human contribution is focused on directing the work: defining product goals, shaping features and UI, setting review criteria, running verification, and deciding what is accepted into the project.
+
+AI output is not treated as authoritative by default. Changes are reviewed, tested, and validated against the running application before they are considered complete, with security-sensitive, release, migration, auth, and runtime work subject to the project’s documented diligence process.
 
 ## What It Does
 
@@ -132,18 +137,6 @@ curl http://localhost:3000/api/health
 ```
 
 Release notes are also available in the app under Help/Releases.
-
-## Public Mirror Notes
-
-This public repository is intended for self-hosted installation, updates, security policy, and public support context around the prebuilt GHCR images.
-
-The application source of truth, maintainer planning notes, release workflow details, and internal automation are kept separately. Public releases are published as clean mirror commits, not by exposing private git history.
-
-## Documentation
-
-This README, `SECURITY.md`, `env.example`, `setup.sh`, `docs/public/`, and the in-app Help/Releases area are the public documentation entry points for now.
-
-The maintainer knowledge base is kept separate from the public mirror because it includes planning notes, release workflow details, and operational context that are not written as end-user documentation.
 
 ## Troubleshooting
 
