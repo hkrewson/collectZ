@@ -73,8 +73,9 @@ function validateManifest() {
   const deniedContentPatterns = manifest.deniedContentPatterns || [];
   const requiredPublicDocs = manifest.requiredPublicDocs || [];
   const contentScanPrefixes = manifest.contentScanPathPrefixes || [];
+  const mappedPathPrefixes = manifest.mappedPathPrefixes || [];
 
-  for (const required of ['docs/public/', 'docker-compose.yml', 'env.example', 'README.md']) {
+  for (const required of ['docs/public/', 'public-mirror/', 'docker-compose.yml', 'env.example', 'README.md']) {
     if (!allowPrefixes.includes(required)) {
       fail(`public-export.manifest.json must allow required public surface ${required}.`);
     }
@@ -111,9 +112,29 @@ function validateManifest() {
     }
   }
 
-  for (const required of ['.github/', '.ci/', 'artifacts/', 'backend/artifacts/', 'docs/wiki/', 'ops/', 'public-export/']) {
+  if (allowPrefixes.includes('.github/') || allowPrefixes.includes('.github')) {
+    fail('public-export.manifest.json must not export private .github/ directly; use public-mirror/ mapped paths.');
+  }
+
+  const publicMirrorMapping = mappedPathPrefixes.find((mapping) => mapping.source === 'public-mirror/' && mapping.target === '');
+  if (!publicMirrorMapping) {
+    fail('public-export.manifest.json must map public-mirror/ to the public repository root.');
+  }
+
+  for (const required of ['.ci/', 'artifacts/', 'backend/artifacts/', 'docs/wiki/', 'ops/', 'public-export/']) {
     if (!denyPrefixes.includes(required)) {
       fail(`public-export.manifest.json must deny private source path ${required}.`);
+    }
+  }
+
+  for (const required of [
+    'public-mirror/.github/workflows/public-mirror-ci.yml',
+    'public-mirror/.github/workflows/codeql.yml',
+    'public-mirror/.github/dependabot.yml',
+    'public-mirror/scripts/check-public-mirror.js'
+  ]) {
+    if (!fs.existsSync(path.join(root, required))) {
+      fail(`Required public mirror automation source does not exist: ${required}`);
     }
   }
 

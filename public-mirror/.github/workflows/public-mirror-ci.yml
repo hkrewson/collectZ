@@ -1,0 +1,37 @@
+name: Public Mirror CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  public-artifact-integrity:
+    name: Public artifact integrity
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Check public mirror hygiene
+        run: node scripts/check-public-mirror.js
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci --no-fund --no-audit
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build

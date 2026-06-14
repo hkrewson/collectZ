@@ -34,3 +34,15 @@ The public mirror is generated from a private source-of-truth checkout only afte
 The public mirror includes the audited frontend source and the public OpenAPI contract so users can inspect the client and integration surface that runs against the published containers.
 
 Backend implementation source remains private. The public repository should be treated as an install, support, frontend-source, and API-contract mirror for the published GHCR images.
+
+## Public CI
+
+The public repository runs lightweight checks that match the public artifact:
+
+- frontend dependency install and production build,
+- public mirror hygiene checks for denied private-source terms and secret-like values,
+- OpenAPI contract shape checks,
+- CodeQL analysis for the exported frontend source,
+- Dependabot monitoring for frontend dependencies and public GitHub Actions.
+
+Full product release validation, backend tests, migrations, container builds, and image publishing remain in the private source-of-truth repository.

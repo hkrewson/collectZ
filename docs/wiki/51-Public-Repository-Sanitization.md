@@ -95,6 +95,8 @@ Public issues and discussions can live in the public mirror if the mirror is the
 
 Public CodeQL, Dependabot, and lightweight build checks are useful on the mirror, but they should not replace private/local gates. Any public checks should avoid labels or workflow names that expose private architecture or operational boundaries.
 
+Public mirror automation lives under `public-mirror/` in the private source tree and is mapped into the generated public repository root during export. Do not allow the private `.github/` directory directly; it contains source-of-truth release, image-publishing, and private validation workflows.
+
 ## Leak response
 
 If a denied path, secret-like value, or private-only artifact is accidentally published:

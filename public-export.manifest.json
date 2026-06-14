@@ -16,6 +16,7 @@
     "env.example",
     "app-meta.json",
     "docs/public/",
+    "public-mirror/",
     "backend/openapi/",
     "frontend/index.html",
     "frontend/package-lock.json",
@@ -25,7 +26,6 @@
     "frontend/vite.config.js"
   ],
   "deniedPathPrefixes": [
-    ".github/",
     ".ci/",
     "artifacts/",
     "backend/artifacts/",
@@ -82,6 +82,12 @@
   ],
   "contentScanPathPrefixes": [
     "*"
+  ],
+  "mappedPathPrefixes": [
+    {
+      "source": "public-mirror/",
+      "target": ""
+    }
   ],
   "requiredPublicDocs": [
     "README.md",

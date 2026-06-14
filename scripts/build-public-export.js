@@ -87,6 +87,18 @@ function isDenied(relativePath, manifest) {
   return deniedExact.includes(relativePath) || isUnderPrefix(relativePath, deniedPrefixes);
 }
 
+function exportPathFor(relativePath, manifest) {
+  for (const mapping of manifest.mappedPathPrefixes || []) {
+    const source = String(mapping.source || '');
+    const target = String(mapping.target || '');
+    if (!source) continue;
+    if (relativePath.startsWith(source)) {
+      return path.posix.join(target, relativePath.slice(source.length));
+    }
+  }
+  return relativePath;
+}
+
 function ensureSafeOutput(outputPath, force) {
   const resolved = path.resolve(outputPath);
   if (resolved === root || resolved === path.dirname(root) || resolved === path.parse(resolved).root) {
@@ -126,11 +138,12 @@ function assertLocalGateCurrent(version, skipLocalGateCheck) {
   return { skipped: false, report: 'artifacts/local-ci/local-release-gate.md' };
 }
 
-function copyTrackedFiles(files, outputPath) {
+function copyTrackedFiles(files, outputPath, manifest) {
   const copied = [];
   for (const relativePath of files) {
     const source = path.join(root, relativePath);
-    const target = path.join(outputPath, relativePath);
+    const targetRelativePath = exportPathFor(relativePath, manifest);
+    const target = path.join(outputPath, targetRelativePath);
     const stat = fs.lstatSync(source);
     if (stat.isSymbolicLink()) {
       throw new Error(`Refusing to export symlink: ${relativePath}`);
@@ -139,7 +152,7 @@ function copyTrackedFiles(files, outputPath) {
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.copyFileSync(source, target);
     fs.chmodSync(target, stat.mode);
-    copied.push(relativePath);
+    copied.push({ source: relativePath, target: targetRelativePath });
   }
   return copied;
 }
@@ -239,7 +252,7 @@ function main() {
     .filter((file) => isAllowed(file, manifest))
     .filter((file) => !isDenied(file, manifest))
     .filter((file) => fs.existsSync(path.join(root, file)));
-  const copied = copyTrackedFiles(filesToCopy, options.output);
+  const copied = copyTrackedFiles(filesToCopy, options.output, manifest);
   const exportFiles = validateExportTree(options.output, manifest);
   const git = options.commit ? createCleanCommit(options.output, meta.version, options.message) : null;
 
