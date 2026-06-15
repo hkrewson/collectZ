@@ -6,6 +6,35 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.19.1 — Plex Movie Import TV-Field Constraint Fix
+
+**Goal:** Restore Plex movie re-import behavior after bulk cleanup by keeping Plex movie rows out of TV-only database fields.
+
+### Scope
+
+- Stop mapping Plex movie `studio` values into the collectZ `network` field.
+- Stop carrying Plex `parentIndex` into `season_number` for non-TV rows.
+- Add unit coverage for movie-safe Plex normalization.
+- Keep schema, import matching, reconciliation, and writeback behavior unchanged.
+
+### Acceptance Criteria
+
+- Plex movie normalization returns `network = null` for movie rows even when Plex sends `studio`.
+- Plex movie normalization returns `season_number = null` for movie rows even if Plex sends `parentIndex`.
+- Plex TV normalization still preserves TV context fields.
+- Backend unit tests cover the regression.
+
+### Closeout
+
+- Status: completed in `3.19.1`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, and `docs/releases/v3.19.1.md`.
+- Runtime evidence: production job summary from the public server showed Plex movie creation failures with `media_tv_fields_consistency_check`; local code inspection verified Plex movie normalization was assigning TV-only fields before insert; local Docker backend/frontend images rebuilt at `APP_VERSION=3.19.1`; `/api/health` reported `version/frontend/backend/build=3.19.1`; Help > Releases served `3.19.1` as the newest entry.
+- Verification: backend syntax checks passed; backend unit tests passed with the bundled Node runtime (`315` passed), including the new Plex movie normalization assertion; OpenAPI validation passed; version/release metadata sync passed; `git diff --check` passed.
+- Blocked/unverified: full browser regression, RBAC regression, runtime smoke, dependency scan, secret scan, and image/SBOM gates were not rerun for this narrow Plex normalizer patch; hosted CI should confirm them after push if this patch is treated as release-ready.
+- Risks/follow-ups: Plex movie studio values are intentionally dropped for now rather than stored in `network`; a future movie-specific studio metadata field can be added if needed.
+- Files changed: `app-meta.json`; `backend/app-meta.json`; `backend/package-lock.json`; `backend/package.json`; `backend/release-feed.json`; `backend/scripts/unit-tests.js`; `backend/services/plex.js`; `docs/releases/v3.19.1.md`; `docs/wiki/07-Release-Roadmap.md`; `frontend/package-lock.json`; `frontend/package.json`; and `frontend/src/app-meta.json`.
+- What remains in the milestone: public mirror sync before push-ready handoff.
+
 ## 3.19.0 — Bulk Library Actions and Rate-Limit Safety
 
 **Goal:** Make bulk library cleanup actions behave as one intentional operation instead of hundreds of ordinary API requests that trip global or media write rate limits.

@@ -1,6 +1,23 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.19.1",
+      "version": "3.19.1",
+      "date": null,
+      "status": null,
+      "summary": "This patch fixes Plex movie imports after media cleanup. Plex movie rows no longer carry TV-only fields from the Plex payload, so deleted movie titles can be recreated without tripping the media TV-field consistency constraint.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Stopped mapping Plex movie `studio` values into the collectZ `network` field.",
+            "Stopped carrying Plex `parentIndex` into `season_number` for non-TV rows.",
+            "Added unit coverage proving normalized Plex movie rows keep TV-only fields empty."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.19.0",
       "version": "3.19.0",
       "date": null,
@@ -167,25 +184,6 @@
             "Added local gate reports under `artifacts/local-ci/` with redaction for common secret-bearing output patterns.",
             "Documented the local CI/CD workflow, blocked-gate semantics, hook bypass expectation, and relationship to hosted CI.",
             "Promoted the local CI/CD backlog item into the roadmap as the first `3.17.0` infrastructure slice."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.16.36",
-      "version": "3.16.36",
-      "date": null,
-      "status": null,
-      "summary": "This patch completes the maintained-source CodeQL baseline by dispositioning the reviewed Sched ICS request-forgery boundary while keeping the runtime URL guardrails in source.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added a `query-filters` disposition for `js/request-forgery` alongside the existing `js/http-to-file-access` exclusion in `.github/codeql/codeql-config.yml`.",
-            "Kept the maintained-source suite and generated-output path ignores in place.",
-            "Added a source-local `// codeql[js/request-forgery]` suppression on the reviewed Sched ICS fetch sink so local maintained-source analysis stays aligned with the runtime URL boundary.",
-            "Updated the maintainer-facing CodeQL contract test so the workflow/config documentation now includes the reviewed request-forgery disposition.",
-            "Synced version metadata for the root, backend, and frontend app manifests."
           ]
         }
       ]

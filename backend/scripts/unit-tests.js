@@ -1246,6 +1246,8 @@ results.push(run('plex.normalizePlexItem maps movie values', () => {
     duration: '8160000',
     summary: 'Arrakis',
     rating: '6.4',
+    studio: 'Universal Pictures',
+    parentIndex: '1',
     guid: 'plex://movie/abc?guid=tmdb://841',
     thumb: 'https://image.example/poster.jpg'
   };
@@ -1255,6 +1257,8 @@ results.push(run('plex.normalizePlexItem maps movie values', () => {
   assert.strictEqual(out.tmdb_id, 841);
   assert.strictEqual(out.runtime, 136);
   assert.strictEqual(out.poster_path, 'https://image.example/poster.jpg');
+  assert.strictEqual(out.network, null);
+  assert.strictEqual(out.season_number, null);
 }));
 
 results.push(run('plex.normalizePlexItem maps episode to tv series context', () => {
