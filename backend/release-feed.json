@@ -1,6 +1,28 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.19.0",
+      "version": "3.19.0",
+      "date": null,
+      "status": null,
+      "summary": "This release makes library bulk delete behave like one intentional operation instead of hundreds of individual delete requests. The change protects normal cleanup workflows from tripping API rate limits while keeping scoped authorization and audit readback intact.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added `POST /api/media/bulk-delete` for confirmed bulk media deletes.",
+            "Preserved active workspace/library scoping and the same ownership rules as single-record delete.",
+            "Added per-operation counts for requested, deleted, skipped, and failed records.",
+            "Updated the Library bulk delete UI to call the bulk endpoint once instead of firing one request per selected row.",
+            "Documented the new endpoint in OpenAPI.",
+            "Added a targeted smoke test proving more than 200 selected media rows can be deleted through one request.",
+            "Updated the frontend build toolchain patch versions to clear the current `esbuild` audit finding.",
+            "Fixed an event autograph artifact regression found during browser verification where creating an autograph artifact could fail before returning its signature readback."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.18.6",
       "version": "3.18.6",
       "date": null,
@@ -164,24 +186,6 @@
             "Added a source-local `// codeql[js/request-forgery]` suppression on the reviewed Sched ICS fetch sink so local maintained-source analysis stays aligned with the runtime URL boundary.",
             "Updated the maintainer-facing CodeQL contract test so the workflow/config documentation now includes the reviewed request-forgery disposition.",
             "Synced version metadata for the root, backend, and frontend app manifests."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.16.35",
-      "version": "3.16.35",
-      "date": null,
-      "status": null,
-      "summary": "This patch keeps maintained-source CodeQL focused on actionable source findings by moving the authoritative query selection into a checked-in suite and dispositioning the intentional HTTP-to-file upload/artifact pattern.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added `.github/codeql/collectz-maintained-source.qls`, which imports the JavaScript/TypeScript `security-and-quality` suite and excludes only `js/http-to-file-access`.",
-            "Pointed the CodeQL workflow at the checked-in maintained-source suite while keeping the existing generated-output `paths-ignore` config.",
-            "Documented that the excluded HTTP-to-file findings are expected authenticated upload persistence or local smoke/proof artifact writes to fixed/generated paths.",
-            "Normalized upload payloads to a Buffer copy before local or S3 persistence."
           ]
         }
       ]

@@ -318,6 +318,13 @@ const mediaUpdateSchema = mediaBaseSchema.partial().superRefine((data, ctx) => {
   }
 });
 
+const mediaBulkDeleteSchema = z.object({
+  ids: z.array(z.preprocess((value) => {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : value;
+  }, z.number().int().positive())).min(1, 'At least one media id is required').max(500, 'A maximum of 500 media ids can be deleted at once')
+}).strict();
+
 const mediaValuationRefreshSchema = z.object({
   async: z.boolean().optional(),
   sync: z.boolean().optional(),
@@ -1117,6 +1124,7 @@ module.exports = {
   barcodeImportSchema,
   mediaCreateSchema,
   mediaUpdateSchema,
+  mediaBulkDeleteSchema,
   mediaLoanCreateSchema,
   mediaLoanUpdateSchema,
   mediaLoanReturnSchema,

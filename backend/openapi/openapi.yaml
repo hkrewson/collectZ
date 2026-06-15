@@ -1270,6 +1270,53 @@
         "type": "object",
         "additionalProperties": true
       },
+      "MediaBulkDeleteRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "ids": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 1 },
+            "minItems": 1,
+            "maxItems": 500,
+            "description": "Selected media record ids from the active library/workspace scope."
+          }
+        },
+        "required": ["ids"]
+      },
+      "MediaBulkDeleteResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "integer", "minimum": 1 },
+          "reason": { "type": "string", "enum": ["not_found", "forbidden", "delete_failed"] }
+        },
+        "required": ["id", "reason"]
+      },
+      "MediaBulkDeleteResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "ok": { "type": "boolean" },
+          "requested_count": { "type": "integer", "minimum": 0 },
+          "deleted_count": { "type": "integer", "minimum": 0 },
+          "skipped_count": { "type": "integer", "minimum": 0 },
+          "failed_count": { "type": "integer", "minimum": 0 },
+          "deleted_ids": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 1 }
+          },
+          "skipped": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/MediaBulkDeleteResult" }
+          },
+          "failed": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/MediaBulkDeleteResult" }
+          }
+        },
+        "required": ["ok", "requested_count", "deleted_count", "skipped_count", "failed_count", "deleted_ids", "skipped", "failed"]
+      },
       "BarcodeLookupRequest": {
         "type": "object",
         "properties": {
@@ -9132,6 +9179,51 @@
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/MediaListResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/media/bulk-delete": {
+      "post": {
+        "tags": ["Media"],
+        "summary": "Delete selected media records as one scoped bulk operation",
+        "description": "Deletes up to 500 selected media records in the active workspace/library scope using the same ownership rules as single-record delete. This endpoint is intended for user-confirmed bulk cleanup so clients do not issue one DELETE request per row and trip general API rate limits.",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/MediaBulkDeleteRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Bulk delete completed with per-id result counts.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MediaBulkDeleteResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid bulk delete request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid authentication token",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
               }
             }
           }

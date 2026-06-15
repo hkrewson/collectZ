@@ -71,20 +71,17 @@ export default function useMediaApi({ apiCall, showToast }) {
     const targetIds = [...new Set((Array.isArray(ids) ? ids : []).map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0))];
     if (targetIds.length === 0) return { deletedIds: [], failedIds: [] };
 
-    const results = await Promise.allSettled(
-      targetIds.map(async (id) => {
-        await apiCall('delete', `/media/${id}`);
-        return id;
-      })
-    );
-
-    const deletedIds = results
-      .filter((result) => result.status === 'fulfilled')
-      .map((result) => result.value);
-    const failedIds = results
-      .filter((result, index) => result.status === 'rejected' && targetIds[index])
-      .map((_, index) => targetIds[index])
-      .filter(Boolean);
+    const response = await apiCall('post', '/media/bulk-delete', { ids: targetIds });
+    const deletedIds = Array.isArray(response?.deleted_ids)
+      ? response.deleted_ids.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)
+      : [];
+    const unresolvedIds = [
+      ...(Array.isArray(response?.skipped) ? response.skipped : []),
+      ...(Array.isArray(response?.failed) ? response.failed : [])
+    ]
+      .map((entry) => Number(entry?.id))
+      .filter((id) => Number.isFinite(id) && id > 0);
+    const failedIds = [...new Set(unresolvedIds)];
 
     if (deletedIds.length > 0) {
       setMediaItems((prev) => prev.filter((item) => !deletedIds.includes(Number(item.id))));
@@ -106,7 +103,7 @@ export default function useMediaApi({ apiCall, showToast }) {
     if (failedIds.length === 0) {
       showToast(`Deleted ${deletedIds.length} item${deletedIds.length === 1 ? '' : 's'}`);
     } else if (deletedIds.length > 0) {
-      showToast(`Deleted ${deletedIds.length} item${deletedIds.length === 1 ? '' : 's'}, ${failedIds.length} failed`, 'error');
+      showToast(`Deleted ${deletedIds.length} item${deletedIds.length === 1 ? '' : 's'}, ${failedIds.length} not deleted`, 'error');
     } else {
       showToast('Failed to delete selected items', 'error');
     }

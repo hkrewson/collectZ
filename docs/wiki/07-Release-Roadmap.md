@@ -6,6 +6,44 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.19.0 — Bulk Library Actions and Rate-Limit Safety
+
+**Goal:** Make bulk library cleanup actions behave as one intentional operation instead of hundreds of ordinary API requests that trip global or media write rate limits.
+
+### Scope
+
+- Add a scoped backend bulk media delete endpoint for confirmed library selections.
+- Preserve the same workspace/library and ownership rules as single-record delete.
+- Return requested/deleted/skipped/failed counts plus per-id skipped/failed reasons.
+- Update the library UI bulk delete flow to call the bulk endpoint once instead of firing one `DELETE /api/media/:id` request per selected row.
+- Document the new endpoint in OpenAPI.
+- Keep global and media write rate limits intact.
+
+### Acceptance Criteria
+
+- A user can bulk delete at least `200` selected library rows without issuing one API request per row.
+- The operation returns clear final counts and keeps skipped/failed IDs selected for follow-up.
+- Partial failures are visible and retryable.
+- Login is not blocked by legitimate bulk cleanup traffic caused by hundreds of delete requests.
+- Backend authorization and audit behavior remain scoped and test-covered.
+- Rate limits still protect against accidental loops and abusive traffic.
+
+### Active Slice Notes
+
+- This slice fixes media library bulk delete first because that is the observed production failure.
+- Bulk archive/update and richer progress/job UI remain future work if real use needs them.
+
+### Closeout
+
+- Status: completed in `3.19.0`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, and `docs/releases/v3.19.0.md`.
+- Runtime evidence: rebuilt the local Docker stack from source with `APP_VERSION=3.19.0`; backend and frontend containers became healthy on the alternate local frontend port; `/api/health` reported `version/frontend/backend/build=3.19.0`; Docker Help > Releases smoke served `3.19.0` as the newest entry; the targeted bulk-delete smoke deleted `205` media rows through one `/api/media/bulk-delete` request and kept the session usable afterward.
+- Verification: backend syntax checks passed; backend unit tests passed in a clean Node 20 container; OpenAPI validation passed in the running backend container; frontend audit and production build passed in a clean Node 24 container; backend dependency audit passed in a clean Node 20 container; browser regression passed against `http://localhost:3201` with `82` passed and `4` skipped; RBAC regression passed; control-plane runtime smoke passed; public export validation and boundary audit passed; public mirror hygiene, frontend audit, and frontend build passed after syncing the generated export.
+- Blocked/unverified: the root `npm run release:local-gate` command remains blocked on the host shell because the default local Node/npm is too old for current project dependencies and lockfiles; equivalent backend unit/audit/frontend build checks were rerun in clean Node containers. Core runtime smoke was blocked in this platform-configured stack because public registration is disabled until email verification delivery is configured. CI-only gates `secret-scan` and `image-security-and-sbom` still need hosted CI confirmation.
+- Risks/follow-ups: bulk archive/update and long-running progress UI remain intentionally out of scope. The browser run also exposed and fixed an unrelated event autograph artifact regression where the artifact route failed to retain the created signature payload.
+- Files changed: `app-meta.json`; `backend/app-meta.json`; `backend/middleware/validate.js`; `backend/openapi/openapi.yaml`; `backend/package-lock.json`; `backend/package.json`; `backend/release-feed.json`; `backend/routes/events.js`; `backend/routes/media.js`; `backend/scripts/media-bulk-delete-smoke.js`; `backend/scripts/unit-tests.js`; `docs/releases/v3.19.0.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `frontend/package-lock.json`; `frontend/package.json`; `frontend/src/app-meta.json`; and `frontend/src/components/app/hooks/useMediaApi.js`.
+- What remains in the milestone: nothing for `3.19.0`; publication remains maintainer-controlled through the private repo commit and separate public mirror commit/push.
+
 ## 3.18.6 — Public Mirror Frontend Source Export
 
 **Goal:** Expand the generated public mirror to include the audited frontend source surface and public OpenAPI contract while keeping backend implementation source private.

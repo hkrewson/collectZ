@@ -1080,6 +1080,20 @@ results.push(run('media route source includes valuation refresh + media detail e
   assert.ok(mediaRoutesSource.includes('valuationRefresh'));
 }));
 
+results.push(run('media bulk delete uses one scoped endpoint instead of per-row delete requests', () => {
+  assert.ok(validateMiddlewareSource.includes('const mediaBulkDeleteSchema = z.object({'));
+  assert.ok(validateMiddlewareSource.includes("max(500, 'A maximum of 500 media ids can be deleted at once')"));
+  assert.ok(mediaRoutesSource.includes("router.post('/bulk-delete'"));
+  assert.ok(mediaRoutesSource.includes('WHERE id = ANY($1::int[])'));
+  assert.ok(mediaRoutesSource.includes("'media.bulk_delete'"));
+  assert.ok(openApiSource.includes('"/api/media/bulk-delete"'));
+  assert.ok(openApiSource.includes('"MediaBulkDeleteRequest"'));
+  assert.ok(openApiSource.includes('"MediaBulkDeleteResponse"'));
+  assert.ok(useMediaApiSource.includes("apiCall('post', '/media/bulk-delete'"));
+  assert.ok(!useMediaApiSource.includes("Promise.allSettled(\n      targetIds.map(async (id) => {\n        await apiCall('delete', `/media/${id}`);"));
+  assert.ok(backendPackageJson.scripts['test:media-bulk-delete-smoke']);
+}));
+
 results.push(run('media format filter matches any owned format instead of only derived primary format', () => {
   assert.ok(mediaRoutesSource.includes('function normalizeOwnedFormatFilterValue('));
   assert.ok(mediaRoutesSource.includes('owned_formats @> ARRAY['));
@@ -6254,6 +6268,7 @@ results.push(run('event autograph artifacts can link into shared object signatur
   assert.ok(validateMiddlewareSource.includes("owner_type: z.enum(['art', 'media'])"));
   assert.ok(eventsRoutesSource.includes("router.post('/events/:id/artifacts/:artifactId/link-signature'"));
   assert.ok(eventsRoutesSource.includes('syncEventArtifactSignature'));
+  assert.ok(eventsRoutesSource.includes('const signature = await syncEventArtifactSignature'));
   assert.ok(eventsRoutesSource.includes("ownerType: 'event_artifact'"));
   assert.ok(eventsRoutesSource.includes('events.artifact.signature.link'));
   assert.ok(eventsRoutesSource.includes('signed_event_id: event.id'));

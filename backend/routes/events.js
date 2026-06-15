@@ -2489,7 +2489,7 @@ router.post('/events/:id/artifacts', validate(eventArtifactCreateSchema), asyncH
     [eventId, artifact_type, title, description || null, image_path || null, price ?? null, vendor || null, req.user.id]
   );
   let row = created.rows[0];
-  await syncEventArtifactSignature({
+  const signature = await syncEventArtifactSignature({
     artifact: row,
     event: eventResult.rows[0],
     payload: req.body,

@@ -9,6 +9,7 @@ const {
   validate,
   mediaCreateSchema,
   mediaUpdateSchema,
+  mediaBulkDeleteSchema,
   mediaLoanCreateSchema,
   mediaLoanUpdateSchema,
   mediaLoanReturnSchema,
@@ -15965,6 +15966,87 @@ router.patch('/:id', validate(mediaUpdateSchema), asyncHandler(async (req, res) 
 
 // ── Delete ────────────────────────────────────────────────────────────────────
 // Ownership enforcement: users may only delete their own media; admins are unrestricted.
+
+router.post('/bulk-delete', validate(mediaBulkDeleteSchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const requestedIds = [...new Set((req.body.ids || []).map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0))];
+  if (requestedIds.length === 0) {
+    return res.status(400).json({ error: 'At least one media id is required' });
+  }
+
+  const existingParams = [requestedIds];
+  const existingScopeClause = appendScopeSql(existingParams, scopeContext);
+  const existing = await pool.query(
+    `SELECT id, added_by, title, media_type, library_id, space_id
+     FROM media
+     WHERE id = ANY($1::int[])${existingScopeClause}`,
+    existingParams
+  );
+  const existingById = new Map(existing.rows.map((row) => [Number(row.id), row]));
+  const skipped = [];
+  const allowedRows = [];
+
+  for (const id of requestedIds) {
+    const row = existingById.get(id);
+    if (!row) {
+      skipped.push({ id, reason: 'not_found' });
+      continue;
+    }
+    if (req.user.role !== 'admin' && Number(row.added_by) !== Number(req.user.id)) {
+      skipped.push({ id, reason: 'forbidden' });
+      continue;
+    }
+    allowedRows.push(row);
+  }
+
+  const allowedIds = allowedRows.map((row) => Number(row.id));
+  let deletedRows = [];
+  if (allowedIds.length > 0) {
+    const deleteParams = [allowedIds];
+    let ownerClause = '';
+    if (req.user.role !== 'admin') {
+      deleteParams.push(req.user.id);
+      ownerClause = ` AND added_by = $${deleteParams.length}`;
+    }
+    const deleteScopeClause = appendScopeSql(deleteParams, scopeContext);
+    const deleted = await pool.query(
+      `DELETE FROM media
+       WHERE id = ANY($1::int[])${ownerClause}${deleteScopeClause}
+       RETURNING id`,
+      deleteParams
+    );
+    deletedRows = deleted.rows || [];
+  }
+
+  const deletedIds = deletedRows.map((row) => Number(row.id));
+  const deletedSet = new Set(deletedIds);
+  const failed = allowedIds
+    .filter((id) => !deletedSet.has(id))
+    .map((id) => ({ id, reason: 'delete_failed' }));
+
+  await logActivity(req, 'media.bulk_delete', 'media', null, {
+    requestedCount: requestedIds.length,
+    deletedCount: deletedIds.length,
+    skippedCount: skipped.length,
+    failedCount: failed.length,
+    deletedIds,
+    skipped,
+    failed,
+    libraryId: scopeContext.libraryId || null,
+    spaceId: scopeContext.spaceId || null
+  });
+
+  res.json({
+    ok: failed.length === 0 && skipped.length === 0,
+    requested_count: requestedIds.length,
+    deleted_count: deletedIds.length,
+    skipped_count: skipped.length,
+    failed_count: failed.length,
+    deleted_ids: deletedIds,
+    skipped,
+    failed
+  });
+}));
 
 router.delete('/:id', asyncHandler(async (req, res) => {
   const scopeContext = resolveScopeContext(req);

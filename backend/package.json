@@ -1,6 +1,6 @@
 {
   "name": "collectz-backend",
-  "version": "3.18.6",
+  "version": "3.19.0",
   "description": "collectZ Backend API",
   "main": "server.js",
   "scripts": {
@@ -33,6 +33,7 @@
     "test:cwa-opds-comic-identity-reuse-smoke": "node scripts/cwa-opds-comic-identity-reuse-smoke.js",
     "test:cross-type-isolation": "node scripts/cross-type-isolation-check.js",
     "test:media-query-regression": "node scripts/media-query-regression-check.js",
+    "test:media-bulk-delete-smoke": "node scripts/media-bulk-delete-smoke.js",
     "test:book-comic-normalization-audit": "node scripts/book-comic-normalization-audit.js",
     "test:book-comic-historical-repair-plan": "node scripts/book-comic-historical-repair-plan.js",
     "test:repair-comic-like-books-smoke": "node scripts/repair-comic-like-books-smoke.js",

@@ -836,54 +836,6 @@ These are unscheduled security-maintenance tasks discovered from advisory scanni
 
 **Unused-variable working rule:** Do not delete unused variables only to quiet CodeQL. For each unused-variable finding, consult repo docs, the roadmap/backlog, nearby code, and existing tests first. Classify the finding as generated-artifact noise, intended behavior that needs wiring or implementation, intentionally retained behavior that needs coverage, or true dead code. Implement or cover intended behavior when project intent exists, as with the Delicious `PLATFORM_KEYS` alias ordering, and remove only verified dead code.
 
-### Backlog Item: Bulk Library Actions and Rate-Limit Safety
-**Type:** Operational UX/API refinement
-**Tags:** `rate-limits`, `bulk-actions`, `library`, `media`, `delete`, `api`, `ux`
-**Status:** Active backlog; wait until the active CodeQL remediation line is complete before promotion.
-
-**Goal:** Make bulk library cleanup actions behave as one intentional operation instead of hundreds of ordinary API requests that trip global or media write rate limits.
-
-**Why this work exists**
-- In production, selecting `200` visible movie rows and deleting them can succeed once, then fail partway through the second bulk delete with `Rate limit exceeded for API traffic`.
-- The app appears to issue one delete request per selected item, so a user-facing bulk action consumes the global `/api/*` limiter and can also block login until the rate window clears.
-- Raising global limits is only a mitigation. The product needs a bulk-action path that matches what the user is doing.
-
-**Current state**
-- Global API rate limiting defaults to `RATE_LIMIT_GLOBAL_MAX=600` per `15` minutes in production.
-- Media write limiting is separate, but the global limiter applies before more specific route limiters.
-- Bulk delete from the library UI can generate many per-item delete requests in quick succession.
-- When the global limiter trips, valid login attempts can be blocked because login is also under `/api/*`.
-
-**Intent**
-- Treat bulk delete/archive/update as a single explicit operation with scoped authorization, audit evidence, and predictable progress.
-- Preserve rate-limit protection for accidental loops and abusive traffic without punishing normal collection cleanup.
-- Keep destructive bulk actions confirmable, scoped to the active workspace/library, and recoverable where existing archive/restore behavior supports it.
-
-**Candidate subtasks**
-- Inspect current library bulk delete/archive flows and count the API requests generated for `50`, `100`, and `200` selected rows.
-- Decide whether the first fix should be a dedicated backend bulk media endpoint, a server-side job, or client-side batching with limiter-aware backoff.
-- Prefer a backend bulk endpoint/job for destructive actions so authorization, audit logging, partial failure handling, and transaction boundaries are owned server-side.
-- Add a route such as `POST /api/media/bulk-delete` or `POST /api/media/bulk-archive` with explicit selected ids, active scope enforcement, and max-batch limits.
-- Return created/updated/deleted/skipped/failed counts and per-id failure summaries without leaking records outside scope.
-- Ensure the bulk endpoint is governed by its own limiter or job queue rather than consuming one request per item.
-- Add UI progress/readback for partial success and retryable failures.
-- Keep login usable after heavy library cleanup; review whether auth routes should be skipped by the global limiter or protected by auth-specific limits only.
-- Add browser and backend smoke coverage for deleting/archiveing a large selection without triggering global rate limit.
-
-**Out of scope**
-- Do not simply remove rate limiting.
-- Do not raise every limit as the primary fix.
-- Do not make destructive bulk actions silent or unconfirmed.
-- Do not bypass workspace/library RBAC for batch operations.
-
-**Acceptance Criteria**
-- A user can bulk delete/archive at least `200` selected library rows without tripping the global API limiter.
-- The operation has clear progress and final counts.
-- Partial failures are visible and retryable.
-- Login is not blocked by legitimate bulk cleanup traffic.
-- Backend authorization and audit behavior remain scoped and test-covered.
-- Rate limits still protect against accidental loops and abusive traffic.
-
 ## UI/UX Cleanup Working Plan
 
 These tasks are intentionally ordered so quick hygiene work does not get buried under larger UI refactors.
