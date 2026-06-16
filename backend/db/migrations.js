@@ -4543,6 +4543,56 @@ const MIGRATIONS = [
       END;
       $$;
     `
+  },
+  {
+    version: 109,
+    description: 'Add event exclusive source cache',
+    up: `
+      CREATE TABLE IF NOT EXISTS event_exclusive_sources (
+        id SERIAL PRIMARY KEY,
+        event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+        provider VARCHAR(80) NOT NULL,
+        provider_key TEXT NOT NULL,
+        source_url TEXT NOT NULL,
+        source_title VARCHAR(500) NOT NULL,
+        source_updated_label VARCHAR(120),
+        vendor VARCHAR(255),
+        booth VARCHAR(120),
+        status VARCHAR(20) NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'reviewed', 'ignored', 'promoted')),
+        metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+        promoted_wanted_item_id INTEGER REFERENCES wanted_items(id) ON DELETE SET NULL,
+        promoted_collectible_id INTEGER REFERENCES collectibles(id) ON DELETE SET NULL,
+        library_id INTEGER,
+        space_id INTEGER,
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        promoted_at TIMESTAMP,
+        archived_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_event_exclusive_sources_event_provider_active
+        ON event_exclusive_sources(event_id, provider, provider_key)
+        WHERE archived_at IS NULL;
+
+      CREATE INDEX IF NOT EXISTS idx_event_exclusive_sources_event_status_active
+        ON event_exclusive_sources(event_id, status, updated_at DESC)
+        WHERE archived_at IS NULL;
+
+      CREATE INDEX IF NOT EXISTS idx_event_exclusive_sources_scope_active
+        ON event_exclusive_sources(space_id, library_id, updated_at DESC)
+        WHERE archived_at IS NULL;
+
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_event_exclusive_sources_updated_at') THEN
+          CREATE TRIGGER update_event_exclusive_sources_updated_at BEFORE UPDATE ON event_exclusive_sources
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+        END IF;
+      END;
+      $$;
+    `
   }
 ];
 

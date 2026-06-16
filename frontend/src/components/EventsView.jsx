@@ -1792,6 +1792,185 @@ function EventPurchasedItemsReadback({ eventId, apiCall }) {
   );
 }
 
+function EventExclusiveSourcesWatch({ eventId, apiCall }) {
+  const [items, setItems] = useState([]);
+  const [sourceUrl, setSourceUrl] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [working, setWorking] = useState('');
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+
+  const loadSources = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const payload = await apiCall('get', `/events/${eventId}/exclusive-sources`);
+      setItems(Array.isArray(payload?.items) ? payload.items : []);
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Failed to load exclusives sources');
+    } finally {
+      setLoading(false);
+    }
+  }, [apiCall, eventId]);
+
+  useEffect(() => { loadSources(); }, [loadSources]);
+
+  const refreshIndex = async () => {
+    setWorking('refresh');
+    setError('');
+    setNotice('');
+    try {
+      const payload = await apiCall('post', `/events/${eventId}/exclusive-sources/refresh`, {});
+      setItems(Array.isArray(payload?.items) ? payload.items : []);
+      setNotice(`SDCC Blog refresh found ${payload?.discovered || 0} article${Number(payload?.discovered || 0) === 1 ? '' : 's'}.`);
+    } catch (err) {
+      const cached = err?.response?.data?.items;
+      if (Array.isArray(cached)) setItems(cached);
+      setError(err?.response?.data?.error || 'SDCC Blog refresh failed. Cached sources are still available.');
+    } finally {
+      setWorking('');
+      setLoading(false);
+    }
+  };
+
+  const importUrl = async () => {
+    if (!sourceUrl.trim()) return;
+    setWorking('import-url');
+    setError('');
+    setNotice('');
+    try {
+      await apiCall('post', `/events/${eventId}/exclusive-sources/import-url`, { url: sourceUrl.trim() });
+      setSourceUrl('');
+      await loadSources();
+      setNotice('SDCC Blog article imported.');
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Could not import SDCC Blog article.');
+    } finally {
+      setWorking('');
+    }
+  };
+
+  const updateStatus = async (item, status) => {
+    setWorking(`status-${item.id}`);
+    setError('');
+    setNotice('');
+    try {
+      await apiCall('patch', `/events/${eventId}/exclusive-sources/${item.id}`, { status });
+      await loadSources();
+      setNotice(status === 'ignored' ? 'Source ignored.' : 'Source marked reviewed.');
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Could not update source.');
+    } finally {
+      setWorking('');
+    }
+  };
+
+  const promote = async (item, target) => {
+    setWorking(`${target}-${item.id}`);
+    setError('');
+    setNotice('');
+    try {
+      const payload = await apiCall('post', `/events/${eventId}/exclusive-sources/${item.id}/promote`, { target });
+      await loadSources();
+      setNotice(target === 'collectible'
+        ? `${payload?.promoted?.title || item.source_title} created as a collectible.`
+        : `${payload?.promoted?.title || item.source_title} added to Wishlist.`);
+    } catch (err) {
+      setError(err?.response?.data?.error || `Could not promote source to ${target}.`);
+    } finally {
+      setWorking('');
+    }
+  };
+
+  const statusCount = useMemo(() => items.reduce((acc, item) => {
+    const key = item.status || 'new';
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {}), [items]);
+
+  return (
+    <section className="rounded-xl border border-edge bg-surface p-4">
+      <div className="flex flex-wrap items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="label">SDCC exclusives watch</p>
+          <p className="text-sm text-dim">
+            {items.length} source{items.length === 1 ? '' : 's'} · {statusCount.new || 0} new · {statusCount.promoted || 0} promoted
+          </p>
+        </div>
+        <button className="btn-secondary btn-sm" type="button" onClick={refreshIndex} disabled={working === 'refresh'}>
+          {working === 'refresh' ? <Spinner size={14} /> : <Icons.Refresh />}Refresh SDCC Blog
+        </button>
+        <button className="btn-ghost btn-sm" type="button" onClick={loadSources} disabled={loading}>
+          {loading ? <Spinner size={14} /> : 'Reload'}
+        </button>
+      </div>
+      {error ? <p className="mt-3 text-xs text-err">{error}</p> : null}
+      {notice ? <p className="mt-3 text-xs text-ok">{notice}</p> : null}
+      <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-[1fr_auto]">
+        <input
+          className="input"
+          placeholder="Paste an SDCC Blog exclusives article URL"
+          value={sourceUrl}
+          onChange={(event) => setSourceUrl(event.target.value)}
+        />
+        <button className="btn-secondary" type="button" onClick={importUrl} disabled={!sourceUrl.trim() || working === 'import-url'}>
+          {working === 'import-url' ? <Spinner size={16} /> : <Icons.Link />}Import URL
+        </button>
+      </div>
+      {!loading && items.length === 0 ? (
+        <p className="mt-4 rounded-lg border border-dashed border-edge bg-raised px-3 py-3 text-sm text-ghost">
+          No SDCC Blog sources cached yet. Refresh the index or import a specific article URL.
+        </p>
+      ) : null}
+      {items.length > 0 ? (
+        <div className="mt-4 divide-y divide-edge/60 border-y border-edge/60">
+          {items.map((item) => {
+            const promoted = item.status === 'promoted';
+            const busy = working.endsWith(`-${item.id}`);
+            return (
+              <article key={item.id} className="py-3">
+                <div className="flex flex-wrap items-start gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                      <a className="truncate text-sm font-medium text-ink hover:text-brand" href={item.source_url} target="_blank" rel="noreferrer">
+                        {item.source_title}
+                      </a>
+                      <span className={cx('badge text-[10px]', promoted ? 'badge-ok' : item.status === 'ignored' ? 'badge-dim' : 'badge-brand')}>
+                        {String(item.status || 'new').replaceAll('_', ' ')}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs text-dim">
+                      {[item.vendor, item.booth, item.source_updated_label].filter(Boolean).join(' · ') || 'SDCC Blog source'}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {!promoted ? (
+                      <>
+                        <button className="btn-secondary btn-sm" type="button" onClick={() => promote(item, 'wishlist')} disabled={busy}>
+                          {working === `wishlist-${item.id}` ? <Spinner size={14} /> : <Icons.Star />}Wishlist
+                        </button>
+                        <button className="btn-secondary btn-sm" type="button" onClick={() => promote(item, 'collectible')} disabled={busy}>
+                          {working === `collectible-${item.id}` ? <Spinner size={14} /> : <Icons.BoxOpen />}Collectible
+                        </button>
+                        <button className="btn-ghost btn-sm" type="button" onClick={() => updateStatus(item, 'reviewed')} disabled={busy || item.status === 'reviewed'}>
+                          <Icons.Check />Reviewed
+                        </button>
+                        <button className="btn-ghost btn-sm" type="button" onClick={() => updateStatus(item, 'ignored')} disabled={busy || item.status === 'ignored'}>
+                          <Icons.EyeOff />Ignore
+                        </button>
+                      </>
+                    ) : null}
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 function EventFormDrawer({ initial, apiCall, onClose, onSave, onDelete, onClearImage }) {
   const [form, setForm] = useState(() => ({
     ...DEFAULT_EVENT_FORM,
@@ -1805,6 +1984,7 @@ function EventFormDrawer({ initial, apiCall, onClose, onSave, onDelete, onClearI
   const eventTabs = useMemo(() => ([
     { id: 'core', label: 'Core Details' },
     { id: 'subevents', label: 'Schedule' },
+    { id: 'exclusives', label: 'Exclusives' },
     { id: 'storage', label: 'Storage & Notes' }
   ]), []);
   const [activeTab, setActiveTab] = useState('core');
@@ -1894,6 +2074,18 @@ function EventFormDrawer({ initial, apiCall, onClose, onSave, onDelete, onClearI
               ) : (
                 <div className="rounded-md border border-dashed border-edge px-4 py-6 text-sm text-ghost">
                   Save the event first, then come back here to add panels, parties, signings, purchases, and other sub-event history.
+                </div>
+              )
+              ) : null}
+            </SectionTabPanel>
+
+            <SectionTabPanel activeId={activeTab} tabKey="exclusives" idBase="event-editor-steps">
+              {activeTab === 'exclusives' ? (
+              initial?.id ? (
+                <EventExclusiveSourcesWatch eventId={initial.id} apiCall={apiCall} />
+              ) : (
+                <div className="rounded-md border border-dashed border-edge px-4 py-6 text-sm text-ghost">
+                  Save the event first, then come back here to track SDCC Blog exclusives for this convention.
                 </div>
               )
               ) : null}

@@ -46,6 +46,13 @@ const {
   syncPersonalIcsSource,
   importCatalogIcsSource
 } = require('../services/schedIcsSync');
+const {
+  SDCC_BLOG_PROVIDER,
+  fetchSdccBlogArticle,
+  fetchSdccBlogIndex,
+  normalizeSourceUrl,
+  providerKeyForUrl
+} = require('../services/exclusiveSources');
 
 const router = express.Router();
 const memoryUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -87,6 +94,29 @@ const serializePurchasedItemRecord = (row) => ({
   created_at: row.created_at,
   updated_at: row.updated_at,
   resolved_item: row.resolved_item || null
+});
+
+const serializeExclusiveSourceRow = (row = {}) => ({
+  id: row.id,
+  event_id: row.event_id,
+  provider: row.provider,
+  provider_key: row.provider_key,
+  source_url: row.source_url,
+  source_title: row.source_title,
+  source_updated_label: row.source_updated_label || null,
+  vendor: row.vendor || null,
+  booth: row.booth || null,
+  status: row.status || 'new',
+  metadata: row.metadata && typeof row.metadata === 'object' && !Array.isArray(row.metadata) ? row.metadata : {},
+  promoted_wanted_item_id: row.promoted_wanted_item_id || null,
+  promoted_collectible_id: row.promoted_collectible_id || null,
+  library_id: row.library_id || null,
+  space_id: row.space_id || null,
+  created_by: row.created_by || null,
+  last_seen_at: row.last_seen_at || null,
+  promoted_at: row.promoted_at || null,
+  created_at: row.created_at,
+  updated_at: row.updated_at
 });
 
 const ARTIFACT_DB_FIELDS = ['artifact_type', 'title', 'description', 'image_path', 'price', 'vendor'];
@@ -161,6 +191,8 @@ const SCHEDULE_NOTIFICATION_DELIVERY_BOUNDARY_VERSION = 'event-schedule-notifica
 const SCHEDULE_NOTIFICATION_PROVIDER_CONTRACT_VERSION = 'event-schedule-notification-provider-prep.v1';
 const SCHEDULE_NOTIFICATION_DELIVERY_ATTEMPT_MODEL_VERSION = 'event-schedule-notification-delivery-attempt-model.v1';
 const CONFLICTING_SCHEDULE_PLAN_STATUSES = new Set(['planned', 'maybe', 'backup']);
+const EXCLUSIVE_SOURCE_STATUSES = new Set(['new', 'reviewed', 'ignored']);
+const EXCLUSIVE_PROMOTE_TARGETS = new Set(['wishlist', 'collectible']);
 
 const serializeEventArtifactRow = (row = {}) => ({
   ...row,
@@ -239,6 +271,174 @@ async function ensureScopedEvent(scopeContext, eventId) {
     eventParams
   );
   return eventResult.rows[0] || null;
+}
+
+async function loadExclusiveSourcesForEvent(eventId, scopeContext) {
+  const params = [eventId];
+  const scopeClause = appendScopeSql(params, scopeContext);
+  const result = await pool.query(
+    `SELECT *
+       FROM event_exclusive_sources
+      WHERE event_id = $1
+        AND archived_at IS NULL
+        ${scopeClause}
+      ORDER BY
+        CASE status WHEN 'new' THEN 0 WHEN 'reviewed' THEN 1 WHEN 'promoted' THEN 2 ELSE 3 END,
+        last_seen_at DESC NULLS LAST,
+        updated_at DESC,
+        id DESC`,
+    params
+  );
+  return result.rows.map(serializeExclusiveSourceRow);
+}
+
+async function loadExclusiveSource(scopeContext, eventId, sourceId) {
+  const params = [sourceId, eventId];
+  const scopeClause = appendScopeSql(params, scopeContext);
+  const result = await pool.query(
+    `SELECT *
+       FROM event_exclusive_sources
+      WHERE id = $1
+        AND event_id = $2
+        AND archived_at IS NULL
+        ${scopeClause}
+      LIMIT 1`,
+    params
+  );
+  return result.rows[0] || null;
+}
+
+async function upsertExclusiveSource(eventRow, candidate, userId) {
+  const provider = candidate.provider || SDCC_BLOG_PROVIDER;
+  const sourceUrl = normalizeSourceUrl(candidate.source_url);
+  const providerKey = candidate.provider_key || providerKeyForUrl(sourceUrl);
+  const sourceTitle = String(candidate.source_title || '').trim();
+  if (!sourceUrl || !providerKey || !sourceTitle) return null;
+  const result = await pool.query(
+    `INSERT INTO event_exclusive_sources (
+       event_id,
+       provider,
+       provider_key,
+       source_url,
+       source_title,
+       source_updated_label,
+       vendor,
+       booth,
+       metadata,
+       library_id,
+       space_id,
+       created_by,
+       last_seen_at
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11,$12,CURRENT_TIMESTAMP)
+     ON CONFLICT (event_id, provider, provider_key) WHERE archived_at IS NULL
+     DO UPDATE SET
+       source_url = EXCLUDED.source_url,
+       source_title = EXCLUDED.source_title,
+       source_updated_label = COALESCE(EXCLUDED.source_updated_label, event_exclusive_sources.source_updated_label),
+       vendor = COALESCE(EXCLUDED.vendor, event_exclusive_sources.vendor),
+       booth = COALESCE(EXCLUDED.booth, event_exclusive_sources.booth),
+       metadata = event_exclusive_sources.metadata || EXCLUDED.metadata,
+       last_seen_at = CURRENT_TIMESTAMP
+     RETURNING *`,
+    [
+      eventRow.id,
+      provider,
+      providerKey,
+      sourceUrl,
+      sourceTitle.slice(0, 500),
+      candidate.source_updated_label || null,
+      candidate.vendor || null,
+      candidate.booth || null,
+      JSON.stringify(candidate.metadata || {}),
+      eventRow.library_id || null,
+      eventRow.space_id || null,
+      userId || null
+    ]
+  );
+  return result.rows[0] || null;
+}
+
+async function promoteExclusiveSourceToWishlist(client, eventRow, source, userId) {
+  const existing = source.promoted_wanted_item_id
+    ? await client.query('SELECT * FROM wanted_items WHERE id = $1 LIMIT 1', [source.promoted_wanted_item_id])
+    : { rows: [] };
+  if (existing.rows[0]) return existing.rows[0];
+  const result = await client.query(
+    `INSERT INTO wanted_items (
+       title,
+       object_type,
+       status,
+       priority,
+       notes,
+       identifiers,
+       source_context,
+       provider,
+       provider_key,
+       event_id,
+       vendor,
+       library_id,
+       space_id,
+       created_by
+     ) VALUES ($1,'collectible','watching','normal',$2,$3::jsonb,$4::jsonb,$5,$6,$7,$8,$9,$10,$11)
+     RETURNING *`,
+    [
+      source.source_title,
+      source.source_url,
+      JSON.stringify({ source_url: source.source_url }),
+      JSON.stringify({
+        source: 'sdcc_blog_exclusive_source',
+        source_url: source.source_url,
+        source_title: source.source_title,
+        source_updated_label: source.source_updated_label || null,
+        booth: source.booth || null,
+        event_id: eventRow.id
+      }),
+      source.provider,
+      source.provider_key,
+      eventRow.id,
+      source.vendor || null,
+      eventRow.library_id || null,
+      eventRow.space_id || null,
+      userId || null
+    ]
+  );
+  return result.rows[0];
+}
+
+async function promoteExclusiveSourceToCollectible(client, eventRow, source, userId) {
+  const existing = source.promoted_collectible_id
+    ? await client.query('SELECT * FROM collectibles WHERE id = $1 LIMIT 1', [source.promoted_collectible_id])
+    : { rows: [] };
+  if (existing.rows[0]) return existing.rows[0];
+  const result = await client.query(
+    `INSERT INTO collectibles (
+       library_id,
+       space_id,
+       created_by,
+       title,
+       subtype,
+       item_type,
+       event_id,
+       vendor,
+       booth,
+       booth_or_vendor,
+       exclusive,
+       notes
+     ) VALUES ($1,$2,$3,$4,'collectible','collectible',$5,$6,$7,$8,true,$9)
+     RETURNING *`,
+    [
+      eventRow.library_id || null,
+      eventRow.space_id || null,
+      userId || null,
+      source.source_title,
+      eventRow.id,
+      source.vendor || null,
+      source.booth || null,
+      source.vendor && source.booth ? `${source.vendor} / ${source.booth}` : (source.vendor || source.booth || null),
+      source.source_url
+    ]
+  );
+  return result.rows[0];
 }
 
 function parsePositiveId(value, label = 'id') {
@@ -2720,6 +2920,203 @@ router.delete('/events/:id/artifacts/:artifactId', asyncHandler(async (req, res)
     title: deleted.rows[0].title
   });
   res.json({ ok: true, id: artifactId });
+}));
+
+router.get('/events/:id/exclusive-sources', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = Number(req.params.id);
+  if (!Number.isFinite(eventId) || eventId <= 0) {
+    return res.status(400).json({ error: 'Invalid event id' });
+  }
+
+  const eventRow = await ensureScopedEvent(scopeContext, eventId);
+  if (!eventRow) {
+    return res.status(404).json({ error: 'Event not found' });
+  }
+
+  const items = await loadExclusiveSourcesForEvent(eventId, scopeContext);
+  res.json({ items });
+}));
+
+router.post('/events/:id/exclusive-sources/refresh', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = Number(req.params.id);
+  if (!Number.isFinite(eventId) || eventId <= 0) {
+    return res.status(400).json({ error: 'Invalid event id' });
+  }
+
+  const eventRow = await ensureScopedEvent(scopeContext, eventId);
+  if (!eventRow) {
+    return res.status(404).json({ error: 'Event not found' });
+  }
+
+  let candidates = [];
+  try {
+    candidates = await fetchSdccBlogIndex();
+  } catch (err) {
+    await logActivity(req, 'events.exclusive_sources.refresh_failed', 'event', eventId, {
+      provider: SDCC_BLOG_PROVIDER,
+      error: err?.message || 'Refresh failed'
+    });
+    return res.status(502).json({
+      error: err?.message || 'Could not refresh SDCC Blog exclusives.',
+      provider: SDCC_BLOG_PROVIDER,
+      items: await loadExclusiveSourcesForEvent(eventId, scopeContext)
+    });
+  }
+
+  const rows = [];
+  for (const candidate of candidates) {
+    const row = await upsertExclusiveSource(eventRow, candidate, req.user?.id || null);
+    if (row) rows.push(row);
+  }
+
+  await logActivity(req, 'events.exclusive_sources.refresh', 'event', eventId, {
+    provider: SDCC_BLOG_PROVIDER,
+    discovered: candidates.length,
+    saved: rows.length
+  });
+
+  res.json({
+    provider: SDCC_BLOG_PROVIDER,
+    discovered: candidates.length,
+    saved: rows.length,
+    items: await loadExclusiveSourcesForEvent(eventId, scopeContext)
+  });
+}));
+
+router.post('/events/:id/exclusive-sources/import-url', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = Number(req.params.id);
+  const sourceUrl = normalizeSourceUrl(req.body?.url || req.body?.source_url);
+  if (!Number.isFinite(eventId) || eventId <= 0) {
+    return res.status(400).json({ error: 'Invalid event id' });
+  }
+  if (!sourceUrl) {
+    return res.status(400).json({ error: 'Only SDCC Blog article URLs are supported.' });
+  }
+
+  const eventRow = await ensureScopedEvent(scopeContext, eventId);
+  if (!eventRow) {
+    return res.status(404).json({ error: 'Event not found' });
+  }
+
+  let candidate;
+  try {
+    candidate = await fetchSdccBlogArticle(sourceUrl);
+  } catch (err) {
+    await logActivity(req, 'events.exclusive_sources.import_failed', 'event', eventId, {
+      provider: SDCC_BLOG_PROVIDER,
+      sourceUrl,
+      error: err?.message || 'Import failed'
+    });
+    return res.status(err?.status === 400 ? 400 : 502).json({
+      error: err?.message || 'Could not import SDCC Blog article.',
+      provider: SDCC_BLOG_PROVIDER
+    });
+  }
+
+  const row = await upsertExclusiveSource(eventRow, candidate, req.user?.id || null);
+  await logActivity(req, 'events.exclusive_sources.import_url', 'event', eventId, {
+    provider: SDCC_BLOG_PROVIDER,
+    sourceId: row?.id || null,
+    sourceUrl
+  });
+  res.status(row ? 201 : 400).json(row ? { item: serializeExclusiveSourceRow(row) } : { error: 'Could not save exclusive source.' });
+}));
+
+router.patch('/events/:id/exclusive-sources/:sourceId', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = Number(req.params.id);
+  const sourceId = Number(req.params.sourceId);
+  const status = String(req.body?.status || '').trim().toLowerCase();
+  if (!Number.isFinite(eventId) || eventId <= 0 || !Number.isFinite(sourceId) || sourceId <= 0) {
+    return res.status(400).json({ error: 'Invalid event/source id' });
+  }
+  if (!EXCLUSIVE_SOURCE_STATUSES.has(status)) {
+    return res.status(400).json({ error: 'Invalid exclusive source status.' });
+  }
+
+  const eventRow = await ensureScopedEvent(scopeContext, eventId);
+  if (!eventRow) return res.status(404).json({ error: 'Event not found' });
+  const source = await loadExclusiveSource(scopeContext, eventId, sourceId);
+  if (!source) return res.status(404).json({ error: 'Exclusive source not found' });
+
+  const params = [sourceId, eventId, status];
+  const scopeClause = appendScopeSql(params, scopeContext);
+  const result = await pool.query(
+    `UPDATE event_exclusive_sources
+        SET status = $3
+      WHERE id = $1
+        AND event_id = $2
+        AND archived_at IS NULL
+        ${scopeClause}
+      RETURNING *`,
+    params
+  );
+  await logActivity(req, 'events.exclusive_sources.update', 'event', eventId, {
+    sourceId,
+    status
+  });
+  res.json({ item: serializeExclusiveSourceRow(result.rows[0]) });
+}));
+
+router.post('/events/:id/exclusive-sources/:sourceId/promote', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = Number(req.params.id);
+  const sourceId = Number(req.params.sourceId);
+  const target = String(req.body?.target || 'wishlist').trim().toLowerCase();
+  if (!Number.isFinite(eventId) || eventId <= 0 || !Number.isFinite(sourceId) || sourceId <= 0) {
+    return res.status(400).json({ error: 'Invalid event/source id' });
+  }
+  if (!EXCLUSIVE_PROMOTE_TARGETS.has(target)) {
+    return res.status(400).json({ error: 'Invalid promotion target.' });
+  }
+
+  const eventRow = await ensureScopedEvent(scopeContext, eventId);
+  if (!eventRow) return res.status(404).json({ error: 'Event not found' });
+  const source = await loadExclusiveSource(scopeContext, eventId, sourceId);
+  if (!source) return res.status(404).json({ error: 'Exclusive source not found' });
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const promoted = target === 'collectible'
+      ? await promoteExclusiveSourceToCollectible(client, eventRow, source, req.user?.id || null)
+      : await promoteExclusiveSourceToWishlist(client, eventRow, source, req.user?.id || null);
+    const promotedWantedItemId = target === 'wishlist' ? promoted.id : source.promoted_wanted_item_id;
+    const promotedCollectibleId = target === 'collectible' ? promoted.id : source.promoted_collectible_id;
+    const updated = await client.query(
+      `UPDATE event_exclusive_sources
+          SET status = 'promoted',
+              promoted_wanted_item_id = $3,
+              promoted_collectible_id = $4,
+              promoted_at = COALESCE(promoted_at, CURRENT_TIMESTAMP)
+        WHERE id = $1
+          AND event_id = $2
+        RETURNING *`,
+      [sourceId, eventId, promotedWantedItemId || null, promotedCollectibleId || null]
+    );
+    await client.query('COMMIT');
+    await logActivity(req, 'events.exclusive_sources.promote', 'event', eventId, {
+      sourceId,
+      target,
+      promotedId: promoted.id
+    });
+    res.status(201).json({
+      item: serializeExclusiveSourceRow(updated.rows[0]),
+      promoted: {
+        target,
+        id: promoted.id,
+        title: promoted.title
+      }
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 }));
 
 router.get('/events/:id/purchased-items', asyncHandler(async (req, res) => {

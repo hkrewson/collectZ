@@ -144,6 +144,11 @@ const {
   assertPublicHttpUrl
 } = require('../services/outboundUrlPolicy');
 const {
+  extractArticleCandidatesFromIndex,
+  extractArticleMetadata,
+  providerKeyForUrl
+} = require('../services/exclusiveSources');
+const {
   buildLoanReminderPhase,
   wasLoanReminderSentToday,
   getLoanReminderTrackingField,
@@ -460,6 +465,32 @@ results.push(run('barcode.normalizeBarcodeMatches parses book-shaped titles into
   assert.strictEqual(matches[0].typeDetails.series, 'Silo');
   assert.strictEqual(matches[0].typeDetails.format, 'Paperback');
   assert.strictEqual(matches[0].typeDetails.isbn, '9780358447849');
+}));
+
+results.push(run('exclusiveSources parses SDCC Blog index cards without copying body content', () => {
+  const html = `
+    <article>
+      <h2><a href="https://sdccblog.com/2026/06/martin-hsu-san-diego-comic-con-2026-exclusives-update-june-16/">Martin Hsu San Diego Comic-Con 2026 Exclusives [UPDATE June 16]</a></h2>
+      <p>Martin Hsu will be at Booth #4530 with several new exclusives.</p>
+    </article>
+    <article>
+      <h2><a href="/2026/06/jada-toys-san-diego-comic-con-2026-exclusives/">Jada Toys San Diego Comic-Con 2026 Exclusives</a></h2>
+      <p>A second article.</p>
+    </article>
+  `;
+  const candidates = extractArticleCandidatesFromIndex(html);
+  assert.strictEqual(candidates.length, 2);
+  assert.strictEqual(candidates[0].vendor, 'Martin Hsu');
+  assert.strictEqual(candidates[0].booth, '#4530');
+  assert.strictEqual(candidates[0].source_updated_label, 'June 16');
+  assert.strictEqual(candidates[1].source_url, 'https://sdccblog.com/2026/06/jada-toys-san-diego-comic-con-2026-exclusives/');
+  assert.strictEqual(providerKeyForUrl(candidates[1].source_url), 'sdccblog.com/2026/06/jada-toys-san-diego-comic-con-2026-exclusives');
+  const article = extractArticleMetadata(
+    '<html><head><meta property="og:title" content="Alex Ross San Diego Comic-Con 2026 Exclusives [Update June 16]" /></head><body>Visit Booth #2415.</body></html>',
+    'https://sdccblog.com/2026/06/alex-ross-san-diego-comic-con-2026-exclusives/'
+  );
+  assert.strictEqual(article.vendor, 'Alex Ross');
+  assert.strictEqual(article.booth, '#2415');
 }));
 
 results.push(run('barcode.normalizeBarcodeMatches strips packaging noise for search titles', () => {

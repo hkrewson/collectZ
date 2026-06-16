@@ -2285,6 +2285,91 @@
           "price_snapshot": { "type": ["number", "null"] }
         }
       },
+      "EventExclusiveSourceRecord": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "event_id": { "type": "integer" },
+          "provider": { "type": "string", "example": "sdcc_blog" },
+          "provider_key": { "type": "string" },
+          "source_url": { "type": "string", "format": "uri" },
+          "source_title": { "type": "string" },
+          "source_updated_label": { "type": ["string", "null"] },
+          "vendor": { "type": ["string", "null"] },
+          "booth": { "type": ["string", "null"] },
+          "status": { "type": "string", "enum": ["new", "reviewed", "ignored", "promoted"] },
+          "metadata": { "type": "object", "additionalProperties": true },
+          "promoted_wanted_item_id": { "type": ["integer", "null"] },
+          "promoted_collectible_id": { "type": ["integer", "null"] },
+          "library_id": { "type": ["integer", "null"] },
+          "space_id": { "type": ["integer", "null"] },
+          "created_by": { "type": ["integer", "null"] },
+          "last_seen_at": { "type": ["string", "null"], "format": "date-time" },
+          "promoted_at": { "type": ["string", "null"], "format": "date-time" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "event_id", "provider", "provider_key", "source_url", "source_title", "status", "metadata", "created_at", "updated_at"]
+      },
+      "EventExclusiveSourceListResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/EventExclusiveSourceRecord" }
+          }
+        },
+        "required": ["items"]
+      },
+      "EventExclusiveSourceRefreshResponse": {
+        "type": "object",
+        "properties": {
+          "provider": { "type": "string" },
+          "discovered": { "type": "integer" },
+          "saved": { "type": "integer" },
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/EventExclusiveSourceRecord" }
+          }
+        },
+        "required": ["provider", "items"]
+      },
+      "EventExclusiveSourceImportUrlRequest": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string", "format": "uri" },
+          "source_url": { "type": "string", "format": "uri" }
+        }
+      },
+      "EventExclusiveSourceStatusRequest": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string", "enum": ["new", "reviewed", "ignored"] }
+        },
+        "required": ["status"]
+      },
+      "EventExclusiveSourcePromoteRequest": {
+        "type": "object",
+        "properties": {
+          "target": { "type": "string", "enum": ["wishlist", "collectible"], "default": "wishlist" }
+        }
+      },
+      "EventExclusiveSourcePromoteResponse": {
+        "type": "object",
+        "properties": {
+          "item": { "$ref": "#/components/schemas/EventExclusiveSourceRecord" },
+          "promoted": {
+            "type": "object",
+            "properties": {
+              "target": { "type": "string", "enum": ["wishlist", "collectible"] },
+              "id": { "type": "integer" },
+              "title": { "type": "string" }
+            },
+            "required": ["target", "id"]
+          }
+        },
+        "required": ["item", "promoted"]
+      },
       "EventSocialVisibility": {
         "type": "string",
         "enum": ["private", "selected_people", "group", "event_workspace"]
@@ -9669,6 +9754,188 @@
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/EventArtifactSignatureLinkResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/events/{id}/exclusive-sources": {
+      "get": {
+        "tags": ["Events"],
+        "summary": "List cached external exclusives sources for a scoped event",
+        "description": "Returns attributed discovery records, currently for SDCC Blog exclusives. The response stores source metadata and links, not full article content.",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cached exclusives sources for the event",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/EventExclusiveSourceListResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/events/{id}/exclusive-sources/refresh": {
+      "post": {
+        "tags": ["Events"],
+        "summary": "Manually refresh SDCC Blog exclusives index for a scoped event",
+        "description": "Fetches the public SDCC Blog Exclusives index on demand, upserts article metadata into the event source cache, and returns cached rows. Existing cached rows remain available if the upstream refresh fails.",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "SDCC Blog index refresh summary",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/EventExclusiveSourceRefreshResponse" }
+              }
+            }
+          },
+          "502": {
+            "description": "SDCC Blog refresh failed; cached items may still be returned",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/EventExclusiveSourceRefreshResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/events/{id}/exclusive-sources/import-url": {
+      "post": {
+        "tags": ["Events"],
+        "summary": "Import one SDCC Blog exclusives article URL into an event source cache",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/EventExclusiveSourceImportUrlRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Imported SDCC Blog article source",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "properties": { "item": { "$ref": "#/components/schemas/EventExclusiveSourceRecord" } }, "required": ["item"] }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/events/{id}/exclusive-sources/{sourceId}": {
+      "patch": {
+        "tags": ["Events"],
+        "summary": "Update review status for an event exclusives source",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          },
+          {
+            "in": "path",
+            "name": "sourceId",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/EventExclusiveSourceStatusRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated exclusives source",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "properties": { "item": { "$ref": "#/components/schemas/EventExclusiveSourceRecord" } }, "required": ["item"] }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/events/{id}/exclusive-sources/{sourceId}/promote": {
+      "post": {
+        "tags": ["Events"],
+        "summary": "Promote an event exclusives source into Wishlist or Collectibles",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          },
+          {
+            "in": "path",
+            "name": "sourceId",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/EventExclusiveSourcePromoteRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Promoted exclusives source",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/EventExclusiveSourcePromoteResponse" }
               }
             }
           }
