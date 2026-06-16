@@ -5007,8 +5007,12 @@ results.push(run('public compose source keeps homelab-safe cookie defaults in th
   assert.ok(!dockerComposeSource.includes('session_token_homelab'));
   assert.ok(!dockerComposeSource.includes('csrf_token_homelab'));
   assert.ok(frontendDockerfileSource.includes('ARG VITE_CSRF_COOKIE_NAME=csrf_token'));
+  assert.ok(frontendDockerfileSource.includes('ARG VITE_PLATFORM_API_URL='));
   assert.ok(!frontendDockerfileSource.includes('REACT_APP_CSRF_COOKIE_NAME'));
   assert.ok(useApiClientSource.includes("readFrontendEnv('VITE_CSRF_COOKIE_NAME', 'csrf_token')"));
+  assert.ok(useApiClientSource.includes("readFrontendEnv('VITE_PLATFORM_API_URL', '')"));
+  assert.ok(useApiClientSource.includes("normalizedPath.startsWith('/support/')"));
+  assert.ok(useApiClientSource.includes("normalizedPath !== '/support/releases'"));
 }));
 
 results.push(run('pat.hasPersonalAccessTokenScope matches exact scopes and admin wildcard', () => {
@@ -5352,6 +5356,7 @@ results.push(run('frontend package and vite scaffold support the Vite-first buil
   assert.ok(frontendDockerfileSource.includes('FROM node:24-alpine AS builder'));
   assert.ok(!frontendDockerfileSource.includes('FROM node:20-alpine AS builder'));
   assert.ok(frontendDockerfileSource.includes('ARG VITE_API_URL=/api'));
+  assert.ok(frontendDockerfileSource.includes('ARG VITE_PLATFORM_API_URL='));
   assert.ok(!frontendDockerfileSource.includes('REACT_APP_'));
   assert.ok(frontendDockerfileSource.includes('RUN npm run build'));
   assert.ok(frontendDockerfileSource.includes('COPY --from=builder /app/dist /usr/share/nginx/html'));

@@ -157,6 +157,7 @@ When `STORAGE_PROVIDER=s3`, configure:
 ## Frontend
 
 - `VITE_API_URL` (default: `/api`)
+- `VITE_PLATFORM_API_URL` (optional; when set, platform support queue calls use this base URL while Core help/release calls remain on `VITE_API_URL`)
 - `VITE_APP_VERSION` (optional; defaults to release metadata)
 - `VITE_DEBUG` (default: `0`)
 - `VITE_CSRF_COOKIE_NAME` (default: `csrf_token`)

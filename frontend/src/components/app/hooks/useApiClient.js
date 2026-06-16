@@ -4,7 +4,21 @@ import { readCookie } from '../AppPrimitives';
 import { readFrontendEnv } from '../frontendEnv';
 
 const API_URL = readFrontendEnv('VITE_API_URL', '/api');
+const PLATFORM_API_URL = readFrontendEnv('VITE_PLATFORM_API_URL', '');
 const CSRF_COOKIE_NAME = readFrontendEnv('VITE_CSRF_COOKIE_NAME', 'csrf_token');
+
+function resolveApiBase(path) {
+  const normalizedPath = String(path || '');
+  if (
+    PLATFORM_API_URL
+    && normalizedPath.startsWith('/support/')
+    && normalizedPath !== '/support/releases'
+    && !normalizedPath.startsWith('/support/releases?')
+  ) {
+    return PLATFORM_API_URL;
+  }
+  return API_URL;
+}
 
 export default function useApiClient() {
   const inFlightGetRequestsRef = useRef(new Map());
@@ -15,6 +29,7 @@ export default function useApiClient() {
     const { rawResponse = false, ...axiosConfig } = config;
     const headers = { ...(axiosConfig.headers || {}) };
     const playwrightBypassToken = readCookie('playwright_e2e_bypass');
+    const apiBase = resolveApiBase(path);
 
     if (playwrightBypassToken && !headers['x-playwright-e2e-bypass']) {
       headers['x-playwright-e2e-bypass'] = playwrightBypassToken;
@@ -35,7 +50,7 @@ export default function useApiClient() {
 
     const requestConfig = {
       method,
-      url: `${API_URL}${path}`,
+      url: `${apiBase}${path}`,
       data,
       ...axiosConfig,
       headers,
@@ -45,6 +60,7 @@ export default function useApiClient() {
     if (methodUpper === 'GET') {
       const requestKey = JSON.stringify({
         method: methodUpper,
+        apiBase,
         path,
         params: requestConfig.params || null
       });
