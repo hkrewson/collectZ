@@ -90,6 +90,7 @@ const {
 } = require('../services/mediaIdentityAliases');
 const { buildOwnedFormatsPayload, buildMergedOwnedFormatsPayload, getOwnedFormatLabel } = require('../services/mediaFormats');
 const { compareReleaseVersions, parseReleaseMarkdown } = require('../services/releaseNotes');
+const { buildCoreInstanceContract } = require('../services/coreInstance');
 const {
   buildMediaHealthReview,
   buildMissingIdentifierReviewClues,
@@ -191,6 +192,7 @@ const docsRoutesSource = fs.readFileSync(require.resolve('../routes/docs'), 'utf
 const metricsRoutesSource = fs.readFileSync(require.resolve('../routes/metrics'), 'utf8');
 const logExportSource = fs.readFileSync(require.resolve('../services/logExport'), 'utf8');
 const serverSource = fs.readFileSync(require.resolve('../server'), 'utf8');
+const coreRoutesSource = fs.readFileSync(require.resolve('../routes/core'), 'utf8');
 const migrationsSource = fs.readFileSync(require.resolve('../db/migrations'), 'utf8');
 const initSqlSource = fs.readFileSync(path.resolve(__dirname, '..', '..', 'init.sql'), 'utf8');
 const libraryServiceSource = fs.readFileSync(require.resolve('../services/libraries'), 'utf8');
@@ -2374,6 +2376,12 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(serverSource.includes("app.use('/api', spaceIntegrationsRouter);"));
   assert.ok(serverSource.includes("app.use('/api', spacesRouter);"));
   assert.ok(serverSource.includes("app.use('/api/admin', adminPlatformRouter);"));
+  assert.ok(serverSource.includes("const coreRouter = require('./routes/core');"));
+  assert.ok(serverSource.includes("app.use('/api', coreRouter);"));
+  assert.ok(coreRoutesSource.includes("router.get('/core/instance'"));
+  assert.ok(openApiSource.includes('"/api/core/instance"'));
+  assert.ok(openApiSource.includes('"CoreInstanceContract"'));
+  assert.ok(openApiSource.includes('"auth_authority"'));
   assert.ok(authRoutesSource.includes('authPlatformRouter'));
   assert.ok(authMiddlewareSource.includes('scopeSpaceId: serviceAccountPrincipal.scope_space_id'));
   assert.ok(authMiddlewareSource.includes('activeSpaceId: serviceAccountPrincipal.scope_space_id ?? serviceAccountPrincipal.active_space_id ?? null'));
@@ -2562,6 +2570,45 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(rootPackageJson.scripts['stack:ps:homelab']);
   assert.ok(rootPackageJson.scripts['stack:ps:platform']);
   assert.ok(rootPackageJson.scripts['test:edition-boundaries:local']);
+}));
+
+results.push(run('core instance contract exposes only public runtime metadata for cairn discovery', () => {
+  const originalEnv = { ...process.env };
+  try {
+    process.env.APP_VERSION = '9.9.9-test';
+    process.env.APP_EDITION = 'platform';
+    process.env.CORE_INSTANCE_ID = 'core-1';
+    process.env.CORE_INSTANCE_SLUG = 'main-core';
+    process.env.CORE_INSTANCE_NAME = 'Main Core';
+    process.env.CORE_PUBLIC_BASE_URL = 'https://core.example';
+    const contract = buildCoreInstanceContract({ now: new Date('2026-01-02T03:04:05.000Z') });
+
+    assert.strictEqual(contract.status, 'ok');
+    assert.strictEqual(contract.service, 'collectz-core');
+    assert.strictEqual(contract.instance.id, 'core-1');
+    assert.strictEqual(contract.instance.slug, 'main-core');
+    assert.strictEqual(contract.instance.name, 'Main Core');
+    assert.strictEqual(contract.instance.public_base_url, 'https://core.example');
+    assert.strictEqual(contract.instance.login_path, '/login');
+    assert.strictEqual(contract.instance.login_url, 'https://core.example/login');
+    assert.strictEqual(contract.version, '9.9.9-test');
+    assert.strictEqual(contract.runtime_mode, 'platform');
+    assert.strictEqual(contract.runtime_contract.shell, 'platform');
+    assert.strictEqual(contract.auth_authority, 'core');
+    assert.deepStrictEqual(contract.capabilities, {
+      local_accounts: true,
+      workspace_memberships: true,
+      support_session_bridge: true,
+      platform_control_plane: false
+    });
+    assert.strictEqual(contract.generated_at, '2026-01-02T03:04:05.000Z');
+    assert.ok(!JSON.stringify(contract).includes('DATABASE_URL'));
+  } finally {
+    for (const key of Object.keys(process.env)) {
+      if (!(key in originalEnv)) delete process.env[key];
+    }
+    Object.assign(process.env, originalEnv);
+  }
 }));
 
 results.push(run('release channel automation documents latest stable and manual promotion boundaries', () => {

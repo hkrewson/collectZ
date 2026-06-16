@@ -33,6 +33,7 @@ const { requestIdMiddleware } = require('./middleware/requestId');
 const { isHomelabEdition } = require('./config/productEdition');
 
 const { authRouter, authPlatformRouter } = require('./routes/auth');
+const coreRouter = require('./routes/core');
 const mediaRouter = require('./routes/media');
 const { adminCommonRouter, adminPlatformRouter } = require('./routes/admin');
 const { sharedIntegrationsRouter, platformIntegrationsRouter } = require('./routes/integrations');
@@ -279,6 +280,7 @@ app.get('/health', (_req, res) => res.json(healthPayload()));
 app.get('/api/health', (_req, res) => res.json(healthPayload()));
 
 // ── Routes ────────────────────────────────────────────────────────────────────
+app.use('/api', coreRouter);
 app.use('/api/auth', authRouter);
 if (!HOMELAB_EDITION) {
   app.use('/api/auth', authPlatformRouter);

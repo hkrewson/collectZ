@@ -37,6 +37,7 @@ function main() {
 
   const requiredPaths = {
     '/api/health': ['get'],
+    '/api/core/instance': ['get'],
     '/api/auth/login': ['post'],
     '/api/auth/me': ['get'],
     '/api/auth/scope': ['get', 'post'],
@@ -98,6 +99,7 @@ function main() {
   const requiredSchemas = [
     'Error',
     'Health',
+    'CoreInstanceContract',
     'User',
     'SpaceSummary',
     'LibrarySummary',

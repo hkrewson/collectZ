@@ -278,6 +278,47 @@
         },
         "required": ["status", "app", "version", "frontend", "backend", "build"]
       },
+      "CoreInstanceContract": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "status": { "type": "string", "enum": ["ok"] },
+          "service": { "type": "string", "enum": ["collectz-core"] },
+          "instance": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": ["string", "null"] },
+              "slug": { "type": "string" },
+              "name": { "type": "string" },
+              "public_base_url": { "type": ["string", "null"], "format": "uri" },
+              "login_path": { "type": "string" },
+              "login_url": { "type": ["string", "null"], "format": "uri" }
+            },
+            "required": ["id", "slug", "name", "public_base_url", "login_path", "login_url"]
+          },
+          "version": { "type": "string" },
+          "frontend": { "type": "string" },
+          "backend": { "type": "string" },
+          "build": { "type": "string" },
+          "runtime_mode": { "type": "string", "enum": ["platform", "local"] },
+          "runtime_contract": { "$ref": "#/components/schemas/RuntimeContract" },
+          "auth_authority": { "type": "string", "enum": ["core"] },
+          "capabilities": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "local_accounts": { "type": "boolean" },
+              "workspace_memberships": { "type": "boolean" },
+              "support_session_bridge": { "type": "boolean" },
+              "platform_control_plane": { "type": "boolean" }
+            },
+            "required": ["local_accounts", "workspace_memberships", "support_session_bridge", "platform_control_plane"]
+          },
+          "generated_at": { "type": "string", "format": "date-time" }
+        },
+        "required": ["status", "service", "instance", "version", "frontend", "backend", "build", "runtime_mode", "runtime_contract", "auth_authority", "capabilities", "generated_at"]
+      },
       "User": {
         "type": "object",
         "properties": {
@@ -4240,6 +4281,23 @@
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/Health" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/core/instance": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Read public Core instance metadata",
+        "description": "Returns non-secret Core instance metadata that a companion control plane can use for health/discovery without sharing the Core database.",
+        "responses": {
+          "200": {
+            "description": "Public Core instance metadata",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CoreInstanceContract" }
               }
             }
           }
