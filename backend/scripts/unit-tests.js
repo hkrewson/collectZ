@@ -5123,6 +5123,15 @@ results.push(run('auth routes expose public auth config and self-registration fl
   assert.ok(featureFlagsSource.includes('self_registration_enabled'));
 }));
 
+results.push(run('space-owned library feature routes check the active space flag', () => {
+  assert.ok(collectiblesRoutesSource.includes('isFeatureEnabledForSpace'));
+  assert.ok(collectiblesRoutesSource.includes("scopeContext?.spaceId || null, 'collectibles_enabled'"));
+  assert.ok(!collectiblesRoutesSource.includes("isFeatureEnabled('collectibles_enabled'"));
+  assert.ok(eventsRoutesSource.includes('isFeatureEnabledForSpace'));
+  assert.ok(eventsRoutesSource.includes("scopeContext?.spaceId || null, 'events_enabled'"));
+  assert.ok(!eventsRoutesSource.includes("isFeatureEnabled('events_enabled'"));
+}));
+
 results.push(run('auth routes expose explicit scope bootstrap and selection endpoints', () => {
   assert.ok(authRoutesSource.includes("router.get('/scope', authenticateToken"));
   assert.ok(authRoutesSource.includes("router.post('/scope', authenticateToken, requireSessionAuth"));

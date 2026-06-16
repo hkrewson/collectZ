@@ -32,7 +32,7 @@ const {
 const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
 const { logActivity } = require('../services/audit');
 const { uploadBuffer } = require('../services/storage');
-const { isFeatureEnabled } = require('../services/featureFlags');
+const { isFeatureEnabledForSpace } = require('../services/featureFlags');
 const {
   loadSignatureRecords,
   serializeSignatureRow,
@@ -59,8 +59,9 @@ const ALLOWED_IMAGE_MIME_TYPES = new Set([
 
 router.use('/events', authenticateToken);
 router.use('/events', enforceScopeAccess({ allowedHintRoles: ['admin'] }));
-router.use('/events', asyncHandler(async (_req, res, next) => {
-  const enabled = await isFeatureEnabled('events_enabled', false);
+router.use('/events', asyncHandler(async (req, res, next) => {
+  const scopeContext = resolveScopeContext(req);
+  const enabled = await isFeatureEnabledForSpace(scopeContext?.spaceId || null, 'events_enabled', false);
   if (!enabled) return res.status(404).json({ error: 'Events feature is disabled' });
   return next();
 }));

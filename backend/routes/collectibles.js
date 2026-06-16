@@ -37,7 +37,7 @@ const {
 } = require('../services/collectibles');
 const { buildCollectibleTraits } = require('../services/collectibleTraits');
 const { loadTraitRecords, loadTraitRecordsForOwner } = require('../services/collectibleTraitRecords');
-const { isFeatureEnabled } = require('../services/featureFlags');
+const { isFeatureEnabledForSpace } = require('../services/featureFlags');
 
 const router = express.Router();
 const memoryUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -71,8 +71,9 @@ const appendSubtypeScope = (where, params, subtype, column = 'c.subtype') => {
 
 router.use(COLLECTIBLE_ROUTE_PATHS, authenticateToken);
 router.use(COLLECTIBLE_ROUTE_PATHS, enforceScopeAccess());
-router.use(COLLECTIBLE_ROUTE_PATHS, asyncHandler(async (_req, res, next) => {
-  const enabled = await isFeatureEnabled('collectibles_enabled', false);
+router.use(COLLECTIBLE_ROUTE_PATHS, asyncHandler(async (req, res, next) => {
+  const scopeContext = resolveScopeContext(req);
+  const enabled = await isFeatureEnabledForSpace(scopeContext?.spaceId || null, 'collectibles_enabled', false);
   if (!enabled) return res.status(404).json({ error: 'Collectibles feature is disabled' });
   return next();
 }));
