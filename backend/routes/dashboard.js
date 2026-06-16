@@ -385,7 +385,12 @@ router.get('/dashboard/summary', asyncHandler(async (req, res) => {
       OR (al.entity_type = 'library' AND al.entity_id::text = $${activityParams.length})
     )`);
   }
-  const activityWhere = activityScopeFilters.length > 0 ? `WHERE ${activityScopeFilters.join(' AND ')}` : '';
+  const activityConditions = [
+    `al.action NOT LIKE 'request.%'`,
+    `COALESCE(al.entity_type, '') <> 'http_request'`,
+    ...activityScopeFilters
+  ];
+  const activityWhere = `WHERE ${activityConditions.join(' AND ')}`;
 
   const integrationParams = [];
   let integrationWhere = 'WHERE space_id IS NULL';

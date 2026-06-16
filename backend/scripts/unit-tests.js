@@ -3637,6 +3637,13 @@ results.push(run('LibraryView renders compact lookup thumbnails for provider sea
   assert.ok(libraryViewSource.includes("className=\"relative mt-0.5 h-16 w-11 shrink-0 overflow-hidden rounded-[4px] border border-edge/70 bg-panel\""));
 }));
 
+results.push(run('LibraryView uses movie original-title input as a save fallback', () => {
+  assert.ok(libraryViewSource.includes("const resolvePrimaryTitle = () => String(form.title || (isMovieOrTv ? form.original_title : '') || '').trim();"));
+  assert.ok(libraryViewSource.includes('const primaryTitle = resolvePrimaryTitle();'));
+  assert.ok(libraryViewSource.includes('title: primaryTitle,'));
+  assert.ok(libraryViewSource.includes('original_title: isMovieOrTv && rawOriginalTitle && rawOriginalTitle !== primaryTitle ? rawOriginalTitle : null'));
+}));
+
 results.push(run('shared posterUrl rejects unsafe image protocols while preserving trusted image paths', () => {
   assert.ok(appPrimitivesSource.includes("value.startsWith('http://') || value.startsWith('https://')"));
   assert.ok(appPrimitivesSource.includes("value.startsWith('blob:')"));
@@ -7337,6 +7344,14 @@ results.push(run('phase5 smoke scripts avoid tenant admin invite bootstrapping a
 results.push(run('admin activity route stays in the platform control plane before tenant scope enforcement', () => {
   assert.ok(adminRoutesSource.includes("platformRouter.get('/activity'"));
   assert.ok(adminRoutesSource.indexOf("platformRouter.get('/activity'") < adminRoutesSource.indexOf("platformRouter.use(enforceScopeAccess({ allowedHintRoles: ['admin'] }));"));
+}));
+
+results.push(run('workspace-facing activity hides request-level diagnostics', () => {
+  assert.ok(spacesRoutesSource.includes("al.action NOT LIKE 'request.%'"));
+  assert.ok(spacesRoutesSource.includes("COALESCE(al.entity_type, '') <> 'http_request'"));
+  assert.ok(dashboardRoutesSource.includes("al.action NOT LIKE 'request.%'"));
+  assert.ok(dashboardRoutesSource.includes("COALESCE(al.entity_type, '') <> 'http_request'"));
+  assert.ok(adminRoutesSource.includes("al.action IN ('invite.claimed', 'request.validation.failed')"));
 }));
 
 results.push(run('server source assigns request ids before request logging', () => {

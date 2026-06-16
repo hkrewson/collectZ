@@ -2992,7 +2992,8 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
     return () => window.removeEventListener('resize', measure);
   }, [lookupPanelExpanded, form.media_type, lookupCaptureLoading, lookupLoading, bookCaptureState, bookIdentifierInput, comicIdentifierInput, form.upc, form.title]);
 
-  const resolveLookupTitle = () => String(form.title || '').trim();
+  const resolvePrimaryTitle = () => String(form.title || (isMovieOrTv ? form.original_title : '') || '').trim();
+  const resolveLookupTitle = () => resolvePrimaryTitle();
   const resolveLookupYear = () => {
     const directYear = Number(String(form.year || '').trim());
     if (Number.isFinite(directYear) && directYear > 0) return directYear;
@@ -3339,7 +3340,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
     }, 500);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canUniversalLookup, lookupPanelExpanded, form.media_type, form.title, form.year, form.release_date, form.upc, bookIdentifierInput, comicIdentifierInput]);
+  }, [canUniversalLookup, lookupPanelExpanded, form.media_type, form.title, form.original_title, form.year, form.release_date, form.upc, bookIdentifierInput, comicIdentifierInput]);
 
   const handleBookIdentifierChange = (value) => {
     const raw = String(value || '').toUpperCase();
@@ -3728,10 +3729,12 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
                 region: form.game_region || null
               }
             : null;
+      const primaryTitle = resolvePrimaryTitle();
+      const rawOriginalTitle = String(form.original_title || '').trim();
       const payload = {
         media_type: form.media_type,
-        title: String(form.title || '').trim(),
-        original_title: isMovieOrTv ? (String(form.original_title || '').trim() || null) : null,
+        title: primaryTitle,
+        original_title: isMovieOrTv && rawOriginalTitle && rawOriginalTitle !== primaryTitle ? rawOriginalTitle : null,
         release_date: normalizeDateInput(form.release_date) || null,
         year: form.year ? Number(form.year) : null,
         owned_formats: sortOwnedFormats(form.media_type, form.owned_formats || []),

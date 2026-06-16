@@ -444,6 +444,8 @@ router.get('/spaces/:id/activity', asyncHandler(async (req, res) => {
 
     const params = [spaceId];
     const conditions = [
+      `al.action NOT LIKE 'request.%'`,
+      `COALESCE(al.entity_type, '') <> 'http_request'`,
       `(
         (al.entity_type = 'space' AND al.entity_id = $1)
         OR COALESCE(al.details->>'spaceId', '') = $1::text
