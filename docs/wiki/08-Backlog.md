@@ -1155,83 +1155,58 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - Backend/frontend deployable images remain versioned and published as they are today.
 - The publication and consumption flow is documented clearly enough for a separate Apple app repo to implement it without guesswork.
 
-### Backlog Item: Private Source and Public Mirror Cutover
+### Backlog Item: Canonical Public Core and Platform Extraction
 **Type:** Deferred infrastructure milestone
-**Tags:** `public-repo`, `private-source`, `mirror`, `publication`, `ci`, `security`, `docs`, `subscription-readiness`
-**Status:** Active backlog; not yet promoted or versioned.
+**Tags:** `public-repo`, `open-source`, `platform-extraction`, `cairn`, `ci`, `security`, `docs`, `subscription-readiness`
+**Status:** Active backlog; transition started.
 
-**Goal:** Complete the repo operating-model transition by publishing a reviewed public deployment mirror from the generated export tree, then making the current source-of-truth repository private.
+**Goal:** Make collectZ the canonical public open-source Core repository again, retire the generated mirror workflow, and extract SaaS/platform behavior into a separate service named `cairn`.
 
 **Why this work exists**
-- `3.17.0` added a local release gate foundation so the private source tree can be validated before public publication.
-- `3.18.0` defined the public repository sanitization strategy and export contract in `docs/wiki/51-Public-Repository-Sanitization.md`.
-- `3.18.1` added `npm run public:export`, which creates a validated `public-export/` tree and optional clean local commit without pushing.
-- `3.18.2` added `npm run audit:public-source-boundary`, which shows frontend/OpenAPI source publication is still blocked by runtime contract terminology and private operations labels.
-- The remaining work is not source sanitization strategy or export generation; it is the operational cutover: choose the public mirror, connect the generated repository to GitHub, review the public surface, and only then make the source repository private.
+- The generated public mirror model conflicts with the goal of making collectZ genuinely open source.
+- Public workflows, CI, CodeQL, dependency review, and source-level safety should run against the canonical source repository.
+- SaaS/platform behavior needs a cleaner module boundary so collectZ Core can stay self-hostable and public.
+- The platform service can begin privately while extraction and review are in progress, then become public after the boundary is clean.
 
 **Intent**
-- Treat the private source repo as the maintainer workspace for roadmap, backlog, release evidence, local runtime detail, and full CI/release history.
-- Treat the first public mirror as a clean, user-facing deployment surface with public setup docs, deployable compose/env references, version metadata, and GHCR image references.
-- Keep application source private until a separate source-publication boundary is intentionally designed and reviewed.
-- Preserve public trust signals without exposing private workflow details, roadmap/backlog context, local evidence, private git history, or internal runtime-boundary labels.
-- Keep mirror publication as an explicit maintainer action, separate from ordinary source-repo commits, pushes, or release closeout.
+- Treat collectZ as the public, self-contained Core app for homelab/self-hosted collection management.
+- Treat `cairn` as an optional platform control plane for email-first routing, platform admins, workspace/Core instance directory, support workflows, platform docs, and platform API contracts.
+- Keep Core runnable without `cairn`.
+- Use API-only integration from `cairn` to collectZ in v1.
+- Design `cairn` for many Core app instances, while allowing v1 to deploy one Core stack plus one platform service.
 
 **Current state**
-- `public-export.manifest.json` defines the approved public export surface.
-- `npm run validate:public-export` validates the export contract and denylist.
-- `npm run public:export -- --force --commit` creates a separate clean local git repository inside `public-export/`.
-- `public-export/` is ignored from the private source tree and is not pushed automatically.
-- Public mirror target has been selected as `https://github.com/hkrewson/collectz`.
-- Public mirror GitHub remote, mirror CI, first publication, and final source-repo privacy cutover have not been executed.
+- The old public mirror repo exists at `https://github.com/hkrewson/collectz`.
+- The current private canonical source repo exists at `https://github.com/hkrewson/collectZ-main`.
+- The active source tree has removed the public export builder, public export validator, public export manifest, generated compose script, and `public-mirror/` automation.
+- `docs/architecture/public-core-platform-extraction-plan.md` records the extraction plan and first inventory.
+- The current homelab/platform edition boundary identifies the first platform extraction candidates.
 
 **Scope**
-- Keep the public mirror repository target as `https://github.com/hkrewson/collectz`.
-- Update public-facing repository links in app metadata, README, setup docs, security policy, and generated public-export surfaces so they point to the public mirror rather than the private source repository.
-- Generate a fresh public export from a passing local gate.
-- Review the generated public tree before publication:
-  - confirm public setup files, version metadata, security policy, license, and deployable compose/env references are present,
-  - confirm `.github/`, `.ci/`, `docs/wiki/`, local runtime overrides, artifacts, release evidence, logs, traces, screenshots, and private source history are absent,
-  - confirm application source folders such as `backend/` and `frontend/` are absent until a separate source-publication boundary exists,
-  - run the public export validator and a targeted secret/content scan.
-- Create the public GitHub mirror repository.
-- Add the chosen public remote inside `public-export/`, not in the private source repo.
-- Push the clean public export commit only after explicit maintainer approval.
-- Decide whether the public mirror should use GitHub Issues/Discussions as the user-facing support surface.
-- After the public mirror is reviewed and reachable, make the current source-of-truth repository private.
-- Document the maintainer process for subsequent releases:
-  - run private/local gates,
-  - build public export,
-  - review public tree,
-  - push mirror update intentionally,
-  - then push or tag private source as appropriate.
-
-**Public mirror CI and trust signals**
-- Add or adapt public mirror CI only after the mirror target exists.
-- Keep visible public job and step names neutral, product-facing, and free of private operational labels.
-- Favor lightweight public checks that build trust:
-  - install/build validation,
-  - dependency audit or Dependabot,
-  - CodeQL/code scanning when available,
-  - public export surface validation,
-  - container image or SBOM checks if they can run without exposing private workflow context.
-- Keep the private/local gate authoritative for release readiness; public mirror CI is a public confidence signal, not the only validation source.
+- Archive or rename the current public mirror repository before promoting the canonical source repository.
+- Promote `collectZ-main` to the canonical public collectZ repository.
+- Remove active mirror-model docs, scripts, workflow references, and package commands.
+- Keep historical release notes intact unless they are reused as current instructions.
+- Add public-source CI for backend tests, frontend build, OpenAPI validation, Docker builds, CodeQL, dependency review, and secret/private-artifact sweeps.
+- Create private-first `cairn` repository and scaffold its service, database, OpenAPI, and CI.
+- Move platform surfaces incrementally from collectZ to `cairn`, starting with docs/metrics and support/admin surfaces.
+- Keep Core OpenAPI focused on Core/self-host APIs; move platform OpenAPI paths to `cairn`.
 
 **Out of scope**
-- Do not rewrite the private source repository history in this task.
-- Do not push the public mirror from ordinary `git push` or release-closeout automation.
-- Do not publish `docs/wiki`, private release evidence, local logs/artifacts, or private CI workflow internals to the public mirror.
-- Do not publish application source in the first deployment mirror.
-- Do not move roadmap/backlog planning into the public mirror.
-- Do not implement billing, subscription enforcement, or hosted-product behavior in this task.
+- Do not rewrite repository history unless a separate secret-exposure review requires it.
+- Do not implement billing or subscription enforcement in this transition.
+- Do not make `cairn` required for self-hosted collectZ Core.
+- Do not let `cairn` patch collectZ source or write directly to the collectZ database in v1.
 
 **Acceptance Criteria**
-- A public mirror repository exists and contains only the approved generated public deployment export surface.
-- Public-facing GitHub links point to the public mirror.
-- The generated public tree passes export validation and targeted secret/content scanning before publication.
-- The public mirror has clean git history that does not include private source-of-truth commits.
-- Public CI/check labels are neutral and do not expose private operational boundaries.
-- The private source repository can be made private without losing a public inspectable/deployable source surface.
-- The maintainer workflow clearly separates private source commits from explicit public mirror publication.
+- collectZ is public as the canonical source repository.
+- The old generated mirror workflow is not present in active scripts, docs, package commands, or workflows.
+- collectZ Core runs without `cairn`.
+- Public CI validates Core source, contracts, builds, and dependency/security checks.
+- `cairn` exists as a private-first platform service with its own API, DB, OpenAPI, and CI.
+- `cairn` can model one configured Core instance and route users by email.
+- Core users authenticate in Core; platform admins authenticate in `cairn`.
+- Support access is explicit, audited, and time-bound.
 
 ### Backlog Item: Personal Workspace Offboarding, Archive Retention, and Recovery
 **Type:** Deferred milestone

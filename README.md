@@ -133,17 +133,15 @@ curl http://localhost:3000/api/health
 
 Release notes are also available in the app under Help/Releases.
 
-## Public Mirror Notes
+## Source Model
 
-This public repository is intended for self-hosted installation, updates, security policy, and public support context around the prebuilt GHCR images.
+collectZ is moving back to a canonical public-source model. The repository is intended to contain the open-source Core app for self-hosted collection management.
 
-The application source of truth, maintainer planning notes, release workflow details, and internal automation are kept separately. Public releases are published as clean mirror commits, not by exposing private git history.
+SaaS/platform control-plane code is being separated into a companion service named `cairn`. collectZ Core should remain runnable without that service.
 
 ## Documentation
 
 This README, `SECURITY.md`, `env.example`, `setup.sh`, `docs/public/`, and the in-app Help/Releases area are the public documentation entry points for now.
-
-The maintainer knowledge base is kept separate from the public mirror because it includes planning notes, release workflow details, and operational context that are not written as end-user documentation.
 
 ## Troubleshooting
 

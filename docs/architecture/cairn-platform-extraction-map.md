@@ -1,0 +1,158 @@
+# cairn Platform Extraction Map
+
+This map classifies current collectZ surfaces for the `cairn` extraction. It uses the existing homelab/platform edition boundary as the starting point, but preserves Core internals that are required for self-hosted behavior.
+
+## Classification Rules
+
+- **Move to cairn:** SaaS/platform control-plane behavior, platform-only admin/support UI, platform OpenAPI, and platform service docs.
+- **Keep in Core:** self-hosted collection management, Core auth/session behavior, library/media/data workflows, and internal scope primitives required by Core.
+- **Compatibility bridge:** current platform behavior that depends on Core internals and needs a documented Core API before it can move.
+- **Historical only:** release notes and completed roadmap entries that describe the retired mirror/platform workflow at the time.
+
+## Backend Routes
+
+Move to `cairn`:
+
+- `/api/docs` and `/api/docs/openapi.json`
+- `/api/metrics`
+- `/api/auth/support-session/start`
+- `/api/auth/support-session`
+- `/api/support/requests`
+- `/api/support/requests/:id`
+- `/api/support/requests/:id/messages`
+- `/api/support/requests/:id/status`
+- `/api/support/requests/:id/access`
+- `/api/support/requests/:id/triage`
+- `/api/support/staff/summary`
+- `/api/admin/spaces`
+- `/api/admin/spaces/create-with-onboarding`
+- `/api/admin/spaces/:id`
+- `/api/admin/spaces/:id/members`
+- `/api/admin/spaces/:id/invites`
+- `/api/admin/spaces/:id/invites/:inviteId/revoke`
+- `/api/admin/spaces/:id/owner`
+- `/api/admin/spaces/:id/archive`
+- `/api/admin/users`
+- `/api/admin/users/:id/summary`
+- `/api/admin/users/:id/role`
+- `/api/admin/users/:id/password-reset`
+- `/api/admin/settings/email-delivery`
+- `/api/admin/settings/email-delivery/test`
+- platform-only integration diagnostics under `/api/admin/settings/integrations/test-pricecharting`, `/test-ebay`, and `/test-logs`
+
+Keep in Core:
+
+- `/api/health`
+- core auth endpoints for registration, login, logout, password reset, email verification, CSRF, `/api/auth/me`, `/api/auth/config`, `/api/auth/scope`, and `/api/profile`
+- dashboard, media, libraries, import, capture, wishlist, events, collectibles, art, loans, signatures, merge review, feature flags, Core settings, and Core integrations
+- `/api/support/releases`, because Help/Releases is a Core public/self-host surface
+
+Compatibility bridge:
+
+- `/api/spaces`, `/api/spaces/select`, and workspace/member/invite routes in `backend/routes/spaces.js`
+- `/api/spaces/:id/settings/general`, `/feature-flags`, `/activity`, `/portability`, and `/integrations`
+- `/api/spaces/:id/integrations/test-*`
+- `/api/auth/service-account-keys`
+
+These bridge routes expose currently visible platform/workspace management, but they also depend on Core scope, library, integration, and token models. They should stay in collectZ until `cairn` has documented Core APIs for instance/workspace routing, support access, and scoped admin operations.
+
+## Frontend Surfaces
+
+Move to `cairn`:
+
+- `SupportInboxView.jsx`
+- platform support mode inside `HelpView.jsx`
+- `AdminSpacesView.jsx`
+- `AdminUsersView.jsx`
+- support-session banner and controls that are only for platform staff
+- navigation entries for `support-inbox`, `admin-spaces`, and `admin-users`
+- platform-specific shell labels such as All Workspaces, All Members, Help Admin, and Support Inbox
+
+Keep in Core:
+
+- `AuthPage.jsx` for Core login/registration
+- dashboard, library, import, capture, wishlist, events, collectibles, art, loans, profile, admin merge review, admin settings, admin integrations, and help/releases surfaces that are useful to self-hosted Core
+- local runtime tab gating in `productEdition.js` until platform extraction removes the need for edition-aware shell behavior
+
+Compatibility bridge:
+
+- `SpaceManagerView.jsx` and the `space-manage` tab
+- active-space and active-library selection in `App.jsx`
+- `DashboardShell.jsx`, `DashboardContent.jsx`, `SidebarNav.jsx`, and `dashboardRouting.js` tab definitions while platform tabs still coexist with Core tabs
+- `useSupportSummary.js`, until support requests move fully to `cairn`
+
+## OpenAPI Split
+
+Move to `cairn` OpenAPI:
+
+- support sessions
+- support request/inbox APIs except Core release feed
+- global workspace administration
+- global member administration
+- platform docs and metrics
+- platform email delivery settings
+- platform service-account/admin-token management if retained as platform-only
+
+Keep in collectZ Core OpenAPI:
+
+- Core auth/session/profile
+- Core library/media/import/capture/wishlist/events/collectibles/art/loans/signatures/object relationships
+- Core admin settings, merge review, portability, feature flags, and self-hosted integrations
+- Help/Releases feed
+
+Bridge until Core contracts exist:
+
+- workspace scope selection and scoped workspace settings
+- scoped integrations diagnostics
+- service account keys or replacement Core machine-token APIs
+
+## Database and Migrations
+
+Keep in Core for v1:
+
+- `spaces`
+- `space_memberships`
+- `users.active_space_id`
+- `libraries.space_id`
+- `media.space_id`
+- `app_integrations.space_id`
+- all existing `space_id` columns on Core domain tables
+
+These are internal Core scope primitives now. Removing them would require a larger Core data model rewrite and is not part of the first extraction.
+
+Move to `cairn` in future migrations:
+
+- platform user/workspace directory tables
+- Core instance registry
+- platform admin account tables
+- platform email-first routing metadata
+- platform support request queue
+- platform support access approval state
+
+Compatibility bridge:
+
+- current `support_requests` and `support_request_messages` tables can stay in Core until `cairn` owns support workflows end-to-end.
+- current `user_sessions.support_*` columns can stay in Core until support access is initiated by `cairn` through a documented Core support-session API.
+- current `service_account_keys` can stay in Core until replaced or clearly classified as Core machine-token support.
+
+## First Extraction Order
+
+1. Create `cairn` privately with its own service, database, OpenAPI spec, CI, and health endpoint.
+2. Add `cairn` platform directory tables: platform admins, Core instances, workspaces, and email routing.
+3. Add the email-first login router in `cairn`.
+4. Add a documented Core instance read/health contract that `cairn` can call without database access.
+5. Move platform docs and metrics to `cairn`.
+6. Move support request/inbox UI and APIs to `cairn`, leaving only the Core support-session bridge in collectZ.
+7. Move global workspace/member administration to `cairn`, backed by documented Core APIs where Core data changes are required.
+8. Remove platform-only tabs and OpenAPI paths from collectZ after the matching `cairn` surface exists.
+
+## Verification Targets
+
+- Core homelab runtime smoke still passes after each extraction slice.
+- collectZ starts and operates without `cairn`.
+- `cairn` can route a known Core user email to the configured Core login URL.
+- `cairn` can authenticate a platform admin without creating a Core session.
+- Support access requires explicit approval, writes an audit trail, expires, and cannot be initiated by ordinary Core login.
+- collectZ OpenAPI no longer documents moved platform APIs once they are served by `cairn`.
+- `cairn` OpenAPI documents platform APIs before public visibility is enabled for the repo.
+
