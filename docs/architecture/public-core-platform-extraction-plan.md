@@ -113,6 +113,7 @@ Platform-only paths should be removed from the collectZ OpenAPI spec during extr
 - `cairn` has an initial commit on `main`, a modern npm lockfile, CI, OpenAPI stub, directory migration, and health/config API scaffold.
 - `cairn` now has the first email-first login routing contract at `POST /api/login-routes/lookup`.
 - collectZ Core now publishes non-secret instance metadata at `GET /api/core/instance`, and `cairn` can read it through `GET /api/core-instances/{id}/readiness`.
+- Platform API docs and platform-service metrics now live in `cairn` at `GET /api/docs`, `GET /api/docs/openapi.yaml`, and `GET /api/metrics`; collectZ Core no longer mounts or documents the former platform docs/metrics endpoints.
 
 ## Initial Inventory
 

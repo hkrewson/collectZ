@@ -3563,10 +3563,6 @@
         },
         "required": ["ok", "queued", "job_id", "status", "status_url", "job"]
       },
-      "MetricsText": {
-        "type": "string",
-        "description": "Prometheus text exposition format."
-      },
       "DashboardReviewDecisionRequest": {
         "type": "object",
         "properties": {
@@ -8685,91 +8681,6 @@
           },
           "404": {
             "description": "Space not found",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/Error" }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/docs": {
-      "get": {
-        "tags": ["Observability"],
-        "summary": "Serve the admin-only API documentation UI",
-        "security": [
-          { "cookieSession": [] }
-        ],
-        "responses": {
-          "200": {
-            "description": "Swagger UI HTML shell",
-            "content": {
-              "text/html": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Docs are unavailable because the debug/feature-flag gate is closed",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/Error" }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/docs/openapi.json": {
-      "get": {
-        "tags": ["Observability"],
-        "summary": "Read the current OpenAPI contract",
-        "security": [
-          { "cookieSession": [] }
-        ],
-        "responses": {
-          "200": {
-            "description": "Current OpenAPI document",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Docs are unavailable because the debug/feature-flag gate is closed",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/Error" }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/metrics": {
-      "get": {
-        "tags": ["Observability"],
-        "summary": "Read the admin-only Prometheus-style metrics export",
-        "security": [
-          { "cookieSession": [] }
-        ],
-        "responses": {
-          "200": {
-            "description": "Prometheus metrics payload",
-            "content": {
-              "text/plain": {
-                "schema": { "$ref": "#/components/schemas/MetricsText" }
-              }
-            }
-          },
-          "404": {
-            "description": "Metrics are unavailable because the debug/feature-flag gate is closed",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/Error" }

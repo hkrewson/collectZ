@@ -188,8 +188,6 @@ const captureImageOcrServiceSource = fs.readFileSync(require.resolve('../service
 const mediaRoutesSource = fs.readFileSync(require.resolve('../routes/media'), 'utf8');
 const reviewCluesServiceSource = fs.readFileSync(require.resolve('../services/reviewClues'), 'utf8');
 const openApiSource = fs.readFileSync(require.resolve('../openapi/openapi.yaml'), 'utf8');
-const docsRoutesSource = fs.readFileSync(require.resolve('../routes/docs'), 'utf8');
-const metricsRoutesSource = fs.readFileSync(require.resolve('../routes/metrics'), 'utf8');
 const logExportSource = fs.readFileSync(require.resolve('../services/logExport'), 'utf8');
 const serverSource = fs.readFileSync(require.resolve('../server'), 'utf8');
 const coreRoutesSource = fs.readFileSync(require.resolve('../routes/core'), 'utf8');
@@ -2369,8 +2367,8 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(serverSource.includes("app.use('/api/support', supportSharedRouter);"));
   assert.ok(serverSource.includes("app.use('/api/admin', adminCommonRouter);"));
   assert.ok(serverSource.includes("app.use('/api', sharedIntegrationsRouter);"));
-  assert.ok(serverSource.includes("app.use('/api/docs', docsRouter);"));
-  assert.ok(serverSource.includes("app.use('/api/metrics', metricsRouter);"));
+  assert.ok(!serverSource.includes("app.use('/api/docs', docsRouter);"));
+  assert.ok(!serverSource.includes("app.use('/api/metrics', metricsRouter);"));
   assert.ok(serverSource.includes("app.use('/api/support', supportPlatformRouter);"));
   assert.ok(serverSource.includes("app.use('/api', platformIntegrationsRouter);"));
   assert.ok(serverSource.includes("app.use('/api', spaceIntegrationsRouter);"));
@@ -4815,9 +4813,9 @@ results.push(run('openapi baseline documents key auth admin and media endpoints'
   assert.ok(spec.components.schemas.AutomaticLoanReminderRunRecord);
   assert.ok(spec.components.schemas.AutomaticLoanReminderFailureRecord);
   assert.ok(!spec.paths['/api/admin/invites']);
-  assert.ok(spec.paths['/api/docs']);
-  assert.ok(spec.paths['/api/docs/openapi.json']);
-  assert.ok(spec.paths['/api/metrics']);
+  assert.ok(!spec.paths['/api/docs']);
+  assert.ok(!spec.paths['/api/docs/openapi.json']);
+  assert.ok(!spec.paths['/api/metrics']);
   assert.ok(spec.paths['/api/media']);
   assert.ok(spec.paths['/api/media/loans']);
   assert.ok(spec.paths['/api/media/loans/{loanId}']);
@@ -4832,7 +4830,6 @@ results.push(run('openapi baseline documents key auth admin and media endpoints'
   assert.ok(spec.components.securitySchemes.bearerAuth);
   assert.ok(spec.components.schemas.PersonalAccessTokenRecord);
   assert.ok(spec.components.schemas.ServiceAccountKeyRecord);
-  assert.ok(spec.components.schemas.MetricsText);
   assert.ok(spec.components.schemas.QueuedJobResponse);
   assert.ok(spec.components.schemas.SupportRequestTriageUpdateRequest);
   assert.ok(spec.components.schemas.SupportRequestMutationResponse);
@@ -4841,42 +4838,13 @@ results.push(run('openapi baseline documents key auth admin and media endpoints'
   assert.ok(spec.components.schemas.MediaLoanListResponse);
 }));
 
-results.push(run('docs route source enforces admin plus debug gating', () => {
-  assert.ok(docsRoutesSource.includes("authenticateToken, requireRole('admin')"));
-  assert.ok(docsRoutesSource.includes('DEBUG_LEVEL >= 1'));
-  assert.ok(docsRoutesSource.includes("error.status = 404"));
-  assert.ok(docsRoutesSource.includes("router.get('/openapi.json'"));
-}));
-
-results.push(run('metrics route source enforces admin plus debug and feature-flag gating', () => {
-  assert.ok(metricsRoutesSource.includes('hasValidMetricsScrapeToken'));
-  assert.ok(metricsRoutesSource.includes('METRICS_SCRAPE_TOKEN'));
-  assert.ok(metricsRoutesSource.includes("requireRole('admin')"));
-  assert.ok(metricsRoutesSource.includes("isFeatureEnabled('metrics_enabled', false)"));
-  assert.ok(metricsRoutesSource.includes('DEBUG_LEVEL >= 1'));
-  assert.ok(metricsRoutesSource.includes("error.status = 404"));
-  assert.ok(metricsRoutesSource.includes("text/plain; version=0.0.4"));
-}));
-
-results.push(run('metrics route helper accepts dedicated scrape bearer token', () => {
-  const metricsRoutePath = require.resolve('../routes/metrics');
-  const previousToken = process.env.METRICS_SCRAPE_TOKEN;
-  process.env.METRICS_SCRAPE_TOKEN = 'test-metrics-token';
-  delete require.cache[metricsRoutePath];
-  const metricsRoute = require('../routes/metrics');
-  assert.strictEqual(metricsRoute.hasValidMetricsScrapeToken({
-    headers: { authorization: 'Bearer test-metrics-token' }
-  }), true);
-  assert.strictEqual(metricsRoute.hasValidMetricsScrapeToken({
-    headers: { authorization: 'Bearer wrong-token' }
-  }), false);
-  assert.strictEqual(metricsRoute.hasValidMetricsScrapeToken({
-    headers: {}
-  }), false);
-  if (previousToken === undefined) delete process.env.METRICS_SCRAPE_TOKEN;
-  else process.env.METRICS_SCRAPE_TOKEN = previousToken;
-  delete require.cache[metricsRoutePath];
-  require('../routes/metrics');
+results.push(run('platform docs and metrics routes are no longer mounted in collectZ Core', () => {
+  assert.ok(!serverSource.includes("const docsRouter = require('./routes/docs');"));
+  assert.ok(!serverSource.includes("const metricsRouter = require('./routes/metrics');"));
+  assert.ok(!openApiSource.includes('"/api/docs"'));
+  assert.ok(!openApiSource.includes('"/api/docs/openapi.json"'));
+  assert.ok(!openApiSource.includes('"/api/metrics"'));
+  assert.ok(!openApiSource.includes('"MetricsText"'));
 }));
 
 results.push(run('auth route source exposes admin-only service account key management', () => {

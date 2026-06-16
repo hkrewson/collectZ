@@ -141,7 +141,7 @@ Compatibility bridge:
 2. Add `cairn` platform directory tables: platform admins, Core instances, workspaces, and email routing.
 3. Add the email-first login router in `cairn`.
 4. Add a documented Core instance read/health contract that `cairn` can call without database access. Done: collectZ Core exposes `GET /api/core/instance`, and `cairn` exposes `GET /api/core-instances/{id}/readiness` for platform-side checks.
-5. Move platform docs and metrics to `cairn`.
+5. Move platform docs and metrics to `cairn`. Done: `cairn` serves `GET /api/docs`, `GET /api/docs/openapi.yaml`, and `GET /api/metrics`; collectZ Core no longer mounts or documents its previous platform docs/metrics paths.
 6. Move support request/inbox UI and APIs to `cairn`, leaving only the Core support-session bridge in collectZ.
 7. Move global workspace/member administration to `cairn`, backed by documented Core APIs where Core data changes are required.
 8. Remove platform-only tabs and OpenAPI paths from collectZ after the matching `cairn` surface exists.
