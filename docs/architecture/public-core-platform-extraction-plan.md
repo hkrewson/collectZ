@@ -111,6 +111,7 @@ Platform-only paths should be removed from the collectZ OpenAPI spec during extr
 - A private-first `cairn` scaffold exists at `/Users/hamlin/Development/GitHub/hkrewson/cairn`.
 - The private GitHub repo exists at `https://github.com/hkrewson/cairn`.
 - `cairn` has an initial commit on `main`, a modern npm lockfile, CI, OpenAPI stub, directory migration, and health/config API scaffold.
+- `cairn` now has the first email-first login routing contract at `POST /api/login-routes/lookup`.
 
 ## Initial Inventory
 
