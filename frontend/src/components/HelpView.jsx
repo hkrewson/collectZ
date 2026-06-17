@@ -6,6 +6,7 @@ import {
   getHelpTabDefinitions,
   getSafeHelpTab,
   isSupportHelpEnabled,
+  LOCAL_PRODUCT_EDITION,
   SUPPORT_STAFF_ROLE
 } from './app/productEdition';
 
@@ -230,7 +231,8 @@ export default function HelpView({
   supportSummary,
   onSupportSummaryRefresh,
   initialTab = 'guidance',
-  productEdition = 'platform'
+  productEdition = 'platform',
+  supportRequestsEnabled = false
 }) {
   const [activeTab, setActiveTab] = useState(initialTab);
   const [requests, setRequests] = useState([]);
@@ -266,9 +268,10 @@ export default function HelpView({
   const [staffSearchQuery, setStaffSearchQuery] = useState('');
   const threadEndRef = useRef(null);
   const triageRequestIdRef = useRef(null);
-  const supportHelpEnabled = useMemo(() => isSupportHelpEnabled(productEdition), [productEdition]);
+  const supportHelpEnabled = useMemo(() => isSupportHelpEnabled(productEdition) && supportRequestsEnabled, [productEdition, supportRequestsEnabled]);
+  const effectiveHelpProductEdition = supportHelpEnabled ? productEdition : LOCAL_PRODUCT_EDITION;
   const isSupportStaff = supportHelpEnabled && ['admin', SUPPORT_STAFF_ROLE].includes(String(user?.role || ''));
-  const helpTitle = useMemo(() => getHelpSurfaceTitle(productEdition, isSupportStaff), [productEdition, isSupportStaff]);
+  const helpTitle = useMemo(() => getHelpSurfaceTitle(effectiveHelpProductEdition, isSupportStaff), [effectiveHelpProductEdition, isSupportStaff]);
   const requestStatusTone = useMemo(() => ({
     open: 'badge-warn',
     answered: 'badge-ok',
@@ -287,16 +290,16 @@ export default function HelpView({
       : baseArticles;
   }, [isSupportStaff, supportHelpEnabled]);
   const helpTabs = useMemo(
-    () => getHelpTabDefinitions(productEdition, isSupportStaff),
-    [productEdition, isSupportStaff]
+    () => getHelpTabDefinitions(effectiveHelpProductEdition, isSupportStaff),
+    [effectiveHelpProductEdition, isSupportStaff]
   );
 
   useEffect(() => {
-    const safeTab = getSafeHelpTab(productEdition, isSupportStaff, activeTab);
+    const safeTab = getSafeHelpTab(effectiveHelpProductEdition, isSupportStaff, activeTab);
     if (safeTab !== activeTab) {
       setActiveTab(safeTab);
     }
-  }, [activeTab, isSupportStaff, productEdition]);
+  }, [activeTab, effectiveHelpProductEdition, isSupportStaff]);
 
   const formatRequestContext = useCallback((request) => {
     if (!request) return null;

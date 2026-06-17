@@ -84,19 +84,22 @@ export default function DashboardContent({
   scopeKey,
   supportSummary,
   onSupportSummaryRefresh,
-  productEdition = 'platform'
+  productEdition = 'platform',
+  platformBridgeEnabled = false
 }) {
   const [mergeReviewSeed, setMergeReviewSeed] = React.useState(null);
   const [timelineFocus, setTimelineFocus] = React.useState(null);
   const isAdminTab = String(activeTab || '').startsWith('admin-');
   const supportHelpEnabled = isSupportHelpEnabled(productEdition);
   const localRuntime = isLocalProductEdition(productEdition);
-  const supportStaffInEdition = supportHelpEnabled && ['admin', SUPPORT_STAFF_ROLE].includes(String(user?.role || ''));
+  const coreRuntime = localRuntime || !platformBridgeEnabled;
+  const bridgeSupportEnabled = supportHelpEnabled && platformBridgeEnabled;
+  const supportStaffInEdition = bridgeSupportEnabled && ['admin', SUPPORT_STAFF_ROLE].includes(String(user?.role || ''));
   const supportAdminAllowedTabs = new Set([
     'help',
     'profile',
-    ...(supportHelpEnabled ? ['support-inbox'] : []),
-    ...(supportSession?.active ? ['space-manage'] : [])
+    ...(bridgeSupportEnabled ? ['support-inbox'] : []),
+    ...(bridgeSupportEnabled && supportSession?.active ? ['space-manage'] : [])
   ]);
   if (isAdminTab && user?.role !== 'admin') {
     return <ForbiddenView detail="Admin permissions are required to access this view." />;
@@ -135,6 +138,9 @@ export default function DashboardContent({
       );
     case 'help':
     case 'support-inbox':
+      if (activeTab === 'support-inbox' && !platformBridgeEnabled) {
+        return <ForbiddenView detail="Support inbox is available when a platform bridge is configured." />;
+      }
       return (
         <HelpView
           apiCall={apiCall}
@@ -151,6 +157,7 @@ export default function DashboardContent({
           onSupportSummaryRefresh={onSupportSummaryRefresh}
           initialTab={getSafeHelpTab(productEdition, supportStaffInEdition, activeTab === 'support-inbox' ? 'support' : 'guidance')}
           productEdition={productEdition}
+          supportRequestsEnabled={platformBridgeEnabled}
         />
       );
     case 'library':
@@ -314,6 +321,9 @@ export default function DashboardContent({
         />
       );
     case 'admin-users':
+      if (!platformBridgeEnabled) {
+        return <ForbiddenView detail="Member administration is available when a platform bridge is configured." />;
+      }
       return <AdminUsersView apiCall={apiCall} onToast={showToast} currentUserId={user?.id} Icons={Icons} Spinner={Spinner} />;
     case 'admin-merges':
       return (
@@ -328,6 +338,9 @@ export default function DashboardContent({
         />
       );
     case 'admin-spaces':
+      if (!platformBridgeEnabled) {
+        return <ForbiddenView detail="Workspace administration is available when a platform bridge is configured." />;
+      }
       return (
         <AdminSpacesView
           apiCall={apiCall}
@@ -349,17 +362,17 @@ export default function DashboardContent({
           onToast={showToast}
           onSettingsChange={setUiSettings}
           Spinner={Spinner}
-          title={localRuntime ? 'Settings' : 'Platform Settings'}
-          description={localRuntime
+          title={coreRuntime ? 'Settings' : 'Platform Settings'}
+          description={coreRuntime
             ? 'Configure local app defaults, available library features, and backup/export readback for this install.'
             : 'Configure instance-wide platform defaults, email delivery, registration behavior, and platform backup/export readback. Workspace settings and provider integrations live under Workspace.'}
-          themeLabel={localRuntime ? 'Theme' : 'Platform theme default'}
-          themeDescription={localRuntime
+          themeLabel={coreRuntime ? 'Theme' : 'Platform theme default'}
+          themeDescription={coreRuntime
             ? 'Choose the default appearance for this install.'
             : 'Choose the default appearance for this platform. Workspace-level settings can override this where available.'}
-          visibleFlagKeys={localRuntime ? undefined : ['self_registration_enabled']}
+          visibleFlagKeys={coreRuntime ? undefined : ['self_registration_enabled']}
           emptyFeatureFlagsMessage={null}
-          emailDeliveryEndpoint={localRuntime ? null : '/admin/settings/email-delivery'}
+          emailDeliveryEndpoint={platformBridgeEnabled ? '/admin/settings/email-delivery' : null}
           portabilityEndpoint="/admin/settings/portability"
         />
       );
@@ -375,10 +388,10 @@ export default function DashboardContent({
           cx={cx}
           section={activeIntegrationSection}
           onSectionChange={setActiveIntegrationSection}
-          title={localRuntime ? 'Integrations' : 'Platform Runtime'}
-          includeRuntimeSections={!localRuntime}
+          title={coreRuntime ? 'Integrations' : 'Platform Runtime'}
+          includeRuntimeSections={!coreRuntime}
           includeValuationSections={false}
-          visibleSections={localRuntime
+          visibleSections={coreRuntime
             ? ['audio', 'barcode', 'books', 'cwa', 'comics', 'games', 'kavita', 'plex', 'tmdb']
             : ['logs', 'metrics']}
         />

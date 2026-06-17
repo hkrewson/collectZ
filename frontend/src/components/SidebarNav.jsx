@@ -36,20 +36,24 @@ export default function SidebarNav({
   showCollectibles = true,
   showEvents = true,
   supportBadgeCount = null,
-  productEdition = 'platform'
+  productEdition = 'platform',
+  platformBridgeEnabled = false
 }) {
   const isAdmin = user?.role === 'admin';
   const isSupportAdmin = user?.role === SUPPORT_STAFF_ROLE;
   const localRuntime = isLocalProductEdition(productEdition);
   const supportHelpEnabled = isSupportHelpEnabled(productEdition);
-  const isSupportStaff = supportHelpEnabled && (isAdmin || isSupportAdmin);
-  const canUseLibraryShell = !isSupportAdmin || !supportHelpEnabled;
+  const bridgeSupportEnabled = supportHelpEnabled && platformBridgeEnabled;
+  const coreNavigationOnly = localRuntime || !platformBridgeEnabled;
+  const isSupportStaff = bridgeSupportEnabled && (isAdmin || isSupportAdmin);
+  const canUseLibraryShell = !isSupportAdmin || !bridgeSupportEnabled;
   const allowedTabs = getAllowedDashboardTabs(productEdition, {
     userRole: user?.role,
     supportSessionActive,
     canManageActiveSpace,
     showCollectibles,
-    showEvents
+    showEvents,
+    platformBridgeEnabled
   });
   const [platformOpen, setPlatformOpen] = useState(true);
   const [libraryOpen, setLibraryOpen] = useState(true);
@@ -83,9 +87,9 @@ export default function SidebarNav({
   const canOpenSpaceSurface = Boolean(activeMembershipRole) || canManageActiveSpace;
   const showWorkspaceSettingsLink = !localRuntime && canOpenSpaceSurface && isTabAllowed('space-manage');
   const showWorkspaceMergeReviewLink = canOpenSpaceSurface && isTabAllowed('admin-merges');
-  const showLocalAdminSettingsLink = localRuntime && isAdmin && isTabAllowed('admin-settings');
-  const showLocalAdminIntegrationsLink = localRuntime && isAdmin && isTabAllowed('admin-integrations');
-  const platformNavigationAllowed = !localRuntime;
+  const showLocalAdminSettingsLink = coreNavigationOnly && isAdmin && isTabAllowed('admin-settings');
+  const showLocalAdminIntegrationsLink = coreNavigationOnly && isAdmin && isTabAllowed('admin-integrations');
+  const platformNavigationAllowed = !localRuntime && platformBridgeEnabled;
   const showPlatformGroup = platformNavigationAllowed && isAdmin && [
     isTabAllowed('admin-settings'),
     isTabAllowed('admin-integrations'),

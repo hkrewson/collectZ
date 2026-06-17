@@ -2327,8 +2327,8 @@ results.push(run('frontend source includes tabbed help center and support inbox 
   assert.ok(frontendAppSource.includes('getSafeDashboardTab'));
   assert.ok(frontendAppSource.includes('isSupportHelpEnabled'));
   assert.ok(frontendAppSource.includes('SUPPORT_STAFF_ROLE'));
-  assert.ok(frontendAppSource.includes("const supportStaffInEdition = supportHelpEnabled && ['admin', SUPPORT_STAFF_ROLE].includes"));
-  assert.ok(frontendAppSource.includes('const supportSessionActiveInEdition = supportHelpEnabled && Boolean(supportSession?.active);'));
+  assert.ok(frontendAppSource.includes("const supportStaffInEdition = supportHelpEnabled && platformBridgeEnabled && ['admin', SUPPORT_STAFF_ROLE].includes"));
+  assert.ok(frontendAppSource.includes('const supportSessionActiveInEdition = supportHelpEnabled && platformBridgeEnabled && Boolean(supportSession?.active);'));
   assert.ok(frontendAppSource.includes('supportSessionActive: supportSessionActiveInEdition,'));
   assert.ok(adminUsersViewSource.includes("const USER_ROLES = ['admin', SUPPORT_STAFF_ROLE, 'user', 'viewer'];"));
   assert.ok(dashboardContentSource.includes('<HelpView'));
@@ -2362,14 +2362,15 @@ results.push(run('frontend source includes tabbed help center and support inbox 
   assert.ok(supportSessionBannerSource.includes('Case:'));
   assert.ok(helpViewSource.includes('Reply to Support'));
   assert.ok(dashboardShellSource.includes('const supportHelpEnabled = isSupportHelpEnabled(productEdition);'));
-  assert.ok(dashboardShellSource.includes("const supportStaffInEdition = supportHelpEnabled && ['admin', SUPPORT_STAFF_ROLE].includes"));
-  assert.ok(dashboardShellSource.includes('const supportSessionActiveInEdition = supportHelpEnabled && Boolean(supportSession?.active);'));
+  assert.ok(dashboardShellSource.includes("const supportStaffInEdition = supportHelpEnabled && platformBridgeEnabled && ['admin', SUPPORT_STAFF_ROLE].includes"));
+  assert.ok(dashboardShellSource.includes('const supportSessionActiveInEdition = supportHelpEnabled && platformBridgeEnabled && Boolean(supportSession?.active);'));
   assert.ok(dashboardShellSource.includes("supportBadgeCount={supportStaffInEdition ? supportSummary.open : null}"));
   assert.ok(supportSessionBannerSource.includes('isSupportHelpEnabled(productEdition)'));
   assert.ok(supportSessionBannerSource.includes("&& ['admin', SUPPORT_STAFF_ROLE].includes(String(user?.role || ''));"));
   assert.ok(sidebarNavSource.includes('const supportHelpEnabled = isSupportHelpEnabled(productEdition);'));
-  assert.ok(sidebarNavSource.includes('const isSupportStaff = supportHelpEnabled && (isAdmin || isSupportAdmin);'));
-  assert.ok(sidebarNavSource.includes('const canUseLibraryShell = !isSupportAdmin || !supportHelpEnabled;'));
+  assert.ok(sidebarNavSource.includes('const bridgeSupportEnabled = supportHelpEnabled && platformBridgeEnabled;'));
+  assert.ok(sidebarNavSource.includes('const isSupportStaff = bridgeSupportEnabled && (isAdmin || isSupportAdmin);'));
+  assert.ok(sidebarNavSource.includes('const canUseLibraryShell = !isSupportAdmin || !bridgeSupportEnabled;'));
 }));
 
 results.push(run('edition boundary source includes backend-owned homelab shell and help surface rules', () => {
@@ -2391,15 +2392,19 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(productEditionFrontendSource.includes('getHelpTabDefinitions'));
   assert.ok(productEditionFrontendSource.includes('getHelpSurfaceTitle'));
   assert.ok(productEditionFrontendSource.includes('getAllowedDashboardTabs'));
-  assert.ok(productEditionFrontendSource.includes("if (!isLocalProductEdition(productEdition) && supportSessionActive && canManageActiveSpace)"));
+  assert.ok(productEditionFrontendSource.includes('platformBridgeEnabled = false'));
+  assert.ok(productEditionFrontendSource.includes("if (!isLocalProductEdition(productEdition) && platformBridgeEnabled && supportSessionActive && canManageActiveSpace)"));
+  assert.ok(productEditionFrontendSource.includes("if (!options?.platformBridgeEnabled) return getLocalRuntimeAllowedTabs(options);"));
   assert.ok(productEditionFrontendSource.includes('return DEFAULT_PLATFORM_TAB;'));
   assert.ok(helpViewSource.includes('<h1 className="section-title">{helpTitle}</h1>'));
+  assert.ok(helpViewSource.includes('supportRequestsEnabled = false'));
+  assert.ok(helpViewSource.includes('const effectiveHelpProductEdition = supportHelpEnabled ? productEdition : LOCAL_PRODUCT_EDITION;'));
   assert.ok(!helpViewSource.includes('A lightweight home for self-serve guidance and recent release notes for homelab users.'));
   assert.ok(frontendAppSource.includes('getSafeDashboardTab'));
   assert.ok(frontendAppSource.includes('supportSessionActiveInEdition'));
   assert.ok(dashboardContentSource.includes('const supportHelpEnabled = isSupportHelpEnabled(productEdition);'));
-  assert.ok(dashboardContentSource.includes("const supportStaffInEdition = supportHelpEnabled && ['admin', SUPPORT_STAFF_ROLE].includes"));
-  assert.ok(dashboardContentSource.includes("...(supportHelpEnabled ? ['support-inbox'] : []),"));
+  assert.ok(dashboardContentSource.includes('const bridgeSupportEnabled = supportHelpEnabled && platformBridgeEnabled;'));
+  assert.ok(dashboardContentSource.includes("...(bridgeSupportEnabled ? ['support-inbox'] : []),"));
   assert.ok(sidebarNavSource.includes('getAllowedDashboardTabs'));
   assert.ok(sidebarNavSource.includes('showPlatformGroup'));
   assert.ok(productEditionConfigSource.includes("return PRODUCT_EDITIONS.has(normalized) ? normalized : 'homelab';"));
@@ -3344,7 +3349,7 @@ results.push(run('kavita workspace-owned administration implementation is wired 
   assert.ok(dashboardContentSource.includes("['audio', 'barcode', 'books', 'cwa', 'comics', 'games', 'kavita', 'plex', 'tmdb']"));
   assert.ok(dashboardContentSource.includes("['logs', 'metrics']"));
   assert.ok(spaceManagerViewSource.includes('title="Workspace Integrations"'));
-  assert.ok(dashboardContentSource.includes("title={localRuntime ? 'Integrations' : 'Platform Runtime'}"));
+  assert.ok(dashboardContentSource.includes("title={coreRuntime ? 'Integrations' : 'Platform Runtime'}"));
   assert.ok(openApiSource.includes('/api/spaces/{id}/integrations/test-kavita'));
   assert.ok(openApiSource.includes('"integrationScope"'));
   assert.ok(openApiSource.includes('"effective_source"'));
@@ -5086,8 +5091,14 @@ results.push(run('public compose source keeps homelab-safe cookie defaults in th
   assert.ok(!frontendDockerfileSource.includes('REACT_APP_CSRF_COOKIE_NAME'));
   assert.ok(useApiClientSource.includes("readFrontendEnv('VITE_CSRF_COOKIE_NAME', 'csrf_token')"));
   assert.ok(useApiClientSource.includes("readFrontendEnv('VITE_PLATFORM_API_URL', '')"));
+  assert.ok(useApiClientSource.includes('isPlatformOwnedPath'));
   assert.ok(useApiClientSource.includes("normalizedPath.startsWith('/support/')"));
   assert.ok(useApiClientSource.includes("normalizedPath !== '/support/releases'"));
+  assert.ok(useApiClientSource.includes("normalizedPath === '/admin/spaces'"));
+  assert.ok(useApiClientSource.includes("normalizedPath === '/admin/users'"));
+  assert.ok(useApiClientSource.includes("normalizedPath === '/admin/settings/email-delivery'"));
+  assert.ok(useApiClientSource.includes("'/admin/settings/integrations/test-pricecharting'"));
+  assert.ok(frontendAppSource.includes("const PLATFORM_BRIDGE_ENABLED = hasFrontendEnv('VITE_PLATFORM_API_URL');"));
 }));
 
 results.push(run('pat.hasPersonalAccessTokenScope matches exact scopes and admin wildcard', () => {
@@ -5457,7 +5468,7 @@ results.push(run('dashboard shell exposes merge review as workspace-scoped opera
   assert.ok(sidebarNavSource.includes("'dashboard'"));
   assert.ok(sidebarNavSource.includes('showWorkspaceNavigation'));
   assert.ok(sidebarNavSource.includes('showPlatformNavigation'));
-  assert.ok(sidebarNavSource.includes('const platformNavigationAllowed = !localRuntime;'));
+  assert.ok(sidebarNavSource.includes('const platformNavigationAllowed = !localRuntime && platformBridgeEnabled;'));
   assert.ok(sidebarNavSource.includes('const showPlatformGroup = platformNavigationAllowed && isAdmin'));
   assert.ok(sidebarNavSource.includes('showWorkspaceHelp'));
   assert.ok(sidebarNavSource.includes('showWorkspaceSettingsLink'));

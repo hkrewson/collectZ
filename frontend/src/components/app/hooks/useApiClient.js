@@ -7,16 +7,29 @@ const API_URL = readFrontendEnv('VITE_API_URL', '/api');
 const PLATFORM_API_URL = readFrontendEnv('VITE_PLATFORM_API_URL', '');
 const CSRF_COOKIE_NAME = readFrontendEnv('VITE_CSRF_COOKIE_NAME', 'csrf_token');
 
-function resolveApiBase(path) {
+function isPlatformOwnedPath(path) {
   const normalizedPath = String(path || '');
   if (
-    PLATFORM_API_URL
-    && normalizedPath.startsWith('/support/')
+    normalizedPath.startsWith('/support/')
     && normalizedPath !== '/support/releases'
     && !normalizedPath.startsWith('/support/releases?')
   ) {
-    return PLATFORM_API_URL;
+    return true;
   }
+
+  if (normalizedPath === '/admin/spaces' || normalizedPath.startsWith('/admin/spaces/')) return true;
+  if (normalizedPath === '/admin/users' || normalizedPath.startsWith('/admin/users/')) return true;
+  if (normalizedPath === '/admin/settings/email-delivery' || normalizedPath.startsWith('/admin/settings/email-delivery/')) return true;
+
+  return [
+    '/admin/settings/integrations/test-pricecharting',
+    '/admin/settings/integrations/test-ebay',
+    '/admin/settings/integrations/test-logs'
+  ].includes(normalizedPath);
+}
+
+function resolveApiBase(path) {
+  if (PLATFORM_API_URL && isPlatformOwnedPath(path)) return PLATFORM_API_URL;
   return API_URL;
 }
 

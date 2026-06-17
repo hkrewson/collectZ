@@ -89,6 +89,7 @@ export default function DashboardShell({
   activeSpaceId,
   handleSpaceSelect,
   productEdition,
+  platformBridgeEnabled = false,
   featureFlags,
   setActiveIntegrationSection,
   logout,
@@ -135,8 +136,8 @@ export default function DashboardShell({
 }) {
   const desktopNavExpanded = !collapsed;
   const supportHelpEnabled = isSupportHelpEnabled(productEdition);
-  const supportStaffInEdition = supportHelpEnabled && ['admin', SUPPORT_STAFF_ROLE].includes(String(user?.role || ''));
-  const supportSessionActiveInEdition = supportHelpEnabled && Boolean(supportSession?.active);
+  const supportStaffInEdition = supportHelpEnabled && platformBridgeEnabled && ['admin', SUPPORT_STAFF_ROLE].includes(String(user?.role || ''));
+  const supportSessionActiveInEdition = supportHelpEnabled && platformBridgeEnabled && Boolean(supportSession?.active);
   const mobileHeaderTitle = getMobileHeaderTitle(activeTab, productEdition);
   const MobileHeaderIcon = getMobileHeaderIcon(activeTab);
 
@@ -163,7 +164,8 @@ export default function DashboardShell({
             supportSessionActive: supportSessionActiveInEdition,
             canManageActiveSpace,
             showCollectibles: featureFlags.collectibles_enabled,
-            showEvents: featureFlags.events_enabled
+            showEvents: featureFlags.events_enabled,
+            platformBridgeEnabled
           }));
           if (nextTab !== 'admin-integrations') setActiveIntegrationSection(DEFAULT_INTEGRATION_SECTION);
         }}
@@ -186,6 +188,7 @@ export default function DashboardShell({
         showEvents={featureFlags.events_enabled}
         supportBadgeCount={supportStaffInEdition ? supportSummary.open : null}
         productEdition={productEdition}
+        platformBridgeEnabled={platformBridgeEnabled}
       />
 
       <div className={cx('flex-1 flex min-h-0 flex-col min-w-0 transition-all duration-300', desktopNavExpanded ? 'lg:ml-56' : 'lg:ml-16')}>
@@ -265,6 +268,7 @@ export default function DashboardShell({
             supportSummary={supportSummary}
             onSupportSummaryRefresh={loadSupportSummary}
             productEdition={productEdition}
+            platformBridgeEnabled={platformBridgeEnabled}
           />
         </div>
       </div>

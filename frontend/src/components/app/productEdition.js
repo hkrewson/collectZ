@@ -55,7 +55,9 @@ export function isSupportHelpEnabled(productEdition) {
 export function getLocalRuntimeAllowedTabs({
   userRole,
   showCollectibles = true,
-  showEvents = true
+  showEvents = true,
+  canManageActiveSpace = false,
+  supportSessionActive = false
 } = {}) {
   const normalizedRole = String(userRole || '').trim().toLowerCase();
   const allowed = new Set([
@@ -88,23 +90,28 @@ export function getLocalRuntimeAllowedTabs({
     allowed.add('admin-integrations');
   }
 
+  if (canManageActiveSpace || supportSessionActive) {
+    allowed.add('space-manage');
+  }
+
   return allowed;
 }
 
 export function getSupportAdminAllowedTabs(productEdition, {
   supportSessionActive = false,
-  canManageActiveSpace = false
+  canManageActiveSpace = false,
+  platformBridgeEnabled = false
 } = {}) {
   const allowed = new Set([
     'help',
     'profile'
   ]);
 
-  if (!isLocalProductEdition(productEdition)) {
+  if (!isLocalProductEdition(productEdition) && platformBridgeEnabled) {
     allowed.add('support-inbox');
   }
 
-  if (!isLocalProductEdition(productEdition) && supportSessionActive && canManageActiveSpace) {
+  if (!isLocalProductEdition(productEdition) && platformBridgeEnabled && supportSessionActive && canManageActiveSpace) {
     allowed.add('space-manage');
   }
 
@@ -116,6 +123,7 @@ export function getAllowedDashboardTabs(productEdition, options = {}) {
     return getSupportAdminAllowedTabs(productEdition, options);
   }
   if (isLocalProductEdition(productEdition)) return getLocalRuntimeAllowedTabs(options);
+  if (!options?.platformBridgeEnabled) return getLocalRuntimeAllowedTabs(options);
   return null;
 }
 
@@ -128,7 +136,7 @@ export function getDefaultDashboardTab(productEdition, { userRole } = {}) {
 export function getSafeDashboardTab(productEdition, requestedTab, options = {}) {
   const allowed = getAllowedDashboardTabs(productEdition, options);
   const normalizedRequested = String(requestedTab || '').trim();
-  if (isLocalProductEdition(productEdition) && normalizedRequested === 'support-inbox') {
+  if ((isLocalProductEdition(productEdition) || !options?.platformBridgeEnabled) && normalizedRequested === 'support-inbox') {
     return 'help';
   }
   if (!allowed) return normalizedRequested || getDefaultDashboardTab(productEdition, options);

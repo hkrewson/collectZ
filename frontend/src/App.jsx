@@ -13,7 +13,7 @@ import useImportJobPolling from './components/app/hooks/useImportJobPolling';
 import useSessionBootstrap from './components/app/hooks/useSessionBootstrap';
 import useMediaApi from './components/app/hooks/useMediaApi';
 import useRootAppearance from './components/app/hooks/useRootAppearance';
-import { readFrontendEnv } from './components/app/frontendEnv';
+import { hasFrontendEnv, readFrontendEnv } from './components/app/frontendEnv';
 import useSupportSummary from './components/app/hooks/useSupportSummary';
 import {
   getSafeDashboardTab,
@@ -24,6 +24,7 @@ import {
 } from './components/app/productEdition';
 
 const APP_VERSION = readFrontendEnv('VITE_APP_VERSION', appMeta.frontend || appMeta.version || 'unknown');
+const PLATFORM_BRIDGE_ENABLED = hasFrontendEnv('VITE_PLATFORM_API_URL');
 const SUPPORT_SUMMARY_POLL_MS = 60000;
 
 export default function App() {
@@ -79,8 +80,9 @@ export default function App() {
   }, [setUser]);
   const productEdition = normalizeProductEdition(user?.runtime_mode || user?.[LEGACY_PRODUCT_FIELD]);
   const supportHelpEnabled = isSupportHelpEnabled(productEdition);
-  const supportStaffInEdition = supportHelpEnabled && ['admin', SUPPORT_STAFF_ROLE].includes(String(user?.role || ''));
-  const supportSessionActiveInEdition = supportHelpEnabled && Boolean(supportSession?.active);
+  const platformBridgeEnabled = PLATFORM_BRIDGE_ENABLED;
+  const supportStaffInEdition = supportHelpEnabled && platformBridgeEnabled && ['admin', SUPPORT_STAFF_ROLE].includes(String(user?.role || ''));
+  const supportSessionActiveInEdition = supportHelpEnabled && platformBridgeEnabled && Boolean(supportSession?.active);
   const { supportSummary, loadSupportSummary } = useSupportSummary({ apiCall, showToast, supportStaffInEdition });
   const nowPlayingDisplayToken = route === 'now-playing'
     ? new URLSearchParams(window.location.search).get('token') || ''
@@ -261,13 +263,13 @@ export default function App() {
       clearImportJobs();
       setMediaItems([]);
       if (!String(activeTab || '').startsWith('admin-') || activeTab === 'space-manage') {
-        setActiveTab('admin-spaces');
+        setActiveTab(platformBridgeEnabled ? 'admin-spaces' : 'dashboard');
       }
       showToast('Support session ended');
     } catch (error) {
       showToast(error.response?.data?.error || 'Failed to end support session', 'error');
     }
-  }, [activeTab, apiCall, clearImportJobs, loadAuthScope, setMediaItems, showToast]);
+  }, [activeTab, apiCall, clearImportJobs, loadAuthScope, platformBridgeEnabled, setMediaItems, showToast]);
 
   const startSupportSession = useCallback(async (space, options = {}) => {
     const spaceId = Number(space?.id || 0);
@@ -390,7 +392,8 @@ export default function App() {
       supportSessionActive: supportSessionActiveInEdition,
       canManageActiveSpace,
       showCollectibles: featureFlags.collectibles_enabled,
-      showEvents: featureFlags.events_enabled
+      showEvents: featureFlags.events_enabled,
+      platformBridgeEnabled
     });
     if (nextTab !== activeTab) setActiveTab(nextTab);
   }, [
@@ -401,6 +404,7 @@ export default function App() {
     featureFlags.collectibles_enabled,
     featureFlags.events_enabled,
     productEdition,
+    platformBridgeEnabled,
     supportSessionActiveInEdition,
     user?.role
   ]);
@@ -491,6 +495,7 @@ export default function App() {
       activeSpaceId={activeSpaceId}
       handleSpaceSelect={handleSpaceSelect}
       productEdition={productEdition}
+      platformBridgeEnabled={platformBridgeEnabled}
       featureFlags={featureFlags}
       setActiveIntegrationSection={setActiveIntegrationSection}
       logout={logout}

@@ -6,3 +6,7 @@ export function readFrontendEnv(viteKey, fallback = '') {
 
   return fallback;
 }
+
+export function hasFrontendEnv(viteKey) {
+  return String(readFrontendEnv(viteKey, '') || '').trim() !== '';
+}
