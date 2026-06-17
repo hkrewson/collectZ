@@ -143,7 +143,7 @@ Compatibility bridge:
 4. Add a documented Core instance read/health contract that `cairn` can call without database access. Done: collectZ Core exposes `GET /api/core/instance`, and `cairn` exposes `GET /api/core-instances/{id}/readiness` for platform-side checks.
 5. Move platform docs and metrics to `cairn`. Done: `cairn` serves `GET /api/docs`, `GET /api/docs/openapi.yaml`, and `GET /api/metrics`; collectZ Core no longer mounts or documents its previous platform docs/metrics paths.
 6. Move support request/inbox UI and APIs to `cairn`, leaving only the Core support-session bridge in collectZ. In progress: `cairn` owns the platform support queue data model and API contract; collectZ Core no longer mounts or documents the platform support request APIs. The remaining collectZ support UI is a compatibility shell that must target `VITE_PLATFORM_API_URL` until cairn grows its own frontend.
-7. Move global workspace/member administration to `cairn`, backed by documented Core APIs where Core data changes are required.
+7. Move global workspace/member administration to `cairn`, backed by documented Core APIs where Core data changes are required. In progress: `cairn` now owns the workspace directory and user-route API contract; collectZ Core returns 404 for the global `/api/admin/spaces*` control-plane and no longer documents those paths. Core still owns user/workspace-scoped `/api/spaces*` operations and workspace integrations.
 8. Remove platform-only tabs and OpenAPI paths from collectZ after the matching `cairn` surface exists.
 
 ## Verification Targets

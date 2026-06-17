@@ -2172,17 +2172,18 @@ results.push(run('media route source includes tmdb trace-match endpoint', () => 
   assert.ok(mediaRoutesSource.includes('scoreTmdbMatchCandidate'));
 }));
 
-results.push(run('admin route source includes guided space onboarding endpoint', () => {
-  assert.ok(adminRoutesSource.includes("platformRouter.post('/spaces/create-with-onboarding'"));
-  assert.ok(adminRoutesSource.includes('createInitialSpaceInvite'));
-  assert.ok(adminRoutesSource.includes('invite_results'));
+results.push(run('admin space control-plane routes are blocked at the Core boundary', () => {
+  assert.ok(serverSource.includes("app.use('/api/admin/spaces'"));
+  assert.ok(serverSource.includes('API route not found: ${req.method} ${req.originalUrl}'));
+  assert.ok(!openApiSource.includes('"/api/admin/spaces"'));
+  assert.ok(!openApiSource.includes('AdminSpaceCreateWithOnboardingRequest'));
 }));
 
-results.push(run('admin route source includes platform-safe space detail and roster endpoints', () => {
-  assert.ok(adminRoutesSource.includes("platformRouter.get('/spaces/:id'"));
-  assert.ok(adminRoutesSource.includes("platformRouter.post('/spaces/:id/members'"));
-  assert.ok(adminRoutesSource.includes("platformRouter.post('/spaces/:id/invites'"));
-  assert.ok(adminRoutesSource.includes("platformRouter.patch('/spaces/:id/invites/:inviteId/revoke'"));
+results.push(run('admin route source keeps non-workspace platform administration endpoints', () => {
+  assert.ok(adminRoutesSource.includes("platformRouter.get('/users'"));
+  assert.ok(adminRoutesSource.includes("platformRouter.get('/loan-reminder-operations'"));
+  assert.ok(adminRoutesSource.includes("platformRouter.get('/settings/email-delivery'"));
+  assert.ok(adminRoutesSource.includes("commonRouter.get('/feature-flags'"));
 }));
 
 results.push(run('admin route source includes automatic loan reminder operations readback', () => {
@@ -2550,11 +2551,12 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(homelabEditionBoundarySmokeSource.includes('Homelab edition boundary smoke passed'));
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/auth/config'));
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/admin/spaces'));
+  assert.ok(platformEditionBoundarySmokeSource.includes('Platform /api/admin/spaces must be owned by cairn'));
+  assert.ok(platformEditionBoundarySmokeSource.includes('Platform /api/admin/spaces/create-with-onboarding must be owned by cairn'));
   assert.ok(platformEditionBoundarySmokeSource.includes('multi_workspace_platform'));
   assert.ok(platformEditionBoundarySmokeSource.includes('workspace_memberships'));
-  assert.ok(platformEditionBoundarySmokeSource.includes('/api/admin/spaces/${defaultSpaceId}/invites'));
-  assert.ok(platformEditionBoundarySmokeSource.includes('/api/spaces/${managedSpaceId}/integrations'));
-  assert.ok(platformEditionBoundarySmokeSource.includes('/api/auth/register'));
+  assert.ok(platformEditionBoundarySmokeSource.includes('/api/admin/spaces/1/invites'));
+  assert.ok(platformEditionBoundarySmokeSource.includes('/api/spaces/${defaultSpaceId}/integrations'));
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/admin/settings/email-delivery'));
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/media/feature-flags'));
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/admin/settings/integrations/test-pricecharting'));
@@ -4838,6 +4840,11 @@ results.push(run('openapi baseline documents key auth admin and media endpoints'
   assert.ok(!spec.paths['/api/support/requests/{id}/access']);
   assert.ok(!spec.paths['/api/support/requests/{id}/triage']);
   assert.ok(!spec.paths['/api/support/staff/summary']);
+  assert.ok(!spec.paths['/api/admin/spaces']);
+  assert.ok(!spec.paths['/api/admin/spaces/create-with-onboarding']);
+  assert.ok(!spec.paths['/api/admin/spaces/{id}']);
+  assert.ok(!spec.paths['/api/admin/spaces/{id}/members']);
+  assert.ok(!spec.paths['/api/admin/spaces/{id}/invites']);
   assert.ok(spec.paths['/api/auth/personal-access-tokens']);
   assert.ok(spec.paths['/api/auth/service-account-keys']);
   assert.ok(spec.paths['/api/admin/loan-reminder-operations']);
@@ -4873,6 +4880,8 @@ results.push(run('openapi baseline documents key auth admin and media endpoints'
   assert.ok(spec.components.schemas.QueuedJobResponse);
   assert.ok(!spec.components.schemas.SupportRequestTriageUpdateRequest);
   assert.ok(!spec.components.schemas.SupportRequestMutationResponse);
+  assert.ok(!spec.components.schemas.AdminSpaceRecord);
+  assert.ok(!spec.components.schemas.AdminSpaceCreateWithOnboardingRequest);
   assert.ok(spec.components.schemas.SupportReleaseFeedResponse);
   assert.ok(spec.components.schemas.MediaLoanRecord);
   assert.ok(spec.components.schemas.MediaLoanListResponse);
@@ -5197,17 +5206,12 @@ results.push(run('spaces routes expose core spaces and memberships endpoints', (
   assert.ok(spacesRoutesSource.includes("await logActivity(req, 'space.member.transfer_new_space'"));
 }));
 
-results.push(run('admin routes expose platform space control-plane endpoints', () => {
-  assert.ok(adminRoutesSource.includes("platformRouter.get('/spaces'"));
-  assert.ok(adminRoutesSource.includes("platformRouter.post('/spaces'"));
-  assert.ok(adminRoutesSource.includes("platformRouter.patch('/spaces/:id/owner'"));
-  assert.ok(adminRoutesSource.includes("platformRouter.patch('/spaces/:id/archive'"));
-  assert.ok(adminRoutesSource.includes("platformRouter.delete('/spaces/:id'"));
-  assert.ok(adminRoutesSource.includes("platformRouter.use(enforceScopeAccess({ allowedHintRoles: ['admin'] }));"));
-  assert.ok(adminRoutesSource.includes("COUNT(*)::int AS membership_count"));
-  assert.ok(adminRoutesSource.includes('FROM libraries l'));
-  assert.ok(adminRoutesSource.includes('WHERE l.id = u.active_library_id'));
-  assert.ok(adminRoutesSource.includes('AND l.space_id = $1'));
+results.push(run('global workspace administration belongs to cairn instead of collectZ OpenAPI', () => {
+  assert.ok(serverSource.includes("app.use('/api/admin/spaces'"));
+  assert.ok(!openApiSource.includes('"/api/admin/spaces"'));
+  assert.ok(!openApiSource.includes('"/api/admin/spaces/create-with-onboarding"'));
+  assert.ok(!openApiSource.includes('"/api/admin/spaces/{id}/owner"'));
+  assert.ok(!openApiSource.includes('AdminSpaceRecord'));
   assert.ok(adminRoutesSource.includes('UPDATE user_sessions s'));
   assert.ok(adminRoutesSource.includes('s.support_previous_space_id = $1'));
   assert.ok(!adminRoutesSource.includes('contributionScore'));

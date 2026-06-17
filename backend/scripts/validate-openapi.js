@@ -56,14 +56,6 @@ function main() {
     '/api/auth/personal-access-tokens/{id}': ['delete'],
     '/api/auth/service-account-keys': ['get', 'post'],
     '/api/auth/service-account-keys/{id}': ['delete'],
-    '/api/admin/spaces': ['get', 'post'],
-    '/api/admin/spaces/{id}': ['get', 'delete'],
-    '/api/admin/spaces/{id}/members': ['post'],
-    '/api/admin/spaces/{id}/invites': ['post'],
-    '/api/admin/spaces/{id}/invites/{inviteId}/revoke': ['patch'],
-    '/api/admin/spaces/create-with-onboarding': ['post'],
-    '/api/admin/spaces/{id}/owner': ['patch'],
-    '/api/admin/spaces/{id}/archive': ['patch'],
     '/api/media': ['get'],
     '/api/media/lookup/barcode': ['post'],
     '/api/media/import-barcode': ['post'],
@@ -94,7 +86,15 @@ function main() {
     '/api/support/requests/{id}/status',
     '/api/support/requests/{id}/access',
     '/api/support/requests/{id}/triage',
-    '/api/support/staff/summary'
+    '/api/support/staff/summary',
+    '/api/admin/spaces',
+    '/api/admin/spaces/{id}',
+    '/api/admin/spaces/{id}/members',
+    '/api/admin/spaces/{id}/invites',
+    '/api/admin/spaces/{id}/invites/{inviteId}/revoke',
+    '/api/admin/spaces/create-with-onboarding',
+    '/api/admin/spaces/{id}/owner',
+    '/api/admin/spaces/{id}/archive'
   ];
   for (const routePath of forbiddenPaths) {
     assert(!spec.paths[routePath], `Core OpenAPI must not document cairn-owned path: ${routePath}`);
@@ -126,15 +126,6 @@ function main() {
     'SpaceInviteCreateRequest',
     'SpaceTransferCreateRequest',
     'SpaceTransferResponse',
-    'AdminSpaceRecord',
-    'AdminSpaceListResponse',
-    'AdminSpaceDetailResponse',
-    'AdminSpaceOwnerAssignRequest',
-    'AdminSpaceArchiveRequest',
-    'AdminSpaceInitialInviteRequest',
-    'AdminSpaceCreateWithOnboardingRequest',
-    'AdminSpaceOnboardingInviteResult',
-    'AdminSpaceCreateWithOnboardingResponse',
     'LoginRequest',
     'LoginResponse',
     'NamedTokenRecord',
@@ -170,7 +161,16 @@ function main() {
     'SupportRequestAccessUpdateRequest',
     'SupportRequestTriageUpdateRequest',
     'SupportRequestMutationResponse',
-    'SupportStaffSummaryResponse'
+    'SupportStaffSummaryResponse',
+    'AdminSpaceRecord',
+    'AdminSpaceListResponse',
+    'AdminSpaceDetailResponse',
+    'AdminSpaceOwnerAssignRequest',
+    'AdminSpaceArchiveRequest',
+    'AdminSpaceInitialInviteRequest',
+    'AdminSpaceCreateWithOnboardingRequest',
+    'AdminSpaceOnboardingInviteResult',
+    'AdminSpaceCreateWithOnboardingResponse'
   ];
   for (const schemaName of forbiddenSchemas) {
     assert(!spec.components.schemas[schemaName], `Core OpenAPI must not document cairn-owned schema: ${schemaName}`);

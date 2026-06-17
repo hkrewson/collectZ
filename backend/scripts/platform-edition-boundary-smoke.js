@@ -154,15 +154,22 @@ async function main() {
     });
     adminUserId = Number(adminUser.id);
 
-    await loginWithEmail(admin, adminEmail, password);
+    const directUser = await createDirectUser({
+      email: userEmail,
+      password,
+      name: 'Platform Boundary User',
+      role: 'user'
+    });
+    userUserId = Number(directUser.id);
 
-    const adminSpaces = await admin.request('/api/admin/spaces', { expectStatus: 200 });
-    const defaultSpaceId = Number(adminSpaces.data?.spaces?.[0]?.id || 0) || null;
-    assert(defaultSpaceId, `Expected platform admin to have an accessible space: ${JSON.stringify(adminSpaces.data)}`);
-    const managedSpace = await admin.request('/api/admin/spaces/create-with-onboarding', {
+    await loginWithEmail(admin, adminEmail, password);
+    await loginWithEmail(user, userEmail, password);
+
+    const adminSpaces = await admin.request('/api/admin/spaces', { expectStatus: 404 });
+    const adminSpaceCreate = await admin.request('/api/admin/spaces/create-with-onboarding', {
       method: 'POST',
       withCsrf: true,
-      expectStatus: 201,
+      expectStatus: 404,
       body: {
         name: `Platform Boundary Managed Space ${suffix}`,
         slug: `platform-boundary-${suffix}`,
@@ -170,26 +177,12 @@ async function main() {
         owner_user_id: adminUserId
       }
     });
-    const managedSpaceId = Number(managedSpace.data?.space?.id || 0) || null;
-    assert(managedSpaceId, `Expected platform managed space to be created: ${JSON.stringify(managedSpace.data)}`);
-
-    const invite = await admin.request(`/api/admin/spaces/${defaultSpaceId}/invites`, {
+    const adminSpaceInvite = await admin.request('/api/admin/spaces/1/invites', {
       method: 'POST',
       withCsrf: true,
-      expectStatus: 201,
+      expectStatus: 404,
       body: { email: userEmail, role: 'member', expose_token: true }
     });
-    const inviteToken = String(invite.data?.token || '').trim();
-    assert(inviteToken, `Expected platform invite token to be created: ${JSON.stringify(invite.data)}`);
-
-    const registerUser = await registerWithInvite(user, {
-      email: userEmail,
-      password,
-      name: 'Platform Boundary User',
-      inviteToken
-    });
-    userUserId = Number(registerUser?.data?.user?.id || 0) || null;
-    assert(Number.isFinite(userUserId) && userUserId > 0, `Expected platform invite registration to succeed: ${JSON.stringify(registerUser?.data)}`);
 
     const adminMe = await admin.request('/api/auth/me', { expectStatus: 200 });
     const userMe = await user.request('/api/auth/me', { expectStatus: 200 });
@@ -199,6 +192,7 @@ async function main() {
     const userSpaces = await user.request('/api/spaces', { expectStatus: 200 });
     const firstUserSpaceId = Number(userSpaces.data?.spaces?.[0]?.id || 0) || null;
     assert(firstUserSpaceId, `Expected platform /api/spaces to return an accessible space for selection: ${JSON.stringify(userSpaces.data)}`);
+    const defaultSpaceId = Number(userSpaces.data?.active_space_id || firstUserSpaceId || 0) || null;
     const selectedSpace = await user.request('/api/spaces/select', {
       method: 'POST',
       withCsrf: true,
@@ -259,12 +253,15 @@ async function main() {
     assert(Array.isArray(userScope.data?.spaces) && userScope.data.spaces.length > 0, `Platform /api/auth/scope must keep spaces: ${JSON.stringify(userScope.data)}`);
     assert(Number(userScope.data?.active_library_id || 0) > 0, `Platform /api/auth/scope must keep active_library_id: ${JSON.stringify(userScope.data)}`);
     assert(Array.isArray(userScope.data?.libraries) && userScope.data.libraries.length > 0, `Platform /api/auth/scope must keep libraries: ${JSON.stringify(userScope.data)}`);
-    const spaceIntegrations = await admin.request(`/api/spaces/${managedSpaceId}/integrations`, { expectStatus: 200 });
+    const spaceIntegrations = await admin.request(`/api/spaces/${defaultSpaceId}/integrations`, { expectStatus: 200 });
     assert(Number(userLibraries.data?.active_space_id || 0) > 0, `Platform /api/libraries must keep active_space_id: ${JSON.stringify(userLibraries.data)}`);
     assert(Array.isArray(userSpaces.data?.spaces) && userSpaces.data.spaces.length > 0, `Platform /api/spaces must stay mounted: ${JSON.stringify(userSpaces.data)}`);
     assert(Number(selectedSpace.data?.active_space_id || 0) === firstUserSpaceId, `Platform /api/spaces/select must keep active_space_id in its response: ${JSON.stringify(selectedSpace.data)}`);
     assert(Array.isArray(selectedSpace.data?.libraries), `Platform /api/spaces/select must keep libraries in its response: ${JSON.stringify(selectedSpace.data)}`);
     assert(typeof spaceIntegrations.data === 'object' && spaceIntegrations.data !== null, `Platform /api/spaces/:id/integrations must stay mounted: ${JSON.stringify(spaceIntegrations.data)}`);
+    assert(adminSpaces.status === 404, `Platform /api/admin/spaces must be owned by cairn, not Core: ${JSON.stringify(adminSpaces.data)}`);
+    assert(adminSpaceCreate.status === 404, `Platform /api/admin/spaces/create-with-onboarding must be owned by cairn, not Core: ${JSON.stringify(adminSpaceCreate.data)}`);
+    assert(adminSpaceInvite.status === 404, `Platform /api/admin/spaces/:id/invites must be owned by cairn, not Core: ${JSON.stringify(adminSpaceInvite.data)}`);
     assert(supportRequests.status === 404, `Platform /api/support/requests must be owned by cairn, not Core: ${JSON.stringify(supportRequests.data)}`);
     assert(staffSummary.status === 404, `Platform /api/support/staff/summary must be owned by cairn, not Core: ${JSON.stringify(staffSummary.data)}`);
     assert(Array.isArray(adminUsers.data), `Platform /api/admin/users must stay mounted: ${JSON.stringify(adminUsers.data)}`);
