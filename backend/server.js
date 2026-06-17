@@ -305,6 +305,9 @@ if (!HOMELAB_EDITION) {
   app.use('/api/admin/spaces', (req, res) => {
     res.status(404).json({ error: `API route not found: ${req.method} ${req.originalUrl}` });
   });
+  app.use('/api/admin/users', (req, res) => {
+    res.status(404).json({ error: `API route not found: ${req.method} ${req.originalUrl}` });
+  });
   app.use('/api/admin', adminPlatformRouter);
 }
 

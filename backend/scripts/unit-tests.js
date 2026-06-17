@@ -2179,8 +2179,15 @@ results.push(run('admin space control-plane routes are blocked at the Core bound
   assert.ok(!openApiSource.includes('AdminSpaceCreateWithOnboardingRequest'));
 }));
 
-results.push(run('admin route source keeps non-workspace platform administration endpoints', () => {
-  assert.ok(adminRoutesSource.includes("platformRouter.get('/users'"));
+results.push(run('admin user control-plane routes are blocked at the Core boundary', () => {
+  assert.ok(serverSource.includes("app.use('/api/admin/users'"));
+  assert.ok(platformEditionBoundarySmokeSource.includes('Platform /api/admin/users must be owned by cairn'));
+  assert.ok(platformEditionBoundarySmokeSource.includes('Platform /api/admin/users/:id/summary must be owned by cairn'));
+  assert.ok(platformEditionBoundarySmokeSource.includes('Platform /api/admin/users/:id/role must be owned by cairn'));
+  assert.ok(platformEditionBoundarySmokeSource.includes('Platform /api/admin/users/:id/password-reset must be owned by cairn'));
+}));
+
+results.push(run('admin route source keeps remaining platform administration endpoints', () => {
   assert.ok(adminRoutesSource.includes("platformRouter.get('/loan-reminder-operations'"));
   assert.ok(adminRoutesSource.includes("platformRouter.get('/settings/email-delivery'"));
   assert.ok(adminRoutesSource.includes("commonRouter.get('/feature-flags'"));
@@ -4845,6 +4852,11 @@ results.push(run('openapi baseline documents key auth admin and media endpoints'
   assert.ok(!spec.paths['/api/admin/spaces/{id}']);
   assert.ok(!spec.paths['/api/admin/spaces/{id}/members']);
   assert.ok(!spec.paths['/api/admin/spaces/{id}/invites']);
+  assert.ok(!spec.paths['/api/admin/users']);
+  assert.ok(!spec.paths['/api/admin/users/{id}']);
+  assert.ok(!spec.paths['/api/admin/users/{id}/summary']);
+  assert.ok(!spec.paths['/api/admin/users/{id}/role']);
+  assert.ok(!spec.paths['/api/admin/users/{id}/password-reset']);
   assert.ok(spec.paths['/api/auth/personal-access-tokens']);
   assert.ok(spec.paths['/api/auth/service-account-keys']);
   assert.ok(spec.paths['/api/admin/loan-reminder-operations']);

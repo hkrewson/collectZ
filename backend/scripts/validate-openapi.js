@@ -94,7 +94,13 @@ function main() {
     '/api/admin/spaces/{id}/invites/{inviteId}/revoke',
     '/api/admin/spaces/create-with-onboarding',
     '/api/admin/spaces/{id}/owner',
-    '/api/admin/spaces/{id}/archive'
+    '/api/admin/spaces/{id}/archive',
+    '/api/admin/users',
+    '/api/admin/users/{id}',
+    '/api/admin/users/{id}/summary',
+    '/api/admin/users/{id}/role',
+    '/api/admin/users/{id}/password-reset',
+    '/api/admin/users/{id}/password-reset/invalidate'
   ];
   for (const routePath of forbiddenPaths) {
     assert(!spec.paths[routePath], `Core OpenAPI must not document cairn-owned path: ${routePath}`);

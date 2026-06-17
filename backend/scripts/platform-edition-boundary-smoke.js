@@ -201,7 +201,20 @@ async function main() {
     });
     const supportRequests = await user.request('/api/support/requests', { expectStatus: 404 });
     const staffSummary = await admin.request('/api/support/staff/summary', { expectStatus: 404 });
-    const adminUsers = await admin.request('/api/admin/users', { expectStatus: 200 });
+    const adminUsers = await admin.request('/api/admin/users', { expectStatus: 404 });
+    const adminUserSummary = await admin.request(`/api/admin/users/${adminUserId}/summary`, { expectStatus: 404 });
+    const adminUserRole = await admin.request(`/api/admin/users/${adminUserId}/role`, {
+      method: 'PATCH',
+      withCsrf: true,
+      expectStatus: 404,
+      body: { role: 'admin' }
+    });
+    const adminUserPasswordReset = await admin.request(`/api/admin/users/${adminUserId}/password-reset`, {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 404,
+      body: { expose_token: true }
+    });
     const generalSettings = await admin.request('/api/settings/general', { expectStatus: 200 });
     const mediaFeatureFlags = await user.request('/api/media/feature-flags', { expectStatus: 200 });
     const emailDelivery = await admin.request('/api/admin/settings/email-delivery', { expectStatus: 200 });
@@ -264,7 +277,10 @@ async function main() {
     assert(adminSpaceInvite.status === 404, `Platform /api/admin/spaces/:id/invites must be owned by cairn, not Core: ${JSON.stringify(adminSpaceInvite.data)}`);
     assert(supportRequests.status === 404, `Platform /api/support/requests must be owned by cairn, not Core: ${JSON.stringify(supportRequests.data)}`);
     assert(staffSummary.status === 404, `Platform /api/support/staff/summary must be owned by cairn, not Core: ${JSON.stringify(staffSummary.data)}`);
-    assert(Array.isArray(adminUsers.data), `Platform /api/admin/users must stay mounted: ${JSON.stringify(adminUsers.data)}`);
+    assert(adminUsers.status === 404, `Platform /api/admin/users must be owned by cairn, not Core: ${JSON.stringify(adminUsers.data)}`);
+    assert(adminUserSummary.status === 404, `Platform /api/admin/users/:id/summary must be owned by cairn, not Core: ${JSON.stringify(adminUserSummary.data)}`);
+    assert(adminUserRole.status === 404, `Platform /api/admin/users/:id/role must be owned by cairn, not Core: ${JSON.stringify(adminUserRole.data)}`);
+    assert(adminUserPasswordReset.status === 404, `Platform /api/admin/users/:id/password-reset must be owned by cairn, not Core: ${JSON.stringify(adminUserPasswordReset.data)}`);
     assert(typeof generalSettings.data?.theme === 'string', `Platform /api/settings/general must stay mounted: ${JSON.stringify(generalSettings.data)}`);
     assert(typeof mediaFeatureFlags.data?.flags === 'object' && mediaFeatureFlags.data.flags !== null, `Platform /api/media/feature-flags must stay mounted: ${JSON.stringify(mediaFeatureFlags.data)}`);
     assert(typeof mediaFeatureFlags.data?.flags?.events_enabled === 'boolean', `Platform /api/media/feature-flags must return boolean events_enabled: ${JSON.stringify(mediaFeatureFlags.data)}`);
