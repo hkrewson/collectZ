@@ -2,7 +2,7 @@ FROM node:24-alpine AS builder
 
 WORKDIR /app
 
-RUN apk upgrade --no-cache zlib expat libexpat
+RUN apk upgrade --no-cache
 
 COPY package*.json ./
 RUN npm install
@@ -22,10 +22,14 @@ RUN npm run build
 
 FROM nginx:alpine
 
-RUN apk upgrade --no-cache zlib expat libexpat
+RUN apk upgrade --no-cache
 
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+RUN chown -R nginx:nginx /usr/share/nginx/html /etc/nginx/conf.d /var/cache/nginx /var/run /run /var/log/nginx
+
+USER nginx
 
 EXPOSE 3000
 
