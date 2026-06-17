@@ -4055,7 +4055,7 @@
       "get": {
         "tags": ["Health"],
         "summary": "Read public Core instance metadata",
-        "description": "Returns non-secret Core instance metadata that a companion control plane can use for health/discovery without sharing the Core database.",
+        "description": "Returns non-secret Core instance metadata that a companion service can use for health/discovery without sharing the Core database.",
         "responses": {
           "200": {
             "description": "Public Core instance metadata",

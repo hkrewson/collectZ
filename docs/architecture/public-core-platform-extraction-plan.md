@@ -179,3 +179,5 @@ Core primitives to preserve until replaced by a deliberate API contract:
 - The collectZ local stack can boot with `VITE_PLATFORM_API_URL` empty.
 - A paired collectZ + `cairn` dev configuration can route moved platform UI calls through `VITE_PLATFORM_API_URL`.
 - Final secret/history scan is run before repository visibility changes.
+
+The current audit record lives in `docs/architecture/public-readiness-audit.md`.

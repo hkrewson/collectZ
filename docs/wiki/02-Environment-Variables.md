@@ -27,9 +27,9 @@ openssl rand -hex 32
 - `POSTGRES_DB` (default: `collectz`)
 - `DATABASE_SSL` (`false` by default)
 - `NODE_ENV` (`production` by default)
-- `APP_EDITION` (`platform` in the private repo's local/dev workflow; the generated public homelab compose defaults to `homelab` unless overridden)
+- `APP_EDITION` (legacy edition selector retained while the Core/platform split is completed; normal public Core deployments should use the default runtime unless testing an older boundary)
   - supported values:
-    - `platform`: local/private tenancy-global-admin product surface and the default runtime in this private repo
+    - `platform`: legacy tenancy-global-admin product surface retained only where it has not yet moved to `cairn`
     - `homelab`: explicit parallel single-household surface with one shared library context, local accounts, and Help limited to `Guidance` and `Releases`
   - backend is the source of truth for the active edition and exposes it through auth/bootstrap responses
 - `TRUST_PROXY` (`1` recommended behind one reverse proxy hop; `false` when backend is exposed directly)
@@ -82,11 +82,9 @@ openssl rand -hex 32
     - These are now controlled from `Admin -> Integrations` rather than per-flag env overrides.
   - Retired baked-in flag overrides are no longer part of the active control model:
     - CSV import, Plex import, TMDB search/details, normalized metadata reads, drawer-edit UI, and API docs availability no longer use admin-visible feature flags.
-  - `METRICS_SCRAPE_TOKEN` (optional) — dedicated bearer token accepted by `/api/metrics`.
-    - Intended for Prometheus or another trusted internal scraper.
-    - Only active when `DEBUG>=1` and the Metrics integration setting is enabled.
-  - `/api/docs` is admin-only and only available when `DEBUG>=1`; it is no longer controlled by a separate feature flag.
-    - Keep it on private infrastructure only.
+  - `METRICS_SCRAPE_TOKEN` (optional) — legacy dedicated bearer token for metrics scraping before platform metrics moved to `cairn`.
+    - New Core deployments should use `cairn` for platform/service metrics.
+  - Platform API docs now live in `cairn`; collectZ public docs should describe only Core APIs.
   - `LOG_EXPORT_BACKEND` (default `off`) — external structured-log backend.
     - supported values:
       - `off`
@@ -116,7 +114,7 @@ These can be set in `.env`, but admin settings in UI now control active global i
 - Plex: `PLEX_PRESET`, `PLEX_PROVIDER`, `PLEX_API_URL`, `PLEX_API_KEY`
 - Supported provider presets now own their key-header and query-param details in backend service config.
 - Custom integration authoring is intentionally not part of the current Admin Integrations surface. If we need user-defined providers later, that belongs in a dedicated plugin/extensibility milestone.
-- Optional market valuation providers (`2.11.0`) can be bootstrapped from env or saved in `Platform -> Integrations`:
+- Optional market valuation providers (`2.11.0`) can be bootstrapped from env or saved in the platform integrations surface while that compatibility UI remains available:
   - PriceCharting:
     - `PRICECHARTING_API_URL` (default `https://www.pricecharting.com/api`)
     - `PRICECHARTING_API_KEY`
