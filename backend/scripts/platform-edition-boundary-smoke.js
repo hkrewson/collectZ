@@ -205,8 +205,8 @@ async function main() {
       expectStatus: 200,
       body: { space_id: firstUserSpaceId }
     });
-    const supportRequests = await user.request('/api/support/requests', { expectStatus: 200 });
-    const staffSummary = await admin.request('/api/support/staff/summary', { expectStatus: 200 });
+    const supportRequests = await user.request('/api/support/requests', { expectStatus: 404 });
+    const staffSummary = await admin.request('/api/support/staff/summary', { expectStatus: 404 });
     const adminUsers = await admin.request('/api/admin/users', { expectStatus: 200 });
     const generalSettings = await admin.request('/api/settings/general', { expectStatus: 200 });
     const mediaFeatureFlags = await user.request('/api/media/feature-flags', { expectStatus: 200 });
@@ -265,8 +265,8 @@ async function main() {
     assert(Number(selectedSpace.data?.active_space_id || 0) === firstUserSpaceId, `Platform /api/spaces/select must keep active_space_id in its response: ${JSON.stringify(selectedSpace.data)}`);
     assert(Array.isArray(selectedSpace.data?.libraries), `Platform /api/spaces/select must keep libraries in its response: ${JSON.stringify(selectedSpace.data)}`);
     assert(typeof spaceIntegrations.data === 'object' && spaceIntegrations.data !== null, `Platform /api/spaces/:id/integrations must stay mounted: ${JSON.stringify(spaceIntegrations.data)}`);
-    assert(Array.isArray(supportRequests.data?.requests), `Platform /api/support/requests must stay mounted: ${JSON.stringify(supportRequests.data)}`);
-    assert(typeof staffSummary.data?.queue?.open === 'number', `Platform /api/support/staff/summary must stay mounted: ${JSON.stringify(staffSummary.data)}`);
+    assert(supportRequests.status === 404, `Platform /api/support/requests must be owned by cairn, not Core: ${JSON.stringify(supportRequests.data)}`);
+    assert(staffSummary.status === 404, `Platform /api/support/staff/summary must be owned by cairn, not Core: ${JSON.stringify(staffSummary.data)}`);
     assert(Array.isArray(adminUsers.data), `Platform /api/admin/users must stay mounted: ${JSON.stringify(adminUsers.data)}`);
     assert(typeof generalSettings.data?.theme === 'string', `Platform /api/settings/general must stay mounted: ${JSON.stringify(generalSettings.data)}`);
     assert(typeof mediaFeatureFlags.data?.flags === 'object' && mediaFeatureFlags.data.flags !== null, `Platform /api/media/feature-flags must stay mounted: ${JSON.stringify(mediaFeatureFlags.data)}`);

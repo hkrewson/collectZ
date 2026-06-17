@@ -47,7 +47,7 @@ const eventsRouter = require('./routes/events');
 const collectiblesRouter = require('./routes/collectibles');
 const collectibleTraitsRouter = require('./routes/collectibleTraits');
 const objectRelationshipsRouter = require('./routes/objectRelationships');
-const { supportSharedRouter, supportPlatformRouter } = require('./routes/support');
+const { supportSharedRouter } = require('./routes/support');
 const { cleanupExpiredSessions, SESSION_MAX_PER_USER, SESSION_TTL_DAYS } = require('./services/sessions');
 const { startAutomaticLoanReminderScheduler, getAutomaticLoanReminderRuntimeConfig } = require('./services/loanReminders');
 
@@ -299,7 +299,6 @@ app.use('/api', sharedIntegrationsRouter);
 app.use('/api', librariesRouter);
 app.use('/api/admin', adminCommonRouter);
 if (!HOMELAB_EDITION) {
-  app.use('/api/support', supportPlatformRouter);
   app.use('/api', platformIntegrationsRouter);
   app.use('/api', spaceIntegrationsRouter);
   app.use('/api', spacesRouter);

@@ -43,13 +43,7 @@ function main() {
     '/api/auth/scope': ['get', 'post'],
     '/api/auth/support-session/start': ['post'],
     '/api/auth/support-session': ['delete'],
-    '/api/support/requests': ['get', 'post'],
     '/api/support/releases': ['get'],
-    '/api/support/requests/{id}': ['get'],
-    '/api/support/requests/{id}/messages': ['post'],
-    '/api/support/requests/{id}/status': ['patch'],
-    '/api/support/requests/{id}/triage': ['patch'],
-    '/api/support/staff/summary': ['get'],
     '/api/spaces': ['get', 'post'],
     '/api/spaces/select': ['post'],
     '/api/spaces/{id}': ['patch'],
@@ -93,6 +87,19 @@ function main() {
     }
   }
 
+  const forbiddenPaths = [
+    '/api/support/requests',
+    '/api/support/requests/{id}',
+    '/api/support/requests/{id}/messages',
+    '/api/support/requests/{id}/status',
+    '/api/support/requests/{id}/access',
+    '/api/support/requests/{id}/triage',
+    '/api/support/staff/summary'
+  ];
+  for (const routePath of forbiddenPaths) {
+    assert(!spec.paths[routePath], `Core OpenAPI must not document cairn-owned path: ${routePath}`);
+  }
+
   const requiredSchemas = [
     'Error',
     'Health',
@@ -104,16 +111,6 @@ function main() {
     'AuthScopeSelectRequest',
     'SupportSessionRecord',
     'SupportSessionStartRequest',
-    'SupportRequestRecord',
-    'SupportRequestMessageRecord',
-    'SupportRequestListResponse',
-    'SupportRequestDetailResponse',
-    'SupportRequestCreateRequest',
-    'SupportRequestMessageCreateRequest',
-    'SupportRequestStatusUpdateRequest',
-    'SupportRequestTriageUpdateRequest',
-    'SupportRequestMutationResponse',
-    'SupportStaffSummaryResponse',
     'SupportReleaseEntry',
     'SupportReleaseFeedResponse',
     'SpaceRecord',
@@ -160,6 +157,23 @@ function main() {
   ];
   for (const schemaName of requiredSchemas) {
     assert(spec.components.schemas[schemaName], `Missing required schema: ${schemaName}`);
+  }
+
+  const forbiddenSchemas = [
+    'SupportRequestRecord',
+    'SupportRequestMessageRecord',
+    'SupportRequestListResponse',
+    'SupportRequestDetailResponse',
+    'SupportRequestCreateRequest',
+    'SupportRequestMessageCreateRequest',
+    'SupportRequestStatusUpdateRequest',
+    'SupportRequestAccessUpdateRequest',
+    'SupportRequestTriageUpdateRequest',
+    'SupportRequestMutationResponse',
+    'SupportStaffSummaryResponse'
+  ];
+  for (const schemaName of forbiddenSchemas) {
+    assert(!spec.components.schemas[schemaName], `Core OpenAPI must not document cairn-owned schema: ${schemaName}`);
   }
 
   const requiredSecuritySchemes = ['cookieSession', 'bearerAuth', 'csrfHeader'];
