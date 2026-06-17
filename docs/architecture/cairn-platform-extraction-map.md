@@ -15,8 +15,6 @@ Move to `cairn`:
 
 - `/api/docs` and `/api/docs/openapi.json`
 - `/api/metrics`
-- `/api/auth/support-session/start`
-- `/api/auth/support-session`
 - `/api/support/requests`
 - `/api/support/requests/:id`
 - `/api/support/requests/:id/messages`
@@ -39,6 +37,8 @@ Move to `cairn`:
 - `/api/admin/settings/email-delivery`
 - `/api/admin/settings/email-delivery/test`
 - platform-only integration diagnostics under `/api/admin/settings/integrations/test-pricecharting`, `/test-ebay`, and `/test-logs`
+- `/api/admin/activity`
+- `/api/admin/loan-reminder-operations`
 
 Keep in Core:
 
@@ -46,6 +46,7 @@ Keep in Core:
 - core auth endpoints for registration, login, logout, password reset, email verification, CSRF, `/api/auth/me`, `/api/auth/config`, `/api/auth/scope`, and `/api/profile`
 - dashboard, media, libraries, import, capture, wishlist, events, collectibles, art, loans, signatures, merge review, feature flags, Core settings, and Core integrations
 - `/api/support/releases`, because Help/Releases is a Core public/self-host surface
+- `/api/auth/support-session/start` and `/api/auth/support-session`, as the audited Core support-session bridge used when an external platform approves access
 
 Compatibility bridge:
 
@@ -64,9 +65,10 @@ Move to `cairn`:
 - platform support mode inside `HelpView.jsx`
 - `AdminSpacesView.jsx`
 - `AdminUsersView.jsx`
+- `AdminActivityView.jsx`
 - support-session banner and controls that are only for platform staff
-- navigation entries for `support-inbox`, `admin-spaces`, and `admin-users`
-- platform-specific shell labels such as All Workspaces, All Members, Help Admin, and Support Inbox
+- navigation entries for `support-inbox`, `admin-spaces`, `admin-users`, and `admin-activity`
+- platform-specific shell labels such as All Workspaces, All Members, Platform Activity, Help Admin, and Support Inbox
 
 Keep in Core:
 
@@ -85,12 +87,12 @@ Compatibility bridge:
 
 Move to `cairn` OpenAPI:
 
-- support sessions
 - support request/inbox APIs except Core release feed
 - global workspace administration
 - global member administration
 - platform docs and metrics
 - platform email delivery settings
+- platform activity and platform operations readbacks
 - platform service-account/admin-token management if retained as platform-only
 
 Keep in collectZ Core OpenAPI:
@@ -102,6 +104,7 @@ Keep in collectZ Core OpenAPI:
 
 Bridge until Core contracts exist:
 
+- Core support-session start/end bridge
 - workspace scope selection and scoped workspace settings
 - scoped integrations diagnostics
 - service account keys or replacement Core machine-token APIs
@@ -128,10 +131,10 @@ Move to `cairn` in future migrations:
 - platform email-first routing metadata
 - platform support request queue
 - platform support access approval state
+- platform activity log
 
 Compatibility bridge:
 
-- current `support_requests` and `support_request_messages` tables can stay in Core until `cairn` owns support workflows end-to-end.
 - current `user_sessions.support_*` columns can stay in Core until support access is initiated by `cairn` through a documented Core support-session API.
 - current `service_account_keys` can stay in Core until replaced or clearly classified as Core machine-token support.
 
@@ -146,7 +149,8 @@ Compatibility bridge:
 7. Move global workspace/member administration to `cairn`, backed by documented Core APIs where Core data changes are required. In progress: `cairn` now owns the workspace directory and user-route API contract; collectZ Core returns 404 for the global `/api/admin/spaces*` control-plane and no longer documents those paths. Core still owns user/workspace-scoped `/api/spaces*` operations and workspace integrations.
 8. Move platform user administration to `cairn`. In progress: `cairn` now owns the platform admin/routed-user directory contract; collectZ Core returns 404 for `/api/admin/users*`. Workspace-scoped member management remains under Core `/api/spaces*` until cairn has a Core operation bridge for scoped data changes.
 9. Move platform settings and diagnostics to `cairn`. In progress: `cairn` now owns platform email delivery settings plus PriceCharting, eBay, and structured-log platform diagnostics; collectZ Core returns 404 for those platform-only settings routes. Shared Core integration settings and Core provider diagnostics remain in collectZ.
-10. Remove platform-only tabs and OpenAPI paths from collectZ after the matching `cairn` surface exists.
+10. Move platform activity and platform operations readbacks to `cairn`. In progress: `cairn` now owns `/api/admin/activity`, a platform activity table, and a compatibility `/api/admin/loan-reminder-operations` readback. collectZ Core keeps workspace-scoped activity under `/api/spaces/:id/activity` and no longer documents the moved platform activity paths.
+11. Remove platform-only tabs and OpenAPI paths from collectZ after the matching `cairn` surface exists.
 
 ## Verification Targets
 

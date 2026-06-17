@@ -88,7 +88,7 @@ collectZ publishes only Core/self-host API documentation.
 
 `cairn` publishes platform API documentation, including platform admin, routing, support, metrics, and platform-specific OpenAPI contracts.
 
-Platform-only paths should be removed from the collectZ OpenAPI spec during extraction. Examples include platform support sessions, support staff inbox APIs, platform docs/metrics, workspace administration, global member administration, and multi-instance platform routing.
+Platform-only paths should be removed from the collectZ OpenAPI spec during extraction. Examples include support staff inbox APIs, platform docs/metrics, workspace administration, global member administration, platform activity, and multi-instance platform routing. The audited Core support-session bridge remains a Core API because it changes Core session scope after an external platform approval.
 
 ## First Implementation Sequence
 
@@ -114,7 +114,11 @@ Platform-only paths should be removed from the collectZ OpenAPI spec during extr
 - `cairn` now has the first email-first login routing contract at `POST /api/login-routes/lookup`.
 - collectZ Core now publishes non-secret instance metadata at `GET /api/core/instance`, and `cairn` can read it through `GET /api/core-instances/{id}/readiness`.
 - Platform API docs and platform-service metrics now live in `cairn` at `GET /api/docs`, `GET /api/docs/openapi.yaml`, and `GET /api/metrics`; collectZ Core no longer mounts or documents the former platform docs/metrics endpoints.
-- `cairn` now has the first platform-owned support queue model and API contract for requests, messages, status updates, triage metadata, and support staff summary. collectZ still owns the current UI and Core support-session bridge until the handoff is wired.
+- `cairn` now has the first platform-owned support queue model and API contract for requests, messages, status updates, triage metadata, and support staff summary. collectZ still hosts a compatibility UI shell and the Core support-session bridge until cairn grows its own frontend.
+- `cairn` now owns global workspace/member administration contracts. collectZ Core returns 404 for `/api/admin/spaces*` and `/api/admin/users*`, while Core workspace-scoped management remains under `/api/spaces*`.
+- `cairn` now owns platform email delivery settings plus PriceCharting, eBay, and structured-log platform diagnostics. collectZ Core returns 404 for those platform-only settings routes.
+- `cairn` now owns platform activity and platform operations readbacks at `/api/admin/activity` and `/api/admin/loan-reminder-operations`. collectZ Core keeps workspace-scoped activity at `/api/spaces/:id/activity`.
+- collectZ frontend compatibility routing is controlled by `VITE_PLATFORM_API_URL`. Empty means standalone Core; set means moved platform paths are routed to `cairn`.
 
 ## Initial Inventory
 
@@ -143,7 +147,7 @@ Platform extraction candidates already identified by the current edition boundar
 - global workspace/member administration under `/api/admin/spaces` and `/api/admin/users`
 - platform-only integration test endpoints under `/api/admin/settings/integrations/test-*`
 - frontend tabs and views for `support-inbox`, `space-manage`, `admin-spaces`, and `admin-users`
-- platform OpenAPI paths for support sessions, service account keys, support inbox, spaces, docs, metrics, and global workspace/member administration
+- platform OpenAPI paths for support inbox, spaces, docs, metrics, activity, and global workspace/member administration
 
 Core primitives to preserve until replaced by a deliberate API contract:
 
@@ -164,3 +168,14 @@ Core primitives to preserve until replaced by a deliberate API contract:
 - Core OpenAPI contains only Core APIs.
 - Platform OpenAPI lives in `cairn`.
 - Public CI covers backend, frontend, OpenAPI, Docker builds, CodeQL, and dependency review.
+
+## Public Readiness Checklist
+
+- No active workflow generates or pushes a public mirror.
+- collectZ README and public docs describe Core as the public source of truth.
+- `env.example` contains no private runtime values and documents the optional `VITE_PLATFORM_API_URL` bridge.
+- collectZ OpenAPI omits cairn-owned platform paths.
+- `cairn` OpenAPI documents every platform path that collectZ now blocks or bridges.
+- The collectZ local stack can boot with `VITE_PLATFORM_API_URL` empty.
+- A paired collectZ + `cairn` dev configuration can route moved platform UI calls through `VITE_PLATFORM_API_URL`.
+- Final secret/history scan is run before repository visibility changes.
