@@ -2187,8 +2187,9 @@ results.push(run('admin user control-plane routes are blocked at the Core bounda
   assert.ok(platformEditionBoundarySmokeSource.includes('Platform /api/admin/users/:id/password-reset must be owned by cairn'));
 }));
 
-results.push(run('admin route source keeps remaining platform administration endpoints', () => {
-  assert.ok(adminRoutesSource.includes("platformRouter.get('/loan-reminder-operations'"));
+results.push(run('admin route source keeps remaining core administration endpoints', () => {
+  assert.ok(!adminRoutesSource.includes("platformRouter.get('/loan-reminder-operations'"));
+  assert.ok(!adminRoutesSource.includes("platformRouter.get('/activity'"));
   assert.ok(adminRoutesSource.includes("commonRouter.get('/feature-flags'"));
 }));
 
@@ -2203,12 +2204,15 @@ results.push(run('platform settings diagnostics are blocked at the Core boundary
   assert.ok(platformEditionBoundarySmokeSource.includes('Platform log export diagnostic must be owned by cairn'));
 }));
 
-results.push(run('admin route source includes automatic loan reminder operations readback', () => {
-  assert.ok(adminRoutesSource.includes("platformRouter.get('/loan-reminder-operations'"));
-  assert.ok(adminRoutesSource.includes("action = 'media.loan.reminder.auto_run'"));
-  assert.ok(adminRoutesSource.includes("action = 'media.loan.reminder.auto_fail'"));
-  assert.ok(adminRoutesSource.includes('buildAutomaticLoanReminderRunRecord'));
-  assert.ok(adminRoutesSource.includes('buildAutomaticLoanReminderFailureRecord'));
+results.push(run('platform activity diagnostics are blocked at the Core boundary', () => {
+  assert.ok(serverSource.includes("app.use('/api/admin/activity'"));
+  assert.ok(serverSource.includes("app.use('/api/admin/loan-reminder-operations'"));
+  assert.ok(!adminRoutesSource.includes("platformRouter.get('/activity'"));
+  assert.ok(!adminRoutesSource.includes("platformRouter.get('/loan-reminder-operations'"));
+  assert.ok(!adminRoutesSource.includes("action = 'media.loan.reminder.auto_run'"));
+  assert.ok(!adminRoutesSource.includes("action = 'media.loan.reminder.auto_fail'"));
+  assert.ok(platformEditionBoundarySmokeSource.includes('Platform /api/admin/activity must be owned by cairn'));
+  assert.ok(platformEditionBoundarySmokeSource.includes('Platform /api/admin/loan-reminder-operations must be owned by cairn'));
   assert.ok(adminActivityViewSource.includes("/admin/loan-reminder-operations"));
   assert.ok(adminActivityViewSource.includes('Loan reminder operations'));
   assert.ok(adminActivityViewSource.includes('Latest automatic run'));
@@ -4876,9 +4880,10 @@ results.push(run('openapi baseline documents key auth admin and media endpoints'
   assert.ok(!spec.paths['/api/admin/settings/integrations/test-pricecharting']);
   assert.ok(!spec.paths['/api/admin/settings/integrations/test-ebay']);
   assert.ok(!spec.paths['/api/admin/settings/integrations/test-logs']);
+  assert.ok(!spec.paths['/api/admin/activity']);
+  assert.ok(!spec.paths['/api/admin/loan-reminder-operations']);
   assert.ok(spec.paths['/api/auth/personal-access-tokens']);
   assert.ok(spec.paths['/api/auth/service-account-keys']);
-  assert.ok(spec.paths['/api/admin/loan-reminder-operations']);
   assert.ok(spec.components.schemas.LoanReminderOperationsResponse);
   assert.ok(spec.components.schemas.CollectibleTrait);
   assert.ok(spec.components.schemas.CollectibleTraitRecord);
@@ -5096,6 +5101,8 @@ results.push(run('public compose source keeps homelab-safe cookie defaults in th
   assert.ok(useApiClientSource.includes("normalizedPath !== '/support/releases'"));
   assert.ok(useApiClientSource.includes("normalizedPath === '/admin/spaces'"));
   assert.ok(useApiClientSource.includes("normalizedPath === '/admin/users'"));
+  assert.ok(useApiClientSource.includes("normalizedPath === '/admin/activity'"));
+  assert.ok(useApiClientSource.includes("normalizedPath === '/admin/loan-reminder-operations'"));
   assert.ok(useApiClientSource.includes("normalizedPath === '/admin/settings/email-delivery'"));
   assert.ok(useApiClientSource.includes("'/admin/settings/integrations/test-pricecharting'"));
   assert.ok(frontendAppSource.includes("const PLATFORM_BRIDGE_ENABLED = hasFrontendEnv('VITE_PLATFORM_API_URL');"));
@@ -7415,9 +7422,13 @@ results.push(run('phase5 smoke scripts avoid tenant admin invite bootstrapping a
   assert.ok(backendPackageSource.includes('"test:platform-edition-boundary": "node scripts/platform-edition-boundary-smoke.js"'));
 }));
 
-results.push(run('admin activity route stays in the platform control plane before tenant scope enforcement', () => {
-  assert.ok(adminRoutesSource.includes("platformRouter.get('/activity'"));
-  assert.ok(adminRoutesSource.indexOf("platformRouter.get('/activity'") < adminRoutesSource.indexOf("platformRouter.use(enforceScopeAccess({ allowedHintRoles: ['admin'] }));"));
+results.push(run('admin activity route is moved out of the Core platform control plane', () => {
+  assert.ok(serverSource.includes("app.use('/api/admin/activity'"));
+  assert.ok(serverSource.includes("app.use('/api/admin/loan-reminder-operations'"));
+  assert.ok(!adminRoutesSource.includes("platformRouter.get('/activity'"));
+  assert.ok(!adminRoutesSource.includes("platformRouter.get('/loan-reminder-operations'"));
+  assert.ok(!openApiSource.includes('"/api/admin/activity"'));
+  assert.ok(!openApiSource.includes('"/api/admin/loan-reminder-operations"'));
 }));
 
 results.push(run('workspace-facing activity hides request-level diagnostics', () => {
@@ -7425,7 +7436,7 @@ results.push(run('workspace-facing activity hides request-level diagnostics', ()
   assert.ok(spacesRoutesSource.includes("COALESCE(al.entity_type, '') <> 'http_request'"));
   assert.ok(dashboardRoutesSource.includes("al.action NOT LIKE 'request.%'"));
   assert.ok(dashboardRoutesSource.includes("COALESCE(al.entity_type, '') <> 'http_request'"));
-  assert.ok(adminRoutesSource.includes("al.action IN ('invite.claimed', 'request.validation.failed')"));
+  assert.ok(!adminRoutesSource.includes("al.action IN ('invite.claimed', 'request.validation.failed')"));
 }));
 
 results.push(run('server source assigns request ids before request logging', () => {

@@ -311,6 +311,12 @@ if (!HOMELAB_EDITION) {
   app.use('/api/admin/settings/integrations/test-logs', (req, res) => {
     res.status(404).json({ error: `API route not found: ${req.method} ${req.originalUrl}` });
   });
+  app.use('/api/admin/activity', (req, res) => {
+    res.status(404).json({ error: `API route not found: ${req.method} ${req.originalUrl}` });
+  });
+  app.use('/api/admin/loan-reminder-operations', (req, res) => {
+    res.status(404).json({ error: `API route not found: ${req.method} ${req.originalUrl}` });
+  });
   app.use('/api/admin/spaces', (req, res) => {
     res.status(404).json({ error: `API route not found: ${req.method} ${req.originalUrl}` });
   });

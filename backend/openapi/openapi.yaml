@@ -8117,26 +8117,6 @@
         }
       }
     },
-    "/api/admin/loan-reminder-operations": {
-      "get": {
-        "tags": ["Admin"],
-        "summary": "Read automatic loan reminder operations visibility",
-        "security": [
-          { "cookieSession": [] },
-          { "bearerAuth": [] }
-        ],
-        "responses": {
-          "200": {
-            "description": "Automatic loan reminder runtime, recent runs, and recent failures",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/LoanReminderOperationsResponse" }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/events/{id}/artifacts": {
       "get": {
         "tags": ["Events"],

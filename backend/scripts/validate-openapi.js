@@ -105,7 +105,9 @@ function main() {
     '/api/admin/settings/email-delivery/test',
     '/api/admin/settings/integrations/test-pricecharting',
     '/api/admin/settings/integrations/test-ebay',
-    '/api/admin/settings/integrations/test-logs'
+    '/api/admin/settings/integrations/test-logs',
+    '/api/admin/activity',
+    '/api/admin/loan-reminder-operations'
   ];
   for (const routePath of forbiddenPaths) {
     assert(!spec.paths[routePath], `Core OpenAPI must not document cairn-owned path: ${routePath}`);

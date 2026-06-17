@@ -19,6 +19,8 @@ function isPlatformOwnedPath(path) {
 
   if (normalizedPath === '/admin/spaces' || normalizedPath.startsWith('/admin/spaces/')) return true;
   if (normalizedPath === '/admin/users' || normalizedPath.startsWith('/admin/users/')) return true;
+  if (normalizedPath === '/admin/activity' || normalizedPath.startsWith('/admin/activity?')) return true;
+  if (normalizedPath === '/admin/loan-reminder-operations' || normalizedPath.startsWith('/admin/loan-reminder-operations?')) return true;
   if (normalizedPath === '/admin/settings/email-delivery' || normalizedPath.startsWith('/admin/settings/email-delivery/')) return true;
 
   return [

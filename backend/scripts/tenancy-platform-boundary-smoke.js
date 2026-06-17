@@ -221,8 +221,11 @@ async function main() {
 
     await admin.request(`/api/spaces/${spaceId}/invites`, { expectStatus: 404 });
 
-    const activity = await admin.request('/api/admin/activity?limit=25&search=admin.space.create', { expectStatus: 200 });
-    assert(Array.isArray(activity?.data), 'Admin activity response must be an array');
+    const platformActivity = await admin.request('/api/admin/activity?limit=25&search=admin.space.create', { expectStatus: 404 });
+    assert(platformActivity.status === 404, `Platform activity must be owned by cairn, not Core: ${JSON.stringify(platformActivity.data)}`);
+
+    const workspaceActivity = await owner.request(`/api/spaces/${spaceId}/activity?limit=25&search=invite`, { expectStatus: 200 });
+    assert(Array.isArray(workspaceActivity?.data), 'Workspace activity response must be an array');
 
     await owner.request(`/api/spaces/${spaceId}/invites/${inviteId}/revoke`, {
       method: 'PATCH',

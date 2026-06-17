@@ -237,6 +237,8 @@ async function main() {
       expectStatus: 404,
       body: { logExportBackend: 'off' }
     });
+    const adminActivity = await admin.request('/api/admin/activity', { expectStatus: 404 });
+    const loanReminderOperations = await admin.request('/api/admin/loan-reminder-operations', { expectStatus: 404 });
     const featureFlags = await admin.request('/api/admin/feature-flags', { expectStatus: 200 });
     const serviceAccountKeys = await admin.request('/api/auth/service-account-keys', { expectStatus: 200 });
     const supportSessionStart = await admin.request('/api/auth/support-session/start', {
@@ -286,6 +288,8 @@ async function main() {
     assert(typeof mediaFeatureFlags.data?.flags?.events_enabled === 'boolean', `Platform /api/media/feature-flags must return boolean events_enabled: ${JSON.stringify(mediaFeatureFlags.data)}`);
     assert(typeof mediaFeatureFlags.data?.flags?.collectibles_enabled === 'boolean', `Platform /api/media/feature-flags must return boolean collectibles_enabled: ${JSON.stringify(mediaFeatureFlags.data)}`);
     assert(emailDelivery.status === 404, `Platform /api/admin/settings/email-delivery must be owned by cairn, not Core: ${JSON.stringify(emailDelivery.data)}`);
+    assert(adminActivity.status === 404, `Platform /api/admin/activity must be owned by cairn, not Core: ${JSON.stringify(adminActivity.data)}`);
+    assert(loanReminderOperations.status === 404, `Platform /api/admin/loan-reminder-operations must be owned by cairn, not Core: ${JSON.stringify(loanReminderOperations.data)}`);
     assert(typeof integrations.data === 'object' && integrations.data !== null, `Platform /api/admin/settings/integrations must stay mounted: ${JSON.stringify(integrations.data)}`);
     assert(typeof integrations.data?.valuationProviders === 'object' && integrations.data.valuationProviders !== null, `Platform integrations payload must keep valuation providers: ${JSON.stringify(integrations.data)}`);
     assert(typeof integrations.data?.logExportControl === 'object' && integrations.data.logExportControl !== null, `Platform integrations payload must keep log export control: ${JSON.stringify(integrations.data)}`);
