@@ -217,24 +217,24 @@ async function main() {
     });
     const generalSettings = await admin.request('/api/settings/general', { expectStatus: 200 });
     const mediaFeatureFlags = await user.request('/api/media/feature-flags', { expectStatus: 200 });
-    const emailDelivery = await admin.request('/api/admin/settings/email-delivery', { expectStatus: 200 });
+    const emailDelivery = await admin.request('/api/admin/settings/email-delivery', { expectStatus: 404 });
     const integrations = await admin.request('/api/admin/settings/integrations', { expectStatus: 200 });
     const priceChartingTest = await admin.request('/api/admin/settings/integrations/test-pricecharting', {
       method: 'POST',
       withCsrf: true,
-      expectStatus: 400,
+      expectStatus: 404,
       body: { title: 'Batman' }
     });
     const ebayTest = await admin.request('/api/admin/settings/integrations/test-ebay', {
       method: 'POST',
       withCsrf: true,
-      expectStatus: 400,
+      expectStatus: 404,
       body: { title: 'Batman' }
     });
     const logsTest = await admin.request('/api/admin/settings/integrations/test-logs', {
       method: 'POST',
       withCsrf: true,
-      expectStatus: 200,
+      expectStatus: 404,
       body: { logExportBackend: 'off' }
     });
     const featureFlags = await admin.request('/api/admin/feature-flags', { expectStatus: 200 });
@@ -285,14 +285,14 @@ async function main() {
     assert(typeof mediaFeatureFlags.data?.flags === 'object' && mediaFeatureFlags.data.flags !== null, `Platform /api/media/feature-flags must stay mounted: ${JSON.stringify(mediaFeatureFlags.data)}`);
     assert(typeof mediaFeatureFlags.data?.flags?.events_enabled === 'boolean', `Platform /api/media/feature-flags must return boolean events_enabled: ${JSON.stringify(mediaFeatureFlags.data)}`);
     assert(typeof mediaFeatureFlags.data?.flags?.collectibles_enabled === 'boolean', `Platform /api/media/feature-flags must return boolean collectibles_enabled: ${JSON.stringify(mediaFeatureFlags.data)}`);
-    assert(typeof emailDelivery.data?.smtp === 'object' && emailDelivery.data.smtp !== null, `Platform /api/admin/settings/email-delivery must stay mounted: ${JSON.stringify(emailDelivery.data)}`);
+    assert(emailDelivery.status === 404, `Platform /api/admin/settings/email-delivery must be owned by cairn, not Core: ${JSON.stringify(emailDelivery.data)}`);
     assert(typeof integrations.data === 'object' && integrations.data !== null, `Platform /api/admin/settings/integrations must stay mounted: ${JSON.stringify(integrations.data)}`);
     assert(typeof integrations.data?.valuationProviders === 'object' && integrations.data.valuationProviders !== null, `Platform integrations payload must keep valuation providers: ${JSON.stringify(integrations.data)}`);
     assert(typeof integrations.data?.logExportControl === 'object' && integrations.data.logExportControl !== null, `Platform integrations payload must keep log export control: ${JSON.stringify(integrations.data)}`);
     assert(typeof integrations.data?.observabilityRuntime === 'object' && integrations.data.observabilityRuntime !== null, `Platform integrations payload must keep observability runtime diagnostics: ${JSON.stringify(integrations.data)}`);
-    assert(priceChartingTest.data?.provider === 'pricecharting', `Platform PriceCharting integration test route must stay mounted: ${JSON.stringify(priceChartingTest.data)}`);
-    assert(ebayTest.data?.provider === 'ebay_browse', `Platform eBay integration test route must stay mounted: ${JSON.stringify(ebayTest.data)}`);
-    assert(logsTest.data?.provider === 'structured_logs', `Platform log export integration test route must stay mounted: ${JSON.stringify(logsTest.data)}`);
+    assert(priceChartingTest.status === 404, `Platform PriceCharting diagnostic must be owned by cairn, not Core: ${JSON.stringify(priceChartingTest.data)}`);
+    assert(ebayTest.status === 404, `Platform eBay diagnostic must be owned by cairn, not Core: ${JSON.stringify(ebayTest.data)}`);
+    assert(logsTest.status === 404, `Platform log export diagnostic must be owned by cairn, not Core: ${JSON.stringify(logsTest.data)}`);
     assert(Array.isArray(featureFlags.data?.flags), `Platform /api/admin/feature-flags must stay mounted: ${JSON.stringify(featureFlags.data)}`);
     assert(featureFlags.data.flags.some((flag) => String(flag.key || '') === 'self_registration_enabled'), `Platform feature flags must keep self_registration_enabled: ${JSON.stringify(featureFlags.data)}`);
     assert(featureFlags.data.flags.some((flag) => String(flag.key || '') === 'metrics_enabled'), `Platform feature flags must keep metrics_enabled: ${JSON.stringify(featureFlags.data)}`);

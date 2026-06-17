@@ -299,15 +299,27 @@ app.use('/api', sharedIntegrationsRouter);
 app.use('/api', librariesRouter);
 app.use('/api/admin', adminCommonRouter);
 if (!HOMELAB_EDITION) {
-  app.use('/api', platformIntegrationsRouter);
-  app.use('/api', spaceIntegrationsRouter);
-  app.use('/api', spacesRouter);
+  app.use('/api/admin/settings/email-delivery', (req, res) => {
+    res.status(404).json({ error: `API route not found: ${req.method} ${req.originalUrl}` });
+  });
+  app.use('/api/admin/settings/integrations/test-pricecharting', (req, res) => {
+    res.status(404).json({ error: `API route not found: ${req.method} ${req.originalUrl}` });
+  });
+  app.use('/api/admin/settings/integrations/test-ebay', (req, res) => {
+    res.status(404).json({ error: `API route not found: ${req.method} ${req.originalUrl}` });
+  });
+  app.use('/api/admin/settings/integrations/test-logs', (req, res) => {
+    res.status(404).json({ error: `API route not found: ${req.method} ${req.originalUrl}` });
+  });
   app.use('/api/admin/spaces', (req, res) => {
     res.status(404).json({ error: `API route not found: ${req.method} ${req.originalUrl}` });
   });
   app.use('/api/admin/users', (req, res) => {
     res.status(404).json({ error: `API route not found: ${req.method} ${req.originalUrl}` });
   });
+  app.use('/api', platformIntegrationsRouter);
+  app.use('/api', spaceIntegrationsRouter);
+  app.use('/api', spacesRouter);
   app.use('/api/admin', adminPlatformRouter);
 }
 

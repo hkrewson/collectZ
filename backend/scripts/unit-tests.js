@@ -2189,8 +2189,18 @@ results.push(run('admin user control-plane routes are blocked at the Core bounda
 
 results.push(run('admin route source keeps remaining platform administration endpoints', () => {
   assert.ok(adminRoutesSource.includes("platformRouter.get('/loan-reminder-operations'"));
-  assert.ok(adminRoutesSource.includes("platformRouter.get('/settings/email-delivery'"));
   assert.ok(adminRoutesSource.includes("commonRouter.get('/feature-flags'"));
+}));
+
+results.push(run('platform settings diagnostics are blocked at the Core boundary', () => {
+  assert.ok(serverSource.includes("app.use('/api/admin/settings/email-delivery'"));
+  assert.ok(serverSource.includes("app.use('/api/admin/settings/integrations/test-pricecharting'"));
+  assert.ok(serverSource.includes("app.use('/api/admin/settings/integrations/test-ebay'"));
+  assert.ok(serverSource.includes("app.use('/api/admin/settings/integrations/test-logs'"));
+  assert.ok(platformEditionBoundarySmokeSource.includes('Platform /api/admin/settings/email-delivery must be owned by cairn'));
+  assert.ok(platformEditionBoundarySmokeSource.includes('Platform PriceCharting diagnostic must be owned by cairn'));
+  assert.ok(platformEditionBoundarySmokeSource.includes('Platform eBay diagnostic must be owned by cairn'));
+  assert.ok(platformEditionBoundarySmokeSource.includes('Platform log export diagnostic must be owned by cairn'));
 }));
 
 results.push(run('admin route source includes automatic loan reminder operations readback', () => {
@@ -2474,9 +2484,6 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(adminRoutesSource.includes('adminCommonRouter'));
   assert.ok(adminRoutesSource.includes('adminPlatformRouter'));
   assert.ok(adminRoutesSource.includes('HOMELAB_ALLOWED_FEATURE_FLAGS'));
-  assert.ok(adminRoutesSource.includes("platformRouter.get('/settings/email-delivery'"));
-  assert.ok(adminRoutesSource.includes("platformRouter.put('/settings/email-delivery'"));
-  assert.ok(adminRoutesSource.includes("platformRouter.post('/settings/email-delivery/test'"));
   assert.ok(adminRoutesSource.includes("commonRouter.get('/settings/portability'"));
   assert.ok(adminRoutesSource.includes("commonRouter.post('/settings/portability/export'"));
   assert.ok(adminRoutesSource.includes('buildPortabilityStatus'));
@@ -2565,10 +2572,14 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/admin/spaces/1/invites'));
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/spaces/${defaultSpaceId}/integrations'));
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/admin/settings/email-delivery'));
+  assert.ok(platformEditionBoundarySmokeSource.includes('Platform /api/admin/settings/email-delivery must be owned by cairn'));
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/media/feature-flags'));
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/admin/settings/integrations/test-pricecharting'));
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/admin/settings/integrations/test-ebay'));
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/admin/settings/integrations/test-logs'));
+  assert.ok(platformEditionBoundarySmokeSource.includes('Platform PriceCharting diagnostic must be owned by cairn'));
+  assert.ok(platformEditionBoundarySmokeSource.includes('Platform eBay diagnostic must be owned by cairn'));
+  assert.ok(platformEditionBoundarySmokeSource.includes('Platform log export diagnostic must be owned by cairn'));
   assert.ok(platformEditionBoundarySmokeSource.includes('self_registration_enabled'));
   assert.ok(platformEditionBoundarySmokeSource.includes('metrics_enabled'));
   assert.ok(platformEditionBoundarySmokeSource.includes('external_log_export_enabled'));
@@ -2787,11 +2798,9 @@ results.push(run('integrations route source extends platform integrations with v
   assert.ok(integrationsRoutesSource.includes('Platform-only integration settings are not available in homelab edition'));
   assert.ok(integrationsRoutesSource.includes("sharedRouter.get('/admin/settings/integrations'"));
   assert.ok(integrationsRoutesSource.includes("sharedRouter.put('/admin/settings/integrations'"));
-  assert.ok(integrationsRoutesSource.includes("platformRouter.post('/admin/settings/integrations/test-pricecharting'"));
-  assert.ok(integrationsRoutesSource.includes("platformRouter.post('/admin/settings/integrations/test-ebay'"));
-  assert.ok(integrationsRoutesSource.includes("platformRouter.post('/admin/settings/integrations/test-logs'"));
-  assert.ok(integrationsRoutesSource.includes("/admin/settings/integrations/test-pricecharting"));
-  assert.ok(integrationsRoutesSource.includes("/admin/settings/integrations/test-ebay"));
+  assert.ok(serverSource.includes("app.use('/api/admin/settings/integrations/test-pricecharting'"));
+  assert.ok(serverSource.includes("app.use('/api/admin/settings/integrations/test-ebay'"));
+  assert.ok(serverSource.includes("app.use('/api/admin/settings/integrations/test-logs'"));
 }));
 
 results.push(run('media route source hardens image upload handlers', () => {
@@ -4857,6 +4866,11 @@ results.push(run('openapi baseline documents key auth admin and media endpoints'
   assert.ok(!spec.paths['/api/admin/users/{id}/summary']);
   assert.ok(!spec.paths['/api/admin/users/{id}/role']);
   assert.ok(!spec.paths['/api/admin/users/{id}/password-reset']);
+  assert.ok(!spec.paths['/api/admin/settings/email-delivery']);
+  assert.ok(!spec.paths['/api/admin/settings/email-delivery/test']);
+  assert.ok(!spec.paths['/api/admin/settings/integrations/test-pricecharting']);
+  assert.ok(!spec.paths['/api/admin/settings/integrations/test-ebay']);
+  assert.ok(!spec.paths['/api/admin/settings/integrations/test-logs']);
   assert.ok(spec.paths['/api/auth/personal-access-tokens']);
   assert.ok(spec.paths['/api/auth/service-account-keys']);
   assert.ok(spec.paths['/api/admin/loan-reminder-operations']);

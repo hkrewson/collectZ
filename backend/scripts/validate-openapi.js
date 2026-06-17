@@ -100,7 +100,12 @@ function main() {
     '/api/admin/users/{id}/summary',
     '/api/admin/users/{id}/role',
     '/api/admin/users/{id}/password-reset',
-    '/api/admin/users/{id}/password-reset/invalidate'
+    '/api/admin/users/{id}/password-reset/invalidate',
+    '/api/admin/settings/email-delivery',
+    '/api/admin/settings/email-delivery/test',
+    '/api/admin/settings/integrations/test-pricecharting',
+    '/api/admin/settings/integrations/test-ebay',
+    '/api/admin/settings/integrations/test-logs'
   ];
   for (const routePath of forbiddenPaths) {
     assert(!spec.paths[routePath], `Core OpenAPI must not document cairn-owned path: ${routePath}`);
