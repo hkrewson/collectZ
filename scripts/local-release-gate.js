@@ -91,6 +91,13 @@ function runCommand(command, args, options = {}) {
   };
 }
 
+function runNpm(args, options = {}) {
+  if (process.env.npm_execpath) {
+    return runCommand(process.execPath, [process.env.npm_execpath, ...args], options);
+  }
+  return runCommand('npm', args, options);
+}
+
 function pass(id, name, detail, extras = {}) {
   return { id, name, status: 'PASS', detail, ...extras };
 }
@@ -104,7 +111,7 @@ function blocked(id, name, detail, extras = {}) {
 }
 
 function runNpmScript(id, name, npmArgs, options = {}) {
-  const result = runCommand('npm', npmArgs, options);
+  const result = runNpm(npmArgs, options);
   if (result.status === 0) {
     return pass(id, name, options.passDetail || 'completed', { durationMs: result.durationMs });
   }
@@ -189,7 +196,7 @@ function checkGitDiff() {
 }
 
 function runDependencyAudit(id, name, npmArgs) {
-  const result = runCommand('npm', npmArgs);
+  const result = runNpm(npmArgs);
   if (result.status === 0) {
     return pass(id, name, 'npm audit passed', { durationMs: result.durationMs });
   }

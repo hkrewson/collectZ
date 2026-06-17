@@ -10,15 +10,17 @@ function trimString(value) {
 }
 
 function decodeHtmlEntities(value = '') {
-  return trimString(value)
-    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
-    .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCharCode(parseInt(code, 16)))
-    .replace(/&amp;/g, '&')
-    .replace(/&quot;/g, '"')
-    .replace(/&#039;/g, "'")
-    .replace(/&apos;/g, "'")
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&ndash;|&mdash;/g, '-');
+  return trimString(value).replace(/&(?:#(\d+)|#x([0-9a-f]+)|(amp|quot|apos|nbsp|ndash|mdash|#039));/gi, (match, decimal, hex, named) => {
+    if (decimal) return String.fromCharCode(Number(decimal));
+    if (hex) return String.fromCharCode(parseInt(hex, 16));
+    const normalized = String(named || '').toLowerCase();
+    if (normalized === 'amp') return '&';
+    if (normalized === 'quot') return '"';
+    if (normalized === 'apos' || normalized === '#039') return "'";
+    if (normalized === 'nbsp') return ' ';
+    if (normalized === 'ndash' || normalized === 'mdash') return '-';
+    return match;
+  });
 }
 
 function stripTags(value = '') {
@@ -30,8 +32,8 @@ function normalizeSourceUrl(value) {
   if (!raw) return null;
   try {
     const parsed = new URL(raw, SDCC_BLOG_EXCLUSIVES_URL);
-    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return null;
-    if (!parsed.hostname.endsWith(SDCC_BLOG_HOST)) return null;
+    if (parsed.protocol !== 'https:') return null;
+    if (parsed.hostname !== SDCC_BLOG_HOST) return null;
     parsed.hash = '';
     return parsed.toString();
   } catch (_) {
@@ -179,6 +181,7 @@ async function fetchSdccBlogText(url, fetchImpl = global.fetch) {
     error.code = 'fetch_unavailable';
     throw error;
   }
+  // codeql[js/request-forgery] normalizeSourceUrl accepts only https://sdccblog.com URLs before this sink.
   const response = await fetchImpl(url, {
     headers: {
       'accept': 'text/html,application/xhtml+xml',

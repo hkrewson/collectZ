@@ -13,6 +13,11 @@ const appMeta = require(path.join(repoRoot, 'app-meta.json'));
 const outputPath = process.env.OBSERVABILITY_EVIDENCE_OUTPUT
   ? path.resolve(process.env.OBSERVABILITY_EVIDENCE_OUTPUT)
   : path.join(repoRoot, 'artifacts', 'observability-evidence', 'observability-release-evidence.json');
+const mainStackHealthUrl = String(
+  process.env.OBSERVABILITY_HEALTH_URL
+  || (process.env.RELEASE_PREFLIGHT_BASE_URL ? `${process.env.RELEASE_PREFLIGHT_BASE_URL.replace(/\/+$/, '')}/api/health` : '')
+  || 'http://localhost:3000/api/health'
+);
 
 const ciBuildComposePath = path.join(repoRoot, '.ci', 'docker-compose.build.yml');
 const ciPlatformComposePath = path.join(repoRoot, '.ci', 'docker-compose.platform.yml');
@@ -50,6 +55,30 @@ function runProcess(command, args, { env = process.env, cwd = repoRoot } = {}) {
     encoding: 'utf8',
     maxBuffer: 20 * 1024 * 1024
   });
+}
+
+function detectAppDockerNetwork() {
+  const psResult = runProcess('docker', [...dockerBase, 'ps', '-q', 'backend']);
+  const containerId = String(psResult.stdout || '').trim().split(/\s+/).find(Boolean);
+  if (psResult.status !== 0 || !containerId) return '';
+
+  const inspectResult = runProcess('docker', ['inspect', containerId, '--format', '{{json .NetworkSettings.Networks}}']);
+  if (inspectResult.status !== 0) return '';
+
+  try {
+    const networks = JSON.parse(String(inspectResult.stdout || '{}'));
+    return Object.keys(networks).find((name) => /_internal$/.test(name)) || Object.keys(networks)[0] || '';
+  } catch (_error) {
+    return '';
+  }
+}
+
+function ensureAppDockerNetworkEnv() {
+  if (String(process.env.APP_DOCKER_NETWORK || '').trim()) return;
+  const detectedNetwork = detectAppDockerNetwork();
+  if (detectedNetwork) {
+    process.env.APP_DOCKER_NETWORK = detectedNetwork;
+  }
 }
 
 function randomRuntimeSecret(prefix = 'collectz') {
@@ -118,7 +147,7 @@ function waitForMainStackHealth(name, attempts = 20, delaySeconds = 1) {
   const startMs = Date.now();
   let lastResult = null;
   for (let index = 0; index < attempts; index += 1) {
-    lastResult = runProcess('curl', ['-fsS', 'http://localhost:3000/api/health']);
+    lastResult = runProcess('curl', ['-fsS', mainStackHealthUrl]);
     if (lastResult.status === 0) {
       try {
         const parsed = JSON.parse(String(lastResult.stdout || '{}'));
@@ -126,7 +155,7 @@ function waitForMainStackHealth(name, attempts = 20, delaySeconds = 1) {
           return automatedResult(
             name,
             'curl',
-            ['-fsS', 'http://localhost:3000/api/health'],
+            ['-fsS', mainStackHealthUrl],
             lastResult,
             startedAt,
             Date.now() - startMs
@@ -143,7 +172,7 @@ function waitForMainStackHealth(name, attempts = 20, delaySeconds = 1) {
   return automatedResult(
     name,
     'curl',
-    ['-fsS', 'http://localhost:3000/api/health'],
+    ['-fsS', mainStackHealthUrl],
     lastResult || { status: 1, stdout: '', stderr: 'health check did not execute' },
     startedAt,
     Date.now() - startMs
@@ -377,6 +406,7 @@ function restoreBackend() {
 
 function main() {
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+  ensureAppDockerNetworkEnv();
 
   const checks = [];
   try {

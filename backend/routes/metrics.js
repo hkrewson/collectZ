@@ -1,6 +1,7 @@
 'use strict';
 
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const { asyncHandler } = require('../middleware/errors');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const { isFeatureEnabled } = require('../services/featureFlags');
@@ -9,6 +10,13 @@ const { renderMetrics } = require('../services/metrics');
 const router = express.Router();
 const DEBUG_LEVEL = Math.max(0, Math.min(2, Number(process.env.DEBUG || 0) || 0));
 const METRICS_SCRAPE_TOKEN = String(process.env.METRICS_SCRAPE_TOKEN || '').trim();
+const metricsLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: Math.max(30, Number(process.env.RATE_LIMIT_METRICS_MAX || 120)),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many metrics requests, please slow down' }
+});
 
 async function assertMetricsEnabled() {
   const enabled = await isFeatureEnabled('metrics_enabled', false);
@@ -42,7 +50,7 @@ const requireMetricsAccess = [
   })
 ];
 
-router.get('/', requireMetricsAccess, asyncHandler(async (_req, res) => {
+router.get('/', metricsLimiter, requireMetricsAccess, asyncHandler(async (_req, res) => {
   const payload = await renderMetrics();
   res.type('text/plain; version=0.0.4').send(payload);
 }));

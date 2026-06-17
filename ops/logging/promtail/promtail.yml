@@ -15,7 +15,7 @@ scrape_configs:
         refresh_interval: 5s
     relabel_configs:
       - source_labels: ['__meta_docker_container_name']
-        regex: '/collectz-backend-1'
+        regex: '/.*backend-1'
         action: keep
       - source_labels: ['__meta_docker_container_name']
         target_label: container

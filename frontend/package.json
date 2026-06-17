@@ -22,7 +22,7 @@
   },
   "scripts": {
     "start": "vite",
-    "build": "vite build",
+    "build": "vite build --configLoader native",
     "preview": "vite preview --host 0.0.0.0"
   },
   "browserslist": {

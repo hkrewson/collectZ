@@ -3,6 +3,7 @@
 'use strict';
 
 const bcrypt = require('bcrypt');
+const crypto = require('crypto');
 const pool = require('../db/pool');
 const { ensureUserDefaultScope } = require('../services/libraries');
 
@@ -132,7 +133,7 @@ async function cleanup({ userId, libraryId, spaceId }) {
 
 async function main() {
   assert(BULK_COUNT >= 200, `MEDIA_BULK_DELETE_SMOKE_COUNT must be at least 200, got ${BULK_COUNT}`);
-  const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const suffix = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}`;
   const email = `bulk-delete-smoke-${suffix}@example.com`;
   const password = 'Passw0rd!123';
   const client = new HttpClient('bulk-delete');

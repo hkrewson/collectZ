@@ -124,16 +124,6 @@ async function loginWithEmail(client, email, password) {
   });
 }
 
-async function registerWithInvite(client, { email, password, name, inviteToken }) {
-  await client.fetchCsrfToken();
-  return client.request('/api/auth/register', {
-    method: 'POST',
-    withCsrf: true,
-    expectStatus: 200,
-    body: { email, password, name, inviteToken }
-  });
-}
-
 async function main() {
   const suffix = Date.now();
   const adminEmail = `platform-admin-${suffix}@example.com`;

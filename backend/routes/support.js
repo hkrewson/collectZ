@@ -1,4 +1,5 @@
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const pool = require('../db/pool');
 const { asyncHandler } = require('../middleware/errors');
 const { authenticateToken, requireSessionAuth, requireRole } = require('../middleware/auth');
@@ -21,6 +22,13 @@ const {
 
 const sharedRouter = express.Router();
 const platformRouter = express.Router();
+const supportLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: Math.max(30, Number(process.env.RATE_LIMIT_SUPPORT_MAX || 300)),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many support requests, please slow down' }
+});
 
 const SUPPORT_STAFF_ROLES = new Set(['admin', 'support_admin']);
 const DEFAULT_REPO_ISSUE_BASE_URL = 'https://github.com/hkrewson/collectz/issues';
@@ -31,6 +39,9 @@ const PUBLIC_SUPPORT_TIMELINE_ACTIONS = new Set([
   'auth.support_session.started',
   'auth.support_session.ended'
 ]);
+
+sharedRouter.use(supportLimiter);
+platformRouter.use(supportLimiter);
 
 function isSupportStaff(req) {
   return SUPPORT_STAFF_ROLES.has(String(req.user?.role || ''));

@@ -5414,7 +5414,7 @@ results.push(run('frontend package and vite scaffold support the Vite-first buil
   assert.strictEqual(frontendPackageJson.devDependencies.esbuild !== undefined, true);
   assert.strictEqual(frontendPackageJson.devDependencies['react-scripts'], undefined);
   assert.strictEqual(frontendPackageJson.scripts.start, 'vite');
-  assert.strictEqual(frontendPackageJson.scripts.build, 'vite build');
+  assert.strictEqual(frontendPackageJson.scripts.build, 'vite build --configLoader native');
   assert.strictEqual(frontendPackageJson.scripts.preview, 'vite preview --host 0.0.0.0');
   assert.strictEqual(frontendPackageJson.scripts['dev:vite'], undefined);
   assert.strictEqual(frontendPackageJson.scripts['build:vite'], undefined);

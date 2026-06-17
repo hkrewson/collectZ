@@ -41,6 +41,13 @@ function runCommand(command, args, options = {}) {
   });
 }
 
+function runNpm(args, options = {}) {
+  if (process.env.npm_execpath) {
+    return runCommand(process.execPath, [process.env.npm_execpath, ...args], options);
+  }
+  return runCommand('npm', args, options);
+}
+
 function safeReadJson(filePath) {
   if (!fs.existsSync(filePath)) return null;
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -65,7 +72,7 @@ function getAuditCounts(auditJson) {
 }
 
 function runAudit(label, cwd, outputPath) {
-  const result = runCommand('npm', ['audit', '--omit=dev', '--json'], { cwd });
+  const result = runNpm(['audit', '--omit=dev', '--json'], { cwd });
   const stdout = String(result.stdout || '').trim();
   if (!stdout) {
     return {

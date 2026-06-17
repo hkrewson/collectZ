@@ -12,6 +12,8 @@ This audit records the current collectZ source state before changing the canonic
 
 - `scripts/audit-public-source-boundary.js` reports `0` findings.
 - `backend/scripts/validate-openapi.js` passes after the Core OpenAPI wording cleanup.
+- `npm run release:local-gate:full` reports `13` passed, `0` failed, and `3` locally blocked gates.
+- Maintained-source CodeQL reports `3` total findings and `0` active findings after in-source suppressions and scanner-visible guardrails.
 - Active GitHub workflows do not generate or push a public mirror.
 - Root package scripts no longer include public export or public mirror generation commands.
 - `.gitignore` excludes local public-export artifacts, backups, logs, traces, screenshots, media, and runtime output.
@@ -24,6 +26,7 @@ This audit records the current collectZ source state before changing the canonic
 - Test fixtures contain deterministic sample passwords and tokens for auth and regression checks. They are not production credentials.
 - Ignored local folders such as `public-export/`, `artifacts/public-export/`, `public-mirror/`, and `backups/` may still exist in a working tree. They are not tracked and should not be published from Git.
 - Some release notes and roadmap history mention the retired private-source/public-mirror model. Keep those as historical records unless they are reused as current instructions.
+- Local full-gate blockers remain environment/tooling blockers: `gitleaks` is not installed, `trivy` is not installed, and `PLAYWRIGHT_E2E_BYPASS_TOKEN` was not set for browser regression.
 
 ## Remaining Before Visibility Change
 
