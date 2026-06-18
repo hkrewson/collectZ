@@ -918,6 +918,30 @@ CREATE TABLE IF NOT EXISTS collectibles (
     archived_at TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS event_exclusive_sources (
+    id SERIAL PRIMARY KEY,
+    event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    provider VARCHAR(80) NOT NULL,
+    provider_key TEXT NOT NULL,
+    source_url TEXT NOT NULL,
+    source_title VARCHAR(500) NOT NULL,
+    source_updated_label VARCHAR(120),
+    vendor VARCHAR(255),
+    booth VARCHAR(120),
+    status VARCHAR(20) NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'reviewed', 'ignored', 'promoted')),
+    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+    promoted_wanted_item_id INTEGER REFERENCES wanted_items(id) ON DELETE SET NULL,
+    promoted_collectible_id INTEGER REFERENCES collectibles(id) ON DELETE SET NULL,
+    library_id INTEGER,
+    space_id INTEGER,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    promoted_at TIMESTAMP,
+    archived_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS art_artist_records (
     id SERIAL PRIMARY KEY,
     library_id INTEGER REFERENCES libraries(id) ON DELETE CASCADE,
@@ -1497,6 +1521,15 @@ CREATE INDEX IF NOT EXISTS idx_object_relationships_target_active
 CREATE INDEX IF NOT EXISTS idx_object_relationships_scope_active
     ON object_relationships(space_id, library_id, relationship_type, updated_at DESC)
     WHERE archived_at IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_event_exclusive_sources_event_provider_active
+    ON event_exclusive_sources(event_id, provider, provider_key)
+    WHERE archived_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_event_exclusive_sources_event_status_active
+    ON event_exclusive_sources(event_id, status, updated_at DESC)
+    WHERE archived_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_event_exclusive_sources_scope_active
+    ON event_exclusive_sources(space_id, library_id, updated_at DESC)
+    WHERE archived_at IS NULL;
 
 -- Updated-at trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -1532,6 +1565,10 @@ BEGIN
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_object_relationships_updated_at') THEN
         CREATE TRIGGER update_object_relationships_updated_at BEFORE UPDATE ON object_relationships
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_event_exclusive_sources_updated_at') THEN
+        CREATE TRIGGER update_event_exclusive_sources_updated_at BEFORE UPDATE ON event_exclusive_sources
             FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_media_variants_updated_at') THEN
@@ -1760,7 +1797,7 @@ INSERT INTO schema_migrations (version, description) VALUES
     (51, 'Add explicit support request access approval state'),
     (52, 'Link support sessions to approved support requests'),
     (53, 'Add support request updated_at trigger parity'),
-    (54, 'Add observability endpoint runtime fields'),
+    (54, 'Add observability endpoint control-plane fields'),
     (55, 'Add observability endpoint validation fields'),
     (56, 'Add observability endpoint label fields'),
     (57, 'Add observability endpoint debug field'),
@@ -1814,5 +1851,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (105, 'Add wishlist price history snapshots'),
     (106, 'Add Dashboard Review decision tracking'),
     (107, 'Add reusable collectible trait persistence'),
-    (108, 'Add object relationship workflows')
+    (108, 'Add object relationship workflows'),
+    (109, 'Add event exclusive source cache')
 ON CONFLICT (version) DO NOTHING;
