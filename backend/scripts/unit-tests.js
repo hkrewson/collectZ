@@ -2730,7 +2730,7 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
   assert.ok(dockerPublishWorkflowSource.includes('runtime-smoke:'));
   assert.ok(dockerPublishWorkflowSource.includes('name: core-runtime-smoke'));
   assert.ok(dockerPublishWorkflowSource.includes('- name: Core runtime'));
-  assert.ok(dockerPublishWorkflowSource.includes('npm run test:core-runtime-smoke'));
+  assert.ok(dockerPublishWorkflowSource.includes('backend node scripts/homelab-edition-boundary-smoke.js'));
   assert.ok(!dockerPublishWorkflowSource.includes('npm run test:control-plane-runtime-smoke'));
   assert.ok(dockerPublishWorkflowSource.includes('- Core runtime smoke: PASS'));
   assert.ok(browserCapturesWorkflowSource.includes('workflow_dispatch:'));
