@@ -199,8 +199,17 @@ const imageFileFilter = (_req, file, cb) => {
   return cb(null, true);
 };
 
-const tempUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
-const memoryImageUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 }, fileFilter: imageFileFilter });
+const SINGLE_FILE_UPLOAD_LIMITS = {
+  fileSize: 10 * 1024 * 1024,
+  files: 1,
+  fields: 20,
+  fieldNameSize: 100,
+  fieldSize: 64 * 1024,
+  parts: 25,
+  headerPairs: 100
+};
+const tempUpload = multer({ storage: multer.memoryStorage(), limits: SINGLE_FILE_UPLOAD_LIMITS });
+const memoryImageUpload = multer({ storage: multer.memoryStorage(), limits: SINGLE_FILE_UPLOAD_LIMITS, fileFilter: imageFileFilter });
 
 const MEDIA_TYPES = ['movie', 'tv_series', 'tv_episode', 'book', 'audio', 'game', 'comic_book'];
 const MERGE_REVIEW_MEDIA_TYPES = new Set(['movie', 'tv_series', 'book', 'audio', 'game', 'comic_book']);

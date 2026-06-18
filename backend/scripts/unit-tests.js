@@ -3797,7 +3797,10 @@ results.push(run('repo includes local CI/CD release gate and opt-in pre-push hoo
   assert.ok(localGitHooksInstallerSource.includes('COLLECTZ_SKIP_LOCAL_GATE'));
   assert.ok(localGitHooksInstallerSource.includes('npm run release:local-gate'));
   assert.ok(localGitHooksInstallerSource.includes('--force'));
-  assert.ok(localGitHooksInstallerSource.includes('codeql[js/file-system-race]'));
+  assert.ok(localGitHooksInstallerSource.includes("fs.openSync(hookPath, 'wx'"));
+  assert.ok(localGitHooksInstallerSource.includes('writeHookAtomically'));
+  assert.ok(localGitHooksInstallerSource.includes('fs.renameSync(tempPath, hookPath)'));
+  assert.ok(!localGitHooksInstallerSource.includes('codeql[js/file-system-race]'));
 }));
 
 results.push(run('repo includes merge evidence backfill tooling for older duplicate attach history rows', () => {
@@ -6088,7 +6091,9 @@ results.push(run('repo documents CodeQL request-forgery boundaries for maintaine
   }));
 
 results.push(run('CSV import uploads stay in memory instead of reading request-controlled temp paths', () => {
-  assert.ok(mediaRoutesSource.includes('const tempUpload = multer({ storage: multer.memoryStorage()'));
+  assert.ok(mediaRoutesSource.includes('const tempUpload = multer({ storage: multer.memoryStorage(), limits: SINGLE_FILE_UPLOAD_LIMITS })'));
+  assert.ok(mediaRoutesSource.includes('fieldNameSize: 100'));
+  assert.ok(mediaRoutesSource.includes('parts: 25'));
   assert.ok(mediaRoutesSource.includes("req.file.buffer.toString('utf8')"));
   assert.ok(!mediaRoutesSource.includes('fs.promises.readFile(req.file.path'));
   assert.ok(!mediaRoutesSource.includes('fs.promises.unlink(req.file.path'));

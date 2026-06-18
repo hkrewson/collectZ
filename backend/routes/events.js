@@ -55,7 +55,16 @@ const {
 } = require('../services/exclusiveSources');
 
 const router = express.Router();
-const memoryUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+const SINGLE_FILE_UPLOAD_LIMITS = {
+  fileSize: 10 * 1024 * 1024,
+  files: 1,
+  fields: 20,
+  fieldNameSize: 100,
+  fieldSize: 64 * 1024,
+  parts: 25,
+  headerPairs: 100
+};
+const memoryUpload = multer({ storage: multer.memoryStorage(), limits: SINGLE_FILE_UPLOAD_LIMITS });
 const ALLOWED_IMAGE_MIME_TYPES = new Set([
   'image/jpeg',
   'image/jpg',
