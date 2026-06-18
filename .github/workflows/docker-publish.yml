@@ -500,7 +500,7 @@ jobs:
             exit 1
           fi
 
-          docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T backend npm run test:integration-smoke
+          docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T backend node scripts/api-integration-smoke.js
 
   rbac-regression:
     name: core-rbac-regression
@@ -669,7 +669,7 @@ jobs:
           timeout 120 sh -c 'until [ "$(docker inspect -f "{{.State.Health.Status}}" "'"${BACKEND_CID}"'")" = "healthy" ]; do sleep 3; done'
           timeout 120 sh -c 'until [ "$(docker inspect -f "{{.State.Health.Status}}" "'"${FRONTEND_CID}"'")" = "healthy" ]; do sleep 3; done'
           docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T backend sh -lc 'node -e "const {getProductEdition}=require(\"./config/productEdition\"); if(getProductEdition()!==\"homelab\"){console.error(\"Expected core runtime mode\");process.exit(1)}"'
-          docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T -e BASE_URL=http://frontend:3000 -e PLAYWRIGHT_E2E_BYPASS_TOKEN="${PLAYWRIGHT_E2E_BYPASS_TOKEN}" backend npm run test:core-runtime-smoke
+          docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T -e BASE_URL=http://frontend:3000 -e PLAYWRIGHT_E2E_BYPASS_TOKEN="${PLAYWRIGHT_E2E_BYPASS_TOKEN}" backend node scripts/homelab-edition-boundary-smoke.js
 
   backend:
     runs-on: ubuntu-latest
