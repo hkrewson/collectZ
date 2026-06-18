@@ -139,6 +139,7 @@ platformRouter.post('/settings/email-delivery/test', validate(emailDeliveryTestS
 // ── Feature flags ─────────────────────────────────────────────────────────────
 
 commonRouter.get('/feature-flags', asyncHandler(async (_req, res) => {
+  res.set('Cache-Control', 'no-store');
   const flags = (await listFeatureFlags()).filter((flag) => (
     !HOMELAB_EDITION || HOMELAB_ALLOWED_FEATURE_FLAGS.has(flag.key)
   ));
@@ -146,6 +147,7 @@ commonRouter.get('/feature-flags', asyncHandler(async (_req, res) => {
 }));
 
 commonRouter.patch('/feature-flags/:key', asyncHandler(async (req, res) => {
+  res.set('Cache-Control', 'no-store');
   const key = String(req.params.key || '').trim();
   const { enabled } = req.body || {};
 

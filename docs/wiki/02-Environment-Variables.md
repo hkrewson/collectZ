@@ -124,7 +124,7 @@ These can be set in `.env`, but admin settings in UI now control active global i
     - `EBAY_BROWSE_CLIENT_ID`
     - `EBAY_BROWSE_CLIENT_SECRET`
     - `EBAY_BROWSE_MARKETPLACE_ID` (default `EBAY_US`)
-  - `2.11.0` keeps valuation requests behind platform-owned optional config with read-only valuation display in media detail views.
+  - `2.11.0` keeps valuation requests behind platform configuration with read-only valuation display in media detail views.
   - Automated regression/testing should stay fixture-backed and must not hit the live PriceCharting API by default; only tiny manual smoke tests should call the real provider once queue/rate-limit execution is enabled.
   - Manual valuation refresh can now execute directly against eBay Browse when it is the configured provider, or fall back to eBay Browse after a PriceCharting no-match, while keeping the UI read-only and optional.
 - CWA OPDS (deferred/disabled runtime surface): `CWA_OPDS_URL`, `CWA_USERNAME`, `CWA_PASSWORD`

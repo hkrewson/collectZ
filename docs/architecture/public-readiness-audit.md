@@ -19,7 +19,7 @@ This audit records the current collectZ source state before changing the canonic
 - Active GitHub workflows do not generate or push a public mirror.
 - Root package scripts no longer include public export or public mirror generation commands.
 - `.gitignore` excludes local public-export artifacts, backups, logs, traces, screenshots, media, and runtime output.
-- `env.example` documents `VITE_PLATFORM_API_URL` as an optional bridge to `cairn`; leaving it empty keeps collectZ in standalone Core mode.
+- `env.example` documents `VITE_PLATFORM_API_URL` as the cairn bridge for full product composition; leaving it empty runs the collectZ Core runtime only.
 - collectZ OpenAPI no longer documents the platform docs, metrics, workspace-admin, user-admin, platform activity, or platform operations surfaces moved to `cairn`.
 
 ## Non-Blocking Findings
@@ -29,7 +29,7 @@ This audit records the current collectZ source state before changing the canonic
 - Ignored local folders such as `public-export/`, `artifacts/public-export/`, `public-mirror/`, and `backups/` may still exist in a working tree. They are not tracked and should not be published from Git.
 - Some release notes and roadmap history mention the retired private-source/public-mirror model. Keep those as historical records unless they are reused as current instructions.
 - Local gitleaks and Trivy binaries are not installed, so those scans were run through Docker rather than the local full-gate wrapper.
-- Full mixed Playwright browser regression is split at the Core/platform boundary. Core CI now runs the required `test:browser:core` smoke subset; broader Core regression coverage is preserved behind `test:browser:core-regression`, event planner coverage behind `test:browser:event-planner`, and platform/support/workspace coverage behind `test:browser:platform` for the cairn handoff instead of blocking the public collectZ repo.
+- Full mixed Playwright browser regression is split at the Core/platform boundary. Core CI now runs the required `test:browser:core` smoke subset; broader Core regression coverage is preserved behind `test:browser:core-regression`, event planner coverage behind `test:browser:event-planner`, and full-product platform/support/workspace coverage behind `test:browser:platform`.
 
 ## Remaining Before Visibility Change
 

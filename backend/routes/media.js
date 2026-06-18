@@ -9016,6 +9016,7 @@ router.use(authenticateToken);
 router.use(enforceScopeAccess({ allowedHintRoles: ['admin'] }));
 
 router.get('/feature-flags', asyncHandler(async (req, res) => {
+  res.set('Cache-Control', 'no-store');
   const scopeContext = resolveScopeContext(req);
   const eventsEnabled = await isFeatureEnabledForSpace(scopeContext?.spaceId || null, 'events_enabled', false);
   const collectiblesEnabled = await isFeatureEnabledForSpace(scopeContext?.spaceId || null, 'collectibles_enabled', false);

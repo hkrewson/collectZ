@@ -352,6 +352,7 @@ router.put('/spaces/:id/settings/general', validate(generalSettingsSchema), asyn
 }));
 
 router.get('/spaces/:id/feature-flags', asyncHandler(async (req, res) => {
+  res.set('Cache-Control', 'no-store');
   const spaceId = Number(req.params.id);
   if (!Number.isFinite(spaceId) || spaceId <= 0) {
     return res.status(400).json({ error: 'Invalid space id' });
@@ -377,6 +378,7 @@ router.get('/spaces/:id/feature-flags', asyncHandler(async (req, res) => {
 }));
 
 router.patch('/spaces/:id/feature-flags/:key', asyncHandler(async (req, res) => {
+  res.set('Cache-Control', 'no-store');
   const spaceId = Number(req.params.id);
   const key = String(req.params.key || '').trim();
   const { enabled } = req.body || {};

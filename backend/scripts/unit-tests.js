@@ -2334,6 +2334,8 @@ results.push(run('frontend source includes tabbed help center and support inbox 
   assert.ok(frontendAppSource.includes("const supportStaffInEdition = supportHelpEnabled && platformBridgeEnabled && ['admin', SUPPORT_STAFF_ROLE].includes"));
   assert.ok(frontendAppSource.includes('const supportSessionActiveInEdition = supportHelpEnabled && platformBridgeEnabled && Boolean(supportSession?.active);'));
   assert.ok(frontendAppSource.includes('supportSessionActive: supportSessionActiveInEdition,'));
+  assert.ok(frontendAppSource.includes('showCollectibles: featureFlags.collectibles_enabled !== false'));
+  assert.ok(frontendAppSource.includes('showEvents: featureFlags.events_enabled !== false'));
   assert.ok(adminUsersViewSource.includes("const USER_ROLES = ['admin', SUPPORT_STAFF_ROLE, 'user', 'viewer'];"));
   assert.ok(dashboardContentSource.includes('<HelpView'));
   assert.ok(helpViewSource.includes('/support/releases'));
@@ -5229,6 +5231,15 @@ results.push(run('auth routes expose public auth config and self-registration fl
 }));
 
 results.push(run('space-owned library feature routes check the active space flag', () => {
+  const featureFlagsSource = require('fs').readFileSync(require.resolve('../services/featureFlags'), 'utf8');
+  assert.ok(featureFlagsSource.includes('return isFeatureEnabled(key, fallback);'));
+  assert.ok(adminRoutesSource.includes("commonRouter.get('/feature-flags'"));
+  assert.ok(adminRoutesSource.includes("res.set('Cache-Control', 'no-store');"));
+  assert.ok(spacesRoutesSource.includes("router.get('/spaces/:id/feature-flags'"));
+  assert.ok(spacesRoutesSource.includes("router.patch('/spaces/:id/feature-flags/:key'"));
+  assert.ok(spacesRoutesSource.includes("res.set('Cache-Control', 'no-store');"));
+  assert.ok(mediaRoutesSource.includes("router.get('/feature-flags'"));
+  assert.ok(mediaRoutesSource.includes("res.set('Cache-Control', 'no-store');"));
   assert.ok(collectiblesRoutesSource.includes('isFeatureEnabledForSpace'));
   assert.ok(collectiblesRoutesSource.includes("scopeContext?.spaceId || null, 'collectibles_enabled'"));
   assert.ok(!collectiblesRoutesSource.includes("isFeatureEnabled('collectibles_enabled'"));

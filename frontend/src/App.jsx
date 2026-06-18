@@ -391,8 +391,8 @@ export default function App() {
       userRole: user?.role,
       supportSessionActive: supportSessionActiveInEdition,
       canManageActiveSpace,
-      showCollectibles: featureFlags.collectibles_enabled,
-      showEvents: featureFlags.events_enabled,
+      showCollectibles: featureFlags.collectibles_enabled !== false,
+      showEvents: featureFlags.events_enabled !== false,
       platformBridgeEnabled
     });
     if (nextTab !== activeTab) setActiveTab(nextTab);

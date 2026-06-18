@@ -180,7 +180,11 @@ async function getSpaceFeatureFlag(spaceId, key, options = {}) {
 
 async function isFeatureEnabledForSpace(spaceId, key, fallback = false) {
   if (!SPACE_OWNED_FLAGS.has(key)) return isFeatureEnabled(key, fallback);
-  const flag = await getSpaceFeatureFlag(spaceId, key);
+  const numericSpaceId = Number(spaceId || 0);
+  if (!Number.isFinite(numericSpaceId) || numericSpaceId <= 0) {
+    return isFeatureEnabled(key, fallback);
+  }
+  const flag = await getSpaceFeatureFlag(numericSpaceId, key);
   if (!flag) return fallback;
   return Boolean(flag.enabled);
 }

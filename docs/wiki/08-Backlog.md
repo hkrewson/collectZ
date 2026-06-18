@@ -1170,7 +1170,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 
 **Intent**
 - Treat collectZ as the public, self-contained Core app for homelab/self-hosted collection management.
-- Treat `cairn` as an optional platform control plane for email-first routing, platform admins, workspace/Core instance directory, support workflows, platform docs, and platform API contracts.
+- Treat `cairn` as the platform control plane required for the full SaaS/platform product: email-first routing, platform admins, workspace/Core instance directory, support workflows, platform docs, and platform API contracts.
 - Keep Core runnable without `cairn`.
 - Use API-only integration from `cairn` to collectZ in v1.
 - Design `cairn` for many Core app instances, while allowing v1 to deploy one Core stack plus one platform service.

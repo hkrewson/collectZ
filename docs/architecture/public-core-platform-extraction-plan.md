@@ -6,8 +6,8 @@ collectZ will become the canonical public open-source repository again. The temp
 
 The new boundary is:
 
-- collectZ is the public, self-contained homelab/core app.
-- `cairn` is the optional platform control plane for SaaS routing, platform administration, support workflows, platform docs, and platform API contracts.
+- collectZ is the public Core app and can run as a self-hosted homelab runtime.
+- `cairn` is the platform control plane required for the full SaaS/platform product: routing, platform administration, support workflows, platform docs, and platform API contracts.
 - `cairn` starts private while extraction and review are in progress, then can be made public after the boundary is clean.
 
 ## Repository Transition
@@ -114,11 +114,11 @@ Platform-only paths should be removed from the collectZ OpenAPI spec during extr
 - `cairn` now has the first email-first login routing contract at `POST /api/login-routes/lookup`.
 - collectZ Core now publishes non-secret instance metadata at `GET /api/core/instance`, and `cairn` can read it through `GET /api/core-instances/{id}/readiness`.
 - Platform API docs and platform-service metrics now live in `cairn` at `GET /api/docs`, `GET /api/docs/openapi.yaml`, and `GET /api/metrics`; collectZ Core no longer mounts or documents the former platform docs/metrics endpoints.
-- `cairn` now has the first platform-owned support queue model and API contract for requests, messages, status updates, triage metadata, and support staff summary. collectZ still hosts a compatibility UI shell and the Core support-session bridge until cairn grows its own frontend.
+- `cairn` now has the first platform support queue model and API contract for requests, messages, status updates, triage metadata, and support staff summary. collectZ still hosts a compatibility UI shell and the Core support-session bridge until cairn grows its own frontend.
 - `cairn` now owns global workspace/member administration contracts. collectZ Core returns 404 for `/api/admin/spaces*` and `/api/admin/users*`, while Core workspace-scoped management remains under `/api/spaces*`.
 - `cairn` now owns platform email delivery settings plus PriceCharting, eBay, and structured-log platform diagnostics. collectZ Core returns 404 for those platform-only settings routes.
 - `cairn` now owns platform activity and platform operations readbacks at `/api/admin/activity` and `/api/admin/loan-reminder-operations`. collectZ Core keeps workspace-scoped activity at `/api/spaces/:id/activity`.
-- collectZ frontend compatibility routing is controlled by `VITE_PLATFORM_API_URL`. Empty means standalone Core; set means moved platform paths are routed to `cairn`.
+- collectZ frontend platform routing is controlled by `VITE_PLATFORM_API_URL`. Empty runs Core-only; set composes collectZ with `cairn` for the full platform product.
 
 ## Initial Inventory
 
@@ -173,7 +173,7 @@ Core primitives to preserve until replaced by a deliberate API contract:
 
 - No active workflow generates or pushes a public mirror.
 - collectZ README and public docs describe Core as the public source of truth.
-- `env.example` contains no private runtime values and documents the optional `VITE_PLATFORM_API_URL` bridge.
+- `env.example` contains no private runtime values and documents the `VITE_PLATFORM_API_URL` bridge used when collectZ is composed with `cairn`.
 - collectZ OpenAPI omits cairn-owned platform paths.
 - `cairn` OpenAPI documents every platform path that collectZ now blocks or bridges.
 - The collectZ local stack can boot with `VITE_PLATFORM_API_URL` empty.
