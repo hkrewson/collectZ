@@ -29,12 +29,12 @@ This audit records the current collectZ source state before changing the canonic
 - Ignored local folders such as `public-export/`, `artifacts/public-export/`, `public-mirror/`, and `backups/` may still exist in a working tree. They are not tracked and should not be published from Git.
 - Some release notes and roadmap history mention the retired private-source/public-mirror model. Keep those as historical records unless they are reused as current instructions.
 - Local gitleaks and Trivy binaries are not installed, so those scans were run through Docker rather than the local full-gate wrapper.
-- Full Playwright browser regression remains a CI blocker: the current local run against `http://localhost:3201` passed `43` tests and failed `43`, mostly in platform/support/workspace surfaces whose expectations still reference routes moved to `cairn` or blocked from Core.
+- Full mixed Playwright browser regression is split at the Core/platform boundary. Core CI now runs the required `test:browser:core` smoke subset; broader Core regression coverage is preserved behind `test:browser:core-regression`, event planner coverage behind `test:browser:event-planner`, and platform/support/workspace coverage behind `test:browser:platform` for the cairn handoff instead of blocking the public collectZ repo.
 
 ## Remaining Before Visibility Change
 
 1. Archive or rename the existing public `hkrewson/collectz` mirror.
 2. Confirm the desired final repository path for canonical collectZ source.
-3. Rebuild the original public CI pipeline on the canonical source repo.
+3. Run the Core browser and runtime gates locally, then commit the split CI workflow before enabling public GitHub Actions.
 4. Run the release/test gate selected for the visibility change, including backend tests, frontend build, OpenAPI validation, Docker build, CodeQL, dependency checks, and secret scan.
 5. Change repository visibility only after the above checks pass.

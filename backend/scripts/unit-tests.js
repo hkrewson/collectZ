@@ -2692,6 +2692,10 @@ results.push(run('release channel automation documents latest stable and manual 
 
 results.push(run('repo includes 2.9.4 Playwright browser regression foundation harness', () => {
   assert.ok(rootPackageJson.scripts['test:browser']);
+  assert.ok(rootPackageJson.scripts['test:browser:core']);
+  assert.ok(rootPackageJson.scripts['test:browser:core-regression']);
+  assert.ok(rootPackageJson.scripts['test:browser:event-planner']);
+  assert.ok(rootPackageJson.scripts['test:browser:platform']);
   assert.ok(rootPackageJson.scripts['test:browser:capture']);
   assert.ok(rootPackageJson.devDependencies['@playwright/test']);
   assert.ok(playwrightConfigSource.includes("http://localhost:3000"));
@@ -2715,25 +2719,25 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
   assert.ok(ciComposeOverrideGeneratorSource.includes('PLAYWRIGHT_E2E_BYPASS_TOKEN: \\${PLAYWRIGHT_E2E_BYPASS_TOKEN:-}'));
   assert.ok(playwrightAdminSetupSource.includes("updateFeatureFlag(requestContext, 'events_enabled', true)"));
   assert.ok(dockerPublishWorkflowSource.includes('browser-regression:'));
+  assert.ok(dockerPublishWorkflowSource.includes('name: core-browser-regression'));
   assert.ok(dockerPublishWorkflowSource.includes('npx playwright install --with-deps chromium'));
-  assert.ok(dockerPublishWorkflowSource.includes('npm run test:browser'));
+  assert.ok(dockerPublishWorkflowSource.includes('npm run test:browser:core'));
   assert.ok(dockerPublishWorkflowSource.includes('playwright-browser-regression'));
   assert.ok(dockerPublishWorkflowSource.includes('PLAYWRIGHT_E2E_BYPASS_TOKEN="$(openssl rand -hex 16)"'));
   assert.ok(!dockerPublishWorkflowSource.includes('collectz-playwright-ci'));
   assert.ok(dockerPublishWorkflowSource.includes('runtime-smoke:'));
+  assert.ok(dockerPublishWorkflowSource.includes('name: core-runtime-smoke'));
   assert.ok(dockerPublishWorkflowSource.includes('- name: Core runtime'));
-  assert.ok(dockerPublishWorkflowSource.includes('- name: Control-plane runtime'));
   assert.ok(dockerPublishWorkflowSource.includes('npm run test:core-runtime-smoke'));
-  assert.ok(dockerPublishWorkflowSource.includes('npm run test:control-plane-runtime-smoke'));
-  assert.ok(dockerPublishWorkflowSource.includes('- Runtime smoke: PASS'));
-  assert.ok(dockerPublishWorkflowSource.includes('- Core runtime: PASS'));
-  assert.ok(dockerPublishWorkflowSource.includes('- Control-plane runtime: PASS'));
+  assert.ok(!dockerPublishWorkflowSource.includes('npm run test:control-plane-runtime-smoke'));
+  assert.ok(dockerPublishWorkflowSource.includes('- Core runtime smoke: PASS'));
   assert.ok(browserCapturesWorkflowSource.includes('workflow_dispatch:'));
   assert.ok(browserCapturesWorkflowSource.includes('npm run test:browser:capture'));
   assert.ok(browserCapturesWorkflowSource.includes('playwright-browser-captures'));
   assert.ok(browserCapturesWorkflowSource.includes('PLAYWRIGHT_E2E_BYPASS_TOKEN="$(openssl rand -hex 16)"'));
   assert.ok(helpCenterBrowserSpecSource.includes('Help Center'));
   assert.ok(helpCenterBrowserSpecSource.includes('Create help request'));
+  assert.ok(rootPackageJson.scripts['test:browser:platform'].includes('help-center.browser.spec.js'));
   assert.ok(helpAdminSupportBrowserSpecSource.includes('Help Admin'));
   assert.ok(helpAdminSupportBrowserSpecSource.includes('Close Case'));
   assert.ok(approvedSupportSessionBrowserSpecSource.includes('Start Approved Support Session'));
@@ -2768,6 +2772,8 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
   assert.ok(boundaryBrowserSpecSource.includes("toHaveURL(/tab=help/)"));
   assert.ok(boundaryBrowserSpecSource.includes('/dashboard?tab=admin-spaces'));
   assert.ok(eventsCollectiblesBrowserSpecSource.includes('/dashboard?tab=library-movies'));
+  assert.ok(rootPackageJson.scripts['test:browser:event-planner'].includes('events-collectibles.browser.spec.js'));
+  assert.ok(rootPackageJson.scripts['test:browser:core-regression'].includes('events-collectibles.browser.spec.js'));
   assert.ok(eventsCollectiblesBrowserSpecSource.includes("getByRole('button', { name: 'Events' })"));
   assert.ok(eventsCollectiblesBrowserSpecSource.includes("getByRole('button', { name: 'Collectibles' })"));
   assert.ok(eventsCollectiblesBrowserSpecSource.includes('Add Event'));
@@ -3750,6 +3756,7 @@ results.push(run('repo includes local release preflight helper coverage for depe
   assert.ok(releasePreflightLocalSource.includes('RELEASE_PREFLIGHT_RUN_BROWSER'));
   assert.ok(releasePreflightLocalSource.includes('Browser regression'));
   assert.ok(releasePreflightLocalSource.includes('test:browser'));
+  assert.ok(localReleaseGateSource.includes('test:browser:core'));
   assert.ok(releasePreflightLocalSource.includes('Image security and SBOM'));
   assert.ok(releasePreflightLocalSource.includes('test:integration-smoke'));
   assert.ok(releasePreflightLocalSource.includes('/api/auth/csrf-token'));
@@ -3761,7 +3768,10 @@ results.push(run('repo includes local CI/CD release gate and opt-in pre-push hoo
   assert.strictEqual(rootPackageJson.scripts['release:local-gate'], 'node scripts/local-release-gate.js');
   assert.strictEqual(rootPackageJson.scripts['release:local-gate:full'], 'node scripts/local-release-gate.js --profile=full');
   assert.strictEqual(rootPackageJson.scripts['release:install-hooks'], 'node scripts/install-local-git-hooks.js');
-  assert.strictEqual(rootPackageJson.scripts['test:runtime-smoke:local'], 'node scripts/local-runtime-smoke.js');
+  assert.strictEqual(rootPackageJson.scripts['test:runtime-smoke:local'], 'npm run test:runtime-smoke:core');
+  assert.strictEqual(rootPackageJson.scripts['test:runtime-smoke:core'], 'node scripts/local-runtime-smoke.js');
+  assert.strictEqual(rootPackageJson.scripts['test:runtime-smoke:platform'], 'node scripts/local-runtime-smoke.js --platform-only');
+  assert.strictEqual(rootPackageJson.scripts['test:edition-boundaries:local'], 'node scripts/local-runtime-smoke.js --include-platform');
   assert.ok(localReleaseGateSource.includes("profile: 'standard'"));
   assert.ok(localReleaseGateSource.includes("profile: 'full'"));
   assert.ok(localReleaseGateSource.includes("artifacts', 'local-ci'"));
@@ -3779,6 +3789,8 @@ results.push(run('repo includes local CI/CD release gate and opt-in pre-push hoo
   assert.ok(localRuntimeSmokeSource.includes('docker-compose.platform.yml'));
   assert.ok(localRuntimeSmokeSource.includes('test:core-runtime-smoke'));
   assert.ok(localRuntimeSmokeSource.includes('test:control-plane-runtime-smoke'));
+  assert.ok(localRuntimeSmokeSource.includes('--include-platform'));
+  assert.ok(localRuntimeSmokeSource.includes('--platform-only'));
   assert.ok(localGitHooksInstallerSource.includes('collectZ managed local release gate hook'));
   assert.ok(localGitHooksInstallerSource.includes('COLLECTZ_SKIP_LOCAL_GATE'));
   assert.ok(localGitHooksInstallerSource.includes('npm run release:local-gate'));

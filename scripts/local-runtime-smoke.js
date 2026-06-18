@@ -151,9 +151,20 @@ function runRuntime({ runtime }) {
 }
 
 function main() {
-  runRuntime({ runtime: 'core' });
-  runRuntime({ runtime: 'control-plane' });
-  console.log('Local runtime smoke passed.');
+  const args = new Set(process.argv.slice(2));
+  const includePlatform = args.has('--include-platform');
+  const platformOnly = args.has('--platform-only');
+
+  if (!platformOnly) {
+    runRuntime({ runtime: 'core' });
+  }
+  if (includePlatform || platformOnly) {
+    runRuntime({ runtime: 'control-plane' });
+  }
+
+  console.log(platformOnly
+    ? 'Local platform runtime smoke passed.'
+    : (includePlatform ? 'Local core and platform runtime smoke passed.' : 'Local core runtime smoke passed.'));
 }
 
 main();

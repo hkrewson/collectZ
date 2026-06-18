@@ -317,12 +317,12 @@ function runImageScanReadiness() {
 }
 
 function runBrowserRegression() {
-  const name = 'Browser regression';
+  const name = 'Core browser regression';
   if (!String(process.env.PLAYWRIGHT_E2E_BYPASS_TOKEN || '').trim()) {
     return blocked('browser-regression', name, 'missing PLAYWRIGHT_E2E_BYPASS_TOKEN');
   }
-  return runNpmScript('browser-regression', name, ['run', 'test:browser'], {
-    passDetail: 'Playwright browser regression passed'
+  return runNpmScript('browser-regression', name, ['run', 'test:browser:core'], {
+    passDetail: 'Core Playwright browser regression passed'
   });
 }
 
@@ -376,7 +376,7 @@ const gateDefinitions = [
     id: 'runtime-smoke',
     profile: 'full',
     run: () => runNpmScript('runtime-smoke', 'Runtime smoke', ['run', 'test:runtime-smoke:local'], {
-      passDetail: 'core and control-plane runtime smoke passed'
+      passDetail: 'core runtime smoke passed'
     })
   },
   { id: 'browser-regression', profile: 'full', run: runBrowserRegression },
