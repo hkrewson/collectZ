@@ -563,8 +563,16 @@ test.describe('library multi-format browser regressions', () => {
 
   test('add drawer uses one live universal search panel instead of barcode-only lookup buttons', async ({ page }) => {
     const requestContext = await createSavedAdminRequestContext();
+    const title = `Playwright Universal Search Seed ${Date.now()}`;
 
     try {
+      await postWithCsrf(requestContext, '/api/media', {
+        title,
+        media_type: 'movie',
+        owned_formats: ['digital'],
+        year: 2024
+      }, 201);
+
       await addSavedAdminCookies(page, requestContext);
       await page.goto('/dashboard?tab=library-movies');
       await expect(page.locator('article').first()).toBeVisible();
@@ -584,6 +592,7 @@ test.describe('library multi-format browser regressions', () => {
       await expect(page.getByRole('button', { name: 'Scan', exact: true })).toBeVisible();
       await expect(page.getByRole('button', { name: 'Lookup', exact: true })).toHaveCount(0);
     } finally {
+      await deleteMediaByExactTitle(requestContext, title).catch(() => {});
       await requestContext.dispose();
     }
   });
@@ -803,12 +812,20 @@ test.describe('library multi-format browser regressions', () => {
   test('choosing an identifier-only movie result triggers follow-up title enrichment before apply', async ({ page }) => {
     const title = `Playwright Follow Up ${Date.now()}`;
     const alternateTitle = `${title} Identifier`;
+    const seedTitle = `${title} Seed`;
     const upc = `065432${Date.now().toString().slice(-6)}`;
     const requestContext = await createSavedAdminRequestContext();
     let initialTitleLookupCount = 0;
     let followUpLookupCount = 0;
 
     try {
+      await postWithCsrf(requestContext, '/api/media', {
+        title: seedTitle,
+        media_type: 'movie',
+        owned_formats: ['digital'],
+        year: 2024
+      }, 201);
+
       await page.route('**/api/media/search-tmdb', async (route) => {
         const payload = route.request().postDataJSON();
         if (payload?.title === title) {
@@ -893,7 +910,7 @@ test.describe('library multi-format browser regressions', () => {
         });
       });
 
-      await addSavedAdminCookies(page);
+      await addSavedAdminCookies(page, requestContext);
       await page.goto('/dashboard?tab=library-movies');
       await expect(page.getByRole('heading', { name: 'Movies', exact: true })).toBeVisible();
       await expect(page.locator('article').first()).toBeVisible();
@@ -929,6 +946,9 @@ test.describe('library multi-format browser regressions', () => {
       await expect(page.getByText(alternateTitle, { exact: true })).toBeVisible();
       await expect(page.getByRole('button', { name: 'Clear match', exact: true })).toBeVisible();
     } finally {
+      await deleteMediaByExactTitle(requestContext, seedTitle).catch(() => {});
+      await deleteMediaByExactTitle(requestContext, title).catch(() => {});
+      await deleteMediaByExactTitle(requestContext, alternateTitle).catch(() => {});
       await requestContext.dispose();
     }
   });

@@ -121,6 +121,71 @@ async function deleteDirectUser(userId) {
   await pool.query('DELETE FROM users WHERE id = $1', [userId]);
 }
 
+async function createDirectCoreScope({ userId, suffix }) {
+  const space = await pool.query(
+    `INSERT INTO spaces (name, slug, description, created_by, is_personal)
+     VALUES ($1, $2, $3, $4, false)
+     RETURNING id`,
+    [
+      `RBAC Space ${suffix}`,
+      `rbac-space-${suffix}`,
+      'Core RBAC regression bootstrap space',
+      userId
+    ]
+  );
+  const spaceId = Number(space.rows[0]?.id || 0) || null;
+  assert(Number.isFinite(Number(spaceId)), 'Direct RBAC bootstrap space id missing');
+
+  await pool.query(
+    `INSERT INTO space_memberships (space_id, user_id, role, created_by)
+     VALUES ($1, $2, 'owner', $2)
+     ON CONFLICT (space_id, user_id) DO UPDATE
+     SET role = EXCLUDED.role,
+         suspended_at = NULL,
+         suspended_by = NULL`,
+    [spaceId, userId]
+  );
+
+  const library = await pool.query(
+    `INSERT INTO libraries (name, created_by, space_id)
+     VALUES ($1, $2, $3)
+     RETURNING id`,
+    [`RBAC Default Library ${suffix}`, userId, spaceId]
+  );
+  const libraryId = Number(library.rows[0]?.id || 0) || null;
+  assert(Number.isFinite(Number(libraryId)), 'Direct RBAC bootstrap library id missing');
+
+  await pool.query(
+    `INSERT INTO library_memberships (user_id, library_id, role)
+     VALUES ($1, $2, 'owner')
+     ON CONFLICT (user_id, library_id) DO UPDATE
+     SET role = EXCLUDED.role`,
+    [userId, libraryId]
+  );
+
+  await pool.query(
+    `UPDATE users
+     SET active_space_id = $1,
+         active_library_id = $2
+     WHERE id = $3`,
+    [spaceId, libraryId, userId]
+  );
+
+  return { spaceId, libraryId };
+}
+
+async function setDirectActiveLibrary({ userId, libraryId }) {
+  await pool.query(
+    `UPDATE users
+     SET active_library_id = $1,
+         active_space_id = libraries.space_id
+     FROM libraries
+     WHERE users.id = $2
+       AND libraries.id = $1`,
+    [libraryId, userId]
+  );
+}
+
 const assertStatusOneOf = (response, expected, label) => {
   if (!Array.isArray(expected) || expected.length === 0) {
     throw new Error(`${label}: expected status set is empty`);
@@ -188,64 +253,50 @@ async function main() {
     assert(Number.isFinite(Number(adminUserId)), 'Admin user id missing');
     let targetSpaceId = Number(scopeResponse?.data?.active_space_id || 0) || null;
     if (!targetSpaceId) {
+      const createdScope = await createDirectCoreScope({ userId: adminUserId, suffix });
+      targetSpaceId = Number(createdScope.spaceId || 0) || null;
+      const refreshedAdminLogin = await loginIfPossible(
+        admin,
+        tempAdminUserId ? tempAdminEmail : fallbackEmail,
+        tempAdminUserId ? tempAdminPassword : fallbackPassword
+      );
+      assertStatusOneOf(refreshedAdminLogin, [200], 'admin login after direct Core scope bootstrap');
+      admin.csrfToken = '';
       await admin.fetchCsrfToken();
-      const createdSpace = await admin.request('/api/admin/spaces', {
-        method: 'POST',
-        withCsrf: true,
-        expectStatus: 201,
-        body: {
-          name: `RBAC Space ${suffix}`,
-          slug: `rbac-space-${suffix}`
-        }
-      });
-      targetSpaceId = Number(createdSpace?.data?.id || 0) || null;
     }
     assert(Number.isFinite(Number(targetSpaceId)), 'Invite target space id missing');
 
-    const inviteResponse = await admin.request(`/api/spaces/${targetSpaceId}/invites`, {
-      method: 'POST',
-      withCsrf: true,
-      expectStatus: 201,
-      body: { email: userEmail, role: 'member', expose_token: true }
+    const directUser = await createDirectUser({
+      email: userEmail,
+      password: userPassword,
+      name: 'RBAC User',
+      role: 'user'
     });
-    const inviteToken = inviteResponse?.data?.token;
-    assert(Boolean(inviteToken), 'Invite token not returned');
-
-    await user.fetchCsrfToken();
-    const registerUser = await user.request('/api/auth/register', {
-      method: 'POST',
-      withCsrf: true,
-      expectStatus: 200,
-      body: { email: userEmail, password: userPassword, name: 'RBAC User', inviteToken }
-    });
-    userId = registerUser?.data?.user?.id;
+    userId = Number(directUser?.id || 0) || null;
     assert(Number.isFinite(Number(userId)), 'Registered user id missing');
 
-    const membersResponse = await admin.request(`/api/spaces/${targetSpaceId}/members`, {
-      expectStatus: 200
-    });
-    const members = Array.isArray(membersResponse?.data?.members) ? membersResponse.data.members : [];
-    const userMembership = members.find((member) => Number(member.user_id) === Number(userId));
-    const userMembershipId = Number(userMembership?.id || 0) || null;
-    assert(Number.isFinite(Number(userMembershipId)), 'User space membership id missing');
-
-    const isolatedSpace = await admin.request(`/api/spaces/${targetSpaceId}/members/${userMembershipId}/transfer-new-space`, {
-      method: 'POST',
-      withCsrf: true,
-      expectStatus: 201,
-      body: {
-        name: `RBAC User Space ${suffix}`,
-        slug: `rbac-user-space-${suffix}`
-      }
-    });
-    const isolatedSpaceId = Number(isolatedSpace?.data?.target_space?.id || 0) || null;
+    const userLogin = await loginIfPossible(user, userEmail, userPassword);
+    assertStatusOneOf(userLogin, [200], 'direct user login');
+    const isolatedScope = await createDirectCoreScope({ userId, suffix: `user-${suffix}` });
+    const isolatedSpaceId = Number(isolatedScope?.spaceId || 0) || null;
     assert(Number.isFinite(Number(isolatedSpaceId)), 'Isolated user space id missing');
+    const refreshedUserLogin = await loginIfPossible(user, userEmail, userPassword);
+    assertStatusOneOf(refreshedUserLogin, [200], 'user login after direct Core scope bootstrap');
+    user.csrfToken = '';
 
     await user.fetchCsrfToken();
     const userScopeAfterTransfer = await user.request('/api/auth/scope', { expectStatus: 200 });
+    const activeUserLibraryId = Number(userScopeAfterTransfer?.data?.active_library_id || 0) || null;
+    const activeUserLibrary = (userScopeAfterTransfer?.data?.libraries || []).find((library) => (
+      Number(library?.id || 0) === Number(isolatedScope?.libraryId || 0)
+    ));
     assert(
-      Number(userScopeAfterTransfer?.data?.active_space_id || 0) === isolatedSpaceId,
-      `Transferred user should land in isolated space: ${JSON.stringify(userScopeAfterTransfer?.data)}`
+      activeUserLibraryId === Number(isolatedScope?.libraryId || 0),
+      `Direct user should land in isolated library: ${JSON.stringify(userScopeAfterTransfer?.data)}`
+    );
+    assert(
+      Number(activeUserLibrary?.space_id || 0) === isolatedSpaceId,
+      `Direct user library should belong to isolated space: ${JSON.stringify(userScopeAfterTransfer?.data)}`
     );
 
     const seededLibraryA = await pool.query(
@@ -264,29 +315,7 @@ async function main() {
       [adminUserId, libraryAId]
     );
 
-    await admin.fetchCsrfToken();
-    const supportStarted = await admin.request('/api/auth/support-session/start', {
-      method: 'POST',
-      withCsrf: true,
-      expectStatus: 200,
-      body: {
-        space_id: targetSpaceId,
-        library_id: libraryAId,
-        reason: 'RBAC regression tenant-context verification'
-      }
-    });
-    assert(
-      supportStarted?.data?.support_session?.active === true,
-      `Admin support session should start before tenant-context checks: ${JSON.stringify(supportStarted?.data)}`
-    );
-    assert(
-      Number(supportStarted?.data?.support_session?.space_id || 0) === targetSpaceId,
-      `Admin support session should target the invited space: ${JSON.stringify(supportStarted?.data)}`
-    );
-    assert(
-      Number(supportStarted?.data?.support_session?.library_id || 0) === libraryAId,
-      `Admin support session should target library A initially: ${JSON.stringify(supportStarted?.data)}`
-    );
+    await setDirectActiveLibrary({ userId: adminUserId, libraryId: libraryAId });
 
     await admin.fetchCsrfToken();
     const adminMedia = await admin.request('/api/media', {
@@ -334,13 +363,7 @@ async function main() {
     });
     const libraryBId = Number(libraryB?.data?.id);
     assert(Number.isFinite(libraryBId), 'Library B id missing');
-    await admin.fetchCsrfToken();
-    await admin.request('/api/libraries/select', {
-      method: 'POST',
-      withCsrf: true,
-      expectStatus: 200,
-      body: { library_id: libraryBId }
-    });
+    await setDirectActiveLibrary({ userId: adminUserId, libraryId: libraryBId });
     const libraryBMedia = await admin.request('/api/media', { expectStatus: 200 });
     const libraryBItems = Array.isArray(libraryBMedia?.data?.items) ? libraryBMedia.data.items : [];
     assert(
@@ -348,12 +371,7 @@ async function main() {
       'Library B should not include media created in library A'
     );
 
-    await admin.request('/api/libraries/select', {
-      method: 'POST',
-      withCsrf: true,
-      expectStatus: 200,
-      body: { library_id: libraryAId }
-    });
+    await setDirectActiveLibrary({ userId: adminUserId, libraryId: libraryAId });
     const libraryAMedia = await admin.request('/api/media', { expectStatus: 200 });
     const libraryAItems = Array.isArray(libraryAMedia?.data?.items) ? libraryAMedia.data.items : [];
     assert(
@@ -465,7 +483,8 @@ async function main() {
     `Unexpected library hint denial reason: ${JSON.stringify(deniedLibraryHint?.data)}`
   );
 
-  await admin.request('/api/admin/activity?space_id=999', { expectStatus: 200 });
+  const coreActivityResponse = await admin.request('/api/admin/activity?space_id=999');
+  assertStatusOneOf(coreActivityResponse, [404], 'Core admin activity route should stay outside the app boundary');
 
   await user.request(`/api/media/${userPatchTargetId}`, {
     method: 'DELETE',
@@ -473,12 +492,7 @@ async function main() {
     expectStatus: 200
   });
 
-  await admin.request('/api/libraries/select', {
-    method: 'POST',
-    withCsrf: true,
-    expectStatus: 200,
-    body: { library_id: adminMediaLibraryId }
-  });
+  await setDirectActiveLibrary({ userId: adminUserId, libraryId: adminMediaLibraryId });
   await admin.request(`/api/media/${adminMediaId}`, {
     method: 'DELETE',
     withCsrf: true,

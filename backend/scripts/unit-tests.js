@@ -4953,10 +4953,13 @@ results.push(run('auth route source exposes admin-only service account key manag
   assert.ok(authRoutesSource.includes("requireRole('admin')"));
 }));
 
-results.push(run('rbac regression source explicitly requests invite token exposure', () => {
+results.push(run('rbac regression source bootstraps Core scope without platform invite routes', () => {
   const rbacRegressionSource = require('fs').readFileSync(require.resolve('./rbac-regression-check'), 'utf8');
-  assert.ok(rbacRegressionSource.includes('expose_token: true'));
-  assert.ok(rbacRegressionSource.includes("assert(Boolean(inviteToken), 'Invite token not returned')"));
+  assert.ok(rbacRegressionSource.includes('createDirectCoreScope'));
+  assert.ok(rbacRegressionSource.includes('setDirectActiveLibrary'));
+  assert.ok(!rbacRegressionSource.includes('expose_token: true'));
+  assert.ok(!rbacRegressionSource.includes('/api/spaces/${targetSpaceId}/invites'));
+  assert.ok(!rbacRegressionSource.includes('/api/admin/spaces'));
   assert.ok(rbacRegressionSource.includes('const fallbackEmail = process.env.RBAC_ADMIN_EMAIL || process.env.ADMIN_EMAIL || adminEmail;'));
   assert.ok(rbacRegressionSource.includes('const fallbackPassword = process.env.RBAC_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || adminPassword;'));
 }));
@@ -7439,7 +7442,8 @@ results.push(run('phase5 smoke scripts avoid tenant admin invite bootstrapping a
   assert.ok(platformBoundarySmokeSource.includes("expectStatus: 404"));
   assert.ok(!rbacRegressionSource.includes('/api/admin/invites'));
   assert.ok(rbacRegressionSource.includes('/api/auth/scope'));
-  assert.ok(rbacRegressionSource.includes('/api/spaces/${targetSpaceId}/invites'));
+  assert.ok(!rbacRegressionSource.includes('/api/spaces/${targetSpaceId}/invites'));
+  assert.ok(rbacRegressionSource.includes('Core admin activity route should stay outside the app boundary'));
   assert.ok(backendPackageSource.includes('"test:tenancy-platform-boundary": "node scripts/tenancy-platform-boundary-smoke.js"'));
   assert.ok(backendPackageSource.includes('"test:homelab-edition-boundary": "node scripts/homelab-edition-boundary-smoke.js"'));
   assert.ok(backendPackageSource.includes('"test:platform-edition-boundary": "node scripts/platform-edition-boundary-smoke.js"'));
