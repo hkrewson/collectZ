@@ -118,7 +118,7 @@ Platform-only paths should be removed from the collectZ OpenAPI spec during extr
 - `cairn` now owns global workspace/member administration contracts. collectZ Core returns 404 for `/api/admin/spaces*` and `/api/admin/users*`, while Core workspace-scoped management remains under `/api/spaces*`.
 - `cairn` now owns platform email delivery settings plus PriceCharting, eBay, and structured-log platform diagnostics. collectZ Core returns 404 for those platform-only settings routes.
 - `cairn` now owns platform activity and platform operations readbacks at `/api/admin/activity` and `/api/admin/loan-reminder-operations`. collectZ Core keeps workspace-scoped activity at `/api/spaces/:id/activity`.
-- collectZ frontend platform routing is controlled by `VITE_PLATFORM_API_URL`. Empty runs Core-only; set composes collectZ with `cairn` for the full platform product.
+- collectZ frontend platform routing remains optional so Core-only deployments stay self-contained.
 
 ## Initial Inventory
 
@@ -173,11 +173,11 @@ Core primitives to preserve until replaced by a deliberate API contract:
 
 - No active workflow generates or pushes a public mirror.
 - collectZ README and public docs describe Core as the public source of truth.
-- `env.example` contains no private runtime values and documents the `VITE_PLATFORM_API_URL` bridge used when collectZ is composed with `cairn`.
+- `env.example` contains no private runtime values and stays scoped to collectZ Core configuration.
 - collectZ OpenAPI omits cairn-owned platform paths.
 - `cairn` OpenAPI documents every platform path that collectZ now blocks or bridges.
-- The collectZ local stack can boot with `VITE_PLATFORM_API_URL` empty.
-- A paired collectZ + `cairn` dev configuration can route moved platform UI calls through `VITE_PLATFORM_API_URL`.
+- The collectZ local stack can boot without the platform service.
+- Paired collectZ + `cairn` development configuration is documented in `cairn`.
 - Final secret/history scan is run before repository visibility changes.
 
 The current audit record lives in `docs/architecture/public-readiness-audit.md`.

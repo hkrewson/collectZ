@@ -139,8 +139,6 @@ collectZ is moving back to a canonical public-source model. The repository is in
 
 SaaS/platform control-plane code is being separated into a companion service named `cairn`. collectZ Core should remain runnable without that service.
 
-When `VITE_PLATFORM_API_URL` is set at frontend build time, the current compatibility shell routes moved platform surfaces such as support queue, global workspace/member administration, platform activity, and platform diagnostics to `cairn`. Leave it empty for normal self-hosted Core installs.
-
 ## Documentation
 
 This README, `SECURITY.md`, `env.example`, `setup.sh`, `docs/public/`, and the in-app Help/Releases area are the public documentation entry points for now.

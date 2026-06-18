@@ -26,13 +26,6 @@ openssl rand -hex 32
 | `ALLOWED_ORIGINS` | `http://localhost:3000,http://127.0.0.1:3000` | Browser origins allowed to call the API. |
 | `SESSION_COOKIE_SECURE` | `true` | Keep `true` behind HTTPS; use `false` only for direct HTTP local testing. |
 | `TRUST_PROXY` | `1` | Use `1` behind one trusted reverse proxy hop. |
-| `VITE_PLATFORM_API_URL` | empty | Optional frontend build-time URL for a cairn platform control plane. Leave empty for standalone Core installs. |
-
-## Optional Platform Bridge
-
-collectZ Core does not require `cairn`. If `VITE_PLATFORM_API_URL` is empty, platform-only surfaces are hidden or unavailable and Core remains self-contained.
-
-When a deployment intentionally pairs collectZ with `cairn`, set `VITE_PLATFORM_API_URL` to the cairn API base URL before building the frontend. The compatibility shell will route moved platform surfaces to cairn, including support queue APIs, global workspace/member administration, platform activity, platform email delivery settings, and platform diagnostics.
 
 ## Provider Configuration
 

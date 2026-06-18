@@ -1,0 +1,1 @@
+window.__COLLECTZ_RUNTIME_CONFIG__ = {};

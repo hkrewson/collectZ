@@ -19,7 +19,7 @@ This audit records the current collectZ source state before changing the canonic
 - Active GitHub workflows do not generate or push a public mirror.
 - Root package scripts no longer include public export or public mirror generation commands.
 - `.gitignore` excludes local public-export artifacts, backups, logs, traces, screenshots, media, and runtime output.
-- `env.example` documents `VITE_PLATFORM_API_URL` as the cairn bridge for full product composition; leaving it empty runs the collectZ Core runtime only.
+- `env.example` contains only collectZ Core runtime settings; platform composition is documented outside collectZ.
 - collectZ OpenAPI no longer documents the platform docs, metrics, workspace-admin, user-admin, platform activity, or platform operations surfaces moved to `cairn`.
 
 ## Non-Blocking Findings
