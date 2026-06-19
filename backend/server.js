@@ -298,6 +298,7 @@ app.use('/api/support', supportSharedRouter);
 app.use('/api', sharedIntegrationsRouter);
 app.use('/api', librariesRouter);
 app.use('/api/admin', adminCommonRouter);
+app.use('/api', spaceIntegrationsRouter);
 if (!HOMELAB_EDITION) {
   app.use('/api/admin/settings/email-delivery', (req, res) => {
     res.status(404).json({ error: `API route not found: ${req.method} ${req.originalUrl}` });
@@ -324,7 +325,6 @@ if (!HOMELAB_EDITION) {
     res.status(404).json({ error: `API route not found: ${req.method} ${req.originalUrl}` });
   });
   app.use('/api', platformIntegrationsRouter);
-  app.use('/api', spaceIntegrationsRouter);
   app.use('/api', spacesRouter);
   app.use('/api/admin', adminPlatformRouter);
 }

@@ -2562,6 +2562,11 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/support/requests'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/support/staff/summary'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/spaces/1/integrations'));
+  assert.ok(
+    serverSource.indexOf("app.use('/api', spaceIntegrationsRouter);") > serverSource.indexOf("app.use('/api/admin', adminCommonRouter);")
+      && serverSource.indexOf("app.use('/api', spaceIntegrationsRouter);") < serverSource.indexOf("app.use('/api/admin/settings/email-delivery'"),
+    'Workspace integration routes must stay mounted before platform-owned route blockers'
+  );
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/admin/spaces'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/admin/users'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/auth/support-session/start'));
