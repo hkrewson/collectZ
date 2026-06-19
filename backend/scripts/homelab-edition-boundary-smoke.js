@@ -248,7 +248,9 @@ async function main() {
     const docs = await admin.request('/api/docs', { expectStatus: 404 });
     const metrics = await admin.request('/api/metrics', { expectStatus: 404 });
     const spaces = await user.request('/api/spaces', { expectStatus: 404 });
-    const spaceIntegrations = await admin.request('/api/spaces/1/integrations', { expectStatus: 404 });
+    const persistedAdminScope = await getPersistedUserScope(adminUserId);
+    const adminSpaceId = Number(persistedAdminScope?.active_space_id || 0) || 1;
+    const spaceIntegrations = await admin.request(`/api/spaces/${adminSpaceId}/integrations`, { expectStatus: 200 });
     const adminSpaces = await admin.request('/api/admin/spaces', { expectStatus: 404 });
     const adminUsers = await admin.request('/api/admin/users', { expectStatus: 404 });
     const persistedScope = await getPersistedUserScope(userUserId);
@@ -344,7 +346,10 @@ async function main() {
     assert(docs.status === 404, `Homelab /api/docs must be unmounted: ${JSON.stringify(docs.data)}`);
     assert(metrics.status === 404, `Homelab /api/metrics must be unmounted: ${JSON.stringify(metrics.data)}`);
     assert(spaces.status === 404, `Homelab /api/spaces must be unmounted: ${JSON.stringify(spaces.data)}`);
-    assert(spaceIntegrations.status === 404, `Homelab /api/spaces/:id/integrations must be unmounted: ${JSON.stringify(spaceIntegrations.data)}`);
+    assert(typeof spaceIntegrations.data === 'object' && spaceIntegrations.data !== null, `Homelab /api/spaces/:id/integrations must stay mounted for workspace-owned provider settings: ${JSON.stringify(spaceIntegrations.data)}`);
+    assert(!('valuationProviders' in spaceIntegrations.data), `Homelab workspace integrations must not expose platform valuation providers: ${JSON.stringify(spaceIntegrations.data)}`);
+    assert(!('logExportControl' in spaceIntegrations.data), `Homelab workspace integrations must not expose platform log export controls: ${JSON.stringify(spaceIntegrations.data)}`);
+    assert(!('observabilityRuntime' in spaceIntegrations.data), `Homelab workspace integrations must not expose platform observability diagnostics: ${JSON.stringify(spaceIntegrations.data)}`);
     assert(spaceSelect.status === 404, `Homelab /api/spaces/select must be unmounted: ${JSON.stringify(spaceSelect.data)}`);
     assert(adminSpaces.status === 404, `Homelab /api/admin/spaces must be unmounted: ${JSON.stringify(adminSpaces.data)}`);
     assert(adminUsers.status === 404, `Homelab /api/admin/users must be unmounted: ${JSON.stringify(adminUsers.data)}`);

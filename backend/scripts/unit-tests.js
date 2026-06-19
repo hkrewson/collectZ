@@ -2561,7 +2561,10 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(homelabEditionBoundarySmokeSource.includes('collectibles_enabled'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/support/requests'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/support/staff/summary'));
-  assert.ok(homelabEditionBoundarySmokeSource.includes('/api/spaces/1/integrations'));
+  assert.ok(homelabEditionBoundarySmokeSource.includes('const persistedAdminScope = await getPersistedUserScope(adminUserId);'));
+  assert.ok(homelabEditionBoundarySmokeSource.includes('/api/spaces/${adminSpaceId}/integrations'));
+  assert.ok(homelabEditionBoundarySmokeSource.includes('must stay mounted for workspace-owned provider settings'));
+  assert.ok(homelabEditionBoundarySmokeSource.includes('must not expose platform valuation providers'));
   assert.ok(
     serverSource.indexOf("app.use('/api', spaceIntegrationsRouter);") > serverSource.indexOf("app.use('/api/admin', adminCommonRouter);")
       && serverSource.indexOf("app.use('/api', spaceIntegrationsRouter);") < serverSource.indexOf("app.use('/api/admin/settings/email-delivery'"),
