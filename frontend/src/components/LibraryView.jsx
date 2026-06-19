@@ -187,9 +187,38 @@ function normalizeDateInput(value) {
   const raw = String(value).trim();
   if (!raw) return '';
   if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const slashMatch = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (slashMatch) {
+    const [, monthRaw, dayRaw, yearRaw] = slashMatch;
+    const month = Number(monthRaw);
+    const day = Number(dayRaw);
+    const year = Number(yearRaw);
+    const parsed = new Date(Date.UTC(year, month - 1, day));
+    if (
+      month >= 1 && month <= 12
+      && day >= 1 && day <= 31
+      && parsed.getUTCFullYear() === year
+      && parsed.getUTCMonth() === month - 1
+      && parsed.getUTCDate() === day
+    ) {
+      return parsed.toISOString().slice(0, 10);
+    }
+  }
   const parsed = new Date(raw);
   if (Number.isNaN(parsed.getTime())) return '';
   return parsed.toISOString().slice(0, 10);
+}
+
+function formatApiError(error, fallback = 'Save failed') {
+  const data = error?.response?.data || {};
+  const detail = Array.isArray(data.details)
+    ? data.details.find((entry) => entry?.message)
+    : null;
+  if (detail?.message) {
+    const field = String(detail.field || '').trim();
+    return field ? `${data.error || fallback}: ${field} ${detail.message}` : `${data.error || fallback}: ${detail.message}`;
+  }
+  return data.error || error?.message || fallback;
 }
 
 function formatDate(value) {
@@ -3774,7 +3803,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
         await apiCall('put', `/media/${saved.id}/tv-seasons`, { seasons: parsedTvSeasons });
       }
     } catch (e2) {
-      notify(e2.response?.data?.error || 'Save failed', 'error');
+      notify(formatApiError(e2, 'Save failed'), 'error');
     } finally {
       setSaving(false);
     }

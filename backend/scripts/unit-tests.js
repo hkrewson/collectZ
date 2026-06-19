@@ -120,7 +120,8 @@ const {
   simpleSearchSchema,
   titleAuthorSearchSchema,
   titleArtistSearchSchema,
-  upcLookupSchema
+  upcLookupSchema,
+  mediaUpdateSchema
 } = require('../middleware/validate');
 const {
   MIN_PRICECHARTING_INTERVAL_MS,
@@ -3718,6 +3719,29 @@ results.push(run('LibraryView uses movie original-title input as a save fallback
   assert.ok(libraryViewSource.includes('const primaryTitle = resolvePrimaryTitle();'));
   assert.ok(libraryViewSource.includes('title: primaryTitle,'));
   assert.ok(libraryViewSource.includes('original_title: isMovieOrTv && rawOriginalTitle && rawOriginalTitle !== primaryTitle ? rawOriginalTitle : null'));
+}));
+
+results.push(run('media update validation normalizes common slash dates for library edits', () => {
+  const parsed = mediaUpdateSchema.safeParse({
+    title: 'Soldier',
+    media_type: 'movie',
+    release_date: '01/01/1998',
+    signed_on: '6/19/2026',
+    year: 1998,
+    runtime: 96,
+    owned_formats: ['bluray'],
+    tmdb_media_type: 'movie',
+    type_details: { edition: 'Theatrical' }
+  });
+  assert.strictEqual(parsed.success, true, parsed.success ? '' : JSON.stringify(parsed.error.issues));
+  assert.strictEqual(parsed.data.release_date, '1998-01-01');
+  assert.strictEqual(parsed.data.signed_on, '2026-06-19');
+}));
+
+results.push(run('LibraryView save failures include backend field validation details', () => {
+  assert.ok(libraryViewSource.includes("function formatApiError(error, fallback = 'Save failed')"));
+  assert.ok(libraryViewSource.includes('return field ? `${data.error || fallback}: ${field} ${detail.message}`'));
+  assert.ok(libraryViewSource.includes("notify(formatApiError(e2, 'Save failed'), 'error');"));
 }));
 
 results.push(run('shared posterUrl rejects unsafe image protocols while preserving trusted image paths', () => {

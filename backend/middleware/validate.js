@@ -9,6 +9,32 @@ const { SERVICE_ACCOUNT_KEY_SCOPES, SERVICE_ACCOUNT_ALLOWED_PREFIXES } = require
 const emptyStringToNull = (value) => (
   typeof value === 'string' && value.trim() === '' ? null : value
 );
+const normalizeApiDateInput = (value) => {
+  const raw = emptyStringToNull(value);
+  if (raw === undefined || raw === null) return raw;
+  if (raw instanceof Date && !Number.isNaN(raw.getTime())) return raw.toISOString().slice(0, 10);
+  if (typeof raw !== 'string') return raw;
+  const trimmed = raw.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+  const slashMatch = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (slashMatch) {
+    const [, monthRaw, dayRaw, yearRaw] = slashMatch;
+    const month = Number(monthRaw);
+    const day = Number(dayRaw);
+    const year = Number(yearRaw);
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      const parsed = new Date(Date.UTC(year, month - 1, day));
+      if (
+        parsed.getUTCFullYear() === year
+        && parsed.getUTCMonth() === month - 1
+        && parsed.getUTCDate() === day
+      ) {
+        return parsed.toISOString().slice(0, 10);
+      }
+    }
+  }
+  return trimmed;
+};
 const OVERVIEW_MAX_LENGTH = 10000;
 const normalizeOverviewInput = (value) => {
   if (typeof value !== 'string') return value;
@@ -171,7 +197,7 @@ const barcodeImportSchema = z.object({
 
 const MEDIA_TYPES = ['movie', 'tv_series', 'tv_episode', 'book', 'audio', 'game', 'comic_book'];
 const nullableDateSchema = z.preprocess(
-  emptyStringToNull,
+  normalizeApiDateInput,
   z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (YYYY-MM-DD)').optional().nullable()
 );
 const nullableNumberSchema = (schema) => z.preprocess((value) => {
