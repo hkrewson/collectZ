@@ -6,6 +6,42 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.19.2 — Library Identifier Search
+
+**Goal:** Make the existing Library search box find records by stored identifiers, not only titles and descriptive metadata.
+
+### Scope
+
+- Extend `GET /api/media` search to match stored UPC/EAN/ISBN-style identifiers.
+- Match TMDB ids, provider item ids, provider issue ids, Calibre/Kavita ids, Plex keys, and identity-alias metadata where already stored.
+- Keep matching scoped to the existing workspace/library query path.
+- Update the Library search placeholder so users know identifiers are searchable.
+- Keep app-wide command search, saved views, and new navigation surfaces out of scope.
+
+### Acceptance Criteria
+
+- Searching a library by a stored UPC/EAN or ISBN-style value can return the matching row.
+- Searching by a stored TMDB id or provider id can return the matching row.
+- Numeric-normalized identifier matching does not turn non-numeric searches into broad empty-string matches.
+- Existing title, people, genre, notes, and comic-series searches continue to work.
+- Backend unit/source coverage records the identifier search contract.
+
+### Active Slice Notes
+
+- This is the first selected slice from the broader Universal Search backlog item.
+- It deliberately improves the current section-specific Library surface before introducing an app-wide search command.
+
+### Closeout
+
+- Status: completed in `3.19.2`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, and `docs/releases/v3.19.2.md`.
+- Runtime evidence: no running-stack evidence for this slice; the local release preflight recorded compose smoke as blocked because the local backend service was not running.
+- Verification: backend media route syntax passed; backend unit test syntax passed; backend unit tests passed with `324` checks; frontend production build passed; backend and frontend dependency audits passed during `npm run release:local-gate`; OpenAPI validation passed during `npm run release:local-gate`; `git diff --check` passed.
+- Blocked/unverified: `npm run release:local-gate` passed package metadata, version sync, release note/feed, backend unit, OpenAPI, frontend build, dependency audits, and diff hygiene, but failed the release-preflight gate because observability release evidence for `3.19.2` is stale/missing and compose smoke was blocked by no running local backend service. Secret scan, browser regression, and image security/SBOM remain CI or full-profile follow-through gates.
+- Risks/follow-ups: identifier search adds more `OR` predicates to the existing scoped media query; if large libraries show search latency, add targeted indexes or a dedicated identifier-search helper. App-wide Universal Search remains backlog work.
+- Files changed: `app-meta.json`; `backend/app-meta.json`; `backend/package-lock.json`; `backend/package.json`; `backend/release-feed.json`; `backend/routes/media.js`; `backend/scripts/unit-tests.js`; `docs/releases/v3.19.2.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `frontend/package-lock.json`; `frontend/package.json`; `frontend/src/app-meta.json`; `frontend/src/components/LibraryView.jsx`; and `preflight-go-no-go.md`.
+- What remains in the milestone: running-stack compose smoke, refreshed observability evidence, browser regression, secret scan, and image/SBOM checks need follow-through before treating `3.19.2` as fully release-ready.
+
 ## 3.19.1 — Plex Movie Import TV-Field Constraint Fix
 
 **Goal:** Restore Plex movie re-import behavior after bulk cleanup by keeping Plex movie rows out of TV-only database fields.

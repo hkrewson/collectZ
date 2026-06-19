@@ -5096,7 +5096,7 @@ export default function LibraryView({
         total={displayedTotal}
         searchValue={searchInput}
         onSearchChange={setSearchInput}
-        searchPlaceholder="Search title, director…"
+        searchPlaceholder="Search title, creator, or identifier…"
         filters={shouldShowLibraryFilterMenu ? (
           <FilterMenu
             ariaLabel={`Filter ${title}`}

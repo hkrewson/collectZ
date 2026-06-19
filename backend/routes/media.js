@@ -10064,9 +10064,44 @@ router.get('/', asyncHandler(async (req, res) => {
           AND a.name ILIKE $${likeIdx}
       )
       OR notes ILIKE $${likeIdx}
+      OR COALESCE(upc, '') ILIKE $${likeIdx}
+      OR (
+        regexp_replace($${likeIdx}, '\\D+', '', 'g') <> ''
+        AND regexp_replace(COALESCE(upc, ''), '\\D+', '', 'g') ILIKE ('%' || regexp_replace($${likeIdx}, '\\D+', '', 'g') || '%')
+      )
+      OR tmdb_id::text = $${tsqIdx}
       OR COALESCE(type_details->>'series', '') ILIKE $${likeIdx}
       OR COALESCE(type_details->>'writer', '') ILIKE $${likeIdx}
       OR COALESCE(type_details->>'artist', '') ILIKE $${likeIdx}
+      OR COALESCE(type_details->>'isbn', '') ILIKE $${likeIdx}
+      OR (
+        regexp_replace($${likeIdx}, '\\D+', '', 'g') <> ''
+        AND regexp_replace(COALESCE(type_details->>'isbn', ''), '\\D+', '', 'g') ILIKE ('%' || regexp_replace($${likeIdx}, '\\D+', '', 'g') || '%')
+      )
+      OR COALESCE(type_details->>'provider_item_id', '') ILIKE $${likeIdx}
+      OR COALESCE(type_details->>'provider_issue_id', '') ILIKE $${likeIdx}
+      OR COALESCE(type_details->>'calibre_entry_id', '') ILIKE $${likeIdx}
+      OR COALESCE(type_details->>'kavita_series_id', '') ILIKE $${likeIdx}
+      OR COALESCE(type_details->>'kavita_chapter_id', '') ILIKE $${likeIdx}
+      OR COALESCE(type_details->>'kavita_series_provider_item_id', '') ILIKE $${likeIdx}
+      OR COALESCE(type_details->>'kavita_chapter_provider_item_id', '') ILIKE $${likeIdx}
+      OR EXISTS (
+        SELECT 1
+        FROM media_metadata mm
+        WHERE mm.media_id = media.id
+          AND mm."key" IN (
+            'upc', 'ean', 'ean_upc', 'isbn', 'barcode',
+            'tmdb_id', 'provider_item_id', 'provider_issue_id', 'calibre_entry_id',
+            'plex_item_key', 'plex_rating_key', 'identity_alias'
+          )
+          AND (
+            mm."value" ILIKE $${likeIdx}
+            OR (
+              regexp_replace($${likeIdx}, '\\D+', '', 'g') <> ''
+              AND regexp_replace(mm."value", '\\D+', '', 'g') ILIKE ('%' || regexp_replace($${likeIdx}, '\\D+', '', 'g') || '%')
+            )
+          )
+      )
     )`;
   }
 

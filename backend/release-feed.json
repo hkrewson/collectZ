@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.19.2",
+      "version": "3.19.2",
+      "date": null,
+      "status": null,
+      "summary": "This patch makes the existing Library search box identifier-aware. Users can search by stored UPC/EAN/ISBN-style identifiers, TMDB ids, provider ids, Plex keys, and identity-alias metadata without leaving the current library surface.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Extended `GET /api/media` search to match stored UPC, ISBN-style type details, TMDB ids, provider ids, Calibre/Kavita ids, Plex metadata keys, and identity aliases.",
+            "Guarded numeric-normalized matching so non-numeric searches do not become broad empty-string identifier matches.",
+            "Updated the Library search placeholder to advertise identifier-aware search.",
+            "Added unit/source coverage for the identifier search contract."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.19.1",
       "version": "3.19.1",
       "date": null,
@@ -164,26 +182,6 @@
             "Added maintainer documentation for the private-source/public-mirror operating model, public mirror contents, publication workflow, public checks stance, and accidental leak response.",
             "Promoted the public repository sanitization backlog item into the `3.18.0` roadmap slice.",
             "Kept actual mirror publication and clean export commit automation as a follow-up."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.17.0",
-      "version": "3.17.0",
-      "date": null,
-      "status": null,
-      "summary": "This release adds the first local CI/CD gate for collectZ maintainers, giving pre-push work one standard command that checks release, test, dependency, and evidence readiness before public CI runs.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added `npm run release:local-gate` for the standard local pre-push validation profile.",
-            "Added `npm run release:local-gate:full` for heavier local checks such as CodeQL, secret scanning, runtime smoke, browser regression, and image/SBOM readiness when local tools and runtime state are available.",
-            "Added `npm run release:install-hooks` to install an opt-in pre-push hook that runs the standard local gate.",
-            "Added local gate reports under `artifacts/local-ci/` with redaction for common secret-bearing output patterns.",
-            "Documented the local CI/CD workflow, blocked-gate semantics, hook bypass expectation, and relationship to hosted CI.",
-            "Promoted the local CI/CD backlog item into the roadmap as the first `3.17.0` infrastructure slice."
           ]
         }
       ]

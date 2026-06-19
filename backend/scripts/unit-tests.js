@@ -3861,6 +3861,22 @@ results.push(run('media route source uses title candidate fallback for tmdb look
   assert.ok(mediaRoutesSource.includes('bracketStripped'));
 }));
 
+results.push(run('media library search matches stored identifiers and guards empty digit matches', () => {
+  assert.ok(mediaRoutesSource.includes("OR COALESCE(upc, '') ILIKE"));
+  assert.ok(mediaRoutesSource.includes('OR tmdb_id::text ='));
+  assert.ok(mediaRoutesSource.includes("COALESCE(type_details->>'provider_item_id', '') ILIKE"));
+  assert.ok(mediaRoutesSource.includes("COALESCE(type_details->>'provider_issue_id', '') ILIKE"));
+  assert.ok(mediaRoutesSource.includes("COALESCE(type_details->>'calibre_entry_id', '') ILIKE"));
+  assert.ok(mediaRoutesSource.includes('mm."key" IN ('));
+  assert.ok(mediaRoutesSource.includes("'plex_rating_key'"));
+  assert.ok(mediaRoutesSource.includes("regexp_replace($${likeIdx}, '\\\\D+', '', 'g') <> ''"));
+  assert.ok(mediaRoutesSource.includes("ILIKE ('%' || regexp_replace($${likeIdx}, '\\\\D+', '', 'g') || '%')"));
+}));
+
+results.push(run('LibraryView advertises identifier-aware library search', () => {
+  assert.ok(libraryViewSource.includes('searchPlaceholder="Search title, creator, or identifier…"'));
+}));
+
 results.push(run('media drawer avoids redundant follow-up title lookups for enriched identifier results', () => {
   assert.ok(libraryViewSource.includes('const enrichIdentifierSelection = async (match) => {'));
   assert.ok(libraryViewSource.includes('if (match?.tmdb || match?.book || match?.typeEnrichment)'));

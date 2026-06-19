@@ -211,6 +211,7 @@ These are product-level capability gaps discovered from the current shape of the
 
 **Current state**
 - Library search, provider lookup, scanner barcode/ISBN lookup, event search, and admin/search-like workflows exist separately.
+- The first selected slice, `3.19.2 — Library Identifier Search`, promotes identifier-aware matching inside the existing Library search box before adding a global command/search surface.
 - There is no app-wide command/search surface that returns typed destinations across collection objects and operational records.
 
 **Scope**
