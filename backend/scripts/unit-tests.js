@@ -6294,7 +6294,7 @@ results.push(run('mobile image upload controls use the media-style cover picker 
   assert.ok(collectiblesViewSource.includes('CoverImagePicker'));
   assert.ok(collectiblesViewSource.includes('label="Item image"'));
   assert.ok(eventsViewSource.includes('CoverImagePicker'));
-  assert.ok(eventsViewSource.includes('label="Artifact image"'));
+  assert.ok(eventsViewSource.includes('label="Entry image"'));
   assert.ok(eventsViewSource.includes('label="Event image"'));
   assert.ok(signatureManagerSource.includes('label="Proof image"'));
   assert.ok(!artViewSource.includes('capture="environment"'));

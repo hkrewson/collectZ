@@ -207,7 +207,7 @@ const formatUploadError = (message) => {
   return raw || 'Image upload failed';
 };
 
-const pluralizeArtifacts = (count) => `${count || 0} artifact${Number(count || 0) === 1 ? '' : 's'}`;
+const pluralizeEventEntries = (count) => `${count || 0} event entr${Number(count || 0) === 1 ? 'y' : 'ies'}`;
 const pluralizePeople = (count) => `${count || 0} ${Number(count || 0) === 1 ? 'person' : 'people'}`;
 
 const fromDateTimeInput = (value) => {
@@ -899,7 +899,6 @@ function EventCard({ item, supportsHover, onOpen, onEdit, onDelete }) {
       subtitle={item.location || 'Location not set'}
       meta={
         <>
-          <MetaPill>{pluralizeArtifacts(item.artifact_count)}</MetaPill>
           {item.room ? <MetaPill>{`Room ${item.room}`}</MetaPill> : null}
         </>
       }
@@ -918,7 +917,6 @@ function EventListRow({ item, supportsHover, onOpen, onEdit, onDelete }) {
         <div className="mt-1 flex flex-wrap gap-2">
           <MetaPill>{toDisplayDate(item.date_start) || 'Date pending'}</MetaPill>
           {item.location ? <MetaPill>{item.location}</MetaPill> : null}
-          <MetaPill>{pluralizeArtifacts(item.artifact_count)}</MetaPill>
         </div>
       </div>
       <span className="text-xs text-ghost font-mono">#{item.id}</span>
@@ -1156,7 +1154,7 @@ function EventArtifactsEditor({ eventId, apiCall, onSaved }) {
         await loadArtifacts();
       } catch (_) {
         if (active) {
-          setArtifactError('Failed to load event artifacts');
+          setArtifactError('Failed to load event entries');
           setLoading(false);
         }
       }
@@ -1233,19 +1231,19 @@ function EventArtifactsEditor({ eventId, apiCall, onSaved }) {
       await loadArtifacts();
       onSaved?.();
       if (uploadError) {
-        setArtifactError(`Artifact saved, but image upload failed: ${uploadError}`);
+        setArtifactError(`Entry saved, but image upload failed: ${uploadError}`);
       } else {
-        setArtifactNotice('Artifact saved');
+        setArtifactNotice('Entry saved');
       }
     } catch (err) {
-      setArtifactError(err?.response?.data?.error || 'Failed to save artifact');
+      setArtifactError(err?.response?.data?.error || 'Failed to save entry');
     } finally {
       setArtifactSaving(false);
     }
   };
 
   const removeArtifact = async (artifactId) => {
-    if (!window.confirm('Delete this artifact?')) return;
+    if (!window.confirm('Delete this event entry?')) return;
     await apiCall('delete', `/events/${eventId}/artifacts/${artifactId}`);
     await loadArtifacts();
     onSaved?.();
@@ -1291,7 +1289,7 @@ function EventArtifactsEditor({ eventId, apiCall, onSaved }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <p className="text-sm text-dim">{pluralizeArtifacts(artifacts.length)}</p>
+        <p className="text-sm text-dim">{pluralizeEventEntries(artifacts.length)}</p>
         <div className="flex-1" />
         <button
           className="btn-ghost btn-sm"
@@ -1303,10 +1301,10 @@ function EventArtifactsEditor({ eventId, apiCall, onSaved }) {
             });
           }}
         >
-          {artifactEditorOpen ? 'Done' : 'Edit schedule'}
+          {artifactEditorOpen ? 'Done' : 'Edit entries'}
         </button>
       </div>
-      {loading ? <div className="flex items-center gap-2 text-dim"><Spinner size={16} />Loading schedule…</div> : null}
+      {loading ? <div className="flex items-center gap-2 text-dim"><Spinner size={16} />Loading event entries…</div> : null}
       {artifactError ? <p className="text-xs text-err">{artifactError}</p> : null}
       {artifactNotice ? <p className="text-xs text-ok">{artifactNotice}</p> : null}
       <div className="border-t border-edge/60">
@@ -1361,13 +1359,13 @@ function EventArtifactsEditor({ eventId, apiCall, onSaved }) {
         ))}
         {!loading && artifacts.length === 0 ? (
           <div className="py-4 text-sm text-dim">
-            No schedule items yet.
+            No event entries yet.
           </div>
         ) : null}
       </div>
       {artifactEditorOpen ? (
         <div className="space-y-3 border-t border-edge/60 pt-4">
-          <p className="text-sm font-medium text-ink">{editingArtifactId ? `Edit entry #${editingArtifactId}` : 'Add schedule item'}</p>
+          <p className="text-sm font-medium text-ink">{editingArtifactId ? `Edit entry #${editingArtifactId}` : 'Add event entry'}</p>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <label className="field">
               <span className="label">Type</span>
@@ -1424,7 +1422,7 @@ function EventArtifactsEditor({ eventId, apiCall, onSaved }) {
             ) : null}
             <ImageSourceControl
               className="md:col-span-2"
-              label="Artifact image"
+              label="Entry image"
               selectedFile={artifactFile}
               selectedLabel="Selected image"
               chooseLabel="Choose from Library"
