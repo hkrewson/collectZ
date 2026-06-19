@@ -191,12 +191,25 @@ function EmailDeliveryCard({
           </div>
         ) : null}
 
+        <div className="grid gap-3 border-t border-edge/70 pt-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+          <label className="field">
+            <span className="label">Test Recipient</span>
+            <input
+              className="input"
+              type="email"
+              value={form.testRecipient}
+              disabled={saving || testing}
+              onChange={(e) => onChange('testRecipient', e.target.value)}
+            />
+          </label>
+          <button type="button" className="btn-secondary" disabled={saving || testing} onClick={onSendTest}>
+            {testing ? 'Sending Test…' : 'Send Test Email'}
+          </button>
+        </div>
+
         <div className="flex flex-wrap items-center gap-3">
           <button type="button" className="btn-primary" disabled={saving} onClick={onSave}>
             {saving ? 'Saving…' : 'Save Email Settings'}
-          </button>
-          <button type="button" className="btn-secondary" disabled={saving || testing} onClick={onSendTest}>
-            {testing ? 'Sending Test…' : 'Send Test Email'}
           </button>
           {usingAppSettings ? (
             <button type="button" className="btn-secondary" disabled={saving} onClick={onUseEnv}>
@@ -534,6 +547,7 @@ export default function AdminSettingsView({
     secure: false,
     user: '',
     from: '',
+    testRecipient: '',
     password: '',
     keepExistingPassword: true
   });
@@ -603,6 +617,7 @@ export default function AdminSettingsView({
           secure: Boolean(smtp?.editor?.secure ?? smtp?.secure),
           user: smtp?.editor?.user || '',
           from: smtp?.editor?.from || '',
+          testRecipient: smtp?.editor?.from || smtp?.from || '',
           password: '',
           keepExistingPassword: Boolean(smtp?.editor?.hasPassword)
         });
@@ -749,6 +764,7 @@ export default function AdminSettingsView({
         secure: Boolean(smtp?.editor?.secure ?? smtp?.secure),
         user: smtp?.editor?.user || '',
         from: smtp?.editor?.from || '',
+        testRecipient: emailForm.testRecipient || smtp?.editor?.from || smtp?.from || '',
         password: '',
         keepExistingPassword: Boolean(smtp?.editor?.hasPassword)
       });
@@ -766,7 +782,7 @@ export default function AdminSettingsView({
     setTestingEmailDelivery(true);
     setEmailDeliveryError('');
     try {
-      const result = await apiCall('post', `${emailDeliveryEndpoint}/test`, {});
+      const result = await apiCall('post', `${emailDeliveryEndpoint}/test`, { email: emailForm.testRecipient });
       if (result?.delivery?.sent) {
         onToast(`Test email sent to ${result.email}`);
       } else {
