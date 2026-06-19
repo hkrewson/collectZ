@@ -17,6 +17,7 @@ function isPlatformOwnedPath(path) {
     return true;
   }
 
+  if (normalizedPath === '/core-instances' || normalizedPath.startsWith('/core-instances/')) return true;
   if (normalizedPath === '/admin/spaces' || normalizedPath.startsWith('/admin/spaces/')) return true;
   if (normalizedPath === '/admin/users' || normalizedPath.startsWith('/admin/users/')) return true;
   if (normalizedPath === '/admin/activity' || normalizedPath.startsWith('/admin/activity?')) return true;

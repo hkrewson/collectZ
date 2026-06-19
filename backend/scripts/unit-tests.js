@@ -249,6 +249,7 @@ const useApiClientSource = readFrontendSource(path.join('components', 'app', 'ho
 const useMediaApiSource = readFrontendSource(path.join('components', 'app', 'hooks', 'useMediaApi'));
 const helpViewSource = readFrontendSource(path.join('components', 'HelpView'));
 const adminActivityViewSource = readFrontendSource(path.join('components', 'AdminActivityView'));
+const adminSpacesViewSource = readFrontendSource(path.join('components', 'AdminSpacesView'));
 const activityFeedViewSource = readFrontendSource(path.join('components', 'ActivityFeedView'));
 const adminUsersViewSource = readFrontendSource(path.join('components', 'AdminUsersView'));
 const dashboardCommandCenterViewSource = readFrontendSource(path.join('components', 'DashboardCommandCenterView'));
@@ -5130,6 +5131,7 @@ results.push(run('public compose source keeps homelab-safe cookie defaults in th
   assert.ok(useApiClientSource.includes('isPlatformOwnedPath'));
   assert.ok(useApiClientSource.includes("normalizedPath.startsWith('/support/')"));
   assert.ok(useApiClientSource.includes("normalizedPath !== '/support/releases'"));
+  assert.ok(useApiClientSource.includes("normalizedPath === '/core-instances'"));
   assert.ok(useApiClientSource.includes("normalizedPath === '/admin/spaces'"));
   assert.ok(useApiClientSource.includes("normalizedPath === '/admin/users'"));
   assert.ok(useApiClientSource.includes("normalizedPath === '/admin/activity'"));
@@ -5137,6 +5139,15 @@ results.push(run('public compose source keeps homelab-safe cookie defaults in th
   assert.ok(useApiClientSource.includes("normalizedPath === '/admin/settings/email-delivery'"));
   assert.ok(useApiClientSource.includes("'/admin/settings/integrations/test-pricecharting'"));
   assert.ok(frontendAppSource.includes("const PLATFORM_BRIDGE_ENABLED = hasFrontendEnv('VITE_PLATFORM_API_URL');"));
+  assert.ok(frontendAppSource.includes("space?.external_workspace_id || space?.id"));
+  assert.ok(helpViewSource.includes('supportAccessEnabled = false'));
+  assert.ok(helpViewSource.includes('supportAccessEnabled\n    &&\n    !isSupportStaff'));
+  assert.ok(adminSpacesViewSource.includes("apiCall('get', '/core-instances')"));
+  assert.ok(adminSpacesViewSource.includes('Array.isArray(spacesRes.value?.workspaces)'));
+  assert.ok(adminSpacesViewSource.includes("apiCall('post', '/admin/spaces', payload)"));
+  assert.ok(adminSpacesViewSource.includes("`/admin/spaces/${selectedSpaceId}/user-routes`"));
+  assert.ok(adminSpacesViewSource.includes("`/admin/spaces/${selectedSpaceId}/user-routes/${route.id}/status`"));
+  assert.ok(adminSpacesViewSource.includes('Core membership, invites, and owner changes remain workspace-owned.'));
 }));
 
 results.push(run('pat.hasPersonalAccessTokenScope matches exact scopes and admin wildcard', () => {

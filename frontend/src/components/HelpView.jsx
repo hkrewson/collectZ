@@ -232,7 +232,8 @@ export default function HelpView({
   onSupportSummaryRefresh,
   initialTab = 'guidance',
   productEdition = 'platform',
-  supportRequestsEnabled = false
+  supportRequestsEnabled = false,
+  supportAccessEnabled = false
 }) {
   const [activeTab, setActiveTab] = useState(initialTab);
   const [requests, setRequests] = useState([]);
@@ -643,6 +644,8 @@ export default function HelpView({
   const selectedThreadIsOpen = Boolean(selectedRequest && selectedRequest.status !== 'closed');
   const shouldShowReplyComposer = Boolean(selectedThreadIsOpen && !isSupportStaff);
   const canRequesterManageSupportAccess = Boolean(
+    supportAccessEnabled
+    &&
     !isSupportStaff
     && selectedRequest
     && selectedRequest.status !== 'closed'
@@ -650,6 +653,8 @@ export default function HelpView({
     && Number(selectedRequest.requester_user_id || 0) === Number(user?.id || 0)
   );
   const canStartApprovedSupportSession = Boolean(
+    supportAccessEnabled
+    &&
     isSupportStaff
     && selectedRequest
     && selectedRequest.support_access_status === 'approved'

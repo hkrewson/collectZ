@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { SectionTabPanel, SectionTabs } from './app/AppPrimitives';
 
 function emptyCreateForm() {
-  return { name: '', owner_user_id: '' };
+  return { name: '', core_instance_id: '', external_workspace_id: '' };
 }
 
 function emptyInitialInvite() {
@@ -137,6 +137,7 @@ export default function AdminSpacesView({
 }) {
   const [spaces, setSpaces] = useState([]);
   const [users, setUsers] = useState([]);
+  const [coreInstances, setCoreInstances] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [createForm, setCreateForm] = useState(() => emptyCreateForm());
@@ -162,17 +163,22 @@ export default function AdminSpacesView({
   const [openRowMenuId, setOpenRowMenuId] = useState(null);
   const [startingSupportSession, setStartingSupportSession] = useState(false);
   const [supportStartDraft, setSupportStartDraft] = useState({ open: false, libraryId: '', reason: '' });
+  const [routeForm, setRouteForm] = useState({ email: '', core_login_url: '' });
+  const [savingRoute, setSavingRoute] = useState(false);
 
   const loadPlatformData = useCallback(async () => {
     setLoading(true);
     setLoadError('');
-    const [spacesRes, usersRes] = await Promise.allSettled([
+    const [spacesRes, usersRes, coreInstancesRes] = await Promise.allSettled([
       apiCall('get', '/admin/spaces'),
-      apiCall('get', '/admin/users')
+      apiCall('get', '/admin/users'),
+      apiCall('get', '/core-instances')
     ]);
 
     if (spacesRes.status === 'fulfilled') {
-      setSpaces(Array.isArray(spacesRes.value?.spaces) ? spacesRes.value.spaces : []);
+      setSpaces(Array.isArray(spacesRes.value?.spaces)
+        ? spacesRes.value.spaces
+        : (Array.isArray(spacesRes.value?.workspaces) ? spacesRes.value.workspaces : []));
     } else {
       setLoadError('Failed to load workspaces.');
     }
@@ -181,6 +187,11 @@ export default function AdminSpacesView({
       setUsers(Array.isArray(usersRes.value) ? usersRes.value : []);
     } else {
       setLoadError((prev) => (prev ? `${prev} Failed to load users.` : 'Failed to load users.'));
+    }
+    if (coreInstancesRes.status === 'fulfilled') {
+      setCoreInstances(Array.isArray(coreInstancesRes.value?.core_instances) ? coreInstancesRes.value.core_instances : []);
+    } else {
+      setCoreInstances([]);
     }
     setLoading(false);
   }, [apiCall]);
@@ -197,6 +208,12 @@ export default function AdminSpacesView({
     () => spaces.find((space) => Number(space.id) === Number(selectedSpaceId)) || null,
     [spaces, selectedSpaceId]
   );
+  const selectedDirectoryWorkspace = selectedSpaceDetails?.workspace || selectedSpace || null;
+  const selectedWorkspaceRoutes = useMemo(
+    () => (Array.isArray(selectedSpaceDetails?.user_routes) ? selectedSpaceDetails.user_routes : []),
+    [selectedSpaceDetails]
+  );
+  const platformDirectoryMode = Boolean(selectedDirectoryWorkspace?.core_instance_id || selectedDirectoryWorkspace?.external_workspace_id || selectedSpaceDetails?.workspace);
   const selectedSpaceMembers = useMemo(
     () => (Array.isArray(selectedSpaceDetails?.members) ? selectedSpaceDetails.members : []),
     [selectedSpaceDetails]
@@ -298,49 +315,82 @@ export default function AdminSpacesView({
     event.preventDefault();
     setCreating(true);
     try {
-      const ownerInviteCount = initialInvites.filter((invite) => String(invite.role || '').trim() === 'owner').length;
-      if (createForm.owner_user_id && ownerInviteCount > 0) {
-        throw new Error('Choose either an existing initial owner or one invited owner, not both');
-      }
-      if (ownerInviteCount > 1) {
-        throw new Error('Only one initial owner invite is supported');
-      }
       const slug = buildSpaceSlug(createForm.name);
+      const coreInstanceId = Number(createForm.core_instance_id || 0);
+      const externalWorkspaceId = String(createForm.external_workspace_id || '').trim();
+      if (!coreInstanceId || !externalWorkspaceId) {
+        throw new Error('Choose a Core instance and enter the Core workspace id.');
+      }
       const payload = {
         name: createForm.name,
         slug: slug || null,
-        expose_invite_tokens: true
+        core_instance_id: coreInstanceId,
+        external_workspace_id: externalWorkspaceId,
+        status: 'active'
       };
-      if (createForm.owner_user_id) payload.owner_user_id = Number(createForm.owner_user_id);
-      if (initialInvites.length > 0) {
-        payload.initial_invites = initialInvites
-          .map((invite) => ({
-            email: String(invite.email || '').trim(),
-            role: String(invite.role || 'member').trim() || 'member'
-          }))
-          .filter((invite) => invite.email);
-      }
-      const result = await apiCall('post', '/admin/spaces/create-with-onboarding', payload);
+      const result = await apiCall('post', '/admin/spaces', payload);
       setCreateForm(emptyCreateForm());
       setInitialInvites([]);
       await loadPlatformData();
-      if (result?.space?.id) {
-        setSelectedSpaceId(result.space.id);
+      const createdWorkspace = result?.workspace || result?.space || null;
+      if (createdWorkspace?.id) {
+        setSelectedSpaceId(createdWorkspace.id);
         setDrawerTab('add');
       }
-      const failed = Number(result?.summary?.failed || 0);
-      const created = Number(result?.summary?.created || 0);
-      if (failed > 0) {
-        onToast(`Workspace created with ${created} invite${created === 1 ? '' : 's'} and ${failed} failure${failed === 1 ? '' : 's'}`, 'info');
-      } else if (created > 0) {
-        onToast(`Workspace created with ${created} invite${created === 1 ? '' : 's'}`);
-      } else {
-        onToast('Workspace created');
-      }
+      onToast('Workspace directory record created');
     } catch (error) {
-      onToast(error.response?.data?.detail || error.response?.data?.error || 'Failed to create workspace', 'error');
+      onToast(error.response?.data?.detail || error.response?.data?.error || error.message || 'Failed to create workspace', 'error');
     } finally {
       setCreating(false);
+    }
+  };
+
+  const updateDirectoryWorkspaceStatus = async (spaceId, status) => {
+    if (!spaceId || !status) return;
+    setBusySpaceId(spaceId);
+    try {
+      await apiCall('patch', `/admin/spaces/${spaceId}/status`, { status });
+      await loadPlatformData();
+      await loadSelectedSpaceDetails(spaceId);
+      onToast(`Workspace marked ${status}`);
+    } catch (error) {
+      onToast(error.response?.data?.error || 'Failed to update workspace status', 'error');
+    } finally {
+      setBusySpaceId(null);
+    }
+  };
+
+  const upsertDirectoryRoute = async () => {
+    if (!selectedSpaceId) return;
+    setSavingRoute(true);
+    try {
+      await apiCall('post', `/admin/spaces/${selectedSpaceId}/user-routes`, {
+        email: routeForm.email,
+        core_login_url: routeForm.core_login_url
+      });
+      setRouteForm({ email: '', core_login_url: '' });
+      await loadPlatformData();
+      await loadSelectedSpaceDetails(selectedSpaceId);
+      onToast('Workspace route saved');
+    } catch (error) {
+      onToast(error.response?.data?.error || 'Failed to save workspace route', 'error');
+    } finally {
+      setSavingRoute(false);
+    }
+  };
+
+  const updateDirectoryRouteStatus = async (route, disabled) => {
+    if (!selectedSpaceId || !route?.id) return;
+    setReissuingInviteId(route.id);
+    try {
+      await apiCall('patch', `/admin/spaces/${selectedSpaceId}/user-routes/${route.id}/status`, { disabled });
+      await loadPlatformData();
+      await loadSelectedSpaceDetails(selectedSpaceId);
+      onToast(disabled ? 'Workspace route disabled' : 'Workspace route enabled');
+    } catch (error) {
+      onToast(error.response?.data?.error || 'Failed to update workspace route', 'error');
+    } finally {
+      setReissuingInviteId(null);
     }
   };
 
@@ -565,9 +615,9 @@ export default function AdminSpacesView({
       <form className="space-y-4 max-w-3xl" onSubmit={createSpace}>
         <div>
           <h2 className="text-xl font-medium text-ink">Create Workspace</h2>
-          <p className="text-sm text-ghost mt-1">Create a workspace, set its first owner, and optionally prepare workspace-scoped invites, including one invited owner if the owner should claim later.</p>
+          <p className="text-sm text-ghost mt-1">Create a Cairn directory record for an existing Core workspace.</p>
         </div>
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:flex-nowrap">
+        <div className="grid gap-4 xl:grid-cols-[minmax(220px,1fr)_minmax(180px,0.8fr)_minmax(180px,0.8fr)_auto] xl:items-end">
           <label className="field xl:max-w-[360px] xl:flex-1">
             <span className="label">Name</span>
             <input
@@ -577,98 +627,35 @@ export default function AdminSpacesView({
               required
             />
           </label>
-          <label className="field xl:w-[240px] xl:shrink-0">
-            <span className="label">Initial Owner</span>
+          <label className="field">
+            <span className="label">Core Instance</span>
             <select
               className="select"
-              value={createForm.owner_user_id}
-              onChange={(e) => setCreateForm((prev) => ({ ...prev, owner_user_id: e.target.value }))}
-              disabled={ownerSelectionLockedToInvite}
+              value={createForm.core_instance_id}
+              onChange={(e) => setCreateForm((prev) => ({ ...prev, core_instance_id: e.target.value }))}
+              required
             >
-              <option value="">{ownerSelectionLockedToInvite ? 'Invited owner below' : 'Current admin'}</option>
-              {userOptions.map((user) => (
-                <option key={user.id} value={user.id}>{user.label}</option>
+              <option value="">Select instance</option>
+              {coreInstances.map((instance) => (
+                <option key={instance.id} value={instance.id}>{instance.name || instance.slug || `Core #${instance.id}`}</option>
               ))}
             </select>
-            <span className="mt-2 text-xs text-ghost">
-              {ownerSelectionLockedToInvite
-                ? `First owner will be ${initialOwnerInvite.email} after they claim the invite below.`
-                : 'Leave this as Current admin, or choose an existing active user as the initial owner.'}
-            </span>
+          </label>
+          <label className="field">
+            <span className="label">Core Workspace ID</span>
+            <input
+              className="input"
+              value={createForm.external_workspace_id}
+              onChange={(e) => setCreateForm((prev) => ({ ...prev, external_workspace_id: e.target.value }))}
+              placeholder="2"
+              required
+            />
           </label>
           <div className="xl:shrink-0 xl:pb-[1px]">
             <button type="submit" className="btn-primary min-w-[132px] w-full xl:w-auto" disabled={creating}>
-              {creating ? <Spinner size={14} /> : 'Create Workspace'}
+              {creating ? <Spinner size={14} /> : 'Create'}
             </button>
           </div>
-        </div>
-
-        <div className="space-y-3 pt-1">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h3 className="text-base font-medium text-ink">Initial Invites</h3>
-              <p className="text-sm text-ghost mt-1">Optional. Add the first people who should join this workspace, including one invited owner if the owner does not exist yet.</p>
-              <p className="text-xs text-ghost mt-2">Set one invite role to <span className="text-ink">owner</span> if a brand-new invited user should become the first owner when they claim the invite.</p>
-            </div>
-            <button type="button" className="btn-secondary btn-sm" onClick={addInitialInviteRow}>
-              Add invite
-            </button>
-          </div>
-
-          {initialInvites.length === 0 ? (
-            <p className="text-sm text-ghost">No initial invites yet.</p>
-          ) : (
-            <div className="space-y-3">
-              {initialInvites.map((invite, index) => (
-                <div key={`initial-invite-${index}`} className="flex flex-col gap-3 xl:flex-row xl:items-end">
-                  <label className="field xl:flex-1">
-                    <span className="label">Email</span>
-                    <input
-                      className="input"
-                      type="email"
-                      value={invite.email}
-                      onChange={(e) => {
-                        updateInitialInvite(index, { email: e.target.value });
-                      }}
-                      placeholder="name@example.com"
-                    />
-                  </label>
-                  <label className="field xl:w-[150px] xl:shrink-0">
-                    <span className="label">Role</span>
-                    <select
-                      className="select"
-                      value={invite.role}
-                      onChange={(e) => {
-                        const nextRole = e.target.value;
-                        if (nextRole === 'owner') {
-                          setCreateForm((prev) => ({ ...prev, owner_user_id: '' }));
-                          setInitialInvites((prev) => prev.map((currentInvite, currentIndex) => {
-                            if (currentIndex === index) return { ...currentInvite, role: 'owner' };
-                            if (String(currentInvite?.role || '').trim() === 'owner') {
-                              return { ...currentInvite, role: 'member' };
-                            }
-                            return currentInvite;
-                          }));
-                          return;
-                        }
-                        updateInitialInvite(index, { role: nextRole });
-                      }}
-                    >
-                      <option value="owner">owner</option>
-                      <option value="admin">admin</option>
-                      <option value="member">member</option>
-                      <option value="viewer">viewer</option>
-                    </select>
-                  </label>
-                  <div className="xl:pb-[1px]">
-                    <button type="button" className="btn-secondary btn-sm w-full xl:w-auto" onClick={() => removeInitialInvite(index)}>
-                      Remove
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       </form>
 
@@ -677,48 +664,45 @@ export default function AdminSpacesView({
         {spaces.length > 0 ? (
           <div className="overflow-x-auto pb-2">
             <div className="min-w-full w-max">
-              <div className="grid min-w-full grid-cols-[minmax(320px,2.2fr)_minmax(260px,1.5fr)_minmax(110px,0.7fr)_minmax(110px,0.7fr)_minmax(110px,0.8fr)_minmax(190px,1fr)] gap-4 px-1 pb-2 text-[11px] font-medium uppercase tracking-[0.18em] text-ghost">
+              <div className="grid min-w-full grid-cols-[minmax(320px,2.2fr)_minmax(220px,1.2fr)_minmax(120px,0.7fr)_minmax(120px,0.7fr)_minmax(110px,0.8fr)_minmax(190px,1fr)] gap-4 px-1 pb-2 text-[11px] font-medium uppercase tracking-[0.18em] text-ghost">
                 <div>Workspace</div>
-                <div>Owners</div>
-                <div>Members</div>
-                <div>Libraries</div>
+                <div>Core Instance</div>
+                <div>Core ID</div>
+                <div>Routes</div>
                 <div>Status</div>
                 <div>Actions</div>
               </div>
               {spaces.map((space) => {
-                const ownerSummary = Array.isArray(space.owners) ? space.owners : [];
-                const archived = Boolean(space.archived_at);
-                const canDelete = Number(space.library_count || 0) === 0 && space.slug !== 'default';
+                const archived = space.status === 'archived' || Boolean(space.archived_at);
                 return (
                   <div
                     key={space.id}
                     className="py-4 border-t border-edge/60 first:border-t-0 cursor-pointer"
                     onClick={() => setSelectedSpaceId(space.id)}
                   >
-                    <div className="grid min-w-full grid-cols-[minmax(320px,2.2fr)_minmax(260px,1.5fr)_minmax(110px,0.7fr)_minmax(110px,0.7fr)_minmax(110px,0.8fr)_minmax(190px,1fr)] gap-4 items-start">
+                    <div className="grid min-w-full grid-cols-[minmax(320px,2.2fr)_minmax(220px,1.2fr)_minmax(120px,0.7fr)_minmax(120px,0.7fr)_minmax(110px,0.8fr)_minmax(190px,1fr)] gap-4 items-start">
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <h2 className="text-sm font-medium text-ink leading-6">{space.name}</h2>
+                          {space.slug ? <span className="badge badge-dim text-[10px]">{space.slug}</span> : null}
                         </div>
                       </div>
 
                       <div className="min-w-0">
-                        <p className="text-sm text-ink leading-6 break-words">
-                          {ownerSummary.length > 0 ? ownerSummary.map((owner) => owner.email || owner.name || `user #${owner.user_id}`).join(', ') : 'none'}
-                        </p>
+                        <p className="text-sm text-ink leading-6 break-words">{space.core_instance_name || space.core_instance_slug || `Core #${space.core_instance_id || 'unknown'}`}</p>
                       </div>
 
                       <div>
-                        <p className="text-lg font-medium text-ink">{space.member_count}</p>
+                        <p className="text-sm font-mono text-ink leading-6">{space.external_workspace_id || '—'}</p>
                       </div>
 
                       <div>
-                        <p className="text-lg font-medium text-ink">{space.library_count}</p>
+                        <p className="text-lg font-medium text-ink">{space.route_count ?? space.member_count ?? 0}</p>
                       </div>
 
                       <div className="space-y-2">
                         <span className={cx('badge text-[10px]', archived ? 'badge-warn' : 'badge-ok')}>
-                          {archived ? 'Archived' : 'Active'}
+                          {space.status || (archived ? 'archived' : 'active')}
                         </span>
                       </div>
 
@@ -742,11 +726,27 @@ export default function AdminSpacesView({
                             >
                               <button
                                 type="button"
-                                className="w-full rounded-lg px-3 py-2 text-left text-sm text-err hover:bg-err/10 disabled:opacity-60"
-                                disabled={!canDelete || busySpaceId === space.id}
-                                onClick={() => deleteSpace(space.id)}
+                                className="w-full rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-raised disabled:opacity-60"
+                                disabled={busySpaceId === space.id || space.status === 'active'}
+                                onClick={() => updateDirectoryWorkspaceStatus(space.id, 'active')}
                               >
-                                {busySpaceId === space.id ? 'Deleting…' : 'Delete'}
+                                Activate
+                              </button>
+                              <button
+                                type="button"
+                                className="w-full rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-raised disabled:opacity-60"
+                                disabled={busySpaceId === space.id || space.status === 'archived'}
+                                onClick={() => updateDirectoryWorkspaceStatus(space.id, 'archived')}
+                              >
+                                Archive
+                              </button>
+                              <button
+                                type="button"
+                                className="w-full rounded-lg px-3 py-2 text-left text-sm text-err hover:bg-err/10 disabled:opacity-60"
+                                disabled={busySpaceId === space.id || space.status === 'disabled'}
+                                onClick={() => updateDirectoryWorkspaceStatus(space.id, 'disabled')}
+                              >
+                                Disable
                               </button>
                             </div>
                           ) : null}
@@ -768,7 +768,7 @@ export default function AdminSpacesView({
             <div className="p-5 border-b border-edge flex items-start gap-3">
               <div className="flex-1 min-w-0">
                 <h2 className="panel-title">Workspace Controls</h2>
-                <p className="text-sm text-ghost mt-1">{selectedSpaceDetails?.space?.name || selectedSpace.name}</p>
+                <p className="text-sm text-ghost mt-1">{selectedDirectoryWorkspace?.name || selectedSpaceDetails?.space?.name || selectedSpace.name}</p>
               </div>
               <button
                 type="button"
@@ -806,6 +806,108 @@ export default function AdminSpacesView({
               {detailLoading ? <p className="text-sm text-ghost flex items-center gap-2"><Spinner size={14} />Loading workspace detail…</p> : null}
               {detailError ? <p className="text-sm text-err">{detailError}</p> : null}
 
+              {platformDirectoryMode ? (
+                <>
+                  <section className="space-y-3">
+                    <div>
+                      <h3 className="text-lg font-medium text-ink">Directory Record</h3>
+                      <p className="text-sm text-ghost mt-1">Cairn stores routing metadata for this Core workspace. Core membership, invites, and owner changes remain workspace-owned.</p>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="rounded-lg border border-edge bg-raised/25 p-3">
+                        <p className="text-xs text-ghost">Core Instance</p>
+                        <p className="mt-1 text-sm text-ink">{selectedDirectoryWorkspace?.core_instance_name || selectedDirectoryWorkspace?.core_instance_slug || `Core #${selectedDirectoryWorkspace?.core_instance_id || 'unknown'}`}</p>
+                      </div>
+                      <div className="rounded-lg border border-edge bg-raised/25 p-3">
+                        <p className="text-xs text-ghost">Core Workspace ID</p>
+                        <p className="mt-1 text-sm font-mono text-ink">{selectedDirectoryWorkspace?.external_workspace_id || '—'}</p>
+                      </div>
+                      <div className="rounded-lg border border-edge bg-raised/25 p-3">
+                        <p className="text-xs text-ghost">Slug</p>
+                        <p className="mt-1 text-sm text-ink">{selectedDirectoryWorkspace?.slug || '—'}</p>
+                      </div>
+                      <div className="rounded-lg border border-edge bg-raised/25 p-3">
+                        <p className="text-xs text-ghost">Status</p>
+                        <p className="mt-1 text-sm text-ink">{selectedDirectoryWorkspace?.status || 'active'}</p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" className="btn-secondary btn-sm" disabled={busySpaceId === selectedSpace.id || selectedDirectoryWorkspace?.status === 'active'} onClick={() => updateDirectoryWorkspaceStatus(selectedSpace.id, 'active')}>
+                        Activate
+                      </button>
+                      <button type="button" className="btn-secondary btn-sm" disabled={busySpaceId === selectedSpace.id || selectedDirectoryWorkspace?.status === 'archived'} onClick={() => updateDirectoryWorkspaceStatus(selectedSpace.id, 'archived')}>
+                        Archive
+                      </button>
+                      <button type="button" className="btn-danger btn-sm" disabled={busySpaceId === selectedSpace.id || selectedDirectoryWorkspace?.status === 'disabled'} onClick={() => updateDirectoryWorkspaceStatus(selectedSpace.id, 'disabled')}>
+                        Disable
+                      </button>
+                    </div>
+                  </section>
+
+                  <section className="space-y-4">
+                    <div>
+                      <h3 className="text-lg font-medium text-ink">Workspace User Routes</h3>
+                      <p className="text-sm text-ghost mt-1">Route a user email to this Core workspace login URL.</p>
+                    </div>
+                    <div className="grid gap-3">
+                      <label className="field">
+                        <span className="label">Email</span>
+                        <input
+                          className="input"
+                          type="email"
+                          value={routeForm.email}
+                          onChange={(event) => setRouteForm((prev) => ({ ...prev, email: event.target.value }))}
+                          placeholder="name@example.com"
+                        />
+                      </label>
+                      <label className="field">
+                        <span className="label">Core Login URL</span>
+                        <input
+                          className="input"
+                          value={routeForm.core_login_url}
+                          onChange={(event) => setRouteForm((prev) => ({ ...prev, core_login_url: event.target.value }))}
+                          placeholder="https://collect.example.org/login"
+                        />
+                      </label>
+                      <div className="flex justify-end">
+                        <button type="button" className="btn-primary" disabled={savingRoute || !routeForm.email || !routeForm.core_login_url} onClick={upsertDirectoryRoute}>
+                          {savingRoute ? <Spinner size={14} /> : 'Save Route'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {selectedWorkspaceRoutes.length === 0 ? (
+                      <p className="text-sm text-ghost">No user routes configured for this workspace.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {selectedWorkspaceRoutes.map((route) => {
+                          const disabled = Boolean(route.disabled_at);
+                          return (
+                            <div key={route.id} className="rounded-xl border border-edge bg-abyss/50 p-3 flex flex-wrap items-center gap-3 justify-between">
+                              <div className="min-w-[220px] flex-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="text-sm font-medium text-ink">{route.email}</p>
+                                  <span className={cx('badge text-[10px]', disabled ? 'badge-warn' : 'badge-ok')}>{disabled ? 'Disabled' : 'Active'}</span>
+                                </div>
+                                <p className="text-xs text-ghost mt-1 break-all">{route.core_login_url}</p>
+                              </div>
+                              <button
+                                type="button"
+                                className="btn-secondary btn-sm"
+                                disabled={reissuingInviteId === route.id}
+                                onClick={() => updateDirectoryRouteStatus(route, !disabled)}
+                              >
+                                {reissuingInviteId === route.id ? <Spinner size={12} /> : (disabled ? 'Enable' : 'Disable')}
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </section>
+                </>
+              ) : (
+                <>
               <section className="space-y-3">
                 <div>
                   <h3 className="text-lg font-medium text-ink">
@@ -1060,6 +1162,8 @@ export default function AdminSpacesView({
                   </section>
                 </SectionTabPanel>
               </section>
+                </>
+              )}
             </div>
           </aside>
         </>

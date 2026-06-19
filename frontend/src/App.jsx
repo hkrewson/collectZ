@@ -272,7 +272,7 @@ export default function App() {
   }, [activeTab, apiCall, clearImportJobs, loadAuthScope, platformBridgeEnabled, setMediaItems, showToast]);
 
   const startSupportSession = useCallback(async (space, options = {}) => {
-    const spaceId = Number(space?.id || 0);
+    const spaceId = Number(space?.external_workspace_id || space?.id || 0);
     if (!Number.isFinite(spaceId) || spaceId <= 0) return false;
     const reason = String(options?.reason || '').trim();
     const libraryId = Number(options?.libraryId || 0) || null;
