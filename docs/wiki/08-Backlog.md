@@ -112,7 +112,7 @@ These are unscheduled interface cleanup tasks discovered during the `3.10.x` mob
 ### Backlog Item: Drawer Metadata Registry
 **Type:** UI/UX architecture refinement
 **Tags:** `ui`, `ux`, `drawers`, `metadata`, `library`, `primitives`, `density`
-**Status:** Active backlog; not yet promoted or versioned.
+**Status:** Completed as an architecture backlog item. Closed; add a new specific backlog item if a future drawer surface needs optional metadata registry work.
 
 **Goal:** Finish the Option 4 drawer metadata direction by making optional drawer metadata a shared registry-driven primitive instead of page-specific rendering decisions.
 
@@ -128,6 +128,8 @@ These are unscheduled interface cleanup tasks discovered during the `3.10.x` mob
 - `DrawerMetadataList` can accept an ordered item array and sort by `displayPriority`.
 - `LibraryView` uses the item-array path for media drawer metadata.
 - Collectibles and Art detail drawers use the registry-backed path for shared optional rows such as condition/grading/authentication, proof, and related records.
+- Media, Collectibles, and Art use shared object metadata record construction through `buildObjectDrawerMetadataRecords`.
+- Media, Collectibles, and Art use shared object metadata editor mapping through `buildObjectDrawerMetadataEditorNodes`.
 - Loan metadata uses the shared registry shape for label, priority, and compact readback, but the loan editor remains drawer-local in `LibraryView` because loan history, reminders, and focused loan detail state are not shared metadata concerns.
 - Events was audited and left out of the registry path for now because its drawer sections are event workflows and primary details, not optional object metadata.
 - Wishlist was audited and left out of the registry path for now because it does not expose the same detail-drawer optional metadata pattern.
@@ -145,6 +147,8 @@ These are unscheduled interface cleanup tasks discovered during the `3.10.x` mob
 - Add builder-level tests for ordering, applicability, labels, summaries, and hidden states. Completed for the current registry behavior.
 - Audit Art, Events, Collectibles, Wishlist, and other drawers for optional metadata sections that should use the shared primitive. Completed for the current drawer set.
 - Migrate matching drawers one surface at a time with browser checks for drawer density. Completed for Media, Collectibles, and Art.
+- Centralize shared object metadata record construction so matching drawers do not each assemble edition, condition/grading/authentication, proof, and related rows by hand. Completed for Media, Collectibles, and Art.
+- Centralize form-to-editor mapping where it removes repeated drawer-specific render code. Completed for Media, Collectibles, and Art.
 - Decide whether loans remain drawer-local state metadata or become a first-class registry item. Decision: keep the editor drawer-local while retaining the registry metadata shape.
 
 **Out of scope**
@@ -161,7 +165,7 @@ These are unscheduled interface cleanup tasks discovered during the `3.10.x` mob
 - Tests cover registry ordering, type-aware labels, applicability, and at least one migrated non-media drawer if one is in scope.
 - Events and Wishlist remain out of scope until they gain optional metadata sections that match the shared primitive.
 - Loan editor behavior remains drawer-local unless another drawer gains the same loan workflow and makes centralization worthwhile.
-- The work stops when the matching optional metadata surfaces are registry-backed; future drawer polish must be filed as specific new backlog items.
+- This item is complete because the matching optional metadata surfaces are registry-backed. Future drawer polish must be filed as specific new backlog items.
 
 ### Backlog Item: Collapsible Drawer Overview
 **Type:** UI/UX refinement
