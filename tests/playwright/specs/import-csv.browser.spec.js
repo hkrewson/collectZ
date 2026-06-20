@@ -8,6 +8,8 @@ const { deleteMediaByExactTitle, findExactMediaByTitle } = require('../helpers/m
 const { waitForSyncJob } = require('../helpers/importJobs');
 const { signInThroughUi } = require('../helpers/session');
 
+const LIBRARY_SEARCH_PLACEHOLDER = 'Search title, creator, or identifier…';
+
 test.use({ storageState: { cookies: [], origins: [] } });
 
 test.describe('csv import browser regressions', () => {
@@ -49,7 +51,7 @@ test.describe('csv import browser regressions', () => {
       expect(completedJob.status).toBe('succeeded');
 
       await page.goto('/dashboard?tab=library-movies');
-      const searchInput = page.getByPlaceholder('Search title, director…');
+      const searchInput = page.getByPlaceholder(LIBRARY_SEARCH_PLACEHOLDER);
       await searchInput.fill(title);
       await expect(page.getByText(title, { exact: true }).first()).toBeVisible();
       const stored = await findExactMediaByTitle(requestContext, title);

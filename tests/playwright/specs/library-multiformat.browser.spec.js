@@ -6,6 +6,7 @@ const { deleteMediaByExactTitle, findExactMediaByTitle } = require('../helpers/m
 
 const PLAYWRIGHT_BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000';
 const PLAYWRIGHT_E2E_BYPASS_TOKEN = String(process.env.PLAYWRIGHT_E2E_BYPASS_TOKEN || '').trim();
+const LIBRARY_SEARCH_PLACEHOLDER = 'Search title, creator, or identifier…';
 
 function buildBypassHeaders() {
   return PLAYWRIGHT_E2E_BYPASS_TOKEN
@@ -31,6 +32,10 @@ async function addSavedAdminCookies(page, requestContext = null) {
     ? await requestContext.storageState()
     : JSON.parse(fs.readFileSync(AUTH_STATE_PATH, 'utf8'));
   await page.context().addCookies(storageState.cookies || []);
+}
+
+function getLibrarySearchInput(page) {
+  return page.getByPlaceholder(LIBRARY_SEARCH_PLACEHOLDER);
 }
 
 test.use({ storageState: { cookies: [], origins: [] } });
@@ -193,7 +198,7 @@ test.describe('library multi-format browser regressions', () => {
       await page.context().addCookies(storageState.cookies || []);
       await page.goto('/dashboard?tab=library-games');
 
-      const searchInput = page.getByPlaceholder('Search title, director…');
+      const searchInput = getLibrarySearchInput(page);
       await searchInput.fill(title);
       const resultCard = page.locator('article').filter({
         has: page.getByText(title, { exact: true })
@@ -258,7 +263,7 @@ test.describe('library multi-format browser regressions', () => {
       await page.context().addCookies(storageState.cookies || []);
       await page.goto('/dashboard?tab=library-comics');
 
-      await page.getByPlaceholder('Search title, director…').fill(title);
+      await getLibrarySearchInput(page).fill(title);
       const resultCard = page.locator('article').filter({
         has: page.getByText(title, { exact: true })
       }).first();
@@ -329,7 +334,7 @@ test.describe('library multi-format browser regressions', () => {
       await page.context().addCookies(storageState.cookies || []);
       await page.goto('/dashboard?tab=library-movies');
 
-      await page.getByPlaceholder('Search title, director…').fill(title);
+      await getLibrarySearchInput(page).fill(title);
       const resultCard = page.locator('article').filter({
         has: page.getByText(title, { exact: true })
       }).first();
@@ -371,7 +376,7 @@ test.describe('library multi-format browser regressions', () => {
       await page.context().addCookies(storageState.cookies || []);
       await page.goto('/dashboard?tab=library-movies');
 
-      const searchInput = page.getByPlaceholder('Search title, director…');
+      const searchInput = getLibrarySearchInput(page);
       await searchInput.fill(title);
 
       const resultCard = page.locator('article').filter({
@@ -417,7 +422,7 @@ test.describe('library multi-format browser regressions', () => {
       await page.context().addCookies(storageState.cookies || []);
       await page.goto('/dashboard?tab=library-games');
 
-      const searchInput = page.getByPlaceholder('Search title, director…');
+      const searchInput = getLibrarySearchInput(page);
       await searchInput.fill(title);
       const resultCard = page.locator('article').filter({
         has: page.getByText(title, { exact: true })
@@ -465,7 +470,7 @@ test.describe('library multi-format browser regressions', () => {
       expect(createdPayload.format).toBe('Blu-ray');
 
       await page.goto('/dashboard?tab=library-movies');
-      const searchInput = page.getByPlaceholder('Search title, director…');
+      const searchInput = getLibrarySearchInput(page);
       await searchInput.fill(title);
       const resultCard = page.locator('article').filter({
         has: page.getByText(title, { exact: true })
@@ -521,7 +526,7 @@ test.describe('library multi-format browser regressions', () => {
       const storageState = await requestContext.storageState();
       await page.context().addCookies(storageState.cookies || []);
       await page.goto('/dashboard?tab=library-books');
-      await page.getByPlaceholder('Search title, director…').fill(title);
+      await getLibrarySearchInput(page).fill(title);
 
       const resultCard = page.locator('article').filter({
         has: page.getByText(title, { exact: true })
@@ -620,7 +625,7 @@ test.describe('library multi-format browser regressions', () => {
       await expect(page.getByRole('button', { name: 'Add media' })).toBeVisible();
       await expect(page.locator('article').first()).toBeVisible();
 
-      const searchInput = page.getByPlaceholder('Search title, director…');
+      const searchInput = getLibrarySearchInput(page);
       await searchInput.fill(title);
       await expect(searchInput).toHaveValue(title);
       const resultCard = page.locator('article').filter({
@@ -979,7 +984,7 @@ test.describe('library multi-format browser regressions', () => {
       await page.context().addCookies(storageState.cookies || []);
       await page.goto('/dashboard?tab=library-movies');
 
-      const searchInput = page.getByPlaceholder('Search title, director…');
+      const searchInput = getLibrarySearchInput(page);
       await searchInput.fill(searchPrefix);
 
       const firstSelector = page.getByRole('button', { name: `Select ${titles[0]}` });
@@ -1024,7 +1029,7 @@ test.describe('library multi-format browser regressions', () => {
       await page.context().addCookies(storageState.cookies || []);
       await page.goto('/dashboard?tab=library-movies');
 
-      const searchInput = page.getByPlaceholder('Search title, director…');
+      const searchInput = getLibrarySearchInput(page);
       await searchInput.fill(searchPrefix);
 
       const selectPageButton = page.getByRole('button', { name: /^Select page \(\d+\)$/ });
