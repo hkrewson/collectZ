@@ -247,6 +247,7 @@ These are product-level capability gaps discovered from the current shape of the
 - Dashboard and provider surfaces expose some fixed views.
 - The first selected slice, `3.19.3 — Local Saved Library Views`, added browser-local Library saved views to prove the filter snapshot shape.
 - The second selected slice, `3.19.4 — Durable Library Saved Views`, adds private, user-owned backend persistence for Library saved views while keeping local storage as a fallback.
+- The third selected slice, `3.19.5 — Saved Views Navigation`, adds a Library navigation entry point for private durable saved views.
 - Users cannot share workspace-scoped smart views or define automated smart-collection rules yet.
 
 **Scope**
@@ -257,7 +258,7 @@ These are product-level capability gaps discovered from the current shape of the
 - Define saved view storage: owner, workspace/library scope, object type, filters, sort, display mode, and visibility. Completed for private Library saved views in `3.19.4`.
 - Add create/update/delete/list endpoints for saved views. Completed for private Library saved views in `3.19.4`.
 - Add UI affordances to save the current library filter state. Completed for Library saved views across `3.19.3` and `3.19.4`.
-- Add a "Saved Views" entry point in the library/dashboard navigation.
+- Add a "Saved Views" entry point in the library/dashboard navigation. Completed for private Library saved views in `3.19.5`.
 - Later: support smart collection badges, shared workspace views, and review/health-driven views.
 
 **Acceptance Criteria**

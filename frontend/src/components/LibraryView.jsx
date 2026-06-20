@@ -4376,6 +4376,8 @@ export default function LibraryView({
   reviewFilter = null,
   onClearReviewFilter = null,
   focusTarget = null,
+  initialSavedViewId = '',
+  onSavedViewApplied = null,
   onFindPossibleDuplicates = null,
   canWritePlex = false
 }) {
@@ -4685,6 +4687,14 @@ export default function LibraryView({
       cancelled = true;
     };
   }, [apiCall, savedViewScope]);
+
+  useEffect(() => {
+    if (!initialSavedViewId) return;
+    const selected = savedLibraryViews.find((view) => String(view.id) === String(initialSavedViewId));
+    if (!selected) return;
+    applySavedLibraryView(selected);
+    onSavedViewApplied?.(selected);
+  }, [applySavedLibraryView, initialSavedViewId, onSavedViewApplied, savedLibraryViews]);
 
   useEffect(() => {
     if (!activeSavedViewId) return;

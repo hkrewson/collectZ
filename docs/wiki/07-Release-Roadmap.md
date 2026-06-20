@@ -6,6 +6,42 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.19.5 — Saved Views Navigation
+
+**Goal:** Make durable Library saved views discoverable from the Library navigation instead of only inside each Library header control.
+
+### Scope
+
+- Add `Saved Views` as a Library navigation entry.
+- Add a saved Library views index surface grouped by media type.
+- Let users open a saved view from the index and land in the matching Library tab.
+- Apply the selected saved view after the Library tab loads its saved-view data.
+- Keep shared views, smart rules, dashboard cards, and smart collection badges out of scope.
+
+### Acceptance Criteria
+
+- Saved Views appears in the Library navigation group.
+- The Saved Views surface lists durable saved Library views for the active scope.
+- Selecting a saved view opens the matching Library media tab.
+- The selected saved view is applied after the Library loads.
+- Existing direct Library saved-view controls continue to work.
+
+### Active Slice Notes
+
+- This is the third selected slice from the broader Saved Views and Smart Collections backlog item.
+- This slice adds navigation/discovery only; it does not expand saved-view permissions or rule semantics.
+
+### Closeout
+
+- Status: completed in `3.19.5`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, and `docs/releases/v3.19.5.md`.
+- Runtime evidence: no running-stack evidence for this slice; the local release preflight recorded compose smoke as blocked because the local backend service was not running.
+- Verification: backend unit test syntax passed; backend unit tests passed with `327` checks; OpenAPI validation passed; frontend production build passed; backend and frontend dependency audits passed during `npm run release:local-gate`; `git diff --check` passed.
+- Blocked/unverified: `npm run release:local-gate` passed package metadata, version sync, release note/feed, backend unit, OpenAPI, frontend build, dependency audits, and diff hygiene, but failed the release-preflight gate because observability release evidence is stale/missing and compose smoke was blocked by no running local backend service. Secret scan, browser regression, and image security/SBOM remain CI or full-profile follow-through gates.
+- Risks/follow-ups: the Saved Views entry point lists private durable Library saved views only. Shared workspace views, smart rules, dashboard cards, and smart collection badges remain backlog work.
+- Files changed: `app-meta.json`; `backend/app-meta.json`; `backend/package-lock.json`; `backend/package.json`; `backend/release-feed.json`; `backend/scripts/unit-tests.js`; `docs/releases/v3.19.5.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `frontend/package-lock.json`; `frontend/package.json`; `frontend/src/app-meta.json`; `frontend/src/components/LibraryView.jsx`; `frontend/src/components/SidebarNav.jsx`; `frontend/src/components/app/DashboardContent.jsx`; `frontend/src/components/app/DashboardShell.jsx`; `frontend/src/components/app/dashboardRouting.js`; `frontend/src/components/app/productEdition.js`; and `preflight-go-no-go.md`.
+- What remains in the milestone: running-stack compose smoke, refreshed observability evidence, browser regression, secret scan, and image/SBOM checks need follow-through before treating `3.19.5` as fully release-ready.
+
 ## 3.19.4 — Durable Library Saved Views
 
 **Goal:** Persist Library saved views through the backend so named filter/sort/display states survive across browser sessions and devices.

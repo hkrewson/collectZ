@@ -39,6 +39,121 @@ const libraryTitleByTab = {
   'library-comics': 'Comics'
 };
 
+const savedViewLibraryTabByMediaType = {
+  movie: 'library-movies',
+  tv: 'library-tv',
+  tv_series: 'library-tv',
+  book: 'library-books',
+  audio: 'library-audio',
+  game: 'library-games',
+  comic_book: 'library-comics'
+};
+
+const savedViewMediaLabel = {
+  movie: 'Movies',
+  tv: 'TV',
+  tv_series: 'TV',
+  book: 'Books',
+  audio: 'Audio',
+  game: 'Games',
+  comic_book: 'Comics'
+};
+
+function SavedLibraryViewsView({ apiCall, onToast, onOpenView, Spinner }) {
+  const [views, setViews] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState('');
+
+  React.useEffect(() => {
+    let cancelled = false;
+    const loadViews = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const payload = await apiCall('get', '/libraries/saved-views');
+        const nextViews = Array.isArray(payload?.views) ? payload.views : [];
+        if (!cancelled) setViews(nextViews);
+      } catch (err) {
+        const message = err?.response?.data?.error || 'Failed to load saved views';
+        if (!cancelled) {
+          setError(message);
+          onToast?.(message, 'error');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    loadViews();
+    return () => {
+      cancelled = true;
+    };
+  }, [apiCall, onToast]);
+
+  const groupedViews = React.useMemo(() => {
+    const groups = new Map();
+    for (const view of views) {
+      const mediaType = String(view.media_type || view.scope || 'movie');
+      const label = savedViewMediaLabel[mediaType] || mediaType;
+      if (!groups.has(label)) groups.set(label, []);
+      groups.get(label).push(view);
+    }
+    return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b));
+  }, [views]);
+
+  return (
+    <div className="flex h-full flex-col overflow-hidden bg-abyss">
+      <div className="shrink-0 border-b border-edge bg-abyss px-4 py-5 sm:px-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="section-title">Saved Views</h1>
+            <p className="mt-1 text-sm text-ghost">Reusable Library filters for this workspace and library.</p>
+          </div>
+          <button type="button" className="btn-secondary" onClick={() => onOpenView?.({ media_type: 'movie' })}>
+            Open Movies
+          </button>
+        </div>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
+        {loading ? (
+          <div className="flex h-40 items-center justify-center text-ghost"><Spinner size={18} /></div>
+        ) : error ? (
+          <div className="rounded-lg border border-err/30 bg-err/10 p-4 text-sm text-err">{error}</div>
+        ) : groupedViews.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-edge bg-raised/40 p-6 text-sm text-ghost">
+            No saved views yet. Save one from a Library header to make it available here.
+          </div>
+        ) : (
+          <div className="space-y-5">
+            {groupedViews.map(([label, group]) => (
+              <section key={label} className="space-y-2">
+                <h2 className="text-sm font-semibold text-dim">{label}</h2>
+                <div className="divide-y divide-edge overflow-hidden rounded-lg border border-edge bg-raised/50">
+                  {group.map((view) => (
+                    <button
+                      key={view.id}
+                      type="button"
+                      className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition hover:bg-muted/40"
+                      onClick={() => onOpenView?.(view)}
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-ink">{view.name}</p>
+                        <p className="mt-1 text-xs text-ghost">
+                          {view.updated_at || view.updatedAt ? `Updated ${new Date(view.updated_at || view.updatedAt).toLocaleDateString()}` : 'Saved view'}
+                        </p>
+                      </div>
+                      <span className="shrink-0 text-xs font-medium text-accent">Open</span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardContent({
   activeTab,
   setActiveTab,
@@ -89,6 +204,7 @@ export default function DashboardContent({
 }) {
   const [mergeReviewSeed, setMergeReviewSeed] = React.useState(null);
   const [timelineFocus, setTimelineFocus] = React.useState(null);
+  const [pendingLibrarySavedViewId, setPendingLibrarySavedViewId] = React.useState('');
   const isAdminTab = String(activeTab || '').startsWith('admin-');
   const supportHelpEnabled = isSupportHelpEnabled(productEdition);
   const localRuntime = isLocalProductEdition(productEdition);
@@ -167,6 +283,7 @@ export default function DashboardContent({
     case 'library-audio':
     case 'library-games':
     case 'library-comics':
+    case 'library-saved-views':
     case 'library-wishlist':
     case 'library-capture':
     case 'library-loans':
@@ -224,9 +341,24 @@ export default function DashboardContent({
           />
         );
       }
+      if (activeTab === 'library-saved-views') {
+        return (
+          <SavedLibraryViewsView
+            key={`library-saved-views:${scopeKey}`}
+            apiCall={apiCall}
+            onToast={showToast}
+            Spinner={Spinner}
+            onOpenView={(view) => {
+              const targetTab = savedViewLibraryTabByMediaType[String(view?.media_type || view?.scope || 'movie')] || 'library-movies';
+              setPendingLibrarySavedViewId(view?.id ? String(view.id) : '');
+              setActiveTab(targetTab);
+            }}
+          />
+        );
+      }
       return (
         <LibraryView
-          key={`library:${activeTab}:${scopeKey}:${libraryReviewFilter?.type || 'none'}:${libraryReviewFilter?.createdAt || 0}`}
+          key={`library:${activeTab}:${scopeKey}:${libraryReviewFilter?.type || 'none'}:${libraryReviewFilter?.createdAt || 0}:${pendingLibrarySavedViewId || 'none'}`}
           mediaItems={mediaItems}
           loading={mediaLoading}
           error={mediaError}
@@ -244,6 +376,8 @@ export default function DashboardContent({
           reviewFilter={activeTab === 'library' ? libraryReviewFilter : null}
           onClearReviewFilter={() => setLibraryReviewFilter?.(null)}
           focusTarget={timelineFocus?.entityType === 'media' ? timelineFocus : null}
+          initialSavedViewId={pendingLibrarySavedViewId}
+          onSavedViewApplied={() => setPendingLibrarySavedViewId('')}
           onFindPossibleDuplicates={user?.role === 'admin'
             ? (item) => {
                 setMergeReviewSeed({

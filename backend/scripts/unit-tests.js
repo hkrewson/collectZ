@@ -3911,6 +3911,20 @@ results.push(run('library saved views persist through scoped backend endpoints',
   assert.ok(libraryViewSource.includes("setSavedViewsStorageMode('local')"));
 }));
 
+results.push(run('library saved views have a dashboard navigation entry point', () => {
+  assert.ok(dashboardRoutingSource.includes("'library-saved-views'"));
+  assert.ok(productEditionFrontendSource.includes("'library-saved-views'"));
+  assert.ok(sidebarNavSource.includes('id="library-saved-views"'));
+  assert.ok(sidebarNavSource.includes('label="Saved Views"'));
+  assert.ok(dashboardShellSource.includes("'library-saved-views': 'Saved Views'"));
+  assert.ok(dashboardContentSource.includes('function SavedLibraryViewsView('));
+  assert.ok(dashboardContentSource.includes("apiCall('get', '/libraries/saved-views')"));
+  assert.ok(dashboardContentSource.includes('setPendingLibrarySavedViewId'));
+  assert.ok(dashboardContentSource.includes('initialSavedViewId={pendingLibrarySavedViewId}'));
+  assert.ok(libraryViewSource.includes('initialSavedViewId = \'\''));
+  assert.ok(libraryViewSource.includes('onSavedViewApplied?.(selected)'));
+}));
+
 results.push(run('media drawer avoids redundant follow-up title lookups for enriched identifier results', () => {
   assert.ok(libraryViewSource.includes('const enrichIdentifierSelection = async (match) => {'));
   assert.ok(libraryViewSource.includes('if (match?.tmdb || match?.book || match?.typeEnrichment)'));

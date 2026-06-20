@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.19.5",
+      "version": "3.19.5",
+      "date": null,
+      "status": null,
+      "summary": "This patch adds a Library navigation entry point for saved views. Users can open Saved Views from the Library navigation, review their durable saved Library views grouped by media type, and jump into the matching Library with the saved view applied.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added `Saved Views` to the Library navigation group.",
+            "Added a saved Library views index surface.",
+            "Wired saved-view selections into the matching media Library tab.",
+            "Added a `LibraryView` handoff prop so navigation-selected saved views apply after saved views load.",
+            "Added unit/source coverage for the saved-view navigation contract."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.19.4",
       "version": "3.19.4",
       "date": null,
@@ -162,25 +181,6 @@
             "Reworded four OpenAPI admin workspace summaries away from internal operations language.",
             "Reduced the public-source boundary audit from `32` findings across `6` files to `27` findings across `5` files.",
             "Confirmed the `control plane` blocker category is cleared from the audit."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.18.2",
-      "version": "3.18.2",
-      "date": null,
-      "status": null,
-      "summary": "This release adds the first explicit public-source boundary audit. The public mirror remains an install/support mirror for now, but maintainers can now measure exactly which frontend and OpenAPI source surfaces still block a useful source mirror.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added `npm run audit:public-source-boundary` to scan candidate source-publication surfaces.",
-            "Added a JSON audit report under ignored local artifacts so blockers can be reviewed without committing evidence files.",
-            "Tracked blocker categories for private runtime language, runtime contract names, operations wording, auth/test bypass labels, and private docs references.",
-            "Updated public mirror docs and sanitizer strategy to make clear that application source remains private until this boundary is intentionally cleaned.",
-            "Tightened the public export contract so source folders stay denied until the audit findings are resolved."
           ]
         }
       ]

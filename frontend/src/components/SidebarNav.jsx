@@ -68,6 +68,7 @@ export default function SidebarNav({
     'library-art',
     'library-games',
     'library-comics',
+    'library-saved-views',
     'library-wishlist',
     'library-loans',
     'library-collectibles',
@@ -324,6 +325,7 @@ export default function SidebarNav({
                 <div className="my-1 border-t border-edge/70" />
                 <NavLink id="library-loans" icon={null} label="Loans" sub />
                 {showWorkspaceMergeReviewLink && <NavLink id="admin-merges" icon={null} label="Review" sub />}
+                <NavLink id="library-saved-views" icon={null} label="Saved Views" sub />
                 <NavLink id="library-wishlist" icon={null} label="Wishlist" sub />
               </div>
             )}

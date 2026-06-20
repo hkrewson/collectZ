@@ -10,6 +10,7 @@ export const VALID_DASHBOARD_TABS = new Set([
   'library-art',
   'library-games',
   'library-comics',
+  'library-saved-views',
   'library-wishlist',
   'library-capture',
   'library-loans',
@@ -52,7 +53,7 @@ function normalizeDashboardTab(tab) {
 
 export function readDashboardStateFromUrl() {
   const path = String(window.location.pathname || '');
-  const libMatch = path.match(/^\/library\/(movies|tv|books|audio|art|games|comics|wishlist|capture|loans|collectibles|events|other|import|import-review)\/?$/);
+  const libMatch = path.match(/^\/library\/(movies|tv|books|audio|art|games|comics|saved-views|wishlist|capture|loans|collectibles|events|other|import|import-review)\/?$/);
   if (libMatch) {
     const slug = libMatch[1];
     return {

@@ -72,6 +72,7 @@ export function getLocalRuntimeAllowedTabs({
     'library-art',
     'library-games',
     'library-comics',
+    'library-saved-views',
     'library-wishlist',
     'library-capture',
     'library-loans',
