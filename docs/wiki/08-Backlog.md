@@ -109,6 +109,55 @@ These are unscheduled interface cleanup tasks discovered during the `3.10.x` mob
 - Collapsed and expanded sidebar marks remain aligned with the nav icon column.
 - Browser coverage proves the new collapse/expand affordance.
 
+### Backlog Item: Drawer Metadata Registry
+**Type:** UI/UX architecture refinement
+**Tags:** `ui`, `ux`, `drawers`, `metadata`, `library`, `primitives`, `density`
+**Status:** Active backlog; not yet promoted or versioned.
+
+**Goal:** Finish the Option 4 drawer metadata direction by making optional drawer metadata a shared registry-driven primitive instead of page-specific rendering decisions.
+
+**Why this work exists**
+- Library drawers now have compact optional metadata rows and a first extracted metadata builder module.
+- The current media drawer path is cleaner, but other drawers can still drift in spacing, helper copy, ordering, and visual weight.
+- Optional details such as edition, condition/grading, proof, related records, and loans should feel consistent and secondary across all drawers that use them.
+- This should be bounded architecture work, not an open-ended drawer redesign.
+
+**Current state**
+- `AppPrimitives.jsx` owns the compact row/edit UI primitives.
+- `drawerMetadata.js` owns the current media metadata builders for edition, condition/grading/authentication, proof, related records, and loans.
+- `DrawerMetadataList` can accept an ordered item array and sort by `displayPriority`.
+- `LibraryView` uses the item-array path for media drawer metadata.
+- Other drawer surfaces have not yet been audited or moved to the same metadata registry pattern.
+
+**Scope**
+- Define a declarative drawer metadata registry with stable fields such as `id`, `label`, `summary`, `emptyLabel`, `form`, `displayPriority`, `appliesTo(context)`, and `build(context)`.
+- Move the current media drawer metadata builders behind the registry without changing user-visible behavior.
+- Add type-aware applicability so metadata can be renamed or hidden by object/media type.
+- Centralize form-to-editor mapping where doing so removes repeated drawer-specific render code.
+- Migrate other applicable drawer surfaces to `DrawerMetadataList` only when they already have optional metadata sections that match the primitive.
+- Keep optional metadata compact by default; helper copy belongs in edit/add state, not the default drawer readback.
+
+**Candidate subtasks**
+- Promote the current builder functions in `drawerMetadata.js` into registry entries.
+- Add builder-level tests for ordering, applicability, labels, summaries, and hidden states.
+- Audit Art, Events, Collectibles, Wishlist, and other drawers for optional metadata sections that should use the shared primitive.
+- Migrate matching drawers one surface at a time with browser checks for drawer density.
+- Decide whether loans remain drawer-local state metadata or become a first-class registry item.
+
+**Out of scope**
+- Do not redesign the full drawer shell.
+- Do not add new metadata concepts solely because the registry exists.
+- Do not force every drawer section into the metadata registry; primary object details should stay primary.
+- Do not move platform/cairn-specific settings or admin surfaces into this Core drawer metadata system.
+
+**Acceptance Criteria**
+- Optional metadata rendering has one shared primitive path for ordering, compact readback, add/edit action placement, and empty state labels.
+- Registry entries define applicability and display priority without each drawer hand-sorting sections.
+- Media drawer behavior remains unchanged except for internal structure.
+- Other migrated drawers preserve their existing data behavior while becoming visually consistent with the shared primitive.
+- Tests cover registry ordering, type-aware labels, applicability, and at least one migrated non-media drawer if one is in scope.
+- The work stops when the matching optional metadata surfaces are registry-backed; future drawer polish must be filed as specific new backlog items.
+
 ## Product-Level Feature Gaps
 
 These are product-level capability gaps discovered from the current shape of the app. They are not immediate implementation commitments and should stay versionless until one is selected and moved into the roadmap as a numbered milestone.
