@@ -2212,6 +2212,32 @@ export function DrawerMetadataItem({
   );
 }
 
+export function DrawerMetadataEntry({
+  metadata,
+  actionLabel,
+  onAction,
+  actionDisabled = false,
+  actions,
+  children,
+  className = ''
+}) {
+  if (!metadata?.applies) return null;
+  return (
+    <DrawerMetadataItem
+      label={metadata.label}
+      summary={metadata.summary}
+      details={metadata.details}
+      actionLabel={actionLabel || (metadata.hasValue ? 'Edit' : metadata.emptyLabel)}
+      onAction={onAction}
+      actionDisabled={actionDisabled}
+      actions={actions}
+      className={className}
+    >
+      {children}
+    </DrawerMetadataItem>
+  );
+}
+
 function gradingCopyForContext({ mediaType = '', ownerType = '' } = {}) {
   const normalizedOwner = String(ownerType || '').trim().toLowerCase();
   const normalizedMedia = String(mediaType || '').trim().toLowerCase();
@@ -2281,6 +2307,23 @@ function buildEditionForm(trait = null, mediaType = 'movie') {
     number: cleanTraitText(payload.number || detailValue(details, 'number')),
     run: cleanTraitText(payload.run || detailValue(details, 'run')),
     notes: cleanTraitText(payload.notes || detailValue(details, 'notes'))
+  };
+}
+
+function buildEditionMetadata({ trait = null, mediaType = 'movie' } = {}) {
+  const config = editionConfigForMediaType(mediaType);
+  const hasValue = Boolean(trait);
+  return {
+    id: 'edition',
+    label: config.title,
+    emptyLabel: 'Add',
+    displayPriority: 20,
+    applies: true,
+    mediaType,
+    hasValue,
+    summary: trait?.summary || '',
+    details: compactDetailString(trait?.details),
+    form: 'edition_variant'
   };
 }
 
@@ -2693,6 +2736,7 @@ export function EditionVariantEditor({
 }) {
   const config = editionConfigForMediaType(mediaType);
   const currentTrait = findEditionVariantTrait(traits);
+  const metadata = buildEditionMetadata({ trait: currentTrait, mediaType });
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(() => buildEditionForm(currentTrait, mediaType));
@@ -2762,11 +2806,8 @@ export function EditionVariantEditor({
 
   if (!editing) {
     return (
-      <DrawerMetadataItem
-        title={config.title}
-        summary={currentTrait?.summary || ''}
-        details={compactDetailString(currentTrait?.details)}
-        actionLabel={currentTrait ? 'Edit' : 'Add'}
+      <DrawerMetadataEntry
+        metadata={metadata}
         onAction={() => setEditing(true)}
         className={className}
       />
@@ -2774,7 +2815,7 @@ export function EditionVariantEditor({
   }
 
   return (
-    <DrawerMetadataItem title={config.title} className={className}>
+    <DrawerMetadataEntry metadata={metadata} className={className}>
       <form className="space-y-3" onSubmit={save} data-testid="edition-variant-editor">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {(config.fields || []).map((field) => (
@@ -2826,7 +2867,7 @@ export function EditionVariantEditor({
             <button type="submit" className="btn-primary btn-sm" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
           </div>
       </form>
-    </DrawerMetadataItem>
+    </DrawerMetadataEntry>
   );
 }
 

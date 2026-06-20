@@ -3827,10 +3827,16 @@ results.push(run('detail drawers share the standard shell and mobile density spa
 results.push(run('drawer optional metadata primitives render compact rows with adaptive condition labels', () => {
   assert.ok(appPrimitivesSource.includes('function DrawerMetadataList({ children, className = \'\' })'));
   assert.ok(appPrimitivesSource.includes('function DrawerMetadataItem({'));
+  assert.ok(appPrimitivesSource.includes('function DrawerMetadataEntry({'));
+  assert.ok(appPrimitivesSource.includes('function buildEditionMetadata({ trait = null, mediaType = \'movie\' } = {})'));
   assert.ok(appPrimitivesSource.includes("className={cx('border-b border-edge/70 py-2.5'"));
   assert.ok(appPrimitivesSource.includes('children,'));
   assert.ok(appPrimitivesSource.includes('actions,'));
   assert.ok(appPrimitivesSource.includes('actionDisabled = false'));
+  assert.ok(appPrimitivesSource.includes("displayPriority: 20"));
+  assert.ok(appPrimitivesSource.includes("form: 'edition_variant'"));
+  assert.ok(appPrimitivesSource.includes('const metadata = buildEditionMetadata({ trait: currentTrait, mediaType });'));
+  assert.ok(appPrimitivesSource.includes('<DrawerMetadataEntry'));
   assert.ok(appPrimitivesSource.includes("{children ? <div className=\"mt-3\">{children}</div> : null}"));
   assert.ok(appPrimitivesSource.includes('function gradingCopyForContext({ mediaType = \'\', ownerType = \'\' } = {})'));
   assert.ok(appPrimitivesSource.includes("CONDITION_LIKE_MEDIA_TYPES.has(normalizedMedia)"));
