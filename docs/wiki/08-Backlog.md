@@ -158,6 +158,39 @@ These are unscheduled interface cleanup tasks discovered during the `3.10.x` mob
 - Tests cover registry ordering, type-aware labels, applicability, and at least one migrated non-media drawer if one is in scope.
 - The work stops when the matching optional metadata surfaces are registry-backed; future drawer polish must be filed as specific new backlog items.
 
+### Backlog Item: Collapsible Drawer Overview
+**Type:** UI/UX refinement
+**Tags:** `ui`, `ux`, `drawers`, `overview`, `density`, `library`
+**Status:** Active backlog; not yet promoted or versioned.
+
+**Goal:** Keep long drawer overview text from pushing practical object details too far down the drawer by collapsing long overviews by default.
+
+**Why this work exists**
+- Some media/library overviews can be long enough to dominate the first visible drawer content.
+- The overview is useful context, but it should not crowd out title details, ownership details, optional metadata, or edit actions.
+- The behavior should be a reusable drawer text primitive instead of a one-off media drawer truncation.
+
+**Scope**
+- Add a compact overview/read-more primitive for drawer overview text.
+- Collapse long overview text by default to a small number of lines, likely 4 lines unless visual testing suggests 3 or 5 is better.
+- Provide a simple expand/collapse action with accessible labels and keyboard behavior.
+- Preserve full text in the expanded state without changing saved overview data.
+- Apply first to media/library drawers, then reuse on other drawer surfaces only where long prose has the same density problem.
+
+**Out of scope**
+- Do not rewrite overview content or summarize it automatically.
+- Do not hide short overviews behind an extra control.
+- Do not add rich text, markdown, or provider-specific formatting as part of this task.
+- Do not make the drawer header or primary details collapsible in this task.
+
+**Acceptance Criteria**
+- Long overviews display in a compact collapsed state by default.
+- Users can expand and collapse the full overview in place.
+- Short overviews render without unnecessary controls.
+- The control is accessible by screen reader and keyboard.
+- Drawer layout remains stable and does not push primary details below optional metadata without user action.
+- Browser coverage verifies collapsed, expanded, and short-overview states.
+
 ## Product-Level Feature Gaps
 
 These are product-level capability gaps discovered from the current shape of the app. They are not immediate implementation commitments and should stay versionless until one is selected and moved into the roadmap as a numbered milestone.
