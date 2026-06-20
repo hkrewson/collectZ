@@ -346,8 +346,8 @@ export default function SpaceManagerView({
                 onToast={onToast}
                 onSettingsChange={onSettingsChange}
                 Spinner={Spinner}
-                title="Workspace Settings"
-                description="These settings apply to the selected workspace and its library work. Platform-wide setup remains under Platform."
+                title=""
+                description={null}
                 embedded
                 generalSettingsEndpoint={`/spaces/${activeSpaceId}/settings/general`}
                 updateGeneralSettingsEndpoint={`/spaces/${activeSpaceId}/settings/general`}

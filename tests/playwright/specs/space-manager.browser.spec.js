@@ -315,7 +315,8 @@ test.describe('space manager browser regressions', () => {
       await expect(workspaceSections.getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
       await workspaceSections.getByRole('button', { name: 'Settings', exact: true }).click();
 
-      await expect(page.getByRole('heading', { name: 'Workspace Settings', exact: true })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Workspace Settings', exact: true })).toHaveCount(0);
+      await expect(page.getByText('These settings apply to the selected workspace and its library work. Platform-wide setup remains under Platform.', { exact: true })).toHaveCount(0);
       await expect(page.getByLabel('Name', { exact: true })).toBeVisible();
       await expect(page.getByText('Theme', { exact: true })).toBeVisible();
       await expect(page.getByText('Events Library', { exact: true })).toBeVisible();
