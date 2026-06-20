@@ -84,7 +84,6 @@ export default function SidebarNav({
   ].includes(activeTab);
   const isTabAllowed = (tabId) => !allowedTabs || allowedTabs.has(tabId);
   const showLibrarySwitcher = canUseLibraryShell && libraries.length > 1;
-  const showDesktopHamburger = !collapsed;
   const canOpenSpaceSurface = Boolean(activeMembershipRole) || canManageActiveSpace;
   const showWorkspaceSettingsLink = !localRuntime && canOpenSpaceSurface && isTabAllowed('space-manage');
   const showWorkspaceMergeReviewLink = canOpenSpaceSurface && isTabAllowed('admin-merges');
@@ -239,26 +238,57 @@ export default function SidebarNav({
         <div
           data-testid="navigation-menu-top"
           className={cx(
-            'flex items-center gap-2 border-b border-edge shrink-0 px-3 py-1.5',
+            'flex items-center gap-2 border-b border-edge shrink-0 px-3 py-1',
             collapsed ? 'justify-center px-0' : ''
           )}
         >
-          <div className={cx('flex h-7 w-7 shrink-0 items-center justify-center text-gold', !collapsed && 'ml-2')}>
-            <CollectzMark className="h-6 w-6" title={collapsed ? 'Collectz' : ''} />
-          </div>
-
-          {!collapsed && (
-            <div className="min-w-0 flex-1 lg:flex lg:items-baseline lg:gap-2">
-              <div className="hidden text-sm font-semibold tracking-tight text-ink leading-none lg:block lg:text-base">collectZ</div>
+          <button
+            type="button"
+            onClick={onToggle}
+            className={cx(
+              'group relative hidden min-w-0 items-center gap-2 rounded-md py-1.5 text-left text-dim transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/45 lg:flex',
+              collapsed ? 'h-9 w-9 justify-center px-0' : 'flex-1 px-2'
+            )}
+            aria-label={pinnedExpanded ? 'Collapse navigation' : 'Expand navigation'}
+            aria-expanded={!collapsed}
+            title={pinnedExpanded ? 'Collapse navigation' : 'Expand navigation'}
+          >
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center text-gold">
+              <CollectzMark className="h-6 w-6" title={collapsed ? 'Collectz' : ''} />
+            </span>
+            {!collapsed && (
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-semibold leading-none tracking-tight text-ink lg:text-base">collectZ</span>
+              </span>
+            )}
+            <span
+              aria-hidden="true"
+              className={cx(
+                'pointer-events-none absolute bottom-0 h-0.5 rounded-full bg-gold/35 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100',
+                collapsed ? 'left-1 right-1' : 'left-2 right-2'
+              )}
+            />
+          </button>
+          <div className={cx(
+            'flex min-w-0 flex-1 items-center gap-2 lg:hidden',
+            collapsed ? 'justify-center' : ''
+          )}>
+            <div className={cx('flex h-7 w-7 shrink-0 items-center justify-center text-gold', !collapsed && 'ml-2')}>
+              <CollectzMark className="h-6 w-6" title={collapsed ? 'Collectz' : ''} />
             </div>
-          )}
-          {showDesktopHamburger && (
+            {!collapsed && (
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-semibold tracking-tight text-ink leading-none">collectZ</div>
+              </div>
+            )}
+          </div>
+          {mobileOpen && (
             <button
               type="button"
-              onClick={mobileOpen ? onMobileClose : onToggle}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-edge bg-raised text-dim transition-colors hover:text-ink"
-              aria-label={mobileOpen ? 'Close navigation' : pinnedExpanded ? 'Collapse navigation' : 'Expand navigation'}
-              title={mobileOpen ? 'Close navigation' : pinnedExpanded ? 'Collapse navigation' : 'Expand navigation'}
+              onClick={onMobileClose}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-edge bg-raised text-dim transition-colors hover:text-ink lg:hidden"
+              aria-label="Close navigation"
+              title="Close navigation"
             >
               <Icons.Menu />
             </button>

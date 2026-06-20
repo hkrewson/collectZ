@@ -5930,6 +5930,13 @@ results.push(run('dashboard shell exposes merge review as workspace-scoped opera
   assert.ok(sidebarNavSource.includes('showPlatformHelpAdmin'));
   assert.ok(sidebarNavSource.includes('const NavUnderline'));
   assert.ok(sidebarNavSource.includes('const AccountMenuItem'));
+  assert.ok(sidebarNavSource.includes("aria-label={pinnedExpanded ? 'Collapse navigation' : 'Expand navigation'}"));
+  assert.ok(sidebarNavSource.includes('aria-expanded={!collapsed}'));
+  assert.ok(sidebarNavSource.includes('lg:flex'));
+  assert.ok(sidebarNavSource.includes('lg:hidden'));
+  assert.ok(sidebarNavSource.includes('{mobileOpen && ('));
+  assert.ok(sidebarNavSource.includes('aria-label="Close navigation"'));
+  assert.ok(!sidebarNavSource.includes('const showDesktopHamburger'));
   assert.ok(sidebarNavSource.includes('bg-gold'));
   assert.ok(sidebarNavSource.includes('group-hover:opacity-100'));
   assert.ok(sidebarNavSource.includes('focus-visible:ring-0'));
