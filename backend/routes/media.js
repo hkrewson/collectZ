@@ -5505,6 +5505,35 @@ function scopedActivityDetails(scopeContext, details = {}) {
   };
 }
 
+function shouldRepairPlexAudioTitle(currentRow = {}, incomingMedia = {}) {
+  const incomingType = normalizeMediaType(incomingMedia.media_type || '', '');
+  if (incomingType !== 'audio') return false;
+  const incomingTitle = String(incomingMedia.title || '').trim();
+  const incomingDetails = incomingMedia.type_details && typeof incomingMedia.type_details === 'object'
+    ? incomingMedia.type_details
+    : {};
+  const incomingAlbum = String(incomingDetails.album || '').trim();
+  const incomingArtist = String(incomingDetails.artist || '').trim();
+  if (!incomingTitle || !incomingAlbum || normalizeTitleForMatch(incomingTitle) !== normalizeTitleForMatch(incomingAlbum)) {
+    return false;
+  }
+
+  const currentTitle = String(currentRow.title || '').trim();
+  if (!currentTitle || normalizeTitleForMatch(currentTitle) === normalizeTitleForMatch(incomingTitle)) return false;
+  if (String(currentRow.import_source || '').trim().toLowerCase() !== 'plex') return false;
+  if (normalizeMediaType(currentRow.media_type || '', '') !== 'audio') return false;
+
+  const currentDetails = currentRow.type_details && typeof currentRow.type_details === 'object'
+    ? currentRow.type_details
+    : {};
+  const currentAlbum = String(currentDetails.album || '').trim();
+  const currentArtist = String(currentDetails.artist || '').trim();
+
+  return !currentAlbum
+    || (incomingArtist && normalizeTitleForMatch(currentTitle) === normalizeTitleForMatch(incomingArtist))
+    || (currentArtist && normalizeTitleForMatch(currentTitle) === normalizeTitleForMatch(currentArtist));
+}
+
 function resolveValuationProviderForConfig(config = {}, mode = 'live') {
   const normalizedMode = String(mode || 'live').trim().toLowerCase();
   if (normalizedMode === 'fixture') {
@@ -5966,6 +5995,7 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
   let variantsUpdated = 0;
   let seasonsCreated = 0;
   let seasonsUpdated = 0;
+  let audioTitlesRepaired = 0;
   const processedShowSeasonKeys = new Set();
   let items = [];
   const tmdbEnrichmentCache = new Map();
@@ -6379,6 +6409,7 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
       }, scopeContext);
       await withDedupLock(dedupKey, async () => {
         let existing = null;
+        let existingMatchedBy = null;
 
         if (plexGuid) {
           const plexGuidAliasKey = buildMediaIdentityAliasKey('plexGuid', plexGuid);
@@ -6399,6 +6430,7 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
             byPlexGuidParams
           );
           existing = byPlexGuid.rows[0] || null;
+          if (existing) existingMatchedBy = 'plex_guid';
         }
 
         if (!existing && (plexItemKey || rawPlexItemKey)) {
@@ -6423,6 +6455,7 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
             byPlexItemKeyParams
           );
           existing = byPlexItemKey.rows[0] || null;
+          if (existing) existingMatchedBy = 'plex_item_key';
         }
 
         if (!existing && media.tmdb_id) {
@@ -6438,6 +6471,7 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
             byTmdbParams
           );
           existing = byTmdb.rows[0] || null;
+          if (existing) existingMatchedBy = 'tmdb_id';
         }
 
         if (!existing) {
@@ -6467,9 +6501,17 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
           return conflicts.length === 0;
         }) || null;
           existing = safeTitleFallbackCandidate || null;
+          if (existing) existingMatchedBy = 'title_year';
         }
 
         if (existing) {
+        const currentRowResult = await pool.query(
+          'SELECT title, media_type, import_source, type_details FROM media WHERE id = $1 LIMIT 1',
+          [existing.id]
+        );
+        const currentRow = currentRowResult.rows[0] || {};
+        const canRepairAudioTitle = (existingMatchedBy === 'plex_guid' || existingMatchedBy === 'plex_item_key')
+          && shouldRepairPlexAudioTitle(currentRow, media);
         const ownedFormatState = buildOwnedFormatsPayload(media.media_type || 'movie', media.owned_formats, media.format);
         const updateParams = [
           media.original_title,
@@ -6491,11 +6533,14 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
           media.network,
           `Imported from Plex section ${item.sectionId}`,
           existing.id,
-          media.type_details ? JSON.stringify(media.type_details) : null
+          media.type_details ? JSON.stringify(media.type_details) : null,
+          canRepairAudioTitle,
+          media.title || null
         ];
         const updateScopeClause = appendScopeSql(updateParams, scopeContext);
         await pool.query(
           `UPDATE media SET
+           title = CASE WHEN $21::boolean THEN $22 ELSE title END,
            original_title = COALESCE($1, original_title),
            release_date = COALESCE($2, release_date),
            year = COALESCE($3, year),
@@ -6523,6 +6568,7 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
            RETURNING id, genre, director, cast_members AS cast`,
           updateParams
         );
+        if (canRepairAudioTitle) audioTitlesRepaired += 1;
         const refreshed = await pool.query('SELECT id, genre, director, cast_members AS cast FROM media WHERE id = $1', [existing.id]);
         const updatedRow = refreshed.rows[0] || { id: existing.id, genre: null, director: media.director || null, cast: media.cast || null };
         await syncNormalizedMetadataForMedia({
@@ -6647,7 +6693,8 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
     variantsCreated,
     variantsUpdated,
     seasonsCreated,
-    seasonsUpdated
+    seasonsUpdated,
+    audioTitlesRepaired
   };
 }
 
@@ -14090,6 +14137,7 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
             variantsUpdated: result.variantsUpdated,
             seasonsCreated: result.seasonsCreated,
             seasonsUpdated: result.seasonsUpdated,
+            audioTitlesRepaired: result.audioTitlesRepaired,
             valuationRefresh,
             enrichmentErrors: result.summary.enrichmentErrors || [],
             enrichmentMisses: result.summary.enrichmentMisses || [],
@@ -14124,6 +14172,7 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
           variantsUpdated: result.variantsUpdated,
           seasonsCreated: result.seasonsCreated,
           seasonsUpdated: result.seasonsUpdated,
+          audioTitlesRepaired: result.audioTitlesRepaired,
           valuationRefresh,
           enrichmentErrorCount: (result.summary.enrichmentErrors || []).length,
           enrichmentMissCount: (result.summary.enrichmentMisses || []).length,
@@ -14177,6 +14226,7 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
       variantsUpdated: result.variantsUpdated,
       seasonsCreated: result.seasonsCreated,
       seasonsUpdated: result.seasonsUpdated,
+      audioTitlesRepaired: result.audioTitlesRepaired,
       valuationRefresh,
       enrichmentErrorCount: (result.summary.enrichmentErrors || []).length
     }));

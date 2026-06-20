@@ -1346,6 +1346,15 @@ results.push(run('plex audio import persists album details and Library renders t
   assert.ok(libraryViewSource.includes('Album details'));
 }));
 
+results.push(run('plex audio import repairs album titles only for strong Plex identity matches', () => {
+  assert.ok(mediaRoutesSource.includes('function shouldRepairPlexAudioTitle(currentRow = {}, incomingMedia = {})'));
+  assert.ok(mediaRoutesSource.includes("existingMatchedBy === 'plex_guid' || existingMatchedBy === 'plex_item_key'"));
+  assert.ok(mediaRoutesSource.includes('title = CASE WHEN $21::boolean THEN $22 ELSE title END'));
+  assert.ok(mediaRoutesSource.includes('if (canRepairAudioTitle) audioTitlesRepaired += 1;'));
+  assert.ok(mediaRoutesSource.includes('audioTitlesRepaired: result.audioTitlesRepaired'));
+  assert.ok(!mediaRoutesSource.includes("existingMatchedBy === 'title_year' && shouldRepairPlexAudioTitle"));
+}));
+
 results.push(run('workspace activity can scope import logs by sync job and explicit scope details', () => {
   assert.ok(mediaRoutesSource.includes('function scopedActivityDetails(scopeContext, details = {})'));
   assert.ok(mediaRoutesSource.includes("scopedActivityDetails(effectiveScopeContext, {"));
