@@ -2327,6 +2327,29 @@ function buildEditionMetadata({ trait = null, mediaType = 'movie' } = {}) {
   };
 }
 
+function buildGradingMetadata({ trait = null, mediaType = '', ownerType = '' } = {}) {
+  const copy = gradingCopyForContext({ mediaType, ownerType });
+  const normalizedOwner = String(ownerType || '').trim().toLowerCase();
+  const normalizedMedia = String(mediaType || '').trim().toLowerCase();
+  const hasValue = Boolean(trait);
+  return {
+    id: normalizedOwner === 'art'
+      ? 'authentication'
+      : (CONDITION_LIKE_MEDIA_TYPES.has(normalizedMedia) ? 'condition' : 'grading'),
+    label: copy.title,
+    emptyLabel: 'Add',
+    displayPriority: 30,
+    applies: true,
+    mediaType,
+    ownerType,
+    hasValue,
+    summary: trait?.summary || '',
+    details: compactDetailString(trait?.details),
+    form: 'grading',
+    copy
+  };
+}
+
 function humanizeEditionFlag(key = '') {
   return String(key || '')
     .replace(/_/g, ' ')
@@ -2441,7 +2464,8 @@ export function CollectibleGradingEditor({
   className = ''
 }) {
   const currentTrait = findGradingTrait(traits);
-  const copy = gradingCopyForContext({ mediaType, ownerType });
+  const metadata = buildGradingMetadata({ trait: currentTrait, mediaType, ownerType });
+  const copy = metadata.copy;
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(() => buildGradingForm(currentTrait));
@@ -2495,11 +2519,8 @@ export function CollectibleGradingEditor({
 
   if (!editing) {
     return (
-      <DrawerMetadataItem
-        title={copy.title}
-        summary={currentTrait?.summary || ''}
-        details={compactDetailString(currentTrait?.details)}
-        actionLabel={currentTrait ? 'Edit' : 'Add'}
+      <DrawerMetadataEntry
+        metadata={metadata}
         onAction={() => setEditing(true)}
         className={className}
       />
@@ -2507,7 +2528,7 @@ export function CollectibleGradingEditor({
   }
 
   return (
-    <DrawerMetadataItem title={copy.title} className={className}>
+    <DrawerMetadataEntry metadata={metadata} className={className}>
       <form className="space-y-3" onSubmit={save}>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="field">
@@ -2542,7 +2563,7 @@ export function CollectibleGradingEditor({
             <button type="submit" className="btn-primary btn-sm" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
           </div>
       </form>
-    </DrawerMetadataItem>
+    </DrawerMetadataEntry>
   );
 }
 
