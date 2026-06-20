@@ -221,6 +221,71 @@ function formatApiError(error, fallback = 'Save failed') {
   return data.error || error?.message || fallback;
 }
 
+const SAVED_LIBRARY_VIEWS_STORAGE_KEY = 'collectz_library_saved_views_v1';
+
+function libraryViewScope(mediaType) {
+  return String(mediaType || 'movie').trim() || 'movie';
+}
+
+function normalizeSavedLibraryViewRecord(record, scope) {
+  if (!record || typeof record !== 'object') return null;
+  if (String(record.scope || '') !== scope) return null;
+  const snapshot = record.snapshot && typeof record.snapshot === 'object' ? record.snapshot : null;
+  if (!snapshot || !snapshot.filters || typeof snapshot.filters !== 'object') return null;
+  const id = String(record.id || '').trim();
+  const name = String(record.name || '').trim();
+  if (!id || !name) return null;
+  return {
+    id,
+    name: name.slice(0, 80),
+    scope,
+    snapshot: {
+      filters: {
+        media_type: scope,
+        search: String(snapshot.filters.search || ''),
+        resolution: String(snapshot.filters.resolution || 'all'),
+        platform: String(snapshot.filters.platform || 'all'),
+        publisher: String(snapshot.filters.publisher || 'all'),
+        review_filter: normalizeReviewFilter(snapshot.filters.review_filter),
+        sortBy: String(snapshot.filters.sortBy || (scope === 'comic_book' ? 'comic_issue' : 'title')),
+        sortDir: String(snapshot.filters.sortDir || '').toLowerCase() === 'desc' ? 'desc' : 'asc'
+      },
+      viewMode: snapshot.viewMode === 'list' ? 'list' : 'cards',
+      collectionMode: snapshot.collectionMode === 'collections' ? 'collections' : 'all',
+      comicView: ['issues', 'series', 'series_issues'].includes(snapshot.comicView) ? snapshot.comicView : 'issues',
+      comicSeries: String(snapshot.comicSeries || 'all')
+    },
+    updatedAt: String(record.updatedAt || '')
+  };
+}
+
+function readSavedLibraryViews(scope) {
+  if (typeof window === 'undefined') return [];
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(SAVED_LIBRARY_VIEWS_STORAGE_KEY) || '[]');
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((record) => normalizeSavedLibraryViewRecord(record, scope))
+      .filter(Boolean)
+      .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+  } catch (_) {
+    return [];
+  }
+}
+
+function writeSavedLibraryViews(scope, scopedViews) {
+  if (typeof window === 'undefined') return;
+  let existing = [];
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(SAVED_LIBRARY_VIEWS_STORAGE_KEY) || '[]');
+    existing = Array.isArray(parsed) ? parsed : [];
+  } catch (_) {
+    existing = [];
+  }
+  const otherScopes = existing.filter((record) => String(record?.scope || '') !== scope);
+  window.localStorage.setItem(SAVED_LIBRARY_VIEWS_STORAGE_KEY, JSON.stringify([...otherScopes, ...scopedViews]));
+}
+
 function formatDate(value) {
   const normalized = normalizeDateInput(value);
   if (!normalized) return '—';
@@ -4315,6 +4380,7 @@ export default function LibraryView({
 }) {
   const PAGE_SIZE_STORAGE_KEY = 'collectz_library_page_size';
   const VIEW_MODE_STORAGE_KEY = 'collectz_library_view_mode';
+  const savedViewScope = libraryViewScope(forcedMediaType || 'movie');
   const [searchInput, setSearchInput] = useState('');
   const [headerCompact, setHeaderCompact] = useState(false);
   const [resolutionInput, setResolutionInput] = useState('all');
@@ -4340,6 +4406,8 @@ export default function LibraryView({
     const saved = window.localStorage.getItem(VIEW_MODE_STORAGE_KEY);
     return saved === 'list' ? 'list' : 'cards';
   });
+  const [savedLibraryViews, setSavedLibraryViews] = useState(() => readSavedLibraryViews(savedViewScope));
+  const [activeSavedViewId, setActiveSavedViewId] = useState('');
   const handleContentScroll = useCallback((event) => {
     const nextCompact = event.currentTarget.scrollTop > 24;
     setHeaderCompact((current) => (current === nextCompact ? current : nextCompact));
@@ -4446,6 +4514,90 @@ export default function LibraryView({
     ? `${libraryFilterActiveCount} filters`
     : (quickFilterActiveCount ? quickFilterLabel : activeReviewFilterLabel || 'All filters');
   const shouldShowLibraryFilterMenu = Boolean(quickFilterConfig || filters.review_filter);
+  const persistSavedLibraryViews = useCallback((nextViews) => {
+    const normalized = nextViews
+      .map((record) => normalizeSavedLibraryViewRecord(record, savedViewScope))
+      .filter(Boolean);
+    setSavedLibraryViews(normalized);
+    writeSavedLibraryViews(savedViewScope, normalized);
+    return normalized;
+  }, [savedViewScope]);
+  const currentSavedViewSnapshot = useCallback(() => ({
+    filters: {
+      ...filters,
+      media_type: savedViewScope,
+      search: searchInput.trim(),
+      resolution: resolutionInput,
+      platform: platformInput,
+      publisher: publisherInput
+    },
+    viewMode,
+    collectionMode,
+    comicView,
+    comicSeries
+  }), [collectionMode, comicSeries, comicView, filters, platformInput, publisherInput, resolutionInput, savedViewScope, searchInput, viewMode]);
+  const applySavedLibraryView = useCallback((view) => {
+    const snapshot = view?.snapshot || {};
+    const nextFilters = {
+      media_type: savedViewScope,
+      search: String(snapshot.filters?.search || ''),
+      resolution: String(snapshot.filters?.resolution || 'all'),
+      platform: String(snapshot.filters?.platform || 'all'),
+      publisher: String(snapshot.filters?.publisher || 'all'),
+      review_filter: normalizeReviewFilter(snapshot.filters?.review_filter),
+      sortBy: String(snapshot.filters?.sortBy || (savedViewScope === 'comic_book' ? 'comic_issue' : 'title')),
+      sortDir: String(snapshot.filters?.sortDir || '').toLowerCase() === 'desc' ? 'desc' : 'asc'
+    };
+    setSearchInput(nextFilters.search);
+    setDebouncedSearchInput(nextFilters.search);
+    setResolutionInput(nextFilters.resolution);
+    setPlatformInput(nextFilters.platform);
+    setPublisherInput(nextFilters.publisher);
+    setFilters(nextFilters);
+    setViewMode(snapshot.viewMode === 'list' ? 'list' : 'cards');
+    if (supportsCollections) setCollectionMode(snapshot.collectionMode === 'collections' ? 'collections' : 'all');
+    if (savedViewScope === 'comic_book') {
+      setComicView(['issues', 'series', 'series_issues'].includes(snapshot.comicView) ? snapshot.comicView : 'issues');
+      setComicSeries(String(snapshot.comicSeries || 'all'));
+    }
+    setActiveSavedViewId(view.id);
+    setPage(1);
+    onToast?.(`Applied saved view: ${view.name}`);
+  }, [onToast, savedViewScope, supportsCollections]);
+  const saveCurrentLibraryView = useCallback(() => {
+    const current = savedLibraryViews.find((view) => view.id === activeSavedViewId);
+    const suggestedName = current?.name || [
+      searchInput.trim(),
+      quickFilterActiveCount ? quickFilterLabel : '',
+      activeReviewFilterLabel
+    ].filter(Boolean).join(' · ') || `${title} view`;
+    const rawName = window.prompt(current ? 'Update saved view name' : 'Name this saved view', suggestedName);
+    const name = String(rawName || '').trim();
+    if (!name) return;
+    const now = new Date().toISOString();
+    const nextRecord = {
+      id: current?.id || `library-view-${Date.now().toString(36)}`,
+      name,
+      scope: savedViewScope,
+      snapshot: currentSavedViewSnapshot(),
+      updatedAt: now
+    };
+    const remaining = savedLibraryViews.filter((view) => view.id !== nextRecord.id);
+    const nextViews = persistSavedLibraryViews([nextRecord, ...remaining]);
+    setActiveSavedViewId(nextRecord.id);
+    onToast?.(`${current ? 'Updated' : 'Saved'} view: ${nextRecord.name}`);
+    if (nextViews.length > 20) {
+      persistSavedLibraryViews(nextViews.slice(0, 20));
+    }
+  }, [activeReviewFilterLabel, activeSavedViewId, currentSavedViewSnapshot, persistSavedLibraryViews, quickFilterActiveCount, quickFilterLabel, savedLibraryViews, savedViewScope, searchInput, title, onToast]);
+  const deleteActiveSavedLibraryView = useCallback(() => {
+    const current = savedLibraryViews.find((view) => view.id === activeSavedViewId);
+    if (!current) return;
+    if (!window.confirm(`Delete saved view "${current.name}"?`)) return;
+    persistSavedLibraryViews(savedLibraryViews.filter((view) => view.id !== current.id));
+    setActiveSavedViewId('');
+    onToast?.(`Deleted saved view: ${current.name}`);
+  }, [activeSavedViewId, onToast, persistSavedLibraryViews, savedLibraryViews]);
   const clearQuickFilter = useCallback(() => {
     if (!quickFilterConfig) return;
     if (quickFilterConfig.key === 'resolution') {
@@ -4460,6 +4612,21 @@ export default function LibraryView({
     }
     setPage(1);
   }, [quickFilterConfig]);
+
+  useEffect(() => {
+    setSavedLibraryViews(readSavedLibraryViews(savedViewScope));
+    setActiveSavedViewId('');
+  }, [savedViewScope]);
+
+  useEffect(() => {
+    if (!activeSavedViewId) return;
+    const current = savedLibraryViews.find((view) => view.id === activeSavedViewId);
+    if (!current) return;
+    const currentSnapshot = currentSavedViewSnapshot();
+    if (JSON.stringify(current.snapshot) !== JSON.stringify(currentSnapshot)) {
+      setActiveSavedViewId('');
+    }
+  }, [activeSavedViewId, currentSavedViewSnapshot, savedLibraryViews]);
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
@@ -5088,6 +5255,48 @@ export default function LibraryView({
       }}
     />
   );
+  const savedViewsControl = (
+    <div className="flex items-center gap-1">
+      <select
+        className="select h-9 max-w-44"
+        value={activeSavedViewId}
+        aria-label="Saved library views"
+        onChange={(event) => {
+          const view = savedLibraryViews.find((entry) => entry.id === event.target.value);
+          if (view) {
+            applySavedLibraryView(view);
+          } else {
+            setActiveSavedViewId('');
+          }
+        }}
+      >
+        <option value="">Saved views</option>
+        {savedLibraryViews.map((view) => (
+          <option key={view.id} value={view.id}>{view.name}</option>
+        ))}
+      </select>
+      <button
+        type="button"
+        className="btn-icon"
+        title={activeSavedViewId ? 'Update saved view' : 'Save current view'}
+        aria-label={activeSavedViewId ? 'Update saved library view' : 'Save current library view'}
+        onClick={saveCurrentLibraryView}
+      >
+        <Icons.Star />
+      </button>
+      {activeSavedViewId ? (
+        <button
+          type="button"
+          className="btn-icon text-err hover:bg-err/10"
+          title="Delete saved view"
+          aria-label="Delete saved library view"
+          onClick={deleteActiveSavedLibraryView}
+        >
+          <Icons.Trash />
+        </button>
+      ) : null}
+    </div>
+  );
 
   return (
     <div className="flex flex-col h-full">
@@ -5144,6 +5353,7 @@ export default function LibraryView({
             ) : null}
           </FilterMenu>
         ) : null}
+        extraControls={savedViewsControl}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         viewAriaLabel="Library view mode"

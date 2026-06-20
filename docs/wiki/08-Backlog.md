@@ -245,6 +245,7 @@ These are product-level capability gaps discovered from the current shape of the
 **Current state**
 - Many library screens have filters and sort state.
 - Dashboard and provider surfaces expose some fixed views.
+- The first selected slice, `3.19.3 — Local Saved Library Views`, adds browser-local Library saved views to prove the filter snapshot shape before adding durable backend persistence.
 - Users cannot save custom filtered views or share workspace-scoped smart views.
 
 **Scope**

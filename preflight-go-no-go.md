@@ -1,13 +1,13 @@
 # Local Release Go/No-Go Preflight
 
-- Version: `3.19.2`
-- Generated: `2026-06-19T23:32:10.479Z`
+- Version: `3.19.3`
+- Generated: `2026-06-20T03:17:06.627Z`
 - Base URL: `http://localhost:3000`
 
 ## Gate Results
 
-- Version metadata sync: PASS — all manifests aligned on 3.19.2
-- Release note presence: PASS — docs/releases/v3.19.2.md
+- Version metadata sync: PASS — all manifests aligned on 3.19.3
+- Release note presence: PASS — docs/releases/v3.19.3.md
 - Backend dependency audit: PASS — low=0 moderate=0 high=0 critical=0
 - Frontend dependency audit: PASS — low=0 moderate=0 high=0 critical=0
 - Migration evidence presence: PASS — init parity and migration rehearsal evidence are present
@@ -28,7 +28,7 @@
 
 ## Release Note
 
-- `docs/releases/v3.19.2.md`: present
+- `docs/releases/v3.19.3.md`: present
 - Security triage markers: present
 
 ## Blocking Criteria

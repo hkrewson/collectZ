@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.19.3",
+      "version": "3.19.3",
+      "date": null,
+      "status": null,
+      "summary": "This patch adds browser-local saved views to the Library. Users can save the current search, filters, sort, card/list mode, and library-specific context, then reopen that view later from the same browser.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added local saved Library views scoped by media type.",
+            "Added compact Library header controls to save/update, apply, and delete saved views.",
+            "Saved search text, quick filters, review filters, sort direction, card/list mode, collection mode, and comic view context where relevant.",
+            "Added unit/source coverage for the saved-view contract."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.19.2",
       "version": "3.19.2",
       "date": null,
@@ -163,25 +181,6 @@
             "Added local-gate enforcement so normal exports require a current passing `npm run release:local-gate` report.",
             "Added export-tree validation for denied paths, symlinks, setup-surface content patterns, and secret-like public setup values.",
             "Updated the public README language so the generated mirror does not depend on maintainer-only `docs/wiki` paths."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.18.0",
-      "version": "3.18.0",
-      "date": null,
-      "status": null,
-      "summary": "This release defines the public repository sanitization strategy for collectZ: a private source-of-truth repository can generate a clean public mirror without exposing maintainer workflow, release evidence, roadmap/backlog detail, local overrides, or private git history.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added `public-export.manifest.json` as the first machine-readable public mirror contract.",
-            "Extended `npm run validate:public-export` so it requires the manifest, clean public history policy, required denylists, and local-gate publication expectation.",
-            "Added maintainer documentation for the private-source/public-mirror operating model, public mirror contents, publication workflow, public checks stance, and accidental leak response.",
-            "Promoted the public repository sanitization backlog item into the `3.18.0` roadmap slice.",
-            "Kept actual mirror publication and clean export commit automation as a follow-up."
           ]
         }
       ]

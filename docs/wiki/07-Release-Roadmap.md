@@ -6,6 +6,42 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.19.3 — Local Saved Library Views
+
+**Goal:** Let users save and reopen useful Library filter/search/sort states in the current browser before introducing a durable backend saved-view model.
+
+### Scope
+
+- Add browser-local saved library views using `localStorage`.
+- Scope saved views by library media type so Movies, Books, Comics, Games, Audio, and TV do not share mismatched filters.
+- Save search, quick filters, review filter, sort direction, card/list mode, collections mode, and comic view context where relevant.
+- Add compact header controls to save/update, apply, and delete saved views.
+- Keep backend saved-view persistence, sharing, smart rules, and dashboard navigation out of scope.
+
+### Acceptance Criteria
+
+- A user can save the current Library view with a name.
+- A user can apply a saved view and restore its search/filter/sort/display state.
+- A user can update or delete a saved view.
+- Saved views remain scoped by library media type.
+- The implementation does not introduce a backend schema or API before the view shape is proven.
+
+### Active Slice Notes
+
+- This is the first selected slice from the broader Saved Views and Smart Collections backlog item.
+- Browser-local storage is intentional for this slice; durable workspace/user-scoped saved views remain backlog work.
+
+### Closeout
+
+- Status: completed in `3.19.3`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, and `docs/releases/v3.19.3.md`.
+- Runtime evidence: no running-stack evidence for this slice; the local release preflight recorded compose smoke as blocked because the local backend service was not running.
+- Verification: backend unit test syntax passed; backend unit tests passed with `325` checks; frontend production build passed; backend and frontend dependency audits passed during `npm run release:local-gate`; OpenAPI validation passed during `npm run release:local-gate`; `git diff --check` passed.
+- Blocked/unverified: `npm run release:local-gate` passed package metadata, version sync, release note/feed, backend unit, OpenAPI, frontend build, dependency audits, and diff hygiene, but failed the release-preflight gate because observability release evidence is stale/missing and compose smoke was blocked by no running local backend service. Secret scan, browser regression, and image security/SBOM remain CI or full-profile follow-through gates.
+- Risks/follow-ups: saved views are browser-local only for this slice and will not follow users across browsers or devices. Durable user/workspace-scoped saved views, sharing, smart rules, and dashboard navigation remain backlog work once the view shape proves useful.
+- Files changed: `app-meta.json`; `backend/app-meta.json`; `backend/package-lock.json`; `backend/package.json`; `backend/release-feed.json`; `backend/scripts/unit-tests.js`; `docs/releases/v3.19.3.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `frontend/package-lock.json`; `frontend/package.json`; `frontend/src/app-meta.json`; `frontend/src/components/LibraryView.jsx`; and `preflight-go-no-go.md`.
+- What remains in the milestone: running-stack compose smoke, refreshed observability evidence, browser regression, secret scan, and image/SBOM checks need follow-through before treating `3.19.3` as fully release-ready.
+
 ## 3.19.2 — Library Identifier Search
 
 **Goal:** Make the existing Library search box find records by stored identifiers, not only titles and descriptive metadata.

@@ -3877,6 +3877,18 @@ results.push(run('LibraryView advertises identifier-aware library search', () =>
   assert.ok(libraryViewSource.includes('searchPlaceholder="Search title, creator, or identifier…"'));
 }));
 
+results.push(run('LibraryView supports browser-local saved library views by media type', () => {
+  assert.ok(libraryViewSource.includes("const SAVED_LIBRARY_VIEWS_STORAGE_KEY = 'collectz_library_saved_views_v1';"));
+  assert.ok(libraryViewSource.includes('function normalizeSavedLibraryViewRecord(record, scope)'));
+  assert.ok(libraryViewSource.includes('function readSavedLibraryViews(scope)'));
+  assert.ok(libraryViewSource.includes('function writeSavedLibraryViews(scope, scopedViews)'));
+  assert.ok(libraryViewSource.includes("const savedViewScope = libraryViewScope(forcedMediaType || 'movie');"));
+  assert.ok(libraryViewSource.includes('const savedViewsControl = ('));
+  assert.ok(libraryViewSource.includes('aria-label="Saved library views"'));
+  assert.ok(libraryViewSource.includes('saveCurrentLibraryView'));
+  assert.ok(libraryViewSource.includes('deleteActiveSavedLibraryView'));
+}));
+
 results.push(run('media drawer avoids redundant follow-up title lookups for enriched identifier results', () => {
   assert.ok(libraryViewSource.includes('const enrichIdentifierSelection = async (match) => {'));
   assert.ok(libraryViewSource.includes('if (match?.tmdb || match?.book || match?.typeEnrichment)'));
