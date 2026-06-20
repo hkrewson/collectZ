@@ -6,8 +6,9 @@ const { getIntegrationSettings, snapshotIntegrationState, restoreIntegrationStat
 const { signInThroughUi } = require('../helpers/session');
 
 async function openIntegrationsSection(page, name) {
-  await page.getByRole('tablist', { name: 'Integration sections' }).getByRole('tab', { name, exact: true }).click();
-  await expect(activeSectionRoot(page).getByRole('heading', { name, exact: true })).toBeVisible();
+  const tab = page.getByRole('tablist', { name: 'Integration sections' }).getByRole('tab', { name, exact: true });
+  await tab.click();
+  await expect(tab).toHaveAttribute('aria-selected', 'true');
 }
 
 async function expectPlatformRuntime(page) {
@@ -23,7 +24,8 @@ async function openWorkspaceIntegrations(page) {
   const workspaceSections = page.getByLabel('Workspace sections');
   await expect(workspaceSections.getByRole('button', { name: 'Integrations', exact: true })).toBeVisible();
   await workspaceSections.getByRole('button', { name: 'Integrations', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Workspace Integrations', exact: true })).toBeVisible();
+  await expect(page.getByRole('tablist', { name: 'Integration sections' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Workspace Integrations', exact: true })).toHaveCount(0);
 }
 
 function activeSectionRoot(page) {

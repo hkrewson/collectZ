@@ -741,19 +741,25 @@ export default function ActivityFeedView({
   const headingClassName = embedded ? 'text-xl font-medium text-ink' : 'section-title';
   const wrapperClassName = embedded ? 'space-y-6' : 'h-full overflow-y-auto p-4 sm:p-6 space-y-6';
   const visibleItems = items.filter((entry) => filterMatches(entry, filter));
+  const showHeader = Boolean(title || description);
+  const filterClassName = embedded && !showHeader
+    ? 'flex gap-3 flex-wrap items-end border-b border-edge pb-3'
+    : 'flex gap-3 flex-wrap items-end border-y border-edge py-3';
 
   return (
     <div className={wrapperClassName}>
-      <div className="space-y-2">
-        <h1 className={headingClassName}>{title}</h1>
-        {description ? (
-          <p className="text-sm text-ghost max-w-3xl">
-            {description}
-          </p>
-        ) : null}
-      </div>
+      {showHeader ? (
+        <div className="space-y-2">
+          {title ? <h1 className={headingClassName}>{title}</h1> : null}
+          {description ? (
+            <p className="text-sm text-ghost max-w-3xl">
+              {description}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
       <div
-        className="flex gap-3 flex-wrap items-end border-y border-edge py-3"
+        className={filterClassName}
       >
         <label className="field flex-1 min-w-56">
           <span className="label">Search</span>

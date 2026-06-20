@@ -40,22 +40,6 @@ const SETTINGS_SECTION_FEATURES = {
   metrics: 'metrics_enabled',
   logs: 'external_log_export_enabled'
 };
-const SECTION_DESCRIPTIONS = {
-  audio: 'Connection details, credentials, and runtime checks for this integration.',
-  barcode: 'Connection details, credentials, and runtime checks for this integration.',
-  books: 'Connection details, credentials, and runtime checks for this integration.',
-  comics: 'Connection details, credentials, and runtime checks for this integration.',
-  cwa: 'Connection details, credentials, and runtime checks for this integration.',
-  kavita: 'Connection details, credentials, and runtime checks for this integration.',
-  ebay: 'Configure eBay Browse as an optional market-signal fallback. Dry-run tests stay local in this milestone and do not hit the live provider.',
-  games: 'Connection details, credentials, and runtime checks for this integration.',
-  logs: 'Configure external log export and validate the running endpoint.',
-  metrics: 'Enable admin-facing metrics export here, while scrape tokens and DEBUG-level access remain runtime infrastructure settings.',
-  plex: 'Connection details, credentials, import controls, webhook readback, and sync operating model.',
-  pricecharting: 'Configure PriceCharting as the primary queued valuation provider. Dry-run tests confirm identifier-first lookup planning and the serialized rate-limit policy without calling the live API.',
-  tmdb: 'Connection details, credentials, and runtime checks for this integration.'
-};
-
 function LabeledField({ label, className = '', children, cx }) {
   return (
     <div className={cx('field', className)}>
@@ -1211,8 +1195,6 @@ export default function AdminIntegrationsView({
     const currentStatus = getSectionStatus(id);
     return currentStatus === 'configured' || currentStatus === 'ok';
   };
-  const activeSectionLabel = integrationSections.find((s) => s.id === section)?.label || section;
-  const activeSectionDescription = SECTION_DESCRIPTIONS[section] || SECTION_DESCRIPTIONS.audio;
   const activeSectionStatus = getSectionStatus(section);
   const activeSectionSource = integrationScope?.sections?.[section] || null;
   const sectionFeature = SETTINGS_SECTION_FEATURES[section] ? featureFlagMap.get(SETTINGS_SECTION_FEATURES[section]) : null;
@@ -1235,33 +1217,36 @@ export default function AdminIntegrationsView({
     setHeaderCompact(event.currentTarget.scrollTop > 24);
   }, []);
 
-  const header = (
+  const mobileSectionPicker = (
+    <div className="md:hidden">
+      <label className="sr-only" htmlFor="integration-section-mobile">Integration</label>
+      <select
+        id="integration-section-mobile"
+        className="select h-9 w-full"
+        value={section}
+        onChange={(e) => setSectionWithSync(e.target.value)}
+      >
+        {integrationSections.map((item) => (
+          <option key={item.id} value={item.id}>
+            {item.label} {isConfigured(item.id) ? '✓' : ''}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+
+  const header = title ? (
     <UtilityPageHeader
       title={title}
       compact={headerCompact}
-      controls={(
-        <div className="md:hidden">
-          <label className="sr-only" htmlFor="integration-section-mobile">Integration</label>
-          <select
-            id="integration-section-mobile"
-            className="select h-9 w-full"
-            value={section}
-            onChange={(e) => setSectionWithSync(e.target.value)}
-          >
-            {integrationSections.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.label} {isConfigured(item.id) ? '✓' : ''}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
+      controls={mobileSectionPicker}
     />
-  );
+  ) : null;
 
   return (
     <FixedPageShell
       header={header}
+      headerClassName={!header ? 'hidden' : ''}
       bodyInnerClassName="space-y-6 p-4 sm:p-6"
       onBodyScroll={handleBodyScroll}
       headerTestId="admin-integrations-page-header"
@@ -1282,6 +1267,7 @@ export default function AdminIntegrationsView({
       )}
 
       <div className="space-y-4">
+        {!header ? mobileSectionPicker : null}
         <div className="hidden md:block">
           <SectionTabs
             tabs={integrationSections}
@@ -1294,11 +1280,7 @@ export default function AdminIntegrationsView({
 
         <SectionTabPanel activeId={section} tabKey={section} idBase="integration-sections" className="min-w-0">
         <div className="space-y-4 min-w-0">
-        <div className="flex items-center justify-between gap-3 pb-1">
-          <div>
-            <h2 className="text-sm font-semibold tracking-wide uppercase text-dim">{activeSectionLabel}</h2>
-            <p className="mt-1 text-xs text-ghost">{activeSectionDescription}</p>
-          </div>
+        <div className="flex items-center justify-end gap-3 pb-1">
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
             <IntegrationSourceBadge source={activeSectionSource} cx={cx} />
             <StatusBadge status={activeSectionStatus} cx={cx} />

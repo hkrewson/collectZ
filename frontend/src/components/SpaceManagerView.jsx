@@ -699,7 +699,7 @@ export default function SpaceManagerView({
             Spinner={Spinner}
             cx={cx}
             endpointBase={`/spaces/${activeSpaceId}/integrations`}
-            title="Workspace Integrations"
+            title=""
             includeRuntimeSections={false}
             allowImports
             visibleSections={['audio', 'barcode', 'books', 'cwa', 'comics', 'games', 'kavita', 'plex', 'tmdb']}
@@ -711,8 +711,7 @@ export default function SpaceManagerView({
             apiCall={apiCall}
             Spinner={Spinner}
             endpoint={`/spaces/${activeSpaceId}/activity`}
-            title="Timeline"
-            description="Readable activity entries scoped to the active workspace. Technical audit details stay available when needed."
+            title=""
             emptyMessage="No activity has been recorded for this workspace yet."
             context="workspace"
             onNavigate={(target) => {
