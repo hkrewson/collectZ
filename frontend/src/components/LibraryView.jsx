@@ -32,7 +32,7 @@ import {
   normalizeBarcodeInput
 } from './app/AppPrimitives';
 import {
-  buildDrawerMetadata,
+  buildDrawerMetadataItems,
   buildLoanMetadata,
   DRAWER_METADATA_IDS,
   findEditionVariantTrait,
@@ -1067,69 +1067,78 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   const showLoanFocusedView = Boolean(activeLoan) && !showLoanItemDetails;
   const metadataTraits = Array.isArray(item?.collectible_traits) ? item.collectible_traits : [];
   const loanMetadata = buildLoanMetadata({ loan: activeLoan, loading: loanLoading, formatDate });
-  const drawerMetadataItems = showLoanFocusedView ? [] : [
+  const drawerMetadataRecords = showLoanFocusedView ? [] : buildDrawerMetadataItems([
     {
-      metadata: buildDrawerMetadata(DRAWER_METADATA_IDS.edition, {
+      id: DRAWER_METADATA_IDS.edition,
+      context: {
         trait: findEditionVariantTrait(metadataTraits),
         mediaType: item?.media_type
-      }),
-      node: (
-        <EditionVariantEditor
-          apiCall={apiCall}
-          ownerType="media"
-          ownerId={item.id}
-          mediaType={item.media_type}
-          traits={item.collectible_traits}
-          onSaved={() => onValuationUpdated?.(item.id)}
-          onToast={onToast}
-        />
-      )
+      }
     },
     {
-      metadata: buildDrawerMetadata(DRAWER_METADATA_IDS.grading, {
+      id: DRAWER_METADATA_IDS.grading,
+      context: {
         trait: findGradingTrait(metadataTraits),
         mediaType: item?.media_type,
         ownerType: 'media'
-      }),
-      node: (
-        <CollectibleGradingEditor
-          apiCall={apiCall}
-          ownerType="media"
-          ownerId={item.id}
-          mediaType={item.media_type}
-          traits={item.collectible_traits}
-          onSaved={() => onValuationUpdated?.(item.id)}
-          onToast={onToast}
-        />
-      )
+      }
     },
     {
-      metadata: buildDrawerMetadata(DRAWER_METADATA_IDS.proof, {
+      id: DRAWER_METADATA_IDS.proof,
+      context: {
         trait: findProvenanceTrait(metadataTraits)
-      }),
-      node: (
-        <CollectibleProvenanceEditor
-          apiCall={apiCall}
-          ownerType="media"
-          ownerId={item.id}
-          traits={item.collectible_traits}
-          onSaved={() => onValuationUpdated?.(item.id)}
-          onToast={onToast}
-        />
-      )
+      }
     },
     {
-      metadata: buildDrawerMetadata(DRAWER_METADATA_IDS.related),
-      node: (
-        <ObjectRelationshipEditor
-          apiCall={apiCall}
-          ownerType="media"
-          ownerId={item.id}
-          onToast={onToast}
-        />
-      )
+      id: DRAWER_METADATA_IDS.related
     }
-  ];
+  ]);
+  const drawerMetadataNodes = {
+    [DRAWER_METADATA_IDS.edition]: (
+      <EditionVariantEditor
+        apiCall={apiCall}
+        ownerType="media"
+        ownerId={item.id}
+        mediaType={item.media_type}
+        traits={item.collectible_traits}
+        onSaved={() => onValuationUpdated?.(item.id)}
+        onToast={onToast}
+      />
+    ),
+    [DRAWER_METADATA_IDS.grading]: (
+      <CollectibleGradingEditor
+        apiCall={apiCall}
+        ownerType="media"
+        ownerId={item.id}
+        mediaType={item.media_type}
+        traits={item.collectible_traits}
+        onSaved={() => onValuationUpdated?.(item.id)}
+        onToast={onToast}
+      />
+    ),
+    [DRAWER_METADATA_IDS.proof]: (
+      <CollectibleProvenanceEditor
+        apiCall={apiCall}
+        ownerType="media"
+        ownerId={item.id}
+        traits={item.collectible_traits}
+        onSaved={() => onValuationUpdated?.(item.id)}
+        onToast={onToast}
+      />
+    ),
+    [DRAWER_METADATA_IDS.related]: (
+      <ObjectRelationshipEditor
+        apiCall={apiCall}
+        ownerType="media"
+        ownerId={item.id}
+        onToast={onToast}
+      />
+    )
+  };
+  const drawerMetadataItems = drawerMetadataRecords.map((record) => ({
+    ...record,
+    node: drawerMetadataNodes[record.id]
+  }));
 
   const refreshLoans = useCallback(async () => {
     if (!item?.id) return null;

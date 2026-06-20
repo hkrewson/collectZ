@@ -347,3 +347,22 @@ export function buildDrawerMetadata(id = '', context = {}) {
   }
   return metadata;
 }
+
+export function buildDrawerMetadataItems(entries = [], sharedContext = {}) {
+  return (Array.isArray(entries) ? entries : [])
+    .map((entry) => {
+      const id = typeof entry === 'string' ? entry : entry?.id;
+      const context = {
+        ...sharedContext,
+        ...((entry && typeof entry === 'object' && entry.context) ? entry.context : {})
+      };
+      const metadata = buildDrawerMetadata(id, context);
+      return metadata ? { id, metadata } : null;
+    })
+    .filter((item) => item && item.metadata?.applies !== false)
+    .sort((left, right) => {
+      const leftPriority = Number(left?.metadata?.displayPriority ?? 0);
+      const rightPriority = Number(right?.metadata?.displayPriority ?? 0);
+      return leftPriority - rightPriority;
+    });
+}
