@@ -32,11 +32,9 @@ import {
   normalizeBarcodeInput
 } from './app/AppPrimitives';
 import {
-  buildEditionMetadata,
-  buildGradingMetadata,
+  buildDrawerMetadata,
   buildLoanMetadata,
-  buildObjectRelationshipMetadata,
-  buildProvenanceMetadata,
+  DRAWER_METADATA_IDS,
   findEditionVariantTrait,
   findGradingTrait,
   findProvenanceTrait
@@ -1071,7 +1069,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   const loanMetadata = buildLoanMetadata({ loan: activeLoan, loading: loanLoading, formatDate });
   const drawerMetadataItems = showLoanFocusedView ? [] : [
     {
-      metadata: buildEditionMetadata({
+      metadata: buildDrawerMetadata(DRAWER_METADATA_IDS.edition, {
         trait: findEditionVariantTrait(metadataTraits),
         mediaType: item?.media_type
       }),
@@ -1088,7 +1086,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
       )
     },
     {
-      metadata: buildGradingMetadata({
+      metadata: buildDrawerMetadata(DRAWER_METADATA_IDS.grading, {
         trait: findGradingTrait(metadataTraits),
         mediaType: item?.media_type,
         ownerType: 'media'
@@ -1106,7 +1104,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
       )
     },
     {
-      metadata: buildProvenanceMetadata({
+      metadata: buildDrawerMetadata(DRAWER_METADATA_IDS.proof, {
         trait: findProvenanceTrait(metadataTraits)
       }),
       node: (
@@ -1121,7 +1119,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
       )
     },
     {
-      metadata: buildObjectRelationshipMetadata(),
+      metadata: buildDrawerMetadata(DRAWER_METADATA_IDS.related),
       node: (
         <ObjectRelationshipEditor
           apiCall={apiCall}

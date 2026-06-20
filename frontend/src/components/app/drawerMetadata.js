@@ -1,5 +1,41 @@
 export const CONDITION_LIKE_MEDIA_TYPES = new Set(['audio', 'book', 'movie', 'tv_series', 'tv_episode']);
 
+export const DRAWER_METADATA_IDS = Object.freeze({
+  edition: 'edition',
+  grading: 'grading',
+  proof: 'proof',
+  related: 'related',
+  loan: 'loan'
+});
+
+const DRAWER_METADATA_BASE = Object.freeze({
+  [DRAWER_METADATA_IDS.edition]: {
+    id: DRAWER_METADATA_IDS.edition,
+    form: 'edition_variant',
+    displayPriority: 20
+  },
+  [DRAWER_METADATA_IDS.grading]: {
+    id: DRAWER_METADATA_IDS.grading,
+    form: 'grading',
+    displayPriority: 30
+  },
+  [DRAWER_METADATA_IDS.proof]: {
+    id: DRAWER_METADATA_IDS.proof,
+    form: 'provenance',
+    displayPriority: 40
+  },
+  [DRAWER_METADATA_IDS.related]: {
+    id: DRAWER_METADATA_IDS.related,
+    form: 'object_relationship',
+    displayPriority: 50
+  },
+  [DRAWER_METADATA_IDS.loan]: {
+    id: DRAWER_METADATA_IDS.loan,
+    form: 'loan',
+    displayPriority: 60
+  }
+});
+
 const EDITION_MEDIA_CONFIG = {
   book: {
     title: 'Book edition',
@@ -182,23 +218,25 @@ export function gradingCopyForContext({ mediaType = '', ownerType = '' } = {}) {
 }
 
 export function buildEditionMetadata({ trait = null, mediaType = 'movie' } = {}) {
+  const base = DRAWER_METADATA_BASE[DRAWER_METADATA_IDS.edition];
   const config = editionConfigForMediaType(mediaType);
   const hasValue = Boolean(trait);
   return {
-    id: 'edition',
+    id: base.id,
     label: config.title,
     emptyLabel: 'Add',
-    displayPriority: 20,
+    displayPriority: base.displayPriority,
     applies: true,
     mediaType,
     hasValue,
     summary: trait?.summary || '',
     details: compactDetailString(trait?.details),
-    form: 'edition_variant'
+    form: base.form
   };
 }
 
 export function buildGradingMetadata({ trait = null, mediaType = '', ownerType = '' } = {}) {
+  const base = DRAWER_METADATA_BASE[DRAWER_METADATA_IDS.grading];
   const copy = gradingCopyForContext({ mediaType, ownerType });
   const normalizedOwner = String(ownerType || '').trim().toLowerCase();
   const normalizedMedia = String(mediaType || '').trim().toLowerCase();
@@ -209,58 +247,103 @@ export function buildGradingMetadata({ trait = null, mediaType = '', ownerType =
       : (CONDITION_LIKE_MEDIA_TYPES.has(normalizedMedia) ? 'condition' : 'grading'),
     label: copy.title,
     emptyLabel: 'Add',
-    displayPriority: 30,
+    displayPriority: base.displayPriority,
     applies: true,
     mediaType,
     ownerType,
     hasValue,
     summary: trait?.summary || '',
     details: compactDetailString(trait?.details),
-    form: 'grading',
+    form: base.form,
     copy
   };
 }
 
 export function buildProvenanceMetadata({ trait = null } = {}) {
+  const base = DRAWER_METADATA_BASE[DRAWER_METADATA_IDS.proof];
   const hasValue = Boolean(trait);
   return {
-    id: 'proof',
+    id: base.id,
     label: 'Proof',
     emptyLabel: 'Add',
-    displayPriority: 40,
+    displayPriority: base.displayPriority,
     applies: true,
     hasValue,
     summary: trait?.summary || '',
     details: compactDetailString(trait?.details),
-    form: 'provenance'
+    form: base.form
   };
 }
 
 export function buildObjectRelationshipMetadata({ relationships = [], loading = false } = {}) {
+  const base = DRAWER_METADATA_BASE[DRAWER_METADATA_IDS.related];
   const count = Array.isArray(relationships) ? relationships.length : 0;
   return {
-    id: 'related',
+    id: base.id,
     label: 'Related',
     emptyLabel: 'Add',
-    displayPriority: 50,
+    displayPriority: base.displayPriority,
     applies: true,
     hasValue: count > 0,
     summary: loading ? 'Loading...' : (count ? `${count} linked` : ''),
     details: '',
-    form: 'object_relationship'
+    form: base.form
   };
 }
 
 export function buildLoanMetadata({ loan = null, loading = false, formatDate = (value) => value } = {}) {
+  const base = DRAWER_METADATA_BASE[DRAWER_METADATA_IDS.loan];
   return {
-    id: 'loan',
+    id: base.id,
     label: 'Loan',
     emptyLabel: 'Loan out',
-    displayPriority: 60,
+    displayPriority: base.displayPriority,
     applies: true,
     hasValue: Boolean(loan),
     summary: loan ? `${loan.borrower_name || 'Borrower'}${loan.due_at ? ` · Due ${formatDate(loan.due_at)}` : ''}` : (loading ? 'Loading...' : ''),
     details: '',
-    form: 'loan'
+    form: base.form
   };
+}
+
+export const DRAWER_METADATA_REGISTRY = Object.freeze({
+  [DRAWER_METADATA_IDS.edition]: Object.freeze({
+    ...DRAWER_METADATA_BASE[DRAWER_METADATA_IDS.edition],
+    appliesTo: () => true,
+    build: buildEditionMetadata
+  }),
+  [DRAWER_METADATA_IDS.grading]: Object.freeze({
+    ...DRAWER_METADATA_BASE[DRAWER_METADATA_IDS.grading],
+    appliesTo: () => true,
+    build: buildGradingMetadata
+  }),
+  [DRAWER_METADATA_IDS.proof]: Object.freeze({
+    ...DRAWER_METADATA_BASE[DRAWER_METADATA_IDS.proof],
+    appliesTo: () => true,
+    build: buildProvenanceMetadata
+  }),
+  [DRAWER_METADATA_IDS.related]: Object.freeze({
+    ...DRAWER_METADATA_BASE[DRAWER_METADATA_IDS.related],
+    appliesTo: () => true,
+    build: buildObjectRelationshipMetadata
+  }),
+  [DRAWER_METADATA_IDS.loan]: Object.freeze({
+    ...DRAWER_METADATA_BASE[DRAWER_METADATA_IDS.loan],
+    appliesTo: () => true,
+    build: buildLoanMetadata
+  })
+});
+
+export function getDrawerMetadataRegistryEntry(id = '') {
+  return DRAWER_METADATA_REGISTRY[String(id || '').trim()] || null;
+}
+
+export function buildDrawerMetadata(id = '', context = {}) {
+  const entry = getDrawerMetadataRegistryEntry(id);
+  if (!entry) return null;
+  const metadata = entry.build(context);
+  if (entry.appliesTo(context) === false) {
+    return { ...metadata, applies: false };
+  }
+  return metadata;
 }

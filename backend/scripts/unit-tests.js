@@ -3838,6 +3838,12 @@ results.push(run('drawer optional metadata primitives render compact rows with a
   assert.ok(drawerMetadataSource.includes('export function buildProvenanceMetadata({ trait = null } = {})'));
   assert.ok(drawerMetadataSource.includes('export function buildObjectRelationshipMetadata({ relationships = [], loading = false } = {})'));
   assert.ok(drawerMetadataSource.includes('export function buildLoanMetadata({ loan = null, loading = false, formatDate = (value) => value } = {})'));
+  assert.ok(drawerMetadataSource.includes('export const DRAWER_METADATA_IDS = Object.freeze({'));
+  assert.ok(drawerMetadataSource.includes('const DRAWER_METADATA_BASE = Object.freeze({'));
+  assert.ok(drawerMetadataSource.includes('export const DRAWER_METADATA_REGISTRY = Object.freeze({'));
+  assert.ok(drawerMetadataSource.includes('export function buildDrawerMetadata(id = \'\', context = {})'));
+  assert.ok(drawerMetadataSource.includes('export function getDrawerMetadataRegistryEntry(id = \'\')'));
+  assert.ok(drawerMetadataSource.includes('appliesTo: () => true'));
   assert.ok(appPrimitivesSource.includes("className={cx('border-b border-edge/70 py-2.5'"));
   assert.ok(appPrimitivesSource.includes('children,'));
   assert.ok(appPrimitivesSource.includes('actions,'));
@@ -3852,9 +3858,10 @@ results.push(run('drawer optional metadata primitives render compact rows with a
   assert.ok(drawerMetadataSource.includes("form: 'provenance'"));
   assert.ok(drawerMetadataSource.includes("form: 'object_relationship'"));
   assert.ok(drawerMetadataSource.includes("form: 'loan'"));
-  assert.ok(drawerMetadataSource.includes("id: 'proof'"));
-  assert.ok(drawerMetadataSource.includes("id: 'related'"));
-  assert.ok(drawerMetadataSource.includes("id: 'loan'"));
+  assert.ok(drawerMetadataSource.includes("proof: 'proof'"));
+  assert.ok(drawerMetadataSource.includes("related: 'related'"));
+  assert.ok(drawerMetadataSource.includes("loan: 'loan'"));
+  assert.ok(drawerMetadataSource.includes('id: base.id'));
   assert.ok(drawerMetadataSource.includes("id: normalizedOwner === 'art'"));
   assert.ok(drawerMetadataSource.includes("? 'authentication'"));
   assert.ok(drawerMetadataSource.includes("? 'condition' : 'grading'"));
@@ -3876,6 +3883,10 @@ results.push(run('drawer optional metadata primitives render compact rows with a
   assert.ok(!appPrimitivesSource.includes('Record COA, receipt, witnessed, or source details when evidence exists.'));
   assert.ok(!libraryViewSource.includes('Record when this title leaves the shelf and when it should come back.'));
   assert.ok(!drawerMetadataSource.includes('Link box sets, bundle pieces, companion records, or event-acquired items without duplicating records.'));
+  assert.ok(libraryViewSource.includes('buildDrawerMetadata(DRAWER_METADATA_IDS.edition'));
+  assert.ok(libraryViewSource.includes('buildDrawerMetadata(DRAWER_METADATA_IDS.grading'));
+  assert.ok(libraryViewSource.includes('buildDrawerMetadata(DRAWER_METADATA_IDS.proof'));
+  assert.ok(libraryViewSource.includes('buildDrawerMetadata(DRAWER_METADATA_IDS.related'));
   assert.ok(libraryViewSource.includes('const drawerMetadataItems = showLoanFocusedView ? [] : ['));
   assert.ok(libraryViewSource.includes('<DrawerMetadataList items={drawerMetadataItems} />'));
   assert.ok(libraryViewSource.includes('const loanMetadata = buildLoanMetadata({ loan: activeLoan, loading: loanLoading, formatDate });'));
