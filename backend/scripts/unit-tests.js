@@ -3926,6 +3926,15 @@ results.push(run('drawer optional metadata primitives render compact rows with a
   assert.ok(collectiblesViewSource.includes('id: DRAWER_METADATA_IDS.related'));
   assert.ok(collectiblesViewSource.includes('<DrawerMetadataList items={drawerMetadataItems} />'));
   assert.ok(collectiblesViewSource.includes('<DetailField label="Classification">{itemTypeLabel}</DetailField>'));
+  assert.ok(artViewSource.includes('DrawerMetadataList'));
+  assert.ok(artViewSource.includes('buildDrawerMetadataItems(['));
+  assert.ok(artViewSource.includes('ownerType: \'art\''));
+  assert.ok(artViewSource.includes('id: DRAWER_METADATA_IDS.grading'));
+  assert.ok(artViewSource.includes('id: DRAWER_METADATA_IDS.proof'));
+  assert.ok(artViewSource.includes('id: DRAWER_METADATA_IDS.related'));
+  assert.ok(artViewSource.includes('<DrawerMetadataList items={drawerMetadataItems} />'));
+  assert.ok(artViewSource.includes('<DetailField label="Signature proof">'));
+  assert.ok(artViewSource.includes('<CompactDetailRow label="Proof">'));
 }));
 
 results.push(run('drawer metadata registry builders order and adapt by context', () => {

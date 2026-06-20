@@ -1,5 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CheckboxControl, CollectionPaginationFooter, CollectibleGradingEditor, CollectibleProvenanceEditor, CollectibleTraitPills, CollectibleTraitReadback, CoverImagePicker, DetailDrawerShell, DrawerBackdrop, FilterMenu, Icons, ObjectRelationshipEditor, PageHeaderSearchToolbar, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
+import { CheckboxControl, CollectionPaginationFooter, CollectibleGradingEditor, CollectibleProvenanceEditor, CollectibleTraitPills, CollectibleTraitReadback, CoverImagePicker, DetailDrawerShell, DrawerBackdrop, DrawerMetadataList, FilterMenu, Icons, ObjectRelationshipEditor, PageHeaderSearchToolbar, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
+import {
+  buildDrawerMetadataItems,
+  DRAWER_METADATA_IDS,
+  findGradingTrait,
+  findProvenanceTrait
+} from './app/drawerMetadata';
 import SignatureManager from './app/SignatureManager';
 
 const ART_MEDIUM_OPTIONS = [
@@ -375,6 +381,59 @@ function ArtDetailDrawer({ artId, apiCall, events, onClose, onEdit, onDeleted, o
     primarySignature?.signed_at || item?.signed_at || signatureEventTitle
   ].filter(Boolean).join(' · ');
   const signatureRows = Array.isArray(item?.signatures) ? item.signatures : [];
+  const metadataTraits = Array.isArray(item?.collectible_traits) ? item.collectible_traits : [];
+  const drawerMetadataRecords = !loading && item ? buildDrawerMetadataItems([
+    {
+      id: DRAWER_METADATA_IDS.grading,
+      context: {
+        trait: findGradingTrait(metadataTraits),
+        ownerType: 'art'
+      }
+    },
+    {
+      id: DRAWER_METADATA_IDS.proof,
+      context: {
+        trait: findProvenanceTrait(metadataTraits)
+      }
+    },
+    {
+      id: DRAWER_METADATA_IDS.related
+    }
+  ]) : [];
+  const drawerMetadataNodes = item ? {
+    [DRAWER_METADATA_IDS.grading]: (
+      <CollectibleGradingEditor
+        apiCall={apiCall}
+        ownerType="art"
+        ownerId={item.id}
+        traits={item.collectible_traits}
+        onSaved={load}
+        onToast={onToast}
+      />
+    ),
+    [DRAWER_METADATA_IDS.proof]: (
+      <CollectibleProvenanceEditor
+        apiCall={apiCall}
+        ownerType="art"
+        ownerId={item.id}
+        traits={item.collectible_traits}
+        onSaved={load}
+        onToast={onToast}
+      />
+    ),
+    [DRAWER_METADATA_IDS.related]: (
+      <ObjectRelationshipEditor
+        apiCall={apiCall}
+        ownerType="art"
+        ownerId={item.id}
+        onToast={onToast}
+      />
+    )
+  } : {};
+  const drawerMetadataItems = drawerMetadataRecords.map((record) => ({
+    ...record,
+    node: drawerMetadataNodes[record.id]
+  }));
   const formatSignatureLine = (signature) => {
     const eventTitle = events.find((evt) => String(evt.id) === String(signature?.signed_event_id))?.title || null;
     return [
@@ -411,28 +470,7 @@ function ArtDetailDrawer({ artId, apiCall, events, onClose, onEdit, onDeleted, o
           {!loading && item ? (
             <>
             <CollectibleTraitReadback traits={item.collectible_traits} />
-            <CollectibleGradingEditor
-              apiCall={apiCall}
-              ownerType="art"
-              ownerId={item.id}
-              traits={item.collectible_traits}
-              onSaved={load}
-              onToast={onToast}
-            />
-            <CollectibleProvenanceEditor
-              apiCall={apiCall}
-              ownerType="art"
-              ownerId={item.id}
-              traits={item.collectible_traits}
-              onSaved={load}
-              onToast={onToast}
-            />
-            <ObjectRelationshipEditor
-              apiCall={apiCall}
-              ownerType="art"
-              ownerId={item.id}
-              onToast={onToast}
-            />
+            <DrawerMetadataList items={drawerMetadataItems} />
             <div className="md:hidden">
               <CompactDetailRow label="Dimensions">{dimensionsSummary}</CompactDetailRow>
               <CompactDetailRow label="Status">{statusSummary || 'Standard'}</CompactDetailRow>
