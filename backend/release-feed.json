@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.19.4",
+      "version": "3.19.4",
+      "date": null,
+      "status": null,
+      "summary": "This patch makes Library saved views durable. Saved views now sync through authenticated, scope-aware backend endpoints when available, while keeping browser-local saved views as a fallback for older or unavailable backends.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added a `saved_library_views` persistence table.",
+            "Added scoped Library saved-view list, create, update, and delete endpoints.",
+            "Updated the Library saved-view controls to load backend views first and fall back to local storage.",
+            "Preserved the 3.19.3 saved-view snapshot shape for search, filters, sort, display mode, and library-specific context.",
+            "Added unit/source coverage for the durable saved-view contract."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.19.3",
       "version": "3.19.3",
       "date": null,
@@ -162,25 +181,6 @@
             "Tracked blocker categories for private runtime language, runtime contract names, operations wording, auth/test bypass labels, and private docs references.",
             "Updated public mirror docs and sanitizer strategy to make clear that application source remains private until this boundary is intentionally cleaned.",
             "Tightened the public export contract so source folders stay denied until the audit findings are resolved."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.18.1",
-      "version": "3.18.1",
-      "date": null,
-      "status": null,
-      "summary": "This release adds the local public mirror export builder for the sanitization strategy introduced in `3.18.0`. It can generate a reviewed public tree and optional clean local commit without pushing or publishing anything automatically.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added `npm run public:export` for building a sanitized local public export tree from `public-export.manifest.json`.",
-            "Added optional `--commit` support to initialize a separate git repository inside the export tree and create a clean public export commit.",
-            "Added local-gate enforcement so normal exports require a current passing `npm run release:local-gate` report.",
-            "Added export-tree validation for denied paths, symlinks, setup-surface content patterns, and secret-like public setup values.",
-            "Updated the public README language so the generated mirror does not depend on maintainer-only `docs/wiki` paths."
           ]
         }
       ]

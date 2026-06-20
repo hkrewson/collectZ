@@ -9,9 +9,12 @@ const {
   librarySelectSchema,
   libraryDeleteSchema,
   libraryTransferSchema,
-  libraryArchiveSchema
+  libraryArchiveSchema,
+  savedLibraryViewCreateSchema,
+  savedLibraryViewUpdateSchema
 } = require('../middleware/validate');
 const { enforceScopeAccess } = require('../middleware/scopeAccess');
+const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
 const { logActivity } = require('../services/audit');
 const {
   listLibrariesForUser,
@@ -23,6 +26,61 @@ const {
 const { getProductEdition, stripHomelabSpaceContext, resolvePersistedActiveSpaceId } = require('../config/productEdition');
 
 const router = express.Router();
+
+function normalizeSavedViewMediaType(value) {
+  const normalized = String(value || '').trim();
+  return ['movie', 'tv', 'tv_series', 'book', 'audio', 'game', 'comic_book'].includes(normalized)
+    ? normalized
+    : 'movie';
+}
+
+function normalizeSavedViewSnapshot(snapshot, mediaType) {
+  const source = snapshot && typeof snapshot === 'object' ? snapshot : {};
+  const filters = source.filters && typeof source.filters === 'object' ? source.filters : {};
+  return {
+    ...source,
+    filters: {
+      ...filters,
+      media_type: normalizeSavedViewMediaType(filters.media_type || mediaType)
+    }
+  };
+}
+
+function savedViewResponse(row) {
+  const mediaType = normalizeSavedViewMediaType(row.media_type);
+  return {
+    id: row.id,
+    name: row.name,
+    scope: mediaType,
+    media_type: mediaType,
+    object_type: row.object_type || 'library',
+    visibility: row.visibility || 'private',
+    snapshot: normalizeSavedViewSnapshot(row.snapshot, mediaType),
+    space_id: row.space_id,
+    library_id: row.library_id,
+    owner_user_id: row.owner_user_id,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    updatedAt: row.updated_at,
+    storage: 'server'
+  };
+}
+
+function savedViewsWhere(params, req, options = {}) {
+  const scopeContext = resolveScopeContext(req);
+  params.push(req.user.id);
+  let where = `WHERE owner_user_id = $${params.length}`;
+  where += appendScopeSql(params, scopeContext);
+  if (options.id !== undefined && options.id !== null) {
+    params.push(options.id);
+    where += ` AND id = $${params.length}`;
+  }
+  if (options.mediaType) {
+    params.push(normalizeSavedViewMediaType(options.mediaType));
+    where += ` AND media_type = $${params.length}`;
+  }
+  return { where, scopeContext };
+}
 
 router.use('/libraries', authenticateToken);
 router.use('/libraries', enforceScopeAccess({ allowedHintRoles: ['admin'] }));
@@ -112,6 +170,108 @@ router.post('/libraries', validate(libraryCreateSchema), asyncHandler(async (req
     active_space_id: library.space_id || ensuredScope.spaceId || null,
     active_library_id: library.id
   }, productEdition));
+}));
+
+router.get('/libraries/saved-views', asyncHandler(async (req, res) => {
+  const params = [];
+  const { where } = savedViewsWhere(params, req, {
+    mediaType: req.query.media_type || req.query.scope || null
+  });
+  const result = await pool.query(
+    `SELECT *
+       FROM saved_library_views
+      ${where}
+      ORDER BY updated_at DESC, id DESC
+      LIMIT 100`,
+    params
+  );
+  res.json({ views: result.rows.map(savedViewResponse) });
+}));
+
+router.post('/libraries/saved-views', validate(savedLibraryViewCreateSchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const mediaType = normalizeSavedViewMediaType(req.body.media_type);
+  const snapshot = normalizeSavedViewSnapshot(req.body.snapshot, mediaType);
+  const result = await pool.query(
+    `INSERT INTO saved_library_views
+       (name, object_type, media_type, snapshot, visibility, owner_user_id, space_id, library_id)
+     VALUES ($1, 'library', $2, $3::jsonb, 'private', $4, $5, $6)
+     RETURNING *`,
+    [
+      req.body.name.trim(),
+      mediaType,
+      JSON.stringify(snapshot),
+      req.user.id,
+      scopeContext.spaceId || null,
+      scopeContext.libraryId || null
+    ]
+  );
+  const view = savedViewResponse(result.rows[0]);
+  await logActivity(req, 'library.saved_view.create', 'saved_library_view', view.id, {
+    name: view.name,
+    media_type: view.media_type
+  });
+  res.status(201).json({ view });
+}));
+
+router.put('/libraries/saved-views/:id', validate(savedLibraryViewUpdateSchema), asyncHandler(async (req, res) => {
+  const viewId = Number(req.params.id);
+  if (!Number.isInteger(viewId) || viewId <= 0) {
+    return res.status(400).json({ error: 'Invalid saved view id' });
+  }
+
+  const existingParams = [];
+  const { where } = savedViewsWhere(existingParams, req, { id: viewId });
+  const existing = await pool.query(`SELECT * FROM saved_library_views ${where} LIMIT 1`, existingParams);
+  if (existing.rows.length === 0) {
+    return res.status(404).json({ error: 'Saved view not found' });
+  }
+
+  const current = existing.rows[0];
+  const mediaType = normalizeSavedViewMediaType(req.body.media_type || current.media_type);
+  const snapshot = req.body.snapshot
+    ? normalizeSavedViewSnapshot(req.body.snapshot, mediaType)
+    : normalizeSavedViewSnapshot(current.snapshot, mediaType);
+  const name = req.body.name ? req.body.name.trim() : current.name;
+  const result = await pool.query(
+    `UPDATE saved_library_views
+        SET name = $1,
+            media_type = $2,
+            snapshot = $3::jsonb,
+            updated_at = CURRENT_TIMESTAMP
+      WHERE id = $4
+      RETURNING *`,
+    [name, mediaType, JSON.stringify(snapshot), viewId]
+  );
+  const view = savedViewResponse(result.rows[0]);
+  await logActivity(req, 'library.saved_view.update', 'saved_library_view', view.id, {
+    name: view.name,
+    media_type: view.media_type
+  });
+  res.json({ view });
+}));
+
+router.delete('/libraries/saved-views/:id', asyncHandler(async (req, res) => {
+  const viewId = Number(req.params.id);
+  if (!Number.isInteger(viewId) || viewId <= 0) {
+    return res.status(400).json({ error: 'Invalid saved view id' });
+  }
+  const params = [];
+  const { where } = savedViewsWhere(params, req, { id: viewId });
+  const result = await pool.query(
+    `DELETE FROM saved_library_views
+      ${where}
+      RETURNING id, name, media_type`,
+    params
+  );
+  if (result.rows.length === 0) {
+    return res.status(404).json({ error: 'Saved view not found' });
+  }
+  await logActivity(req, 'library.saved_view.delete', 'saved_library_view', viewId, {
+    name: result.rows[0].name,
+    media_type: result.rows[0].media_type
+  });
+  res.status(204).send();
 }));
 
 router.patch('/libraries/:id', validate(libraryUpdateSchema), asyncHandler(async (req, res) => {

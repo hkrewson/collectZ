@@ -17,6 +17,7 @@
     { "name": "Auth" },
     { "name": "Admin" },
     { "name": "Support" },
+    { "name": "Library" },
     { "name": "Media" },
     { "name": "Wishlist" },
     { "name": "Capture" },
@@ -4062,6 +4063,176 @@
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/CoreInstanceContract" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/libraries/saved-views": {
+      "get": {
+        "tags": ["Library"],
+        "summary": "List private saved Library views for the active scope",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "name": "media_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["movie", "tv", "tv_series", "book", "audio", "game", "comic_book"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved Library views",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "views": {
+                      "type": "array",
+                      "items": { "type": "object", "additionalProperties": true }
+                    }
+                  },
+                  "required": ["views"]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Library"],
+        "summary": "Create a private saved Library view",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string", "maxLength": 80 },
+                  "media_type": {
+                    "type": "string",
+                    "enum": ["movie", "tv", "tv_series", "book", "audio", "game", "comic_book"]
+                  },
+                  "snapshot": { "type": "object", "additionalProperties": true }
+                },
+                "required": ["name", "media_type", "snapshot"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Saved Library view created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "view": { "type": "object", "additionalProperties": true }
+                  },
+                  "required": ["view"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/libraries/saved-views/{id}": {
+      "put": {
+        "tags": ["Library"],
+        "summary": "Update a private saved Library view",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string", "maxLength": 80 },
+                  "media_type": {
+                    "type": "string",
+                    "enum": ["movie", "tv", "tv_series", "book", "audio", "game", "comic_book"]
+                  },
+                  "snapshot": { "type": "object", "additionalProperties": true }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved Library view updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "view": { "type": "object", "additionalProperties": true }
+                  },
+                  "required": ["view"]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Saved view not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Library"],
+        "summary": "Delete a private saved Library view",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "204": { "description": "Saved Library view deleted" },
+          "404": {
+            "description": "Saved view not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
               }
             }
           }

@@ -607,6 +607,25 @@ const libraryUpdateSchema = libraryCreateSchema.partial().refine(
   { message: 'At least one library field is required' }
 );
 
+const savedLibraryViewSnapshotSchema = z.object({
+  filters: z.record(z.any()),
+  viewMode: z.enum(['cards', 'list']).optional(),
+  collectionMode: z.enum(['all', 'collections']).optional(),
+  comicView: z.enum(['issues', 'series', 'series_issues']).optional(),
+  comicSeries: z.string().max(255).optional().nullable()
+}).passthrough();
+
+const savedLibraryViewCreateSchema = z.object({
+  name: z.string().trim().min(1, 'Name is required').max(80, 'Name is too long'),
+  media_type: z.enum(['movie', 'tv', 'tv_series', 'book', 'audio', 'game', 'comic_book']),
+  snapshot: savedLibraryViewSnapshotSchema
+});
+
+const savedLibraryViewUpdateSchema = savedLibraryViewCreateSchema.partial().refine(
+  (data) => Object.keys(data).length > 0,
+  { message: 'At least one field is required for update' }
+);
+
 const librarySelectSchema = z.object({
   library_id: z.number().int().positive('library_id must be a positive integer')
 });
@@ -1190,6 +1209,8 @@ module.exports = {
   spaceTransferCreateSchema,
   libraryCreateSchema,
   libraryUpdateSchema,
+  savedLibraryViewCreateSchema,
+  savedLibraryViewUpdateSchema,
   librarySelectSchema,
   authScopeSelectSchema,
   supportSessionStartSchema,

@@ -202,6 +202,7 @@ const initSqlSource = fs.readFileSync(path.resolve(__dirname, '..', '..', 'init.
 const libraryServiceSource = fs.readFileSync(require.resolve('../services/libraries'), 'utf8');
 const personalAccessTokenSource = fs.readFileSync(require.resolve('../services/personalAccessTokens'), 'utf8');
 const serviceAccountKeySource = fs.readFileSync(require.resolve('../services/serviceAccountKeys'), 'utf8');
+const validateSource = fs.readFileSync(require.resolve('../middleware/validate'), 'utf8');
 const librariesRoutesSource = fs.readFileSync(require.resolve('../routes/libraries'), 'utf8');
 const spacesRoutesSource = fs.readFileSync(require.resolve('../routes/spaces'), 'utf8');
 const adminRoutesSource = fs.readFileSync(require.resolve('../routes/admin'), 'utf8');
@@ -3887,6 +3888,27 @@ results.push(run('LibraryView supports browser-local saved library views by medi
   assert.ok(libraryViewSource.includes('aria-label="Saved library views"'));
   assert.ok(libraryViewSource.includes('saveCurrentLibraryView'));
   assert.ok(libraryViewSource.includes('deleteActiveSavedLibraryView'));
+}));
+
+results.push(run('library saved views persist through scoped backend endpoints', () => {
+  assert.ok(migrationsSource.includes('version: 110'));
+  assert.ok(migrationsSource.includes("description: 'Add saved library views'"));
+  assert.ok(migrationsSource.includes('CREATE TABLE IF NOT EXISTS saved_library_views'));
+  assert.ok(migrationsSource.includes('idx_saved_library_views_owner_scope'));
+  assert.ok(validateSource.includes('savedLibraryViewCreateSchema'));
+  assert.ok(validateSource.includes('savedLibraryViewUpdateSchema'));
+  assert.ok(librariesRoutesSource.includes("router.get('/libraries/saved-views'"));
+  assert.ok(librariesRoutesSource.includes("router.post('/libraries/saved-views'"));
+  assert.ok(librariesRoutesSource.includes("router.put('/libraries/saved-views/:id'"));
+  assert.ok(librariesRoutesSource.includes("router.delete('/libraries/saved-views/:id'"));
+  assert.ok(openApiSource.includes('"/api/libraries/saved-views"'));
+  assert.ok(openApiSource.includes('"/api/libraries/saved-views/{id}"'));
+  assert.ok(librariesRoutesSource.includes('owner_user_id = $'));
+  assert.ok(librariesRoutesSource.includes('appendScopeSql(params, scopeContext)'));
+  assert.ok(libraryViewSource.includes("apiCall('get', `/libraries/saved-views?media_type=${encodeURIComponent(savedViewScope)}`)"));
+  assert.ok(libraryViewSource.includes("apiCall('post', '/libraries/saved-views', payload)"));
+  assert.ok(libraryViewSource.includes("apiCall('delete', `/libraries/saved-views/${current.id}`)"));
+  assert.ok(libraryViewSource.includes("setSavedViewsStorageMode('local')"));
 }));
 
 results.push(run('media drawer avoids redundant follow-up title lookups for enriched identifier results', () => {

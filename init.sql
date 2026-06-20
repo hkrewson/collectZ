@@ -942,6 +942,20 @@ CREATE TABLE IF NOT EXISTS event_exclusive_sources (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS saved_library_views (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(80) NOT NULL,
+    object_type VARCHAR(40) NOT NULL DEFAULT 'library' CHECK (object_type IN ('library')),
+    media_type VARCHAR(50) NOT NULL,
+    snapshot JSONB NOT NULL DEFAULT '{}'::jsonb,
+    visibility VARCHAR(20) NOT NULL DEFAULT 'private' CHECK (visibility IN ('private')),
+    owner_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    space_id INTEGER,
+    library_id INTEGER REFERENCES libraries(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS art_artist_records (
     id SERIAL PRIMARY KEY,
     library_id INTEGER REFERENCES libraries(id) ON DELETE CASCADE,
@@ -1530,6 +1544,8 @@ CREATE INDEX IF NOT EXISTS idx_event_exclusive_sources_event_status_active
 CREATE INDEX IF NOT EXISTS idx_event_exclusive_sources_scope_active
     ON event_exclusive_sources(space_id, library_id, updated_at DESC)
     WHERE archived_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_saved_library_views_owner_scope
+    ON saved_library_views(owner_user_id, space_id, library_id, media_type, updated_at DESC);
 
 -- Updated-at trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -1569,6 +1585,10 @@ BEGIN
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_event_exclusive_sources_updated_at') THEN
         CREATE TRIGGER update_event_exclusive_sources_updated_at BEFORE UPDATE ON event_exclusive_sources
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_saved_library_views_updated_at') THEN
+        CREATE TRIGGER update_saved_library_views_updated_at BEFORE UPDATE ON saved_library_views
             FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_media_variants_updated_at') THEN
@@ -1852,5 +1872,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (106, 'Add Dashboard Review decision tracking'),
     (107, 'Add reusable collectible trait persistence'),
     (108, 'Add object relationship workflows'),
-    (109, 'Add event exclusive source cache')
+    (109, 'Add event exclusive source cache'),
+    (110, 'Add saved library views')
 ON CONFLICT (version) DO NOTHING;

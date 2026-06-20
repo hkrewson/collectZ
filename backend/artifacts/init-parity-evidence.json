@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-04-27T06:02:02.479Z",
-  "initSqlPath": "/repo/init.sql",
-  "initDb": "collectz_init_parity_init_mogsi5hc",
-  "migDb": "collectz_init_parity_mig_mogsi5hc",
+  "generatedAt": "2026-06-20T04:03:00.969Z",
+  "initSqlPath": "/Users/hamlin/Development/GitHub/hkrewson/collectZ/init.sql",
+  "initDb": "collectz_init_parity_init_mqlu12xf",
+  "migDb": "collectz_init_parity_mig_mqlu12xf",
   "checks": [
     {
       "label": "columns",

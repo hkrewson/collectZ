@@ -6,6 +6,43 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.19.4 — Durable Library Saved Views
+
+**Goal:** Persist Library saved views through the backend so named filter/sort/display states survive across browser sessions and devices.
+
+### Scope
+
+- Add a `saved_library_views` persistence table for user-owned Library views.
+- Add authenticated, scope-aware saved-view endpoints under the Library API boundary.
+- Store the proven 3.19.3 snapshot shape: search, filters, sort, display mode, collection mode, and comic context.
+- Update the Library saved-view controls to load backend views first.
+- Keep browser-local saved views as a fallback when the backend endpoint is unavailable.
+- Keep shared workspace views, smart rules, dashboard navigation, and automatic local-to-server migration out of scope.
+
+### Acceptance Criteria
+
+- A user can create, update, list, and delete durable Library saved views.
+- Saved views remain owner-scoped and workspace/library scoped.
+- Saved views remain scoped by library media type.
+- Existing local saved-view behavior still works as fallback.
+- No platform/cairn dependency is introduced.
+
+### Active Slice Notes
+
+- This is the second selected slice from the broader Saved Views and Smart Collections backlog item.
+- The implementation intentionally keeps saved views private/user-owned until sharing semantics are designed.
+
+### Closeout
+
+- Status: completed in `3.19.4`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, and `docs/releases/v3.19.4.md`.
+- Runtime evidence: no running-stack evidence for this slice; the local release preflight recorded compose smoke as blocked because the local backend service was not running.
+- Verification: backend route, validation, migration, and unit test syntax passed; backend unit tests passed with `326` checks; OpenAPI validation passed; frontend production build passed; migration rehearsal and init parity passed against throwaway Postgres 16 containers; backend and frontend dependency audits passed during `npm run release:local-gate`; `git diff --check` passed.
+- Blocked/unverified: `npm run release:local-gate` passed package metadata, version sync, release note/feed, backend unit, OpenAPI, frontend build, dependency audits, and diff hygiene, but failed the release-preflight gate because observability release evidence is stale/missing and compose smoke was blocked by no running local backend service. Secret scan, browser regression, and image security/SBOM remain CI or full-profile follow-through gates.
+- Risks/follow-ups: browser-local saved views are not automatically migrated into backend saved views. Shared workspace views, smart collection rules, dashboard navigation, and smart collection badges remain backlog work.
+- Files changed: `app-meta.json`; `backend/app-meta.json`; `backend/artifacts/init-parity-evidence.json`; `backend/artifacts/migration-rehearsal-evidence.json`; `backend/db/migrations.js`; `backend/middleware/validate.js`; `backend/openapi/openapi.yaml`; `backend/package-lock.json`; `backend/package.json`; `backend/release-feed.json`; `backend/routes/libraries.js`; `backend/scripts/unit-tests.js`; `docs/releases/v3.19.4.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `frontend/package-lock.json`; `frontend/package.json`; `frontend/src/app-meta.json`; `frontend/src/components/LibraryView.jsx`; `init.sql`; and `preflight-go-no-go.md`.
+- What remains in the milestone: running-stack compose smoke, refreshed observability evidence, browser regression, secret scan, and image/SBOM checks need follow-through before treating `3.19.4` as fully release-ready.
+
 ## 3.19.3 — Local Saved Library Views
 
 **Goal:** Let users save and reopen useful Library filter/search/sort states in the current browser before introducing a durable backend saved-view model.

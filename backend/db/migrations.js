@@ -4593,6 +4593,37 @@ const MIGRATIONS = [
       END;
       $$;
     `
+  },
+  {
+    version: 110,
+    description: 'Add saved library views',
+    up: `
+      CREATE TABLE IF NOT EXISTS saved_library_views (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(80) NOT NULL,
+        object_type VARCHAR(40) NOT NULL DEFAULT 'library' CHECK (object_type IN ('library')),
+        media_type VARCHAR(50) NOT NULL,
+        snapshot JSONB NOT NULL DEFAULT '{}'::jsonb,
+        visibility VARCHAR(20) NOT NULL DEFAULT 'private' CHECK (visibility IN ('private')),
+        owner_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        space_id INTEGER,
+        library_id INTEGER REFERENCES libraries(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_saved_library_views_owner_scope
+        ON saved_library_views(owner_user_id, space_id, library_id, media_type, updated_at DESC);
+
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_saved_library_views_updated_at') THEN
+          CREATE TRIGGER update_saved_library_views_updated_at BEFORE UPDATE ON saved_library_views
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+        END IF;
+      END;
+      $$;
+    `
   }
 ];
 

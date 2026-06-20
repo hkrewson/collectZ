@@ -255,7 +255,8 @@ function normalizeSavedLibraryViewRecord(record, scope) {
       comicView: ['issues', 'series', 'series_issues'].includes(snapshot.comicView) ? snapshot.comicView : 'issues',
       comicSeries: String(snapshot.comicSeries || 'all')
     },
-    updatedAt: String(record.updatedAt || '')
+    updatedAt: String(record.updatedAt || record.updated_at || ''),
+    storage: record.storage === 'server' ? 'server' : 'local'
   };
 }
 
@@ -4408,6 +4409,7 @@ export default function LibraryView({
   });
   const [savedLibraryViews, setSavedLibraryViews] = useState(() => readSavedLibraryViews(savedViewScope));
   const [activeSavedViewId, setActiveSavedViewId] = useState('');
+  const [savedViewsStorageMode, setSavedViewsStorageMode] = useState('local');
   const handleContentScroll = useCallback((event) => {
     const nextCompact = event.currentTarget.scrollTop > 24;
     setHeaderCompact((current) => (current === nextCompact ? current : nextCompact));
@@ -4564,7 +4566,7 @@ export default function LibraryView({
     setPage(1);
     onToast?.(`Applied saved view: ${view.name}`);
   }, [onToast, savedViewScope, supportsCollections]);
-  const saveCurrentLibraryView = useCallback(() => {
+  const saveCurrentLibraryView = useCallback(async () => {
     const current = savedLibraryViews.find((view) => view.id === activeSavedViewId);
     const suggestedName = current?.name || [
       searchInput.trim(),
@@ -4575,12 +4577,36 @@ export default function LibraryView({
     const name = String(rawName || '').trim();
     if (!name) return;
     const now = new Date().toISOString();
+    const snapshot = currentSavedViewSnapshot();
+    if (savedViewsStorageMode === 'server' && apiCall) {
+      try {
+        const payload = {
+          name,
+          media_type: savedViewScope,
+          snapshot
+        };
+        const response = current?.storage === 'server'
+          ? await apiCall('put', `/libraries/saved-views/${current.id}`, payload)
+          : await apiCall('post', '/libraries/saved-views', payload);
+        const saved = normalizeSavedLibraryViewRecord(response.view, savedViewScope);
+        if (saved) {
+          setSavedLibraryViews((views) => [saved, ...views.filter((view) => view.id !== saved.id)].slice(0, 100));
+          setActiveSavedViewId(saved.id);
+          onToast?.(`${current ? 'Updated' : 'Saved'} view: ${saved.name}`);
+          return;
+        }
+      } catch (saveError) {
+        onToast?.(`${formatApiError(saveError, 'Saved view could not sync')}; saved in this browser`);
+        setSavedViewsStorageMode('local');
+      }
+    }
     const nextRecord = {
       id: current?.id || `library-view-${Date.now().toString(36)}`,
       name,
       scope: savedViewScope,
-      snapshot: currentSavedViewSnapshot(),
-      updatedAt: now
+      snapshot,
+      updatedAt: now,
+      storage: 'local'
     };
     const remaining = savedLibraryViews.filter((view) => view.id !== nextRecord.id);
     const nextViews = persistSavedLibraryViews([nextRecord, ...remaining]);
@@ -4589,15 +4615,27 @@ export default function LibraryView({
     if (nextViews.length > 20) {
       persistSavedLibraryViews(nextViews.slice(0, 20));
     }
-  }, [activeReviewFilterLabel, activeSavedViewId, currentSavedViewSnapshot, persistSavedLibraryViews, quickFilterActiveCount, quickFilterLabel, savedLibraryViews, savedViewScope, searchInput, title, onToast]);
-  const deleteActiveSavedLibraryView = useCallback(() => {
+  }, [activeReviewFilterLabel, activeSavedViewId, apiCall, currentSavedViewSnapshot, persistSavedLibraryViews, quickFilterActiveCount, quickFilterLabel, savedLibraryViews, savedViewScope, savedViewsStorageMode, searchInput, title, onToast]);
+  const deleteActiveSavedLibraryView = useCallback(async () => {
     const current = savedLibraryViews.find((view) => view.id === activeSavedViewId);
     if (!current) return;
     if (!window.confirm(`Delete saved view "${current.name}"?`)) return;
+    if (current.storage === 'server' && apiCall) {
+      try {
+        await apiCall('delete', `/libraries/saved-views/${current.id}`);
+        setSavedLibraryViews((views) => views.filter((view) => view.id !== current.id));
+        setActiveSavedViewId('');
+        onToast?.(`Deleted saved view: ${current.name}`);
+        return;
+      } catch (deleteError) {
+        onToast?.(formatApiError(deleteError, 'Delete saved view failed'));
+        return;
+      }
+    }
     persistSavedLibraryViews(savedLibraryViews.filter((view) => view.id !== current.id));
     setActiveSavedViewId('');
     onToast?.(`Deleted saved view: ${current.name}`);
-  }, [activeSavedViewId, onToast, persistSavedLibraryViews, savedLibraryViews]);
+  }, [activeSavedViewId, apiCall, onToast, persistSavedLibraryViews, savedLibraryViews]);
   const clearQuickFilter = useCallback(() => {
     if (!quickFilterConfig) return;
     if (quickFilterConfig.key === 'resolution') {
@@ -4614,9 +4652,39 @@ export default function LibraryView({
   }, [quickFilterConfig]);
 
   useEffect(() => {
-    setSavedLibraryViews(readSavedLibraryViews(savedViewScope));
-    setActiveSavedViewId('');
-  }, [savedViewScope]);
+    let cancelled = false;
+    const loadSavedViews = async () => {
+      if (!apiCall) {
+        if (!cancelled) {
+          setSavedLibraryViews(readSavedLibraryViews(savedViewScope));
+          setSavedViewsStorageMode('local');
+          setActiveSavedViewId('');
+        }
+        return;
+      }
+      try {
+        const payload = await apiCall('get', `/libraries/saved-views?media_type=${encodeURIComponent(savedViewScope)}`);
+        const views = Array.isArray(payload?.views)
+          ? payload.views.map((record) => normalizeSavedLibraryViewRecord(record, savedViewScope)).filter(Boolean)
+          : [];
+        if (!cancelled) {
+          setSavedLibraryViews(views);
+          setSavedViewsStorageMode('server');
+          setActiveSavedViewId('');
+        }
+      } catch (_) {
+        if (!cancelled) {
+          setSavedLibraryViews(readSavedLibraryViews(savedViewScope));
+          setSavedViewsStorageMode('local');
+          setActiveSavedViewId('');
+        }
+      }
+    };
+    loadSavedViews();
+    return () => {
+      cancelled = true;
+    };
+  }, [apiCall, savedViewScope]);
 
   useEffect(() => {
     if (!activeSavedViewId) return;
