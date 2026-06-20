@@ -185,7 +185,6 @@ export default function ImportView({
   const header = (
     <UtilityPageHeader
       title="Import Media"
-      subtitle={`Bring titles into ${activeLibrary?.name ? `“${activeLibrary.name}”` : 'your active library'} from files or connected services.`}
       compact={headerCompact}
       controls={(
           <SectionTabs

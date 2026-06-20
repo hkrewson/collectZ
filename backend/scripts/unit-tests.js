@@ -1168,7 +1168,9 @@ results.push(run('playwright library lifecycle regressions cover archive and tra
   assert.ok(libraryLifecycleBrowserSpecSource.includes('transferring the active library away from the previous owner falls back the browser shell onto a surviving accessible library'));
   assert.ok(libraryLifecycleBrowserSpecSource.includes("postWithCsrf(requestContext, `/api/libraries/${archiveTarget.id}/archive`"));
   assert.ok(libraryLifecycleBrowserSpecSource.includes("postWithCsrf(ownerContext, `/api/libraries/${transferTarget.id}/transfer`"));
+  assert.ok(libraryLifecycleBrowserSpecSource.includes("getByRole('tablist', { name: 'Import sources' })"));
   assert.ok(libraryLifecycleBrowserSpecSource.includes("Bring titles into “${libraryName}” from files or connected services."));
+  assert.ok(!importViewSource.includes('Bring titles into'));
 }));
 
 results.push(run('valuations.buildFixtureValuationResult returns deterministic normalized ranges', () => {
@@ -2841,7 +2843,7 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
   assert.ok(importCsvBrowserSpecSource.includes('waitForSyncJob('));
   assert.ok(importCsvBrowserSpecSource.includes('/dashboard?tab=library-movies'));
   assert.ok(libraryLifecycleBrowserSpecSource.includes('/dashboard?tab=library-import'));
-  assert.ok(libraryLifecycleBrowserSpecSource.includes('Bring titles into “${libraryName}” from files or connected services.'));
+  assert.ok(libraryLifecycleBrowserSpecSource.includes("getByRole('heading', { name: 'Import Media' })"));
   assert.ok(libraryLifecycleBrowserSpecSource.includes("toHaveCount(0)"));
   assert.ok(spaceManagerBrowserSpecSource.includes('expectManageableFallbackWorkspace'));
   assert.ok(spaceManagerBrowserSpecSource.includes("getByLabel('Workspace sections')"));

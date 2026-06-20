@@ -39,7 +39,8 @@ function getReplacementLibrary(libraries, removedLibraryId) {
 async function expectImportLibraryContext(page, { libraryId, libraryName }) {
   await page.goto('/dashboard?tab=library-import');
   await expect(page.getByRole('heading', { name: 'Import Media' })).toBeVisible();
-  await expect(page.getByText(`Bring titles into “${libraryName}” from files or connected services.`, { exact: true })).toBeVisible();
+  await expect(page.getByRole('tablist', { name: 'Import sources' })).toBeVisible();
+  await expect(page.getByText(`Bring titles into “${libraryName}” from files or connected services.`, { exact: true })).toHaveCount(0);
 }
 
 test.describe('library lifecycle browser regressions', () => {
@@ -71,7 +72,7 @@ test.describe('library lifecycle browser regressions', () => {
         libraryId: expectedFallback.id,
         libraryName: expectedFallback.name
       });
-      await expect(page.getByText(`Bring titles into “${archiveTarget.name}” from files or connected services.`, { exact: true })).toHaveCount(0);
+      await expect(page.getByText(archiveTarget.name, { exact: true })).toHaveCount(0);
     } finally {
       await requestContext.dispose();
     }
@@ -121,7 +122,7 @@ test.describe('library lifecycle browser regressions', () => {
         libraryId: expectedFallback.id,
         libraryName: expectedFallback.name
       });
-      await expect(page.getByText(`Bring titles into “${transferTarget.name}” from files or connected services.`, { exact: true })).toHaveCount(0);
+      await expect(page.getByText(transferTarget.name, { exact: true })).toHaveCount(0);
     } finally {
       await adminContext.dispose();
       await recipientContext.dispose();
