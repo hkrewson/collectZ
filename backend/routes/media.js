@@ -6482,7 +6482,8 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
           normalizeMediaType(media.media_type || 'movie', 'movie'),
           media.network,
           `Imported from Plex section ${item.sectionId}`,
-          existing.id
+          existing.id,
+          media.type_details ? JSON.stringify(media.type_details) : null
         ];
         const updateScopeClause = appendScopeSql(updateParams, scopeContext);
         await pool.query(
@@ -6505,6 +6506,10 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
            media_type = COALESCE($16, media_type),
            network = COALESCE($17, network),
            notes = COALESCE($18, notes),
+           type_details = CASE
+             WHEN $20::jsonb IS NULL THEN type_details
+             ELSE COALESCE(type_details, '{}'::jsonb) || $20::jsonb
+           END,
            import_source = 'plex'
            WHERE id = $19${updateScopeClause}
            RETURNING id, genre, director, cast_members AS cast`,
@@ -6541,9 +6546,9 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
           `INSERT INTO media (
              title, original_title, release_date, year, format, owned_formats, director, cast_members, rating,
              runtime, poster_path, backdrop_path, overview, tmdb_id, tmdb_media_type, tmdb_url, media_type, network, notes,
-             library_id, space_id, added_by, import_source
+             type_details, library_id, space_id, added_by, import_source
            ) VALUES (
-             $1,$2,$3,$4,$5,$6::text[],$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23
+             $1,$2,$3,$4,$5,$6::text[],$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20::jsonb,$21,$22,$23,$24
            )
            RETURNING id, genre, director, cast_members AS cast`,
           [
@@ -6566,6 +6571,7 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
             normalizeMediaType(media.media_type || 'movie', 'movie'),
             media.network,
             `Imported from Plex section ${item.sectionId}`,
+            media.type_details ? JSON.stringify(media.type_details) : null,
             scopeContext.libraryId || null,
             scopeContext.spaceId || null,
             req.user.id,

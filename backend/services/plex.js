@@ -890,13 +890,13 @@ const shouldIncludePlexEntry = (sectionType, entryType) => {
     return !normalizedEntryType || normalizedEntryType === 'movie' || normalizedEntryType === 'video' || normalizedEntryType === 'clip';
   }
   if (normalizedSectionType === 'artist') {
-    return normalizedEntryType === 'artist' || normalizedEntryType === 'album';
+    return normalizedEntryType === 'album';
   }
 
   if (normalizedEntryType === 'season' || normalizedEntryType === 'episode' || normalizedEntryType === 'track') {
     return false;
   }
-  return !normalizedEntryType || normalizedEntryType === 'movie' || normalizedEntryType === 'video' || normalizedEntryType === 'show' || normalizedEntryType === 'artist' || normalizedEntryType === 'album';
+  return !normalizedEntryType || normalizedEntryType === 'movie' || normalizedEntryType === 'video' || normalizedEntryType === 'show' || normalizedEntryType === 'album';
 };
 
 const normalizePlexItem = (item) => {
@@ -914,10 +914,13 @@ const normalizePlexItem = (item) => {
   const audioTitle = rawType === 'track'
     ? (item.parentTitle || item.grandparentTitle || item.title || item.originalTitle || null)
     : (item.title || item.originalTitle || null);
-  const audioArtist = item.grandparentTitle || item.parentTitle || item.artist || item.title || null;
+  const audioArtist = rawType === 'artist'
+    ? (item.title || item.artist || null)
+    : (item.grandparentTitle || item.parentTitle || item.artist || null);
   const audioAlbum = rawType === 'track'
     ? (item.parentTitle || item.title || null)
     : (rawType === 'album' ? (item.title || null) : null);
+  const audioTrackCount = item.leafCount || item.childCount || item.trackCount || item.viewedLeafCount || null;
   const year = item.year ? Number(item.year) : null;
   const runtime = item.duration ? Math.round(Number(item.duration) / 60000) : null;
   const tmdbId = parseTmdbIdFromGuid(item.guid);
@@ -943,7 +946,8 @@ const normalizePlexItem = (item) => {
     format: 'Digital',
     type_details: isAudio ? {
       artist: audioArtist,
-      album: audioAlbum
+      album: audioAlbum,
+      track_count: Number.isInteger(Number(audioTrackCount)) && Number(audioTrackCount) > 0 ? Number(audioTrackCount) : null
     } : undefined,
     plex_guid: item.guid ? String(item.guid) : null,
     plex_rating_key: seriesRatingKey ? String(seriesRatingKey) : null

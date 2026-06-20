@@ -6,6 +6,44 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.19.6 — Plex Audio Album Import Metadata Fix
+
+**Goal:** Keep Plex music library imports album-shaped and show useful album metadata in the Audio Library detail view.
+
+### Scope
+
+- Exclude Plex artist and track rows from audio-section media imports.
+- Preserve Plex album metadata in `type_details` on create and update.
+- Normalize album track counts when Plex provides them.
+- Render Album, Artist, and Tracks in the audio detail drawer.
+- Ensure `runtime-env.js` loads before the Vite app bundle so optional Cairn/platform runtime config is visible during startup.
+- Keep historical repair of previously imported artist rows out of scope.
+
+### Acceptance Criteria
+
+- Plex music imports do not create new Audio items for artist rows.
+- Plex album imports continue to create or update Audio records.
+- Album imports persist album, artist, and track-count metadata when available.
+- Audio detail drawers show album metadata without duplicating raw type-detail fields.
+- Runtime environment config is available before the frontend reads API and optional platform bridge settings.
+- Existing Core and Library tests continue to pass.
+
+### Active Slice Notes
+
+- This fixes a regression exposed while validating the local library backlog and Plex import flow after the Core/platform split.
+- The running 3201 local stack was stale during investigation; it was serving an older backend and frontend image.
+
+### Closeout
+
+- Status: completed in `3.19.6`.
+- Project docs/checklists used: `docs/wiki/07-Release-Roadmap.md`, `docs/releases/v3.19.6.md`, and existing Plex/Library unit smoke coverage.
+- Runtime evidence: no persisted production evidence for this slice.
+- Verification: backend syntax checks passed for `backend/services/plex.js`, `backend/routes/media.js`, and `backend/scripts/unit-tests.js`; backend unit tests passed with `329` checks; frontend production build passed; 3201 local stack rebuilt to `3.19.6`; browser smoke confirmed the rebuilt app shell renders; `git diff --check` passed.
+- Blocked/unverified: browser regression and a fresh Plex reimport against a live Plex server were not run in this slice.
+- Risks/follow-ups: existing artist-shaped Audio rows from older imports are not automatically repaired. Add a historical Plex audio cleanup/backfill if those rows need bulk correction.
+- Files changed: `app-meta.json`; `backend/app-meta.json`; `backend/package-lock.json`; `backend/package.json`; `backend/release-feed.json`; `backend/routes/media.js`; `backend/scripts/unit-tests.js`; `backend/services/plex.js`; `docs/releases/v3.19.6.md`; `docs/wiki/07-Release-Roadmap.md`; `frontend/index.html`; `frontend/package-lock.json`; `frontend/package.json`; `frontend/src/app-meta.json`; and `frontend/src/components/LibraryView.jsx`.
+- What remains in the milestone: live 3201 smoke after container rebuild, optional Plex reimport proof, browser regression, and any historical cleanup decision.
+
 ## 3.19.5 — Saved Views Navigation
 
 **Goal:** Make durable Library saved views discoverable from the Library navigation instead of only inside each Library header control.

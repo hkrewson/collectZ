@@ -1313,6 +1313,7 @@ results.push(run('plex.normalizePlexItem maps album to audio context', () => {
     title: 'The Wall',
     parentTitle: 'Pink Floyd',
     year: '1979',
+    leafCount: '26',
     thumb: 'https://image.example/wall.jpg'
   };
   const out = normalizePlexItem(input);
@@ -1321,6 +1322,25 @@ results.push(run('plex.normalizePlexItem maps album to audio context', () => {
   assert.strictEqual(out.tmdb_media_type, null);
   assert.strictEqual(out.type_details.artist, 'Pink Floyd');
   assert.strictEqual(out.type_details.album, 'The Wall');
+  assert.strictEqual(out.type_details.track_count, 26);
+}));
+
+results.push(run('plex audio section import skips artist rows and keeps albums', () => {
+  assert.strictEqual(shouldIncludePlexEntry('artist', 'artist'), false);
+  assert.strictEqual(shouldIncludePlexEntry('artist', 'album'), true);
+  assert.strictEqual(shouldIncludePlexEntry('artist', 'track'), false);
+}));
+
+results.push(run('plex audio import persists album details and Library renders them', () => {
+  assert.ok(mediaRoutesSource.includes('type_details = CASE'));
+  assert.ok(mediaRoutesSource.includes('COALESCE(type_details,'));
+  assert.ok(mediaRoutesSource.includes('media.type_details ? JSON.stringify(media.type_details) : null'));
+  assert.ok(mediaRoutesSource.includes('type_details, library_id, space_id, added_by, import_source'));
+  assert.ok(libraryViewSource.includes('const audioDetailRows = isAudio'));
+  assert.ok(libraryViewSource.includes("['Album', typeDetails.album || item.title]"));
+  assert.ok(libraryViewSource.includes("['Artist', typeDetails.artist]"));
+  assert.ok(libraryViewSource.includes("['Tracks', typeDetails.track_count]"));
+  assert.ok(libraryViewSource.includes('Album details'));
 }));
 
 results.push(run('plex.normalizePlexVariant derives season edition + key', () => {
@@ -5214,6 +5234,7 @@ results.push(run('public compose source keeps homelab-safe cookie defaults in th
   assert.ok(frontendDockerfileSource.includes('COPY docker-entrypoint.d/40-runtime-env.sh /docker-entrypoint.d/40-runtime-env.sh'));
   assert.ok(frontendEnvSource.includes('window.__COLLECTZ_RUNTIME_CONFIG__'));
   assert.ok(frontendViteIndexHtmlSource.includes('src="/runtime-env.js"'));
+  assert.ok(frontendViteIndexHtmlSource.indexOf('src="/runtime-env.js"') < frontendViteIndexHtmlSource.indexOf('src="/src/main.jsx"'));
   assert.ok(useApiClientSource.includes("readFrontendEnv('VITE_CSRF_COOKIE_NAME', 'csrf_token')"));
   assert.ok(useApiClientSource.includes("readFrontendEnv('VITE_PLATFORM_API_URL', '')"));
   assert.ok(useApiClientSource.includes('isPlatformOwnedPath'));

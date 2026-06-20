@@ -852,6 +852,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   const typeDetails = item?.type_details && typeof item.type_details === 'object' ? item.type_details : {};
   const isBook = item?.media_type === 'book';
   const isComic = item?.media_type === 'comic_book';
+  const isAudio = item?.media_type === 'audio';
   const comicOverviewNeedsClamp = isComic && typeof item?.overview === 'string' && item.overview.trim().length > 420;
   const calibreExternalUrl = String(typeDetails.calibre_external_url || '').trim();
   const providerExternalUrl = String(typeDetails.provider_external_url || '').trim();
@@ -876,11 +877,20 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
         ['ISBN', typeDetails.isbn]
       ].filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== '')
     : [];
+  const audioDetailRows = isAudio
+    ? [
+        ['Album', typeDetails.album || item.title],
+        ['Artist', typeDetails.artist],
+        ['Tracks', typeDetails.track_count]
+      ].filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== '')
+    : [];
   const hiddenTypeDetailKeys = new Set(
     isBook
       ? ['author', 'publisher', 'edition', 'isbn', 'calibre_external_url', 'provider_external_url', 'calibre_download_url', 'provider_download_url', 'kavita_cover_url', 'kavita_cover_proxy_url', 'kavita_cover_source', 'kavita_cover_status', 'kavita_series_url', 'kavita_launch_url', 'kavita_launch_label', 'kavita_launch_target']
       : isComic
         ? ['calibre_entry_id', 'provider_item_id', 'calibre_external_url', 'provider_external_url', 'calibre_download_url', 'provider_download_url', 'provider_name', 'kavita_cover_url', 'kavita_cover_proxy_url', 'kavita_cover_source', 'kavita_cover_status', 'kavita_series_url', 'kavita_launch_url', 'kavita_launch_label', 'kavita_launch_target', 'kavita_chapter_fanout', 'kavita_parent_provider_item_id', 'kavita_series_provider_item_id', 'kavita_chapter_provider_item_id']
+        : isAudio
+          ? ['artist', 'album', 'track_count']
         : []
   );
   const visibleTypeDetailEntries = Object.entries(typeDetails)
@@ -2015,6 +2025,20 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
               <p className="label mb-2">Book details</p>
               <div className="grid gap-x-8 gap-y-3 text-sm md:grid-cols-2">
                 {bookDetailRows.map(([label, value]) => (
+                  <div key={label} className="border-b border-edge/60 pb-3 last:border-b-0">
+                    <p className="text-[11px] font-medium text-ghost">{label}</p>
+                    <p className="mt-1 text-sm text-ink">{String(value)}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {isAudio && audioDetailRows.length > 0 && (
+            <div>
+              <p className="label mb-2">Album details</p>
+              <div className="grid gap-x-8 gap-y-3 text-sm md:grid-cols-2">
+                {audioDetailRows.map(([label, value]) => (
                   <div key={label} className="border-b border-edge/60 pb-3 last:border-b-0">
                     <p className="text-[11px] font-medium text-ghost">{label}</p>
                     <p className="mt-1 text-sm text-ink">{String(value)}</p>
