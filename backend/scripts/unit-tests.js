@@ -284,6 +284,7 @@ const drawerMetadataModule = loadFrontendEsmModule(path.join('components', 'app'
   'DRAWER_METADATA_REGISTRY',
   'buildDrawerMetadata',
   'buildDrawerMetadataItems',
+  'buildObjectDrawerMetadataRecords',
   'getDrawerMetadataRegistryEntry'
 ]);
 const useSessionBootstrapSource = readFrontendSource(path.join('components', 'app', 'hooks', 'useSessionBootstrap'));
@@ -3866,6 +3867,7 @@ results.push(run('drawer optional metadata primitives render compact rows with a
   assert.ok(drawerMetadataSource.includes('export const DRAWER_METADATA_REGISTRY = Object.freeze({'));
   assert.ok(drawerMetadataSource.includes('export function buildDrawerMetadata(id = \'\', context = {})'));
   assert.ok(drawerMetadataSource.includes('export function buildDrawerMetadataItems(entries = [], sharedContext = {})'));
+  assert.ok(drawerMetadataSource.includes('export function buildObjectDrawerMetadataRecords({'));
   assert.ok(drawerMetadataSource.includes('export function getDrawerMetadataRegistryEntry(id = \'\')'));
   assert.ok(drawerMetadataSource.includes('appliesTo: () => true'));
   assert.ok(drawerMetadataSource.includes('.filter((item) => item && item.metadata?.applies !== false)'));
@@ -3910,11 +3912,13 @@ results.push(run('drawer optional metadata primitives render compact rows with a
   assert.ok(!appPrimitivesSource.includes('Record COA, receipt, witnessed, or source details when evidence exists.'));
   assert.ok(!libraryViewSource.includes('Record when this title leaves the shelf and when it should come back.'));
   assert.ok(!drawerMetadataSource.includes('Link box sets, bundle pieces, companion records, or event-acquired items without duplicating records.'));
-  assert.ok(libraryViewSource.includes('const drawerMetadataRecords = showLoanFocusedView ? [] : buildDrawerMetadataItems(['));
-  assert.ok(libraryViewSource.includes('id: DRAWER_METADATA_IDS.edition'));
-  assert.ok(libraryViewSource.includes('id: DRAWER_METADATA_IDS.grading'));
-  assert.ok(libraryViewSource.includes('id: DRAWER_METADATA_IDS.proof'));
-  assert.ok(libraryViewSource.includes('id: DRAWER_METADATA_IDS.related'));
+  assert.ok(libraryViewSource.includes('const drawerMetadataRecords = showLoanFocusedView ? [] : buildObjectDrawerMetadataRecords({'));
+  assert.ok(libraryViewSource.includes("ownerType: 'media'"));
+  assert.ok(libraryViewSource.includes('includeEdition: true'));
+  assert.ok(drawerMetadataSource.includes('id: DRAWER_METADATA_IDS.edition'));
+  assert.ok(drawerMetadataSource.includes('id: DRAWER_METADATA_IDS.grading'));
+  assert.ok(drawerMetadataSource.includes('id: DRAWER_METADATA_IDS.proof'));
+  assert.ok(drawerMetadataSource.includes('id: DRAWER_METADATA_IDS.related'));
   assert.ok(libraryViewSource.includes('const drawerMetadataNodes = {'));
   assert.ok(libraryViewSource.includes('const drawerMetadataItems = buildDrawerMetadataRenderItems(drawerMetadataRecords, drawerMetadataNodes);'));
   assert.ok(libraryViewSource.includes('<DrawerMetadataList items={drawerMetadataItems} />'));
@@ -3922,20 +3926,14 @@ results.push(run('drawer optional metadata primitives render compact rows with a
   assert.ok(libraryViewSource.includes('<DrawerMetadataEntry'));
   assert.ok(libraryViewSource.includes("{loanFormOpen ? 'Cancel' : 'Loan out'}"));
   assert.ok(collectiblesViewSource.includes('DrawerMetadataList'));
-  assert.ok(collectiblesViewSource.includes('buildDrawerMetadataItems(['));
+  assert.ok(collectiblesViewSource.includes('buildObjectDrawerMetadataRecords({'));
   assert.ok(collectiblesViewSource.includes('ownerType: \'collectible\''));
-  assert.ok(collectiblesViewSource.includes('id: DRAWER_METADATA_IDS.grading'));
-  assert.ok(collectiblesViewSource.includes('id: DRAWER_METADATA_IDS.proof'));
-  assert.ok(collectiblesViewSource.includes('id: DRAWER_METADATA_IDS.related'));
   assert.ok(collectiblesViewSource.includes('const drawerMetadataItems = buildDrawerMetadataRenderItems(drawerMetadataRecords, drawerMetadataNodes);'));
   assert.ok(collectiblesViewSource.includes('<DrawerMetadataList items={drawerMetadataItems} />'));
   assert.ok(collectiblesViewSource.includes('<DetailField label="Classification">{itemTypeLabel}</DetailField>'));
   assert.ok(artViewSource.includes('DrawerMetadataList'));
-  assert.ok(artViewSource.includes('buildDrawerMetadataItems(['));
+  assert.ok(artViewSource.includes('buildObjectDrawerMetadataRecords({'));
   assert.ok(artViewSource.includes('ownerType: \'art\''));
-  assert.ok(artViewSource.includes('id: DRAWER_METADATA_IDS.grading'));
-  assert.ok(artViewSource.includes('id: DRAWER_METADATA_IDS.proof'));
-  assert.ok(artViewSource.includes('id: DRAWER_METADATA_IDS.related'));
   assert.ok(artViewSource.includes('const drawerMetadataItems = buildDrawerMetadataRenderItems(drawerMetadataRecords, drawerMetadataNodes);'));
   assert.ok(artViewSource.includes('<DrawerMetadataList items={drawerMetadataItems} />'));
   assert.ok(artViewSource.includes('<DetailField label="Signature proof">'));
@@ -3948,6 +3946,7 @@ results.push(run('drawer metadata registry builders order and adapt by context',
     DRAWER_METADATA_REGISTRY,
     buildDrawerMetadata,
     buildDrawerMetadataItems,
+    buildObjectDrawerMetadataRecords,
     getDrawerMetadataRegistryEntry
   } = drawerMetadataModule;
 
@@ -4027,6 +4026,37 @@ results.push(run('drawer metadata registry builders order and adapt by context',
   assert.strictEqual(records[1].metadata.label, 'Grading');
   assert.strictEqual(records[2].metadata.summary, 'COA');
   assert.strictEqual(records[3].metadata.emptyLabel, 'Add');
+
+  const mediaRecords = buildObjectDrawerMetadataRecords({
+    traits: [
+      { family: 'edition_variant', summary: 'SteelBook' },
+      { family: 'graded', summary: 'Near mint' },
+      { family: 'provenance', summary: 'Receipt' }
+    ],
+    ownerType: 'media',
+    mediaType: 'movie',
+    includeEdition: true
+  });
+  assert.deepStrictEqual(Array.from(mediaRecords, (record) => record.id), [
+    DRAWER_METADATA_IDS.edition,
+    DRAWER_METADATA_IDS.grading,
+    DRAWER_METADATA_IDS.proof,
+    DRAWER_METADATA_IDS.related
+  ]);
+  assert.strictEqual(mediaRecords[0].metadata.summary, 'SteelBook');
+  assert.strictEqual(mediaRecords[1].metadata.label, 'Condition');
+  assert.strictEqual(mediaRecords[2].metadata.summary, 'Receipt');
+
+  const artRecords = buildObjectDrawerMetadataRecords({
+    traits: [{ family: 'graded', summary: 'Authenticated' }],
+    ownerType: 'art'
+  });
+  assert.deepStrictEqual(Array.from(artRecords, (record) => record.id), [
+    DRAWER_METADATA_IDS.grading,
+    DRAWER_METADATA_IDS.proof,
+    DRAWER_METADATA_IDS.related
+  ]);
+  assert.strictEqual(artRecords[0].metadata.label, 'Authentication');
 }));
 
 results.push(run('repo includes local release preflight helper coverage for dependency audits and go-no-go reporting', () => {

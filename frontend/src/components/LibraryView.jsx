@@ -33,12 +33,9 @@ import {
   normalizeBarcodeInput
 } from './app/AppPrimitives';
 import {
-  buildDrawerMetadataItems,
   buildLoanMetadata,
-  DRAWER_METADATA_IDS,
-  findEditionVariantTrait,
-  findGradingTrait,
-  findProvenanceTrait
+  buildObjectDrawerMetadataRecords,
+  DRAWER_METADATA_IDS
 } from './app/drawerMetadata';
 import SignatureManager from './app/SignatureManager';
 import {
@@ -1068,32 +1065,12 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   const showLoanFocusedView = Boolean(activeLoan) && !showLoanItemDetails;
   const metadataTraits = Array.isArray(item?.collectible_traits) ? item.collectible_traits : [];
   const loanMetadata = buildLoanMetadata({ loan: activeLoan, loading: loanLoading, formatDate });
-  const drawerMetadataRecords = showLoanFocusedView ? [] : buildDrawerMetadataItems([
-    {
-      id: DRAWER_METADATA_IDS.edition,
-      context: {
-        trait: findEditionVariantTrait(metadataTraits),
-        mediaType: item?.media_type
-      }
-    },
-    {
-      id: DRAWER_METADATA_IDS.grading,
-      context: {
-        trait: findGradingTrait(metadataTraits),
-        mediaType: item?.media_type,
-        ownerType: 'media'
-      }
-    },
-    {
-      id: DRAWER_METADATA_IDS.proof,
-      context: {
-        trait: findProvenanceTrait(metadataTraits)
-      }
-    },
-    {
-      id: DRAWER_METADATA_IDS.related
-    }
-  ]);
+  const drawerMetadataRecords = showLoanFocusedView ? [] : buildObjectDrawerMetadataRecords({
+    traits: metadataTraits,
+    ownerType: 'media',
+    mediaType: item?.media_type,
+    includeEdition: true
+  });
   const drawerMetadataNodes = {
     [DRAWER_METADATA_IDS.edition]: (
       <EditionVariantEditor

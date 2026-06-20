@@ -1,10 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { CheckboxControl, CollectionPaginationFooter, CollectibleGradingEditor, CollectibleProvenanceEditor, CollectibleTraitPills, CollectibleTraitReadback, CoverImagePicker, DetailDrawerShell, DrawerBackdrop, DrawerMetadataList, FilterMenu, Icons, ObjectRelationshipEditor, PageHeaderSearchToolbar, Spinner, SectionTabPanel, SectionTabs, buildDrawerMetadataRenderItems, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
 import {
-  buildDrawerMetadataItems,
-  DRAWER_METADATA_IDS,
-  findGradingTrait,
-  findProvenanceTrait
+  buildObjectDrawerMetadataRecords,
+  DRAWER_METADATA_IDS
 } from './app/drawerMetadata';
 
 const CATEGORY_OPTIONS = [
@@ -187,24 +185,10 @@ function CollectibleDetailDrawer({ collectibleId, apiCall, categories, events, o
   const itemTypeLabel = getCollectibleClassificationLabel(item);
   const showPurchaseContext = true;
   const metadataTraits = Array.isArray(item?.collectible_traits) ? item.collectible_traits : [];
-  const drawerMetadataRecords = !loading && item ? buildDrawerMetadataItems([
-    {
-      id: DRAWER_METADATA_IDS.grading,
-      context: {
-        trait: findGradingTrait(metadataTraits),
-        ownerType: 'collectible'
-      }
-    },
-    {
-      id: DRAWER_METADATA_IDS.proof,
-      context: {
-        trait: findProvenanceTrait(metadataTraits)
-      }
-    },
-    {
-      id: DRAWER_METADATA_IDS.related
-    }
-  ]) : [];
+  const drawerMetadataRecords = !loading && item ? buildObjectDrawerMetadataRecords({
+    traits: metadataTraits,
+    ownerType: 'collectible'
+  }) : [];
   const drawerMetadataNodes = item ? {
     [DRAWER_METADATA_IDS.grading]: (
       <CollectibleGradingEditor

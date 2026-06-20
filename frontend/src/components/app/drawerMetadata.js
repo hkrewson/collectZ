@@ -366,3 +366,42 @@ export function buildDrawerMetadataItems(entries = [], sharedContext = {}) {
       return leftPriority - rightPriority;
     });
 }
+
+export function buildObjectDrawerMetadataRecords({
+  traits = [],
+  ownerType = '',
+  mediaType = '',
+  includeEdition = false,
+  includeRelated = true
+} = {}) {
+  const entries = [];
+  if (includeEdition) {
+    entries.push({
+      id: DRAWER_METADATA_IDS.edition,
+      context: {
+        trait: findEditionVariantTrait(traits),
+        mediaType
+      }
+    });
+  }
+  entries.push(
+    {
+      id: DRAWER_METADATA_IDS.grading,
+      context: {
+        trait: findGradingTrait(traits),
+        mediaType,
+        ownerType
+      }
+    },
+    {
+      id: DRAWER_METADATA_IDS.proof,
+      context: {
+        trait: findProvenanceTrait(traits)
+      }
+    }
+  );
+  if (includeRelated) {
+    entries.push({ id: DRAWER_METADATA_IDS.related });
+  }
+  return buildDrawerMetadataItems(entries);
+}
