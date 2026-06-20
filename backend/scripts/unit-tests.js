@@ -3,6 +3,7 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
+const vm = require('vm');
 const { parseCsvText } = require('../services/csv');
 const { normalizeBarcodeMatches } = require('../services/barcode');
 const {
@@ -239,6 +240,18 @@ function readFrontendSource(relativePath) {
   }
   throw new Error(`Unable to resolve frontend source for ${relativePath}`);
 }
+function loadFrontendEsmModule(relativePath, exportNames = []) {
+  const source = readFrontendSource(relativePath)
+    .replace(/\bexport const /g, 'const ')
+    .replace(/\bexport function /g, 'function ');
+  const sandbox = { module: { exports: {} } };
+  vm.runInNewContext(
+    `${source}\nmodule.exports = { ${exportNames.join(', ')} };`,
+    sandbox,
+    { filename: `${relativePath}.js` }
+  );
+  return sandbox.module.exports;
+}
 const frontendAppSource = readFrontendSource('App');
 const sidebarNavSource = readFrontendSource(path.join('components', 'SidebarNav'));
 const dashboardShellSource = readFrontendSource(path.join('components', 'app', 'DashboardShell'));
@@ -266,6 +279,13 @@ const adminMergeReviewViewSource = readFrontendSource(path.join('components', 'A
 const libraryViewSource = readFrontendSource(path.join('components', 'LibraryView'));
 const appPrimitivesSource = readFrontendSource(path.join('components', 'app', 'AppPrimitives'));
 const drawerMetadataSource = readFrontendSource(path.join('components', 'app', 'drawerMetadata'));
+const drawerMetadataModule = loadFrontendEsmModule(path.join('components', 'app', 'drawerMetadata'), [
+  'DRAWER_METADATA_IDS',
+  'DRAWER_METADATA_REGISTRY',
+  'buildDrawerMetadata',
+  'buildDrawerMetadataItems',
+  'getDrawerMetadataRegistryEntry'
+]);
 const useSessionBootstrapSource = readFrontendSource(path.join('components', 'app', 'hooks', 'useSessionBootstrap'));
 const nowPlayingViewSource = readFrontendSource(path.join('components', 'NowPlayingView'));
 const eventsViewSource = readFrontendSource(path.join('components', 'EventsView'));
@@ -3898,6 +3918,93 @@ results.push(run('drawer optional metadata primitives render compact rows with a
   assert.ok(libraryViewSource.includes('const loanMetadata = buildLoanMetadata({ loan: activeLoan, loading: loanLoading, formatDate });'));
   assert.ok(libraryViewSource.includes('<DrawerMetadataEntry'));
   assert.ok(libraryViewSource.includes("{loanFormOpen ? 'Cancel' : 'Loan out'}"));
+}));
+
+results.push(run('drawer metadata registry builders order and adapt by context', () => {
+  const {
+    DRAWER_METADATA_IDS,
+    DRAWER_METADATA_REGISTRY,
+    buildDrawerMetadata,
+    buildDrawerMetadataItems,
+    getDrawerMetadataRegistryEntry
+  } = drawerMetadataModule;
+
+  assert.strictEqual(getDrawerMetadataRegistryEntry(DRAWER_METADATA_IDS.edition), DRAWER_METADATA_REGISTRY.edition);
+  assert.strictEqual(DRAWER_METADATA_REGISTRY.edition.form, 'edition_variant');
+  assert.strictEqual(DRAWER_METADATA_REGISTRY.edition.displayPriority, 20);
+  assert.strictEqual(DRAWER_METADATA_REGISTRY.loan.form, 'loan');
+  assert.strictEqual(DRAWER_METADATA_REGISTRY.loan.displayPriority, 60);
+  assert.strictEqual(buildDrawerMetadata('missing'), null);
+
+  const edition = buildDrawerMetadata(DRAWER_METADATA_IDS.edition, {
+    mediaType: 'comic_book',
+    trait: {
+      summary: 'Issue 21',
+      details: [
+        { label: 'Edition', value: 'Issue 21' },
+        { label: 'Empty', value: '' }
+      ]
+    }
+  });
+  assert.strictEqual(edition.id, 'edition');
+  assert.strictEqual(edition.label, 'Comic edition');
+  assert.strictEqual(edition.form, 'edition_variant');
+  assert.strictEqual(edition.summary, 'Issue 21');
+  assert.strictEqual(edition.details, 'Edition: Issue 21');
+
+  const condition = buildDrawerMetadata(DRAWER_METADATA_IDS.grading, {
+    mediaType: 'audio',
+    ownerType: 'media',
+    trait: {
+      summary: 'NM',
+      details: [{ label: 'Authority', value: 'Seller' }]
+    }
+  });
+  assert.strictEqual(condition.id, 'condition');
+  assert.strictEqual(condition.label, 'Condition');
+  assert.strictEqual(condition.copy.gradePlaceholder, 'VG+ / NM');
+
+  const authentication = buildDrawerMetadata(DRAWER_METADATA_IDS.grading, {
+    ownerType: 'art',
+    trait: { summary: 'Authenticated' }
+  });
+  assert.strictEqual(authentication.id, 'authentication');
+  assert.strictEqual(authentication.label, 'Authentication');
+
+  const hidden = buildDrawerMetadata(DRAWER_METADATA_IDS.proof, { applies: false });
+  assert.strictEqual(hidden.applies, false);
+
+  const records = buildDrawerMetadataItems([
+    DRAWER_METADATA_IDS.related,
+    {
+      id: DRAWER_METADATA_IDS.proof,
+      context: { trait: { summary: 'COA' } }
+    },
+    {
+      id: DRAWER_METADATA_IDS.grading,
+      context: { mediaType: 'game', trait: { summary: '9.8' } }
+    },
+    'missing',
+    {
+      id: DRAWER_METADATA_IDS.edition,
+      context: { mediaType: 'book', trait: { summary: 'First edition' } }
+    },
+    {
+      id: DRAWER_METADATA_IDS.loan,
+      context: { applies: false }
+    }
+  ]);
+  assert.deepStrictEqual(records.map((record) => record.id), [
+    DRAWER_METADATA_IDS.edition,
+    DRAWER_METADATA_IDS.grading,
+    DRAWER_METADATA_IDS.proof,
+    DRAWER_METADATA_IDS.related
+  ]);
+  assert.deepStrictEqual(records.map((record) => record.metadata.displayPriority), [20, 30, 40, 50]);
+  assert.strictEqual(records[0].metadata.label, 'Book edition');
+  assert.strictEqual(records[1].metadata.label, 'Grading');
+  assert.strictEqual(records[2].metadata.summary, 'COA');
+  assert.strictEqual(records[3].metadata.emptyLabel, 'Add');
 }));
 
 results.push(run('repo includes local release preflight helper coverage for dependency audits and go-no-go reporting', () => {

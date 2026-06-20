@@ -342,7 +342,7 @@ export function buildDrawerMetadata(id = '', context = {}) {
   const entry = getDrawerMetadataRegistryEntry(id);
   if (!entry) return null;
   const metadata = entry.build(context);
-  if (entry.appliesTo(context) === false) {
+  if (context?.applies === false || entry.appliesTo(context) === false) {
     return { ...metadata, applies: false };
   }
   return metadata;
