@@ -10,6 +10,7 @@ import {
   DrawerMetadataEntry,
   DrawerMetadataList,
   EditionVariantEditor,
+  buildDrawerMetadataRenderItems,
   FilterMenu,
   CollectibleGradingEditor,
   CollectibleProvenanceEditor,
@@ -1135,10 +1136,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
       />
     )
   };
-  const drawerMetadataItems = drawerMetadataRecords.map((record) => ({
-    ...record,
-    node: drawerMetadataNodes[record.id]
-  }));
+  const drawerMetadataItems = buildDrawerMetadataRenderItems(drawerMetadataRecords, drawerMetadataNodes);
 
   const refreshLoans = useCallback(async () => {
     if (!item?.id) return null;

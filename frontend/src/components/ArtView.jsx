@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CheckboxControl, CollectionPaginationFooter, CollectibleGradingEditor, CollectibleProvenanceEditor, CollectibleTraitPills, CollectibleTraitReadback, CoverImagePicker, DetailDrawerShell, DrawerBackdrop, DrawerMetadataList, FilterMenu, Icons, ObjectRelationshipEditor, PageHeaderSearchToolbar, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
+import { CheckboxControl, CollectionPaginationFooter, CollectibleGradingEditor, CollectibleProvenanceEditor, CollectibleTraitPills, CollectibleTraitReadback, CoverImagePicker, DetailDrawerShell, DrawerBackdrop, DrawerMetadataList, FilterMenu, Icons, ObjectRelationshipEditor, PageHeaderSearchToolbar, Spinner, SectionTabPanel, SectionTabs, buildDrawerMetadataRenderItems, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
 import {
   buildDrawerMetadataItems,
   DRAWER_METADATA_IDS,
@@ -430,10 +430,7 @@ function ArtDetailDrawer({ artId, apiCall, events, onClose, onEdit, onDeleted, o
       />
     )
   } : {};
-  const drawerMetadataItems = drawerMetadataRecords.map((record) => ({
-    ...record,
-    node: drawerMetadataNodes[record.id]
-  }));
+  const drawerMetadataItems = buildDrawerMetadataRenderItems(drawerMetadataRecords, drawerMetadataNodes);
   const formatSignatureLine = (signature) => {
     const eventTitle = events.find((evt) => String(evt.id) === String(signature?.signed_event_id))?.title || null;
     return [

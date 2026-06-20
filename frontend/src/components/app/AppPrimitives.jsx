@@ -2075,6 +2075,15 @@ export function DrawerMetadataList({ items = null, children, className = '' }) {
   );
 }
 
+export function buildDrawerMetadataRenderItems(records = [], nodesById = {}) {
+  return (Array.isArray(records) ? records : [])
+    .map((record) => ({
+      ...record,
+      node: record?.node || nodesById?.[record?.id]
+    }))
+    .filter((record) => record && (record.node || record.render));
+}
+
 export function DrawerMetadataItem({
   label,
   title,

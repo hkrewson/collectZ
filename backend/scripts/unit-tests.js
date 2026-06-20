@@ -3847,6 +3847,9 @@ results.push(run('detail drawers share the standard shell and mobile density spa
 
 results.push(run('drawer optional metadata primitives render compact rows with adaptive condition labels', () => {
   assert.ok(appPrimitivesSource.includes('function DrawerMetadataList({ items = null, children, className = \'\' })'));
+  assert.ok(appPrimitivesSource.includes('function buildDrawerMetadataRenderItems(records = [], nodesById = {})'));
+  assert.ok(appPrimitivesSource.includes('node: record?.node || nodesById?.[record?.id]'));
+  assert.ok(appPrimitivesSource.includes('.filter((record) => record && (record.node || record.render))'));
   assert.ok(appPrimitivesSource.includes('const orderedItems = Array.isArray(items)'));
   assert.ok(appPrimitivesSource.includes('left?.metadata?.displayPriority'));
   assert.ok(appPrimitivesSource.includes('right?.metadata?.displayPriority'));
@@ -3913,7 +3916,7 @@ results.push(run('drawer optional metadata primitives render compact rows with a
   assert.ok(libraryViewSource.includes('id: DRAWER_METADATA_IDS.proof'));
   assert.ok(libraryViewSource.includes('id: DRAWER_METADATA_IDS.related'));
   assert.ok(libraryViewSource.includes('const drawerMetadataNodes = {'));
-  assert.ok(libraryViewSource.includes('const drawerMetadataItems = drawerMetadataRecords.map((record) => ({'));
+  assert.ok(libraryViewSource.includes('const drawerMetadataItems = buildDrawerMetadataRenderItems(drawerMetadataRecords, drawerMetadataNodes);'));
   assert.ok(libraryViewSource.includes('<DrawerMetadataList items={drawerMetadataItems} />'));
   assert.ok(libraryViewSource.includes('const loanMetadata = buildLoanMetadata({ loan: activeLoan, loading: loanLoading, formatDate });'));
   assert.ok(libraryViewSource.includes('<DrawerMetadataEntry'));
@@ -3924,6 +3927,7 @@ results.push(run('drawer optional metadata primitives render compact rows with a
   assert.ok(collectiblesViewSource.includes('id: DRAWER_METADATA_IDS.grading'));
   assert.ok(collectiblesViewSource.includes('id: DRAWER_METADATA_IDS.proof'));
   assert.ok(collectiblesViewSource.includes('id: DRAWER_METADATA_IDS.related'));
+  assert.ok(collectiblesViewSource.includes('const drawerMetadataItems = buildDrawerMetadataRenderItems(drawerMetadataRecords, drawerMetadataNodes);'));
   assert.ok(collectiblesViewSource.includes('<DrawerMetadataList items={drawerMetadataItems} />'));
   assert.ok(collectiblesViewSource.includes('<DetailField label="Classification">{itemTypeLabel}</DetailField>'));
   assert.ok(artViewSource.includes('DrawerMetadataList'));
@@ -3932,6 +3936,7 @@ results.push(run('drawer optional metadata primitives render compact rows with a
   assert.ok(artViewSource.includes('id: DRAWER_METADATA_IDS.grading'));
   assert.ok(artViewSource.includes('id: DRAWER_METADATA_IDS.proof'));
   assert.ok(artViewSource.includes('id: DRAWER_METADATA_IDS.related'));
+  assert.ok(artViewSource.includes('const drawerMetadataItems = buildDrawerMetadataRenderItems(drawerMetadataRecords, drawerMetadataNodes);'));
   assert.ok(artViewSource.includes('<DrawerMetadataList items={drawerMetadataItems} />'));
   assert.ok(artViewSource.includes('<DetailField label="Signature proof">'));
   assert.ok(artViewSource.includes('<CompactDetailRow label="Proof">'));

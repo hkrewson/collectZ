@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CheckboxControl, CollectionPaginationFooter, CollectibleGradingEditor, CollectibleProvenanceEditor, CollectibleTraitPills, CollectibleTraitReadback, CoverImagePicker, DetailDrawerShell, DrawerBackdrop, DrawerMetadataList, FilterMenu, Icons, ObjectRelationshipEditor, PageHeaderSearchToolbar, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
+import { CheckboxControl, CollectionPaginationFooter, CollectibleGradingEditor, CollectibleProvenanceEditor, CollectibleTraitPills, CollectibleTraitReadback, CoverImagePicker, DetailDrawerShell, DrawerBackdrop, DrawerMetadataList, FilterMenu, Icons, ObjectRelationshipEditor, PageHeaderSearchToolbar, Spinner, SectionTabPanel, SectionTabs, buildDrawerMetadataRenderItems, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
 import {
   buildDrawerMetadataItems,
   DRAWER_METADATA_IDS,
@@ -235,10 +235,7 @@ function CollectibleDetailDrawer({ collectibleId, apiCall, categories, events, o
       />
     )
   } : {};
-  const drawerMetadataItems = drawerMetadataRecords.map((record) => ({
-    ...record,
-    node: drawerMetadataNodes[record.id]
-  }));
+  const drawerMetadataItems = buildDrawerMetadataRenderItems(drawerMetadataRecords, drawerMetadataNodes);
   const factSummary = [
     resolvedCategory,
     item?.franchise,
