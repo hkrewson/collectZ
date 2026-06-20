@@ -7,7 +7,7 @@ import {
   DisclosureList,
   DetailDrawerShell,
   DrawerBackdrop,
-  DrawerMetadataItem,
+  DrawerMetadataEntry,
   DrawerMetadataList,
   EditionVariantEditor,
   FilterMenu,
@@ -325,6 +325,20 @@ function loanReminderLabel(loan) {
   if (loan.reminder_phase === 'due_soon') return 'Due soon reminder';
   if (!loan.borrower_email) return 'Add email';
   return 'Waiting';
+}
+
+function buildLoanMetadata({ loan = null, loading = false } = {}) {
+  return {
+    id: 'loan',
+    label: 'Loan',
+    emptyLabel: 'Loan out',
+    displayPriority: 60,
+    applies: true,
+    hasValue: Boolean(loan),
+    summary: loan ? `${loan.borrower_name || 'Borrower'}${loan.due_at ? ` · Due ${formatDate(loan.due_at)}` : ''}` : (loading ? 'Loading...' : ''),
+    details: '',
+    form: 'loan'
+  };
 }
 
 function formatReminderTimestamp(value) {
@@ -1057,6 +1071,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   }));
   const activeLoan = loanHistory.find((entry) => !entry?.returned_at) || null;
   const showLoanFocusedView = Boolean(activeLoan) && !showLoanItemDetails;
+  const loanMetadata = buildLoanMetadata({ loan: activeLoan, loading: loanLoading });
 
   const refreshLoans = useCallback(async () => {
     if (!item?.id) return null;
@@ -1668,9 +1683,8 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
             </div>
           )}
 
-          <DrawerMetadataItem
-            label="Loan"
-            summary={activeLoan ? `${activeLoan.borrower_name || 'Borrower'}${activeLoan.due_at ? ` · Due ${formatDate(activeLoan.due_at)}` : ''}` : ''}
+          <DrawerMetadataEntry
+            metadata={loanMetadata}
             actionLabel={loanFormOpen ? 'Cancel' : 'Loan out'}
             onAction={!activeLoan ? () => setLoanFormOpen((value) => !value) : undefined}
             actionDisabled={loanSaving}
@@ -1869,7 +1883,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                 </div>
               </div>
             ) : null}
-          </DrawerMetadataItem>
+          </DrawerMetadataEntry>
 
           {!showLoanFocusedView ? (
           <>

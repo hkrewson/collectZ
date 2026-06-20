@@ -3868,7 +3868,12 @@ results.push(run('drawer optional metadata primitives render compact rows with a
   assert.ok(!appPrimitivesSource.includes('Link box sets, bundle pieces, companion records, or event-acquired items without duplicating records.'));
   assert.ok(!libraryViewSource.includes('Record when this title leaves the shelf and when it should come back.'));
   assert.ok(libraryViewSource.includes('<DrawerMetadataList>'));
-  assert.ok(libraryViewSource.includes('<DrawerMetadataItem'));
+  assert.ok(libraryViewSource.includes('function buildLoanMetadata({ loan = null, loading = false } = {})'));
+  assert.ok(libraryViewSource.includes("id: 'loan'"));
+  assert.ok(libraryViewSource.includes("displayPriority: 60"));
+  assert.ok(libraryViewSource.includes("form: 'loan'"));
+  assert.ok(libraryViewSource.includes('const loanMetadata = buildLoanMetadata({ loan: activeLoan, loading: loanLoading });'));
+  assert.ok(libraryViewSource.includes('<DrawerMetadataEntry'));
   assert.ok(libraryViewSource.includes("{loanFormOpen ? 'Cancel' : 'Loan out'}"));
 }));
 
