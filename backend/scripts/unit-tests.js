@@ -3825,9 +3825,12 @@ results.push(run('detail drawers share the standard shell and mobile density spa
 }));
 
 results.push(run('drawer optional metadata primitives render compact rows with adaptive condition labels', () => {
-  assert.ok(appPrimitivesSource.includes('function OptionalDetailRow({'));
+  assert.ok(appPrimitivesSource.includes('function DrawerMetadataList({ children, className = \'\' })'));
+  assert.ok(appPrimitivesSource.includes('function DrawerMetadataItem({'));
   assert.ok(appPrimitivesSource.includes("className={cx('border-b border-edge/70 py-2.5'"));
   assert.ok(appPrimitivesSource.includes('children,'));
+  assert.ok(appPrimitivesSource.includes('actions,'));
+  assert.ok(appPrimitivesSource.includes('actionDisabled = false'));
   assert.ok(appPrimitivesSource.includes("{children ? <div className=\"mt-3\">{children}</div> : null}"));
   assert.ok(appPrimitivesSource.includes('function gradingCopyForContext({ mediaType = \'\', ownerType = \'\' } = {})'));
   assert.ok(appPrimitivesSource.includes("CONDITION_LIKE_MEDIA_TYPES.has(normalizedMedia)"));
@@ -3840,7 +3843,8 @@ results.push(run('drawer optional metadata primitives render compact rows with a
   assert.ok(!appPrimitivesSource.includes('Record COA, receipt, witnessed, or source details when evidence exists.'));
   assert.ok(!appPrimitivesSource.includes('Link box sets, bundle pieces, companion records, or event-acquired items without duplicating records.'));
   assert.ok(!libraryViewSource.includes('Record when this title leaves the shelf and when it should come back.'));
-  assert.ok(libraryViewSource.includes('space-y-3 border-b border-edge/70 py-2.5'));
+  assert.ok(libraryViewSource.includes('<DrawerMetadataList>'));
+  assert.ok(libraryViewSource.includes('<DrawerMetadataItem'));
   assert.ok(libraryViewSource.includes("{loanFormOpen ? 'Cancel' : 'Loan out'}"));
 }));
 

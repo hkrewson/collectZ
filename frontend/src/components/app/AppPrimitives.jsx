@@ -2172,28 +2172,40 @@ function compactDetailString(details = []) {
     .join(' · ');
 }
 
-function OptionalDetailRow({
+export function DrawerMetadataList({ children, className = '' }) {
+  return (
+    <div className={cx('space-y-0', className)}>
+      {children}
+    </div>
+  );
+}
+
+export function DrawerMetadataItem({
+  label,
   title,
   summary = '',
   details = '',
   actionLabel = 'Add',
   onAction,
+  actionDisabled = false,
+  actions,
   children,
   className = ''
 }) {
+  const displayLabel = label || title;
   return (
     <section className={cx('border-b border-edge/70 py-2.5', className)}>
       <div className="flex min-w-0 items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="text-sm font-medium leading-5 text-ink">{title}</p>
+          <p className="text-sm font-medium leading-5 text-ink">{displayLabel}</p>
           {summary ? <p className="mt-0.5 truncate text-sm leading-5 text-dim">{summary}</p> : null}
           {details ? <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-ghost">{details}</p> : null}
         </div>
-        {onAction ? (
-          <button type="button" className="btn-ghost btn-sm shrink-0" onClick={onAction}>
+        {actions || (onAction ? (
+          <button type="button" className="btn-ghost btn-sm shrink-0" onClick={onAction} disabled={actionDisabled}>
             {actionLabel}
           </button>
-        ) : null}
+        ) : null)}
       </div>
       {children ? <div className="mt-3">{children}</div> : null}
     </section>
@@ -2440,7 +2452,7 @@ export function CollectibleGradingEditor({
 
   if (!editing) {
     return (
-      <OptionalDetailRow
+      <DrawerMetadataItem
         title={copy.title}
         summary={currentTrait?.summary || ''}
         details={compactDetailString(currentTrait?.details)}
@@ -2452,7 +2464,7 @@ export function CollectibleGradingEditor({
   }
 
   return (
-    <OptionalDetailRow title={copy.title} className={className}>
+    <DrawerMetadataItem title={copy.title} className={className}>
       <form className="space-y-3" onSubmit={save}>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="field">
@@ -2487,7 +2499,7 @@ export function CollectibleGradingEditor({
             <button type="submit" className="btn-primary btn-sm" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
           </div>
       </form>
-    </OptionalDetailRow>
+    </DrawerMetadataItem>
   );
 }
 
@@ -2610,7 +2622,7 @@ export function CollectibleProvenanceEditor({
 
   if (!editing) {
     return (
-      <OptionalDetailRow
+      <DrawerMetadataItem
         title="Proof"
         summary={currentTrait?.summary || ''}
         details={compactDetailString(currentTrait?.details)}
@@ -2622,7 +2634,7 @@ export function CollectibleProvenanceEditor({
   }
 
   return (
-    <OptionalDetailRow title="Proof" className={className}>
+    <DrawerMetadataItem title="Proof" className={className}>
       <form className="space-y-3" onSubmit={save}>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="field">
@@ -2665,7 +2677,7 @@ export function CollectibleProvenanceEditor({
             <button type="submit" className="btn-primary btn-sm" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
           </div>
       </form>
-    </OptionalDetailRow>
+    </DrawerMetadataItem>
   );
 }
 
@@ -2750,7 +2762,7 @@ export function EditionVariantEditor({
 
   if (!editing) {
     return (
-      <OptionalDetailRow
+      <DrawerMetadataItem
         title={config.title}
         summary={currentTrait?.summary || ''}
         details={compactDetailString(currentTrait?.details)}
@@ -2762,7 +2774,7 @@ export function EditionVariantEditor({
   }
 
   return (
-    <OptionalDetailRow title={config.title} className={className}>
+    <DrawerMetadataItem title={config.title} className={className}>
       <form className="space-y-3" onSubmit={save} data-testid="edition-variant-editor">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {(config.fields || []).map((field) => (
@@ -2814,7 +2826,7 @@ export function EditionVariantEditor({
             <button type="submit" className="btn-primary btn-sm" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
           </div>
       </form>
-    </OptionalDetailRow>
+    </DrawerMetadataItem>
   );
 }
 
@@ -2990,7 +3002,7 @@ export function ObjectRelationshipEditor({
   }
 
   return (
-    <OptionalDetailRow title="Related" className={className}>
+    <DrawerMetadataItem title="Related" className={className}>
       {loading ? <p className="mt-3 text-xs text-ghost">Loading related records…</p> : null}
       {!loading && relationships.length > 0 ? (
         <div className="space-y-2">
@@ -3067,7 +3079,7 @@ export function ObjectRelationshipEditor({
             <button type="submit" className="btn-primary btn-sm" disabled={saving || !selectedTarget}>{saving ? 'Saving…' : 'Save link'}</button>
           </div>
       </form>
-    </OptionalDetailRow>
+    </DrawerMetadataItem>
   );
 }
 

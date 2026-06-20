@@ -7,6 +7,8 @@ import {
   DisclosureList,
   DetailDrawerShell,
   DrawerBackdrop,
+  DrawerMetadataItem,
+  DrawerMetadataList,
   EditionVariantEditor,
   FilterMenu,
   CollectibleGradingEditor,
@@ -1603,44 +1605,40 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
         <div className="flex-1 overflow-y-auto scroll-area p-6 space-y-6">
           {!showLoanFocusedView ? <CollectibleTraitReadback traits={item.collectible_traits} /> : null}
           {!showLoanFocusedView ? (
-            <EditionVariantEditor
-              apiCall={apiCall}
-              ownerType="media"
-              ownerId={item.id}
-              mediaType={item.media_type}
-              traits={item.collectible_traits}
-              onSaved={() => onValuationUpdated?.(item.id)}
-              onToast={onToast}
-            />
-          ) : null}
-          {!showLoanFocusedView ? (
-            <CollectibleGradingEditor
-              apiCall={apiCall}
-              ownerType="media"
-              ownerId={item.id}
-              mediaType={item.media_type}
-              traits={item.collectible_traits}
-              onSaved={() => onValuationUpdated?.(item.id)}
-              onToast={onToast}
-            />
-          ) : null}
-          {!showLoanFocusedView ? (
-            <CollectibleProvenanceEditor
-              apiCall={apiCall}
-              ownerType="media"
-              ownerId={item.id}
-              traits={item.collectible_traits}
-              onSaved={() => onValuationUpdated?.(item.id)}
-              onToast={onToast}
-            />
-          ) : null}
-          {!showLoanFocusedView ? (
-            <ObjectRelationshipEditor
-              apiCall={apiCall}
-              ownerType="media"
-              ownerId={item.id}
-              onToast={onToast}
-            />
+            <DrawerMetadataList>
+              <EditionVariantEditor
+                apiCall={apiCall}
+                ownerType="media"
+                ownerId={item.id}
+                mediaType={item.media_type}
+                traits={item.collectible_traits}
+                onSaved={() => onValuationUpdated?.(item.id)}
+                onToast={onToast}
+              />
+              <CollectibleGradingEditor
+                apiCall={apiCall}
+                ownerType="media"
+                ownerId={item.id}
+                mediaType={item.media_type}
+                traits={item.collectible_traits}
+                onSaved={() => onValuationUpdated?.(item.id)}
+                onToast={onToast}
+              />
+              <CollectibleProvenanceEditor
+                apiCall={apiCall}
+                ownerType="media"
+                ownerId={item.id}
+                traits={item.collectible_traits}
+                onSaved={() => onValuationUpdated?.(item.id)}
+                onToast={onToast}
+              />
+              <ObjectRelationshipEditor
+                apiCall={apiCall}
+                ownerType="media"
+                ownerId={item.id}
+                onToast={onToast}
+              />
+            </DrawerMetadataList>
           ) : null}
           {!showLoanFocusedView && item.overview && (
             <div className={cx(isBook || isComic ? 'max-w-3xl' : '')}>
@@ -1670,26 +1668,13 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
             </div>
           )}
 
-          <div className="space-y-3 border-b border-edge/70 py-2.5">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-sm font-medium leading-5 text-ink">Loan</p>
-                {activeLoan ? (
-                  <p className="mt-0.5 truncate text-sm leading-5 text-dim">
-                    {activeLoan.borrower_name || 'Borrower'}{activeLoan.due_at ? ` · Due ${formatDate(activeLoan.due_at)}` : ''}
-                  </p>
-                ) : null}
-              </div>
-              {!activeLoan ? (
-                <button
-                  type="button"
-                  className="btn-ghost btn-sm shrink-0"
-                  onClick={() => setLoanFormOpen((value) => !value)}
-                  disabled={loanSaving}
-                >
-                  {loanFormOpen ? 'Cancel' : 'Loan out'}
-                </button>
-              ) : (
+          <DrawerMetadataItem
+            label="Loan"
+            summary={activeLoan ? `${activeLoan.borrower_name || 'Borrower'}${activeLoan.due_at ? ` · Due ${formatDate(activeLoan.due_at)}` : ''}` : ''}
+            actionLabel={loanFormOpen ? 'Cancel' : 'Loan out'}
+            onAction={!activeLoan ? () => setLoanFormOpen((value) => !value) : undefined}
+            actionDisabled={loanSaving}
+            actions={activeLoan ? (
                 <div className="flex flex-wrap items-center justify-end gap-2">
                   <button
                     type="button"
@@ -1730,8 +1715,8 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                     {loanSaving ? 'Returning…' : 'Mark Returned'}
                   </button>
                 </div>
-              )}
-            </div>
+            ) : null}
+          >
 
             {loanLoading ? (
               <div className="flex items-center gap-2 text-sm text-ghost"><Spinner size={16} />Loading loans…</div>
@@ -1884,7 +1869,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                 </div>
               </div>
             ) : null}
-          </div>
+          </DrawerMetadataItem>
 
           {!showLoanFocusedView ? (
           <>
