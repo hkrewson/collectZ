@@ -3918,6 +3918,14 @@ results.push(run('drawer optional metadata primitives render compact rows with a
   assert.ok(libraryViewSource.includes('const loanMetadata = buildLoanMetadata({ loan: activeLoan, loading: loanLoading, formatDate });'));
   assert.ok(libraryViewSource.includes('<DrawerMetadataEntry'));
   assert.ok(libraryViewSource.includes("{loanFormOpen ? 'Cancel' : 'Loan out'}"));
+  assert.ok(collectiblesViewSource.includes('DrawerMetadataList'));
+  assert.ok(collectiblesViewSource.includes('buildDrawerMetadataItems(['));
+  assert.ok(collectiblesViewSource.includes('ownerType: \'collectible\''));
+  assert.ok(collectiblesViewSource.includes('id: DRAWER_METADATA_IDS.grading'));
+  assert.ok(collectiblesViewSource.includes('id: DRAWER_METADATA_IDS.proof'));
+  assert.ok(collectiblesViewSource.includes('id: DRAWER_METADATA_IDS.related'));
+  assert.ok(collectiblesViewSource.includes('<DrawerMetadataList items={drawerMetadataItems} />'));
+  assert.ok(collectiblesViewSource.includes('<DetailField label="Classification">{itemTypeLabel}</DetailField>'));
 }));
 
 results.push(run('drawer metadata registry builders order and adapt by context', () => {
