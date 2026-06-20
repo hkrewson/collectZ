@@ -1,0 +1,266 @@
+export const CONDITION_LIKE_MEDIA_TYPES = new Set(['audio', 'book', 'movie', 'tv_series', 'tv_episode']);
+
+const EDITION_MEDIA_CONFIG = {
+  book: {
+    title: 'Book edition',
+    help: 'Record printing, ARC, first edition, or limited-run details for this copy.',
+    fields: [
+      { key: 'edition', label: 'Edition', placeholder: 'First edition' },
+      { key: 'printing', label: 'Printing', placeholder: 'Second printing' },
+      { key: 'publisher_line', label: 'Publisher line', placeholder: 'Del Rey Legends' }
+    ],
+    flags: [
+      { key: 'first_edition', label: 'First edition' },
+      { key: 'arc', label: 'ARC / advance copy' },
+      { key: 'limited_release', label: 'Limited release' }
+    ],
+    numbered: true
+  },
+  comic_book: {
+    title: 'Comic edition',
+    help: 'Record cover, printing, run, or issue variant details for this copy.',
+    fields: [
+      { key: 'variant', label: 'Variant cover', placeholder: 'Virgin variant' },
+      { key: 'printing', label: 'Printing', placeholder: 'Second printing' },
+      { key: 'run_context', label: 'Run / volume', placeholder: 'Vol. 2' }
+    ],
+    flags: [
+      { key: 'newsstand', label: 'Newsstand' },
+      { key: 'direct_edition', label: 'Direct edition' },
+      { key: 'limited_release', label: 'Limited release' }
+    ],
+    numbered: true
+  },
+  game: {
+    title: 'Game edition',
+    help: 'Record platform, region, release type, or collector edition details.',
+    fields: [
+      { key: 'platform', label: 'Platform', placeholder: 'PlayStation 5' },
+      { key: 'region', label: 'Region', placeholder: 'North America' },
+      { key: 'release_line', label: 'Release line', placeholder: 'Limited Run Games' }
+    ],
+    flags: [
+      { key: 'collector_edition', label: 'Collector edition' },
+      { key: 'limited_release', label: 'Limited release' },
+      { key: 'promo_demo', label: 'Promo / demo' }
+    ]
+  },
+  audio: {
+    title: 'Audio edition',
+    help: 'Record pressing, color, promo, or limited-release details for this copy.',
+    fields: [
+      { key: 'variant', label: 'Variant', placeholder: 'Clear vinyl' },
+      { key: 'pressing', label: 'Pressing', placeholder: '2024 remaster' },
+      { key: 'release_line', label: 'Release line', placeholder: 'Record Store Day' }
+    ],
+    flags: [
+      { key: 'limited_release', label: 'Limited release' },
+      { key: 'promo_demo', label: 'Promo copy' }
+    ],
+    numbered: true
+  },
+  movie: {
+    title: 'Movie edition',
+    help: 'Record package, release, screener, or promo-disc details for this copy.',
+    fields: [
+      { key: 'package_variant', label: 'Package', placeholder: 'SteelBook' },
+      { key: 'release_edition', label: 'Release edition', placeholder: "Director's cut" },
+      { key: 'region', label: 'Region', placeholder: 'Region A' }
+    ],
+    flags: [
+      { key: 'slipcover', label: 'Slipcover' },
+      { key: 'screener', label: 'Screener' },
+      { key: 'promo_demo', label: 'Promo disc' }
+    ]
+  },
+  tv_series: {
+    title: 'TV edition',
+    help: 'Record package, complete-series, screener, or release edition details.',
+    fields: [
+      { key: 'package_variant', label: 'Package', placeholder: 'Complete series box' },
+      { key: 'release_edition', label: 'Release edition', placeholder: 'Collector edition' },
+      { key: 'region', label: 'Region', placeholder: 'Region 1' }
+    ],
+    flags: [
+      { key: 'complete_series', label: 'Complete series' },
+      { key: 'screener', label: 'Screener' },
+      { key: 'limited_release', label: 'Limited release' }
+    ]
+  },
+  tv_episode: {
+    title: 'TV edition',
+    help: 'Record package, screener, or release edition details.',
+    fields: [
+      { key: 'release_edition', label: 'Release edition', placeholder: 'Screener' },
+      { key: 'region', label: 'Region', placeholder: 'Region 1' }
+    ],
+    flags: [
+      { key: 'screener', label: 'Screener' },
+      { key: 'promo_demo', label: 'Promo disc' }
+    ]
+  }
+};
+
+export function findGradingTrait(traits = []) {
+  return Array.isArray(traits)
+    ? traits.find((trait) => trait?.family === 'graded' || trait?.key === 'grading')
+    : null;
+}
+
+export function findProvenanceTrait(traits = []) {
+  return Array.isArray(traits)
+    ? traits.find((trait) => trait?.family === 'provenance' || trait?.key === 'provenance')
+    : null;
+}
+
+export function findEditionVariantTrait(traits = []) {
+  return Array.isArray(traits)
+    ? traits.find((trait) => trait?.family === 'edition_variant' || trait?.key === 'edition_variant')
+    : null;
+}
+
+export function editionConfigForMediaType(mediaType = '') {
+  return EDITION_MEDIA_CONFIG[String(mediaType || '').trim()] || EDITION_MEDIA_CONFIG.movie;
+}
+
+export function compactDetailString(details = []) {
+  return (Array.isArray(details) ? details : [])
+    .filter((detail) => detail?.label && detail?.value)
+    .map((detail) => `${detail.label}: ${detail.value}`)
+    .join(' · ');
+}
+
+export function gradingCopyForContext({ mediaType = '', ownerType = '' } = {}) {
+  const normalizedOwner = String(ownerType || '').trim().toLowerCase();
+  const normalizedMedia = String(mediaType || '').trim().toLowerCase();
+  if (normalizedOwner === 'art') {
+    return {
+      title: 'Authentication',
+      help: 'Record appraisal, certificate, or authenticator details.',
+      companyLabel: 'Authority',
+      companyPlaceholder: 'Appraiser or authenticator',
+      gradeLabel: 'Assessment',
+      gradePlaceholder: 'Authenticated',
+      notesLabel: 'Notes',
+      savedToast: 'Authentication details saved',
+      removedToast: 'Authentication details removed',
+      saveError: 'Failed to save authentication details',
+      removeError: 'Failed to remove authentication details',
+      missingError: 'Add an authority, assessment, or certificate number first'
+    };
+  }
+  if (CONDITION_LIKE_MEDIA_TYPES.has(normalizedMedia)) {
+    return {
+      title: 'Condition',
+      help: 'Record condition, certification, or appraisal details.',
+      companyLabel: 'Authority',
+      companyPlaceholder: 'Grader, seller, or appraiser',
+      gradeLabel: 'Condition',
+      gradePlaceholder: normalizedMedia === 'audio' ? 'VG+ / NM' : 'Near fine',
+      notesLabel: 'Notes',
+      savedToast: 'Condition details saved',
+      removedToast: 'Condition details removed',
+      saveError: 'Failed to save condition details',
+      removeError: 'Failed to remove condition details',
+      missingError: 'Add an authority, condition, or certificate number first'
+    };
+  }
+  return {
+    title: 'Grading',
+    help: 'Record slab or certification details.',
+    companyLabel: 'Grader',
+    companyPlaceholder: 'Select grader',
+    gradeLabel: 'Grade',
+    gradePlaceholder: '9.8',
+    notesLabel: 'Slab notes',
+    savedToast: 'Grading details saved',
+    removedToast: 'Grading details removed',
+    saveError: 'Failed to save grading details',
+    removeError: 'Failed to remove grading details',
+    missingError: 'Add a grader, grade, or certificate number first'
+  };
+}
+
+export function buildEditionMetadata({ trait = null, mediaType = 'movie' } = {}) {
+  const config = editionConfigForMediaType(mediaType);
+  const hasValue = Boolean(trait);
+  return {
+    id: 'edition',
+    label: config.title,
+    emptyLabel: 'Add',
+    displayPriority: 20,
+    applies: true,
+    mediaType,
+    hasValue,
+    summary: trait?.summary || '',
+    details: compactDetailString(trait?.details),
+    form: 'edition_variant'
+  };
+}
+
+export function buildGradingMetadata({ trait = null, mediaType = '', ownerType = '' } = {}) {
+  const copy = gradingCopyForContext({ mediaType, ownerType });
+  const normalizedOwner = String(ownerType || '').trim().toLowerCase();
+  const normalizedMedia = String(mediaType || '').trim().toLowerCase();
+  const hasValue = Boolean(trait);
+  return {
+    id: normalizedOwner === 'art'
+      ? 'authentication'
+      : (CONDITION_LIKE_MEDIA_TYPES.has(normalizedMedia) ? 'condition' : 'grading'),
+    label: copy.title,
+    emptyLabel: 'Add',
+    displayPriority: 30,
+    applies: true,
+    mediaType,
+    ownerType,
+    hasValue,
+    summary: trait?.summary || '',
+    details: compactDetailString(trait?.details),
+    form: 'grading',
+    copy
+  };
+}
+
+export function buildProvenanceMetadata({ trait = null } = {}) {
+  const hasValue = Boolean(trait);
+  return {
+    id: 'proof',
+    label: 'Proof',
+    emptyLabel: 'Add',
+    displayPriority: 40,
+    applies: true,
+    hasValue,
+    summary: trait?.summary || '',
+    details: compactDetailString(trait?.details),
+    form: 'provenance'
+  };
+}
+
+export function buildObjectRelationshipMetadata({ relationships = [], loading = false } = {}) {
+  const count = Array.isArray(relationships) ? relationships.length : 0;
+  return {
+    id: 'related',
+    label: 'Related',
+    emptyLabel: 'Add',
+    displayPriority: 50,
+    applies: true,
+    hasValue: count > 0,
+    summary: loading ? 'Loading...' : (count ? `${count} linked` : ''),
+    details: '',
+    form: 'object_relationship'
+  };
+}
+
+export function buildLoanMetadata({ loan = null, loading = false, formatDate = (value) => value } = {}) {
+  return {
+    id: 'loan',
+    label: 'Loan',
+    emptyLabel: 'Loan out',
+    displayPriority: 60,
+    applies: true,
+    hasValue: Boolean(loan),
+    summary: loan ? `${loan.borrower_name || 'Borrower'}${loan.due_at ? ` · Due ${formatDate(loan.due_at)}` : ''}` : (loading ? 'Loading...' : ''),
+    details: '',
+    form: 'loan'
+  };
+}

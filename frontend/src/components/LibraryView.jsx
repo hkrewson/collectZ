@@ -31,6 +31,16 @@ import {
   normalizeIsbnCandidate,
   normalizeBarcodeInput
 } from './app/AppPrimitives';
+import {
+  buildEditionMetadata,
+  buildGradingMetadata,
+  buildLoanMetadata,
+  buildObjectRelationshipMetadata,
+  buildProvenanceMetadata,
+  findEditionVariantTrait,
+  findGradingTrait,
+  findProvenanceTrait
+} from './app/drawerMetadata';
 import SignatureManager from './app/SignatureManager';
 import {
   getOwnedFormatLabels,
@@ -325,20 +335,6 @@ function loanReminderLabel(loan) {
   if (loan.reminder_phase === 'due_soon') return 'Due soon reminder';
   if (!loan.borrower_email) return 'Add email';
   return 'Waiting';
-}
-
-function buildLoanMetadata({ loan = null, loading = false } = {}) {
-  return {
-    id: 'loan',
-    label: 'Loan',
-    emptyLabel: 'Loan out',
-    displayPriority: 60,
-    applies: true,
-    hasValue: Boolean(loan),
-    summary: loan ? `${loan.borrower_name || 'Borrower'}${loan.due_at ? ` · Due ${formatDate(loan.due_at)}` : ''}` : (loading ? 'Loading...' : ''),
-    details: '',
-    form: 'loan'
-  };
 }
 
 function formatReminderTimestamp(value) {
@@ -1071,7 +1067,71 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   }));
   const activeLoan = loanHistory.find((entry) => !entry?.returned_at) || null;
   const showLoanFocusedView = Boolean(activeLoan) && !showLoanItemDetails;
-  const loanMetadata = buildLoanMetadata({ loan: activeLoan, loading: loanLoading });
+  const metadataTraits = Array.isArray(item?.collectible_traits) ? item.collectible_traits : [];
+  const loanMetadata = buildLoanMetadata({ loan: activeLoan, loading: loanLoading, formatDate });
+  const drawerMetadataItems = showLoanFocusedView ? [] : [
+    {
+      metadata: buildEditionMetadata({
+        trait: findEditionVariantTrait(metadataTraits),
+        mediaType: item?.media_type
+      }),
+      node: (
+        <EditionVariantEditor
+          apiCall={apiCall}
+          ownerType="media"
+          ownerId={item.id}
+          mediaType={item.media_type}
+          traits={item.collectible_traits}
+          onSaved={() => onValuationUpdated?.(item.id)}
+          onToast={onToast}
+        />
+      )
+    },
+    {
+      metadata: buildGradingMetadata({
+        trait: findGradingTrait(metadataTraits),
+        mediaType: item?.media_type,
+        ownerType: 'media'
+      }),
+      node: (
+        <CollectibleGradingEditor
+          apiCall={apiCall}
+          ownerType="media"
+          ownerId={item.id}
+          mediaType={item.media_type}
+          traits={item.collectible_traits}
+          onSaved={() => onValuationUpdated?.(item.id)}
+          onToast={onToast}
+        />
+      )
+    },
+    {
+      metadata: buildProvenanceMetadata({
+        trait: findProvenanceTrait(metadataTraits)
+      }),
+      node: (
+        <CollectibleProvenanceEditor
+          apiCall={apiCall}
+          ownerType="media"
+          ownerId={item.id}
+          traits={item.collectible_traits}
+          onSaved={() => onValuationUpdated?.(item.id)}
+          onToast={onToast}
+        />
+      )
+    },
+    {
+      metadata: buildObjectRelationshipMetadata(),
+      node: (
+        <ObjectRelationshipEditor
+          apiCall={apiCall}
+          ownerType="media"
+          ownerId={item.id}
+          onToast={onToast}
+        />
+      )
+    }
+  ];
 
   const refreshLoans = useCallback(async () => {
     if (!item?.id) return null;
@@ -1620,40 +1680,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
         <div className="flex-1 overflow-y-auto scroll-area p-6 space-y-6">
           {!showLoanFocusedView ? <CollectibleTraitReadback traits={item.collectible_traits} /> : null}
           {!showLoanFocusedView ? (
-            <DrawerMetadataList>
-              <EditionVariantEditor
-                apiCall={apiCall}
-                ownerType="media"
-                ownerId={item.id}
-                mediaType={item.media_type}
-                traits={item.collectible_traits}
-                onSaved={() => onValuationUpdated?.(item.id)}
-                onToast={onToast}
-              />
-              <CollectibleGradingEditor
-                apiCall={apiCall}
-                ownerType="media"
-                ownerId={item.id}
-                mediaType={item.media_type}
-                traits={item.collectible_traits}
-                onSaved={() => onValuationUpdated?.(item.id)}
-                onToast={onToast}
-              />
-              <CollectibleProvenanceEditor
-                apiCall={apiCall}
-                ownerType="media"
-                ownerId={item.id}
-                traits={item.collectible_traits}
-                onSaved={() => onValuationUpdated?.(item.id)}
-                onToast={onToast}
-              />
-              <ObjectRelationshipEditor
-                apiCall={apiCall}
-                ownerType="media"
-                ownerId={item.id}
-                onToast={onToast}
-              />
-            </DrawerMetadataList>
+            <DrawerMetadataList items={drawerMetadataItems} />
           ) : null}
           {!showLoanFocusedView && item.overview && (
             <div className={cx(isBook || isComic ? 'max-w-3xl' : '')}>
