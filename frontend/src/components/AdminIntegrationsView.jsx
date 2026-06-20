@@ -1286,11 +1286,6 @@ export default function AdminIntegrationsView({
             <StatusBadge status={activeSectionStatus} cx={cx} />
           </div>
         </div>
-        {activeSectionSource?.detail && (
-          <p className="rounded-lg border border-edge bg-raised/50 px-3 py-2 text-xs text-dim">
-            {activeSectionSource.detail}
-          </p>
-        )}
         {section === 'barcode' && <>
           <LabeledField label="Preset" cx={cx}><select className="select" value={form.barcodePreset} onChange={(e) => applyBarcodePreset(e.target.value)}>
             <option value="upcitemdb">UPCItemDB</option><option value="barcodelookup">BarcodeLookup</option>

@@ -3444,6 +3444,7 @@ results.push(run('kavita workspace-owned administration implementation is wired 
   assert.ok(!spaceManagerViewSource.includes('title="Workspace Integrations"'));
   assert.ok(!spaceManagerViewSource.includes('Readable activity entries scoped to the active workspace'));
   assert.ok(!adminIntegrationsViewSource.includes('SECTION_DESCRIPTIONS'));
+  assert.ok(!adminIntegrationsViewSource.includes('activeSectionSource.detail'));
   assert.ok(adminIntegrationsViewSource.includes("headerClassName={!header ? 'hidden' : ''}"));
   assert.ok(dashboardContentSource.includes("title={coreRuntime ? 'Integrations' : 'Platform Runtime'}"));
   assert.ok(openApiSource.includes('/api/spaces/{id}/integrations/test-kavita'));
