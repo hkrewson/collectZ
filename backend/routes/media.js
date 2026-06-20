@@ -5497,6 +5497,14 @@ function jobScopePayload(scopeContext, sectionIds = []) {
   };
 }
 
+function scopedActivityDetails(scopeContext, details = {}) {
+  return {
+    spaceId: scopeContext?.spaceId ?? null,
+    libraryId: scopeContext?.libraryId ?? null,
+    ...details
+  };
+}
+
 function resolveValuationProviderForConfig(config = {}, mode = 'live') {
   const normalizedMode = String(mode || 'live').trim().toLowerCase();
   if (normalizedMode === 'fixture') {
@@ -14101,7 +14109,7 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
         recordImportJobEvent('plex', 'succeeded');
         recordPlexEnrichmentMetrics(result);
 
-        await logActivity(auditReq, 'media.import.plex', 'media', null, {
+        await logActivity(auditReq, 'media.import.plex', 'media', null, scopedActivityDetails(effectiveScopeContext, {
           sectionIds,
           imported: result.imported,
           created: result.summary.created,
@@ -14120,7 +14128,7 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
           enrichmentErrorCount: (result.summary.enrichmentErrors || []).length,
           enrichmentMissCount: (result.summary.enrichmentMisses || []).length,
           jobId: job.id
-        });
+        }));
       } catch (error) {
         logError('Plex async import failed', error);
         recordImportJobEvent('plex', 'failed');
@@ -14129,11 +14137,11 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
           error: error.message || 'Plex import failed',
           finished_at: new Date()
         });
-        await logActivity(auditReq, 'media.import.plex.failed', 'media', null, {
+        await logActivity(auditReq, 'media.import.plex.failed', 'media', null, scopedActivityDetails(effectiveScopeContext, {
           sectionIds,
           detail: error.message || 'Plex import failed',
           jobId: job.id
-        });
+        }));
       }
     });
 
@@ -14156,7 +14164,7 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
       importSource: 'plex'
     });
 
-    await logActivity(req, 'media.import.plex', 'media', null, {
+    await logActivity(req, 'media.import.plex', 'media', null, scopedActivityDetails(effectiveScopeContext, {
       sectionIds,
       imported: result.imported,
       created: result.summary.created,
@@ -14171,7 +14179,7 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
       seasonsUpdated: result.seasonsUpdated,
       valuationRefresh,
       enrichmentErrorCount: (result.summary.enrichmentErrors || []).length
-    });
+    }));
     recordImportJobEvent('plex', 'succeeded');
     recordPlexEnrichmentMetrics(result);
 
@@ -14179,10 +14187,10 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
   } catch (error) {
     logError('Plex import fetch failed', error);
     recordImportJobEvent('plex', 'failed');
-    await logActivity(req, 'media.import.plex.failed', 'media', null, {
+    await logActivity(req, 'media.import.plex.failed', 'media', null, scopedActivityDetails(effectiveScopeContext, {
       sectionIds,
       detail: error.message || 'Plex import failed'
-    });
+    }));
     return res.status(502).json({ error: error.message || 'Plex import failed' });
   }
 }));

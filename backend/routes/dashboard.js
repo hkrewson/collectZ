@@ -375,6 +375,12 @@ router.get('/dashboard/summary', asyncHandler(async (req, res) => {
       (al.details->>'spaceId') = $${activityParams.length}
       OR (al.details->>'space_id') = $${activityParams.length}
       OR (al.entity_type = 'space' AND al.entity_id::text = $${activityParams.length})
+      OR EXISTS (
+        SELECT 1
+          FROM sync_jobs sj
+         WHERE sj.id::text = COALESCE(al.details->>'jobId', '')
+           AND COALESCE(sj.scope->>'spaceId', sj.scope->>'space_id', '') = $${activityParams.length}
+      )
     )`);
   }
   if (scopeContext?.libraryId !== null && scopeContext?.libraryId !== undefined) {
@@ -383,6 +389,12 @@ router.get('/dashboard/summary', asyncHandler(async (req, res) => {
       (al.details->>'libraryId') = $${activityParams.length}
       OR (al.details->>'library_id') = $${activityParams.length}
       OR (al.entity_type = 'library' AND al.entity_id::text = $${activityParams.length})
+      OR EXISTS (
+        SELECT 1
+          FROM sync_jobs sj
+         WHERE sj.id::text = COALESCE(al.details->>'jobId', '')
+           AND COALESCE(sj.scope->>'libraryId', sj.scope->>'library_id', '') = $${activityParams.length}
+      )
     )`);
   }
   const activityConditions = [

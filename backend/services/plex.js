@@ -899,6 +899,37 @@ const shouldIncludePlexEntry = (sectionType, entryType) => {
   return !normalizedEntryType || normalizedEntryType === 'movie' || normalizedEntryType === 'video' || normalizedEntryType === 'show' || normalizedEntryType === 'album';
 };
 
+const buildPlexChildrenPath = (item) => {
+  const rawKey = String(item?.key || '').trim();
+  if (rawKey && rawKey.startsWith('/') && !/X-Plex-Token=/i.test(rawKey)) {
+    return rawKey.endsWith('/children') ? rawKey : `${rawKey.replace(/\/+$/, '')}/children`;
+  }
+  const ratingKey = item?.ratingKey || item?.rating_key || item?.id;
+  if (!ratingKey) return null;
+  return `/library/metadata/${encodeURIComponent(String(ratingKey))}/children`;
+};
+
+const fetchPlexChildDirectoryEntries = async (config, parentItem) => {
+  const path = buildPlexChildrenPath(parentItem);
+  if (!path) return [];
+  const response = await plexRequest(config, path);
+  if (response.status >= 400) {
+    const message = typeof response.data === 'string'
+      ? response.data.slice(0, 200)
+      : response.data?.error || response.statusText;
+    throw new Error(`Plex child listing ${path} failed (${response.status}): ${message}`);
+  }
+  const parentArtist = parentItem?.title || parentItem?.originalTitle || parentItem?.artist || null;
+  return [
+    ...parsePlexVideos(response.data),
+    ...parsePlexDirectoriesInSection(response.data)
+  ].map((entry) => ({
+    ...entry,
+    parentTitle: entry.parentTitle || parentArtist || null,
+    grandparentTitle: entry.grandparentTitle || parentArtist || null
+  }));
+};
+
 const normalizePlexItem = (item) => {
   const rawType = String(item.type || '').toLowerCase();
   const isTv = rawType === 'show' || rawType === 'episode';
@@ -1253,7 +1284,24 @@ const fetchPlexLibraryItems = async (config, sectionIds = []) => {
     }
     const videos = parsePlexVideos(response.data);
     const directories = parsePlexDirectoriesInSection(response.data);
-    const candidates = [...videos, ...directories]
+    let entries = [...videos, ...directories];
+    if (sectionType === 'artist') {
+      const artistRows = entries
+        .filter((entry) => String(entry.type || '').trim().toLowerCase() === 'artist')
+        .filter((entry) => entry.ratingKey || entry.key || entry.id);
+      const albumRows = [];
+      for (const artist of artistRows) {
+        const children = await fetchPlexChildDirectoryEntries(config, artist);
+        albumRows.push(
+          ...children.filter((entry) => String(entry.type || '').trim().toLowerCase() === 'album')
+        );
+      }
+      entries = [
+        ...entries.filter((entry) => String(entry.type || '').trim().toLowerCase() !== 'artist'),
+        ...albumRows
+      ];
+    }
+    const candidates = entries
       .filter((entry) => entry.title || entry.originalTitle)
       .filter((entry) => shouldIncludePlexEntry(sectionType, entry.type));
 

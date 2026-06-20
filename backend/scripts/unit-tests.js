@@ -1329,6 +1329,9 @@ results.push(run('plex audio section import skips artist rows and keeps albums',
   assert.strictEqual(shouldIncludePlexEntry('artist', 'artist'), false);
   assert.strictEqual(shouldIncludePlexEntry('artist', 'album'), true);
   assert.strictEqual(shouldIncludePlexEntry('artist', 'track'), false);
+  assert.ok(plexServiceSource.includes('fetchPlexChildDirectoryEntries(config, artist)'));
+  assert.ok(plexServiceSource.includes("String(entry.type || '').trim().toLowerCase() === 'album'"));
+  assert.ok(plexServiceSource.includes("parentTitle: entry.parentTitle || parentArtist || null"));
 }));
 
 results.push(run('plex audio import persists album details and Library renders them', () => {
@@ -1341,6 +1344,15 @@ results.push(run('plex audio import persists album details and Library renders t
   assert.ok(libraryViewSource.includes("['Artist', typeDetails.artist]"));
   assert.ok(libraryViewSource.includes("['Tracks', typeDetails.track_count]"));
   assert.ok(libraryViewSource.includes('Album details'));
+}));
+
+results.push(run('workspace activity can scope import logs by sync job and explicit scope details', () => {
+  assert.ok(mediaRoutesSource.includes('function scopedActivityDetails(scopeContext, details = {})'));
+  assert.ok(mediaRoutesSource.includes("scopedActivityDetails(effectiveScopeContext, {"));
+  assert.ok(spacesRoutesSource.includes("FROM sync_jobs sj"));
+  assert.ok(spacesRoutesSource.includes("sj.id::text = COALESCE(al.details->>'jobId', '')"));
+  assert.ok(dashboardRoutesSource.includes("COALESCE(sj.scope->>'spaceId', sj.scope->>'space_id', '')"));
+  assert.ok(dashboardRoutesSource.includes("COALESCE(sj.scope->>'libraryId', sj.scope->>'library_id', '')"));
 }));
 
 results.push(run('plex.normalizePlexVariant derives season edition + key', () => {

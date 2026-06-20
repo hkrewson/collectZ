@@ -454,6 +454,12 @@ router.get('/spaces/:id/activity', asyncHandler(async (req, res) => {
         OR COALESCE(al.details->>'targetSpaceId', '') = $1::text
         OR COALESCE(al.details->>'sourceSpaceId', '') = $1::text
         OR COALESCE(al.details->>'previousSpaceId', '') = $1::text
+        OR EXISTS (
+          SELECT 1
+            FROM sync_jobs sj
+           WHERE sj.id::text = COALESCE(al.details->>'jobId', '')
+             AND COALESCE(sj.scope->>'spaceId', sj.scope->>'space_id', '') = $1::text
+        )
         OR (al.entity_type = 'library' AND EXISTS (
           SELECT 1 FROM libraries l WHERE l.id = al.entity_id AND l.space_id = $1
         ))
