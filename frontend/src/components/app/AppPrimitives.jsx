@@ -2178,6 +2178,7 @@ function OptionalDetailRow({
   details = '',
   actionLabel = 'Add',
   onAction,
+  children,
   className = ''
 }) {
   return (
@@ -2194,6 +2195,7 @@ function OptionalDetailRow({
           </button>
         ) : null}
       </div>
+      {children ? <div className="mt-3">{children}</div> : null}
     </section>
   );
 }
@@ -2450,14 +2452,8 @@ export function CollectibleGradingEditor({
   }
 
   return (
-    <section className={cx('rounded-lg border border-edge bg-surface/35 p-3', className)}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-ink">{copy.title}</p>
-          <p className="mt-1 text-xs leading-5 text-ghost">{copy.help}</p>
-        </div>
-      </div>
-      <form className="mt-3 space-y-3" onSubmit={save}>
+    <OptionalDetailRow title={copy.title} className={className}>
+      <form className="space-y-3" onSubmit={save}>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="field">
               <span className="label">{copy.companyLabel}</span>
@@ -2491,7 +2487,7 @@ export function CollectibleGradingEditor({
             <button type="submit" className="btn-primary btn-sm" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
           </div>
       </form>
-    </section>
+    </OptionalDetailRow>
   );
 }
 
@@ -2626,14 +2622,8 @@ export function CollectibleProvenanceEditor({
   }
 
   return (
-    <section className={cx('rounded-lg border border-edge bg-surface/35 p-3', className)}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-ink">Proof</p>
-          <p className="mt-1 text-xs leading-5 text-ghost">Record COA, receipt, witnessed, or source details when evidence exists.</p>
-        </div>
-      </div>
-      <form className="mt-3 space-y-3" onSubmit={save}>
+    <OptionalDetailRow title="Proof" className={className}>
+      <form className="space-y-3" onSubmit={save}>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="field">
               <span className="label">Proof type</span>
@@ -2675,7 +2665,7 @@ export function CollectibleProvenanceEditor({
             <button type="submit" className="btn-primary btn-sm" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
           </div>
       </form>
-    </section>
+    </OptionalDetailRow>
   );
 }
 
@@ -2772,14 +2762,8 @@ export function EditionVariantEditor({
   }
 
   return (
-    <section className={cx('rounded-lg border border-edge bg-surface/35 p-3', className)} data-testid="edition-variant-editor">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-ink">{config.title}</p>
-          <p className="mt-1 text-xs leading-5 text-ghost">{config.help}</p>
-        </div>
-      </div>
-      <form className="mt-3 space-y-3" onSubmit={save}>
+    <OptionalDetailRow title={config.title} className={className}>
+      <form className="space-y-3" onSubmit={save} data-testid="edition-variant-editor">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {(config.fields || []).map((field) => (
               <label className="field" key={field.key}>
@@ -2830,7 +2814,7 @@ export function EditionVariantEditor({
             <button type="submit" className="btn-primary btn-sm" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
           </div>
       </form>
-    </section>
+    </OptionalDetailRow>
   );
 }
 
@@ -3006,19 +2990,12 @@ export function ObjectRelationshipEditor({
   }
 
   return (
-    <section className={cx('rounded-lg border border-edge bg-surface/35 p-3', className)}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-ink">Related</p>
-          <p className="mt-1 text-xs leading-5 text-ghost">Link box sets, bundle pieces, companion records, or event-acquired items without duplicating records.</p>
-        </div>
-      </div>
-
+    <OptionalDetailRow title="Related" className={className}>
       {loading ? <p className="mt-3 text-xs text-ghost">Loading related records…</p> : null}
       {!loading && relationships.length > 0 ? (
-        <div className="mt-3 space-y-2">
+        <div className="space-y-2">
           {relationships.map((relationship) => (
-            <div key={relationship.id} className="flex items-start justify-between gap-3 rounded-md border border-edge/70 bg-void/20 px-3 py-2">
+            <div key={relationship.id} className="flex items-start justify-between gap-3 border-t border-edge/60 py-2 first:border-t-0 first:pt-0">
               <div className="min-w-0">
                 <p className="text-sm text-ink">
                   <span className="text-dim">{relationshipLabel(relationship.relationship_type)}: </span>
@@ -3036,7 +3013,7 @@ export function ObjectRelationshipEditor({
         </div>
       ) : null}
 
-      <form className="mt-3 space-y-3" onSubmit={save}>
+      <form className="space-y-3" onSubmit={save}>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="field">
               <span className="label">Relationship</span>
@@ -3090,7 +3067,7 @@ export function ObjectRelationshipEditor({
             <button type="submit" className="btn-primary btn-sm" disabled={saving || !selectedTarget}>{saving ? 'Saving…' : 'Save link'}</button>
           </div>
       </form>
-    </section>
+    </OptionalDetailRow>
   );
 }
 

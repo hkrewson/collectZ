@@ -1670,38 +1670,38 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
             </div>
           )}
 
-          <div className="space-y-3">
+          <div className="space-y-3 border-b border-edge/70 py-2.5">
             <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="label">Loans</p>
-                <p className="mt-1 text-sm text-ghost">
-                  {activeLoan
-                    ? `Currently loaned to ${activeLoan.borrower_name || 'Borrower'}`
-                    : 'Record when this title leaves the shelf and when it should come back.'}
-                </p>
+              <div className="min-w-0">
+                <p className="text-sm font-medium leading-5 text-ink">Loan</p>
+                {activeLoan ? (
+                  <p className="mt-0.5 truncate text-sm leading-5 text-dim">
+                    {activeLoan.borrower_name || 'Borrower'}{activeLoan.due_at ? ` · Due ${formatDate(activeLoan.due_at)}` : ''}
+                  </p>
+                ) : null}
               </div>
               {!activeLoan ? (
                 <button
                   type="button"
-                  className="btn-ghost"
+                  className="btn-ghost btn-sm shrink-0"
                   onClick={() => setLoanFormOpen((value) => !value)}
                   disabled={loanSaving}
                 >
-                  {loanFormOpen ? 'Hide Loan Form' : 'Loan Out'}
+                  {loanFormOpen ? 'Cancel' : 'Loan out'}
                 </button>
               ) : (
                 <div className="flex flex-wrap items-center justify-end gap-2">
                   <button
                     type="button"
-                    className="btn-ghost"
+                    className="btn-ghost btn-sm"
                     onClick={() => setShowLoanItemDetails((value) => !value)}
                   >
-                    {showLoanItemDetails ? 'Hide Details' : 'Show Details'}
+                    {showLoanItemDetails ? 'Hide' : 'Details'}
                   </button>
                   {activeLoan.reminder_eligible ? (
                     <button
                       type="button"
-                      className="btn-secondary"
+                      className="btn-secondary btn-sm"
                       onClick={() => sendLoanReminder(activeLoan.id)}
                       disabled={loanReminderSending}
                     >
@@ -1722,7 +1722,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                   )}
                   <button
                     type="button"
-                    className="btn-primary"
+                    className="btn-primary btn-sm"
                     onClick={() => markLoanReturned(activeLoan.id)}
                     disabled={loanSaving || loanLoading}
                   >
@@ -1739,8 +1739,8 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
 
             {activeLoan ? (
               <div className={cx(
-                'rounded-lg border bg-panel px-4 py-4',
-                activeLoan.is_overdue ? 'border-err/30' : 'border-edge'
+                'border-t pt-3',
+                activeLoan.is_overdue ? 'border-err/30' : 'border-edge/70'
               )}>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
@@ -1788,8 +1788,8 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
             ) : null}
 
             {loanFormOpen ? (
-              <form className="rounded-lg border border-edge bg-panel px-4 py-4" onSubmit={submitLoan}>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <form className="space-y-3" onSubmit={submitLoan}>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <label className="space-y-1">
                     <span className="text-xs font-medium text-ghost">Borrower</span>
                     <input
@@ -1833,7 +1833,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                     />
                   </label>
                 </div>
-                <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,220px),1fr]">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,220px),1fr]">
                   <label className="space-y-1">
                     <span className="text-xs font-medium text-ghost">Loan Format</span>
                     <input
@@ -1851,9 +1851,9 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                     />
                   </label>
                 </div>
-                <div className="mt-4 flex items-center justify-end gap-2">
-                  <button type="button" className="btn-secondary" onClick={() => setLoanFormOpen(false)} disabled={loanSaving}>Cancel</button>
-                  <button type="submit" className="btn-primary" disabled={loanSaving}>
+                <div className="flex items-center justify-end gap-2">
+                  <button type="button" className="btn-ghost btn-sm" onClick={() => setLoanFormOpen(false)} disabled={loanSaving}>Cancel</button>
+                  <button type="submit" className="btn-primary btn-sm" disabled={loanSaving}>
                     {loanSaving ? 'Saving…' : 'Save Loan'}
                   </button>
                 </div>
