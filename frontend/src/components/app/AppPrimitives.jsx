@@ -2581,6 +2581,21 @@ function buildProvenanceForm(trait = null) {
   };
 }
 
+function buildProvenanceMetadata({ trait = null } = {}) {
+  const hasValue = Boolean(trait);
+  return {
+    id: 'proof',
+    label: 'Proof',
+    emptyLabel: 'Add',
+    displayPriority: 40,
+    applies: true,
+    hasValue,
+    summary: trait?.summary || '',
+    details: compactDetailString(trait?.details),
+    form: 'provenance'
+  };
+}
+
 function buildProvenanceTraitPayload(form = {}) {
   const proofType = cleanTraitText(form.proofType);
   const issuer = cleanTraitText(form.issuer);
@@ -2633,6 +2648,7 @@ export function CollectibleProvenanceEditor({
   className = ''
 }) {
   const currentTrait = findProvenanceTrait(traits);
+  const metadata = buildProvenanceMetadata({ trait: currentTrait });
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(() => buildProvenanceForm(currentTrait));
@@ -2686,11 +2702,8 @@ export function CollectibleProvenanceEditor({
 
   if (!editing) {
     return (
-      <DrawerMetadataItem
-        title="Proof"
-        summary={currentTrait?.summary || ''}
-        details={compactDetailString(currentTrait?.details)}
-        actionLabel={currentTrait ? 'Edit' : 'Add'}
+      <DrawerMetadataEntry
+        metadata={metadata}
         onAction={() => setEditing(true)}
         className={className}
       />
@@ -2698,7 +2711,7 @@ export function CollectibleProvenanceEditor({
   }
 
   return (
-    <DrawerMetadataItem title="Proof" className={className}>
+    <DrawerMetadataEntry metadata={metadata} className={className}>
       <form className="space-y-3" onSubmit={save}>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="field">
@@ -2741,7 +2754,7 @@ export function CollectibleProvenanceEditor({
             <button type="submit" className="btn-primary btn-sm" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
           </div>
       </form>
-    </DrawerMetadataItem>
+    </DrawerMetadataEntry>
   );
 }
 
