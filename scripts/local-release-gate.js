@@ -165,7 +165,18 @@ function checkReleaseNote() {
     return fail('release-note', 'Release note presence', `missing docs/releases/v${version}.md`);
   }
   const text = fs.readFileSync(releaseNote, 'utf8');
-  const required = ['## Version and date', '## Milestone target and status', '## Summary'];
+  const required = [
+    '## Version and date',
+    '## Milestone target and status',
+    '## Summary',
+    '## What changed',
+    '## Breaking changes',
+    '## Environment/config changes',
+    '## Migration and data impact',
+    '## Deployment and verification',
+    '## Rollback guidance',
+    '## Known issues and follow-up'
+  ];
   const missing = required.filter((heading) => !text.includes(heading));
   if (missing.length > 0) {
     return fail('release-note', 'Release note presence', `missing required heading(s): ${missing.join(', ')}`);
