@@ -277,6 +277,7 @@ test.describe('integrations browser regressions', () => {
     await openWorkspaceIntegrations(page);
     await openIntegrationsSection(page, 'Plex');
     await expect(page.getByText('Plex operating model')).toBeVisible();
+    await page.getByText('Plex operating model').click();
     await expect(page.getByText('Scheduled sync', { exact: true })).toBeVisible();
     await expect(page.getByText('On, every 360 minutes')).toBeVisible();
     await expect(page.getByText('Plex library sync')).toBeVisible();

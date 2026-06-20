@@ -145,7 +145,7 @@ function RuntimeCheckRow({ check }) {
 function RuntimeKeyValueList({ rows = [] }) {
   if (!rows.length) return null;
   return (
-    <dl className="divide-y divide-edge/60 rounded-md border border-edge/60">
+    <dl className="divide-y divide-edge/60 border-y border-edge/60">
       {rows.map((row) => (
         <div key={row.label} className="grid gap-1 px-4 py-3 sm:grid-cols-[9rem_minmax(0,1fr)] sm:gap-4">
           <dt className="text-sm text-ghost">{row.label}</dt>
@@ -172,6 +172,23 @@ function DisclosureSection({ title, summary, children, defaultOpen = false }) {
   );
 }
 
+function PlainSettingsSection({ title, detail, actions, children }) {
+  return (
+    <section className="border-t border-edge/70 pt-4 space-y-3">
+      {(title || detail || actions) ? (
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            {title ? <p className="text-sm font-medium text-ink">{title}</p> : null}
+            {detail ? <p className="mt-1 text-xs text-ghost">{detail}</p> : null}
+          </div>
+          {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
+        </div>
+      ) : null}
+      {children}
+    </section>
+  );
+}
+
 function PlexOperatingModel({ sectionIds = [], scheduler = null, webhookReceiver = null }) {
   const autoSync = scheduler?.runtime?.enabled
     ? `On, every ${scheduler.runtime.intervalMinutes} minutes`
@@ -182,11 +199,12 @@ function PlexOperatingModel({ sectionIds = [], scheduler = null, webhookReceiver
   const sections = sectionIds.length ? sectionIds.join(',') : 'Saved defaults';
 
   return (
-    <div className="rounded-xl border border-edge bg-raised/60 px-3 py-3 space-y-3">
-      <div>
-        <p className="text-sm font-medium text-ink">Plex operating model</p>
-        <p className="mt-1 text-xs text-ghost">Shows what collectZ does automatically, what stays manual, and which PMS paths are only capability readback.</p>
-      </div>
+    <details className="border-t border-edge/70 pt-3">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-sm">
+        <span className="font-medium text-ink">Plex operating model</span>
+        <span className="text-xs text-ghost">Manual import, sync, webhooks, writeback</span>
+      </summary>
+      <div className="mt-3 space-y-3">
       <RuntimeKeyValueList rows={[
         { label: 'Manual import', value: `Import from Plex uses ${sections} and the maintained library item paths.` },
         { label: 'Manual sync', value: 'Sync Plex Library creates safe missing rows, updates strong matches, and sends ambiguous rows to conflict review.' },
@@ -196,7 +214,8 @@ function PlexOperatingModel({ sectionIds = [], scheduler = null, webhookReceiver
         { label: 'Writeback', value: 'Watched-state and rating writeback are manual controls from media detail.' },
         { label: 'Provider API', value: 'Provider discovery resolves section roots; item imports still use documented /library paths.' }
       ]} />
-    </div>
+      </div>
+    </details>
   );
 }
 
@@ -1547,8 +1566,7 @@ export default function AdminIntegrationsView({
             webhookReceiver={plexWebhookReceiver}
           />
           {plexAvailableSections.length > 0 && (
-            <div className="rounded-xl border border-edge bg-raised/60 px-3 py-3 space-y-2">
-              <p className="text-xs text-ghost">Detected Plex Libraries</p>
+            <PlainSettingsSection title="Detected Plex libraries">
               <div className="space-y-1.5">
                 {plexAvailableSections.map((sec) => (
                   <CheckboxControl key={sec.id} id={`plex-section-${sec.id}`} checked={plexSectionIds.includes(String(sec.id))} labelClassName="flex w-full" onChange={() => togglePlexSection(String(sec.id))}>
@@ -1558,14 +1576,13 @@ export default function AdminIntegrationsView({
                   </CheckboxControl>
                 ))}
               </div>
-            </div>
+            </PlainSettingsSection>
           )}
           {plexProviders.length > 0 && (
-            <div className="rounded-xl border border-edge bg-raised/60 px-3 py-3 space-y-2">
-              <p className="text-xs text-ghost">Detected Plex Providers</p>
-              <div className="space-y-2">
+            <PlainSettingsSection title="Detected Plex providers">
+              <div className="divide-y divide-edge/60 border-y border-edge/60">
                 {plexProviders.map((provider) => (
-                  <div key={`${provider.key || provider.title}-${provider.type || 'provider'}`} className="rounded-md border border-edge/70 px-3 py-2">
+                  <div key={`${provider.key || provider.title}-${provider.type || 'provider'}`} className="py-2">
                     <div className="flex flex-wrap items-center gap-2 text-sm">
                       <span className="font-medium text-ink">{provider.title || provider.key || 'Plex provider'}</span>
                       {provider.type && <span className="text-xs text-ghost">{provider.type}</span>}
@@ -1582,15 +1599,14 @@ export default function AdminIntegrationsView({
                   </div>
                 ))}
               </div>
-            </div>
+            </PlainSettingsSection>
           )}
           {section === 'plex' && plexNowPlayingChecked && (
-            <div className="rounded-xl border border-edge bg-raised/60 px-3 py-3 space-y-2">
-              <p className="text-xs text-ghost">Active Plex Sessions</p>
+            <PlainSettingsSection title="Active Plex sessions">
               {plexNowPlayingSessions.length === 0 ? (
                 <p className="text-sm text-dim">No active Plex sessions.</p>
               ) : (
-                <div className="space-y-2">
+                <div className="divide-y divide-edge/60 border-y border-edge/60">
                   {plexNowPlayingSessions.map((session) => {
                     const key = session.sessionKey || session.ratingKey || `${session.title}-${session.player?.title || 'player'}`;
                     const progress = Number.isFinite(Number(session.progressPercent)) ? Number(session.progressPercent) : null;
@@ -1600,7 +1616,7 @@ export default function AdminIntegrationsView({
                       session.player?.title
                     ].filter(Boolean);
                     return (
-                      <div key={key} className="rounded-md border border-edge/70 px-3 py-2">
+                      <div key={key} className="py-2">
                         <div className="flex flex-wrap items-center gap-2 text-sm">
                           <span className="font-medium text-ink">{session.title || 'Unknown title'}</span>
                           {session.type && <span className="text-xs text-ghost">{session.type}</span>}
@@ -1616,19 +1632,15 @@ export default function AdminIntegrationsView({
                   })}
                 </div>
               )}
-            </div>
+            </PlainSettingsSection>
           )}
-          <div className="rounded-xl border border-edge bg-raised/60 px-3 py-3 space-y-3">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium text-ink">Now Playing display link</p>
-                <p className="mt-1 text-xs text-ghost">
-                  {plexDisplayToken.enabled
-                    ? `Enabled${plexDisplayToken.lastUsedAt ? ` · last used ${new Date(plexDisplayToken.lastUsedAt).toLocaleString()}` : ''}`
-                    : 'No active display link'}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
+          <PlainSettingsSection
+            title="Now Playing display link"
+            detail={plexDisplayToken.enabled
+              ? `Enabled${plexDisplayToken.lastUsedAt ? ` · last used ${new Date(plexDisplayToken.lastUsedAt).toLocaleString()}` : ''}`
+              : 'No active display link'}
+            actions={(
+              <>
                 <button type="button" onClick={generatePlexDisplayToken} disabled={testLoading === 'plex-display-token'} className="btn-secondary btn-sm">
                   {testLoading === 'plex-display-token' ? <Spinner size={14} /> : (plexDisplayToken.enabled ? 'Regenerate' : 'Generate')}
                 </button>
@@ -1637,23 +1649,20 @@ export default function AdminIntegrationsView({
                     Revoke
                   </button>
                 )}
-              </div>
-            </div>
+              </>
+            )}
+          >
             {plexDisplayLink && (
               <input className="input font-mono text-xs" readOnly value={plexDisplayLink} onFocus={(event) => event.target.select()} />
             )}
-          </div>
-          <div className="rounded-xl border border-edge bg-raised/60 px-3 py-3 space-y-3">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium text-ink">Webhook receiver</p>
-                <p className="mt-1 text-xs text-ghost">
-                  {plexWebhookReceiver.enabled
-                    ? `Enabled${plexWebhookReceiver.lastReceivedAt ? ` · last received ${new Date(plexWebhookReceiver.lastReceivedAt).toLocaleString()}` : ''}`
-                    : 'No active receiver URL'}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
+          </PlainSettingsSection>
+          <PlainSettingsSection
+            title="Webhook receiver"
+            detail={plexWebhookReceiver.enabled
+              ? `Enabled${plexWebhookReceiver.lastReceivedAt ? ` · last received ${new Date(plexWebhookReceiver.lastReceivedAt).toLocaleString()}` : ''}`
+              : 'No active receiver URL'}
+            actions={(
+              <>
                 <button type="button" onClick={generatePlexWebhookReceiverToken} disabled={testLoading === 'plex-webhook-receiver-token'} className="btn-secondary btn-sm">
                   {testLoading === 'plex-webhook-receiver-token' ? <Spinner size={14} /> : (plexWebhookReceiver.enabled ? 'Regenerate' : 'Generate')}
                 </button>
@@ -1662,8 +1671,9 @@ export default function AdminIntegrationsView({
                     Revoke
                   </button>
                 )}
-              </div>
-            </div>
+              </>
+            )}
+          >
             <div className="grid gap-2 text-xs text-ghost sm:grid-cols-2">
               <span>Mode: {plexWebhookReceiver.processingMode === 'contract_only' ? 'Contract only' : (plexWebhookReceiver.processingMode || 'Read-only')}</span>
               <span>Last event: {plexWebhookReceiver.lastEvent || 'None yet'}</span>
@@ -1686,16 +1696,12 @@ export default function AdminIntegrationsView({
                 ? 'Existing receiver shown with a masked token. Regenerate if Plex needs the full URL again.'
                 : 'Accepts Plex webhook hints for newly added media, watched state, and ratings. Imports can be auto-processed when the backend scheduler is enabled; writeback stays manual.'}
             </p>
-          </div>
-          <div className="rounded-xl border border-edge bg-raised/60 px-3 py-3 space-y-3">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium text-ink">Plex library sync</p>
-                <p className="mt-1 text-xs text-ghost">
-                  Manual and scheduled sync create safe missing rows, update strong matches, and leave ambiguous rows in conflict review. Plex writeback stays manual.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
+          </PlainSettingsSection>
+          <PlainSettingsSection
+            title="Plex library sync"
+            detail="Manual and scheduled sync create safe missing rows, update strong matches, and leave ambiguous rows in conflict review. Plex writeback stays manual."
+            actions={(
+              <>
                 <button type="button" onClick={runPlexReconciliationPreview} disabled={testLoading === 'plex-reconciliation-preview' || testLoading === 'plex-reconciliation-job' || testLoading === 'plex-reconciliation-sync'} className="btn-secondary btn-sm">
                   {testLoading === 'plex-reconciliation-preview' ? <Spinner size={14} /> : 'Check now'}
                 </button>
@@ -1705,8 +1711,9 @@ export default function AdminIntegrationsView({
                 <button type="button" onClick={runPlexReconciliationPreviewJob} disabled={testLoading === 'plex-reconciliation-preview' || testLoading === 'plex-reconciliation-job' || testLoading === 'plex-reconciliation-sync'} className="btn-secondary btn-sm">
                   {testLoading === 'plex-reconciliation-job' ? <Spinner size={14} /> : 'Queue check'}
                 </button>
-              </div>
-            </div>
+              </>
+            )}
+          >
             <div className="grid gap-3 sm:grid-cols-[10rem_minmax(0,1fr)]">
               <LabeledField label="Scan Limit" cx={cx}>
                 <input
@@ -1738,17 +1745,16 @@ export default function AdminIntegrationsView({
               loading={testLoading}
               onResolve={resolvePlexConflictReview}
             />
-          </div>
-          <div className="rounded-xl border border-edge bg-raised/60 px-3 py-3 space-y-3">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium text-ink">Now Playing display preferences</p>
-                <p className="mt-1 text-xs text-ghost">Controls what the admin view and display link show on the passive Plex screen.</p>
-              </div>
+          </PlainSettingsSection>
+          <PlainSettingsSection
+            title="Now Playing display preferences"
+            detail="Controls what the admin view and display link show on the passive Plex screen."
+            actions={(
               <button type="button" onClick={savePlexDisplayPreferences} disabled={savingPlexDisplayPreferences} className="btn-secondary btn-sm">
                 {savingPlexDisplayPreferences ? <Spinner size={14} /> : 'Save display'}
               </button>
-            </div>
+            )}
+          >
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {[
                 ['showPoster', 'Poster'],
@@ -1791,7 +1797,7 @@ export default function AdminIntegrationsView({
                 <option value="poster_only">Vertical poster only</option>
               </select>
             </LabeledField>
-          </div>
+          </PlainSettingsSection>
           <LabeledField label={`Plex API Key ${meta.plexApiKeySet ? `(set: ${meta.plexApiKeyMasked})` : '(not set)'}`} cx={cx}>
             <input className="input font-mono" type="password" placeholder="Enter new key to update" value={form.plexApiKey} onChange={(e) => setForm((f) => ({ ...f, plexApiKey: e.target.value }))} />
           </LabeledField>

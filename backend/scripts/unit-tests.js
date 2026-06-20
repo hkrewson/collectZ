@@ -1922,6 +1922,7 @@ results.push(run('plex full-library reconciliation preview stays read-only and c
   assert.ok(plexReconciliationSyncSmokeSource.includes('plex-reconciliation-sync-smoke.json'));
   assert.ok(adminIntegrationsViewSource.includes('Plex library sync'));
   assert.ok(adminIntegrationsViewSource.includes('Plex operating model'));
+  assert.ok(adminIntegrationsViewSource.includes('PlainSettingsSection'));
   assert.ok(adminIntegrationsViewSource.includes('runPlexReconciliationSyncJob'));
   assert.ok(adminIntegrationsViewSource.includes('refreshPlexReconciliationScheduler'));
   assert.ok(adminIntegrationsViewSource.includes('Manual and scheduled sync create safe missing rows'));
@@ -2118,7 +2119,7 @@ results.push(run('plex real-server provider discovery readback is wired as sanit
   assert.ok(spaceIntegrationsRoutesSource.includes("fetchPlexSections, fetchPlexMediaProviders"));
   assert.ok(adminIntegrationsViewSource.includes("testPlexProviders"));
   assert.ok(adminIntegrationsViewSource.includes("Probe Providers"));
-  assert.ok(adminIntegrationsViewSource.includes("Detected Plex Providers"));
+  assert.ok(adminIntegrationsViewSource.includes("Detected Plex providers"));
   assert.ok(openApiSource.includes('/api/admin/settings/integrations/test-plex-providers'));
   assert.ok(openApiSource.includes('/api/spaces/{id}/integrations/test-plex-providers'));
   assert.ok(plexProviderReadbackSmokeSource.includes('/api/admin/settings/integrations/test-plex-providers'));
@@ -2159,7 +2160,7 @@ results.push(run('plex now-playing readback endpoint is wired as sanitized admin
 results.push(run('plex now-playing UI readback is wired as a read-only integrations diagnostic', () => {
   assert.ok(adminIntegrationsViewSource.includes('testPlexNowPlaying'));
   assert.ok(adminIntegrationsViewSource.includes('test-plex-now-playing'));
-  assert.ok(adminIntegrationsViewSource.includes('Active Plex Sessions'));
+  assert.ok(adminIntegrationsViewSource.includes('Active Plex sessions'));
   assert.ok(adminIntegrationsViewSource.includes('No active Plex sessions.'));
   assert.ok(adminIntegrationsViewSource.includes('plexNowPlayingSessions'));
   assert.ok(adminIntegrationsViewSource.includes('plexNowPlayingChecked'));
