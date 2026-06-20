@@ -2033,6 +2033,7 @@ export function CollectibleTraitReadback({ traits = [], className = '' }) {
 
 const GRADER_OPTIONS = ['CGC', 'CBCS', 'PSA', 'Beckett', 'WATA', 'VGA', 'Other'];
 const PROVENANCE_TYPE_OPTIONS = ['COA', 'Receipt', 'Witnessed signature', 'Vendor record', 'Event record', 'Other'];
+const CONDITION_LIKE_MEDIA_TYPES = new Set(['audio', 'book', 'movie', 'tv_series', 'tv_episode']);
 const EDITION_MEDIA_CONFIG = {
   book: {
     title: 'Book edition',
@@ -2164,6 +2165,90 @@ function editionConfigForMediaType(mediaType = '') {
   return EDITION_MEDIA_CONFIG[String(mediaType || '').trim()] || EDITION_MEDIA_CONFIG.movie;
 }
 
+function compactDetailString(details = []) {
+  return (Array.isArray(details) ? details : [])
+    .filter((detail) => detail?.label && detail?.value)
+    .map((detail) => `${detail.label}: ${detail.value}`)
+    .join(' · ');
+}
+
+function OptionalDetailRow({
+  title,
+  summary = '',
+  details = '',
+  actionLabel = 'Add',
+  onAction,
+  className = ''
+}) {
+  return (
+    <section className={cx('border-b border-edge/70 py-2.5', className)}>
+      <div className="flex min-w-0 items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-sm font-medium leading-5 text-ink">{title}</p>
+          {summary ? <p className="mt-0.5 truncate text-sm leading-5 text-dim">{summary}</p> : null}
+          {details ? <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-ghost">{details}</p> : null}
+        </div>
+        {onAction ? (
+          <button type="button" className="btn-ghost btn-sm shrink-0" onClick={onAction}>
+            {actionLabel}
+          </button>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+function gradingCopyForContext({ mediaType = '', ownerType = '' } = {}) {
+  const normalizedOwner = String(ownerType || '').trim().toLowerCase();
+  const normalizedMedia = String(mediaType || '').trim().toLowerCase();
+  if (normalizedOwner === 'art') {
+    return {
+      title: 'Authentication',
+      help: 'Record appraisal, certificate, or authenticator details.',
+      companyLabel: 'Authority',
+      companyPlaceholder: 'Appraiser or authenticator',
+      gradeLabel: 'Assessment',
+      gradePlaceholder: 'Authenticated',
+      notesLabel: 'Notes',
+      savedToast: 'Authentication details saved',
+      removedToast: 'Authentication details removed',
+      saveError: 'Failed to save authentication details',
+      removeError: 'Failed to remove authentication details',
+      missingError: 'Add an authority, assessment, or certificate number first'
+    };
+  }
+  if (CONDITION_LIKE_MEDIA_TYPES.has(normalizedMedia)) {
+    return {
+      title: 'Condition',
+      help: 'Record condition, certification, or appraisal details.',
+      companyLabel: 'Authority',
+      companyPlaceholder: 'Grader, seller, or appraiser',
+      gradeLabel: 'Condition',
+      gradePlaceholder: normalizedMedia === 'audio' ? 'VG+ / NM' : 'Near fine',
+      notesLabel: 'Notes',
+      savedToast: 'Condition details saved',
+      removedToast: 'Condition details removed',
+      saveError: 'Failed to save condition details',
+      removeError: 'Failed to remove condition details',
+      missingError: 'Add an authority, condition, or certificate number first'
+    };
+  }
+  return {
+    title: 'Grading',
+    help: 'Record slab or certification details.',
+    companyLabel: 'Grader',
+    companyPlaceholder: 'Select grader',
+    gradeLabel: 'Grade',
+    gradePlaceholder: '9.8',
+    notesLabel: 'Slab notes',
+    savedToast: 'Grading details saved',
+    removedToast: 'Grading details removed',
+    saveError: 'Failed to save grading details',
+    removeError: 'Failed to remove grading details',
+    missingError: 'Add a grader, grade, or certificate number first'
+  };
+}
+
 function buildEditionForm(trait = null, mediaType = 'movie') {
   const config = editionConfigForMediaType(mediaType);
   const payload = trait?.payload && typeof trait.payload === 'object' ? trait.payload : {};
@@ -2292,12 +2377,14 @@ export function CollectibleGradingEditor({
   apiCall,
   ownerType,
   ownerId,
+  mediaType = '',
   traits = [],
   onSaved,
   onToast,
   className = ''
 }) {
   const currentTrait = findGradingTrait(traits);
+  const copy = gradingCopyForContext({ mediaType, ownerType });
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(() => buildGradingForm(currentTrait));
@@ -2318,7 +2405,7 @@ export function CollectibleGradingEditor({
     if (saving) return;
     const payload = buildGradingTraitPayload(form);
     if (!payload.payload.company && !payload.payload.grade && !payload.payload.certificate_number) {
-      onToast?.('Add a grader, grade, or certificate number first', 'error');
+      onToast?.(copy.missingError, 'error');
       return;
     }
     setSaving(true);
@@ -2326,9 +2413,9 @@ export function CollectibleGradingEditor({
       await apiCall('put', `/collectible-traits/${ownerType}/${ownerId}/grading`, payload);
       await onSaved?.();
       setEditing(false);
-      onToast?.('Grading details saved');
+      onToast?.(copy.savedToast);
     } catch (error) {
-      onToast?.(error?.response?.data?.error || 'Failed to save grading details', 'error');
+      onToast?.(error?.response?.data?.error || copy.saveError, 'error');
     } finally {
       setSaving(false);
     }
@@ -2341,52 +2428,47 @@ export function CollectibleGradingEditor({
       await apiCall('delete', `/collectible-traits/${ownerType}/${ownerId}/grading`);
       await onSaved?.();
       setEditing(false);
-      onToast?.('Grading details removed');
+      onToast?.(copy.removedToast);
     } catch (error) {
-      onToast?.(error?.response?.data?.error || 'Failed to remove grading details', 'error');
+      onToast?.(error?.response?.data?.error || copy.removeError, 'error');
     } finally {
       setSaving(false);
     }
   };
 
+  if (!editing) {
+    return (
+      <OptionalDetailRow
+        title={copy.title}
+        summary={currentTrait?.summary || ''}
+        details={compactDetailString(currentTrait?.details)}
+        actionLabel={currentTrait ? 'Edit' : 'Add'}
+        onAction={() => setEditing(true)}
+        className={className}
+      />
+    );
+  }
+
   return (
     <section className={cx('rounded-lg border border-edge bg-surface/35 p-3', className)}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-medium text-ink">Grading</p>
-          {currentTrait && !editing ? (
-            <p className="mt-1 text-sm text-dim">{currentTrait.summary || 'Graded'}</p>
-          ) : (
-            <p className="mt-1 text-xs leading-5 text-ghost">Record slab or certification details when this item has them.</p>
-          )}
+          <p className="text-sm font-medium text-ink">{copy.title}</p>
+          <p className="mt-1 text-xs leading-5 text-ghost">{copy.help}</p>
         </div>
-        {!editing ? (
-          <button type="button" className="btn-ghost btn-sm shrink-0" onClick={() => setEditing(true)}>
-            {currentTrait ? 'Edit' : 'Add'}
-          </button>
-        ) : null}
       </div>
-      {currentTrait && !editing && Array.isArray(currentTrait.details) && currentTrait.details.length ? (
-        <p className="mt-2 text-xs leading-5 text-ghost">
-          {currentTrait.details
-            .filter((detail) => detail?.label && detail?.value)
-            .map((detail) => `${detail.label}: ${detail.value}`)
-            .join(' · ')}
-        </p>
-      ) : null}
-      {editing ? (
-        <form className="mt-3 space-y-3" onSubmit={save}>
+      <form className="mt-3 space-y-3" onSubmit={save}>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="field">
-              <span className="label">Grader</span>
+              <span className="label">{copy.companyLabel}</span>
               <select className="select" value={form.company} onChange={(event) => updateField('company', event.target.value)}>
-                <option value="">Select grader</option>
+                <option value="">{copy.companyPlaceholder}</option>
                 {GRADER_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
               </select>
             </label>
             <label className="field">
-              <span className="label">Grade</span>
-              <input className="input" value={form.grade} onChange={(event) => updateField('grade', event.target.value)} placeholder="9.8" />
+              <span className="label">{copy.gradeLabel}</span>
+              <input className="input" value={form.grade} onChange={(event) => updateField('grade', event.target.value)} placeholder={copy.gradePlaceholder} />
             </label>
             <label className="field">
               <span className="label">Certificate #</span>
@@ -2397,7 +2479,7 @@ export function CollectibleGradingEditor({
               <input className="input" type="date" value={form.gradedOn} onChange={(event) => updateField('gradedOn', event.target.value)} />
             </label>
             <label className="field sm:col-span-2">
-              <span className="label">Slab notes</span>
+              <span className="label">{copy.notesLabel}</span>
               <textarea className="textarea min-h-[72px]" value={form.slabNotes} onChange={(event) => updateField('slabNotes', event.target.value)} />
             </label>
           </div>
@@ -2408,8 +2490,7 @@ export function CollectibleGradingEditor({
             <button type="button" className="btn-ghost btn-sm" onClick={() => { setEditing(false); setForm(buildGradingForm(currentTrait)); }} disabled={saving}>Cancel</button>
             <button type="submit" className="btn-primary btn-sm" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
           </div>
-        </form>
-      ) : null}
+      </form>
     </section>
   );
 }
@@ -2531,33 +2612,28 @@ export function CollectibleProvenanceEditor({
     }
   };
 
+  if (!editing) {
+    return (
+      <OptionalDetailRow
+        title="Proof"
+        summary={currentTrait?.summary || ''}
+        details={compactDetailString(currentTrait?.details)}
+        actionLabel={currentTrait ? 'Edit' : 'Add'}
+        onAction={() => setEditing(true)}
+        className={className}
+      />
+    );
+  }
+
   return (
     <section className={cx('rounded-lg border border-edge bg-surface/35 p-3', className)}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-medium text-ink">Proof</p>
-          {currentTrait && !editing ? (
-            <p className="mt-1 text-sm text-dim">{currentTrait.summary || 'Proof recorded'}</p>
-          ) : (
-            <p className="mt-1 text-xs leading-5 text-ghost">Record COA, receipt, witnessed, or source details when evidence exists.</p>
-          )}
+          <p className="mt-1 text-xs leading-5 text-ghost">Record COA, receipt, witnessed, or source details when evidence exists.</p>
         </div>
-        {!editing ? (
-          <button type="button" className="btn-ghost btn-sm shrink-0" onClick={() => setEditing(true)}>
-            {currentTrait ? 'Edit' : 'Add'}
-          </button>
-        ) : null}
       </div>
-      {currentTrait && !editing && Array.isArray(currentTrait.details) && currentTrait.details.length ? (
-        <p className="mt-2 text-xs leading-5 text-ghost">
-          {currentTrait.details
-            .filter((detail) => detail?.label && detail?.value)
-            .map((detail) => `${detail.label}: ${detail.value}`)
-            .join(' · ')}
-        </p>
-      ) : null}
-      {editing ? (
-        <form className="mt-3 space-y-3" onSubmit={save}>
+      <form className="mt-3 space-y-3" onSubmit={save}>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="field">
               <span className="label">Proof type</span>
@@ -2598,8 +2674,7 @@ export function CollectibleProvenanceEditor({
             <button type="button" className="btn-ghost btn-sm" onClick={() => { setEditing(false); setForm(buildProvenanceForm(currentTrait)); }} disabled={saving}>Cancel</button>
             <button type="submit" className="btn-primary btn-sm" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
           </div>
-        </form>
-      ) : null}
+      </form>
     </section>
   );
 }
@@ -2683,33 +2758,28 @@ export function EditionVariantEditor({
     }
   };
 
+  if (!editing) {
+    return (
+      <OptionalDetailRow
+        title={config.title}
+        summary={currentTrait?.summary || ''}
+        details={compactDetailString(currentTrait?.details)}
+        actionLabel={currentTrait ? 'Edit' : 'Add'}
+        onAction={() => setEditing(true)}
+        className={className}
+      />
+    );
+  }
+
   return (
     <section className={cx('rounded-lg border border-edge bg-surface/35 p-3', className)} data-testid="edition-variant-editor">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-medium text-ink">{config.title}</p>
-          {currentTrait && !editing ? (
-            <p className="mt-1 text-sm text-dim">{currentTrait.summary || 'Edition details'}</p>
-          ) : (
-            <p className="mt-1 text-xs leading-5 text-ghost">{config.help}</p>
-          )}
+          <p className="mt-1 text-xs leading-5 text-ghost">{config.help}</p>
         </div>
-        {!editing ? (
-          <button type="button" className="btn-ghost btn-sm shrink-0" onClick={() => setEditing(true)}>
-            {currentTrait ? 'Edit' : 'Add'}
-          </button>
-        ) : null}
       </div>
-      {currentTrait && !editing && Array.isArray(currentTrait.details) && currentTrait.details.length ? (
-        <p className="mt-2 text-xs leading-5 text-ghost">
-          {currentTrait.details
-            .filter((detail) => detail?.label && detail?.value)
-            .map((detail) => `${detail.label}: ${detail.value}`)
-            .join(' · ')}
-        </p>
-      ) : null}
-      {editing ? (
-        <form className="mt-3 space-y-3" onSubmit={save}>
+      <form className="mt-3 space-y-3" onSubmit={save}>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {(config.fields || []).map((field) => (
               <label className="field" key={field.key}>
@@ -2759,8 +2829,7 @@ export function EditionVariantEditor({
             <button type="button" className="btn-ghost btn-sm" onClick={() => { setEditing(false); setForm(buildEditionForm(currentTrait, mediaType)); }} disabled={saving}>Cancel</button>
             <button type="submit" className="btn-primary btn-sm" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
           </div>
-        </form>
-      ) : null}
+      </form>
     </section>
   );
 }
@@ -2897,6 +2966,45 @@ export function ObjectRelationshipEditor({
     }
   };
 
+  if (!editing) {
+    const relationshipSummary = loading
+      ? 'Loading...'
+      : (relationships.length ? `${relationships.length} linked` : '');
+    return (
+      <section className={cx('border-b border-edge/70 py-2.5', className)}>
+        <div className="flex min-w-0 items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-sm font-medium leading-5 text-ink">Related</p>
+            {relationshipSummary ? <p className="mt-0.5 text-sm leading-5 text-dim">{relationshipSummary}</p> : null}
+          </div>
+          <button type="button" className="btn-ghost btn-sm shrink-0" onClick={() => setEditing(true)}>
+            Add
+          </button>
+        </div>
+        {!loading && relationships.length > 0 ? (
+          <div className="mt-2 divide-y divide-edge/60">
+            {relationships.map((relationship) => (
+              <div key={relationship.id} className="flex min-w-0 items-start justify-between gap-3 py-2">
+                <div className="min-w-0">
+                  <p className="truncate text-sm leading-5 text-ink">
+                    <span className="text-dim">{relationshipLabel(relationship.relationship_type)}: </span>
+                    {relationship.counterpart?.title || 'Related record'}
+                  </p>
+                  <p className="truncate text-xs leading-5 text-ghost">
+                    {relationshipTypeLabel(relationship.counterpart?.owner_type)}
+                    {relationship.counterpart?.subtitle ? ` · ${relationship.counterpart.subtitle}` : ''}
+                    {relationship.notes ? ` · ${relationship.notes}` : ''}
+                  </p>
+                </div>
+                <button type="button" className="btn-ghost btn-xs shrink-0 text-err hover:bg-err/10" disabled={saving} onClick={() => remove(relationship.id)}>Unlink</button>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </section>
+    );
+  }
+
   return (
     <section className={cx('rounded-lg border border-edge bg-surface/35 p-3', className)}>
       <div className="flex items-start justify-between gap-3">
@@ -2904,11 +3012,6 @@ export function ObjectRelationshipEditor({
           <p className="text-sm font-medium text-ink">Related</p>
           <p className="mt-1 text-xs leading-5 text-ghost">Link box sets, bundle pieces, companion records, or event-acquired items without duplicating records.</p>
         </div>
-        {!editing ? (
-          <button type="button" className="btn-ghost btn-sm shrink-0" onClick={() => setEditing(true)}>
-            Add
-          </button>
-        ) : null}
       </div>
 
       {loading ? <p className="mt-3 text-xs text-ghost">Loading related records…</p> : null}
@@ -2933,8 +3036,7 @@ export function ObjectRelationshipEditor({
         </div>
       ) : null}
 
-      {editing ? (
-        <form className="mt-3 space-y-3" onSubmit={save}>
+      <form className="mt-3 space-y-3" onSubmit={save}>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="field">
               <span className="label">Relationship</span>
@@ -2987,8 +3089,7 @@ export function ObjectRelationshipEditor({
             <button type="button" className="btn-ghost btn-sm" onClick={() => { setEditing(false); setSelectedTarget(null); setMatches([]); setQuery(''); setNotes(''); }} disabled={saving}>Cancel</button>
             <button type="submit" className="btn-primary btn-sm" disabled={saving || !selectedTarget}>{saving ? 'Saving…' : 'Save link'}</button>
           </div>
-        </form>
-      ) : null}
+      </form>
     </section>
   );
 }

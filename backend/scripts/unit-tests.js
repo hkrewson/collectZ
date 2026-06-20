@@ -3824,6 +3824,18 @@ results.push(run('detail drawers share the standard shell and mobile density spa
   assert.ok(eventsViewSource.includes('p-4 space-y-4 sm:p-6 sm:space-y-5'));
 }));
 
+results.push(run('drawer optional metadata primitives render compact rows with adaptive condition labels', () => {
+  assert.ok(appPrimitivesSource.includes('function OptionalDetailRow({'));
+  assert.ok(appPrimitivesSource.includes("className={cx('border-b border-edge/70 py-2.5'"));
+  assert.ok(appPrimitivesSource.includes('function gradingCopyForContext({ mediaType = \'\', ownerType = \'\' } = {})'));
+  assert.ok(appPrimitivesSource.includes("CONDITION_LIKE_MEDIA_TYPES.has(normalizedMedia)"));
+  assert.ok(appPrimitivesSource.includes("title: 'Condition'"));
+  assert.ok(appPrimitivesSource.includes("title: 'Authentication'"));
+  assert.ok(libraryViewSource.includes('mediaType={item.media_type}'));
+  assert.ok(appPrimitivesSource.includes('summary={currentTrait?.summary || \'\'}'));
+  assert.ok(!appPrimitivesSource.includes("currentTrait && !editing ? (\\n            <p className=\"mt-1 text-sm text-dim\">"));
+}));
+
 results.push(run('repo includes local release preflight helper coverage for dependency audits and go-no-go reporting', () => {
   assert.ok(backendPackageJson.scripts['test:release-preflight-local']);
   assert.ok(releasePreflightLocalSource.includes("artifacts', 'dependency-audit'"));

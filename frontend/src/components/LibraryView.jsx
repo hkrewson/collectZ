@@ -1618,6 +1618,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
               apiCall={apiCall}
               ownerType="media"
               ownerId={item.id}
+              mediaType={item.media_type}
               traits={item.collectible_traits}
               onSaved={() => onValuationUpdated?.(item.id)}
               onToast={onToast}
