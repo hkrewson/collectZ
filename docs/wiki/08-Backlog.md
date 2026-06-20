@@ -1398,15 +1398,41 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - Paid is defined around automation and cost-bearing work first.
 - Stripe is documented as the likely payment provider, but payment collection remains a later milestone.
 
+### Backlog Item: Plex True Sync Workflow
+**Type:** UI/UX and sync workflow refinement
+**Tags:** `plex`, `sync`, `imports`, `webhooks`, `ratings`, `activity`, `workflow`
+**Status:** Active plan; first UI slice promoted as `3.20.0`.
+
+**Goal:** Turn Plex from a long settings surface into a true sync workflow with clear setup, sync, webhook, and advanced diagnostics areas.
+
+**Current state**
+- The detailed plan lives in [52-Plex-True-Sync-Workflow-Plan.md](52-Plex-True-Sync-Workflow-Plan.md).
+- `3.20.0` begins the UI restructure by removing the separate operating-model explainer and splitting Plex settings into `Setup`, `Sync`, `Webhook`, and `Advanced`.
+- Existing Plex import, reconciliation, provider discovery, webhook, and writeback behavior remains intact.
+
+**Remaining subtasks**
+- Persist sync cadence and expose it from the Sync section.
+- Add an initial import flow that makes selected libraries and media types explicit before queuing work.
+- Add webhook setup validation and reachability readback.
+- Add scheduled pull sync controls for new items, watched state, and rating readback.
+- Add explicit opt-in writeback controls for ratings and watched state.
+- Add activity entries for import, sync, webhook, and writeback outcomes.
+
+**Acceptance Criteria**
+- Plex setup, sync, webhook, and advanced diagnostics have distinct, compact surfaces.
+- The UI teaches the operating model through control placement and readback instead of a separate explanatory panel.
+- Writeback remains explicit and opt-in.
+- Future Plex sync work points to the true-sync plan instead of reopening broad completed Plex modernization work.
+
 ### Backlog Item: Imports and Sync Cadence Expansion
 **Type:** Deferred milestone
 **Tags:** `imports`, `csv`, `calibre`, `kavita`, `metron`, `sync`
-**Status:** Active backlog for non-Plex providers and CSV templates; Plex broad sync work is closed.
+**Status:** Active backlog for non-Plex providers and CSV templates; Plex broad modernization remains closed and new Plex workflow refinements are tracked separately.
 
 **Goal:** Expand import templates and synchronization cadence controls across the supported non-Plex import sources.
 
 **Current state**
-- Plex import/reconciliation/scheduler/writeback work is closed and should not be reopened under this broad item.
+- Plex import/reconciliation/scheduler/writeback modernization work is closed and should not be reopened under this broad item. New Plex workflow refinements belong in `Plex True Sync Workflow`.
 - Kavita has substantial import/sync behavior, issue fan-out, covers, progress, writeback, and workspace-owned administration, but still has separate backlog for special chapters, background progress polling, and shared provider abstraction.
 - Barcode/ISBN scanner API and Capture Inbox paths exist.
 - Multiple type-specific CSV templates and non-Plex cadence controls are not yet formalized as a shared import operating model.
@@ -1431,15 +1457,15 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - Route failed/stale import cadence states into Dashboard/health or the future Unified Review Queue.
 - Keep provider-specific metadata behavior documented instead of hiding it behind one generic sync label.
 
-**Plex status**
-- Plex import, provider discovery, provider-advertised sections-root resolution, webhook receipt/processing, new-title hints, watched-state sync/writeback, rating readback/writeback, reconciliation, conflict review, scheduled/full-scan behavior, and operating-model UI/docs cleanup were promoted and closed across `3.4.111` through `3.4.151`.
+**Plex modernization status**
+- Plex import, provider discovery, provider-advertised sections-root resolution, webhook receipt/processing, new-title hints, watched-state sync/writeback, rating readback/writeback, reconciliation, conflict review, scheduled/full-scan behavior, and the old operating-model UI/docs cleanup were promoted and closed across `3.4.111` through `3.4.151`.
 - Plex now uses `/media/providers` as capability discovery and resolves provider-advertised `/library/...` roots where proven safe. Current item import remains on documented Plex library paths because real-PMS provider item-row proof did not expose a better provider item-listing candidate.
 - Do not reopen broad Plex provider item-listing migration unless a future Plex PMS shape exposes richer provider-advertised item rows and a new runtime proof shows identity, metadata, and repeat-sync parity.
 
 **Acceptance Criteria**
 - The named CSV templates are available for the supported library types.
 - Update cadence can be described and configured for Calibre, Kavita, and Metron sources.
-- Plex remains represented by completed promoted milestones instead of stale future-work bullets.
+- Broad Plex modernization remains represented by completed promoted milestones instead of stale future-work bullets. New Plex workflow refinements remain scoped under `Plex True Sync Workflow`.
 
 ### Backlog Item: Support Metrics and Satisfaction Surveys
 **Type:** Task

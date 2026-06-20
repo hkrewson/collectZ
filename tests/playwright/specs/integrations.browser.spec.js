@@ -276,10 +276,8 @@ test.describe('integrations browser regressions', () => {
     await signInThroughUi(page, adminCredentials);
     await openWorkspaceIntegrations(page);
     await openIntegrationsSection(page, 'Plex');
-    await expect(page.getByText('Plex operating model')).toBeVisible();
-    await page.getByText('Plex operating model').click();
-    await expect(page.getByText('Scheduled sync', { exact: true })).toBeVisible();
-    await expect(page.getByText('On, every 360 minutes')).toBeVisible();
+    await expect(page.getByRole('tablist', { name: 'Plex settings sections' })).toBeVisible();
+    await page.getByRole('tab', { name: 'Sync', exact: true }).click();
     await expect(page.getByText('Plex library sync')).toBeVisible();
     await expect(page.getByText('Automatic:')).toBeVisible();
     await expect(page.getByText('on/360m')).toBeVisible();

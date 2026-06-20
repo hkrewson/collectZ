@@ -1,6 +1,27 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.20.0",
+      "version": "3.20.0",
+      "date": null,
+      "status": null,
+      "summary": "This minor release starts the Plex true-sync workflow redesign. The Plex integration tab is split into setup, sync, webhook, and advanced sections, and the old standalone operating-model explainer has been removed from the UI.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added a documented Plex true-sync workflow plan.",
+            "Split the Plex integration settings surface into `Setup`, `Sync`, `Webhook`, and `Advanced`.",
+            "Moved credentials and detected libraries into `Setup`.",
+            "Kept reconciliation controls and conflict review in `Sync`.",
+            "Kept receiver setup and receiver state in `Webhook`.",
+            "Moved provider diagnostics and now-playing display controls into `Advanced`.",
+            "Removed the separate Plex operating-model explainer from the settings UI."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.19.6",
       "version": "3.19.6",
       "date": null,

@@ -6,6 +6,43 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.20.0 — Plex True Sync Workflow UI Baseline
+
+**Goal:** Begin the Plex true-sync redesign by turning the Plex integration settings page into a compact workflow surface instead of a long page with a separate operating-model explainer.
+
+### Scope
+
+- Add a documented Plex true-sync workflow plan.
+- Split the Plex integration tab into `Setup`, `Sync`, `Webhook`, and `Advanced`.
+- Keep URL, selected library sections, detected libraries, and credentials in `Setup`.
+- Keep reconciliation checks, manual sync, scheduler readback, and conflict review in `Sync`.
+- Keep receiver generation and receiver state in `Webhook`.
+- Keep provider diagnostics, active sessions, and now-playing display settings in `Advanced`.
+- Remove the standalone Plex operating-model UI block.
+- Keep backend Plex import, sync, webhook, and writeback behavior unchanged.
+
+### Acceptance Criteria
+
+- The Plex tab no longer renders a separate `Plex operating model` block.
+- Users can navigate to setup, sync, webhook, and advanced Plex controls through a normal tab surface.
+- Existing Plex reconciliation controls and conflict-review actions remain available.
+- The backlog and Plex modernization docs point future work to the true-sync workflow plan.
+- Existing Core and frontend build checks continue to pass.
+
+### Active Slice Notes
+
+- This is the first selected slice from the `Plex True Sync Workflow` backlog item.
+- Persisted sync cadence controls, initial-import wizard behavior, webhook reachability validation, activity entries, and additional writeback controls remain follow-up work.
+
+### Closeout
+
+- Status: completed in `3.20.0`.
+- Project docs/checklists used: `docs/wiki/52-Plex-True-Sync-Workflow-Plan.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/46-Plex-PMS-API-Modernization-Foundation.md`, and `docs/releases/v3.20.0.md`.
+- Runtime evidence: pending local verification.
+- Verification: backend syntax check passed for `backend/scripts/unit-tests.js`; browser-spec syntax check passed for `tests/playwright/specs/integrations.browser.spec.js`; frontend production build passed; backend unit/source suite passed with `333` checks; `git diff --check` passed.
+- Blocked/unverified: live browser regression against the Plex tab has not been run in this slice.
+- Risks/follow-ups: the UI restructure is intentionally behavior-preserving; the next Plex sync tasks should add persisted cadence and webhook validation without reopening broad provider modernization work.
+
 ## 3.19.6 — Plex Audio Album Import Metadata Fix
 
 **Goal:** Keep Plex music library imports album-shaped and show useful album metadata in the Audio Library detail view.

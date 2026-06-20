@@ -23,13 +23,13 @@ Starting with `3.4.150`, section discovery resolves the sections root at runtime
 - use `/library/sections/all` when the official library provider advertises it,
 - fall back to `/library/sections` when provider discovery, advertisement, or the advertised root readback is unavailable.
 
-Starting with `3.4.151`, the admin Plex surface documents the operating model directly:
+Starting with `3.20.0`, the admin Plex surface stops carrying a separate operating-model explainer and instead places the same concepts into workflow sections:
 
-- `Import from Plex` remains a manual import control for selected/saved sections.
-- `Check now` and queued checks are read-only library scans; they do not create or update collectZ rows.
-- `Sync Plex Library` and the scheduled reconciliation job use the same safe create/update policy and send ambiguous rows to conflict review.
-- Plex webhook receiver URLs accept library-new, watched-state, and rating hints; the backend can auto-process import hints when that scheduler is enabled.
-- Plex watched-state and rating writeback remain explicit manual controls from media detail.
+- `Setup` owns the Plex URL, selected/saved section IDs, detected libraries, and credentials.
+- `Sync` owns read-only checks, manual sync, queued preview, scheduler readback, and conflict review.
+- `Webhook` owns receiver generation, masked receiver readback, processing mode, and last event state.
+- `Advanced` owns provider diagnostics, active sessions, now-playing display links, and display preferences.
+- Plex watched-state and rating writeback remain explicit manual controls unless a later plan promotes scheduler controls.
 
 ## Modernization Direction
 
@@ -101,6 +101,6 @@ Use this for feature discovery and future new Plex surfaces where possible. It i
 - The documented Plex library provider paths are documented as current behavior.
 - The provider-oriented PMS direction is documented for future Plex features without treating `/media/providers` as an item-listing endpoint.
 - Plex section discovery prefers provider-advertised `/library/sections/all` at runtime while preserving `/library/sections` fallback behavior.
-- Plex settings/readback copy distinguishes manual import, read-only checks, manual/scheduled sync, webhook-triggered import hints, conflict review, and manual writeback.
+- Plex settings/readback workflow distinguishes setup, manual import, read-only checks, manual/scheduled sync, webhook-triggered import hints, conflict review, and manual writeback.
 - Source assertions keep the modernization contract and parser in place.
 - Existing Plex import tests continue to pass without behavior changes.
