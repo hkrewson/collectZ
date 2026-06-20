@@ -9,14 +9,11 @@ import {
   DrawerBackdrop,
   DrawerMetadataEntry,
   DrawerMetadataList,
-  EditionVariantEditor,
+  buildObjectDrawerMetadataEditorNodes,
   buildDrawerMetadataRenderItems,
   FilterMenu,
-  CollectibleGradingEditor,
-  CollectibleProvenanceEditor,
   CollectibleTraitPills,
   CollectibleTraitReadback,
-  ObjectRelationshipEditor,
   PageHeaderSearchToolbar,
   CollectionPaginationFooter,
   cx,
@@ -34,8 +31,7 @@ import {
 } from './app/AppPrimitives';
 import {
   buildLoanMetadata,
-  buildObjectDrawerMetadataRecords,
-  DRAWER_METADATA_IDS
+  buildObjectDrawerMetadataRecords
 } from './app/drawerMetadata';
 import SignatureManager from './app/SignatureManager';
 import {
@@ -1071,48 +1067,16 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
     mediaType: item?.media_type,
     includeEdition: true
   });
-  const drawerMetadataNodes = {
-    [DRAWER_METADATA_IDS.edition]: (
-      <EditionVariantEditor
-        apiCall={apiCall}
-        ownerType="media"
-        ownerId={item.id}
-        mediaType={item.media_type}
-        traits={item.collectible_traits}
-        onSaved={() => onValuationUpdated?.(item.id)}
-        onToast={onToast}
-      />
-    ),
-    [DRAWER_METADATA_IDS.grading]: (
-      <CollectibleGradingEditor
-        apiCall={apiCall}
-        ownerType="media"
-        ownerId={item.id}
-        mediaType={item.media_type}
-        traits={item.collectible_traits}
-        onSaved={() => onValuationUpdated?.(item.id)}
-        onToast={onToast}
-      />
-    ),
-    [DRAWER_METADATA_IDS.proof]: (
-      <CollectibleProvenanceEditor
-        apiCall={apiCall}
-        ownerType="media"
-        ownerId={item.id}
-        traits={item.collectible_traits}
-        onSaved={() => onValuationUpdated?.(item.id)}
-        onToast={onToast}
-      />
-    ),
-    [DRAWER_METADATA_IDS.related]: (
-      <ObjectRelationshipEditor
-        apiCall={apiCall}
-        ownerType="media"
-        ownerId={item.id}
-        onToast={onToast}
-      />
-    )
-  };
+  const drawerMetadataNodes = buildObjectDrawerMetadataEditorNodes({
+    apiCall,
+    ownerType: 'media',
+    ownerId: item?.id,
+    mediaType: item?.media_type,
+    traits: item?.collectible_traits,
+    onSaved: () => onValuationUpdated?.(item.id),
+    onToast,
+    includeEdition: true
+  });
   const drawerMetadataItems = buildDrawerMetadataRenderItems(drawerMetadataRecords, drawerMetadataNodes);
 
   const refreshLoans = useCallback(async () => {

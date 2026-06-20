@@ -1,8 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CheckboxControl, CollectionPaginationFooter, CollectibleGradingEditor, CollectibleProvenanceEditor, CollectibleTraitPills, CollectibleTraitReadback, CoverImagePicker, DetailDrawerShell, DrawerBackdrop, DrawerMetadataList, FilterMenu, Icons, ObjectRelationshipEditor, PageHeaderSearchToolbar, Spinner, SectionTabPanel, SectionTabs, buildDrawerMetadataRenderItems, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
+import { CheckboxControl, CollectionPaginationFooter, CollectibleTraitPills, CollectibleTraitReadback, CoverImagePicker, DetailDrawerShell, DrawerBackdrop, DrawerMetadataList, FilterMenu, Icons, PageHeaderSearchToolbar, Spinner, SectionTabPanel, SectionTabs, buildDrawerMetadataRenderItems, buildObjectDrawerMetadataEditorNodes, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
 import {
-  buildObjectDrawerMetadataRecords,
-  DRAWER_METADATA_IDS
+  buildObjectDrawerMetadataRecords
 } from './app/drawerMetadata';
 
 const CATEGORY_OPTIONS = [
@@ -189,36 +188,14 @@ function CollectibleDetailDrawer({ collectibleId, apiCall, categories, events, o
     traits: metadataTraits,
     ownerType: 'collectible'
   }) : [];
-  const drawerMetadataNodes = item ? {
-    [DRAWER_METADATA_IDS.grading]: (
-      <CollectibleGradingEditor
-        apiCall={apiCall}
-        ownerType="collectible"
-        ownerId={item.id}
-        traits={item.collectible_traits}
-        onSaved={load}
-        onToast={onToast}
-      />
-    ),
-    [DRAWER_METADATA_IDS.proof]: (
-      <CollectibleProvenanceEditor
-        apiCall={apiCall}
-        ownerType="collectible"
-        ownerId={item.id}
-        traits={item.collectible_traits}
-        onSaved={load}
-        onToast={onToast}
-      />
-    ),
-    [DRAWER_METADATA_IDS.related]: (
-      <ObjectRelationshipEditor
-        apiCall={apiCall}
-        ownerType="collectible"
-        ownerId={item.id}
-        onToast={onToast}
-      />
-    )
-  } : {};
+  const drawerMetadataNodes = buildObjectDrawerMetadataEditorNodes({
+    apiCall,
+    ownerType: 'collectible',
+    ownerId: item?.id,
+    traits: item?.collectible_traits,
+    onSaved: load,
+    onToast
+  });
   const drawerMetadataItems = buildDrawerMetadataRenderItems(drawerMetadataRecords, drawerMetadataNodes);
   const factSummary = [
     resolvedCategory,

@@ -5,6 +5,7 @@ import {
   buildGradingMetadata,
   buildObjectRelationshipMetadata,
   buildProvenanceMetadata,
+  DRAWER_METADATA_IDS,
   editionConfigForMediaType,
   findEditionVariantTrait,
   findGradingTrait,
@@ -2082,6 +2083,63 @@ export function buildDrawerMetadataRenderItems(records = [], nodesById = {}) {
       node: record?.node || nodesById?.[record?.id]
     }))
     .filter((record) => record && (record.node || record.render));
+}
+
+export function buildObjectDrawerMetadataEditorNodes({
+  apiCall,
+  ownerType = '',
+  ownerId,
+  mediaType = '',
+  traits = [],
+  onSaved,
+  onToast,
+  includeEdition = false
+} = {}) {
+  const nodes = {};
+  if (!ownerId) return nodes;
+  if (includeEdition) {
+    nodes[DRAWER_METADATA_IDS.edition] = (
+      <EditionVariantEditor
+        apiCall={apiCall}
+        ownerType={ownerType}
+        ownerId={ownerId}
+        mediaType={mediaType}
+        traits={traits}
+        onSaved={onSaved}
+        onToast={onToast}
+      />
+    );
+  }
+  nodes[DRAWER_METADATA_IDS.grading] = (
+    <CollectibleGradingEditor
+      apiCall={apiCall}
+      ownerType={ownerType}
+      ownerId={ownerId}
+      mediaType={mediaType}
+      traits={traits}
+      onSaved={onSaved}
+      onToast={onToast}
+    />
+  );
+  nodes[DRAWER_METADATA_IDS.proof] = (
+    <CollectibleProvenanceEditor
+      apiCall={apiCall}
+      ownerType={ownerType}
+      ownerId={ownerId}
+      traits={traits}
+      onSaved={onSaved}
+      onToast={onToast}
+    />
+  );
+  nodes[DRAWER_METADATA_IDS.related] = (
+    <ObjectRelationshipEditor
+      apiCall={apiCall}
+      ownerType={ownerType}
+      ownerId={ownerId}
+      onToast={onToast}
+    />
+  );
+  return nodes;
 }
 
 export function DrawerMetadataItem({
