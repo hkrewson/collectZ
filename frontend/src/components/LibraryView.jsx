@@ -9,6 +9,7 @@ import {
   DrawerBackdrop,
   DrawerMetadataEntry,
   DrawerMetadataList,
+  DrawerOverview,
   buildObjectDrawerMetadataEditorNodes,
   buildDrawerMetadataRenderItems,
   FilterMenu,
@@ -830,7 +831,6 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   const [seasonDetailLoading, setSeasonDetailLoading] = useState({});
   const [seasonDetails, setSeasonDetails] = useState({});
   const [valuationRefreshing, setValuationRefreshing] = useState(false);
-  const [comicOverviewExpanded, setComicOverviewExpanded] = useState(false);
   const [loanHistory, setLoanHistory] = useState([]);
   const [loanLoading, setLoanLoading] = useState(false);
   const [loanSaving, setLoanSaving] = useState(false);
@@ -857,7 +857,6 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   const isBook = item?.media_type === 'book';
   const isComic = item?.media_type === 'comic_book';
   const isAudio = item?.media_type === 'audio';
-  const comicOverviewNeedsClamp = isComic && typeof item?.overview === 'string' && item.overview.trim().length > 420;
   const calibreExternalUrl = String(typeDetails.calibre_external_url || '').trim();
   const providerExternalUrl = String(typeDetails.provider_external_url || '').trim();
   const kavitaLaunchUrl = String(typeDetails.kavita_launch_url || '').trim();
@@ -1548,10 +1547,6 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   }, [apiCall, item?.id]);
 
   useEffect(() => {
-    setComicOverviewExpanded(false);
-  }, [item?.id, item?.overview]);
-
-  useEffect(() => {
     setLoanForm(buildLoanFormState(item));
     setShowLoanItemDetails(false);
     setLoanFormOpen(false);
@@ -1628,33 +1623,14 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
           {!showLoanFocusedView ? (
             <DrawerMetadataList items={drawerMetadataItems} />
           ) : null}
-          {!showLoanFocusedView && item.overview && (
-            <div className={cx(isBook || isComic ? 'max-w-3xl' : '')}>
-              <p className="label mb-2">Overview</p>
-              <p
-                className={cx('text-sm text-dim leading-relaxed', isBook ? 'leading-7' : '')}
-                style={comicOverviewNeedsClamp && !comicOverviewExpanded
-                  ? {
-                      display: '-webkit-box',
-                      WebkitBoxOrient: 'vertical',
-                      WebkitLineClamp: 6,
-                      overflow: 'hidden'
-                    }
-                  : undefined}
-              >
-                {item.overview}
-              </p>
-              {comicOverviewNeedsClamp ? (
-                <button
-                  type="button"
-                  className="mt-2 text-sm font-medium text-dim transition-colors hover:text-ink"
-                  onClick={() => setComicOverviewExpanded((value) => !value)}
-                >
-                  {comicOverviewExpanded ? 'Show less' : 'Show more'}
-                </button>
-              ) : null}
-            </div>
-          )}
+          {!showLoanFocusedView && item.overview ? (
+            <DrawerOverview
+              text={item.overview}
+              collapsedLines={4}
+              className={cx(isBook || isComic ? 'max-w-3xl' : '')}
+              textClassName={isBook ? 'leading-7' : ''}
+            />
+          ) : null}
 
           <DrawerMetadataEntry
             metadata={loanMetadata}

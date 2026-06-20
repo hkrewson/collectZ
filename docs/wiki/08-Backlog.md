@@ -170,7 +170,7 @@ These are unscheduled interface cleanup tasks discovered during the `3.10.x` mob
 ### Backlog Item: Collapsible Drawer Overview
 **Type:** UI/UX refinement
 **Tags:** `ui`, `ux`, `drawers`, `overview`, `density`, `library`
-**Status:** Active backlog; not yet promoted or versioned.
+**Status:** Completed as a drawer density refinement. Closed; add a new surface-specific backlog item if another drawer needs prose compaction.
 
 **Goal:** Keep long drawer overview text from pushing practical object details too far down the drawer by collapsing long overviews by default.
 
@@ -178,6 +178,8 @@ These are unscheduled interface cleanup tasks discovered during the `3.10.x` mob
 - Some media/library overviews can be long enough to dominate the first visible drawer content.
 - The overview is useful context, but it should not crowd out title details, ownership details, optional metadata, or edit actions.
 - The behavior should be a reusable drawer text primitive instead of a one-off media drawer truncation.
+- Media drawers now use the shared `DrawerOverview` primitive instead of the previous comic-only overview clamp.
+- Long rendered overviews collapse to four lines by default and expose an accessible expand/collapse control only when the text overflows.
 
 **Scope**
 - Add a compact overview/read-more primitive for drawer overview text.
@@ -198,7 +200,7 @@ These are unscheduled interface cleanup tasks discovered during the `3.10.x` mob
 - Short overviews render without unnecessary controls.
 - The control is accessible by screen reader and keyboard.
 - Drawer layout remains stable and does not push primary details below optional metadata without user action.
-- Browser coverage verifies collapsed, expanded, and short-overview states.
+- Browser coverage verifies collapsed, expanded, and short-overview states for media drawers.
 
 ## Product-Level Feature Gaps
 

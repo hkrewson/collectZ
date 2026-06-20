@@ -2076,6 +2076,83 @@ export function DrawerMetadataList({ items = null, children, className = '' }) {
   );
 }
 
+export function DrawerOverview({
+  text = '',
+  label = 'Overview',
+  collapsedLines = 4,
+  className = '',
+  textClassName = ''
+}) {
+  const contentId = useId();
+  const textRef = useRef(null);
+  const [expanded, setExpanded] = useState(false);
+  const [canExpand, setCanExpand] = useState(false);
+  const content = String(text || '').trim();
+  const lineCount = Number.isFinite(Number(collapsedLines)) && Number(collapsedLines) > 0
+    ? Number(collapsedLines)
+    : 4;
+
+  const measureOverflow = useCallback(() => {
+    const element = textRef.current;
+    if (!element) return;
+    setCanExpand(element.scrollHeight > element.clientHeight + 1);
+  }, []);
+
+  useEffect(() => {
+    setExpanded(false);
+  }, [content]);
+
+  useEffect(() => {
+    if (!content) return undefined;
+    if (expanded) return undefined;
+    const frame = window.requestAnimationFrame(measureOverflow);
+    const element = textRef.current;
+    if (!element || typeof ResizeObserver === 'undefined') {
+      return () => window.cancelAnimationFrame(frame);
+    }
+    const observer = new ResizeObserver(measureOverflow);
+    observer.observe(element);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [content, expanded, lineCount, measureOverflow]);
+
+  if (!content) return null;
+
+  return (
+    <section className={className}>
+      {label ? <p className="label mb-2">{label}</p> : null}
+      <p
+        ref={textRef}
+        id={contentId}
+        className={cx('text-sm leading-relaxed text-dim', textClassName)}
+        style={!expanded
+          ? {
+              display: '-webkit-box',
+              WebkitBoxOrient: 'vertical',
+              WebkitLineClamp: lineCount,
+              overflow: 'hidden'
+            }
+          : undefined}
+      >
+        {content}
+      </p>
+      {canExpand ? (
+        <button
+          type="button"
+          className="mt-2 text-sm font-medium text-dim transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/45"
+          aria-expanded={expanded}
+          aria-controls={contentId}
+          onClick={() => setExpanded((value) => !value)}
+        >
+          {expanded ? 'Show less' : 'Show more'}
+        </button>
+      ) : null}
+    </section>
+  );
+}
+
 export function buildDrawerMetadataRenderItems(records = [], nodesById = {}) {
   return (Array.isArray(records) ? records : [])
     .map((record) => ({

@@ -1155,6 +1155,10 @@ results.push(run('playwright multi-format regressions cover create, edit, and im
   assert.ok(libraryMultiFormatBrowserSpecSource.includes("owned_formats).toEqual(['dvd', 'uhd', 'digital'])"));
   assert.ok(libraryMultiFormatBrowserSpecSource.includes("mode: 'fixture'"));
   assert.ok(libraryMultiFormatBrowserSpecSource.includes("PriceCharting (fixture)"));
+  assert.ok(libraryMultiFormatBrowserSpecSource.includes('media drawer collapses only long overviews'));
+  assert.ok(libraryMultiFormatBrowserSpecSource.includes("getByRole('button', { name: 'Show more', exact: true })"));
+  assert.ok(libraryMultiFormatBrowserSpecSource.includes("toHaveAttribute('aria-expanded', 'false')"));
+  assert.ok(libraryMultiFormatBrowserSpecSource.includes("toHaveAttribute('aria-expanded', 'true')"));
   assert.ok(importBrowserSpecSource.includes("getByRole('tab', { name: 'Barcode', exact: true })).toHaveCount(0)"));
   assert.ok(importCsvBrowserSpecSource.includes("owned_formats).toEqual(['dvd', 'bluray', 'digital'])"));
 }));
@@ -3849,6 +3853,16 @@ results.push(run('detail drawers share the standard shell and mobile density spa
 results.push(run('drawer optional metadata primitives render compact rows with adaptive condition labels', () => {
   assert.ok(appPrimitivesSource.includes('function DrawerMetadataList({ items = null, children, className = \'\' })'));
   assert.ok(appPrimitivesSource.includes('function buildDrawerMetadataRenderItems(records = [], nodesById = {})'));
+  assert.ok(appPrimitivesSource.includes('export function DrawerOverview({'));
+  assert.ok(appPrimitivesSource.includes('collapsedLines = 4'));
+  assert.ok(appPrimitivesSource.includes('const measureOverflow = useCallback(() => {'));
+  assert.ok(appPrimitivesSource.includes('element.scrollHeight > element.clientHeight + 1'));
+  assert.ok(appPrimitivesSource.includes('if (expanded) return undefined;'));
+  assert.ok(appPrimitivesSource.includes('new ResizeObserver(measureOverflow)'));
+  assert.ok(appPrimitivesSource.includes('WebkitLineClamp: lineCount'));
+  assert.ok(appPrimitivesSource.includes('aria-expanded={expanded}'));
+  assert.ok(appPrimitivesSource.includes('aria-controls={contentId}'));
+  assert.ok(appPrimitivesSource.includes("{expanded ? 'Show less' : 'Show more'}"));
   assert.ok(appPrimitivesSource.includes('node: record?.node || nodesById?.[record?.id]'));
   assert.ok(appPrimitivesSource.includes('.filter((record) => record && (record.node || record.render))'));
   assert.ok(appPrimitivesSource.includes('const orderedItems = Array.isArray(items)'));
@@ -3931,6 +3945,10 @@ results.push(run('drawer optional metadata primitives render compact rows with a
   assert.ok(libraryViewSource.includes('mediaType: item?.media_type'));
   assert.ok(libraryViewSource.includes('const drawerMetadataItems = buildDrawerMetadataRenderItems(drawerMetadataRecords, drawerMetadataNodes);'));
   assert.ok(libraryViewSource.includes('<DrawerMetadataList items={drawerMetadataItems} />'));
+  assert.ok(libraryViewSource.includes('<DrawerOverview'));
+  assert.ok(libraryViewSource.includes('collapsedLines={4}'));
+  assert.ok(!libraryViewSource.includes('comicOverviewExpanded'));
+  assert.ok(!libraryViewSource.includes('comicOverviewNeedsClamp'));
   assert.ok(libraryViewSource.includes('const loanMetadata = buildLoanMetadata({ loan: activeLoan, loading: loanLoading, formatDate });'));
   assert.ok(libraryViewSource.includes('<DrawerMetadataEntry'));
   assert.ok(libraryViewSource.includes("{loanFormOpen ? 'Cancel' : 'Loan out'}"));

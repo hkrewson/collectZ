@@ -505,6 +505,80 @@ test.describe('library multi-format browser regressions', () => {
     }
   });
 
+  test('media drawer collapses only long overviews', async ({ page }) => {
+    const credentials = await createFreshUserCredentials({ role: 'admin', noCache: true });
+    const requestContext = await createAuthenticatedRequestContext(credentials);
+    const longTitle = `Playwright Long Overview ${Date.now()}`;
+    const shortTitle = `Playwright Short Overview ${Date.now()}`;
+    const longOverview = Array.from({ length: 18 }, (_, index) => (
+      `Long drawer overview sentence ${index + 1} keeps practical details from being pushed too far down the drawer.`
+    )).join(' ');
+    const shortOverview = 'Short drawer overview stays fully visible without extra controls.';
+
+    await deleteMediaByExactTitle(requestContext, longTitle).catch(() => {});
+    await deleteMediaByExactTitle(requestContext, shortTitle).catch(() => {});
+
+    try {
+      await postWithCsrf(requestContext, '/api/media', {
+        title: longTitle,
+        overview: longOverview,
+        media_type: 'movie',
+        format: 'Blu-ray',
+        owned_formats: ['bluray'],
+        year: 2026
+      }, 201);
+      await postWithCsrf(requestContext, '/api/media', {
+        title: shortTitle,
+        overview: shortOverview,
+        media_type: 'movie',
+        format: 'Blu-ray',
+        owned_formats: ['bluray'],
+        year: 2026
+      }, 201);
+
+      const storageState = await requestContext.storageState();
+      await page.context().addCookies(storageState.cookies || []);
+      await page.goto('/dashboard?tab=library-movies');
+
+      const searchInput = getLibrarySearchInput(page);
+      await searchInput.fill(longTitle);
+      const longResultCard = page.locator('article').filter({
+        has: page.getByText(longTitle, { exact: true })
+      }).first();
+      await expect(longResultCard).toBeVisible();
+      await longResultCard.click();
+
+      await expect(page.getByRole('heading', { name: longTitle, exact: true })).toBeVisible();
+      const showMoreButton = page.getByRole('button', { name: 'Show more', exact: true });
+      await expect(showMoreButton).toBeVisible();
+      await expect(showMoreButton).toHaveAttribute('aria-expanded', 'false');
+      await showMoreButton.click();
+      const showLessButton = page.getByRole('button', { name: 'Show less', exact: true });
+      await expect(showLessButton).toBeVisible();
+      await expect(showLessButton).toHaveAttribute('aria-expanded', 'true');
+      await showLessButton.click();
+      await expect(showMoreButton).toBeVisible();
+
+      await page.goto('/dashboard?tab=library-movies');
+      const nextSearchInput = getLibrarySearchInput(page);
+      await nextSearchInput.fill(shortTitle);
+      const shortResultCard = page.locator('article').filter({
+        has: page.getByText(shortTitle, { exact: true })
+      }).first();
+      await expect(shortResultCard).toBeVisible();
+      await shortResultCard.click();
+
+      await expect(page.getByRole('heading', { name: shortTitle, exact: true })).toBeVisible();
+      await expect(page.getByText(shortOverview, { exact: true })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Show more', exact: true })).toHaveCount(0);
+      await expect(page.getByRole('button', { name: 'Show less', exact: true })).toHaveCount(0);
+    } finally {
+      await deleteMediaByExactTitle(requestContext, longTitle).catch(() => {});
+      await deleteMediaByExactTitle(requestContext, shortTitle).catch(() => {});
+      await requestContext.dispose();
+    }
+  });
+
   test('media drawer can save book edition variant details', async ({ page }) => {
     const credentials = await createFreshUserCredentials();
     const requestContext = await createAuthenticatedRequestContext(credentials);
