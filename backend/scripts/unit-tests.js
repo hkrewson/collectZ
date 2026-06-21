@@ -1744,6 +1744,7 @@ results.push(run('plex watched-state refresh scheduler reuses apply path without
   assert.ok(integrationsRoutesSource.includes('plexReadbackRefreshSettings'));
   assert.ok(migrationsSource.includes('version: 114'));
   assert.ok(initSqlSource.includes('plex_readback_refresh_enabled BOOLEAN DEFAULT false'));
+  assert.ok(initSqlSource.includes("(114, 'Add persisted Plex readback refresh settings')"));
   assert.ok(openApiSource.includes('/api/media/plex-watch-state/refresh-scheduler'));
   assert.ok(openApiSource.includes('/api/media/plex-watch-state/refresh-scheduler/run'));
   assert.ok(!dockerComposeSource.includes('PLEX_WATCH_STATE_REFRESH_ENABLED'));

@@ -1884,5 +1884,9 @@ INSERT INTO schema_migrations (version, description) VALUES
     (107, 'Add reusable collectible trait persistence'),
     (108, 'Add object relationship workflows'),
     (109, 'Add event exclusive source cache'),
-    (110, 'Add saved library views')
+    (110, 'Add saved library views'),
+    (111, 'Add persisted Plex reconciliation sync settings'),
+    (112, 'Add Plex webhook receiver validation readback'),
+    (113, 'Add explicit Plex writeback opt-in settings'),
+    (114, 'Add persisted Plex readback refresh settings')
 ON CONFLICT (version) DO NOTHING;
