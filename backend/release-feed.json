@@ -1,47 +1,35 @@
 {
   "releases": [
     {
-      "title": "collectZ v3.20.7",
-      "version": "3.20.7",
+      "title": "collectZ v3.20.8",
+      "version": "v3.20.8",
       "date": null,
       "status": null,
-      "summary": "This patch makes Plex readback refresh visible from the Plex Sync workflow. The watched-state refresh scheduler now also refreshes Plex user ratings, and Settings > Integrations > Plex > Sync can inspect and manually run that readback pass.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Expanded the Plex readback refresh pass to apply Plex user-rating readback alongside watched state.",
-            "Added Plex readback refresh status to the Plex Sync tab.",
-            "Added a manual Refresh readback action for admins.",
-            "Kept Plex mutation/writeback disabled unless explicit writeback controls are enabled."
-          ]
-        }
-      ]
+      "summary": "Persisted Plex readback refresh cadence in the Plex Sync settings.",
+      "details": []
+    },
+    {
+      "title": "collectZ v3.20.7",
+      "version": "v3.20.7",
+      "date": null,
+      "status": null,
+      "summary": "",
+      "details": []
     },
     {
       "title": "collectZ v3.20.6",
-      "version": "3.20.6",
+      "version": "v3.20.6",
       "date": null,
       "status": null,
-      "summary": "This patch makes Plex writeback explicitly opt-in. Rating and watched-state pushes to Plex are disabled by default, controlled from the Plex Sync settings, hidden from library drawers unless enabled, and rejected by the backend when disabled.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added persisted Plex rating and watched-state writeback switches.",
-            "Added compact writeback controls to Settings > Integrations > Plex > Sync.",
-            "Hid Plex drawer writeback actions unless the matching switch is enabled.",
-            "Added backend guards that reject direct writeback calls when disabled."
-          ]
-        }
-      ]
+      "summary": "",
+      "details": []
     },
     {
       "title": "collectZ v3.20.5",
       "version": "3.20.5",
       "date": null,
       "status": null,
-      "summary": "This patch adds Plex reconciliation review filters. The Plex Sync tab can now switch between open and resolved conflicts, filter loaded reviews by match reason, and read resolved review outcomes without reopening them.",
+      "summary": "This patch adds Plex reconciliation review filters. The Plex Sync tab can switch between open and resolved conflicts, filter loaded reviews by match reason, and read resolved review outcomes without reopening them.",
       "details": [
         {
           "heading": "Highlights",
@@ -49,7 +37,8 @@
             "Added Open and Resolved filters to Plex conflict review.",
             "Added match-reason filtering for loaded Plex conflict rows.",
             "Shows filtered and total conflict counts.",
-            "Displays resolved conflict outcomes without action buttons."
+            "Displays resolved conflict outcomes without action buttons.",
+            "Kept existing conflict resolution behavior unchanged."
           ]
         }
       ]
@@ -67,7 +56,8 @@
             "Added explicit Plex import summaries to the activity feed.",
             "Added readable Plex webhook queued and processed activity summaries.",
             "Added readable Plex webhook auto-processor activity summaries.",
-            "Added Plex job, rating key, and section readback to activity snapshots."
+            "Added Plex job, rating key, and section readback to activity snapshots.",
+            "Kept existing Plex import, sync, webhook, readback, and writeback behavior unchanged."
           ]
         }
       ]
@@ -82,10 +72,12 @@
         {
           "heading": "Highlights",
           "bullets": [
-            "Added a compact Initial import block to Settings > Integrations > Plex > Sync.",
-            "Shows selected Plex libraries and inferred media types before queuing an import.",
-            "Prevents empty Plex import queueing when no library sections are selected.",
-            "Removed the duplicate bottom-level Import from Plex action from the integration page."
+            "Added a compact `Initial import` block to Settings > Integrations > Plex > Sync.",
+            "Shows selected Plex libraries from Setup before starting an import.",
+            "Shows inferred media types for selected Plex sections when detected library metadata is available.",
+            "Warns about saved section IDs that are not currently detected.",
+            "Prevents queuing a Plex import when no library sections are selected.",
+            "Removed the duplicate bottom-level `Import from Plex` action from the integration page."
           ]
         }
       ]
@@ -95,15 +87,16 @@
       "version": "3.20.2",
       "date": null,
       "status": null,
-      "summary": "This patch adds Plex webhook receiver setup validation. The Plex Webhook tab can now check whether a receiver exists, record the latest validation result, and warn when the advertised receiver URL appears local-only.",
+      "summary": "This patch adds Plex webhook receiver setup validation. The Plex Webhook tab can check whether a receiver exists, record the latest validation result, and warn when the advertised receiver URL appears local-only.",
       "details": [
         {
           "heading": "Highlights",
           "bullets": [
-            "Added persisted Plex webhook receiver validation readback.",
-            "Added a setup validation endpoint for the Plex webhook receiver.",
-            "Added a compact Check setup action to Settings > Integrations > Plex > Webhook.",
-            "Warned when the advertised receiver host appears local-only, while keeping the receiver token masked."
+            "Added migration `112` for Plex webhook receiver validation readback.",
+            "Added `plexWebhookReceiver.validation` to integration settings payloads.",
+            "Added an admin validation endpoint for Plex webhook receiver setup.",
+            "Added a compact `Check setup` action to Settings > Integrations > Plex > Webhook.",
+            "Kept receiver URLs masked and token details out of browser-visible payloads."
           ]
         }
       ]
@@ -113,15 +106,17 @@
       "version": "3.20.1",
       "date": null,
       "status": null,
-      "summary": "This patch adds persisted Plex reconciliation sync settings. The Plex Sync tab can now save automatic sync enablement, interval, and default scan limit, and scheduler readback uses stored settings when runtime env does not override them.",
+      "summary": "This patch adds persisted Plex reconciliation sync settings. The Plex Sync tab can save automatic sync enablement, interval, and default scan limit, and scheduler readback uses stored settings when runtime env does not override them.",
       "details": [
         {
           "heading": "Highlights",
           "bullets": [
-            "Added persisted Plex reconciliation sync settings to integration storage.",
+            "Added migration `111` for Plex reconciliation sync settings.",
+            "Added `plexReconciliationSyncSettings` to integration settings payloads.",
+            "Saved Plex URL, selected library sections, key updates, and sync cadence through the same Plex settings save path.",
             "Added compact automatic sync controls to Settings > Integrations > Plex > Sync.",
-            "Updated scheduler readback to prefer stored settings unless env overrides are present.",
-            "Kept manual Plex sync and conflict review behavior unchanged."
+            "Updated scheduler readback and manual scheduler runs to prefer stored sync settings unless env overrides are configured.",
+            "Preserved existing manual sync, queued preview, conflict review, and writeback behavior."
           ]
         }
       ]
@@ -142,7 +137,8 @@
             "Kept reconciliation controls and conflict review in `Sync`.",
             "Kept receiver setup and receiver state in `Webhook`.",
             "Moved provider diagnostics and now-playing display controls into `Advanced`.",
-            "Removed the separate Plex operating-model explainer from the settings UI."
+            "Removed the separate Plex operating-model explainer from the settings UI.",
+            "Updated backlog and Plex modernization docs so future sync work points to the new true-sync plan."
           ]
         }
       ]
@@ -163,173 +159,6 @@
             "Added an Album details section for audio records in the Library detail drawer.",
             "Loaded `runtime-env.js` before the Vite app entrypoint so runtime API and platform bridge settings are available during startup.",
             "Added backend unit/source coverage for audio import filtering, persisted album metadata, and Library rendering."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.19.5",
-      "version": "3.19.5",
-      "date": null,
-      "status": null,
-      "summary": "This patch adds a Library navigation entry point for saved views. Users can open Saved Views from the Library navigation, review their durable saved Library views grouped by media type, and jump into the matching Library with the saved view applied.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added `Saved Views` to the Library navigation group.",
-            "Added a saved Library views index surface.",
-            "Wired saved-view selections into the matching media Library tab.",
-            "Added a `LibraryView` handoff prop so navigation-selected saved views apply after saved views load.",
-            "Added unit/source coverage for the saved-view navigation contract."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.19.4",
-      "version": "3.19.4",
-      "date": null,
-      "status": null,
-      "summary": "This patch makes Library saved views durable. Saved views now sync through authenticated, scope-aware backend endpoints when available, while keeping browser-local saved views as a fallback for older or unavailable backends.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added a `saved_library_views` persistence table.",
-            "Added scoped Library saved-view list, create, update, and delete endpoints.",
-            "Updated the Library saved-view controls to load backend views first and fall back to local storage.",
-            "Preserved the 3.19.3 saved-view snapshot shape for search, filters, sort, display mode, and library-specific context.",
-            "Added unit/source coverage for the durable saved-view contract."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.19.3",
-      "version": "3.19.3",
-      "date": null,
-      "status": null,
-      "summary": "This patch adds browser-local saved views to the Library. Users can save the current search, filters, sort, card/list mode, and library-specific context, then reopen that view later from the same browser.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added local saved Library views scoped by media type.",
-            "Added compact Library header controls to save/update, apply, and delete saved views.",
-            "Saved search text, quick filters, review filters, sort direction, card/list mode, collection mode, and comic view context where relevant.",
-            "Added unit/source coverage for the saved-view contract."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.19.2",
-      "version": "3.19.2",
-      "date": null,
-      "status": null,
-      "summary": "This patch makes the existing Library search box identifier-aware. Users can search by stored UPC/EAN/ISBN-style identifiers, TMDB ids, provider ids, Plex keys, and identity-alias metadata without leaving the current library surface.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Extended `GET /api/media` search to match stored UPC, ISBN-style type details, TMDB ids, provider ids, Calibre/Kavita ids, Plex metadata keys, and identity aliases.",
-            "Guarded numeric-normalized matching so non-numeric searches do not become broad empty-string identifier matches.",
-            "Updated the Library search placeholder to advertise identifier-aware search.",
-            "Added unit/source coverage for the identifier search contract."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.19.1",
-      "version": "3.19.1",
-      "date": null,
-      "status": null,
-      "summary": "This patch fixes Plex movie imports after media cleanup. Plex movie rows no longer carry TV-only fields from the Plex payload, so deleted movie titles can be recreated without tripping the media TV-field consistency constraint.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Stopped mapping Plex movie `studio` values into the collectZ `network` field.",
-            "Stopped carrying Plex `parentIndex` into `season_number` for non-TV rows.",
-            "Added unit coverage proving normalized Plex movie rows keep TV-only fields empty."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.19.0",
-      "version": "3.19.0",
-      "date": null,
-      "status": null,
-      "summary": "This release makes library bulk delete behave like one intentional operation instead of hundreds of individual delete requests. The change protects normal cleanup workflows from tripping API rate limits while keeping scoped authorization and audit readback intact.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added `POST /api/media/bulk-delete` for confirmed bulk media deletes.",
-            "Preserved active workspace/library scoping and the same ownership rules as single-record delete.",
-            "Added per-operation counts for requested, deleted, skipped, and failed records.",
-            "Updated the Library bulk delete UI to call the bulk endpoint once instead of firing one request per selected row.",
-            "Documented the new endpoint in OpenAPI.",
-            "Added a targeted smoke test proving more than 200 selected media rows can be deleted through one request.",
-            "Updated the frontend build toolchain patch versions to clear the current `esbuild` audit finding.",
-            "Fixed an event autograph artifact regression found during browser verification where creating an autograph artifact could fail before returning its signature readback."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.18.6",
-      "version": "3.18.6",
-      "date": null,
-      "status": null,
-      "summary": "This patch expands the generated public mirror beyond install/support files by adding the audited frontend source surface and public OpenAPI contract to the export manifest. Backend implementation source remains private.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added `backend/openapi/` to the public export allowlist.",
-            "Added curated frontend source/build files to the public export allowlist: `frontend/index.html`, `frontend/package.json`, `frontend/package-lock.json`, `frontend/src/`, `frontend/tailwind.config.js`, and `frontend/vite.config.js`.",
-            "Updated public export validation policy to allow those audited paths while continuing to deny backend implementation, private CI, maintainer docs, artifacts, generated builds, and local overrides.",
-            "Updated maintainer public-repository documentation to reflect the new source-publication boundary."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.18.5",
-      "version": "3.18.5",
-      "date": null,
-      "status": null,
-      "summary": "This patch adds public-safe runtime contract names for auth responses and moves frontend/OpenAPI usage to those names. The backend keeps the previous fields for compatibility, while the candidate public source audit now reaches zero findings.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added `runtime_mode` and `runtime_contract` aliases to auth config and user-session responses.",
-            "Updated the frontend to prefer `runtime_mode` while retaining a compatibility fallback for older responses.",
-            "Updated OpenAPI to document the public-safe runtime contract names.",
-            "Reduced the public-source boundary audit from `12` findings across `3` files to `0` findings."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.18.4",
-      "version": "3.18.4",
-      "date": null,
-      "status": null,
-      "summary": "This patch replaces frontend helper and state names that used private deployment language with neutral local-runtime wording. It keeps the existing backend contract value intact, but makes the frontend source less tied to private product labels.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Renamed frontend runtime helper names away from private deployment terminology.",
-            "Renamed navigation and dashboard state variables to use `localRuntime` wording.",
-            "Preserved the existing backend `product_edition` contract behavior for compatibility.",
-            "Reduced the public-source boundary audit from `27` findings across `5` files to `12` findings across `3` files."
           ]
         }
       ]

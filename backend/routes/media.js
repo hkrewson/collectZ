@@ -42,7 +42,8 @@ const {
   loadAdminIntegrationConfig,
   loadScopedIntegrationConfig,
   loadWorkspaceKavitaIntegrationConfig,
-  normalizePlexReconciliationSyncSettings
+  normalizePlexReconciliationSyncSettings,
+  normalizePlexReadbackRefreshSettings
 } = require('../services/integrations');
 const {
   searchTmdbMovie,
@@ -5208,8 +5209,26 @@ function getPlexWatchStateRefreshRuntimeConfig() {
   return {
     enabled: ['1', 'true', 'on', 'yes'].includes(enabledRaw),
     intervalMinutes,
-    maxItems
+    maxItems,
+    source: 'env'
   };
+}
+
+function hasPlexWatchStateRefreshEnvOverride() {
+  return process.env.PLEX_WATCH_STATE_REFRESH_ENABLED !== undefined
+    || process.env.PLEX_WATCH_STATE_REFRESH_INTERVAL_MINUTES !== undefined
+    || process.env.PLEX_WATCH_STATE_REFRESH_MAX_ITEMS !== undefined;
+}
+
+async function getEffectivePlexWatchStateRefreshRuntimeConfig() {
+  if (hasPlexWatchStateRefreshEnvOverride()) return getPlexWatchStateRefreshRuntimeConfig();
+  try {
+    const config = await loadAdminIntegrationConfig();
+    return normalizePlexReadbackRefreshSettings(config.plexReadbackRefreshSettings || {});
+  } catch (error) {
+    logError('Load Plex readback refresh settings', error);
+    return getPlexWatchStateRefreshRuntimeConfig();
+  }
 }
 
 const plexWatchStateRefreshState = {
@@ -5317,7 +5336,7 @@ function mergePlexRatingApplySummary(target, applySummary = {}) {
 }
 
 async function runPlexWatchStateRefreshOnce({ reason = 'manual', maxItems = null } = {}) {
-  const runtimeConfig = getPlexWatchStateRefreshRuntimeConfig();
+  const runtimeConfig = await getEffectivePlexWatchStateRefreshRuntimeConfig();
   const targetReadback = await collectPlexWatchStateRefreshTargets({
     maxItems: maxItems || runtimeConfig.maxItems
   });
@@ -5419,48 +5438,51 @@ async function runPlexWatchStateRefreshOnce({ reason = 'manual', maxItems = null
 }
 
 function startPlexWatchStateRefreshScheduler() {
-  const runtimeConfig = getPlexWatchStateRefreshRuntimeConfig();
-  Object.assign(plexWatchStateRefreshState, {
-    enabled: runtimeConfig.enabled,
-    intervalMinutes: runtimeConfig.intervalMinutes,
-    maxItems: runtimeConfig.maxItems
-  });
-  if (!runtimeConfig.enabled) return null;
+  const startup = async () => {
+    const runtimeConfig = await getEffectivePlexWatchStateRefreshRuntimeConfig();
+    Object.assign(plexWatchStateRefreshState, {
+      enabled: runtimeConfig.enabled,
+      intervalMinutes: runtimeConfig.intervalMinutes,
+      maxItems: runtimeConfig.maxItems
+    });
+    if (!runtimeConfig.enabled) return null;
 
-  const runSweep = async () => {
-    if (plexWatchStateRefreshState.running) return;
-    plexWatchStateRefreshState.running = true;
-    plexWatchStateRefreshState.lastStartedAt = new Date().toISOString();
-    plexWatchStateRefreshState.lastError = null;
-    try {
-      const summary = await runPlexWatchStateRefreshOnce({
-        reason: 'scheduled',
-        maxItems: runtimeConfig.maxItems
-      });
-      plexWatchStateRefreshState.lastScopeCount = summary.scopeCount;
-      plexWatchStateRefreshState.lastReadEntries = summary.readEntries;
-      plexWatchStateRefreshState.lastMediaMatched = summary.mediaMatched;
-      plexWatchStateRefreshState.lastUpdated = summary.mediaMetadataUpdated + summary.seasonsCreated + summary.seasonsUpdated + summary.ratingsUpdated;
-      plexWatchStateRefreshState.lastRatingReadEntries = summary.ratingReadEntries;
-      plexWatchStateRefreshState.lastRatingMediaMatched = summary.ratingMediaMatched;
-      plexWatchStateRefreshState.lastRatingsUpdated = summary.ratingsUpdated;
-      plexWatchStateRefreshState.lastSkippedNoMatch = summary.skippedNoMatch;
-      if (summary.errorsSample.length > 0) {
-        plexWatchStateRefreshState.lastError = summary.errorsSample[0].error;
+    const runSweep = async () => {
+      if (plexWatchStateRefreshState.running) return;
+      plexWatchStateRefreshState.running = true;
+      plexWatchStateRefreshState.lastStartedAt = new Date().toISOString();
+      plexWatchStateRefreshState.lastError = null;
+      try {
+        const summary = await runPlexWatchStateRefreshOnce({
+          reason: 'scheduled',
+          maxItems: runtimeConfig.maxItems
+        });
+        plexWatchStateRefreshState.lastScopeCount = summary.scopeCount;
+        plexWatchStateRefreshState.lastReadEntries = summary.readEntries;
+        plexWatchStateRefreshState.lastMediaMatched = summary.mediaMatched;
+        plexWatchStateRefreshState.lastUpdated = summary.mediaMetadataUpdated + summary.seasonsCreated + summary.seasonsUpdated + summary.ratingsUpdated;
+        plexWatchStateRefreshState.lastRatingReadEntries = summary.ratingReadEntries;
+        plexWatchStateRefreshState.lastRatingMediaMatched = summary.ratingMediaMatched;
+        plexWatchStateRefreshState.lastRatingsUpdated = summary.ratingsUpdated;
+        plexWatchStateRefreshState.lastSkippedNoMatch = summary.skippedNoMatch;
+        if (summary.errorsSample.length > 0) {
+          plexWatchStateRefreshState.lastError = summary.errorsSample[0].error;
+        }
+      } catch (error) {
+        plexWatchStateRefreshState.lastError = error.message || 'Plex watched-state refresh scheduler failed';
+        logError('Plex watched-state refresh scheduler failed', error);
+      } finally {
+        plexWatchStateRefreshState.running = false;
+        plexWatchStateRefreshState.lastFinishedAt = new Date().toISOString();
       }
-    } catch (error) {
-      plexWatchStateRefreshState.lastError = error.message || 'Plex watched-state refresh scheduler failed';
-      logError('Plex watched-state refresh scheduler failed', error);
-    } finally {
-      plexWatchStateRefreshState.running = false;
-      plexWatchStateRefreshState.lastFinishedAt = new Date().toISOString();
-    }
-  };
+    };
 
-  const timer = setInterval(runSweep, runtimeConfig.intervalMinutes * 60 * 1000);
-  timer.unref();
-  setTimeout(runSweep, Math.min(5000, runtimeConfig.intervalMinutes * 60 * 1000)).unref();
-  return timer;
+    const timer = setInterval(runSweep, runtimeConfig.intervalMinutes * 60 * 1000);
+    timer.unref();
+    setTimeout(runSweep, Math.min(5000, runtimeConfig.intervalMinutes * 60 * 1000)).unref();
+    return timer;
+  };
+  return startup();
 }
 
 const TMDB_IMPORT_MIN_INTERVAL_MS = Math.max(0, Number(process.env.TMDB_IMPORT_MIN_INTERVAL_MS || 50));
@@ -15019,7 +15041,7 @@ router.get('/plex-watch-state/refresh-scheduler', asyncHandler(async (req, res) 
   if (req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Only admins can inspect Plex watched-state refresh automation' });
   }
-  const runtimeConfig = getPlexWatchStateRefreshRuntimeConfig();
+  const runtimeConfig = await getEffectivePlexWatchStateRefreshRuntimeConfig();
   res.json({
     ok: true,
     processingMode: 'scheduled_watch_state_refresh',
@@ -16264,6 +16286,7 @@ router.getPlexWebhookImportAutoProcessorRuntimeConfig = getPlexWebhookImportAuto
 router.runPlexWebhookImportHintAutoProcessorOnce = runPlexWebhookImportHintAutoProcessorOnce;
 router.startPlexWatchStateRefreshScheduler = startPlexWatchStateRefreshScheduler;
 router.getPlexWatchStateRefreshRuntimeConfig = getPlexWatchStateRefreshRuntimeConfig;
+router.getEffectivePlexWatchStateRefreshRuntimeConfig = getEffectivePlexWatchStateRefreshRuntimeConfig;
 router.runPlexWatchStateRefreshOnce = runPlexWatchStateRefreshOnce;
 router.startPlexReconciliationSyncScheduler = startPlexReconciliationSyncScheduler;
 router.getPlexReconciliationSyncRuntimeConfig = getPlexReconciliationSyncRuntimeConfig;

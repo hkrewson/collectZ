@@ -30,6 +30,13 @@ const DEFAULT_PLEX_WRITEBACK_SETTINGS = Object.freeze({
   source: 'stored'
 });
 
+const DEFAULT_PLEX_READBACK_REFRESH_SETTINGS = Object.freeze({
+  enabled: false,
+  intervalMinutes: 60,
+  maxItems: 100,
+  source: 'stored'
+});
+
 function normalizePlexReconciliationSyncSettings(input = {}) {
   const raw = input && typeof input === 'object' ? input : {};
   const parsedInterval = Number(raw.intervalMinutes ?? raw.interval_minutes ?? raw.plexReconciliationSyncIntervalMinutes);
@@ -48,6 +55,24 @@ function normalizePlexReconciliationSyncSettings(input = {}) {
     intervalMinutes,
     limit,
     source: raw.source || 'stored'
+  };
+}
+
+function normalizePlexReadbackRefreshSettings(input = {}) {
+  const raw = input && typeof input === 'object' ? input : {};
+  const parsedInterval = Number(raw.intervalMinutes ?? raw.interval_minutes ?? raw.plexReadbackRefreshIntervalMinutes);
+  const intervalMinutes = Number.isInteger(parsedInterval) && parsedInterval >= 15
+    ? Math.min(10080, parsedInterval)
+    : DEFAULT_PLEX_READBACK_REFRESH_SETTINGS.intervalMinutes;
+  const parsedMaxItems = Number(raw.maxItems ?? raw.max_items ?? raw.plexReadbackRefreshMaxItems);
+  const maxItems = Number.isInteger(parsedMaxItems) && parsedMaxItems > 0
+    ? Math.min(500, parsedMaxItems)
+    : DEFAULT_PLEX_READBACK_REFRESH_SETTINGS.maxItems;
+  return {
+    enabled: Boolean(raw.enabled ?? raw.plexReadbackRefreshEnabled),
+    intervalMinutes,
+    maxItems,
+    source: raw.source || DEFAULT_PLEX_READBACK_REFRESH_SETTINGS.source
   };
 }
 
@@ -202,6 +227,12 @@ const normalizeIntegrationRecord = (row) => {
     plexWritebackSettings: normalizePlexWritebackSettings({
       ratingEnabled: row?.plex_rating_writeback_enabled,
       watchStateEnabled: row?.plex_watch_state_writeback_enabled,
+      source: 'stored'
+    }),
+    plexReadbackRefreshSettings: normalizePlexReadbackRefreshSettings({
+      enabled: row?.plex_readback_refresh_enabled,
+      intervalMinutes: row?.plex_readback_refresh_interval_minutes,
+      maxItems: row?.plex_readback_refresh_max_items,
       source: 'stored'
     }),
     booksPreset: booksPreset.preset || 'googlebooks',
@@ -414,7 +445,9 @@ module.exports = {
   loadGeneralSettings,
   updateScopedGeneralSettings,
   normalizePlexReconciliationSyncSettings,
+  normalizePlexReadbackRefreshSettings,
   normalizePlexWritebackSettings,
   DEFAULT_PLEX_RECONCILIATION_SYNC_SETTINGS,
+  DEFAULT_PLEX_READBACK_REFRESH_SETTINGS,
   DEFAULT_PLEX_WRITEBACK_SETTINGS
 };

@@ -481,6 +481,7 @@ export default function AdminIntegrationsView({
     plexPreset: 'plex', plexProvider: 'plex', plexApiUrl: '',
     plexApiKey: '', plexLibrarySections: '', clearPlexApiKey: false,
     plexReconciliationSyncEnabled: false, plexReconciliationSyncIntervalMinutes: '360', plexReconciliationSyncLimit: '',
+    plexReadbackRefreshEnabled: false, plexReadbackRefreshIntervalMinutes: '60', plexReadbackRefreshMaxItems: '100',
     plexRatingWritebackEnabled: false, plexWatchStateWritebackEnabled: false,
     booksPreset: 'googlebooks', booksProvider: 'googlebooks', booksApiUrl: 'https://www.googleapis.com/books/v1/volumes',
     booksApiKey: '', clearBooksApiKey: false,
@@ -573,6 +574,9 @@ export default function AdminIntegrationsView({
         plexReconciliationSyncEnabled: Boolean(data.plexReconciliationSyncSettings?.enabled),
         plexReconciliationSyncIntervalMinutes: String(data.plexReconciliationSyncSettings?.intervalMinutes || '360'),
         plexReconciliationSyncLimit: data.plexReconciliationSyncSettings?.limit ? String(data.plexReconciliationSyncSettings.limit) : '',
+        plexReadbackRefreshEnabled: Boolean(data.plexReadbackRefreshSettings?.enabled),
+        plexReadbackRefreshIntervalMinutes: String(data.plexReadbackRefreshSettings?.intervalMinutes || '60'),
+        plexReadbackRefreshMaxItems: String(data.plexReadbackRefreshSettings?.maxItems || '100'),
         plexRatingWritebackEnabled: Boolean(data.plexWritebackSettings?.ratingEnabled),
         plexWatchStateWritebackEnabled: Boolean(data.plexWritebackSettings?.watchStateEnabled),
         booksPreset: data.booksPreset || 'googlebooks', booksProvider: data.booksProvider || 'googlebooks', booksApiUrl: data.booksApiUrl || 'https://www.googleapis.com/books/v1/volumes',
@@ -747,6 +751,11 @@ export default function AdminIntegrationsView({
         intervalMinutes: form.plexReconciliationSyncIntervalMinutes,
         limit: form.plexReconciliationSyncLimit
       },
+      plexReadbackRefreshSettings: {
+        enabled: form.plexReadbackRefreshEnabled,
+        intervalMinutes: form.plexReadbackRefreshIntervalMinutes,
+        maxItems: form.plexReadbackRefreshMaxItems
+      },
       plexWritebackSettings: {
         ratingEnabled: form.plexRatingWritebackEnabled,
         watchStateEnabled: form.plexWatchStateWritebackEnabled
@@ -835,10 +844,14 @@ export default function AdminIntegrationsView({
           plexReconciliationSyncEnabled: Boolean(updated.plexReconciliationSyncSettings.enabled),
           plexReconciliationSyncIntervalMinutes: String(updated.plexReconciliationSyncSettings.intervalMinutes || '360'),
           plexReconciliationSyncLimit: updated.plexReconciliationSyncSettings.limit ? String(updated.plexReconciliationSyncSettings.limit) : '',
+          plexReadbackRefreshEnabled: Boolean(updated.plexReadbackRefreshSettings?.enabled),
+          plexReadbackRefreshIntervalMinutes: String(updated.plexReadbackRefreshSettings?.intervalMinutes || '60'),
+          plexReadbackRefreshMaxItems: String(updated.plexReadbackRefreshSettings?.maxItems || '100'),
           plexRatingWritebackEnabled: Boolean(updated.plexWritebackSettings?.ratingEnabled),
           plexWatchStateWritebackEnabled: Boolean(updated.plexWritebackSettings?.watchStateEnabled)
         }));
         await refreshPlexReconciliationScheduler();
+        await refreshPlexReadbackRefreshScheduler();
       }
       if (updated.plexNowPlayingDisplayPreferences) {
         setPlexDisplayPreferences({
@@ -1829,6 +1842,33 @@ export default function AdminIntegrationsView({
                 </button>
               )}
             >
+              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_10rem_10rem]">
+                <CheckboxControl
+                  id="plex-readback-refresh-enabled"
+                  checked={Boolean(form.plexReadbackRefreshEnabled)}
+                  onChange={(event) => setForm((f) => ({ ...f, plexReadbackRefreshEnabled: event.target.checked }))}
+                >
+                  Run scheduled readback refresh
+                </CheckboxControl>
+                <LabeledField label="Every (min)" cx={cx}>
+                  <input
+                    className="input font-mono"
+                    inputMode="numeric"
+                    min="15"
+                    value={form.plexReadbackRefreshIntervalMinutes}
+                    onChange={(event) => setForm((f) => ({ ...f, plexReadbackRefreshIntervalMinutes: event.target.value.replace(/[^\d]/g, '').slice(0, 5) }))}
+                  />
+                </LabeledField>
+                <LabeledField label="Max items" cx={cx}>
+                  <input
+                    className="input font-mono"
+                    inputMode="numeric"
+                    min="1"
+                    value={form.plexReadbackRefreshMaxItems}
+                    onChange={(event) => setForm((f) => ({ ...f, plexReadbackRefreshMaxItems: event.target.value.replace(/[^\d]/g, '').slice(0, 3) }))}
+                  />
+                </LabeledField>
+              </div>
               <div className="flex flex-wrap gap-2 text-xs text-ghost">
                 <span>
                   Automatic: <span className="font-mono text-dim">
@@ -1837,6 +1877,9 @@ export default function AdminIntegrationsView({
                       : 'off'}
                   </span>
                 </span>
+                {plexReadbackRefreshScheduler?.runtime?.source && (
+                  <span>Source: <span className="font-mono text-dim">{plexReadbackRefreshScheduler.runtime.source}</span></span>
+                )}
                 {plexReadbackRefreshScheduler?.state?.lastFinishedAt && (
                   <span>Last auto: {new Date(plexReadbackRefreshScheduler.state.lastFinishedAt).toLocaleString()}</span>
                 )}

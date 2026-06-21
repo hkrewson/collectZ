@@ -4680,6 +4680,34 @@ const MIGRATIONS = [
          SET plex_watch_state_writeback_enabled = false
        WHERE plex_watch_state_writeback_enabled IS NULL;
     `
+  },
+  {
+    version: 114,
+    description: 'Add persisted Plex readback refresh settings',
+    up: `
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS plex_readback_refresh_enabled BOOLEAN DEFAULT false;
+
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS plex_readback_refresh_interval_minutes INTEGER DEFAULT 60;
+
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS plex_readback_refresh_max_items INTEGER DEFAULT 100;
+
+      UPDATE app_integrations
+         SET plex_readback_refresh_enabled = false
+       WHERE plex_readback_refresh_enabled IS NULL;
+
+      UPDATE app_integrations
+         SET plex_readback_refresh_interval_minutes = 60
+       WHERE plex_readback_refresh_interval_minutes IS NULL
+          OR plex_readback_refresh_interval_minutes < 15;
+
+      UPDATE app_integrations
+         SET plex_readback_refresh_max_items = 100
+       WHERE plex_readback_refresh_max_items IS NULL
+          OR plex_readback_refresh_max_items < 1;
+    `
   }
 ];
 

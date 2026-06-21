@@ -372,7 +372,7 @@ const startServer = async () => {
       mediaRouter.startPlexWebhookImportHintAutoProcessor();
     }
     if (typeof mediaRouter.startPlexWatchStateRefreshScheduler === 'function') {
-      mediaRouter.startPlexWatchStateRefreshScheduler();
+      await mediaRouter.startPlexWatchStateRefreshScheduler();
     }
     if (typeof mediaRouter.startPlexReconciliationSyncScheduler === 'function') {
       await mediaRouter.startPlexReconciliationSyncScheduler();

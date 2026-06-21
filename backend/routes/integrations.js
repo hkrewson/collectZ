@@ -10,6 +10,7 @@ const {
   normalizeIntegrationRecord,
   loadGeneralSettings,
   normalizePlexReconciliationSyncSettings,
+  normalizePlexReadbackRefreshSettings,
   normalizePlexWritebackSettings
 } = require('../services/integrations');
 const { encryptSecret, maskSecret } = require('../services/crypto');
@@ -336,6 +337,7 @@ async function buildSharedIntegrationPayload(config, req = null) {
     plexApiKeySet: Boolean(config?.plexApiKey),
     plexApiKeyMasked: maskSecret(config?.plexApiKey || ''),
     plexReconciliationSyncSettings: normalizePlexReconciliationSyncSettings(config?.plexReconciliationSyncSettings),
+    plexReadbackRefreshSettings: normalizePlexReadbackRefreshSettings(config?.plexReadbackRefreshSettings),
     plexWritebackSettings: normalizePlexWritebackSettings(config?.plexWritebackSettings),
     plexNowPlayingDisplayToken: shapeNowPlayingDisplayTokenStatus(config),
     plexNowPlayingDisplayPreferences: normalizeNowPlayingDisplayPreferences(config?.plexNowPlayingDisplayPreferences),
@@ -842,6 +844,7 @@ sharedRouter.put('/admin/settings/integrations', authenticateToken, requireRole(
     || req.body.clearPlexApiKey !== undefined
     || req.body.plexLibrarySections !== undefined
     || req.body.plexReconciliationSyncSettings !== undefined
+    || req.body.plexReadbackRefreshSettings !== undefined
     || req.body.plexWritebackSettings !== undefined;
   if (requestsLogExportUpdate && LOG_EXPORT_SETTINGS_READ_ONLY) {
     return res.status(409).json({ error: 'External log endpoint settings are read-only in this environment' });
@@ -922,6 +925,16 @@ sharedRouter.put('/admin/settings/integrations', authenticateToken, requireRole(
       : {}),
     ...(req.body.plexWritebackSettings || {})
   });
+  const plexReadbackRefreshSettings = normalizePlexReadbackRefreshSettings({
+    ...(existing
+      ? {
+        enabled: existing.plex_readback_refresh_enabled,
+        intervalMinutes: existing.plex_readback_refresh_interval_minutes,
+        maxItems: existing.plex_readback_refresh_max_items
+      }
+      : {}),
+    ...(req.body.plexReadbackRefreshSettings || {})
+  });
   const nextPlexPreset = pick(req.body.plexPreset, existing?.plex_preset, 'plex');
   const nextPlexProvider = pick(req.body.plexProvider, existing?.plex_provider, 'plex');
   const nextPlexApiUrl = pick(
@@ -982,6 +995,9 @@ sharedRouter.put('/admin/settings/integrations', authenticateToken, requireRole(
        plex_reconciliation_sync_limit,
        plex_rating_writeback_enabled,
        plex_watch_state_writeback_enabled,
+       plex_readback_refresh_enabled,
+       plex_readback_refresh_interval_minutes,
+       plex_readback_refresh_max_items,
        log_export_backend,
        log_export_host,
        log_export_port,
@@ -992,7 +1008,7 @@ sharedRouter.put('/admin/settings/integrations', authenticateToken, requireRole(
        kavita_api_key_encrypted,
        kavita_timeout_ms
      ) VALUES (
-       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::jsonb,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29
+       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::jsonb,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32
      )
      ON CONFLICT (id) DO UPDATE SET
        pricecharting_enabled = EXCLUDED.pricecharting_enabled,
@@ -1014,6 +1030,9 @@ sharedRouter.put('/admin/settings/integrations', authenticateToken, requireRole(
        plex_reconciliation_sync_limit = EXCLUDED.plex_reconciliation_sync_limit,
        plex_rating_writeback_enabled = EXCLUDED.plex_rating_writeback_enabled,
        plex_watch_state_writeback_enabled = EXCLUDED.plex_watch_state_writeback_enabled,
+       plex_readback_refresh_enabled = EXCLUDED.plex_readback_refresh_enabled,
+       plex_readback_refresh_interval_minutes = EXCLUDED.plex_readback_refresh_interval_minutes,
+       plex_readback_refresh_max_items = EXCLUDED.plex_readback_refresh_max_items,
        log_export_backend = EXCLUDED.log_export_backend,
        log_export_host = EXCLUDED.log_export_host,
        log_export_port = EXCLUDED.log_export_port,
@@ -1045,6 +1064,9 @@ sharedRouter.put('/admin/settings/integrations', authenticateToken, requireRole(
       plexSyncSettings.limit,
       plexWritebackSettings.ratingEnabled,
       plexWritebackSettings.watchStateEnabled,
+      plexReadbackRefreshSettings.enabled,
+      plexReadbackRefreshSettings.intervalMinutes,
+      plexReadbackRefreshSettings.maxItems,
       nextLogExportBackend,
       nextLogExportHost,
       nextLogExportPort,
@@ -1097,7 +1119,8 @@ sharedRouter.put('/admin/settings/integrations', authenticateToken, requireRole(
         apiKeyUpdated: Boolean(req.body.plexApiKey),
         apiKeyCleared: Boolean(req.body.clearPlexApiKey),
         reconciliationSync: plexSyncSettings,
-        writeback: plexWritebackSettings
+        writeback: plexWritebackSettings,
+        readbackRefresh: plexReadbackRefreshSettings
       }
       : null,
     kavita: requestsKavitaUpdate

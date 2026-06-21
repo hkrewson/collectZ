@@ -6,6 +6,37 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.20.8 — Plex Persisted Readback Refresh Cadence
+
+**Goal:** Let admins configure Plex watched-state and rating readback refresh cadence from the Plex Sync settings instead of relying on env-only runtime switches.
+
+### Scope
+
+- Add persisted Plex readback refresh settings for enablement, interval, and max items.
+- Save and read those settings through the shared integrations API.
+- Use stored settings for the watched-state/rating readback scheduler unless explicit env overrides are present.
+- Add compact Plex Sync controls for scheduled readback refresh cadence.
+
+### Acceptance Criteria
+
+- Plex readback refresh defaults to off for existing and new installs.
+- Settings > Integrations > Plex > Sync can save enablement, interval, and max-items values.
+- The scheduler status endpoint reports the effective persisted settings unless env overrides are present.
+- Manual readback refresh still works independently from scheduled enablement.
+
+### Active Slice Notes
+
+- This is the ninth selected slice from the `Plex True Sync Workflow` backlog item.
+- The scheduler route names remain `/plex-watch-state/refresh-scheduler` for compatibility, even though the pass now covers watched state and ratings.
+
+### Closeout
+
+- Status: completed in `3.20.8`.
+- Project docs/checklists used: `docs/wiki/52-Plex-True-Sync-Workflow-Plan.md`, `docs/wiki/08-Backlog.md`, `docs/releases/v3.20.8.md`, and existing Plex readback scheduler source coverage.
+- Runtime evidence: local 3201 stack rebuilt to `3.20.8`; `/api/health` reports frontend/backend/build `3.20.8`; backend logs show migration `v114` applied; backend, frontend, and cairn containers are healthy.
+- Verification: backend route/service/migration/unit-test source syntax passed; frontend production build passed; release feed regenerated; backend unit/source suite passed with `333` checks; local backend/frontend containers rebuilt and healthy; `git diff --check` passed.
+- Risks/follow-ups: changing a saved cadence updates the effective runtime config readback immediately; already-running scheduler timers still use the interval established at backend startup until restart.
+
 ## 3.20.7 — Plex Readback Refresh Surface
 
 **Goal:** Make Plex watched-state and rating readback refresh visible and runnable from the Plex Sync workflow.
