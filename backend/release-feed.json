@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.20.4",
+      "version": "3.20.4",
+      "date": null,
+      "status": null,
+      "summary": "This patch makes Plex activity entries easier to read. Workspace activity now recognizes Plex imports, webhook queue events, webhook processor runs, and webhook import outcomes instead of showing generic provider activity.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added explicit Plex import summaries to the activity feed.",
+            "Added readable Plex webhook queued and processed activity summaries.",
+            "Added readable Plex webhook auto-processor activity summaries.",
+            "Added Plex job, rating key, and section readback to activity snapshots."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.20.3",
       "version": "3.20.3",
       "date": null,

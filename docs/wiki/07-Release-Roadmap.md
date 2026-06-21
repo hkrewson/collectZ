@@ -6,6 +6,40 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.20.4 — Plex Activity Readability
+
+**Goal:** Make Plex activity entries readable enough to support import, webhook, sync, readback, and writeback testing from workspace activity.
+
+### Scope
+
+- Add explicit Plex import summaries to the activity feed.
+- Add readable Plex webhook queued and processed summaries.
+- Add readable Plex webhook auto-processor summaries.
+- Add Plex job, rating key, and section readback to activity snapshots.
+- Keep backend Plex import, sync, webhook, readback, and writeback behavior unchanged.
+
+### Acceptance Criteria
+
+- Plex imports render as Plex import activity instead of generic import activity.
+- Plex webhook queue events render as webhook queue activity.
+- Plex webhook import processing renders as webhook import activity.
+- Plex webhook processor runs render processed/succeeded/failed counts.
+- Activity snapshots expose job, rating key, and section context when present.
+
+### Active Slice Notes
+
+- This is the fifth selected slice from the `Plex True Sync Workflow` backlog item.
+- Scheduled pull sync controls, explicit writeback controls, and reconciliation review filters remain follow-up work.
+
+### Closeout
+
+- Status: completed in `3.20.4`.
+- Project docs/checklists used: `docs/wiki/52-Plex-True-Sync-Workflow-Plan.md`, `docs/wiki/08-Backlog.md`, `docs/releases/v3.20.4.md`, and existing Plex activity feed source coverage.
+- Runtime evidence: local 3201 stack rebuilt to `3.20.4`; `/api/health` reports frontend/backend/build `3.20.4`; backend logs report the schema is up to date with `112` migrations applied; backend, frontend, and cairn containers are healthy.
+- Verification: backend unit-test source syntax passed; frontend production build passed; backend unit/source suite passed with `333` checks; local backend/frontend containers rebuilt and healthy; `git diff --check` passed.
+- Blocked/unverified: live browser regression against the activity feed has not been run in this slice.
+- Risks/follow-ups: this is a readability/UI slice; it does not add new Plex activity-producing backend paths.
+
 ## 3.20.3 — Plex Initial Import Workflow
 
 **Goal:** Make initial Plex import a deliberate Sync workflow that shows selected libraries and media types before queuing import work.

@@ -113,6 +113,9 @@ function buildSnapshotRows(entry, details) {
     ['Status', detailValue(details, ['status', 'details_status'])],
     ['Reason', detailValue(details, ['reason', 'error', 'message'])],
     ['Provider', detailValue(details, ['provider', 'provider_name', 'source', 'integration'])],
+    ['Job', detailValue(details, ['jobId'])],
+    ['Rating key', detailValue(details, ['ratingKey'])],
+    ['Sections', Array.isArray(details?.sectionIds) ? details.sectionIds.join(', ') : detailValue(details, ['sectionIds'])],
     ['Space', detailValue(details, ['spaceName', 'spaceId', 'space_id'])],
     ['Library', detailValue(details, ['libraryName', 'libraryId', 'library_id'])]
   ];
@@ -150,6 +153,64 @@ function buildPlexTimelineEntry(entry, details) {
   const action = String(entry?.action || '');
   const targetName = detailValue(details, ['title', 'mediaTitle', 'name']) || formatEntityLabel(entry);
   const failed = action.includes('failed') || action.includes('failure');
+
+  if (action === 'media.import.plex' || action === 'media.import.plex.failed') {
+    return {
+      title: failed ? 'Plex import failed' : 'Plex import finished',
+      summary: formatSummaryParts([
+        countPart(details, ['imported'], 'imported', 'imported'),
+        countPart(details, ['created'], 'created', 'created'),
+        countPart(details, ['updated'], 'updated', 'updated'),
+        countPart(details, ['skipped'], 'skipped', 'skipped'),
+        countPart(details, ['audioTitlesRepaired'], 'audio title repaired', 'audio titles repaired'),
+        detailValue(details, ['jobId']) ? `Job #${detailValue(details, ['jobId'])}` : null,
+        detailValue(details, ['detail', 'error', 'reason'])
+      ]) || 'Plex import activity was recorded.',
+      category: failed ? 'Failures' : 'Imports'
+    };
+  }
+
+  if (action === 'plex.webhook.import_hint.queued') {
+    return {
+      title: 'Plex webhook import queued',
+      summary: formatSummaryParts([
+        detailValue(details, ['event']),
+        detailValue(details, ['ratingKey']) ? `Rating key ${detailValue(details, ['ratingKey'])}` : null,
+        detailValue(details, ['jobId']) ? `Job #${detailValue(details, ['jobId'])}` : null
+      ]) || 'Plex webhook queued an import hint.',
+      category: 'Providers'
+    };
+  }
+
+  if (action.includes('.plex_webhook_hint.auto_run')) {
+    return {
+      title: failed ? 'Plex webhook processor failed' : 'Plex webhook processor ran',
+      summary: formatSummaryParts([
+        countPart(details, ['processed'], 'processed', 'processed'),
+        countPart(details, ['succeeded'], 'succeeded', 'succeeded'),
+        countPart(details, ['failed'], 'failed', 'failed'),
+        details?.empty ? 'No queued hints' : null,
+        detailValue(details, ['reason', 'detail', 'error'])
+      ]) || 'Plex webhook processor activity was recorded.',
+      category: failed ? 'Failures' : 'Providers'
+    };
+  }
+
+  if (action.includes('.plex_webhook_hint')) {
+    return {
+      title: failed ? 'Plex webhook import failed' : 'Plex webhook import processed',
+      summary: formatSummaryParts([
+        detailValue(details, ['ratingKey']) ? `Rating key ${detailValue(details, ['ratingKey'])}` : null,
+        countPart(details, ['imported'], 'imported', 'imported'),
+        countPart(details, ['created'], 'created', 'created'),
+        countPart(details, ['updated'], 'updated', 'updated'),
+        countPart(details, ['skipped'], 'skipped', 'skipped'),
+        detailValue(details, ['autoProcessorTarget']),
+        detailValue(details, ['detail', 'error', 'reason'])
+      ]) || 'Plex webhook import activity was recorded.',
+      category: failed ? 'Failures' : 'Imports'
+    };
+  }
 
   if (action.includes('.reconciliation.preview_job')) {
     return {
@@ -408,14 +469,14 @@ function buildTimelineEntry(entry) {
   let summary = targetName || formatEntityLabel(entry);
   let category = 'Activity';
 
-  if (action.includes('.import.')) {
+  if (action.startsWith('media.import.plex') || action.startsWith('media.plex.') || action.startsWith('plex.webhook.')) {
+    return buildPlexTimelineEntry(entry, details);
+  } else if (action.includes('.import.')) {
     return buildImportSummary(entry, details);
   } else if (action === 'media.import_barcode' || action === 'media.import_barcode.existing') {
     title = action.endsWith('.existing') ? 'Scanner found an existing library item' : 'Scanner added a library item';
     summary = [targetName || formatEntityLabel(entry), detailValue(details, ['barcode', 'upc', 'isbn'])].filter(Boolean).join(' · ');
     category = 'Scanner';
-  } else if (action.startsWith('media.plex.')) {
-    return buildPlexTimelineEntry(entry, details);
   } else if (action.includes('.kavita.')) {
     title = action.endsWith('.failed') ? 'Kavita activity failed' : 'Kavita activity recorded';
     summary = [targetName || formatEntityLabel(entry), provider].filter(Boolean).join(' · ');

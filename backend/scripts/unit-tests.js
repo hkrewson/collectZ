@@ -7415,8 +7415,15 @@ results.push(run('dashboard command center frontend owns first-screen attention 
   assert.ok(activityFeedViewSource.includes("action.startsWith('events.')"));
   assert.ok(activityFeedViewSource.includes('Event attendee ${verb}'));
   assert.ok(activityFeedViewSource.includes('buildPlexTimelineEntry'));
+  assert.ok(activityFeedViewSource.includes('Plex import finished'));
+  assert.ok(activityFeedViewSource.includes('Plex webhook import queued'));
+  assert.ok(activityFeedViewSource.includes('Plex webhook import processed'));
+  assert.ok(activityFeedViewSource.includes('Plex webhook processor ran'));
   assert.ok(activityFeedViewSource.includes('Plex ratings read from Plex'));
   assert.ok(activityFeedViewSource.includes('Plex watched state written to Plex'));
+  assert.ok(activityFeedViewSource.includes("action.startsWith('plex.webhook.')"));
+  assert.ok(activityFeedViewSource.includes("'Rating key'"));
+  assert.ok(activityFeedViewSource.includes("'Sections'"));
   assert.ok(activityFeedViewSource.includes('PLATFORM_RUNTIME_SECTIONS'));
   assert.ok(activityFeedViewSource.includes("'Open runtime'"));
   assert.ok(eventsRoutesSource.includes('buildEventActivityDetails'));
