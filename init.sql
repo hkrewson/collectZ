@@ -642,6 +642,8 @@ CREATE TABLE IF NOT EXISTS app_integrations (
     plex_reconciliation_sync_enabled BOOLEAN DEFAULT false,
     plex_reconciliation_sync_interval_minutes INTEGER DEFAULT 360,
     plex_reconciliation_sync_limit INTEGER,
+    plex_rating_writeback_enabled BOOLEAN DEFAULT false,
+    plex_watch_state_writeback_enabled BOOLEAN DEFAULT false,
     books_preset VARCHAR(100) DEFAULT 'googlebooks',
     books_provider VARCHAR(100),
     books_api_url TEXT,

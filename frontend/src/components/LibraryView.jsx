@@ -146,20 +146,23 @@ function OwnedFormatPicker({ mediaType, value = [], onChange }) {
   );
 }
 
-function PlexWritebackControls({ item, loading, onWriteRating, onWriteWatchState }) {
+function PlexWritebackControls({ item, loading, onWriteRating, onWriteWatchState, canWriteRating = false, canWriteWatchState = false }) {
+  if (!canWriteRating && !canWriteWatchState) return null;
   return (
     <div className="mt-3 flex flex-wrap items-center gap-2" data-testid="plex-writeback-controls">
-      <button
-        type="button"
-        className="btn-secondary btn-sm"
-        onClick={onWriteRating}
-        disabled={Boolean(loading)}
-        data-testid="plex-rating-writeback-button"
-      >
-        {loading === 'rating' ? <Spinner size={14} /> : <Icons.Star />}
-        Push rating to Plex
-      </button>
-      {item?.media_type !== 'tv_series' ? (
+      {canWriteRating ? (
+        <button
+          type="button"
+          className="btn-secondary btn-sm"
+          onClick={onWriteRating}
+          disabled={Boolean(loading)}
+          data-testid="plex-rating-writeback-button"
+        >
+          {loading === 'rating' ? <Spinner size={14} /> : <Icons.Star />}
+          Push rating to Plex
+        </button>
+      ) : null}
+      {canWriteWatchState && item?.media_type !== 'tv_series' ? (
         <>
           <button
             type="button"
@@ -1001,7 +1004,18 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   const isPlexLinked = Boolean(item?.plex_linked)
     || String(item?.import_source || '').trim().toLowerCase().includes('plex')
     || String(typeDetails.provider_name || '').trim().toLowerCase().includes('plex');
-  const showPlexWritebackControls = canWritePlex && isPlexLinked;
+  const plexWritebackPolicy = canWritePlex && typeof canWritePlex === 'object'
+    ? {
+      ratingEnabled: Boolean(canWritePlex.ratingEnabled),
+      watchStateEnabled: Boolean(canWritePlex.watchStateEnabled)
+    }
+    : {
+      ratingEnabled: Boolean(canWritePlex),
+      watchStateEnabled: Boolean(canWritePlex)
+    };
+  const canWritePlexRating = isPlexLinked && plexWritebackPolicy.ratingEnabled;
+  const canWritePlexWatchState = isPlexLinked && plexWritebackPolicy.watchStateEnabled;
+  const showPlexWritebackControls = canWritePlexRating || canWritePlexWatchState;
   const isKavitaChapterBacked = String(typeDetails.provider_item_id || '').trim().toLowerCase().startsWith('kavita:chapter:')
     || String(typeDetails.kavita_chapter_provider_item_id || '').trim().toLowerCase().startsWith('kavita:chapter:')
     || String(typeDetails.kavita_chapter_fanout || '').trim().toLowerCase() === 'true';
@@ -2370,6 +2384,8 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                       loading={plexWritebackLoading}
                       onWriteRating={writePlexRating}
                       onWriteWatchState={writePlexWatchState}
+                      canWriteRating={canWritePlexRating}
+                      canWriteWatchState={canWritePlexWatchState}
                     />
                   ) : null}
                 </div>
@@ -2461,7 +2477,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                                   {seasonSaving[key] ? <Spinner size={14} /> : null}
                                   {seasonSaving[key] ? 'Saving…' : 'Mark season watched'}
                                 </button>
-                                {showPlexWritebackControls ? (
+                                {canWritePlexWatchState ? (
                                   <>
                                     <button
                                       type="button"
@@ -2542,6 +2558,8 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                     loading={plexWritebackLoading}
                     onWriteRating={writePlexRating}
                     onWriteWatchState={writePlexWatchState}
+                    canWriteRating={canWritePlexRating}
+                    canWriteWatchState={canWritePlexWatchState}
                   />
                 ) : null}
               </div>

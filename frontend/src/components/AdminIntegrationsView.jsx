@@ -481,6 +481,7 @@ export default function AdminIntegrationsView({
     plexPreset: 'plex', plexProvider: 'plex', plexApiUrl: '',
     plexApiKey: '', plexLibrarySections: '', clearPlexApiKey: false,
     plexReconciliationSyncEnabled: false, plexReconciliationSyncIntervalMinutes: '360', plexReconciliationSyncLimit: '',
+    plexRatingWritebackEnabled: false, plexWatchStateWritebackEnabled: false,
     booksPreset: 'googlebooks', booksProvider: 'googlebooks', booksApiUrl: 'https://www.googleapis.com/books/v1/volumes',
     booksApiKey: '', clearBooksApiKey: false,
     audioPreset: 'discogs', audioProvider: 'discogs', audioApiUrl: 'https://api.discogs.com/database/search',
@@ -570,6 +571,8 @@ export default function AdminIntegrationsView({
         plexReconciliationSyncEnabled: Boolean(data.plexReconciliationSyncSettings?.enabled),
         plexReconciliationSyncIntervalMinutes: String(data.plexReconciliationSyncSettings?.intervalMinutes || '360'),
         plexReconciliationSyncLimit: data.plexReconciliationSyncSettings?.limit ? String(data.plexReconciliationSyncSettings.limit) : '',
+        plexRatingWritebackEnabled: Boolean(data.plexWritebackSettings?.ratingEnabled),
+        plexWatchStateWritebackEnabled: Boolean(data.plexWritebackSettings?.watchStateEnabled),
         booksPreset: data.booksPreset || 'googlebooks', booksProvider: data.booksProvider || 'googlebooks', booksApiUrl: data.booksApiUrl || 'https://www.googleapis.com/books/v1/volumes',
         audioPreset: data.audioPreset || 'discogs', audioProvider: data.audioProvider || 'discogs', audioApiUrl: data.audioApiUrl || 'https://api.discogs.com/database/search',
         gamesPreset: data.gamesPreset || 'igdb', gamesProvider: data.gamesProvider || 'igdb', gamesApiUrl: data.gamesApiUrl || 'https://api.igdb.com/v4/games', gamesClientId: data.gamesClientId || '',
@@ -741,6 +744,10 @@ export default function AdminIntegrationsView({
         intervalMinutes: form.plexReconciliationSyncIntervalMinutes,
         limit: form.plexReconciliationSyncLimit
       },
+      plexWritebackSettings: {
+        ratingEnabled: form.plexRatingWritebackEnabled,
+        watchStateEnabled: form.plexWatchStateWritebackEnabled
+      },
       ...(form.plexApiKey && { plexApiKey: form.plexApiKey })
     });
     else if (sec === 'books') Object.assign(payload, {
@@ -824,7 +831,9 @@ export default function AdminIntegrationsView({
           ...f,
           plexReconciliationSyncEnabled: Boolean(updated.plexReconciliationSyncSettings.enabled),
           plexReconciliationSyncIntervalMinutes: String(updated.plexReconciliationSyncSettings.intervalMinutes || '360'),
-          plexReconciliationSyncLimit: updated.plexReconciliationSyncSettings.limit ? String(updated.plexReconciliationSyncSettings.limit) : ''
+          plexReconciliationSyncLimit: updated.plexReconciliationSyncSettings.limit ? String(updated.plexReconciliationSyncSettings.limit) : '',
+          plexRatingWritebackEnabled: Boolean(updated.plexWritebackSettings?.ratingEnabled),
+          plexWatchStateWritebackEnabled: Boolean(updated.plexWritebackSettings?.watchStateEnabled)
         }));
         await refreshPlexReconciliationScheduler();
       }
@@ -1765,6 +1774,24 @@ export default function AdminIntegrationsView({
                   Source: <span className="font-mono text-dim">{plexReconciliationScheduler.runtime.source}</span>
                 </p>
               )}
+            </PlainSettingsSection>
+            <PlainSettingsSection title="Explicit writeback">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <CheckboxControl
+                  id="plex-rating-writeback-enabled"
+                  checked={Boolean(form.plexRatingWritebackEnabled)}
+                  onChange={(event) => setForm((f) => ({ ...f, plexRatingWritebackEnabled: event.target.checked }))}
+                >
+                  Allow rating writeback to Plex
+                </CheckboxControl>
+                <CheckboxControl
+                  id="plex-watch-state-writeback-enabled"
+                  checked={Boolean(form.plexWatchStateWritebackEnabled)}
+                  onChange={(event) => setForm((f) => ({ ...f, plexWatchStateWritebackEnabled: event.target.checked }))}
+                >
+                  Allow watched-state writeback to Plex
+                </CheckboxControl>
+              </div>
             </PlainSettingsSection>
             <PlainSettingsSection
               title="Plex library sync"

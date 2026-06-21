@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.20.6",
+      "version": "3.20.6",
+      "date": null,
+      "status": null,
+      "summary": "This patch makes Plex writeback explicitly opt-in. Rating and watched-state pushes to Plex are disabled by default, controlled from the Plex Sync settings, hidden from library drawers unless enabled, and rejected by the backend when disabled.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added persisted Plex rating and watched-state writeback switches.",
+            "Added compact writeback controls to Settings > Integrations > Plex > Sync.",
+            "Hid Plex drawer writeback actions unless the matching switch is enabled.",
+            "Added backend guards that reject direct writeback calls when disabled."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.20.5",
       "version": "3.20.5",
       "date": null,

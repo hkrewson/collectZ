@@ -205,6 +205,7 @@ export default function DashboardContent({
   const [mergeReviewSeed, setMergeReviewSeed] = React.useState(null);
   const [timelineFocus, setTimelineFocus] = React.useState(null);
   const [pendingLibrarySavedViewId, setPendingLibrarySavedViewId] = React.useState('');
+  const [plexWritebackSettings, setPlexWritebackSettings] = React.useState({ ratingEnabled: false, watchStateEnabled: false });
   const isAdminTab = String(activeTab || '').startsWith('admin-');
   const supportHelpEnabled = isSupportHelpEnabled(productEdition);
   const localRuntime = isLocalProductEdition(productEdition);
@@ -217,6 +218,31 @@ export default function DashboardContent({
     ...(bridgeSupportEnabled ? ['support-inbox'] : []),
     ...(bridgeSupportEnabled && supportSession?.active ? ['space-manage'] : [])
   ]);
+
+  React.useEffect(() => {
+    let active = true;
+    if (user?.role !== 'admin') {
+      setPlexWritebackSettings({ ratingEnabled: false, watchStateEnabled: false });
+      return () => {
+        active = false;
+      };
+    }
+    apiCall('get', '/admin/settings/integrations')
+      .then((data) => {
+        if (!active) return;
+        setPlexWritebackSettings({
+          ratingEnabled: Boolean(data?.plexWritebackSettings?.ratingEnabled),
+          watchStateEnabled: Boolean(data?.plexWritebackSettings?.watchStateEnabled)
+        });
+      })
+      .catch(() => {
+        if (active) setPlexWritebackSettings({ ratingEnabled: false, watchStateEnabled: false });
+      });
+    return () => {
+      active = false;
+    };
+  }, [apiCall, scopeKey, user?.role]);
+
   if (isAdminTab && user?.role !== 'admin') {
     return <ForbiddenView detail="Admin permissions are required to access this view." />;
   }
@@ -387,7 +413,7 @@ export default function DashboardContent({
                 setActiveTab('admin-merges');
               }
             : null}
-          canWritePlex={user?.role === 'admin'}
+          canWritePlex={user?.role === 'admin' ? plexWritebackSettings : false}
         />
       );
     }

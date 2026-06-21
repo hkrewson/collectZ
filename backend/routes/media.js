@@ -14790,6 +14790,11 @@ router.post('/write-plex-watch-state', asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'Active library is required before Plex watched-state writeback' });
   }
 
+  const config = await loadPlexWebhookImportConfig(effectiveScopeContext);
+  if (!config?.plexWritebackSettings?.watchStateEnabled) {
+    return res.status(403).json({ error: 'Plex watched-state writeback is disabled in integration settings' });
+  }
+
   const mediaId = req.body?.mediaId;
   const ratingKey = req.body?.ratingKey;
   const seasonNumber = req.body?.seasonNumber;
@@ -14857,6 +14862,11 @@ router.post('/write-plex-rating', asyncHandler(async (req, res) => {
   };
   if (!effectiveScopeContext.libraryId) {
     return res.status(400).json({ error: 'Active library is required before Plex rating writeback' });
+  }
+
+  const config = await loadPlexWebhookImportConfig(effectiveScopeContext);
+  if (!config?.plexWritebackSettings?.ratingEnabled) {
+    return res.status(403).json({ error: 'Plex rating writeback is disabled in integration settings' });
   }
 
   const mediaId = req.body?.mediaId;

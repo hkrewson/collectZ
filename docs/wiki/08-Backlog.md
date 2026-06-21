@@ -1401,7 +1401,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 ### Backlog Item: Plex True Sync Workflow
 **Type:** UI/UX and sync workflow refinement
 **Tags:** `plex`, `sync`, `imports`, `webhooks`, `ratings`, `activity`, `workflow`
-**Status:** Active plan; first UI slice promoted as `3.20.0`, sync cadence settings promoted as `3.20.1`, webhook setup validation promoted as `3.20.2`, initial import workflow promoted as `3.20.3`, activity readability promoted as `3.20.4`, reconciliation review filters promoted as `3.20.5`.
+**Status:** Active plan; first UI slice promoted as `3.20.0`, sync cadence settings promoted as `3.20.1`, webhook setup validation promoted as `3.20.2`, initial import workflow promoted as `3.20.3`, activity readability promoted as `3.20.4`, reconciliation review filters promoted as `3.20.5`, explicit writeback opt-in promoted as `3.20.6`.
 
 **Goal:** Turn Plex from a long settings surface into a true sync workflow with clear setup, sync, webhook, and advanced diagnostics areas.
 
@@ -1413,14 +1413,15 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - `3.20.3` shows selected Plex libraries and media types before queuing initial import work.
 - `3.20.4` improves workspace activity summaries for Plex imports, webhooks, and webhook processing.
 - `3.20.5` adds status and match-reason filters to Plex reconciliation conflict review.
-- Existing Plex import, reconciliation, provider discovery, webhook, and writeback behavior remains intact.
+- `3.20.6` adds explicit rating and watched-state writeback opt-ins, hides disabled drawer actions, and blocks direct writeback API calls while disabled.
+- Existing Plex import, reconciliation, provider discovery, and webhook behavior remains intact.
 
 **Remaining subtasks**
 - Persist sync cadence and expose it from the Sync section. Completed in `3.20.1`.
 - Add an initial import flow that makes selected libraries and media types explicit before queuing work. Completed in `3.20.3`.
 - Add webhook setup validation and reachability readback. Completed in `3.20.2` for receiver existence and local-only host warning readback.
 - Add scheduled pull sync controls for new items, watched state, and rating readback.
-- Add explicit opt-in writeback controls for ratings and watched state.
+- Add explicit opt-in writeback controls for ratings and watched state. Completed in `3.20.6`.
 - Add activity entries for import, sync, webhook, and writeback outcomes. Existing Plex event readability improved in `3.20.4`; add new backend activity only when new scheduler/writeback controls are promoted.
 - Add reconciliation review filters for Plex conflicts, skipped items, and provider errors. Conflict review status and match-reason filters completed in `3.20.5`.
 

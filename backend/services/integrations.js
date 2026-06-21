@@ -24,6 +24,12 @@ const DEFAULT_PLEX_RECONCILIATION_SYNC_SETTINGS = Object.freeze({
   source: 'stored'
 });
 
+const DEFAULT_PLEX_WRITEBACK_SETTINGS = Object.freeze({
+  ratingEnabled: false,
+  watchStateEnabled: false,
+  source: 'stored'
+});
+
 function normalizePlexReconciliationSyncSettings(input = {}) {
   const raw = input && typeof input === 'object' ? input : {};
   const parsedInterval = Number(raw.intervalMinutes ?? raw.interval_minutes ?? raw.plexReconciliationSyncIntervalMinutes);
@@ -42,6 +48,15 @@ function normalizePlexReconciliationSyncSettings(input = {}) {
     intervalMinutes,
     limit,
     source: raw.source || 'stored'
+  };
+}
+
+function normalizePlexWritebackSettings(input = {}) {
+  const raw = input && typeof input === 'object' ? input : {};
+  return {
+    ratingEnabled: Boolean(raw.ratingEnabled ?? raw.plexRatingWritebackEnabled),
+    watchStateEnabled: Boolean(raw.watchStateEnabled ?? raw.plexWatchStateWritebackEnabled),
+    source: raw.source || DEFAULT_PLEX_WRITEBACK_SETTINGS.source
   };
 }
 
@@ -182,6 +197,11 @@ const normalizeIntegrationRecord = (row) => {
       enabled: row?.plex_reconciliation_sync_enabled,
       intervalMinutes: row?.plex_reconciliation_sync_interval_minutes,
       limit: row?.plex_reconciliation_sync_limit,
+      source: 'stored'
+    }),
+    plexWritebackSettings: normalizePlexWritebackSettings({
+      ratingEnabled: row?.plex_rating_writeback_enabled,
+      watchStateEnabled: row?.plex_watch_state_writeback_enabled,
       source: 'stored'
     }),
     booksPreset: booksPreset.preset || 'googlebooks',
@@ -394,5 +414,7 @@ module.exports = {
   loadGeneralSettings,
   updateScopedGeneralSettings,
   normalizePlexReconciliationSyncSettings,
-  DEFAULT_PLEX_RECONCILIATION_SYNC_SETTINGS
+  normalizePlexWritebackSettings,
+  DEFAULT_PLEX_RECONCILIATION_SYNC_SETTINGS,
+  DEFAULT_PLEX_WRITEBACK_SETTINGS
 };

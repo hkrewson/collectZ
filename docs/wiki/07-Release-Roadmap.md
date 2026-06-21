@@ -6,6 +6,39 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.20.6 — Plex Explicit Writeback Opt-In
+
+**Goal:** Require settings-level opt-in before collectZ can push Plex ratings or watched state back to Plex.
+
+### Scope
+
+- Add persisted Plex writeback settings for ratings and watched state.
+- Add compact opt-in controls to Settings > Integrations > Plex > Sync.
+- Hide Library drawer writeback controls unless the matching opt-in is enabled.
+- Reject direct backend writeback API calls when the matching opt-in is disabled.
+- Keep import, reconciliation, webhook hints, and conflict review behavior unchanged.
+
+### Acceptance Criteria
+
+- Rating and watched-state writeback default to off for existing and new installs.
+- Settings > Integrations > Plex > Sync can save both opt-ins.
+- Library drawers only show rating writeback when rating writeback is enabled.
+- Library drawers only show watched-state writeback when watched-state writeback is enabled.
+- Backend writeback endpoints return a clear forbidden response while disabled.
+
+### Active Slice Notes
+
+- This is the seventh selected slice from the `Plex True Sync Workflow` backlog item.
+- Scheduled pull sync cadence is already configurable; future Plex work should focus on webhook processing and rating/watch-state reconciliation depth.
+
+### Closeout
+
+- Status: completed in `3.20.6`.
+- Project docs/checklists used: `docs/wiki/52-Plex-True-Sync-Workflow-Plan.md`, `docs/wiki/08-Backlog.md`, `docs/releases/v3.20.6.md`, and existing Plex writeback source coverage.
+- Runtime evidence: local 3201 stack rebuilt to `3.20.6`; `/api/health` reports frontend/backend/build `3.20.6`; backend logs report the schema is up to date with `113` migrations applied; backend, frontend, and cairn containers are healthy.
+- Verification: backend route/service/migration/unit-test source syntax passed; frontend production build passed; backend unit/source suite passed with `333` checks; local backend/frontend containers rebuilt and healthy; `git diff --check` passed.
+- Risks/follow-ups: this patch controls whether writeback can run; it does not add automatic writeback or change Plex import/reconciliation matching.
+
 ## 3.20.5 — Plex Reconciliation Review Filters
 
 **Goal:** Make Plex conflict review easier to triage by status and match reason.

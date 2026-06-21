@@ -4661,6 +4661,25 @@ const MIGRATIONS = [
       ALTER TABLE app_integrations
         ADD COLUMN IF NOT EXISTS plex_webhook_receiver_last_validated_at TIMESTAMP;
     `
+  },
+  {
+    version: 113,
+    description: 'Add explicit Plex writeback opt-in settings',
+    up: `
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS plex_rating_writeback_enabled BOOLEAN DEFAULT false;
+
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS plex_watch_state_writeback_enabled BOOLEAN DEFAULT false;
+
+      UPDATE app_integrations
+         SET plex_rating_writeback_enabled = false
+       WHERE plex_rating_writeback_enabled IS NULL;
+
+      UPDATE app_integrations
+         SET plex_watch_state_writeback_enabled = false
+       WHERE plex_watch_state_writeback_enabled IS NULL;
+    `
   }
 ];
 
