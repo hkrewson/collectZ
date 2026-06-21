@@ -2,6 +2,7 @@
 const fs = require('fs');
 const { test, expect, request: playwrightRequest } = require('@playwright/test');
 const { AUTH_STATE_PATH, createFreshUserCredentials, createAuthenticatedRequestContext, createRequestContextFromStorageState, ensureAuthenticatedAdminStorageState, fetchCsrfToken, patchWithCsrf, postWithCsrf, requestWithCsrf } = require('../helpers/auth');
+const { updateIntegrationSettings } = require('../helpers/integrations');
 const { deleteMediaByExactTitle, findExactMediaByTitle } = require('../helpers/media');
 
 const PLAYWRIGHT_BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000';
@@ -210,10 +211,10 @@ test.describe('library multi-format browser regressions', () => {
       await expect(page.getByText(/Loaned out.*Ted.*Due/i)).toBeVisible();
       await expect(page.getByText(overview, { exact: true })).toHaveCount(0);
 
-      const showDetailsButton = page.getByRole('button', { name: 'Show Details', exact: true });
+      const showDetailsButton = page.getByRole('button', { name: 'Details', exact: true });
       await expect(showDetailsButton).toBeVisible();
       await showDetailsButton.click();
-      await expect(page.getByRole('button', { name: 'Hide Details', exact: true })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Hide', exact: true })).toBeVisible();
       await expect(page.getByText(overview, { exact: true })).toBeVisible();
 
       const reminderButton = page.getByRole('button', { name: 'Send Reminder', exact: true });
@@ -312,6 +313,12 @@ test.describe('library multi-format browser regressions', () => {
       const created = await createResponse.json();
       mediaId = Number(created?.id || 0) || null;
       expect(mediaId).toBeTruthy();
+      await updateIntegrationSettings(requestContext, {
+        plexWritebackSettings: {
+          ratingEnabled: true,
+          watchStateEnabled: true
+        }
+      });
 
       await page.route('**/api/media/write-plex-rating', async (route) => {
         ratingPayload = route.request().postDataJSON();
@@ -608,9 +615,10 @@ test.describe('library multi-format browser regressions', () => {
       await expect(resultCard).toBeVisible();
       await resultCard.click();
 
+      const bookEditionRow = page.getByTestId('drawer-metadata-edition');
+      await bookEditionRow.getByRole('button', { name: 'Add', exact: true }).click();
       const editionSection = page.getByTestId('edition-variant-editor');
       await expect(editionSection).toBeVisible();
-      await editionSection.getByRole('button', { name: 'Add' }).click();
       await editionSection.getByRole('textbox', { name: 'Edition' }).fill('First edition');
       await editionSection.getByRole('textbox', { name: 'Printing' }).fill('Second printing');
       await editionSection.getByRole('checkbox', { name: 'ARC / advance copy' }).check();
@@ -626,8 +634,8 @@ test.describe('library multi-format browser regressions', () => {
       const saveResponse = await saveResponsePromise;
       expect(saveResponse.status()).toBe(200);
 
-      await expect(editionSection.getByText('First edition · Second printing · ARC / advance copy · #42/500')).toBeVisible();
-      await expect(editionSection.getByText('Edition: First edition · Printing: Second printing')).toBeVisible();
+      await expect(bookEditionRow.getByText('First edition · Second printing · ARC / advance copy · #42/500')).toBeVisible();
+      await expect(bookEditionRow.getByText('Edition: First edition · Printing: Second printing', { exact: false })).toBeVisible();
 
       const stored = await findExactMediaByTitle(requestContext, title);
       const editionTrait = (stored?.collectible_traits || []).find((trait) => trait.family === 'edition_variant');

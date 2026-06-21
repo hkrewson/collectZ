@@ -2229,11 +2229,12 @@ export function DrawerMetadataItem({
   actionDisabled = false,
   actions,
   children,
-  className = ''
+  className = '',
+  testId
 }) {
   const displayLabel = label || title;
   return (
-    <section className={cx('border-b border-edge/70 py-2.5', className)}>
+    <section className={cx('border-b border-edge/70 py-2.5', className)} data-testid={testId}>
       <div className="flex min-w-0 items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="text-sm font-medium leading-5 text-ink">{displayLabel}</p>
@@ -2271,6 +2272,7 @@ export function DrawerMetadataEntry({
       actionDisabled={actionDisabled}
       actions={actions}
       className={className}
+      testId={metadata.id ? `drawer-metadata-${metadata.id}` : undefined}
     >
       {children}
     </DrawerMetadataItem>
