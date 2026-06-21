@@ -6,6 +6,37 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.20.7 — Plex Readback Refresh Surface
+
+**Goal:** Make Plex watched-state and rating readback refresh visible and runnable from the Plex Sync workflow.
+
+### Scope
+
+- Extend the existing watched-state refresh scheduler pass to also apply Plex user-rating readback.
+- Add Plex readback refresh status to Settings > Integrations > Plex > Sync.
+- Add a manual admin Refresh readback action.
+- Keep Plex writeback separate and behind the explicit opt-in controls added in `3.20.6`.
+
+### Acceptance Criteria
+
+- The scheduled refresh summary reports watched-state and rating readback counters.
+- The Plex Sync tab shows whether readback refresh automation is on or off.
+- Admins can manually run a readback refresh from the Plex Sync tab.
+- Manual readback refresh updates local watched-state/rating data without Plex writeback.
+
+### Active Slice Notes
+
+- This is the eighth selected slice from the `Plex True Sync Workflow` backlog item.
+- This keeps the existing `/plex-watch-state/refresh-scheduler` route names for compatibility while broadening the pass to include ratings.
+
+### Closeout
+
+- Status: completed in `3.20.7`.
+- Project docs/checklists used: `docs/wiki/52-Plex-True-Sync-Workflow-Plan.md`, `docs/wiki/08-Backlog.md`, `docs/releases/v3.20.7.md`, and existing Plex readback scheduler source coverage.
+- Runtime evidence: local 3201 stack rebuilt to `3.20.7`; `/api/health` reports frontend/backend/build `3.20.7`; backend logs report the schema is up to date with `113` migrations applied; backend, frontend, and cairn containers are healthy.
+- Verification: backend media route and unit-test source syntax passed; frontend production build passed; backend unit/source suite passed with `333` checks; local backend/frontend containers rebuilt and healthy; `git diff --check` passed.
+- Risks/follow-ups: the env-controlled scheduler remains off by default in the local/public compose; this patch surfaces and manually runs readback but does not add new persisted scheduler settings beyond the existing runtime controls.
+
 ## 3.20.6 — Plex Explicit Writeback Opt-In
 
 **Goal:** Require settings-level opt-in before collectZ can push Plex ratings or watched state back to Plex.

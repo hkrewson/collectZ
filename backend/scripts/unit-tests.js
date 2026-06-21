@@ -1725,6 +1725,11 @@ results.push(run('plex watched-state refresh scheduler reuses apply path without
   assert.ok(mediaRoutesSource.includes('PLEX_WATCH_STATE_REFRESH_ENABLED'));
   assert.ok(mediaRoutesSource.includes('collectPlexWatchStateRefreshTargets'));
   assert.ok(mediaRoutesSource.includes('runPlexWatchStateRefreshOnce'));
+  assert.ok(mediaRoutesSource.includes('fetchPlexRatingSnapshot(config'));
+  assert.ok(mediaRoutesSource.includes('applyPlexRatingEntries'));
+  assert.ok(mediaRoutesSource.includes('ratingReadbackKeys'));
+  assert.ok(mediaRoutesSource.includes('lastRatingReadEntries'));
+  assert.ok(mediaRoutesSource.includes('ratingsUpdated'));
   assert.ok(mediaRoutesSource.includes('startPlexWatchStateRefreshScheduler'));
   assert.ok(mediaRoutesSource.includes("router.get('/plex-watch-state/refresh-scheduler'"));
   assert.ok(mediaRoutesSource.includes("router.post('/plex-watch-state/refresh-scheduler/run'"));
@@ -1958,6 +1963,10 @@ results.push(run('plex full-library reconciliation preview stays read-only and c
   assert.ok(adminIntegrationsViewSource.includes('PlainSettingsSection'));
   assert.ok(adminIntegrationsViewSource.includes('runPlexReconciliationSyncJob'));
   assert.ok(adminIntegrationsViewSource.includes('refreshPlexReconciliationScheduler'));
+  assert.ok(adminIntegrationsViewSource.includes('Plex readback refresh'));
+  assert.ok(adminIntegrationsViewSource.includes('runPlexReadbackRefresh'));
+  assert.ok(adminIntegrationsViewSource.includes('plexReadbackRefreshScheduler'));
+  assert.ok(adminIntegrationsViewSource.includes('Refresh readback'));
   assert.ok(adminIntegrationsViewSource.includes('Manual and scheduled sync create safe missing rows'));
   assert.ok(adminIntegrationsViewSource.includes('Scan Limit'));
   assert.ok(adminIntegrationsViewSource.includes('Sync Plex Library'));

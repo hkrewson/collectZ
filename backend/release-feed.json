@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.20.7",
+      "version": "3.20.7",
+      "date": null,
+      "status": null,
+      "summary": "This patch makes Plex readback refresh visible from the Plex Sync workflow. The watched-state refresh scheduler now also refreshes Plex user ratings, and Settings > Integrations > Plex > Sync can inspect and manually run that readback pass.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Expanded the Plex readback refresh pass to apply Plex user-rating readback alongside watched state.",
+            "Added Plex readback refresh status to the Plex Sync tab.",
+            "Added a manual Refresh readback action for admins.",
+            "Kept Plex mutation/writeback disabled unless explicit writeback controls are enabled."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.20.6",
       "version": "3.20.6",
       "date": null,

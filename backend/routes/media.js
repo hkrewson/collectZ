@@ -5223,6 +5223,9 @@ const plexWatchStateRefreshState = {
   lastReadEntries: 0,
   lastMediaMatched: 0,
   lastUpdated: 0,
+  lastRatingReadEntries: 0,
+  lastRatingMediaMatched: 0,
+  lastRatingsUpdated: 0,
   lastSkippedNoMatch: 0,
   lastError: null
 };
@@ -5272,8 +5275,10 @@ async function collectPlexWatchStateRefreshTargets({ maxItems = 100 } = {}) {
     const group = groups.get(groupKey) || {
       scopeContext,
       ratingKeys: new Set(),
-      leafRatingKeys: new Set()
+      leafRatingKeys: new Set(),
+      ratingReadbackKeys: new Set()
     };
+    group.ratingReadbackKeys.add(ratingKey);
     if (row.media_type === 'tv_series') group.leafRatingKeys.add(ratingKey);
     else group.ratingKeys.add(ratingKey);
     groups.set(groupKey, group);
@@ -5285,7 +5290,8 @@ async function collectPlexWatchStateRefreshTargets({ maxItems = 100 } = {}) {
     scopes: Array.from(groups.values()).map((group) => ({
       scopeContext: group.scopeContext,
       ratingKeys: Array.from(group.ratingKeys),
-      leafRatingKeys: Array.from(group.leafRatingKeys)
+      leafRatingKeys: Array.from(group.leafRatingKeys),
+      ratingReadbackKeys: Array.from(group.ratingReadbackKeys)
     }))
   };
 }
@@ -5299,6 +5305,15 @@ function mergePlexWatchStateApplySummary(target, applySummary = {}) {
   target.skippedNoMatch += Number(applySummary.skippedNoMatch || 0);
   target.skippedNoSeason += Number(applySummary.skippedNoSeason || 0);
   target.skippedUnsupported += Number(applySummary.skippedUnsupported || 0);
+}
+
+function mergePlexRatingApplySummary(target, applySummary = {}) {
+  target.ratingReadEntries += Number(applySummary.readEntries || 0);
+  target.ratingMediaMatched += Number(applySummary.mediaMatched || 0);
+  target.ratingsUpdated += Number(applySummary.ratingsUpdated || 0);
+  target.ratingSkippedNoRating += Number(applySummary.skippedNoRating || 0);
+  target.ratingSkippedNoMatch += Number(applySummary.skippedNoMatch || 0);
+  target.ratingSkippedUnsupported += Number(applySummary.skippedUnsupported || 0);
 }
 
 async function runPlexWatchStateRefreshOnce({ reason = 'manual', maxItems = null } = {}) {
@@ -5326,6 +5341,13 @@ async function runPlexWatchStateRefreshOnce({ reason = 'manual', maxItems = null
     skippedNoMatch: 0,
     skippedNoSeason: 0,
     skippedUnsupported: 0,
+    ratingReadbacks: 0,
+    ratingReadEntries: 0,
+    ratingMediaMatched: 0,
+    ratingsUpdated: 0,
+    ratingSkippedNoRating: 0,
+    ratingSkippedNoMatch: 0,
+    ratingSkippedUnsupported: 0,
     errorsSample: []
   };
 
@@ -5344,9 +5366,18 @@ async function runPlexWatchStateRefreshOnce({ reason = 'manual', maxItems = null
         entries: snapshot.entries,
         scopeContext: target.scopeContext
       });
+      const ratingSnapshot = await fetchPlexRatingSnapshot(config, {
+        ratingKeys: target.ratingReadbackKeys || []
+      });
+      const ratingApplySummary = await applyPlexRatingEntries({
+        entries: ratingSnapshot.entries,
+        scopeContext: target.scopeContext
+      });
       summary.scopesProcessed += 1;
       summary.readbacks += Array.isArray(snapshot.readbacks) ? snapshot.readbacks.length : 0;
       mergePlexWatchStateApplySummary(summary, applySummary);
+      summary.ratingReadbacks += Array.isArray(ratingSnapshot.readbacks) ? ratingSnapshot.readbacks.length : 0;
+      mergePlexRatingApplySummary(summary, ratingApplySummary);
     } catch (error) {
       if (summary.errorsSample.length < 10) {
         summary.errorsSample.push({
@@ -5376,6 +5407,9 @@ async function runPlexWatchStateRefreshOnce({ reason = 'manual', maxItems = null
       mediaMetadataUpdated: summary.mediaMetadataUpdated,
       seasonsCreated: summary.seasonsCreated,
       seasonsUpdated: summary.seasonsUpdated,
+      ratingReadEntries: summary.ratingReadEntries,
+      ratingMediaMatched: summary.ratingMediaMatched,
+      ratingsUpdated: summary.ratingsUpdated,
       skippedNoMatch: summary.skippedNoMatch,
       errorCount: summary.errorsSample.length
     });
@@ -5406,7 +5440,10 @@ function startPlexWatchStateRefreshScheduler() {
       plexWatchStateRefreshState.lastScopeCount = summary.scopeCount;
       plexWatchStateRefreshState.lastReadEntries = summary.readEntries;
       plexWatchStateRefreshState.lastMediaMatched = summary.mediaMatched;
-      plexWatchStateRefreshState.lastUpdated = summary.mediaMetadataUpdated + summary.seasonsCreated + summary.seasonsUpdated;
+      plexWatchStateRefreshState.lastUpdated = summary.mediaMetadataUpdated + summary.seasonsCreated + summary.seasonsUpdated + summary.ratingsUpdated;
+      plexWatchStateRefreshState.lastRatingReadEntries = summary.ratingReadEntries;
+      plexWatchStateRefreshState.lastRatingMediaMatched = summary.ratingMediaMatched;
+      plexWatchStateRefreshState.lastRatingsUpdated = summary.ratingsUpdated;
       plexWatchStateRefreshState.lastSkippedNoMatch = summary.skippedNoMatch;
       if (summary.errorsSample.length > 0) {
         plexWatchStateRefreshState.lastError = summary.errorsSample[0].error;

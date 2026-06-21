@@ -532,6 +532,8 @@ export default function AdminIntegrationsView({
   const [plexReconciliationResult, setPlexReconciliationResult] = useState(null);
   const [plexReconciliationJob, setPlexReconciliationJob] = useState(null);
   const [plexReconciliationScheduler, setPlexReconciliationScheduler] = useState(null);
+  const [plexReadbackRefreshScheduler, setPlexReadbackRefreshScheduler] = useState(null);
+  const [plexReadbackRefreshResult, setPlexReadbackRefreshResult] = useState(null);
   const [plexConflictReviews, setPlexConflictReviews] = useState([]);
   const [plexConflictStatusFilter, setPlexConflictStatusFilter] = useState('open');
   const [plexConflictMatchFilter, setPlexConflictMatchFilter] = useState('all');
@@ -668,6 +670,7 @@ export default function AdminIntegrationsView({
   useEffect(() => {
     if (section !== 'plex') return;
     refreshPlexReconciliationScheduler();
+    refreshPlexReadbackRefreshScheduler();
     refreshPlexConflictReviews();
   }, [section, plexConflictStatusFilter]);
 
@@ -1165,6 +1168,31 @@ export default function AdminIntegrationsView({
       setPlexReconciliationScheduler(result);
     } catch (_) {
       setPlexReconciliationScheduler(null);
+    }
+  };
+
+  const refreshPlexReadbackRefreshScheduler = async () => {
+    try {
+      const result = await apiCall('get', '/media/plex-watch-state/refresh-scheduler');
+      setPlexReadbackRefreshScheduler(result);
+    } catch (_) {
+      setPlexReadbackRefreshScheduler(null);
+    }
+  };
+
+  const runPlexReadbackRefresh = async () => {
+    setTestLoading('plex-readback-refresh');
+    setTestMsg('');
+    try {
+      const result = await apiCall('post', '/media/plex-watch-state/refresh-scheduler/run', {});
+      setPlexReadbackRefreshResult(result?.summary || null);
+      await refreshPlexReadbackRefreshScheduler();
+      const summary = result?.summary || {};
+      setTestMsg(`PLEX READBACK: watched ${Number(summary.mediaMetadataUpdated || 0) + Number(summary.seasonsCreated || 0) + Number(summary.seasonsUpdated || 0)}, ratings ${Number(summary.ratingsUpdated || 0)}.`);
+    } catch (err) {
+      setTestMsg(err.response?.data?.error || 'Plex readback refresh failed');
+    } finally {
+      setTestLoading('');
     }
   };
 
@@ -1791,6 +1819,38 @@ export default function AdminIntegrationsView({
                 >
                   Allow watched-state writeback to Plex
                 </CheckboxControl>
+              </div>
+            </PlainSettingsSection>
+            <PlainSettingsSection
+              title="Plex readback refresh"
+              actions={(
+                <button type="button" onClick={runPlexReadbackRefresh} disabled={testLoading === 'plex-readback-refresh'} className="btn-secondary btn-sm">
+                  {testLoading === 'plex-readback-refresh' ? <Spinner size={14} /> : 'Refresh readback'}
+                </button>
+              )}
+            >
+              <div className="flex flex-wrap gap-2 text-xs text-ghost">
+                <span>
+                  Automatic: <span className="font-mono text-dim">
+                    {plexReadbackRefreshScheduler?.runtime?.enabled
+                      ? `on/${plexReadbackRefreshScheduler.runtime.intervalMinutes}m`
+                      : 'off'}
+                  </span>
+                </span>
+                {plexReadbackRefreshScheduler?.state?.lastFinishedAt && (
+                  <span>Last auto: {new Date(plexReadbackRefreshScheduler.state.lastFinishedAt).toLocaleString()}</span>
+                )}
+                {plexReadbackRefreshScheduler?.state?.lastReadEntries ? (
+                  <span>Watched rows: {Number(plexReadbackRefreshScheduler.state.lastReadEntries || 0)}</span>
+                ) : null}
+                {plexReadbackRefreshScheduler?.state?.lastRatingReadEntries ? (
+                  <span>Rating rows: {Number(plexReadbackRefreshScheduler.state.lastRatingReadEntries || 0)}</span>
+                ) : null}
+                {plexReadbackRefreshResult ? (
+                  <span>
+                    Last manual: watched {Number(plexReadbackRefreshResult.mediaMetadataUpdated || 0) + Number(plexReadbackRefreshResult.seasonsCreated || 0) + Number(plexReadbackRefreshResult.seasonsUpdated || 0)}, ratings {Number(plexReadbackRefreshResult.ratingsUpdated || 0)}
+                  </span>
+                ) : null}
               </div>
             </PlainSettingsSection>
             <PlainSettingsSection

@@ -34,7 +34,7 @@ The first slice removes the separate operating-model explainer from the UI. The 
 - Persist sync cadence and read it back from the same Sync section instead of relying only on runtime env. Completed in `3.20.1`.
 - Add an initial import flow that makes selected Plex libraries and media types explicit before queuing work. Completed in `3.20.3`.
 - Add webhook setup validation so the UI can show whether Plex can reach the receiver. Completed in `3.20.2` with receiver-exists validation and local-only host warning readback.
-- Add scheduled pull sync controls for new Plex items, watched state, and rating readback.
+- Add scheduled pull sync controls for new Plex items, watched state, and rating readback. Library reconciliation cadence was completed in `3.20.1`; watched-state and rating readback status/manual run was surfaced in `3.20.7`.
 - Add explicit opt-in writeback controls for ratings and watched state. Completed in `3.20.6`; no silent writeback.
 - Add activity entries for import, sync, webhook, and writeback outcomes. Activity readability for existing Plex events improved in `3.20.4`.
 - Add reconciliation review filters for Plex conflicts, skipped items, and provider errors. Conflict status and match-reason filters completed in `3.20.5`.
