@@ -264,6 +264,8 @@ function PlexReconciliationRow({ row, children }) {
 
 function PlexConflictReviewQueue({
   reviews = [],
+  totalCount = 0,
+  matchFilters = [],
   loading = '',
   statusFilter = 'open',
   matchFilter = 'all',
@@ -272,18 +274,27 @@ function PlexConflictReviewQueue({
   onResolve
 }) {
   const matchOptions = useMemo(() => {
+    const rows = Array.isArray(matchFilters) ? matchFilters : [];
+    if (rows.length > 0) {
+      return [
+        { value: 'all', label: `All reasons${totalCount ? ` (${totalCount})` : ''}` },
+        ...rows.map((row) => ({
+          value: String(row?.value || 'unknown'),
+          label: `${String(row?.value || 'unknown')} (${Number(row?.count || 0)})`
+        }))
+      ];
+    }
     const values = new Set();
     reviews.forEach((review) => values.add(String(review?.matchedBy || 'unknown')));
-    return ['all', ...[...values].sort()];
-  }, [reviews]);
-  const filteredReviews = useMemo(() => (
-    matchFilter === 'all'
-      ? reviews
-      : reviews.filter((review) => String(review?.matchedBy || 'unknown') === matchFilter)
-  ), [matchFilter, reviews]);
+    return [
+      { value: 'all', label: 'All reasons' },
+      ...[...values].sort().map((value) => ({ value, label: value }))
+    ];
+  }, [matchFilters, reviews, totalCount]);
   const reviewLimit = 25;
-  const visibleReviews = filteredReviews.slice(0, reviewLimit);
+  const visibleReviews = reviews.slice(0, reviewLimit);
   const isResolved = statusFilter === 'resolved';
+  const visibleCount = Number(totalCount || reviews.length || 0);
 
   return (
     <div className="rounded-md border border-edge/70">
@@ -292,7 +303,7 @@ function PlexConflictReviewQueue({
           <p className="text-sm font-medium text-ink">Conflict review</p>
           <p className="text-xs text-ghost">Resolve rows that automatic Plex sync could not safely attach.</p>
         </div>
-        <span className="text-sm text-dim">{filteredReviews.length}{filteredReviews.length !== reviews.length ? ` / ${reviews.length}` : ''}</span>
+        <span className="text-sm text-dim">{reviews.length}{visibleCount && reviews.length !== visibleCount ? ` / ${visibleCount}` : ''}</span>
       </div>
       <div className="flex flex-wrap items-center gap-2 border-b border-edge/70 px-3 py-2">
         {PLEX_CONFLICT_STATUS_FILTERS.map((filter) => (
@@ -311,13 +322,13 @@ function PlexConflictReviewQueue({
           onChange={(event) => onMatchFilterChange?.(event.target.value)}
           aria-label="Filter Plex conflicts by match reason"
         >
-          {matchOptions.map((value) => (
-            <option key={value} value={value}>{value === 'all' ? 'All reasons' : value}</option>
+          {matchOptions.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
           ))}
         </select>
       </div>
       <div className="space-y-2 p-3">
-        {filteredReviews.length === 0 ? (
+        {reviews.length === 0 ? (
           <p className="text-sm text-dim">{isResolved ? 'No resolved Plex conflicts match this view.' : 'No open Plex conflicts match this view.'}</p>
         ) : visibleReviews.map((review) => (
           <PlexReconciliationRow key={review.id} row={review}>
@@ -358,7 +369,7 @@ function PlexConflictReviewQueue({
             )}
           </PlexReconciliationRow>
         ))}
-        {filteredReviews.length > reviewLimit && <p className="text-xs text-ghost">Showing {reviewLimit} of {filteredReviews.length} rows.</p>}
+        {reviews.length > reviewLimit && <p className="text-xs text-ghost">Showing {reviewLimit} of {reviews.length} rows.</p>}
       </div>
     </div>
   );
@@ -536,6 +547,8 @@ export default function AdminIntegrationsView({
   const [plexReadbackRefreshScheduler, setPlexReadbackRefreshScheduler] = useState(null);
   const [plexReadbackRefreshResult, setPlexReadbackRefreshResult] = useState(null);
   const [plexConflictReviews, setPlexConflictReviews] = useState([]);
+  const [plexConflictReviewTotalCount, setPlexConflictReviewTotalCount] = useState(0);
+  const [plexConflictReviewMatchFilters, setPlexConflictReviewMatchFilters] = useState([]);
   const [plexConflictStatusFilter, setPlexConflictStatusFilter] = useState('open');
   const [plexConflictMatchFilter, setPlexConflictMatchFilter] = useState('all');
   const [featureFlags, setFeatureFlags] = useState([]);
@@ -676,7 +689,7 @@ export default function AdminIntegrationsView({
     refreshPlexReconciliationScheduler();
     refreshPlexReadbackRefreshScheduler();
     refreshPlexConflictReviews();
-  }, [section, plexConflictStatusFilter]);
+  }, [section, plexConflictStatusFilter, plexConflictMatchFilter]);
 
   const applyBarcodePreset = (p) => setForm((f) => ({ ...f, ...(BARCODE_PRESETS[p] || {}) }));
   const applyComicsPreset = (p) => setForm((f) => ({ ...f, ...(COMICS_PRESETS[p] || {}) }));
@@ -1212,10 +1225,15 @@ export default function AdminIntegrationsView({
   const refreshPlexConflictReviews = async () => {
     try {
       const status = plexConflictStatusFilter === 'resolved' ? 'resolved' : 'open';
-      const result = await apiCall('get', `/media/plex-reconciliation-conflicts?status=${status}`);
+      const match = encodeURIComponent(plexConflictMatchFilter || 'all');
+      const result = await apiCall('get', `/media/plex-reconciliation-conflicts?status=${status}&matchedBy=${match}`);
       setPlexConflictReviews(Array.isArray(result?.reviews) ? result.reviews : []);
+      setPlexConflictReviewTotalCount(Number(result?.totalCount || 0));
+      setPlexConflictReviewMatchFilters(Array.isArray(result?.matchFilters) ? result.matchFilters : []);
     } catch (_) {
       setPlexConflictReviews([]);
+      setPlexConflictReviewTotalCount(0);
+      setPlexConflictReviewMatchFilters([]);
     }
   };
 
@@ -1941,6 +1959,8 @@ export default function AdminIntegrationsView({
               <PlexReconciliationReadback result={plexReconciliationResult} />
               <PlexConflictReviewQueue
                 reviews={plexConflictReviews}
+                totalCount={plexConflictReviewTotalCount}
+                matchFilters={plexConflictReviewMatchFilters}
                 loading={testLoading}
                 statusFilter={plexConflictStatusFilter}
                 matchFilter={plexConflictMatchFilter}

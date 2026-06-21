@@ -6,6 +6,37 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.20.9 — Plex Conflict Review Server Filters
+
+**Goal:** Make Plex conflict review filtering durable by moving match-reason filtering into the backend query.
+
+### Scope
+
+- Add `matchedBy` filtering to the Plex reconciliation conflict-review endpoint.
+- Return match-reason counts alongside conflict review rows.
+- Update the Plex Sync conflict review dropdown to use backend counts and reload when the reason changes.
+- Keep conflict resolution behavior unchanged.
+
+### Acceptance Criteria
+
+- Open and resolved conflict review views can request a specific match reason from the API.
+- The UI reason dropdown shows available reasons with counts for the current status.
+- Filtering applies before the row limit, not after the first page is loaded.
+- Existing attach, create separate, and dismiss actions still work from filtered views.
+
+### Active Slice Notes
+
+- This is the tenth selected slice from the `Plex True Sync Workflow` backlog item.
+- This addresses the remaining reconciliation-filtering follow-up without introducing new review tables or changing Plex import matching.
+
+### Closeout
+
+- Status: completed in `3.20.9`.
+- Project docs/checklists used: `docs/wiki/52-Plex-True-Sync-Workflow-Plan.md`, `docs/wiki/08-Backlog.md`, `docs/releases/v3.20.9.md`, and existing Plex reconciliation source coverage.
+- Runtime evidence: local 3201 stack rebuilt to `3.20.9`; `/api/health` reports frontend/backend/build `3.20.9`; backend logs report schema `114` is up to date; backend, frontend, and cairn containers are healthy.
+- Verification: backend media route and unit-test source syntax passed; frontend production build passed; release feed regenerated; backend unit/source suite passed with `333` checks; local backend/frontend containers rebuilt and healthy; `git diff --check` passed.
+- Risks/follow-ups: this improves triage for existing conflict-review rows only; skipped/provider-error rows that are not stored as conflict-review rows remain represented in sync job summaries.
+
 ## 3.20.8 — Plex Persisted Readback Refresh Cadence
 
 **Goal:** Let admins configure Plex watched-state and rating readback refresh cadence from the Plex Sync settings instead of relying on env-only runtime switches.

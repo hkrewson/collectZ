@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.20.9",
+      "version": "v3.20.9",
+      "date": null,
+      "status": null,
+      "summary": "Moved Plex conflict review match-reason filtering into the backend query.",
+      "details": []
+    },
+    {
       "title": "collectZ v3.20.8",
       "version": "v3.20.8",
       "date": null,
@@ -139,26 +147,6 @@
             "Moved provider diagnostics and now-playing display controls into `Advanced`.",
             "Removed the separate Plex operating-model explainer from the settings UI.",
             "Updated backlog and Plex modernization docs so future sync work points to the new true-sync plan."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.19.6",
-      "version": "3.19.6",
-      "date": null,
-      "status": null,
-      "summary": "This patch fixes Plex audio imports so music library album rows stay album-shaped in collectZ. Plex artist rows are no longer imported as audio titles, album metadata is persisted, and audio detail drawers now show album, artist, and track count when that data is available. It also fixes runtime config script ordering so local and hosted frontends read container-provided runtime settings before the app starts.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Excluded Plex artist and track rows from audio-section media imports.",
-            "Persisted Plex audio `type_details` during both import create and update paths.",
-            "Added track count normalization for Plex album imports.",
-            "Added an Album details section for audio records in the Library detail drawer.",
-            "Loaded `runtime-env.js` before the Vite app entrypoint so runtime API and platform bridge settings are available during startup.",
-            "Added backend unit/source coverage for audio import filtering, persisted album metadata, and Library rendering."
           ]
         }
       ]

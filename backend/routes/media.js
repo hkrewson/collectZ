@@ -14559,8 +14559,28 @@ router.get('/plex-reconciliation-conflicts', asyncHandler(async (req, res) => {
 
   const status = String(req.query?.status || 'open').trim().toLowerCase();
   const normalizedStatus = status === 'resolved' ? 'resolved' : 'open';
+  const matchedBy = String(req.query?.matchedBy || req.query?.match || 'all').trim();
+  const normalizedMatchedBy = matchedBy && matchedBy !== 'all' ? matchedBy.slice(0, 120) : 'all';
   const limitRaw = Number(req.query?.limit);
   const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(100, Math.floor(limitRaw))) : 50;
+  const filtersResult = await pool.query(
+    `SELECT COALESCE(matched_by, 'unknown') AS matched_by, COUNT(*)::int AS count
+       FROM plex_reconciliation_reviews
+      WHERE provider = 'plex'
+        AND library_id = $1
+        AND status = $2
+      GROUP BY COALESCE(matched_by, 'unknown')
+      ORDER BY COUNT(*) DESC, COALESCE(matched_by, 'unknown') ASC`,
+    [effectiveScopeContext.libraryId, normalizedStatus]
+  );
+  const totalCount = filtersResult.rows.reduce((sum, row) => sum + Number(row.count || 0), 0);
+  const params = [effectiveScopeContext.libraryId, normalizedStatus];
+  let matchedByClause = '';
+  if (normalizedMatchedBy !== 'all') {
+    params.push(normalizedMatchedBy);
+    matchedByClause = ` AND COALESCE(matched_by, 'unknown') = $${params.length}`;
+  }
+  params.push(limit);
   const result = await pool.query(
     `SELECT id, provider, source_key, status, resolution, reason, matched_by,
             item_snapshot, existing_snapshot, job_id, existing_media_id, resolved_media_id,
@@ -14569,16 +14589,23 @@ router.get('/plex-reconciliation-conflicts', asyncHandler(async (req, res) => {
       WHERE provider = 'plex'
         AND library_id = $1
         AND status = $2
+        ${matchedByClause}
       ORDER BY updated_at DESC, created_at DESC
-      LIMIT $3`,
-    [effectiveScopeContext.libraryId, normalizedStatus, limit]
+      LIMIT $${params.length}`,
+    params
   );
   res.json({
     ok: true,
     provider: 'plex',
     processingMode: 'plex_reconciliation_conflict_review',
     status: normalizedStatus,
+    matchedBy: normalizedMatchedBy,
     count: result.rows.length,
+    totalCount,
+    matchFilters: filtersResult.rows.map((row) => ({
+      value: row.matched_by || 'unknown',
+      count: Number(row.count || 0)
+    })),
     reviews: result.rows.map(formatPlexReconciliationReview)
   });
 }));
