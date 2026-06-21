@@ -1955,6 +1955,11 @@ results.push(run('plex full-library reconciliation preview stays read-only and c
   assert.ok(adminIntegrationsViewSource.includes('Select at least one Plex library before importing'));
   assert.ok(adminIntegrationsViewSource.includes('Sync issues'));
   assert.ok(adminIntegrationsViewSource.includes('PlexConflictReviewQueue'));
+  assert.ok(adminIntegrationsViewSource.includes('PLEX_CONFLICT_STATUS_FILTERS'));
+  assert.ok(adminIntegrationsViewSource.includes('plexConflictStatusFilter'));
+  assert.ok(adminIntegrationsViewSource.includes('plexConflictMatchFilter'));
+  assert.ok(adminIntegrationsViewSource.includes('Filter Plex conflicts by match reason'));
+  assert.ok(adminIntegrationsViewSource.includes('Resolution:'));
   assert.ok(adminIntegrationsViewSource.includes('Attach to existing'));
   assert.ok(adminIntegrationsViewSource.includes('Create separate title'));
   assert.ok(adminIntegrationsViewSource.includes('resolvePlexConflictReview'));

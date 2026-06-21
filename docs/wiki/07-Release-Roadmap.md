@@ -6,6 +6,40 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.20.5 — Plex Reconciliation Review Filters
+
+**Goal:** Make Plex conflict review easier to triage by status and match reason.
+
+### Scope
+
+- Add open/resolved status filters to the Plex conflict review queue.
+- Add match-reason filtering for loaded Plex review rows.
+- Show filtered and total review counts.
+- Display resolved review outcomes without resolution action buttons.
+- Keep existing conflict resolution backend behavior unchanged.
+
+### Acceptance Criteria
+
+- Plex Sync can switch the conflict queue between open and resolved reviews.
+- Plex Sync can filter loaded review rows by match reason.
+- Empty states reflect the active filter.
+- Resolved reviews display resolution readback instead of action buttons.
+- Existing attach/create/dismiss behavior remains unchanged for open reviews.
+
+### Active Slice Notes
+
+- This is the sixth selected slice from the `Plex True Sync Workflow` backlog item.
+- Scheduled pull sync controls and explicit writeback controls remain follow-up work.
+
+### Closeout
+
+- Status: completed in `3.20.5`.
+- Project docs/checklists used: `docs/wiki/52-Plex-True-Sync-Workflow-Plan.md`, `docs/wiki/08-Backlog.md`, `docs/releases/v3.20.5.md`, and existing Plex reconciliation source coverage.
+- Runtime evidence: local 3201 stack rebuilt to `3.20.5`; `/api/health` reports frontend/backend/build `3.20.5`; backend logs report the schema is up to date with `112` migrations applied; backend, frontend, and cairn containers are healthy.
+- Verification: backend unit-test source syntax passed; frontend production build passed; backend unit/source suite passed with `333` checks; local backend/frontend containers rebuilt and healthy; `git diff --check` passed.
+- Blocked/unverified: live browser regression against the Plex tab has not been run in this slice.
+- Risks/follow-ups: this is a UI triage slice; it does not change conflict classification or resolution behavior.
+
 ## 3.20.4 — Plex Activity Readability
 
 **Goal:** Make Plex activity entries readable enough to support import, webhook, sync, readback, and writeback testing from workspace activity.

@@ -48,6 +48,10 @@ const PLEX_SECTION_TYPE_MEDIA = {
   album: 'Audio',
   music: 'Audio'
 };
+const PLEX_CONFLICT_STATUS_FILTERS = [
+  { id: 'open', label: 'Open' },
+  { id: 'resolved', label: 'Resolved' }
+];
 const INTEGRATION_VISIBLE_FLAGS = new Set(Object.keys(INTEGRATION_FEATURE_LABELS));
 const SETTINGS_SECTION_FEATURES = {
   metrics: 'metrics_enabled',
@@ -258,7 +262,29 @@ function PlexReconciliationRow({ row, children }) {
   );
 }
 
-function PlexConflictReviewQueue({ reviews = [], loading = '', onResolve }) {
+function PlexConflictReviewQueue({
+  reviews = [],
+  loading = '',
+  statusFilter = 'open',
+  matchFilter = 'all',
+  onStatusFilterChange,
+  onMatchFilterChange,
+  onResolve
+}) {
+  const matchOptions = useMemo(() => {
+    const values = new Set();
+    reviews.forEach((review) => values.add(String(review?.matchedBy || 'unknown')));
+    return ['all', ...[...values].sort()];
+  }, [reviews]);
+  const filteredReviews = useMemo(() => (
+    matchFilter === 'all'
+      ? reviews
+      : reviews.filter((review) => String(review?.matchedBy || 'unknown') === matchFilter)
+  ), [matchFilter, reviews]);
+  const reviewLimit = 25;
+  const visibleReviews = filteredReviews.slice(0, reviewLimit);
+  const isResolved = statusFilter === 'resolved';
+
   return (
     <div className="rounded-md border border-edge/70">
       <div className="flex items-center justify-between gap-3 border-b border-edge/70 px-3 py-2">
@@ -266,44 +292,73 @@ function PlexConflictReviewQueue({ reviews = [], loading = '', onResolve }) {
           <p className="text-sm font-medium text-ink">Conflict review</p>
           <p className="text-xs text-ghost">Resolve rows that automatic Plex sync could not safely attach.</p>
         </div>
-        <span className="text-sm text-dim">{reviews.length}</span>
+        <span className="text-sm text-dim">{filteredReviews.length}{filteredReviews.length !== reviews.length ? ` / ${reviews.length}` : ''}</span>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 border-b border-edge/70 px-3 py-2">
+        {PLEX_CONFLICT_STATUS_FILTERS.map((filter) => (
+          <button
+            key={filter.id}
+            type="button"
+            className={statusFilter === filter.id ? 'btn-primary btn-sm' : 'btn-secondary btn-sm'}
+            onClick={() => onStatusFilterChange?.(filter.id)}
+          >
+            {filter.label}
+          </button>
+        ))}
+        <select
+          className="input h-9 w-auto min-w-36 text-sm"
+          value={matchFilter}
+          onChange={(event) => onMatchFilterChange?.(event.target.value)}
+          aria-label="Filter Plex conflicts by match reason"
+        >
+          {matchOptions.map((value) => (
+            <option key={value} value={value}>{value === 'all' ? 'All reasons' : value}</option>
+          ))}
+        </select>
       </div>
       <div className="space-y-2 p-3">
-        {reviews.length === 0 ? (
-          <p className="text-sm text-dim">No open Plex conflicts.</p>
-        ) : reviews.slice(0, 25).map((review) => (
+        {filteredReviews.length === 0 ? (
+          <p className="text-sm text-dim">{isResolved ? 'No resolved Plex conflicts match this view.' : 'No open Plex conflicts match this view.'}</p>
+        ) : visibleReviews.map((review) => (
           <PlexReconciliationRow key={review.id} row={review}>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {review.existingMediaId && (
+            {isResolved ? (
+              <p className="mt-2 text-xs text-ghost">
+                Resolution: <span className="text-dim">{review.resolution || 'resolved'}</span>
+                {review.resolvedAt ? ` · ${new Date(review.resolvedAt).toLocaleString()}` : ''}
+              </p>
+            ) : (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {review.existingMediaId && (
+                  <button
+                    type="button"
+                    className="btn-secondary btn-sm"
+                    disabled={loading === `plex-conflict-attach-${review.id}` || loading === `plex-conflict-create-${review.id}` || loading === `plex-conflict-dismiss-${review.id}`}
+                    onClick={() => onResolve?.(review.id, 'attach_existing', review.existingMediaId)}
+                  >
+                    Attach to existing
+                  </button>
+                )}
                 <button
                   type="button"
                   className="btn-secondary btn-sm"
                   disabled={loading === `plex-conflict-attach-${review.id}` || loading === `plex-conflict-create-${review.id}` || loading === `plex-conflict-dismiss-${review.id}`}
-                  onClick={() => onResolve?.(review.id, 'attach_existing', review.existingMediaId)}
+                  onClick={() => onResolve?.(review.id, 'create_separate')}
                 >
-                  Attach to existing
+                  Create separate title
                 </button>
-              )}
-              <button
-                type="button"
-                className="btn-secondary btn-sm"
-                disabled={loading === `plex-conflict-attach-${review.id}` || loading === `plex-conflict-create-${review.id}` || loading === `plex-conflict-dismiss-${review.id}`}
-                onClick={() => onResolve?.(review.id, 'create_separate')}
-              >
-                Create separate title
-              </button>
-              <button
-                type="button"
-                className="btn-secondary btn-sm"
-                disabled={loading === `plex-conflict-attach-${review.id}` || loading === `plex-conflict-create-${review.id}` || loading === `plex-conflict-dismiss-${review.id}`}
-                onClick={() => onResolve?.(review.id, 'dismiss')}
-              >
-                Dismiss
-              </button>
-            </div>
+                <button
+                  type="button"
+                  className="btn-secondary btn-sm"
+                  disabled={loading === `plex-conflict-attach-${review.id}` || loading === `plex-conflict-create-${review.id}` || loading === `plex-conflict-dismiss-${review.id}`}
+                  onClick={() => onResolve?.(review.id, 'dismiss')}
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
           </PlexReconciliationRow>
         ))}
-        {reviews.length > 25 && <p className="text-xs text-ghost">Showing 25 of {reviews.length} rows.</p>}
+        {filteredReviews.length > reviewLimit && <p className="text-xs text-ghost">Showing {reviewLimit} of {filteredReviews.length} rows.</p>}
       </div>
     </div>
   );
@@ -477,6 +532,8 @@ export default function AdminIntegrationsView({
   const [plexReconciliationJob, setPlexReconciliationJob] = useState(null);
   const [plexReconciliationScheduler, setPlexReconciliationScheduler] = useState(null);
   const [plexConflictReviews, setPlexConflictReviews] = useState([]);
+  const [plexConflictStatusFilter, setPlexConflictStatusFilter] = useState('open');
+  const [plexConflictMatchFilter, setPlexConflictMatchFilter] = useState('all');
   const [featureFlags, setFeatureFlags] = useState([]);
   const [featureFlagsLoading, setFeatureFlagsLoading] = useState(true);
   const [featureFlagsReadOnly, setFeatureFlagsReadOnly] = useState(false);
@@ -609,7 +666,7 @@ export default function AdminIntegrationsView({
     if (section !== 'plex') return;
     refreshPlexReconciliationScheduler();
     refreshPlexConflictReviews();
-  }, [section]);
+  }, [section, plexConflictStatusFilter]);
 
   const applyBarcodePreset = (p) => setForm((f) => ({ ...f, ...(BARCODE_PRESETS[p] || {}) }));
   const applyComicsPreset = (p) => setForm((f) => ({ ...f, ...(COMICS_PRESETS[p] || {}) }));
@@ -1104,7 +1161,8 @@ export default function AdminIntegrationsView({
 
   const refreshPlexConflictReviews = async () => {
     try {
-      const result = await apiCall('get', '/media/plex-reconciliation-conflicts?status=open');
+      const status = plexConflictStatusFilter === 'resolved' ? 'resolved' : 'open';
+      const result = await apiCall('get', `/media/plex-reconciliation-conflicts?status=${status}`);
       setPlexConflictReviews(Array.isArray(result?.reviews) ? result.reviews : []);
     } catch (_) {
       setPlexConflictReviews([]);
@@ -1123,6 +1181,7 @@ export default function AdminIntegrationsView({
       const payload = targetMediaId ? { action, targetMediaId } : { action };
       const result = await apiCall('post', `/media/plex-reconciliation-conflicts/${reviewId}/resolve`, payload);
       await refreshPlexConflictReviews();
+      setPlexConflictMatchFilter('all');
       const label = action === 'create_separate'
         ? 'created a separate title'
         : action === 'attach_existing'
@@ -1753,6 +1812,13 @@ export default function AdminIntegrationsView({
               <PlexConflictReviewQueue
                 reviews={plexConflictReviews}
                 loading={testLoading}
+                statusFilter={plexConflictStatusFilter}
+                matchFilter={plexConflictMatchFilter}
+                onStatusFilterChange={(next) => {
+                  setPlexConflictStatusFilter(next);
+                  setPlexConflictMatchFilter('all');
+                }}
+                onMatchFilterChange={setPlexConflictMatchFilter}
                 onResolve={resolvePlexConflictReview}
               />
             </PlainSettingsSection>

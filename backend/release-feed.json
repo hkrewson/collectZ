@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.20.5",
+      "version": "3.20.5",
+      "date": null,
+      "status": null,
+      "summary": "This patch adds Plex reconciliation review filters. The Plex Sync tab can now switch between open and resolved conflicts, filter loaded reviews by match reason, and read resolved review outcomes without reopening them.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added Open and Resolved filters to Plex conflict review.",
+            "Added match-reason filtering for loaded Plex conflict rows.",
+            "Shows filtered and total conflict counts.",
+            "Displays resolved conflict outcomes without action buttons."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.20.4",
       "version": "3.20.4",
       "date": null,
