@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.20.3",
+      "version": "3.20.3",
+      "date": null,
+      "status": null,
+      "summary": "This patch makes Plex initial import a deliberate Sync workflow. The Plex Sync tab now shows selected libraries and media types before queuing import work, and the old global Plex import button has been removed.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added a compact Initial import block to Settings > Integrations > Plex > Sync.",
+            "Shows selected Plex libraries and inferred media types before queuing an import.",
+            "Prevents empty Plex import queueing when no library sections are selected.",
+            "Removed the duplicate bottom-level Import from Plex action from the integration page."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.20.2",
       "version": "3.20.2",
       "date": null,

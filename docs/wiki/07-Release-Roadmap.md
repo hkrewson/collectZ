@@ -6,6 +6,41 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.20.3 — Plex Initial Import Workflow
+
+**Goal:** Make initial Plex import a deliberate Sync workflow that shows selected libraries and media types before queuing import work.
+
+### Scope
+
+- Move the Plex import action into the Plex Sync panel.
+- Show selected Plex libraries from Setup before import.
+- Infer and display media types for detected selected sections.
+- Warn when saved section IDs are not currently present in detected Plex libraries.
+- Prevent empty Plex imports when no library sections are selected.
+- Remove the duplicate bottom-level `Import from Plex` action.
+
+### Acceptance Criteria
+
+- Plex Sync includes an `Initial import` block.
+- Users can see which selected libraries will be imported before starting work.
+- Users can see the inferred media type set for selected detected sections.
+- `Start import` is disabled when no Plex libraries are selected.
+- Existing Plex import endpoint behavior remains unchanged.
+
+### Active Slice Notes
+
+- This is the fourth selected slice from the `Plex True Sync Workflow` backlog item.
+- Scheduled pull sync, explicit writeback controls, and activity entries remain follow-up work.
+
+### Closeout
+
+- Status: completed in `3.20.3`.
+- Project docs/checklists used: `docs/wiki/52-Plex-True-Sync-Workflow-Plan.md`, `docs/wiki/08-Backlog.md`, `docs/releases/v3.20.3.md`, and existing Plex integration source coverage.
+- Runtime evidence: local 3201 stack rebuilt to `3.20.3`; `/api/health` reports frontend/backend/build `3.20.3`; backend logs report the schema is up to date with `112` migrations applied; backend, frontend, and cairn containers are healthy.
+- Verification: backend unit-test source syntax passed; frontend production build passed; backend unit/source suite passed with `333` checks; local backend/frontend containers rebuilt and healthy; `git diff --check` passed.
+- Blocked/unverified: live browser regression against the Plex tab has not been run in this slice; the in-app browser target closed before local navigation.
+- Risks/follow-ups: this is a workflow/UI slice; it does not alter import matching, repeat-sync, or webhook behavior.
+
 ## 3.20.2 — Plex Webhook Receiver Setup Validation
 
 **Goal:** Give admins a clear, persisted readback for whether Plex webhook receiver setup is present and likely reachable.

@@ -41,6 +41,13 @@ const PLEX_PANELS = [
   { id: 'webhook', label: 'Webhook' },
   { id: 'advanced', label: 'Advanced' }
 ];
+const PLEX_SECTION_TYPE_MEDIA = {
+  movie: 'Movie',
+  show: 'TV',
+  artist: 'Audio',
+  album: 'Audio',
+  music: 'Audio'
+};
 const INTEGRATION_VISIBLE_FLAGS = new Set(Object.keys(INTEGRATION_FEATURE_LABELS));
 const SETTINGS_SECTION_FEATURES = {
   metrics: 'metrics_enabled',
@@ -610,6 +617,26 @@ export default function AdminIntegrationsView({
     () => form.plexLibrarySections.split(',').map((v) => v.trim()).filter(Boolean),
     [form.plexLibrarySections]
   );
+  const plexImportPlan = useMemo(() => {
+    const selected = new Set(plexSectionIds.map(String));
+    const detectedSections = Array.isArray(plexAvailableSections) ? plexAvailableSections : [];
+    const matchedSections = detectedSections.filter((sec) => selected.has(String(sec.id)));
+    const unmatchedIds = plexSectionIds.filter((id) => !matchedSections.some((sec) => String(sec.id) === String(id)));
+    const targetSections = matchedSections.map((sec) => ({
+      id: String(sec.id),
+      title: sec.title || `Section ${sec.id}`,
+      type: sec.type || 'unknown',
+      mediaType: PLEX_SECTION_TYPE_MEDIA[String(sec.type || '').toLowerCase()] || 'Library'
+    }));
+    const mediaTypes = new Set(targetSections.map((sec) => sec.mediaType));
+    if (unmatchedIds.length > 0) mediaTypes.add('Saved IDs');
+    return {
+      targetSections,
+      unmatchedIds,
+      mediaTypes: [...mediaTypes],
+      count: plexSectionIds.length
+    };
+  }, [plexAvailableSections, plexSectionIds]);
   const featureFlagMap = useMemo(
     () => new Map(featureFlags.map((feature) => [feature.key, feature])),
     [featureFlags]
@@ -1033,6 +1060,11 @@ export default function AdminIntegrationsView({
   };
 
   const runPlexImport = async () => {
+    if (plexSectionIds.length === 0) {
+      onToast('Select at least one Plex library before importing', 'error');
+      setTestMsg('PLEX import: select at least one library section in Setup first.');
+      return;
+    }
     setImportingPlex(true);
     try {
       const enqueue = await apiCall('post', '/media/import-plex?async=true', { sectionIds: plexSectionIds });
@@ -1604,6 +1636,43 @@ export default function AdminIntegrationsView({
           </SectionTabPanel>
 
           <SectionTabPanel activeId={plexPanel} tabKey="sync" idBase="plex-settings-sections" className="min-w-0 space-y-4">
+            {allowImports && (
+              <PlainSettingsSection
+                title="Initial import"
+                actions={(
+                  <button type="button" onClick={runPlexImport} disabled={importingPlex || plexSectionIds.length === 0} className="btn-primary btn-sm">
+                    {importingPlex ? <Spinner size={14} /> : 'Start import'}
+                  </button>
+                )}
+              >
+                <div className="space-y-3">
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    <span className="badge badge-dim">{plexImportPlan.count ? `${plexImportPlan.count} selected` : 'No libraries selected'}</span>
+                    {(plexImportPlan.mediaTypes.length ? plexImportPlan.mediaTypes : ['No media types']).map((type) => (
+                      <span key={type} className="badge badge-dim">{type}</span>
+                    ))}
+                  </div>
+                  {plexImportPlan.targetSections.length > 0 ? (
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {plexImportPlan.targetSections.map((sec) => (
+                        <div key={sec.id} className="flex items-center gap-2 text-sm text-dim">
+                          <span className="min-w-0 flex-1 truncate text-ink">{sec.title}</span>
+                          <span className="font-mono text-xs text-ghost">#{sec.id}</span>
+                          <span className="text-xs text-ghost">{sec.mediaType}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-ghost">Select Plex libraries in Setup before starting an import.</p>
+                  )}
+                  {plexImportPlan.unmatchedIds.length > 0 && (
+                    <p className="text-xs text-ghost">
+                      Saved section IDs not currently detected: <span className="font-mono text-dim">{plexImportPlan.unmatchedIds.join(',')}</span>
+                    </p>
+                  )}
+                </div>
+              </PlainSettingsSection>
+            )}
             <PlainSettingsSection title="Automatic sync">
               <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_10rem_10rem]">
                 <CheckboxControl
@@ -2076,11 +2145,6 @@ export default function AdminIntegrationsView({
             >
               {saving ? <Spinner size={14} /> : `Save ${section.toUpperCase()}`}
             </button>
-            {allowImports && section === 'plex' && (
-              <button onClick={runPlexImport} disabled={importingPlex} className="btn-secondary btn-sm">
-                {importingPlex ? <Spinner size={14} /> : 'Import from Plex'}
-              </button>
-            )}
             {section === 'plex' && (
               <button onClick={testPlexProviders} disabled={testLoading === 'plex-providers'} className="btn-secondary btn-sm">
                 {testLoading === 'plex-providers' ? <Spinner size={14} /> : 'Probe Providers'}

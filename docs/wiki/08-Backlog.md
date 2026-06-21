@@ -1401,7 +1401,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 ### Backlog Item: Plex True Sync Workflow
 **Type:** UI/UX and sync workflow refinement
 **Tags:** `plex`, `sync`, `imports`, `webhooks`, `ratings`, `activity`, `workflow`
-**Status:** Active plan; first UI slice promoted as `3.20.0`, sync cadence settings promoted as `3.20.1`, webhook setup validation promoted as `3.20.2`.
+**Status:** Active plan; first UI slice promoted as `3.20.0`, sync cadence settings promoted as `3.20.1`, webhook setup validation promoted as `3.20.2`, initial import workflow promoted as `3.20.3`.
 
 **Goal:** Turn Plex from a long settings surface into a true sync workflow with clear setup, sync, webhook, and advanced diagnostics areas.
 
@@ -1410,11 +1410,12 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - `3.20.0` begins the UI restructure by removing the separate operating-model explainer and splitting Plex settings into `Setup`, `Sync`, `Webhook`, and `Advanced`.
 - `3.20.1` persists automatic Plex reconciliation sync enablement, interval, and default scan limit.
 - `3.20.2` validates Plex webhook receiver setup and records latest validation readback.
+- `3.20.3` shows selected Plex libraries and media types before queuing initial import work.
 - Existing Plex import, reconciliation, provider discovery, webhook, and writeback behavior remains intact.
 
 **Remaining subtasks**
 - Persist sync cadence and expose it from the Sync section. Completed in `3.20.1`.
-- Add an initial import flow that makes selected libraries and media types explicit before queuing work.
+- Add an initial import flow that makes selected libraries and media types explicit before queuing work. Completed in `3.20.3`.
 - Add webhook setup validation and reachability readback. Completed in `3.20.2` for receiver existence and local-only host warning readback.
 - Add scheduled pull sync controls for new items, watched state, and rating readback.
 - Add explicit opt-in writeback controls for ratings and watched state.

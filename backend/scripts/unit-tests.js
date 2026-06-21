@@ -1949,6 +1949,10 @@ results.push(run('plex full-library reconciliation preview stays read-only and c
   assert.ok(adminIntegrationsViewSource.includes('Manual and scheduled sync create safe missing rows'));
   assert.ok(adminIntegrationsViewSource.includes('Scan Limit'));
   assert.ok(adminIntegrationsViewSource.includes('Sync Plex Library'));
+  assert.ok(adminIntegrationsViewSource.includes('Initial import'));
+  assert.ok(adminIntegrationsViewSource.includes('plexImportPlan'));
+  assert.ok(adminIntegrationsViewSource.includes('Start import'));
+  assert.ok(adminIntegrationsViewSource.includes('Select at least one Plex library before importing'));
   assert.ok(adminIntegrationsViewSource.includes('Sync issues'));
   assert.ok(adminIntegrationsViewSource.includes('PlexConflictReviewQueue'));
   assert.ok(adminIntegrationsViewSource.includes('Attach to existing'));
