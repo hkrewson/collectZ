@@ -1987,10 +1987,13 @@ results.push(run('plex webhook receiver administration contract is token-scoped 
   assert.ok(backendPackageJson.scripts['test:plex-webhook-import-auto-processor-smoke']);
   assert.ok(integrationsRoutesSource.includes("sharedRouter.post('/plex/webhooks/:token'"));
   assert.ok(integrationsRoutesSource.includes("plex-webhook-receiver-token'"));
+  assert.ok(integrationsRoutesSource.includes("plex-webhook-receiver-validate'"));
   assert.ok(integrationsRoutesSource.includes('hashPlexWebhookReceiverToken'));
+  assert.ok(integrationsRoutesSource.includes('validatePlexWebhookReceiverSetup'));
   assert.ok(integrationsRoutesSource.includes('shapePlexWebhookReceiverStatus'));
   assert.ok(integrationsRoutesSource.includes('buildPlexWebhookReceiverTokenFingerprint'));
   assert.ok(integrationsRoutesSource.includes('receiverUrlMasked'));
+  assert.ok(integrationsRoutesSource.includes('plex_webhook_receiver_last_validation_status'));
   assert.ok(integrationsRoutesSource.includes('enqueuePlexWebhookImportHint'));
   assert.ok(integrationsRoutesSource.includes("'plex_webhook_import_hint'"));
   assert.ok(integrationsRoutesSource.includes("'queued_import_hint'"));
@@ -2006,9 +2009,13 @@ results.push(run('plex webhook receiver administration contract is token-scoped 
   assert.ok(serverSource.includes("job_type <> 'plex_webhook_import_hint'"));
   assert.ok(serverSource.includes('startPlexWebhookImportHintAutoProcessor'));
   assert.ok(integrationsServiceSource.includes('plexWebhookReceiverTokenHash'));
+  assert.ok(integrationsServiceSource.includes('plexWebhookReceiverLastValidationStatus'));
   assert.ok(migrationsSource.includes('version: 98'));
+  assert.ok(migrationsSource.includes('version: 112'));
   assert.ok(migrationsSource.includes('plex_webhook_receiver_token_hash'));
+  assert.ok(migrationsSource.includes('plex_webhook_receiver_last_validation_status'));
   assert.ok(initSqlSource.includes('plex_webhook_receiver_token_hash TEXT'));
+  assert.ok(initSqlSource.includes('plex_webhook_receiver_last_validation_status VARCHAR(20)'));
   assert.ok(openApiSource.includes('/api/plex/webhooks/{token}'));
   assert.ok(openApiSource.includes('/api/admin/settings/integrations/plex-webhook-receiver-token'));
   assert.ok(openApiSource.includes('/api/media/process-plex-webhook-import-hints'));
@@ -2030,7 +2037,10 @@ results.push(run('plex webhook receiver administration contract is token-scoped 
   assert.ok(plexWebhookReceiverAdminSmokeSource.includes('revokeRejectedPreviousToken'));
   assert.ok(adminIntegrationsViewSource.includes('generatePlexWebhookReceiverToken'));
   assert.ok(adminIntegrationsViewSource.includes('revokePlexWebhookReceiverToken'));
+  assert.ok(adminIntegrationsViewSource.includes('validatePlexWebhookReceiver'));
+  assert.ok(adminIntegrationsViewSource.includes('plex-webhook-receiver-validate'));
   assert.ok(adminIntegrationsViewSource.includes('Webhook receiver'));
+  assert.ok(adminIntegrationsViewSource.includes('Check setup'));
   assert.ok(adminIntegrationsViewSource.includes('receiverUrlMasked'));
   assert.ok(adminIntegrationsViewSource.includes('Token fingerprint'));
   assert.strictEqual(sanitizeRequestUrl('/api/plex/webhooks/czpw_secret-token_123'), '/api/plex/webhooks/[REDACTED]');

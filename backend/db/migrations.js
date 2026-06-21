@@ -4647,6 +4647,20 @@ const MIGRATIONS = [
        WHERE plex_reconciliation_sync_interval_minutes IS NULL
           OR plex_reconciliation_sync_interval_minutes < 60;
     `
+  },
+  {
+    version: 112,
+    description: 'Add Plex webhook receiver validation readback',
+    up: `
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS plex_webhook_receiver_last_validation_status VARCHAR(20);
+
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS plex_webhook_receiver_last_validation_message TEXT;
+
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS plex_webhook_receiver_last_validated_at TIMESTAMP;
+    `
   }
 ];
 

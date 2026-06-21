@@ -165,6 +165,11 @@ function shapePlexWebhookReceiverStatus(config, req = null) {
     lastRotatedAt: config?.plexWebhookReceiverTokenLastRotatedAt || null,
     lastReceivedAt: config?.plexWebhookReceiverLastReceivedAt || null,
     lastEvent: config?.plexWebhookReceiverLastEvent || null,
+    validation: {
+      status: config?.plexWebhookReceiverLastValidationStatus || null,
+      detail: config?.plexWebhookReceiverLastValidationMessage || null,
+      validatedAt: config?.plexWebhookReceiverLastValidatedAt || null
+    },
     tokenFingerprint: buildPlexWebhookReceiverTokenFingerprint(config),
     receiverPath: buildPlexWebhookReceiverPath(),
     receiverPathMasked: maskedPath,
@@ -173,6 +178,35 @@ function shapePlexWebhookReceiverStatus(config, req = null) {
     supportedEvents: ['library.new', 'media.scrobble', 'media.rate'],
     observedOnlyEvents: ['media.play', 'media.pause', 'media.resume', 'media.stop', 'playback.started'],
     processingMode: 'library_new_import_enqueue_only'
+  };
+}
+
+function validatePlexWebhookReceiverSetup(config, req) {
+  if (!config?.plexWebhookReceiverTokenHash) {
+    return {
+      status: 'failed',
+      detail: 'No Plex webhook receiver URL has been generated.'
+    };
+  }
+  const origin = getRequestOrigin(req);
+  let hostname = '';
+  try {
+    hostname = new URL(origin).hostname.toLowerCase();
+  } catch (_) {
+    return {
+      status: 'warning',
+      detail: 'Receiver exists, but the request origin could not be parsed for Plex reachability.'
+    };
+  }
+  if (['localhost', '127.0.0.1', '::1'].includes(hostname) || hostname.endsWith('.local')) {
+    return {
+      status: 'warning',
+      detail: 'Receiver exists, but this URL appears local-only. Plex must be able to reach the same host.'
+    };
+  }
+  return {
+    status: 'passed',
+    detail: 'Receiver exists and the advertised host appears reachable outside this browser session.'
   };
 }
 
@@ -709,6 +743,40 @@ sharedRouter.delete('/admin/settings/integrations/plex-webhook-receiver-token', 
   return res.json({
     ok: true,
     plexWebhookReceiver: shapePlexWebhookReceiverStatus(null, req)
+  });
+}));
+
+sharedRouter.post('/admin/settings/integrations/plex-webhook-receiver-validate', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
+  const row = await pool.query('SELECT * FROM app_integrations WHERE id = 1');
+  const config = normalizeIntegrationRecord(row.rows[0] || null);
+  const validation = validatePlexWebhookReceiverSetup(config, req);
+  const now = new Date();
+  const result = await pool.query(
+    `INSERT INTO app_integrations (
+       id,
+       plex_webhook_receiver_last_validation_status,
+       plex_webhook_receiver_last_validation_message,
+       plex_webhook_receiver_last_validated_at
+     ) VALUES (1, $1, $2, $3)
+     ON CONFLICT (id) DO UPDATE SET
+       plex_webhook_receiver_last_validation_status = EXCLUDED.plex_webhook_receiver_last_validation_status,
+       plex_webhook_receiver_last_validation_message = EXCLUDED.plex_webhook_receiver_last_validation_message,
+       plex_webhook_receiver_last_validated_at = EXCLUDED.plex_webhook_receiver_last_validated_at
+     RETURNING *`,
+    [validation.status, validation.detail, now]
+  );
+  const updatedConfig = normalizeIntegrationRecord(result.rows[0]);
+  await logActivity(req, 'admin.settings.integrations.plex_webhook_receiver.validate', 'app_integrations', 1, {
+    status: validation.status,
+    detail: validation.detail
+  });
+  return res.json({
+    ok: validation.status !== 'failed',
+    validation: {
+      ...validation,
+      validatedAt: now.toISOString()
+    },
+    plexWebhookReceiver: shapePlexWebhookReceiverStatus(updatedConfig, req)
   });
 }));
 

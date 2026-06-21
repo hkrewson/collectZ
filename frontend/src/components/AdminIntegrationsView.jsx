@@ -989,6 +989,22 @@ export default function AdminIntegrationsView({
     }
   };
 
+  const validatePlexWebhookReceiver = async () => {
+    setTestLoading('plex-webhook-receiver-validate');
+    setTestMsg('');
+    try {
+      const result = await apiCall('post', '/admin/settings/integrations/plex-webhook-receiver-validate', {});
+      setPlexWebhookReceiver(result.plexWebhookReceiver || plexWebhookReceiver);
+      const status = String(result.validation?.status || 'checked').toUpperCase();
+      setTestMsg(`PLEX WEBHOOKS: ${status} - ${result.validation?.detail || 'Receiver setup checked.'}`);
+      onToast('Plex webhook receiver checked');
+    } catch (err) {
+      setTestMsg(err.response?.data?.error || 'Plex webhook receiver setup could not be checked');
+    } finally {
+      setTestLoading('');
+    }
+  };
+
   const updatePlexDisplayPreference = (key, value) => {
     setPlexDisplayPreferences((current) => ({
       ...current,
@@ -1689,12 +1705,17 @@ export default function AdminIntegrationsView({
                       Revoke
                     </button>
                   )}
+                  <button type="button" onClick={validatePlexWebhookReceiver} disabled={testLoading === 'plex-webhook-receiver-validate'} className="btn-secondary btn-sm">
+                    {testLoading === 'plex-webhook-receiver-validate' ? <Spinner size={14} /> : 'Check setup'}
+                  </button>
                 </>
               )}
             >
               <div className="grid gap-2 text-xs text-ghost sm:grid-cols-2">
                 <span>Mode: {plexWebhookReceiver.processingMode === 'contract_only' ? 'Contract only' : (plexWebhookReceiver.processingMode || 'Read-only')}</span>
                 <span>Last event: {plexWebhookReceiver.lastEvent || 'None yet'}</span>
+                <span>Validation: {plexWebhookReceiver.validation?.status || 'Not checked'}</span>
+                <span>Checked: {plexWebhookReceiver.validation?.validatedAt ? new Date(plexWebhookReceiver.validation.validatedAt).toLocaleString() : 'Never'}</span>
                 {plexWebhookReceiver.enabled && (
                   <>
                     <span>Token fingerprint: {plexWebhookReceiver.tokenFingerprint || 'Unavailable'}</span>

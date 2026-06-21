@@ -247,6 +247,9 @@ const normalizeIntegrationRecord = (row) => {
     plexWebhookReceiverTokenLastRotatedAt: row?.plex_webhook_receiver_token_last_rotated_at || null,
     plexWebhookReceiverLastReceivedAt: row?.plex_webhook_receiver_last_received_at || null,
     plexWebhookReceiverLastEvent: row?.plex_webhook_receiver_last_event || null,
+    plexWebhookReceiverLastValidationStatus: row?.plex_webhook_receiver_last_validation_status || null,
+    plexWebhookReceiverLastValidationMessage: row?.plex_webhook_receiver_last_validation_message || null,
+    plexWebhookReceiverLastValidatedAt: row?.plex_webhook_receiver_last_validated_at || null,
     logExportLastValidation: row?.log_export_last_validation_status
       ? {
         status: String(row.log_export_last_validation_status).trim().toLowerCase(),

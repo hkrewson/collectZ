@@ -6,6 +6,41 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.20.2 — Plex Webhook Receiver Setup Validation
+
+**Goal:** Give admins a clear, persisted readback for whether Plex webhook receiver setup is present and likely reachable.
+
+### Scope
+
+- Add persisted Plex webhook receiver validation readback to `app_integrations`.
+- Include Plex webhook validation state in integration settings readback.
+- Add an admin validation endpoint for Plex webhook receiver setup.
+- Add a compact `Check setup` action in the Plex Webhook tab.
+- Warn when the advertised receiver host appears local-only.
+- Keep receiver tokens masked and existing webhook processing behavior unchanged.
+
+### Acceptance Criteria
+
+- Plex Webhook shows a setup validation action.
+- Running validation stores the latest status, detail, and timestamp.
+- Settings readback includes the latest webhook validation state.
+- Local-only advertised receiver hosts return a warning instead of a false pass.
+- Existing webhook token generation, revocation, and receiver processing continue to work.
+
+### Active Slice Notes
+
+- This is the third selected slice from the `Plex True Sync Workflow` backlog item.
+- Initial import flow, scheduled pull sync, explicit writeback controls, and activity entries remain follow-up work.
+
+### Closeout
+
+- Status: completed in `3.20.2`.
+- Project docs/checklists used: `docs/wiki/52-Plex-True-Sync-Workflow-Plan.md`, `docs/wiki/08-Backlog.md`, `docs/releases/v3.20.2.md`, and existing Plex webhook receiver source coverage.
+- Runtime evidence: local 3201 stack rebuilt to `3.20.2`; backend logs show migration `112` applied; `/api/health` reports frontend/backend/build `3.20.2`; database readback shows the new Plex webhook receiver validation columns present with empty initial values.
+- Verification: backend syntax checks passed for integrations, integration services, migrations, and unit-test sources; frontend production build passed; backend unit/source suite passed with `333` checks; local backend/frontend containers rebuilt and healthy; `git diff --check` passed.
+- Blocked/unverified: live browser regression against the Plex tab has not been run in this slice.
+- Risks/follow-ups: validation can detect missing receiver setup and local-only advertised hosts, but it does not perform a real external Plex callback.
+
 ## 3.20.1 — Plex Sync Cadence Settings
 
 **Goal:** Make Plex automatic reconciliation sync cadence a saved setting instead of only env-backed runtime readback.

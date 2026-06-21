@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.20.2",
+      "version": "3.20.2",
+      "date": null,
+      "status": null,
+      "summary": "This patch adds Plex webhook receiver setup validation. The Plex Webhook tab can now check whether a receiver exists, record the latest validation result, and warn when the advertised receiver URL appears local-only.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added persisted Plex webhook receiver validation readback.",
+            "Added a setup validation endpoint for the Plex webhook receiver.",
+            "Added a compact Check setup action to Settings > Integrations > Plex > Webhook.",
+            "Warned when the advertised receiver host appears local-only, while keeping the receiver token masked."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.20.1",
       "version": "3.20.1",
       "date": null,
