@@ -1990,6 +1990,8 @@ results.push(run('plex full-library reconciliation preview stays read-only and c
   assert.ok(adminIntegrationsViewSource.includes('PLEX_CONFLICT_STATUS_FILTERS'));
   assert.ok(adminIntegrationsViewSource.includes('plexConflictStatusFilter'));
   assert.ok(adminIntegrationsViewSource.includes('plexConflictMatchFilter'));
+  assert.ok(adminIntegrationsViewSource.includes('plexConflictReviewMatchFilters'));
+  assert.ok(adminIntegrationsViewSource.includes('matchedBy=${match}'));
   assert.ok(adminIntegrationsViewSource.includes('Filter Plex conflicts by match reason'));
   assert.ok(adminIntegrationsViewSource.includes('Resolution:'));
   assert.ok(adminIntegrationsViewSource.includes('Attach to existing'));
@@ -2020,6 +2022,9 @@ results.push(run('plex full-library reconciliation preview stays read-only and c
   assert.ok(releaseRoadmapSource.includes('3.4.141 — Plex Reconciliation Full-Scan and Scheduler Automation'));
   assert.ok(releaseRoadmapSource.includes('3.4.143 — Plex Reconciliation Conflict Review and Resolution'));
   assert.ok(releaseRoadmapSource.includes('3.4.144 — Plex Attach-Existing Conflict Resolution Contract'));
+  assert.ok(mediaRoutesSource.includes('matchFilters'));
+  assert.ok(mediaRoutesSource.includes("COALESCE(matched_by, 'unknown')"));
+  assert.ok(mediaRoutesSource.includes('normalizedMatchedBy'));
 }));
 
 results.push(run('plex webhook receiver administration contract is token-scoped and queues library-new import hints only', () => {

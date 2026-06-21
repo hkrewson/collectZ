@@ -24,6 +24,7 @@
     "release:local-gate": "node scripts/local-release-gate.js",
     "release:local-gate:full": "node scripts/local-release-gate.js --profile=full",
     "release:install-hooks": "node scripts/install-local-git-hooks.js",
+    "ci:prepare": "node scripts/ci-prepare-check.js",
     "test:runtime-smoke:core": "node scripts/local-runtime-smoke.js",
     "test:runtime-smoke:platform": "node scripts/local-runtime-smoke.js --platform-only",
     "test:runtime-smoke:local": "npm run test:runtime-smoke:core",

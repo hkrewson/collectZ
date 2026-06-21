@@ -343,6 +343,13 @@ const gateDefinitions = [
   { id: 'release-note', profile: 'standard', run: checkReleaseNote },
   { id: 'release-feed', profile: 'standard', run: checkReleaseFeed },
   {
+    id: 'ci-prepare',
+    profile: 'standard',
+    run: () => runNpmScript('ci-prepare', 'GitHub prepare gate', ['run', 'ci:prepare'], {
+      passDetail: 'GitHub prepare gate passed locally'
+    })
+  },
+  {
     id: 'backend-unit',
     profile: 'standard',
     run: () => runNpmScript('backend-unit', 'Backend unit tests', ['--prefix', 'backend', 'run', 'test:unit'], {
