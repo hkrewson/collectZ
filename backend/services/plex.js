@@ -909,6 +909,29 @@ const buildPlexChildrenPath = (item) => {
   return `/library/metadata/${encodeURIComponent(String(ratingKey))}/children`;
 };
 
+const isPlexCompilationArtist = (value) => {
+  const normalized = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ');
+  return ['various artists', 'various artist', 'various', 'v a', 'va'].includes(normalized);
+};
+
+const normalizePlexTrackArtists = (item = {}) => {
+  const values = [
+    item.originalTitle,
+    item.originallyAvailableTitle,
+    item.trackArtist,
+    item.trackArtistTitle,
+    item.leafArtist,
+    item.leafTitle
+  ]
+    .map((value) => String(value || '').trim())
+    .filter(Boolean);
+  return [...new Set(values)].slice(0, 12).join(', ') || null;
+};
+
 const fetchPlexChildDirectoryEntries = async (config, parentItem) => {
   const path = buildPlexChildrenPath(parentItem);
   if (!path) return [];
@@ -952,6 +975,8 @@ const normalizePlexItem = (item) => {
     ? (item.parentTitle || item.title || null)
     : (rawType === 'album' ? (item.title || null) : null);
   const audioTrackCount = item.leafCount || item.childCount || item.trackCount || item.viewedLeafCount || null;
+  const audioCompilation = isAudio && isPlexCompilationArtist(audioArtist);
+  const audioTrackArtists = audioCompilation ? normalizePlexTrackArtists(item) : null;
   const year = item.year ? Number(item.year) : null;
   const runtime = item.duration ? Math.round(Number(item.duration) / 60000) : null;
   const tmdbId = parseTmdbIdFromGuid(item.guid);
@@ -978,7 +1003,9 @@ const normalizePlexItem = (item) => {
     type_details: isAudio ? {
       artist: audioArtist,
       album: audioAlbum,
-      track_count: Number.isInteger(Number(audioTrackCount)) && Number(audioTrackCount) > 0 ? Number(audioTrackCount) : null
+      track_count: Number.isInteger(Number(audioTrackCount)) && Number(audioTrackCount) > 0 ? Number(audioTrackCount) : null,
+      compilation: audioCompilation || null,
+      track_artists: audioTrackArtists
     } : undefined,
     plex_guid: item.guid ? String(item.guid) : null,
     plex_rating_key: seriesRatingKey ? String(seriesRatingKey) : null
@@ -1528,6 +1555,7 @@ module.exports = {
   normalizePlexWatchedStateEntry,
   parsePlexRatingEntries,
   normalizePlexRatingEntry,
+  isPlexCompilationArtist,
   parsePlexWebhookPayload,
   normalizePlexWebhookEvent,
   buildPlexRatingWritebackRequest,

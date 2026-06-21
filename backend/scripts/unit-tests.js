@@ -33,6 +33,7 @@ const {
   normalizePlexRatingEntry,
   resolvePlexSectionsRootPath,
   fetchPlexSectionsWithResolution,
+  isPlexCompilationArtist,
   shouldIncludePlexEntry
 } = require('../services/plex');
 const { wrapTmdbRequestError } = require('../services/tmdb');
@@ -1353,6 +1354,29 @@ results.push(run('plex.normalizePlexItem maps album to audio context', () => {
   assert.strictEqual(out.type_details.artist, 'Pink Floyd');
   assert.strictEqual(out.type_details.album, 'The Wall');
   assert.strictEqual(out.type_details.track_count, 26);
+  assert.strictEqual(out.type_details.compilation, null);
+  assert.strictEqual(out.type_details.track_artists, null);
+}));
+
+results.push(run('plex.normalizePlexItem marks Various Artists albums as compilations', () => {
+  assert.strictEqual(isPlexCompilationArtist('Various Artists'), true);
+  assert.strictEqual(isPlexCompilationArtist('VA'), true);
+  assert.strictEqual(isPlexCompilationArtist('Pink Floyd'), false);
+  const input = {
+    type: 'album',
+    title: 'Movie Songs',
+    parentTitle: 'Various Artists',
+    originalTitle: 'Aimee Mann',
+    leafCount: '18'
+  };
+  const out = normalizePlexItem(input);
+  assert.strictEqual(out.title, 'Movie Songs');
+  assert.strictEqual(out.media_type, 'audio');
+  assert.strictEqual(out.type_details.artist, 'Various Artists');
+  assert.strictEqual(out.type_details.album, 'Movie Songs');
+  assert.strictEqual(out.type_details.track_count, 18);
+  assert.strictEqual(out.type_details.compilation, true);
+  assert.strictEqual(out.type_details.track_artists, 'Aimee Mann');
 }));
 
 results.push(run('plex audio section import skips artist rows and keeps albums', () => {
@@ -1373,6 +1397,8 @@ results.push(run('plex audio import persists album details and Library renders t
   assert.ok(libraryViewSource.includes("['Album', typeDetails.album || item.title]"));
   assert.ok(libraryViewSource.includes("['Artist', typeDetails.artist]"));
   assert.ok(libraryViewSource.includes("['Tracks', typeDetails.track_count]"));
+  assert.ok(libraryViewSource.includes("['Compilation', typeDetails.compilation === true || typeDetails.compilation === 'true' ? 'Yes' : null]"));
+  assert.ok(libraryViewSource.includes("['Track artists', typeDetails.track_artists]"));
   assert.ok(libraryViewSource.includes('Album details'));
 }));
 
@@ -4449,14 +4475,18 @@ results.push(run('typeDetails normalizes allowed keys with coercion', () => {
   const out = normalizeTypeDetails('audio', {
     artist: '  Pink Floyd ',
     album: ' The Wall ',
-    track_count: '26'
+    track_count: '26',
+    compilation: 'true',
+    track_artists: ' Aimee Mann, Elliott Smith '
   }, { strict: true });
   assert.deepStrictEqual(out.invalidKeys, []);
   assert.deepStrictEqual(out.errors, []);
   assert.deepStrictEqual(out.value, {
     artist: 'Pink Floyd',
     album: 'The Wall',
-    track_count: 26
+    track_count: 26,
+    compilation: true,
+    track_artists: 'Aimee Mann, Elliott Smith'
   });
 }));
 

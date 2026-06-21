@@ -63,7 +63,7 @@ const TYPE_DETAILS_ALLOWED_BY_MEDIA_TYPE = {
     'calibre_download_url',
     'source_updated_at'
   ],
-  audio: ['artist', 'album', 'track_count'],
+  audio: ['artist', 'album', 'track_count', 'compilation', 'track_artists'],
   game: ['platform', 'developer', 'region', 'provider_name', 'provider_item_id', 'provider_external_url'],
   comic_book: [
     'author',
@@ -178,6 +178,15 @@ function normalizeTrackCount(value) {
   return rounded;
 }
 
+function normalizeBooleanValue(value) {
+  if (isBlank(value)) return null;
+  if (typeof value === 'boolean') return value;
+  const normalized = String(value).trim().toLowerCase();
+  if (['true', '1', 'yes', 'y'].includes(normalized)) return true;
+  if (['false', '0', 'no', 'n'].includes(normalized)) return false;
+  return null;
+}
+
 function normalizeCoverDate(value) {
   if (isBlank(value)) return null;
   const normalized = String(value).trim();
@@ -217,6 +226,16 @@ function normalizeTypeDetails(mediaType, rawTypeDetails, options = {}) {
       const normalized = normalizeTrackCount(rawValue);
       if (normalized === null) {
         errors.push({ key, message: 'track_count must be a positive integer' });
+        continue;
+      }
+      sanitized[key] = normalized;
+      continue;
+    }
+
+    if (key === 'compilation') {
+      const normalized = normalizeBooleanValue(rawValue);
+      if (normalized === null) {
+        errors.push({ key, message: 'compilation must be true or false' });
         continue;
       }
       sanitized[key] = normalized;

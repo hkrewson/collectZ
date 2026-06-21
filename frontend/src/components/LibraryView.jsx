@@ -887,7 +887,9 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
     ? [
         ['Album', typeDetails.album || item.title],
         ['Artist', typeDetails.artist],
-        ['Tracks', typeDetails.track_count]
+        ['Tracks', typeDetails.track_count],
+        ['Compilation', typeDetails.compilation === true || typeDetails.compilation === 'true' ? 'Yes' : null],
+        ['Track artists', typeDetails.track_artists]
       ].filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== '')
     : [];
   const hiddenTypeDetailKeys = new Set(
@@ -896,7 +898,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
       : isComic
         ? ['calibre_entry_id', 'provider_item_id', 'calibre_external_url', 'provider_external_url', 'calibre_download_url', 'provider_download_url', 'provider_name', 'kavita_cover_url', 'kavita_cover_proxy_url', 'kavita_cover_source', 'kavita_cover_status', 'kavita_series_url', 'kavita_launch_url', 'kavita_launch_label', 'kavita_launch_target', 'kavita_chapter_fanout', 'kavita_parent_provider_item_id', 'kavita_series_provider_item_id', 'kavita_chapter_provider_item_id']
         : isAudio
-          ? ['artist', 'album', 'track_count']
+          ? ['artist', 'album', 'track_count', 'compilation', 'track_artists']
         : []
   );
   const visibleTypeDetailEntries = Object.entries(typeDetails)
