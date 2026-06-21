@@ -7080,7 +7080,8 @@ results.push(run('library loans view exposes management-focused counts and due-s
   assert.ok(libraryLoanReminderWorkflowSmokeSource.includes('smtp_override_enabled'));
   assert.ok(libraryMultiformatBrowserSpecSource.includes('loaned game cards open a loan-first drawer and keep the reminder action resilient'));
   assert.ok(libraryMultiformatBrowserSpecSource.includes("page.goto('/dashboard?tab=library-games')"));
-  assert.ok(libraryMultiformatBrowserSpecSource.includes('Show Details'));
+  assert.ok(libraryMultiformatBrowserSpecSource.includes("name: 'Details'"));
+  assert.ok(libraryMultiformatBrowserSpecSource.includes("name: 'Hide'"));
   assert.ok(libraryMultiformatBrowserSpecSource.includes('/api/media/${mediaId}/loans'));
   assert.ok(libraryMultiformatBrowserSpecSource.includes('/\\/api\\/media\\/loans\\/\\d+\\/reminder$/'));
 }));
