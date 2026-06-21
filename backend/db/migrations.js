@@ -4624,6 +4624,29 @@ const MIGRATIONS = [
       END;
       $$;
     `
+  },
+  {
+    version: 111,
+    description: 'Add persisted Plex reconciliation sync settings',
+    up: `
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS plex_reconciliation_sync_enabled BOOLEAN DEFAULT false;
+
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS plex_reconciliation_sync_interval_minutes INTEGER DEFAULT 360;
+
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS plex_reconciliation_sync_limit INTEGER;
+
+      UPDATE app_integrations
+         SET plex_reconciliation_sync_enabled = false
+       WHERE plex_reconciliation_sync_enabled IS NULL;
+
+      UPDATE app_integrations
+         SET plex_reconciliation_sync_interval_minutes = 360
+       WHERE plex_reconciliation_sync_interval_minutes IS NULL
+          OR plex_reconciliation_sync_interval_minutes < 60;
+    `
   }
 ];
 

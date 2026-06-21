@@ -5,7 +5,12 @@ const pool = require('../db/pool');
 const { asyncHandler } = require('../middleware/errors');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const { isHomelabEdition } = require('../config/productEdition');
-const { loadAdminIntegrationConfig, normalizeIntegrationRecord, loadGeneralSettings } = require('../services/integrations');
+const {
+  loadAdminIntegrationConfig,
+  normalizeIntegrationRecord,
+  loadGeneralSettings,
+  normalizePlexReconciliationSyncSettings
+} = require('../services/integrations');
 const { encryptSecret, maskSecret } = require('../services/crypto');
 const { buildObservabilityRuntimeDiagnostics } = require('../services/observabilityRuntime');
 const { resolveExportConfig, invalidateStoredExportConfigCache, LOG_EXPORT_BACKENDS, LOG_EXPORT_SETTINGS_READ_ONLY, validateStructuredLogDelivery, normalizeExplicitExportConfig } = require('../services/logExport');
@@ -295,6 +300,7 @@ async function buildSharedIntegrationPayload(config, req = null) {
     plexLibrarySections: Array.isArray(config?.plexLibrarySections) ? config.plexLibrarySections : [],
     plexApiKeySet: Boolean(config?.plexApiKey),
     plexApiKeyMasked: maskSecret(config?.plexApiKey || ''),
+    plexReconciliationSyncSettings: normalizePlexReconciliationSyncSettings(config?.plexReconciliationSyncSettings),
     plexNowPlayingDisplayToken: shapeNowPlayingDisplayTokenStatus(config),
     plexNowPlayingDisplayPreferences: normalizeNowPlayingDisplayPreferences(config?.plexNowPlayingDisplayPreferences),
     plexWebhookReceiver: shapePlexWebhookReceiverStatus(config, req),
@@ -758,6 +764,14 @@ sharedRouter.put('/admin/settings/integrations', authenticateToken, requireRole(
     || req.body.eBayBrowseClientSecret !== undefined
     || req.body.clearEBayBrowseClientSecret !== undefined
     || req.body.eBayBrowseMarketplaceId !== undefined;
+  const requestsPlexUpdate =
+    req.body.plexPreset !== undefined
+    || req.body.plexProvider !== undefined
+    || req.body.plexApiUrl !== undefined
+    || req.body.plexApiKey !== undefined
+    || req.body.clearPlexApiKey !== undefined
+    || req.body.plexLibrarySections !== undefined
+    || req.body.plexReconciliationSyncSettings !== undefined;
   if (requestsLogExportUpdate && LOG_EXPORT_SETTINGS_READ_ONLY) {
     return res.status(409).json({ error: 'External log endpoint settings are read-only in this environment' });
   }
@@ -818,6 +832,33 @@ sharedRouter.put('/admin/settings/integrations', authenticateToken, requireRole(
       null
     );
   const valuationState = resolveNextAdminValuationState(req.body, existing);
+  const plexSyncSettings = normalizePlexReconciliationSyncSettings({
+    ...(existing
+      ? {
+        enabled: existing.plex_reconciliation_sync_enabled,
+        intervalMinutes: existing.plex_reconciliation_sync_interval_minutes,
+        limit: existing.plex_reconciliation_sync_limit
+      }
+      : {}),
+    ...(req.body.plexReconciliationSyncSettings || {})
+  });
+  const nextPlexPreset = pick(req.body.plexPreset, existing?.plex_preset, 'plex');
+  const nextPlexProvider = pick(req.body.plexProvider, existing?.plex_provider, 'plex');
+  const nextPlexApiUrl = pick(
+    req.body.plexApiUrl !== undefined ? String(req.body.plexApiUrl || '').trim() : undefined,
+    existing?.plex_api_url,
+    ''
+  );
+  const nextPlexApiKey = req.body.clearPlexApiKey
+    ? null
+    : (req.body.plexApiKey
+      ? encryptSecret(req.body.plexApiKey)
+      : existing?.plex_api_key_encrypted || null);
+  const nextPlexLibrarySections = req.body.plexLibrarySections !== undefined
+    ? (Array.isArray(req.body.plexLibrarySections)
+      ? req.body.plexLibrarySections.map((value) => String(value || '').trim()).filter(Boolean)
+      : [])
+    : (Array.isArray(existing?.plex_library_sections) ? existing.plex_library_sections : []);
   const requestsKavitaUpdate =
     req.body.kavitaBaseUrl !== undefined
     || req.body.kavitaApiKey !== undefined
@@ -851,6 +892,14 @@ sharedRouter.put('/admin/settings/integrations', authenticateToken, requireRole(
        ebay_browse_client_id,
        ebay_browse_client_secret_encrypted,
        ebay_browse_marketplace_id,
+       plex_preset,
+       plex_provider,
+       plex_api_url,
+       plex_api_key_encrypted,
+       plex_library_sections,
+       plex_reconciliation_sync_enabled,
+       plex_reconciliation_sync_interval_minutes,
+       plex_reconciliation_sync_limit,
        log_export_backend,
        log_export_host,
        log_export_port,
@@ -861,7 +910,7 @@ sharedRouter.put('/admin/settings/integrations', authenticateToken, requireRole(
        kavita_api_key_encrypted,
        kavita_timeout_ms
      ) VALUES (
-       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19
+       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::jsonb,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27
      )
      ON CONFLICT (id) DO UPDATE SET
        pricecharting_enabled = EXCLUDED.pricecharting_enabled,
@@ -873,6 +922,14 @@ sharedRouter.put('/admin/settings/integrations', authenticateToken, requireRole(
        ebay_browse_client_id = EXCLUDED.ebay_browse_client_id,
        ebay_browse_client_secret_encrypted = EXCLUDED.ebay_browse_client_secret_encrypted,
        ebay_browse_marketplace_id = EXCLUDED.ebay_browse_marketplace_id,
+       plex_preset = EXCLUDED.plex_preset,
+       plex_provider = EXCLUDED.plex_provider,
+       plex_api_url = EXCLUDED.plex_api_url,
+       plex_api_key_encrypted = EXCLUDED.plex_api_key_encrypted,
+       plex_library_sections = EXCLUDED.plex_library_sections,
+       plex_reconciliation_sync_enabled = EXCLUDED.plex_reconciliation_sync_enabled,
+       plex_reconciliation_sync_interval_minutes = EXCLUDED.plex_reconciliation_sync_interval_minutes,
+       plex_reconciliation_sync_limit = EXCLUDED.plex_reconciliation_sync_limit,
        log_export_backend = EXCLUDED.log_export_backend,
        log_export_host = EXCLUDED.log_export_host,
        log_export_port = EXCLUDED.log_export_port,
@@ -894,6 +951,14 @@ sharedRouter.put('/admin/settings/integrations', authenticateToken, requireRole(
       valuationState.ebay_browse_client_id,
       valuationState.ebay_browse_client_secret_encrypted,
       valuationState.ebay_browse_marketplace_id,
+      nextPlexPreset,
+      nextPlexProvider,
+      nextPlexApiUrl,
+      nextPlexApiKey,
+      JSON.stringify(nextPlexLibrarySections),
+      plexSyncSettings.enabled,
+      plexSyncSettings.intervalMinutes,
+      plexSyncSettings.limit,
       nextLogExportBackend,
       nextLogExportHost,
       nextLogExportPort,
@@ -937,6 +1002,15 @@ sharedRouter.put('/admin/settings/integrations', authenticateToken, requireRole(
         service: nextLogExportService,
         debugEnabled: nextLogExportDebug,
         source: clearLogExportControl ? 'env_fallback' : 'stored'
+      }
+      : null,
+    plex: requestsPlexUpdate
+      ? {
+        apiUrl: nextPlexApiUrl,
+        librarySections: nextPlexLibrarySections,
+        apiKeyUpdated: Boolean(req.body.plexApiKey),
+        apiKeyCleared: Boolean(req.body.clearPlexApiKey),
+        reconciliationSync: plexSyncSettings
       }
       : null,
     kavita: requestsKavitaUpdate

@@ -375,7 +375,7 @@ const startServer = async () => {
       mediaRouter.startPlexWatchStateRefreshScheduler();
     }
     if (typeof mediaRouter.startPlexReconciliationSyncScheduler === 'function') {
-      mediaRouter.startPlexReconciliationSyncScheduler();
+      await mediaRouter.startPlexReconciliationSyncScheduler();
     }
     if (typeof wishlistRouter.startAppleItunesWishlistPriceRefreshScheduler === 'function') {
       wishlistRouter.startAppleItunesWishlistPriceRefreshScheduler();

@@ -418,6 +418,7 @@ export default function AdminIntegrationsView({
     tmdbApiKey: '', clearTmdbApiKey: false,
     plexPreset: 'plex', plexProvider: 'plex', plexApiUrl: '',
     plexApiKey: '', plexLibrarySections: '', clearPlexApiKey: false,
+    plexReconciliationSyncEnabled: false, plexReconciliationSyncIntervalMinutes: '360', plexReconciliationSyncLimit: '',
     booksPreset: 'googlebooks', booksProvider: 'googlebooks', booksApiUrl: 'https://www.googleapis.com/books/v1/volumes',
     booksApiKey: '', clearBooksApiKey: false,
     audioPreset: 'discogs', audioProvider: 'discogs', audioApiUrl: 'https://api.discogs.com/database/search',
@@ -502,6 +503,9 @@ export default function AdminIntegrationsView({
         tmdbPreset: data.tmdbPreset || 'tmdb', tmdbProvider: data.tmdbProvider || '', tmdbApiUrl: data.tmdbApiUrl || '',
         plexPreset: data.plexPreset || 'plex', plexProvider: data.plexProvider || 'plex', plexApiUrl: data.plexApiUrl || '',
         plexLibrarySections: Array.isArray(data.plexLibrarySections) ? data.plexLibrarySections.join(',') : '',
+        plexReconciliationSyncEnabled: Boolean(data.plexReconciliationSyncSettings?.enabled),
+        plexReconciliationSyncIntervalMinutes: String(data.plexReconciliationSyncSettings?.intervalMinutes || '360'),
+        plexReconciliationSyncLimit: data.plexReconciliationSyncSettings?.limit ? String(data.plexReconciliationSyncSettings.limit) : '',
         booksPreset: data.booksPreset || 'googlebooks', booksProvider: data.booksProvider || 'googlebooks', booksApiUrl: data.booksApiUrl || 'https://www.googleapis.com/books/v1/volumes',
         audioPreset: data.audioPreset || 'discogs', audioProvider: data.audioProvider || 'discogs', audioApiUrl: data.audioApiUrl || 'https://api.discogs.com/database/search',
         gamesPreset: data.gamesPreset || 'igdb', gamesProvider: data.gamesProvider || 'igdb', gamesApiUrl: data.gamesApiUrl || 'https://api.igdb.com/v4/games', gamesClientId: data.gamesClientId || '',
@@ -648,6 +652,11 @@ export default function AdminIntegrationsView({
       plexPreset: form.plexPreset, plexProvider: form.plexProvider, plexApiUrl: form.plexApiUrl,
       clearPlexApiKey: form.clearPlexApiKey,
       plexLibrarySections: form.plexLibrarySections.split(',').map((v) => v.trim()).filter(Boolean),
+      plexReconciliationSyncSettings: {
+        enabled: form.plexReconciliationSyncEnabled,
+        intervalMinutes: form.plexReconciliationSyncIntervalMinutes,
+        limit: form.plexReconciliationSyncLimit
+      },
       ...(form.plexApiKey && { plexApiKey: form.plexApiKey })
     });
     else if (sec === 'books') Object.assign(payload, {
@@ -726,6 +735,15 @@ export default function AdminIntegrationsView({
       if (updated.integrationScope) setIntegrationScope(updated.integrationScope);
       if (updated.plexNowPlayingDisplayToken) setPlexDisplayToken(updated.plexNowPlayingDisplayToken);
       if (updated.plexWebhookReceiver) setPlexWebhookReceiver(updated.plexWebhookReceiver);
+      if (updated.plexReconciliationSyncSettings) {
+        setForm((f) => ({
+          ...f,
+          plexReconciliationSyncEnabled: Boolean(updated.plexReconciliationSyncSettings.enabled),
+          plexReconciliationSyncIntervalMinutes: String(updated.plexReconciliationSyncSettings.intervalMinutes || '360'),
+          plexReconciliationSyncLimit: updated.plexReconciliationSyncSettings.limit ? String(updated.plexReconciliationSyncSettings.limit) : ''
+        }));
+        await refreshPlexReconciliationScheduler();
+      }
       if (updated.plexNowPlayingDisplayPreferences) {
         setPlexDisplayPreferences({
           ...DEFAULT_PLEX_DISPLAY_PREFERENCES,
@@ -1570,6 +1588,40 @@ export default function AdminIntegrationsView({
           </SectionTabPanel>
 
           <SectionTabPanel activeId={plexPanel} tabKey="sync" idBase="plex-settings-sections" className="min-w-0 space-y-4">
+            <PlainSettingsSection title="Automatic sync">
+              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_10rem_10rem]">
+                <CheckboxControl
+                  id="plex-reconciliation-sync-enabled"
+                  checked={Boolean(form.plexReconciliationSyncEnabled)}
+                  onChange={(event) => setForm((f) => ({ ...f, plexReconciliationSyncEnabled: event.target.checked }))}
+                >
+                  Run scheduled Plex library sync
+                </CheckboxControl>
+                <LabeledField label="Every (min)" cx={cx}>
+                  <input
+                    className="input font-mono"
+                    inputMode="numeric"
+                    min="60"
+                    value={form.plexReconciliationSyncIntervalMinutes}
+                    onChange={(event) => setForm((f) => ({ ...f, plexReconciliationSyncIntervalMinutes: event.target.value.replace(/[^\d]/g, '').slice(0, 5) }))}
+                  />
+                </LabeledField>
+                <LabeledField label="Default Limit" cx={cx}>
+                  <input
+                    className="input font-mono"
+                    inputMode="numeric"
+                    placeholder="All"
+                    value={form.plexReconciliationSyncLimit}
+                    onChange={(event) => setForm((f) => ({ ...f, plexReconciliationSyncLimit: event.target.value.replace(/[^\d]/g, '').slice(0, 5) }))}
+                  />
+                </LabeledField>
+              </div>
+              {plexReconciliationScheduler?.runtime?.source && (
+                <p className="text-xs text-ghost">
+                  Source: <span className="font-mono text-dim">{plexReconciliationScheduler.runtime.source}</span>
+                </p>
+              )}
+            </PlainSettingsSection>
             <PlainSettingsSection
               title="Plex library sync"
               detail="Manual and scheduled sync create safe missing rows, update strong matches, and leave ambiguous rows in conflict review. Plex writeback stays manual."

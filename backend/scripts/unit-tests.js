@@ -213,6 +213,7 @@ const collectibleTraitsRoutesSource = fs.readFileSync(require.resolve('../routes
 const integrationsRoutesSource = fs.readFileSync(require.resolve('../routes/integrations'), 'utf8');
 const spaceIntegrationsRoutesSource = fs.readFileSync(require.resolve('../routes/spaceIntegrations'), 'utf8');
 const integrationsServiceSource = fs.readFileSync(require.resolve('../services/integrations'), 'utf8');
+const integrationResponseSource = fs.readFileSync(require.resolve('../services/integrationResponse'), 'utf8');
 const portabilityServiceSource = fs.readFileSync(require.resolve('../services/portability'), 'utf8');
 const supportRoutesSource = fs.readFileSync(require.resolve('../routes/support'), 'utf8');
 const signaturesServiceSource = fs.readFileSync(require.resolve('../services/signatures'), 'utf8');
@@ -1866,9 +1867,12 @@ results.push(run('plex full-library reconciliation preview stays read-only and c
   assert.ok(mediaRoutesSource.includes('runPlexReconciliationPreviewJob'));
   assert.ok(mediaRoutesSource.includes('runPlexReconciliationSyncJob'));
   assert.ok(mediaRoutesSource.includes('getPlexReconciliationSyncRuntimeConfig'));
+  assert.ok(mediaRoutesSource.includes('getEffectivePlexReconciliationSyncRuntimeConfig'));
+  assert.ok(mediaRoutesSource.includes('hasPlexReconciliationSyncEnvOverride'));
   assert.ok(mediaRoutesSource.includes('startPlexReconciliationSyncScheduler'));
   assert.ok(mediaRoutesSource.includes('runPlexReconciliationSyncSchedulerOnce'));
   assert.ok(mediaRoutesSource.includes('parsePlexReconciliationLimit'));
+  assert.ok(mediaRoutesSource.includes('normalizePlexReconciliationSyncSettings'));
   assert.ok(mediaRoutesSource.includes('PLEX_RECONCILIATION_SYNC_ENABLED'));
   assert.ok(mediaRoutesSource.includes("router.get('/plex-reconciliation-sync/scheduler'"));
   assert.ok(mediaRoutesSource.includes("router.post('/plex-reconciliation-sync/scheduler/run'"));
@@ -1889,6 +1893,13 @@ results.push(run('plex full-library reconciliation preview stays read-only and c
   assert.ok(openApiSource.includes('/api/media/plex-reconciliation-sync/scheduler/run'));
   assert.ok(!dockerComposeSource.includes('PLEX_RECONCILIATION_SYNC_ENABLED'));
   assert.ok(mediaRoutesSource.includes("process.env.PLEX_RECONCILIATION_SYNC_ENABLED ?? 'false'"));
+  assert.ok(integrationsServiceSource.includes('DEFAULT_PLEX_RECONCILIATION_SYNC_SETTINGS'));
+  assert.ok(integrationsServiceSource.includes('plexReconciliationSyncSettings'));
+  assert.ok(integrationsRoutesSource.includes('plex_reconciliation_sync_enabled'));
+  assert.ok(integrationsRoutesSource.includes('plexReconciliationSyncSettings'));
+  assert.ok(integrationResponseSource.includes('plexReconciliationSyncSettings'));
+  assert.ok(migrationsSource.includes('version: 111'));
+  assert.ok(migrationsSource.includes('plex_reconciliation_sync_interval_minutes'));
   assert.ok(plexFullLibraryReconciliationSmokeSource.includes('/api/media/plex-reconciliation-preview'));
   assert.ok(plexFullLibraryReconciliationSmokeSource.includes('/api/media/plex-reconciliation-preview/run'));
   assert.ok(plexFullLibraryReconciliationSmokeSource.includes('/api/media/sync-jobs/${jobId}/result'));
@@ -1929,6 +1940,9 @@ results.push(run('plex full-library reconciliation preview stays read-only and c
   assert.ok(adminIntegrationsViewSource.includes("{ id: 'webhook', label: 'Webhook' }"));
   assert.ok(adminIntegrationsViewSource.includes("{ id: 'advanced', label: 'Advanced' }"));
   assert.ok(adminIntegrationsViewSource.includes('Plex settings sections'));
+  assert.ok(adminIntegrationsViewSource.includes('Run scheduled Plex library sync'));
+  assert.ok(adminIntegrationsViewSource.includes('plexReconciliationSyncSettings'));
+  assert.ok(adminIntegrationsViewSource.includes('plexReconciliationSyncIntervalMinutes'));
   assert.ok(adminIntegrationsViewSource.includes('PlainSettingsSection'));
   assert.ok(adminIntegrationsViewSource.includes('runPlexReconciliationSyncJob'));
   assert.ok(adminIntegrationsViewSource.includes('refreshPlexReconciliationScheduler'));

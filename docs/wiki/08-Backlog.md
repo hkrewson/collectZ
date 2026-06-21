@@ -1401,17 +1401,18 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 ### Backlog Item: Plex True Sync Workflow
 **Type:** UI/UX and sync workflow refinement
 **Tags:** `plex`, `sync`, `imports`, `webhooks`, `ratings`, `activity`, `workflow`
-**Status:** Active plan; first UI slice promoted as `3.20.0`.
+**Status:** Active plan; first UI slice promoted as `3.20.0`, sync cadence settings promoted as `3.20.1`.
 
 **Goal:** Turn Plex from a long settings surface into a true sync workflow with clear setup, sync, webhook, and advanced diagnostics areas.
 
 **Current state**
 - The detailed plan lives in [52-Plex-True-Sync-Workflow-Plan.md](52-Plex-True-Sync-Workflow-Plan.md).
 - `3.20.0` begins the UI restructure by removing the separate operating-model explainer and splitting Plex settings into `Setup`, `Sync`, `Webhook`, and `Advanced`.
+- `3.20.1` persists automatic Plex reconciliation sync enablement, interval, and default scan limit.
 - Existing Plex import, reconciliation, provider discovery, webhook, and writeback behavior remains intact.
 
 **Remaining subtasks**
-- Persist sync cadence and expose it from the Sync section.
+- Persist sync cadence and expose it from the Sync section. Completed in `3.20.1`.
 - Add an initial import flow that makes selected libraries and media types explicit before queuing work.
 - Add webhook setup validation and reachability readback.
 - Add scheduled pull sync controls for new items, watched state, and rating readback.

@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.20.1",
+      "version": "3.20.1",
+      "date": null,
+      "status": null,
+      "summary": "This patch adds persisted Plex reconciliation sync settings. The Plex Sync tab can now save automatic sync enablement, interval, and default scan limit, and scheduler readback uses stored settings when runtime env does not override them.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added persisted Plex reconciliation sync settings to integration storage.",
+            "Added compact automatic sync controls to Settings > Integrations > Plex > Sync.",
+            "Updated scheduler readback to prefer stored settings unless env overrides are present.",
+            "Kept manual Plex sync and conflict review behavior unchanged."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.20.0",
       "version": "3.20.0",
       "date": null,

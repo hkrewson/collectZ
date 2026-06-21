@@ -6,6 +6,41 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.20.1 — Plex Sync Cadence Settings
+
+**Goal:** Make Plex automatic reconciliation sync cadence a saved setting instead of only env-backed runtime readback.
+
+### Scope
+
+- Add persisted Plex reconciliation sync settings to `app_integrations`.
+- Include Plex sync settings in integration settings readback.
+- Save Plex automatic sync enablement, interval, and default scan limit from the Plex Sync tab.
+- Keep env vars as explicit runtime overrides.
+- Update scheduler readback and manual scheduler runs to use stored settings when env vars do not override them.
+- Keep manual sync, queued preview, conflict review, and writeback behavior unchanged.
+
+### Acceptance Criteria
+
+- Plex Sync shows compact automatic sync controls.
+- Saving Plex settings persists automatic sync enablement, interval, and default scan limit.
+- `/api/media/plex-reconciliation-sync/scheduler` reports stored settings when no env override is configured.
+- Existing `PLEX_RECONCILIATION_SYNC_*` env vars still override stored settings.
+- Existing Core and frontend build checks continue to pass.
+
+### Active Slice Notes
+
+- This is the second selected slice from the `Plex True Sync Workflow` backlog item.
+- Webhook reachability validation, activity entries for scheduled outcomes, and an initial import flow remain follow-up work.
+
+### Closeout
+
+- Status: completed in `3.20.1`.
+- Project docs/checklists used: `docs/wiki/52-Plex-True-Sync-Workflow-Plan.md`, `docs/wiki/08-Backlog.md`, `docs/releases/v3.20.1.md`, and existing Plex reconciliation source coverage.
+- Runtime evidence: local 3201 stack rebuilt to `3.20.1`; backend logs show migration `111` applied; `/api/health` reports frontend/backend/build `3.20.1`; database readback shows default stored Plex sync settings as disabled, 360 minutes, no limit.
+- Verification: backend syntax checks passed for integrations, media, integration services, migrations, server, and unit-test sources; frontend production build passed; backend unit/source suite passed with `333` checks; local backend/frontend containers rebuilt and healthy; `git diff --check` passed.
+- Blocked/unverified: live browser regression against the Plex tab has not been run in this slice; `npm --prefix backend run test:init-parity` was blocked by local postgres default-user credentials.
+- Risks/follow-ups: the stored setting becomes the normal path, but deployments with existing env overrides continue to use the env values until those vars are removed.
+
 ## 3.20.0 — Plex True Sync Workflow UI Baseline
 
 **Goal:** Begin the Plex true-sync redesign by turning the Plex integration settings page into a compact workflow surface instead of a long page with a separate operating-model explainer.

@@ -17,6 +17,34 @@ const {
   normalizePositiveInteger
 } = require('./valuations');
 
+const DEFAULT_PLEX_RECONCILIATION_SYNC_SETTINGS = Object.freeze({
+  enabled: false,
+  intervalMinutes: 360,
+  limit: null,
+  source: 'stored'
+});
+
+function normalizePlexReconciliationSyncSettings(input = {}) {
+  const raw = input && typeof input === 'object' ? input : {};
+  const parsedInterval = Number(raw.intervalMinutes ?? raw.interval_minutes ?? raw.plexReconciliationSyncIntervalMinutes);
+  const intervalMinutes = Number.isInteger(parsedInterval) && parsedInterval >= 60
+    ? Math.min(10080, parsedInterval)
+    : DEFAULT_PLEX_RECONCILIATION_SYNC_SETTINGS.intervalMinutes;
+  const rawLimit = raw.limit ?? raw.plexReconciliationSyncLimit;
+  const parsedLimit = rawLimit === null || rawLimit === undefined || rawLimit === ''
+    ? null
+    : Number(rawLimit);
+  const limit = Number.isInteger(parsedLimit) && parsedLimit > 0
+    ? Math.min(50000, parsedLimit)
+    : null;
+  return {
+    enabled: Boolean(raw.enabled ?? raw.plexReconciliationSyncEnabled),
+    intervalMinutes,
+    limit,
+    source: raw.source || 'stored'
+  };
+}
+
 function deriveCwaBaseUrl(rawUrl = '') {
   const value = String(rawUrl || '').trim();
   if (!value) return '';
@@ -150,6 +178,12 @@ const normalizeIntegrationRecord = (row) => {
     plexLibrarySections: Array.isArray(row?.plex_library_sections)
       ? row.plex_library_sections
       : [],
+    plexReconciliationSyncSettings: normalizePlexReconciliationSyncSettings({
+      enabled: row?.plex_reconciliation_sync_enabled,
+      intervalMinutes: row?.plex_reconciliation_sync_interval_minutes,
+      limit: row?.plex_reconciliation_sync_limit,
+      source: 'stored'
+    }),
     booksPreset: booksPreset.preset || 'googlebooks',
     booksProvider: booksPreset.provider,
     booksApiUrl: row?.books_api_url || booksPreset.apiUrl || process.env.BOOKS_API_URL || '',
@@ -355,5 +389,7 @@ module.exports = {
   loadScopedIntegrationConfig,
   loadWorkspaceKavitaIntegrationConfig,
   loadGeneralSettings,
-  updateScopedGeneralSettings
+  updateScopedGeneralSettings,
+  normalizePlexReconciliationSyncSettings,
+  DEFAULT_PLEX_RECONCILIATION_SYNC_SETTINGS
 };

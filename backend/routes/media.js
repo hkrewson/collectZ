@@ -38,7 +38,12 @@ const {
   signatureRecordCreateSchema,
   signatureRecordUpdateSchema
 } = require('../middleware/validate');
-const { loadAdminIntegrationConfig, loadScopedIntegrationConfig, loadWorkspaceKavitaIntegrationConfig } = require('../services/integrations');
+const {
+  loadAdminIntegrationConfig,
+  loadScopedIntegrationConfig,
+  loadWorkspaceKavitaIntegrationConfig,
+  normalizePlexReconciliationSyncSettings
+} = require('../services/integrations');
 const {
   searchTmdbMovie,
   searchTmdbMulti,
@@ -7667,8 +7672,26 @@ function getPlexReconciliationSyncRuntimeConfig() {
   return {
     enabled: ['1', 'true', 'on', 'yes'].includes(enabledRaw),
     intervalMinutes,
-    limit
+    limit,
+    source: 'env'
   };
+}
+
+function hasPlexReconciliationSyncEnvOverride() {
+  return process.env.PLEX_RECONCILIATION_SYNC_ENABLED !== undefined
+    || process.env.PLEX_RECONCILIATION_SYNC_INTERVAL_MINUTES !== undefined
+    || process.env.PLEX_RECONCILIATION_SYNC_LIMIT !== undefined;
+}
+
+async function getEffectivePlexReconciliationSyncRuntimeConfig() {
+  if (hasPlexReconciliationSyncEnvOverride()) return getPlexReconciliationSyncRuntimeConfig();
+  try {
+    const config = await loadAdminIntegrationConfig();
+    return normalizePlexReconciliationSyncSettings(config.plexReconciliationSyncSettings || {});
+  } catch (error) {
+    logError('Load Plex reconciliation sync settings', error);
+    return getPlexReconciliationSyncRuntimeConfig();
+  }
 }
 
 const plexReconciliationSyncState = {
@@ -7896,8 +7919,8 @@ async function runPlexReconciliationSyncSchedulerOnce({ reason = 'manual', limit
   return summary;
 }
 
-function startPlexReconciliationSyncScheduler() {
-  const runtimeConfig = getPlexReconciliationSyncRuntimeConfig();
+async function startPlexReconciliationSyncScheduler() {
+  const runtimeConfig = await getEffectivePlexReconciliationSyncRuntimeConfig();
   Object.assign(plexReconciliationSyncState, {
     enabled: runtimeConfig.enabled,
     intervalMinutes: runtimeConfig.intervalMinutes,
@@ -14622,7 +14645,7 @@ router.get('/plex-reconciliation-sync/scheduler', asyncHandler(async (req, res) 
   if (req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Only admins can inspect Plex reconciliation sync automation' });
   }
-  const runtimeConfig = getPlexReconciliationSyncRuntimeConfig();
+  const runtimeConfig = await getEffectivePlexReconciliationSyncRuntimeConfig();
   res.json({
     ok: true,
     processingMode: 'scheduled_full_library_reconciliation_sync',
@@ -14635,9 +14658,10 @@ router.post('/plex-reconciliation-sync/scheduler/run', asyncHandler(async (req, 
   if (req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Only admins can run Plex reconciliation sync automation' });
   }
+  const runtimeConfig = await getEffectivePlexReconciliationSyncRuntimeConfig();
   const summary = await runPlexReconciliationSyncSchedulerOnce({
     reason: 'admin_requested',
-    limit: req.body?.limit
+    limit: req.body?.limit ?? runtimeConfig.limit
   });
   res.json({
     ok: true,

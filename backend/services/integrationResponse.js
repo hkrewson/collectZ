@@ -28,6 +28,12 @@ const buildIntegrationResponse = (config) => ({
   plexApiUrl: config.plexApiUrl,
   plexApiKeyQueryParam: config.plexApiKeyQueryParam,
   plexLibrarySections: config.plexLibrarySections || [],
+  plexReconciliationSyncSettings: config.plexReconciliationSyncSettings || {
+    enabled: false,
+    intervalMinutes: 360,
+    limit: null,
+    source: 'stored'
+  },
   plexApiKeySet: Boolean(config.plexApiKey),
   plexApiKeyMasked: maskSecret(config.plexApiKey),
   booksPreset: config.booksPreset,
