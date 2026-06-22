@@ -23,7 +23,7 @@ jobs:
       owner_lc: ${{ steps.owner.outputs.owner_lc }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -172,7 +172,7 @@ jobs:
     needs: prepare
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -276,7 +276,7 @@ jobs:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - name: Checkout (full history)
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -321,7 +321,7 @@ jobs:
           --health-retries 5
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -435,7 +435,7 @@ jobs:
     needs: [prepare, migration-check]
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Build and start compose stack
         env:
@@ -508,7 +508,7 @@ jobs:
     needs: [prepare, migration-check, compose-smoke]
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Build and start compose stack
         env:
@@ -554,7 +554,7 @@ jobs:
     needs: [prepare, migration-check, compose-smoke]
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -627,7 +627,7 @@ jobs:
     needs: [prepare, migration-check, compose-smoke]
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Core runtime
         env:
@@ -676,7 +676,7 @@ jobs:
     needs: [prepare, migration-check, dependency-scan, secret-scan, compose-smoke, rbac-regression, browser-regression, runtime-smoke]
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -730,7 +730,7 @@ jobs:
     needs: [prepare, migration-check, dependency-scan, secret-scan, compose-smoke, rbac-regression, browser-regression, runtime-smoke]
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -939,7 +939,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - name: Checkout full history
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
