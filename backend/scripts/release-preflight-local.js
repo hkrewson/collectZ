@@ -27,6 +27,22 @@ const migrationRehearsalEvidencePath = path.join(repoRoot, 'artifacts', 'migrati
 const observabilityEvidencePath = path.join(repoRoot, 'artifacts', 'observability-evidence', 'observability-release-evidence.json');
 const releaseNotePath = path.join(repoRoot, 'docs', 'releases', `v${appMeta.version}.md`);
 const browserRegressionSpec = 'tests/playwright/specs/admin-shell.browser.spec.js';
+const releaseComposeProject = String(process.env.RELEASE_COMPOSE_PROJECT || '').trim();
+const releaseComposeExtraFiles = String(process.env.RELEASE_COMPOSE_EXTRA_FILES || '')
+  .split(',')
+  .map((value) => value.trim())
+  .filter(Boolean);
+
+function buildComposeArgs(extraArgs = []) {
+  return [
+    'compose',
+    ...(releaseComposeProject ? ['-p', releaseComposeProject] : []),
+    '--env-file',
+    '.env',
+    ...releaseComposeExtraFiles.flatMap((filePath) => ['-f', filePath]),
+    ...extraArgs
+  ];
+}
 
 function ensureDir(dirPath) {
   fs.mkdirSync(dirPath, { recursive: true });
@@ -163,7 +179,7 @@ function runInStackHttpGet(pathname) {
   ].join('');
   return runCommand(
     'docker',
-    ['compose', '--env-file', '.env', 'exec', '-T', 'backend', 'node', '-e', script, pathname],
+    buildComposeArgs(['exec', '-T', 'backend', 'node', '-e', script, pathname]),
     { cwd: repoRoot }
   );
 }
@@ -182,7 +198,7 @@ function readInStackSessionCookieOptions() {
   ].join('');
   return runCommand(
     'docker',
-    ['compose', '--env-file', '.env', 'exec', '-T', 'backend', 'node', '-e', script],
+    buildComposeArgs(['exec', '-T', 'backend', 'node', '-e', script]),
     { cwd: repoRoot }
   );
 }

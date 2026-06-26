@@ -21,14 +21,21 @@ const mainStackHealthUrl = String(
 
 const ciBuildComposePath = path.join(repoRoot, '.ci', 'docker-compose.build.yml');
 const ciPlatformComposePath = path.join(repoRoot, '.ci', 'docker-compose.platform.yml');
+const releaseComposeProject = String(process.env.RELEASE_COMPOSE_PROJECT || '').trim();
+const releaseComposeExtraFiles = String(process.env.RELEASE_COMPOSE_EXTRA_FILES || '')
+  .split(',')
+  .map((value) => value.trim())
+  .filter(Boolean);
 const dockerBase = [
   'compose',
+  ...(releaseComposeProject ? ['-p', releaseComposeProject] : []),
   '--env-file',
   '.env',
   '-f',
   'docker-compose.yml',
   ...(fs.existsSync(ciBuildComposePath) ? ['-f', '.ci/docker-compose.build.yml'] : []),
-  ...(fs.existsSync(ciPlatformComposePath) ? ['-f', '.ci/docker-compose.platform.yml'] : [])
+  ...(fs.existsSync(ciPlatformComposePath) ? ['-f', '.ci/docker-compose.platform.yml'] : []),
+  ...releaseComposeExtraFiles.flatMap((filePath) => ['-f', filePath])
 ];
 const restoreEnv = {
   APP_VERSION: appMeta.version,

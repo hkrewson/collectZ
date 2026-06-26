@@ -6,6 +6,39 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.21.0 — First-Class App Route Semantics
+
+**Goal:** Treat app navigation destinations as real URLs instead of making `/dashboard` own every page through `?tab=...`.
+
+### Scope
+
+- Add canonical browser routes for library, workspace, profile, help, and platform destinations.
+- Keep existing tab/component internals stable while the URL layer exposes first-class destinations.
+- Preserve compatibility for legacy `/dashboard?tab=...` links and existing integration deep links.
+- Make app navigation push canonical routes and compatibility cleanup replace legacy URLs.
+
+### Acceptance Criteria
+
+- Library navigation emits canonical `/library/...` URLs.
+- Workspace navigation emits canonical `/workspace/...` URLs.
+- Platform/Cairn-backed surfaces emit canonical `/platform/...` URLs.
+- Legacy `/dashboard?tab=...` links still open the requested destination.
+- Existing authenticated route guards, safe-tab fallbacks, and product-edition boundaries continue to apply.
+
+### Active Slice Notes
+
+- This is a newly selected routing semantics slice following the Cairn analytics tracking work.
+- The slice intentionally fixes browser-visible route semantics without splitting the existing dashboard tab components into separate route modules.
+
+### Closeout
+
+- Status: completed in `3.21.0`.
+- Project docs/checklists used: `AGENTS.md`, `docs/architecture/cairn-platform-extraction-map.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, and `docs/releases/v3.21.0.md`.
+- Runtime evidence: local `collectz-private` platform stack rebuilt to `3.21.0` on the normal ports; `http://localhost:3201/api/health` reports frontend/backend/build `3.21.0`; Cairn remains healthy on `http://localhost:3101`; backend, frontend, Cairn, and both Postgres containers are healthy.
+- Verification: frontend production build passed; backend unit/source suite passed with `335` checks; OpenAPI validation passed through the local release gate; backend/frontend production dependency audits passed; release feed regenerated; in-container Help > Releases smoke served `3.21.0` as latest; observability evidence refreshed for `3.21.0` with `9/9` checks passed; targeted Playwright boundary regression passed against `http://localhost:3201`; browser proof confirmed `/dashboard?tab=admin-settings` canonicalizes to `/platform/settings`, `/dashboard?tab=admin-integrations&integration=logs` canonicalizes to `/platform/runtime/logs`, and `/library/movies` renders directly; `npm run release:local-gate` passed with `12/12` gates; `git diff --check` passed.
+- Blocked/unverified: local preflight marks secure-cookie compose smoke blocked because the running local stack uses `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`; `secret-scan`, full browser-regression gate, and image security/SBOM remain CI-only or outside the local preflight helper.
+- Risks/follow-ups: internal dashboard tab ids still back the existing components; a future larger route-module split can happen independently if route ownership needs to become code ownership too.
+
 ## 3.20.10 — Cairn Platform Analytics Tracking Settings
 
 **Goal:** Let platform operators configure Rybbit analytics tracking from Platform Settings and load the configured script across collectZ browser routes.

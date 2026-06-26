@@ -20,11 +20,11 @@ test.describe('browser boundary regressions', () => {
     await expect(page.getByRole('button', { name: 'Account menu', exact: true })).toBeVisible();
 
     await page.goto('/dashboard?tab=library-movies');
-    await expect(page).toHaveURL(/tab=help/);
+    await expect(page).toHaveURL(/\/help$/);
     await expect(page.getByRole('heading', { name: 'Help Admin' })).toBeVisible();
 
     await page.goto('/dashboard?tab=admin-integrations&integration=logs');
-    await expect(page).toHaveURL(/tab=help/);
+    await expect(page).toHaveURL(/\/help$/);
     await expect(page.getByRole('heading', { name: 'Help Admin' })).toBeVisible();
   });
 

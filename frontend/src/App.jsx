@@ -1,12 +1,14 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import appMeta from './app-meta.json';
 import AuthPageView from './components/AuthPage';
 import DashboardShell from './components/app/DashboardShell';
 import NowPlayingView from './components/NowPlayingView';
 import { routeFromPath, Spinner, Icons, cx } from './components/app/AppPrimitives';
 import {
+  appRouteUrl,
   dashboardUrl,
-  readDashboardStateFromUrl
+  readDashboardStateFromUrl,
+  selectDashboardTabValue
 } from './components/app/dashboardRouting';
 import useApiClient from './components/app/hooks/useApiClient';
 import usePlatformAnalytics from './components/app/hooks/usePlatformAnalytics';
@@ -83,6 +85,7 @@ export default function App() {
   const productEdition = normalizeProductEdition(user?.runtime_mode || user?.[LEGACY_PRODUCT_FIELD]);
   const supportHelpEnabled = isSupportHelpEnabled(productEdition);
   const platformBridgeEnabled = PLATFORM_BRIDGE_ENABLED;
+  const dashboardRouteOptions = useMemo(() => ({ productEdition, platformBridgeEnabled }), [productEdition, platformBridgeEnabled]);
   const supportStaffInEdition = supportHelpEnabled && platformBridgeEnabled && ['admin', SUPPORT_STAFF_ROLE].includes(String(user?.role || ''));
   const supportSessionActiveInEdition = supportHelpEnabled && platformBridgeEnabled && Boolean(supportSession?.active);
   const { supportSummary, loadSupportSummary } = useSupportSummary({ apiCall, showToast, supportStaffInEdition });
@@ -90,18 +93,9 @@ export default function App() {
     ? new URLSearchParams(window.location.search).get('token') || ''
     : '';
   const navigate = useCallback((nextRoute) => {
-    window.history.pushState(
-      {},
-      '',
-      nextRoute === 'register' ? '/register'
-        : nextRoute === 'forgot' ? '/forgot-password'
-        : nextRoute === 'dashboard' ? dashboardUrl(activeTab, activeIntegrationSection)
-          : nextRoute === 'reset' ? '/reset-password'
-            : nextRoute === 'verify' ? '/verify-email'
-            : '/login'
-    );
+    window.history.pushState({}, '', appRouteUrl(nextRoute, activeTab, activeIntegrationSection, dashboardRouteOptions));
     setRoute(nextRoute);
-  }, [activeIntegrationSection, activeTab]);
+  }, [activeIntegrationSection, activeTab, dashboardRouteOptions]);
 
   useEffect(() => {
     const sync = () => {
@@ -118,17 +112,17 @@ export default function App() {
 
   useEffect(() => {
     if (route !== 'dashboard' && route !== 'now-playing' && user) {
-      window.history.replaceState({}, '', dashboardUrl(activeTab, activeIntegrationSection));
+      window.history.replaceState({}, '', dashboardUrl(activeTab, activeIntegrationSection, dashboardRouteOptions));
       setRoute('dashboard');
     }
-  }, [route, user, activeTab, activeIntegrationSection]);
+  }, [route, user, activeTab, activeIntegrationSection, dashboardRouteOptions]);
 
   useEffect(() => {
     if (route !== 'dashboard') return;
-    const nextUrl = dashboardUrl(activeTab, activeIntegrationSection);
+    const nextUrl = dashboardUrl(activeTab, activeIntegrationSection, dashboardRouteOptions);
     const currentUrl = `${window.location.pathname}${window.location.search}`;
     if (currentUrl !== nextUrl) window.history.replaceState({}, '', nextUrl);
-  }, [route, activeTab, activeIntegrationSection]);
+  }, [route, activeTab, activeIntegrationSection, dashboardRouteOptions]);
 
   const {
     importJobs,
@@ -154,9 +148,17 @@ export default function App() {
   const handleAuth = useCallback((usr) => {
     setUser(usr || null);
     setAuthChecked(true);
-    window.history.replaceState({}, '', dashboardUrl(activeTab, activeIntegrationSection));
+    const nextProductEdition = normalizeProductEdition(usr?.runtime_mode || usr?.[LEGACY_PRODUCT_FIELD]);
+    window.history.replaceState({}, '', dashboardUrl(activeTab, activeIntegrationSection, {
+      productEdition: nextProductEdition,
+      platformBridgeEnabled
+    }));
     setRoute('dashboard');
-  }, [activeIntegrationSection, activeTab, setAuthChecked, setUser]);
+  }, [activeIntegrationSection, activeTab, platformBridgeEnabled, setAuthChecked, setUser]);
+
+  const selectDashboardTab = useCallback((nextValue) => {
+    selectDashboardTabValue(nextValue, { activeIntegrationSection, dashboardRouteOptions, setActiveTab, setActiveIntegrationSection, setRoute });
+  }, [activeIntegrationSection, dashboardRouteOptions]);
 
   const logout = useCallback(async () => {
     try { await apiCall('post', '/auth/logout'); } catch (_) {}
@@ -490,7 +492,7 @@ export default function App() {
       user={user}
       onUserUpdate={handleUserUpdate}
       activeTab={activeTab}
-      setActiveTab={setActiveTab}
+      setActiveTab={selectDashboardTab}
       supportSession={supportSession}
       canManageActiveSpace={canManageActiveSpace}
       spaces={spaces}

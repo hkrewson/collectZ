@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.21.0",
+      "version": "3.21.0",
+      "date": null,
+      "status": null,
+      "summary": "This release makes collectZ dashboard destinations first-class browser routes instead of representing every app view as `/dashboard?tab=...`. Library, workspace, profile, help, and platform surfaces now have canonical paths that match their navigation meaning, while existing dashboard query links remain compatible.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added a central canonical route map for dashboard destinations.",
+            "Added platform routes such as `/platform/settings`, `/platform/runtime`, `/platform/runtime/logs`, `/platform/users`, and `/platform/workspaces`.",
+            "Added workspace routes such as `/workspace/settings` and `/workspace/review`.",
+            "Kept library routes under `/library/...`, including `/library/movies`, `/library/wishlist`, `/library/capture`, and `/library/import`.",
+            "Updated app-shell history handling so navigation pushes first-class routes and legacy query URLs are replaced with the canonical path.",
+            "Preserved compatibility for older `/dashboard?tab=...` and `/admin/integrations/...` links."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.20.10",
       "version": "3.20.10",
       "date": null,
@@ -136,26 +156,6 @@
             "Added an admin validation endpoint for Plex webhook receiver setup.",
             "Added a compact `Check setup` action to Settings > Integrations > Plex > Webhook.",
             "Kept receiver URLs masked and token details out of browser-visible payloads."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.20.1",
-      "version": "3.20.1",
-      "date": null,
-      "status": null,
-      "summary": "This patch adds persisted Plex reconciliation sync settings. The Plex Sync tab can save automatic sync enablement, interval, and default scan limit, and scheduler readback uses stored settings when runtime env does not override them.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added migration `111` for Plex reconciliation sync settings.",
-            "Added `plexReconciliationSyncSettings` to integration settings payloads.",
-            "Saved Plex URL, selected library sections, key updates, and sync cadence through the same Plex settings save path.",
-            "Added compact automatic sync controls to Settings > Integrations > Plex > Sync.",
-            "Updated scheduler readback and manual scheduler runs to prefer stored sync settings unless env overrides are configured.",
-            "Preserved existing manual sync, queued preview, conflict review, and writeback behavior."
           ]
         }
       ]

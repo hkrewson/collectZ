@@ -11,6 +11,7 @@ import {
   findGradingTrait,
   findProvenanceTrait
 } from './drawerMetadata';
+import { isDashboardRoutePath } from './dashboardRouting';
 
 export function routeFromPath(p) {
   if (p === '/register') return 'register';
@@ -18,12 +19,7 @@ export function routeFromPath(p) {
   if (p === '/reset-password') return 'reset';
   if (p === '/verify-email') return 'verify';
   if (p === '/now-playing') return 'now-playing';
-  if (
-    p === '/dashboard' ||
-    p.startsWith('/dashboard/') ||
-    p.startsWith('/admin/') ||
-    p.startsWith('/library/')
-  ) return 'dashboard';
+  if (isDashboardRoutePath(p)) return 'dashboard';
   return 'login';
 }
 

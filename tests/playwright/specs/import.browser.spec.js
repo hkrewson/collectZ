@@ -29,7 +29,7 @@ test.describe('import browser regressions', () => {
     await expect(page.getByRole('button', { name: 'Choose Delicious CSV', exact: true })).toBeVisible();
 
     await page.getByRole('tab', { name: 'Capture Inbox', exact: true }).click();
-    await expect(page).toHaveURL(/tab=library-capture/);
+    await expect(page).toHaveURL(/\/library\/capture$/);
     await expect(page.getByRole('heading', { name: 'Capture Inbox', exact: true })).toBeVisible();
   });
 });

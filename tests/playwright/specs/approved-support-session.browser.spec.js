@@ -83,17 +83,17 @@ test.describe('approved support session browser regressions', () => {
       await expect(page.getByText(new RegExp(`Library: ${switchedLibraryName}`))).toHaveCount(0);
 
       await nav.getByRole('button', { name: 'Settings', exact: true }).click();
-      await expect(page).toHaveURL(/tab=space-manage/);
+      await expect(page).toHaveURL(/\/workspace\/settings$/);
       await expect(page.getByRole('button', { name: 'Activity', exact: true })).toBeVisible();
 
       await page.getByRole('button', { name: 'End support session' }).click();
 
       await expect(page.getByText('Support session active')).toHaveCount(0);
-      await expect(page).toHaveURL(/tab=help/);
+      await expect(page).toHaveURL(/\/help$/);
       await expect(page.getByRole('combobox', { name: 'Support Library' })).toHaveCount(0);
 
       await page.goto('/dashboard?tab=space-manage');
-      await expect(page).toHaveURL(/tab=help/);
+      await expect(page).toHaveURL(/\/help$/);
       await expect(page.getByRole('heading', { name: 'Help Admin' })).toBeVisible();
     } finally {
       await supportAdminContext.dispose();

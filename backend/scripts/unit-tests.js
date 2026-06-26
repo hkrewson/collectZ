@@ -2703,8 +2703,8 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(homelabHelpBrowserSpecSource.includes('/dashboard?tab=admin-users'));
   assert.ok(homelabHelpBrowserSpecSource.includes('/dashboard?tab=admin-activity'));
   assert.ok(homelabHelpBrowserSpecSource.includes('/dashboard?tab=space-manage'));
-  assert.ok(homelabHelpBrowserSpecSource.includes("toHaveURL(/tab=help/)"));
-  assert.ok(homelabHelpBrowserSpecSource.includes("not.toHaveURL(/tab=admin-spaces/)"));
+  assert.ok(homelabHelpBrowserSpecSource.includes("toHaveURL(/\\/help$/)"));
+  assert.ok(homelabHelpBrowserSpecSource.includes("not.toHaveURL(/\\/platform\\/workspaces$/)"));
   assert.ok(homelabSharedBrowserSpecSource.includes('/dashboard?tab=library-movies'));
   assert.ok(homelabSharedBrowserSpecSource.includes('/dashboard?tab=library-import'));
   assert.ok(homelabSharedBrowserSpecSource.includes("name: 'CSV'"));
@@ -2941,7 +2941,7 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
   assert.ok(approvedSupportSessionBrowserSpecSource.includes("getByRole('combobox', { name: 'Support Library' })"));
   assert.ok(approvedSupportSessionBrowserSpecSource.includes('not.toHaveValue(switchedLibraryId)'));
   assert.ok(approvedSupportSessionBrowserSpecSource.includes("page.goto('/dashboard?tab=space-manage')"));
-  assert.ok(approvedSupportSessionBrowserSpecSource.includes("toHaveURL(/tab=help/)"));
+  assert.ok(approvedSupportSessionBrowserSpecSource.includes("toHaveURL(/\\/help$/)"));
   assert.ok(integrationsBrowserSpecSource.includes("saveSection(page, 'LOGS')"));
   assert.ok(integrationsBrowserSpecSource.includes("getByRole('tablist', { name: 'Integration sections' })"));
   assert.ok(integrationsBrowserSpecSource.includes('Metrics Export'));
@@ -2963,7 +2963,7 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
   assert.ok(adminShellBrowserSpecSource.includes("getByRole('button', { name: 'Workspace', exact: true })).toHaveCount(0)"));
   assert.ok(boundaryBrowserSpecSource.includes('support_admin'));
   assert.ok(boundaryBrowserSpecSource.includes('/dashboard?tab=admin-integrations&integration=logs'));
-  assert.ok(boundaryBrowserSpecSource.includes("toHaveURL(/tab=help/)"));
+  assert.ok(boundaryBrowserSpecSource.includes("toHaveURL(/\\/help$/)"));
   assert.ok(boundaryBrowserSpecSource.includes('/dashboard?tab=admin-spaces'));
   assert.ok(eventsCollectiblesBrowserSpecSource.includes('/dashboard?tab=library-movies'));
   assert.ok(rootPackageJson.scripts['test:browser:event-planner'].includes('events-collectibles.browser.spec.js'));
@@ -7510,6 +7510,27 @@ results.push(run('dashboard command center frontend owns first-screen attention 
   assert.ok(spaceManagerBrowserSpecSource.includes('await expect(page.getByText(attendeeName).first()).toBeVisible();'));
   assert.ok(adminShellBrowserSpecSource.includes('/api/dashboard/summary'));
   assert.ok(adminShellBrowserSpecSource.includes("page.goto('/dashboard')"));
+}));
+
+results.push(run('dashboard route helper exposes first-class app destinations', () => {
+  assert.ok(dashboardRoutingSource.includes("help: '/help'"));
+  assert.ok(dashboardRoutingSource.includes("'library-movies': '/library/movies'"));
+  assert.ok(dashboardRoutingSource.includes("'space-manage': '/workspace/settings'"));
+  assert.ok(dashboardRoutingSource.includes("'admin-merges': '/workspace/review'"));
+  assert.ok(dashboardRoutingSource.includes("'admin-settings': '/platform/settings'"));
+  assert.ok(dashboardRoutingSource.includes("'admin-integrations': '/platform/runtime'"));
+  assert.ok(dashboardRoutingSource.includes("'admin-settings': '/settings'"));
+  assert.ok(dashboardRoutingSource.includes("'admin-integrations': '/integrations'"));
+  assert.ok(dashboardRoutingSource.includes("export function readDashboardStateFromLocation(pathname, search = '')"));
+  assert.ok(dashboardRoutingSource.includes("export function isDashboardRoutePath(pathname)"));
+  assert.ok(dashboardRoutingSource.includes('const hasLegacyDashboardState = path === \'/dashboard\''));
+  assert.ok(dashboardRoutingSource.includes('if (directTab && !hasLegacyDashboardState)'));
+  assert.ok(dashboardRoutingSource.includes("return `${baseRoute}/${encodeURIComponent(integrationSection)}`;"));
+  assert.ok(dashboardRoutingSource.includes("window.history.pushState({}, '', nextUrl);"));
+  assert.ok(frontendAppSource.includes('appRouteUrl(nextRoute, activeTab, activeIntegrationSection, dashboardRouteOptions)'));
+  assert.ok(frontendAppSource.includes("window.history.replaceState({}, '', nextUrl);"));
+  assert.ok(appPrimitivesSource.includes("import { isDashboardRoutePath } from './dashboardRouting';"));
+  assert.ok(dashboardRoutingSource.includes('export function legacyDashboardUrl(tab, integrationSection)'));
 }));
 
 results.push(run('wishlist acquisition foundation is scoped, routed, and documented', () => {

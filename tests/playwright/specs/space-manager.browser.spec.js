@@ -59,7 +59,7 @@ test.describe('space manager browser regressions', () => {
       await expect(page.getByText('Library item added').first()).toBeVisible();
       await expect(page.getByText(title).first()).toBeVisible();
       await page.getByRole('button', { name: 'Open item' }).first().click();
-      await expect(page).toHaveURL(/tab=library-movies/);
+      await expect(page).toHaveURL(/\/library\/movies$/);
       await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
     } finally {
       await deleteMediaByExactTitle(requestContext, title).catch(() => {});
