@@ -262,7 +262,7 @@ test.describe('library multi-format browser regressions', () => {
 
       const storageState = await requestContext.storageState();
       await page.context().addCookies(storageState.cookies || []);
-      await page.goto('/dashboard?tab=library-comics');
+      await page.goto('/library/comics');
 
       await getLibrarySearchInput(page).fill(title);
       const resultCard = page.locator('article').filter({
@@ -869,8 +869,9 @@ test.describe('library multi-format browser regressions', () => {
 
       const storageState = await requestContext.storageState();
       await page.context().addCookies(storageState.cookies || []);
-      await page.goto('/dashboard?tab=library-comics');
+      await page.goto('/library/comics');
 
+      await expect(page.locator('article').filter({ hasText: titles[29] }).first()).toBeVisible();
       await page.locator('select').filter({ has: page.locator('option[value="25"]') }).last().selectOption('25');
       await expect(page.getByText('Page 1 / 2', { exact: true })).toBeVisible();
       await expect(page.getByLabel('Previous page')).toBeVisible();
