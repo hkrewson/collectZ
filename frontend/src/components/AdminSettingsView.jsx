@@ -227,6 +227,100 @@ function EmailDeliveryCard({
   );
 }
 
+function AnalyticsTrackingCard({
+  analytics,
+  form,
+  saving,
+  onChange,
+  onSave
+}) {
+  const configured = Boolean(analytics?.configured);
+  const enabled = Boolean(form.enabled);
+  return (
+    <div className="rounded-xl border border-edge bg-panel px-4 py-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-ink">Analytics Tracking</p>
+          <p className="mt-1 text-sm text-ghost">
+            Load the platform analytics script on every collectZ browser route.
+          </p>
+        </div>
+        <span className={`text-sm font-medium ${enabled && configured ? 'text-ok' : 'text-warn'}`}>
+          {enabled && configured ? 'Enabled' : configured ? 'Configured' : 'Not configured'}
+        </span>
+      </div>
+
+      <div className="mt-5 space-y-4 border-t border-edge/70 pt-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium text-ink">Rybbit</p>
+            <p className="mt-1 text-sm text-ghost">
+              Use the script URL from your hosted or self-hosted Rybbit install.
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={enabled}
+            aria-label={enabled ? 'Disable analytics tracking' : 'Enable analytics tracking'}
+            disabled={saving}
+            onClick={() => onChange('enabled', !enabled)}
+            className={[
+              'relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-all duration-150',
+              'focus:outline-none focus:ring-2 focus:ring-gold/30 focus:ring-offset-2 focus:ring-offset-surface',
+              enabled ? 'border-gold/30 bg-gold/15' : 'border-edge bg-raised/80',
+              saving ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:border-muted'
+            ].join(' ')}
+          >
+            <span
+              className={[
+                'inline-block h-5 w-5 rounded-full transition-transform duration-150 shadow-sm',
+                enabled ? 'bg-gold translate-x-6' : 'bg-dim translate-x-1'
+              ].join(' ')}
+            />
+          </button>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-2">
+          <label className="field">
+            <span className="label">Script URL</span>
+            <input
+              className="input"
+              value={form.scriptSrc}
+              disabled={saving}
+              onChange={(e) => onChange('scriptSrc', e.target.value)}
+              placeholder="https://app.rybbit.io/api/script.js"
+            />
+          </label>
+          <label className="field">
+            <span className="label">Site ID</span>
+            <input
+              className="input"
+              value={form.siteId}
+              disabled={saving}
+              onChange={(e) => onChange('siteId', e.target.value)}
+            />
+          </label>
+          <label className="field md:col-span-2">
+            <span className="label">Optional Data Attributes</span>
+            <textarea
+              className="input min-h-[6rem]"
+              value={form.attributesText}
+              disabled={saving}
+              onChange={(e) => onChange('attributesText', e.target.value)}
+              placeholder='{"data-debounce":"1000"}'
+            />
+          </label>
+        </div>
+
+        <button type="button" className="btn-primary" disabled={saving} onClick={onSave}>
+          {saving ? 'Saving…' : 'Save Analytics Settings'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function statusClass(status) {
   if (status === 'ok' || status === 'available' || status === 'fresh' || status === 'ready_for_manual_rehearsal') return 'text-ok';
   if (status === 'error' || status === 'failed' || status === 'invalid' || status === 'blocked') return 'text-err';
@@ -528,6 +622,7 @@ export default function AdminSettingsView({
   themeDescription = 'Choose whether collectZ follows your system appearance or stays fixed to a light or dark theme.',
   emptyFeatureFlagsMessage = 'No feature settings are currently available.',
   emailDeliveryEndpoint = null,
+  analyticsEndpoint = null,
   portabilityEndpoint = null,
   portabilityMode = 'combined'
 }) {
@@ -553,6 +648,15 @@ export default function AdminSettingsView({
   });
   const [savingEmailDelivery, setSavingEmailDelivery] = useState(false);
   const [testingEmailDelivery, setTestingEmailDelivery] = useState(false);
+  const [analyticsSettings, setAnalyticsSettings] = useState(null);
+  const [analyticsError, setAnalyticsError] = useState('');
+  const [analyticsForm, setAnalyticsForm] = useState({
+    enabled: false,
+    scriptSrc: 'https://app.rybbit.io/api/script.js',
+    siteId: '',
+    attributesText: ''
+  });
+  const [savingAnalytics, setSavingAnalytics] = useState(false);
   const [portabilityStatus, setPortabilityStatus] = useState(null);
   const [portabilityError, setPortabilityError] = useState('');
   const [loadingPortability, setLoadingPortability] = useState(false);
@@ -632,6 +736,38 @@ export default function AdminSettingsView({
       cancelled = true;
     };
   }, [apiCall, emailDeliveryEndpoint]);
+
+  useEffect(() => {
+    if (!analyticsEndpoint) {
+      setAnalyticsSettings(null);
+      setAnalyticsError('');
+      return;
+    }
+    let cancelled = false;
+    apiCall('get', analyticsEndpoint)
+      .then((payload) => {
+        if (cancelled) return;
+        const analytics = payload?.analytics || null;
+        setAnalyticsSettings(analytics);
+        setAnalyticsForm({
+          enabled: Boolean(analytics?.enabled),
+          scriptSrc: analytics?.script_src || 'https://app.rybbit.io/api/script.js',
+          siteId: analytics?.site_id || '',
+          attributesText: analytics?.attributes && Object.keys(analytics.attributes).length
+            ? JSON.stringify(analytics.attributes, null, 2)
+            : ''
+        });
+        setAnalyticsError('');
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setAnalyticsSettings(null);
+        setAnalyticsError(error?.response?.data?.error || 'Failed to load analytics tracking settings');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [analyticsEndpoint, apiCall]);
 
   const loadPortabilityStatus = useCallback(async () => {
     if (!portabilityEndpoint) {
@@ -796,6 +932,55 @@ export default function AdminSettingsView({
     }
   };
 
+  const updateAnalyticsField = (key, value) => {
+    setAnalyticsForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const saveAnalyticsSettings = async () => {
+    if (!analyticsEndpoint) return;
+    let attributes = {};
+    if (analyticsForm.attributesText.trim()) {
+      try {
+        attributes = JSON.parse(analyticsForm.attributesText);
+      } catch (_) {
+        const message = 'Optional data attributes must be valid JSON.';
+        setAnalyticsError(message);
+        onToast(message, 'error');
+        return;
+      }
+    }
+
+    setSavingAnalytics(true);
+    setAnalyticsError('');
+    try {
+      const result = await apiCall('put', analyticsEndpoint, {
+        enabled: Boolean(analyticsForm.enabled),
+        provider: 'rybbit',
+        script_src: analyticsForm.scriptSrc,
+        site_id: analyticsForm.siteId,
+        attributes
+      });
+      const analytics = result?.analytics || null;
+      setAnalyticsSettings(analytics);
+      setAnalyticsForm({
+        enabled: Boolean(analytics?.enabled),
+        scriptSrc: analytics?.script_src || 'https://app.rybbit.io/api/script.js',
+        siteId: analytics?.site_id || '',
+        attributesText: analytics?.attributes && Object.keys(analytics.attributes).length
+          ? JSON.stringify(analytics.attributes, null, 2)
+          : ''
+      });
+      window.dispatchEvent(new CustomEvent('collectz:platform-analytics-updated', { detail: result }));
+      onToast('Analytics tracking settings updated');
+    } catch (error) {
+      const message = error?.response?.data?.error || 'Failed to update analytics tracking settings';
+      setAnalyticsError(message);
+      onToast(message, 'error');
+    } finally {
+      setSavingAnalytics(false);
+    }
+  };
+
   return (
     <div className={embedded ? 'space-y-4' : 'h-full overflow-y-auto p-4 sm:p-6 space-y-6'}>
       <section className="space-y-3">
@@ -817,6 +1002,20 @@ export default function AdminSettingsView({
         {emailDeliveryError ? (
           <div className="rounded-xl border border-err/30 bg-err/5 px-4 py-3 text-sm text-err">
             {emailDeliveryError}
+          </div>
+        ) : null}
+        {analyticsSettings ? (
+          <AnalyticsTrackingCard
+            analytics={analyticsSettings}
+            form={analyticsForm}
+            saving={savingAnalytics}
+            onChange={updateAnalyticsField}
+            onSave={saveAnalyticsSettings}
+          />
+        ) : null}
+        {analyticsError ? (
+          <div className="rounded-xl border border-err/30 bg-err/5 px-4 py-3 text-sm text-err">
+            {analyticsError}
           </div>
         ) : null}
         {portabilityEndpoint ? (

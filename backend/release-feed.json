@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.20.10",
+      "version": "3.20.10",
+      "date": null,
+      "status": null,
+      "summary": "This patch adds a Cairn-owned platform analytics setting for Rybbit and loads the configured tracking script globally in the collectZ browser app. Platform operators can save the Rybbit script URL, site id, and optional `data-*` attributes from Platform Settings without storing arbitrary inline JavaScript.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added Cairn analytics tracking settings under `/api/admin/settings/analytics`.",
+            "Added public Cairn browser config at `/api/platform/analytics`.",
+            "Added Platform Settings controls for enabling analytics, setting the script URL, site id, and optional data attributes.",
+            "Added a collectZ root-level analytics loader so enabled tracking is applied across auth, dashboard, and standalone app routes.",
+            "Updated Cairn OpenAPI docs and helper coverage for the new settings contract."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.20.9",
       "version": "3.20.9",
       "date": null,
@@ -137,28 +156,6 @@
             "Added compact automatic sync controls to Settings > Integrations > Plex > Sync.",
             "Updated scheduler readback and manual scheduler runs to prefer stored sync settings unless env overrides are configured.",
             "Preserved existing manual sync, queued preview, conflict review, and writeback behavior."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.20.0",
-      "version": "3.20.0",
-      "date": null,
-      "status": null,
-      "summary": "This minor release starts the Plex true-sync workflow redesign. The Plex integration tab is split into setup, sync, webhook, and advanced sections, and the old standalone operating-model explainer has been removed from the UI.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added a documented Plex true-sync workflow plan.",
-            "Split the Plex integration settings surface into `Setup`, `Sync`, `Webhook`, and `Advanced`.",
-            "Moved credentials and detected libraries into `Setup`.",
-            "Kept reconciliation controls and conflict review in `Sync`.",
-            "Kept receiver setup and receiver state in `Webhook`.",
-            "Moved provider diagnostics and now-playing display controls into `Advanced`.",
-            "Removed the separate Plex operating-model explainer from the settings UI.",
-            "Updated backlog and Plex modernization docs so future sync work points to the new true-sync plan."
           ]
         }
       ]

@@ -23,6 +23,8 @@ function isPlatformOwnedPath(path) {
   if (normalizedPath === '/admin/activity' || normalizedPath.startsWith('/admin/activity?')) return true;
   if (normalizedPath === '/admin/loan-reminder-operations' || normalizedPath.startsWith('/admin/loan-reminder-operations?')) return true;
   if (normalizedPath === '/admin/settings/email-delivery' || normalizedPath.startsWith('/admin/settings/email-delivery/')) return true;
+  if (normalizedPath === '/admin/settings/analytics' || normalizedPath.startsWith('/admin/settings/analytics/')) return true;
+  if (normalizedPath === '/platform/analytics') return true;
 
   return [
     '/admin/settings/integrations/test-pricecharting',

@@ -6,6 +6,39 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.20.10 — Cairn Platform Analytics Tracking Settings
+
+**Goal:** Let platform operators configure Rybbit analytics tracking from Platform Settings and load the configured script across collectZ browser routes.
+
+### Scope
+
+- Add Cairn-owned analytics tracking settings for enablement, script URL, site id, and optional `data-*` attributes.
+- Expose a public Cairn analytics config endpoint for browser clients.
+- Add Platform Settings controls for the Rybbit script URL and site id.
+- Load the configured analytics script at the collectZ app root so auth, dashboard, and standalone routes share the same tracking setup.
+
+### Acceptance Criteria
+
+- Platform Settings can save and read analytics tracking settings through Cairn.
+- collectZ reads the public Cairn analytics config when the platform bridge is configured.
+- An enabled, configured Rybbit script is appended to the document head on every app route.
+- Disabled or incomplete analytics settings do not inject a script.
+- The implementation does not store arbitrary inline JavaScript.
+
+### Active Slice Notes
+
+- This is a newly selected platform settings slice for the `cairn` control-plane path.
+- Rybbit's tracking script handles SPA navigation after it is loaded globally.
+
+### Closeout
+
+- Status: completed in `3.20.10`.
+- Project docs/checklists used: `AGENTS.md`, `docs/architecture/cairn-platform-extraction-map.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, and `docs/releases/v3.20.10.md`.
+- Runtime evidence: local platform stack rebuilt to `3.20.10` on alternate host ports because an existing private Cairn stack owned `3101`; `/api/health` on `http://localhost:3210` reports frontend/backend/build `3.20.10`; Cairn `/health` on `http://localhost:3111` reports `0.1.6`; backend, frontend, Cairn, and both Postgres containers are healthy; Cairn `/api/platform/analytics` returns disabled defaults after verification cleanup.
+- Verification: Cairn syntax check passed; Cairn unit tests passed with `27` checks; frontend production build passed; backend unit/source suite passed with `334` checks; release feed regenerated; browser runtime proof confirmed enabled analytics injects the Rybbit script into `document.head` and disabled analytics removes it; in-container Help > Releases smoke served `3.20.10` as latest; observability evidence refreshed for `3.20.10` with `9/9` checks passed; `npm run release:local-gate` passed with `12/12` gates; `git diff --check` passed for collectZ and Cairn.
+- Blocked/unverified: local preflight marks secure-cookie compose smoke as blocked because the local stack runs with `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`; `secret-scan`, browser regression, and image security/SBOM remain CI-only or not run by the local preflight helper.
+- Risks/follow-ups: Rybbit domain allow-listing still needs to match the deployed collectZ domain in the Rybbit dashboard; localhost tracking may require Rybbit's development API-key workflow.
+
 ## 3.20.9 — Plex Conflict Review Server Filters
 
 **Goal:** Make Plex conflict review filtering durable by moving match-reason filtering into the backend query.

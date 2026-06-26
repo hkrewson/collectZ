@@ -533,6 +533,7 @@ export default function DashboardContent({
           visibleFlagKeys={coreRuntime ? undefined : ['self_registration_enabled']}
           emptyFeatureFlagsMessage={null}
           emailDeliveryEndpoint={platformBridgeEnabled ? '/admin/settings/email-delivery' : null}
+          analyticsEndpoint={platformBridgeEnabled ? '/admin/settings/analytics' : null}
           portabilityEndpoint="/admin/settings/portability"
         />
       );

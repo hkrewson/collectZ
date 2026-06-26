@@ -9,6 +9,7 @@ import {
   readDashboardStateFromUrl
 } from './components/app/dashboardRouting';
 import useApiClient from './components/app/hooks/useApiClient';
+import usePlatformAnalytics from './components/app/hooks/usePlatformAnalytics';
 import useImportJobPolling from './components/app/hooks/useImportJobPolling';
 import useSessionBootstrap from './components/app/hooks/useSessionBootstrap';
 import useMediaApi from './components/app/hooks/useMediaApi';
@@ -48,6 +49,7 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const showToast = useCallback((message, type = 'ok') => setToast({ message, type }), []);
   const { apiCall, apiUrl } = useApiClient();
+  usePlatformAnalytics(apiCall);
   const { user, setUser, authChecked, setAuthChecked } = useSessionBootstrap({ route, apiCall, setRoute });
   const applyScopePayload = useCallback((payload) => {
     const nextSpaces = Array.isArray(payload?.spaces) ? payload.spaces : [];
