@@ -69,6 +69,8 @@ It must integrate with collectZ through documented APIs only. It must not patch 
 
 The platform is designed for many Core app instances, but v1 can deploy one Core stack plus one `cairn` service in the same compose environment.
 
+Any compose examples or runtime configuration that describe the connection between `cairn` and collectZ Core belong in `cairn` documentation only. The public Core repository must not carry paired-service compose examples, private network wiring instructions, or `cairn` deployment configuration.
+
 The first extraction map lives in `docs/architecture/cairn-platform-extraction-map.md`.
 
 ## Auth and Access Model
@@ -140,6 +142,14 @@ Mirror-only candidates removed or rewritten in the first cleanup slice:
 
 Remaining Core/`cairn` cleanup should focus on concrete platform-surface extraction slices and stale active maintainer docs or roadmap references that still describe the retired mirror model as current work. Historical release notes may continue to describe older releases accurately.
 
+The remaining split work is intentionally narrow:
+
+- Remove or quarantine dead/unreachable backend platform route code from Core after each route is confirmed blocked or moved.
+- Decide whether collectZ keeps a temporary platform frontend shell for `cairn`, or whether those views move fully to the `cairn` repository.
+- Classify service-account keys as Core machine-token support or move them to `cairn` as platform admin tokens.
+- Keep support-session and scoped workspace APIs in Core unless `cairn` needs a cleaner documented operation bridge.
+- Keep paired-service compose examples and Core/`cairn` network configuration out of the public Core repository; document them in `cairn` only.
+
 Platform extraction candidates already identified by the current edition boundary:
 
 - platform routers mounted only when `APP_EDITION` is not homelab
@@ -180,7 +190,7 @@ Core primitives to preserve until replaced by a deliberate API contract:
 - collectZ OpenAPI omits cairn-owned platform paths.
 - `cairn` OpenAPI documents every platform path that collectZ now blocks or bridges.
 - The collectZ local stack can boot without the platform service.
-- Paired collectZ + `cairn` development configuration is documented in `cairn`.
+- Paired collectZ + `cairn` development configuration, compose examples, and private-network guidance are documented in `cairn`, not in the public Core repository.
 - Secret/history scans are rerun for release-shaped or push-ready handoffs.
 
 The current audit record lives in `docs/architecture/public-readiness-audit.md`.

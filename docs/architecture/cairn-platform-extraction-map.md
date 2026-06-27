@@ -156,6 +156,7 @@ Compatibility bridge:
 
 - Core homelab runtime smoke still passes after each extraction slice.
 - collectZ starts and operates without `cairn`.
+- Any compose examples, private-network guidance, or runtime configuration that connects collectZ Core to `cairn` lives in the `cairn` repository only, not in public Core docs or compose files.
 - `cairn` can route a known Core user email to the configured Core login URL.
 - `cairn` can authenticate a platform admin without creating a Core session.
 - Support access requires explicit approval, writes an audit trail, expires, and cannot be initiated by ordinary Core login.

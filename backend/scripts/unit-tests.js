@@ -2484,29 +2484,16 @@ results.push(run('platform first-user bootstrap no longer depends on SMTP delive
   assert.ok(authRoutesSource.includes('const emailVerified = homelabEdition || Boolean(claimedInvite) || bootstrapWithoutSmtp;'));
 }));
 
-results.push(run('support route source includes request creation, releases feed, replies, and staff summary endpoints', () => {
+results.push(run('support route source is limited to the Core release feed after cairn extraction', () => {
   assert.ok(supportRoutesSource.includes("sharedRouter.get('/releases'"));
-  assert.ok(supportRoutesSource.includes("platformRouter.get('/requests'"));
-  assert.ok(supportRoutesSource.includes("platformRouter.post('/requests'"));
-  assert.ok(supportRoutesSource.includes("platformRouter.post('/requests/:id/messages'"));
-  assert.ok(supportRoutesSource.includes("platformRouter.patch('/requests/:id/status'"));
-  assert.ok(supportRoutesSource.includes("platformRouter.patch('/requests/:id/access'"));
-  assert.ok(supportRoutesSource.includes("platformRouter.patch('/requests/:id/triage'"));
-  assert.ok(supportRoutesSource.includes("platformRouter.get('/staff/summary'"));
   assert.ok(supportRoutesSource.includes('loadReleaseNotesFeed'));
-  assert.ok(supportRoutesSource.includes('support.request.access.updated'));
-  assert.ok(supportRoutesSource.includes('normalizeSupportQueueFilter'));
-  assert.ok(supportRoutesSource.includes('normalizeSupportClassificationFilter'));
-  assert.ok(supportRoutesSource.includes('req.query.q'));
-  assert.ok(supportRoutesSource.includes('support_access_expires_at'));
-  assert.ok(supportRoutesSource.includes('buildSupportAccessClearedOnCloseMessage'));
-  assert.ok(supportRoutesSource.includes('formatSupportTimelineEvent'));
-  assert.ok(supportRoutesSource.includes('buildDerivedExpiredSupportAccessEvent'));
-  assert.ok(supportRoutesSource.includes('timelineResult'));
-  assert.ok(supportRoutesSource.includes('normalizeTrackedWorkLink'));
-  assert.ok(supportRoutesSource.includes("const marker = '/issues/';"));
-  assert.ok(!supportRoutesSource.includes('normalized.match(/\\/issues\\/'));
-  assert.ok(supportRoutesSource.includes('Linked engineering issue is now #'));
+  assert.ok(supportRoutesSource.includes('supportSharedRouter'));
+  assert.ok(!supportRoutesSource.includes('supportPlatformRouter'));
+  assert.ok(!supportRoutesSource.includes('platformRouter'));
+  assert.ok(!supportRoutesSource.includes("'/requests'"));
+  assert.ok(!supportRoutesSource.includes("'/staff/summary'"));
+  assert.ok(!supportRoutesSource.includes('support.request.access.updated'));
+  assert.ok(!supportRoutesSource.includes('normalizeSupportQueueFilter'));
 }));
 
 results.push(run('frontend source includes tabbed help center and support inbox surfaces for 2.9.1 foundation work', () => {
@@ -2671,8 +2658,6 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(authRoutesSource.includes('scopeSpaceId: sessionUser.scope_space_id ?? sessionUser.active_space_id ?? null'));
   assert.ok(authRoutesSource.includes('active_space_id: req.user.scopeSpaceId ?? req.user.activeSpaceId ?? row.active_space_id ?? null'));
   assert.ok(librariesRoutesSource.includes('const existingScopeSpaceId = req.user.scopeSpaceId ?? req.user.activeSpaceId ?? null;'));
-  assert.ok(supportRoutesSource.includes("const { resolveScopeContext } = require('../db/scopeContext');"));
-  assert.ok(supportRoutesSource.includes('const scopeContext = resolveScopeContext(req);'));
   assert.ok(spacesRoutesSource.includes('req.user.scopeSpaceId = spaceId;'));
   assert.ok(authRoutesSource.includes("platformRouter.post('/support-session/start'"));
   assert.ok(authRoutesSource.includes("platformRouter.delete('/support-session'"));
@@ -2696,7 +2681,7 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(mediaRoutesSource.includes('loadScopedIntegrationConfig(scopeContext?.spaceId || null)'));
   assert.ok(mediaRoutesSource.includes('loadScopedIntegrationConfig(effectiveScopeContext.spaceId || null)'));
   assert.ok(supportRoutesSource.includes('supportSharedRouter'));
-  assert.ok(supportRoutesSource.includes('supportPlatformRouter'));
+  assert.ok(!supportRoutesSource.includes('supportPlatformRouter'));
   assert.ok(homelabHelpBrowserSpecSource.includes('product_edition'));
   assert.ok(homelabHelpBrowserSpecSource.includes("name: 'Help Admin'"));
   assert.ok(homelabHelpBrowserSpecSource.includes('/dashboard?tab=admin-spaces'));
