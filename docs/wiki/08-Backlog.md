@@ -816,6 +816,47 @@ These are product-level capability gaps discovered from the current shape of the
 - Existing rows keep working.
 - The taxonomy does not blur Art and Collectibles boundaries without an explicit future decision.
 
+### Backlog Item: Homelab Custom Objects Registry Foundation
+**Type:** Deferred milestone
+**Tags:** `homelab`, `custom-objects`, `extensions`, `registry`, `collectibles`, `metadata`
+**Status:** Active backlog; not yet promoted or versioned.
+
+**Goal:** Let homelab admins define custom object collections, such as board games, trading cards, hardware, props, memorabilia, or other household collection types, without turning them into built-in media types.
+
+**Why this work exists**
+- collectZ's built-in media model is intentionally stable around Movies, TV, Books, Comics, Audio, and Games.
+- Some homelab collections need structured fields but do not belong cleanly in Media, Art, or the current Collectibles taxonomy.
+- A Custom Objects surface gives these records separation without loosening `media.media_type` or creating a new top-level app section for every category.
+- Provider customization should start with manifests and diagnostics before allowing mounted executable adapters.
+
+**Intent**
+- Add a hidden-by-default Custom Objects section that appears only when custom definitions exist.
+- Store records as custom object records with common fields plus definition-specific `custom_details`.
+- Keep existing Media and Collectibles behavior stable.
+- Treat provider SDK support as a later phase.
+
+**Scope**
+- Add a backend extension registry for custom object definitions and provider manifests.
+- Load shipped and homelab-mounted manifests from a documented extension directory.
+- Validate manifests, reject duplicate keys, and expose admin diagnostics.
+- Add scoped Custom Objects APIs and a generic UI surface.
+- Add templates for custom object definitions and future provider manifests.
+- Document Docker volume mounting and reload behavior.
+
+**Out of scope**
+- Do not loosen `media.media_type` constraints in the first slice.
+- Do not execute homelab-mounted JavaScript provider adapters in v1.
+- Do not merge Custom Objects into the normal Library media tabs.
+- Do not replace existing Collectibles, Art, or trait workflows.
+
+**Acceptance Criteria**
+- Custom Objects nav is hidden when no valid definitions exist.
+- A valid mounted definition makes the Custom Objects surface available.
+- Users can create, edit, list, search, and delete records for a custom definition.
+- Custom fields are validated against the definition.
+- Admin diagnostics show valid and rejected definitions with sanitized errors.
+- Existing Media, Collectibles, Art, and provider flows keep working unchanged.
+
 ### Backlog Item: Platform vs Workspace Boundary Clarification
 **Type:** Deferred milestone
 **Tags:** `platform`, `workspace`, `navigation`, `settings`, `integrations`, `backup`, `portability`
