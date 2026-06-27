@@ -2,7 +2,7 @@
 
 This document defines the current collectZ public repository strategy.
 
-The previous private-source/public-mirror export model is retired. collectZ is moving back to a canonical public-source model, with SaaS/platform behavior split into a separate service named `cairn`.
+The previous private-source/public-mirror export model is retired. collectZ is back to a canonical public-source model, with SaaS/platform behavior split into a separate service named `cairn`.
 
 ## Goal
 
@@ -12,11 +12,11 @@ The public source repository should include the code needed to understand, test,
 
 ## Operating model
 
-- `collectZ-main` becomes the canonical public collectZ source repository.
-- The old public `collectz` mirror should be archived or renamed before the canonical repo takes over the public path.
+- The canonical collectZ source repository is public.
+- The old public `collectz` mirror has been archived or renamed.
 - collectZ Core remains runnable without `cairn`.
 - `cairn` starts as a private repo while extraction is in progress, then can be made public after review.
-- GitHub Actions, CodeQL, dependency checks, OpenAPI validation, backend tests, frontend builds, and Docker builds should run on the canonical public source.
+- GitHub Actions, CodeQL, dependency checks, OpenAPI validation, backend tests, frontend builds, Docker builds, secret scanning, runtime smoke, browser regression, and image security/SBOM gates run on the canonical public source.
 - Historical release notes may mention the retired mirror workflow, but current maintainer docs and commands should not require it.
 
 ## Public source contents
@@ -54,18 +54,18 @@ The old mirror export machinery has been removed from active source:
 
 Keep future cleanup focused on active docs and commands. Avoid rewriting historical release notes unless they are reused as current instructions.
 
-## Publication readiness checklist
+## Public-source maintenance checklist
 
-Before making the canonical source repo public:
+For ongoing public-source maintenance:
 
-1. Confirm the old public mirror repository has been archived or renamed.
+1. Confirm the old public mirror repository remains archived or renamed.
 2. Confirm `README.md`, `docs/public/`, maintainer docs, package scripts, and workflows no longer instruct maintainers to generate or push a public mirror.
 3. Run a secret and private-artifact sweep over tracked files.
 4. Confirm `.gitignore` excludes local env files, generated artifacts, traces, logs, screenshots, and database dumps.
 5. Confirm public workflows do not require private-only credentials except for explicitly configured package/image publishing secrets.
 6. Run backend tests, OpenAPI validation, frontend build, Docker build, CodeQL/dependency checks, and `git diff --check`.
 7. Decide whether issues/discussions are enabled on the canonical public repo.
-8. Change repo visibility only after the above checks pass.
+8. Keep remaining work framed as Core/`cairn` extraction slices, not as a public visibility blocker.
 
 ## `cairn` boundary checklist
 

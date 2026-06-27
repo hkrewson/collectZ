@@ -2,7 +2,7 @@
 
 ## Decision
 
-collectZ will become the canonical public open-source repository again. The temporary public mirror model will be retired. SaaS/platform behavior will move into a separate service and repository named `cairn`.
+collectZ is the canonical public open-source Core repository again. The temporary public mirror model is retired. SaaS/platform behavior is moving into a separate service and repository named `cairn`.
 
 The new boundary is:
 
@@ -10,18 +10,20 @@ The new boundary is:
 - `cairn` is the platform control plane required for the full SaaS/platform product: routing, platform administration, support workflows, platform docs, and platform API contracts.
 - `cairn` starts private while extraction and review are in progress, then can be made public after the boundary is clean.
 
-## Repository Transition
+## Repository Transition Status
 
-1. Archive or rename the current public `hkrewson/collectz` mirror instead of deleting it.
-2. Promote `hkrewson/collectZ-main` to the canonical public collectZ repository, using the final public repo name/path once the mirror is out of the way.
-3. Remove mirror-only machinery from collectZ:
+Completed transition work:
+
+1. Archived or renamed the old public `hkrewson/collectz` mirror instead of deleting it.
+2. Promoted the canonical collectZ source repository publicly.
+3. Removed mirror-only machinery from collectZ:
    - public export/build scripts,
    - mirror hygiene scripts,
    - public mirror workflows,
    - docs that state backend source is private,
    - generated mirror-only compose comments or assumptions.
-4. Keep private maintainer notes, release evidence, runtime artifacts, local credentials, private environment files, and operational-only automation out of the public repo.
-5. Replace mirror CI with normal public-source CI for backend, frontend, OpenAPI, Docker image builds, CodeQL, and dependency review.
+4. Kept private maintainer notes, release evidence, runtime artifacts, local credentials, private environment files, and operational-only automation out of the public repo.
+5. Replaced mirror CI with normal public-source CI for backend, frontend, OpenAPI, Docker image builds, CodeQL, dependency review, secret scanning, runtime smoke, browser regression, and image security/SBOM gates.
 
 ## collectZ Core Boundary
 
@@ -105,6 +107,7 @@ Platform-only paths should be removed from the collectZ OpenAPI spec during extr
 
 ## Progress
 
+- The old public mirror has been archived or renamed, and the canonical collectZ source repository is public.
 - Mirror export scripts, manifest, generated compose script, public mirror automation, and mirror-specific active docs have been removed from active source.
 - Active maintainer docs now describe the canonical public-source model and `cairn` extraction.
 - The first platform extraction map is documented in `docs/architecture/cairn-platform-extraction-map.md`.
@@ -135,7 +138,7 @@ Mirror-only candidates removed or rewritten in the first cleanup slice:
 - Docker compose comments that mark the compose file as generated from public-mirror automation
 - unit tests that assert public mirror/export behavior
 
-Remaining mirror-model cleanup should focus on historical maintainer docs and release-roadmap references. Those should be retired separately from release notes, which may continue to describe older releases accurately.
+Remaining Core/`cairn` cleanup should focus on concrete platform-surface extraction slices and stale active maintainer docs or roadmap references that still describe the retired mirror model as current work. Historical release notes may continue to describe older releases accurately.
 
 Platform extraction candidates already identified by the current edition boundary:
 
@@ -159,7 +162,7 @@ Core primitives to preserve until replaced by a deliberate API contract:
 
 ## Acceptance Criteria
 
-- collectZ can be made public without relying on a generated mirror.
+- collectZ is public without relying on a generated mirror.
 - collectZ can run without `cairn`.
 - `cairn` can route users to one configured Core instance.
 - Normal Core users authenticate in Core.
@@ -167,7 +170,7 @@ Core primitives to preserve until replaced by a deliberate API contract:
 - Support access is explicit, audited, and time-bound.
 - Core OpenAPI contains only Core APIs.
 - Platform OpenAPI lives in `cairn`.
-- Public CI covers backend, frontend, OpenAPI, Docker builds, CodeQL, and dependency review.
+- Public CI covers backend, frontend, OpenAPI, Docker builds, CodeQL, dependency review, secret scan, runtime smoke, browser regression, and image security/SBOM gates.
 
 ## Public Readiness Checklist
 
@@ -178,6 +181,6 @@ Core primitives to preserve until replaced by a deliberate API contract:
 - `cairn` OpenAPI documents every platform path that collectZ now blocks or bridges.
 - The collectZ local stack can boot without the platform service.
 - Paired collectZ + `cairn` development configuration is documented in `cairn`.
-- Final secret/history scan is run before repository visibility changes.
+- Secret/history scans are rerun for release-shaped or push-ready handoffs.
 
 The current audit record lives in `docs/architecture/public-readiness-audit.md`.

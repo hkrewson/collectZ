@@ -1,6 +1,6 @@
 # Public Readiness Audit
 
-This audit records the current collectZ source state before changing the canonical repository visibility.
+This audit records the collectZ public-source readiness state after the canonical repository visibility transition.
 
 ## Scope
 
@@ -10,6 +10,7 @@ This audit records the current collectZ source state before changing the canonic
 
 ## Checks Completed
 
+- The old public mirror repository has been archived or renamed, and the canonical collectZ source repository is public.
 - `scripts/audit-public-source-boundary.js` reports `0` findings.
 - `backend/scripts/validate-openapi.js` passes after the Core OpenAPI wording cleanup.
 - `npm run release:local-gate:full` reports `13` passed, `0` failed, and `3` locally blocked gates.
@@ -17,6 +18,7 @@ This audit records the current collectZ source state before changing the canonic
 - Dockerized gitleaks history scan reports `0` leaks across `967` commits.
 - Dockerized Trivy scans report `0` HIGH/CRITICAL vulnerabilities, secrets, or misconfigurations for the backend image, frontend image, and publishable filesystem scan.
 - Active GitHub workflows do not generate or push a public mirror.
+- Active GitHub workflows provide the public-source CI posture for backend tests, frontend build, OpenAPI validation, Docker build/publish, CodeQL, dependency audit/watch, secret scan, runtime smoke, browser regression, and image security/SBOM gates.
 - Root package scripts no longer include public export or public mirror generation commands.
 - `.gitignore` excludes local public-export artifacts, backups, logs, traces, screenshots, media, and runtime output.
 - `env.example` contains only collectZ Core runtime settings; platform composition is documented outside collectZ.
@@ -31,10 +33,10 @@ This audit records the current collectZ source state before changing the canonic
 - Local gitleaks and Trivy binaries are not installed, so those scans were run through Docker rather than the local full-gate wrapper.
 - Full mixed Playwright browser regression is split at the Core/platform boundary. Core CI now runs the required `test:browser:core` smoke subset; broader Core regression coverage is preserved behind `test:browser:core-regression`, event planner coverage behind `test:browser:event-planner`, and full-product platform/support/workspace coverage behind `test:browser:platform`.
 
-## Remaining Before Visibility Change
+## Remaining Public/Core Follow-Up
 
-1. Archive or rename the existing public `hkrewson/collectz` mirror.
-2. Confirm the desired final repository path for canonical collectZ source.
-3. Run the Core browser and runtime gates locally, then commit the split CI workflow before enabling public GitHub Actions.
-4. Run the release/test gate selected for the visibility change, including backend tests, frontend build, OpenAPI validation, Docker build, CodeQL, dependency checks, and secret scan.
-5. Change repository visibility only after the above checks pass.
+1. Keep historical release notes intact unless they are reused as current maintainer instructions.
+2. Keep active docs, scripts, package commands, and workflows free of mirror-generation instructions.
+3. Continue the Core/`cairn` split as concrete extraction slices instead of treating public visibility as an open blocker.
+4. Rerun the selected release/test gate before each push-ready or release-shaped handoff.
+5. Keep CI evidence current when workflows, runtime gates, dependency scanning, secret scanning, or image/SBOM behavior changes.

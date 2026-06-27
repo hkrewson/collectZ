@@ -1298,7 +1298,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 ### Backlog Item: Canonical Public Core and Platform Extraction
 **Type:** Deferred infrastructure milestone
 **Tags:** `public-repo`, `open-source`, `platform-extraction`, `cairn`, `ci`, `security`, `docs`, `subscription-readiness`
-**Status:** Active backlog; transition started.
+**Status:** Active 3.x closeout line. The canonical public-source repository transition is complete; remaining work is the narrower Core/`cairn` platform-surface split and compatibility cleanup.
 
 **Goal:** Make collectZ the canonical public open-source Core repository again, retire the generated mirror workflow, and extract SaaS/platform behavior into a separate service named `cairn`.
 
@@ -1316,21 +1316,26 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - Design `cairn` for many Core app instances, while allowing v1 to deploy one Core stack plus one platform service.
 
 **Current state**
-- The old public mirror repo exists at `https://github.com/hkrewson/collectz`.
-- The current private canonical source repo exists at `https://github.com/hkrewson/collectZ-main`.
+- The old public mirror repository has been archived or renamed, and the canonical collectZ source repository is now public.
 - The active source tree has removed the public export builder, public export validator, public export manifest, generated compose script, and `public-mirror/` automation.
-- `docs/architecture/public-core-platform-extraction-plan.md` records the extraction plan and first inventory.
-- The current homelab/platform edition boundary identifies the first platform extraction candidates.
+- Active GitHub workflows now provide the public-source CI posture: backend tests, frontend build, OpenAPI validation, Docker build/publish, CodeQL, dependency audit/watch, secret scan, runtime smoke, browser regression, and image security/SBOM gates.
+- `docs/architecture/public-core-platform-extraction-plan.md` records the extraction plan, current progress, and remaining `cairn`/Core split boundaries.
+- The current homelab/platform edition boundary identifies remaining platform-surface candidates that should continue moving to `cairn` or be retired from Core when the matching `cairn` UI/API exists.
 
-**Scope**
-- Archive or rename the current public mirror repository before promoting the canonical source repository.
-- Promote `collectZ-main` to the canonical public collectZ repository.
-- Remove active mirror-model docs, scripts, workflow references, and package commands.
-- Keep historical release notes intact unless they are reused as current instructions.
-- Add public-source CI for backend tests, frontend build, OpenAPI validation, Docker builds, CodeQL, dependency review, and secret/private-artifact sweeps.
-- Create private-first `cairn` repository and scaffold its service, database, OpenAPI, and CI.
-- Move platform surfaces incrementally from collectZ to `cairn`, starting with docs/metrics and support/admin surfaces.
-- Keep Core OpenAPI focused on Core/self-host APIs; move platform OpenAPI paths to `cairn`.
+**Completed scope**
+- Archived or renamed the old public mirror repository before promoting the canonical source repository.
+- Promoted the canonical collectZ repository publicly.
+- Removed active mirror-model scripts, generated manifests, generated compose behavior, workflow references, and package commands.
+- Replaced the old mirror workflow with public-source CI on the canonical repository.
+- Created private-first `cairn` with its own service, database, OpenAPI, health/config surface, CI, platform directory model, and email-first routing contract.
+- Moved platform docs/metrics, support queue APIs, global workspace/member administration, platform settings diagnostics, platform activity, and platform operations readbacks to `cairn` or blocked their old Core routes.
+- Kept Core OpenAPI focused on Core/self-host APIs by removing the moved platform paths.
+
+**Remaining 3.x closeout scope**
+- Keep historical release notes intact, but clean up active roadmap/backlog/architecture text when it still describes the retired mirror model as current work.
+- Finish moving or retiring any remaining collectZ compatibility UI shells for platform-owned surfaces after the matching `cairn` frontend/API exists.
+- Continue using documented Core APIs only for `cairn`; do not share collectZ internals or database access.
+- Keep Core runtime, homelab smoke, public-source CI, and `cairn` platform contracts aligned after each remaining extraction slice.
 
 **Out of scope**
 - Do not rewrite repository history unless a separate secret-exposure review requires it.
@@ -1339,14 +1344,15 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - Do not let `cairn` patch collectZ source or write directly to the collectZ database in v1.
 
 **Acceptance Criteria**
-- collectZ is public as the canonical source repository.
-- The old generated mirror workflow is not present in active scripts, docs, package commands, or workflows.
+- collectZ remains public as the canonical source repository.
+- The old generated mirror workflow is absent from active scripts, docs, package commands, and workflows.
 - collectZ Core runs without `cairn`.
-- Public CI validates Core source, contracts, builds, and dependency/security checks.
-- `cairn` exists as a private-first platform service with its own API, DB, OpenAPI, and CI.
+- Public CI validates Core source, contracts, builds, runtime behavior, dependency/security checks, and image/SBOM gates.
+- `cairn` owns platform API/docs/metrics/admin/support surfaces that have moved out of Core.
 - `cairn` can model one configured Core instance and route users by email.
 - Core users authenticate in Core; platform admins authenticate in `cairn`.
 - Support access is explicit, audited, and time-bound.
+- Remaining work is tracked as concrete Core/`cairn` extraction slices, not as a broad public-repository transition.
 
 ### Backlog Item: Personal Workspace Offboarding, Archive Retention, and Recovery
 **Type:** Deferred milestone
