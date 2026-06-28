@@ -122,6 +122,25 @@ async function createDirectUser({ email, password, name, role = 'user' }) {
   return result.rows[0];
 }
 
+async function createDirectSpace({ name, slug, description, ownerUserId, createdBy = null }) {
+  const result = await pool.query(
+    `INSERT INTO spaces (name, slug, description, created_by, is_personal)
+     VALUES ($1, $2, $3, $4, false)
+     RETURNING id, name, slug`,
+    [name, slug, description || null, createdBy || ownerUserId || null]
+  );
+  const space = result.rows[0];
+  await pool.query(
+    `INSERT INTO space_memberships (space_id, user_id, role, created_by)
+     VALUES ($1, $2, 'owner', $3)
+     ON CONFLICT (space_id, user_id) DO UPDATE
+     SET role = 'owner',
+         updated_at = NOW()`,
+    [space.id, ownerUserId, createdBy || ownerUserId || null]
+  );
+  return space;
+}
+
 async function deleteDirectUser(userId) {
   if (!Number.isFinite(Number(userId)) || Number(userId) <= 0) return;
   await pool.query('DELETE FROM users WHERE id = $1', [userId]);
@@ -179,10 +198,10 @@ async function main() {
     ownerUserId = Number(ownerUser?.id || 0);
     assert(Number.isFinite(ownerUserId) && ownerUserId > 0, 'Boundary owner user id missing');
 
-    const createdSpace = await admin.request('/api/admin/spaces', {
+    const blockedPlatformCreate = await admin.request('/api/admin/spaces', {
       method: 'POST',
       withCsrf: true,
-      expectStatus: 201,
+      expectStatus: 404,
       body: {
         name: `Phase 5 Boundary Space ${suffix}`,
         slug: spaceSlug,
@@ -190,11 +209,20 @@ async function main() {
         owner_user_id: ownerUserId
       }
     });
-    spaceId = Number(createdSpace?.data?.id || 0);
+    assert(blockedPlatformCreate.status === 404, `Platform space create must be owned by cairn, not Core: ${JSON.stringify(blockedPlatformCreate.data)}`);
+
+    const createdSpace = await createDirectSpace({
+      name: `Phase 5 Boundary Space ${suffix}`,
+      slug: spaceSlug,
+      description: 'Platform-vs-tenant boundary regression',
+      ownerUserId,
+      createdBy: tempAdminUserId
+    });
+    spaceId = Number(createdSpace?.id || 0);
     assert(Number.isFinite(spaceId) && spaceId > 0, 'Boundary space id missing');
 
-    const listSpaces = await admin.request('/api/admin/spaces', { expectStatus: 200 });
-    assert((listSpaces?.data?.spaces || []).some((space) => Number(space.id) === spaceId), 'Admin spaces list should include created space');
+    const listSpaces = await admin.request('/api/admin/spaces', { expectStatus: 404 });
+    assert(listSpaces.status === 404, `Platform space list must be owned by cairn, not Core: ${JSON.stringify(listSpaces.data)}`);
 
     await admin.request(`/api/spaces/${spaceId}/members`, { expectStatus: 404 });
     await admin.request(`/api/spaces/${spaceId}/invites`, { expectStatus: 404 });

@@ -13,7 +13,6 @@
     "test:support-session-smoke": "node scripts/support-session-smoke.js",
     "test:library-lifecycle-smoke": "node scripts/library-lifecycle-smoke.js",
     "test:space-lifecycle-smoke": "node scripts/space-lifecycle-smoke.js",
-    "test:admin-space-control": "node scripts/admin-space-control-smoke.js",
     "test:tenancy-platform-boundary": "node scripts/tenancy-platform-boundary-smoke.js",
     "test:core-runtime-smoke": "node scripts/homelab-edition-boundary-smoke.js",
     "test:control-plane-runtime-smoke": "node scripts/platform-edition-boundary-smoke.js",

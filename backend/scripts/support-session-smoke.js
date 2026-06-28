@@ -148,6 +148,17 @@ async function createDetachedSpace({ name, slug, createdBy = null }) {
   return result.rows[0];
 }
 
+async function addSpaceMembership({ spaceId, userId, role = 'owner', createdBy = null }) {
+  await pool.query(
+    `INSERT INTO space_memberships (space_id, user_id, role, created_by)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (space_id, user_id) DO UPDATE
+     SET role = EXCLUDED.role,
+         updated_at = NOW()`,
+    [spaceId, userId, role, createdBy]
+  );
+}
+
 async function bootstrapAdmin(client, { fallbackEmail, fallbackPassword }) {
   const bootstrapAdminEmail = process.env.RBAC_ADMIN_EMAIL || process.env.ADMIN_EMAIL || 'ci-rbac-admin@example.com';
   const bootstrapAdminPassword = process.env.RBAC_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || 'Passw0rd!123';
@@ -222,19 +233,19 @@ async function main() {
     });
     ownerUserId = Number(owner.id);
 
-    await admin.fetchCsrfToken();
-    const createdSpace = await admin.request('/api/admin/spaces', {
-      method: 'POST',
-      withCsrf: true,
-      expectStatus: 201,
-      body: {
-        name: `Support Session Space ${suffix}`,
-        slug: `support-session-space-${suffix}`,
-        owner_user_id: ownerUserId
-      }
+    const createdSpace = await createDetachedSpace({
+      name: `Support Session Space ${suffix}`,
+      slug: `support-session-space-${suffix}`,
+      createdBy: ownerUserId
     });
-    createdSpaceId = Number(createdSpace?.data?.id || 0) || null;
+    createdSpaceId = Number(createdSpace?.id || 0) || null;
     assert(Number.isFinite(createdSpaceId), 'Created support-session test space id missing');
+    await addSpaceMembership({
+      spaceId: createdSpaceId,
+      userId: ownerUserId,
+      role: 'owner',
+      createdBy: ownerUserId
+    });
 
     const libraryOne = await createLibraryInSpace({
       name: `Support Library A ${suffix}`,
@@ -252,6 +263,12 @@ async function main() {
       createdBy: ownerUserId
     });
     detachedSpaceId = Number(detachedSpace.id);
+    await addSpaceMembership({
+      spaceId: detachedSpaceId,
+      userId: ownerUserId,
+      role: 'owner',
+      createdBy: ownerUserId
+    });
     const detachedLibrary = await createLibraryInSpace({
       name: `Support Detached Library ${suffix}`,
       spaceId: detachedSpaceId,

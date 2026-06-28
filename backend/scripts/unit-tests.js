@@ -2,6 +2,7 @@
 
 const assert = require('assert');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const vm = require('vm');
 const { parseCsvText } = require('../services/csv');
@@ -7983,16 +7984,21 @@ results.push(run('platform admin users view is no longer carried by Core fronten
 }));
 
 results.push(run('phase5 smoke scripts avoid tenant admin invite bootstrapping and cover platform boundary checks', () => {
-  const adminSpaceSmokeSource = require('fs').readFileSync(require.resolve('./admin-space-control-smoke'), 'utf8');
   const platformBoundarySmokeSource = require('fs').readFileSync(require.resolve('./tenancy-platform-boundary-smoke'), 'utf8');
+  const supportSessionSmokeSource = require('fs').readFileSync(require.resolve('./support-session-smoke'), 'utf8');
   const rbacRegressionSource = require('fs').readFileSync(require.resolve('./rbac-regression-check'), 'utf8');
   const backendPackageSource = require('fs').readFileSync(require.resolve('../package.json'), 'utf8');
-  assert.ok(!adminSpaceSmokeSource.includes('/api/admin/invites'));
-  assert.ok(adminSpaceSmokeSource.includes('createDirectUser'));
+  assert.ok(!fs.existsSync(path.resolve(__dirname, 'admin-space-control-smoke.js')));
+  assert.ok(!backendPackageSource.includes('test:admin-space-control'));
   assert.ok(platformBoundarySmokeSource.includes('/api/admin/spaces'));
+  assert.ok(platformBoundarySmokeSource.includes('blockedPlatformCreate'));
+  assert.ok(platformBoundarySmokeSource.includes('createDirectSpace'));
   assert.ok(platformBoundarySmokeSource.includes('/api/spaces/${spaceId}/members'));
   assert.ok(platformBoundarySmokeSource.includes('/api/spaces/${spaceId}/invites'));
   assert.ok(platformBoundarySmokeSource.includes("expectStatus: 404"));
+  assert.ok(!supportSessionSmokeSource.includes("admin.request('/api/admin/spaces'"));
+  assert.ok(supportSessionSmokeSource.includes('createDetachedSpace'));
+  assert.ok(supportSessionSmokeSource.includes('addSpaceMembership'));
   assert.ok(!rbacRegressionSource.includes('/api/admin/invites'));
   assert.ok(rbacRegressionSource.includes('/api/auth/scope'));
   assert.ok(!rbacRegressionSource.includes('/api/spaces/${targetSpaceId}/invites'));
@@ -8163,7 +8169,7 @@ results.push(run('portability status source keeps readback redacted and restore 
   });
   assert.strictEqual(notConfigured.status, 'not_configured');
   assert.strictEqual(notConfigured.configured, false);
-  const markerPath = path.join(__dirname, '..', '..', 'tmp-backup-freshness-marker.json');
+  const markerPath = path.join(os.tmpdir(), `collectz-backup-freshness-marker-${process.pid}.json`);
   try {
     await fs.promises.writeFile(markerPath, JSON.stringify({
       status: 'ok',
