@@ -35,7 +35,6 @@ export default function SidebarNav({
   supportSessionActive = false,
   showCollectibles = true,
   showEvents = true,
-  supportBadgeCount = null,
   productEdition = 'platform',
   platformBridgeEnabled = false
 }) {
@@ -43,9 +42,9 @@ export default function SidebarNav({
   const isSupportAdmin = user?.role === SUPPORT_STAFF_ROLE;
   const localRuntime = isLocalProductEdition(productEdition);
   const supportHelpEnabled = isSupportHelpEnabled(productEdition);
-  const bridgeSupportEnabled = supportHelpEnabled && platformBridgeEnabled;
+  const bridgeSupportEnabled = false;
   const coreNavigationOnly = localRuntime || !platformBridgeEnabled;
-  const isSupportStaff = bridgeSupportEnabled && (isAdmin || isSupportAdmin);
+  const isSupportStaff = supportHelpEnabled && (isAdmin || isSupportAdmin);
   const canUseLibraryShell = !isSupportAdmin || !bridgeSupportEnabled;
   const allowedTabs = getAllowedDashboardTabs(productEdition, {
     userRole: user?.role,
@@ -55,7 +54,6 @@ export default function SidebarNav({
     showEvents,
     platformBridgeEnabled
   });
-  const [platformOpen, setPlatformOpen] = useState(true);
   const [libraryOpen, setLibraryOpen] = useState(true);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const accountMenuRef = useRef(null);
@@ -77,10 +75,7 @@ export default function SidebarNav({
   ].includes(activeTab);
   const isPlatformGroupActive = [
     'admin-settings',
-    'admin-integrations',
-    'admin-activity',
-    'admin-spaces',
-    'admin-users'
+    'admin-integrations'
   ].includes(activeTab);
   const isTabAllowed = (tabId) => !allowedTabs || allowedTabs.has(tabId);
   const showLibrarySwitcher = canUseLibraryShell && libraries.length > 1;
@@ -89,20 +84,9 @@ export default function SidebarNav({
   const showWorkspaceMergeReviewLink = canOpenSpaceSurface && isTabAllowed('admin-merges');
   const showLocalAdminSettingsLink = coreNavigationOnly && isAdmin && isTabAllowed('admin-settings');
   const showLocalAdminIntegrationsLink = coreNavigationOnly && isAdmin && isTabAllowed('admin-integrations');
-  const platformNavigationAllowed = !localRuntime && platformBridgeEnabled;
-  const showPlatformGroup = platformNavigationAllowed && isAdmin && [
-    isTabAllowed('admin-settings'),
-    isTabAllowed('admin-integrations'),
-    isTabAllowed('admin-activity'),
-    isTabAllowed('admin-spaces'),
-    isTabAllowed('admin-users')
-  ].some(Boolean);
-  const showPlatformModeSwitch = platformNavigationAllowed && isAdmin && showPlatformGroup && canUseLibraryShell;
-  const isPlatformMode = showPlatformModeSwitch && isPlatformGroupActive;
-  const showWorkspaceNavigation = !showPlatformModeSwitch || !isPlatformMode;
-  const showPlatformNavigation = platformNavigationAllowed && (!showPlatformModeSwitch || isPlatformMode);
+  const showWorkspaceNavigation = true;
   const showWorkspaceHelp = showWorkspaceNavigation && !isSupportAdmin;
-  const showPlatformHelpAdmin = isSupportStaff && (isSupportAdmin || (showPlatformNavigation && isPlatformMode));
+  const showPlatformHelpAdmin = isSupportStaff && isSupportAdmin;
   const profileImage = posterUrl(user?.image_path || '');
 
   useEffect(() => {
@@ -381,39 +365,8 @@ export default function SidebarNav({
             <NavLink id="admin-integrations" icon={<Icons.Integrations />} label="Integrations" />
           )}
           {showPlatformHelpAdmin && (
-            <NavLink id="help" icon={<Icons.Activity />} label="Help Admin" badge={supportBadgeCount} />
+            <NavLink id="help" icon={<Icons.Activity />} label="Help Admin" />
           )}
-          {showPlatformNavigation && showPlatformGroup && (
-            <div>
-              <button
-                onClick={() => setPlatformOpen((o) => !o)}
-                className={cx(
-                  'group relative w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded transition-colors',
-                  navStateClass(isPlatformGroupActive),
-                  collapsed && 'justify-center px-0'
-                )}
-              >
-                <span className="shrink-0"><Icons.Settings /></span>
-                {!collapsed && (
-                  <>
-                    <span className="flex-1 text-left">Platform</span>
-                    <span className={cx('transition-transform duration-200', platformOpen && 'rotate-180')}><Icons.ChevronDown /></span>
-                  </>
-                )}
-                <NavUnderline active={isPlatformGroupActive && collapsed} />
-              </button>
-              {platformOpen && !collapsed && (
-                <div className="mt-1 space-y-0.5">
-                  {isTabAllowed('admin-settings') && <NavLink id="admin-settings" icon={null} label="Platform Settings" sub />}
-                  {isTabAllowed('admin-integrations') && <NavLink id="admin-integrations" icon={null} label="Runtime" sub />}
-                  {isTabAllowed('admin-activity') && <NavLink id="admin-activity" icon={null} label="Activity" sub />}
-                  {isTabAllowed('admin-spaces') && <NavLink id="admin-spaces" icon={null} label="All Workspaces" sub />}
-                  {isTabAllowed('admin-users') && <NavLink id="admin-users" icon={null} label="All Members" sub />}
-                </div>
-              )}
-            </div>
-          )}
-
         </nav>
 
         <div className="relative p-3 border-t border-edge shrink-0" ref={accountMenuRef}>
@@ -458,25 +411,6 @@ export default function SidebarNav({
                 collapsed ? 'bottom-3 left-full ml-2 w-52' : 'bottom-full left-3 right-3 mb-2'
               )}
             >
-              {showPlatformModeSwitch && (
-                <>
-                  <div className="px-3 py-2">
-                    <div className="text-[11px] text-ghost">Working in</div>
-                    <div className="mt-0.5 text-sm font-medium text-ink">{isPlatformMode ? 'Platform' : 'Workspace'}</div>
-                  </div>
-                  <AccountMenuItem
-                    icon={isPlatformMode ? <Icons.Gauge /> : <Icons.Settings />}
-                    onClick={() => {
-                      setAccountMenuOpen(false);
-                      onSelect(isPlatformMode ? 'dashboard' : 'admin-settings');
-                      onMobileClose();
-                    }}
-                  >
-                    {isPlatformMode ? 'Workspace' : 'Platform'}
-                  </AccountMenuItem>
-                  <div className="my-1 border-t border-edge/70" />
-                </>
-              )}
               <AccountMenuItem
                 icon={<Icons.Profile />}
                 active={activeTab === 'profile'}

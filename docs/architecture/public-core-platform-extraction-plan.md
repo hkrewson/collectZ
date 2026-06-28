@@ -123,7 +123,7 @@ Platform-only paths should be removed from the collectZ OpenAPI spec during extr
 - `cairn` now owns global workspace/member administration contracts. collectZ Core returns 404 for `/api/admin/spaces*` and `/api/admin/users*`, while Core workspace-scoped management remains under `/api/spaces*`. The old unreachable Core handlers have been removed.
 - `cairn` now owns platform email delivery settings plus PriceCharting, eBay, and structured-log platform diagnostics. collectZ Core returns 404 for those platform-only settings routes, and no longer carries the old email-delivery handlers.
 - `cairn` now owns platform activity and platform operations readbacks at `/api/admin/activity` and `/api/admin/loan-reminder-operations`. collectZ Core keeps workspace-scoped activity at `/api/spaces/:id/activity`.
-- collectZ frontend platform routing remains optional so Core-only deployments stay self-contained.
+- collectZ Core no longer carries the old platform control-plane frontend modules, tabs, bridge API routing, or `VITE_PLATFORM_API_URL` runtime wiring for `cairn`-owned surfaces.
 
 ## Initial Inventory
 
@@ -145,7 +145,7 @@ Remaining Core/`cairn` cleanup should focus on concrete platform-surface extract
 The remaining split work is intentionally narrow:
 
 - Remove or quarantine any remaining dead/unreachable backend platform route code from Core after each route is confirmed blocked or moved. Done for support request APIs and global admin spaces/users/email-delivery handlers.
-- Decide whether collectZ keeps a temporary platform frontend shell for `cairn`, or whether those views move fully to the `cairn` repository.
+- Remove any remaining embedded support-request UI code from shared Core help components once `cairn` owns its full support frontend; the standalone platform frontend shells have been removed from Core.
 - Keep service-account key storage and `/api/auth/service-account-keys` management in Core as Core API key / machine-token support.
 - Keep support-session and scoped workspace APIs in Core unless `cairn` needs a cleaner documented operation bridge.
 - Keep paired-service compose examples and Core/`cairn` network configuration out of the public Core repository; document them in `cairn` only.
@@ -158,7 +158,7 @@ Platform extraction candidates already identified by the current edition boundar
 - support staff request/inbox APIs under `/api/support`
 - global workspace/member administration under `/api/admin/spaces` and `/api/admin/users`
 - platform-only integration test endpoints under `/api/admin/settings/integrations/test-*`
-- frontend tabs and views for `support-inbox`, `space-manage`, `admin-spaces`, and `admin-users`
+- any remaining hidden support-request UI branches inside shared Help components
 - platform OpenAPI paths for support inbox, spaces, docs, metrics, activity, and global workspace/member administration
 
 Core primitives to preserve until replaced by a deliberate API contract:

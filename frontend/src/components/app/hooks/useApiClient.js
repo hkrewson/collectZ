@@ -4,39 +4,7 @@ import { readCookie } from '../AppPrimitives';
 import { readFrontendEnv } from '../frontendEnv';
 
 const API_URL = readFrontendEnv('VITE_API_URL', '/api');
-const PLATFORM_API_URL = readFrontendEnv('VITE_PLATFORM_API_URL', '');
 const CSRF_COOKIE_NAME = readFrontendEnv('VITE_CSRF_COOKIE_NAME', 'csrf_token');
-
-function isPlatformOwnedPath(path) {
-  const normalizedPath = String(path || '');
-  if (
-    normalizedPath.startsWith('/support/')
-    && normalizedPath !== '/support/releases'
-    && !normalizedPath.startsWith('/support/releases?')
-  ) {
-    return true;
-  }
-
-  if (normalizedPath === '/core-instances' || normalizedPath.startsWith('/core-instances/')) return true;
-  if (normalizedPath === '/admin/spaces' || normalizedPath.startsWith('/admin/spaces/')) return true;
-  if (normalizedPath === '/admin/users' || normalizedPath.startsWith('/admin/users/')) return true;
-  if (normalizedPath === '/admin/activity' || normalizedPath.startsWith('/admin/activity?')) return true;
-  if (normalizedPath === '/admin/loan-reminder-operations' || normalizedPath.startsWith('/admin/loan-reminder-operations?')) return true;
-  if (normalizedPath === '/admin/settings/email-delivery' || normalizedPath.startsWith('/admin/settings/email-delivery/')) return true;
-  if (normalizedPath === '/admin/settings/analytics' || normalizedPath.startsWith('/admin/settings/analytics/')) return true;
-  if (normalizedPath === '/platform/analytics') return true;
-
-  return [
-    '/admin/settings/integrations/test-pricecharting',
-    '/admin/settings/integrations/test-ebay',
-    '/admin/settings/integrations/test-logs'
-  ].includes(normalizedPath);
-}
-
-function resolveApiBase(path) {
-  if (PLATFORM_API_URL && isPlatformOwnedPath(path)) return PLATFORM_API_URL;
-  return API_URL;
-}
 
 export default function useApiClient() {
   const inFlightGetRequestsRef = useRef(new Map());
@@ -47,7 +15,7 @@ export default function useApiClient() {
     const { rawResponse = false, ...axiosConfig } = config;
     const headers = { ...(axiosConfig.headers || {}) };
     const playwrightBypassToken = readCookie('playwright_e2e_bypass');
-    const apiBase = resolveApiBase(path);
+    const apiBase = API_URL;
 
     if (playwrightBypassToken && !headers['x-playwright-e2e-bypass']) {
       headers['x-playwright-e2e-bypass'] = playwrightBypassToken;

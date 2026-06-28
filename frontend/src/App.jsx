@@ -11,13 +11,11 @@ import {
   selectDashboardTabValue
 } from './components/app/dashboardRouting';
 import useApiClient from './components/app/hooks/useApiClient';
-import usePlatformAnalytics from './components/app/hooks/usePlatformAnalytics';
 import useImportJobPolling from './components/app/hooks/useImportJobPolling';
 import useSessionBootstrap from './components/app/hooks/useSessionBootstrap';
 import useMediaApi from './components/app/hooks/useMediaApi';
 import useRootAppearance from './components/app/hooks/useRootAppearance';
-import { hasFrontendEnv, readFrontendEnv } from './components/app/frontendEnv';
-import useSupportSummary from './components/app/hooks/useSupportSummary';
+import { readFrontendEnv } from './components/app/frontendEnv';
 import {
   getSafeDashboardTab,
   isSupportHelpEnabled,
@@ -27,8 +25,6 @@ import {
 } from './components/app/productEdition';
 
 const APP_VERSION = readFrontendEnv('VITE_APP_VERSION', appMeta.frontend || appMeta.version || 'unknown');
-const PLATFORM_BRIDGE_ENABLED = hasFrontendEnv('VITE_PLATFORM_API_URL');
-const SUPPORT_SUMMARY_POLL_MS = 60000;
 
 export default function App() {
   const initialDashboardState = readDashboardStateFromUrl();
@@ -51,7 +47,6 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const showToast = useCallback((message, type = 'ok') => setToast({ message, type }), []);
   const { apiCall, apiUrl } = useApiClient();
-  usePlatformAnalytics(apiCall);
   const { user, setUser, authChecked, setAuthChecked } = useSessionBootstrap({ route, apiCall, setRoute });
   const applyScopePayload = useCallback((payload) => {
     const nextSpaces = Array.isArray(payload?.spaces) ? payload.spaces : [];
@@ -84,11 +79,10 @@ export default function App() {
   }, [setUser]);
   const productEdition = normalizeProductEdition(user?.runtime_mode || user?.[LEGACY_PRODUCT_FIELD]);
   const supportHelpEnabled = isSupportHelpEnabled(productEdition);
-  const platformBridgeEnabled = PLATFORM_BRIDGE_ENABLED;
+  const platformBridgeEnabled = false;
   const dashboardRouteOptions = useMemo(() => ({ productEdition, platformBridgeEnabled }), [productEdition, platformBridgeEnabled]);
-  const supportStaffInEdition = supportHelpEnabled && platformBridgeEnabled && ['admin', SUPPORT_STAFF_ROLE].includes(String(user?.role || ''));
+  const supportStaffInEdition = supportHelpEnabled && ['admin', SUPPORT_STAFF_ROLE].includes(String(user?.role || ''));
   const supportSessionActiveInEdition = supportHelpEnabled && platformBridgeEnabled && Boolean(supportSession?.active);
-  const { supportSummary, loadSupportSummary } = useSupportSummary({ apiCall, showToast, supportStaffInEdition });
   const nowPlayingDisplayToken = route === 'now-playing'
     ? new URLSearchParams(window.location.search).get('token') || ''
     : '';
@@ -267,13 +261,13 @@ export default function App() {
       clearImportJobs();
       setMediaItems([]);
       if (!String(activeTab || '').startsWith('admin-') || activeTab === 'space-manage') {
-        setActiveTab(platformBridgeEnabled ? 'admin-spaces' : 'dashboard');
+        setActiveTab('dashboard');
       }
       showToast('Support session ended');
     } catch (error) {
       showToast(error.response?.data?.error || 'Failed to end support session', 'error');
     }
-  }, [activeTab, apiCall, clearImportJobs, loadAuthScope, platformBridgeEnabled, setMediaItems, showToast]);
+  }, [activeTab, apiCall, clearImportJobs, loadAuthScope, setMediaItems, showToast]);
 
   const startSupportSession = useCallback(async (space, options = {}) => {
     const spaceId = Number(space?.external_workspace_id || space?.id || 0);
@@ -316,17 +310,6 @@ export default function App() {
     if (!(route === 'dashboard' && authChecked && user)) return;
     loadClientFeatureFlags();
   }, [route, authChecked, user, activeSpaceId, loadClientFeatureFlags]);
-
-  useEffect(() => {
-    if (!(route === 'dashboard' && authChecked && user)) return undefined;
-    loadSupportSummary({ silent: true });
-    if (!supportStaffInEdition) return undefined;
-    const intervalId = window.setInterval(() => {
-      if (document.visibilityState !== 'visible') return;
-      loadSupportSummary({ silent: true });
-    }, SUPPORT_SUMMARY_POLL_MS);
-    return () => window.clearInterval(intervalId);
-  }, [route, authChecked, user, loadSupportSummary, supportStaffInEdition]);
 
   useEffect(() => {
     if (activeTab === 'library-import-review') {
@@ -513,7 +496,6 @@ export default function App() {
       activeLibraryId={activeLibraryId}
       handleLibrarySelect={handleLibrarySelect}
       activeMembershipRole={activeMembershipRole}
-      supportSummary={supportSummary}
       activeSpace={activeSpace}
       activeLibrary={activeLibrary}
       endSupportSession={endSupportSession}
@@ -539,7 +521,6 @@ export default function App() {
       scopeKey={scopeKey}
       loadAuthScope={loadAuthScope}
       startSupportSession={startSupportSession}
-      loadSupportSummary={loadSupportSummary}
       dismissImportJob={dismissImportJob}
       toast={toast}
       setToast={setToast}

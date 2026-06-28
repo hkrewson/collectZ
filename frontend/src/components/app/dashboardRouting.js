@@ -1,7 +1,6 @@
 export const VALID_DASHBOARD_TABS = new Set([
   'dashboard',
   'help',
-  'support-inbox',
   'library',
   'library-movies',
   'library-tv',
@@ -19,11 +18,8 @@ export const VALID_DASHBOARD_TABS = new Set([
   'library-other',
   'library-import',
   'space-manage',
-  'admin-spaces',
   'profile',
-  'admin-users',
   'admin-merges',
-  'admin-activity',
   'admin-settings',
   'admin-flags',
   'admin-integrations'
@@ -55,7 +51,6 @@ function normalizeDashboardTab(tab) {
 const CANONICAL_TAB_ROUTES = {
   dashboard: '/dashboard',
   help: '/help',
-  'support-inbox': '/platform/support',
   library: '/library',
   'library-movies': '/library/movies',
   'library-tv': '/library/tv',
@@ -74,9 +69,6 @@ const CANONICAL_TAB_ROUTES = {
   profile: '/profile',
   'space-manage': '/workspace/settings',
   'admin-merges': '/workspace/review',
-  'admin-spaces': '/platform/workspaces',
-  'admin-users': '/platform/users',
-  'admin-activity': '/platform/activity',
   'admin-settings': '/platform/settings',
   'admin-flags': '/platform/feature-flags',
   'admin-integrations': '/platform/runtime'
@@ -90,17 +82,12 @@ const LOCAL_ADMIN_TAB_ROUTES = {
 const DIRECT_TAB_ROUTES = new Map(Object.entries({
   '/dashboard': 'dashboard',
   '/help': 'help',
-  '/support': 'support-inbox',
-  '/platform/support': 'support-inbox',
   '/library': 'library',
   '/profile': 'profile',
   '/workspace': 'space-manage',
   '/workspace/settings': 'space-manage',
   '/workspace/review': 'admin-merges',
   '/review': 'admin-merges',
-  '/platform/workspaces': 'admin-spaces',
-  '/platform/users': 'admin-users',
-  '/platform/activity': 'admin-activity',
   '/platform/settings': 'admin-settings',
   '/platform/feature-flags': 'admin-flags',
   '/settings': 'admin-settings'

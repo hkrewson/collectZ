@@ -31,7 +31,7 @@ test.describe('homelab help edition regressions', () => {
       await openHelpSurface(page, 'Help');
       await assertHomelabHelpSurface(page);
 
-      await page.goto('/dashboard?tab=support-inbox');
+      await page.goto('/platform/support');
       await expect(page).toHaveURL(/\/help$/);
       await assertHomelabHelpSurface(page);
     } finally {
@@ -65,19 +65,19 @@ test.describe('homelab help edition regressions', () => {
       await openHelpSurface(page, 'Help');
       await assertHomelabHelpSurface(page);
 
-      await page.goto('/dashboard?tab=support-inbox');
+      await page.goto('/platform/support');
       await expect(page).toHaveURL(/\/help$/);
       await assertHomelabHelpSurface(page);
 
-      await page.goto('/dashboard?tab=admin-spaces');
+      await page.goto('/platform/workspaces');
       await expect(page).not.toHaveURL(/\/platform\/workspaces$/);
       await expect(page.getByRole('button', { name: 'Help', exact: true }).first()).toBeVisible();
 
-      await page.goto('/dashboard?tab=admin-users');
+      await page.goto('/platform/users');
       await expect(page).not.toHaveURL(/\/platform\/users$/);
       await expect(page.getByRole('button', { name: 'Help', exact: true }).first()).toBeVisible();
 
-      await page.goto('/dashboard?tab=admin-activity');
+      await page.goto('/platform/activity');
       await expect(page).not.toHaveURL(/\/platform\/activity$/);
       await expect(page.getByRole('button', { name: 'Help', exact: true }).first()).toBeVisible();
 

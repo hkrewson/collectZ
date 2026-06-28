@@ -668,17 +668,13 @@ function buildTimelineLinks(entry, context) {
   if (entityType === 'space_membership' || entityType === 'invite' || action.includes('.member.') || action.includes('.invite.')) {
     if (context === 'workspace') {
       push('Open people', { managerTab: 'people' });
-    } else {
-      push('Open workspaces', { tab: 'admin-spaces' });
     }
   }
 
   if (entityType === 'space' || action.startsWith('admin.space.') || action.startsWith('space.')) {
-    push(context === 'workspace' ? 'Open workspace' : 'Open workspaces', context === 'workspace' ? { managerTab: 'settings' } : { tab: 'admin-spaces' });
-  }
-
-  if (entityType === 'user' && context !== 'workspace') {
-    push('Open users', { tab: 'admin-users' });
+    if (context === 'workspace') {
+      push('Open workspace', { managerTab: 'settings' });
+    }
   }
 
   return links;

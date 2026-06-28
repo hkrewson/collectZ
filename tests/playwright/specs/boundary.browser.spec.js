@@ -39,8 +39,8 @@ test.describe('browser boundary regressions', () => {
     await expect(page.getByRole('button', { name: 'Global', exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Import', exact: true })).toBeVisible();
 
-    await page.goto('/dashboard?tab=admin-spaces');
-    await expect(page.getByRole('heading', { name: 'Access Restricted' })).toBeVisible();
-    await expect(page.getByText('Admin permissions are required to access this view.')).toBeVisible();
+    await page.goto('/platform/workspaces');
+    await expect(page).toHaveURL(/\/dashboard$/);
+    await expect(page.getByRole('button', { name: 'Import', exact: true })).toBeVisible();
   });
 });

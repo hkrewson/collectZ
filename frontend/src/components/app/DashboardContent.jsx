@@ -1,12 +1,9 @@
 import React from 'react';
-import AdminActivityView from '../AdminActivityView';
 import ImportViewComponent from '../ImportView';
 import ProfileViewComponent from '../ProfileView';
-import AdminUsersView from '../AdminUsersView';
 import AdminMergeReviewView from '../AdminMergeReviewView';
 import AdminSettingsView from '../AdminSettingsView';
 import AdminIntegrationsView from '../AdminIntegrationsView';
-import AdminSpacesView from '../AdminSpacesView';
 import DashboardCommandCenterView from '../DashboardCommandCenterView';
 import LibraryView from '../LibraryView';
 import LibraryLoansView from '../LibraryLoansView';
@@ -197,8 +194,6 @@ export default function DashboardContent({
   onStartSupportSession,
   onEndSupportSession,
   scopeKey,
-  supportSummary,
-  onSupportSummaryRefresh,
   productEdition = 'platform',
   platformBridgeEnabled = false
 }) {
@@ -210,12 +205,11 @@ export default function DashboardContent({
   const supportHelpEnabled = isSupportHelpEnabled(productEdition);
   const localRuntime = isLocalProductEdition(productEdition);
   const coreRuntime = localRuntime || !platformBridgeEnabled;
-  const bridgeSupportEnabled = supportHelpEnabled && platformBridgeEnabled;
-  const supportStaffInEdition = bridgeSupportEnabled && ['admin', SUPPORT_STAFF_ROLE].includes(String(user?.role || ''));
+  const bridgeSupportEnabled = false;
+  const supportStaffInEdition = supportHelpEnabled && ['admin', SUPPORT_STAFF_ROLE].includes(String(user?.role || ''));
   const supportAdminAllowedTabs = new Set([
     'help',
     'profile',
-    ...(bridgeSupportEnabled ? ['support-inbox'] : []),
     ...(bridgeSupportEnabled && supportSession?.active ? ['space-manage'] : [])
   ]);
 
@@ -279,10 +273,6 @@ export default function DashboardContent({
         />
       );
     case 'help':
-    case 'support-inbox':
-      if (activeTab === 'support-inbox' && !platformBridgeEnabled) {
-        return <ForbiddenView detail="Support inbox is available when a platform bridge is configured." />;
-      }
       return (
         <HelpView
           apiCall={apiCall}
@@ -295,11 +285,9 @@ export default function DashboardContent({
           onEndSupportSession={onEndSupportSession}
           Spinner={Spinner}
           Icons={Icons}
-          supportSummary={supportSummary}
-          onSupportSummaryRefresh={onSupportSummaryRefresh}
-          initialTab={getSafeHelpTab(productEdition, supportStaffInEdition, activeTab === 'support-inbox' ? 'support' : 'guidance')}
+          initialTab={getSafeHelpTab(productEdition, supportStaffInEdition, 'guidance')}
           productEdition={productEdition}
-          supportRequestsEnabled={platformBridgeEnabled}
+          supportRequestsEnabled={false}
         />
       );
     case 'library':
@@ -480,11 +468,6 @@ export default function DashboardContent({
           onTimelineNavigate={handleTimelineNavigate}
         />
       );
-    case 'admin-users':
-      if (!platformBridgeEnabled) {
-        return <ForbiddenView detail="Member administration is available when a platform bridge is configured." />;
-      }
-      return <AdminUsersView apiCall={apiCall} onToast={showToast} currentUserId={user?.id} Icons={Icons} Spinner={Spinner} />;
     case 'admin-merges':
       return (
         <AdminMergeReviewView
@@ -497,24 +480,6 @@ export default function DashboardContent({
           onDiscoverySeedConsumed={() => setMergeReviewSeed(null)}
         />
       );
-    case 'admin-spaces':
-      if (!platformBridgeEnabled) {
-        return <ForbiddenView detail="Workspace administration is available when a platform bridge is configured." />;
-      }
-      return (
-        <AdminSpacesView
-          apiCall={apiCall}
-          onToast={showToast}
-          Icons={Icons}
-          Spinner={Spinner}
-          cx={cx}
-          supportSession={supportSession}
-          onStartSupportSession={onStartSupportSession}
-          onEndSupportSession={onEndSupportSession}
-        />
-      );
-    case 'admin-activity':
-      return <AdminActivityView apiCall={apiCall} Spinner={Spinner} onTimelineNavigate={handleTimelineNavigate} />;
     case 'admin-settings':
       return (
         <AdminSettingsView
@@ -522,18 +487,14 @@ export default function DashboardContent({
           onToast={showToast}
           onSettingsChange={setUiSettings}
           Spinner={Spinner}
-          title={coreRuntime ? 'Settings' : 'Platform Settings'}
-          description={coreRuntime
-            ? 'Configure local app defaults, available library features, and backup/export readback for this install.'
-            : 'Configure instance-wide platform defaults, email delivery, registration behavior, and platform backup/export readback. Workspace settings and provider integrations live under Workspace.'}
-          themeLabel={coreRuntime ? 'Theme' : 'Platform theme default'}
-          themeDescription={coreRuntime
-            ? 'Choose the default appearance for this install.'
-            : 'Choose the default appearance for this platform. Workspace-level settings can override this where available.'}
+          title="Settings"
+          description="Configure local app defaults, available library features, and backup/export readback for this install."
+          themeLabel="Theme"
+          themeDescription="Choose the default appearance for this install."
           visibleFlagKeys={coreRuntime ? undefined : ['self_registration_enabled']}
           emptyFeatureFlagsMessage={null}
-          emailDeliveryEndpoint={platformBridgeEnabled ? '/admin/settings/email-delivery' : null}
-          analyticsEndpoint={platformBridgeEnabled ? '/admin/settings/analytics' : null}
+          emailDeliveryEndpoint={null}
+          analyticsEndpoint={null}
           portabilityEndpoint="/admin/settings/portability"
         />
       );
@@ -549,7 +510,7 @@ export default function DashboardContent({
           cx={cx}
           section={activeIntegrationSection}
           onSectionChange={setActiveIntegrationSection}
-          title={coreRuntime ? 'Integrations' : 'Platform Runtime'}
+          title="Integrations"
           includeRuntimeSections={!coreRuntime}
           includeValuationSections={false}
           visibleSections={coreRuntime

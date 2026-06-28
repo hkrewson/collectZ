@@ -108,10 +108,6 @@ export function getSupportAdminAllowedTabs(productEdition, {
     'profile'
   ]);
 
-  if (!isLocalProductEdition(productEdition) && platformBridgeEnabled) {
-    allowed.add('support-inbox');
-  }
-
   if (!isLocalProductEdition(productEdition) && platformBridgeEnabled && supportSessionActive && canManageActiveSpace) {
     allowed.add('space-manage');
   }
@@ -137,9 +133,6 @@ export function getDefaultDashboardTab(productEdition, { userRole } = {}) {
 export function getSafeDashboardTab(productEdition, requestedTab, options = {}) {
   const allowed = getAllowedDashboardTabs(productEdition, options);
   const normalizedRequested = String(requestedTab || '').trim();
-  if ((isLocalProductEdition(productEdition) || !options?.platformBridgeEnabled) && normalizedRequested === 'support-inbox') {
-    return 'help';
-  }
   if (!allowed) return normalizedRequested || getDefaultDashboardTab(productEdition, options);
   return allowed.has(normalizedRequested)
     ? normalizedRequested

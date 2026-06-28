@@ -10,7 +10,6 @@ import { getSafeDashboardTab, isLocalProductEdition, isSupportHelpEnabled, SUPPO
 const MOBILE_HEADER_TITLES = {
   dashboard: 'Dashboard',
   help: 'Help',
-  'support-inbox': 'Support Inbox',
   library: 'Library',
   'library-movies': 'Movies',
   'library-tv': 'TV',
@@ -30,11 +29,8 @@ const MOBILE_HEADER_TITLES = {
   profile: 'Profile',
   'space-manage': 'Workspace',
   'admin-merge-review': 'Merge Review',
-  'admin-settings': 'Platform Settings',
-  'admin-integrations': 'Platform Runtime',
-  'admin-activity': 'Platform Activity',
-  'admin-spaces': 'All Workspaces',
-  'admin-users': 'All Members',
+  'admin-settings': 'Settings',
+  'admin-integrations': 'Integrations',
   'admin-feature-flags': 'Feature Flags'
 };
 
@@ -57,15 +53,11 @@ const MOBILE_HEADER_ICONS = {
   'library-import': Icons.Upload,
   'library-import-review': Icons.Upload,
   help: Icons.Library,
-  'support-inbox': Icons.Users,
   profile: Icons.Profile,
   'space-manage': Icons.Users,
   'admin-merge-review': Icons.List,
   'admin-settings': Icons.Settings,
   'admin-integrations': Icons.Integrations,
-  'admin-activity': Icons.Activity,
-  'admin-spaces': Icons.Users,
-  'admin-users': Icons.Users,
   'admin-feature-flags': Icons.Settings
 };
 
@@ -105,7 +97,6 @@ export default function DashboardShell({
   activeLibraryId,
   handleLibrarySelect,
   activeMembershipRole,
-  supportSummary,
   activeSpace,
   activeLibrary,
   endSupportSession,
@@ -131,14 +122,13 @@ export default function DashboardShell({
   scopeKey,
   loadAuthScope,
   startSupportSession,
-  loadSupportSummary,
   dismissImportJob,
   toast,
   setToast
 }) {
   const desktopNavExpanded = !collapsed;
   const supportHelpEnabled = isSupportHelpEnabled(productEdition);
-  const supportStaffInEdition = supportHelpEnabled && platformBridgeEnabled && ['admin', SUPPORT_STAFF_ROLE].includes(String(user?.role || ''));
+  const supportStaffInEdition = supportHelpEnabled && ['admin', SUPPORT_STAFF_ROLE].includes(String(user?.role || ''));
   const supportSessionActiveInEdition = supportHelpEnabled && platformBridgeEnabled && Boolean(supportSession?.active);
   const mobileHeaderTitle = getMobileHeaderTitle(activeTab, productEdition);
   const MobileHeaderIcon = getMobileHeaderIcon(activeTab);
@@ -188,7 +178,6 @@ export default function DashboardShell({
         supportSessionActive={supportSessionActiveInEdition}
         showCollectibles={featureFlags.collectibles_enabled}
         showEvents={featureFlags.events_enabled}
-        supportBadgeCount={supportStaffInEdition ? supportSummary.open : null}
         productEdition={productEdition}
         platformBridgeEnabled={platformBridgeEnabled}
       />
@@ -267,8 +256,6 @@ export default function DashboardShell({
             onStartSupportSession={startSupportSession}
             onEndSupportSession={endSupportSession}
             scopeKey={scopeKey}
-            supportSummary={supportSummary}
-            onSupportSummaryRefresh={loadSupportSummary}
             productEdition={productEdition}
             platformBridgeEnabled={platformBridgeEnabled}
           />

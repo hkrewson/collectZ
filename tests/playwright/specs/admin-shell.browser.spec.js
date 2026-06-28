@@ -244,7 +244,7 @@ test.describe('admin shell browser regressions', () => {
     }
 
     await page.goto('/dashboard?tab=admin-settings');
-    await expect(page.getByRole('heading', { name: 'Platform Settings' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
     await expect(page.getByText('Backup and portability', { exact: true })).toBeVisible();
     await expect(page.getByLabel('Export format')).toBeVisible();
     await expect(page.getByText('Database', { exact: true })).toBeVisible();
@@ -411,7 +411,7 @@ test.describe('admin shell browser regressions', () => {
       { route: '/dashboard?tab=library-loans', heading: 'Loans', headingVisible: false, mobileTitle: 'Loans', header: 'loans-page-header', body: 'loans-page-body' },
       { route: '/dashboard?tab=library-import', heading: 'Import Media', mobileTitle: 'Import', header: 'import-page-header', body: 'import-page-body' },
       { route: '/dashboard?tab=library-capture', heading: 'Capture Inbox', mobileTitle: 'Capture Inbox', header: 'capture-page-header', body: 'capture-page-body', filterButton: /Filter captures/, filterControl: 'Capture type', absentHeaderText: 'My Library' },
-      { route: '/dashboard?tab=admin-integrations', heading: 'Platform Runtime', mobileTitle: 'Platform Runtime', header: 'admin-integrations-page-header', body: 'admin-integrations-page-body' }
+      { route: '/dashboard?tab=admin-integrations', heading: 'Integrations', mobileTitle: 'Integrations', header: 'admin-integrations-page-header', body: 'admin-integrations-page-body' }
     ];
 
     for (const target of pages) {
@@ -1211,163 +1211,6 @@ test.describe('admin shell browser regressions', () => {
       }
       await requestContext.dispose();
     }
-  });
-
-  test('authenticated admin shell loads and docs surface is available when debug gating is satisfied', async ({ page }) => {
-    const adminCredentials = await ensureSavedAdminCredentials();
-    await signInThroughUi(page, adminCredentials);
-    await page.goto('/dashboard?tab=help');
-    await expect(page.getByRole('heading', { name: 'HELP ADMIN' })).toBeVisible();
-
-    await page.goto('/api/docs');
-    await expect(page).toHaveTitle(/collectZ API Docs/i);
-    await expect(page.locator('#swagger-ui')).toBeVisible();
-  });
-
-  test('all spaces drawer tabs and support-session banner behave in the browser', async ({ page }) => {
-    const suffix = Date.now();
-    const adminCredentials = await ensureSavedAdminCredentials();
-    const requestContext = await createAuthenticatedRequestContext(adminCredentials);
-    const { space } = await createSpaceFixture(requestContext, suffix);
-    let cleanupPending = true;
-
-    try {
-      await requestContext.delete('/api/auth/support-session').catch(() => {});
-      await signInThroughUi(page, adminCredentials);
-      await page.goto('/dashboard?tab=admin-spaces');
-      await expect(page.getByRole('heading', { name: 'All Workspaces' })).toBeVisible();
-
-      await page.getByRole('heading', { name: space.name }).click();
-      await expect(page.getByRole('heading', { name: 'Workspace Controls' })).toBeVisible();
-
-      await page.getByRole('tab', { name: /Members \(/ }).click();
-      await expect(page.getByRole('heading', { name: 'Members' })).toBeVisible();
-
-      await page.getByRole('tab', { name: /Invitations \(/ }).click();
-      await expect(page.getByRole('heading', { name: 'Invitations' })).toBeVisible();
-
-      await page.getByRole('button', { name: 'Start Support Session' }).first().click();
-      await expect(page.getByRole('heading', { name: new RegExp(`Open explicit support access for ${space.name}`) })).toBeVisible();
-
-      await page.getByLabel('Reason').fill(`Playwright support session ${suffix}`);
-      await page.getByRole('button', { name: 'Start Support Session' }).last().click();
-
-      await expect(page.getByText('Support session active')).toBeVisible();
-      await expect(page.getByText(new RegExp(`Reason: Playwright support session ${suffix}`))).toBeVisible();
-
-      await page.getByRole('button', { name: 'End support session' }).click();
-      await expect(page.getByText('Support session active')).toHaveCount(0);
-    } finally {
-      await requestContext.delete('/api/auth/support-session').catch(() => {});
-      if (cleanupPending) {
-        await deleteSpace(requestContext, Number(space.id)).catch(() => {});
-      }
-      await requestContext.dispose();
-    }
-  });
-
-  test('sidebar separates Workspace and Platform navigation modes', async ({ page }) => {
-    const adminCredentials = await ensureSavedAdminCredentials();
-    await signInThroughUi(page, adminCredentials);
-    await page.goto('/dashboard?tab=dashboard');
-
-    const nav = page.locator('aside');
-    const navTop = page.getByTestId('navigation-menu-top');
-    await expect(navTop.getByTestId('navigation-menu-version')).toHaveCount(0);
-    const navTopBox = await navTop.boundingBox();
-    expect(navTopBox?.height || 0).toBeLessThanOrEqual(52);
-    await expect(navTop.getByRole('button')).toHaveCount(1);
-    const collapseButton = navTop.getByRole('button', { name: 'Collapse navigation', exact: true });
-    await expect(collapseButton).toBeVisible();
-    await expect(collapseButton.getByText('collectZ')).toBeVisible();
-    await expect(collapseButton).toHaveAttribute('aria-expanded', 'true');
-    await collapseButton.click();
-    await expect(navTop.getByRole('button', { name: 'Collapse navigation', exact: true })).toHaveCount(0);
-    const expandButton = navTop.getByRole('button', { name: 'Expand navigation', exact: true });
-    await expect(expandButton).toBeVisible();
-    await expect(expandButton).toHaveAttribute('aria-expanded', 'false');
-    const collapsedMarkBox = await navTop.locator('svg').first().boundingBox();
-    const collapsedDashboardIconBox = await nav.getByRole('button', { name: 'Dashboard', exact: true }).locator('svg').first().boundingBox();
-    const collapsedMarkCenter = (collapsedMarkBox?.x || 0) + (collapsedMarkBox?.width || 0) / 2;
-    const collapsedDashboardIconCenter = (collapsedDashboardIconBox?.x || 0) + (collapsedDashboardIconBox?.width || 0) / 2;
-    expect(Math.abs(collapsedMarkCenter - collapsedDashboardIconCenter)).toBeLessThanOrEqual(2);
-    await expandButton.focus();
-    await page.keyboard.press('Enter');
-    const expandedBrandButton = navTop.getByRole('button', { name: 'Collapse navigation', exact: true });
-    await expect(expandedBrandButton.getByText('collectZ')).toBeVisible();
-    await expect(expandedBrandButton).toHaveAttribute('aria-expanded', 'true');
-
-    await expect(nav.getByRole('group', { name: 'Navigation mode' })).toHaveCount(0);
-
-    await expect(nav.getByRole('button', { name: 'Library', exact: true })).toBeVisible();
-    await expect(nav.getByRole('button', { name: 'Dashboard', exact: true }).locator('span.bg-gold')).toBeVisible();
-    await expect(nav.getByRole('button', { name: 'Workspace', exact: true })).toHaveCount(0);
-    await expect(nav.getByRole('button', { name: 'Help', exact: true })).toBeVisible();
-    await expect(nav.getByRole('button', { name: 'Help Admin', exact: true })).toHaveCount(0);
-    await expect(nav.getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
-    await expect(nav.getByRole('button', { name: 'Merge Review', exact: true })).toHaveCount(0);
-    await expect(nav.getByRole('button', { name: 'Review', exact: true })).toBeVisible();
-    await expect(nav.getByRole('button', { name: 'Platform Settings', exact: true })).toHaveCount(0);
-
-    await nav.getByRole('button', { name: 'Account menu' }).click();
-    const accountMenu = page.getByRole('menu', { name: 'Account' });
-    await expect(accountMenu.getByText('Working in')).toBeVisible();
-    await expect(accountMenu.getByText('Workspace', { exact: true })).toBeVisible();
-    await accountMenu.getByRole('menuitem', { name: 'Platform' }).click();
-    await expect(page.getByRole('heading', { name: 'Platform Settings', exact: true })).toBeVisible();
-    await expect(nav.getByRole('button', { name: 'Help', exact: true })).toHaveCount(0);
-    await expect(nav.getByRole('button', { name: /^Help Admin/ })).toBeVisible();
-    await expect(nav.getByRole('button', { name: 'Platform Settings', exact: true })).toBeVisible();
-    await expect(nav.getByRole('button', { name: 'Library', exact: true })).toHaveCount(0);
-    await expect(nav.getByRole('button', { name: 'Settings', exact: true })).toHaveCount(0);
-    await expect(nav.getByRole('button', { name: 'Merge Review', exact: true })).toHaveCount(0);
-    await expect(nav.getByRole('button', { name: 'Review', exact: true })).toHaveCount(0);
-
-    await nav.getByRole('button', { name: 'Account menu' }).click();
-    await expect(accountMenu.getByText('Platform', { exact: true })).toBeVisible();
-    await accountMenu.getByRole('menuitem', { name: 'Workspace' }).click();
-    await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible();
-    await nav.getByRole('button', { name: 'Review', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Merge Review', exact: true })).toBeVisible();
-    await expect(nav.getByRole('button', { name: 'Review', exact: true }).locator('span.bg-gold')).toBeVisible();
-  });
-
-  test('platform runtime tabs switch and save feedback stays visible', async ({ page }) => {
-    const adminCredentials = await ensureSavedAdminCredentials();
-    await signInThroughUi(page, adminCredentials);
-    await page.goto('/dashboard?tab=admin-integrations&integration=logs');
-    await expect(page.getByRole('heading', { name: 'Platform Runtime' })).toBeVisible();
-
-    const sectionTabs = page.getByRole('tablist', { name: 'Integration sections' });
-    await expect(sectionTabs.getByRole('tab')).toHaveText([
-      'External Logs',
-      'Metrics'
-    ]);
-    await expect(sectionTabs.getByRole('tab', { name: 'Plex', exact: true })).toHaveCount(0);
-    await expect(sectionTabs.getByRole('tab', { name: 'Kavita', exact: true })).toHaveCount(0);
-
-    await sectionTabs.getByRole('tab', { name: 'Metrics', exact: true }).click();
-    const metricsSwitch = page.getByRole('switch', { name: /Metrics Export/i });
-    await expect(metricsSwitch).toBeVisible();
-
-    const wasEnabled = await metricsSwitch.getAttribute('aria-checked');
-    const toggleResponsePromise = page.waitForResponse((response) => (
-      response.url().includes('/api/admin/feature-flags/metrics_enabled')
-      && response.request().method() === 'PATCH'
-    ));
-    await metricsSwitch.click();
-    const toggleResponse = await toggleResponsePromise;
-    expect(toggleResponse.ok()).toBeTruthy();
-    await expect(metricsSwitch).toHaveAttribute('aria-checked', wasEnabled === 'true' ? 'false' : 'true');
-
-    const restoreResponsePromise = page.waitForResponse((response) => (
-      response.url().includes('/api/admin/feature-flags/metrics_enabled')
-      && response.request().method() === 'PATCH'
-    ));
-    await metricsSwitch.click();
-    const restoreResponse = await restoreResponsePromise;
-    expect(restoreResponse.ok()).toBeTruthy();
-    await expect(metricsSwitch).toHaveAttribute('aria-checked', wasEnabled || 'false');
   });
 
   test('manual merge review previews, applies same-type candidates, and blocks cross-type pairs', async ({ page }) => {

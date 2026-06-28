@@ -265,10 +265,7 @@ const frontendEnvSource = readFrontendSource(path.join('components', 'app', 'fro
 const useApiClientSource = readFrontendSource(path.join('components', 'app', 'hooks', 'useApiClient'));
 const useMediaApiSource = readFrontendSource(path.join('components', 'app', 'hooks', 'useMediaApi'));
 const helpViewSource = readFrontendSource(path.join('components', 'HelpView'));
-const adminActivityViewSource = readFrontendSource(path.join('components', 'AdminActivityView'));
-const adminSpacesViewSource = readFrontendSource(path.join('components', 'AdminSpacesView'));
 const activityFeedViewSource = readFrontendSource(path.join('components', 'ActivityFeedView'));
-const adminUsersViewSource = readFrontendSource(path.join('components', 'AdminUsersView'));
 const dashboardCommandCenterViewSource = readFrontendSource(path.join('components', 'DashboardCommandCenterView'));
 const syncJobDetailDrawerSource = readFrontendSource(path.join('components', 'SyncJobDetailDrawer'));
 const wishlistViewSource = readFrontendSource(path.join('components', 'WishlistView'));
@@ -304,7 +301,6 @@ const rootPackageJson = JSON.parse(fs.readFileSync(require.resolve('../../packag
 const playwrightConfigSource = fs.readFileSync(require.resolve('../../playwright.config'), 'utf8');
 const playwrightAdminSetupSource = fs.readFileSync(require.resolve('../../tests/playwright/setup/admin.setup'), 'utf8');
 const helpCenterBrowserSpecSource = fs.readFileSync(require.resolve('../../tests/playwright/specs/help-center.browser.spec'), 'utf8');
-const helpAdminSupportBrowserSpecSource = fs.readFileSync(require.resolve('../../tests/playwright/specs/help-admin-support.browser.spec'), 'utf8');
 const approvedSupportSessionBrowserSpecSource = fs.readFileSync(require.resolve('../../tests/playwright/specs/approved-support-session.browser.spec'), 'utf8');
 const integrationsBrowserSpecSource = fs.readFileSync(require.resolve('../../tests/playwright/specs/integrations.browser.spec'), 'utf8');
 const importBrowserSpecSource = fs.readFileSync(require.resolve('../../tests/playwright/specs/import.browser.spec'), 'utf8');
@@ -2397,10 +2393,9 @@ results.push(run('platform activity diagnostics are blocked at the Core boundary
   assert.ok(!adminRoutesSource.includes("action = 'media.loan.reminder.auto_fail'"));
   assert.ok(platformEditionBoundarySmokeSource.includes('Platform /api/admin/activity must be owned by cairn'));
   assert.ok(platformEditionBoundarySmokeSource.includes('Platform /api/admin/loan-reminder-operations must be owned by cairn'));
-  assert.ok(adminActivityViewSource.includes("/admin/loan-reminder-operations"));
-  assert.ok(adminActivityViewSource.includes('Loan reminder operations'));
-  assert.ok(adminActivityViewSource.includes('Latest automatic run'));
-  assert.ok(adminActivityViewSource.includes('Recent failures'));
+  assert.ok(!dashboardContentSource.includes('AdminActivityView'));
+  assert.ok(!dashboardContentSource.includes("case 'admin-activity'"));
+  assert.ok(!dashboardRoutingSource.includes("'admin-activity'"));
 }));
 
 results.push(run('auth route source includes explicit support session endpoints', () => {
@@ -2496,18 +2491,17 @@ results.push(run('support route source is limited to the Core release feed after
   assert.ok(!supportRoutesSource.includes('normalizeSupportQueueFilter'));
 }));
 
-results.push(run('frontend source includes tabbed help center and support inbox surfaces for 2.9.1 foundation work', () => {
+results.push(run('frontend source keeps Core help center while platform support queue UI stays out of Core', () => {
   assert.ok(dashboardContentSource.includes("case 'help'"));
-  assert.ok(dashboardContentSource.includes("case 'support-inbox'"));
+  assert.ok(!dashboardContentSource.includes("case 'support-inbox'"));
   assert.ok(frontendAppSource.includes('getSafeDashboardTab'));
   assert.ok(frontendAppSource.includes('isSupportHelpEnabled'));
   assert.ok(frontendAppSource.includes('SUPPORT_STAFF_ROLE'));
-  assert.ok(frontendAppSource.includes("const supportStaffInEdition = supportHelpEnabled && platformBridgeEnabled && ['admin', SUPPORT_STAFF_ROLE].includes"));
+  assert.ok(frontendAppSource.includes("const supportStaffInEdition = supportHelpEnabled && ['admin', SUPPORT_STAFF_ROLE].includes"));
   assert.ok(frontendAppSource.includes('const supportSessionActiveInEdition = supportHelpEnabled && platformBridgeEnabled && Boolean(supportSession?.active);'));
   assert.ok(frontendAppSource.includes('supportSessionActive: supportSessionActiveInEdition,'));
   assert.ok(frontendAppSource.includes('showCollectibles: featureFlags.collectibles_enabled !== false'));
   assert.ok(frontendAppSource.includes('showEvents: featureFlags.events_enabled !== false'));
-  assert.ok(adminUsersViewSource.includes("const USER_ROLES = ['admin', SUPPORT_STAFF_ROLE, 'user', 'viewer'];"));
   assert.ok(dashboardContentSource.includes('<HelpView'));
   assert.ok(helpViewSource.includes('/support/releases'));
   assert.ok(helpViewSource.includes('Guidance'));
@@ -2534,20 +2528,21 @@ results.push(run('frontend source includes tabbed help center and support inbox 
   assert.ok(helpViewSource.includes('Linked engineering work'));
   assert.ok(helpViewSource.includes('Tracked work'));
   assert.ok(helpViewSource.includes('effectiveRepoIssueUrl'));
-  assert.ok(dashboardShellSource.includes('supportBadgeCount'));
   assert.ok(supportSessionBannerSource.includes('Requester:'));
   assert.ok(supportSessionBannerSource.includes('Case:'));
   assert.ok(helpViewSource.includes('Reply to Support'));
   assert.ok(dashboardShellSource.includes('const supportHelpEnabled = isSupportHelpEnabled(productEdition);'));
-  assert.ok(dashboardShellSource.includes("const supportStaffInEdition = supportHelpEnabled && platformBridgeEnabled && ['admin', SUPPORT_STAFF_ROLE].includes"));
+  assert.ok(dashboardShellSource.includes("const supportStaffInEdition = supportHelpEnabled && ['admin', SUPPORT_STAFF_ROLE].includes"));
   assert.ok(dashboardShellSource.includes('const supportSessionActiveInEdition = supportHelpEnabled && platformBridgeEnabled && Boolean(supportSession?.active);'));
-  assert.ok(dashboardShellSource.includes("supportBadgeCount={supportStaffInEdition ? supportSummary.open : null}"));
+  assert.ok(!dashboardShellSource.includes('supportBadgeCount'));
   assert.ok(supportSessionBannerSource.includes('isSupportHelpEnabled(productEdition)'));
   assert.ok(supportSessionBannerSource.includes("&& ['admin', SUPPORT_STAFF_ROLE].includes(String(user?.role || ''));"));
   assert.ok(sidebarNavSource.includes('const supportHelpEnabled = isSupportHelpEnabled(productEdition);'));
-  assert.ok(sidebarNavSource.includes('const bridgeSupportEnabled = supportHelpEnabled && platformBridgeEnabled;'));
-  assert.ok(sidebarNavSource.includes('const isSupportStaff = bridgeSupportEnabled && (isAdmin || isSupportAdmin);'));
+  assert.ok(sidebarNavSource.includes('const bridgeSupportEnabled = false;'));
+  assert.ok(sidebarNavSource.includes('const isSupportStaff = supportHelpEnabled && (isAdmin || isSupportAdmin);'));
   assert.ok(sidebarNavSource.includes('const canUseLibraryShell = !isSupportAdmin || !bridgeSupportEnabled;'));
+  assert.ok(!frontendAppSource.includes('useSupportSummary'));
+  assert.ok(!frontendAppSource.includes('usePlatformAnalytics'));
 }));
 
 results.push(run('edition boundary source includes backend-owned homelab shell and help surface rules', () => {
@@ -2580,10 +2575,10 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(frontendAppSource.includes('getSafeDashboardTab'));
   assert.ok(frontendAppSource.includes('supportSessionActiveInEdition'));
   assert.ok(dashboardContentSource.includes('const supportHelpEnabled = isSupportHelpEnabled(productEdition);'));
-  assert.ok(dashboardContentSource.includes('const bridgeSupportEnabled = supportHelpEnabled && platformBridgeEnabled;'));
-  assert.ok(dashboardContentSource.includes("...(bridgeSupportEnabled ? ['support-inbox'] : []),"));
+  assert.ok(dashboardContentSource.includes('const bridgeSupportEnabled = false;'));
+  assert.ok(!dashboardContentSource.includes("...(bridgeSupportEnabled ? ['support-inbox'] : []),"));
   assert.ok(sidebarNavSource.includes('getAllowedDashboardTabs'));
-  assert.ok(sidebarNavSource.includes('showPlatformGroup'));
+  assert.ok(!sidebarNavSource.includes('showPlatformGroup'));
   assert.ok(productEditionConfigSource.includes("return PRODUCT_EDITIONS.has(normalized) ? normalized : 'homelab';"));
   assert.ok(!dockerComposeSource.includes('APP_EDITION'));
   assert.ok(!dockerComposeSource.includes('Generated by scripts/generate-public-compose.js'));
@@ -2685,9 +2680,9 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(!supportRoutesSource.includes('supportPlatformRouter'));
   assert.ok(homelabHelpBrowserSpecSource.includes('product_edition'));
   assert.ok(homelabHelpBrowserSpecSource.includes("name: 'Help Admin'"));
-  assert.ok(homelabHelpBrowserSpecSource.includes('/dashboard?tab=admin-spaces'));
-  assert.ok(homelabHelpBrowserSpecSource.includes('/dashboard?tab=admin-users'));
-  assert.ok(homelabHelpBrowserSpecSource.includes('/dashboard?tab=admin-activity'));
+  assert.ok(homelabHelpBrowserSpecSource.includes('/platform/workspaces'));
+  assert.ok(homelabHelpBrowserSpecSource.includes('/platform/users'));
+  assert.ok(homelabHelpBrowserSpecSource.includes('/platform/activity'));
   assert.ok(homelabHelpBrowserSpecSource.includes('/dashboard?tab=space-manage'));
   assert.ok(homelabHelpBrowserSpecSource.includes("toHaveURL(/\\/help$/)"));
   assert.ok(homelabHelpBrowserSpecSource.includes("not.toHaveURL(/\\/platform\\/workspaces$/)"));
@@ -2916,10 +2911,11 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
   assert.ok(browserCapturesWorkflowSource.includes('playwright-browser-captures'));
   assert.ok(browserCapturesWorkflowSource.includes('PLAYWRIGHT_E2E_BYPASS_TOKEN="$(openssl rand -hex 16)"'));
   assert.ok(helpCenterBrowserSpecSource.includes('Help Center'));
-  assert.ok(helpCenterBrowserSpecSource.includes('Create help request'));
+  assert.ok(helpCenterBrowserSpecSource.includes('Guidance'));
+  assert.ok(helpCenterBrowserSpecSource.includes('Releases'));
+  assert.ok(helpCenterBrowserSpecSource.includes("name: 'Support', exact: true })).toHaveCount(0)"));
   assert.ok(rootPackageJson.scripts['test:browser:platform'].includes('help-center.browser.spec.js'));
-  assert.ok(helpAdminSupportBrowserSpecSource.includes('Help Admin'));
-  assert.ok(helpAdminSupportBrowserSpecSource.includes('Close Case'));
+  assert.ok(!rootPackageJson.scripts['test:browser:platform'].includes('help-admin-support.browser.spec.js'));
   assert.ok(approvedSupportSessionBrowserSpecSource.includes('Start Approved Support Session'));
   assert.ok(approvedSupportSessionBrowserSpecSource.includes('Workspace'));
   assert.ok(approvedSupportSessionBrowserSpecSource.includes('updateSupportSessionStateForRequestContext'));
@@ -2946,11 +2942,11 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
   assert.ok(spaceManagerBrowserSpecSource.includes('expectManageableFallbackWorkspace'));
   assert.ok(spaceManagerBrowserSpecSource.includes("getByLabel('Workspace sections')"));
   assert.ok(spaceManagerBrowserSpecSource.includes("{ name: 'Settings', exact: true })).toBeVisible()"));
-  assert.ok(adminShellBrowserSpecSource.includes("getByRole('button', { name: 'Workspace', exact: true })).toHaveCount(0)"));
+  assert.ok(!adminShellBrowserSpecSource.includes("getByRole('button', { name: 'Workspace', exact: true })).toHaveCount(0)"));
   assert.ok(boundaryBrowserSpecSource.includes('support_admin'));
   assert.ok(boundaryBrowserSpecSource.includes('/dashboard?tab=admin-integrations&integration=logs'));
   assert.ok(boundaryBrowserSpecSource.includes("toHaveURL(/\\/help$/)"));
-  assert.ok(boundaryBrowserSpecSource.includes('/dashboard?tab=admin-spaces'));
+  assert.ok(boundaryBrowserSpecSource.includes('/platform/workspaces'));
   assert.ok(eventsCollectiblesBrowserSpecSource.includes('/dashboard?tab=library-movies'));
   assert.ok(rootPackageJson.scripts['test:browser:event-planner'].includes('events-collectibles.browser.spec.js'));
   assert.ok(rootPackageJson.scripts['test:browser:core-regression'].includes('events-collectibles.browser.spec.js'));
@@ -3544,7 +3540,9 @@ results.push(run('kavita workspace-owned administration implementation is wired 
   assert.ok(!adminIntegrationsViewSource.includes('SECTION_DESCRIPTIONS'));
   assert.ok(!adminIntegrationsViewSource.includes('activeSectionSource.detail'));
   assert.ok(adminIntegrationsViewSource.includes("headerClassName={!header ? 'hidden' : ''}"));
-  assert.ok(dashboardContentSource.includes("title={coreRuntime ? 'Integrations' : 'Platform Runtime'}"));
+  assert.ok(dashboardContentSource.includes('title="Integrations"'));
+  assert.ok(dashboardShellSource.includes("'admin-integrations': 'Integrations'"));
+  assert.ok(!dashboardShellSource.includes("'admin-integrations': 'Platform Runtime'"));
   assert.ok(openApiSource.includes('/api/spaces/{id}/integrations/test-kavita'));
   assert.ok(openApiSource.includes('"integrationScope"'));
   assert.ok(openApiSource.includes('"effective_source"'));
@@ -5633,27 +5631,17 @@ results.push(run('public compose source keeps homelab-safe cookie defaults in th
   assert.ok(frontendViteIndexHtmlSource.includes('src="/runtime-env.js"'));
   assert.ok(frontendViteIndexHtmlSource.indexOf('src="/runtime-env.js"') < frontendViteIndexHtmlSource.indexOf('src="/src/main.jsx"'));
   assert.ok(useApiClientSource.includes("readFrontendEnv('VITE_CSRF_COOKIE_NAME', 'csrf_token')"));
-  assert.ok(useApiClientSource.includes("readFrontendEnv('VITE_PLATFORM_API_URL', '')"));
-  assert.ok(useApiClientSource.includes('isPlatformOwnedPath'));
-  assert.ok(useApiClientSource.includes("normalizedPath.startsWith('/support/')"));
-  assert.ok(useApiClientSource.includes("normalizedPath !== '/support/releases'"));
-  assert.ok(useApiClientSource.includes("normalizedPath === '/core-instances'"));
-  assert.ok(useApiClientSource.includes("normalizedPath === '/admin/spaces'"));
-  assert.ok(useApiClientSource.includes("normalizedPath === '/admin/users'"));
-  assert.ok(useApiClientSource.includes("normalizedPath === '/admin/activity'"));
-  assert.ok(useApiClientSource.includes("normalizedPath === '/admin/loan-reminder-operations'"));
-  assert.ok(useApiClientSource.includes("normalizedPath === '/admin/settings/email-delivery'"));
-  assert.ok(useApiClientSource.includes("'/admin/settings/integrations/test-pricecharting'"));
-  assert.ok(frontendAppSource.includes("const PLATFORM_BRIDGE_ENABLED = hasFrontendEnv('VITE_PLATFORM_API_URL');"));
+  assert.ok(!useApiClientSource.includes("VITE_PLATFORM_API_URL"));
+  assert.ok(!useApiClientSource.includes('isPlatformOwnedPath'));
+  assert.ok(!frontendAppSource.includes("VITE_PLATFORM_API_URL"));
   assert.ok(frontendAppSource.includes("space?.external_workspace_id || space?.id"));
   assert.ok(helpViewSource.includes('supportAccessEnabled = false'));
   assert.ok(helpViewSource.includes('supportAccessEnabled\n    &&\n    !isSupportStaff'));
-  assert.ok(adminSpacesViewSource.includes("apiCall('get', '/core-instances')"));
-  assert.ok(adminSpacesViewSource.includes('Array.isArray(spacesRes.value?.workspaces)'));
-  assert.ok(adminSpacesViewSource.includes("apiCall('post', '/admin/spaces', payload)"));
-  assert.ok(adminSpacesViewSource.includes("`/admin/spaces/${selectedSpaceId}/user-routes`"));
-  assert.ok(adminSpacesViewSource.includes("`/admin/spaces/${selectedSpaceId}/user-routes/${route.id}/status`"));
-  assert.ok(adminSpacesViewSource.includes('Core membership, invites, and owner changes remain workspace-owned.'));
+  assert.ok(!dashboardContentSource.includes('AdminSpacesView'));
+  assert.ok(!dashboardContentSource.includes("apiCall('post', '/admin/spaces', payload)"));
+  assert.ok(!dashboardContentSource.includes('/admin/spaces'));
+  assert.ok(!dashboardRoutingSource.includes('/platform/workspaces'));
+  assert.ok(!dashboardRoutingSource.includes('/platform/users'));
 }));
 
 results.push(run('pat.hasPersonalAccessTokenScope matches exact scopes and admin wildcard', () => {
@@ -6019,24 +6007,28 @@ results.push(run('frontend package and vite scaffold support the Vite-first buil
   assert.ok(frontendDockerfileSource.includes('COPY --from=builder /app/dist /usr/share/nginx/html'));
 }));
 
-results.push(run('dashboard content exposes dedicated admin spaces control plane tab', () => {
-  assert.ok(dashboardContentSource.includes("case 'admin-spaces'"));
-  assert.ok(dashboardContentSource.includes('AdminSpacesView'));
+results.push(run('dashboard content no longer exposes platform control plane tabs', () => {
+  assert.ok(!dashboardContentSource.includes("case 'admin-spaces'"));
+  assert.ok(!dashboardContentSource.includes('AdminSpacesView'));
+  assert.ok(!dashboardContentSource.includes("case 'admin-users'"));
+  assert.ok(!dashboardContentSource.includes('AdminUsersView'));
+  assert.ok(!dashboardRoutingSource.includes("'admin-spaces'"));
+  assert.ok(!dashboardRoutingSource.includes("'admin-users'"));
 }));
 
 results.push(run('dashboard shell exposes merge review as workspace-scoped operator navigation', () => {
   assert.ok(dashboardRoutingSource.includes("'admin-merges'"));
   assert.ok(sidebarNavSource.includes("admin-merges"));
-  assert.ok(sidebarNavSource.includes('showPlatformModeSwitch'));
+  assert.ok(!sidebarNavSource.includes('showPlatformModeSwitch'));
   assert.ok(!sidebarNavSource.includes('aria-label="Navigation mode"'));
-  assert.ok(sidebarNavSource.includes("isPlatformMode ? 'Workspace' : 'Platform'"));
-  assert.ok(sidebarNavSource.includes('Working in'));
+  assert.ok(!sidebarNavSource.includes("isPlatformMode ? 'Workspace' : 'Platform'"));
+  assert.ok(!sidebarNavSource.includes('Working in'));
   assert.ok(sidebarNavSource.includes("'admin-settings'"));
   assert.ok(sidebarNavSource.includes("'dashboard'"));
   assert.ok(sidebarNavSource.includes('showWorkspaceNavigation'));
-  assert.ok(sidebarNavSource.includes('showPlatformNavigation'));
-  assert.ok(sidebarNavSource.includes('const platformNavigationAllowed = !localRuntime && platformBridgeEnabled;'));
-  assert.ok(sidebarNavSource.includes('const showPlatformGroup = platformNavigationAllowed && isAdmin'));
+  assert.ok(!sidebarNavSource.includes('showPlatformNavigation'));
+  assert.ok(!sidebarNavSource.includes('platformNavigationAllowed'));
+  assert.ok(!sidebarNavSource.includes('showPlatformGroup'));
   assert.ok(sidebarNavSource.includes('showWorkspaceHelp'));
   assert.ok(sidebarNavSource.includes('showWorkspaceSettingsLink'));
   assert.ok(sidebarNavSource.includes('showLocalAdminSettingsLink'));
@@ -6063,7 +6055,7 @@ results.push(run('dashboard shell exposes merge review as workspace-scoped opera
   assert.ok(sidebarNavSource.includes("'admin-merges'"));
   assert.ok(sidebarNavSource.includes('{showWorkspaceNavigation && showWorkspaceSettingsLink && ('));
   assert.ok(sidebarNavSource.includes('{showWorkspaceMergeReviewLink && <NavLink id="admin-merges"'));
-  assert.ok(sidebarNavSource.includes('{showPlatformNavigation && showPlatformGroup && ('));
+  assert.ok(!sidebarNavSource.includes('{showPlatformNavigation && showPlatformGroup && ('));
   assert.ok(dashboardContentSource.includes("case 'admin-merges'"));
   assert.ok(dashboardContentSource.includes('AdminMergeReviewView'));
   assert.ok(productEditionFrontendSource.includes("allowed.add('admin-merges')"));
@@ -7993,12 +7985,11 @@ results.push(run('capture image OCR provider parsing preserves backend-owned OCR
   assert.strictEqual(typeof fixtureConfig.apiUrl, 'string');
 }));
 
-results.push(run('admin users view stays platform-only without invitation management tab', () => {
-  assert.ok(adminUsersViewSource.includes('Platform-level member administration.'));
-  assert.ok(!adminUsersViewSource.includes("activeTab === 'invitations'"));
-  assert.ok(!adminUsersViewSource.includes("/admin/invites"));
-  assert.ok(adminUsersViewSource.includes('workspace memberships'));
-  assert.ok(adminUsersViewSource.includes('Owned workspaces'));
+results.push(run('platform admin users view is no longer carried by Core frontend', () => {
+  assert.ok(!dashboardContentSource.includes('AdminUsersView'));
+  assert.ok(!dashboardContentSource.includes("case 'admin-users'"));
+  assert.ok(!dashboardRoutingSource.includes("'admin-users'"));
+  assert.ok(!sidebarNavSource.includes('All Members'));
 }));
 
 results.push(run('phase5 smoke scripts avoid tenant admin invite bootstrapping and cover platform boundary checks', () => {

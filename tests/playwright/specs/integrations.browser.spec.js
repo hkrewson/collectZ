@@ -12,10 +12,17 @@ async function openIntegrationsSection(page, name) {
 }
 
 async function expectPlatformRuntime(page) {
-  await expect(page.getByRole('heading', { name: 'Platform Runtime' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Integrations' })).toBeVisible();
   await expect(page.getByRole('tablist', { name: 'Integration sections' }).getByRole('tab')).toHaveText([
-    'External Logs',
-    'Metrics'
+    'Audio',
+    'Barcode',
+    'Books',
+    'CWA',
+    'Comics',
+    'Games',
+    'Kavita',
+    'Plex',
+    'TMDB'
   ]);
 }
 
