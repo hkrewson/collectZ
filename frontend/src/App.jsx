@@ -37,7 +37,6 @@ export default function App() {
   const [libraries, setLibraries] = useState([]);
   const [activeSpaceId, setActiveSpaceId] = useState(null);
   const [activeLibraryId, setActiveLibraryId] = useState(null);
-  const [supportSession, setSupportSession] = useState(null);
   const [uiSettings, setUiSettings] = useState({ theme: 'system', density: 'comfortable' });
   const [libraryReviewFilter, setLibraryReviewFilter] = useState(null);
   const [featureFlags, setFeatureFlags] = useState({
@@ -61,7 +60,6 @@ export default function App() {
     setLibraries(nextLibraries);
     setActiveSpaceId(nextActiveSpaceId);
     setActiveLibraryId(nextActiveLibraryId);
-    setSupportSession(payload?.support_session?.active ? payload.support_session : null);
     setUser((prev) => {
       if (!prev) return prev;
       const prevActive = Number(prev.active_library_id || 0) || null;
@@ -82,7 +80,6 @@ export default function App() {
   const platformBridgeEnabled = false;
   const dashboardRouteOptions = useMemo(() => ({ productEdition, platformBridgeEnabled }), [productEdition, platformBridgeEnabled]);
   const supportStaffInEdition = supportHelpEnabled && ['admin', SUPPORT_STAFF_ROLE].includes(String(user?.role || ''));
-  const supportSessionActiveInEdition = supportHelpEnabled && platformBridgeEnabled && Boolean(supportSession?.active);
   const nowPlayingDisplayToken = route === 'now-playing'
     ? new URLSearchParams(window.location.search).get('token') || ''
     : '';
@@ -162,7 +159,6 @@ export default function App() {
     setLibraries([]);
     setActiveSpaceId(null);
     setActiveLibraryId(null);
-    setSupportSession(null);
     setMediaItems([]);
     clearImportJobs();
     navigate('login');
@@ -248,51 +244,11 @@ export default function App() {
       if (nextActiveSpaceId !== Number(activeSpaceId || 0)) {
         await loadAuthScope({ silent: true });
       }
-      showToast(supportSessionActiveInEdition ? 'Support library updated' : 'Active library updated');
+      showToast('Active library updated');
     } catch (error) {
       showToast(error.response?.data?.error || 'Failed to switch libraries', 'error');
     }
-  }, [activeLibraryId, activeSpaceId, apiCall, clearImportJobs, loadAuthScope, setMediaItems, setUser, showToast, supportSessionActiveInEdition]);
-
-  const endSupportSession = useCallback(async () => {
-    try {
-      await apiCall('delete', '/auth/support-session');
-      await loadAuthScope({ silent: true });
-      clearImportJobs();
-      setMediaItems([]);
-      if (!String(activeTab || '').startsWith('admin-') || activeTab === 'space-manage') {
-        setActiveTab('dashboard');
-      }
-      showToast('Support session ended');
-    } catch (error) {
-      showToast(error.response?.data?.error || 'Failed to end support session', 'error');
-    }
-  }, [activeTab, apiCall, clearImportJobs, loadAuthScope, setMediaItems, showToast]);
-
-  const startSupportSession = useCallback(async (space, options = {}) => {
-    const spaceId = Number(space?.external_workspace_id || space?.id || 0);
-    if (!Number.isFinite(spaceId) || spaceId <= 0) return false;
-    const reason = String(options?.reason || '').trim();
-    const libraryId = Number(options?.libraryId || 0) || null;
-    const requestId = Number(options?.requestId || 0) || null;
-    try {
-      await apiCall('post', '/auth/support-session/start', {
-        space_id: spaceId,
-        reason: reason || undefined,
-        library_id: libraryId || undefined,
-        request_id: requestId || undefined
-      });
-      await loadAuthScope({ silent: true });
-      clearImportJobs();
-      setMediaItems([]);
-      setActiveTab('space-manage');
-      showToast(`Support session started for ${space?.name || 'workspace'}`);
-      return true;
-    } catch (error) {
-      showToast(error.response?.data?.error || 'Failed to start support session', 'error');
-      return false;
-    }
-  }, [apiCall, clearImportJobs, loadAuthScope, setMediaItems, showToast]);
+  }, [activeLibraryId, activeSpaceId, apiCall, clearImportJobs, loadAuthScope, setMediaItems, setUser, showToast]);
 
   useEffect(() => {
     if (!(route === 'dashboard' && authChecked && user)) return;
@@ -329,9 +285,9 @@ export default function App() {
   const activeSpace = spaces.find((space) => Number(space.id) === Number(activeSpaceId)) || null;
   const activeMembershipRole = activeSpace?.membership_role || null;
   const canManageActiveSpace = user?.role === 'admin'
-    ? supportSessionActiveInEdition || ['owner', 'admin'].includes(activeMembershipRole)
+    ? ['owner', 'admin'].includes(activeMembershipRole)
     : user?.role === SUPPORT_STAFF_ROLE
-      ? supportSessionActiveInEdition
+      ? false
       : ['owner', 'admin'].includes(activeMembershipRole);
   const fallbackManageableSpace = spaces.find((space) => ['owner', 'admin'].includes(String(space?.membership_role || ''))) || null;
   const scopeKey = `${activeSpaceId || 'none'}:${activeLibraryId || 'none'}`;
@@ -342,7 +298,6 @@ export default function App() {
     if (
       activeTab !== 'space-manage'
       || canManageActiveSpace
-      || supportSessionActiveInEdition
       || supportStaffInEdition
       || !fallbackManageableSpace
       || Number(fallbackManageableSpace.id) === Number(activeSpaceId || 0)
@@ -358,7 +313,6 @@ export default function App() {
     fallbackManageableSpace,
     handleSpaceSelect,
     route,
-    supportSessionActiveInEdition,
     supportStaffInEdition,
     user
   ]);
@@ -367,7 +321,6 @@ export default function App() {
     if (
       activeTab === 'space-manage'
       && !canManageActiveSpace
-      && !supportSessionActiveInEdition
       && !supportStaffInEdition
       && fallbackManageableSpace
       && Number(fallbackManageableSpace.id) !== Number(activeSpaceId || 0)
@@ -376,7 +329,6 @@ export default function App() {
     }
     const nextTab = getSafeDashboardTab(productEdition, activeTab, {
       userRole: user?.role,
-      supportSessionActive: supportSessionActiveInEdition,
       canManageActiveSpace,
       showCollectibles: featureFlags.collectibles_enabled !== false,
       showEvents: featureFlags.events_enabled !== false,
@@ -392,7 +344,6 @@ export default function App() {
     featureFlags.events_enabled,
     productEdition,
     platformBridgeEnabled,
-    supportSessionActiveInEdition,
     user?.role
   ]);
 
@@ -476,7 +427,6 @@ export default function App() {
       onUserUpdate={handleUserUpdate}
       activeTab={activeTab}
       setActiveTab={selectDashboardTab}
-      supportSession={supportSession}
       canManageActiveSpace={canManageActiveSpace}
       spaces={spaces}
       activeSpaceId={activeSpaceId}
@@ -498,7 +448,6 @@ export default function App() {
       activeMembershipRole={activeMembershipRole}
       activeSpace={activeSpace}
       activeLibrary={activeLibrary}
-      endSupportSession={endSupportSession}
       apiCall={apiCall}
       showToast={showToast}
       mediaItems={mediaItems}
@@ -520,7 +469,6 @@ export default function App() {
       setLibraryReviewFilter={setLibraryReviewFilter}
       scopeKey={scopeKey}
       loadAuthScope={loadAuthScope}
-      startSupportSession={startSupportSession}
       dismissImportJob={dismissImportJob}
       toast={toast}
       setToast={setToast}

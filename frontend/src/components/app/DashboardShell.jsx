@@ -76,7 +76,6 @@ export default function DashboardShell({
   onUserUpdate,
   activeTab,
   setActiveTab,
-  supportSession,
   canManageActiveSpace,
   spaces,
   activeSpaceId,
@@ -98,7 +97,6 @@ export default function DashboardShell({
   activeMembershipRole,
   activeSpace,
   activeLibrary,
-  endSupportSession,
   apiCall,
   showToast,
   mediaItems,
@@ -127,7 +125,6 @@ export default function DashboardShell({
   const desktopNavExpanded = !collapsed;
   const supportHelpEnabled = isSupportHelpEnabled(productEdition);
   const supportStaffInEdition = supportHelpEnabled && ['admin', SUPPORT_STAFF_ROLE].includes(String(user?.role || ''));
-  const supportSessionActiveInEdition = supportHelpEnabled && platformBridgeEnabled && Boolean(supportSession?.active);
   const mobileHeaderTitle = getMobileHeaderTitle(activeTab, productEdition);
   const MobileHeaderIcon = getMobileHeaderIcon(activeTab);
 
@@ -139,7 +136,6 @@ export default function DashboardShell({
         onSelect={async (nextTab) => {
           if (
             nextTab === 'space-manage'
-            && !supportSessionActiveInEdition
             && !supportStaffInEdition
             && !canManageActiveSpace
           ) {
@@ -151,7 +147,6 @@ export default function DashboardShell({
           setLibraryReviewFilter?.(null);
           setActiveTab(getSafeDashboardTab(productEdition, nextTab, {
             userRole: user?.role,
-            supportSessionActive: supportSessionActiveInEdition,
             canManageActiveSpace,
             showCollectibles: featureFlags.collectibles_enabled,
             showEvents: featureFlags.events_enabled,
@@ -173,7 +168,6 @@ export default function DashboardShell({
         onLibrarySelect={handleLibrarySelect}
         canManageActiveSpace={canManageActiveSpace}
         activeMembershipRole={activeMembershipRole}
-        supportSessionActive={supportSessionActiveInEdition}
         showCollectibles={featureFlags.collectibles_enabled}
         showEvents={featureFlags.events_enabled}
         productEdition={productEdition}

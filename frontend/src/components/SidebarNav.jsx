@@ -32,7 +32,6 @@ export default function SidebarNav({
   onLibrarySelect,
   canManageActiveSpace = false,
   activeMembershipRole = null,
-  supportSessionActive = false,
   showCollectibles = true,
   showEvents = true,
   productEdition = 'platform',
@@ -48,7 +47,6 @@ export default function SidebarNav({
   const canUseLibraryShell = !isSupportAdmin || !bridgeSupportEnabled;
   const allowedTabs = getAllowedDashboardTabs(productEdition, {
     userRole: user?.role,
-    supportSessionActive,
     canManageActiveSpace,
     showCollectibles,
     showEvents,

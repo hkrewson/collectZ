@@ -2457,10 +2457,14 @@ results.push(run('migrations source includes support role and help foundation sc
 
 results.push(run('frontend app source keeps support-session APIs out of the Core UI shell', () => {
   assert.ok(!dashboardShellSource.includes('SupportSessionBanner'));
-  assert.ok(frontendAppSource.includes('/auth/support-session/start'));
-  assert.ok(frontendAppSource.includes('request_id: requestId || undefined'));
+  assert.ok(!frontendAppSource.includes('/auth/support-session/start'));
+  assert.ok(!frontendAppSource.includes('/auth/support-session'));
+  assert.ok(!frontendAppSource.includes('request_id: requestId || undefined'));
+  assert.ok(!frontendAppSource.includes('supportSession'));
   assert.ok(!dashboardContentSource.includes('onStartSupportSession'));
   assert.ok(!dashboardContentSource.includes('onEndSupportSession'));
+  assert.ok(!dashboardShellSource.includes('supportSession'));
+  assert.ok(!productEditionFrontendSource.includes('supportSessionActive'));
 }));
 
 results.push(run('auth page waits for backend auth config before showing registration-unavailable state', () => {
@@ -2497,8 +2501,8 @@ results.push(run('frontend source keeps Core help center while platform support 
   assert.ok(frontendAppSource.includes('isSupportHelpEnabled'));
   assert.ok(frontendAppSource.includes('SUPPORT_STAFF_ROLE'));
   assert.ok(frontendAppSource.includes("const supportStaffInEdition = supportHelpEnabled && ['admin', SUPPORT_STAFF_ROLE].includes"));
-  assert.ok(frontendAppSource.includes('const supportSessionActiveInEdition = supportHelpEnabled && platformBridgeEnabled && Boolean(supportSession?.active);'));
-  assert.ok(frontendAppSource.includes('supportSessionActive: supportSessionActiveInEdition,'));
+  assert.ok(!frontendAppSource.includes('supportSessionActiveInEdition'));
+  assert.ok(!frontendAppSource.includes('supportSessionActive:'));
   assert.ok(frontendAppSource.includes('showCollectibles: featureFlags.collectibles_enabled !== false'));
   assert.ok(frontendAppSource.includes('showEvents: featureFlags.events_enabled !== false'));
   assert.ok(dashboardContentSource.includes('<HelpView'));
@@ -2514,7 +2518,7 @@ results.push(run('frontend source keeps Core help center while platform support 
   assert.ok(!helpViewSource.includes('Reply to Support'));
   assert.ok(dashboardShellSource.includes('const supportHelpEnabled = isSupportHelpEnabled(productEdition);'));
   assert.ok(dashboardShellSource.includes("const supportStaffInEdition = supportHelpEnabled && ['admin', SUPPORT_STAFF_ROLE].includes"));
-  assert.ok(dashboardShellSource.includes('const supportSessionActiveInEdition = supportHelpEnabled && platformBridgeEnabled && Boolean(supportSession?.active);'));
+  assert.ok(!dashboardShellSource.includes('supportSessionActiveInEdition'));
   assert.ok(!dashboardShellSource.includes('supportBadgeCount'));
   assert.ok(sidebarNavSource.includes('const supportHelpEnabled = isSupportHelpEnabled(productEdition);'));
   assert.ok(sidebarNavSource.includes('const bridgeSupportEnabled = false;'));
@@ -2543,8 +2547,7 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(productEditionFrontendSource.includes('getHelpTabDefinitions'));
   assert.ok(productEditionFrontendSource.includes('getHelpSurfaceTitle'));
   assert.ok(productEditionFrontendSource.includes('getAllowedDashboardTabs'));
-  assert.ok(productEditionFrontendSource.includes('platformBridgeEnabled = false'));
-  assert.ok(productEditionFrontendSource.includes("if (!isLocalProductEdition(productEdition) && platformBridgeEnabled && supportSessionActive && canManageActiveSpace)"));
+  assert.ok(!productEditionFrontendSource.includes('supportSessionActive'));
   assert.ok(productEditionFrontendSource.includes("if (!options?.platformBridgeEnabled) return getLocalRuntimeAllowedTabs(options);"));
   assert.ok(productEditionFrontendSource.includes('return DEFAULT_PLATFORM_TAB;'));
   assert.ok(helpViewSource.includes('<h1 className="section-title">Help</h1>'));
@@ -2552,7 +2555,7 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(!helpViewSource.includes('effectiveHelpProductEdition'));
   assert.ok(!helpViewSource.includes('A lightweight home for self-serve guidance and recent release notes for homelab users.'));
   assert.ok(frontendAppSource.includes('getSafeDashboardTab'));
-  assert.ok(frontendAppSource.includes('supportSessionActiveInEdition'));
+  assert.ok(!frontendAppSource.includes('supportSessionActiveInEdition'));
   assert.ok(!dashboardContentSource.includes('const supportHelpEnabled = isSupportHelpEnabled(productEdition);'));
   assert.ok(!dashboardContentSource.includes('const bridgeSupportEnabled = false;'));
   assert.ok(!dashboardContentSource.includes("...(bridgeSupportEnabled ? ['support-inbox'] : []),"));
@@ -5606,7 +5609,7 @@ results.push(run('public compose source keeps homelab-safe cookie defaults in th
   assert.ok(!useApiClientSource.includes("VITE_PLATFORM_API_URL"));
   assert.ok(!useApiClientSource.includes('isPlatformOwnedPath'));
   assert.ok(!frontendAppSource.includes("VITE_PLATFORM_API_URL"));
-  assert.ok(frontendAppSource.includes("space?.external_workspace_id || space?.id"));
+  assert.ok(!frontendAppSource.includes("space?.external_workspace_id || space?.id"));
   assert.ok(!helpViewSource.includes('supportAccessEnabled'));
   assert.ok(!helpViewSource.includes('/support/requests'));
   assert.ok(!dashboardContentSource.includes('AdminSpacesView'));

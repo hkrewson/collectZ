@@ -46,8 +46,7 @@ export function getLocalRuntimeAllowedTabs({
   userRole,
   showCollectibles = true,
   showEvents = true,
-  canManageActiveSpace = false,
-  supportSessionActive = false
+  canManageActiveSpace = false
 } = {}) {
   const normalizedRole = String(userRole || '').trim().toLowerCase();
   const allowed = new Set([
@@ -81,28 +80,18 @@ export function getLocalRuntimeAllowedTabs({
     allowed.add('admin-integrations');
   }
 
-  if (canManageActiveSpace || supportSessionActive) {
+  if (canManageActiveSpace) {
     allowed.add('space-manage');
   }
 
   return allowed;
 }
 
-export function getSupportAdminAllowedTabs(productEdition, {
-  supportSessionActive = false,
-  canManageActiveSpace = false,
-  platformBridgeEnabled = false
-} = {}) {
-  const allowed = new Set([
+export function getSupportAdminAllowedTabs() {
+  return new Set([
     'help',
     'profile'
   ]);
-
-  if (!isLocalProductEdition(productEdition) && platformBridgeEnabled && supportSessionActive && canManageActiveSpace) {
-    allowed.add('space-manage');
-  }
-
-  return allowed;
 }
 
 export function getAllowedDashboardTabs(productEdition, options = {}) {

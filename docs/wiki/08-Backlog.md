@@ -1329,7 +1329,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - Replaced the old mirror workflow with public-source CI on the canonical repository.
 - Created private-first `cairn` with its own service, database, OpenAPI, health/config surface, CI, platform directory model, and email-first routing contract.
 - Moved platform docs/metrics, support queue APIs, global workspace/member administration, platform settings diagnostics, platform activity, and platform operations readbacks to `cairn` or blocked their old Core routes.
-- Removed the Core-hosted platform frontend shells, platform bridge API routing, `VITE_PLATFORM_API_URL` frontend runtime wiring, embedded support request UI, support-session banner, and platform Help Admin copy.
+- Removed the Core-hosted platform frontend shells, platform bridge API routing, `VITE_PLATFORM_API_URL` frontend runtime wiring, embedded support request UI, frontend support-session plumbing, support-session banner, and platform Help Admin copy.
 - Kept Core OpenAPI focused on Core/self-host APIs by removing the moved platform paths.
 
 **Remaining 3.x closeout scope**
