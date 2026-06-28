@@ -2605,7 +2605,7 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(serverSource.includes("app.use('/api', platformIntegrationsRouter);"));
   assert.ok(serverSource.includes("app.use('/api', spaceIntegrationsRouter);"));
   assert.ok(serverSource.includes("app.use('/api', spacesRouter);"));
-  assert.ok(serverSource.includes("app.use('/api/admin', adminPlatformRouter);"));
+  assert.ok(!serverSource.includes("app.use('/api/admin', adminPlatformRouter);"));
   assert.ok(serverSource.includes("const coreRouter = require('./routes/core');"));
   assert.ok(serverSource.includes("app.use('/api', coreRouter);"));
   assert.ok(coreRoutesSource.includes("router.get('/core/instance'"));
@@ -2662,7 +2662,8 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(authRoutesSource.includes("platformRouter.post('/support-session/start'"));
   assert.ok(authRoutesSource.includes("platformRouter.delete('/support-session'"));
   assert.ok(adminRoutesSource.includes('adminCommonRouter'));
-  assert.ok(adminRoutesSource.includes('adminPlatformRouter'));
+  assert.ok(!adminRoutesSource.includes('adminPlatformRouter'));
+  assert.ok(!adminRoutesSource.includes('platformRouter'));
   assert.ok(adminRoutesSource.includes('HOMELAB_ALLOWED_FEATURE_FLAGS'));
   assert.ok(adminRoutesSource.includes("commonRouter.get('/settings/portability'"));
   assert.ok(adminRoutesSource.includes("commonRouter.post('/settings/portability/export'"));
@@ -5812,8 +5813,11 @@ results.push(run('global workspace administration belongs to cairn instead of co
   assert.ok(!openApiSource.includes('"/api/admin/spaces/create-with-onboarding"'));
   assert.ok(!openApiSource.includes('"/api/admin/spaces/{id}/owner"'));
   assert.ok(!openApiSource.includes('AdminSpaceRecord'));
-  assert.ok(adminRoutesSource.includes('UPDATE user_sessions s'));
-  assert.ok(adminRoutesSource.includes('s.support_previous_space_id = $1'));
+  assert.ok(!adminRoutesSource.includes("platformRouter.post('/spaces"));
+  assert.ok(!adminRoutesSource.includes("platformRouter.patch('/spaces"));
+  assert.ok(!adminRoutesSource.includes("platformRouter.delete('/spaces"));
+  assert.ok(!adminRoutesSource.includes('UPDATE user_sessions s'));
+  assert.ok(!adminRoutesSource.includes('s.support_previous_space_id = $1'));
   assert.ok(!adminRoutesSource.includes('contributionScore'));
 }));
 

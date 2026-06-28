@@ -120,8 +120,8 @@ Platform-only paths should be removed from the collectZ OpenAPI spec during extr
 - collectZ Core now publishes non-secret instance metadata at `GET /api/core/instance`, and `cairn` can read it through `GET /api/core-instances/{id}/readiness`.
 - Platform API docs and platform-service metrics now live in `cairn` at `GET /api/docs`, `GET /api/docs/openapi.yaml`, and `GET /api/metrics`; collectZ Core no longer mounts or documents the former platform docs/metrics endpoints.
 - `cairn` now has the first platform support queue model and API contract for requests, messages, status updates, triage metadata, and support staff summary. collectZ still hosts a compatibility UI shell and the Core support-session bridge until cairn grows its own frontend.
-- `cairn` now owns global workspace/member administration contracts. collectZ Core returns 404 for `/api/admin/spaces*` and `/api/admin/users*`, while Core workspace-scoped management remains under `/api/spaces*`.
-- `cairn` now owns platform email delivery settings plus PriceCharting, eBay, and structured-log platform diagnostics. collectZ Core returns 404 for those platform-only settings routes.
+- `cairn` now owns global workspace/member administration contracts. collectZ Core returns 404 for `/api/admin/spaces*` and `/api/admin/users*`, while Core workspace-scoped management remains under `/api/spaces*`. The old unreachable Core handlers have been removed.
+- `cairn` now owns platform email delivery settings plus PriceCharting, eBay, and structured-log platform diagnostics. collectZ Core returns 404 for those platform-only settings routes, and no longer carries the old email-delivery handlers.
 - `cairn` now owns platform activity and platform operations readbacks at `/api/admin/activity` and `/api/admin/loan-reminder-operations`. collectZ Core keeps workspace-scoped activity at `/api/spaces/:id/activity`.
 - collectZ frontend platform routing remains optional so Core-only deployments stay self-contained.
 
@@ -144,7 +144,7 @@ Remaining Core/`cairn` cleanup should focus on concrete platform-surface extract
 
 The remaining split work is intentionally narrow:
 
-- Remove or quarantine dead/unreachable backend platform route code from Core after each route is confirmed blocked or moved.
+- Remove or quarantine any remaining dead/unreachable backend platform route code from Core after each route is confirmed blocked or moved. Done for support request APIs and global admin spaces/users/email-delivery handlers.
 - Decide whether collectZ keeps a temporary platform frontend shell for `cairn`, or whether those views move fully to the `cairn` repository.
 - Keep service-account key storage and `/api/auth/service-account-keys` management in Core as Core API key / machine-token support.
 - Keep support-session and scoped workspace APIs in Core unless `cairn` needs a cleaner documented operation bridge.

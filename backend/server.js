@@ -35,7 +35,7 @@ const { isHomelabEdition } = require('./config/productEdition');
 const { authRouter, authPlatformRouter } = require('./routes/auth');
 const coreRouter = require('./routes/core');
 const mediaRouter = require('./routes/media');
-const { adminCommonRouter, adminPlatformRouter } = require('./routes/admin');
+const { adminCommonRouter } = require('./routes/admin');
 const { sharedIntegrationsRouter, platformIntegrationsRouter } = require('./routes/integrations');
 const spaceIntegrationsRouter = require('./routes/spaceIntegrations');
 const librariesRouter = require('./routes/libraries');
@@ -326,7 +326,6 @@ if (!HOMELAB_EDITION) {
   });
   app.use('/api', platformIntegrationsRouter);
   app.use('/api', spacesRouter);
-  app.use('/api/admin', adminPlatformRouter);
 }
 
 // 404 JSON for unmatched API routes so failures are explicit and loggable.
