@@ -478,8 +478,6 @@ export default function DashboardContent({
           themeDescription="Choose the default appearance for this install."
           visibleFlagKeys={coreRuntime ? undefined : ['self_registration_enabled']}
           emptyFeatureFlagsMessage={null}
-          emailDeliveryEndpoint={null}
-          analyticsEndpoint={null}
           portabilityEndpoint="/admin/settings/portability"
         />
       );

@@ -69,7 +69,7 @@ Moved out of collectZ Core:
 - platform bridge API routing and `VITE_PLATFORM_API_URL` runtime wiring
 - platform support mode inside `HelpView.jsx`
 - support-session banner and controls that are only for platform staff
-- platform-specific support copy such as Help Admin and support-session labels
+- platform-specific support/settings copy such as Help Admin, support-session labels, platform SMTP controls, and platform analytics tracking controls
 
 Keep in Core:
 
@@ -151,7 +151,7 @@ Compatibility bridge:
 8. Move platform user administration to `cairn`. In progress: `cairn` now owns the platform admin/routed-user directory contract; collectZ Core returns 404 for `/api/admin/users*` and no longer carries the old unreachable handlers. Workspace-scoped member management remains under Core `/api/spaces*` until cairn has a Core operation bridge for scoped data changes.
 9. Move platform settings and diagnostics to `cairn`. In progress: `cairn` now owns platform email delivery settings plus PriceCharting, eBay, and structured-log platform diagnostics; collectZ Core returns 404 for those platform-only settings routes and no longer carries the old email-delivery or platform integration diagnostic handlers. Shared Core integration settings and Core provider diagnostics remain in collectZ.
 10. Move platform activity and platform operations readbacks to `cairn`. In progress: `cairn` now owns `/api/admin/activity`, a platform activity table, and a compatibility `/api/admin/loan-reminder-operations` readback. collectZ Core keeps workspace-scoped activity under `/api/spaces/:id/activity` and no longer documents the moved platform activity paths.
-11. Remove platform-only tabs and OpenAPI paths from collectZ after the matching `cairn` surface exists. In progress: Core no longer carries the standalone support inbox, global workspace, global user, platform activity, platform navigation, bridge API routing frontend modules, embedded support request UI, or support-session banner.
+11. Remove platform-only tabs and OpenAPI paths from collectZ after the matching `cairn` surface exists. In progress: Core no longer carries the standalone support inbox, global workspace, global user, platform activity, platform navigation, bridge API routing frontend modules, embedded support request UI, dormant platform email/analytics settings controls, or support-session banner.
 
 ## Verification Targets
 

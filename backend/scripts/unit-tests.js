@@ -258,6 +258,7 @@ const frontendAppSource = readFrontendSource('App');
 const sidebarNavSource = readFrontendSource(path.join('components', 'SidebarNav'));
 const dashboardShellSource = readFrontendSource(path.join('components', 'app', 'DashboardShell'));
 const dashboardContentSource = readFrontendSource(path.join('components', 'app', 'DashboardContent'));
+const adminSettingsViewSource = readFrontendSource(path.join('components', 'AdminSettingsView'));
 const dashboardRoutingSource = readFrontendSource(path.join('components', 'app', 'dashboardRouting'));
 const productEditionFrontendSource = readFrontendSource(path.join('components', 'app', 'productEdition'));
 const frontendEnvSource = readFrontendSource(path.join('components', 'app', 'frontendEnv'));
@@ -2527,6 +2528,13 @@ results.push(run('frontend source keeps Core help center while platform support 
   assert.ok(sidebarNavSource.includes('const canUseLibraryShell = !isSupportAdmin || !bridgeSupportEnabled;'));
   assert.ok(!frontendAppSource.includes('useSupportSummary'));
   assert.ok(!frontendAppSource.includes('usePlatformAnalytics'));
+  assert.ok(!adminSettingsViewSource.includes('EmailDeliveryCard'));
+  assert.ok(!adminSettingsViewSource.includes('AnalyticsTrackingCard'));
+  assert.ok(!adminSettingsViewSource.includes('emailDeliveryEndpoint'));
+  assert.ok(!adminSettingsViewSource.includes('analyticsEndpoint'));
+  assert.ok(!adminSettingsViewSource.includes('collectz:platform-analytics-updated'));
+  assert.ok(!adminSettingsViewSource.includes('Rybbit'));
+  assert.ok(!adminSettingsViewSource.includes('Platform SMTP'));
 }));
 
 results.push(run('edition boundary source includes backend-owned homelab shell and help surface rules', () => {
