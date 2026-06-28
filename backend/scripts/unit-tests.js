@@ -5439,6 +5439,8 @@ results.push(run('openapi baseline documents key auth admin and media endpoints'
 results.push(run('platform docs and metrics routes are no longer mounted in collectZ Core', () => {
   assert.ok(!serverSource.includes("const docsRouter = require('./routes/docs');"));
   assert.ok(!serverSource.includes("const metricsRouter = require('./routes/metrics');"));
+  assert.ok(!fs.existsSync(path.resolve(__dirname, '..', 'routes', 'docs.js')));
+  assert.ok(!fs.existsSync(path.resolve(__dirname, '..', 'routes', 'metrics.js')));
   assert.ok(!openApiSource.includes('"/api/docs"'));
   assert.ok(!openApiSource.includes('"/api/docs/openapi.json"'));
   assert.ok(!openApiSource.includes('"/api/metrics"'));
