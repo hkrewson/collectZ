@@ -1451,9 +1451,9 @@ router.delete('/personal-access-tokens/:id', authenticateToken, requireSessionAu
   res.json(revoked);
 }));
 
-// ── Service Account Keys (admin-only) ────────────────────────────────────────
+// ── Core API Keys (admin-only machine access) ────────────────────────────────
 
-platformRouter.get('/service-account-keys', authenticateToken, requireSessionAuth, requireRole('admin'), asyncHandler(async (_req, res) => {
+router.get('/service-account-keys', authenticateToken, requireSessionAuth, requireRole('admin'), asyncHandler(async (_req, res) => {
   const keys = await listServiceAccountKeys();
   res.json({
     scopes: SERVICE_ACCOUNT_KEY_SCOPES,
@@ -1462,7 +1462,7 @@ platformRouter.get('/service-account-keys', authenticateToken, requireSessionAut
   });
 }));
 
-platformRouter.post('/service-account-keys', authenticateToken, requireSessionAuth, requireRole('admin'), validate(serviceAccountKeyCreateSchema), asyncHandler(async (req, res) => {
+router.post('/service-account-keys', authenticateToken, requireSessionAuth, requireRole('admin'), validate(serviceAccountKeyCreateSchema), asyncHandler(async (req, res) => {
   const expiresAt = req.body.expires_at ? new Date(req.body.expires_at) : null;
   const created = await createServiceAccountKey({
     ownerUserId: req.user.id,
@@ -1484,7 +1484,7 @@ platformRouter.post('/service-account-keys', authenticateToken, requireSessionAu
   });
 }));
 
-platformRouter.delete('/service-account-keys/:id', authenticateToken, requireSessionAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+router.delete('/service-account-keys/:id', authenticateToken, requireSessionAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   const keyId = Number(req.params.id);
   if (!Number.isFinite(keyId) || keyId <= 0) {
     return res.status(400).json({ error: 'Invalid service account key id' });

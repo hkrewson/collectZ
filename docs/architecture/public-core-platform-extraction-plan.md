@@ -146,7 +146,7 @@ The remaining split work is intentionally narrow:
 
 - Remove or quarantine dead/unreachable backend platform route code from Core after each route is confirmed blocked or moved.
 - Decide whether collectZ keeps a temporary platform frontend shell for `cairn`, or whether those views move fully to the `cairn` repository.
-- Classify service-account keys as Core machine-token support or move them to `cairn` as platform admin tokens.
+- Keep service-account key storage and `/api/auth/service-account-keys` management in Core as Core API key / machine-token support.
 - Keep support-session and scoped workspace APIs in Core unless `cairn` needs a cleaner documented operation bridge.
 - Keep paired-service compose examples and Core/`cairn` network configuration out of the public Core repository; document them in `cairn` only.
 
@@ -155,7 +155,6 @@ Platform extraction candidates already identified by the current edition boundar
 - platform routers mounted only when `APP_EDITION` is not homelab
 - `/api/docs` and `/api/metrics`
 - `/api/auth/support-session/start` and `/api/auth/support-session`
-- `/api/auth/service-account-keys`
 - support staff request/inbox APIs under `/api/support`
 - global workspace/member administration under `/api/admin/spaces` and `/api/admin/users`
 - platform-only integration test endpoints under `/api/admin/settings/integrations/test-*`

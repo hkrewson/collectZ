@@ -5459,10 +5459,13 @@ results.push(run('platform docs and metrics routes are no longer mounted in coll
   assert.ok(!openApiSource.includes('"MetricsText"'));
 }));
 
-results.push(run('auth route source exposes admin-only service account key management', () => {
-  assert.ok(authRoutesSource.includes("platformRouter.get('/service-account-keys'"));
-  assert.ok(authRoutesSource.includes("platformRouter.post('/service-account-keys'"));
-  assert.ok(authRoutesSource.includes("platformRouter.delete('/service-account-keys/:id'"));
+results.push(run('auth route source exposes admin-only Core API key management', () => {
+  assert.ok(authRoutesSource.includes("router.get('/service-account-keys'"));
+  assert.ok(authRoutesSource.includes("router.post('/service-account-keys'"));
+  assert.ok(authRoutesSource.includes("router.delete('/service-account-keys/:id'"));
+  assert.ok(!authRoutesSource.includes("platformRouter.get('/service-account-keys'"));
+  assert.ok(!authRoutesSource.includes("platformRouter.post('/service-account-keys'"));
+  assert.ok(!authRoutesSource.includes("platformRouter.delete('/service-account-keys/:id'"));
   assert.ok(authRoutesSource.includes("requireRole('admin')"));
 }));
 

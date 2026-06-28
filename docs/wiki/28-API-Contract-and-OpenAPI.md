@@ -41,7 +41,7 @@ The current goal is to lock down the highest-value surfaces first:
 - health/version
 - browser auth
 - personal access token lifecycle
-- service account key lifecycle
+- Core API key lifecycle
 - invite creation
 - gated docs and metrics surfaces
 - async Plex import launch

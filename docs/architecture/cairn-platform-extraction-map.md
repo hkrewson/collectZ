@@ -53,7 +53,6 @@ Compatibility bridge:
 - `/api/spaces`, `/api/spaces/select`, and workspace/member/invite routes in `backend/routes/spaces.js`
 - `/api/spaces/:id/settings/general`, `/feature-flags`, `/activity`, `/portability`, and `/integrations`
 - `/api/spaces/:id/integrations/test-*`
-- `/api/auth/service-account-keys`
 
 These bridge routes expose currently visible platform/workspace management, but they also depend on Core scope, library, integration, and token models. They should stay in collectZ until `cairn` has documented Core APIs for instance/workspace routing, support access, and scoped admin operations.
 
@@ -93,7 +92,7 @@ Move to `cairn` OpenAPI:
 - platform docs and metrics
 - platform email delivery settings
 - platform activity and platform operations readbacks
-- platform service-account/admin-token management if retained as platform-only
+- platform admin-token management if `cairn` later needs its own control-plane machine credentials; collectZ Core API keys stay in Core
 
 Keep in collectZ Core OpenAPI:
 
@@ -107,7 +106,7 @@ Bridge until Core contracts exist:
 - Core support-session start/end bridge
 - workspace scope selection and scoped workspace settings
 - scoped integrations diagnostics
-- service account keys or replacement Core machine-token APIs
+- Core API key management at `/api/auth/service-account-keys`
 
 ## Database and Migrations
 
@@ -136,7 +135,7 @@ Move to `cairn` in future migrations:
 Compatibility bridge:
 
 - current `user_sessions.support_*` columns can stay in Core until support access is initiated by `cairn` through a documented Core support-session API.
-- current `service_account_keys` can stay in Core until replaced or clearly classified as Core machine-token support.
+- current `service_account_keys` stay in Core as Core API key / machine-token support.
 
 ## First Extraction Order
 

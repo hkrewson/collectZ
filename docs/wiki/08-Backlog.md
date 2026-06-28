@@ -1335,7 +1335,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - Keep historical release notes intact, but clean up active roadmap/backlog/architecture text when it still describes the retired mirror model as current work.
 - Remove or quarantine dead/unreachable backend platform route code from Core after each route is confirmed blocked or moved.
 - Finish moving or retiring any remaining collectZ compatibility UI shells for platform-owned surfaces after the matching `cairn` frontend/API exists.
-- Classify service-account keys as Core machine-token support or move them to `cairn` as platform admin tokens.
+- Keep service-account key storage and `/api/auth/service-account-keys` management in Core as Core API key / machine-token support.
 - Keep support-session and scoped workspace APIs in Core unless `cairn` needs a cleaner documented operation bridge.
 - Continue using documented Core APIs only for `cairn`; do not share collectZ internals or database access.
 - Keep paired-service compose examples and Core/`cairn` network configuration out of the public Core repository; document those in `cairn` only.

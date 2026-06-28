@@ -34,7 +34,7 @@
       "bearerAuth": {
         "type": "http",
         "scheme": "bearer",
-        "bearerFormat": "PAT or service-account key"
+        "bearerFormat": "PAT or Core API key"
       },
       "csrfHeader": {
         "type": "apiKey",
@@ -6744,13 +6744,13 @@
     "/api/auth/service-account-keys": {
       "get": {
         "tags": ["Auth"],
-        "summary": "List service account keys",
+        "summary": "List Core API keys",
         "security": [
           { "cookieSession": [] }
         ],
         "responses": {
           "200": {
-            "description": "Service account key list",
+            "description": "Core API key list",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/ServiceAccountKeyListResponse" }
@@ -6761,7 +6761,7 @@
       },
       "post": {
         "tags": ["Auth"],
-        "summary": "Create a service account key",
+        "summary": "Create a Core API key",
         "security": [
           { "cookieSession": [], "csrfHeader": [] }
         ],
@@ -6775,7 +6775,7 @@
         },
         "responses": {
           "201": {
-            "description": "Service account key created",
+            "description": "Core API key created",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/ServiceAccountKeyCreateResponse" }
@@ -6788,7 +6788,7 @@
     "/api/auth/service-account-keys/{id}": {
       "delete": {
         "tags": ["Auth"],
-        "summary": "Revoke a service account key",
+        "summary": "Revoke a Core API key",
         "security": [
           { "cookieSession": [], "csrfHeader": [] }
         ],
