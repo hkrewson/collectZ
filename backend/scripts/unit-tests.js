@@ -260,7 +260,6 @@ const dashboardShellSource = readFrontendSource(path.join('components', 'app', '
 const dashboardContentSource = readFrontendSource(path.join('components', 'app', 'DashboardContent'));
 const dashboardRoutingSource = readFrontendSource(path.join('components', 'app', 'dashboardRouting'));
 const productEditionFrontendSource = readFrontendSource(path.join('components', 'app', 'productEdition'));
-const supportSessionBannerSource = readFrontendSource(path.join('components', 'app', 'SupportSessionBanner'));
 const frontendEnvSource = readFrontendSource(path.join('components', 'app', 'frontendEnv'));
 const useApiClientSource = readFrontendSource(path.join('components', 'app', 'hooks', 'useApiClient'));
 const useMediaApiSource = readFrontendSource(path.join('components', 'app', 'hooks', 'useMediaApi'));
@@ -301,7 +300,6 @@ const rootPackageJson = JSON.parse(fs.readFileSync(require.resolve('../../packag
 const playwrightConfigSource = fs.readFileSync(require.resolve('../../playwright.config'), 'utf8');
 const playwrightAdminSetupSource = fs.readFileSync(require.resolve('../../tests/playwright/setup/admin.setup'), 'utf8');
 const helpCenterBrowserSpecSource = fs.readFileSync(require.resolve('../../tests/playwright/specs/help-center.browser.spec'), 'utf8');
-const approvedSupportSessionBrowserSpecSource = fs.readFileSync(require.resolve('../../tests/playwright/specs/approved-support-session.browser.spec'), 'utf8');
 const integrationsBrowserSpecSource = fs.readFileSync(require.resolve('../../tests/playwright/specs/integrations.browser.spec'), 'utf8');
 const importBrowserSpecSource = fs.readFileSync(require.resolve('../../tests/playwright/specs/import.browser.spec'), 'utf8');
 const importCsvBrowserSpecSource = fs.readFileSync(require.resolve('../../tests/playwright/specs/import-csv.browser.spec'), 'utf8');
@@ -2457,11 +2455,12 @@ results.push(run('migrations source includes support role and help foundation sc
   assert.ok(migrationsSource.includes('idx_media_loans_unique_active_per_media'));
 }));
 
-results.push(run('frontend app source includes support session banner and admin trigger plumbing', () => {
-  assert.ok(supportSessionBannerSource.includes('Support session active'));
+results.push(run('frontend app source keeps support-session APIs out of the Core UI shell', () => {
+  assert.ok(!dashboardShellSource.includes('SupportSessionBanner'));
   assert.ok(frontendAppSource.includes('/auth/support-session/start'));
   assert.ok(frontendAppSource.includes('request_id: requestId || undefined'));
-  assert.ok(dashboardContentSource.includes('onStartSupportSession'));
+  assert.ok(!dashboardContentSource.includes('onStartSupportSession'));
+  assert.ok(!dashboardContentSource.includes('onEndSupportSession'));
 }));
 
 results.push(run('auth page waits for backend auth config before showing registration-unavailable state', () => {
@@ -2506,37 +2505,17 @@ results.push(run('frontend source keeps Core help center while platform support 
   assert.ok(helpViewSource.includes('/support/releases'));
   assert.ok(helpViewSource.includes('Guidance'));
   assert.ok(helpViewSource.includes('Recent Releases'));
-  assert.ok(productEditionFrontendSource.includes('Help Admin'));
-  assert.ok(helpViewSource.includes("HELP_ARTICLES.filter((article) => article.id !== 'spaces')"));
-  assert.ok(helpViewSource.includes("supportHelpEnabled && ['admin', SUPPORT_STAFF_ROLE].includes"));
-  assert.ok(helpViewSource.includes('isSupportStaff && supportHelpEnabled'));
-  assert.ok(helpViewSource.includes('Latest saved internal note'));
-  assert.ok(helpViewSource.includes('New Internal Note'));
-  assert.ok(helpViewSource.includes('Approve Support Access'));
-  assert.ok(helpViewSource.includes('Revoke Support Access'));
-  assert.ok(helpViewSource.includes('Start Approved Support Session'));
-  assert.ok(helpViewSource.includes('Search queue'));
-  assert.ok(helpViewSource.includes('All classes'));
-  assert.ok(helpViewSource.includes('Completed'));
-  assert.ok(helpViewSource.includes('Support access expired'));
-  assert.ok(helpViewSource.includes('Expires '));
-  assert.ok(helpViewSource.includes('Active session evidence'));
-  assert.ok(helpViewSource.includes('This thread is the approval context'));
-  assert.ok(helpViewSource.includes('History timeline'));
-  assert.ok(helpViewSource.includes('Lifecycle, approval, and support-session events'));
-  assert.ok(helpViewSource.includes('TimelineItem'));
-  assert.ok(helpViewSource.includes('Linked engineering work'));
-  assert.ok(helpViewSource.includes('Tracked work'));
-  assert.ok(helpViewSource.includes('effectiveRepoIssueUrl'));
-  assert.ok(supportSessionBannerSource.includes('Requester:'));
-  assert.ok(supportSessionBannerSource.includes('Case:'));
-  assert.ok(helpViewSource.includes('Reply to Support'));
+  assert.ok(!productEditionFrontendSource.includes('Help Admin'));
+  assert.ok(!helpViewSource.includes('/support/requests'));
+  assert.ok(!helpViewSource.includes('Support Metrics'));
+  assert.ok(!helpViewSource.includes('Approve Support Access'));
+  assert.ok(!helpViewSource.includes('Start Approved Support Session'));
+  assert.ok(!helpViewSource.includes('TimelineItem'));
+  assert.ok(!helpViewSource.includes('Reply to Support'));
   assert.ok(dashboardShellSource.includes('const supportHelpEnabled = isSupportHelpEnabled(productEdition);'));
   assert.ok(dashboardShellSource.includes("const supportStaffInEdition = supportHelpEnabled && ['admin', SUPPORT_STAFF_ROLE].includes"));
   assert.ok(dashboardShellSource.includes('const supportSessionActiveInEdition = supportHelpEnabled && platformBridgeEnabled && Boolean(supportSession?.active);'));
   assert.ok(!dashboardShellSource.includes('supportBadgeCount'));
-  assert.ok(supportSessionBannerSource.includes('isSupportHelpEnabled(productEdition)'));
-  assert.ok(supportSessionBannerSource.includes("&& ['admin', SUPPORT_STAFF_ROLE].includes(String(user?.role || ''));"));
   assert.ok(sidebarNavSource.includes('const supportHelpEnabled = isSupportHelpEnabled(productEdition);'));
   assert.ok(sidebarNavSource.includes('const bridgeSupportEnabled = false;'));
   assert.ok(sidebarNavSource.includes('const isSupportStaff = supportHelpEnabled && (isAdmin || isSupportAdmin);'));
@@ -2568,14 +2547,14 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(productEditionFrontendSource.includes("if (!isLocalProductEdition(productEdition) && platformBridgeEnabled && supportSessionActive && canManageActiveSpace)"));
   assert.ok(productEditionFrontendSource.includes("if (!options?.platformBridgeEnabled) return getLocalRuntimeAllowedTabs(options);"));
   assert.ok(productEditionFrontendSource.includes('return DEFAULT_PLATFORM_TAB;'));
-  assert.ok(helpViewSource.includes('<h1 className="section-title">{helpTitle}</h1>'));
-  assert.ok(helpViewSource.includes('supportRequestsEnabled = false'));
-  assert.ok(helpViewSource.includes('const effectiveHelpProductEdition = supportHelpEnabled ? productEdition : LOCAL_PRODUCT_EDITION;'));
+  assert.ok(helpViewSource.includes('<h1 className="section-title">Help</h1>'));
+  assert.ok(!helpViewSource.includes('supportRequestsEnabled'));
+  assert.ok(!helpViewSource.includes('effectiveHelpProductEdition'));
   assert.ok(!helpViewSource.includes('A lightweight home for self-serve guidance and recent release notes for homelab users.'));
   assert.ok(frontendAppSource.includes('getSafeDashboardTab'));
   assert.ok(frontendAppSource.includes('supportSessionActiveInEdition'));
-  assert.ok(dashboardContentSource.includes('const supportHelpEnabled = isSupportHelpEnabled(productEdition);'));
-  assert.ok(dashboardContentSource.includes('const bridgeSupportEnabled = false;'));
+  assert.ok(!dashboardContentSource.includes('const supportHelpEnabled = isSupportHelpEnabled(productEdition);'));
+  assert.ok(!dashboardContentSource.includes('const bridgeSupportEnabled = false;'));
   assert.ok(!dashboardContentSource.includes("...(bridgeSupportEnabled ? ['support-inbox'] : []),"));
   assert.ok(sidebarNavSource.includes('getAllowedDashboardTabs'));
   assert.ok(!sidebarNavSource.includes('showPlatformGroup'));
@@ -2679,7 +2658,7 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(supportRoutesSource.includes('supportSharedRouter'));
   assert.ok(!supportRoutesSource.includes('supportPlatformRouter'));
   assert.ok(homelabHelpBrowserSpecSource.includes('product_edition'));
-  assert.ok(homelabHelpBrowserSpecSource.includes("name: 'Help Admin'"));
+  assert.ok(homelabHelpBrowserSpecSource.includes("name: 'Help Admin', exact: true })).toHaveCount(0)"));
   assert.ok(homelabHelpBrowserSpecSource.includes('/platform/workspaces'));
   assert.ok(homelabHelpBrowserSpecSource.includes('/platform/users'));
   assert.ok(homelabHelpBrowserSpecSource.includes('/platform/activity'));
@@ -2910,20 +2889,13 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
   assert.ok(browserCapturesWorkflowSource.includes('npm run test:browser:capture'));
   assert.ok(browserCapturesWorkflowSource.includes('playwright-browser-captures'));
   assert.ok(browserCapturesWorkflowSource.includes('PLAYWRIGHT_E2E_BYPASS_TOKEN="$(openssl rand -hex 16)"'));
-  assert.ok(helpCenterBrowserSpecSource.includes('Help Center'));
+  assert.ok(helpCenterBrowserSpecSource.includes('Help'));
   assert.ok(helpCenterBrowserSpecSource.includes('Guidance'));
   assert.ok(helpCenterBrowserSpecSource.includes('Releases'));
   assert.ok(helpCenterBrowserSpecSource.includes("name: 'Support', exact: true })).toHaveCount(0)"));
   assert.ok(rootPackageJson.scripts['test:browser:platform'].includes('help-center.browser.spec.js'));
   assert.ok(!rootPackageJson.scripts['test:browser:platform'].includes('help-admin-support.browser.spec.js'));
-  assert.ok(approvedSupportSessionBrowserSpecSource.includes('Start Approved Support Session'));
-  assert.ok(approvedSupportSessionBrowserSpecSource.includes('Workspace'));
-  assert.ok(approvedSupportSessionBrowserSpecSource.includes('updateSupportSessionStateForRequestContext'));
-  assert.ok(approvedSupportSessionBrowserSpecSource.includes('createDetachedLibraryForCurrentUser'));
-  assert.ok(approvedSupportSessionBrowserSpecSource.includes("getByRole('combobox', { name: 'Support Library' })"));
-  assert.ok(approvedSupportSessionBrowserSpecSource.includes('not.toHaveValue(switchedLibraryId)'));
-  assert.ok(approvedSupportSessionBrowserSpecSource.includes("page.goto('/dashboard?tab=space-manage')"));
-  assert.ok(approvedSupportSessionBrowserSpecSource.includes("toHaveURL(/\\/help$/)"));
+  assert.ok(!rootPackageJson.scripts['test:browser:platform'].includes('approved-support-session.browser.spec.js'));
   assert.ok(integrationsBrowserSpecSource.includes("saveSection(page, 'LOGS')"));
   assert.ok(integrationsBrowserSpecSource.includes("getByRole('tablist', { name: 'Integration sections' })"));
   assert.ok(integrationsBrowserSpecSource.includes('Metrics Export'));
@@ -5635,13 +5607,14 @@ results.push(run('public compose source keeps homelab-safe cookie defaults in th
   assert.ok(!useApiClientSource.includes('isPlatformOwnedPath'));
   assert.ok(!frontendAppSource.includes("VITE_PLATFORM_API_URL"));
   assert.ok(frontendAppSource.includes("space?.external_workspace_id || space?.id"));
-  assert.ok(helpViewSource.includes('supportAccessEnabled = false'));
-  assert.ok(helpViewSource.includes('supportAccessEnabled\n    &&\n    !isSupportStaff'));
+  assert.ok(!helpViewSource.includes('supportAccessEnabled'));
+  assert.ok(!helpViewSource.includes('/support/requests'));
   assert.ok(!dashboardContentSource.includes('AdminSpacesView'));
   assert.ok(!dashboardContentSource.includes("apiCall('post', '/admin/spaces', payload)"));
   assert.ok(!dashboardContentSource.includes('/admin/spaces'));
-  assert.ok(!dashboardRoutingSource.includes('/platform/workspaces'));
-  assert.ok(!dashboardRoutingSource.includes('/platform/users'));
+  assert.ok(dashboardRoutingSource.includes('RETIRED_PLATFORM_ROUTES'));
+  assert.ok(dashboardRoutingSource.includes("'/platform/workspaces': DEFAULT_TAB"));
+  assert.ok(dashboardRoutingSource.includes("'/platform/users': DEFAULT_TAB"));
 }));
 
 results.push(run('pat.hasPersonalAccessTokenScope matches exact scopes and admin wildcard', () => {
@@ -6049,7 +6022,7 @@ results.push(run('dashboard shell exposes merge review as workspace-scoped opera
   assert.ok(sidebarNavSource.includes('focus-visible:ring-0'));
   assert.ok(sidebarNavSource.includes('navStateClass(active)'));
   assert.ok(sidebarNavSource.includes('label="Help"'));
-  assert.ok(sidebarNavSource.includes('label="Help Admin"'));
+  assert.ok(!sidebarNavSource.includes('label="Help Admin"'));
   assert.ok(sidebarNavSource.includes('label="Review" sub'));
   assert.ok(sidebarNavSource.includes("id=\"admin-merges\""));
   assert.ok(sidebarNavSource.includes("'admin-merges'"));

@@ -18,27 +18,17 @@ export function isLocalProductEdition(value) {
 }
 
 export function getHelpSurfaceTitle(productEdition, isSupportStaff) {
-  if (isLocalProductEdition(productEdition)) return 'Help';
-  return isSupportStaff ? 'Help Admin' : 'Help Center';
+  return 'Help';
 }
 
 export function getHelpNavLabel(productEdition, isSupportStaff) {
-  if (isLocalProductEdition(productEdition)) return 'Help';
-  return isSupportStaff ? 'Help Admin' : 'Help';
+  return 'Help';
 }
 
 export function getHelpTabDefinitions(productEdition, isSupportStaff) {
-  if (isLocalProductEdition(productEdition)) {
-    return [
-      { id: 'guidance', label: 'Guidance' },
-      { id: 'releases', label: 'Releases' }
-    ];
-  }
   return [
     { id: 'guidance', label: 'Guidance' },
-    { id: 'releases', label: 'Releases' },
-    ...(isSupportStaff ? [{ id: 'metrics', label: 'Metrics' }] : []),
-    { id: 'support', label: 'Support' }
+    { id: 'releases', label: 'Releases' }
   ];
 }
 

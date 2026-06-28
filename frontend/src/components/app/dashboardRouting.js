@@ -93,6 +93,14 @@ const DIRECT_TAB_ROUTES = new Map(Object.entries({
   '/settings': 'admin-settings'
 }));
 
+const RETIRED_PLATFORM_ROUTES = new Map(Object.entries({
+  '/platform/support': 'help',
+  '/support': 'help',
+  '/platform/workspaces': DEFAULT_TAB,
+  '/platform/users': DEFAULT_TAB,
+  '/platform/activity': DEFAULT_TAB
+}));
+
 function normalizePathname(pathname) {
   const rawPath = String(pathname || '/').split('?')[0].split('#')[0] || '/';
   if (rawPath.length > 1 && rawPath.endsWith('/')) return rawPath.slice(0, -1);
@@ -121,6 +129,13 @@ export function readDashboardStateFromLocation(pathname, search = '') {
   if (directTab && !hasLegacyDashboardState) {
     return {
       tab: directTab,
+      integrationSection: DEFAULT_INTEGRATION_SECTION
+    };
+  }
+  const retiredPlatformTab = RETIRED_PLATFORM_ROUTES.get(path);
+  if (retiredPlatformTab && !hasLegacyDashboardState) {
+    return {
+      tab: retiredPlatformTab,
       integrationSection: DEFAULT_INTEGRATION_SECTION
     };
   }
@@ -165,6 +180,7 @@ export function readDashboardStateFromUrl() {
 export function isDashboardRoutePath(pathname) {
   const path = normalizePathname(pathname);
   if (DIRECT_TAB_ROUTES.has(path)) return true;
+  if (RETIRED_PLATFORM_ROUTES.has(path)) return true;
   if (path.startsWith('/dashboard/')) return true;
   if (/^\/library\/(movies|tv|books|audio|art|games|comics|saved-views|wishlist|capture|loans|collectibles|events|other|import|import-review)$/.test(path)) return true;
   if (/^\/(?:admin\/integrations|integrations|platform\/runtime)\/?([^/]+)?$/.test(path)) return true;

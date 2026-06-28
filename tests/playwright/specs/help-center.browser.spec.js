@@ -11,7 +11,7 @@ test.describe('help center browser regressions', () => {
     const credentials = await createFreshUserCredentials({ noCache: true });
 
     await signInThroughUi(page, credentials);
-    await openHelpSurface(page, 'Help Center');
+    await openHelpSurface(page, 'Help');
 
     await expect(page.getByRole('tab', { name: 'Guidance', exact: true })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'Releases', exact: true })).toBeVisible();

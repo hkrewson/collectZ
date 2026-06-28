@@ -145,7 +145,7 @@ Remaining Core/`cairn` cleanup should focus on concrete platform-surface extract
 The remaining split work is intentionally narrow:
 
 - Remove or quarantine any remaining dead/unreachable backend platform route code from Core after each route is confirmed blocked or moved. Done for support request APIs and global admin spaces/users/email-delivery handlers.
-- Remove any remaining embedded support-request UI code from shared Core help components once `cairn` owns its full support frontend; the standalone platform frontend shells have been removed from Core.
+- Remove any remaining embedded support-request UI code from shared Core help components once `cairn` owns its full support frontend. Done: Core Help now contains only guidance and releases.
 - Keep service-account key storage and `/api/auth/service-account-keys` management in Core as Core API key / machine-token support.
 - Keep support-session and scoped workspace APIs in Core unless `cairn` needs a cleaner documented operation bridge.
 - Keep paired-service compose examples and Core/`cairn` network configuration out of the public Core repository; document them in `cairn` only.

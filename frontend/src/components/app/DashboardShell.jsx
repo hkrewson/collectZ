@@ -2,7 +2,6 @@ import React from 'react';
 import SidebarNav from '../SidebarNav';
 import CollectzMark from '../CollectzMark';
 import DashboardContent from './DashboardContent';
-import SupportSessionBanner from './SupportSessionBanner';
 import { DEFAULT_INTEGRATION_SECTION } from './dashboardRouting';
 import { ImportStatusDock, Toast, Icons, Spinner, cx } from './AppPrimitives';
 import { getSafeDashboardTab, isLocalProductEdition, isSupportHelpEnabled, SUPPORT_STAFF_ROLE } from './productEdition';
@@ -121,7 +120,6 @@ export default function DashboardShell({
   setLibraryReviewFilter,
   scopeKey,
   loadAuthScope,
-  startSupportSession,
   dismissImportJob,
   toast,
   setToast
@@ -200,18 +198,6 @@ export default function DashboardShell({
           <p className="sr-only" data-testid="mobile-app-title">{mobileHeaderTitle}</p>
         </div>
 
-        <SupportSessionBanner
-          user={user}
-          productEdition={productEdition}
-          supportSession={supportSession}
-          libraries={libraries}
-          activeLibrary={activeLibrary}
-          activeLibraryId={activeLibraryId}
-          handleLibrarySelect={handleLibrarySelect}
-          endSupportSession={endSupportSession}
-          Icons={Icons}
-        />
-
         <div className="min-h-0 flex-1 overflow-hidden">
           <DashboardContent
             activeTab={activeTab}
@@ -252,9 +238,6 @@ export default function DashboardShell({
             activeLibraryId={activeLibraryId}
             onSpaceSelect={handleSpaceSelect}
             onScopeRefresh={loadAuthScope}
-            supportSession={supportSession}
-            onStartSupportSession={startSupportSession}
-            onEndSupportSession={endSupportSession}
             scopeKey={scopeKey}
             productEdition={productEdition}
             platformBridgeEnabled={platformBridgeEnabled}

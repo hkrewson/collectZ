@@ -1320,7 +1320,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - The active source tree has removed the public export builder, public export validator, public export manifest, generated compose script, and `public-mirror/` automation.
 - Active GitHub workflows now provide the public-source CI posture: backend tests, frontend build, OpenAPI validation, Docker build/publish, CodeQL, dependency audit/watch, secret scan, runtime smoke, browser regression, and image security/SBOM gates.
 - `docs/architecture/public-core-platform-extraction-plan.md` records the extraction plan, current progress, and remaining `cairn`/Core split boundaries.
-- The current homelab/platform edition boundary identifies remaining platform-surface candidates that should continue moving to `cairn` or be retired from Core when the matching `cairn` UI/API exists.
+- The current homelab/platform edition boundary identifies backend bridge candidates that should stay in Core only when they are Core operation contracts for `cairn`.
 
 **Completed scope**
 - Archived or renamed the old public mirror repository before promoting the canonical source repository.
@@ -1329,12 +1329,12 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - Replaced the old mirror workflow with public-source CI on the canonical repository.
 - Created private-first `cairn` with its own service, database, OpenAPI, health/config surface, CI, platform directory model, and email-first routing contract.
 - Moved platform docs/metrics, support queue APIs, global workspace/member administration, platform settings diagnostics, platform activity, and platform operations readbacks to `cairn` or blocked their old Core routes.
+- Removed the Core-hosted platform frontend shells, platform bridge API routing, `VITE_PLATFORM_API_URL` frontend runtime wiring, embedded support request UI, support-session banner, and platform Help Admin copy.
 - Kept Core OpenAPI focused on Core/self-host APIs by removing the moved platform paths.
 
 **Remaining 3.x closeout scope**
 - Keep historical release notes intact, but clean up active roadmap/backlog/architecture text when it still describes the retired mirror model as current work.
 - Remove or quarantine dead/unreachable backend platform route code from Core after each route is confirmed blocked or moved.
-- Finish moving or retiring any remaining collectZ compatibility UI shells for platform-owned surfaces after the matching `cairn` frontend/API exists.
 - Keep service-account key storage and `/api/auth/service-account-keys` management in Core as Core API key / machine-token support.
 - Keep support-session and scoped workspace APIs in Core unless `cairn` needs a cleaner documented operation bridge.
 - Continue using documented Core APIs only for `cairn`; do not share collectZ internals or database access.

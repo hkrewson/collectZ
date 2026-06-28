@@ -365,7 +365,7 @@ export default function SidebarNav({
             <NavLink id="admin-integrations" icon={<Icons.Integrations />} label="Integrations" />
           )}
           {showPlatformHelpAdmin && (
-            <NavLink id="help" icon={<Icons.Activity />} label="Help Admin" />
+            <NavLink id="help" icon={<Icons.Activity />} label="Help" />
           )}
         </nav>
 

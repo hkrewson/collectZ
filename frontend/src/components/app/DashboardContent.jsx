@@ -15,7 +15,7 @@ import ArtView from '../ArtView';
 import ForbiddenView from '../ForbiddenView';
 import SpaceManagerView from '../SpaceManagerView';
 import HelpView from '../HelpView';
-import { getSafeHelpTab, isLocalProductEdition, isSupportHelpEnabled, SUPPORT_STAFF_ROLE } from './productEdition';
+import { isLocalProductEdition, SUPPORT_STAFF_ROLE } from './productEdition';
 
 const forcedMediaTypeByTab = {
   'library-movies': 'movie',
@@ -190,9 +190,6 @@ export default function DashboardContent({
   activeLibraryId,
   onSpaceSelect,
   onScopeRefresh,
-  supportSession,
-  onStartSupportSession,
-  onEndSupportSession,
   scopeKey,
   productEdition = 'platform',
   platformBridgeEnabled = false
@@ -202,15 +199,11 @@ export default function DashboardContent({
   const [pendingLibrarySavedViewId, setPendingLibrarySavedViewId] = React.useState('');
   const [plexWritebackSettings, setPlexWritebackSettings] = React.useState({ ratingEnabled: false, watchStateEnabled: false });
   const isAdminTab = String(activeTab || '').startsWith('admin-');
-  const supportHelpEnabled = isSupportHelpEnabled(productEdition);
   const localRuntime = isLocalProductEdition(productEdition);
   const coreRuntime = localRuntime || !platformBridgeEnabled;
-  const bridgeSupportEnabled = false;
-  const supportStaffInEdition = supportHelpEnabled && ['admin', SUPPORT_STAFF_ROLE].includes(String(user?.role || ''));
   const supportAdminAllowedTabs = new Set([
     'help',
-    'profile',
-    ...(bridgeSupportEnabled && supportSession?.active ? ['space-manage'] : [])
+    'profile'
   ]);
 
   React.useEffect(() => {
@@ -277,17 +270,9 @@ export default function DashboardContent({
         <HelpView
           apiCall={apiCall}
           onToast={showToast}
-          user={user}
-          activeSpace={activeSpace}
-          activeLibrary={activeLibrary}
-          supportSession={supportSession}
-          onStartSupportSession={onStartSupportSession}
-          onEndSupportSession={onEndSupportSession}
           Spinner={Spinner}
           Icons={Icons}
-          initialTab={getSafeHelpTab(productEdition, supportStaffInEdition, 'guidance')}
-          productEdition={productEdition}
-          supportRequestsEnabled={false}
+          initialTab="guidance"
         />
       );
     case 'library':
