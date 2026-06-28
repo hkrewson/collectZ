@@ -308,7 +308,6 @@ const importCsvBrowserSpecSource = fs.readFileSync(require.resolve('../../tests/
 const adminShellBrowserSpecSource = fs.readFileSync(require.resolve('../../tests/playwright/specs/admin-shell.browser.spec'), 'utf8');
 const libraryMultiFormatBrowserSpecSource = fs.readFileSync(require.resolve('../../tests/playwright/specs/library-multiformat.browser.spec'), 'utf8');
 const libraryLifecycleBrowserSpecSource = fs.readFileSync(require.resolve('../../tests/playwright/specs/library-lifecycle.browser.spec'), 'utf8');
-const spaceManagerBrowserSpecSource = fs.readFileSync(require.resolve('../../tests/playwright/specs/space-manager.browser.spec'), 'utf8');
 const boundaryBrowserSpecSource = fs.readFileSync(require.resolve('../../tests/playwright/specs/boundary.browser.spec'), 'utf8');
 const eventsCollectiblesBrowserSpecSource = fs.readFileSync(require.resolve('../../tests/playwright/specs/events-collectibles.browser.spec'), 'utf8');
 const homelabHelpBrowserSpecSource = fs.readFileSync(require.resolve('../../tests/playwright/specs/homelab-help.browser.spec'), 'utf8');
@@ -2907,6 +2906,8 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
   assert.ok(helpCenterBrowserSpecSource.includes('Releases'));
   assert.ok(helpCenterBrowserSpecSource.includes("name: 'Support', exact: true })).toHaveCount(0)"));
   assert.ok(rootPackageJson.scripts['test:browser:platform'].includes('help-center.browser.spec.js'));
+  assert.ok(!rootPackageJson.scripts['test:browser:core-regression'].includes('space-manager.browser.spec.js'));
+  assert.ok(!rootPackageJson.scripts['test:browser:platform'].includes('space-manager.browser.spec.js'));
   assert.ok(!rootPackageJson.scripts['test:browser:platform'].includes('help-admin-support.browser.spec.js'));
   assert.ok(!rootPackageJson.scripts['test:browser:platform'].includes('approved-support-session.browser.spec.js'));
   assert.ok(integrationsBrowserSpecSource.includes("saveSection(page, 'LOGS')"));
@@ -2924,9 +2925,8 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
   assert.ok(libraryLifecycleBrowserSpecSource.includes('/dashboard?tab=library-import'));
   assert.ok(libraryLifecycleBrowserSpecSource.includes("getByRole('heading', { name: 'Import Media' })"));
   assert.ok(libraryLifecycleBrowserSpecSource.includes("toHaveCount(0)"));
-  assert.ok(spaceManagerBrowserSpecSource.includes('expectManageableFallbackWorkspace'));
-  assert.ok(spaceManagerBrowserSpecSource.includes("getByLabel('Workspace sections')"));
-  assert.ok(spaceManagerBrowserSpecSource.includes("{ name: 'Settings', exact: true })).toBeVisible()"));
+  assert.ok(!fs.existsSync(path.resolve(__dirname, '..', '..', 'tests', 'playwright', 'specs', 'space-manager.browser.spec.js')));
+  assert.ok(!fs.existsSync(path.resolve(__dirname, '..', '..', 'tests', 'playwright', 'helpers', 'admin.js')));
   assert.ok(!adminShellBrowserSpecSource.includes("getByRole('button', { name: 'Workspace', exact: true })).toHaveCount(0)"));
   assert.ok(boundaryBrowserSpecSource.includes('support_admin'));
   assert.ok(boundaryBrowserSpecSource.includes('/dashboard?tab=admin-integrations&integration=logs'));
@@ -7480,9 +7480,6 @@ results.push(run('dashboard command center frontend owns first-screen attention 
   assert.ok(eventsRoutesSource.includes('attendeeName: attendee.display_name'));
   assert.ok(eventsRoutesSource.includes('buildSchedulePlanActivityDetails'));
   assert.ok(eventsRoutesSource.includes('buildScheduleSessionActivityDetails'));
-  assert.ok(spaceManagerBrowserSpecSource.includes('workspace activity deleted rows open a saved activity snapshot'));
-  assert.ok(spaceManagerBrowserSpecSource.includes('workspace activity renders event social rows as readable event timeline entries'));
-  assert.ok(spaceManagerBrowserSpecSource.includes('await expect(page.getByText(attendeeName).first()).toBeVisible();'));
   assert.ok(adminShellBrowserSpecSource.includes('/api/dashboard/summary'));
   assert.ok(adminShellBrowserSpecSource.includes("page.goto('/dashboard')"));
 }));

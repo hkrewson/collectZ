@@ -20,7 +20,8 @@
             "Removed the unreachable Core platform integration diagnostic handlers for PriceCharting, eBay, and structured-log tests while keeping explicit Core-boundary 404 responses for those `cairn`-owned routes.",
             "Removed dormant platform email-delivery and analytics settings controls from the Core settings view.",
             "Removed the unmounted platform API docs and metrics route modules from Core after those surfaces moved to `cairn`.",
-            "Removed the obsolete admin-space control smoke and updated Core support/tenancy smokes so fixture workspaces are created directly while `cairn`-owned admin workspace routes remain blocked."
+            "Removed the obsolete admin-space control smoke and updated Core support/tenancy smokes so fixture workspaces are created directly while `cairn`-owned admin workspace routes remain blocked.",
+            "Removed stale workspace-manager browser shell coverage tied to moved global admin workspace/user routes, while keeping scoped workspace behavior covered by backend/unit smokes and preserving library lifecycle browser coverage with direct fixture membership setup."
           ]
         }
       ]

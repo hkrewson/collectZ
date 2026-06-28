@@ -1,6 +1,5 @@
 'use strict';
 const { test, expect } = require('@playwright/test');
-const { createSpaceFixture, deleteSpace } = require('../helpers/admin');
 const { ensureSavedAdminCredentials, createAuthenticatedRequestContext, fetchCsrfToken, postWithCsrf, requestWithCsrf } = require('../helpers/auth');
 const { deleteMediaByExactTitle } = require('../helpers/media');
 const { signInThroughUi } = require('../helpers/session');

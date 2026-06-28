@@ -2,9 +2,9 @@
 
 const { test, expect } = require('@playwright/test');
 const {
+  addDirectSpaceMembership,
   createAuthenticatedRequestContext,
   createFreshUserCredentials,
-  ensureSavedAdminCredentials,
   postWithCsrf
 } = require('../helpers/auth');
 const { createLibraryInActiveScope } = require('../helpers/support');
@@ -83,8 +83,6 @@ test.describe('library lifecycle browser regressions', () => {
     const recipientCredentials = await createFreshUserCredentials({ noCache: true });
     const ownerContext = await createAuthenticatedRequestContext(ownerCredentials);
     const recipientContext = await createAuthenticatedRequestContext(recipientCredentials);
-    const adminCredentials = await ensureSavedAdminCredentials();
-    const adminContext = await createAuthenticatedRequestContext(adminCredentials);
     const suffix = Date.now();
 
     try {
@@ -95,10 +93,12 @@ test.describe('library lifecycle browser regressions', () => {
       expect(ownerSpaceId).toBeTruthy();
       expect(recipientUserId).toBeTruthy();
 
-      await postWithCsrf(adminContext, `/api/admin/spaces/${ownerSpaceId}/members`, {
-        user_id: recipientUserId,
-        role: 'member'
-      }, 201);
+      await addDirectSpaceMembership({
+        spaceId: ownerSpaceId,
+        userId: recipientUserId,
+        role: 'member',
+        createdBy: Number(ownerUser.id)
+      });
 
       const transferTarget = await createLibraryInActiveScope(ownerContext, `Playwright Transfer Target ${suffix}`);
       const librariesBefore = await listLibraries(ownerContext);
@@ -124,7 +124,6 @@ test.describe('library lifecycle browser regressions', () => {
       });
       await expect(page.getByText(transferTarget.name, { exact: true })).toHaveCount(0);
     } finally {
-      await adminContext.dispose();
       await recipientContext.dispose();
       await ownerContext.dispose();
     }

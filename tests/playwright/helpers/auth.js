@@ -247,6 +247,66 @@ async function createDirectUser({ email, password, name, role = 'admin' }) {
   return JSON.parse(String(output || '{}').trim() || '{}');
 }
 
+async function createDirectSpace({ name, slug, description = '', ownerUserId, createdBy = null }) {
+  const script = [
+    "const pool=require('./db/pool');",
+    "const { ensureUserDefaultScope } = require('./services/libraries');",
+    "(async()=>{",
+    "const name=process.argv[1];",
+    "const slug=process.argv[2];",
+    "const description=process.argv[3] || null;",
+    "const ownerUserId=Number(process.argv[4] || 0) || null;",
+    "const createdBy=Number(process.argv[5] || 0) || ownerUserId;",
+    "const result=await pool.query(`INSERT INTO spaces (name, slug, description, created_by, is_personal) VALUES ($1, $2, $3, $4, false) RETURNING id, name, slug`, [name, slug, description, createdBy]);",
+    "const space=result.rows[0];",
+    "if(ownerUserId){await pool.query(`INSERT INTO space_memberships (space_id, user_id, role, created_by) VALUES ($1, $2, 'owner', $3) ON CONFLICT (space_id, user_id) DO UPDATE SET role='owner', suspended_at=NULL, updated_at=NOW()`, [space.id, ownerUserId, createdBy]);await ensureUserDefaultScope(ownerUserId,{preferredSpaceId:space.id});}",
+    "console.log(JSON.stringify(space));",
+    "await pool.end();",
+    "})().catch((error)=>{console.error(error.stack||error.message||error);process.exit(1);});"
+  ].join('');
+  const composeCommand = buildComposeCommand('backend', ['node', '-e', script, name, slug, description || '', String(ownerUserId || ''), String(createdBy || '')]);
+  const output = execFileSync(
+    composeCommand.binary,
+    composeCommand.args,
+    {
+      cwd: REPO_ROOT,
+      env: process.env,
+      encoding: 'utf8'
+    }
+  );
+  return JSON.parse(String(output || '{}').trim() || '{}');
+}
+
+async function addDirectSpaceMembership({ spaceId, userId, role = 'member', createdBy = null, makeActive = true }) {
+  const script = [
+    "const pool=require('./db/pool');",
+    "const { ensureUserDefaultScope } = require('./services/libraries');",
+    "(async()=>{",
+    "const spaceId=Number(process.argv[1] || 0);",
+    "const userId=Number(process.argv[2] || 0);",
+    "const role=process.argv[3] || 'member';",
+    "const createdBy=Number(process.argv[4] || 0) || userId;",
+    "const makeActive=process.argv[5] === 'true';",
+    "if(!spaceId||!userId) throw new Error('spaceId and userId are required');",
+    "await pool.query(`INSERT INTO space_memberships (space_id, user_id, role, created_by) VALUES ($1, $2, $3, $4) ON CONFLICT (space_id, user_id) DO UPDATE SET role=EXCLUDED.role, suspended_at=NULL, updated_at=NOW()`, [spaceId, userId, role, createdBy]);",
+    "if(makeActive){await ensureUserDefaultScope(userId,{preferredSpaceId:spaceId});}",
+    "console.log(JSON.stringify({space_id:spaceId,user_id:userId,role}));",
+    "await pool.end();",
+    "})().catch((error)=>{console.error(error.stack||error.message||error);process.exit(1);});"
+  ].join('');
+  const composeCommand = buildComposeCommand('backend', ['node', '-e', script, String(spaceId || ''), String(userId || ''), role, String(createdBy || ''), makeActive ? 'true' : 'false']);
+  const output = execFileSync(
+    composeCommand.binary,
+    composeCommand.args,
+    {
+      cwd: REPO_ROOT,
+      env: process.env,
+      encoding: 'utf8'
+    }
+  );
+  return JSON.parse(String(output || '{}').trim() || '{}');
+}
+
 async function createRequestContextFromStorageState(storageStatePath) {
   const requestContext = patchRequestContextCookieJar(await playwrightRequest.newContext({
     baseURL: PLAYWRIGHT_BASE_URL,
@@ -399,85 +459,6 @@ async function createFreshUserCredentials() {
   const roleSlug = role.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
   const fallbackEmail = `playwright-${roleSlug}-${Date.now()}@example.com`;
   const fallbackPassword = 'Passw0rd!123';
-  const bootstrapSeedContext = patchRequestContextCookieJar(await playwrightRequest.newContext({
-    baseURL: PLAYWRIGHT_BASE_URL,
-    extraHTTPHeaders: getPlaywrightBypassHeaders()
-  }));
-  try {
-    const adminState = await ensureAuthenticatedAdminStorageState(bootstrapSeedContext);
-    const bootstrapContext = await createRequestContextFromStorageState(adminState.storageStatePath);
-    try {
-      const suffix = Date.now();
-      const createdSpaceResponse = await postWithCsrf(bootstrapContext, '/api/admin/spaces/create-with-onboarding', {
-        name: `Playwright Space ${suffix}`,
-        slug: `playwright-space-${suffix}`,
-        initial_invites: [{
-          email: fallbackEmail,
-          role: 'member',
-          expose_token: true
-        }]
-      }, 201);
-      const createdSpacePayload = await createdSpaceResponse.json();
-      const invitePayload = Array.isArray(createdSpacePayload?.invite_results)
-        ? createdSpacePayload.invite_results.find((invite) => (
-            String(invite?.email || '').trim().toLowerCase() === fallbackEmail.toLowerCase()
-          ))
-        : null;
-      const inviteToken = String(invitePayload?.token || '').trim();
-      if (!inviteToken) {
-        throw new Error('Invite-backed user bootstrap did not return a token');
-      }
-
-      const userRequestContext = patchRequestContextCookieJar(await playwrightRequest.newContext({
-        baseURL: PLAYWRIGHT_BASE_URL,
-        extraHTTPHeaders: getPlaywrightBypassHeaders()
-      }));
-      try {
-        await postWithCsrf(userRequestContext, '/api/auth/register', {
-          email: fallbackEmail,
-          password: fallbackPassword,
-          name: fallbackName,
-          inviteToken
-        }, 200);
-        if (role === 'user') {
-          const createdCredentials = { email: fallbackEmail, password: fallbackPassword, name: fallbackName, role };
-          if (!noCache) FRESH_CREDENTIALS_CACHE.set(role, createdCredentials);
-          return { ...createdCredentials };
-        }
-      } finally {
-        await userRequestContext.dispose();
-      }
-
-      const usersResponse = await bootstrapContext.get('/api/admin/users', {
-        headers: getPlaywrightBypassHeaders()
-      });
-      if (!usersResponse.ok()) {
-        throw new Error(`Failed to load admin users (${usersResponse.status()})`);
-      }
-      const usersPayload = await usersResponse.json();
-      const users = Array.isArray(usersPayload?.users)
-        ? usersPayload.users
-        : (Array.isArray(usersPayload) ? usersPayload : []);
-      const createdUser = users.find((user) => String(user?.email || '').toLowerCase() === fallbackEmail.toLowerCase()) || null;
-      const createdUserId = Number(createdUser?.id || 0);
-      if (!createdUserId) {
-        throw new Error(`Unable to locate freshly registered ${role} user in admin users list`);
-      }
-
-      await patchWithCsrf(bootstrapContext, `/api/admin/users/${createdUserId}/role`, { role }, 200);
-      const createdCredentials = { email: fallbackEmail, password: fallbackPassword, name: fallbackName, role };
-      if (!noCache) FRESH_CREDENTIALS_CACHE.set(role, createdCredentials);
-      return { ...createdCredentials };
-    } finally {
-      await bootstrapContext.dispose();
-    }
-  } catch (error) {
-    // Keep the long-standing direct backend bootstrap as a fallback so
-    // existing local flows continue to work if invite-backed/admin-api
-    // registration is unavailable in a given runtime setup.
-  } finally {
-    await bootstrapSeedContext.dispose();
-  }
   await createDirectUser({
     email: fallbackEmail,
     password: fallbackPassword,
@@ -582,6 +563,8 @@ module.exports = {
   createFreshAdminCredentials,
   createFreshUserCredentials,
   createDirectUser,
+  createDirectSpace,
+  addDirectSpaceMembership,
   createAuthenticatedRequestContext,
   createRequestContextFromStorageState,
   bootstrapAdminCredentials,

@@ -123,7 +123,7 @@ Platform-only paths should be removed from the collectZ OpenAPI spec during extr
 - `cairn` now owns global workspace/member administration contracts. collectZ Core returns 404 for `/api/admin/spaces*` and `/api/admin/users*`, while Core workspace-scoped management remains under `/api/spaces*`. The old unreachable Core handlers and obsolete admin-space control smoke have been removed.
 - `cairn` now owns platform email delivery settings plus PriceCharting, eBay, and structured-log platform diagnostics. collectZ Core returns 404 for those platform-only settings routes, and no longer carries the old email-delivery handlers.
 - `cairn` now owns platform activity and platform operations readbacks at `/api/admin/activity` and `/api/admin/loan-reminder-operations`. collectZ Core keeps workspace-scoped activity at `/api/spaces/:id/activity`.
-- collectZ Core no longer carries the old platform control-plane frontend modules, tabs, bridge API routing, dormant platform email/analytics settings controls, or `VITE_PLATFORM_API_URL` runtime wiring for `cairn`-owned surfaces.
+- collectZ Core no longer carries the old platform control-plane frontend modules, tabs, bridge API routing, dormant platform email/analytics settings controls, `VITE_PLATFORM_API_URL` runtime wiring, or the stale workspace-manager browser shell spec for `cairn`-owned workspace/user administration surfaces.
 
 ## Initial Inventory
 
@@ -145,7 +145,7 @@ Remaining Core/`cairn` cleanup should focus on concrete platform-surface extract
 The remaining split work is intentionally narrow:
 
 - Remove or quarantine any remaining dead/unreachable backend platform route code from Core after each route is confirmed blocked or moved. Done for support request APIs, platform docs/metrics modules, global admin spaces/users/email-delivery handlers, obsolete admin-space control smoke coverage, and platform-only integration diagnostic handlers.
-- Remove any remaining embedded support-request UI code from shared Core help/settings components once `cairn` owns its full support/frontend settings surface. Done: Core Help now contains only guidance and releases, and Core Settings no longer carries dormant platform email/analytics controls.
+- Remove any remaining embedded support-request UI code from shared Core help/settings components once `cairn` owns its full support/frontend settings surface. Done: Core Help now contains only guidance and releases, Core Settings no longer carries dormant platform email/analytics controls, and Core no longer carries the stale workspace-manager browser spec tied to moved global admin workspace/user routes.
 - Keep service-account key storage and `/api/auth/service-account-keys` management in Core as Core API key / machine-token support.
 - Keep support-session and scoped workspace APIs in Core unless `cairn` needs a cleaner documented operation bridge.
 - Keep paired-service compose examples and Core/`cairn` network configuration out of the public Core repository; document them in `cairn` only.
