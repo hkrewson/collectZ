@@ -36,7 +36,7 @@ const { authRouter, authPlatformRouter } = require('./routes/auth');
 const coreRouter = require('./routes/core');
 const mediaRouter = require('./routes/media');
 const { adminCommonRouter } = require('./routes/admin');
-const { sharedIntegrationsRouter, platformIntegrationsRouter } = require('./routes/integrations');
+const { sharedIntegrationsRouter } = require('./routes/integrations');
 const spaceIntegrationsRouter = require('./routes/spaceIntegrations');
 const librariesRouter = require('./routes/libraries');
 const spacesRouter = require('./routes/spaces');
@@ -324,7 +324,6 @@ if (!HOMELAB_EDITION) {
   app.use('/api/admin/users', (req, res) => {
     res.status(404).json({ error: `API route not found: ${req.method} ${req.originalUrl}` });
   });
-  app.use('/api', platformIntegrationsRouter);
   app.use('/api', spacesRouter);
 }
 

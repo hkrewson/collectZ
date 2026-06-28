@@ -144,7 +144,7 @@ Remaining Core/`cairn` cleanup should focus on concrete platform-surface extract
 
 The remaining split work is intentionally narrow:
 
-- Remove or quarantine any remaining dead/unreachable backend platform route code from Core after each route is confirmed blocked or moved. Done for support request APIs and global admin spaces/users/email-delivery handlers.
+- Remove or quarantine any remaining dead/unreachable backend platform route code from Core after each route is confirmed blocked or moved. Done for support request APIs, global admin spaces/users/email-delivery handlers, and platform-only integration diagnostic handlers.
 - Remove any remaining embedded support-request UI code from shared Core help components once `cairn` owns its full support frontend. Done: Core Help now contains only guidance and releases.
 - Keep service-account key storage and `/api/auth/service-account-keys` management in Core as Core API key / machine-token support.
 - Keep support-session and scoped workspace APIs in Core unless `cairn` needs a cleaner documented operation bridge.
@@ -157,7 +157,7 @@ Platform extraction candidates already identified by the current edition boundar
 - `/api/auth/support-session/start` and `/api/auth/support-session`
 - support staff request/inbox APIs under `/api/support`
 - global workspace/member administration under `/api/admin/spaces` and `/api/admin/users`
-- platform-only integration test endpoints under `/api/admin/settings/integrations/test-*`
+- platform-only integration test endpoints under `/api/admin/settings/integrations/test-*` are blocked at the Core boundary; the old unreachable executable handlers have been removed.
 - any remaining hidden support-request UI branches inside shared Help components
 - platform OpenAPI paths for support inbox, spaces, docs, metrics, activity, and global workspace/member administration
 

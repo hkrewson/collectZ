@@ -1329,12 +1329,13 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - Replaced the old mirror workflow with public-source CI on the canonical repository.
 - Created private-first `cairn` with its own service, database, OpenAPI, health/config surface, CI, platform directory model, and email-first routing contract.
 - Moved platform docs/metrics, support queue APIs, global workspace/member administration, platform settings diagnostics, platform activity, and platform operations readbacks to `cairn` or blocked their old Core routes.
+- Removed the old unreachable Core handlers for support request APIs, global admin spaces/users/email-delivery, and platform-only integration diagnostics after confirming those paths are blocked or owned by `cairn`.
 - Removed the Core-hosted platform frontend shells, platform bridge API routing, `VITE_PLATFORM_API_URL` frontend runtime wiring, embedded support request UI, frontend support-session plumbing, support-session banner, and platform Help Admin copy.
 - Kept Core OpenAPI focused on Core/self-host APIs by removing the moved platform paths.
 
 **Remaining 3.x closeout scope**
 - Keep historical release notes intact, but clean up active roadmap/backlog/architecture text when it still describes the retired mirror model as current work.
-- Remove or quarantine dead/unreachable backend platform route code from Core after each route is confirmed blocked or moved.
+- Remove or quarantine dead/unreachable backend platform route code from Core after each route is confirmed blocked or moved. No known executable diagnostic/platform-admin dead handlers remain after the latest pass; continue checking per route before any future removals.
 - Keep service-account key storage and `/api/auth/service-account-keys` management in Core as Core API key / machine-token support.
 - Keep support-session and scoped workspace APIs in Core unless `cairn` needs a cleaner documented operation bridge.
 - Continue using documented Core APIs only for `cairn`; do not share collectZ internals or database access.

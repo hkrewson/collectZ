@@ -2376,6 +2376,7 @@ results.push(run('platform settings diagnostics are blocked at the Core boundary
   assert.ok(serverSource.includes("app.use('/api/admin/settings/integrations/test-pricecharting'"));
   assert.ok(serverSource.includes("app.use('/api/admin/settings/integrations/test-ebay'"));
   assert.ok(serverSource.includes("app.use('/api/admin/settings/integrations/test-logs'"));
+  assert.ok(!serverSource.includes('platformIntegrationsRouter'));
   assert.ok(platformEditionBoundarySmokeSource.includes('Platform /api/admin/settings/email-delivery must be owned by cairn'));
   assert.ok(platformEditionBoundarySmokeSource.includes('Platform PriceCharting diagnostic must be owned by cairn'));
   assert.ok(platformEditionBoundarySmokeSource.includes('Platform eBay diagnostic must be owned by cairn'));
@@ -2579,7 +2580,7 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(!serverSource.includes("app.use('/api/metrics', metricsRouter);"));
   assert.ok(platformEditionBoundarySmokeSource.includes("user.request('/api/support/requests', { expectStatus: 404 })"));
   assert.ok(platformEditionBoundarySmokeSource.includes("admin.request('/api/support/staff/summary', { expectStatus: 404 })"));
-  assert.ok(serverSource.includes("app.use('/api', platformIntegrationsRouter);"));
+  assert.ok(!serverSource.includes("app.use('/api', platformIntegrationsRouter);"));
   assert.ok(serverSource.includes("app.use('/api', spaceIntegrationsRouter);"));
   assert.ok(serverSource.includes("app.use('/api', spacesRouter);"));
   assert.ok(!serverSource.includes("app.use('/api/admin', adminPlatformRouter);"));
@@ -2949,7 +2950,7 @@ results.push(run('release docs do not preserve fixed local Playwright bypass tok
 
 results.push(run('integrations route source extends platform integrations with valuation providers plus observability controls', () => {
   assert.ok(integrationsRoutesSource.includes('const sharedRouter = express.Router();'));
-  assert.ok(integrationsRoutesSource.includes('const platformRouter = express.Router();'));
+  assert.ok(!integrationsRoutesSource.includes('const platformRouter = express.Router();'));
   assert.ok(integrationsRoutesSource.includes('async function buildSharedIntegrationPayload'));
   assert.ok(integrationsRoutesSource.includes('async function buildPlatformIntegrationPayload'));
   assert.ok(integrationsRoutesSource.includes('buildHomelabIntegrationPayload'));
@@ -2967,6 +2968,9 @@ results.push(run('integrations route source extends platform integrations with v
   assert.ok(serverSource.includes("app.use('/api/admin/settings/integrations/test-pricecharting'"));
   assert.ok(serverSource.includes("app.use('/api/admin/settings/integrations/test-ebay'"));
   assert.ok(serverSource.includes("app.use('/api/admin/settings/integrations/test-logs'"));
+  assert.ok(!integrationsRoutesSource.includes("platformRouter.post('/admin/settings/integrations/test-pricecharting'"));
+  assert.ok(!integrationsRoutesSource.includes("platformRouter.post('/admin/settings/integrations/test-ebay'"));
+  assert.ok(!integrationsRoutesSource.includes("platformRouter.post('/admin/settings/integrations/test-logs'"));
 }));
 
 results.push(run('media route source hardens image upload handlers', () => {
@@ -8061,7 +8065,7 @@ results.push(run('observability endpoint control-plane source includes stored co
   assert.ok(logExportSource.includes('UDP collectors do not acknowledge receipt'));
   assert.ok(integrationsRoutesSource.includes('Unsupported external log backend'));
   assert.ok(integrationsRoutesSource.includes('External log port must be an integer between 1 and 65535'));
-  assert.ok(integrationsRoutesSource.includes("/admin/settings/integrations/test-logs"));
+  assert.ok(!integrationsRoutesSource.includes("platformRouter.post('/admin/settings/integrations/test-logs'"));
   assert.ok(integrationsRoutesSource.includes('logExportControl'));
   assert.ok(integrationsRoutesSource.includes('log_export_host_label'));
   assert.ok(integrationsRoutesSource.includes('log_export_service'));

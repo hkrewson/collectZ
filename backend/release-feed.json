@@ -16,7 +16,8 @@
             "Kept library routes under `/library/...`, including `/library/movies`, `/library/wishlist`, `/library/capture`, and `/library/import`.",
             "Updated app-shell history handling so navigation pushes first-class routes and legacy query URLs are replaced with the canonical path.",
             "Preserved compatibility for older `/dashboard?tab=...` and `/admin/integrations/...` links.",
-            "Removed the remaining Core-hosted platform support UI, frontend support-session plumbing, support-session banner, and Help Admin copy so Core Help now contains only guidance and releases."
+            "Removed the remaining Core-hosted platform support UI, frontend support-session plumbing, support-session banner, and Help Admin copy so Core Help now contains only guidance and releases.",
+            "Removed the unreachable Core platform integration diagnostic handlers for PriceCharting, eBay, and structured-log tests while keeping explicit Core-boundary 404 responses for those `cairn`-owned routes."
           ]
         }
       ]
