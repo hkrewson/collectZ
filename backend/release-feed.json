@@ -1,6 +1,27 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.22.0",
+      "version": "3.22.0",
+      "date": null,
+      "status": null,
+      "summary": "This release adds a Comic-Con field-test workflow inside Events so an event can become a mobile hunt list, quick haul capture surface, and post-con cleanup queue. The slice is additive and keeps collectZ on the `3.x` line because it builds on existing Events, Wishlist, Art, Collectibles, purchased-item, and companion snapshot contracts.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added nullable `booth` support to wishlist items.",
+            "Added `event_id` filtering to the Wishlist list API.",
+            "Added `GET /api/events/:id/field-kit` for event-scoped hunt items, tracked purchases, cleanup gaps, and a secret-free companion snapshot summary.",
+            "Added a Comic-Con field kit panel to the Event drawer.",
+            "Added Con Hunt actions for event-linked wishlist items: mark ordered, acquired, or dismissed; edit vendor, booth, and notes; launch quick haul capture.",
+            "Added Quick Haul Capture for event-linked Art and Collectibles, including purchased-item linking and optional wishlist acquisition.",
+            "Added Post-Con Cleanup readback for linked purchases missing vendor, booth, price, or photo."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.21.0",
       "version": "3.21.0",
       "date": null,
@@ -143,25 +164,6 @@
             "Warns about saved section IDs that are not currently detected.",
             "Prevents queuing a Plex import when no library sections are selected.",
             "Removed the duplicate bottom-level `Import from Plex` action from the integration page."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.20.2",
-      "version": "3.20.2",
-      "date": null,
-      "status": null,
-      "summary": "This patch adds Plex webhook receiver setup validation. The Plex Webhook tab can check whether a receiver exists, record the latest validation result, and warn when the advertised receiver URL appears local-only.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added migration `112` for Plex webhook receiver validation readback.",
-            "Added `plexWebhookReceiver.validation` to integration settings payloads.",
-            "Added an admin validation endpoint for Plex webhook receiver setup.",
-            "Added a compact `Check setup` action to Settings > Integrations > Plex > Webhook.",
-            "Kept receiver URLs masked and token details out of browser-visible payloads."
           ]
         }
       ]

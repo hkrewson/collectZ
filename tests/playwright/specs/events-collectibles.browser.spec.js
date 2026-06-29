@@ -490,6 +490,100 @@ test.describe('events and collectibles browser regressions', () => {
     }
   });
 
+  test('mobile event drawer supports Comic-Con hunt to quick haul capture', async ({ page }) => {
+    const adminCredentials = await ensureSavedAdminCredentials();
+    const adminRequestContext = await createAuthenticatedRequestContext(adminCredentials);
+    const userCredentials = await createFreshUserCredentials();
+    const userRequestContext = await createAuthenticatedRequestContext(userCredentials);
+    const suffix = Date.now();
+    const eventTitle = `Playwright Comic-Con Field Kit ${suffix}`;
+    const huntTitle = `Playwright Booth Exclusive ${suffix}`;
+    const originalFlagsPayload = await getFeatureFlags(adminRequestContext);
+    const originalFlags = Array.isArray(originalFlagsPayload?.flags) ? originalFlagsPayload.flags : [];
+    const originalEventsEnabled = Boolean(originalFlags.find((flag) => flag?.key === 'events_enabled')?.enabled);
+    const originalCollectiblesEnabled = Boolean(originalFlags.find((flag) => flag?.key === 'collectibles_enabled')?.enabled);
+    let eventId = null;
+    let wishlistId = null;
+
+    await deleteEventsByExactTitle(userRequestContext, eventTitle).catch(() => {});
+    await deleteCollectiblesByExactTitle(userRequestContext, huntTitle).catch(() => {});
+
+    try {
+      if (!originalEventsEnabled) {
+        await updateFeatureFlag(adminRequestContext, 'events_enabled', true);
+      }
+      if (!originalCollectiblesEnabled) {
+        await updateFeatureFlag(adminRequestContext, 'collectibles_enabled', true);
+      }
+
+      const eventResponse = await postWithCsrf(userRequestContext, '/api/events', {
+        title: eventTitle,
+        url: 'https://example.test/comic-con-field-kit',
+        location: 'San Diego Convention Center',
+        date_start: '2026-07-22',
+        date_end: '2026-07-26'
+      }, 201);
+      const eventPayload = await eventResponse.json();
+      eventId = Number(eventPayload?.id || 0);
+      expect(eventId).toBeGreaterThan(0);
+
+      const wishlistResponse = await postWithCsrf(userRequestContext, '/api/wishlist', {
+        title: huntTitle,
+        object_type: 'collectible',
+        status: 'wanted',
+        priority: 'grail',
+        desired_format: 'Exclusive',
+        desired_edition: 'Preview night',
+        event_id: eventId,
+        vendor: 'Playwright Vendor',
+        booth: '3721',
+        target_price: 45,
+        notes: 'Field-kit regression hunt item.'
+      }, 201);
+      const wishlistPayload = await wishlistResponse.json();
+      wishlistId = Number(wishlistPayload?.item?.id || 0);
+      expect(wishlistId).toBeGreaterThan(0);
+
+      await page.setViewportSize({ width: 390, height: 844 });
+      await signInThroughUi(page, userCredentials);
+      await page.goto('/dashboard?tab=library-events');
+      await page.getByPlaceholder('Search title or location…').fill(eventTitle);
+      const eventCard = page.locator('article').filter({ hasText: eventTitle }).first();
+      await expect(eventCard).toBeVisible();
+      await eventCard.click();
+
+      await expect(page.getByLabel('Comic-Con field kit')).toBeVisible();
+      await expect(page.getByText(huntTitle)).toBeVisible();
+      await expect(page.getByText('Playwright Vendor · Booth 3721')).toBeVisible();
+      await page.locator('article').filter({ hasText: huntTitle }).first().getByRole('button', { name: 'Haul', exact: true }).click();
+      await expect(page.getByText('Quick haul capture')).toBeVisible();
+      await expect(page.getByLabel('Title')).toHaveValue(huntTitle);
+      await page.getByRole('button', { name: /Save haul/ }).click();
+      await expect(page.getByText('1 linked purchases')).toBeVisible();
+
+      const fieldKitResponse = await userRequestContext.get(`/api/events/${eventId}/field-kit`);
+      expect(fieldKitResponse.ok()).toBeTruthy();
+      const fieldKit = await fieldKitResponse.json();
+      expect(fieldKit?.version).toBe('event-field-kit.v1');
+      expect(fieldKit?.purchased_items?.some((item) => item.title_snapshot === huntTitle && item.vendor_snapshot === 'Playwright Vendor' && item.booth_snapshot === '3721')).toBeTruthy();
+      expect(fieldKit?.acquired_wishlist_items?.some((item) => item.id === wishlistId && item.status === 'acquired')).toBeTruthy();
+    } finally {
+      if (wishlistId) {
+        await requestWithCsrf(userRequestContext, 'DELETE', `/api/wishlist/${wishlistId}`, undefined, [200, 404]).catch(() => {});
+      }
+      await deleteCollectiblesByExactTitle(userRequestContext, huntTitle).catch(() => {});
+      await deleteEventsByExactTitle(userRequestContext, eventTitle).catch(() => {});
+      if (!originalCollectiblesEnabled) {
+        await updateFeatureFlag(adminRequestContext, 'collectibles_enabled', false).catch(() => {});
+      }
+      if (!originalEventsEnabled) {
+        await updateFeatureFlag(adminRequestContext, 'events_enabled', false).catch(() => {});
+      }
+      await userRequestContext.dispose();
+      await adminRequestContext.dispose();
+    }
+  });
+
   test('event drawer uses add me for the signed-in attendee and keeps the generic people form for others', async ({ page }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
     const adminRequestContext = await createAuthenticatedRequestContext(adminCredentials);

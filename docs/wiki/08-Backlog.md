@@ -1555,6 +1555,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 
 **Current state**
 - The Event drawer now includes mobile schedule readability, day navigation, compact social overview, fast meetup/status updates, shared schedule editing, private/shared treatment, vendor/booth/location notes, day-of social summary, and mobile time-window filters.
+- `3.22.0` promoted the Comic-Con field-test slice for event-linked hunt items, quick haul capture, and post-con cleanup.
 - Event-local attendee, group, meetup, schedule, notification draft/history/inbox, and delivery-attempt readback foundations are present.
 - The broad "make it usable on mobile" intent is no longer a blank backlog item; future work should be specific polish found during real event use.
 

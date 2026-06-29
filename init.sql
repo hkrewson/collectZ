@@ -136,6 +136,7 @@ CREATE TABLE IF NOT EXISTS wanted_items (
     provider_key TEXT,
     event_id INTEGER,
     vendor VARCHAR(255),
+    booth VARCHAR(120),
     target_price NUMERIC(12,2),
     linked_media_id INTEGER REFERENCES media(id) ON DELETE SET NULL,
     library_id INTEGER,
@@ -1888,5 +1889,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (111, 'Add persisted Plex reconciliation sync settings'),
     (112, 'Add Plex webhook receiver validation readback'),
     (113, 'Add explicit Plex writeback opt-in settings'),
-    (114, 'Add persisted Plex readback refresh settings')
+    (114, 'Add persisted Plex readback refresh settings'),
+    (115, 'Add wishlist booth support for event field kits')
 ON CONFLICT (version) DO NOTHING;

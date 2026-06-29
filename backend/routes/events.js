@@ -105,6 +105,29 @@ const serializePurchasedItemRecord = (row) => ({
   resolved_item: row.resolved_item || null
 });
 
+const serializeFieldKitWishlistItem = (row = {}) => ({
+  id: row.id,
+  title: row.title,
+  object_type: row.object_type,
+  status: row.status,
+  priority: row.priority,
+  year: row.year || null,
+  desired_format: row.desired_format || null,
+  desired_edition: row.desired_edition || null,
+  notes: row.notes || null,
+  provider: row.provider || null,
+  provider_key: row.provider_key || null,
+  event_id: row.event_id || null,
+  vendor: row.vendor || null,
+  booth: row.booth || null,
+  target_price: row.target_price === null || row.target_price === undefined ? null : Number(row.target_price),
+  linked_media_id: row.linked_media_id || null,
+  acquired_at: row.acquired_at || null,
+  dismissed_at: row.dismissed_at || null,
+  created_at: row.created_at,
+  updated_at: row.updated_at
+});
+
 const serializeExclusiveSourceRow = (row = {}) => ({
   id: row.id,
   event_id: row.event_id,
@@ -202,6 +225,8 @@ const SCHEDULE_NOTIFICATION_DELIVERY_ATTEMPT_MODEL_VERSION = 'event-schedule-not
 const CONFLICTING_SCHEDULE_PLAN_STATUSES = new Set(['planned', 'maybe', 'backup']);
 const EXCLUSIVE_SOURCE_STATUSES = new Set(['new', 'reviewed', 'ignored']);
 const EXCLUSIVE_PROMOTE_TARGETS = new Set(['wishlist', 'collectible']);
+const FIELD_KIT_WISHLIST_STATUSES = ['wanted', 'watching', 'preordered', 'ordered', 'acquired', 'dismissed'];
+const FIELD_KIT_ACTIVE_WISHLIST_STATUSES = ['wanted', 'watching', 'preordered', 'ordered'];
 
 const serializeEventArtifactRow = (row = {}) => ({
   ...row,
@@ -2357,6 +2382,54 @@ async function loadPurchasedItemsForEvent(eventId, scopeContext) {
   return rows;
 }
 
+async function loadFieldKitWishlistItems(eventId, scopeContext) {
+  const params = [eventId, FIELD_KIT_WISHLIST_STATUSES];
+  const scopeClause = appendScopeSql(params, scopeContext, {
+    libraryColumn: 'library_id',
+    spaceColumn: 'space_id'
+  });
+  const result = await pool.query(
+    `SELECT *
+       FROM wanted_items
+      WHERE event_id = $1
+        AND status = ANY($2)
+        ${scopeClause}
+      ORDER BY
+        CASE priority WHEN 'grail' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 ELSE 3 END,
+        CASE status WHEN 'wanted' THEN 0 WHEN 'watching' THEN 1 WHEN 'preordered' THEN 2 WHEN 'ordered' THEN 3 WHEN 'acquired' THEN 4 ELSE 5 END,
+        updated_at DESC,
+        id DESC`,
+    params
+  );
+  return result.rows.map(serializeFieldKitWishlistItem);
+}
+
+function buildFieldKitCompanionSummary(companion = null) {
+  if (!companion) return null;
+  return {
+    generated_at: companion.contract?.generated_at || null,
+    counts: companion.counts || {},
+    sync: {
+      freshness: companion.sync?.freshness || 'unknown',
+      personal_ics_visibility: companion.sync?.personal_ics_visibility || null
+    },
+    cache: companion.cache || null,
+    now_next: companion.now_next ? {
+      version: companion.now_next.version,
+      current_count: Array.isArray(companion.now_next.current) ? companion.now_next.current.length : 0,
+      next_count: Array.isArray(companion.now_next.next) ? companion.now_next.next.length : 0,
+      soon_count: Array.isArray(companion.now_next.soon) ? companion.now_next.soon.length : 0
+    } : null,
+    offline_packet: companion.offline_packet ? {
+      version: companion.offline_packet.version,
+      mode: companion.offline_packet.mode,
+      stale_after_at: companion.offline_packet.stale_after_at,
+      includes: companion.offline_packet.includes,
+      counts: companion.offline_packet.counts
+    } : null
+  };
+}
+
 router.get('/events', asyncHandler(async (req, res) => {
   const scopeContext = resolveScopeContext(req);
   const { page, limit, offset } = parsePaging(req);
@@ -2436,6 +2509,65 @@ router.get('/events', asyncHandler(async (req, res) => {
       totalPages: Math.max(1, Math.ceil(total / limit)),
       hasMore: page < Math.max(1, Math.ceil(total / limit))
     }
+  });
+}));
+
+router.get('/events/:id/field-kit', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = Number(req.params.id);
+  if (!Number.isFinite(eventId) || eventId <= 0) {
+    return res.status(400).json({ error: 'Invalid event id' });
+  }
+
+  const params = [eventId];
+  const scopeClause = appendScopeSql(params, scopeContext);
+  const eventResult = await pool.query(
+    `SELECT *
+       FROM events
+      WHERE id = $1
+        AND archived_at IS NULL
+        ${scopeClause}
+      LIMIT 1`,
+    params
+  );
+  const eventRow = eventResult.rows[0] || null;
+  if (!eventRow) return res.status(404).json({ error: 'Event not found' });
+
+  const [wishlistItems, purchasedItems, companion] = await Promise.all([
+    loadFieldKitWishlistItems(eventId, scopeContext),
+    loadPurchasedItemsForEvent(eventId, scopeContext),
+    loadCompanionTodayPayload({ eventId, scopeContext, userId: req.user.id })
+  ]);
+
+  const activeWishlistItems = wishlistItems.filter((item) => FIELD_KIT_ACTIVE_WISHLIST_STATUSES.includes(item.status));
+  const acquiredWishlistItems = wishlistItems.filter((item) => item.status === 'acquired');
+  const incompletePurchases = purchasedItems.filter((item) => {
+    const resolved = item.resolved_item || {};
+    const title = item.title_snapshot || resolved.title;
+    const vendor = item.vendor_snapshot || resolved.vendor;
+    const booth = item.booth_snapshot || resolved.booth;
+    const price = item.price_snapshot ?? resolved.price;
+    const imagePath = resolved.image_path;
+    return !title || !vendor || !booth || price === null || price === undefined || price === '' || !imagePath;
+  });
+
+  return res.json({
+    version: 'event-field-kit.v1',
+    generated_at: new Date().toISOString(),
+    event: eventRow,
+    counts: {
+      wishlist_items: wishlistItems.length,
+      active_wishlist_items: activeWishlistItems.length,
+      acquired_wishlist_items: acquiredWishlistItems.length,
+      purchased_items: purchasedItems.length,
+      incomplete_purchased_items: incompletePurchases.length
+    },
+    wishlist_items: wishlistItems,
+    active_wishlist_items: activeWishlistItems,
+    acquired_wishlist_items: acquiredWishlistItems,
+    purchased_items: purchasedItems,
+    incomplete_purchased_items: incompletePurchases,
+    companion: buildFieldKitCompanionSummary(companion)
   });
 }));
 

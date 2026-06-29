@@ -1958,6 +1958,36 @@
         },
         "required": ["items"]
       },
+      "EventFieldKitResponse": {
+        "type": "object",
+        "properties": {
+          "version": { "type": "string" },
+          "generated_at": { "type": "string", "format": "date-time" },
+          "event": { "$ref": "#/components/schemas/EventRecord" },
+          "counts": {
+            "type": "object",
+            "properties": {
+              "wishlist_items": { "type": "integer" },
+              "active_wishlist_items": { "type": "integer" },
+              "acquired_wishlist_items": { "type": "integer" },
+              "purchased_items": { "type": "integer" },
+              "incomplete_purchased_items": { "type": "integer" }
+            },
+            "required": ["wishlist_items", "active_wishlist_items", "acquired_wishlist_items", "purchased_items", "incomplete_purchased_items"]
+          },
+          "wishlist_items": { "type": "array", "items": { "$ref": "#/components/schemas/WantedItem" } },
+          "active_wishlist_items": { "type": "array", "items": { "$ref": "#/components/schemas/WantedItem" } },
+          "acquired_wishlist_items": { "type": "array", "items": { "$ref": "#/components/schemas/WantedItem" } },
+          "purchased_items": { "type": "array", "items": { "$ref": "#/components/schemas/EventPurchasedItemRecord" } },
+          "incomplete_purchased_items": { "type": "array", "items": { "$ref": "#/components/schemas/EventPurchasedItemRecord" } },
+          "companion": {
+            "type": ["object", "null"],
+            "description": "Secret-free summary of the companion today packet. Raw personal ICS URLs are never returned.",
+            "additionalProperties": true
+          }
+        },
+        "required": ["version", "generated_at", "event", "counts", "wishlist_items", "active_wishlist_items", "acquired_wishlist_items", "purchased_items", "incomplete_purchased_items"]
+      },
       "EventPurchasedItemUpsertRequest": {
         "type": "object",
         "properties": {
@@ -3507,6 +3537,7 @@
           "provider_key": { "type": ["string", "null"] },
           "event_id": { "type": ["integer", "null"] },
           "vendor": { "type": ["string", "null"] },
+          "booth": { "type": ["string", "null"] },
           "target_price": { "type": ["number", "null"] },
           "linked_media_id": { "type": ["integer", "null"] },
           "library_id": { "type": ["integer", "null"] },
@@ -3536,6 +3567,7 @@
           "provider_key": { "type": ["string", "null"] },
           "event_id": { "type": ["integer", "null"] },
           "vendor": { "type": ["string", "null"] },
+          "booth": { "type": ["string", "null"] },
           "target_price": { "type": ["number", "null"] }
         },
         "required": ["title"]
@@ -4687,10 +4719,18 @@
       "get": {
         "tags": ["Wishlist"],
         "summary": "List active-scope wishlist and acquisition candidates",
-        "description": "Returns wanted items scoped to the authenticated user's active workspace/library. The endpoint supports status, object_type, search, page, and limit query parameters.",
+        "description": "Returns wanted items scoped to the authenticated user's active workspace/library. The endpoint supports status, object_type, event_id, search, page, and limit query parameters.",
         "security": [
           { "cookieSession": [] },
           { "bearerAuth": [] }
+        ],
+        "parameters": [
+          { "name": "status", "in": "query", "required": false, "schema": { "type": "string", "enum": ["active", "all", "wanted", "watching", "preordered", "ordered", "acquired", "dismissed"], "default": "active" } },
+          { "name": "object_type", "in": "query", "required": false, "schema": { "type": "string", "enum": ["movie", "tv_series", "book", "comic_book", "audio", "game", "art", "collectible", "event_item", "other"] } },
+          { "name": "event_id", "in": "query", "required": false, "schema": { "type": "integer", "minimum": 1 } },
+          { "name": "search", "in": "query", "required": false, "schema": { "type": "string" } },
+          { "name": "page", "in": "query", "required": false, "schema": { "type": "integer", "minimum": 1, "default": 1 } },
+          { "name": "limit", "in": "query", "required": false, "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 50 } }
         ],
         "responses": {
           "200": {
@@ -8712,6 +8752,36 @@
               }
             }
           }
+        }
+      }
+    },
+    "/api/events/{id}/field-kit": {
+      "get": {
+        "tags": ["Events"],
+        "summary": "Read the Comic-Con field kit for a scoped event",
+        "description": "Returns a compact event-scoped field kit for mobile con use: event-linked wishlist hunt items, tracked purchases, cleanup gaps, and a secret-free companion packet summary.",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Comic-Con field kit",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/EventFieldKitResponse" }
+              }
+            }
+          },
+          "404": { "description": "Event not found" }
         }
       }
     },

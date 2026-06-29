@@ -132,6 +132,7 @@ function shapeWantedItem(row) {
     provider_key: row.provider_key,
     event_id: row.event_id,
     vendor: row.vendor,
+    booth: row.booth,
     target_price: row.target_price === null || row.target_price === undefined ? null : Number(row.target_price),
     linked_media_id: row.linked_media_id,
     library_id: row.library_id,
@@ -179,6 +180,7 @@ function itemValuesFromBody(body, current = {}) {
   if (has('provider_key')) next.provider_key = nullableString(body.provider_key);
   if (has('event_id')) next.event_id = nullableInt(body.event_id);
   if (has('vendor')) next.vendor = nullableString(body.vendor);
+  if (has('booth')) next.booth = nullableString(body.booth);
   if (has('target_price')) next.target_price = nullablePrice(body.target_price);
 
   return next;
@@ -759,6 +761,12 @@ router.get('/wishlist', asyncHandler(async (req, res) => {
     where += ` AND object_type = $${params.length}`;
   }
 
+  const eventId = nullableInt(req.query.event_id);
+  if (eventId) {
+    params.push(eventId);
+    where += ` AND event_id = $${params.length}`;
+  }
+
   const search = trimString(req.query.search);
   if (search) {
     params.push(`%${search.toLowerCase()}%`);
@@ -807,13 +815,13 @@ router.post('/wishlist', asyncHandler(async (req, res) => {
   const result = await pool.query(
     `INSERT INTO wanted_items (
        title, object_type, status, priority, year, desired_format, desired_edition, notes,
-       identifiers, source_context, provider, provider_key, event_id, vendor, target_price,
+       identifiers, source_context, provider, provider_key, event_id, vendor, booth, target_price,
        library_id, space_id, created_by
      )
      VALUES (
        $1, $2, $3, $4, $5, $6, $7, $8,
-       $9::jsonb, $10::jsonb, $11, $12, $13, $14, $15,
-       $16, $17, $18
+       $9::jsonb, $10::jsonb, $11, $12, $13, $14, $15, $16,
+       $17, $18, $19
      )
      RETURNING *`,
     [
@@ -831,6 +839,7 @@ router.post('/wishlist', asyncHandler(async (req, res) => {
       item.provider_key ?? null,
       item.event_id ?? null,
       item.vendor ?? null,
+      item.booth ?? null,
       item.target_price ?? null,
       scopeContext.libraryId,
       scopeContext.spaceId,
@@ -876,10 +885,11 @@ router.patch('/wishlist/:id', asyncHandler(async (req, res) => {
             provider_key = $12,
             event_id = $13,
             vendor = $14,
-            target_price = $15,
+            booth = $15,
+            target_price = $16,
             acquired_at = CASE WHEN $3::text = 'acquired' THEN COALESCE(acquired_at, CURRENT_TIMESTAMP) ELSE acquired_at END,
             dismissed_at = CASE WHEN $3::text = 'dismissed' THEN COALESCE(dismissed_at, CURRENT_TIMESTAMP) ELSE dismissed_at END
-      WHERE id = $16
+      WHERE id = $17
       RETURNING *`,
     [
       next.title,
@@ -896,6 +906,7 @@ router.patch('/wishlist/:id', asyncHandler(async (req, res) => {
       next.provider_key,
       next.event_id,
       next.vendor,
+      next.booth,
       next.target_price,
       id
     ]

@@ -6,6 +6,43 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.22.0 — Comic-Con Field Test Mode
+
+**Goal:** Make collectZ useful on the Comic-Con floor by adding an event-scoped mobile field kit for hunt items, quick haul capture, and post-con cleanup without introducing a new convention automation platform.
+
+### Scope
+
+- Add wishlist booth support so event-linked hunt items can carry vendor and booth context.
+- Add a compact `GET /api/events/:id/field-kit` API that returns event summary, event-linked wishlist hunt items, tracked purchases, cleanup gaps, and a secret-free companion snapshot summary.
+- Add a mobile-first Comic-Con field kit panel to the Event drawer.
+- Add quick haul capture for Art and Collectibles using existing item creation, image upload, and purchased-item linking contracts.
+- Add post-con cleanup readback for acquired hunt items and incomplete purchase details.
+- Keep floor maps, recurring convention provider sync, offline mutation queues, push notifications, realtime location, native companion UI, and valuation integrations out of this slice.
+
+### Acceptance Criteria
+
+- Wishlist create, update, list, and OpenAPI contracts include nullable `booth`.
+- Wishlist list supports `event_id` filtering for event-scoped hunt views.
+- `GET /api/events/:id/field-kit` enforces existing Events auth, feature flag, and scope checks.
+- The field-kit response does not return raw personal ICS URLs or encrypted feed values.
+- A mobile Event drawer can show event-linked hunt items, mark them ordered/acquired/dismissed, edit vendor/booth/notes, launch quick haul from a hunt item, create/link a haul item, and mark the hunt item acquired.
+- Post-con cleanup shows linked purchases missing vendor, booth, price, or photo and allows purchase snapshot edits.
+
+### Active Slice Notes
+
+- This is a field-test milestone for San Diego Comic-Con 2026 travel timing, intentionally sized as a `3.x` minor release rather than a `4.0.0` boundary.
+- The implementation composes existing Events, Wishlist, Art, Collectibles, purchased-item, and companion snapshot contracts.
+
+### Closeout
+
+- Status: completed in `3.22.0`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, and `docs/releases/v3.22.0.md`.
+- Runtime evidence: Docker source-build backend and frontend containers rebuilt with `APP_VERSION=3.22.0` using `docker-compose.localhost.yml` on `http://localhost:3218`; `/api/health` reports frontend, backend, and build `3.22.0`; backend logs applied schema migration `v115`; backend, frontend, and Postgres containers are healthy.
+- Verification: backend wishlist/events/migration/unit-test syntax checks passed; Docker frontend production build passed; in-container backend unit/source suite passed with `336` checks; in-container OpenAPI validation passed; release feed regenerated; in-container Help > Releases smoke served `3.22.0` as latest; observability evidence refreshed for `3.22.0` with `9/9` checks passed; targeted Comic-Con field-kit Playwright regression passed against `http://localhost:3218`; local release preflight passed version sync, release note, dependency audit artifact, migration evidence, and observability evidence checks; modern containerized backend and frontend production dependency audits reported `0` vulnerabilities; `git diff --check` passed.
+- Blocked/unverified: `npm run release:local-gate` completed with `10/12` gates passed, but backend and frontend audit subprocesses failed under the older host npm runtime before producing usable audit results; equivalent modern containerized production audits passed with no vulnerabilities. Local preflight marks secure-cookie compose smoke blocked because the local stack uses `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`. The full Events browser spec still has unrelated pre-existing failures outside the new Comic-Con regression. Hosted CI still needs to confirm `compose-smoke`, `rbac-regression`, full `browser-regression`, `runtime-smoke` core/control-plane, `dependency-scan`, `secret-scan`, and `image-security-and-sbom`.
+- Risks/follow-ups: the field kit is mobile web only; floor maps, broad vendor identity modeling, recurring convention provider automation, offline write queues, push notifications, realtime location, native companion UI, and valuation integrations remain deferred backlog work. Cleanup photo gaps are surfaced in this slice, while photo capture still uses existing item image upload paths.
+- What remains in the milestone: no implementation work remains for the `3.22.0` field-test MVP; hosted CI/release gates remain required before push-ready release promotion.
+
 ## 3.21.0 — First-Class App Route Semantics
 
 **Goal:** Treat app navigation destinations as real URLs instead of making `/dashboard` own every page through `?tab=...`.

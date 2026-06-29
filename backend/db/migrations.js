@@ -4708,6 +4708,14 @@ const MIGRATIONS = [
        WHERE plex_readback_refresh_max_items IS NULL
           OR plex_readback_refresh_max_items < 1;
     `
+  },
+  {
+    version: 115,
+    description: 'Add wishlist booth support for event field kits',
+    up: `
+      ALTER TABLE wanted_items
+        ADD COLUMN IF NOT EXISTS booth VARCHAR(120);
+    `
   }
 ];
 

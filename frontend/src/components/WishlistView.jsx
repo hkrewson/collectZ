@@ -111,6 +111,7 @@ const EMPTY_FORM = {
   provider: '',
   provider_key: '',
   vendor: '',
+  booth: '',
   target_price: '',
   notes: '',
   identifiers_text: ''
@@ -302,6 +303,7 @@ function formFromItem(item) {
     provider: item.provider || '',
     provider_key: item.provider_key || '',
     vendor: item.vendor || '',
+    booth: item.booth || '',
     target_price: item.target_price ?? '',
     notes: item.notes || '',
     identifiers_text: stringifyIdentifiers(item.identifiers)
@@ -455,6 +457,13 @@ function WishlistEditor({ form, setForm, editingItem, saving, onCancel, onSave }
             className="input w-full"
             value={form.vendor}
             onChange={(event) => setForm((current) => ({ ...current, vendor: event.target.value }))}
+          />
+        </Field>
+        <Field label="Booth" className="md:col-span-2">
+          <input
+            className="input w-full"
+            value={form.booth}
+            onChange={(event) => setForm((current) => ({ ...current, booth: event.target.value }))}
           />
         </Field>
         <Field label="Target price" className="md:col-span-2">
@@ -999,6 +1008,7 @@ export default function WishlistView({ apiCall, onToast, activeLibrary, Icons, S
       provider: form.provider || null,
       provider_key: form.provider_key || null,
       vendor: form.vendor || null,
+      booth: form.booth || null,
       target_price: targetPrice.value,
       notes: form.notes || null,
       identifiers: parseIdentifiers(form.identifiers_text)
@@ -1214,6 +1224,7 @@ export default function WishlistView({ apiCall, onToast, activeLibrary, Icons, S
                     <span>{statusLabel(item.status)}</span>
                     {item.desired_format ? <span>{item.desired_format}</span> : null}
                     {item.desired_edition ? <span>{item.desired_edition}</span> : null}
+                    {item.vendor ? <span>{item.booth ? `${item.vendor} · Booth ${item.booth}` : item.vendor}</span> : (item.booth ? <span>{`Booth ${item.booth}`}</span> : null)}
                     {price ? <span>{price}</span> : null}
                     {item.linked_media_id ? <span>Library #{item.linked_media_id}</span> : null}
                   </div>

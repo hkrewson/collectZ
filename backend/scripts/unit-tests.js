@@ -6442,6 +6442,28 @@ results.push(run('event social planning foundation contract is wired for 3.4.30'
   assert.ok(eventsViewSource.includes('Group name'));
 }));
 
+results.push(run('Comic-Con field kit contract is wired for 3.22.0', () => {
+  assert.ok(migrationsSource.includes('version: 115'));
+  assert.ok(migrationsSource.includes('ADD COLUMN IF NOT EXISTS booth VARCHAR(120)'));
+  assert.ok(initSqlSource.includes('booth VARCHAR(120)'));
+  assert.ok(initSqlSource.includes("(115, 'Add wishlist booth support for event field kits')"));
+  assert.ok(wishlistRoutesSource.includes('booth: row.booth'));
+  assert.ok(wishlistRoutesSource.includes("if (has('booth')) next.booth"));
+  assert.ok(wishlistRoutesSource.includes('const eventId = nullableInt(req.query.event_id)'));
+  assert.ok(eventsRoutesSource.includes("router.get('/events/:id/field-kit'"));
+  assert.ok(eventsRoutesSource.includes('event-field-kit.v1'));
+  assert.ok(eventsRoutesSource.includes('buildFieldKitCompanionSummary'));
+  assert.ok(eventsRoutesSource.includes('personal_ics_visibility'));
+  assert.ok(!eventsRoutesSource.includes('feed_url_encrypted'));
+  assert.ok(openApiSource.includes('"EventFieldKitResponse"'));
+  assert.ok(openApiSource.includes('"/api/events/{id}/field-kit"'));
+  assert.ok(openApiSource.includes('"booth": { "type": ["string", "null"] }'));
+  assert.ok(wishlistViewSource.includes('form.booth'));
+  assert.ok(eventsViewSource.includes('Comic-Con field kit'));
+  assert.ok(eventsViewSource.includes('Quick haul capture'));
+  assert.ok(eventsViewSource.includes('Post-con cleanup'));
+}));
+
 results.push(run('personal Sched ICS sync contract is wired for 3.4.31', () => {
   assert.ok(releaseRoadmapSource.includes('3.4.31 — Personal Sched ICS Sync Contract and Parser Spike'));
   assert.ok(personalSchedIcsSyncSource.includes('personal plan sync adapter'));

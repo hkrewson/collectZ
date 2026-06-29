@@ -886,6 +886,366 @@ function DetailField({ label, children, className = '' }) {
   );
 }
 
+const FIELD_KIT_WISHLIST_STATUSES = ['wanted', 'watching', 'preordered', 'ordered'];
+const FIELD_KIT_PRIORITY_LABELS = {
+  grail: 'Grail',
+  high: 'High',
+  normal: 'Normal',
+  low: 'Low'
+};
+const FIELD_KIT_TYPE_LABELS = {
+  movie: 'Movie',
+  tv_series: 'TV',
+  book: 'Book',
+  comic_book: 'Comic',
+  audio: 'Audio',
+  game: 'Game',
+  art: 'Art',
+  collectible: 'Collectible',
+  event_item: 'Event item',
+  other: 'Other'
+};
+
+function formatFieldKitMoney(value) {
+  if (value === null || value === undefined || value === '') return '';
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return `$${value}`;
+  return parsed.toLocaleString(undefined, { style: 'currency', currency: 'USD' });
+}
+
+function fieldKitVendorBooth(value = {}) {
+  const vendor = String(value.vendor || value.vendor_snapshot || value.resolved_item?.vendor || '').trim();
+  const booth = String(value.booth || value.booth_snapshot || value.resolved_item?.booth || '').trim();
+  if (vendor && booth) return `${vendor} · Booth ${booth}`;
+  if (booth) return `Booth ${booth}`;
+  return vendor;
+}
+
+function createEmptyFieldKitHaulForm(eventId, source = null) {
+  return {
+    itemType: source?.object_type === 'art' ? 'art' : 'collectible',
+    sourceWishlistId: source?.id || null,
+    markWishlistAcquired: Boolean(source?.id),
+    title: source?.title || '',
+    franchise: '',
+    series: source?.desired_edition || '',
+    vendor: source?.vendor || '',
+    booth: source?.booth || '',
+    price: source?.target_price ?? '',
+    exclusive: false,
+    notes: source?.notes || '',
+    imageFile: null
+  };
+}
+
+function EventFieldKitPanel({ eventId, apiCall, onChanged, onToast }) {
+  const [fieldKit, setFieldKit] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [working, setWorking] = useState('');
+  const [editingWishlistId, setEditingWishlistId] = useState(null);
+  const [wishlistDraft, setWishlistDraft] = useState({ vendor: '', booth: '', notes: '' });
+  const [quickHaulOpen, setQuickHaulOpen] = useState(false);
+  const [haulForm, setHaulForm] = useState(() => createEmptyFieldKitHaulForm(eventId));
+  const [editingPurchaseId, setEditingPurchaseId] = useState(null);
+  const [purchaseDraft, setPurchaseDraft] = useState({ title_snapshot: '', vendor_snapshot: '', booth_snapshot: '', price_snapshot: '' });
+
+  const loadFieldKit = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const payload = await apiCall('get', `/events/${eventId}/field-kit`);
+      setFieldKit(payload || null);
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Failed to load Comic-Con field kit');
+    } finally {
+      setLoading(false);
+    }
+  }, [apiCall, eventId]);
+
+  useEffect(() => { loadFieldKit(); }, [loadFieldKit]);
+
+  const wishlistItems = Array.isArray(fieldKit?.wishlist_items) ? fieldKit.wishlist_items : [];
+  const activeWishlistItems = wishlistItems.filter((item) => FIELD_KIT_WISHLIST_STATUSES.includes(item.status));
+  const acquiredWishlistItems = wishlistItems.filter((item) => item.status === 'acquired');
+  const purchasedItems = Array.isArray(fieldKit?.purchased_items) ? fieldKit.purchased_items : [];
+  const incompletePurchases = Array.isArray(fieldKit?.incomplete_purchased_items) ? fieldKit.incomplete_purchased_items : [];
+
+  const reloadAfterChange = async () => {
+    await loadFieldKit();
+    await onChanged?.();
+  };
+
+  const patchWishlist = async (item, patch, toast = 'Wishlist updated') => {
+    setWorking(`wishlist-${item.id}`);
+    try {
+      await apiCall('patch', `/wishlist/${item.id}`, patch);
+      onToast?.(toast);
+      await reloadAfterChange();
+    } catch (err) {
+      onToast?.(err?.response?.data?.error || 'Could not update wishlist item', 'error');
+    } finally {
+      setWorking('');
+    }
+  };
+
+  const beginWishlistEdit = (item) => {
+    setEditingWishlistId(item.id);
+    setWishlistDraft({
+      vendor: item.vendor || '',
+      booth: item.booth || '',
+      notes: item.notes || ''
+    });
+  };
+
+  const openQuickHaul = (source = null) => {
+    setHaulForm(createEmptyFieldKitHaulForm(eventId, source));
+    setQuickHaulOpen(true);
+  };
+
+  const createQuickHaul = async () => {
+    if (!haulForm.title.trim()) {
+      onToast?.('Title is required for quick haul capture.', 'error');
+      return;
+    }
+    setWorking('quick-haul');
+    try {
+      const isArt = haulForm.itemType === 'art';
+      const endpoint = isArt ? '/art' : '/collectibles';
+      const payload = {
+        title: haulForm.title.trim(),
+        event_id: eventId,
+        franchise: haulForm.franchise || null,
+        series: haulForm.series || null,
+        vendor: haulForm.vendor || null,
+        booth: haulForm.booth || null,
+        price: haulForm.price === '' ? null : Number(haulForm.price),
+        exclusive: haulForm.exclusive === true,
+        notes: haulForm.notes || null
+      };
+      if (!isArt) {
+        payload.subtype = 'collectible';
+        payload.category_key = 'figures_statues';
+      }
+      const created = await apiCall('post', endpoint, payload);
+      const createdId = Number(isArt ? (created?.native_art_id || created?.id) : created?.id);
+      if (!createdId) throw new Error('Created item did not return an id.');
+
+      if (haulForm.imageFile) {
+        const formData = new FormData();
+        formData.append('image', haulForm.imageFile);
+        await apiCall('post', `${endpoint}/${createdId}/upload-image`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+      }
+
+      await apiCall('post', `/events/${eventId}/purchased-items`, {
+        item_type: isArt ? 'art' : 'collectible',
+        item_id: createdId,
+        title_snapshot: haulForm.title.trim(),
+        vendor_snapshot: haulForm.vendor || null,
+        booth_snapshot: haulForm.booth || null,
+        price_snapshot: haulForm.price === '' ? null : Number(haulForm.price)
+      });
+
+      if (haulForm.sourceWishlistId && haulForm.markWishlistAcquired) {
+        await apiCall('patch', `/wishlist/${haulForm.sourceWishlistId}`, { status: 'acquired' });
+      }
+
+      setQuickHaulOpen(false);
+      setHaulForm(createEmptyFieldKitHaulForm(eventId));
+      onToast?.('Haul item captured');
+      await reloadAfterChange();
+    } catch (err) {
+      onToast?.(err?.response?.data?.error || err?.message || 'Could not capture haul item', 'error');
+    } finally {
+      setWorking('');
+    }
+  };
+
+  const beginPurchaseEdit = (item) => {
+    const resolved = item.resolved_item || {};
+    setEditingPurchaseId(item.id);
+    setPurchaseDraft({
+      title_snapshot: item.title_snapshot || resolved.title || '',
+      vendor_snapshot: item.vendor_snapshot || resolved.vendor || '',
+      booth_snapshot: item.booth_snapshot || resolved.booth || '',
+      price_snapshot: item.price_snapshot ?? resolved.price ?? ''
+    });
+  };
+
+  const savePurchaseEdit = async (item) => {
+    setWorking(`purchase-${item.id}`);
+    try {
+      await apiCall('patch', `/events/${eventId}/purchased-items/${item.id}`, {
+        title_snapshot: purchaseDraft.title_snapshot || null,
+        vendor_snapshot: purchaseDraft.vendor_snapshot || null,
+        booth_snapshot: purchaseDraft.booth_snapshot || null,
+        price_snapshot: purchaseDraft.price_snapshot === '' ? null : Number(purchaseDraft.price_snapshot)
+      });
+      setEditingPurchaseId(null);
+      onToast?.('Purchase cleanup saved');
+      await reloadAfterChange();
+    } catch (err) {
+      onToast?.(err?.response?.data?.error || 'Could not save purchase cleanup', 'error');
+    } finally {
+      setWorking('');
+    }
+  };
+
+  return (
+    <section className="rounded-xl border border-edge bg-surface p-4" aria-label="Comic-Con field kit">
+      <div className="flex flex-wrap items-start gap-3">
+        <div>
+          <p className="label">Comic-Con field kit</p>
+          <p className="mt-1 text-sm text-dim">
+            {fieldKit ? `${fieldKit.counts?.active_wishlist_items || 0} hunt items · ${fieldKit.counts?.purchased_items || 0} purchases` : 'Hunt list, haul capture, and cleanup'}
+          </p>
+        </div>
+        <div className="flex-1" />
+        <button className="btn-secondary btn-sm" type="button" onClick={() => openQuickHaul()}>
+          <Icons.Plus />Quick haul
+        </button>
+        <button className="btn-ghost btn-sm" type="button" onClick={loadFieldKit} disabled={loading}>
+          {loading ? <><Spinner size={14} />Loading…</> : 'Refresh'}
+        </button>
+      </div>
+      {error ? <p className="mt-3 text-xs text-err">{error}</p> : null}
+
+      {quickHaulOpen ? (
+        <div className="mt-4 rounded-lg border border-edge bg-raised p-3">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm font-medium text-ink">Quick haul capture</p>
+            <button className="btn-ghost btn-sm" type="button" onClick={() => setQuickHaulOpen(false)}>Cancel</button>
+          </div>
+          <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-12">
+            <label className="field md:col-span-2"><span className="label">Type</span><select className="select" value={haulForm.itemType} onChange={(event) => setHaulForm((prev) => ({ ...prev, itemType: event.target.value }))}><option value="collectible">Collectible</option><option value="art">Art</option></select></label>
+            <label className="field md:col-span-5"><span className="label">Title</span><input className="input" value={haulForm.title} onChange={(event) => setHaulForm((prev) => ({ ...prev, title: event.target.value }))} /></label>
+            <label className="field md:col-span-3"><span className="label">Fandom / franchise</span><input className="input" value={haulForm.franchise} onChange={(event) => setHaulForm((prev) => ({ ...prev, franchise: event.target.value }))} /></label>
+            <label className="field md:col-span-2"><span className="label">Price</span><input className="input" inputMode="decimal" value={haulForm.price} onChange={(event) => setHaulForm((prev) => ({ ...prev, price: event.target.value }))} /></label>
+            <label className="field md:col-span-4"><span className="label">Series / edition</span><input className="input" value={haulForm.series} onChange={(event) => setHaulForm((prev) => ({ ...prev, series: event.target.value }))} /></label>
+            <label className="field md:col-span-3"><span className="label">Vendor</span><input className="input" value={haulForm.vendor} onChange={(event) => setHaulForm((prev) => ({ ...prev, vendor: event.target.value }))} /></label>
+            <label className="field md:col-span-2"><span className="label">Booth</span><input className="input" value={haulForm.booth} onChange={(event) => setHaulForm((prev) => ({ ...prev, booth: event.target.value }))} /></label>
+            <label className="field md:col-span-3"><span className="label">Image</span><input className="input" type="file" accept="image/*" onChange={(event) => setHaulForm((prev) => ({ ...prev, imageFile: event.target.files?.[0] || null }))} /></label>
+            <label className="field md:col-span-12"><span className="label">Notes</span><textarea className="textarea min-h-[68px]" value={haulForm.notes} onChange={(event) => setHaulForm((prev) => ({ ...prev, notes: event.target.value }))} /></label>
+            <label className="flex items-center gap-2 text-sm text-dim md:col-span-6"><input type="checkbox" checked={haulForm.exclusive} onChange={(event) => setHaulForm((prev) => ({ ...prev, exclusive: event.target.checked }))} />Exclusive</label>
+            {haulForm.sourceWishlistId ? (
+              <label className="flex items-center gap-2 text-sm text-dim md:col-span-6"><input type="checkbox" checked={haulForm.markWishlistAcquired} onChange={(event) => setHaulForm((prev) => ({ ...prev, markWishlistAcquired: event.target.checked }))} />Mark source hunt item acquired</label>
+            ) : null}
+          </div>
+          <div className="mt-3 flex justify-end">
+            <button className="btn-secondary" type="button" onClick={createQuickHaul} disabled={working === 'quick-haul'}>
+              {working === 'quick-haul' ? <><Spinner size={14} />Saving…</> : <><Icons.Check />Save haul</>}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <div className="rounded-lg border border-edge bg-raised p-3">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-medium text-ink">Con hunt</p>
+            <span className="text-xs text-ghost">{activeWishlistItems.length} active</span>
+          </div>
+          {loading ? <p className="mt-3 text-sm text-ghost">Loading hunt list…</p> : null}
+          {!loading && activeWishlistItems.length === 0 ? <p className="mt-3 text-sm text-ghost">No event-linked hunt items yet.</p> : null}
+          <div className="mt-2 divide-y divide-edge/60">
+            {activeWishlistItems.map((item) => {
+              const editing = editingWishlistId === item.id;
+              return (
+                <article key={item.id} className="py-3">
+                  <div className="flex items-start gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <p className="truncate text-sm font-medium text-ink">{item.title}</p>
+                        <span className="text-xs text-ghost">{FIELD_KIT_TYPE_LABELS[item.object_type] || item.object_type}</span>
+                        <span className="text-xs text-dim">{FIELD_KIT_PRIORITY_LABELS[item.priority] || item.priority}</span>
+                      </div>
+                      <p className="mt-1 text-xs text-dim">
+                        {[item.desired_format, item.desired_edition, formatFieldKitMoney(item.target_price), fieldKitVendorBooth(item)].filter(Boolean).join(' · ')}
+                      </p>
+                      {item.notes ? <p className="mt-1 line-clamp-2 text-sm text-dim">{item.notes}</p> : null}
+                    </div>
+                    <button className="btn-secondary btn-sm" type="button" onClick={() => openQuickHaul(item)}>Haul</button>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {['ordered', 'acquired', 'dismissed'].map((status) => (
+                      <button key={status} className="btn-ghost btn-sm" type="button" disabled={working === `wishlist-${item.id}`} onClick={() => patchWishlist(item, { status }, `Marked ${status}`)}>
+                        {status.charAt(0).toUpperCase() + status.slice(1)}
+                      </button>
+                    ))}
+                    <button className="btn-ghost btn-sm" type="button" onClick={() => beginWishlistEdit(item)}>Edit details</button>
+                  </div>
+                  {editing ? (
+                    <div className="mt-3 grid grid-cols-1 gap-3 rounded-lg border border-edge bg-surface p-3 md:grid-cols-2">
+                      <label className="field"><span className="label">Vendor</span><input className="input" value={wishlistDraft.vendor} onChange={(event) => setWishlistDraft((prev) => ({ ...prev, vendor: event.target.value }))} /></label>
+                      <label className="field"><span className="label">Booth</span><input className="input" value={wishlistDraft.booth} onChange={(event) => setWishlistDraft((prev) => ({ ...prev, booth: event.target.value }))} /></label>
+                      <label className="field md:col-span-2"><span className="label">Notes</span><textarea className="textarea min-h-[64px]" value={wishlistDraft.notes} onChange={(event) => setWishlistDraft((prev) => ({ ...prev, notes: event.target.value }))} /></label>
+                      <div className="flex gap-2 md:col-span-2">
+                        <button className="btn-secondary btn-sm" type="button" onClick={() => { patchWishlist(item, wishlistDraft); setEditingWishlistId(null); }}><Icons.Check />Save</button>
+                        <button className="btn-ghost btn-sm" type="button" onClick={() => setEditingWishlistId(null)}>Cancel</button>
+                      </div>
+                    </div>
+                  ) : null}
+                </article>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-edge bg-raised p-3">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-medium text-ink">Post-con cleanup</p>
+            <span className="text-xs text-ghost">{incompletePurchases.length} need details</span>
+          </div>
+          <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-dim">
+            <div className="rounded border border-edge bg-surface px-3 py-2">{acquiredWishlistItems.length} acquired hunt items</div>
+            <div className="rounded border border-edge bg-surface px-3 py-2">{purchasedItems.length} linked purchases</div>
+          </div>
+          {!loading && incompletePurchases.length === 0 ? <p className="mt-3 text-sm text-ghost">No cleanup gaps in linked purchases.</p> : null}
+          <div className="mt-2 divide-y divide-edge/60">
+            {incompletePurchases.slice(0, 6).map((item) => {
+              const resolved = item.resolved_item || {};
+              const title = item.title_snapshot || resolved.title || `${item.item_type} #${item.item_id}`;
+              const editing = editingPurchaseId === item.id;
+              const price = item.price_snapshot ?? resolved.price;
+              const gaps = [
+                !(item.vendor_snapshot || resolved.vendor) ? 'vendor' : null,
+                !(item.booth_snapshot || resolved.booth) ? 'booth' : null,
+                (price === null || price === undefined || price === '') ? 'price' : null,
+                !resolved.image_path ? 'photo' : null
+              ].filter(Boolean);
+              return (
+                <article key={item.id} className="py-3">
+                  <div className="flex items-start gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-ink">{title}</p>
+                      <p className="mt-1 text-xs text-dim">{gaps.length ? `Missing ${gaps.join(', ')}` : fieldKitVendorBooth(item)}</p>
+                    </div>
+                    <button className="btn-ghost btn-sm" type="button" onClick={() => beginPurchaseEdit(item)}>Fix</button>
+                  </div>
+                  {editing ? (
+                    <div className="mt-3 grid grid-cols-1 gap-3 rounded-lg border border-edge bg-surface p-3 md:grid-cols-2">
+                      <label className="field md:col-span-2"><span className="label">Title</span><input className="input" value={purchaseDraft.title_snapshot} onChange={(event) => setPurchaseDraft((prev) => ({ ...prev, title_snapshot: event.target.value }))} /></label>
+                      <label className="field"><span className="label">Vendor</span><input className="input" value={purchaseDraft.vendor_snapshot} onChange={(event) => setPurchaseDraft((prev) => ({ ...prev, vendor_snapshot: event.target.value }))} /></label>
+                      <label className="field"><span className="label">Booth</span><input className="input" value={purchaseDraft.booth_snapshot} onChange={(event) => setPurchaseDraft((prev) => ({ ...prev, booth_snapshot: event.target.value }))} /></label>
+                      <label className="field"><span className="label">Price</span><input className="input" inputMode="decimal" value={purchaseDraft.price_snapshot} onChange={(event) => setPurchaseDraft((prev) => ({ ...prev, price_snapshot: event.target.value }))} /></label>
+                      <div className="flex items-end gap-2">
+                        <button className="btn-secondary btn-sm flex-1" type="button" onClick={() => savePurchaseEdit(item)} disabled={working === `purchase-${item.id}`}><Icons.Check />Save</button>
+                        <button className="btn-ghost btn-sm" type="button" onClick={() => setEditingPurchaseId(null)}>Cancel</button>
+                      </div>
+                    </div>
+                  ) : null}
+                </article>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function EventCard({ item, supportsHover, onOpen, onEdit, onDelete }) {
   return (
     <ObjectPosterCard
@@ -5365,7 +5725,7 @@ function SchedulePlanRow({
   );
 }
 
-function EventDetailDrawer({ eventId, apiCall, onClose, onEdit, onDeleted, onSaved, currentUser = null }) {
+function EventDetailDrawer({ eventId, apiCall, onClose, onEdit, onDeleted, onSaved, onToast, currentUser = null }) {
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -5446,6 +5806,7 @@ function EventDetailDrawer({ eventId, apiCall, onClose, onEdit, onDeleted, onSav
                   <p className="max-w-3xl text-dim leading-7">{event.notes}</p>
                 </DetailField>
               ) : null}
+              <EventFieldKitPanel eventId={eventId} apiCall={apiCall} onChanged={onSaved} onToast={onToast} />
               <EventSocialPlanningPanel eventId={eventId} apiCall={apiCall} onChanged={onSaved} currentUser={currentUser} />
               <EventPurchasedItemsReadback eventId={eventId} apiCall={apiCall} />
               <EventArtifactsEditor eventId={eventId} apiCall={apiCall} onSaved={onSaved} />
@@ -5693,6 +6054,7 @@ export default function EventsView({ apiCall, onToast, currentUser = null, focus
           onEdit={(item) => { setDetailId(null); setEditing(item); }}
           onDeleted={load}
           onSaved={load}
+          onToast={onToast}
         />
       )}
     </div>
