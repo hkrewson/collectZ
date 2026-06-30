@@ -206,11 +206,60 @@ function checkGitDiff() {
   });
 }
 
-function runDependencyAudit(id, name, npmArgs) {
-  const result = runNpm(npmArgs);
+function runDockerDependencyAudit(id, name, relativeDir, localResult) {
+  if (!commandExists('docker')) {
+    return fail(id, name, 'npm audit could not complete and Docker fallback is unavailable', {
+      exitCode: localResult.status,
+      stdout: localResult.stdout,
+      stderr: localResult.stderr,
+      durationMs: localResult.durationMs
+    });
+  }
+
+  const image = process.env.LOCAL_GATE_AUDIT_IMAGE || 'node:24-alpine';
+  const projectDir = path.join(repoRoot, relativeDir);
+  const dockerResult = runCommand('docker', [
+    'run',
+    '--rm',
+    '-v',
+    `${projectDir}:/app`,
+    '-w',
+    '/app',
+    image,
+    'npm',
+    'audit',
+    '--omit=dev'
+  ]);
+
+  const durationMs = localResult.durationMs + dockerResult.durationMs;
+  if (dockerResult.status === 0) {
+    return pass(id, name, `npm audit passed in Docker fallback (${image}) after local npm could not audit this lockfile`, {
+      durationMs,
+      fallback: 'docker',
+      localExitCode: localResult.status
+    });
+  }
+
+  return fail(id, name, 'npm audit found vulnerabilities or could not complete', {
+    exitCode: dockerResult.status,
+    stdout: dockerResult.stdout,
+    stderr: dockerResult.stderr,
+    localStderr: localResult.stderr,
+    durationMs
+  });
+}
+
+function runDependencyAudit(id, name, relativeDir) {
+  const result = runNpm(['--prefix', relativeDir, 'audit', '--omit=dev']);
   if (result.status === 0) {
     return pass(id, name, 'npm audit passed', { durationMs: result.durationMs });
   }
+
+  const looksLikeLockfileToolingFailure = /Cannot read properties of undefined|lockfileVersion|Unsupported URL Type/i.test(`${result.stderr}\n${result.stdout}`);
+  if (looksLikeLockfileToolingFailure) {
+    return runDockerDependencyAudit(id, name, relativeDir, result);
+  }
+
   return fail(id, name, 'npm audit found vulnerabilities or could not complete', {
     exitCode: result.status,
     stdout: result.stdout,
@@ -373,12 +422,12 @@ const gateDefinitions = [
   {
     id: 'backend-audit',
     profile: 'standard',
-    run: () => runDependencyAudit('backend-audit', 'Backend dependency audit', ['--prefix', 'backend', 'audit', '--omit=dev'])
+    run: () => runDependencyAudit('backend-audit', 'Backend dependency audit', 'backend')
   },
   {
     id: 'frontend-audit',
     profile: 'standard',
-    run: () => runDependencyAudit('frontend-audit', 'Frontend dependency audit', ['--prefix', 'frontend', 'audit', '--omit=dev'])
+    run: () => runDependencyAudit('frontend-audit', 'Frontend dependency audit', 'frontend')
   },
   {
     id: 'release-preflight',

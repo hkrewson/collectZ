@@ -133,13 +133,13 @@ test.describe('events and collectibles browser regressions', () => {
       await expect(artCard).toBeVisible();
       await artCard.click();
 
-      const gradingSection = page.locator('section').filter({ hasText: 'Grading' }).first();
+      const gradingSection = page.locator('section').filter({ hasText: 'Authentication' }).first();
       await expect(gradingSection).toBeVisible();
       await gradingSection.getByRole('button', { name: 'Add' }).click();
-      await gradingSection.getByRole('combobox', { name: 'Grader' }).selectOption('CGC');
-      await gradingSection.getByRole('textbox', { name: 'Grade', exact: true }).fill('9.8');
+      await gradingSection.getByRole('combobox', { name: 'Authority' }).selectOption('CGC');
+      await gradingSection.getByRole('textbox', { name: 'Assessment', exact: true }).fill('9.8');
       await gradingSection.getByRole('textbox', { name: 'Certificate #' }).fill('PW-GRADE-001');
-      await gradingSection.getByRole('button', { name: 'Save' }).click();
+      await gradingSection.getByRole('button', { name: 'Save', exact: true }).click();
 
       await expect(gradingSection.getByText('CGC 9.8')).toBeVisible();
       await expect(gradingSection.getByText('Cert: PW-GRADE-001')).toBeVisible();
@@ -1828,7 +1828,7 @@ test.describe('events and collectibles browser regressions', () => {
         response.url().includes('/api/events')
           && response.request().method() === 'POST'
       ));
-      await page.getByRole('button', { name: 'Save' }).click();
+      await page.getByRole('button', { name: 'Save', exact: true }).click();
       const createEventResponse = await createEventResponsePromise;
       expect(createEventResponse.status()).toBe(201);
       await expect(page.getByText(eventTitle, { exact: true }).first()).toBeVisible();
@@ -1848,7 +1848,7 @@ test.describe('events and collectibles browser regressions', () => {
         response.url().includes('/api/collectibles')
           && response.request().method() === 'POST'
       ));
-      await page.getByRole('button', { name: 'Save' }).click();
+      await page.getByRole('button', { name: 'Save', exact: true }).click();
       const createCollectibleResponse = await createCollectibleResponsePromise;
       expect(createCollectibleResponse.status()).toBe(201);
 
@@ -1909,7 +1909,7 @@ test.describe('events and collectibles browser regressions', () => {
       await page.locator('label:has-text("URL *") input').fill(`https://example.test/art-events/${Date.now()}`);
       await page.locator('label:has-text("Location *") input').fill('Playwright Gallery');
       await page.locator('label:has-text("Start Date *") input').fill('2026-04-11');
-      await page.getByRole('button', { name: 'Save' }).click();
+      await page.getByRole('button', { name: 'Save', exact: true }).click();
       await expect(page.getByText(eventTitle, { exact: true }).first()).toBeVisible();
 
       await page.getByRole('button', { name: 'Art' }).click();
@@ -1921,7 +1921,7 @@ test.describe('events and collectibles browser regressions', () => {
       await page.locator('label:has-text("Title *") input').fill(artWithoutEventTitle);
       await page.locator('label:has-text("Series") input').fill('Standalone Series');
       await page.locator('label:has-text("Artist") input').fill('Playwright Artist');
-      await page.getByRole('button', { name: 'Save' }).click();
+      await page.getByRole('button', { name: 'Save', exact: true }).click();
       await expect(page.getByText(artWithoutEventTitle, { exact: true }).first()).toBeVisible();
 
       await page.getByRole('button', { name: /Add/ }).first().click();
@@ -1940,7 +1940,7 @@ test.describe('events and collectibles browser regressions', () => {
       await expect(page.getByLabel('Framed')).toBeChecked();
       await expect(page.getByLabel('Exclusive item')).toBeChecked();
       await expect(page.getByLabel('Signed')).toBeChecked();
-      await page.getByRole('button', { name: 'Save' }).click();
+      await page.getByRole('button', { name: 'Save', exact: true }).click();
       await expect(page.getByText(artWithEventTitle, { exact: true }).first()).toBeVisible();
 
       const artSearchForSignatures = page.getByPlaceholder('Search…');

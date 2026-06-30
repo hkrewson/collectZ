@@ -16,7 +16,8 @@
             "Added a Comic-Con field kit panel to the Event drawer.",
             "Added Con Hunt actions for event-linked wishlist items: mark ordered, acquired, or dismissed; edit vendor, booth, and notes; launch quick haul capture.",
             "Added Quick Haul Capture for event-linked Art and Collectibles, including purchased-item linking and optional wishlist acquisition.",
-            "Added Post-Con Cleanup readback for linked purchases missing vendor, booth, price, or photo."
+            "Added Post-Con Cleanup readback for linked purchases missing vendor, booth, price, or photo.",
+            "Hardened the backend container startup path so reused local upload volumes are writable by the non-root Node process."
           ]
         }
       ]
