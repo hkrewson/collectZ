@@ -906,6 +906,16 @@ const FIELD_KIT_TYPE_LABELS = {
   other: 'Other'
 };
 
+const EVENT_DETAIL_TABS = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'hunt', label: 'Hunt' },
+  { id: 'haul', label: 'Haul' },
+  { id: 'plans', label: 'Plans' },
+  { id: 'purchases', label: 'Purchases' },
+  { id: 'cleanup', label: 'Cleanup' }
+];
+const EVENT_DETAIL_TAB_ID = 'event-detail-tabs';
+
 function formatFieldKitMoney(value) {
   if (value === null || value === undefined || value === '') return '';
   const parsed = Number(value);
@@ -938,7 +948,7 @@ function createEmptyFieldKitHaulForm(eventId, source = null) {
   };
 }
 
-function EventFieldKitPanel({ eventId, apiCall, onChanged, onToast }) {
+function EventFieldKitPanel({ eventId, apiCall, onChanged, onToast, view = 'hunt' }) {
   const [fieldKit, setFieldKit] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -1093,30 +1103,39 @@ function EventFieldKitPanel({ eventId, apiCall, onChanged, onToast }) {
     }
   };
 
+  const fieldKitSummary = fieldKit
+    ? `${fieldKit.counts?.active_wishlist_items || 0} hunt items · ${fieldKit.counts?.purchased_items || 0} linked purchases`
+    : 'Hunt list, haul capture, and cleanup';
+  const quickHaulVisible = quickHaulOpen || view === 'haul';
+  const closeQuickHaul = () => {
+    setQuickHaulOpen(false);
+    if (view === 'haul') setHaulForm(createEmptyFieldKitHaulForm(eventId));
+  };
+
   return (
-    <section className="rounded-xl border border-edge bg-surface p-4" aria-label="Comic-Con field kit">
-      <div className="flex flex-wrap items-start gap-3">
+    <section className="space-y-4" aria-label="Comic-Con field kit">
+      <div className="flex flex-wrap items-start gap-3 border-b border-edge/60 pb-3">
         <div>
           <p className="label">Comic-Con field kit</p>
-          <p className="mt-1 text-sm text-dim">
-            {fieldKit ? `${fieldKit.counts?.active_wishlist_items || 0} hunt items · ${fieldKit.counts?.purchased_items || 0} purchases` : 'Hunt list, haul capture, and cleanup'}
-          </p>
+          <p className="mt-1 text-sm text-dim">{fieldKitSummary}</p>
         </div>
         <div className="flex-1" />
-        <button className="btn-secondary btn-sm" type="button" onClick={() => openQuickHaul()}>
+        {view !== 'haul' ? (
+          <button className="btn-secondary btn-sm" type="button" onClick={() => openQuickHaul()}>
           <Icons.Plus />Quick haul
-        </button>
+          </button>
+        ) : null}
         <button className="btn-ghost btn-sm" type="button" onClick={loadFieldKit} disabled={loading}>
           {loading ? <><Spinner size={14} />Loading…</> : 'Refresh'}
         </button>
       </div>
       {error ? <p className="mt-3 text-xs text-err">{error}</p> : null}
 
-      {quickHaulOpen ? (
-        <div className="mt-4 rounded-lg border border-edge bg-raised p-3">
+      {quickHaulVisible ? (
+        <div className="border-b border-edge/60 pb-4">
           <div className="flex items-center justify-between gap-3">
             <p className="text-sm font-medium text-ink">Quick haul capture</p>
-            <button className="btn-ghost btn-sm" type="button" onClick={() => setQuickHaulOpen(false)}>Cancel</button>
+            <button className="btn-ghost btn-sm" type="button" onClick={closeQuickHaul}>{view === 'haul' ? 'Clear' : 'Cancel'}</button>
           </div>
           <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-12">
             <label className="field md:col-span-2"><span className="label">Type</span><select className="select" value={haulForm.itemType} onChange={(event) => setHaulForm((prev) => ({ ...prev, itemType: event.target.value }))}><option value="collectible">Collectible</option><option value="art">Art</option></select></label>
@@ -1141,8 +1160,8 @@ function EventFieldKitPanel({ eventId, apiCall, onChanged, onToast }) {
         </div>
       ) : null}
 
-      <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <div className="rounded-lg border border-edge bg-raised p-3">
+      {view === 'hunt' ? (
+        <div className="space-y-3">
           <div className="flex items-center gap-2">
             <p className="text-sm font-medium text-ink">Con hunt</p>
             <span className="text-xs text-ghost">{activeWishlistItems.length} active</span>
@@ -1192,8 +1211,10 @@ function EventFieldKitPanel({ eventId, apiCall, onChanged, onToast }) {
             })}
           </div>
         </div>
+      ) : null}
 
-        <div className="rounded-lg border border-edge bg-raised p-3">
+      {view === 'cleanup' ? (
+        <div className="space-y-3">
           <div className="flex items-center gap-2">
             <p className="text-sm font-medium text-ink">Post-con cleanup</p>
             <span className="text-xs text-ghost">{incompletePurchases.length} need details</span>
@@ -1241,7 +1262,7 @@ function EventFieldKitPanel({ eventId, apiCall, onChanged, onToast }) {
             })}
           </div>
         </div>
-      </div>
+      ) : null}
     </section>
   );
 }
@@ -5728,6 +5749,7 @@ function SchedulePlanRow({
 function EventDetailDrawer({ eventId, apiCall, onClose, onEdit, onDeleted, onSaved, onToast, currentUser = null }) {
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('overview');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -5740,6 +5762,7 @@ function EventDetailDrawer({ eventId, apiCall, onClose, onEdit, onDeleted, onSav
   }, [apiCall, eventId]);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { setActiveTab('overview'); }, [eventId]);
 
   const deleteEvent = async () => {
     if (!window.confirm('Delete this event?')) return;
@@ -5763,53 +5786,80 @@ function EventDetailDrawer({ eventId, apiCall, onClose, onEdit, onDeleted, onSav
             <button onClick={onClose} className="btn-icon btn-sm shrink-0"><Icons.X /></button>
           </div>
         </div>
+        {!loading ? (
+          <div className="border-b border-edge px-4 sm:px-6">
+            <SectionTabs
+              tabs={EVENT_DETAIL_TABS}
+              activeId={activeTab}
+              onChange={setActiveTab}
+              showDivider={false}
+              ariaLabel="Event drawer sections"
+              idBase={EVENT_DETAIL_TAB_ID}
+              listClassName="gap-5"
+            />
+          </div>
+        ) : null}
         <div className="flex-1 overflow-y-auto scroll-area p-4 space-y-4 sm:p-6 sm:space-y-5">
           {loading && <div className="flex items-center gap-2 text-dim"><Spinner size={16} />Loading…</div>}
           {!loading && (
             <>
-              <div className="grid grid-cols-1 gap-x-8 gap-y-5 text-sm md:grid-cols-2">
-                <DetailField label="Start Date">{toDisplayDate(event?.date_start) || 'Date pending'}</DetailField>
-                <DetailField label="End Date">{event?.date_end ? toDisplayDate(event.date_end) : 'Single day event'}</DetailField>
-                <DetailField label="Location">{event?.location}</DetailField>
-                <DetailField label="Room">{event?.room}</DetailField>
-                <DetailField label="Time">{event?.time_label}</DetailField>
-                <DetailField label="Host">{event?.host}</DetailField>
-                {event?.image_path ? (
-                  <DetailField label="Image">
-                    <a
-                      className="inline-flex items-center gap-2 text-dim transition-colors hover:text-ink"
-                      href={event.image_path}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      <Icons.Link />
-                      Open image
-                    </a>
+              <SectionTabPanel activeId={activeTab} tabKey="overview" idBase={EVENT_DETAIL_TAB_ID} className="space-y-4">
+                <div className="grid grid-cols-1 gap-x-8 gap-y-5 text-sm md:grid-cols-2">
+                  <DetailField label="Start Date">{toDisplayDate(event?.date_start) || 'Date pending'}</DetailField>
+                  <DetailField label="End Date">{event?.date_end ? toDisplayDate(event.date_end) : 'Single day event'}</DetailField>
+                  <DetailField label="Location">{event?.location}</DetailField>
+                  <DetailField label="Room">{event?.room}</DetailField>
+                  <DetailField label="Time">{event?.time_label}</DetailField>
+                  <DetailField label="Host">{event?.host}</DetailField>
+                  {event?.image_path ? (
+                    <DetailField label="Image">
+                      <a
+                        className="inline-flex items-center gap-2 text-dim transition-colors hover:text-ink"
+                        href={event.image_path}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <Icons.Link />
+                        Open image
+                      </a>
+                    </DetailField>
+                  ) : null}
+                  {event?.url ? (
+                    <DetailField label="Event site">
+                      <a
+                        className="inline-flex items-center gap-2 text-dim transition-colors hover:text-ink"
+                        href={event.url}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <Icons.Link />
+                        Open event site
+                      </a>
+                    </DetailField>
+                  ) : null}
+                </div>
+                {event?.notes ? (
+                  <DetailField label="Notes">
+                    <p className="max-w-3xl text-dim leading-7">{event.notes}</p>
                   </DetailField>
                 ) : null}
-                {event?.url ? (
-                  <DetailField label="Event site">
-                    <a
-                      className="inline-flex items-center gap-2 text-dim transition-colors hover:text-ink"
-                      href={event.url}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      <Icons.Link />
-                      Open event site
-                    </a>
-                  </DetailField>
-                ) : null}
-              </div>
-              {event?.notes ? (
-                <DetailField label="Notes">
-                  <p className="max-w-3xl text-dim leading-7">{event.notes}</p>
-                </DetailField>
-              ) : null}
-              <EventFieldKitPanel eventId={eventId} apiCall={apiCall} onChanged={onSaved} onToast={onToast} />
-              <EventSocialPlanningPanel eventId={eventId} apiCall={apiCall} onChanged={onSaved} currentUser={currentUser} />
-              <EventPurchasedItemsReadback eventId={eventId} apiCall={apiCall} />
-              <EventArtifactsEditor eventId={eventId} apiCall={apiCall} onSaved={onSaved} />
+              </SectionTabPanel>
+              <SectionTabPanel activeId={activeTab} tabKey="hunt" idBase={EVENT_DETAIL_TAB_ID}>
+                <EventFieldKitPanel eventId={eventId} apiCall={apiCall} onChanged={onSaved} onToast={onToast} view="hunt" />
+              </SectionTabPanel>
+              <SectionTabPanel activeId={activeTab} tabKey="haul" idBase={EVENT_DETAIL_TAB_ID}>
+                <EventFieldKitPanel eventId={eventId} apiCall={apiCall} onChanged={onSaved} onToast={onToast} view="haul" />
+              </SectionTabPanel>
+              <SectionTabPanel activeId={activeTab} tabKey="plans" idBase={EVENT_DETAIL_TAB_ID}>
+                <EventSocialPlanningPanel eventId={eventId} apiCall={apiCall} onChanged={onSaved} currentUser={currentUser} />
+              </SectionTabPanel>
+              <SectionTabPanel activeId={activeTab} tabKey="purchases" idBase={EVENT_DETAIL_TAB_ID} className="space-y-4">
+                <EventPurchasedItemsReadback eventId={eventId} apiCall={apiCall} />
+                <EventArtifactsEditor eventId={eventId} apiCall={apiCall} onSaved={onSaved} />
+              </SectionTabPanel>
+              <SectionTabPanel activeId={activeTab} tabKey="cleanup" idBase={EVENT_DETAIL_TAB_ID}>
+                <EventFieldKitPanel eventId={eventId} apiCall={apiCall} onChanged={onSaved} onToast={onToast} view="cleanup" />
+              </SectionTabPanel>
             </>
           )}
         </div>

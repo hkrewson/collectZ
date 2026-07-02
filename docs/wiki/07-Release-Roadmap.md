@@ -15,6 +15,7 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 - Add wishlist booth support so event-linked hunt items can carry vendor and booth context.
 - Add a compact `GET /api/events/:id/field-kit` API that returns event summary, event-linked wishlist hunt items, tracked purchases, cleanup gaps, and a secret-free companion snapshot summary.
 - Add a mobile-first Comic-Con field kit panel to the Event drawer.
+- Organize the Event drawer into Overview, Hunt, Haul, Plans, Purchases, and Cleanup tabs so event details, field mode, social planning, purchase tracking, and cleanup do not compete in one long scroll.
 - Add quick haul capture for Art and Collectibles using existing item creation, image upload, and purchased-item linking contracts.
 - Add post-con cleanup readback for acquired hunt items and incomplete purchase details.
 - Keep floor maps, recurring convention provider sync, offline mutation queues, push notifications, realtime location, native companion UI, and valuation integrations out of this slice.
@@ -42,6 +43,16 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 - Blocked/unverified: Local preflight marks secure-cookie compose smoke blocked because the local stack uses `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`. Hosted CI still needs to confirm `compose-smoke`, `rbac-regression`, hosted `browser-regression`, `runtime-smoke` core/control-plane, `dependency-scan`, `secret-scan`, and `image-security-and-sbom`.
 - Risks/follow-ups: the field kit is mobile web only; floor maps, broad vendor identity modeling, recurring convention provider automation, offline write queues, push notifications, realtime location, native companion UI, and valuation integrations remain deferred backlog work. Cleanup photo gaps are surfaced in this slice, while photo capture still uses existing item image upload paths.
 - What remains in the milestone: no implementation work remains for the `3.22.0` field-test MVP; hosted CI/release gates remain required before push-ready release promotion.
+
+### Post-closeout polish — Event drawer tabs
+
+- Status: completed as `3.22.0` polish.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, and `docs/releases/v3.22.0.md`.
+- Runtime evidence: Docker frontend source-build recreated `collectz-private-frontend-1` on the canonical local platform stack at `http://localhost:3201`; `/api/health` reports frontend, backend, and build `3.22.0`.
+- Verification: Docker frontend production build passed; full Events/Art/Collectibles Playwright regression passed with `21/21` tests against `http://localhost:3201` with `PLAYWRIGHT_COMPOSE_PROJECT=collectz-private`; the host Node build/test path remains unsuitable for this repo because the host Node runtime cannot load current Vite/Playwright syntax.
+- Files changed: `frontend/src/components/EventsView.jsx`, `tests/playwright/specs/events-collectibles.browser.spec.js`, `docs/releases/v3.22.0.md`, `docs/wiki/07-Release-Roadmap.md`, and regenerated `backend/release-feed.json`.
+- Risks/follow-ups: the Purchases tab still contains the existing tracked-purchases and event-entries components; additional visual tightening can happen after field testing if the tab grouping feels right.
+- What remains in the milestone: no implementation work remains for this drawer-tab polish slice.
 
 ## 3.21.0 — First-Class App Route Semantics
 

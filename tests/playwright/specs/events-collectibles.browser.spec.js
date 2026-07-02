@@ -26,6 +26,12 @@ const {
 test.use({ storageState: { cookies: [], origins: [] } });
 
 test.describe('events and collectibles browser regressions', () => {
+  const openEventDrawerTab = async (page, tabName) => {
+    const tab = page.getByRole('tab', { name: tabName });
+    await tab.click();
+    await expect(tab).toHaveAttribute('aria-selected', 'true');
+  };
+
   test('mobile art image control uses the core-tab native source picker', async ({ page }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
     const adminRequestContext = await createAuthenticatedRequestContext(adminCredentials);
@@ -443,6 +449,7 @@ test.describe('events and collectibles browser regressions', () => {
       await expect(eventCard).toBeVisible();
       await eventCard.locator('p').filter({ hasText: eventTitle }).first().click();
       await expect(page.getByRole('heading').filter({ hasText: eventTitle }).first()).toBeVisible();
+      await openEventDrawerTab(page, 'Plans');
 
       const overview = page.getByLabel('Mobile event social overview');
       await expect(overview).toBeVisible();
@@ -552,6 +559,7 @@ test.describe('events and collectibles browser regressions', () => {
       await expect(eventCard).toBeVisible();
       await eventCard.click();
 
+      await openEventDrawerTab(page, 'Hunt');
       await expect(page.getByLabel('Comic-Con field kit')).toBeVisible();
       await expect(page.getByText(huntTitle)).toBeVisible();
       await expect(page.getByText('Playwright Vendor · Booth 3721')).toBeVisible();
@@ -629,6 +637,7 @@ test.describe('events and collectibles browser regressions', () => {
       await expect(eventCard).toBeVisible();
       await eventCard.click();
       await expect(page.getByRole('heading', { name: eventTitle })).toBeVisible();
+      await openEventDrawerTab(page, 'Plans');
 
       const peoplePanel = page.locator('summary').filter({ hasText: /^People/ }).locator('xpath=..').first();
       await expect(peoplePanel.locator('summary').getByText('Add your own attendee before managing other people')).toBeVisible();
@@ -740,6 +749,7 @@ test.describe('events and collectibles browser regressions', () => {
       await expect(eventCard).toBeVisible();
       await eventCard.click();
       await expect(page.getByRole('heading').filter({ hasText: eventTitle }).first()).toBeVisible();
+      await openEventDrawerTab(page, 'Plans');
 
       const groupsPanel = page.locator('summary').filter({ hasText: /^Groups/ }).locator('xpath=..').first();
       await groupsPanel.locator('summary').first().click();
@@ -822,6 +832,7 @@ test.describe('events and collectibles browser regressions', () => {
       await expect(page.getByText(eventTitle, { exact: true }).first()).toBeVisible();
       await page.locator('article').filter({ hasText: eventTitle }).first().click();
       await expect(page.getByRole('heading', { name: eventTitle })).toBeVisible();
+      await openEventDrawerTab(page, 'Plans');
 
       await page.locator('summary').filter({ hasText: /^Meetups/ }).click();
       const meetupRow = page.locator('details details').filter({ hasText: meetupTitle }).first();
@@ -940,6 +951,7 @@ test.describe('events and collectibles browser regressions', () => {
       await expect(page.getByText(eventTitle, { exact: true }).first()).toBeVisible();
       await page.locator('article').filter({ hasText: eventTitle }).first().click();
       await expect(page.getByRole('heading', { name: eventTitle })).toBeVisible();
+      await openEventDrawerTab(page, 'Plans');
 
       const peoplePanel = page.locator('summary').filter({ hasText: /^People/ }).locator('xpath=..').first();
       await peoplePanel.locator('summary').first().click();
@@ -1083,6 +1095,7 @@ test.describe('events and collectibles browser regressions', () => {
       await expect(page.getByText(eventTitle, { exact: true }).first()).toBeVisible();
       await page.locator('article').filter({ hasText: eventTitle }).first().click();
       await expect(page.getByRole('heading', { name: eventTitle })).toBeVisible();
+      await openEventDrawerTab(page, 'Plans');
 
       const planRow = page.locator('details details').filter({ hasText: planTitle }).first();
       await expect(planRow).toBeVisible();
@@ -1219,6 +1232,7 @@ test.describe('events and collectibles browser regressions', () => {
       await expect(page.getByText(eventTitle, { exact: true }).first()).toBeVisible();
       await page.locator('article').filter({ hasText: eventTitle }).first().click();
       await expect(page.getByRole('heading', { name: eventTitle })).toBeVisible();
+      await openEventDrawerTab(page, 'Plans');
 
       const catalogSection = page.locator('details').filter({ hasText: 'Catalog' }).first();
       await catalogSection.locator('summary').first().click();
@@ -1374,6 +1388,7 @@ test.describe('events and collectibles browser regressions', () => {
       await expect(page.getByText(eventTitle, { exact: true }).first()).toBeVisible();
       await page.locator('article').filter({ hasText: eventTitle }).first().click();
       await expect(page.getByRole('heading', { name: eventTitle })).toBeVisible();
+      await openEventDrawerTab(page, 'Plans');
 
       const catalogSection = page.locator('details').filter({ hasText: 'Catalog' }).first();
       await catalogSection.locator('summary').first().click();
@@ -1749,6 +1764,7 @@ test.describe('events and collectibles browser regressions', () => {
       await expect(page.getByText(eventTitle, { exact: true }).first()).toBeVisible();
       await page.locator('article').filter({ hasText: eventTitle }).first().click();
       await expect(page.getByRole('heading', { name: eventTitle })).toBeVisible();
+      await openEventDrawerTab(page, 'Purchases');
       await expect(page.getByText(autographTitle, { exact: true })).toBeVisible();
       await expect(page.getByText('Playwright Signature Artist · Artist · 04/26/2026 · Playwright Signing Table')).toBeVisible();
 
@@ -2063,6 +2079,7 @@ test.describe('events and collectibles browser regressions', () => {
       await expect(page.getByText(eventTitle, { exact: true }).first()).toBeVisible();
       await page.locator('article').filter({ hasText: eventTitle }).first().click();
       await expect(page.getByRole('heading', { name: eventTitle })).toBeVisible();
+      await openEventDrawerTab(page, 'Purchases');
 
       const purchaseSection = page.locator('section').filter({ hasText: 'Tracked purchases' }).first();
       await expect(purchaseSection.getByText('No tracked Art or Collectibles purchases')).toBeVisible();
