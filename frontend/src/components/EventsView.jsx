@@ -923,6 +923,26 @@ function formatFieldKitMoney(value) {
   return parsed.toLocaleString(undefined, { style: 'currency', currency: 'USD' });
 }
 
+function normalizeHttpUrl(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  try {
+    const parsed = new URL(raw);
+    return ['http:', 'https:'].includes(parsed.protocol) ? parsed.toString() : '';
+  } catch (_) {
+    return '';
+  }
+}
+
+function huntItemReadback(item = {}) {
+  const noteUrl = normalizeHttpUrl(item.notes);
+  const sourceUrl = normalizeHttpUrl(item.source_url) || noteUrl;
+  return {
+    notesPreview: noteUrl ? '' : String(item.notes || '').trim(),
+    sourceUrl
+  };
+}
+
 function fieldKitVendorBooth(value = {}) {
   const vendor = String(value.vendor || value.vendor_snapshot || value.resolved_item?.vendor || '').trim();
   const booth = String(value.booth || value.booth_snapshot || value.resolved_item?.booth || '').trim();
@@ -1171,6 +1191,7 @@ function EventFieldKitPanel({ eventId, apiCall, onChanged, onToast, view = 'hunt
           <div className="mt-2 divide-y divide-edge/60">
             {activeWishlistItems.map((item) => {
               const editing = editingWishlistId === item.id;
+              const readback = huntItemReadback(item);
               return (
                 <article key={item.id} className="py-3">
                   <div className="flex items-start gap-3">
@@ -1183,7 +1204,12 @@ function EventFieldKitPanel({ eventId, apiCall, onChanged, onToast, view = 'hunt
                       <p className="mt-1 text-xs text-dim">
                         {[item.desired_format, item.desired_edition, formatFieldKitMoney(item.target_price), fieldKitVendorBooth(item)].filter(Boolean).join(' · ')}
                       </p>
-                      {item.notes ? <p className="mt-1 line-clamp-2 text-sm text-dim">{item.notes}</p> : null}
+                      {readback.notesPreview ? <p className="mt-1 line-clamp-2 text-sm text-dim">{readback.notesPreview}</p> : null}
+                      {readback.sourceUrl ? (
+                        <a className="mt-1 inline-flex text-sm text-dim transition-colors hover:text-ink" href={readback.sourceUrl} target="_blank" rel="noreferrer">
+                          More info
+                        </a>
+                      ) : null}
                     </div>
                     <button className="btn-secondary btn-sm" type="button" onClick={() => openQuickHaul(item)}>Haul</button>
                   </div>
@@ -1212,6 +1238,7 @@ function EventFieldKitPanel({ eventId, apiCall, onChanged, onToast, view = 'hunt
               );
             })}
           </div>
+          <EventExclusiveSourcesWatch eventId={eventId} apiCall={apiCall} onChanged={reloadAfterChange} />
         </div>
       ) : null}
 
@@ -2173,13 +2200,35 @@ function EventPurchasedItemsReadback({ eventId, apiCall }) {
   );
 }
 
-function EventExclusiveSourcesWatch({ eventId, apiCall }) {
+function createExclusiveBreakoutDraft(source = {}) {
+  return {
+    title: '',
+    desired_edition: '',
+    target_price: '',
+    notes: '',
+    vendor: source.vendor || '',
+    booth: source.booth || ''
+  };
+}
+
+function exclusiveBreakoutProviderKey(source = {}, title = '', index = 0) {
+  const base = String(source.provider_key || source.source_url || source.id || 'sdcc-source').trim().toLowerCase();
+  const slug = String(title || `item-${index + 1}`).trim().toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
+  return `${base}#${slug || `item-${index + 1}`}`;
+}
+
+function EventExclusiveSourcesWatch({ eventId, apiCall, onChanged }) {
   const [items, setItems] = useState([]);
   const [sourceUrl, setSourceUrl] = useState('');
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [breakoutSourceId, setBreakoutSourceId] = useState(null);
+  const [breakoutDrafts, setBreakoutDrafts] = useState({});
 
   const loadSources = useCallback(async () => {
     setLoading(true);
@@ -2263,6 +2312,92 @@ function EventExclusiveSourcesWatch({ eventId, apiCall }) {
     }
   };
 
+  const beginBreakout = (item) => {
+    setBreakoutSourceId(item.id);
+    setBreakoutDrafts((prev) => ({
+      ...prev,
+      [item.id]: prev[item.id]?.length ? prev[item.id] : [createExclusiveBreakoutDraft(item)]
+    }));
+  };
+
+  const updateBreakoutDraft = (source, index, patch) => {
+    setBreakoutDrafts((prev) => {
+      const rows = prev[source.id]?.length ? prev[source.id] : [createExclusiveBreakoutDraft(source)];
+      return {
+        ...prev,
+        [source.id]: rows.map((row, rowIndex) => (rowIndex === index ? { ...row, ...patch } : row))
+      };
+    });
+  };
+
+  const addBreakoutDraft = (source) => {
+    setBreakoutDrafts((prev) => ({
+      ...prev,
+      [source.id]: [...(prev[source.id] || []), createExclusiveBreakoutDraft(source)]
+    }));
+  };
+
+  const removeBreakoutDraft = (source, index) => {
+    setBreakoutDrafts((prev) => {
+      const rows = (prev[source.id] || []).filter((_, rowIndex) => rowIndex !== index);
+      return {
+        ...prev,
+        [source.id]: rows.length ? rows : [createExclusiveBreakoutDraft(source)]
+      };
+    });
+  };
+
+  const saveBreakout = async (source) => {
+    const rows = (breakoutDrafts[source.id] || [])
+      .map((row) => ({ ...row, title: String(row.title || '').trim() }))
+      .filter((row) => row.title);
+    if (!rows.length) {
+      setError('Add at least one exclusive title to break out.');
+      return;
+    }
+    setWorking(`breakout-${source.id}`);
+    setError('');
+    setNotice('');
+    try {
+      const created = [];
+      for (const [index, row] of rows.entries()) {
+        const payload = await apiCall('post', '/wishlist', {
+          title: row.title,
+          object_type: 'collectible',
+          status: 'wanted',
+          priority: 'normal',
+          desired_format: 'SDCC exclusive',
+          desired_edition: row.desired_edition || null,
+          notes: row.notes || null,
+          source_context: {
+            source: 'sdcc_blog_exclusive_breakout',
+            source_url: source.source_url,
+            source_title: source.source_title,
+            source_updated_label: source.source_updated_label || null,
+            source_id: source.id,
+            event_id: eventId
+          },
+          provider: source.provider || 'sdcc_blog',
+          provider_key: exclusiveBreakoutProviderKey(source, row.title, index),
+          event_id: eventId,
+          vendor: row.vendor || source.vendor || null,
+          booth: row.booth || source.booth || null,
+          target_price: row.target_price === '' ? null : row.target_price
+        });
+        if (payload?.item) created.push(payload.item);
+      }
+      await updateStatus(source, 'reviewed');
+      setBreakoutSourceId(null);
+      setBreakoutDrafts((prev) => ({ ...prev, [source.id]: [createExclusiveBreakoutDraft(source)] }));
+      await onChanged?.();
+      setNotice(`${created.length} hunt item${created.length === 1 ? '' : 's'} added from SDCC source.`);
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Could not add hunt items from this source.');
+    } finally {
+      setWorking('');
+    }
+  };
+
   const statusCount = useMemo(() => items.reduce((acc, item) => {
     const key = item.status || 'new';
     acc[key] = (acc[key] || 0) + 1;
@@ -2270,8 +2405,8 @@ function EventExclusiveSourcesWatch({ eventId, apiCall }) {
   }, {}), [items]);
 
   return (
-    <section className="rounded-xl border border-edge bg-surface p-4">
-      <div className="flex flex-wrap items-start gap-3">
+    <section className="space-y-4">
+      <div className="flex flex-wrap items-start gap-3 border-b border-edge/60 pb-3">
         <div className="min-w-0 flex-1">
           <p className="label">SDCC exclusives watch</p>
           <p className="text-sm text-dim">
@@ -2287,7 +2422,7 @@ function EventExclusiveSourcesWatch({ eventId, apiCall }) {
       </div>
       {error ? <p className="mt-3 text-xs text-err">{error}</p> : null}
       {notice ? <p className="mt-3 text-xs text-ok">{notice}</p> : null}
-      <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-[1fr_auto]">
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_auto]">
         <input
           className="input"
           placeholder="Paste an SDCC Blog exclusives article URL"
@@ -2299,12 +2434,12 @@ function EventExclusiveSourcesWatch({ eventId, apiCall }) {
         </button>
       </div>
       {!loading && items.length === 0 ? (
-        <p className="mt-4 rounded-lg border border-dashed border-edge bg-raised px-3 py-3 text-sm text-ghost">
+        <p className="border-y border-dashed border-edge/70 py-3 text-sm text-ghost">
           No SDCC Blog sources cached yet. Refresh the index or import a specific article URL.
         </p>
       ) : null}
       {items.length > 0 ? (
-        <div className="mt-4 divide-y divide-edge/60 border-y border-edge/60">
+        <div className="divide-y divide-edge/60 border-y border-edge/60">
           {items.map((item) => {
             const promoted = item.status === 'promoted';
             const busy = working.endsWith(`-${item.id}`);
@@ -2327,10 +2462,13 @@ function EventExclusiveSourcesWatch({ eventId, apiCall }) {
                   <div className="flex flex-wrap items-center gap-2">
                     {!promoted ? (
                       <>
-                        <button className="btn-secondary btn-sm" type="button" onClick={() => promote(item, 'wishlist')} disabled={busy}>
-                          {working === `wishlist-${item.id}` ? <Spinner size={14} /> : <Icons.Star />}Wishlist
+                        <button className="btn-secondary btn-sm" type="button" onClick={() => beginBreakout(item)} disabled={busy}>
+                          <Icons.Plus />Break out wants
                         </button>
-                        <button className="btn-secondary btn-sm" type="button" onClick={() => promote(item, 'collectible')} disabled={busy}>
+                        <button className="btn-ghost btn-sm" type="button" onClick={() => promote(item, 'wishlist')} disabled={busy}>
+                          {working === `wishlist-${item.id}` ? <Spinner size={14} /> : <Icons.Star />}Article want
+                        </button>
+                        <button className="btn-ghost btn-sm" type="button" onClick={() => promote(item, 'collectible')} disabled={busy}>
                           {working === `collectible-${item.id}` ? <Spinner size={14} /> : <Icons.BoxOpen />}Collectible
                         </button>
                         <button className="btn-ghost btn-sm" type="button" onClick={() => updateStatus(item, 'reviewed')} disabled={busy || item.status === 'reviewed'}>
@@ -2343,6 +2481,57 @@ function EventExclusiveSourcesWatch({ eventId, apiCall }) {
                     ) : null}
                   </div>
                 </div>
+                {breakoutSourceId === item.id ? (
+                  <div className="mt-3 border-t border-edge/60 pt-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <p className="text-sm font-medium text-ink">Break out article wants</p>
+                      <button className="btn-ghost btn-sm" type="button" onClick={() => addBreakoutDraft(item)}>
+                        <Icons.Plus />Add row
+                      </button>
+                    </div>
+                    <div className="mt-3 divide-y divide-edge/60 border-y border-edge/60">
+                      {(breakoutDrafts[item.id] || [createExclusiveBreakoutDraft(item)]).map((draft, index) => (
+                        <div key={`${item.id}-${index}`} className="grid grid-cols-1 gap-3 py-3 md:grid-cols-12">
+                          <label className="field md:col-span-6">
+                            <span className="label">Exclusive title</span>
+                            <input className="input" value={draft.title} onChange={(event) => updateBreakoutDraft(item, index, { title: event.target.value })} />
+                          </label>
+                          <label className="field md:col-span-3">
+                            <span className="label">Edition / variant</span>
+                            <input className="input" value={draft.desired_edition} onChange={(event) => updateBreakoutDraft(item, index, { desired_edition: event.target.value })} />
+                          </label>
+                          <label className="field md:col-span-3">
+                            <span className="label">Target price</span>
+                            <input className="input" inputMode="decimal" value={draft.target_price} onChange={(event) => updateBreakoutDraft(item, index, { target_price: event.target.value })} />
+                          </label>
+                          <label className="field md:col-span-4">
+                            <span className="label">Vendor</span>
+                            <input className="input" value={draft.vendor} onChange={(event) => updateBreakoutDraft(item, index, { vendor: event.target.value })} />
+                          </label>
+                          <label className="field md:col-span-2">
+                            <span className="label">Booth</span>
+                            <input className="input" value={draft.booth} onChange={(event) => updateBreakoutDraft(item, index, { booth: event.target.value })} />
+                          </label>
+                          <label className="field md:col-span-5">
+                            <span className="label">Notes</span>
+                            <input className="input" value={draft.notes} onChange={(event) => updateBreakoutDraft(item, index, { notes: event.target.value })} />
+                          </label>
+                          <div className="flex items-end md:col-span-1">
+                            <button className="btn-ghost btn-sm text-err hover:bg-err/10" type="button" onClick={() => removeBreakoutDraft(item, index)} aria-label="Remove breakout row">
+                              <Icons.Trash />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-3 flex flex-wrap justify-end gap-2">
+                      <button className="btn-ghost btn-sm" type="button" onClick={() => setBreakoutSourceId(null)}>Cancel</button>
+                      <button className="btn-secondary btn-sm" type="button" onClick={() => saveBreakout(item)} disabled={working === `breakout-${item.id}`}>
+                        {working === `breakout-${item.id}` ? <Spinner size={14} /> : <Icons.Check />}Add to Hunt
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
               </article>
             );
           })}

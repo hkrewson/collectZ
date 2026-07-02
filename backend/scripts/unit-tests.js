@@ -6453,15 +6453,23 @@ results.push(run('Comic-Con field kit contract is wired for 3.22.0', () => {
   assert.ok(eventsRoutesSource.includes("router.get('/events/:id/field-kit'"));
   assert.ok(eventsRoutesSource.includes('event-field-kit.v1'));
   assert.ok(eventsRoutesSource.includes('buildFieldKitCompanionSummary'));
+  assert.ok(eventsRoutesSource.includes('fieldKitWishlistSourceUrl'));
   assert.ok(eventsRoutesSource.includes('personal_ics_visibility'));
   assert.ok(!eventsRoutesSource.includes('feed_url_encrypted'));
   assert.ok(openApiSource.includes('"EventFieldKitResponse"'));
   assert.ok(openApiSource.includes('"/api/events/{id}/field-kit"'));
+  assert.ok(openApiSource.includes('"source_url": { "type": ["string", "null"], "format": "uri" }'));
   assert.ok(openApiSource.includes('"booth": { "type": ["string", "null"] }'));
   assert.ok(wishlistViewSource.includes('form.booth'));
   assert.ok(eventsViewSource.includes('Comic-Con field kit'));
   assert.ok(eventsViewSource.includes('Quick haul capture'));
   assert.ok(eventsViewSource.includes('Post-con cleanup'));
+  assert.ok(eventsViewSource.includes('Break out article wants'));
+  assert.ok(eventsViewSource.includes('sdcc_blog_exclusive_breakout'));
+  assert.ok(eventsViewSource.includes('exclusiveBreakoutProviderKey'));
+  assert.ok(eventsViewSource.includes('huntItemReadback'));
+  assert.ok(eventsViewSource.includes('More info'));
+  assert.ok(eventsViewSource.includes("apiCall('post', '/wishlist'"));
 }));
 
 results.push(run('personal Sched ICS sync contract is wired for 3.4.31', () => {

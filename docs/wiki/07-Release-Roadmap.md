@@ -64,6 +64,17 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 - Risks/follow-ups: this only flattens the existing Plans/Purchases presentation; it does not change social-planning or purchase-linking behavior.
 - What remains in the milestone: no planned implementation work beyond runtime/browser verification for this surface-alignment slice.
 
+### Post-closeout polish — SDCC source breakout for Hunt
+
+- Status: implemented as `3.22.0` Comic-Con field-test polish.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, and `docs/releases/v3.22.0.md`.
+- Scope: keep SDCC Blog parsing article-level only, but let a reviewed source article be manually broken into multiple item-level Hunt wants that carry event, vendor, booth, source URL, and source title provenance. Hunt renders source URLs as compact More info links instead of note text.
+- Runtime evidence: Docker frontend/backend source-build recreated the canonical local platform stack at `http://localhost:3201`; `/api/health` reports frontend, backend, and build `3.22.0`.
+- Verification: Docker frontend production build passed; full Events/Art/Collectibles Playwright regression passed with `21/21` tests against `http://localhost:3201` with `PLAYWRIGHT_COMPOSE_PROJECT=collectz-private`; focused Comic-Con Hunt regression passed; in-container backend unit/source suite passed with `336` checks; OpenAPI validation passed; Dockerized backend and frontend production dependency audits reported `0` vulnerabilities; Help > Releases smoke served `3.22.0`; `npm run release:local-gate` passed all standard gates; `git diff --check` passed.
+- Files changed: `frontend/src/components/EventsView.jsx`, `tests/playwright/specs/events-collectibles.browser.spec.js`, `backend/scripts/unit-tests.js`, `docs/releases/v3.22.0.md`, `docs/wiki/07-Release-Roadmap.md`, and regenerated `backend/release-feed.json`.
+- Risks/follow-ups: this is explicit manual breakout, not automatic product extraction from arbitrary article prose.
+- What remains in the milestone: no implementation work remains for this SDCC source-breakout polish slice.
+
 ## 3.21.0 — First-Class App Route Semantics
 
 **Goal:** Treat app navigation destinations as real URLs instead of making `/dashboard` own every page through `?tab=...`.

@@ -3531,6 +3531,7 @@
           "desired_format": { "type": ["string", "null"] },
           "desired_edition": { "type": ["string", "null"] },
           "notes": { "type": ["string", "null"] },
+          "source_url": { "type": ["string", "null"], "format": "uri" },
           "identifiers": { "type": "object", "additionalProperties": true },
           "source_context": { "type": "object", "additionalProperties": true },
           "provider": { "type": ["string", "null"] },

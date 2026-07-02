@@ -505,6 +505,9 @@ test.describe('events and collectibles browser regressions', () => {
     const suffix = Date.now();
     const eventTitle = `Playwright Comic-Con Field Kit ${suffix}`;
     const huntTitle = `Playwright Booth Exclusive ${suffix}`;
+    const breakoutTitleA = `Playwright Carl Exclusive ${suffix}`;
+    const breakoutTitleB = `Playwright Crawl Box ${suffix}`;
+    const sourceTitle = `Playwright UCC SDCC Exclusives ${suffix}`;
     const originalFlagsPayload = await getFeatureFlags(adminRequestContext);
     const originalFlags = Array.isArray(originalFlagsPayload?.flags) ? originalFlagsPayload.flags : [];
     const originalEventsEnabled = Boolean(originalFlags.find((flag) => flag?.key === 'events_enabled')?.enabled);
@@ -534,6 +537,37 @@ test.describe('events and collectibles browser regressions', () => {
       eventId = Number(eventPayload?.id || 0);
       expect(eventId).toBeGreaterThan(0);
 
+      let sourceStatus = 'new';
+      await page.route(`**/api/events/${eventId}/exclusive-sources`, async (route) => {
+        if (route.request().method() !== 'GET') return route.fallback();
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            items: [{
+              id: 777,
+              provider: 'sdcc_blog',
+              provider_key: `sdccblog.com/playwright-ucc-${suffix}`,
+              source_url: 'https://sdccblog.com/2026/06/ucc-distributing-san-diego-comic-con-2026-exclusives/',
+              source_title: sourceTitle,
+              source_updated_label: 'June 19',
+              vendor: 'UCC Distributing',
+              booth: '#5613',
+              status: sourceStatus
+            }]
+          })
+        });
+      });
+      await page.route(`**/api/events/${eventId}/exclusive-sources/777`, async (route) => {
+        if (route.request().method() !== 'PATCH') return route.fallback();
+        sourceStatus = 'reviewed';
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ item: { id: 777, status: sourceStatus } })
+        });
+      });
+
       const wishlistResponse = await postWithCsrf(userRequestContext, '/api/wishlist', {
         title: huntTitle,
         object_type: 'collectible',
@@ -561,6 +595,25 @@ test.describe('events and collectibles browser regressions', () => {
 
       await openEventDrawerTab(page, 'Hunt');
       await expect(page.getByLabel('Comic-Con field kit')).toBeVisible();
+      await expect(page.getByText('SDCC exclusives watch')).toBeVisible();
+      const sourceRow = page.locator('article').filter({ hasText: sourceTitle }).first();
+      await expect(sourceRow).toBeVisible();
+      await sourceRow.getByRole('button', { name: 'Break out wants' }).click();
+      await sourceRow.getByLabel('Exclusive title').first().fill(breakoutTitleA);
+      await sourceRow.getByLabel('Edition / variant').first().fill('Blood splatter packaging');
+      await sourceRow.getByLabel('Target price').first().fill('35');
+      await sourceRow.getByLabel('Notes').first().fill('From UCC article lineup.');
+      await sourceRow.getByRole('button', { name: 'Add row' }).click();
+      await sourceRow.getByLabel('Exclusive title').nth(1).fill(breakoutTitleB);
+      await sourceRow.getByLabel('Edition / variant').nth(1).fill('Gold Crawl Con Box');
+      await sourceRow.getByRole('button', { name: 'Add to Hunt' }).click();
+      await expect(page.getByText('2 hunt items added from SDCC source.')).toBeVisible();
+      await expect(page.getByText(breakoutTitleA)).toBeVisible();
+      await expect(page.getByText(breakoutTitleB)).toBeVisible();
+      const breakoutRow = page.locator('article').filter({ hasText: breakoutTitleA }).first();
+      await expect(breakoutRow.getByText('From UCC article lineup.')).toBeVisible();
+      await expect(breakoutRow.getByRole('link', { name: 'More info' })).toHaveAttribute('href', 'https://sdccblog.com/2026/06/ucc-distributing-san-diego-comic-con-2026-exclusives/');
+      await expect(breakoutRow.getByText('https://sdccblog.com/2026/06/ucc-distributing-san-diego-comic-con-2026-exclusives/')).toHaveCount(0);
       await expect(page.getByText(huntTitle)).toBeVisible();
       await expect(page.getByText('Playwright Vendor · Booth 3721')).toBeVisible();
       await page.locator('article').filter({ hasText: huntTitle }).first().getByRole('button', { name: 'Haul', exact: true }).click();
@@ -573,9 +626,26 @@ test.describe('events and collectibles browser regressions', () => {
       expect(fieldKitResponse.ok()).toBeTruthy();
       const fieldKit = await fieldKitResponse.json();
       expect(fieldKit?.version).toBe('event-field-kit.v1');
+      expect(fieldKit?.wishlist_items?.some((item) => item.title === breakoutTitleA && item.vendor === 'UCC Distributing' && item.booth === '#5613' && String(item.provider_key || '').includes('playwright-carl-exclusive'))).toBeTruthy();
+      expect(fieldKit?.wishlist_items?.some((item) => item.title === breakoutTitleB && item.vendor === 'UCC Distributing' && item.booth === '#5613')).toBeTruthy();
+      const breakoutListResponse = await userRequestContext.get(`/api/wishlist?event_id=${eventId}&search=${encodeURIComponent(breakoutTitleA)}`);
+      expect(breakoutListResponse.ok()).toBeTruthy();
+      const breakoutList = await breakoutListResponse.json();
+      expect(breakoutList?.items?.some((item) => item.title === breakoutTitleA && item.source_context?.source === 'sdcc_blog_exclusive_breakout')).toBeTruthy();
       expect(fieldKit?.purchased_items?.some((item) => item.title_snapshot === huntTitle && item.vendor_snapshot === 'Playwright Vendor' && item.booth_snapshot === '3721')).toBeTruthy();
       expect(fieldKit?.acquired_wishlist_items?.some((item) => item.id === wishlistId && item.status === 'acquired')).toBeTruthy();
     } finally {
+      for (const title of [breakoutTitleA, breakoutTitleB]) {
+        const response = eventId ? await userRequestContext.get(`/api/wishlist?event_id=${eventId}&search=${encodeURIComponent(title)}`).catch(() => null) : null;
+        if (response?.ok()) {
+          const payload = await response.json();
+          for (const item of payload?.items || []) {
+            if (item?.title === title) {
+              await requestWithCsrf(userRequestContext, 'DELETE', `/api/wishlist/${item.id}`, undefined, [200, 404]).catch(() => {});
+            }
+          }
+        }
+      }
       if (wishlistId) {
         await requestWithCsrf(userRequestContext, 'DELETE', `/api/wishlist/${wishlistId}`, undefined, [200, 404]).catch(() => {});
       }

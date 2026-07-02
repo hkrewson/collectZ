@@ -105,6 +105,13 @@ const serializePurchasedItemRecord = (row) => ({
   resolved_item: row.resolved_item || null
 });
 
+const fieldKitWishlistSourceUrl = (row = {}) => {
+  const sourceContext = row.source_context && typeof row.source_context === 'object' && !Array.isArray(row.source_context)
+    ? row.source_context
+    : {};
+  return sourceContext.source_url || sourceContext.store_url || null;
+};
+
 const serializeFieldKitWishlistItem = (row = {}) => ({
   id: row.id,
   title: row.title,
@@ -115,6 +122,7 @@ const serializeFieldKitWishlistItem = (row = {}) => ({
   desired_format: row.desired_format || null,
   desired_edition: row.desired_edition || null,
   notes: row.notes || null,
+  source_url: fieldKitWishlistSourceUrl(row),
   provider: row.provider || null,
   provider_key: row.provider_key || null,
   event_id: row.event_id || null,
