@@ -1196,11 +1196,13 @@ function EventFieldKitPanel({ eventId, apiCall, onChanged, onToast, view = 'hunt
                     <button className="btn-ghost btn-sm" type="button" onClick={() => beginWishlistEdit(item)}>Edit details</button>
                   </div>
                   {editing ? (
-                    <div className="mt-3 grid grid-cols-1 gap-3 rounded-lg border border-edge bg-surface p-3 md:grid-cols-2">
-                      <label className="field"><span className="label">Vendor</span><input className="input" value={wishlistDraft.vendor} onChange={(event) => setWishlistDraft((prev) => ({ ...prev, vendor: event.target.value }))} /></label>
-                      <label className="field"><span className="label">Booth</span><input className="input" value={wishlistDraft.booth} onChange={(event) => setWishlistDraft((prev) => ({ ...prev, booth: event.target.value }))} /></label>
-                      <label className="field md:col-span-2"><span className="label">Notes</span><textarea className="textarea min-h-[64px]" value={wishlistDraft.notes} onChange={(event) => setWishlistDraft((prev) => ({ ...prev, notes: event.target.value }))} /></label>
-                      <div className="flex gap-2 md:col-span-2">
+                    <div className="mt-3 border-t border-edge/60 pt-3">
+                      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                        <label className="field"><span className="label">Vendor</span><input className="input" value={wishlistDraft.vendor} onChange={(event) => setWishlistDraft((prev) => ({ ...prev, vendor: event.target.value }))} /></label>
+                        <label className="field"><span className="label">Booth</span><input className="input" value={wishlistDraft.booth} onChange={(event) => setWishlistDraft((prev) => ({ ...prev, booth: event.target.value }))} /></label>
+                        <label className="field md:col-span-2"><span className="label">Notes</span><textarea className="textarea min-h-[64px]" value={wishlistDraft.notes} onChange={(event) => setWishlistDraft((prev) => ({ ...prev, notes: event.target.value }))} /></label>
+                      </div>
+                      <div className="mt-3 flex gap-2">
                         <button className="btn-secondary btn-sm" type="button" onClick={() => { patchWishlist(item, wishlistDraft); setEditingWishlistId(null); }}><Icons.Check />Save</button>
                         <button className="btn-ghost btn-sm" type="button" onClick={() => setEditingWishlistId(null)}>Cancel</button>
                       </div>
@@ -1219,9 +1221,9 @@ function EventFieldKitPanel({ eventId, apiCall, onChanged, onToast, view = 'hunt
             <p className="text-sm font-medium text-ink">Post-con cleanup</p>
             <span className="text-xs text-ghost">{incompletePurchases.length} need details</span>
           </div>
-          <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-dim">
-            <div className="rounded border border-edge bg-surface px-3 py-2">{acquiredWishlistItems.length} acquired hunt items</div>
-            <div className="rounded border border-edge bg-surface px-3 py-2">{purchasedItems.length} linked purchases</div>
+          <div className="mt-2 grid grid-cols-2 divide-x divide-edge/60 border-y border-edge/60 text-xs text-dim">
+            <div className="py-2 pr-3">{acquiredWishlistItems.length} acquired hunt items</div>
+            <div className="py-2 pl-3">{purchasedItems.length} linked purchases</div>
           </div>
           {!loading && incompletePurchases.length === 0 ? <p className="mt-3 text-sm text-ghost">No cleanup gaps in linked purchases.</p> : null}
           <div className="mt-2 divide-y divide-edge/60">
