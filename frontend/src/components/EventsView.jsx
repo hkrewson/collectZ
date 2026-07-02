@@ -486,12 +486,12 @@ function ScheduleAttendanceInline({ attendance = null, className = '' }) {
     <div className={cx('mt-1 flex flex-wrap items-center gap-1.5 text-[11px]', className)} aria-label="Session presence">
       {attendance?.audienceLine ? <span className="text-dim">{attendance.audienceLine}</span> : null}
       {pills.map((pill) => (
-        <span key={pill.key} className="rounded-full border border-edge bg-raised px-2 py-0.5 text-ghost">
+        <span key={pill.key} className="border border-edge/60 px-2 py-0.5 text-ghost">
           {pill.label}
         </span>
       ))}
       {names.map((name) => (
-        <span key={name} className="rounded-full border border-edge/80 bg-surface px-2 py-0.5 text-dim">
+        <span key={name} className="border border-edge/60 px-2 py-0.5 text-dim">
           {name}
         </span>
       ))}
@@ -504,7 +504,7 @@ function ScheduleAttendanceDetails({ attendance = null }) {
   const people = Array.isArray(attendance?.audience?.people) ? attendance.audience.people : [];
   const socialGroups = Array.isArray(attendance?.audience?.groups) ? attendance.audience.groups : [];
   return (
-    <div className="rounded-md border border-edge bg-raised px-3 py-2 text-sm" aria-label="Shared attendance">
+    <div className="border-y border-edge/60 py-3 text-sm" aria-label="Shared attendance">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="font-medium text-ink">Shared attendance</p>
         {attendance.countLine ? <span className="text-xs text-ghost">{attendance.countLine}</span> : null}
@@ -1404,7 +1404,7 @@ function EventAutographSignatureLinker({ eventId, artifact, apiCall, onLinked })
   };
 
   return (
-    <div className="mt-3 rounded-lg border border-edge bg-raised p-3">
+    <div className="mt-3 border-t border-edge/60 pt-3">
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-xs font-medium text-ink">Event autograph</p>
@@ -2016,8 +2016,8 @@ function EventPurchasedItemsReadback({ eventId, apiCall }) {
   };
 
   return (
-    <section className="rounded-xl border border-edge bg-surface p-4">
-      <div className="flex items-start gap-3">
+    <section className="space-y-4">
+      <div className="flex items-start gap-3 border-b border-edge/60 pb-3">
         <div>
           <p className="label">Tracked purchases</p>
           <p className="text-sm text-dim">{items.length} linked item{items.length === 1 ? '' : 's'}</p>
@@ -2040,7 +2040,7 @@ function EventPurchasedItemsReadback({ eventId, apiCall }) {
       {error ? <p className="mt-3 text-xs text-err">{error}</p> : null}
       {notice ? <p className="mt-3 text-xs text-ok">{notice}</p> : null}
       {linkOpen ? (
-        <div className="mt-4 rounded-lg border border-edge bg-raised p-3">
+        <div className="border-b border-edge/60 pb-4">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-[10rem_1fr_auto]">
             <label className="field">
               <span className="label">Library</span>
@@ -2104,7 +2104,7 @@ function EventPurchasedItemsReadback({ eventId, apiCall }) {
         </div>
       ) : null}
       {!loading && items.length === 0 ? (
-        <p className="mt-4 rounded-lg border border-dashed border-edge bg-raised px-3 py-3 text-sm text-ghost">
+        <p className="border-b border-dashed border-edge/70 pb-4 text-sm text-ghost">
           No tracked Art or Collectibles purchases are linked through the shared purchase relationship yet.
         </p>
       ) : null}
@@ -2139,7 +2139,7 @@ function EventPurchasedItemsReadback({ eventId, apiCall }) {
                 </button>
                 </div>
                 {isEditing ? (
-                  <div className="mt-3 grid grid-cols-1 gap-3 rounded-lg border border-edge bg-raised p-3 md:grid-cols-2">
+                  <div className="mt-3 grid grid-cols-1 gap-3 border-t border-edge/60 pt-3 md:grid-cols-2">
                     <label className="field md:col-span-2">
                       <span className="label">Display title</span>
                       <input className="input" value={editForm.title_snapshot} onChange={(event) => setEditForm((prev) => ({ ...prev, title_snapshot: event.target.value }))} />
@@ -2516,7 +2516,7 @@ function EventSocialMobileOverview({ attendees, groups, meetups, plans, onJump }
   ];
 
   return (
-    <div className="border-b border-edge bg-raised/40 px-4 py-3 lg:hidden" aria-label="Mobile event social overview">
+    <div className="border-b border-edge/60 py-3 lg:hidden" aria-label="Mobile event social overview">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-medium text-ink">Day-of social plan</p>
@@ -2527,8 +2527,8 @@ function EventSocialMobileOverview({ attendees, groups, meetups, plans, onJump }
         {focusPlan?.label ? <span className="shrink-0 text-xs text-ghost">{focusPlan.label}</span> : null}
       </div>
 
-      <div className="mt-3 grid grid-cols-1 gap-2">
-        <div className="rounded-md border border-edge bg-surface px-3 py-3">
+      <div className="mt-3 divide-y divide-edge/60 border-y border-edge/60">
+        <div className="py-3">
           <p className="text-xs font-medium text-dim">Schedule focus</p>
           {focusPlan?.plan ? (
             <>
@@ -2553,7 +2553,7 @@ function EventSocialMobileOverview({ attendees, groups, meetups, plans, onJump }
           )}
         </div>
 
-        <div className="rounded-md border border-edge bg-surface px-3 py-3">
+        <div className="py-3">
           <p className="text-xs font-medium text-dim">Next meetup</p>
           {nextMeetup ? (
             <>
@@ -2582,7 +2582,7 @@ function EventSocialMobileOverview({ attendees, groups, meetups, plans, onJump }
           )}
         </div>
 
-        <div className="rounded-md border border-edge bg-surface px-3 py-3">
+        <div className="py-3">
           <p className="text-xs font-medium text-dim">With</p>
           <p className="mt-1 truncate text-sm text-ink">{peoplePreview || 'No people added yet.'}</p>
           <p className="mt-1 truncate text-xs text-dim">{groupPreview ? `Groups: ${groupPreview}` : 'No groups added yet.'}</p>
@@ -3536,8 +3536,8 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged, currentUser = n
   };
 
   return (
-    <section className="rounded-lg border border-edge bg-surface">
-      <div className="border-b border-edge px-4 py-3">
+    <section className="space-y-0">
+      <div className="border-b border-edge/60 pb-3">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h3 className="text-sm font-semibold text-ink">Event plans</h3>
@@ -3559,9 +3559,9 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged, currentUser = n
         onJump={jumpToSocialSection}
       />
 
-      <div className="divide-y divide-edge">
+      <div className="divide-y divide-edge/60">
         <details className="group">
-          <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium text-ink">
+          <summary className="flex cursor-pointer list-none items-center justify-between py-3 text-sm font-medium text-ink">
             Catalog
             <span className="text-xs text-ghost">{catalogSessions.length}</span>
           </summary>
@@ -3594,11 +3594,11 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged, currentUser = n
               onCancelConflict={() => setPendingCatalogResolution(null)}
               onRemove={(session) => archive(`/events/${eventId}/schedule-sessions/${session.id}`, 'Catalog session')}
             />
-            <details className="mx-4 rounded-md border border-edge bg-raised">
-              <summary className="cursor-pointer list-none px-3 py-2 text-sm font-medium text-ink">
+            <details className="border-t border-edge/60">
+              <summary className="cursor-pointer list-none py-2 text-sm font-medium text-ink">
                 Import catalog ICS
               </summary>
-              <div className="space-y-3 border-t border-edge px-3 py-3">
+              <div className="space-y-3 border-t border-edge/60 py-3">
                 <p className="text-xs leading-5 text-dim">
                   Import a full event calendar into the catalog. This is a one-time import and does not replace your personal Sched feed.
                 </p>
@@ -3610,11 +3610,11 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged, currentUser = n
                 </div>
               </div>
             </details>
-            <details className="mx-4 rounded-md border border-edge bg-raised">
-              <summary className="cursor-pointer list-none px-3 py-2 text-sm font-medium text-ink">
+            <details className="border-t border-edge/60">
+              <summary className="cursor-pointer list-none py-2 text-sm font-medium text-ink">
                 Add catalog session
               </summary>
-              <div className="grid grid-cols-1 gap-2 border-t border-edge px-3 py-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-2 border-t border-edge/60 py-3 sm:grid-cols-2">
                 <input className="input" placeholder="Session title" value={form.catalogTitle} onChange={(e) => set({ catalogTitle: e.target.value })} />
                 <input className="input" placeholder="Track" value={form.catalogTrack} onChange={(e) => set({ catalogTrack: e.target.value })} />
                 <input className="input" placeholder="Location" value={form.catalogLocation} onChange={(e) => set({ catalogLocation: e.target.value })} />
@@ -3631,7 +3631,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged, currentUser = n
         </details>
 
         <details id="event-social-schedule" className="group" open>
-          <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium text-ink">
+          <summary className="flex cursor-pointer list-none items-center justify-between py-3 text-sm font-medium text-ink">
             Schedule
             <span className="text-xs text-ghost">{plans.length}</span>
           </summary>
@@ -3655,11 +3655,11 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged, currentUser = n
               onDiscardNotificationDraft={discardScheduleNotificationDraft}
               onRemove={(plan) => archive(`/events/${eventId}/schedule-plans/${plan.id}`, 'Schedule plan')}
             />
-            <details className="mx-4 rounded-md border border-edge bg-raised">
-              <summary className="cursor-pointer list-none px-3 py-2 text-sm font-medium text-ink">
+            <details className="border-t border-edge/60">
+              <summary className="cursor-pointer list-none py-2 text-sm font-medium text-ink">
                 Add manual plan
               </summary>
-              <div className="grid grid-cols-1 gap-2 border-t border-edge px-3 py-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-2 border-t border-edge/60 py-3 sm:grid-cols-2">
                 <input className="input" placeholder="Plan title" value={form.planTitle} onChange={(e) => set({ planTitle: e.target.value })} />
                 <input className="input" placeholder="Location" value={form.planLocation} onChange={(e) => set({ planLocation: e.target.value })} />
                 <input className="input" placeholder="Vendor" value={form.planVendor} onChange={(e) => set({ planVendor: e.target.value })} />
@@ -3673,7 +3673,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged, currentUser = n
         </details>
 
         <details className="group">
-          <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium text-ink">
+          <summary className="flex cursor-pointer list-none items-center justify-between py-3 text-sm font-medium text-ink">
             Notification inbox
             <span className="text-xs text-ghost">{scheduleNotificationInbox.counts?.unread || 0} unread</span>
           </summary>
@@ -3688,16 +3688,16 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged, currentUser = n
         </details>
 
         <details className="group">
-          <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium text-ink">
+          <summary className="flex cursor-pointer list-none items-center justify-between py-3 text-sm font-medium text-ink">
             Manage Sched feed
             <span className={cx('text-xs', icsHealth.tone === 'error' ? 'text-err' : 'text-ghost')}>{icsHealth.summary}</span>
           </summary>
-          <div className="space-y-3 px-4 pb-4">
+          <div className="space-y-3 pb-4">
             <p className="text-sm text-dim">
               Connect your personal Sched iCal link to sync selected sessions into private schedule plans. The URL is encrypted and never shown back here.
             </p>
             {icsSource?.has_url ? (
-              <div className="rounded-md border border-edge bg-raised px-3 py-2">
+              <div className="border-y border-edge/60 py-3">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -3744,7 +3744,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged, currentUser = n
         </details>
 
         <details id="event-social-people" className="group">
-          <summary className="flex cursor-pointer list-none items-start justify-between gap-3 px-4 py-3 text-sm font-medium text-ink">
+          <summary className="flex cursor-pointer list-none items-start justify-between gap-3 py-3 text-sm font-medium text-ink">
             <div className="min-w-0">
               <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <span>People</span>
@@ -3773,9 +3773,9 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged, currentUser = n
               <span className="text-xs text-ghost">{attendees.length}</span>
             </div>
           </summary>
-          <div className="space-y-3 px-4 pb-4">
+          <div className="space-y-3 pb-4">
             {!selfAttendee ? (
-              <div className="rounded-md border border-edge bg-raised/70 px-3 py-3">
+              <div className="border-y border-edge/60 py-3">
                 <p className="text-sm font-medium text-ink">You are not added to this event yet</p>
                 <p className="mt-1 text-xs leading-5 text-dim">
                   Use <span className="font-medium text-ink">Add me to this event</span> above to create the attendee row that represents you. It will be saved as <span className="font-medium text-ink">{selfAttendeeSuggestedName}</span>.
@@ -3788,7 +3788,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged, currentUser = n
                   const context = socialReadback.attendeeContext.get(Number(person?.id || 0)) || { groups: [], nextMeetup: null, nextPlan: null };
                   const draft = attendeeDrafts[String(person.id)] || {};
                   return (
-                    <details key={person.id} className={cx('rounded-md border border-edge bg-raised', eventVisibilityRowClass(person.visibility))}>
+                    <details key={person.id} className={cx('border-t border-edge/60', eventVisibilityRowClass(person.visibility))}>
                       <summary className="flex cursor-pointer list-none items-start gap-3 px-3 py-3">
                         <div className="min-w-0 flex-1">
                           <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -3820,7 +3820,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged, currentUser = n
                         </div>
                         <span className="shrink-0 text-xs text-ghost">Edit</span>
                       </summary>
-                      <div className="space-y-3 border-t border-edge px-3 py-3">
+                      <div className="space-y-3 border-t border-edge/60 px-3 py-3">
                         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                           <label className="field">
                             <span className="label">Name</span>
@@ -3885,7 +3885,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged, currentUser = n
               </div>
             ) : <p className="text-sm text-ghost">No attendees yet.</p>}
             {attendeeNameMatch ? (
-              <div className="rounded-md border border-warn/40 bg-warn/10 px-3 py-3 text-xs leading-5 text-dim">
+              <div className="border-y border-warn/40 bg-warn/10 py-3 text-xs leading-5 text-dim">
                 {attendeeNameMatch.kind === 'self-suggestion' ? (
                   <>
                     <p className="font-medium text-ink">This looks like your attendee row.</p>
@@ -3940,11 +3940,11 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged, currentUser = n
         </details>
 
         <details className="group">
-          <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium text-ink">
+          <summary className="flex cursor-pointer list-none items-center justify-between py-3 text-sm font-medium text-ink">
             Groups
             <span className="text-xs text-ghost">{groups.length}</span>
           </summary>
-          <div className="space-y-3 px-4 pb-4">
+          <div className="space-y-3 pb-4">
             {groups.length > 0 ? (
               <div className="space-y-2">
                 {groups.map((group) => {
@@ -3954,7 +3954,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged, currentUser = n
                     ? draft.attendee_ids.map((id) => Number(id)).filter(Boolean)
                     : [];
                   return (
-                    <details key={group.id} className={cx('rounded-md border border-edge bg-raised', eventVisibilityRowClass(group.visibility))}>
+                    <details key={group.id} className={cx('border-t border-edge/60', eventVisibilityRowClass(group.visibility))}>
                       <summary className="flex cursor-pointer list-none items-start gap-3 px-3 py-3">
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-medium text-ink">{group.name}</p>
@@ -3979,7 +3979,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged, currentUser = n
                         </div>
                         <span className="shrink-0 text-xs text-ghost">Edit</span>
                       </summary>
-                      <div className="space-y-3 border-t border-edge px-3 py-3">
+                      <div className="space-y-3 border-t border-edge/60 px-3 py-3">
                         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                           <label className="field">
                             <span className="label">Group name</span>
@@ -4055,18 +4055,18 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged, currentUser = n
         </details>
 
         <details id="event-social-meetups" className="group">
-          <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium text-ink">
+          <summary className="flex cursor-pointer list-none items-center justify-between py-3 text-sm font-medium text-ink">
             Meetups
             <span className="text-xs text-ghost">{meetups.length}</span>
           </summary>
-          <div className="space-y-3 px-4 pb-4">
+          <div className="space-y-3 pb-4">
             {meetups.length > 0 ? (
               <div className="space-y-2">
                 {meetups.map((meetup) => {
                   const group = meetup.group_id ? groups.find((entry) => Number(entry?.id || 0) === Number(meetup.group_id)) : null;
                   const memberPreview = previewLabel(group?.members || [], 'display_name');
                   return (
-                    <details key={meetup.id} className={cx('rounded-md border border-edge bg-raised', eventVisibilityRowClass(meetup.visibility))}>
+                    <details key={meetup.id} className={cx('border-t border-edge/60', eventVisibilityRowClass(meetup.visibility))}>
                       <summary className="flex cursor-pointer list-none items-center gap-3 px-3 py-3">
                         <div className="min-w-0 flex-1">
                           <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -4091,7 +4091,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged, currentUser = n
                         </div>
                         <span className="shrink-0 text-xs text-ghost">Edit</span>
                       </summary>
-                    <div className="space-y-3 border-t border-edge px-3 py-3">
+                    <div className="space-y-3 border-t border-edge/60 px-3 py-3">
                       <div className="grid grid-cols-1 gap-x-4 gap-y-3 text-sm sm:grid-cols-2">
                         {meetup.group_name ? (
                           <div className="min-w-0">
@@ -4130,7 +4130,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged, currentUser = n
                           </div>
                         ) : null}
                       </div>
-                      <div className="grid grid-cols-1 gap-2 border-t border-edge pt-3 sm:grid-cols-[9rem_1fr_7rem]">
+                      <div className="grid grid-cols-1 gap-2 border-t border-edge/60 pt-3 sm:grid-cols-[9rem_1fr_7rem]">
                         <label className="field">
                           <span className="label">Status</span>
                           <select
@@ -4292,7 +4292,7 @@ function EventScheduleNowNext({ sessions = [], plans = [], attendees = [], group
 
   if (!hasSessions) {
     return (
-      <div className="mx-4 rounded-md border border-edge bg-raised px-3 py-3" aria-label="Catalog now and next">
+      <div className="border-b border-edge/60 py-3" aria-label="Catalog now and next">
         <div className="flex items-center justify-between gap-3">
           <p className="text-sm font-medium text-ink">Now / Next</p>
           <span className="text-xs text-ghost">Catalog</span>
@@ -4303,19 +4303,19 @@ function EventScheduleNowNext({ sessions = [], plans = [], attendees = [], group
   }
 
   return (
-    <div className="mx-4 rounded-md border border-edge bg-raised" aria-label="Catalog now and next">
-      <div className="flex items-center justify-between gap-3 border-b border-edge px-3 py-2">
+    <div className="border-b border-edge/60" aria-label="Catalog now and next">
+      <div className="flex items-center justify-between gap-3 border-b border-edge/60 py-2">
         <p className="text-sm font-medium text-ink">Now / Next</p>
         <span className="text-xs text-ghost">Catalog</span>
       </div>
-      <div className="border-b border-edge px-3 py-2 lg:hidden" aria-label="Catalog time window filters">
+      <div className="border-b border-edge/60 py-2 lg:hidden" aria-label="Catalog time window filters">
         <div className="grid grid-cols-5 gap-1">
           {mobileFilters.map((filter) => (
             <button
               key={filter.key}
               type="button"
               className={cx(
-                'min-w-0 rounded-md border px-2 py-2 text-xs',
+                'min-w-0 border px-2 py-2 text-xs',
                 mobileWindow === filter.key
                   ? 'border-edge bg-surface text-ink'
                   : 'border-transparent text-dim hover:border-edge hover:bg-surface/70'
@@ -4329,7 +4329,7 @@ function EventScheduleNowNext({ sessions = [], plans = [], attendees = [], group
           ))}
         </div>
       </div>
-      <div className="divide-y divide-edge">
+      <div className="divide-y divide-edge/60">
         {mobileWindow === 'all' || mobileWindow === 'now' ? (
           <CatalogNowNextSlot
             label="Now"
@@ -4507,7 +4507,7 @@ function CatalogConflictResolutionPanel({ pendingResolution = null, saving = fal
   const conflictSummary = formatConflictSummary(conflicts);
   const selectedLabel = humanizeEventValue(pendingResolution?.status || 'planned').toLowerCase();
   return (
-    <div className="rounded-md border border-warn/30 bg-warn/10 px-3 py-2" aria-label="Schedule conflict resolution">
+    <div className="border-y border-warn/30 bg-warn/10 py-3" aria-label="Schedule conflict resolution">
       <p className="text-sm font-medium text-ink">Resolve schedule conflict</p>
       <p className="mt-1 text-xs leading-5 text-dim">
         {conflictSummary || 'This session overlaps another active schedule plan.'} Choose how to save this as {selectedLabel}.
@@ -4871,7 +4871,7 @@ function ScheduleCatalogRow({ session, draft = {}, saving = false, adding = fals
             </div>
           ) : null}
           {conflictSummary ? (
-            <div className="rounded-md border border-warn/30 bg-warn/10 px-3 py-2 text-sm text-warn">
+            <div className="border-y border-warn/30 bg-warn/10 py-2 text-sm text-warn">
               {conflictSummary}
             </div>
           ) : null}
@@ -4937,7 +4937,7 @@ function ScheduleCatalogRow({ session, draft = {}, saving = false, adding = fals
               ) : null}
               <div className="w-36">
                 {adding ? (
-                  <div className="flex h-9 items-center justify-center rounded-md border border-edge bg-surface">
+                  <div className="flex h-9 items-center justify-center border border-edge/60">
                     <Spinner size={16} />
                   </div>
                 ) : (
@@ -5118,7 +5118,7 @@ function ScheduleChangePreviewPanel({ preview }) {
   const attendeeNames = attendees.map((attendee) => attendee.display_name).filter(Boolean).slice(0, 4).join(', ');
   const groupNames = groups.map((group) => group.name).filter(Boolean).slice(0, 3).join(', ');
   return (
-    <div className="rounded-md border border-edge bg-raised px-3 py-2 text-sm" aria-label="Schedule change preview">
+    <div className="border-y border-edge/60 py-3 text-sm" aria-label="Schedule change preview">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="font-medium text-ink">Share preview</p>
         <span className="text-xs text-ghost">Preview only</span>
@@ -5128,7 +5128,7 @@ function ScheduleChangePreviewPanel({ preview }) {
         {attendeeNames ? <p>People: {attendeeNames}{attendees.length > 4 ? ` +${attendees.length - 4}` : ''}</p> : null}
         {groupNames ? <p>Groups: {groupNames}{groups.length > 3 ? ` +${groups.length - 3}` : ''}</p> : null}
         {conflicts.length ? <p className="text-warn">Conflicts: {conflicts.map((conflict) => conflict.title).filter(Boolean).slice(0, 2).join(', ')}{conflicts.length > 2 ? ` +${conflicts.length - 2}` : ''}</p> : null}
-        {template.body ? <p className="rounded-md border border-edge bg-surface px-2 py-1.5 text-ghost">Suggested: {template.body}</p> : null}
+        {template.body ? <p className="border-l border-edge/80 pl-2 text-ghost">Suggested: {template.body}</p> : null}
         <p className="text-ghost">No notification will be sent from this preview.</p>
       </div>
     </div>
@@ -5164,7 +5164,7 @@ function ScheduleNotificationComposer({ plan, status = 'planned', preview = null
     onDraftChange({ [field]: Array.from(next) });
   };
   return (
-    <div className="rounded-md border border-edge bg-surface px-3 py-3 text-sm" aria-label="Schedule notification message">
+    <div className="border-y border-edge/60 py-3 text-sm" aria-label="Schedule notification message">
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-[14rem_1fr]">
         <label className="field">
           <span className="label">Template</span>
@@ -5187,7 +5187,7 @@ function ScheduleNotificationComposer({ plan, status = 'planned', preview = null
           />
         </label>
       </div>
-      <div className="mt-3 border-t border-edge pt-3" aria-label="Schedule notification recipients">
+      <div className="mt-3 border-t border-edge/60 pt-3" aria-label="Schedule notification recipients">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-xs font-medium text-ink">Recipients</p>
           <span className="text-xs text-ghost">{selectedCount} selected</span>
@@ -5198,7 +5198,7 @@ function ScheduleNotificationComposer({ plan, status = 'planned', preview = null
               const id = Number(attendee.id);
               const label = attendee.display_name || `Person #${id}`;
               return (
-                <label key={`attendee-${id}`} className="flex items-start gap-2 rounded-md border border-edge bg-raised px-2.5 py-2 text-xs text-dim">
+                <label key={`attendee-${id}`} className="flex items-start gap-2 border border-edge/60 px-2.5 py-2 text-xs text-dim">
                   <input
                     type="checkbox"
                     className="mt-0.5 h-4 w-4 accent-current"
@@ -5216,7 +5216,7 @@ function ScheduleNotificationComposer({ plan, status = 'planned', preview = null
               const id = Number(group.id);
               const label = group.name || `Group #${id}`;
               return (
-                <label key={`group-${id}`} className="flex items-start gap-2 rounded-md border border-edge bg-raised px-2.5 py-2 text-xs text-dim">
+                <label key={`group-${id}`} className="flex items-start gap-2 border border-edge/60 px-2.5 py-2 text-xs text-dim">
                   <input
                     type="checkbox"
                     className="mt-0.5 h-4 w-4 accent-current"
@@ -5232,7 +5232,7 @@ function ScheduleNotificationComposer({ plan, status = 'planned', preview = null
             })}
           </div>
         ) : (
-          <p className="mt-2 rounded-md border border-edge bg-raised px-2.5 py-2 text-xs text-ghost">No eligible recipients for this visibility.</p>
+          <p className="mt-2 border-y border-edge/60 py-2 text-xs text-ghost">No eligible recipients for this visibility.</p>
         )}
       </div>
       <p className="mt-2 text-xs text-ghost">Saved here as an Event-local notice only. Selected recipients are recorded here, not sent by push, device, or email.</p>
@@ -5246,7 +5246,7 @@ function ScheduleNotificationPanel({ notification }) {
   const attemptSummary = notification?.delivery_attempt_readback || {};
   const sent = notification.status === 'sent';
   return (
-    <div className="rounded-md border border-edge bg-surface px-3 py-2 text-sm" aria-label="Schedule notification record">
+    <div className="border-y border-edge/60 py-3 text-sm" aria-label="Schedule notification record">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="font-medium text-ink">{sent ? 'Local notification sent' : 'Draft saved'}</p>
         <span className="text-xs text-ghost">Event-local</span>
@@ -5254,7 +5254,7 @@ function ScheduleNotificationPanel({ notification }) {
       <p className="mt-2 text-xs text-dim">{summary.label || 'No recipients selected.'}</p>
       {notification.message_body ? <p className="mt-1 text-xs leading-5 text-ghost">{plainTextPreview(notification.message_body, 180)}</p> : null}
       {sent ? (
-        <div className="mt-2 rounded-md border border-edge bg-raised px-2.5 py-2 text-xs text-dim" aria-label="Delivery attempt summary">
+        <div className="mt-2 border-t border-edge/60 pt-2 text-xs text-dim" aria-label="Delivery attempt summary">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="font-medium text-ink">{Number(attemptSummary.total || 0)} local attempt{Number(attemptSummary.total || 0) === 1 ? '' : 's'}</span>
             <span>{Number(attemptSummary.succeeded || 0)} succeeded</span>
@@ -5284,13 +5284,13 @@ function ScheduleDeliveryAttemptRows({ notification, attempts = [] }) {
   const total = Number(summary.total || attempts.length || 0);
   if (!sent) return null;
   return (
-    <div className="mt-2 rounded-md border border-edge bg-raised px-2.5 py-2" aria-label="Delivery attempt readback">
+    <div className="mt-2 border-t border-edge/60 pt-2" aria-label="Delivery attempt readback">
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
         <span className="font-medium text-ink">{total} local attempt{total === 1 ? '' : 's'}</span>
         <span className="text-ghost">{Number(summary.succeeded || 0)} succeeded</span>
       </div>
       {attempts.length ? (
-        <div className="mt-2 divide-y divide-edge">
+        <div className="mt-2 divide-y divide-edge/60">
           {attempts.slice(0, 4).map((attempt) => (
             <div key={attempt.id} className="flex flex-wrap items-center justify-between gap-2 py-1.5 text-xs">
               <span className="text-dim">{recipientLabelForDeliveryAttempt(attempt)}</span>
@@ -5313,12 +5313,12 @@ function ScheduleNotificationHistory({ notifications = [], deliveryAttemptsByNot
   const items = Array.isArray(notifications) ? notifications.slice(0, 3) : [];
   if (!items.length) return null;
   return (
-    <div className="rounded-md border border-edge bg-surface px-3 py-2 text-sm" aria-label="Schedule notification history">
+    <div className="border-y border-edge/60 py-3 text-sm" aria-label="Schedule notification history">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="font-medium text-ink">Notification history</p>
         <span className="text-xs text-ghost">Event-local</span>
       </div>
-      <div className="mt-2 divide-y divide-edge">
+      <div className="mt-2 divide-y divide-edge/60">
         {items.map((item) => {
           const summary = item?.recipients?.summary || {};
           const when = item.status === 'sent' ? item.sent_at : item.created_at;
@@ -5390,13 +5390,13 @@ function EventScheduleNotificationInbox({ inbox = {}, deliveryBoundary = null, f
     ? 'Local event records only. Push, email, device delivery, and global inboxes are not enabled.'
     : 'Delivery capability is not available yet.';
   const filterButtonClass = (value) => cx(
-    'rounded-md border px-2.5 py-1 text-xs transition-colors',
+    'border px-2.5 py-1 text-xs transition-colors',
     activeFilter === value
       ? 'border-muted bg-raised text-ink'
       : 'border-edge bg-surface text-dim hover:text-ink'
   );
   const boundaryBlock = (
-    <div className="rounded-md border border-edge bg-surface px-3 py-2 text-xs text-ghost" aria-label="Notification delivery boundary">
+    <div className="border-y border-edge/60 py-2 text-xs text-ghost" aria-label="Notification delivery boundary">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="font-medium text-ink">Delivery boundary</span>
         <span>{boundaryContract.scope === 'event_local' ? 'Event-local' : 'Unknown'}</span>
@@ -5412,7 +5412,7 @@ function EventScheduleNotificationInbox({ inbox = {}, deliveryBoundary = null, f
           <button type="button" className={filterButtonClass('all')} onClick={() => onFilterChange?.('all')}>All</button>
           <button type="button" className={filterButtonClass('mine')} onClick={() => onFilterChange?.('mine')}>Mine</button>
         </div>
-        <div className="rounded-md border border-edge bg-raised px-3 py-3 text-sm text-dim">
+        <div className="border-y border-edge/60 py-3 text-sm text-dim">
           {emptyCopy}
         </div>
       </div>
@@ -5431,7 +5431,7 @@ function EventScheduleNotificationInbox({ inbox = {}, deliveryBoundary = null, f
         <span>{counts.acknowledged || 0} acknowledged</span>
         <span>{counts.mine || 0} linked to you</span>
       </div>
-      <div className="divide-y divide-edge rounded-md border border-edge bg-raised">
+      <div className="divide-y divide-edge/60 border-y border-edge/60">
         {items.slice(0, 8).map((item) => {
           const notification = item.notification || {};
           const recipient = item.recipient || {};
@@ -5608,7 +5608,7 @@ function SchedulePlanRow({
             </div>
           ) : null}
           {conflictSummary ? (
-            <div className="rounded-md border border-warn/30 bg-warn/10 px-3 py-2 text-sm text-warn">
+            <div className="border-y border-warn/30 bg-warn/10 py-2 text-sm text-warn">
               {conflictSummary}
             </div>
           ) : null}

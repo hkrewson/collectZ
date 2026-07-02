@@ -54,6 +54,16 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 - Risks/follow-ups: the Purchases tab still contains the existing tracked-purchases and event-entries components; additional visual tightening can happen after field testing if the tab grouping feels right.
 - What remains in the milestone: no implementation work remains for this drawer-tab polish slice.
 
+### Post-closeout polish — Event drawer surface alignment
+
+- Status: completed as `3.22.0` polish.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, and `docs/releases/v3.22.0.md`.
+- Runtime evidence: Docker frontend/backend source-build recreated the canonical local platform stack at `http://localhost:3201`; `/api/health` reports frontend, backend, and build `3.22.0`.
+- Verification: Docker frontend production build passed; full Events/Art/Collectibles Playwright regression passed with `21/21` tests against `http://localhost:3201` with `PLAYWRIGHT_COMPOSE_PROJECT=collectz-private`; in-container backend unit/source suite passed with `336` checks; Dockerized backend and frontend production dependency audits reported `0` vulnerabilities; Help > Releases smoke served `3.22.0`; `git diff --check` passed. The host `npm run release:local-gate` completed `9/12` gates and failed only on known host Node/npm tooling mismatches for backend unit and dependency audits; those failed gates were replaced by the container-backed checks above.
+- Files changed: `frontend/src/components/EventsView.jsx`, `docs/releases/v3.22.0.md`, `docs/wiki/07-Release-Roadmap.md`, and regenerated `backend/release-feed.json`.
+- Risks/follow-ups: this only flattens the existing Plans/Purchases presentation; it does not change social-planning or purchase-linking behavior.
+- What remains in the milestone: no planned implementation work beyond runtime/browser verification for this surface-alignment slice.
+
 ## 3.21.0 — First-Class App Route Semantics
 
 **Goal:** Treat app navigation destinations as real URLs instead of making `/dashboard` own every page through `?tab=...`.
