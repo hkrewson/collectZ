@@ -1,6 +1,28 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.23.0",
+      "version": "3.23.0",
+      "date": null,
+      "status": null,
+      "summary": "This release starts the maintainability guardrails foundation after the Comic-Con readiness build. It adds report-first frontend quality tooling, a Vitest unit-test seam, and the first small behavior-preserving extraction from `LibraryView.jsx` without changing the Comic-Con field-test workflow.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Promoted the maintainability guardrails work from backlog into the numbered `3.23.0` roadmap milestone.",
+            "Added ESLint flat config with React hooks and JSX accessibility rules for `frontend/src`.",
+            "Added Prettier check configuration without mass-formatting existing files.",
+            "Added `npm run quality:frontend`, which writes ignored local quality reports and exits successfully while the baseline is still being tuned.",
+            "Added warning-only line-count reporting for the largest source files identified by review.",
+            "Added frontend Vitest setup and `npm --prefix frontend run test:unit`.",
+            "Extracted comic issue series/order helpers from `LibraryView.jsx` into `frontend/src/lib/comicIssueOrder.js` with focused Vitest coverage.",
+            "Documented the strangler extraction rule in `docs/wiki/58-Maintainability-Guardrails.md`."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.22.0",
       "version": "3.22.0",
       "date": null,
@@ -148,26 +170,6 @@
             "Added readable Plex webhook auto-processor activity summaries.",
             "Added Plex job, rating key, and section readback to activity snapshots.",
             "Kept existing Plex import, sync, webhook, readback, and writeback behavior unchanged."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.20.3",
-      "version": "3.20.3",
-      "date": null,
-      "status": null,
-      "summary": "This patch makes Plex initial import a deliberate Sync workflow. The Plex Sync tab now shows selected libraries and media types before queuing import work, and the old global Plex import button has been removed.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added a compact `Initial import` block to Settings > Integrations > Plex > Sync.",
-            "Shows selected Plex libraries from Setup before starting an import.",
-            "Shows inferred media types for selected Plex sections when detected library metadata is available.",
-            "Warns about saved section IDs that are not currently detected.",
-            "Prevents queuing a Plex import when no library sections are selected.",
-            "Removed the duplicate bottom-level `Import from Plex` action from the integration page."
           ]
         }
       ]

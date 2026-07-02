@@ -6,6 +6,46 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.23.0 — Maintainability Guardrails and Frontend Extraction Foundation
+
+**Goal:** Preserve collectZ's mature release/security posture while adding day-to-day maintainability guardrails, fast frontend feedback loops, and a repeatable extraction pattern for large UI/source files.
+
+### Scope
+
+- Add ESLint and Prettier in non-disruptive report-first mode, without mass-formatting unrelated files.
+- Add React hooks linting and `eslint-plugin-jsx-a11y` so accessibility consistency improves as frontend files are touched.
+- Add frontend-first Vitest coverage for extracted utilities/components while leaving the existing backend custom harness and smoke scripts intact.
+- Extract one small real slice from a large frontend file as the proving ground for the strangler pattern.
+- Add warning-only source-size reporting for the largest source files before making any hard CI failure rule.
+- Document the strangler extraction rule: no broad rewrite; when a monolith section is touched, shrink or extract the relevant section and add focused tests.
+
+### Acceptance Criteria
+
+- Running the local frontend quality command reports lint, format, accessibility, and source-size findings without requiring unrelated mass edits.
+- The first extracted frontend slice has focused unit coverage and existing Playwright regression remains the browser regression layer.
+- Existing Docker-first release verification remains intact.
+- The backend custom unit harness and smoke scripts continue to run unchanged.
+- The roadmap entry clearly states what is warning-only versus blocking.
+- The largest source files stop growing by default when touched for related work.
+
+### Active Slice Notes
+
+- This is the selected next 3.x engineering foundation slice after Comic-Con readiness CI passed.
+- Guardrails are warning-only in this first slice except for the new focused Vitest test and production build checks.
+- Comic-Con Hunt remains frozen for field testing; this milestone intentionally avoids changing that workflow.
+- Backend test-harness migration, Redux/app-wide state management, mass-formatting, route code splitting, and big-bang rewrites of `media.js`, `events.js`, `EventsView.jsx`, or `LibraryView.jsx` are out of scope.
+
+### Closeout
+
+- Status: completed in `3.23.0`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/58-Maintainability-Guardrails.md`, and `docs/releases/v3.23.0.md`.
+- Runtime evidence: Docker backend and frontend containers rebuilt on the canonical local `collectz-private` platform stack at `http://localhost:3201`; `/api/health` reports frontend, backend, and build `3.23.0`; backend, frontend, Postgres, Cairn, and Cairn Postgres containers are healthy; authenticated Help > Releases smoke served `3.23.0` as the latest entry.
+- Verification: `npm run quality:frontend` passed in report-first mode and reported the initial baseline of `588` ESLint errors, `22` warnings, Prettier findings, and `0` source-size warnings; Docker Node 24 frontend Vitest passed with `1` file and `4` tests; Docker Node 24 frontend production build passed; in-container backend unit/source suite passed with `336` checks; in-container OpenAPI validation passed; focused Library Playwright regression passed with `17/17` tests against `http://localhost:3201`; observability release evidence refreshed for `3.23.0` with `9/9` checks passed; `npm run release:local-gate` passed `12/12` standard gates with the `collectz-private` compose project and `http://localhost:3201` preflight base URL; `git diff --check` passed through the local gate.
+- Blocked/unverified: Local preflight marks secure-cookie compose smoke blocked because the local development stack uses `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`. Hosted CI still needs to confirm `compose-smoke`, `rbac-regression`, hosted `browser-regression`, `runtime-smoke` core/control-plane, `dependency-scan`, `secret-scan`, and `image-security-and-sbom`.
+- Files changed: `.gitignore`, `.prettierignore`, `.prettierrc.json`, `app-meta.json`, `backend/app-meta.json`, `backend/package.json`, `backend/release-feed.json`, `docs/releases/v3.23.0.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/58-Maintainability-Guardrails.md`, `eslint.config.js`, `frontend/package-lock.json`, `frontend/package.json`, `frontend/src/app-meta.json`, `frontend/src/components/LibraryView.jsx`, `frontend/src/lib/comicIssueOrder.js`, `frontend/src/lib/comicIssueOrder.test.js`, `frontend/vitest.config.mjs`, `package-lock.json`, `package.json`, `preflight-go-no-go.md`, `scripts/frontend-quality-report.js`, `artifacts/dependency-audit/frontend-audit.json`, and `artifacts/observability-evidence/observability-release-evidence.json`.
+- Risks/follow-ups: The lint and format baseline is intentionally non-blocking and noisy; a future slice should tune rules and decide which warnings become blocking. The first extraction only proves the pattern for pure frontend helpers; larger component and backend route extractions remain future work. Route code splitting remains deferred until guardrails are stable.
+- What remains in the milestone: no implementation work remains for the `3.23.0` foundation slice; hosted CI/release gates remain required before push-ready release promotion.
+
 ## 3.22.0 — Comic-Con Field Test Mode
 
 **Goal:** Make collectZ useful on the Comic-Con floor by adding an event-scoped mobile field kit for hunt items, quick haul capture, and post-con cleanup without introducing a new convention automation platform.

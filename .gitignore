@@ -83,6 +83,7 @@ coverage/
 artifacts/local-ci/
 artifacts/public-export/
 artifacts/playwright/
+artifacts/quality/
 artifacts/sizing/
 
 # Temporary files
