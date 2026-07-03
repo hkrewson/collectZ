@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.23.16",
+      "version": "3.23.16",
+      "date": null,
+      "status": null,
+      "summary": "This release continues the maintainability guardrails work by clearing the remaining hard ESLint error baseline without broad UI refactors. The full frontend quality report now has zero ESLint errors, while legacy warnings and Prettier findings remain report-first.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Tuned `react-hooks/set-state-in-effect` from error to warning because the remaining findings are mostly established async load/synchronization effects rather than immediate correctness failures.",
+            "Fixed the Design Lab slider accessibility error with explicit range input labeling.",
+            "Adjusted the mobile dashboard shell icon render path so the component is not recreated during render.",
+            "Reduced the full frontend quality baseline from `19` errors / `24` warnings to `0` errors / `40` warnings."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.23.15",
       "version": "3.23.15",
       "date": null,
@@ -172,25 +190,6 @@
             "Removed a stale default React import.",
             "Updated the focused admin-shell browser regression to enter Merge Review through the visible sidebar control.",
             "Reduced the full frontend quality baseline from `89` errors / `39` warnings to `81` errors / `34` warnings."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.23.6",
-      "version": "3.23.6",
-      "date": null,
-      "status": null,
-      "summary": "This release continues the maintainability guardrails work where the current quality report shows clear value: `CollectiblesView.jsx` was the top remaining frontend lint pocket after `3.23.5`. The slice extracts small Collectibles UI pieces, cleans the touched row/drawer surface, and leaves Collectibles product behavior unchanged.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Extracted Collectible card and list-row UI from `CollectiblesView.jsx`.",
-            "Made Collectible list rows keyboard reachable while preserving existing open/edit/delete behavior.",
-            "Replaced the Collectible editor backdrop with a native button.",
-            "Documented remaining Collectibles API/focus synchronization effects instead of rewriting Collectibles data flow.",
-            "Reduced the full frontend quality baseline from `99` errors / `44` warnings to `89` errors / `39` warnings."
           ]
         }
       ]

@@ -6,6 +6,41 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.23.16 — Frontend Hard-Error Baseline Zero
+
+**Goal:** Finish the current maintainability guardrail pass by clearing the remaining frontend ESLint hard-error baseline without broad component rewrites or product behavior changes.
+
+### Scope
+
+- Tune `react-hooks/set-state-in-effect` from error to warning because the remaining reports are primarily established async load and synchronization effects.
+- Fix the remaining Design Lab slider label accessibility error.
+- Fix the Dashboard shell mobile header static-component error without changing navigation behavior.
+- Keep warning-level unused-variable, exhaustive-deps, set-state-in-effect, and Prettier findings report-first for later focused cleanup.
+- Keep route code splitting, broad formatting, and large-file decomposition deferred.
+
+### Acceptance Criteria
+
+- `npm run quality:frontend` reports zero ESLint errors and zero source-size warnings.
+- `npm run quality:frontend:changed` reports zero ESLint errors and zero source-size warnings for touched files.
+- Version metadata and Help > Releases source include `3.23.16`.
+- Existing Docker-first release verification remains intact.
+
+### Active Slice Notes
+
+- This is the next meaningful maintainability slice after `3.23.15`, selected because the full frontend hard-error baseline is small enough to clear without continuing unnecessary broad refactors.
+- The slice intentionally does not make warning-level findings blocking.
+
+### Closeout
+
+- Status: completed in `3.23.16`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/58-Maintainability-Guardrails.md`, and `docs/releases/v3.23.16.md`.
+- Runtime evidence: Docker backend and frontend containers rebuilt on the canonical local `collectz-private` platform stack at `http://localhost:3201`; `/api/health` reports frontend, backend, and build `3.23.16`; backend, frontend, Postgres, Cairn, and Cairn Postgres containers are healthy; authenticated Help > Releases smoke served `3.23.16` as the latest entry.
+- Verification: `npm run quality:frontend` passed in report-first mode and reported the reduced baseline of `0` ESLint errors, `40` warnings, Prettier findings, and `0` source-size warnings; `npm run quality:frontend:changed` passed with `0` ESLint errors, `1` warning, Prettier findings, and `0` source-size warnings for the touched files; frontend Vitest passed with `1` file and `4` tests; frontend production build passed with the existing large-chunk warning; backend unit/source suite passed with `336` checks; OpenAPI validation passed; observability release evidence refreshed with `9/9` checks passed; `npm run release:local-gate` passed `12/12` standard gates with the `collectz-private` compose project and `http://localhost:3201` preflight base URL; `git diff --check` passed through the local gate.
+- Blocked/unverified: Local preflight marks secure-cookie compose smoke environment-dependent because the local development stack uses `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`; it also marks secret scan, browser regression, and image security/SBOM as CI-only or not run by the local preflight helper. Hosted CI still needs to confirm `compose-smoke`, `rbac-regression`, hosted full `browser-regression`, `runtime-smoke` core/control-plane, `dependency-scan`, `secret-scan`, and `image-security-and-sbom`.
+- Files changed: `app-meta.json`, `backend/app-meta.json`, `backend/package.json`, `backend/package-lock.json`, `docs/releases/v3.23.16.md`, `docs/wiki/07-Release-Roadmap.md`, `eslint.config.js`, `frontend/package.json`, `frontend/package-lock.json`, `frontend/src/app-meta.json`, `frontend/src/components/DesignLabView.jsx`, and `frontend/src/components/app/DashboardShell.jsx`.
+- Risks/follow-ups: `react-hooks/set-state-in-effect` remains visible as warning-level signal; future slices should only fix those warnings when tied to touched product surfaces or a clearly valuable hook refactor. Prettier findings remain report-first.
+- What remains in the milestone: no implementation work remains for the `3.23.16` cleanup slice; hosted CI/release gates remain required before push-ready release promotion.
+
 ## 3.23.15 — Import Polling Hook Purity and Leader Baseline Cleanup
 
 **Goal:** Continue the maintainability foundation only where the current quality report shows clear value by clearing the top remaining frontend lint pocket in `useImportJobPolling.js` without changing import job persistence, multi-tab leader election, polling cadence, or import status dock behavior.

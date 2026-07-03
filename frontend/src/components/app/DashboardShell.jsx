@@ -126,7 +126,10 @@ export default function DashboardShell({
   const supportHelpEnabled = isSupportHelpEnabled(productEdition);
   const supportStaffInEdition = supportHelpEnabled && ['admin', SUPPORT_STAFF_ROLE].includes(String(user?.role || ''));
   const mobileHeaderTitle = getMobileHeaderTitle(activeTab, productEdition);
-  const MobileHeaderIcon = getMobileHeaderIcon(activeTab);
+  const mobileHeaderIcon = React.createElement(getMobileHeaderIcon(activeTab), {
+    className: 'h-6 w-6 text-gold',
+    title: ''
+  });
 
   return (
     <div className="flex h-dvh overflow-hidden bg-void">
@@ -186,7 +189,7 @@ export default function DashboardShell({
             aria-expanded={mobileNavOpen}
             data-testid="mobile-nav-toggle"
           >
-            <MobileHeaderIcon className="h-6 w-6 text-gold" title="" />
+            {mobileHeaderIcon}
           </button>
           <div id="mobile-shell-toolbar-slot" className="min-w-0 flex-1" />
           <p className="sr-only" data-testid="mobile-app-title">{mobileHeaderTitle}</p>

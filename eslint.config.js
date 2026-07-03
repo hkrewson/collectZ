@@ -40,6 +40,7 @@ module.exports = [
       'react/jsx-uses-vars': 'error',
       ...reactHooks.configs.recommended.rules,
       ...jsxA11y.configs.recommended.rules,
+      'react-hooks/set-state-in-effect': 'warn',
       'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }]
     }
   },

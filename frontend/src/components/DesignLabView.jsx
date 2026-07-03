@@ -264,13 +264,16 @@ function buildLabQuery(state) {
 }
 
 function LabSlider({ label, value, min, max, step = 1, suffix = 'px', onChange }) {
+  const controlId = `design-lab-${String(label || 'slider').toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
   return (
-    <label className="field">
+    <label className="field" htmlFor={controlId}>
       <div className="flex items-center justify-between gap-3">
         <span className="label mb-0">{label}</span>
         <span className="text-xs font-mono text-ghost">{value}{suffix}</span>
       </div>
       <input
+        id={controlId}
+        aria-label={label}
         type="range"
         min={min}
         max={max}
