@@ -292,6 +292,8 @@ const nowPlayingViewSource = readFrontendSource(path.join('components', 'NowPlay
 const eventsViewSource = readFrontendSource(path.join('components', 'EventsView'));
 const artViewSource = readFrontendSource(path.join('components', 'ArtView'));
 const collectiblesViewSource = readFrontendSource(path.join('components', 'CollectiblesView'));
+const collectibleCardSource = readFrontendSource(path.join('components', 'collectibles', 'CollectibleCard'));
+const collectibleRowSource = readFrontendSource(path.join('components', 'collectibles', 'CollectibleRow'));
 const signatureManagerSource = readFrontendSource(path.join('components', 'app', 'SignatureManager'));
 const backendPackageJson = JSON.parse(fs.readFileSync(require.resolve('../package.json'), 'utf8'));
 const frontendPackageJson = JSON.parse(fs.readFileSync(require.resolve('../../frontend/package.json'), 'utf8'));
@@ -5324,7 +5326,8 @@ results.push(run('collectible trait readback derives shared trait summaries and 
   assert.ok(collectiblesRoutesSource.includes('attachPersistedTraitsToCollectibleRows'));
   assert.ok(libraryViewSource.includes('CollectibleTraitReadback'));
   assert.ok(artViewSource.includes('CollectibleTraitPills'));
-  assert.ok(collectiblesViewSource.includes('CollectibleTraitPills'));
+  assert.ok(collectibleCardSource.includes('CollectibleTraitPills'));
+  assert.ok(collectibleRowSource.includes('CollectibleTraitPills'));
 }));
 
 results.push(run('collectible trait persistence contract is scoped and documented', () => {

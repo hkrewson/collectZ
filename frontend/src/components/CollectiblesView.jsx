@@ -1,8 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CheckboxControl, CollectionPaginationFooter, CollectibleTraitPills, CollectibleTraitReadback, CoverImagePicker, DetailDrawerShell, DrawerBackdrop, DrawerMetadataList, FilterMenu, Icons, PageHeaderSearchToolbar, Spinner, SectionTabPanel, SectionTabs, buildDrawerMetadataRenderItems, buildObjectDrawerMetadataEditorNodes, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { CheckboxControl, CollectionPaginationFooter, CollectibleTraitReadback, CoverImagePicker, DetailDrawerShell, DrawerBackdrop, DrawerMetadataList, FilterMenu, Icons, PageHeaderSearchToolbar, Spinner, SectionTabPanel, SectionTabs, buildDrawerMetadataRenderItems, buildObjectDrawerMetadataEditorNodes, cx, posterUrl } from './app/AppPrimitives';
 import {
   buildObjectDrawerMetadataRecords
 } from './app/drawerMetadata';
+import CollectibleCard from './collectibles/CollectibleCard';
+import CollectibleRow from './collectibles/CollectibleRow';
 
 const CATEGORY_OPTIONS = [
   { key: 'lego', label: 'Lego' },
@@ -89,33 +91,6 @@ function FilterPill({ children, tone = 'default' }) {
   );
 }
 
-function CollectibleCard({ item, supportsHover, onOpen, onEdit, onDelete, viewConfig }) {
-  const classificationLabel = getCollectibleClassificationLabel(item);
-  return (
-    <ObjectPosterCard
-      title={item.title}
-      imagePath={item.image_path}
-      fallbackIcon={<Icons.Library />}
-      supportsHover={supportsHover}
-      onOpen={() => onOpen(item)}
-      leftBadges={[`#${item.id}`, classificationLabel]}
-      rightBadge={item.exclusive ? <span className="badge badge-brand text-[10px] backdrop-blur-sm bg-brand/20 border-brand/30">Exclusive</span> : null}
-      subtitle={`${item.franchise ? `${item.franchise} · ` : ''}${item.series ? `${item.series} · ` : ''}${item.event_title ? `${item.event_title} · ` : ''}${classificationLabel}`}
-      meta={
-        <>
-          <CollectibleTraitPills traits={item.collectible_traits} limit={3} />
-          {item.franchise ? <FilterPill>{item.franchise}</FilterPill> : null}
-          {item.artist ? <FilterPill>{item.artist}</FilterPill> : null}
-          {item.vendor ? <FilterPill>{item.vendor}</FilterPill> : null}
-          {item.booth ? <FilterPill>{item.booth}</FilterPill> : null}
-        </>
-      }
-      onEdit={() => onEdit(item)}
-      onDelete={() => onDelete(item.id)}
-    />
-  );
-}
-
 function DetailField({ label, children, className = '' }) {
   if (!children) return null;
   return (
@@ -123,31 +98,6 @@ function DetailField({ label, children, className = '' }) {
       <p className="label">{label}</p>
       <div className="mt-1 text-sm text-ink">{children}</div>
     </div>
-  );
-}
-
-function CollectibleRow({ item, supportsHover, onOpen, onEdit, onDelete, viewConfig }) {
-  const classificationLabel = getCollectibleClassificationLabel(item);
-  return (
-    <article className="group flex items-center gap-4 rounded-xl border border-edge bg-surface p-3 hover:border-muted hover:bg-raised transition-all duration-150 animate-fade-in cursor-pointer" onClick={() => onOpen(item)}>
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-edge bg-raised text-ghost"><Icons.Activity /></div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-ink truncate">{item.title}</p>
-        <div className="mt-1 flex flex-wrap gap-2">
-          <FilterPill>{classificationLabel}</FilterPill>
-          {item.franchise ? <FilterPill>{item.franchise}</FilterPill> : null}
-          {item.series ? <FilterPill>{item.series}</FilterPill> : null}
-          {item.event_title ? <FilterPill>{item.event_title}</FilterPill> : null}
-          {item.exclusive ? <FilterPill tone="brand">Exclusive</FilterPill> : null}
-        </div>
-        <CollectibleTraitPills traits={item.collectible_traits} limit={3} className="mt-2" />
-      </div>
-      <span className="text-xs text-ghost font-mono">#{item.id}</span>
-      <div className={cx('flex gap-2 transition-opacity duration-150', supportsHover ? 'opacity-0 group-hover:opacity-100' : 'opacity-100')}>
-        <button className="btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); onEdit(item); }}><Icons.Edit />Edit</button>
-        <button className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}><Icons.Trash /></button>
-      </div>
-    </article>
   );
 }
 
@@ -165,7 +115,11 @@ function CollectibleDetailDrawer({ collectibleId, apiCall, categories, events, o
     }
   }, [apiCall, collectibleId, viewConfig.apiBasePath]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    // Collectible detail state is loaded from the collectible API.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load();
+  }, [load]);
 
   const deleteCollectible = async () => {
     if (!item?.id) return;
@@ -278,7 +232,6 @@ function CollectibleDetailDrawer({ collectibleId, apiCall, categories, events, o
 function CollectibleDrawer({
   initial,
   events,
-  categories,
   saving,
   error,
   notice,
@@ -317,6 +270,8 @@ function CollectibleDrawer({
   const [activeTab, setActiveTab] = useState('core');
 
   useEffect(() => {
+    // The drawer form mirrors the selected collectible whenever the editor target changes.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setForm({
       ...DEFAULT_FORM,
       ...(initial || {}),
@@ -343,7 +298,7 @@ function CollectibleDrawer({
 
   return (
     <div className="fixed inset-0 z-50 flex">
-      <div className="absolute inset-0 bg-void/72" onClick={onClose} />
+      <button type="button" className="absolute inset-0 bg-void/72" onClick={onClose} aria-label="Close collectible editor" />
       <div className="relative ml-auto w-full max-w-[40rem] h-full bg-abyss border-l border-edge flex flex-col animate-slide-in">
         <div className="flex items-center gap-3 px-6 py-4 border-b border-edge shrink-0">
           <h2 className="section-title !text-xl">{initial?.id ? `Edit ${viewConfig.singularLabel}` : viewConfig.addLabel}</h2>
@@ -500,7 +455,7 @@ export default function CollectiblesView({ apiCall, onToast, focusTarget = null 
     } catch (_) {
       setCategories([]);
     }
-  }, [api]);
+  }, [api, apiBasePath]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -528,11 +483,25 @@ export default function CollectiblesView({ apiCall, onToast, focusTarget = null 
     }
   }, [api, apiBasePath, categoryFilter, eventFilter, exclusiveFilter, page, pageSize, search, sortDir, viewConfig.title]);
 
-  useEffect(() => { load(); }, [load]);
-  useEffect(() => { loadEvents(); }, [loadEvents]);
-  useEffect(() => { loadCategories(); }, [loadCategories]);
+  useEffect(() => {
+    // Collectible list state is synchronized from the collectible API and active filters.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load();
+  }, [load]);
+  useEffect(() => {
+    // Event filter options are loaded from the events API.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadEvents();
+  }, [loadEvents]);
+  useEffect(() => {
+    // Category filter options are loaded from the collectible API.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadCategories();
+  }, [loadCategories]);
   useEffect(() => {
     if (focusTarget?.entityType !== 'collectible' || !focusTarget?.entityId) return;
+    // External route focus opens the matching collectible drawer.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDetailId(Number(focusTarget.entityId));
   }, [focusTarget?.createdAt, focusTarget?.entityId, focusTarget?.entityType]);
   const closeDrawer = () => {
@@ -733,14 +702,30 @@ export default function CollectiblesView({ apiCall, onToast, focusTarget = null 
         {!loading && viewMode === 'cards' && items.length > 0 ? (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
             {items.map((item) => (
-              <CollectibleCard key={item.id} item={item} supportsHover={supportsHover} onOpen={(row) => setDetailId(row.id)} onEdit={setEditing} onDelete={deleteCollectible} viewConfig={viewConfig} />
+              <CollectibleCard
+                key={item.id}
+                item={item}
+                supportsHover={supportsHover}
+                onOpen={(row) => setDetailId(row.id)}
+                onEdit={setEditing}
+                onDelete={deleteCollectible}
+                classificationLabel={getCollectibleClassificationLabel(item)}
+              />
             ))}
           </div>
         ) : null}
         {!loading && viewMode === 'list' && items.length > 0 ? (
           <div className="space-y-2">
             {items.map((item) => (
-              <CollectibleRow key={item.id} item={item} supportsHover={supportsHover} onOpen={(row) => setDetailId(row.id)} onEdit={setEditing} onDelete={deleteCollectible} viewConfig={viewConfig} />
+              <CollectibleRow
+                key={item.id}
+                item={item}
+                supportsHover={supportsHover}
+                onOpen={(row) => setDetailId(row.id)}
+                onEdit={setEditing}
+                onDelete={deleteCollectible}
+                classificationLabel={getCollectibleClassificationLabel(item)}
+              />
             ))}
           </div>
         ) : null}
@@ -760,7 +745,6 @@ export default function CollectiblesView({ apiCall, onToast, focusTarget = null 
         <CollectibleDrawer
           initial={editing}
           events={events}
-          categories={categories.length > 0 ? categories : CATEGORY_OPTIONS}
           saving={saving}
           error={error}
           notice={notice}

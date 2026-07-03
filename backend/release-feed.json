@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.23.6",
+      "version": "3.23.6",
+      "date": null,
+      "status": null,
+      "summary": "This release continues the maintainability guardrails work where the current quality report shows clear value: `CollectiblesView.jsx` was the top remaining frontend lint pocket after `3.23.5`. The slice extracts small Collectibles UI pieces, cleans the touched row/drawer surface, and leaves Collectibles product behavior unchanged.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Extracted Collectible card and list-row UI from `CollectiblesView.jsx`.",
+            "Made Collectible list rows keyboard reachable while preserving existing open/edit/delete behavior.",
+            "Replaced the Collectible editor backdrop with a native button.",
+            "Documented remaining Collectibles API/focus synchronization effects instead of rewriting Collectibles data flow.",
+            "Reduced the full frontend quality baseline from `99` errors / `44` warnings to `89` errors / `39` warnings."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.23.5",
       "version": "3.23.5",
       "date": null,
@@ -185,26 +204,6 @@
             "Added Platform Settings controls for enabling analytics, setting the script URL, site id, and optional data attributes.",
             "Added a collectZ root-level analytics loader so enabled tracking is applied across auth, dashboard, and standalone app routes.",
             "Updated Cairn OpenAPI docs and helper coverage for the new settings contract."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.20.9",
-      "version": "3.20.9",
-      "date": null,
-      "status": null,
-      "summary": "This patch moves Plex reconciliation conflict review match-reason filtering into the backend query. The Plex Sync conflict review dropdown now reflects server-provided reason counts, and selected match reasons are applied before the endpoint row limit instead of filtering only the rows already loaded in the browser.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added `matchedBy` filtering to the Plex reconciliation conflict-review endpoint.",
-            "Returned match-reason counts for the selected open or resolved conflict-review status.",
-            "Updated the Plex Sync conflict review dropdown to use backend-provided reason counts.",
-            "Reloaded conflict review rows when the selected match reason changes.",
-            "Added source coverage for the backend filter contract and frontend filter wiring.",
-            "Added a local `ci:prepare` script that mirrors the GitHub prepare gate checks."
           ]
         }
       ]
