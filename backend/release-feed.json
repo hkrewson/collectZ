@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.23.9",
+      "version": "3.23.9",
+      "date": null,
+      "status": null,
+      "summary": "This release continues the maintainability guardrails work where the current quality report shows clear value: `ArtView.jsx` was the top remaining frontend lint pocket after `3.23.8`. The slice clears Art view accessibility and hook-baseline findings without changing Art product behavior.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Removed the stale default React import from the Art view.",
+            "Made Art list rows keyboard reachable while preserving row-level open behavior and edit/delete actions.",
+            "Replaced the Art editor backdrop click target with a native button control.",
+            "Documented intentional Art state synchronization effects for artist lookup, detail loading, editor form resets, event option loading, list loading, and external focus targets.",
+            "Reduced the full frontend quality baseline from `70` errors / `33` warnings to `60` errors / `32` warnings."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.23.8",
       "version": "3.23.8",
       "date": null,
@@ -174,31 +193,6 @@
             "Added frontend Vitest setup and `npm --prefix frontend run test:unit`.",
             "Extracted comic issue series/order helpers from `LibraryView.jsx` into `frontend/src/lib/comicIssueOrder.js` with focused Vitest coverage.",
             "Documented the strangler extraction rule in `docs/wiki/58-Maintainability-Guardrails.md`."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.22.0",
-      "version": "3.22.0",
-      "date": null,
-      "status": null,
-      "summary": "This release adds a Comic-Con field-test workflow inside Events so an event can become a mobile hunt list, quick haul capture surface, and post-con cleanup queue. The slice is additive and keeps collectZ on the `3.x` line because it builds on existing Events, Wishlist, Art, Collectibles, purchased-item, and companion snapshot contracts.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added nullable `booth` support to wishlist items.",
-            "Added `event_id` filtering to the Wishlist list API.",
-            "Added `GET /api/events/:id/field-kit` for event-scoped hunt items, tracked purchases, cleanup gaps, and a secret-free companion snapshot summary.",
-            "Added a Comic-Con field kit panel to the Event drawer.",
-            "Refined the Event drawer into Overview, Hunt, Haul, Plans, Purchases, and Cleanup tabs so the Comic-Con field workflow is available without turning the drawer into one long scroll.",
-            "Flattened the Hunt, Plans, and Purchases tabs into divider-led rows and inline readbacks so event workflow sections match the rest of the drawer surface.",
-            "Added Con Hunt actions for event-linked wishlist items: mark ordered, acquired, or dismissed; edit vendor, booth, and notes; launch quick haul capture.",
-            "Added SDCC source breakout in Hunt so one exclusives article can be manually split into multiple item-level wants with vendor, booth, edition, price, notes, and source provenance exposed as a compact More info link.",
-            "Added Quick Haul Capture for event-linked Art and Collectibles, including purchased-item linking and optional wishlist acquisition.",
-            "Added Post-Con Cleanup readback for linked purchases missing vendor, booth, price, or photo.",
-            "Hardened the backend container startup path so reused local upload volumes are writable by the non-root Node process."
           ]
         }
       ]

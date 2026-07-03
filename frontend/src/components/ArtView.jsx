@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CheckboxControl, CollectionPaginationFooter, CollectibleTraitPills, CollectibleTraitReadback, CoverImagePicker, DetailDrawerShell, DrawerBackdrop, DrawerMetadataList, FilterMenu, Icons, PageHeaderSearchToolbar, Spinner, SectionTabPanel, SectionTabs, buildDrawerMetadataRenderItems, buildObjectDrawerMetadataEditorNodes, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
 import {
   buildObjectDrawerMetadataRecords
@@ -107,6 +107,8 @@ function ArtistRecordPicker({ apiCall, form, setForm }) {
 
   useEffect(() => {
     if (artistName.length < 2) {
+      // Clear stale lookup results immediately when the artist query is no longer searchable.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMatches([]);
       return undefined;
     }
@@ -296,8 +298,20 @@ function ArtCard({ item, supportsHover, onOpen, onEdit, onDelete }) {
 function ArtRow({ item, supportsHover, onOpen, onEdit, onDelete }) {
   const mediumLabel = ART_MEDIUM_OPTIONS.find((option) => option.value === item.medium)?.label || null;
   const printEdition = formatPrintEdition(item);
+  const openRow = () => onOpen(item);
+  const handleRowKeyDown = (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    openRow();
+  };
   return (
-    <article className="group flex items-center gap-4 rounded-xl border border-edge bg-surface p-3 hover:border-muted hover:bg-raised transition-colors duration-150 animate-fade-in cursor-pointer" onClick={() => onOpen(item)}>
+    <div
+      className="group flex items-center gap-4 rounded-xl border border-edge bg-surface p-3 hover:border-muted hover:bg-raised transition-colors duration-150 animate-fade-in cursor-pointer"
+      role="button"
+      tabIndex={0}
+      onClick={openRow}
+      onKeyDown={handleRowKeyDown}
+    >
       <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-edge bg-raised text-ghost"><Icons.Activity /></div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-ink truncate">{item.title}</p>
@@ -319,7 +333,7 @@ function ArtRow({ item, supportsHover, onOpen, onEdit, onDelete }) {
         <button className="btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); onEdit(item); }}><Icons.Edit />Edit</button>
         <button className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}><Icons.Trash /></button>
       </div>
-    </article>
+    </div>
   );
 }
 
@@ -337,7 +351,11 @@ function ArtDetailDrawer({ artId, apiCall, events, onClose, onEdit, onDeleted, o
     }
   }, [apiCall, artId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    // Detail drawers synchronize the selected art id with the latest backend record.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load();
+  }, [load]);
 
   const deleteArt = async () => {
     if (!item?.id) return;
@@ -587,6 +605,8 @@ function ArtDrawer({ initial, events, saving, error, notice, apiCall, onClose, o
   const [activeTab, setActiveTab] = useState('core');
 
   useEffect(() => {
+    // The editor form intentionally mirrors the record being opened for add/edit flows.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setForm({
       ...DEFAULT_FORM,
       ...(initial || {}),
@@ -639,7 +659,7 @@ function ArtDrawer({ initial, events, saving, error, notice, apiCall, onClose, o
 
   return (
     <div className="fixed inset-0 z-50 flex">
-      <div className="absolute inset-0 bg-void/72" onClick={onClose} />
+      <button type="button" aria-label="Close art editor" className="absolute inset-0 bg-void/72" onClick={onClose} />
       <div className="relative ml-auto w-full max-w-[40rem] h-full bg-abyss border-l border-edge flex flex-col animate-slide-in">
         <div className="flex items-center gap-3 px-6 py-4 border-b border-edge shrink-0">
           <h2 className="section-title !text-xl">{initial?.id ? 'Edit Art' : 'Add Art'}</h2>
@@ -835,10 +855,20 @@ export default function ArtView({ apiCall, onToast, focusTarget = null }) {
     }
   }, [api, eventFilter, exclusiveFilter, page, pageSize, search, sortDir]);
 
-  useEffect(() => { load(); }, [load]);
-  useEffect(() => { loadEvents(); }, [loadEvents]);
+  useEffect(() => {
+    // Main Art list synchronizes filters and pagination with backend results.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load();
+  }, [load]);
+  useEffect(() => {
+    // Event options are runtime data shared by filters and art purchase context.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadEvents();
+  }, [loadEvents]);
   useEffect(() => {
     if (focusTarget?.entityType !== 'art' || !focusTarget?.entityId) return;
+    // Capture/event workflows can request that Art opens directly to a created item.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDetailId(Number(focusTarget.entityId));
   }, [focusTarget?.createdAt, focusTarget?.entityId, focusTarget?.entityType]);
   const closeDrawer = () => {
