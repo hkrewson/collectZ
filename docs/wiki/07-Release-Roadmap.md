@@ -6,6 +6,43 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.23.11 — Space Manager Accessibility and Hook Baseline Cleanup
+
+**Goal:** Continue the maintainability foundation only where the current quality report shows clear value by clearing the top remaining contained frontend lint pocket in `SpaceManagerView.jsx` without changing workspace settings, member management, invite management, activity, backup, export, or integration behavior.
+
+### Scope
+
+- Remove stale imports from the Space Manager view.
+- Document Space Manager effects that intentionally synchronize selected workspace form state, active-scope resets, member loading, and invite loading.
+- Keep invite expiry filtering/rendering pure by using stable invite-status time state instead of render-time clock reads.
+- Remove the unnecessary non-interactive member-menu click handler while preserving member action buttons.
+- Preserve direct Space Manager dashboard routes while backend-owned scope data finishes loading.
+- Preserve workspace role checks, active-scope refresh behavior, invite creation/revocation, password reset links, and manager tab behavior.
+- Keep broader Space Manager decomposition, workspace auth changes, and member/invite UX changes deferred.
+
+### Acceptance Criteria
+
+- `npm run quality:frontend:changed` reports zero ESLint findings and zero source-size warnings for the touched frontend files.
+- `npm run quality:frontend` shows a lower full ESLint baseline than `3.23.10`.
+- Frontend build and focused Space Manager browser regression remain green.
+- Existing Docker-first release verification remains intact.
+
+### Active Slice Notes
+
+- This is a targeted `3.23.x` cleanup slice selected because `SpaceManagerView.jsx` was tied for the highest-count file in the current quality report after `3.23.10`, and it is more contained than the larger Admin Integrations file.
+- This slice intentionally avoids workspace product work and only touches the import/hook/purity/a11y quality surface plus the direct route guard needed to preserve Space Manager browser behavior.
+
+### Closeout
+
+- Status: completed in `3.23.11`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/58-Maintainability-Guardrails.md`, and `docs/releases/v3.23.11.md`.
+- Runtime evidence: Docker backend and frontend containers rebuilt on the canonical local `collectz-private` platform stack at `http://localhost:3201`; `/api/health` reports frontend, backend, and build `3.23.11`; backend, frontend, Postgres, Cairn, and Cairn Postgres containers are healthy; authenticated Help > Releases smoke served `3.23.11` as the latest entry.
+- Verification: `npm run quality:frontend` passed in report-first mode and reported the reduced baseline of `44` ESLint errors, `29` warnings, Prettier findings, and `0` source-size warnings; `npm run quality:frontend:changed` passed with `0` ESLint errors, `0` warnings, and `0` source-size warnings for the touched Space Manager and app-shell route guard surface while preserving report-first Prettier findings for legacy formatting debt; frontend Vitest passed with `1` file and `4` tests; frontend production build passed with the existing large-chunk warning; backend unit/source suite passed with `336` checks; OpenAPI validation passed; focused Space Manager browser smoke passed against `http://localhost:3201`; observability release evidence refreshed with `9/9` checks passed; `npm run release:local-gate` passed `12/12` standard gates with the `collectz-private` compose project and `http://localhost:3201` preflight base URL; `git diff --check` passed through the local gate.
+- Blocked/unverified: The broader `tests/playwright/specs/integrations.browser.spec.js` run still has unrelated platform-admin route and duplicate-text strictness failures in the local stack; the direct Space Manager route and workspace integrations smoke passed. Local preflight marks secure-cookie compose smoke environment-dependent because the local development stack uses `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`. Hosted CI still needs to confirm `compose-smoke`, `rbac-regression`, hosted full `browser-regression`, `runtime-smoke` core/control-plane, `dependency-scan`, `secret-scan`, and `image-security-and-sbom`.
+- Files changed: `app-meta.json`, `backend/app-meta.json`, `backend/package-lock.json`, `backend/package.json`, `backend/release-feed.json`, `docs/releases/v3.23.11.md`, `docs/wiki/07-Release-Roadmap.md`, `frontend/package-lock.json`, `frontend/package.json`, `frontend/src/app-meta.json`, `frontend/src/App.jsx`, `frontend/src/components/SpaceManagerView.jsx`, `preflight-go-no-go.md`, and refreshed release evidence artifacts.
+- Risks/follow-ups: `SpaceManagerView.jsx` and the touched app-shell route guard are lint-clean, but the full frontend baseline still has legacy ESLint and Prettier findings. The platform Admin Integrations browser spec failures should be handled separately with the Admin Integrations cleanup slice rather than folded into this Space Manager slice.
+- What remains in the milestone: no implementation work remains for the `3.23.11` cleanup slice; hosted CI/release gates remain required before push-ready release promotion.
+
 ## 3.23.10 — App Shell Route and Scope Hook Baseline Cleanup
 
 **Goal:** Continue the maintainability foundation only where the current quality report shows clear value by clearing the top remaining frontend lint pocket in `App.jsx` without changing auth, routing, dashboard tab, workspace scope, feature-flag, or now-playing behavior.

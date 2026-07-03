@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CheckboxControl, SectionTabs } from './app/AppPrimitives';
 import ActivityFeedView from './ActivityFeedView';
 import AdminIntegrationsView from './AdminIntegrationsView';
@@ -54,12 +54,15 @@ export default function SpaceManagerView({
   const [managerTab, setManagerTab] = useState('settings');
   const [peopleTab, setPeopleTab] = useState('members');
   const [openMemberMenuId, setOpenMemberMenuId] = useState(null);
+  const [inviteStatusNow, setInviteStatusNow] = useState(() => Date.now());
   const memberLoadSeqRef = useRef(0);
   const inviteLoadSeqRef = useRef(0);
 
   const canManage = ['owner', 'admin'].includes(activeMembershipRole);
 
   useEffect(() => {
+    // The workspace settings form mirrors the currently selected workspace.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setEditingSpace({
       name: activeSpace?.name || ''
     });
@@ -72,6 +75,8 @@ export default function SpaceManagerView({
   }, [activeMembershipRole]);
 
   useEffect(() => {
+    // Active workspace or permission changes reset workspace-management local state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMembers([]);
     setInvites([]);
     setInviteUrl('');
@@ -83,6 +88,7 @@ export default function SpaceManagerView({
     setOpenMemberMenuId(null);
     setLoadError('');
     setLoading(Boolean(activeSpaceId && canManage));
+    setInviteStatusNow(Date.now());
   }, [activeSpaceId, canManage]);
 
   const loadMembers = useCallback(async () => {
@@ -149,10 +155,14 @@ export default function SpaceManagerView({
   }, [activeSpaceId, apiCall, canManage]);
 
   useEffect(() => {
+    // Members are backend-owned workspace state keyed by the active scope.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadMembers();
   }, [loadMembers]);
 
   useEffect(() => {
+    // Invites are backend-owned workspace state keyed by the active scope.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadInvites();
   }, [loadInvites]);
 
@@ -297,8 +307,8 @@ export default function SpaceManagerView({
 
   const visibleInvites = useMemo(() => {
     if (showInviteHistory) return invites;
-    return invites.filter((invite) => !invite.used && !invite.revoked && new Date(invite.expires_at).getTime() > Date.now());
-  }, [invites, showInviteHistory]);
+    return invites.filter((invite) => !invite.used && !invite.revoked && new Date(invite.expires_at).getTime() > inviteStatusNow);
+  }, [inviteStatusNow, invites, showInviteHistory]);
 
   return (
     <div className="h-full overflow-y-auto p-4 sm:p-6 space-y-5">
@@ -492,7 +502,6 @@ export default function SpaceManagerView({
                               {Number(openMemberMenuId) === Number(member.id) ? (
                                 <div
                                   className="absolute right-[calc(100%+4px)] top-1/2 z-10 min-w-[190px] -translate-y-1/2 rounded-xl border border-edge bg-abyss p-2 shadow-lg"
-                                  onClick={(event) => event.stopPropagation()}
                                 >
                                   <p className="px-3 py-2 text-[11px] font-medium uppercase tracking-[0.18em] text-ghost">Change Role</p>
                                   <div className="space-y-1">
@@ -621,7 +630,10 @@ export default function SpaceManagerView({
                     id="space-show-invite-history"
                     checked={showInviteHistory}
                     labelClassName="min-h-0 text-xs text-ghost"
-                    onChange={(e) => setShowInviteHistory(e.target.checked)}
+                    onChange={(e) => {
+                      setInviteStatusNow(Date.now());
+                      setShowInviteHistory(e.target.checked);
+                    }}
                   >
                     Show invite history
                   </CheckboxControl>
@@ -641,7 +653,7 @@ export default function SpaceManagerView({
                         <div>Actions</div>
                       </div>
                       {visibleInvites.map((invite) => {
-                        const expired = new Date(invite.expires_at).getTime() <= Date.now();
+                        const expired = new Date(invite.expires_at).getTime() <= inviteStatusNow;
                         return (
                           <div key={invite.id} className="py-4 border-t border-edge/60 first:border-t-0">
                             <div className="grid min-w-full grid-cols-[minmax(180px,2fr)_minmax(88px,0.8fr)_minmax(140px,1fr)_minmax(104px,0.8fr)_minmax(88px,0.7fr)] gap-4 items-start">

@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.23.11",
+      "version": "3.23.11",
+      "date": null,
+      "status": null,
+      "summary": "This release continues the maintainability guardrails work where the current quality report shows clear value: `SpaceManagerView.jsx` was tied for the top remaining frontend lint pocket after `3.23.10`, and it was the more contained next slice. The slice clears Space Manager import, hook-baseline, purity, and accessibility findings without changing workspace management behavior.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Removed the stale default React import from the Space Manager view.",
+            "Documented intentional Space Manager state synchronization effects for selected workspace form state, active-scope resets, member loading, and invite loading.",
+            "Kept invite expiry filtering and rendering pure by using stable invite-status time state instead of render-time clock reads.",
+            "Removed an unnecessary non-interactive member-menu click handler while preserving member action buttons.",
+            "Preserved direct `/dashboard?tab=space-manage` navigation while backend-owned scope data finishes loading.",
+            "Reduced the full frontend quality baseline from `52` errors / `30` warnings to `44` errors / `29` warnings."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.23.10",
       "version": "3.23.10",
       "date": null,
@@ -172,24 +192,6 @@
             "Removed unused Sidebar destructuring for no-longer-used space props and derived platform-group state.",
             "Added `eslint-plugin-react` with `react/jsx-uses-vars` so JSX component usage is recognized by ESLint.",
             "Reduced the full frontend quality baseline from `200` errors / `356` warnings to `170` errors / `65` warnings."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.23.1",
-      "version": "3.23.1",
-      "date": null,
-      "status": null,
-      "summary": "This release tunes the maintainability guardrails added in `3.23.0` so they are more useful during everyday work. It adds a changed-file quality command and makes the baseline report show the highest-volume rules and files without turning lint into a blocking gate yet.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added `npm run quality:frontend:changed` for report-first checks against changed, staged, and untracked files.",
-            "Enhanced the frontend quality report with top ESLint rule and file summaries.",
-            "Tuned frontend ESLint so legacy `no-unused-vars` findings are warnings while React hooks and accessibility rules remain visible.",
-            "Updated maintainability guardrails documentation for the changed-file workflow."
           ]
         }
       ]

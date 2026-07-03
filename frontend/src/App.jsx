@@ -333,6 +333,11 @@ export default function App() {
   ]);
 
   useEffect(() => {
+    const waitingForSpaceScope = activeTab === 'space-manage'
+      && !activeMembershipRole
+      && !canManageActiveSpace
+      && spaces.length === 0;
+    if (waitingForSpaceScope) return;
     if (
       activeTab === 'space-manage'
       && !canManageActiveSpace
@@ -356,6 +361,7 @@ export default function App() {
     }
   }, [
     activeTab,
+    activeMembershipRole,
     activeSpaceId,
     canManageActiveSpace,
     fallbackManageableSpace,
@@ -363,6 +369,7 @@ export default function App() {
     featureFlags.events_enabled,
     productEdition,
     platformBridgeEnabled,
+    spaces.length,
     supportStaffInEdition,
     user?.role
   ]);
