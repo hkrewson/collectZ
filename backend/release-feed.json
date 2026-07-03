@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.23.10",
+      "version": "3.23.10",
+      "date": null,
+      "status": null,
+      "summary": "This release continues the maintainability guardrails work where the current quality report shows clear value: `App.jsx` was the top remaining frontend lint pocket after `3.23.9`. The slice clears app-shell import, empty-catch, hook-baseline, and dependency findings without changing routing, auth, workspace scope, feature flags, dashboard tab, or now-playing behavior.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Removed the stale default React import from the app shell.",
+            "Kept local logout cleanup explicit when the backend logout request has already expired.",
+            "Documented intentional app-shell state synchronization effects for route normalization, backend-owned scope refresh, feature flag loading, retired tab redirects, feature-gated dashboard destinations, manageable workspace switching, and edition-safe dashboard tab selection.",
+            "Included support-staff edition state in the safe-tab effect dependencies.",
+            "Reduced the full frontend quality baseline from `60` errors / `32` warnings to `52` errors / `30` warnings."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.23.9",
       "version": "3.23.9",
       "date": null,
@@ -171,28 +190,6 @@
             "Enhanced the frontend quality report with top ESLint rule and file summaries.",
             "Tuned frontend ESLint so legacy `no-unused-vars` findings are warnings while React hooks and accessibility rules remain visible.",
             "Updated maintainability guardrails documentation for the changed-file workflow."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.23.0",
-      "version": "3.23.0",
-      "date": null,
-      "status": null,
-      "summary": "This release starts the maintainability guardrails foundation after the Comic-Con readiness build. It adds report-first frontend quality tooling, a Vitest unit-test seam, and the first small behavior-preserving extraction from `LibraryView.jsx` without changing the Comic-Con field-test workflow.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Promoted the maintainability guardrails work from backlog into the numbered `3.23.0` roadmap milestone.",
-            "Added ESLint flat config with React hooks and JSX accessibility rules for `frontend/src`.",
-            "Added Prettier check configuration without mass-formatting existing files.",
-            "Added `npm run quality:frontend`, which writes ignored local quality reports and exits successfully while the baseline is still being tuned.",
-            "Added warning-only line-count reporting for the largest source files identified by review.",
-            "Added frontend Vitest setup and `npm --prefix frontend run test:unit`.",
-            "Extracted comic issue series/order helpers from `LibraryView.jsx` into `frontend/src/lib/comicIssueOrder.js` with focused Vitest coverage.",
-            "Documented the strangler extraction rule in `docs/wiki/58-Maintainability-Guardrails.md`."
           ]
         }
       ]

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import appMeta from './app-meta.json';
 import AuthPageView from './components/AuthPage';
 import DashboardShell from './components/app/DashboardShell';
@@ -104,6 +104,8 @@ export default function App() {
   useEffect(() => {
     if (route !== 'dashboard' && route !== 'now-playing' && user) {
       window.history.replaceState({}, '', dashboardUrl(activeTab, activeIntegrationSection, dashboardRouteOptions));
+      // Authenticated users who land on legacy auth routes are normalized back to the dashboard shell.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setRoute('dashboard');
     }
   }, [route, user, activeTab, activeIntegrationSection, dashboardRouteOptions]);
@@ -152,7 +154,9 @@ export default function App() {
   }, [activeIntegrationSection, dashboardRouteOptions]);
 
   const logout = useCallback(async () => {
-    try { await apiCall('post', '/auth/logout'); } catch (_) {}
+    try { await apiCall('post', '/auth/logout'); } catch (_) {
+      // Local session cleanup should still run if the server-side logout has already expired.
+    }
     setUser(null);
     setAuthChecked(true);
     setSpaces([]);
@@ -259,25 +263,34 @@ export default function App() {
 
   useEffect(() => {
     if (!(route === 'dashboard' && authChecked && user)) return;
+    // Dashboard scope is backend-owned session state and must refresh after auth/route changes.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadAuthScope({ silent: true });
   }, [route, authChecked, user, loadAuthScope]);
 
   useEffect(() => {
     if (!(route === 'dashboard' && authChecked && user)) return;
+    // Feature flags are runtime state scoped to the active workspace.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadClientFeatureFlags();
   }, [route, authChecked, user, activeSpaceId, loadClientFeatureFlags]);
 
   useEffect(() => {
     if (activeTab === 'library-import-review') {
+      // The retired standalone import-review route now resolves into the import dashboard tab.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveTab('library-import');
     }
   }, [activeTab]);
 
   useEffect(() => {
     if (featureFlags.collectibles_enabled === false && (activeTab === 'library-collectibles' || activeTab === 'library-art')) {
+      // Feature flags can remove dashboard destinations after the URL state has already been read.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveTab('library-movies');
     }
     if (featureFlags.events_enabled === false && activeTab === 'library-events') {
+      // Feature flags can remove dashboard destinations after the URL state has already been read.
       setActiveTab('library-movies');
     }
   }, [activeTab, featureFlags.collectibles_enabled, featureFlags.events_enabled]);
@@ -304,6 +317,8 @@ export default function App() {
     ) {
       return;
     }
+    // Space management requires a manageable workspace; switch silently when the current one is read-only.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     handleSpaceSelect(fallbackManageableSpace.id, { silent: true });
   }, [
     activeSpaceId,
@@ -334,7 +349,11 @@ export default function App() {
       showEvents: featureFlags.events_enabled !== false,
       platformBridgeEnabled
     });
-    if (nextTab !== activeTab) setActiveTab(nextTab);
+    if (nextTab !== activeTab) {
+      // Dashboard availability is derived from edition, flags, role, and active-space permissions.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setActiveTab(nextTab);
+    }
   }, [
     activeTab,
     activeSpaceId,
@@ -344,6 +363,7 @@ export default function App() {
     featureFlags.events_enabled,
     productEdition,
     platformBridgeEnabled,
+    supportStaffInEdition,
     user?.role
   ]);
 
