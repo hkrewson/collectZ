@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.23.13",
+      "version": "3.23.13",
+      "date": null,
+      "status": null,
+      "summary": "This release continues the maintainability guardrails work where the current quality report shows clear value: `LibraryLoansView.jsx` was the top remaining frontend lint pocket after `3.23.12`. The slice clears Library Loans import, accessibility, and hook-baseline findings without changing loan tracking behavior.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Removed stale import and unused prop surface from the Library Loans view.",
+            "Replaced the loan editor backdrop click target with a native button control.",
+            "Initialized the loan editor from the selected loan without a form synchronization effect.",
+            "Moved filter/search pagination resets into the user-input paths that trigger them.",
+            "Documented the loan-list fetch effect that intentionally synchronizes backend-owned loan state from the active filter/page query.",
+            "Reduced the full frontend quality baseline from `37` errors / `27` warnings to `31` errors / `25` warnings."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.23.12",
       "version": "3.23.12",
       "date": null,
@@ -172,27 +192,6 @@
             "Replaced collection editor/detail overlay divs with native button backdrops while preserving the media editor overlay's existing non-focusable click-to-close behavior.",
             "Tightened safe memo/effect dependencies and documented remaining external synchronization effects.",
             "Reduced the full frontend quality baseline from `153` errors / `61` warnings to `115` errors / `47` warnings."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.23.3",
-      "version": "3.23.3",
-      "date": null,
-      "status": null,
-      "summary": "This release continues the maintainability guardrails work by cleaning shared app primitives before the next large-view extraction pass. It removes shared accessibility lint failures around overlays, pagination labels, and clickable poster cards, and trims React hook reset-effect noise in shared drawer/media primitives.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Replaced clickable overlay `div` elements in shared drawer and camera primitives with native buttons.",
-            "Associated the shared pagination page-size label with its select control.",
-            "Made interactive poster cards render with native button semantics when they are clickable or selection-aware.",
-            "Derived cover-image preview URLs and drawer overview expanded state without reset effects.",
-            "Added a small keyed-draft helper so collectible metadata editors can reset draft state when their owner/trait key changes without synchronous reset effects.",
-            "Documented narrow external-system effect exceptions for mobile shell DOM/media-query synchronization and relationship search/reset state.",
-            "Reduced the full frontend quality baseline from `170` errors / `65` warnings to `153` errors / `61` warnings."
           ]
         }
       ]

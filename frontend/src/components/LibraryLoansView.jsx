@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { CollectionPaginationFooter, FixedPageShell, PageHeaderSearchToolbar, SectionTabs, posterUrl } from './app/AppPrimitives';
 
 function formatDate(value) {
@@ -159,22 +159,11 @@ function LoanEditor({ loan, onSave, onClose, saving = false }) {
     notes: loan?.notes || ''
   });
 
-  useEffect(() => {
-    setForm({
-      borrower_name: loan?.borrower_name || '',
-      borrower_email: loan?.borrower_email || '',
-      loaned_at: String(loan?.loaned_at || '').slice(0, 10),
-      due_at: String(loan?.due_at || '').slice(0, 10),
-      loan_format: loan?.loan_format || '',
-      notes: loan?.notes || ''
-    });
-  }, [loan]);
-
   if (!loan) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-      <div className="absolute inset-0 bg-void/72" onClick={onClose} />
+      <button type="button" className="absolute inset-0 bg-void/72" aria-label="Close loan editor" onClick={onClose} />
       <div className="relative z-10 w-full max-w-lg rounded-lg border border-edge bg-abyss">
         <div className="border-b border-edge px-5 py-4">
           <h2 className="text-lg font-semibold text-ink">Edit Loan</h2>
@@ -263,7 +252,6 @@ function LoanEditor({ loan, onSave, onClose, saving = false }) {
 export default function LibraryLoansView({
   apiCall,
   onToast,
-  activeLibrary = null,
   Icons,
   Spinner
 }) {
@@ -285,13 +273,13 @@ export default function LibraryLoansView({
   const [historyLoadingMediaId, setHistoryLoadingMediaId] = useState(null);
 
   useEffect(() => {
-    const handle = window.setTimeout(() => setDebouncedSearch(searchInput.trim()), 250);
+    const handle = window.setTimeout(() => {
+      setDebouncedSearch(searchInput.trim());
+      setPage(1);
+      setExpandedLoanId(null);
+    }, 250);
     return () => window.clearTimeout(handle);
   }, [searchInput]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [status, debouncedSearch]);
 
   const loadLoans = useCallback(async (targetPage = page) => {
     setLoading(true);
@@ -333,12 +321,10 @@ export default function LibraryLoansView({
   }, [apiCall, debouncedSearch, page, status]);
 
   useEffect(() => {
+    // Loans are backend-owned; this effect synchronizes list state with the active filter/page query.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadLoans(page);
   }, [loadLoans, page]);
-
-  useEffect(() => {
-    setExpandedLoanId(null);
-  }, [status, debouncedSearch, page]);
 
   const handleReturn = async (loanId) => {
     if (!loanId) return;
@@ -435,7 +421,11 @@ export default function LibraryLoansView({
             { id: 'all', label: 'All' }
           ]}
           activeId={status}
-          onChange={setStatus}
+          onChange={(nextStatus) => {
+            setStatus(nextStatus);
+            setPage(1);
+            setExpandedLoanId(null);
+          }}
           semantics="buttons"
           showDivider={false}
           ariaLabel="Loan status filters"
@@ -656,6 +646,7 @@ export default function LibraryLoansView({
 
       {editingLoan ? (
         <LoanEditor
+          key={editingLoan.id}
           loan={editingLoan}
           onClose={() => setEditingLoan(null)}
           onSave={handleSave}

@@ -6,6 +6,43 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.23.13 — Library Loans Accessibility and Hook Baseline Cleanup
+
+**Goal:** Continue the maintainability foundation only where the current quality report shows clear value by clearing the top remaining frontend lint pocket in `LibraryLoansView.jsx` without changing loan tracking, reminder, return, pagination, or loan-history behavior.
+
+### Scope
+
+- Remove stale imports and unused props from the Library Loans view.
+- Replace the loan editor backdrop click target with a native button control.
+- Initialize the loan editor from the selected loan without a form synchronization effect.
+- Move filter/search pagination resets into the user-input paths that trigger them.
+- Document the loan-list fetch effect that intentionally synchronizes backend-owned loan state from the active filter/page query.
+- Preserve loan status filters, borrower search, reminders, return marking, loan edit saves, loan history expansion, and pagination behavior.
+- Keep broader Library Loans UX changes, loan API changes, and library-scope filtering changes deferred.
+
+### Acceptance Criteria
+
+- `npm run quality:frontend:changed` reports zero ESLint findings and zero source-size warnings for the touched frontend files.
+- `npm run quality:frontend` shows a lower full ESLint baseline than `3.23.12`.
+- Frontend build and focused Library Loans smoke remain green.
+- Existing Docker-first release verification remains intact.
+
+### Active Slice Notes
+
+- This is a targeted `3.23.x` cleanup slice selected because `LibraryLoansView.jsx` is the highest-count file in the current quality report after `3.23.12`.
+- This slice intentionally avoids Library Loans product work and only touches the import/a11y/hook-reset quality surface.
+
+### Closeout
+
+- Status: completed in `3.23.13`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/58-Maintainability-Guardrails.md`, and `docs/releases/v3.23.13.md`.
+- Runtime evidence: Docker backend and frontend containers rebuilt on the canonical local `collectz-private` platform stack at `http://localhost:3201`; `/api/health` reports frontend, backend, and build `3.23.13`; backend, frontend, Postgres, Cairn, and Cairn Postgres containers are healthy; authenticated Help > Releases smoke served `3.23.13` as the latest entry.
+- Verification: `npm run quality:frontend` passed in report-first mode and reported the reduced baseline of `31` ESLint errors, `25` warnings, Prettier findings, and `0` source-size warnings; `npm run quality:frontend:changed` passed with `0` ESLint errors, `0` warnings, and `0` source-size warnings for the touched Library Loans surface while preserving report-first Prettier findings for legacy formatting debt; frontend Vitest passed with `1` file and `4` tests; frontend production build passed with the existing large-chunk warning; backend unit/source suite passed with `336` checks; OpenAPI validation passed; focused Library Loans mobile smoke passed against `http://localhost:3201`; observability release evidence refreshed with `9/9` checks passed; `npm run release:local-gate` passed `12/12` standard gates with the `collectz-private` compose project and `http://localhost:3201` preflight base URL; `git diff --check` passed through the local gate.
+- Blocked/unverified: The broader local `tests/playwright/specs/admin-shell.browser.spec.js -g "mobile utility pages keep headers stable"` run still has an unrelated Admin Integrations route/header failure on its final page leg; the direct Library Loans mobile smoke for this slice passed. Local preflight marks secure-cookie compose smoke environment-dependent because the local development stack uses `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`; it also marks secret scan, browser regression, and image security/SBOM as CI-only or not run by the local preflight helper. Hosted CI still needs to confirm `compose-smoke`, `rbac-regression`, hosted full `browser-regression`, `runtime-smoke` core/control-plane, `dependency-scan`, `secret-scan`, and `image-security-and-sbom`.
+- Files changed: `app-meta.json`, `backend/app-meta.json`, `backend/package-lock.json`, `backend/package.json`, `backend/release-feed.json`, `docs/releases/v3.23.13.md`, `docs/wiki/07-Release-Roadmap.md`, `frontend/package-lock.json`, `frontend/package.json`, `frontend/src/app-meta.json`, `frontend/src/components/LibraryLoansView.jsx`, `preflight-go-no-go.md`, and refreshed release evidence artifacts.
+- Risks/follow-ups: `LibraryLoansView.jsx` is lint-clean for the touched import/a11y/hook-reset surface, but the full frontend baseline still has legacy ESLint and Prettier findings. The Admin Integrations mobile utility spec failure should be repaired separately so it is not conflated with Library Loans cleanup.
+- What remains in the milestone: no implementation work remains for the `3.23.13` cleanup slice; hosted CI/release gates remain required before push-ready release promotion.
+
 ## 3.23.12 — Admin Integrations Hook Baseline Cleanup
 
 **Goal:** Continue the maintainability foundation only where the current quality report shows clear value by clearing the top remaining frontend lint pocket in `AdminIntegrationsView.jsx` without changing integration settings, feature-flag controls, Plex diagnostics, observability controls, or workspace/platform integration behavior.
