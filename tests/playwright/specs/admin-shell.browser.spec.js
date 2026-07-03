@@ -1,4 +1,5 @@
 'use strict';
+/* global document, PopStateEvent, window */
 const { test, expect } = require('@playwright/test');
 const { ensureSavedAdminCredentials, createAuthenticatedRequestContext, fetchCsrfToken, postWithCsrf, requestWithCsrf } = require('../helpers/auth');
 const { deleteMediaByExactTitle } = require('../helpers/media');
@@ -1262,7 +1263,7 @@ test.describe('admin shell browser regressions', () => {
       createdIds.push(Number(movie.id));
 
       await signInThroughUi(page, adminCredentials);
-      await page.goto('/dashboard?tab=admin-merges');
+      await page.getByRole('button', { name: 'Review', exact: true }).click();
 
       await expect(page.getByRole('heading', { name: 'Merge Review' })).toBeVisible();
       await expect(page.getByRole('heading', { name: 'Recommended pairs' })).toBeVisible();
@@ -1409,7 +1410,7 @@ test.describe('admin shell browser regressions', () => {
       }, 201);
 
       await signInThroughUi(page, adminCredentials);
-      await page.goto('/dashboard?tab=admin-merges');
+      await page.getByRole('button', { name: 'Review', exact: true }).click();
 
       await page.getByRole('tab', { name: 'Collections' }).click();
       await page.getByPlaceholder('Search duplicate collections').fill(collectionTitle);

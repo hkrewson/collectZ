@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SectionTabPanel, SectionTabs } from './app/AppPrimitives';
 
 function formatValue(value) {
@@ -1052,7 +1052,7 @@ export default function AdminMergeReviewView({
     () => SUPPRESSED_OUTCOME_OPTIONS.find((option) => option.value === suppressedOutcomeFilter)?.label || 'All suppressed pairs',
     [suppressedOutcomeFilter]
   );
-  const captureReviewLaneState = (source, options = {}) => ({
+  const captureReviewLaneState = useCallback((source, options = {}) => ({
     source,
     sectionFilter,
     discoverySearch: String(options.discoverySearch ?? discoverySearch).trim(),
@@ -1062,8 +1062,16 @@ export default function AdminMergeReviewView({
     activeComicGroupLabel: String(options.activeComicGroupLabel ?? activeComicGroupLabel ?? ''),
     suppressedOutcomeFilter: String(options.suppressedOutcomeFilter ?? suppressedOutcomeFilter ?? 'all'),
     suppressedSearch: String(options.suppressedSearch ?? suppressedSearch).trim()
-  });
-  const captureReviewContextLabel = (source, options = {}) => {
+  }), [
+    activeComicGroupLabel,
+    comicDuplicateSearch,
+    discoveryFocus,
+    discoverySearch,
+    sectionFilter,
+    suppressedOutcomeFilter,
+    suppressedSearch
+  ]);
+  const captureReviewContextLabel = useCallback((source, options = {}) => {
     const contextParts = [selectedSectionLabel];
     if (source === 'discovery') {
       if (options.focusTitle || discoveryFocus?.title) {
@@ -1086,7 +1094,15 @@ export default function AdminMergeReviewView({
       }
     }
     return contextParts.filter(Boolean).join(' · ');
-  };
+  }, [
+    activeComicGroupLabel,
+    comicDuplicateSearch,
+    discoveryFocus,
+    discoverySearch,
+    selectedSectionLabel,
+    selectedSuppressedOutcomeLabel,
+    suppressedSearch
+  ]);
   const tabOptions = useMemo(() => MERGE_REVIEW_TABS, []);
   const manualReviewOpen = activeReviewSource === 'manual' && (!!preview || !!errorState || !!applyResult?.applied || !!revertResult?.reverted || Number(mergeDetails?.summary?.active_merge_count || 0) > 0);
   const activeReviewRecords = useMemo(() => ({
@@ -1110,13 +1126,7 @@ export default function AdminMergeReviewView({
     activeReviewSource,
     manualReviewOpen,
     activeReviewContextSnapshot,
-    selectedSectionLabel,
-    discoveryFocus,
-    discoverySearch,
-    activeComicGroupLabel,
-    comicDuplicateSearch,
-    selectedSuppressedOutcomeLabel,
-    suppressedSearch
+    captureReviewContextLabel
   ]);
   const discoveryInlineReviewPresent = useMemo(
     () => discoveryCandidates.some((item) => buildReviewItemKey(item) === activeReviewKey),
@@ -1168,7 +1178,7 @@ export default function AdminMergeReviewView({
         activeReviewSource !== 'manual' &&
         !areReviewLaneSnapshotsEqual(activeReviewLaneStateSnapshot, captureReviewLaneState(activeReviewSource))
     }),
-    [activeReviewContext, activeReviewSource, activeReviewRowPresent, activeReviewLaneStateSnapshot, sectionFilter, discoverySearch, discoveryFocus, comicDuplicateSearch, activeComicGroupLabel, suppressedOutcomeFilter, suppressedSearch]
+    [activeReviewContext, activeReviewSource, activeReviewRowPresent, activeReviewLaneStateSnapshot, captureReviewLaneState]
   );
 
   useEffect(() => () => {
@@ -1229,7 +1239,7 @@ export default function AdminMergeReviewView({
     setCollectionApplyConfirmOpen(false);
   };
 
-  const loadRecommendations = async () => {
+  const loadRecommendations = useCallback(async () => {
     setRecommendationsLoading(true);
     try {
       const query = new URLSearchParams({ limit: '12' });
@@ -1243,9 +1253,9 @@ export default function AdminMergeReviewView({
     } finally {
       setRecommendationsLoading(false);
     }
-  };
+  }, [apiCall, sectionFilter]);
 
-  const loadDiscoveryCandidates = async ({ searchValue = discoverySearch, mediaId = null } = {}) => {
+  const loadDiscoveryCandidates = useCallback(async ({ searchValue = discoverySearch, mediaId = null } = {}) => {
     setDiscoveryLoading(true);
     try {
       const query = new URLSearchParams({ limit: '12' });
@@ -1265,9 +1275,9 @@ export default function AdminMergeReviewView({
     } finally {
       setDiscoveryLoading(false);
     }
-  };
+  }, [apiCall, discoverySearch, sectionFilter]);
 
-  const loadComicDuplicateCandidates = async (searchValue = comicDuplicateSearch) => {
+  const loadComicDuplicateCandidates = useCallback(async (searchValue = comicDuplicateSearch) => {
     setComicDuplicatesLoading(true);
     try {
       const query = new URLSearchParams({ limit: '12' });
@@ -1296,9 +1306,9 @@ export default function AdminMergeReviewView({
     } finally {
       setComicDuplicatesLoading(false);
     }
-  };
+  }, [apiCall, comicDuplicateSearch, sectionFilter]);
 
-  const loadCollectionDuplicates = async (searchValue = collectionDuplicateSearch) => {
+  const loadCollectionDuplicates = useCallback(async (searchValue = collectionDuplicateSearch) => {
     setCollectionDuplicatesLoading(true);
     try {
       const query = new URLSearchParams({ limit: '12' });
@@ -1313,9 +1323,9 @@ export default function AdminMergeReviewView({
     } finally {
       setCollectionDuplicatesLoading(false);
     }
-  };
+  }, [apiCall, collectionDuplicateSearch, sectionFilter]);
 
-  const loadSuppressedHistory = async ({ outcomeValue = suppressedOutcomeFilter, searchValue = suppressedSearch } = {}) => {
+  const loadSuppressedHistory = useCallback(async ({ outcomeValue = suppressedOutcomeFilter, searchValue = suppressedSearch } = {}) => {
     setSuppressedHistoryLoading(true);
     try {
       const query = new URLSearchParams({ limit: '12' });
@@ -1333,18 +1343,30 @@ export default function AdminMergeReviewView({
     } finally {
       setSuppressedHistoryLoading(false);
     }
-  };
+  }, [apiCall, sectionFilter, suppressedOutcomeFilter, suppressedSearch]);
 
+  // Initial load synchronizes review queues with the active scope and selected media section.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadRecommendations();
     loadDiscoveryCandidates({ searchValue: '', mediaId: null });
     loadComicDuplicateCandidates('');
     loadCollectionDuplicates('');
     loadSuppressedHistory({ outcomeValue: 'all', searchValue: '' });
-  }, [apiCall, activeLibrary?.id, activeSpace?.id, sectionFilter]);
+  }, [
+    activeLibrary?.id,
+    activeSpace?.id,
+    loadCollectionDuplicates,
+    loadComicDuplicateCandidates,
+    loadDiscoveryCandidates,
+    loadRecommendations,
+    loadSuppressedHistory
+  ]);
 
+  // Parent route seeds a one-shot discovery focus; this effect consumes that external request.
   useEffect(() => {
     if (!seededDiscovery?.mediaId) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setActiveTab('discovery');
     setDiscoverySearch('');
     loadDiscoveryCandidates({
@@ -1356,8 +1378,9 @@ export default function AdminMergeReviewView({
       }
     });
     onDiscoverySeedConsumed?.();
-  }, [seededDiscovery?.mediaId]);
+  }, [loadDiscoveryCandidates, onDiscoverySeedConsumed, onToast, seededDiscovery?.mediaId]);
 
+  // Debounced API search state is intentionally mirrored into local discovery results.
   useEffect(() => {
     let active = true;
     const timer = window.setTimeout(async () => {
@@ -1380,6 +1403,7 @@ export default function AdminMergeReviewView({
         if (active) setDiscoveryLoading(false);
       }
     }, 220);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDiscoveryLoading(true);
     return () => {
       active = false;
@@ -1387,6 +1411,7 @@ export default function AdminMergeReviewView({
     };
   }, [apiCall, discoverySearch, discoveryFocus?.id, sectionFilter]);
 
+  // Debounced API search state is intentionally mirrored into local comic duplicate results.
   useEffect(() => {
     let active = true;
     const timer = window.setTimeout(async () => {
@@ -1408,6 +1433,7 @@ export default function AdminMergeReviewView({
         if (active) setComicDuplicatesLoading(false);
       }
     }, 220);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setComicDuplicatesLoading(true);
     return () => {
       active = false;
@@ -1415,6 +1441,7 @@ export default function AdminMergeReviewView({
     };
   }, [apiCall, comicDuplicateSearch, sectionFilter]);
 
+  // Debounced API search state is intentionally mirrored into local collection duplicate results.
   useEffect(() => {
     let active = true;
     const timer = window.setTimeout(async () => {
@@ -1434,6 +1461,7 @@ export default function AdminMergeReviewView({
         if (active) setCollectionDuplicatesLoading(false);
       }
     }, 220);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCollectionDuplicatesLoading(true);
     return () => {
       active = false;
@@ -1441,6 +1469,7 @@ export default function AdminMergeReviewView({
     };
   }, [apiCall, collectionDuplicateSearch, sectionFilter]);
 
+  // Debounced API search state is intentionally mirrored into local suppressed-pair results.
   useEffect(() => {
     let active = true;
     const timer = window.setTimeout(async () => {
@@ -1461,6 +1490,7 @@ export default function AdminMergeReviewView({
         if (active) setSuppressedHistoryLoading(false);
       }
     }, 220);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSuppressedHistoryLoading(true);
     return () => {
       active = false;
@@ -1468,9 +1498,11 @@ export default function AdminMergeReviewView({
     };
   }, [apiCall, sectionFilter, suppressedOutcomeFilter, suppressedSearch]);
 
+  // Clearing stale search results keeps the manual merge picker aligned with the input threshold.
   useEffect(() => {
     let active = true;
     if (canonicalSearch.trim().length < 2) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCanonicalResults([]);
       setCanonicalSearchLoading(false);
       return undefined;
@@ -1494,9 +1526,11 @@ export default function AdminMergeReviewView({
     };
   }, [apiCall, canonicalSearch]);
 
+  // Clearing stale search results keeps the manual merge picker aligned with the input threshold.
   useEffect(() => {
     let active = true;
     if (duplicateSearch.trim().length < 2) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDuplicateResults([]);
       setDuplicateSearchLoading(false);
       return undefined;

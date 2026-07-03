@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.23.7",
+      "version": "3.23.7",
+      "date": null,
+      "status": null,
+      "summary": "This release continues the maintainability guardrails work where the current quality report shows clear value: `AdminMergeReviewView.jsx` was the top remaining frontend lint pocket after `3.23.6`. The slice clears stale hook dependencies and documents intentional debounced API/search synchronization without changing merge-review product behavior.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Stabilized Admin Merge Review context and lane-state capture helpers with React callbacks.",
+            "Stabilized Admin Merge Review queue-load helpers so effect dependencies point at the actual API sync functions.",
+            "Documented intentional initial-load, seeded-discovery, and debounced-search effects.",
+            "Removed a stale default React import.",
+            "Updated the focused admin-shell browser regression to enter Merge Review through the visible sidebar control.",
+            "Reduced the full frontend quality baseline from `89` errors / `39` warnings to `81` errors / `34` warnings."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.23.6",
       "version": "3.23.6",
       "date": null,
@@ -185,25 +205,6 @@
             "Removed the unmounted platform API docs and metrics route modules from Core after those surfaces moved to `cairn`.",
             "Removed the obsolete admin-space control smoke and updated Core support/tenancy smokes so fixture workspaces are created directly while `cairn`-owned admin workspace routes remain blocked.",
             "Removed stale workspace-manager browser shell coverage tied to moved global admin workspace/user routes, while keeping scoped workspace behavior covered by backend/unit smokes and preserving library lifecycle browser coverage with direct fixture membership setup."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.20.10",
-      "version": "3.20.10",
-      "date": null,
-      "status": null,
-      "summary": "This patch adds a Cairn-owned platform analytics setting for Rybbit and loads the configured tracking script globally in the collectZ browser app. Platform operators can save the Rybbit script URL, site id, and optional `data-*` attributes from Platform Settings without storing arbitrary inline JavaScript.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added Cairn analytics tracking settings under `/api/admin/settings/analytics`.",
-            "Added public Cairn browser config at `/api/platform/analytics`.",
-            "Added Platform Settings controls for enabling analytics, setting the script URL, site id, and optional data attributes.",
-            "Added a collectZ root-level analytics loader so enabled tracking is applied across auth, dashboard, and standalone app routes.",
-            "Updated Cairn OpenAPI docs and helper coverage for the new settings contract."
           ]
         }
       ]

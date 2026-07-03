@@ -7275,7 +7275,7 @@ results.push(run('manual merge apply source records activity log evidence', () =
 }));
 
 results.push(run('admin shell browser coverage includes manual merge review preview and cross-type guardrails', () => {
-  assert.ok(adminShellBrowserSpecSource.includes('/dashboard?tab=admin-merges'));
+  assert.ok(adminShellBrowserSpecSource.includes("getByRole('button', { name: 'Review', exact: true })"));
   assert.ok(adminShellBrowserSpecSource.includes('Preview merge'));
   assert.ok(adminShellBrowserSpecSource.includes('Apply merge'));
   assert.ok(adminShellBrowserSpecSource.includes('Cross-type merges are not allowed'));
