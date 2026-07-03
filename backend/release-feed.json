@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.23.5",
+      "version": "3.23.5",
+      "date": null,
+      "status": null,
+      "summary": "This release continues the maintainability guardrails work where the current quality report shows clear value: `EventsView.jsx` was the top remaining frontend lint pocket after `3.23.4`. The slice extracts small Event UI pieces, cleans the touched Event row/drawer surface, and leaves Comic-Con Hunt behavior frozen.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Extracted Event card, Event list-row, and schedule notification recipient option UI from `EventsView.jsx`.",
+            "Made Event list rows keyboard reachable while preserving the existing open/edit/delete behavior.",
+            "Replaced the Event editor backdrop with a native button.",
+            "Documented remaining Event API/focus synchronization effects instead of rewriting Event data flow.",
+            "Reduced the full frontend quality baseline from `115` errors / `47` warnings to `99` errors / `44` warnings."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.23.4",
       "version": "3.23.4",
       "date": null,
@@ -189,14 +208,6 @@
           ]
         }
       ]
-    },
-    {
-      "title": "collectZ v3.20.8",
-      "version": "v3.20.8",
-      "date": null,
-      "status": null,
-      "summary": "Persisted Plex readback refresh cadence in the Plex Sync settings.",
-      "details": []
     }
   ]
 }

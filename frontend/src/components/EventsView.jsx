@@ -1,5 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CheckboxControl, CollectionPaginationFooter, CoverImagePicker, DetailDrawerShell, DrawerBackdrop, FilterMenu, Icons, ImageSourceControl, PageHeaderSearchToolbar, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { CheckboxControl, CollectionPaginationFooter, CoverImagePicker, DetailDrawerShell, DrawerBackdrop, FilterMenu, Icons, ImageSourceControl, PageHeaderSearchToolbar, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl } from './app/AppPrimitives';
+import EventCard from './events/EventCard';
+import EventListRow from './events/EventListRow';
+import ScheduleNotificationRecipientOption from './events/ScheduleNotificationRecipientOption';
 
 const DEFAULT_EVENT_FORM = {
   title: '',
@@ -993,7 +996,11 @@ function EventFieldKitPanel({ eventId, apiCall, onChanged, onToast, view = 'hunt
     }
   }, [apiCall, eventId]);
 
-  useEffect(() => { loadFieldKit(); }, [loadFieldKit]);
+  useEffect(() => {
+    // Field-kit state is loaded from the event API boundary.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadFieldKit();
+  }, [loadFieldKit]);
 
   const wishlistItems = Array.isArray(fieldKit?.wishlist_items) ? fieldKit.wishlist_items : [];
   const activeWishlistItems = wishlistItems.filter((item) => FIELD_KIT_WISHLIST_STATUSES.includes(item.status));
@@ -1293,48 +1300,6 @@ function EventFieldKitPanel({ eventId, apiCall, onChanged, onToast, view = 'hunt
         </div>
       ) : null}
     </section>
-  );
-}
-
-function EventCard({ item, supportsHover, onOpen, onEdit, onDelete }) {
-  return (
-    <ObjectPosterCard
-      title={item.title}
-      imagePath={item.image_path}
-      fallbackIcon={<Icons.Activity />}
-      supportsHover={supportsHover}
-      onOpen={() => onOpen(item)}
-      leftBadges={[`#${item.id}`, toDisplayDate(item.date_start) || 'Date pending']}
-      rightBadge={item.host ? <span className="badge badge-brand text-[10px] backdrop-blur-sm bg-brand/20 border-brand/30">{item.host}</span> : null}
-      subtitle={item.location || 'Location not set'}
-      meta={
-        <>
-          {item.room ? <MetaPill>{`Room ${item.room}`}</MetaPill> : null}
-        </>
-      }
-      onEdit={() => onEdit(item)}
-      onDelete={() => onDelete(item.id)}
-    />
-  );
-}
-
-function EventListRow({ item, supportsHover, onOpen, onEdit, onDelete }) {
-  return (
-    <article className="group flex items-center gap-4 rounded-xl border border-edge bg-surface p-3 hover:border-muted hover:bg-raised cursor-pointer transition-all duration-150 animate-fade-in" onClick={() => onOpen(item)}>
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-edge bg-raised text-ghost"><Icons.Activity /></div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-ink truncate">{item.title}</p>
-        <div className="mt-1 flex flex-wrap gap-2">
-          <MetaPill>{toDisplayDate(item.date_start) || 'Date pending'}</MetaPill>
-          {item.location ? <MetaPill>{item.location}</MetaPill> : null}
-        </div>
-      </div>
-      <span className="text-xs text-ghost font-mono">#{item.id}</span>
-      <div className={cx('flex gap-2 transition-opacity duration-150', supportsHover ? 'opacity-0 group-hover:opacity-100' : 'opacity-100')}>
-        <button className="btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); onEdit(item); }}><Icons.Edit />Edit</button>
-        <button className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}><Icons.Trash /></button>
-      </div>
-    </article>
   );
 }
 
@@ -1897,7 +1862,11 @@ function EventPurchasedItemsReadback({ eventId, apiCall }) {
     }
   }, [apiCall, eventId]);
 
-  useEffect(() => { loadPurchasedItems(); }, [loadPurchasedItems]);
+  useEffect(() => {
+    // Purchased items are synchronized from the event API.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadPurchasedItems();
+  }, [loadPurchasedItems]);
 
   const linkedKeys = useMemo(() => new Set(items.map((item) => `${item.item_type}:${item.item_id}`)), [items]);
 
@@ -2243,7 +2212,11 @@ function EventExclusiveSourcesWatch({ eventId, apiCall, onChanged }) {
     }
   }, [apiCall, eventId]);
 
-  useEffect(() => { loadSources(); }, [loadSources]);
+  useEffect(() => {
+    // Exclusive-source rows are synchronized from the event API.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadSources();
+  }, [loadSources]);
 
   const refreshIndex = async () => {
     setWorking('refresh');
@@ -2562,6 +2535,8 @@ function EventFormDrawer({ initial, apiCall, onClose, onSave, onDelete, onClearI
   const set = (patch) => setForm((prev) => ({ ...prev, ...patch }));
 
   useEffect(() => {
+    // The drawer form mirrors the selected event whenever the editor target changes.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setForm({
       ...DEFAULT_EVENT_FORM,
       ...(initial || {}),
@@ -2594,7 +2569,7 @@ function EventFormDrawer({ initial, apiCall, onClose, onSave, onDelete, onClearI
 
   return (
     <div className="fixed inset-0 z-50 flex">
-      <div className="absolute inset-0 bg-void/72" onClick={onClose} />
+      <button type="button" className="absolute inset-0 bg-void/72" onClick={onClose} aria-label="Close event editor" />
       <div className="ml-auto h-full w-full max-w-[40rem] bg-abyss border-l border-edge shadow-card relative flex flex-col">
         <div className="px-6 py-4 border-b border-edge flex items-center gap-3">
           <h2 className="section-title !text-xl">{initial?.id ? 'Edit Event' : 'Add Event'}</h2>
@@ -3098,7 +3073,11 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged, currentUser = n
     }
   }, [apiCall, eventId, scheduleNotificationInboxFilter]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    // Social planning state is loaded from several event planning endpoints.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load();
+  }, [load]);
 
   const hydrateCreatedSelfAttendee = (attendee = null) => {
     if (!attendee?.id) return null;
@@ -4769,7 +4748,7 @@ function EventScheduleCatalog({ sessions, plans = [], attendees = [], groups: so
     return findCatalogSessionConflicts(session, plan, plans);
   }, [catalogPlanByRef, plans]);
   const getAttendance = useCallback((session) => buildScheduleAttendanceSummary(session, plans, attendees, socialGroups), [attendees, plans, socialGroups]);
-  const filterNow = useMemo(() => new Date(), [sessions, plans]);
+  const filterNow = useMemo(() => new Date(), []);
   const todayKey = useMemo(() => getPlanDayKey(filterNow), [filterNow]);
   const nextSessionId = useMemo(() => {
     const nextEntry = sortPlansForAgenda(Array.isArray(sessions) ? sessions : [])
@@ -4811,7 +4790,7 @@ function EventScheduleCatalog({ sessions, plans = [], attendees = [], groups: so
         }
         return true;
       });
-  }, [catalogPlanByRef, filterNow, filters, getAttendance, getConflicts, nextSessionId, plans, sessions, todayKey]);
+  }, [catalogPlanByRef, filterNow, filters, getAttendance, getConflicts, nextSessionId, sessions, todayKey]);
   const groups = useMemo(() => {
     return filteredSessions.reduce((acc, session) => {
       const key = getPlanDayKey(session?.start_at);
@@ -5218,6 +5197,8 @@ function EventScheduleAgenda({ plans, attendees = [], groups: socialGroups = [],
 
   useEffect(() => {
     if (filter.type === 'day' && !groups.some((group) => group.key === filter.key)) {
+      // The selected schedule filter is reset when its backing group disappears.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFilter({ type: 'all', key: 'all' });
     }
     if (filter.type === 'focus' && !currentOrNext?.plan?.id) {
@@ -5389,36 +5370,30 @@ function ScheduleNotificationComposer({ plan, status = 'planned', preview = null
               const id = Number(attendee.id);
               const label = attendee.display_name || `Person #${id}`;
               return (
-                <label key={`attendee-${id}`} className="flex items-start gap-2 border border-edge/60 px-2.5 py-2 text-xs text-dim">
-                  <input
-                    type="checkbox"
-                    className="mt-0.5 h-4 w-4 accent-current"
-                    checked={selectedAttendeeIds.has(id)}
-                    onChange={(event) => toggleRecipient('recipient_attendee_ids', selectedAttendeeIds, id, event.target.checked)}
-                  />
-                  <span>
-                    <span className="block font-medium text-ink">{label}</span>
-                    <span className="text-ghost">Person</span>
-                  </span>
-                </label>
+                <ScheduleNotificationRecipientOption
+                  key={`attendee-${id}`}
+                  id={id}
+                  inputId={`schedule-recipient-attendee-${id}`}
+                  label={label}
+                  typeLabel="Person"
+                  checked={selectedAttendeeIds.has(id)}
+                  onToggle={(nextId, checked) => toggleRecipient('recipient_attendee_ids', selectedAttendeeIds, nextId, checked)}
+                />
               );
             })}
             {groups.map((group) => {
               const id = Number(group.id);
               const label = group.name || `Group #${id}`;
               return (
-                <label key={`group-${id}`} className="flex items-start gap-2 border border-edge/60 px-2.5 py-2 text-xs text-dim">
-                  <input
-                    type="checkbox"
-                    className="mt-0.5 h-4 w-4 accent-current"
-                    checked={selectedGroupIds.has(id)}
-                    onChange={(event) => toggleRecipient('recipient_group_ids', selectedGroupIds, id, event.target.checked)}
-                  />
-                  <span>
-                    <span className="block font-medium text-ink">{label}</span>
-                    <span className="text-ghost">Group</span>
-                  </span>
-                </label>
+                <ScheduleNotificationRecipientOption
+                  key={`group-${id}`}
+                  id={id}
+                  inputId={`schedule-recipient-group-${id}`}
+                  label={label}
+                  typeLabel="Group"
+                  checked={selectedGroupIds.has(id)}
+                  onToggle={(nextId, checked) => toggleRecipient('recipient_group_ids', selectedGroupIds, nextId, checked)}
+                />
               );
             })}
           </div>
@@ -5952,8 +5927,16 @@ function EventDetailDrawer({ eventId, apiCall, onClose, onEdit, onDeleted, onSav
     }
   }, [apiCall, eventId]);
 
-  useEffect(() => { load(); }, [load]);
-  useEffect(() => { setActiveTab('overview'); }, [eventId]);
+  useEffect(() => {
+    // Event detail state is loaded from the event API.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load();
+  }, [load]);
+  useEffect(() => {
+    // Switching event drawers resets the tab to the overview.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setActiveTab('overview');
+  }, [eventId]);
 
   const deleteEvent = async () => {
     if (!window.confirm('Delete this event?')) return;
@@ -6115,9 +6098,15 @@ export default function EventsView({ apiCall, onToast, currentUser = null, focus
     }
   }, [apiCall, fromDate, page, pageSize, search, sortDir, toDate]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    // Event list state is synchronized from the event API and active filters.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load();
+  }, [load]);
   useEffect(() => {
     if (focusTarget?.entityType !== 'event' || !focusTarget?.entityId) return;
+    // External route focus opens the matching event drawer.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDetailId(Number(focusTarget.entityId));
   }, [focusTarget?.createdAt, focusTarget?.entityId, focusTarget?.entityType]);
 
@@ -6246,6 +6235,7 @@ export default function EventsView({ apiCall, onToast, currentUser = null, focus
                 onOpen={() => setDetailId(item.id)}
                 onEdit={() => setEditing(item)}
                 onDelete={deleteEvent}
+                formatDate={toDisplayDate}
               />
             ))}
           </div>
@@ -6260,6 +6250,7 @@ export default function EventsView({ apiCall, onToast, currentUser = null, focus
                 onOpen={() => setDetailId(item.id)}
                 onEdit={() => setEditing(item)}
                 onDelete={deleteEvent}
+                formatDate={toDisplayDate}
               />
             ))}
           </div>
