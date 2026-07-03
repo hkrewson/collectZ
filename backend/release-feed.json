@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.23.1",
+      "version": "3.23.1",
+      "date": null,
+      "status": null,
+      "summary": "This release tunes the maintainability guardrails added in `3.23.0` so they are more useful during everyday work. It adds a changed-file quality command and makes the baseline report show the highest-volume rules and files without turning lint into a blocking gate yet.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added `npm run quality:frontend:changed` for report-first checks against changed, staged, and untracked files.",
+            "Enhanced the frontend quality report with top ESLint rule and file summaries.",
+            "Tuned frontend ESLint so legacy `no-unused-vars` findings are warnings while React hooks and accessibility rules remain visible.",
+            "Updated maintainability guardrails documentation for the changed-file workflow."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.23.0",
       "version": "3.23.0",
       "date": null,
@@ -151,25 +169,6 @@
             "Shows filtered and total conflict counts.",
             "Displays resolved conflict outcomes without action buttons.",
             "Kept existing conflict resolution behavior unchanged."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.20.4",
-      "version": "3.20.4",
-      "date": null,
-      "status": null,
-      "summary": "This patch makes Plex activity entries easier to read. Workspace activity now recognizes Plex imports, webhook queue events, webhook processor runs, and webhook import outcomes instead of showing generic provider activity.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added explicit Plex import summaries to the activity feed.",
-            "Added readable Plex webhook queued and processed activity summaries.",
-            "Added readable Plex webhook auto-processor activity summaries.",
-            "Added Plex job, rating key, and section readback to activity snapshots.",
-            "Kept existing Plex import, sync, webhook, readback, and writeback behavior unchanged."
           ]
         }
       ]

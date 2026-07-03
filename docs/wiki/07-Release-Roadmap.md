@@ -6,6 +6,41 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.23.1 — Frontend Quality Baseline Tuning
+
+**Goal:** Make the new maintainability guardrails easier to use day to day by separating high-noise legacy findings from higher-signal correctness checks and adding a changed-file report path.
+
+### Scope
+
+- Keep the frontend quality gate report-first while improving the report's top-rule and top-file summaries.
+- Add a changed-file quality command for local pre-commit feedback.
+- Tune the initial ESLint baseline so legacy unused-variable debt is warning-level while React hooks and accessibility findings remain visible.
+- Update maintainability guardrails documentation and release artifacts for the follow-on slice.
+
+### Acceptance Criteria
+
+- `npm run quality:frontend` still exits successfully and writes a full baseline report.
+- `npm run quality:frontend:changed` exits successfully and writes a changed-file report.
+- The full baseline report shows rule/file summaries that make the next cleanup target obvious.
+- No mass-formatting or broad source cleanup is included.
+- Existing Docker-first release verification remains intact.
+
+### Active Slice Notes
+
+- This is a follow-on `3.23.x` guardrails slice after `3.23.0`.
+- It intentionally avoids making lint or Prettier blocking while the baseline is still noisy.
+
+### Closeout
+
+- Status: completed in `3.23.1`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/58-Maintainability-Guardrails.md`, and `docs/releases/v3.23.1.md`.
+- Runtime evidence: Docker backend and frontend containers rebuilt on the canonical local `collectz-private` platform stack at `http://localhost:3201`; `/api/health` reports frontend, backend, and build `3.23.1`; backend, frontend, Postgres, Cairn, and Cairn Postgres containers are healthy; authenticated Help > Releases smoke served `3.23.1` as the latest entry.
+- Verification: `npm run quality:frontend` passed in report-first mode and reported the tuned baseline of `200` ESLint errors, `356` warnings, Prettier findings, and `0` source-size warnings; `npm run quality:frontend:changed` passed in report-first mode with `0` ESLint errors, `0` warnings, and clean Prettier status for the changed app/script set; frontend Vitest passed with `1` file and `4` tests; Docker frontend production build passed during the stack rebuild and local release gate; Help Center Playwright regression passed against `http://localhost:3201`; observability release evidence refreshed for `3.23.1` with `9/9` checks passed; `npm run release:local-gate` passed `12/12` standard gates with the `collectz-private` compose project and `http://localhost:3201` preflight base URL; `git diff --check` passed through the local gate.
+- Blocked/unverified: Local preflight marks secure-cookie compose smoke blocked because the local development stack uses `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`. Hosted CI still needs to confirm `compose-smoke`, `rbac-regression`, hosted full `browser-regression`, `runtime-smoke` core/control-plane, `dependency-scan`, `secret-scan`, and `image-security-and-sbom`.
+- Files changed: `app-meta.json`, `backend/app-meta.json`, `backend/package-lock.json`, `backend/package.json`, `backend/release-feed.json`, `docs/releases/v3.23.1.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/58-Maintainability-Guardrails.md`, `eslint.config.js`, `frontend/package-lock.json`, `frontend/package.json`, `frontend/src/app-meta.json`, `package.json`, `preflight-go-no-go.md`, `scripts/frontend-quality-report.js`, `artifacts/dependency-audit/frontend-audit.json`, and `artifacts/observability-evidence/observability-release-evidence.json`.
+- Risks/follow-ups: Quality commands remain report-first; React hooks and accessibility findings are now easier to see but still need targeted cleanup before becoming blocking. The changed-file command intentionally ignores docs/release-note changes to stay focused on frontend/script/browser-test feedback.
+- What remains in the milestone: no implementation work remains for the `3.23.1` tuning slice; hosted CI/release gates remain required before push-ready release promotion.
+
 ## 3.23.0 — Maintainability Guardrails and Frontend Extraction Foundation
 
 **Goal:** Preserve collectZ's mature release/security posture while adding day-to-day maintainability guardrails, fast frontend feedback loops, and a repeatable extraction pattern for large UI/source files.

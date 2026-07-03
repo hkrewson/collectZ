@@ -36,7 +36,8 @@ module.exports = [
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
-      ...jsxA11y.configs.recommended.rules
+      ...jsxA11y.configs.recommended.rules,
+      'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }]
     }
   },
   {

@@ -11,6 +11,7 @@
     "test:browser:headed": "playwright test --headed",
     "test:browser:ui": "playwright test --ui",
     "quality:frontend": "node scripts/frontend-quality-report.js",
+    "quality:frontend:changed": "node scripts/frontend-quality-report.js --changed",
     "lint:frontend": "eslint frontend/src --max-warnings=999999",
     "format:check": "prettier --check frontend/src scripts tests/playwright --ignore-unknown",
     "audit:public-source-boundary": "node scripts/audit-public-source-boundary.js",
