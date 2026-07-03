@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.23.12",
+      "version": "3.23.12",
+      "date": null,
+      "status": null,
+      "summary": "This release continues the maintainability guardrails work where the current quality report shows clear value: `AdminIntegrationsView.jsx` was the top remaining frontend lint pocket after `3.23.11`. The slice clears Admin Integrations import, hook-baseline, helper-order, dependency, and boolean-cast findings without changing integration settings behavior.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Removed the stale default React import from the Admin Integrations view.",
+            "Documented intentional integration-section synchronization from external dashboard routes and runtime feature availability.",
+            "Documented workspace-scoped runtime feature-flag reset behavior.",
+            "Stabilized Plex scheduler, readback, and conflict-review refresh helpers with `useCallback` before the effect that invokes them.",
+            "Removed redundant boolean casts from the log export debug control.",
+            "Reduced the full frontend quality baseline from `44` errors / `29` warnings to `37` errors / `27` warnings."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.23.11",
       "version": "3.23.11",
       "date": null,
@@ -173,25 +193,6 @@
             "Added a small keyed-draft helper so collectible metadata editors can reset draft state when their owner/trait key changes without synchronous reset effects.",
             "Documented narrow external-system effect exceptions for mobile shell DOM/media-query synchronization and relationship search/reset state.",
             "Reduced the full frontend quality baseline from `170` errors / `65` warnings to `153` errors / `61` warnings."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.23.2",
-      "version": "3.23.2",
-      "date": null,
-      "status": null,
-      "summary": "This release continues the maintainability guardrails path by reducing the highest-signal frontend ESLint baseline in a targeted way. It cleans up Sidebar navigation helper components and adds React JSX usage lint support so JSX-only component references are not falsely reported as unused.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Hoisted Sidebar helper components out of render to satisfy React hooks static-component checks.",
-            "Made Sidebar backdrop and collapsed-rail interactions satisfy keyboard/pointer accessibility lint expectations.",
-            "Removed unused Sidebar destructuring for no-longer-used space props and derived platform-group state.",
-            "Added `eslint-plugin-react` with `react/jsx-uses-vars` so JSX component usage is recognized by ESLint.",
-            "Reduced the full frontend quality baseline from `200` errors / `356` warnings to `170` errors / `65` warnings."
           ]
         }
       ]

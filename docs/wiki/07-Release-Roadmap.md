@@ -6,6 +6,43 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.23.12 — Admin Integrations Hook Baseline Cleanup
+
+**Goal:** Continue the maintainability foundation only where the current quality report shows clear value by clearing the top remaining frontend lint pocket in `AdminIntegrationsView.jsx` without changing integration settings, feature-flag controls, Plex diagnostics, observability controls, or workspace/platform integration behavior.
+
+### Scope
+
+- Remove stale imports from the Admin Integrations view.
+- Document integration-section effects that intentionally synchronize selected section state from external dashboard routes and runtime feature availability.
+- Document runtime feature-flag reset behavior for workspace-scoped integrations.
+- Stabilize Plex scheduler/readback/conflict refresh helpers with `useCallback` before the effect that invokes them.
+- Remove redundant boolean casts from the log export debug control.
+- Preserve platform and workspace integration sections, Plex reconciliation/readback behavior, observability runtime readbacks, feature-flag controls, and save/test flows.
+- Keep broader Admin Integrations decomposition, platform routing changes, and integrations UX changes deferred.
+
+### Acceptance Criteria
+
+- `npm run quality:frontend:changed` reports zero ESLint findings and zero source-size warnings for the touched frontend files.
+- `npm run quality:frontend` shows a lower full ESLint baseline than `3.23.11`.
+- Frontend build and focused Admin Integrations browser coverage remain green or any unrelated local failures are explicitly documented.
+- Existing Docker-first release verification remains intact.
+
+### Active Slice Notes
+
+- This is a targeted `3.23.x` cleanup slice selected because `AdminIntegrationsView.jsx` was the highest-count file in the current quality report after `3.23.11`.
+- This slice intentionally avoids Admin Integrations product work and only touches the import/hook/helper-order/boolean-cast quality surface.
+
+### Closeout
+
+- Status: completed in `3.23.12`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/58-Maintainability-Guardrails.md`, and `docs/releases/v3.23.12.md`.
+- Runtime evidence: Docker backend and frontend containers rebuilt on the canonical local `collectz-private` platform stack at `http://localhost:3201`; `/api/health` reports frontend, backend, and build `3.23.12`; backend, frontend, Postgres, Cairn, and Cairn Postgres containers are healthy; authenticated Help > Releases smoke served `3.23.12` as the latest entry.
+- Verification: `npm run quality:frontend` passed in report-first mode and reported the reduced baseline of `37` ESLint errors, `27` warnings, Prettier findings, and `0` source-size warnings; `npm run quality:frontend:changed` passed with `0` ESLint errors, `0` warnings, and `0` source-size warnings for the touched Admin Integrations surface while preserving report-first Prettier findings for legacy formatting debt; frontend Vitest passed with `1` file and `4` tests; frontend production build passed with the existing large-chunk warning; backend unit/source suite passed with `336` checks; OpenAPI validation passed; focused Admin Integrations/Plex Sync browser smoke passed against `http://localhost:3201`; observability release evidence refreshed with `9/9` checks passed; `npm run release:local-gate` passed `12/12` standard gates with the `collectz-private` compose project and `http://localhost:3201` preflight base URL; `git diff --check` passed through the local gate.
+- Blocked/unverified: The broader local `tests/playwright/specs/integrations.browser.spec.js` run still has existing local failures in platform-admin integration routing and a duplicate-text strictness assertion; the direct Admin Integrations/Plex Sync smoke for this slice passed. Local preflight marks secure-cookie compose smoke environment-dependent because the local development stack uses `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`. Hosted CI still needs to confirm `compose-smoke`, `rbac-regression`, hosted full `browser-regression`, `runtime-smoke` core/control-plane, `dependency-scan`, `secret-scan`, and `image-security-and-sbom`.
+- Files changed: `app-meta.json`, `backend/app-meta.json`, `backend/package-lock.json`, `backend/package.json`, `backend/release-feed.json`, `docs/releases/v3.23.12.md`, `docs/wiki/07-Release-Roadmap.md`, `frontend/package-lock.json`, `frontend/package.json`, `frontend/src/app-meta.json`, `frontend/src/components/AdminIntegrationsView.jsx`, `preflight-go-no-go.md`, and refreshed release evidence artifacts.
+- Risks/follow-ups: `AdminIntegrationsView.jsx` is lint-clean for the touched import/hook/helper-order/boolean-cast surface, but the full frontend baseline still has legacy ESLint and Prettier findings. The broader integrations browser spec should be repaired separately so platform-admin routing expectations and the Plex text assertion are not conflated with this lint cleanup.
+- What remains in the milestone: no implementation work remains for the `3.23.12` cleanup slice; hosted CI/release gates remain required before push-ready release promotion.
+
 ## 3.23.11 — Space Manager Accessibility and Hook Baseline Cleanup
 
 **Goal:** Continue the maintainability foundation only where the current quality report shows clear value by clearing the top remaining contained frontend lint pocket in `SpaceManagerView.jsx` without changing workspace settings, member management, invite management, activity, backup, export, or integration behavior.

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CheckboxControl, FixedPageShell, SectionTabPanel, SectionTabs, UtilityPageHeader } from './app/AppPrimitives';
 
 const BARCODE_PRESETS = {
@@ -563,12 +563,20 @@ export default function AdminIntegrationsView({
   useEffect(() => {
     if (!externalSection || externalSection === section) return;
     const known = integrationSections.some((item) => item.id === externalSection);
-    if (known) setSection(externalSection);
+    if (known) {
+      // External dashboard route state owns the selected integration section.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSection(externalSection);
+    }
   }, [externalSection, integrationSections, section]);
 
   useEffect(() => {
     if (integrationSections.some((item) => item.id === section)) return;
-    if (integrationSections[0]?.id) setSection(integrationSections[0].id);
+    if (integrationSections[0]?.id) {
+      // Runtime/feature availability can remove the current section after initial selection.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSection(integrationSections[0].id);
+    }
   }, [integrationSections, section]);
 
   const setSectionWithSync = (nextSection) => {
@@ -656,6 +664,8 @@ export default function AdminIntegrationsView({
 
   useEffect(() => {
     if (!includeRuntimeSections) {
+      // Workspace-scoped integrations do not expose runtime feature-flag controls.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFeatureFlags([]);
       setFeatureFlagsReadOnly(false);
       setFeatureFlagsError('');
@@ -684,12 +694,47 @@ export default function AdminIntegrationsView({
     };
   }, [apiCall, featureFlagsEndpoint, includeRuntimeSections]);
 
+  const refreshPlexReconciliationScheduler = useCallback(async () => {
+    try {
+      const result = await apiCall('get', '/media/plex-reconciliation-sync/scheduler');
+      setPlexReconciliationScheduler(result);
+    } catch (_) {
+      setPlexReconciliationScheduler(null);
+    }
+  }, [apiCall]);
+
+  const refreshPlexReadbackRefreshScheduler = useCallback(async () => {
+    try {
+      const result = await apiCall('get', '/media/plex-watch-state/refresh-scheduler');
+      setPlexReadbackRefreshScheduler(result);
+    } catch (_) {
+      setPlexReadbackRefreshScheduler(null);
+    }
+  }, [apiCall]);
+
+  const refreshPlexConflictReviews = useCallback(async () => {
+    try {
+      const status = plexConflictStatusFilter === 'resolved' ? 'resolved' : 'open';
+      const match = encodeURIComponent(plexConflictMatchFilter || 'all');
+      const result = await apiCall('get', `/media/plex-reconciliation-conflicts?status=${status}&matchedBy=${match}`);
+      setPlexConflictReviews(Array.isArray(result?.reviews) ? result.reviews : []);
+      setPlexConflictReviewTotalCount(Number(result?.totalCount || 0));
+      setPlexConflictReviewMatchFilters(Array.isArray(result?.matchFilters) ? result.matchFilters : []);
+    } catch (_) {
+      setPlexConflictReviews([]);
+      setPlexConflictReviewTotalCount(0);
+      setPlexConflictReviewMatchFilters([]);
+    }
+  }, [apiCall, plexConflictMatchFilter, plexConflictStatusFilter]);
+
   useEffect(() => {
     if (section !== 'plex') return;
+    // The Plex section refreshes scheduler and conflict-review readbacks when opened or filtered.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     refreshPlexReconciliationScheduler();
     refreshPlexReadbackRefreshScheduler();
     refreshPlexConflictReviews();
-  }, [section, plexConflictStatusFilter, plexConflictMatchFilter]);
+  }, [refreshPlexConflictReviews, refreshPlexReadbackRefreshScheduler, refreshPlexReconciliationScheduler, section]);
 
   const applyBarcodePreset = (p) => setForm((f) => ({ ...f, ...(BARCODE_PRESETS[p] || {}) }));
   const applyComicsPreset = (p) => setForm((f) => ({ ...f, ...(COMICS_PRESETS[p] || {}) }));
@@ -1188,24 +1233,6 @@ export default function AdminIntegrationsView({
     };
   };
 
-  const refreshPlexReconciliationScheduler = async () => {
-    try {
-      const result = await apiCall('get', '/media/plex-reconciliation-sync/scheduler');
-      setPlexReconciliationScheduler(result);
-    } catch (_) {
-      setPlexReconciliationScheduler(null);
-    }
-  };
-
-  const refreshPlexReadbackRefreshScheduler = async () => {
-    try {
-      const result = await apiCall('get', '/media/plex-watch-state/refresh-scheduler');
-      setPlexReadbackRefreshScheduler(result);
-    } catch (_) {
-      setPlexReadbackRefreshScheduler(null);
-    }
-  };
-
   const runPlexReadbackRefresh = async () => {
     setTestLoading('plex-readback-refresh');
     setTestMsg('');
@@ -1219,21 +1246,6 @@ export default function AdminIntegrationsView({
       setTestMsg(err.response?.data?.error || 'Plex readback refresh failed');
     } finally {
       setTestLoading('');
-    }
-  };
-
-  const refreshPlexConflictReviews = async () => {
-    try {
-      const status = plexConflictStatusFilter === 'resolved' ? 'resolved' : 'open';
-      const match = encodeURIComponent(plexConflictMatchFilter || 'all');
-      const result = await apiCall('get', `/media/plex-reconciliation-conflicts?status=${status}&matchedBy=${match}`);
-      setPlexConflictReviews(Array.isArray(result?.reviews) ? result.reviews : []);
-      setPlexConflictReviewTotalCount(Number(result?.totalCount || 0));
-      setPlexConflictReviewMatchFilters(Array.isArray(result?.matchFilters) ? result.matchFilters : []);
-    } catch (_) {
-      setPlexConflictReviews([]);
-      setPlexConflictReviewTotalCount(0);
-      setPlexConflictReviewMatchFilters([]);
     }
   };
 
@@ -1512,7 +1524,7 @@ export default function AdminIntegrationsView({
               <button
                 type="button"
                 role="switch"
-                aria-checked={Boolean(form.logExportDebug)}
+                aria-checked={form.logExportDebug ? true : false}
                 aria-label={`${form.logExportDebug ? 'Disable' : 'Enable'} debug mode`}
                 disabled={Boolean(logExportControl?.readOnly)}
                 onClick={() => setForm((f) => ({ ...f, logExportDebug: !f.logExportDebug }))}
@@ -1520,7 +1532,7 @@ export default function AdminIntegrationsView({
                   'relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-colors duration-150',
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/30 focus-visible:ring-offset-2 focus-visible:ring-offset-surface',
                   form.logExportDebug ? 'border-gold/30 bg-gold/15' : 'border-edge bg-raised/80',
-                  Boolean(logExportControl?.readOnly) ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:border-muted'
+                  logExportControl?.readOnly ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:border-muted'
                 ].join(' ')}
               >
                 <span
