@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   buildEditionMetadata,
@@ -64,17 +64,10 @@ export function FixedPageShell({
 }) {
   return (
     <div className={cx('flex h-full min-h-0 flex-col', className)} data-testid={testId}>
-      <header
-        className={cx('shrink-0 border-b border-edge bg-void/95 px-4 py-3 sm:px-6', headerClassName)}
-        data-testid={headerTestId}
-      >
+      <header className={cx('shrink-0 border-b border-edge bg-void/95 px-4 py-3 sm:px-6', headerClassName)} data-testid={headerTestId}>
         <div className={headerInnerClassName}>{header}</div>
       </header>
-      <main
-        className={cx('min-h-0 flex-1 overflow-y-auto scroll-area', bodyClassName)}
-        data-testid={bodyTestId}
-        onScroll={onBodyScroll}
-      >
+      <main className={cx('min-h-0 flex-1 overflow-y-auto scroll-area', bodyClassName)} data-testid={bodyTestId} onScroll={onBodyScroll}>
         <div className={bodyInnerClassName}>{children}</div>
       </main>
     </div>
@@ -94,30 +87,22 @@ export function UtilityPageHeader({
 }) {
   return (
     <div className={cx('space-y-3 transition-[padding] duration-150', compact && 'space-y-2', className)}>
-      <div className={cx(
-        'flex min-w-0 items-end justify-between gap-3',
-        compact && 'items-center',
-        compact && !showTitleOnMobile && 'max-sm:hidden'
-      )}>
+      <div
+        className={cx(
+          'flex min-w-0 items-end justify-between gap-3',
+          compact && 'items-center',
+          compact && !showTitleOnMobile && 'max-sm:hidden'
+        )}
+      >
         <div className={cx('min-w-0', compact && 'sm:flex sm:items-center sm:gap-3')}>
-          <h1 className={cx('section-title !text-2xl sm:!text-3xl', compact && '!text-xl sm:!text-2xl', titleClassName)}>
-            {title}
-          </h1>
-          {subtitle ? (
-            <p className={cx('mt-1 text-sm text-ghost', compact && 'hidden lg:block')}>{subtitle}</p>
-          ) : null}
+          <h1 className={cx('section-title !text-2xl sm:!text-3xl', compact && '!text-xl sm:!text-2xl', titleClassName)}>{title}</h1>
+          {subtitle ? <p className={cx('mt-1 text-sm text-ghost', compact && 'hidden lg:block')}>{subtitle}</p> : null}
         </div>
         {actions ? (
-          <div className={cx('flex shrink-0 flex-wrap items-center justify-end gap-2', compact && 'gap-1.5')}>
-            {actions}
-          </div>
+          <div className={cx('flex shrink-0 flex-wrap items-center justify-end gap-2', compact && 'gap-1.5')}>{actions}</div>
         ) : null}
       </div>
-      {controls ? (
-        <div className={cx('min-w-0', controlsClassName)}>
-          {controls}
-        </div>
-      ) : null}
+      {controls ? <div className={cx('min-w-0', controlsClassName)}>{controls}</div> : null}
     </div>
   );
 }
@@ -147,11 +132,7 @@ export function MobileFilterDisclosure({
           </span>
         ) : null}
       </button>
-      {open ? (
-        <div className={cx('mt-2 space-y-2 border-t border-edge/60 pt-2', contentClassName)}>
-          {children}
-        </div>
-      ) : null}
+      {open ? <div className={cx('mt-2 space-y-2 border-t border-edge/60 pt-2', contentClassName)}>{children}</div> : null}
     </div>
   );
 }
@@ -231,10 +212,7 @@ export function DrawerBackdrop({
   if (!imageSrc && !renderWhenEmpty) return null;
 
   return (
-    <div
-      className={cx('relative shrink-0 overflow-hidden', className)}
-      data-testid={testId}
-    >
+    <div className={cx('relative shrink-0 overflow-hidden', className)} data-testid={testId}>
       {imageSrc ? (
         <>
           <img src={imageSrc} alt="" className={imageClassName} />
@@ -247,18 +225,16 @@ export function DrawerBackdrop({
   );
 }
 
-export function DetailDrawerShell({
-  children,
-  onClose,
-  panelClassName = 'max-w-xl',
-  className = '',
-  testId
-}) {
+export function DetailDrawerShell({ children, onClose, panelClassName = 'max-w-xl', className = '', testId }) {
   return (
     <div className="fixed inset-0 z-50 flex">
-      <div className="absolute inset-0 bg-void/72" onClick={onClose} />
+      <button type="button" className="absolute inset-0 bg-void/72" onClick={onClose} aria-label="Close drawer" />
       <div
-        className={cx('relative ml-auto h-full w-full bg-abyss border-l border-edge flex flex-col animate-slide-in', panelClassName, className)}
+        className={cx(
+          'relative ml-auto h-full w-full bg-abyss border-l border-edge flex flex-col animate-slide-in',
+          panelClassName,
+          className
+        )}
         data-testid={testId}
       >
         {children}
@@ -274,7 +250,10 @@ export function CheckboxControl({ checked, children, id, labelClassName = '', on
   return (
     <label
       htmlFor={inputId}
-      className={cx('relative inline-flex min-h-9 cursor-pointer select-none items-center gap-2 text-sm text-dim hover:text-ink', labelClassName)}
+      className={cx(
+        'relative inline-flex min-h-9 cursor-pointer select-none items-center gap-2 text-sm text-dim hover:text-ink',
+        labelClassName
+      )}
     >
       <input
         id={inputId}
@@ -288,9 +267,7 @@ export function CheckboxControl({ checked, children, id, labelClassName = '', on
         aria-hidden="true"
         className={cx(
           'grid h-4 w-4 shrink-0 place-items-center rounded-[3px] border transition-colors duration-150 peer-focus-visible:ring-2 peer-focus-visible:ring-gold/35',
-          checked
-            ? 'border-gold bg-gold text-void'
-            : 'border-muted bg-surface text-transparent'
+          checked ? 'border-gold bg-gold text-void' : 'border-muted bg-surface text-transparent'
         )}
       >
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
@@ -321,37 +298,43 @@ export function SectionTabs({
   const tabRefs = useRef([]);
   const useTabSemantics = semantics === 'tabs';
 
-  const moveFocus = useCallback((nextIndex) => {
-    const nextTab = tabs[nextIndex];
-    if (!nextTab) return;
-    onChange?.(nextTab.id);
-    window.requestAnimationFrame(() => {
-      tabRefs.current[nextIndex]?.focus?.();
-    });
-  }, [onChange, tabs]);
+  const moveFocus = useCallback(
+    (nextIndex) => {
+      const nextTab = tabs[nextIndex];
+      if (!nextTab) return;
+      onChange?.(nextTab.id);
+      window.requestAnimationFrame(() => {
+        tabRefs.current[nextIndex]?.focus?.();
+      });
+    },
+    [onChange, tabs]
+  );
 
-  const onKeyDown = useCallback((event, index) => {
-    if (!useTabSemantics || !tabs.length) return;
-    if (event.key === 'ArrowRight') {
-      event.preventDefault();
-      moveFocus((index + 1) % tabs.length);
-      return;
-    }
-    if (event.key === 'ArrowLeft') {
-      event.preventDefault();
-      moveFocus((index - 1 + tabs.length) % tabs.length);
-      return;
-    }
-    if (event.key === 'Home') {
-      event.preventDefault();
-      moveFocus(0);
-      return;
-    }
-    if (event.key === 'End') {
-      event.preventDefault();
-      moveFocus(tabs.length - 1);
-    }
-  }, [moveFocus, tabs, useTabSemantics]);
+  const onKeyDown = useCallback(
+    (event, index) => {
+      if (!useTabSemantics || !tabs.length) return;
+      if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        moveFocus((index + 1) % tabs.length);
+        return;
+      }
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        moveFocus((index - 1 + tabs.length) % tabs.length);
+        return;
+      }
+      if (event.key === 'Home') {
+        event.preventDefault();
+        moveFocus(0);
+        return;
+      }
+      if (event.key === 'End') {
+        event.preventDefault();
+        moveFocus(tabs.length - 1);
+      }
+    },
+    [moveFocus, tabs, useTabSemantics]
+  );
 
   if (!Array.isArray(tabs) || tabs.length === 0) return null;
 
@@ -439,6 +422,8 @@ export function PageHeaderSearchToolbar({
 
   useEffect(() => {
     if (!mobileShellInline || typeof document === 'undefined') {
+      // The mobile shell target is an external DOM slot, so this effect synchronizes React state with document state.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMobileShellTarget(null);
       return undefined;
     }
@@ -448,6 +433,8 @@ export function PageHeaderSearchToolbar({
 
   useEffect(() => {
     if (!mobileShellInline || typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      // This mirrors the external media query state when the shared mobile toolbar is unavailable.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setUseMobileShellToolbar(false);
       return undefined;
     }
@@ -549,14 +536,14 @@ export function PageHeaderSearchToolbar({
       <span className="hidden">{addLabel}</span>
     </button>
   ) : null;
-  const mobileToolbarGridClass = mobileCompact && addButton
-    ? 'grid-cols-[minmax(0,1fr)_auto_auto]'
-    : 'grid-cols-[minmax(0,1fr)_auto]';
+  const mobileToolbarGridClass = mobileCompact && addButton ? 'grid-cols-[minmax(0,1fr)_auto_auto]' : 'grid-cols-[minmax(0,1fr)_auto]';
   const toolbarControls = (
     <>
       {hasSearch ? (
         <div className={cx('relative min-w-0', searchClassName)}>
-          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ghost"><IconSet.Search /></span>
+          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ghost">
+            <IconSet.Search />
+          </span>
           <input
             className="input w-full pl-9"
             placeholder={searchPlaceholder}
@@ -566,13 +553,11 @@ export function PageHeaderSearchToolbar({
         </div>
       ) : null}
       {filters}
-      {extraControls && mobileCompact ? (
-        <div className="hidden sm:contents">{extraControls}</div>
-      ) : extraControls}
+      {extraControls && mobileCompact ? <div className="hidden sm:contents">{extraControls}</div> : extraControls}
       {mobileCompact && addButton ? <div className="sm:hidden">{addButton}</div> : null}
-      {(viewMenu || sortButton || addButton) ? (
+      {viewMenu || sortButton || addButton ? (
         <div className="hidden items-center justify-end gap-1.5 sm:flex">
-          {(viewMenu || sortButton) ? (
+          {viewMenu || sortButton ? (
             <div className="flex items-center gap-1.5">
               {viewMenu}
               {sortButton}
@@ -583,81 +568,72 @@ export function PageHeaderSearchToolbar({
       ) : null}
     </>
   );
-  const mobileShellToolbar = useMobileShellToolbar && mobileShellTarget ? createPortal((
-    <div
-      className={cx(
-        'grid min-w-0 flex-1 gap-2 sm:hidden',
-        mobileToolbarGridClass,
-        '[&_.btn-secondary]:h-9 [&_.btn-secondary]:w-9 [&_.btn-secondary]:overflow-hidden [&_.btn-secondary]:px-0 [&_.btn-secondary]:text-transparent [&_.btn-secondary_svg]:text-dim'
-      )}
-      data-testid={toolbarTestId ? `${toolbarTestId}-shell` : undefined}
-    >
-      {toolbarControls}
-    </div>
-  ), mobileShellTarget) : null;
+  const mobileShellToolbar =
+    useMobileShellToolbar && mobileShellTarget
+      ? createPortal(
+          <div
+            className={cx(
+              'grid min-w-0 flex-1 gap-2 sm:hidden',
+              mobileToolbarGridClass,
+              '[&_.btn-secondary]:h-9 [&_.btn-secondary]:w-9 [&_.btn-secondary]:overflow-hidden [&_.btn-secondary]:px-0 [&_.btn-secondary]:text-transparent [&_.btn-secondary_svg]:text-dim'
+            )}
+            data-testid={toolbarTestId ? `${toolbarTestId}-shell` : undefined}
+          >
+            {toolbarControls}
+          </div>,
+          mobileShellTarget
+        )
+      : null;
 
   return (
     <>
       {mobileShellToolbar}
       {!useMobileShellToolbar ? (
         <div
-        className={cx(
-          'border-b border-edge bg-void/95 px-3 shrink-0 transition-[padding] duration-150 sm:px-6',
-          compact ? 'py-2' : 'py-2 sm:py-4',
-          className
-        )}
-        data-testid={testId}
-      >
-        <div className={cx('flex flex-col gap-2 lg:flex-row lg:items-start', compact && 'lg:items-center')}>
-          <div className={cx('min-w-0', compact ? 'lg:max-w-64' : '')}>
-            <div className="flex items-center justify-end gap-2 sm:justify-between">
-              <div className={cx(
-                'min-w-0 flex-wrap items-center gap-3',
-                showTitleOnMobile ? 'flex' : 'hidden sm:flex'
-              )}>
-                <h1 className={cx('section-title !text-3xl', compact && '!text-2xl')}>{title}</h1>
-                {typeof total !== 'undefined' ? <span className="badge badge-dim shrink-0">{total}</span> : null}
-                {filterCount > 0 ? <span className="badge badge-dim shrink-0">{resolvedFilterLabel}</span> : null}
-              </div>
-              {(viewMenu || sortButton || addButton) ? (
-                <div className={cx('shrink-0 items-center justify-end gap-1.5 sm:hidden', mobileCompact ? 'hidden' : 'flex')}>
-                  {viewMenu}
-                  {sortButton}
-                  {addButton}
-                </div>
-              ) : null}
-            </div>
-            {description ? (
-              <p className={cx('mt-1 hidden text-sm text-ghost sm:block', compact && 'lg:hidden')}>{description}</p>
-            ) : null}
-          </div>
-
-          <div
           className={cx(
-            'grid min-w-0 flex-1 gap-2 sm:flex sm:flex-wrap sm:items-center lg:justify-end',
-            mobileToolbarGridClass,
-            toolbarClassName
+            'border-b border-edge bg-void/95 px-3 shrink-0 transition-[padding] duration-150 sm:px-6',
+            compact ? 'py-2' : 'py-2 sm:py-4',
+            className
           )}
-          data-testid={toolbarTestId}
+          data-testid={testId}
         >
-            {toolbarControls}
+          <div className={cx('flex flex-col gap-2 lg:flex-row lg:items-start', compact && 'lg:items-center')}>
+            <div className={cx('min-w-0', compact ? 'lg:max-w-64' : '')}>
+              <div className="flex items-center justify-end gap-2 sm:justify-between">
+                <div className={cx('min-w-0 flex-wrap items-center gap-3', showTitleOnMobile ? 'flex' : 'hidden sm:flex')}>
+                  <h1 className={cx('section-title !text-3xl', compact && '!text-2xl')}>{title}</h1>
+                  {typeof total !== 'undefined' ? <span className="badge badge-dim shrink-0">{total}</span> : null}
+                  {filterCount > 0 ? <span className="badge badge-dim shrink-0">{resolvedFilterLabel}</span> : null}
+                </div>
+                {viewMenu || sortButton || addButton ? (
+                  <div className={cx('shrink-0 items-center justify-end gap-1.5 sm:hidden', mobileCompact ? 'hidden' : 'flex')}>
+                    {viewMenu}
+                    {sortButton}
+                    {addButton}
+                  </div>
+                ) : null}
+              </div>
+              {description ? <p className={cx('mt-1 hidden text-sm text-ghost sm:block', compact && 'lg:hidden')}>{description}</p> : null}
+            </div>
+
+            <div
+              className={cx(
+                'grid min-w-0 flex-1 gap-2 sm:flex sm:flex-wrap sm:items-center lg:justify-end',
+                mobileToolbarGridClass,
+                toolbarClassName
+              )}
+              data-testid={toolbarTestId}
+            >
+              {toolbarControls}
+            </div>
           </div>
         </div>
-      </div>
       ) : null}
     </>
   );
 }
 
-export function SectionTabPanel({
-  tabId,
-  activeId,
-  tabKey,
-  idBase,
-  className = '',
-  children,
-  keepMounted = false
-}) {
+export function SectionTabPanel({ tabId, activeId, tabKey, idBase, className = '', children, keepMounted = false }) {
   const generatedIdBase = useId().replace(/:/g, '');
   const tabsIdBase = idBase || `section-tabs-${generatedIdBase}`;
   const active = activeId === tabKey;
@@ -692,12 +668,11 @@ export function CollectionPaginationFooter({
   alignEndWhenSingle = true
 }) {
   const showPager = Number(totalPages || 1) > 1 || Number(page || 1) > 1 || Boolean(hasMore);
+  const pageSizeId = useId();
 
   return (
     <div className={cx('shrink-0 border-t border-edge px-6 py-2.5 flex items-center gap-4 flex-wrap', className)}>
-      {leadingContent ? (
-        <div className="text-sm text-ghost">{leadingContent}</div>
-      ) : null}
+      {leadingContent ? <div className="text-sm text-ghost">{leadingContent}</div> : null}
       {showPager ? (
         <div className="flex items-center gap-1.5 flex-wrap">
           <button
@@ -708,7 +683,9 @@ export function CollectionPaginationFooter({
           >
             <Icons.ChevronLeft />
           </button>
-          <span className="min-w-[88px] text-center text-xs font-mono text-dim">Page {page} / {totalPages || 1}</span>
+          <span className="min-w-[88px] text-center text-xs font-mono text-dim">
+            Page {page} / {totalPages || 1}
+          </span>
           <button
             onClick={onNext}
             disabled={loading || !hasMore}
@@ -721,14 +698,19 @@ export function CollectionPaginationFooter({
       ) : null}
       {showPageSize ? (
         <div className={cx('flex items-center gap-2.5 text-xs', (alignEndWhenSingle || showPager || leadingContent) && 'ml-auto')}>
-          <label className="text-[11px] text-dim">Show</label>
+          <label className="text-[11px] text-dim" htmlFor={pageSizeId}>
+            Show
+          </label>
           <select
+            id={pageSizeId}
             className="select h-7 w-20 border-edge bg-transparent pr-7 text-xs text-dim hover:border-muted focus:border-gold/50 focus:ring-gold/30"
             value={pageSize}
             onChange={(e) => onPageSizeChange?.(Number(e.target.value))}
           >
             {pageSizeOptions.map((value) => (
-              <option key={value} value={value}>{value}</option>
+              <option key={value} value={value}>
+                {value}
+              </option>
             ))}
           </select>
         </div>
@@ -771,13 +753,7 @@ export function ImageSourceControl({
     <div className={cx('field', className)}>
       <span className="label">{label}</span>
       <div className="rounded-lg border border-edge/70 bg-void/30 p-2.5">
-        <input
-          ref={libraryInputRef}
-          type="file"
-          accept={accept}
-          className="hidden"
-          onChange={(event) => pickFile(event, onChooseFile)}
-        />
+        <input ref={libraryInputRef} type="file" accept={accept} className="hidden" onChange={(event) => pickFile(event, onChooseFile)} />
         {!onCamera ? (
           <input
             ref={cameraInputRef}
@@ -790,13 +766,19 @@ export function ImageSourceControl({
         ) : null}
         <div className="flex flex-wrap items-center gap-2">
           <button type="button" className="btn-secondary btn-sm" onClick={() => libraryInputRef.current?.click()}>
-            <Icons.Upload />{chooseLabel}
+            <Icons.Upload />
+            {chooseLabel}
           </button>
           <button type="button" className="btn-ghost btn-sm" onClick={startCamera}>
-            <Icons.Camera />{cameraLabel}
+            <Icons.Camera />
+            {cameraLabel}
           </button>
         </div>
-        {selectedName ? <p className="mt-2 text-xs text-ghost">{selectedLabel}: {selectedName}</p> : null}
+        {selectedName ? (
+          <p className="mt-2 text-xs text-ghost">
+            {selectedLabel}: {selectedName}
+          </p>
+        ) : null}
       </div>
     </div>
   );
@@ -815,19 +797,14 @@ export function CoverImagePicker({
   onRemove
 }) {
   const inputRef = useRef(null);
-  const [previewUrl, setPreviewUrl] = useState('');
+  const previewUrl = useMemo(() => (selectedFile ? URL.createObjectURL(selectedFile) : ''), [selectedFile]);
   const selectedName = selectedFile?.name || '';
   const displayUrl = previewUrl || posterUrl(imagePath);
 
   useEffect(() => {
-    if (!selectedFile) {
-      setPreviewUrl('');
-      return undefined;
-    }
-    const objectUrl = URL.createObjectURL(selectedFile);
-    setPreviewUrl(objectUrl);
-    return () => URL.revokeObjectURL(objectUrl);
-  }, [selectedFile]);
+    if (!previewUrl) return undefined;
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
 
   const handleSelection = (event) => {
     const file = event.target.files?.[0] || null;
@@ -844,25 +821,24 @@ export function CoverImagePicker({
         disabled={disabled}
         className="poster relative w-full overflow-hidden rounded-md border border-edge bg-panel text-left transition-colors hover:border-muted disabled:cursor-not-allowed"
       >
-        {displayUrl
-          ? <img src={displayUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
-          : <div className="absolute inset-0 flex items-center justify-center text-ghost"><Icons.Film /></div>}
+        {displayUrl ? (
+          <img src={displayUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-ghost">
+            <Icons.Film />
+          </div>
+        )}
         <div className="absolute inset-x-0 bottom-0 border-t border-edge bg-panel/95 p-3">
           <p className="text-sm font-medium text-ink">{displayUrl ? replaceLabel : emptyLabel}</p>
           {!displayUrl ? <p className="text-[11px] leading-4 text-dim">Photo library, camera, or file</p> : null}
         </div>
       </button>
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={handleSelection}
-      />
+      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleSelection} />
       {selectedName ? <p className="text-xs text-ghost">Selected: {selectedName}</p> : null}
       {imagePath && !selectedFile && onRemove ? (
         <button type="button" onClick={onRemove} disabled={disabled} className="btn-secondary btn-sm w-full text-err">
-          <Icons.Trash />{removeLabel}
+          <Icons.Trash />
+          {removeLabel}
         </button>
       ) : null}
     </div>
@@ -882,14 +858,7 @@ function DisclosureChevron({ open }) {
   );
 }
 
-export function DisclosureList({
-  items = [],
-  openId,
-  onToggle,
-  className = '',
-  renderSummary,
-  renderContent
-}) {
+export function DisclosureList({ items = [], openId, onToggle, className = '', renderSummary, renderContent }) {
   const generatedIdBase = useId().replace(/:/g, '');
   const listIdBase = `disclosure-list-${generatedIdBase}`;
 
@@ -913,7 +882,9 @@ export function DisclosureList({
                 className="flex w-full items-start justify-between gap-4 px-4 py-4 text-left transition-colors hover:bg-raised/12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/35"
               >
                 <div className="min-w-0 flex-1">
-                  {renderSummary ? renderSummary(item, { open: isOpen, index }) : (
+                  {renderSummary ? (
+                    renderSummary(item, { open: isOpen, index })
+                  ) : (
                     <>
                       <p className="text-sm font-medium text-ink">{item.title}</p>
                       {item.summary ? <p className="mt-1 text-sm text-ghost">{item.summary}</p> : null}
@@ -923,13 +894,7 @@ export function DisclosureList({
                 <DisclosureChevron open={isOpen} />
               </button>
             </h3>
-            <div
-              id={panelId}
-              role="region"
-              aria-labelledby={buttonId}
-              hidden={!isOpen}
-              className={cx('px-4 pb-4', !isOpen && 'hidden')}
-            >
+            <div id={panelId} role="region" aria-labelledby={buttonId} hidden={!isOpen} className={cx('px-4 pb-4', !isOpen && 'hidden')}>
               {isOpen && (renderContent ? renderContent(item, { open: isOpen, index }) : null)}
             </div>
           </div>
@@ -957,9 +922,7 @@ export function mediaTypeLabel(value) {
 }
 
 export function readCookie(name) {
-  const raw = document.cookie
-    .split('; ')
-    .find((row) => row.startsWith(`${name}=`));
+  const raw = document.cookie.split('; ').find((row) => row.startsWith(`${name}=`));
   if (!raw) return '';
   try {
     return decodeURIComponent(raw.split('=').slice(1).join('='));
@@ -1139,36 +1102,35 @@ let tesseractWorkerPromise = null;
 
 async function loadZxingDecoder() {
   if (!zxingDecoderPromise) {
-    zxingDecoderPromise = Promise.all([
-      import('@zxing/browser'),
-      import('@zxing/library')
-    ]).then(([browserModule, libraryModule]) => {
-      const BrowserMultiFormatReader = browserModule?.BrowserMultiFormatReader || browserModule?.default?.BrowserMultiFormatReader;
-      const BarcodeFormat = browserModule?.BarcodeFormat || libraryModule?.BarcodeFormat;
-      const DecodeHintType = libraryModule?.DecodeHintType;
-      if (!BrowserMultiFormatReader || !BarcodeFormat || !DecodeHintType) {
-        throw new Error('unsupported');
-      }
+    zxingDecoderPromise = Promise.all([import('@zxing/browser'), import('@zxing/library')])
+      .then(([browserModule, libraryModule]) => {
+        const BrowserMultiFormatReader = browserModule?.BrowserMultiFormatReader || browserModule?.default?.BrowserMultiFormatReader;
+        const BarcodeFormat = browserModule?.BarcodeFormat || libraryModule?.BarcodeFormat;
+        const DecodeHintType = libraryModule?.DecodeHintType;
+        if (!BrowserMultiFormatReader || !BarcodeFormat || !DecodeHintType) {
+          throw new Error('unsupported');
+        }
 
-      const formats = [
-        BarcodeFormat.UPC_A,
-        BarcodeFormat.UPC_E,
-        BarcodeFormat.EAN_13,
-        BarcodeFormat.EAN_8,
-        BarcodeFormat.CODE_128,
-        BarcodeFormat.CODE_39,
-        BarcodeFormat.CODABAR
-      ].filter(Boolean);
+        const formats = [
+          BarcodeFormat.UPC_A,
+          BarcodeFormat.UPC_E,
+          BarcodeFormat.EAN_13,
+          BarcodeFormat.EAN_8,
+          BarcodeFormat.CODE_128,
+          BarcodeFormat.CODE_39,
+          BarcodeFormat.CODABAR
+        ].filter(Boolean);
 
-      const hints = new Map();
-      hints.set(DecodeHintType.POSSIBLE_FORMATS, formats);
-      hints.set(DecodeHintType.TRY_HARDER, true);
+        const hints = new Map();
+        hints.set(DecodeHintType.POSSIBLE_FORMATS, formats);
+        hints.set(DecodeHintType.TRY_HARDER, true);
 
-      return new BrowserMultiFormatReader(hints);
-    }).catch((error) => {
-      zxingDecoderPromise = null;
-      throw error;
-    });
+        return new BrowserMultiFormatReader(hints);
+      })
+      .catch((error) => {
+        zxingDecoderPromise = null;
+        throw error;
+      });
   }
 
   return zxingDecoderPromise;
@@ -1210,13 +1172,7 @@ function createBarcodeCanvas(width, height) {
   return canvas;
 }
 
-function drawBarcodeVariant(source, {
-  rotate = 0,
-  crop = null,
-  grayscale = false,
-  contrast = 1,
-  maxDimension = 1600
-} = {}) {
+function drawBarcodeVariant(source, { rotate = 0, crop = null, grayscale = false, contrast = 1, maxDimension = 1600 } = {}) {
   const sourceWidth = source.naturalWidth || source.videoWidth || source.width;
   const sourceHeight = source.naturalHeight || source.videoHeight || source.height;
   if (!sourceWidth || !sourceHeight) return null;
@@ -1258,17 +1214,7 @@ function drawBarcodeVariant(source, {
     context.rotate(Math.PI);
   }
 
-  context.drawImage(
-    source,
-    cropRect.x,
-    cropRect.y,
-    cropRect.width,
-    cropRect.height,
-    0,
-    0,
-    drawWidth,
-    drawHeight
-  );
+  context.drawImage(source, cropRect.x, cropRect.y, cropRect.width, cropRect.height, 0, 0, drawWidth, drawHeight);
   context.restore();
   return canvas;
 }
@@ -1283,7 +1229,12 @@ function createBarcodeDetectionVariants(source) {
   pushVariant('full-resized', { maxDimension: 1800 });
   pushVariant('full-contrast', { maxDimension: 1800, grayscale: true, contrast: 1.6 });
   pushVariant('bottom-half', { crop: { x: 0, y: 0.45, width: 1, height: 0.55 }, maxDimension: 1800 });
-  pushVariant('bottom-half-contrast', { crop: { x: 0, y: 0.45, width: 1, height: 0.55 }, maxDimension: 1800, grayscale: true, contrast: 1.8 });
+  pushVariant('bottom-half-contrast', {
+    crop: { x: 0, y: 0.45, width: 1, height: 0.55 },
+    maxDimension: 1800,
+    grayscale: true,
+    contrast: 1.8
+  });
   pushVariant('bottom-third', { crop: { x: 0.05, y: 0.58, width: 0.9, height: 0.32 }, maxDimension: 1800, grayscale: true, contrast: 1.9 });
   pushVariant('rotated-right', { rotate: 90, maxDimension: 1800 });
   pushVariant('rotated-left', { rotate: -90, maxDimension: 1800 });
@@ -1361,16 +1312,52 @@ function createIdentifierOcrVariants(source, focusCrop = null) {
     });
 
     pushVariant('barcode-focus-isbn-strip', { crop: isbnStrip, maxDimension: 2600, grayscale: true, contrast: 3.0 }, 'single-line');
-    pushVariant('barcode-focus-isbn-strip-left', { crop: isbnStripLeft, maxDimension: 2600, grayscale: true, contrast: 3.1 }, 'single-line');
+    pushVariant(
+      'barcode-focus-isbn-strip-left',
+      { crop: isbnStripLeft, maxDimension: 2600, grayscale: true, contrast: 3.1 },
+      'single-line'
+    );
   }
 
-  pushVariant('bottom-third-contrast', { crop: { x: 0.02, y: 0.55, width: 0.96, height: 0.36 }, maxDimension: 2000, grayscale: true, contrast: 2.2 });
-  pushVariant('bottom-half-contrast', { crop: { x: 0, y: 0.42, width: 1, height: 0.58 }, maxDimension: 2000, grayscale: true, contrast: 2.0 });
-  pushVariant('bottom-quarter-tight', { crop: { x: 0.08, y: 0.68, width: 0.84, height: 0.2 }, maxDimension: 2200, grayscale: true, contrast: 2.5 });
-  pushVariant('bottom-right-quarter', { crop: { x: 0.45, y: 0.58, width: 0.5, height: 0.3 }, maxDimension: 2200, grayscale: true, contrast: 2.4 });
+  pushVariant('bottom-third-contrast', {
+    crop: { x: 0.02, y: 0.55, width: 0.96, height: 0.36 },
+    maxDimension: 2000,
+    grayscale: true,
+    contrast: 2.2
+  });
+  pushVariant('bottom-half-contrast', {
+    crop: { x: 0, y: 0.42, width: 1, height: 0.58 },
+    maxDimension: 2000,
+    grayscale: true,
+    contrast: 2.0
+  });
+  pushVariant('bottom-quarter-tight', {
+    crop: { x: 0.08, y: 0.68, width: 0.84, height: 0.2 },
+    maxDimension: 2200,
+    grayscale: true,
+    contrast: 2.5
+  });
+  pushVariant('bottom-right-quarter', {
+    crop: { x: 0.45, y: 0.58, width: 0.5, height: 0.3 },
+    maxDimension: 2200,
+    grayscale: true,
+    contrast: 2.4
+  });
   pushVariant('full-contrast', { maxDimension: 1800, grayscale: true, contrast: 1.8 });
-  pushVariant('bottom-third-rotated-right', { crop: { x: 0.02, y: 0.55, width: 0.96, height: 0.36 }, maxDimension: 2000, grayscale: true, contrast: 2.2, rotate: 90 });
-  pushVariant('bottom-third-rotated-left', { crop: { x: 0.02, y: 0.55, width: 0.96, height: 0.36 }, maxDimension: 2000, grayscale: true, contrast: 2.2, rotate: -90 });
+  pushVariant('bottom-third-rotated-right', {
+    crop: { x: 0.02, y: 0.55, width: 0.96, height: 0.36 },
+    maxDimension: 2000,
+    grayscale: true,
+    contrast: 2.2,
+    rotate: 90
+  });
+  pushVariant('bottom-third-rotated-left', {
+    crop: { x: 0.02, y: 0.55, width: 0.96, height: 0.36 },
+    maxDimension: 2000,
+    grayscale: true,
+    contrast: 2.2,
+    rotate: -90
+  });
 
   return variants;
 }
@@ -1427,9 +1414,7 @@ function extractIdentifierCandidatesFromText(rawText = '') {
   const upcCandidates = [];
   const asinCandidates = [];
 
-  const normalizedText = text
-    .replace(/[Oo]/g, '0')
-    .replace(/[Il|]/g, '1');
+  const normalizedText = text.replace(/[Oo]/g, '0').replace(/[Il|]/g, '1');
   const ocrNormalizedText = normalizedText
     .replace(/(?<=\d)[Ss](?=[\dXx])/g, '5')
     .replace(/(?<=\d)[Bb](?=[\dXx])/g, '8')
@@ -1457,7 +1442,9 @@ function extractIdentifierCandidatesFromText(rawText = '') {
   const asinPattern = /\bASIN[\s:]*([A-Z0-9]{10})\b/gi;
   let asinMatch = asinPattern.exec(ocrNormalizedText.toUpperCase());
   while (asinMatch) {
-    const candidate = String(asinMatch[1] || '').trim().toUpperCase();
+    const candidate = String(asinMatch[1] || '')
+      .trim()
+      .toUpperCase();
     if (candidate) asinCandidates.push(candidate);
     asinMatch = asinPattern.exec(ocrNormalizedText.toUpperCase());
   }
@@ -1508,7 +1495,7 @@ async function runIdentifierOcr(source, options = {}) {
   for (const variant of createIdentifierOcrVariants(source, focusCrop)) {
     try {
       await worker.setParameters({
-        tessedit_pageseg_mode: variant.ocrMode === 'single-line' ? (PSM.SINGLE_LINE || PSM.SINGLE_BLOCK) : (PSM.SINGLE_BLOCK || 6),
+        tessedit_pageseg_mode: variant.ocrMode === 'single-line' ? PSM.SINGLE_LINE || PSM.SINGLE_BLOCK : PSM.SINGLE_BLOCK || 6,
         preserve_interword_spaces: '1',
         tessedit_char_whitelist: '0123456789XxABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-: '
       });
@@ -1568,15 +1555,7 @@ export async function detectBarcodeCapturePayloadFromFile(file) {
   try {
     const BarcodeDetectorClass = getBarcodeDetectorClass();
     if (BarcodeDetectorClass) {
-      const preferredFormats = [
-        'upc_a',
-        'upc_e',
-        'ean_13',
-        'ean_8',
-        'code_128',
-        'code_39',
-        'codabar'
-      ];
+      const preferredFormats = ['upc_a', 'upc_e', 'ean_13', 'ean_8', 'code_128', 'code_39', 'codabar'];
 
       let formats = preferredFormats;
       if (typeof BarcodeDetectorClass.getSupportedFormats === 'function') {
@@ -1657,66 +1636,105 @@ export async function extractIdentifierCandidatesFromFile(file, options = {}) {
 }
 
 const Icon = ({ d, size = 20, className = '', strokeWidth = 1.75 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
-    stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round"
-    strokeLinejoin="round" className={className}>
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={strokeWidth}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
     <path d={d} />
   </svg>
 );
 
 export const Icons = {
-  Library:     () => <Icon d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />,
-  Plus:        () => <Icon d="M12 5v14M5 12h14" />,
-  Search:      () => <Icon d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />,
-  Settings:    () => <Icon d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />,
-  Users:       () => <Icon d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />,
-  Activity:    () => <Icon d="M3 12h4l2.5-7 4 14 2.5-7H21" />,
-  Gauge:       () => <Icon d="M12 14l4-4M3.34 19a10 10 0 1 1 17.32 0M6.7 16.3a6 6 0 1 1 10.6 0" />,
-  List:        () => <Icon d="M4 7h16M4 12h16M4 17h16" />,
-  Profile:     () => <Icon d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />,
-  Integrations:() => <Icon d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 17h6M17 14v6" />,
+  Library: () => <Icon d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />,
+  Plus: () => <Icon d="M12 5v14M5 12h14" />,
+  Search: () => <Icon d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />,
+  Settings: () => (
+    <Icon d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+  ),
+  Users: () => (
+    <Icon d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+  ),
+  Activity: () => <Icon d="M3 12h4l2.5-7 4 14 2.5-7H21" />,
+  Gauge: () => <Icon d="M12 14l4-4M3.34 19a10 10 0 1 1 17.32 0M6.7 16.3a6 6 0 1 1 10.6 0" />,
+  List: () => <Icon d="M4 7h16M4 12h16M4 17h16" />,
+  Profile: () => <Icon d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />,
+  Integrations: () => <Icon d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 17h6M17 14v6" />,
   ChevronDown: () => <Icon d="M6 9l6 6 6-6" size={16} />,
-  ChevronRight:() => <Icon d="M9 18l6-6-6-6" size={16} />,
+  ChevronRight: () => <Icon d="M9 18l6-6-6-6" size={16} />,
   ChevronLeft: () => <Icon d="M15 18l-6-6 6-6" size={16} />,
-  Menu:        () => <Icon d="M3 12h18M3 6h18M3 18h18" />,
-  X:           () => <Icon d="M18 6L6 18M6 6l12 12" />,
-  Trash:       () => <Icon d="M3 6h18M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M9 6V4h6v2" />,
-  Edit:        () => <Icon d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />,
-  Film:        () => <Icon d="M2 8h20M2 16h20M7 2v20M17 2v20M2 4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4z" />,
-  MusicNote:   () => <Icon d="M9 18V5l11-2v13M9 18a3 3 0 1 1-3-3 3 3 0 0 1 3 3zM20 16a3 3 0 1 1-3-3 3 3 0 0 1 3 3zM9 8l11-2" />,
-  Palette:     () => <Icon d="M12 3a9 9 0 0 0 0 18h1.5a1.8 1.8 0 0 0 1.2-3.15 1.7 1.7 0 0 1 1.15-2.95H17a4 4 0 0 0 4-4c0-4.42-4.03-7.9-9-7.9zM7.5 10h.01M10 6.8h.01M14 6.8h.01M16.5 10h.01" />,
-  BookOpen:    () => <Icon d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v17H6.5A2.5 2.5 0 0 0 4 22V5.5zM20 5.5A2.5 2.5 0 0 0 17.5 3H13v17h4.5A2.5 2.5 0 0 1 20 22V5.5z" />,
-  Speech:      () => <Icon d="M21 11.5a7.5 7.5 0 0 1-7.5 7.5H8l-5 3 1.6-4.8A7.5 7.5 0 1 1 21 11.5z" />,
-  BoxOpen:     () => <Icon d="M3 8l9 4 9-4M3 8l3.5-4L12 6.5 17.5 4 21 8v9l-9 4-9-4V8zM12 12v9" />,
-  Calendar:    () => <Icon d="M7 2v4M17 2v4M3 9h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" />,
-  Handoff:     () => <Icon d="M7 11V6a2 2 0 0 1 4 0v4M11 10V5a2 2 0 0 1 4 0v7M15 12V7a2 2 0 0 1 4 0v7a7 7 0 0 1-7 7H9l-5-5a2 2 0 0 1 2.8-2.8L9 15" />,
-  Clapper:     () => <Icon d="M4 11h16v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-9zM4 11l2-7h4l-2 7M10 11l2-7h4l-2 7M16 11l2-7h2a2 2 0 0 1 2 2v5" />,
-  Tv:          () => <Icon d="M4 7h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2zM8 3l4 4 4-4" />,
-  InboxTray:   () => <Icon d="M4 4h16l2 10v5a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-5L4 4zM2 14h6l2 3h4l2-3h6" />,
-  Gamepad:     () => <Icon d="M7 15h.01M17 13h.01M15 17h.01M9 13h.01M8 10h8a6 6 0 0 1 5.8 4.5l.7 2.8A3 3 0 0 1 17.6 20l-2.1-2H8.5l-2.1 2a3 3 0 0 1-4.9-2.7l.7-2.8A6 6 0 0 1 8 10z" />,
-  Filter:      () => <Icon d="M3 4h18l-7 8v6l-4 2v-8L3 4z" />,
-  Barcode:     () => <Icon d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14M21 5v14" />,
-  Camera:      () => <Icon d="M4 7h3l2-2h6l2 2h3a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />,
-  Eye:         () => <Icon d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z" />,
-  EyeOff:      () => <Icon d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22" />,
-  Upload:      () => <Icon d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />,
-  Download:    () => <Icon d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />,
-  Mail:        () => <Icon d="M4 6h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2zM22 8l-10 7L2 8" />,
-  Star:        () => <Icon d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />,
-  LogOut:      () => <Icon d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />,
-  Copy:        () => <Icon d="M20 9H11a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2zM5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 0 2 2v1" />,
-  Check:       ({ size = 20 } = {}) => <Icon d="M20 6L9 17l-5-5" size={size} />,
-  Refresh:     () => <Icon d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />,
-  Play:        () => <Icon d="M5 3l14 9-14 9V3z" />,
-  Link:        () => <Icon d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />,
-  ArrowUp:     () => <Icon d="M12 19V5M5 12l7-7 7 7" />,
-  ArrowDown:   () => <Icon d="M12 5v14M19 12l-7 7-7-7" />,
+  Menu: () => <Icon d="M3 12h18M3 6h18M3 18h18" />,
+  X: () => <Icon d="M18 6L6 18M6 6l12 12" />,
+  Trash: () => <Icon d="M3 6h18M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M9 6V4h6v2" />,
+  Edit: () => (
+    <Icon d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+  ),
+  Film: () => <Icon d="M2 8h20M2 16h20M7 2v20M17 2v20M2 4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4z" />,
+  MusicNote: () => <Icon d="M9 18V5l11-2v13M9 18a3 3 0 1 1-3-3 3 3 0 0 1 3 3zM20 16a3 3 0 1 1-3-3 3 3 0 0 1 3 3zM9 8l11-2" />,
+  Palette: () => (
+    <Icon d="M12 3a9 9 0 0 0 0 18h1.5a1.8 1.8 0 0 0 1.2-3.15 1.7 1.7 0 0 1 1.15-2.95H17a4 4 0 0 0 4-4c0-4.42-4.03-7.9-9-7.9zM7.5 10h.01M10 6.8h.01M14 6.8h.01M16.5 10h.01" />
+  ),
+  BookOpen: () => (
+    <Icon d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v17H6.5A2.5 2.5 0 0 0 4 22V5.5zM20 5.5A2.5 2.5 0 0 0 17.5 3H13v17h4.5A2.5 2.5 0 0 1 20 22V5.5z" />
+  ),
+  Speech: () => <Icon d="M21 11.5a7.5 7.5 0 0 1-7.5 7.5H8l-5 3 1.6-4.8A7.5 7.5 0 1 1 21 11.5z" />,
+  BoxOpen: () => <Icon d="M3 8l9 4 9-4M3 8l3.5-4L12 6.5 17.5 4 21 8v9l-9 4-9-4V8zM12 12v9" />,
+  Calendar: () => <Icon d="M7 2v4M17 2v4M3 9h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" />,
+  Handoff: () => (
+    <Icon d="M7 11V6a2 2 0 0 1 4 0v4M11 10V5a2 2 0 0 1 4 0v7M15 12V7a2 2 0 0 1 4 0v7a7 7 0 0 1-7 7H9l-5-5a2 2 0 0 1 2.8-2.8L9 15" />
+  ),
+  Clapper: () => <Icon d="M4 11h16v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-9zM4 11l2-7h4l-2 7M10 11l2-7h4l-2 7M16 11l2-7h2a2 2 0 0 1 2 2v5" />,
+  Tv: () => <Icon d="M4 7h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2zM8 3l4 4 4-4" />,
+  InboxTray: () => <Icon d="M4 4h16l2 10v5a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-5L4 4zM2 14h6l2 3h4l2-3h6" />,
+  Gamepad: () => (
+    <Icon d="M7 15h.01M17 13h.01M15 17h.01M9 13h.01M8 10h8a6 6 0 0 1 5.8 4.5l.7 2.8A3 3 0 0 1 17.6 20l-2.1-2H8.5l-2.1 2a3 3 0 0 1-4.9-2.7l.7-2.8A6 6 0 0 1 8 10z" />
+  ),
+  Filter: () => <Icon d="M3 4h18l-7 8v6l-4 2v-8L3 4z" />,
+  Barcode: () => <Icon d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14M21 5v14" />,
+  Camera: () => (
+    <Icon d="M4 7h3l2-2h6l2 2h3a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />
+  ),
+  Eye: () => <Icon d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z" />,
+  EyeOff: () => (
+    <Icon d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22" />
+  ),
+  Upload: () => <Icon d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />,
+  Download: () => <Icon d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />,
+  Mail: () => <Icon d="M4 6h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2zM22 8l-10 7L2 8" />,
+  Star: () => <Icon d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />,
+  LogOut: () => <Icon d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />,
+  Copy: () => (
+    <Icon d="M20 9H11a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2zM5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 0 2 2v1" />
+  ),
+  Check: ({ size = 20 } = {}) => <Icon d="M20 6L9 17l-5-5" size={size} />,
+  Refresh: () => <Icon d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />,
+  Play: () => <Icon d="M5 3l14 9-14 9V3z" />,
+  Link: () => (
+    <Icon d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+  ),
+  ArrowUp: () => <Icon d="M12 19V5M5 12l7-7 7 7" />,
+  ArrowDown: () => <Icon d="M12 5v14M19 12l-7 7-7-7" />
 };
 
 export function Spinner({ size = 16 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" className="animate-spin text-gold" fill="none">
-      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="31.4" strokeDashoffset="10" strokeLinecap="round" />
+      <circle
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="3"
+        strokeDasharray="31.4"
+        strokeDashoffset="10"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
@@ -1761,6 +1779,8 @@ export function CameraCaptureModal({
 
     if (!open) {
       stopStream();
+      // Closing the modal synchronizes camera/UI state with the external media stream lifecycle.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setStarting(false);
       setError('');
       releaseCapturedUrl();
@@ -1802,10 +1822,7 @@ export function CameraCaptureModal({
         if (videoTrack?.applyConstraints) {
           try {
             await videoTrack.applyConstraints({
-              advanced: [
-                { width: 1920, height: 1080 },
-                { focusMode: 'continuous' }
-              ]
+              advanced: [{ width: 1920, height: 1080 }, { focusMode: 'continuous' }]
             });
           } catch (_) {
             // Keep the best-effort camera stream when the browser rejects advanced constraints.
@@ -1877,14 +1894,16 @@ export function CameraCaptureModal({
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center px-4">
-      <div className="absolute inset-0 bg-void/78" onClick={onClose} />
+      <button type="button" className="absolute inset-0 bg-void/78" onClick={onClose} aria-label="Close camera capture" />
       <div className="relative w-full max-w-3xl rounded-xl border border-edge bg-abyss shadow-card overflow-hidden">
         <div className="flex items-start gap-3 border-b border-edge px-5 py-4">
           <div className="flex-1">
             <h3 className="section-title !text-lg">{title}</h3>
             <p className="mt-1 text-sm text-ghost">{description}</p>
           </div>
-          <button type="button" onClick={onClose} className="btn-icon btn-sm shrink-0"><Icons.X /></button>
+          <button type="button" onClick={onClose} className="btn-icon btn-sm shrink-0">
+            <Icons.X />
+          </button>
         </div>
         <div className="p-5 space-y-4">
           <div className="aspect-video w-full overflow-hidden rounded-xl border border-edge bg-black">
@@ -1895,25 +1914,33 @@ export function CameraCaptureModal({
             )}
           </div>
           {starting ? (
-            <div className="flex items-center gap-2 text-sm text-dim"><Spinner size={14} />Starting camera…</div>
+            <div className="flex items-center gap-2 text-sm text-dim">
+              <Spinner size={14} />
+              Starting camera…
+            </div>
           ) : null}
           {error ? <p className="text-sm text-err">{error}</p> : null}
           <div className="flex flex-wrap items-center gap-3">
             {!capturedBlob ? (
               <button type="button" onClick={captureFrame} className="btn-primary" disabled={starting}>
-                <Icons.Camera />Capture
+                <Icons.Camera />
+                Capture
               </button>
             ) : (
               <>
                 <button type="button" onClick={resetCapture} className="btn-secondary">
-                  <Icons.Refresh />Retake
+                  <Icons.Refresh />
+                  Retake
                 </button>
                 <button type="button" onClick={useCapture} className="btn-primary">
-                  <Icons.Check />{confirmLabel}
+                  <Icons.Check />
+                  {confirmLabel}
                 </button>
               </>
             )}
-            <button type="button" onClick={onClose} className="btn-ghost ml-auto">Close</button>
+            <button type="button" onClick={onClose} className="btn-ghost ml-auto">
+              Close
+            </button>
           </div>
         </div>
       </div>
@@ -1925,7 +1952,7 @@ export function ObjectPosterCard({
   title,
   imagePath,
   fallbackIcon = <Icons.Library />,
-  supportsHover = true,
+  supportsHover: _supportsHover = true,
   onOpen,
   onMouseDown,
   onPointerUp,
@@ -1938,26 +1965,42 @@ export function ObjectPosterCard({
   titleClassName = '',
   articleClassName = ''
 }) {
+  const interactive = Boolean(onOpen || onMouseDown || onPointerUp);
+  const handleKeyDown = (event) => {
+    if (!onOpen) return;
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onOpen(event);
+    }
+  };
+
   return (
+    // Existing browser coverage and card semantics expect article as the card container.
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
     <article
-      className={cx(
-        'group relative animate-fade-in',
-        onOpen && 'cursor-pointer',
-        articleClassName
-      )}
+      // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
+      tabIndex={interactive ? 0 : undefined}
       onMouseDown={onMouseDown}
       onClick={onOpen}
       onPointerUp={onPointerUp}
+      onKeyDown={interactive ? handleKeyDown : undefined}
+      className={cx('group relative animate-fade-in text-left', onOpen && 'cursor-pointer', articleClassName)}
     >
-      <div className={cx('poster rounded-lg overflow-hidden border transition-colors', selected ? 'border-brand/55' : 'border-edge', !selected && 'hover:border-muted')}>
-        {posterUrl(imagePath)
-          ? <img src={posterUrl(imagePath)} alt={title} className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
-          : (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-ghost">
-              {fallbackIcon}
-              <span className="px-3 text-center text-xs leading-tight">{title}</span>
-            </div>
-          )}
+      <div
+        className={cx(
+          'poster rounded-lg overflow-hidden border transition-colors',
+          selected ? 'border-brand/55' : 'border-edge',
+          !selected && 'hover:border-muted'
+        )}
+      >
+        {posterUrl(imagePath) ? (
+          <img src={posterUrl(imagePath)} alt={title} className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
+        ) : (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-ghost">
+            {fallbackIcon}
+            <span className="px-3 text-center text-xs leading-tight">{title}</span>
+          </div>
+        )}
         {leftBadges.length > 0 ? (
           <div className="absolute left-2 top-2 flex max-w-[70%] flex-wrap gap-2">
             {leftBadges.map((badge, index) => (
@@ -1967,11 +2010,7 @@ export function ObjectPosterCard({
             ))}
           </div>
         ) : null}
-        {rightBadge ? (
-          <div className="absolute right-2 top-2">
-            {rightBadge}
-          </div>
-        ) : null}
+        {rightBadge ? <div className="absolute right-2 top-2">{rightBadge}</div> : null}
         {overlayChildren}
       </div>
       <div className="mt-2 px-0.5">
@@ -1984,9 +2023,7 @@ export function ObjectPosterCard({
 }
 
 export function CollectibleTraitPills({ traits = [], limit = 4, className = '' }) {
-  const visibleTraits = Array.isArray(traits)
-    ? traits.filter((trait) => trait?.label || trait?.summary).slice(0, limit)
-    : [];
+  const visibleTraits = Array.isArray(traits) ? traits.filter((trait) => trait?.label || trait?.summary).slice(0, limit) : [];
   if (visibleTraits.length === 0) return null;
   return (
     <div className={cx('flex flex-wrap gap-2', className)}>
@@ -1995,9 +2032,7 @@ export function CollectibleTraitPills({ traits = [], limit = 4, className = '' }
           key={trait.key || `${trait.family || 'trait'}-${index}`}
           className={cx(
             'inline-flex min-w-0 items-center rounded-md border px-2 py-1 text-[11px] font-medium',
-            trait.tone === 'brand'
-              ? 'border-brand/30 bg-brand/10 text-brand'
-              : 'border-edge bg-surface text-dim'
+            trait.tone === 'brand' ? 'border-brand/30 bg-brand/10 text-brand' : 'border-edge bg-surface text-dim'
           )}
           title={trait.summary || trait.label}
         >
@@ -2009,9 +2044,7 @@ export function CollectibleTraitPills({ traits = [], limit = 4, className = '' }
 }
 
 export function CollectibleTraitReadback({ traits = [], className = '' }) {
-  const visibleTraits = Array.isArray(traits)
-    ? traits.filter((trait) => trait?.label || trait?.summary)
-    : [];
+  const visibleTraits = Array.isArray(traits) ? traits.filter((trait) => trait?.label || trait?.summary) : [];
   if (visibleTraits.length === 0) return null;
   return (
     <section className={cx('rounded-lg border border-edge bg-surface/45 p-3', className)}>
@@ -2052,51 +2085,40 @@ function detailValue(details = [], label) {
 export function DrawerMetadataList({ items = null, children, className = '' }) {
   const orderedItems = Array.isArray(items)
     ? items
-      .filter((item) => item && item.metadata?.applies !== false)
-      .sort((left, right) => {
-        const leftPriority = Number(left?.metadata?.displayPriority ?? left?.displayPriority ?? 0);
-        const rightPriority = Number(right?.metadata?.displayPriority ?? right?.displayPriority ?? 0);
-        return leftPriority - rightPriority;
-      })
+        .filter((item) => item && item.metadata?.applies !== false)
+        .sort((left, right) => {
+          const leftPriority = Number(left?.metadata?.displayPriority ?? left?.displayPriority ?? 0);
+          const rightPriority = Number(right?.metadata?.displayPriority ?? right?.displayPriority ?? 0);
+          return leftPriority - rightPriority;
+        })
     : [];
   return (
     <div className={cx('space-y-0', className)}>
       {orderedItems.length > 0
         ? orderedItems.map((item, index) => (
-          <React.Fragment key={item.key || item.metadata?.id || index}>
-            {typeof item.render === 'function' ? item.render(item.metadata) : item.node}
-          </React.Fragment>
-        ))
+            <React.Fragment key={item.key || item.metadata?.id || index}>
+              {typeof item.render === 'function' ? item.render(item.metadata) : item.node}
+            </React.Fragment>
+          ))
         : children}
     </div>
   );
 }
 
-export function DrawerOverview({
-  text = '',
-  label = 'Overview',
-  collapsedLines = 4,
-  className = '',
-  textClassName = ''
-}) {
+export function DrawerOverview({ text = '', label = 'Overview', collapsedLines = 4, className = '', textClassName = '' }) {
   const contentId = useId();
   const textRef = useRef(null);
-  const [expanded, setExpanded] = useState(false);
+  const [expandedState, setExpandedState] = useState({ content: '', expanded: false });
   const [canExpand, setCanExpand] = useState(false);
   const content = String(text || '').trim();
-  const lineCount = Number.isFinite(Number(collapsedLines)) && Number(collapsedLines) > 0
-    ? Number(collapsedLines)
-    : 4;
+  const expanded = expandedState.content === content ? expandedState.expanded : false;
+  const lineCount = Number.isFinite(Number(collapsedLines)) && Number(collapsedLines) > 0 ? Number(collapsedLines) : 4;
 
   const measureOverflow = useCallback(() => {
     const element = textRef.current;
     if (!element) return;
     setCanExpand(element.scrollHeight > element.clientHeight + 1);
   }, []);
-
-  useEffect(() => {
-    setExpanded(false);
-  }, [content]);
 
   useEffect(() => {
     if (!content) return undefined;
@@ -2123,14 +2145,16 @@ export function DrawerOverview({
         ref={textRef}
         id={contentId}
         className={cx('text-sm leading-relaxed text-dim', textClassName)}
-        style={!expanded
-          ? {
-              display: '-webkit-box',
-              WebkitBoxOrient: 'vertical',
-              WebkitLineClamp: lineCount,
-              overflow: 'hidden'
-            }
-          : undefined}
+        style={
+          !expanded
+            ? {
+                display: '-webkit-box',
+                WebkitBoxOrient: 'vertical',
+                WebkitLineClamp: lineCount,
+                overflow: 'hidden'
+              }
+            : undefined
+        }
       >
         {content}
       </p>
@@ -2140,7 +2164,12 @@ export function DrawerOverview({
           className="mt-2 text-sm font-medium text-dim transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/45"
           aria-expanded={expanded}
           aria-controls={contentId}
-          onClick={() => setExpanded((value) => !value)}
+          onClick={() =>
+            setExpandedState((state) => ({
+              content,
+              expanded: state.content === content ? !state.expanded : true
+            }))
+          }
         >
           {expanded ? 'Show less' : 'Show more'}
         </button>
@@ -2205,12 +2234,7 @@ export function buildObjectDrawerMetadataEditorNodes({
     />
   );
   nodes[DRAWER_METADATA_IDS.related] = (
-    <ObjectRelationshipEditor
-      apiCall={apiCall}
-      ownerType={ownerType}
-      ownerId={ownerId}
-      onToast={onToast}
-    />
+    <ObjectRelationshipEditor apiCall={apiCall} ownerType={ownerType} ownerId={ownerId} onToast={onToast} />
   );
   return nodes;
 }
@@ -2237,26 +2261,19 @@ export function DrawerMetadataItem({
           {summary ? <p className="mt-0.5 truncate text-sm leading-5 text-dim">{summary}</p> : null}
           {details ? <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-ghost">{details}</p> : null}
         </div>
-        {actions || (onAction ? (
-          <button type="button" className="btn-ghost btn-sm shrink-0" onClick={onAction} disabled={actionDisabled}>
-            {actionLabel}
-          </button>
-        ) : null)}
+        {actions ||
+          (onAction ? (
+            <button type="button" className="btn-ghost btn-sm shrink-0" onClick={onAction} disabled={actionDisabled}>
+              {actionLabel}
+            </button>
+          ) : null)}
       </div>
       {children ? <div className="mt-3">{children}</div> : null}
     </section>
   );
 }
 
-export function DrawerMetadataEntry({
-  metadata,
-  actionLabel,
-  onAction,
-  actionDisabled = false,
-  actions,
-  children,
-  className = ''
-}) {
+export function DrawerMetadataEntry({ metadata, actionLabel, onAction, actionDisabled = false, actions, children, className = '' }) {
   if (!metadata?.applies) return null;
   return (
     <DrawerMetadataItem
@@ -2273,6 +2290,24 @@ export function DrawerMetadataEntry({
       {children}
     </DrawerMetadataItem>
   );
+}
+
+function useKeyedDraft(draftKey, buildValue) {
+  const [state, setState] = useState(() => ({ key: draftKey, value: buildValue() }));
+  const value = state.key === draftKey ? state.value : buildValue();
+  const setValue = useCallback(
+    (nextValue) => {
+      setState((previous) => {
+        const currentValue = previous.key === draftKey ? previous.value : buildValue();
+        return {
+          key: draftKey,
+          value: typeof nextValue === 'function' ? nextValue(currentValue) : nextValue
+        };
+      });
+    },
+    [buildValue, draftKey]
+  );
+  return [value, setValue];
 }
 
 function buildEditionForm(trait = null, mediaType = 'movie') {
@@ -2316,7 +2351,7 @@ function buildEditionTraitPayload(form = {}, mediaType = 'movie') {
   const number = cleanTraitText(form.number);
   const run = cleanTraitText(form.run);
   const notes = cleanTraitText(form.notes);
-  const numberedSummary = number && run ? `#${number}/${run}` : (number ? `#${number}` : (run ? `Run ${run}` : ''));
+  const numberedSummary = number && run ? `#${number}/${run}` : number ? `#${number}` : run ? `Run ${run}` : '';
   const details = [
     ...fieldDetails,
     ...flagDetails,
@@ -2361,7 +2396,9 @@ function buildGradingForm(trait = null) {
   return {
     company: cleanTraitText(payload.company || payload.grader || detailValue(details, 'grader') || detailValue(details, 'company')),
     grade: cleanTraitText(payload.grade || detailValue(details, 'grade')),
-    certificateNumber: cleanTraitText(payload.certificate_number || payload.certificateNumber || detailValue(details, 'cert') || detailValue(details, 'certificate')),
+    certificateNumber: cleanTraitText(
+      payload.certificate_number || payload.certificateNumber || detailValue(details, 'cert') || detailValue(details, 'certificate')
+    ),
     slabNotes: cleanTraitText(payload.slab_notes || payload.slabNotes || detailValue(details, 'slab')),
     gradedOn: cleanTraitText(payload.graded_on || payload.gradedOn || detailValue(details, 'graded'))
   };
@@ -2399,27 +2436,14 @@ function buildGradingTraitPayload(form = {}) {
   };
 }
 
-export function CollectibleGradingEditor({
-  apiCall,
-  ownerType,
-  ownerId,
-  mediaType = '',
-  traits = [],
-  onSaved,
-  onToast,
-  className = ''
-}) {
+export function CollectibleGradingEditor({ apiCall, ownerType, ownerId, mediaType = '', traits = [], onSaved, onToast, className = '' }) {
   const currentTrait = findGradingTrait(traits);
   const metadata = buildGradingMetadata({ trait: currentTrait, mediaType, ownerType });
   const copy = metadata.copy;
-  const [editing, setEditing] = useState(false);
+  const formKey = `${ownerType}:${ownerId}:grading:${currentTrait?.key || ''}:${currentTrait?.summary || ''}`;
+  const [editing, setEditing] = useKeyedDraft(formKey, () => false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState(() => buildGradingForm(currentTrait));
-
-  useEffect(() => {
-    setForm(buildGradingForm(currentTrait));
-    setEditing(false);
-  }, [currentTrait?.key, currentTrait?.summary, ownerId]);
+  const [form, setForm] = useKeyedDraft(formKey, () => buildGradingForm(currentTrait));
 
   if (!apiCall || !ownerType || !ownerId) return null;
 
@@ -2464,50 +2488,75 @@ export function CollectibleGradingEditor({
   };
 
   if (!editing) {
-    return (
-      <DrawerMetadataEntry
-        metadata={metadata}
-        onAction={() => setEditing(true)}
-        className={className}
-      />
-    );
+    return <DrawerMetadataEntry metadata={metadata} onAction={() => setEditing(true)} className={className} />;
   }
 
   return (
     <DrawerMetadataEntry metadata={metadata} className={className}>
       <form className="space-y-3" onSubmit={save}>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <label className="field">
-              <span className="label">{copy.companyLabel}</span>
-              <select className="select" value={form.company} onChange={(event) => updateField('company', event.target.value)}>
-                <option value="">{copy.companyPlaceholder}</option>
-                {GRADER_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
-              </select>
-            </label>
-            <label className="field">
-              <span className="label">{copy.gradeLabel}</span>
-              <input className="input" value={form.grade} onChange={(event) => updateField('grade', event.target.value)} placeholder={copy.gradePlaceholder} />
-            </label>
-            <label className="field">
-              <span className="label">Certificate #</span>
-              <input className="input" value={form.certificateNumber} onChange={(event) => updateField('certificateNumber', event.target.value)} />
-            </label>
-            <label className="field">
-              <span className="label">Graded on</span>
-              <input className="input" type="date" value={form.gradedOn} onChange={(event) => updateField('gradedOn', event.target.value)} />
-            </label>
-            <label className="field sm:col-span-2">
-              <span className="label">{copy.notesLabel}</span>
-              <textarea className="textarea min-h-[72px]" value={form.slabNotes} onChange={(event) => updateField('slabNotes', event.target.value)} />
-            </label>
-          </div>
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            {currentTrait ? (
-              <button type="button" className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={remove} disabled={saving}>Remove</button>
-            ) : null}
-            <button type="button" className="btn-ghost btn-sm" onClick={() => { setEditing(false); setForm(buildGradingForm(currentTrait)); }} disabled={saving}>Cancel</button>
-            <button type="submit" className="btn-primary btn-sm" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
-          </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="field">
+            <span className="label">{copy.companyLabel}</span>
+            <select className="select" value={form.company} onChange={(event) => updateField('company', event.target.value)}>
+              <option value="">{copy.companyPlaceholder}</option>
+              {GRADER_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span className="label">{copy.gradeLabel}</span>
+            <input
+              className="input"
+              value={form.grade}
+              onChange={(event) => updateField('grade', event.target.value)}
+              placeholder={copy.gradePlaceholder}
+            />
+          </label>
+          <label className="field">
+            <span className="label">Certificate #</span>
+            <input
+              className="input"
+              value={form.certificateNumber}
+              onChange={(event) => updateField('certificateNumber', event.target.value)}
+            />
+          </label>
+          <label className="field">
+            <span className="label">Graded on</span>
+            <input className="input" type="date" value={form.gradedOn} onChange={(event) => updateField('gradedOn', event.target.value)} />
+          </label>
+          <label className="field sm:col-span-2">
+            <span className="label">{copy.notesLabel}</span>
+            <textarea
+              className="textarea min-h-[72px]"
+              value={form.slabNotes}
+              onChange={(event) => updateField('slabNotes', event.target.value)}
+            />
+          </label>
+        </div>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {currentTrait ? (
+            <button type="button" className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={remove} disabled={saving}>
+              Remove
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="btn-ghost btn-sm"
+            onClick={() => {
+              setEditing(false);
+              setForm(buildGradingForm(currentTrait));
+            }}
+            disabled={saving}
+          >
+            Cancel
+          </button>
+          <button type="submit" className="btn-primary btn-sm" disabled={saving}>
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+        </div>
       </form>
     </DrawerMetadataEntry>
   );
@@ -2519,7 +2568,9 @@ function buildProvenanceForm(trait = null) {
   return {
     proofType: cleanTraitText(payload.proof_type || payload.proofType || detailValue(details, 'type')),
     issuer: cleanTraitText(payload.issuer || payload.authenticator || detailValue(details, 'issuer')),
-    certificateNumber: cleanTraitText(payload.certificate_number || payload.certificateNumber || detailValue(details, 'cert') || detailValue(details, 'certificate')),
+    certificateNumber: cleanTraitText(
+      payload.certificate_number || payload.certificateNumber || detailValue(details, 'cert') || detailValue(details, 'certificate')
+    ),
     source: cleanTraitText(payload.source_name || payload.sourceName || payload.vendor || detailValue(details, 'source')),
     evidenceDate: cleanTraitText(payload.evidence_date || payload.evidenceDate || detailValue(details, 'date')),
     reference: cleanTraitText(payload.reference || payload.proof_url || payload.proofUrl),
@@ -2544,11 +2595,10 @@ function buildProvenanceTraitPayload(form = {}) {
     reference ? { label: 'Reference', value: 'Reference saved' } : null,
     notes ? { label: 'Notes', value: notes } : null
   ].filter(Boolean);
-  const summary = [
-    proofType || 'Evidence',
-    issuer ? `from ${issuer}` : null,
-    certificateNumber ? `#${certificateNumber}` : null
-  ].filter(Boolean).join(' ') || 'Proof recorded';
+  const summary =
+    [proofType || 'Evidence', issuer ? `from ${issuer}` : null, certificateNumber ? `#${certificateNumber}` : null]
+      .filter(Boolean)
+      .join(' ') || 'Proof recorded';
   return {
     key: 'provenance',
     family: 'provenance',
@@ -2569,25 +2619,13 @@ function buildProvenanceTraitPayload(form = {}) {
   };
 }
 
-export function CollectibleProvenanceEditor({
-  apiCall,
-  ownerType,
-  ownerId,
-  traits = [],
-  onSaved,
-  onToast,
-  className = ''
-}) {
+export function CollectibleProvenanceEditor({ apiCall, ownerType, ownerId, traits = [], onSaved, onToast, className = '' }) {
   const currentTrait = findProvenanceTrait(traits);
   const metadata = buildProvenanceMetadata({ trait: currentTrait });
-  const [editing, setEditing] = useState(false);
+  const formKey = `${ownerType}:${ownerId}:provenance:${currentTrait?.key || ''}:${currentTrait?.summary || ''}`;
+  const [editing, setEditing] = useKeyedDraft(formKey, () => false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState(() => buildProvenanceForm(currentTrait));
-
-  useEffect(() => {
-    setForm(buildProvenanceForm(currentTrait));
-    setEditing(false);
-  }, [currentTrait?.key, currentTrait?.summary, ownerId]);
+  const [form, setForm] = useKeyedDraft(formKey, () => buildProvenanceForm(currentTrait));
 
   if (!apiCall || !ownerType || !ownerId) return null;
 
@@ -2632,84 +2670,107 @@ export function CollectibleProvenanceEditor({
   };
 
   if (!editing) {
-    return (
-      <DrawerMetadataEntry
-        metadata={metadata}
-        onAction={() => setEditing(true)}
-        className={className}
-      />
-    );
+    return <DrawerMetadataEntry metadata={metadata} onAction={() => setEditing(true)} className={className} />;
   }
 
   return (
     <DrawerMetadataEntry metadata={metadata} className={className}>
       <form className="space-y-3" onSubmit={save}>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <label className="field">
-              <span className="label">Proof type</span>
-              <select className="select" value={form.proofType} onChange={(event) => updateField('proofType', event.target.value)}>
-                <option value="">Select proof</option>
-                {PROVENANCE_TYPE_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
-              </select>
-            </label>
-            <label className="field">
-              <span className="label">Issuer / source</span>
-              <input className="input" value={form.issuer} onChange={(event) => updateField('issuer', event.target.value)} placeholder="COA issuer or authenticator" />
-            </label>
-            <label className="field">
-              <span className="label">Certificate #</span>
-              <input className="input" value={form.certificateNumber} onChange={(event) => updateField('certificateNumber', event.target.value)} />
-            </label>
-            <label className="field">
-              <span className="label">Acquired from</span>
-              <input className="input" value={form.source} onChange={(event) => updateField('source', event.target.value)} placeholder="Vendor, event, or seller" />
-            </label>
-            <label className="field">
-              <span className="label">Evidence date</span>
-              <input className="input" type="date" value={form.evidenceDate} onChange={(event) => updateField('evidenceDate', event.target.value)} />
-            </label>
-            <label className="field">
-              <span className="label">Reference</span>
-              <input className="input" value={form.reference} onChange={(event) => updateField('reference', event.target.value)} placeholder="URL, file note, or storage reference" />
-            </label>
-            <label className="field sm:col-span-2">
-              <span className="label">Notes</span>
-              <textarea className="textarea min-h-[72px]" value={form.notes} onChange={(event) => updateField('notes', event.target.value)} />
-            </label>
-          </div>
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            {currentTrait ? (
-              <button type="button" className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={remove} disabled={saving}>Remove</button>
-            ) : null}
-            <button type="button" className="btn-ghost btn-sm" onClick={() => { setEditing(false); setForm(buildProvenanceForm(currentTrait)); }} disabled={saving}>Cancel</button>
-            <button type="submit" className="btn-primary btn-sm" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
-          </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="field">
+            <span className="label">Proof type</span>
+            <select className="select" value={form.proofType} onChange={(event) => updateField('proofType', event.target.value)}>
+              <option value="">Select proof</option>
+              {PROVENANCE_TYPE_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span className="label">Issuer / source</span>
+            <input
+              className="input"
+              value={form.issuer}
+              onChange={(event) => updateField('issuer', event.target.value)}
+              placeholder="COA issuer or authenticator"
+            />
+          </label>
+          <label className="field">
+            <span className="label">Certificate #</span>
+            <input
+              className="input"
+              value={form.certificateNumber}
+              onChange={(event) => updateField('certificateNumber', event.target.value)}
+            />
+          </label>
+          <label className="field">
+            <span className="label">Acquired from</span>
+            <input
+              className="input"
+              value={form.source}
+              onChange={(event) => updateField('source', event.target.value)}
+              placeholder="Vendor, event, or seller"
+            />
+          </label>
+          <label className="field">
+            <span className="label">Evidence date</span>
+            <input
+              className="input"
+              type="date"
+              value={form.evidenceDate}
+              onChange={(event) => updateField('evidenceDate', event.target.value)}
+            />
+          </label>
+          <label className="field">
+            <span className="label">Reference</span>
+            <input
+              className="input"
+              value={form.reference}
+              onChange={(event) => updateField('reference', event.target.value)}
+              placeholder="URL, file note, or storage reference"
+            />
+          </label>
+          <label className="field sm:col-span-2">
+            <span className="label">Notes</span>
+            <textarea className="textarea min-h-[72px]" value={form.notes} onChange={(event) => updateField('notes', event.target.value)} />
+          </label>
+        </div>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {currentTrait ? (
+            <button type="button" className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={remove} disabled={saving}>
+              Remove
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="btn-ghost btn-sm"
+            onClick={() => {
+              setEditing(false);
+              setForm(buildProvenanceForm(currentTrait));
+            }}
+            disabled={saving}
+          >
+            Cancel
+          </button>
+          <button type="submit" className="btn-primary btn-sm" disabled={saving}>
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+        </div>
       </form>
     </DrawerMetadataEntry>
   );
 }
 
-export function EditionVariantEditor({
-  apiCall,
-  ownerType,
-  ownerId,
-  mediaType = 'movie',
-  traits = [],
-  onSaved,
-  onToast,
-  className = ''
-}) {
+export function EditionVariantEditor({ apiCall, ownerType, ownerId, mediaType = 'movie', traits = [], onSaved, onToast, className = '' }) {
   const config = editionConfigForMediaType(mediaType);
   const currentTrait = findEditionVariantTrait(traits);
   const metadata = buildEditionMetadata({ trait: currentTrait, mediaType });
-  const [editing, setEditing] = useState(false);
+  const formKey = `${ownerType}:${ownerId}:edition:${mediaType}:${currentTrait?.key || ''}:${currentTrait?.summary || ''}`;
+  const [editing, setEditing] = useKeyedDraft(formKey, () => false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState(() => buildEditionForm(currentTrait, mediaType));
-
-  useEffect(() => {
-    setForm(buildEditionForm(currentTrait, mediaType));
-    setEditing(false);
-  }, [currentTrait?.key, currentTrait?.summary, mediaType, ownerId]);
+  const [form, setForm] = useKeyedDraft(formKey, () => buildEditionForm(currentTrait, mediaType));
 
   if (!apiCall || !ownerType || !ownerId) return null;
 
@@ -2770,67 +2831,89 @@ export function EditionVariantEditor({
   };
 
   if (!editing) {
-    return (
-      <DrawerMetadataEntry
-        metadata={metadata}
-        onAction={() => setEditing(true)}
-        className={className}
-      />
-    );
+    return <DrawerMetadataEntry metadata={metadata} onAction={() => setEditing(true)} className={className} />;
   }
 
   return (
     <DrawerMetadataEntry metadata={metadata} className={className}>
       <form className="space-y-3" onSubmit={save} data-testid="edition-variant-editor">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {(config.fields || []).map((field) => (
-              <label className="field" key={field.key}>
-                <span className="label">{field.label}</span>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {(config.fields || []).map((field) => (
+            <label className="field" key={field.key}>
+              <span className="label">{field.label}</span>
+              <input
+                className="input"
+                value={form.fields?.[field.key] || ''}
+                onChange={(event) => updateField(field.key, event.target.value)}
+                placeholder={field.placeholder}
+              />
+            </label>
+          ))}
+          {config.numbered ? (
+            <>
+              <label className="field">
+                <span className="label">Number</span>
                 <input
                   className="input"
-                  value={form.fields?.[field.key] || ''}
-                  onChange={(event) => updateField(field.key, event.target.value)}
-                  placeholder={field.placeholder}
+                  value={form.number}
+                  onChange={(event) => setForm((prev) => ({ ...prev, number: event.target.value }))}
+                  placeholder="150"
                 />
               </label>
-            ))}
-            {config.numbered ? (
-              <>
-                <label className="field">
-                  <span className="label">Number</span>
-                  <input className="input" value={form.number} onChange={(event) => setForm((prev) => ({ ...prev, number: event.target.value }))} placeholder="150" />
-                </label>
-                <label className="field">
-                  <span className="label">Run</span>
-                  <input className="input" value={form.run} onChange={(event) => setForm((prev) => ({ ...prev, run: event.target.value }))} placeholder="200" />
-                </label>
-              </>
-            ) : null}
-            {(config.flags || []).length ? (
-              <div className="grid gap-2 sm:col-span-2 sm:grid-cols-2">
-                {config.flags.map((flag) => (
-                  <CheckboxControl
-                    key={flag.key}
-                    checked={Boolean(form.flags?.[flag.key])}
-                    onChange={(event) => updateFlag(flag.key, event.target.checked)}
-                  >
-                    {flag.label || humanizeEditionFlag(flag.key)}
-                  </CheckboxControl>
-                ))}
-              </div>
-            ) : null}
-            <label className="field sm:col-span-2">
-              <span className="label">Notes</span>
-              <textarea className="textarea min-h-[72px]" value={form.notes} onChange={(event) => setForm((prev) => ({ ...prev, notes: event.target.value }))} />
-            </label>
-          </div>
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            {currentTrait ? (
-              <button type="button" className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={remove} disabled={saving}>Remove</button>
-            ) : null}
-            <button type="button" className="btn-ghost btn-sm" onClick={() => { setEditing(false); setForm(buildEditionForm(currentTrait, mediaType)); }} disabled={saving}>Cancel</button>
-            <button type="submit" className="btn-primary btn-sm" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
-          </div>
+              <label className="field">
+                <span className="label">Run</span>
+                <input
+                  className="input"
+                  value={form.run}
+                  onChange={(event) => setForm((prev) => ({ ...prev, run: event.target.value }))}
+                  placeholder="200"
+                />
+              </label>
+            </>
+          ) : null}
+          {(config.flags || []).length ? (
+            <div className="grid gap-2 sm:col-span-2 sm:grid-cols-2">
+              {config.flags.map((flag) => (
+                <CheckboxControl
+                  key={flag.key}
+                  checked={Boolean(form.flags?.[flag.key])}
+                  onChange={(event) => updateFlag(flag.key, event.target.checked)}
+                >
+                  {flag.label || humanizeEditionFlag(flag.key)}
+                </CheckboxControl>
+              ))}
+            </div>
+          ) : null}
+          <label className="field sm:col-span-2">
+            <span className="label">Notes</span>
+            <textarea
+              className="textarea min-h-[72px]"
+              value={form.notes}
+              onChange={(event) => setForm((prev) => ({ ...prev, notes: event.target.value }))}
+            />
+          </label>
+        </div>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {currentTrait ? (
+            <button type="button" className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={remove} disabled={saving}>
+              Remove
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="btn-ghost btn-sm"
+            onClick={() => {
+              setEditing(false);
+              setForm(buildEditionForm(currentTrait, mediaType));
+            }}
+            disabled={saving}
+          >
+            Cancel
+          </button>
+          <button type="submit" className="btn-primary btn-sm" disabled={saving}>
+            {saving ? 'Saving...' : 'Save'}
+          </button>
+        </div>
       </form>
     </DrawerMetadataEntry>
   );
@@ -2861,13 +2944,7 @@ function relationshipTypeLabel(value) {
   return RELATIONSHIP_TARGET_OPTIONS.find(([key]) => key === value)?.[1] || 'Record';
 }
 
-export function ObjectRelationshipEditor({
-  apiCall,
-  ownerType,
-  ownerId,
-  onToast,
-  className = ''
-}) {
+export function ObjectRelationshipEditor({ apiCall, ownerType, ownerId, onToast, className = '' }) {
   const [relationships, setRelationships] = useState([]);
   const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -2894,6 +2971,8 @@ export function ObjectRelationshipEditor({
   }, [apiCall, ownerType, ownerId, onToast]);
 
   useEffect(() => {
+    // This editor mirrors the selected owner into transient search/draft state and reloads external relationship data.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setEditing(false);
     setQuery('');
     setMatches([]);
@@ -2904,13 +2983,18 @@ export function ObjectRelationshipEditor({
 
   useEffect(() => {
     if (!editing || !apiCall || cleanTraitText(query).length < 2) {
+      // Search results are derived from the external search request state.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMatches([]);
       return undefined;
     }
     let cancelled = false;
     const timer = setTimeout(async () => {
       try {
-        const payload = await apiCall('get', `/object-relationships/search?type=${encodeURIComponent(targetType)}&q=${encodeURIComponent(query)}&limit=10`);
+        const payload = await apiCall(
+          'get',
+          `/object-relationships/search?type=${encodeURIComponent(targetType)}&q=${encodeURIComponent(query)}&limit=10`
+        );
         if (!cancelled) {
           const found = Array.isArray(payload?.matches) ? payload.matches : [];
           setMatches(found.filter((match) => !(match.owner_type === ownerType && Number(match.owner_id) === Number(ownerId))));
@@ -2971,12 +3055,7 @@ export function ObjectRelationshipEditor({
 
   if (!editing) {
     return (
-      <DrawerMetadataEntry
-        metadata={metadata}
-        onAction={() => setEditing(true)}
-        actionDisabled={saving}
-        className={className}
-      >
+      <DrawerMetadataEntry metadata={metadata} onAction={() => setEditing(true)} actionDisabled={saving} className={className}>
         {!loading && relationships.length > 0 ? (
           <div className="divide-y divide-edge/60">
             {relationships.map((relationship) => (
@@ -2992,7 +3071,14 @@ export function ObjectRelationshipEditor({
                     {relationship.notes ? ` · ${relationship.notes}` : ''}
                   </p>
                 </div>
-                <button type="button" className="btn-ghost btn-xs shrink-0 text-err hover:bg-err/10" disabled={saving} onClick={() => remove(relationship.id)}>Unlink</button>
+                <button
+                  type="button"
+                  className="btn-ghost btn-xs shrink-0 text-err hover:bg-err/10"
+                  disabled={saving}
+                  onClick={() => remove(relationship.id)}
+                >
+                  Unlink
+                </button>
               </div>
             ))}
           </div>
@@ -3007,7 +3093,10 @@ export function ObjectRelationshipEditor({
       {!loading && relationships.length > 0 ? (
         <div className="space-y-2">
           {relationships.map((relationship) => (
-            <div key={relationship.id} className="flex items-start justify-between gap-3 border-t border-edge/60 py-2 first:border-t-0 first:pt-0">
+            <div
+              key={relationship.id}
+              className="flex items-start justify-between gap-3 border-t border-edge/60 py-2 first:border-t-0 first:pt-0"
+            >
               <div className="min-w-0">
                 <p className="text-sm text-ink">
                   <span className="text-dim">{relationshipLabel(relationship.relationship_type)}: </span>
@@ -3019,65 +3108,121 @@ export function ObjectRelationshipEditor({
                   {relationship.notes ? ` · ${relationship.notes}` : ''}
                 </p>
               </div>
-              <button type="button" className="btn-ghost btn-xs shrink-0 text-err hover:bg-err/10" disabled={saving} onClick={() => remove(relationship.id)}>Unlink</button>
+              <button
+                type="button"
+                className="btn-ghost btn-xs shrink-0 text-err hover:bg-err/10"
+                disabled={saving}
+                onClick={() => remove(relationship.id)}
+              >
+                Unlink
+              </button>
             </div>
           ))}
         </div>
       ) : null}
 
       <form className="space-y-3" onSubmit={save}>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <label className="field">
-              <span className="label">Relationship</span>
-              <select className="select" value={relationshipType} onChange={(event) => setRelationshipType(event.target.value)}>
-                {RELATIONSHIP_TYPE_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-              </select>
-            </label>
-            <label className="field">
-              <span className="label">Look in</span>
-              <select className="select" value={targetType} onChange={(event) => { setTargetType(event.target.value); setSelectedTarget(null); }}>
-                {RELATIONSHIP_TARGET_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-              </select>
-            </label>
-            <label className="field sm:col-span-2">
-              <span className="label">Find record</span>
-              <input className="input" value={query} onChange={(event) => { setQuery(event.target.value); setSelectedTarget(null); }} placeholder="Search title or event" />
-            </label>
-          </div>
-
-          {matches.length > 0 ? (
-            <div className="max-h-48 overflow-y-auto rounded-md border border-edge bg-void/20 p-1">
-              {matches.map((match) => {
-                const active = selectedTarget?.owner_type === match.owner_type && Number(selectedTarget?.owner_id) === Number(match.owner_id);
-                return (
-                  <button
-                    key={`${match.owner_type}:${match.owner_id}`}
-                    type="button"
-                    className={cx('flex w-full items-start justify-between gap-3 rounded px-3 py-2 text-left transition-colors hover:bg-muted/20', active && 'bg-brand/10 text-brand')}
-                    onClick={() => setSelectedTarget(match)}
-                  >
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-medium">{match.title}</span>
-                      <span className="block truncate text-xs text-ghost">{relationshipTypeLabel(match.owner_type)}{match.subtitle ? ` · ${match.subtitle}` : ''}</span>
-                    </span>
-                    {active ? <span className="text-xs font-medium">Selected</span> : null}
-                  </button>
-                );
-              })}
-            </div>
-          ) : cleanTraitText(query).length >= 2 ? (
-            <p className="text-xs text-ghost">No matching records found.</p>
-          ) : null}
-
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label className="field">
-            <span className="label">Notes</span>
-            <textarea className="textarea min-h-[64px]" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Optional context" />
+            <span className="label">Relationship</span>
+            <select className="select" value={relationshipType} onChange={(event) => setRelationshipType(event.target.value)}>
+              {RELATIONSHIP_TYPE_OPTIONS.map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
           </label>
+          <label className="field">
+            <span className="label">Look in</span>
+            <select
+              className="select"
+              value={targetType}
+              onChange={(event) => {
+                setTargetType(event.target.value);
+                setSelectedTarget(null);
+              }}
+            >
+              {RELATIONSHIP_TARGET_OPTIONS.map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field sm:col-span-2">
+            <span className="label">Find record</span>
+            <input
+              className="input"
+              value={query}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setSelectedTarget(null);
+              }}
+              placeholder="Search title or event"
+            />
+          </label>
+        </div>
 
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <button type="button" className="btn-ghost btn-sm" onClick={() => { setEditing(false); setSelectedTarget(null); setMatches([]); setQuery(''); setNotes(''); }} disabled={saving}>Cancel</button>
-            <button type="submit" className="btn-primary btn-sm" disabled={saving || !selectedTarget}>{saving ? 'Saving…' : 'Save link'}</button>
+        {matches.length > 0 ? (
+          <div className="max-h-48 overflow-y-auto rounded-md border border-edge bg-void/20 p-1">
+            {matches.map((match) => {
+              const active = selectedTarget?.owner_type === match.owner_type && Number(selectedTarget?.owner_id) === Number(match.owner_id);
+              return (
+                <button
+                  key={`${match.owner_type}:${match.owner_id}`}
+                  type="button"
+                  className={cx(
+                    'flex w-full items-start justify-between gap-3 rounded px-3 py-2 text-left transition-colors hover:bg-muted/20',
+                    active && 'bg-brand/10 text-brand'
+                  )}
+                  onClick={() => setSelectedTarget(match)}
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium">{match.title}</span>
+                    <span className="block truncate text-xs text-ghost">
+                      {relationshipTypeLabel(match.owner_type)}
+                      {match.subtitle ? ` · ${match.subtitle}` : ''}
+                    </span>
+                  </span>
+                  {active ? <span className="text-xs font-medium">Selected</span> : null}
+                </button>
+              );
+            })}
           </div>
+        ) : cleanTraitText(query).length >= 2 ? (
+          <p className="text-xs text-ghost">No matching records found.</p>
+        ) : null}
+
+        <label className="field">
+          <span className="label">Notes</span>
+          <textarea
+            className="textarea min-h-[64px]"
+            value={notes}
+            onChange={(event) => setNotes(event.target.value)}
+            placeholder="Optional context"
+          />
+        </label>
+
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <button
+            type="button"
+            className="btn-ghost btn-sm"
+            onClick={() => {
+              setEditing(false);
+              setSelectedTarget(null);
+              setMatches([]);
+              setQuery('');
+              setNotes('');
+            }}
+            disabled={saving}
+          >
+            Cancel
+          </button>
+          <button type="submit" className="btn-primary btn-sm" disabled={saving || !selectedTarget}>
+            {saving ? 'Saving…' : 'Save link'}
+          </button>
+        </div>
       </form>
     </DrawerMetadataEntry>
   );
@@ -3094,9 +3239,16 @@ export function Toast({ message, type = 'ok', onDismiss }) {
     info: 'border-gold/30 bg-gold/10 text-gold'
   };
   return (
-    <div className={cx('fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-lg border shadow-deep animate-slide-up', styles[type] || styles.ok)}>
+    <div
+      className={cx(
+        'fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-lg border shadow-deep animate-slide-up',
+        styles[type] || styles.ok
+      )}
+    >
       <span className="text-sm font-medium">{message}</span>
-      <button onClick={onDismiss} className="ml-2 opacity-60 hover:opacity-100"><Icons.X /></button>
+      <button onClick={onDismiss} className="ml-2 opacity-60 hover:opacity-100">
+        <Icons.X />
+      </button>
     </div>
   );
 }
@@ -3107,13 +3259,14 @@ export function ImportStatusDock({ jobs = [], onDismiss }) {
     <div className="fixed bottom-6 left-6 z-50 w-96 max-w-[calc(100vw-3rem)] space-y-2">
       {jobs.map((job) => {
         const provider = String(job.provider || '').toLowerCase();
-        const label = provider === 'plex'
-          ? 'Plex Import'
-          : provider === 'csv_delicious'
-            ? 'Delicious CSV Import'
-            : provider === 'csv_generic'
-              ? 'CSV Import'
-              : 'Import Job';
+        const label =
+          provider === 'plex'
+            ? 'Plex Import'
+            : provider === 'csv_delicious'
+              ? 'Delicious CSV Import'
+              : provider === 'csv_generic'
+                ? 'CSV Import'
+                : 'Import Job';
         const isDone = job.status === 'succeeded' || job.status === 'failed';
         const p = job.progress || {};
         const s = job.summary || {};
@@ -3121,15 +3274,26 @@ export function ImportStatusDock({ jobs = [], onDismiss }) {
           <div key={job.id} className="card p-3 border border-edge shadow-deep">
             <div className="flex items-start gap-2">
               <div className="flex-1 min-w-0">
-                <p className="text-xs text-dim font-medium">{label} #{job.id} · {job.status}</p>
+                <p className="text-xs text-dim font-medium">
+                  {label} #{job.id} · {job.status}
+                </p>
                 {isDone ? (
-                  <p className="text-xs text-ghost mt-1">Created {s.created || 0} · Updated {s.updated || 0} · Errors {s.errorCount || 0}</p>
+                  <p className="text-xs text-ghost mt-1">
+                    Created {s.created || 0} · Updated {s.updated || 0} · Errors {s.errorCount || 0}
+                  </p>
                 ) : (
-                  <p className="text-xs text-ghost mt-1">Processed {p.processed || 0}/{p.total || 0} · Created {p.created || 0} · Updated {p.updated || 0} · Errors {p.errorCount || 0}</p>
+                  <p className="text-xs text-ghost mt-1">
+                    Processed {p.processed || 0}/{p.total || 0} · Created {p.created || 0} · Updated {p.updated || 0} · Errors{' '}
+                    {p.errorCount || 0}
+                  </p>
                 )}
                 {job.error && <p className="text-xs text-err mt-1">{job.error}</p>}
               </div>
-              {isDone && <button onClick={() => onDismiss(job.id)} className="btn-icon btn-sm shrink-0"><Icons.X /></button>}
+              {isDone && (
+                <button onClick={() => onDismiss(job.id)} className="btn-icon btn-sm shrink-0">
+                  <Icons.X />
+                </button>
+              )}
             </div>
           </div>
         );

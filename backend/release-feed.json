@@ -1,6 +1,27 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.23.3",
+      "version": "3.23.3",
+      "date": null,
+      "status": null,
+      "summary": "This release continues the maintainability guardrails work by cleaning shared app primitives before the next large-view extraction pass. It removes shared accessibility lint failures around overlays, pagination labels, and clickable poster cards, and trims React hook reset-effect noise in shared drawer/media primitives.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Replaced clickable overlay `div` elements in shared drawer and camera primitives with native buttons.",
+            "Associated the shared pagination page-size label with its select control.",
+            "Made interactive poster cards render with native button semantics when they are clickable or selection-aware.",
+            "Derived cover-image preview URLs and drawer overview expanded state without reset effects.",
+            "Added a small keyed-draft helper so collectible metadata editors can reset draft state when their owner/trait key changes without synchronous reset effects.",
+            "Documented narrow external-system effect exceptions for mobile shell DOM/media-query synchronization and relationship search/reset state.",
+            "Reduced the full frontend quality baseline from `170` errors / `65` warnings to `153` errors / `61` warnings."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.23.2",
       "version": "3.23.2",
       "date": null,
@@ -160,14 +181,6 @@
     {
       "title": "collectZ v3.20.7",
       "version": "v3.20.7",
-      "date": null,
-      "status": null,
-      "summary": "",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.20.6",
-      "version": "v3.20.6",
       "date": null,
       "status": null,
       "summary": "",

@@ -6,6 +6,41 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.23.3 — App Primitives Accessibility and Hook Baseline Cleanup
+
+**Goal:** Continue the maintainability guardrails path by making shared app primitives lint-clean before taking another pass at large product views.
+
+### Scope
+
+- Replace non-semantic clickable overlay/backdrop elements in shared primitives with native buttons.
+- Associate the shared pagination page-size label with its select control.
+- Make poster-card interaction semantics native when the card is clickable or participates in selection gestures.
+- Convert derived preview/expanded state away from reset effects where practical.
+- Keep external DOM/media/query synchronization explicit and narrowly documented where an effect is still the right mechanism.
+
+### Acceptance Criteria
+
+- `frontend/src/components/app/AppPrimitives.jsx` reports zero changed-file ESLint findings.
+- `npm run quality:frontend` shows a lower full ESLint baseline than `3.23.2`.
+- Frontend Vitest and production build remain green.
+- Existing Docker-first release verification remains intact.
+
+### Active Slice Notes
+
+- This is a targeted `3.23.x` shared primitive cleanup slice.
+- It intentionally avoids `LibraryView.jsx` extraction so the shared controls are cleaner before the next large-view pass.
+
+### Closeout
+
+- Status: completed in `3.23.3`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/58-Maintainability-Guardrails.md`, and `docs/releases/v3.23.3.md`.
+- Runtime evidence: Docker backend and frontend containers rebuilt on the canonical local `collectz-private` platform stack at `http://localhost:3201`; `/api/health` reports frontend, backend, and build `3.23.3`; backend, frontend, Postgres, Cairn, and Cairn Postgres containers are healthy; authenticated Help > Releases smoke served `3.23.3` as the latest entry.
+- Verification: `npm run quality:frontend` passed in report-first mode and reported the reduced baseline of `153` ESLint errors, `61` warnings, Prettier findings, and `0` source-size warnings; `npm run quality:frontend:changed` passed with `0` ESLint errors, `0` warnings, and clean Prettier status for `AppPrimitives.jsx`; frontend Vitest passed with `1` file and `4` tests; frontend production build passed with the existing large-chunk warning; backend unit/source suite passed with `336` checks; OpenAPI validation passed; focused Events/Art/Collectibles Playwright regression passed with `21/21` tests against `http://localhost:3201`; observability release evidence refreshed with `9/9` checks passed; `npm run release:local-gate` passed `12/12` standard gates with the `collectz-private` compose project and `http://localhost:3201` preflight base URL; `git diff --check` passed through the local gate.
+- Blocked/unverified: Local preflight marks secure-cookie compose smoke environment-dependent because the local development stack uses `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`. Hosted CI still needs to confirm `compose-smoke`, `rbac-regression`, hosted full `browser-regression`, `runtime-smoke` core/control-plane, `dependency-scan`, `secret-scan`, and `image-security-and-sbom`.
+- Files changed: `app-meta.json`, `backend/app-meta.json`, `backend/package-lock.json`, `backend/package.json`, `backend/release-feed.json`, `docs/releases/v3.23.3.md`, `docs/wiki/07-Release-Roadmap.md`, `frontend/package-lock.json`, `frontend/package.json`, `frontend/src/app-meta.json`, `frontend/src/components/app/AppPrimitives.jsx`, `preflight-go-no-go.md`, and refreshed release evidence artifacts.
+- Risks/follow-ups: `AppPrimitives.jsx` is now clean in changed-file quality, but `LibraryView.jsx` remains the largest remaining lint pocket. The poster-card container intentionally remains an `article` for existing browser/UI contracts, with a narrow documented a11y suppression and keyboard handling preserved.
+- What remains in the milestone: no implementation work remains for the `3.23.3` cleanup slice; hosted CI/release gates remain required before push-ready release promotion.
+
 ## 3.23.2 — Sidebar React Hook Baseline Cleanup
 
 **Goal:** Reduce the highest-signal frontend ESLint baseline without broad UI rewrites by cleaning up the Sidebar navigation component and fixing JSX usage detection.
