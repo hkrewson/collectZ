@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CheckboxControl, posterUrl } from './app/AppPrimitives';
 
 export default function ProfileView({ user, apiCall, onToast, Spinner, onUserUpdate }) {
@@ -13,16 +13,20 @@ export default function ProfileView({ user, apiCall, onToast, Spinner, onUserUpd
   const [patSelectedScopes, setPatSelectedScopes] = useState(['media:read']);
   const [patExpiresAt, setPatExpiresAt] = useState('');
   const [createdPatToken, setCreatedPatToken] = useState('');
+  const [patStatusNow, setPatStatusNow] = useState(0);
   const avatarInputRef = useRef(null);
 
   useEffect(() => {
     let active = true;
+    // Personal access tokens are external account state loaded when the profile surface mounts.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPatLoading(true);
     apiCall('get', '/auth/personal-access-tokens')
       .then((data) => {
         if (!active) return;
         setPatScopes(Array.isArray(data?.scopes) ? data.scopes : []);
         setPatTokens(Array.isArray(data?.tokens) ? data.tokens : []);
+        setPatStatusNow(new Date().getTime());
       })
       .catch((err) => {
         if (!active) return;
@@ -35,6 +39,8 @@ export default function ProfileView({ user, apiCall, onToast, Spinner, onUserUpd
   }, [apiCall, onToast]);
 
   useEffect(() => {
+    // Keep editable account fields aligned when the authenticated user record refreshes.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setForm((current) => ({
       ...current,
       name: user?.name || '',
@@ -100,6 +106,7 @@ export default function ProfileView({ user, apiCall, onToast, Spinner, onUserUpd
       const data = await apiCall('post', '/auth/personal-access-tokens', payload);
       setCreatedPatToken(data?.token || '');
       setPatTokens((current) => [data.record, ...current]);
+      setPatStatusNow(new Date().getTime());
       setPatName('');
       setPatSelectedScopes(['media:read']);
       setPatExpiresAt('');
@@ -117,6 +124,7 @@ export default function ProfileView({ user, apiCall, onToast, Spinner, onUserUpd
     try {
       const revoked = await apiCall('delete', `/auth/personal-access-tokens/${tokenId}`);
       setPatTokens((current) => current.map((item) => (item.id === tokenId ? revoked : item)));
+      setPatStatusNow(new Date().getTime());
       onToast('Personal access token revoked');
     } catch (err) {
       onToast(err.response?.data?.error || 'Failed to revoke personal access token', 'error');
@@ -185,18 +193,19 @@ export default function ProfileView({ user, apiCall, onToast, Spinner, onUserUpd
               <form onSubmit={save} className="space-y-5">
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="field">
-                    <label className="label">Name</label>
-                    <input className="input" value={form.name} onChange={(e) => setForm((current) => ({ ...current, name: e.target.value }))} />
+                    <label className="label" htmlFor="profile-name">Name</label>
+                    <input id="profile-name" className="input" value={form.name} onChange={(e) => setForm((current) => ({ ...current, name: e.target.value }))} />
                   </div>
                   <div className="field">
-                    <label className="label">Email</label>
-                    <input className="input" type="email" value={form.email} onChange={(e) => setForm((current) => ({ ...current, email: e.target.value }))} />
+                    <label className="label" htmlFor="profile-email">Email</label>
+                    <input id="profile-email" className="input" type="email" value={form.email} onChange={(e) => setForm((current) => ({ ...current, email: e.target.value }))} />
                   </div>
                 </div>
 
                 <div className="field">
-                  <label className="label">Profile image</label>
+                  <label className="label" htmlFor="profile-image">Profile image</label>
                   <input
+                    id="profile-image"
                     ref={avatarInputRef}
                     type="file"
                     accept="image/*"
@@ -226,13 +235,13 @@ export default function ProfileView({ user, apiCall, onToast, Spinner, onUserUpd
 
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="field">
-                    <label className="label">Current password</label>
-                    <input className="input" type="password" value={form.current_password} onChange={(e) => setForm((current) => ({ ...current, current_password: e.target.value }))} />
+                    <label className="label" htmlFor="profile-current-password">Current password</label>
+                    <input id="profile-current-password" className="input" type="password" value={form.current_password} onChange={(e) => setForm((current) => ({ ...current, current_password: e.target.value }))} />
                     <p className="text-xs text-ghost">Required only when changing your password.</p>
                   </div>
                   <div className="field">
-                    <label className="label">New password</label>
-                    <input className="input" type="password" value={form.password} onChange={(e) => setForm((current) => ({ ...current, password: e.target.value }))} />
+                    <label className="label" htmlFor="profile-new-password">New password</label>
+                    <input id="profile-new-password" className="input" type="password" value={form.password} onChange={(e) => setForm((current) => ({ ...current, password: e.target.value }))} />
                     <p className="text-xs text-ghost">Leave blank to keep your current password.</p>
                   </div>
                 </div>
@@ -271,18 +280,18 @@ export default function ProfileView({ user, apiCall, onToast, Spinner, onUserUpd
               <form onSubmit={createPat} className="space-y-5">
                 <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
                   <div className="field">
-                    <label className="label">Token name</label>
-                    <input className="input" value={patName} onChange={(e) => setPatName(e.target.value)} placeholder="Automation token" />
+                    <label className="label" htmlFor="pat-name">Token name</label>
+                    <input id="pat-name" className="input" value={patName} onChange={(e) => setPatName(e.target.value)} placeholder="Automation token" />
                   </div>
                   <div className="field">
-                    <label className="label">Expires at</label>
-                    <input className="input" type="datetime-local" value={patExpiresAt} onChange={(e) => setPatExpiresAt(e.target.value)} />
+                    <label className="label" htmlFor="pat-expires-at">Expires at</label>
+                    <input id="pat-expires-at" className="input" type="datetime-local" value={patExpiresAt} onChange={(e) => setPatExpiresAt(e.target.value)} />
                   </div>
                 </div>
 
                 <div className="field">
                   <div className="flex items-center justify-between gap-3">
-                    <label className="label !mb-0">Scopes</label>
+                    <span className="label !mb-0">Scopes</span>
                     <span className="text-xs text-ghost">{patSelectedScopes.length} selected</span>
                   </div>
                   <div className="mt-2 grid gap-2 md:grid-cols-2">
@@ -327,7 +336,7 @@ export default function ProfileView({ user, apiCall, onToast, Spinner, onUserUpd
                   <div className="divide-y divide-edge/60 rounded-lg border border-edge/60">
                     {patTokens.map((token) => {
                       const isRevoked = Boolean(token.revoked_at);
-                      const isExpired = Boolean(token.expires_at) && new Date(token.expires_at).getTime() <= Date.now();
+                      const isExpired = Boolean(token.expires_at) && new Date(token.expires_at).getTime() <= patStatusNow;
                       const status = isRevoked ? 'Revoked' : (isExpired ? 'Expired' : 'Active');
                       return (
                         <div key={token.id} className="space-y-3 px-4 py-4">
