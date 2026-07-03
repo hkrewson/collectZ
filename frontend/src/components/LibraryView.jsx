@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   Icons,
   Spinner,
@@ -492,7 +492,7 @@ function reviewClue(item) {
   return [reason, recommendation].filter(Boolean).join('. ').replace(/\.{2,}/g, '.');
 }
 
-function MediaCard({ item, onOpen, onEdit, onDelete, onRating, supportsHover, selected = false, onToggleSelect = null, onSelectionGesture = null, selectionEnabled = false }) {
+function MediaCard({ item, onOpen, onRating, supportsHover, selected = false, onToggleSelect = null, onSelectionGesture = null, selectionEnabled = false }) {
   const onPointerUp = (e) => {
     if (e.pointerType !== 'touch') return;
     if (isInteractiveTarget(e.target)) return;
@@ -544,6 +544,8 @@ function MediaCard({ item, onOpen, onEdit, onDelete, onRating, supportsHover, se
       ) : null}
       subtitle={clue || `${item.year || '—'}${item.director ? ` · ${item.director}` : ''}${item.media_type === 'tv_series' && item.tv_all_seasons_completed ? ' · Completed' : ''}`}
       meta={
+        // This wrapper prevents rating clicks from opening the card.
+        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
         <div onClick={(e) => e.stopPropagation()}>
           <StarRating value={userRatingToStars(item.user_rating)} onChange={(r) => onRating(item.id, starsToUserRating(r))} />
         </div>
@@ -552,7 +554,7 @@ function MediaCard({ item, onOpen, onEdit, onDelete, onRating, supportsHover, se
   );
 }
 
-function CollectionCard({ item, supportsHover, onOpen, onEdit, onConvert }) {
+function CollectionCard({ item, supportsHover, onOpen }) {
   const title = item.name || item.source_title || `Collection #${item.id}`;
   const onPointerUp = (e) => {
     if (e.pointerType !== 'touch') return;
@@ -596,8 +598,29 @@ function MediaListRow({ item, onOpen, onEdit, onDelete, onRating, supportsHover,
   const clue = reviewClue(item);
 
   return (
-    <article onMouseDown={handleMouseDown} onClick={handleOpen} onPointerUp={onPointerUp} className={cx('group flex items-start gap-3 rounded-lg border bg-surface p-3 transition-all duration-150 animate-fade-in sm:items-center', selected ? 'border-brand/55' : 'border-edge hover:border-muted hover:bg-raised', onOpen && 'cursor-pointer')}>
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
+    <article
+      // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
+      tabIndex={onOpen ? 0 : undefined}
+      onMouseDown={handleMouseDown}
+      onClick={handleOpen}
+      onKeyDown={(event) => {
+        if (!onOpen) return;
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          handleOpen(event);
+        }
+      }}
+      onPointerUp={onPointerUp}
+      className={cx(
+        'group flex items-start gap-3 rounded-lg border bg-surface p-3 transition-all duration-150 animate-fade-in sm:items-center',
+        selected ? 'border-brand/55' : 'border-edge hover:border-muted hover:bg-raised',
+        onOpen && 'cursor-pointer'
+      )}
+    >
       {selectionEnabled && (
+        // This wrapper prevents selection clicks from opening the row.
+        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
         <div onClick={(e) => e.stopPropagation()} className="shrink-0 pt-1 sm:pt-0">
           <button
             type="button"
@@ -630,7 +653,10 @@ function MediaListRow({ item, onOpen, onEdit, onDelete, onRating, supportsHover,
         <CollectibleTraitPills traits={item.collectible_traits} limit={3} className="mt-1" />
         {item.genre && <p className="text-xs text-ghost/70 mt-0.5 truncate">{item.genre}</p>}
       </div>
-      <div onClick={(e) => e.stopPropagation()} className="sm:shrink-0"><StarRating value={userRatingToStars(item.user_rating)} onChange={(r) => onRating(item.id, starsToUserRating(r))} /></div>
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
+      <div onClick={(e) => e.stopPropagation()} className="sm:shrink-0">
+        <StarRating value={userRatingToStars(item.user_rating)} onChange={(r) => onRating(item.id, starsToUserRating(r))} />
+      </div>
       <div className={cx('flex flex-wrap gap-2 transition-opacity duration-150 sm:shrink-0', supportsHover ? 'opacity-100 sm:opacity-0 sm:group-hover:opacity-100' : 'opacity-100')}>
         <button onClick={(e) => { e.stopPropagation(); onEdit(item); }} className="btn-ghost btn-sm"><Icons.Edit /></button>
         <button onClick={(e) => { e.stopPropagation(); onDelete(item.id); }} className="btn-ghost btn-sm text-err hover:bg-err/10"><Icons.Trash /></button>
@@ -1000,8 +1026,8 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   };
   const mergeEntries = Array.isArray(mergeDetails?.entries) ? mergeDetails.entries : [];
   const mergeSummary = mergeDetails?.summary || null;
-  const mergeDisclosureItems = mergeEntries.map((entry) => ({
-    id: String(entry.duplicate_id || entry.applied_at || Math.random()),
+  const mergeDisclosureItems = mergeEntries.map((entry, index) => ({
+    id: String(entry.duplicate_id || entry.applied_at || index),
     entry
   }));
   const activeLoan = loanHistory.find((entry) => !entry?.returned_at) || null;
@@ -1014,18 +1040,21 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
     mediaType: item?.media_type,
     includeEdition: true
   });
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
+  const handleDrawerMetadataSaved = useCallback(() => onValuationUpdated?.(item?.id), [item?.id, onValuationUpdated]);
   const drawerMetadataNodes = buildObjectDrawerMetadataEditorNodes({
     apiCall,
     ownerType: 'media',
     ownerId: item?.id,
     mediaType: item?.media_type,
     traits: item?.collectible_traits,
-    onSaved: () => onValuationUpdated?.(item.id),
+    onSaved: handleDrawerMetadataSaved,
     onToast,
     includeEdition: true
   });
   const drawerMetadataItems = buildDrawerMetadataRenderItems(drawerMetadataRecords, drawerMetadataNodes);
 
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const refreshLoans = useCallback(async () => {
     if (!item?.id) return null;
     setLoanLoading(true);
@@ -1034,7 +1063,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
       const nextHistory = Array.isArray(payload?.history) ? payload.history : [];
       setLoanHistory(nextHistory);
       return payload;
-    } catch (error) {
+    } catch (_error) {
       setLoanHistory([]);
       return null;
     } finally {
@@ -1098,7 +1127,6 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
         const startedAt = Date.now();
         let finalJob = null;
         while (Date.now() - startedAt < 30000) {
-          // eslint-disable-next-line no-await-in-loop
           const job = await apiCall('get', `/media/sync-jobs/${payload.job_id}`);
           const status = String(job?.status || '').toLowerCase();
           if (status === 'succeeded') {
@@ -1108,7 +1136,6 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
           if (status === 'failed') {
             throw new Error(job?.error || 'Valuation refresh failed');
           }
-          // eslint-disable-next-line no-await-in-loop
           await new Promise((resolve) => setTimeout(resolve, 1000));
         }
         if (!finalJob) {
@@ -1356,6 +1383,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
 
   useEffect(() => {
     if (!kavitaReaderPageUrl) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setKavitaReaderImageStatus('idle');
       return;
     }
@@ -1394,7 +1422,8 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
     }
   };
 
-  const loadSeasonDetail = async (seasonNumber, { force = false } = {}) => {
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
+  const loadSeasonDetail = useCallback(async (seasonNumber, { force = false } = {}) => {
     if (!item?.id || !Number.isInteger(Number(seasonNumber))) return;
     const key = Number(seasonNumber);
     setOpenSeason(key);
@@ -1415,10 +1444,11 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
     } finally {
       setSeasonDetailLoading((prev) => ({ ...prev, [key]: false }));
     }
-  };
+  }, [apiCall, item?.id, seasonDetails]);
 
   useEffect(() => {
     if (!item?.id) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setVariants([]);
       setVariantLoading(false);
       setMergeDetails(null);
@@ -1470,6 +1500,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
 
   useEffect(() => {
     if (!item?.id) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMergeDetails(null);
       setMergeDetailsLoading(false);
       setOpenMergeEntryId(null);
@@ -1495,20 +1526,23 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   }, [apiCall, item?.id]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoanForm(buildLoanFormState(item));
     setShowLoanItemDetails(false);
     setLoanFormOpen(false);
-  }, [item?.id]);
+  }, [item, item?.id]);
 
   useEffect(() => {
     if (!item?.id) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void refreshLoans();
   }, [item?.id, refreshLoans]);
 
   useEffect(() => {
     if (item?.media_type !== 'tv_series' || !Number.isInteger(openSeason) || seasonDetails[openSeason] || seasonDetailLoading[openSeason]) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadSeasonDetail(openSeason);
-  }, [item?.media_type, openSeason, seasonDetails, seasonDetailLoading]);
+  }, [item?.media_type, loadSeasonDetail, openSeason, seasonDetails, seasonDetailLoading]);
 
   const tvSeasonVariants = variants
     .filter((v) => Boolean(v.edition))
@@ -2554,6 +2588,8 @@ function CollectionEditor({ collectionId, apiCall, onClose, onSaved }) {
   }, [apiCall, collectionId]);
 
   useEffect(() => {
+    // Collection editor data is loaded from the external collection endpoint.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, [load]);
 
@@ -2562,6 +2598,8 @@ function CollectionEditor({ collectionId, apiCall, onClose, onSaved }) {
     const title = newItemTitle.trim();
     const mediaType = data?.collection?.media_type;
     if (!title || !mediaType) {
+      // Search matches are owned by the current collection editor search query.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSearchMatches([]);
       setSelectedMatchId(null);
       return () => { active = false; };
@@ -2654,8 +2692,8 @@ function CollectionEditor({ collectionId, apiCall, onClose, onSaved }) {
 
   return (
     <div className="fixed inset-0 z-50 flex">
-      <div className="absolute inset-0 bg-void/72" onClick={onClose} />
-      <div className="relative ml-auto h-full w-full max-w-4xl bg-abyss border-l border-edge shadow-card flex flex-col animate-slide-in" onClick={(e) => e.stopPropagation()}>
+      <button type="button" className="absolute inset-0 bg-void/72" onClick={onClose} aria-label="Close collection editor" />
+      <div className="relative ml-auto h-full w-full max-w-4xl bg-abyss border-l border-edge shadow-card flex flex-col animate-slide-in">
         <div className="px-5 py-4 border-b border-edge flex items-center gap-3 shrink-0">
           <h2 className="section-title !text-xl">Edit Collection</h2>
           <div className="flex-1" />
@@ -2764,7 +2802,7 @@ function CollectionDetail({ collectionId, apiCall, onClose, onEdit, onConvert })
 
   return (
     <div className="fixed inset-0 z-50 flex">
-      <div className="absolute inset-0 bg-void/72" onClick={onClose} />
+      <button type="button" className="absolute inset-0 bg-void/72" onClick={onClose} aria-label="Close collection details" />
       <div className="relative ml-auto w-full max-w-xl h-full bg-abyss border-l border-edge flex flex-col animate-slide-in">
         <div className="flex items-start gap-4 px-6 pt-6 pb-4 shrink-0">
           <div className="w-20 shrink-0 relative z-10 shadow-card">
@@ -2968,12 +3006,16 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
 
   useEffect(() => {
     if (!editorTabs.some((tab) => tab.id === activeEditorTab)) {
+      // Editor tabs are derived from the current media type.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveEditorTab('core');
     }
   }, [activeEditorTab, editorTabs]);
 
   useEffect(() => {
     if (!isBook) {
+      // Book capture state only applies while the editor is in a book-compatible mode.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setBookCaptureState(null);
     }
   }, [isBook]);
@@ -2981,6 +3023,8 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
   useEffect(() => {
     if (!isBook) return;
     const next = normalizeBarcodeInput(form.book_isbn || form.upc || '');
+    // Identifier input mirrors the current book identifiers while in book mode.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setBookIdentifierInput((current) => (current === next ? current : next));
   }, [form.book_isbn, form.upc, isBook]);
 
@@ -2989,11 +3033,15 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
     const nextBase = normalizeBarcodeInput(form.book_isbn || form.upc || '');
     const nextAddon = normalizeBarcodeInput(form.comic_barcode_addon || '');
     const next = [nextBase, nextAddon].filter(Boolean).join(' ');
+    // Comic identifier input mirrors the current barcode and add-on fields while in comic mode.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setComicIdentifierInput((current) => (current === next ? current : next));
   }, [form.book_isbn, form.upc, form.comic_barcode_addon, isComic]);
 
   useLayoutEffect(() => {
     if (!lookupPanelExpanded) {
+      // The lookup overlay position mirrors measured DOM height.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLookupOverlayTop(null);
       return undefined;
     }
@@ -3260,7 +3308,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
       const enrichmentMatches = await lookupByTitle(selectedTitle);
       const bestMatch = pickBestTitleEnrichmentMatch(match, enrichmentMatches);
       return bestMatch ? mergeLookupCandidateData(match, bestMatch) : match;
-    } catch (error) {
+    } catch (_error) {
       return match;
     }
   };
@@ -4617,6 +4665,8 @@ export default function LibraryView({
     if (!initialSavedViewId) return;
     const selected = savedLibraryViews.find((view) => String(view.id) === String(initialSavedViewId));
     if (!selected) return;
+    // Initial route state can apply a persisted view once the saved-view source is loaded.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     applySavedLibraryView(selected);
     onSavedViewApplied?.(selected);
   }, [applySavedLibraryView, initialSavedViewId, onSavedViewApplied, savedLibraryViews]);
@@ -4627,6 +4677,8 @@ export default function LibraryView({
     if (!current) return;
     const currentSnapshot = currentSavedViewSnapshot();
     if (JSON.stringify(current.snapshot) !== JSON.stringify(currentSnapshot)) {
+      // Clear the active saved-view badge when local filters diverge from the persisted snapshot.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveSavedViewId('');
     }
   }, [activeSavedViewId, currentSavedViewSnapshot, savedLibraryViews]);
@@ -4639,6 +4691,8 @@ export default function LibraryView({
   }, [searchInput]);
 
   useEffect(() => {
+    // Debounced search input is derived from the user's raw search field.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setFilters((f) => {
       if ((f.search || '') === debouncedSearchInput) return f;
       return { ...f, search: debouncedSearchInput };
@@ -4653,6 +4707,8 @@ export default function LibraryView({
 
   useEffect(() => {
     if (!forcedMediaType) return;
+    // Route/library type changes reset the filter model and related collection/comic result state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setFilters((f) => ({
       ...f,
       media_type: forcedMediaType,
@@ -4893,15 +4949,19 @@ export default function LibraryView({
       return useComicSeriesIssueQuery ? items : [...items].sort(compareComicIssueOrder);
     }
     return items;
-  }, [comicSeries, comicSeriesIssueRows, comicView, isComicsLibrary, mediaItems, useComicSeriesIssueQuery]);
+  }, [comicSeriesIssueRows, comicView, isComicsLibrary, mediaItems, useComicSeriesIssueQuery]);
 
   useEffect(() => {
     const availableIds = new Set(mediaItems.map((item) => Number(item.id)).filter((id) => Number.isFinite(id) && id > 0));
+    // Selection is pruned when the backing result set changes.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedIds((prev) => prev.filter((id) => availableIds.has(Number(id))));
   }, [mediaItems]);
 
   useEffect(() => {
     if (isCollectionMode || (isComicsLibrary && comicView === 'series')) {
+      // Selection is unavailable in collection and comic-series summary views.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedIds([]);
       selectionAnchorIdRef.current = null;
       selectionGestureRef.current = false;
@@ -5024,6 +5084,8 @@ export default function LibraryView({
   useEffect(() => {
     if (!isComicsLibrary) return;
     if (page > comicPagedState.totalPages) {
+      // Client-paged comic views clamp the current page when the derived result size shrinks.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPage(comicPagedState.totalPages);
     }
   }, [comicPagedState.totalPages, isComicsLibrary, page]);
@@ -5048,7 +5110,7 @@ export default function LibraryView({
     if (isCollectionMode || (isComicsLibrary && comicView === 'series')) return 0;
     if (useComicFullFetch) return visibleItems.length;
     return Number(pagination?.total ?? mediaItems.length ?? 0);
-  }, [comicView, isCollectionMode, mediaItems.length, pagination?.total, useComicFullFetch, visibleItems.length]);
+  }, [comicView, isCollectionMode, isComicsLibrary, mediaItems.length, pagination?.total, useComicFullFetch, visibleItems.length]);
   const allMatchingSelected = selectableResultTotal > 0 && selectedIds.length === selectableResultTotal;
   const showSelectAllMatchingPrompt = allVisibleSelected
     && selectableResultTotal > visibleSelectableIds.length
@@ -5176,6 +5238,7 @@ export default function LibraryView({
     filters.media_type,
     filters.platform,
     filters.publisher,
+    filters.review_filter,
     filters.resolution,
     filters.search,
     filters.sortBy,
@@ -5674,7 +5737,11 @@ export default function LibraryView({
       )}
       {(adding || editing) && (
         <div className="fixed inset-0 z-50 flex">
-          <div className="absolute inset-0 bg-void/72" onClick={() => { setAdding(false); setEditing(null); }} />
+          {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
+          <div
+            className="absolute inset-0 bg-void/72"
+            onClick={() => { setAdding(false); setEditing(null); }}
+          />
           <div className="ml-auto h-full w-full max-w-[40rem] bg-abyss border-l border-edge shadow-card relative">
             {renderMediaForm()}
           </div>

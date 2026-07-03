@@ -1,6 +1,6 @@
 {
   "name": "collectz-backend",
-  "version": "3.23.3",
+  "version": "3.23.4",
   "description": "collectZ Backend API",
   "main": "server.js",
   "scripts": {

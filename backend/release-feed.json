@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.23.4",
+      "version": "3.23.4",
+      "date": null,
+      "status": null,
+      "summary": "This release continues the maintainability guardrails work with a focused Library view cleanup. It makes the touched card/list-row and drawer surfaces lint-clean while preserving existing article-based browser contracts and avoiding broad Library view data-flow rewrites.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Removed stale `LibraryView.jsx` default React import, unused card props, unused catch bindings, and stale lint disables.",
+            "Preserved article-based media/list card containers while adding keyboard activation for the list-row surface.",
+            "Documented narrow a11y exceptions around stop-propagation wrappers that protect card/row click behavior for nested rating and selection controls.",
+            "Replaced collection editor/detail overlay divs with native button backdrops while preserving the media editor overlay's existing non-focusable click-to-close behavior.",
+            "Tightened safe memo/effect dependencies and documented remaining external synchronization effects.",
+            "Reduced the full frontend quality baseline from `153` errors / `61` warnings to `115` errors / `47` warnings."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.23.3",
       "version": "3.23.3",
       "date": null,
@@ -176,14 +196,6 @@
       "date": null,
       "status": null,
       "summary": "Persisted Plex readback refresh cadence in the Plex Sync settings.",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.20.7",
-      "version": "v3.20.7",
-      "date": null,
-      "status": null,
-      "summary": "",
       "details": []
     }
   ]
