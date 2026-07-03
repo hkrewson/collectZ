@@ -1371,12 +1371,23 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - Use an inactive/archive lifecycle instead of immediate hard deletion by default.
 - Define recovery behavior when the same user later re-registers.
 - Preserve content attribution even if the original account no longer exists.
+- Define retention classes for account data, auth/session records, invite records, email/password-reset tokens, activity/audit rows, support/session metadata, export artifacts, uploads, backups, and personal workspace content.
+- Add lifecycle state to the user/personal-workspace model, including deletion request, scheduled deletion, archive, anonymization, and completed erasure states.
+- Add a retention worker or scheduled command that purges expired auth/session/token records, transitions personal workspaces through the retention windows, removes upload binaries, and records non-secret erasure evidence.
+- Separate shared-workspace integrity from personal account erasure by anonymizing deleted users in shared content instead of deleting shared workspace records owned by other members.
+- Define backup and export handling so live deletion does not promise impossible instant removal from retained backups, and restored systems do not silently resurrect erased users.
+- Provide export-before-delete, cancel-within-window, and admin review affordances before permanent erasure.
 
 **Acceptance Criteria**
 - Workspace admins remove members from shared workspaces without deleting shared content.
 - Personal workspace offboarding uses a documented inactive/archive/deletion lifecycle.
 - Re-registration with the same email can recover an archive-eligible personal workspace during the retention window.
 - The `0-30 / 31-90 / 91+ day` retention behavior is documented, implemented, and auditable.
+- Retention limits are configured and enforced for sessions, invites, verification/reset tokens, audit/activity logs, support metadata, generated exports, and deleted personal workspace data.
+- Full deletion/anonymization removes account credentials, active sessions, tokens, provider secrets, personal workspace content, and upload binaries while preserving shared workspace referential integrity.
+- Activity/audit trails keep only the minimum defensible evidence after erasure, with email/name/IP/detail fields removed or anonymized where the policy requires.
+- Backup-retention behavior is documented clearly, including the window in which erased data may remain in encrypted backups and the restore procedure needed to avoid reintroducing erased accounts.
+- Browser/API/admin tests cover deletion request, cancellation during recovery, archive transition, final purge, same-email recovery during the allowed window, and shared-workspace attribution after erasure.
 
 ### Backlog Item: Optional Build: Cost Model and Billing Readiness
 **Type:** Deferred milestone
