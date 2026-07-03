@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 const IMPORT_JOBS_KEY = 'collectz_import_jobs';
 const IMPORT_POLL_LEADER_KEY = 'collectz_import_poll_leader';
@@ -13,14 +13,19 @@ function readStoredJobs() {
     const parsed = JSON.parse(localStorage.getItem(IMPORT_JOBS_KEY) || '[]');
     return Array.isArray(parsed) ? parsed : [];
   } catch {
+    // Ignore malformed local storage from older or interrupted import sessions.
     return [];
   }
+}
+
+function createImportPollTabId() {
+  return `tab-${Math.random().toString(36).slice(2)}-${Date.now().toString(36)}`;
 }
 
 export default function useImportJobPolling({ user, apiCall }) {
   const [importJobs, setImportJobs] = useState(readStoredJobs);
   const [isImportPollLeader, setIsImportPollLeader] = useState(false);
-  const tabIdRef = useRef(`tab-${Math.random().toString(36).slice(2)}-${Date.now().toString(36)}`);
+  const [tabId] = useState(createImportPollTabId);
 
   const hasActiveImportJobs = useMemo(
     () => importJobs.some((job) => job.status === 'queued' || job.status === 'running'),
@@ -36,10 +41,12 @@ export default function useImportJobPolling({ user, apiCall }) {
     try {
       const raw = localStorage.getItem(IMPORT_POLL_LEADER_KEY);
       const parsed = raw ? JSON.parse(raw) : null;
-      if (parsed?.tabId === tabIdRef.current) localStorage.removeItem(IMPORT_POLL_LEADER_KEY);
-    } catch (_) {}
+      if (parsed?.tabId === tabId) localStorage.removeItem(IMPORT_POLL_LEADER_KEY);
+    } catch {
+      // Ignore malformed or unavailable local storage; the tab will simply stop leading.
+    }
     setIsImportPollLeader(false);
-  }, []);
+  }, [tabId]);
 
   const claimImportPollLeader = useCallback(() => {
     if (!isForegroundTab()) {
@@ -51,15 +58,17 @@ export default function useImportJobPolling({ user, apiCall }) {
       const raw = localStorage.getItem(IMPORT_POLL_LEADER_KEY);
       const parsed = raw ? JSON.parse(raw) : null;
       const stale = !parsed?.tabId || !parsed?.ts || (now - Number(parsed.ts)) > IMPORT_POLL_STALE_MS;
-      if (stale || parsed.tabId === tabIdRef.current) {
-        localStorage.setItem(IMPORT_POLL_LEADER_KEY, JSON.stringify({ tabId: tabIdRef.current, ts: now }));
+      if (stale || parsed.tabId === tabId) {
+        localStorage.setItem(IMPORT_POLL_LEADER_KEY, JSON.stringify({ tabId, ts: now }));
         setIsImportPollLeader(true);
         return true;
       }
-    } catch (_) {}
+    } catch {
+      // Ignore malformed or unavailable local storage; another tab may continue polling.
+    }
     setIsImportPollLeader(false);
     return false;
-  }, [isForegroundTab]);
+  }, [isForegroundTab, tabId]);
 
   useEffect(() => {
     if (typeof document === 'undefined' || typeof window === 'undefined') return undefined;
@@ -76,6 +85,8 @@ export default function useImportJobPolling({ user, apiCall }) {
       else setIsImportPollLeader(false);
     };
 
+    // Import polling leader election synchronizes React state with browser tab focus/storage state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     claimImportPollLeader();
     const heartbeat = setInterval(() => {
       if (isForegroundTab()) claimImportPollLeader();
@@ -114,7 +125,9 @@ export default function useImportJobPolling({ user, apiCall }) {
         const lastPollTs = Number(localStorage.getItem(IMPORT_POLL_LAST_TS_KEY) || 0);
         if (Number.isFinite(lastPollTs) && lastPollTs > 0 && now - lastPollTs < 6000) return;
         localStorage.setItem(IMPORT_POLL_LAST_TS_KEY, String(now));
-      } catch (_) {}
+      } catch {
+        // If local storage is unavailable, continue with the in-memory poll attempt.
+      }
 
       try {
         const rows = await apiCall('get', '/media/sync-jobs?limit=50');

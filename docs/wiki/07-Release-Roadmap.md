@@ -6,6 +6,41 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.23.15 — Import Polling Hook Purity and Leader Baseline Cleanup
+
+**Goal:** Continue the maintainability foundation only where the current quality report shows clear value by clearing the top remaining frontend lint pocket in `useImportJobPolling.js` without changing import job persistence, multi-tab leader election, polling cadence, or import status dock behavior.
+
+### Scope
+
+- Generate the per-tab import polling id through lazy state initialization instead of impure render-time ref initialization.
+- Replace empty local-storage catch blocks with explicit comments describing tolerated malformed/unavailable storage behavior.
+- Document the initial import polling leader claim as an intentional synchronization with browser focus/storage state.
+- Preserve localStorage keys, leader heartbeat timing, stale leader timing, poll throttling, active-job detection, job upsert/dismiss/clear behavior, and unauthenticated/rate-limited poll handling.
+- Keep broader import polling architecture changes, cross-tab coordination redesign, and import status UX changes deferred.
+
+### Acceptance Criteria
+
+- `npm run quality:frontend:changed` reports zero ESLint findings and zero source-size warnings for the touched frontend files.
+- `npm run quality:frontend` shows a lower full ESLint baseline than `3.23.14`.
+- Frontend build and focused import browser regression remain green.
+- Existing Docker-first release verification remains intact.
+
+### Active Slice Notes
+
+- This is a targeted `3.23.x` cleanup slice selected because `useImportJobPolling.js` is the highest-count error file in the current quality report after `3.23.14`.
+- This slice intentionally avoids import product work and only touches the hook purity/empty-catch/documented-leader-sync quality surface.
+
+### Closeout
+
+- Status: completed in `3.23.15`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/58-Maintainability-Guardrails.md`, and `docs/releases/v3.23.15.md`.
+- Runtime evidence: Docker backend and frontend containers rebuilt on the canonical local `collectz-private` platform stack at `http://localhost:3201`; `/api/health` reports frontend, backend, and build `3.23.15`; backend, frontend, Postgres, Cairn, and Cairn Postgres containers are healthy; authenticated Help > Releases smoke served `3.23.15` as the latest entry.
+- Verification: `npm run quality:frontend` passed in report-first mode and reported the reduced baseline of `19` ESLint errors, `24` warnings, Prettier findings, and `0` source-size warnings; `npm run quality:frontend:changed` passed with `0` ESLint errors, `0` warnings, and `0` source-size warnings for the touched import polling hook while preserving report-first Prettier findings for legacy formatting debt; frontend Vitest passed with `1` file and `4` tests; frontend production build passed with the existing large-chunk warning; backend unit/source suite passed with `336` checks; OpenAPI validation passed; focused CSV import browser regression passed `2/2` tests against `http://localhost:3201`; observability release evidence refreshed with `9/9` checks passed; `npm run release:local-gate` passed `12/12` standard gates with the `collectz-private` compose project and `http://localhost:3201` preflight base URL; `git diff --check` passed through the local gate.
+- Blocked/unverified: Local preflight marks secure-cookie compose smoke environment-dependent because the local development stack uses `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`; it also marks secret scan, browser regression, and image security/SBOM as CI-only or not run by the local preflight helper. Hosted CI still needs to confirm `compose-smoke`, `rbac-regression`, hosted full `browser-regression`, `runtime-smoke` core/control-plane, `dependency-scan`, `secret-scan`, and `image-security-and-sbom`.
+- Files changed: `app-meta.json`, `backend/app-meta.json`, `backend/package-lock.json`, `backend/package.json`, `backend/release-feed.json`, `docs/releases/v3.23.15.md`, `docs/wiki/07-Release-Roadmap.md`, `frontend/package-lock.json`, `frontend/package.json`, `frontend/src/app-meta.json`, `frontend/src/components/app/hooks/useImportJobPolling.js`, `preflight-go-no-go.md`, and refreshed release evidence artifacts.
+- Risks/follow-ups: `useImportJobPolling.js` is lint-clean for the touched hook purity/empty-catch/documented-leader-sync surface, but the full frontend baseline still has legacy ESLint and Prettier findings. Further import polling changes should be tied to product work or explicit cross-tab coordination tests.
+- What remains in the milestone: no implementation work remains for the `3.23.15` cleanup slice; hosted CI/release gates remain required before push-ready release promotion.
+
 ## 3.23.14 — Auth Page Accessibility and Route Sync Baseline Cleanup
 
 **Goal:** Continue the maintainability foundation only where the current quality report shows clear value by clearing the top remaining frontend lint pocket in `AuthPage.jsx` without changing login, registration, forgot-password, reset-password, or email-verification behavior.
