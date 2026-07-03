@@ -6,6 +6,42 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.23.14 — Auth Page Accessibility and Route Sync Baseline Cleanup
+
+**Goal:** Continue the maintainability foundation only where the current quality report shows clear value by clearing the top remaining frontend lint pocket in `AuthPage.jsx` without changing login, registration, forgot-password, reset-password, or email-verification behavior.
+
+### Scope
+
+- Remove the stale default React import from the auth page.
+- Associate auth form labels with their controls.
+- Document auth route/query synchronization effects that intentionally copy URL-owned invite, email, and token values into form state.
+- Document route feedback clearing and automatic email-verification consumption as intentional auth side effects.
+- Preserve public auth config loading, self-registration gating, Playwright bypass header behavior, forgot/reset flows, verification resend, and sign-in behavior.
+- Keep broader auth UX changes, auth API changes, and route architecture changes deferred.
+
+### Acceptance Criteria
+
+- `npm run quality:frontend:changed` reports zero ESLint findings and zero source-size warnings for the touched frontend files.
+- `npm run quality:frontend` shows a lower full ESLint baseline than `3.23.13`.
+- Frontend build and focused auth browser regression remain green.
+- Existing Docker-first release verification remains intact.
+
+### Active Slice Notes
+
+- This is a targeted `3.23.x` cleanup slice selected because `AuthPage.jsx` is the highest-count file in the current quality report after `3.23.13`.
+- This slice intentionally avoids auth product work and only touches the import/a11y/documented-route-sync quality surface.
+
+### Closeout
+
+- Status: completed in `3.23.14`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/58-Maintainability-Guardrails.md`, and `docs/releases/v3.23.14.md`.
+- Runtime evidence: Docker backend and frontend containers rebuilt on the canonical local `collectz-private` platform stack at `http://localhost:3201`; `/api/health` reports frontend, backend, and build `3.23.14`; backend, frontend, Postgres, Cairn, and Cairn Postgres containers are healthy; authenticated Help > Releases smoke served `3.23.14` as the latest entry.
+- Verification: `npm run quality:frontend` passed in report-first mode and reported the reduced baseline of `25` ESLint errors, `24` warnings, Prettier findings, and `0` source-size warnings; `npm run quality:frontend:changed` passed with `0` ESLint errors, `0` warnings, and `0` source-size warnings for the touched Auth Page surface while preserving report-first Prettier findings for legacy formatting debt; frontend Vitest passed with `1` file and `4` tests; frontend production build passed with the existing large-chunk warning; backend unit/source suite passed with `336` checks; OpenAPI validation passed; focused auth browser regression passed `5/5` tests against `http://localhost:3201`; observability release evidence refreshed with `9/9` checks passed; `npm run release:local-gate` passed `12/12` standard gates with the `collectz-private` compose project and `http://localhost:3201` preflight base URL; `git diff --check` passed through the local gate.
+- Blocked/unverified: Local preflight marks secure-cookie compose smoke environment-dependent because the local development stack uses `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`; it also marks secret scan, browser regression, and image security/SBOM as CI-only or not run by the local preflight helper. Hosted CI still needs to confirm `compose-smoke`, `rbac-regression`, hosted full `browser-regression`, `runtime-smoke` core/control-plane, `dependency-scan`, `secret-scan`, and `image-security-and-sbom`.
+- Files changed: `app-meta.json`, `backend/app-meta.json`, `backend/package-lock.json`, `backend/package.json`, `backend/release-feed.json`, `docs/releases/v3.23.14.md`, `docs/wiki/07-Release-Roadmap.md`, `frontend/package-lock.json`, `frontend/package.json`, `frontend/src/app-meta.json`, `frontend/src/components/AuthPage.jsx`, `preflight-go-no-go.md`, and refreshed release evidence artifacts.
+- Risks/follow-ups: `AuthPage.jsx` is lint-clean for the touched import/a11y/route-sync surface, but the full frontend baseline still has legacy ESLint and Prettier findings. The next likely contained candidate is `frontend/src/components/app/hooks/useImportJobPolling.js`, but its tab-leader/polling behavior deserves a focused hook slice rather than casual cleanup.
+- What remains in the milestone: no implementation work remains for the `3.23.14` cleanup slice; hosted CI/release gates remain required before push-ready release promotion.
+
 ## 3.23.13 — Library Loans Accessibility and Hook Baseline Cleanup
 
 **Goal:** Continue the maintainability foundation only where the current quality report shows clear value by clearing the top remaining frontend lint pocket in `LibraryLoansView.jsx` without changing loan tracking, reminder, return, pagination, or loan-history behavior.

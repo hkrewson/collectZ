@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import CollectzMark from './CollectzMark';
 import { SectionTabs } from './app/AppPrimitives';
@@ -70,6 +70,8 @@ export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    // AuthPage is reused across auth routes; query params are route-owned URL state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (params.get('invite')) setInvite(params.get('invite'));
     if (params.get('email')) setEmail(params.get('email'));
     if (params.get('token')) setResetToken(params.get('token'));
@@ -96,6 +98,8 @@ export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion
   }, [apiUrl]);
 
   useEffect(() => {
+    // Route changes intentionally clear transient auth feedback from the previous mode.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setError('');
     setNotice('');
     setErrorCode('');
@@ -107,6 +111,8 @@ export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion
     if (!resetToken || !email) return;
 
     verifyAttemptedRef.current = true;
+    // Email verification is an external auth side effect that owns loading/feedback state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     setError('');
     setNotice('');
@@ -247,18 +253,18 @@ export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion
                 <>
                   {isRegister && !isReset && !isForgot && (
                     <div className="field">
-                      <label className="label">Name</label>
-                      <input className="input input-lg" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} required />
+                      <label className="label" htmlFor="auth-name">Name</label>
+                      <input id="auth-name" className="input input-lg" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} required />
                     </div>
                   )}
                   <div className="field">
-                    <label className="label">Email</label>
-                    <input className="input input-lg" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                    <label className="label" htmlFor="auth-email">Email</label>
+                    <input id="auth-email" className="input input-lg" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
                   </div>
                   {!isForgot && <div className="field">
-                    <label className="label">{isReset ? 'New Password' : 'Password'}</label>
+                    <label className="label" htmlFor="auth-password">{isReset ? 'New Password' : 'Password'}</label>
                     <div className="relative">
-                      <input className="input input-lg pr-10" type={showPw ? 'text' : 'password'} placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                      <input id="auth-password" className="input input-lg pr-10" type={showPw ? 'text' : 'password'} placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
                       <button
                         type="button"
                         tabIndex={-1}
@@ -272,8 +278,9 @@ export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion
                   </div>}
                   {isReset && (
                     <div className="field">
-                      <label className="label">Confirm Password</label>
+                      <label className="label" htmlFor="auth-confirm-password">Confirm Password</label>
                       <input
+                        id="auth-confirm-password"
                         className="input input-lg"
                         type={showPw ? 'text' : 'password'}
                         placeholder="••••••••"
