@@ -1,5 +1,6 @@
 const js = require('@eslint/js');
 const globals = require('globals');
+const react = require('eslint-plugin-react');
 const reactHooks = require('eslint-plugin-react-hooks');
 const jsxA11y = require('eslint-plugin-jsx-a11y');
 
@@ -31,10 +32,12 @@ module.exports = [
       }
     },
     plugins: {
+      react,
       'react-hooks': reactHooks,
       'jsx-a11y': jsxA11y
     },
     rules: {
+      'react/jsx-uses-vars': 'error',
       ...reactHooks.configs.recommended.rules,
       ...jsxA11y.configs.recommended.rules,
       'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }]

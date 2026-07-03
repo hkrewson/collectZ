@@ -6,6 +6,40 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.23.2 — Sidebar React Hook Baseline Cleanup
+
+**Goal:** Reduce the highest-signal frontend ESLint baseline without broad UI rewrites by cleaning up the Sidebar navigation component and fixing JSX usage detection.
+
+### Scope
+
+- Hoist Sidebar helper components out of render so React hooks static-component checks stop flagging the navigation shell.
+- Preserve sidebar visual behavior, collapse/expand behavior, mobile close behavior, and account menu behavior.
+- Add React JSX usage lint support so components referenced only through JSX are not counted as unused variables.
+- Keep the quality commands report-first and avoid mass-formatting unrelated files.
+
+### Acceptance Criteria
+
+- `npm run quality:frontend:changed` reports zero errors for the touched Sidebar/config files.
+- `npm run quality:frontend` shows a lower full ESLint baseline than `3.23.1`.
+- Frontend Vitest and production build remain green.
+- Existing Docker-first release verification remains intact.
+
+### Active Slice Notes
+
+- This is a targeted `3.23.x` cleanup slice, not the full ESLint baseline cleanup.
+- It intentionally leaves the broader React hooks and accessibility findings for later focused passes.
+
+### Closeout
+
+- Status: completed in `3.23.2`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/58-Maintainability-Guardrails.md`, and `docs/releases/v3.23.2.md`.
+- Runtime evidence: Docker backend and frontend containers rebuilt on the canonical local `collectz-private` platform stack at `http://localhost:3201`; `/api/health` reports frontend, backend, and build `3.23.2`; backend, frontend, Postgres, Cairn, and Cairn Postgres containers are healthy; authenticated Help > Releases smoke served `3.23.2` as the latest entry.
+- Verification: `npm run quality:frontend` passed in report-first mode and reported the reduced baseline of `170` ESLint errors, `65` warnings, Prettier findings, and `0` source-size warnings; `npm run quality:frontend:changed` passed with `0` ESLint errors, `0` warnings, and clean Prettier status for the touched frontend/config files; frontend Vitest passed with `1` file and `4` tests; backend unit/source suite passed with `336` checks; Docker frontend production build passed during the stack rebuild and local release gate; targeted Sidebar/mobile Playwright regression passed against `http://localhost:3201`; observability release evidence refreshed with `9/9` checks passed; `npm run release:local-gate` passed `12/12` standard gates with the `collectz-private` compose project and `http://localhost:3201` preflight base URL; `git diff --check` passed through the local gate.
+- Blocked/unverified: Local preflight marks secure-cookie compose smoke environment-dependent because the local development stack uses `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`. Hosted CI still needs to confirm `compose-smoke`, `rbac-regression`, hosted full `browser-regression`, `runtime-smoke` core/control-plane, `dependency-scan`, `secret-scan`, and `image-security-and-sbom`.
+- Files changed: `app-meta.json`, `backend/app-meta.json`, `backend/package-lock.json`, `backend/package.json`, `backend/release-feed.json`, `backend/scripts/unit-tests.js`, `docs/releases/v3.23.2.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/58-Maintainability-Guardrails.md`, `eslint.config.js`, `frontend/package-lock.json`, `frontend/package.json`, `frontend/src/app-meta.json`, `frontend/src/components/SidebarNav.jsx`, `package-lock.json`, `package.json`, `preflight-go-no-go.md`, and refreshed release evidence artifacts.
+- Risks/follow-ups: The full ESLint baseline is still not clean; remaining React hooks and accessibility findings should be handled in later focused slices before making lint blocking. Broader admin-shell browser coverage exposed unrelated route/spec expectations during investigation, so this slice used the targeted Sidebar/mobile browser regression as its product-specific browser evidence.
+- What remains in the milestone: no implementation work remains for the `3.23.2` cleanup slice; hosted CI/release gates remain required before push-ready release promotion.
+
 ## 3.23.1 — Frontend Quality Baseline Tuning
 
 **Goal:** Make the new maintainability guardrails easier to use day to day by separating high-noise legacy findings from higher-signal correctness checks and adding a changed-file report path.

@@ -8,6 +8,7 @@ This note records the `3.23.x` foundation rules for adding lint, format, fronten
 - The command writes ignored local artifacts to `artifacts/quality/frontend-quality-report.{json,md}`.
 - ESLint includes React hooks and JSX accessibility rules for `frontend/src`.
 - The report includes top ESLint rules and top files so baseline tuning can focus on signal instead of counting noise.
+- React JSX usage detection is enabled so components used only in JSX are not counted as unused variables.
 - Prettier runs in check mode only; do not mass-format unrelated files to clear the baseline.
 - Source-size reporting is warning-only and tracks the largest files called out by review:
   - `backend/routes/media.js`

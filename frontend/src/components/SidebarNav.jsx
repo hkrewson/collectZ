@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Icons, cx, isInteractiveTarget, posterUrl } from './app/AppPrimitives';
 import CollectzMark from './CollectzMark';
 import { getAllowedDashboardTabs, isLocalProductEdition, isSupportHelpEnabled, SUPPORT_STAFF_ROLE } from './app/productEdition';
@@ -15,6 +15,88 @@ const GitHubIcon = () => (
   </svg>
 );
 
+const navStateClass = (active) => (active ? 'text-ink hover:text-ink' : 'text-dim hover:text-ink');
+
+function NavUnderline({ active, sub = false, collapsed = false }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cx(
+        'pointer-events-none absolute bottom-0 h-0.5 rounded-full transition-colors duration-150',
+        'w-24 max-w-[calc(100%-1.5rem)] opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100',
+        sub ? 'left-8' : 'left-3',
+        active
+          ? 'bg-gold opacity-100 group-hover:bg-gold group-focus-visible:bg-gold'
+          : 'bg-gold/35 group-hover:bg-gold/45 group-focus-visible:bg-gold/45',
+        collapsed && !sub && 'left-4 right-4 w-auto max-w-none'
+      )}
+    />
+  );
+}
+
+function AccountMenuItem({ children, icon, onClick, href, external = false, danger = false, active = false }) {
+  const content = (
+    <>
+      <span className="shrink-0">{icon}</span>
+      <span className="truncate">{children}</span>
+      <NavUnderline active={active} />
+    </>
+  );
+  const className = cx(
+    'group relative w-full flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors text-left',
+    danger ? 'text-dim hover:text-err focus-visible:text-err' : navStateClass(active),
+    'focus-visible:ring-0 focus-visible:ring-offset-0'
+  );
+
+  if (href) {
+    return (
+      <a
+        role="menuitem"
+        href={href}
+        target={external ? '_blank' : undefined}
+        rel={external ? 'noreferrer' : undefined}
+        className={className}
+        onClick={onClick}
+      >
+        {content}
+      </a>
+    );
+  }
+
+  return (
+    <button type="button" role="menuitem" onClick={onClick} className={className}>
+      {content}
+    </button>
+  );
+}
+
+function NavLink({ id, icon, label, sub = false, badge = null, activeWhen = [], activeTab, collapsed, onSelect, onMobileClose }) {
+  const active = activeTab === id || activeWhen.includes(activeTab);
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      onClick={() => {
+        onSelect(id);
+        onMobileClose?.();
+      }}
+      className={cx(
+        'group relative w-full flex items-center gap-3 rounded transition-colors duration-150 text-left',
+        sub ? 'pl-8 pr-3 py-2 text-sm' : 'px-3 py-2.5 text-sm font-medium',
+        navStateClass(active),
+        collapsed && !sub && 'justify-center px-0'
+      )}
+    >
+      {!sub && <span className="shrink-0">{icon}</span>}
+      {(!collapsed || sub) && <span className="truncate">{label}</span>}
+      {!collapsed && badge !== null && badge !== undefined && (
+        <span className="ml-auto badge badge-dim text-[10px] min-w-5 text-center">{badge}</span>
+      )}
+      <NavUnderline active={active} sub={sub} collapsed={collapsed} />
+    </button>
+  );
+}
+
 export default function SidebarNav({
   user,
   activeTab,
@@ -25,8 +107,6 @@ export default function SidebarNav({
   onToggle,
   mobileOpen,
   onMobileClose,
-  spaces = [],
-  activeSpaceId = null,
   libraries = [],
   activeLibraryId = null,
   onLibrarySelect,
@@ -71,10 +151,6 @@ export default function SidebarNav({
     'library-events',
     'admin-merges'
   ].includes(activeTab);
-  const isPlatformGroupActive = [
-    'admin-settings',
-    'admin-integrations'
-  ].includes(activeTab);
   const isTabAllowed = (tabId) => !allowedTabs || allowedTabs.has(tabId);
   const showLibrarySwitcher = canUseLibraryShell && libraries.length > 1;
   const canOpenSpaceSurface = Boolean(activeMembershipRole) || canManageActiveSpace;
@@ -114,102 +190,31 @@ export default function SidebarNav({
     onToggle?.();
   };
 
-  const navStateClass = (active) => (
-    active
-      ? 'text-ink hover:text-ink'
-      : 'text-dim hover:text-ink'
-  );
-
-  const NavUnderline = ({ active, sub = false }) => {
-    return (
-      <span
-        aria-hidden="true"
-        className={cx(
-          'pointer-events-none absolute bottom-0 h-0.5 rounded-full transition-colors duration-150',
-          'w-24 max-w-[calc(100%-1.5rem)] opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100',
-          sub ? 'left-8' : 'left-3',
-          active
-            ? 'bg-gold opacity-100 group-hover:bg-gold group-focus-visible:bg-gold'
-            : 'bg-gold/35 group-hover:bg-gold/45 group-focus-visible:bg-gold/45',
-          collapsed && !sub && 'left-4 right-4 w-auto max-w-none'
-        )}
-      />
-    );
-  };
-
-  const AccountMenuItem = ({ children, icon, onClick, href, external = false, danger = false, active = false }) => {
-    const content = (
-      <>
-        <span className="shrink-0">{icon}</span>
-        <span className="truncate">{children}</span>
-        <NavUnderline active={active} />
-      </>
-    );
-    const className = cx(
-      'group relative w-full flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors text-left',
-      danger ? 'text-dim hover:text-err focus-visible:text-err' : navStateClass(active),
-      'focus-visible:ring-0 focus-visible:ring-offset-0'
-    );
-
-    if (href) {
-      return (
-        <a
-          role="menuitem"
-          href={href}
-          target={external ? '_blank' : undefined}
-          rel={external ? 'noreferrer' : undefined}
-          className={className}
-          onClick={onClick}
-        >
-          {content}
-        </a>
-      );
-    }
-
-    return (
-      <button
-        type="button"
-        role="menuitem"
-        onClick={onClick}
-        className={className}
-      >
-        {content}
-      </button>
-    );
-  };
-
-  const NavLink = ({ id, icon, label, sub = false, badge = null, activeWhen = [] }) => {
-    const active = activeTab === id || activeWhen.includes(activeTab);
-    return (
-      <button
-        aria-label={label}
-        onClick={() => {
-          onSelect(id);
-          onMobileClose();
-        }}
-        className={cx(
-          'group relative w-full flex items-center gap-3 rounded transition-colors duration-150 text-left',
-          sub ? 'pl-8 pr-3 py-2 text-sm' : 'px-3 py-2.5 text-sm font-medium',
-          navStateClass(active),
-          collapsed && !sub && 'justify-center px-0'
-        )}
-      >
-        {!sub && <span className="shrink-0">{icon}</span>}
-        {(!collapsed || sub) && <span className="truncate">{label}</span>}
-        {!collapsed && badge !== null && badge !== undefined && (
-          <span className="ml-auto badge badge-dim text-[10px] min-w-5 text-center">{badge}</span>
-        )}
-        <NavUnderline active={active} sub={sub} />
-      </button>
-    );
+  const navLinkProps = {
+    activeTab,
+    collapsed,
+    onSelect,
+    onMobileClose
   };
 
   return (
     <>
-      {mobileOpen && <div className="fixed inset-0 bg-void/80 z-30 lg:hidden" onClick={onMobileClose} />}
+      {mobileOpen && (
+        <button type="button" className="fixed inset-0 bg-void/80 z-30 lg:hidden" onClick={onMobileClose} aria-label="Close navigation" />
+      )}
 
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
       <aside
         onClick={handleCollapsedRailClick}
+        onKeyDown={(event) => {
+          if ((event.key === 'Enter' || event.key === ' ') && collapsed) {
+            event.preventDefault();
+            handleCollapsedRailClick(event);
+          }
+        }}
+        role={collapsed ? 'button' : undefined}
+        tabIndex={collapsed ? 0 : undefined}
+        aria-label={collapsed ? 'Expand navigation' : undefined}
         className={cx(
           'fixed top-0 left-0 h-full bg-abyss border-r border-edge flex flex-col z-40',
           'transition-all duration-300',
@@ -219,10 +224,7 @@ export default function SidebarNav({
       >
         <div
           data-testid="navigation-menu-top"
-          className={cx(
-            'flex items-center gap-2 border-b border-edge shrink-0 px-3 py-1',
-            collapsed ? 'justify-center px-0' : ''
-          )}
+          className={cx('flex items-center gap-2 border-b border-edge shrink-0 px-3 py-1', collapsed ? 'justify-center px-0' : '')}
         >
           <button
             type="button"
@@ -251,10 +253,7 @@ export default function SidebarNav({
               )}
             />
           </button>
-          <div className={cx(
-            'flex min-w-0 flex-1 items-center gap-2 lg:hidden',
-            collapsed ? 'justify-center' : ''
-          )}>
+          <div className={cx('flex min-w-0 flex-1 items-center gap-2 lg:hidden', collapsed ? 'justify-center' : '')}>
             <div className={cx('flex h-7 w-7 shrink-0 items-center justify-center text-gold', !collapsed && 'ml-2')}>
               <CollectzMark className="h-6 w-6" title={collapsed ? 'Collectz' : ''} />
             </div>
@@ -278,7 +277,7 @@ export default function SidebarNav({
         </div>
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto no-scrollbar">
           {showWorkspaceNavigation && canUseLibraryShell && isTabAllowed('dashboard') && (
-            <NavLink id="dashboard" icon={<Icons.Gauge />} label="Dashboard" />
+            <NavLink id="dashboard" icon={<Icons.Gauge />} label="Dashboard" {...navLinkProps} />
           )}
 
           {showWorkspaceNavigation && !collapsed && user && showLibrarySwitcher && (
@@ -287,11 +286,7 @@ export default function SidebarNav({
                 <span className="text-xs text-ghost">Library</span>
                 {activeMembershipRole ? <span className="text-xs text-ghost capitalize">{activeMembershipRole}</span> : null}
               </div>
-              <select
-                className="select w-full"
-                value={activeLibraryId || ''}
-                onChange={(e) => onLibrarySelect?.(e.target.value)}
-              >
+              <select className="select w-full" value={activeLibraryId || ''} onChange={(e) => onLibrarySelect?.(e.target.value)}>
                 {libraries.map((library) => (
                   <option key={library.id} value={library.id}>
                     {library.name}
@@ -302,69 +297,65 @@ export default function SidebarNav({
           )}
 
           {showWorkspaceNavigation && canUseLibraryShell && (
-          <div>
-            <button
-              onClick={() => {
-                if (collapsed) onSelect('library-movies');
-                else setLibraryOpen((o) => !o);
-              }}
-              className={cx(
-                'group relative w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded transition-colors',
-                navStateClass(isLibraryActive),
-                collapsed && 'justify-center px-0'
+            <div>
+              <button
+                onClick={() => {
+                  if (collapsed) onSelect('library-movies');
+                  else setLibraryOpen((o) => !o);
+                }}
+                className={cx(
+                  'group relative w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded transition-colors',
+                  navStateClass(isLibraryActive),
+                  collapsed && 'justify-center px-0'
+                )}
+              >
+                <span className="shrink-0">
+                  <Icons.Library />
+                </span>
+                {!collapsed && (
+                  <>
+                    <span className="flex-1 text-left">Library</span>
+                    <span className={cx('transition-transform duration-200', libraryOpen && 'rotate-180')}>
+                      <Icons.ChevronDown />
+                    </span>
+                  </>
+                )}
+                <NavUnderline active={isLibraryActive && collapsed} collapsed={collapsed} />
+              </button>
+              {libraryOpen && !collapsed && (
+                <div className="mt-1 space-y-1">
+                  <NavLink id="library-audio" icon={null} label="Audio" sub {...navLinkProps} />
+                  {showCollectibles && <NavLink id="library-art" icon={null} label="Art" sub {...navLinkProps} />}
+                  <NavLink id="library-books" icon={null} label="Books" sub {...navLinkProps} />
+                  <NavLink id="library-comics" icon={null} label="Comics" sub {...navLinkProps} />
+                  {showCollectibles && <NavLink id="library-collectibles" icon={null} label="Collectibles" sub {...navLinkProps} />}
+                  {showEvents && <NavLink id="library-events" icon={null} label="Events" sub {...navLinkProps} />}
+                  <NavLink id="library-games" icon={null} label="Games" sub {...navLinkProps} />
+                  <NavLink id="library-movies" icon={null} label="Movies" sub {...navLinkProps} />
+                  <NavLink id="library-tv" icon={null} label="TV" sub {...navLinkProps} />
+                  <div className="my-1 border-t border-edge/70" />
+                  <NavLink id="library-loans" icon={null} label="Loans" sub {...navLinkProps} />
+                  {showWorkspaceMergeReviewLink && <NavLink id="admin-merges" icon={null} label="Review" sub {...navLinkProps} />}
+                  <NavLink id="library-saved-views" icon={null} label="Saved Views" sub {...navLinkProps} />
+                  <NavLink id="library-wishlist" icon={null} label="Wishlist" sub {...navLinkProps} />
+                </div>
               )}
-            >
-              <span className="shrink-0"><Icons.Library /></span>
-              {!collapsed && (
-                <>
-                  <span className="flex-1 text-left">Library</span>
-                  <span className={cx('transition-transform duration-200', libraryOpen && 'rotate-180')}><Icons.ChevronDown /></span>
-                </>
-              )}
-              <NavUnderline active={isLibraryActive && collapsed} />
-            </button>
-            {libraryOpen && !collapsed && (
-              <div className="mt-1 space-y-1">
-                <NavLink id="library-audio" icon={null} label="Audio" sub />
-                {showCollectibles && <NavLink id="library-art" icon={null} label="Art" sub />}
-                <NavLink id="library-books" icon={null} label="Books" sub />
-                <NavLink id="library-comics" icon={null} label="Comics" sub />
-                {showCollectibles && <NavLink id="library-collectibles" icon={null} label="Collectibles" sub />}
-                {showEvents && <NavLink id="library-events" icon={null} label="Events" sub />}
-                <NavLink id="library-games" icon={null} label="Games" sub />
-                <NavLink id="library-movies" icon={null} label="Movies" sub />
-                <NavLink id="library-tv" icon={null} label="TV" sub />
-                <div className="my-1 border-t border-edge/70" />
-                <NavLink id="library-loans" icon={null} label="Loans" sub />
-                {showWorkspaceMergeReviewLink && <NavLink id="admin-merges" icon={null} label="Review" sub />}
-                <NavLink id="library-saved-views" icon={null} label="Saved Views" sub />
-                <NavLink id="library-wishlist" icon={null} label="Wishlist" sub />
-              </div>
-            )}
-          </div>
+            </div>
           )}
           {showWorkspaceNavigation && canUseLibraryShell && isTabAllowed('library-import') && (
-            <NavLink id="library-import" icon={<Icons.Upload />} label="Import" activeWhen={['library-capture']} />
+            <NavLink id="library-import" icon={<Icons.Upload />} label="Import" activeWhen={['library-capture']} {...navLinkProps} />
           )}
-          {showWorkspaceHelp && (
-            <NavLink
-              id="help"
-              icon={<Icons.Activity />}
-              label="Help"
-            />
-          )}
+          {showWorkspaceHelp && <NavLink id="help" icon={<Icons.Activity />} label="Help" {...navLinkProps} />}
           {showWorkspaceNavigation && showWorkspaceSettingsLink && (
-            <NavLink id="space-manage" icon={<Icons.Settings />} label="Settings" />
+            <NavLink id="space-manage" icon={<Icons.Settings />} label="Settings" {...navLinkProps} />
           )}
           {showWorkspaceNavigation && showLocalAdminSettingsLink && (
-            <NavLink id="admin-settings" icon={<Icons.Settings />} label="Settings" />
+            <NavLink id="admin-settings" icon={<Icons.Settings />} label="Settings" {...navLinkProps} />
           )}
           {showWorkspaceNavigation && showLocalAdminIntegrationsLink && (
-            <NavLink id="admin-integrations" icon={<Icons.Integrations />} label="Integrations" />
+            <NavLink id="admin-integrations" icon={<Icons.Integrations />} label="Integrations" {...navLinkProps} />
           )}
-          {showPlatformHelpAdmin && (
-            <NavLink id="help" icon={<Icons.Activity />} label="Help" />
-          )}
+          {showPlatformHelpAdmin && <NavLink id="help" icon={<Icons.Activity />} label="Help" {...navLinkProps} />}
         </nav>
 
         <div className="relative p-3 border-t border-edge shrink-0" ref={accountMenuRef}>
@@ -382,9 +373,11 @@ export default function SidebarNav({
             aria-label="Account menu"
           >
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-edge/80 bg-surface/60 text-sm font-medium text-ink">
-              {profileImage
-                ? <img src={profileImage} alt={user?.name || 'Account'} className="h-full w-full rounded-md object-cover" />
-                : (user?.name?.[0]?.toUpperCase() || '?')}
+              {profileImage ? (
+                <img src={profileImage} alt={user?.name || 'Account'} className="h-full w-full rounded-md object-cover" />
+              ) : (
+                user?.name?.[0]?.toUpperCase() || '?'
+              )}
             </span>
             {!collapsed && (
               <>
@@ -397,7 +390,7 @@ export default function SidebarNav({
                 </span>
               </>
             )}
-            <NavUnderline active={activeTab === 'profile'} />
+            <NavUnderline active={activeTab === 'profile'} collapsed={collapsed} />
           </button>
 
           {accountMenuOpen && (

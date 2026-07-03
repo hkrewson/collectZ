@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.23.2",
+      "version": "3.23.2",
+      "date": null,
+      "status": null,
+      "summary": "This release continues the maintainability guardrails path by reducing the highest-signal frontend ESLint baseline in a targeted way. It cleans up Sidebar navigation helper components and adds React JSX usage lint support so JSX-only component references are not falsely reported as unused.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Hoisted Sidebar helper components out of render to satisfy React hooks static-component checks.",
+            "Made Sidebar backdrop and collapsed-rail interactions satisfy keyboard/pointer accessibility lint expectations.",
+            "Removed unused Sidebar destructuring for no-longer-used space props and derived platform-group state.",
+            "Added `eslint-plugin-react` with `react/jsx-uses-vars` so JSX component usage is recognized by ESLint.",
+            "Reduced the full frontend quality baseline from `200` errors / `356` warnings to `170` errors / `65` warnings."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.23.1",
       "version": "3.23.1",
       "date": null,
@@ -153,25 +172,6 @@
       "status": null,
       "summary": "",
       "details": []
-    },
-    {
-      "title": "collectZ v3.20.5",
-      "version": "3.20.5",
-      "date": null,
-      "status": null,
-      "summary": "This patch adds Plex reconciliation review filters. The Plex Sync tab can switch between open and resolved conflicts, filter loaded reviews by match reason, and read resolved review outcomes without reopening them.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added Open and Resolved filters to Plex conflict review.",
-            "Added match-reason filtering for loaded Plex conflict rows.",
-            "Shows filtered and total conflict counts.",
-            "Displays resolved conflict outcomes without action buttons.",
-            "Kept existing conflict resolution behavior unchanged."
-          ]
-        }
-      ]
     }
   ]
 }

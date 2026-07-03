@@ -6026,8 +6026,8 @@ results.push(run('dashboard shell exposes merge review as workspace-scoped opera
   assert.ok(sidebarNavSource.includes('showLocalAdminIntegrationsLink'));
   assert.ok(sidebarNavSource.includes('showWorkspaceMergeReviewLink'));
   assert.ok(sidebarNavSource.includes('showPlatformHelpAdmin'));
-  assert.ok(sidebarNavSource.includes('const NavUnderline'));
-  assert.ok(sidebarNavSource.includes('const AccountMenuItem'));
+  assert.ok(sidebarNavSource.includes('function NavUnderline'));
+  assert.ok(sidebarNavSource.includes('function AccountMenuItem'));
   assert.ok(sidebarNavSource.includes("aria-label={pinnedExpanded ? 'Collapse navigation' : 'Expand navigation'}"));
   assert.ok(sidebarNavSource.includes('aria-expanded={!collapsed}'));
   assert.ok(sidebarNavSource.includes('lg:flex'));
