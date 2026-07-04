@@ -165,7 +165,10 @@ export function FilterMenu({
     <div className={cx('relative shrink-0', className)} ref={menuRef}>
       <button
         type="button"
-        className="btn-icon relative h-9 w-9"
+        className={cx(
+          'relative inline-flex h-9 w-9 items-center justify-center rounded text-dim transition-colors hover:bg-raised hover:text-ink',
+          open && 'bg-raised text-ink'
+        )}
         aria-label={`${ariaLabel}: ${summary || 'All filters'}`}
         aria-expanded={open}
         title="Filter"
@@ -417,8 +420,6 @@ export function PageHeaderSearchToolbar({
   const [mobileShellTarget, setMobileShellTarget] = useState(null);
   const [useMobileShellToolbar, setUseMobileShellToolbar] = useState(false);
   const resolvedFilterLabel = filterLabel || `${filterCount} filter${filterCount === 1 ? '' : 's'} active`;
-  const [viewMenuOpen, setViewMenuOpen] = useState(false);
-  const viewMenuRef = useRef(null);
 
   useEffect(() => {
     if (!mobileShellInline || typeof document === 'undefined') {
@@ -445,71 +446,32 @@ export function PageHeaderSearchToolbar({
     return () => query.removeEventListener?.('change', update);
   }, [mobileShellInline]);
 
-  useEffect(() => {
-    if (!viewMenuOpen) return undefined;
-    const handlePointerDown = (event) => {
-      if (viewMenuRef.current && !viewMenuRef.current.contains(event.target)) setViewMenuOpen(false);
-    };
-    document.addEventListener('mousedown', handlePointerDown);
-    return () => document.removeEventListener('mousedown', handlePointerDown);
-  }, [viewMenuOpen]);
-
   const viewOptions = [
-    { id: 'cards', label: 'Grid view', Icon: IconSet.Film },
-    { id: 'list', label: 'List view', Icon: IconSet.List }
+    { id: 'cards', label: 'Grid view', Icon: IconSet.GridCards || IconSet.Film },
+    { id: 'list', label: 'List view', Icon: IconSet.ListRows || IconSet.List }
   ];
-  const activeViewOption = viewOptions.find((option) => option.id === viewMode) || viewOptions[0];
-  const ActiveViewIcon = activeViewOption?.Icon || IconSet.Film;
   const viewMenu = hasViewToggle ? (
-    <div className="relative shrink-0" ref={viewMenuRef}>
-      <button
-        type="button"
-        className="btn h-9 w-12 gap-1 border border-edge bg-raised p-0 text-dim hover:border-muted hover:text-ink"
-        aria-label={`${viewAriaLabel}: ${activeViewOption.label}`}
-        aria-haspopup="menu"
-        aria-expanded={viewMenuOpen}
-        title={`${viewAriaLabel}: ${activeViewOption.label}`}
-        onClick={() => setViewMenuOpen((current) => !current)}
-      >
-        <ActiveViewIcon />
-        <IconSet.ChevronDown />
-      </button>
-      {viewMenuOpen ? (
-        <div
-          className="absolute right-0 z-40 mt-2 min-w-36 rounded-md border border-edge bg-deep py-1 shadow-deep"
-          role="menu"
-          aria-label={viewAriaLabel}
-        >
-          {viewOptions.map((option) => {
-            const OptionIcon = option.Icon;
-            const selected = option.id === viewMode;
-            return (
-              <button
-                key={option.id}
-                type="button"
-                role="menuitemradio"
-                aria-checked={selected}
-                className={cx(
-                  'flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors',
-                  selected ? 'text-ink' : 'text-ghost hover:bg-raised/60 hover:text-ink'
-                )}
-                onClick={() => {
-                  onViewModeChange(option.id);
-                  setViewMenuOpen(false);
-                }}
-              >
-                <OptionIcon />
-                <span className="min-w-0 flex-1 truncate">{option.label}</span>
-                {selected && IconSet.Check ? (
-                  <span className="text-gold" aria-hidden="true">
-                    <IconSet.Check />
-                  </span>
-                ) : null}
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
+    <div className="inline-flex h-9 shrink-0 items-center gap-0.5 rounded border border-edge bg-void/30 p-0.5" role="group" aria-label={viewAriaLabel}>
+      {viewOptions.map((option) => {
+        const OptionIcon = option.Icon;
+        const selected = option.id === viewMode;
+        return (
+          <button
+            key={option.id}
+            type="button"
+            className={cx(
+              'inline-flex h-8 w-8 items-center justify-center rounded text-dim transition-colors hover:bg-raised hover:text-ink',
+              selected && 'bg-raised text-ink'
+            )}
+            aria-label={option.label}
+            aria-pressed={selected}
+            title={option.label}
+            onClick={() => onViewModeChange(option.id)}
+          >
+            <OptionIcon />
+          </button>
+        );
+      })}
     </div>
   ) : null;
 
@@ -1664,6 +1626,26 @@ export const Icons = {
   Activity: () => <Icon d="M3 12h4l2.5-7 4 14 2.5-7H21" />,
   Gauge: () => <Icon d="M12 14l4-4M3.34 19a10 10 0 1 1 17.32 0M6.7 16.3a6 6 0 1 1 10.6 0" />,
   List: () => <Icon d="M4 7h16M4 12h16M4 17h16" />,
+  GridCards: () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3" y="5" width="4" height="5" rx="0.8" />
+      <rect x="10" y="5" width="4" height="5" rx="0.8" />
+      <rect x="17" y="5" width="4" height="5" rx="0.8" />
+      <rect x="3" y="14" width="4" height="5" rx="0.8" />
+      <rect x="10" y="14" width="4" height="5" rx="0.8" />
+      <rect x="17" y="14" width="4" height="5" rx="0.8" />
+    </svg>
+  ),
+  ListRows: () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="4" y="5" width="4" height="4" rx="0.8" />
+      <path d="M11 7h9" />
+      <rect x="4" y="11" width="4" height="4" rx="0.8" />
+      <path d="M11 13h9" />
+      <rect x="4" y="17" width="4" height="4" rx="0.8" />
+      <path d="M11 19h9" />
+    </svg>
+  ),
   Profile: () => <Icon d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />,
   Integrations: () => <Icon d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 17h6M17 14v6" />,
   ChevronDown: () => <Icon d="M6 9l6 6 6-6" size={16} />,

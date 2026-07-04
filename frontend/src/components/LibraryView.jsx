@@ -4385,6 +4385,8 @@ export default function LibraryView({
   const [savedLibraryViews, setSavedLibraryViews] = useState(() => readSavedLibraryViews(savedViewScope));
   const [activeSavedViewId, setActiveSavedViewId] = useState('');
   const [savedViewsStorageMode, setSavedViewsStorageMode] = useState('local');
+  const [savedViewDialogMode, setSavedViewDialogMode] = useState(null);
+  const [savedViewNameDraft, setSavedViewNameDraft] = useState('');
   const handleContentScroll = useCallback((event) => {
     const nextCompact = event.currentTarget.scrollTop > 24;
     setHeaderCompact((current) => (current === nextCompact ? current : nextCompact));
@@ -4489,8 +4491,30 @@ export default function LibraryView({
     : '';
   const libraryFilterSummary = libraryFilterActiveCount > 1
     ? `${libraryFilterActiveCount} filters`
-    : (quickFilterActiveCount ? quickFilterLabel : activeReviewFilterLabel || 'All filters');
-  const shouldShowLibraryFilterMenu = Boolean(quickFilterConfig || filters.review_filter);
+    : (quickFilterActiveCount ? quickFilterLabel : (reviewFilterActiveCount ? activeReviewFilterLabel : 'All filters'));
+  const activeSavedLibraryView = savedLibraryViews.find((view) => view.id === activeSavedViewId) || null;
+  const canSaveCurrentLibraryView = Boolean(activeSavedViewId || searchInput.trim() || libraryFilterActiveCount > 0);
+  const hasSavedViewFilterControls = savedLibraryViews.length > 0 || canSaveCurrentLibraryView;
+  const savedViewFilterSummary = activeSavedLibraryView?.name || libraryFilterSummary;
+  const savedViewFilterActiveCount = libraryFilterActiveCount || (activeSavedLibraryView ? 1 : 0);
+  const shouldShowLibraryFilterMenu = Boolean(quickFilterConfig || filters.review_filter || hasSavedViewFilterControls);
+  const suggestedSavedViewName = activeSavedLibraryView?.name || [
+    searchInput.trim(),
+    quickFilterActiveCount ? quickFilterLabel : '',
+    reviewFilterActiveCount ? activeReviewFilterLabel : ''
+  ].filter(Boolean).join(' · ') || `${title} view`;
+  const openSaveLibraryViewDialog = useCallback(() => {
+    setSavedViewNameDraft(suggestedSavedViewName);
+    setSavedViewDialogMode('save');
+  }, [suggestedSavedViewName]);
+  const openDeleteSavedViewDialog = useCallback(() => {
+    if (!activeSavedLibraryView) return;
+    setSavedViewDialogMode('delete');
+  }, [activeSavedLibraryView]);
+  const closeSavedViewDialog = useCallback(() => {
+    setSavedViewDialogMode(null);
+    setSavedViewNameDraft('');
+  }, []);
   const persistSavedLibraryViews = useCallback((nextViews) => {
     const normalized = nextViews
       .map((record) => normalizeSavedLibraryViewRecord(record, savedViewScope))
@@ -4541,22 +4565,16 @@ export default function LibraryView({
     setPage(1);
     onToast?.(`Applied saved view: ${view.name}`);
   }, [onToast, savedViewScope, supportsCollections]);
-  const saveCurrentLibraryView = useCallback(async () => {
+  const saveCurrentLibraryView = useCallback(async (name) => {
     const current = savedLibraryViews.find((view) => view.id === activeSavedViewId);
-    const suggestedName = current?.name || [
-      searchInput.trim(),
-      quickFilterActiveCount ? quickFilterLabel : '',
-      activeReviewFilterLabel
-    ].filter(Boolean).join(' · ') || `${title} view`;
-    const rawName = window.prompt(current ? 'Update saved view name' : 'Name this saved view', suggestedName);
-    const name = String(rawName || '').trim();
-    if (!name) return;
+    const trimmedName = String(name || '').trim();
+    if (!trimmedName) return;
     const now = new Date().toISOString();
     const snapshot = currentSavedViewSnapshot();
     if (savedViewsStorageMode === 'server' && apiCall) {
       try {
         const payload = {
-          name,
+          name: trimmedName,
           media_type: savedViewScope,
           snapshot
         };
@@ -4577,7 +4595,7 @@ export default function LibraryView({
     }
     const nextRecord = {
       id: current?.id || `library-view-${Date.now().toString(36)}`,
-      name,
+      name: trimmedName,
       scope: savedViewScope,
       snapshot,
       updatedAt: now,
@@ -4590,11 +4608,10 @@ export default function LibraryView({
     if (nextViews.length > 20) {
       persistSavedLibraryViews(nextViews.slice(0, 20));
     }
-  }, [activeReviewFilterLabel, activeSavedViewId, apiCall, currentSavedViewSnapshot, persistSavedLibraryViews, quickFilterActiveCount, quickFilterLabel, savedLibraryViews, savedViewScope, savedViewsStorageMode, searchInput, title, onToast]);
+  }, [activeSavedViewId, apiCall, currentSavedViewSnapshot, persistSavedLibraryViews, savedLibraryViews, savedViewScope, savedViewsStorageMode, onToast]);
   const deleteActiveSavedLibraryView = useCallback(async () => {
     const current = savedLibraryViews.find((view) => view.id === activeSavedViewId);
     if (!current) return;
-    if (!window.confirm(`Delete saved view "${current.name}"?`)) return;
     if (current.storage === 'server' && apiCall) {
       try {
         await apiCall('delete', `/libraries/saved-views/${current.id}`);
@@ -4611,6 +4628,15 @@ export default function LibraryView({
     setActiveSavedViewId('');
     onToast?.(`Deleted saved view: ${current.name}`);
   }, [activeSavedViewId, apiCall, onToast, persistSavedLibraryViews, savedLibraryViews]);
+  const submitSavedViewDialog = useCallback(async (event) => {
+    event.preventDefault();
+    await saveCurrentLibraryView(savedViewNameDraft);
+    closeSavedViewDialog();
+  }, [closeSavedViewDialog, saveCurrentLibraryView, savedViewNameDraft]);
+  const confirmDeleteSavedViewDialog = useCallback(async () => {
+    await deleteActiveSavedLibraryView();
+    closeSavedViewDialog();
+  }, [closeSavedViewDialog, deleteActiveSavedLibraryView]);
   const clearQuickFilter = useCallback(() => {
     if (!quickFilterConfig) return;
     if (quickFilterConfig.key === 'resolution') {
@@ -5265,9 +5291,10 @@ export default function LibraryView({
     setPage(1);
   }, [onClearReviewFilter]);
   const clearLibraryFilters = useCallback(() => {
+    if (activeSavedViewId) setActiveSavedViewId('');
     if (quickFilterActiveCount) clearQuickFilter();
     if (reviewFilterActiveCount) clearReviewFilter();
-  }, [clearQuickFilter, clearReviewFilter, quickFilterActiveCount, reviewFilterActiveCount]);
+  }, [activeSavedViewId, clearQuickFilter, clearReviewFilter, quickFilterActiveCount, reviewFilterActiveCount]);
 
   const handleBulkDelete = useCallback(async () => {
     const targetIds = [...selectedIds];
@@ -5321,49 +5348,6 @@ export default function LibraryView({
       }}
     />
   );
-  const savedViewsControl = (
-    <div className="flex items-center gap-1">
-      <select
-        className="select h-9 max-w-44"
-        value={activeSavedViewId}
-        aria-label="Saved library views"
-        onChange={(event) => {
-          const view = savedLibraryViews.find((entry) => entry.id === event.target.value);
-          if (view) {
-            applySavedLibraryView(view);
-          } else {
-            setActiveSavedViewId('');
-          }
-        }}
-      >
-        <option value="">Saved views</option>
-        {savedLibraryViews.map((view) => (
-          <option key={view.id} value={view.id}>{view.name}</option>
-        ))}
-      </select>
-      <button
-        type="button"
-        className="btn-icon"
-        title={activeSavedViewId ? 'Update saved view' : 'Save current view'}
-        aria-label={activeSavedViewId ? 'Update saved library view' : 'Save current library view'}
-        onClick={saveCurrentLibraryView}
-      >
-        <Icons.Star />
-      </button>
-      {activeSavedViewId ? (
-        <button
-          type="button"
-          className="btn-icon text-err hover:bg-err/10"
-          title="Delete saved view"
-          aria-label="Delete saved library view"
-          onClick={deleteActiveSavedLibraryView}
-        >
-          <Icons.Trash />
-        </button>
-      ) : null}
-    </div>
-  );
-
   return (
     <div className="flex flex-col h-full">
       <PageHeaderSearchToolbar
@@ -5375,11 +5359,63 @@ export default function LibraryView({
         filters={shouldShowLibraryFilterMenu ? (
           <FilterMenu
             ariaLabel={`Filter ${title}`}
-            summary={libraryFilterSummary}
-            activeCount={libraryFilterActiveCount}
-            onClear={libraryFilterActiveCount ? clearLibraryFilters : null}
+            summary={savedViewFilterSummary}
+            activeCount={savedViewFilterActiveCount}
+            onClear={savedViewFilterActiveCount ? clearLibraryFilters : null}
             Icons={Icons}
           >
+            {hasSavedViewFilterControls ? (
+              <div className="space-y-1">
+                <div className="px-1 text-xs font-medium text-dim">Saved views</div>
+                {savedLibraryViews.length > 0 ? (
+                  <div className="space-y-1" role="listbox" aria-label="Saved library views">
+                    {savedLibraryViews.map((view) => {
+                      const selected = view.id === activeSavedViewId;
+                      return (
+                        <button
+                          key={view.id}
+                          type="button"
+                          className={cx(
+                            'flex w-full items-center gap-2 rounded px-2.5 py-2 text-left text-sm transition-colors hover:bg-raised hover:text-ink',
+                            selected ? 'bg-raised text-ink' : 'text-dim'
+                          )}
+                          role="option"
+                          aria-selected={selected}
+                          onClick={() => applySavedLibraryView(view)}
+                        >
+                          <span className="min-w-0 flex-1 truncate">{view.name}</span>
+                          {selected ? <Icons.Check size={16} /> : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="px-1 text-xs text-ghost">No saved views for this library type.</p>
+                )}
+                {(canSaveCurrentLibraryView || activeSavedViewId) ? (
+                  <div className="space-y-1 border-t border-edge pt-2">
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left text-sm text-dim transition-colors hover:bg-raised hover:text-ink"
+                      onClick={openSaveLibraryViewDialog}
+                    >
+                      <Icons.Star />
+                      <span>{activeSavedViewId ? 'Update saved view' : 'Save current view'}</span>
+                    </button>
+                    {activeSavedViewId ? (
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left text-sm text-err/90 transition-colors hover:bg-err/10 hover:text-err"
+                        onClick={openDeleteSavedViewDialog}
+                      >
+                        <Icons.Trash />
+                        <span>Delete saved view</span>
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
             {quickFilterConfig ? (
               <label className="block">
                 <span className="mb-1 block text-xs text-ghost">{quickFilterConfig.label}</span>
@@ -5419,7 +5455,6 @@ export default function LibraryView({
             ) : null}
           </FilterMenu>
         ) : null}
-        extraControls={savedViewsControl}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         viewAriaLabel="Library view mode"
@@ -5692,6 +5727,73 @@ export default function LibraryView({
         onNext={() => setPage((p) => p + 1)}
         onPageSizeChange={(value) => { setPageSize(value); setPage(1); }}
       />
+
+      {savedViewDialogMode ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-void/72"
+            onClick={closeSavedViewDialog}
+            aria-label="Close saved view dialog"
+          />
+          {savedViewDialogMode === 'save' ? (
+            <form
+              className="relative w-full max-w-sm rounded-lg border border-edge bg-deep p-4 shadow-deep"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="saved-view-dialog-title"
+              onSubmit={submitSavedViewDialog}
+            >
+              <div className="mb-3 flex items-center gap-3">
+                <h2 id="saved-view-dialog-title" className="text-base font-semibold text-ink">
+                  {activeSavedViewId ? 'Update saved view' : 'Save current view'}
+                </h2>
+                <div className="flex-1" />
+                <button type="button" className="btn-icon h-8 w-8" onClick={closeSavedViewDialog} aria-label="Close saved view dialog">
+                  <Icons.X />
+                </button>
+              </div>
+              <label className="block">
+                <span className="mb-1 block text-xs text-ghost">Name</span>
+                <input
+                  className="input w-full"
+                  value={savedViewNameDraft}
+                  autoFocus
+                  onChange={(event) => setSavedViewNameDraft(event.target.value)}
+                />
+              </label>
+              <div className="mt-4 flex justify-end gap-2">
+                <button type="button" className="btn-secondary" onClick={closeSavedViewDialog}>Cancel</button>
+                <button type="submit" className="btn-primary" disabled={!savedViewNameDraft.trim()}>
+                  {activeSavedViewId ? 'Update' : 'Save'}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div
+              className="relative w-full max-w-sm rounded-lg border border-edge bg-deep p-4 shadow-deep"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="delete-saved-view-title"
+            >
+              <div className="mb-3 flex items-center gap-3">
+                <h2 id="delete-saved-view-title" className="text-base font-semibold text-ink">Delete saved view</h2>
+                <div className="flex-1" />
+                <button type="button" className="btn-icon h-8 w-8" onClick={closeSavedViewDialog} aria-label="Close saved view dialog">
+                  <Icons.X />
+                </button>
+              </div>
+              <p className="text-sm text-dim">
+                Delete {activeSavedLibraryView ? `"${activeSavedLibraryView.name}"` : 'this saved view'}?
+              </p>
+              <div className="mt-4 flex justify-end gap-2">
+                <button type="button" className="btn-secondary" onClick={closeSavedViewDialog}>Cancel</button>
+                <button type="button" className="btn-danger" onClick={confirmDeleteSavedViewDialog}>Delete</button>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : null}
 
       {detail && (
         <MediaDetail

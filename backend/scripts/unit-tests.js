@@ -4282,8 +4282,11 @@ results.push(run('LibraryView supports browser-local saved library views by medi
   assert.ok(libraryViewSource.includes('function readSavedLibraryViews(scope)'));
   assert.ok(libraryViewSource.includes('function writeSavedLibraryViews(scope, scopedViews)'));
   assert.ok(libraryViewSource.includes("const savedViewScope = libraryViewScope(forcedMediaType || 'movie');"));
-  assert.ok(libraryViewSource.includes('const savedViewsControl = ('));
   assert.ok(libraryViewSource.includes('aria-label="Saved library views"'));
+  assert.ok(libraryViewSource.includes('const hasSavedViewFilterControls ='));
+  assert.ok(libraryViewSource.includes('Save current view'));
+  assert.ok(libraryViewSource.includes('savedViewDialogMode'));
+  assert.ok(!libraryViewSource.includes('Name this saved view'));
   assert.ok(libraryViewSource.includes('saveCurrentLibraryView'));
   assert.ok(libraryViewSource.includes('deleteActiveSavedLibraryView'));
 }));
