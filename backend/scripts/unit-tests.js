@@ -3643,6 +3643,14 @@ results.push(run('AppPrimitives keeps authenticated collectZ API image paths sam
   assert.ok(appPrimitivesSource.includes("if (value.startsWith('/api/')) return encodedPath;"));
 }));
 
+results.push(run('PageHeaderSearchToolbar keeps library controls quiet and ordered', () => {
+  assert.ok(appPrimitivesSource.includes("className=\"relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded text-dim transition-colors hover:bg-raised hover:text-ink\""));
+  assert.ok(appPrimitivesSource.includes("className=\"input w-full border-edge/70 bg-void/35 pl-9 text-dim placeholder:text-ghost/70 focus:border-muted focus:bg-surface focus:text-ink focus:ring-0\""));
+  assert.ok(appPrimitivesSource.includes('{sortButton}'));
+  assert.ok(appPrimitivesSource.includes('{viewMenu}'));
+  assert.ok(!appPrimitivesSource.includes('className="btn-icon"\\n      title={sortDirection'));
+}));
+
 results.push(run('repo includes comic query contract smoke coverage for paginated server-backed issue ordering', () => {
   assert.ok(backendPackageJson.scripts['test:comic-query-contract-smoke']);
   assert.ok(comicQueryContractSmokeSource.includes('/api/media?media_type=comic_book&sortBy=comic_issue'));
@@ -4287,6 +4295,9 @@ results.push(run('LibraryView supports browser-local saved library views by medi
   assert.ok(libraryViewSource.includes('Save current view'));
   assert.ok(libraryViewSource.includes('savedViewDialogMode'));
   assert.ok(!libraryViewSource.includes('Name this saved view'));
+  assert.ok(libraryViewSource.includes('const showSelectionActionRow = showSelectionControls && selectedIds.length > 0;'));
+  assert.ok(libraryViewSource.includes('aria-label={`Delete ${selectedIds.length} selected`}'));
+  assert.ok(libraryViewSource.includes('                  Delete'));
   assert.ok(libraryViewSource.includes('saveCurrentLibraryView'));
   assert.ok(libraryViewSource.includes('deleteActiveSavedLibraryView'));
 }));

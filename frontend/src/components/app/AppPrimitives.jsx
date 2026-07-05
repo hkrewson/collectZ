@@ -479,8 +479,9 @@ export function PageHeaderSearchToolbar({
     <button
       type="button"
       onClick={onToggleSort}
-      className="btn-icon"
+      className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded text-dim transition-colors hover:bg-raised hover:text-ink"
       title={sortDirection === 'asc' ? 'Sort ascending' : 'Sort descending'}
+      aria-label={sortDirection === 'asc' ? 'Sort ascending' : 'Sort descending'}
     >
       {sortDirection === 'asc' ? <IconSet.ArrowUp /> : <IconSet.ArrowDown />}
     </button>
@@ -503,11 +504,11 @@ export function PageHeaderSearchToolbar({
     <>
       {hasSearch ? (
         <div className={cx('relative min-w-0', searchClassName)}>
-          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ghost">
+          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ghost/75">
             <IconSet.Search />
           </span>
           <input
-            className="input w-full pl-9"
+            className="input w-full border-edge/70 bg-void/35 pl-9 text-dim placeholder:text-ghost/70 focus:border-muted focus:bg-surface focus:text-ink focus:ring-0"
             placeholder={searchPlaceholder}
             value={searchValue}
             onChange={(event) => onSearchChange(event.target.value)}
@@ -521,8 +522,8 @@ export function PageHeaderSearchToolbar({
         <div className="hidden items-center justify-end gap-1.5 sm:flex">
           {viewMenu || sortButton ? (
             <div className="flex items-center gap-1.5">
-              {viewMenu}
               {sortButton}
+              {viewMenu}
             </div>
           ) : null}
           {addButton ? <div className="ml-1.5">{addButton}</div> : null}
@@ -569,8 +570,8 @@ export function PageHeaderSearchToolbar({
                 </div>
                 {viewMenu || sortButton || addButton ? (
                   <div className={cx('shrink-0 items-center justify-end gap-1.5 sm:hidden', mobileCompact ? 'hidden' : 'flex')}>
-                    {viewMenu}
                     {sortButton}
+                    {viewMenu}
                     {addButton}
                   </div>
                 ) : null}

@@ -5143,6 +5143,7 @@ export default function LibraryView({
     && !allMatchingSelected;
   const canSelectVisiblePage = visibleSelectableIds.length > 0 && !allVisibleSelected;
   const showSelectionControls = !isCollectionMode && !(isComicsLibrary && comicView === 'series');
+  const showSelectionActionRow = showSelectionControls && selectedIds.length > 0;
   const selectionControlsPending = loading || filtersPending;
   const hasResultsTabs = supportsCollections || isComicsLibrary;
 
@@ -5470,7 +5471,7 @@ export default function LibraryView({
         toolbarTestId="library-mobile-toolbar"
         searchClassName="sm:w-72"
       />
-      {(filters.review_filter || hasResultsTabs || showSelectionControls) ? (
+      {(filters.review_filter || hasResultsTabs || showSelectionActionRow) ? (
         <div className="shrink-0 border-b border-edge bg-void/95 px-3 py-2 sm:px-6">
         {filters.review_filter ? (
           <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-edge bg-raised/25 px-3 py-2 text-sm">
@@ -5483,7 +5484,7 @@ export default function LibraryView({
             </button>
           </div>
         ) : null}
-        {(hasResultsTabs || showSelectionControls) && (
+        {(hasResultsTabs || showSelectionActionRow) && (
           <div className="mt-2 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex min-w-0 flex-wrap items-center gap-3">
               {supportsCollections && (
@@ -5524,10 +5525,10 @@ export default function LibraryView({
                 </>
               )}
             </div>
-            {showSelectionControls && (
+            {showSelectionActionRow && (
               <div className="hidden flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:flex lg:justify-end">
-                {selectedIds.length > 0 ? <span className="font-medium text-ink">{selectedIds.length} selected</span> : null}
-                {selectedIds.length > 0 && canSelectVisiblePage ? (
+                <span className="font-medium text-ink">{selectedIds.length} selected</span>
+                {canSelectVisiblePage ? (
                   <button
                     type="button"
                     onClick={handleSelectAllVisible}
@@ -5550,35 +5551,22 @@ export default function LibraryView({
                 {allMatchingSelected && selectableResultTotal > visibleSelectableIds.length ? (
                   <span className="text-dim">{`All ${selectableResultTotal} ${selectionScopeLabel} selected`}</span>
                 ) : null}
-                {selectedIds.length === 0 ? (
-                  <button
-                    type="button"
-                    onClick={handleSelectAllVisible}
-                    disabled={selectionControlsPending || visibleSelectableIds.length === 0}
-                    className="inline-flex items-center text-xs text-dim underline-offset-4 hover:text-ink hover:underline disabled:cursor-default disabled:no-underline disabled:opacity-50 lg:ml-2"
-                  >
-                    {`Select page (${visibleSelectableIds.length})`}
-                  </button>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      onClick={handleClearSelection}
-                      className="inline-flex items-center text-xs text-dim underline-offset-4 hover:text-ink hover:underline"
-                    >
-                      Clear
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleBulkDelete}
-                      className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-err/90 transition-colors hover:bg-err/10 hover:text-err"
-                      aria-label={`Delete ${selectedIds.length} selected`}
-                    >
-                      <Icons.Trash />
-                      {selectedIds.length}
-                    </button>
-                  </>
-                )}
+                <button
+                  type="button"
+                  onClick={handleClearSelection}
+                  className="inline-flex items-center text-xs text-dim underline-offset-4 hover:text-ink hover:underline"
+                >
+                  Clear
+                </button>
+                <button
+                  type="button"
+                  onClick={handleBulkDelete}
+                  className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-err/90 transition-colors hover:bg-err/10 hover:text-err"
+                  aria-label={`Delete ${selectedIds.length} selected`}
+                >
+                  <Icons.Trash />
+                  Delete
+                </button>
               </div>
             )}
           </div>
