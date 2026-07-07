@@ -24,7 +24,8 @@ Notes:
 - `npm run stack:up:homelab` forces `FRONTEND_PORT=3100` and compose project `collectz-homelab`.
 - `npm run stack:up:platform` forces `FRONTEND_PORT=3201`, `VITE_PLATFORM_API_URL=http://localhost:3101/api`, `CAIRN_PORT=3101`, and compose project `collectz-private` for the collectZ side of the paired platform stack.
 - The Cairn service and Cairn database are owned by the `cairn` repository deploy compose. Its matching local port contract must stay aligned with this table.
-- `http://localhost:3101/` is not the collectZ app. Use `/health` for Cairn health and `/api/docs` for Cairn API documentation.
+- `http://localhost:3101/` redirects to the paired platform collectZ frontend at `http://localhost:3201`.
+  Use `/health` for Cairn health and `/api/docs` for Cairn API documentation.
 
 ## Frontend Local Dev and Build Modes
 
