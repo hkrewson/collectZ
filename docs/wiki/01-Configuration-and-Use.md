@@ -8,6 +8,24 @@
 
 The frontend proxies `/api/*` to backend inside the Docker network.
 
+## Local Maintainer Port Contract
+
+Use these ports for local maintainer/dev stacks. Do not repurpose them without
+updating this section, the matching npm stack scripts, and the Cairn deploy docs.
+
+| Stack | Compose project | Browser entry point | Service endpoint | Purpose |
+| --- | --- | --- | --- | --- |
+| Core-only / homelab | `collectz-homelab` | `http://localhost:3100` | backend is compose-internal on `3001` | Self-hosted/Core runtime without Cairn. |
+| Platform paired Core | `collectz-private` | `http://localhost:3201` | backend is compose-internal on `3001` | collectZ Core running in platform mode beside Cairn. |
+| Cairn platform control plane | `collectz-private` | API/docs at `http://localhost:3101` | `http://localhost:3101/health`, `http://localhost:3101/api/docs` | Platform-owned routing/admin/support/docs service. |
+
+Notes:
+
+- `npm run stack:up:homelab` forces `FRONTEND_PORT=3100` and compose project `collectz-homelab`.
+- `npm run stack:up:platform` forces `FRONTEND_PORT=3201`, `VITE_PLATFORM_API_URL=http://localhost:3101/api`, `CAIRN_PORT=3101`, and compose project `collectz-private` for the collectZ side of the paired platform stack.
+- The Cairn service and Cairn database are owned by the `cairn` repository deploy compose. Its matching local port contract must stay aligned with this table.
+- `http://localhost:3101/` is not the collectZ app. Use `/health` for Cairn health and `/api/docs` for Cairn API documentation.
+
 ## Frontend Local Dev and Build Modes
 
 The frontend now runs on a Vite-first toolchain:
@@ -52,6 +70,16 @@ For local homelab verification, bring up the explicit parallel stack on port `31
 ```bash
 npm run stack:up:homelab
 ```
+
+For local platform/Core verification, bring up the collectZ side of the paired
+platform stack on port `3201`:
+
+```bash
+npm run stack:up:platform
+```
+
+Start or inspect Cairn from the `cairn` repository using its deploy docs; the
+canonical local Cairn API/docs port is `3101`.
 
 ## Authentication Behavior
 
