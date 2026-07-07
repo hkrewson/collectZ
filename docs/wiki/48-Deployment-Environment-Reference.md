@@ -54,6 +54,12 @@ FRONTEND_PORT=3100
 
 The compose file stores uploaded images in the `media_uploads` Docker volume by default.
 
+The backend writes local uploads as the non-root `node` runtime user. On startup the backend entrypoint creates `/app/uploads`, fixes ownership for the mounted volume, and runs a write probe before serving traffic. If a deployment overrides the backend user or bind-mounts a host directory that cannot be chowned, fix the host path or volume permissions before starting the backend. For the default compose volume, recreating the backend container with the current image is usually enough:
+
+```bash
+docker compose --env-file .env up -d --force-recreate backend
+```
+
 Local storage needs no extra variables. S3-compatible object storage is supported by the app, but the compose file does not pass S3 variables by default. If you want S3-backed uploads, add a private compose override for the backend environment and configure:
 
 - `STORAGE_PROVIDER=s3`

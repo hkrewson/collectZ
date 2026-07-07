@@ -300,6 +300,8 @@ const frontendPackageJson = JSON.parse(fs.readFileSync(require.resolve('../../fr
 const frontendViteConfigSource = fs.readFileSync(require.resolve('../../frontend/vite.config.js'), 'utf8');
 const frontendViteIndexHtmlSource = fs.readFileSync(require.resolve('../../frontend/index.html'), 'utf8');
 const frontendDockerfileSource = fs.readFileSync(require.resolve('../../frontend/Dockerfile'), 'utf8');
+const backendDockerEntrypointSource = fs.readFileSync(path.resolve(__dirname, '..', 'docker-entrypoint.sh'), 'utf8');
+const deploymentEnvironmentReferenceSource = fs.readFileSync(require.resolve('../../docs/wiki/48-Deployment-Environment-Reference.md'), 'utf8');
 const rootPackageJson = JSON.parse(fs.readFileSync(require.resolve('../../package.json'), 'utf8'));
 const playwrightConfigSource = fs.readFileSync(require.resolve('../../playwright.config'), 'utf8');
 const playwrightAdminSetupSource = fs.readFileSync(require.resolve('../../tests/playwright/setup/admin.setup'), 'utf8');
@@ -5657,6 +5659,18 @@ results.push(run('public compose source keeps homelab-safe cookie defaults in th
   assert.ok(dashboardRoutingSource.includes('RETIRED_PLATFORM_ROUTES'));
   assert.ok(dashboardRoutingSource.includes("'/platform/workspaces': DEFAULT_TAB"));
   assert.ok(dashboardRoutingSource.includes("'/platform/users': DEFAULT_TAB"));
+}));
+
+results.push(run('backend entrypoint fails fast when local uploads volume is not writable', () => {
+  assert.ok(backendDockerEntrypointSource.includes('mkdir -p /app/uploads'));
+  assert.ok(backendDockerEntrypointSource.includes('chown -R node:node /app/uploads'));
+  assert.ok(backendDockerEntrypointSource.includes('chmod -R u+rwX,g+rwX /app/uploads'));
+  assert.ok(backendDockerEntrypointSource.includes('.collectz-write-probe'));
+  assert.ok(backendDockerEntrypointSource.includes('/app/uploads is not writable by the node runtime user'));
+  assert.ok(backendDockerEntrypointSource.includes('/app/uploads is not writable by the current runtime user'));
+  assert.ok(!backendDockerEntrypointSource.includes('chown -R node:node /app/uploads 2>/dev/null || true'));
+  assert.ok(deploymentEnvironmentReferenceSource.includes('The backend writes local uploads as the non-root `node` runtime user.'));
+  assert.ok(deploymentEnvironmentReferenceSource.includes('docker compose --env-file .env up -d --force-recreate backend'));
 }));
 
 results.push(run('pat.hasPersonalAccessTokenScope matches exact scopes and admin wildcard', () => {
