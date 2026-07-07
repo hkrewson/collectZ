@@ -192,9 +192,11 @@ function extractIdentifierCandidatesFromText(rawText = '') {
     }
   }
 
-  for (const candidate of extractSlidingWindowIsbnCandidates(ocrNormalizedText)) {
-    isbnCandidates.push(candidate);
-    strictIsbnCandidates.push(candidate);
+  if (!labeledIsbnCandidates.length) {
+    for (const candidate of extractSlidingWindowIsbnCandidates(ocrNormalizedText)) {
+      isbnCandidates.push(candidate);
+      strictIsbnCandidates.push(candidate);
+    }
   }
 
   return {

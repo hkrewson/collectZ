@@ -1385,7 +1385,7 @@ function extractIdentifierCandidatesFromText(rawText = '') {
     .replace(/(?<=\d)[Zz](?=[\dXx])/g, '2')
     .replace(/(?<=\d)[Qq](?=[\dXx])/g, '0');
 
-  const isbnLabelPattern = /ISBN(?:-1[03])?[\s:]*([0-9A-Za-z\- ]{10,20})/gi;
+  const isbnLabelPattern = /[I1]SBN(?:-1[03])?[\s:]*([0-9A-Za-z\- ]{10,20})/gi;
   let isbnMatch = isbnLabelPattern.exec(ocrNormalizedText);
   while (isbnMatch) {
     const rawCandidate = isbnMatch[1] || '';
@@ -1428,9 +1428,11 @@ function extractIdentifierCandidatesFromText(rawText = '') {
     }
   }
 
-  for (const candidate of extractSlidingWindowIsbnCandidates(ocrNormalizedText)) {
-    isbnCandidates.push(candidate);
-    strictIsbnCandidates.push(candidate);
+  if (!labeledIsbnCandidates.length) {
+    for (const candidate of extractSlidingWindowIsbnCandidates(ocrNormalizedText)) {
+      isbnCandidates.push(candidate);
+      strictIsbnCandidates.push(candidate);
+    }
   }
 
   return {

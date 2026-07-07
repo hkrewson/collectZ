@@ -289,8 +289,8 @@ function CaptureEditor({
         boundingBox: detected?.boundingBox || null
       });
       const candidates = [
-        ...(extracted?.strictIsbnCandidates || []),
         ...(extracted?.labeledIsbnCandidates || []),
+        ...(extracted?.strictIsbnCandidates || []),
         ...(extracted?.isbnCandidates || [])
       ].filter(Boolean);
       return {

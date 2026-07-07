@@ -2795,7 +2795,8 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(!rootPackageJson.scripts['compose:generate']);
   assert.ok(!rootPackageJson.scripts['validate:public-export']);
   assert.ok(!rootPackageJson.scripts['public:export']);
-  assert.ok(rootPackageJson.scripts['stack:up:homelab'].includes('docker compose --env-file .env up -d'));
+  assert.ok(rootPackageJson.scripts['stack:up:homelab'].includes('FRONTEND_PORT=3100'));
+  assert.ok(rootPackageJson.scripts['stack:up:homelab'].includes('docker compose -p collectz-homelab --env-file .env up -d'));
   assert.ok(rootPackageJson.scripts['stack:up:platform'].includes('docker-compose.localhost.yml'));
   assert.ok(rootPackageJson.scripts['stack:ps:homelab']);
   assert.ok(rootPackageJson.scripts['stack:ps:platform']);
@@ -8011,6 +8012,19 @@ results.push(run('capture OCR candidate extraction normalizes reviewable ISBN UP
   assert.ok(parsed.candidates.some((candidate) => candidate.match_type === 'isbn' && candidate.barcode === '9780553572391' && candidate.media_type === 'book'));
   assert.ok(parsed.candidates.some((candidate) => candidate.match_type === 'ean' && candidate.barcode === '0076783005990'));
   assert.ok(parsed.candidates.some((candidate) => candidate.match_type === 'asin' && candidate.barcode === 'B000123456'));
+}));
+
+results.push(run('capture OCR candidate extraction prefers noisy labeled ISBN over sliding-window guesses', () => {
+  const parsed = buildCaptureOcrCandidates(`
+    USA 1700    CANADA 23GC
+    11SBN 978-0-593-15997-2 Fiction
+    Rc 9 780593159972 H1LT y
+  `);
+
+  assert.deepStrictEqual(parsed.labeledIsbnCandidates, ['9780593159972']);
+  assert.deepStrictEqual(parsed.strictIsbnCandidates, ['9780593159972']);
+  assert.ok(parsed.candidates.some((candidate) => candidate.match_type === 'isbn' && candidate.barcode === '9780593159972' && candidate.context === 'labeled'));
+  assert.ok(!parsed.candidates.some((candidate) => candidate.barcode === '9781197805937'));
 }));
 
 results.push(run('capture image OCR provider parsing preserves backend-owned OCR text', () => {
