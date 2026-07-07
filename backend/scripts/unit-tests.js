@@ -2971,6 +2971,9 @@ results.push(run('integrations route source extends platform integrations with v
   assert.ok(integrationsRoutesSource.includes('ebay_browse_enabled = EXCLUDED.ebay_browse_enabled'));
   assert.ok(integrationsRoutesSource.includes('log_export_backend = EXCLUDED.log_export_backend'));
   assert.ok(integrationsRoutesSource.includes('log_export_host = EXCLUDED.log_export_host'));
+  assert.ok(integrationsRoutesSource.includes('const requestsBooksUpdate ='));
+  assert.ok(integrationsRoutesSource.includes('books_api_key_encrypted = EXCLUDED.books_api_key_encrypted'));
+  assert.ok(integrationsRoutesSource.includes('apiKeyUpdated: Boolean(req.body.booksApiKey)'));
   assert.ok(integrationsRoutesSource.includes('kavita_base_url = EXCLUDED.kavita_base_url'));
   assert.ok(integrationsRoutesSource.includes("sharedRouter.post('/admin/settings/integrations/test-kavita'"));
   assert.ok(integrationsRoutesSource.includes('Platform-only integration settings are not available in homelab edition'));

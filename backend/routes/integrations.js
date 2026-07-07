@@ -843,6 +843,12 @@ sharedRouter.put('/admin/settings/integrations', authenticateToken, requireRole(
     || req.body.plexReconciliationSyncSettings !== undefined
     || req.body.plexReadbackRefreshSettings !== undefined
     || req.body.plexWritebackSettings !== undefined;
+  const requestsBooksUpdate =
+    req.body.booksPreset !== undefined
+    || req.body.booksProvider !== undefined
+    || req.body.booksApiUrl !== undefined
+    || req.body.booksApiKey !== undefined
+    || req.body.clearBooksApiKey !== undefined;
   if (requestsLogExportUpdate && LOG_EXPORT_SETTINGS_READ_ONLY) {
     return res.status(409).json({ error: 'External log endpoint settings are read-only in this environment' });
   }
@@ -949,6 +955,19 @@ sharedRouter.put('/admin/settings/integrations', authenticateToken, requireRole(
       ? req.body.plexLibrarySections.map((value) => String(value || '').trim()).filter(Boolean)
       : [])
     : (Array.isArray(existing?.plex_library_sections) ? existing.plex_library_sections : []);
+  const selectedBooksPreset = resolveBooksPreset(req.body.booksPreset || existing?.books_preset || 'googlebooks');
+  const nextBooksPreset = pick(req.body.booksPreset, existing?.books_preset, 'googlebooks');
+  const nextBooksProvider = pick(req.body.booksProvider, existing?.books_provider, selectedBooksPreset.provider);
+  const nextBooksApiUrl = pick(
+    req.body.booksApiUrl !== undefined ? String(req.body.booksApiUrl || '').trim() : undefined,
+    existing?.books_api_url,
+    selectedBooksPreset.apiUrl || ''
+  );
+  const nextBooksApiKey = req.body.clearBooksApiKey
+    ? null
+    : (req.body.booksApiKey
+      ? encryptSecret(req.body.booksApiKey)
+      : existing?.books_api_key_encrypted || null);
   const requestsKavitaUpdate =
     req.body.kavitaBaseUrl !== undefined
     || req.body.kavitaApiKey !== undefined
@@ -987,6 +1006,12 @@ sharedRouter.put('/admin/settings/integrations', authenticateToken, requireRole(
        plex_api_url,
        plex_api_key_encrypted,
        plex_library_sections,
+       books_preset,
+       books_provider,
+       books_api_url,
+       books_api_key_encrypted,
+       books_api_key_header,
+       books_api_key_query_param,
        plex_reconciliation_sync_enabled,
        plex_reconciliation_sync_interval_minutes,
        plex_reconciliation_sync_limit,
@@ -1005,7 +1030,7 @@ sharedRouter.put('/admin/settings/integrations', authenticateToken, requireRole(
        kavita_api_key_encrypted,
        kavita_timeout_ms
      ) VALUES (
-       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::jsonb,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32
+       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::jsonb,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38
      )
      ON CONFLICT (id) DO UPDATE SET
        pricecharting_enabled = EXCLUDED.pricecharting_enabled,
@@ -1022,6 +1047,12 @@ sharedRouter.put('/admin/settings/integrations', authenticateToken, requireRole(
        plex_api_url = EXCLUDED.plex_api_url,
        plex_api_key_encrypted = EXCLUDED.plex_api_key_encrypted,
        plex_library_sections = EXCLUDED.plex_library_sections,
+       books_preset = EXCLUDED.books_preset,
+       books_provider = EXCLUDED.books_provider,
+       books_api_url = EXCLUDED.books_api_url,
+       books_api_key_encrypted = EXCLUDED.books_api_key_encrypted,
+       books_api_key_header = EXCLUDED.books_api_key_header,
+       books_api_key_query_param = EXCLUDED.books_api_key_query_param,
        plex_reconciliation_sync_enabled = EXCLUDED.plex_reconciliation_sync_enabled,
        plex_reconciliation_sync_interval_minutes = EXCLUDED.plex_reconciliation_sync_interval_minutes,
        plex_reconciliation_sync_limit = EXCLUDED.plex_reconciliation_sync_limit,
@@ -1056,6 +1087,12 @@ sharedRouter.put('/admin/settings/integrations', authenticateToken, requireRole(
       nextPlexApiUrl,
       nextPlexApiKey,
       JSON.stringify(nextPlexLibrarySections),
+      nextBooksPreset,
+      nextBooksProvider,
+      nextBooksApiUrl,
+      nextBooksApiKey,
+      selectedBooksPreset.apiKeyHeader || '',
+      selectedBooksPreset.apiKeyQueryParam || 'key',
       plexSyncSettings.enabled,
       plexSyncSettings.intervalMinutes,
       plexSyncSettings.limit,
@@ -1118,6 +1155,14 @@ sharedRouter.put('/admin/settings/integrations', authenticateToken, requireRole(
         reconciliationSync: plexSyncSettings,
         writeback: plexWritebackSettings,
         readbackRefresh: plexReadbackRefreshSettings
+      }
+      : null,
+    books: requestsBooksUpdate
+      ? {
+        provider: nextBooksProvider,
+        apiUrl: nextBooksApiUrl,
+        apiKeyUpdated: Boolean(req.body.booksApiKey),
+        apiKeyCleared: Boolean(req.body.clearBooksApiKey)
       }
       : null,
     kavita: requestsKavitaUpdate
