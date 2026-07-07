@@ -15,7 +15,12 @@ const {
 } = require('../services/integrations');
 const { encryptSecret, maskSecret } = require('../services/crypto');
 const { buildObservabilityRuntimeDiagnostics } = require('../services/observabilityRuntime');
-const { resolveExportConfig, invalidateStoredExportConfigCache, LOG_EXPORT_BACKENDS } = require('../services/logExport');
+const {
+  resolveExportConfig,
+  invalidateStoredExportConfigCache,
+  LOG_EXPORT_BACKENDS,
+  LOG_EXPORT_SETTINGS_READ_ONLY
+} = require('../services/logExport');
 const {
   DEFAULT_PRICECHARTING_API_URL,
   DEFAULT_EBAY_BROWSE_API_URL,

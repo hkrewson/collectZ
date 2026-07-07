@@ -18,6 +18,7 @@ import useRootAppearance from './components/app/hooks/useRootAppearance';
 import { readFrontendEnv } from './components/app/frontendEnv';
 import {
   getSafeDashboardTab,
+  isLocalProductEdition,
   isSupportHelpEnabled,
   LEGACY_PRODUCT_FIELD,
   normalizeProductEdition,
@@ -77,7 +78,7 @@ export default function App() {
   }, [setUser]);
   const productEdition = normalizeProductEdition(user?.runtime_mode || user?.[LEGACY_PRODUCT_FIELD]);
   const supportHelpEnabled = isSupportHelpEnabled(productEdition);
-  const platformBridgeEnabled = false;
+  const platformBridgeEnabled = !isLocalProductEdition(productEdition);
   const dashboardRouteOptions = useMemo(() => ({ productEdition, platformBridgeEnabled }), [productEdition, platformBridgeEnabled]);
   const supportStaffInEdition = supportHelpEnabled && ['admin', SUPPORT_STAFF_ROLE].includes(String(user?.role || ''));
   const nowPlayingDisplayToken = route === 'now-playing'
@@ -333,6 +334,7 @@ export default function App() {
   ]);
 
   useEffect(() => {
+    if (!(route === 'dashboard' && authChecked && user)) return;
     const waitingForSpaceScope = activeTab === 'space-manage'
       && !activeMembershipRole
       && !canManageActiveSpace
@@ -363,14 +365,17 @@ export default function App() {
     activeTab,
     activeMembershipRole,
     activeSpaceId,
+    authChecked,
     canManageActiveSpace,
     fallbackManageableSpace,
     featureFlags.collectibles_enabled,
     featureFlags.events_enabled,
     productEdition,
     platformBridgeEnabled,
+    route,
     spaces.length,
     supportStaffInEdition,
+    user,
     user?.role
   ]);
 

@@ -2034,7 +2034,7 @@ results.push(run('plex full-library reconciliation preview stays read-only and c
   assert.ok(backlogSource.includes('first UI slice promoted as `3.20.0`'));
   assert.ok(plexPmsModernizationDocSource.includes('Starting with `3.20.0`, the admin Plex surface stops carrying a separate operating-model explainer'));
   assert.ok(integrationsBrowserSpecSource.includes('Plex reconciliation sync surface displays durable conflict review actions'));
-  assert.ok(integrationsBrowserSpecSource.includes('/api/media/plex-reconciliation-conflicts?status=open'));
+  assert.ok(integrationsBrowserSpecSource.includes('/api/media/plex-reconciliation-conflicts*'));
   assert.ok(integrationsBrowserSpecSource.includes('/api/media/plex-reconciliation-conflicts/77/resolve'));
   assert.ok(integrationsBrowserSpecSource.includes('Attach to existing'));
   assert.ok(integrationsBrowserSpecSource.includes('/api/media/plex-reconciliation-preview'));
@@ -2560,12 +2560,15 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(productEditionFrontendSource.includes('getAllowedDashboardTabs'));
   assert.ok(!productEditionFrontendSource.includes('supportSessionActive'));
   assert.ok(productEditionFrontendSource.includes("if (!options?.platformBridgeEnabled) return getLocalRuntimeAllowedTabs(options);"));
+  assert.ok(productEditionFrontendSource.includes('return getLocalRuntimeAllowedTabs(options);'));
   assert.ok(productEditionFrontendSource.includes('return DEFAULT_PLATFORM_TAB;'));
   assert.ok(helpViewSource.includes('<h1 className="section-title">Help</h1>'));
   assert.ok(!helpViewSource.includes('supportRequestsEnabled'));
   assert.ok(!helpViewSource.includes('effectiveHelpProductEdition'));
   assert.ok(!helpViewSource.includes('A lightweight home for self-serve guidance and recent release notes for homelab users.'));
   assert.ok(frontendAppSource.includes('getSafeDashboardTab'));
+  assert.ok(frontendAppSource.includes('const platformBridgeEnabled = !isLocalProductEdition(productEdition);'));
+  assert.ok(!frontendAppSource.includes('const platformBridgeEnabled = false;'));
   assert.ok(!frontendAppSource.includes('supportSessionActiveInEdition'));
   assert.ok(!dashboardContentSource.includes('const supportHelpEnabled = isSupportHelpEnabled(productEdition);'));
   assert.ok(!dashboardContentSource.includes('const bridgeSupportEnabled = false;'));

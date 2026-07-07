@@ -1,7 +1,11 @@
 'use strict';
 
 const { test, expect } = require('@playwright/test');
-const { createFreshUserCredentials } = require('../helpers/auth');
+const {
+  createAuthenticatedRequestContext,
+  createFreshUserCredentials,
+  getCurrentUser
+} = require('../helpers/auth');
 const { signInThroughUi } = require('../helpers/session');
 
 test.use({ storageState: { cookies: [], origins: [] } });
@@ -43,5 +47,23 @@ test.describe('browser boundary regressions', () => {
     await page.goto('/platform/workspaces');
     await expect(page).toHaveURL(/\/dashboard$/);
     await expect(page.getByRole('button', { name: 'Import', exact: true })).toBeVisible();
+  });
+
+  test('platform admin sidebar does not expose local admin integrations as a sibling nav item', async ({ page }) => {
+    const credentials = await createFreshUserCredentials({ role: 'admin', name: 'Playwright Platform Admin' });
+    const requestContext = await createAuthenticatedRequestContext(credentials);
+
+    try {
+      const currentUser = await getCurrentUser(requestContext);
+      test.skip(currentUser?.product_edition !== 'platform', 'Platform-only sidebar boundary coverage');
+    } finally {
+      await requestContext.dispose();
+    }
+
+    await signInThroughUi(page, credentials);
+    await page.goto('/dashboard');
+
+    await expect(page.getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Integrations', exact: true })).toHaveCount(0);
   });
 });

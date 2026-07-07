@@ -100,7 +100,7 @@ export function getAllowedDashboardTabs(productEdition, options = {}) {
   }
   if (isLocalProductEdition(productEdition)) return getLocalRuntimeAllowedTabs(options);
   if (!options?.platformBridgeEnabled) return getLocalRuntimeAllowedTabs(options);
-  return null;
+  return getLocalRuntimeAllowedTabs(options);
 }
 
 export function getDefaultDashboardTab(productEdition, { userRole } = {}) {

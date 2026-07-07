@@ -14,15 +14,8 @@ async function openIntegrationsSection(page, name) {
 async function expectPlatformRuntime(page) {
   await expect(page.getByRole('heading', { name: 'Integrations' })).toBeVisible();
   await expect(page.getByRole('tablist', { name: 'Integration sections' }).getByRole('tab')).toHaveText([
-    'Audio',
-    'Barcode',
-    'Books',
-    'CWA',
-    'Comics',
-    'Games',
-    'Kavita',
-    'Plex',
-    'TMDB'
+    'External Logs',
+    'Metrics'
   ]);
 }
 
@@ -60,7 +53,7 @@ async function saveSection(page, sectionLabel) {
 }
 
 test.describe('integrations browser regressions', () => {
-  test('platform admin integrations expose valuation plus observability sections and log settings persist after reload', async ({ page }) => {
+  test('platform admin runtime integrations expose observability sections and log settings persist after reload', async ({ page }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
     const requestContext = await createAuthenticatedRequestContext(adminCredentials);
     const snapshot = await snapshotIntegrationState(requestContext);
@@ -236,7 +229,7 @@ test.describe('integrations browser regressions', () => {
         })
       });
     });
-    await page.route('**/api/media/plex-reconciliation-conflicts?status=open', async (route) => {
+    await page.route('**/api/media/plex-reconciliation-conflicts*', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -285,10 +278,9 @@ test.describe('integrations browser regressions', () => {
     await openIntegrationsSection(page, 'Plex');
     await expect(page.getByRole('tablist', { name: 'Plex settings sections' })).toBeVisible();
     await page.getByRole('tab', { name: 'Sync', exact: true }).click();
-    await expect(page.getByText('Plex library sync')).toBeVisible();
-    await expect(page.getByText('Automatic:')).toBeVisible();
-    await expect(page.getByText('on/360m')).toBeVisible();
-    await expect(page.getByPlaceholder('All')).toBeVisible();
+    await expect(page.getByText('Plex library sync', { exact: true })).toBeVisible();
+    await expect(page.getByText('Automatic: on/360m', { exact: true })).toBeVisible();
+    await expect(page.getByRole('textbox', { name: 'All' }).first()).toBeVisible();
 
     await page.getByRole('button', { name: 'Check now' }).click();
 
@@ -310,7 +302,7 @@ test.describe('integrations browser regressions', () => {
     await expect(page.getByRole('button', { name: 'Create separate title' })).toBeVisible();
     await page.getByRole('button', { name: 'Attach to existing' }).click();
     await expect(page.getByText('PLEX CONFLICT: attached the Plex identity to the existing title.')).toBeVisible();
-    await expect(page.getByText('No open Plex conflicts.')).toBeVisible();
+    await expect(page.getByText('No open Plex conflicts match this view.')).toBeVisible();
     await expect(page.getByRole('button', { name: /apply/i })).toHaveCount(0);
   });
 });
