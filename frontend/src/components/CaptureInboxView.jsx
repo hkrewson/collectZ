@@ -284,18 +284,26 @@ function CaptureEditor({
 
   const readIsbnFromBarcodeImage = async (file, detected) => {
     const directIsbn = inferBookBarcodeIdentifier(detected?.code || '');
-    try {
-      const extracted = await extractIdentifierCandidatesFromFile(file, {
-        boundingBox: detected?.boundingBox || null
-      });
+    const readCandidates = async (options = {}) => {
+      const extracted = await extractIdentifierCandidatesFromFile(file, options);
       const candidates = [
         ...(extracted?.labeledIsbnCandidates || []),
         ...(extracted?.strictIsbnCandidates || []),
         ...(extracted?.isbnCandidates || [])
       ].filter(Boolean);
       return {
-        isbn: candidates[0] || directIsbn || '',
+        candidates,
         rawText: extracted?.rawText || ''
+      };
+    };
+
+    try {
+      const bounded = await readCandidates({ boundingBox: detected?.boundingBox || null });
+      const fullFrame = bounded.candidates.length ? null : await readCandidates();
+      const candidates = bounded.candidates.length ? bounded.candidates : (fullFrame?.candidates || []);
+      return {
+        isbn: candidates[0] || directIsbn || '',
+        rawText: bounded.rawText || fullFrame?.rawText || ''
       };
     } catch (_) {
       return {

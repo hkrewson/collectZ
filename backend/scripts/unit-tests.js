@@ -7973,6 +7973,8 @@ results.push(run('mobile capture inbox foundation is scoped, routed, and reviewa
   assert.ok(captureInboxViewSource.includes('detectBarcodeCapturePayloadFromFile'));
   assert.ok(captureInboxViewSource.includes('extractIdentifierCandidatesFromFile'));
   assert.ok(captureInboxViewSource.includes('inferBookBarcodeIdentifier'));
+  assert.ok(captureInboxViewSource.includes('const fullFrame = bounded.candidates.length ? null : await readCandidates();'));
+  assert.ok(captureInboxViewSource.includes('bounded.candidates.length ? bounded.candidates : (fullFrame?.candidates || [])'));
   assert.ok(captureInboxViewSource.includes('ISBN captured'));
   assert.ok(captureInboxViewSource.includes('aria-label="Scan barcode with camera"'));
   assert.ok(captureInboxViewSource.includes('capture="environment"'));
