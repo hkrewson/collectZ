@@ -338,6 +338,7 @@ export default function App() {
     const waitingForSpaceScope = activeTab === 'space-manage'
       && !activeMembershipRole
       && !canManageActiveSpace
+      && !isLocalProductEdition(productEdition)
       && spaces.length === 0;
     if (waitingForSpaceScope) return;
     if (

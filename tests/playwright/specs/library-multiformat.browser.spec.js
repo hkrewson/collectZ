@@ -1115,6 +1115,11 @@ test.describe('library multi-format browser regressions', () => {
       const searchInput = getLibrarySearchInput(page);
       await searchInput.fill(searchPrefix);
 
+      const firstSelector = page.getByRole('button', { name: `Select ${titles[0]}` });
+      await expect(firstSelector).toBeVisible();
+      await firstSelector.click();
+      await expect(page.getByText('1 selected', { exact: true })).toBeVisible();
+
       const selectPageButton = page.getByRole('button', { name: /^Select page \(\d+\)$/ });
       await expect(selectPageButton).toBeVisible();
       const selectPageLabel = await selectPageButton.getAttribute('aria-label') || await selectPageButton.textContent();
