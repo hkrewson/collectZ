@@ -512,6 +512,42 @@ test.describe('library multi-format browser regressions', () => {
     }
   });
 
+  test('book add form keeps mobile controls at iOS-safe font size without horizontal overflow', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const credentials = await createFreshUserCredentials();
+    const requestContext = await createAuthenticatedRequestContext(credentials);
+
+    try {
+      const storageState = await requestContext.storageState();
+      await page.context().addCookies(storageState.cookies || []);
+      await page.goto('/dashboard?tab=library-books');
+      const addMediaButton = page.getByRole('button', { name: 'Add Media', exact: true });
+      await expect(addMediaButton).toBeVisible();
+      await addMediaButton.click();
+
+      await expect(page.getByRole('heading', { name: /add to library/i })).toBeVisible();
+      const metrics = await page.evaluate(() => {
+        const visibleControls = Array.from(document.querySelectorAll('input:not([type="hidden"]), select, textarea'))
+          .filter((element) => {
+            const rect = element.getBoundingClientRect();
+            return rect.width > 0 && rect.height > 0;
+          });
+        return {
+          innerWidth: window.innerWidth,
+          documentWidth: document.documentElement.scrollWidth,
+          bodyWidth: document.body.scrollWidth,
+          minControlFontSize: Math.min(...visibleControls.map((element) => Number.parseFloat(window.getComputedStyle(element).fontSize) || 0))
+        };
+      });
+
+      expect(metrics.minControlFontSize).toBeGreaterThanOrEqual(16);
+      expect(metrics.documentWidth).toBeLessThanOrEqual(metrics.innerWidth + 1);
+      expect(metrics.bodyWidth).toBeLessThanOrEqual(metrics.innerWidth + 1);
+    } finally {
+      await requestContext.dispose();
+    }
+  });
+
   test('media drawer collapses only long overviews', async ({ page }) => {
     const credentials = await createFreshUserCredentials({ role: 'admin', noCache: true });
     const requestContext = await createAuthenticatedRequestContext(credentials);
