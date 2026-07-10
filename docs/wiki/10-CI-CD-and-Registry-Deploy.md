@@ -69,7 +69,7 @@ Security and release gates in CI:
 - OpenAPI contract validation gate for key auth/admin/media endpoints.
 - Container image vulnerability scan (Trivy) for backend/frontend images.
 - SBOM generation (CycloneDX JSON) for backend/frontend images, uploaded as CI artifacts.
-- Tagged release preflight (`v*`) generates a go/no-go checklist artifact and fails if required evidence artifacts are missing.
+- Release preflight runs on `main` release-candidate pushes before auto-tagging and on explicit `v*` tag pushes; it generates a go/no-go checklist artifact and fails if required evidence artifacts are missing.
 - Runtime topology policy check (blocks undeclared Redis/runtime drift).
 - Compose smoke check:
   - stack boots,
@@ -103,7 +103,7 @@ Default blocking threshold:
 - `critical` vulnerabilities block CI.
 - `high` findings are triaged and tracked for remediation.
 
-Tagged release runs additionally block on missing required preflight evidence artifacts.
+Release preflight runs additionally block on missing required preflight evidence artifacts before `main` auto-tagging or explicit tagged release confirmation.
 
 Observability release evidence:
 

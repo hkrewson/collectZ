@@ -85,6 +85,6 @@ Some full-profile gates depend on optional local tools or runtime state:
 
 Before pushing ordinary work, run the standard local gate or install the pre-push hook.
 
-Before pushing release-shaped work, run the full profile when practical, then account for any blocked heavy gates in the release closeout. GitHub Actions remains the final hosted confirmation for public CI, image publishing, and any gates that are unavailable locally.
+Before pushing release-shaped work, run the full profile when practical, then account for any blocked heavy gates in the release closeout. GitHub Actions remains the final hosted confirmation for public CI, image publishing, and any gates that are unavailable locally; the hosted release preflight must pass on the `main` release-candidate run before auto-tagging proceeds.
 
 Do not commit local gate artifacts unless a future release evidence policy explicitly promotes them. They are working evidence for the local machine, not public release notes.
