@@ -4716,6 +4716,46 @@ const MIGRATIONS = [
       ALTER TABLE wanted_items
         ADD COLUMN IF NOT EXISTS booth VARCHAR(120);
     `
+  },
+  {
+    version: 116,
+    description: 'Add mobile auth sessions for native scanner tokens',
+    up: `
+      CREATE TABLE IF NOT EXISTS mobile_auth_sessions (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        access_token_hash VARCHAR(64) UNIQUE NOT NULL,
+        refresh_token_hash VARCHAR(64) UNIQUE NOT NULL,
+        refresh_token_last_four VARCHAR(8),
+        scopes JSONB NOT NULL DEFAULT '[]'::jsonb,
+        device_name VARCHAR(255),
+        platform VARCHAR(80),
+        app_version VARCHAR(80),
+        ip_address INET,
+        user_agent TEXT,
+        last_used_at TIMESTAMP,
+        revoked_at TIMESTAMP,
+        expires_at TIMESTAMP NOT NULL,
+        refresh_expires_at TIMESTAMP NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_mobile_auth_sessions_user_id
+        ON mobile_auth_sessions(user_id);
+
+      CREATE INDEX IF NOT EXISTS idx_mobile_auth_sessions_active
+        ON mobile_auth_sessions(user_id, revoked_at, expires_at, refresh_expires_at);
+
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_mobile_auth_sessions_updated_at') THEN
+          CREATE TRIGGER update_mobile_auth_sessions_updated_at BEFORE UPDATE ON mobile_auth_sessions
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+        END IF;
+      END;
+      $$;
+    `
   }
 ];
 

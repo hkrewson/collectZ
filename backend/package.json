@@ -1,6 +1,6 @@
 {
   "name": "collectz-backend",
-  "version": "3.23.16",
+  "version": "3.23.17",
   "description": "collectZ Backend API",
   "main": "server.js",
   "scripts": {
@@ -117,6 +117,7 @@
     "test:plex-watched-state-writeback-contract-smoke": "node scripts/plex-watched-state-writeback-contract-smoke.js",
     "test:plex-watched-state-writeback-smoke": "node scripts/plex-watched-state-writeback-smoke.js",
     "test:barcode-scanner-api-smoke": "node scripts/barcode-scanner-api-smoke.js",
+    "test:mobile-auth-smoke": "node scripts/mobile-auth-smoke.js",
     "test:capture-image-ocr-smoke": "node scripts/capture-image-ocr-smoke.js"
   },
   "dependencies": {

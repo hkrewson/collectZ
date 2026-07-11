@@ -6,6 +6,48 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.23.17 — Native Mobile Scanner Auth Token Contract
+
+**Goal:** Add backend-owned mobile auth/token support for the native SwiftUI scanner companion app so it can submit Capture Inbox events without browser cookies, CSRF tokens, personal access tokens, provider API keys, or direct enrichment access.
+
+### Scope
+
+- Add `/api/mobile/auth/login`, `/api/mobile/auth/refresh`, `/api/mobile/auth/logout`, and `/api/mobile/auth/session`.
+- Store opaque mobile access and refresh tokens hashed server-side with short access TTLs, longer refresh TTLs, refresh rotation, revocation, last-used tracking, and optional device metadata.
+- Limit mobile scopes to `profile:read`, `capture:read`, and `capture:write`.
+- Allow mobile bearer tokens on `/api/auth/me` and `/api/capture-items` when scope permits.
+- Keep mobile bearer tokens unsupported on provider, enrichment, import, admin, media write, and unrelated route families.
+- Preserve existing cookie session, CSRF, PAT, and service account behavior.
+- Update OpenAPI with the mobile auth contract and native scanner barcode capture payload.
+
+### Acceptance Criteria
+
+- Mobile login succeeds with valid credentials and rejects invalid credentials.
+- SaaS unverified-email behavior matches normal browser login rules.
+- Mobile refresh returns a usable new access token and rotates the refresh token.
+- Mobile logout revokes the mobile session.
+- Mobile bearer tokens can read `/api/auth/me`, read `/api/mobile/auth/session`, and read/write `/api/capture-items`.
+- Mobile bearer tokens cannot call `/api/media/import-barcode`, provider/enrichment routes, or admin endpoints.
+- Existing PAT capture scopes remain `media:read` and `media:write`.
+- OpenAPI validation, backend unit/source coverage, init parity, migration rehearsal, and relevant Docker runtime checks pass or are explicitly marked blocked.
+
+### Active Slice Notes
+
+- This slice promotes the mobile auth/token part of native scanner support only. Native iOS UI, durable async scan queues, and provider/enrichment workflow changes remain separate work.
+- collectZ remains the source of truth for lookup, enrichment, review, and import.
+
+### Closeout
+
+- Status: completed in `3.23.17`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, and `docs/releases/v3.23.17.md`.
+- Runtime evidence: Docker backend/frontend images rebuilt on the canonical local `collectz-private` platform stack with `APP_VERSION=3.23.17`; `/api/health` at `http://localhost:3201/api/health` reports frontend/backend/build `3.23.17`; backend, frontend, Postgres, Cairn, and Cairn Postgres containers are healthy; Docker mobile auth smoke passed against `http://frontend:3000`; Help > Releases smoke served `3.23.17` as the latest entry.
+- Verification: backend syntax checks passed for `backend/services/mobileAuthTokens.js`, `backend/routes/mobileAuth.js`, `backend/middleware/auth.js`, and `backend/scripts/mobile-auth-smoke.js`; host OpenAPI validation passed; Docker backend unit/source suite passed with `340` checks; Docker OpenAPI validation passed; Docker API integration smoke passed; Docker mobile auth smoke passed; Docker init parity passed through migration `116`; Docker migration rehearsal passed with `116` applied after the `115` baseline; Docker RBAC regression passed after making the smoke setup deterministic for cross-tenant transfer denial; host frontend production build passed with the existing large-chunk warning; observability release evidence passed `9/9`; `npm run release:local-gate` passed `12/12` standard gates; targeted release artifact secret-pattern scan found no secret values beyond gate labels; `git diff --check` passed through the local gate.
+- Blocked/unverified: Local preflight still marks compose-smoke basics blocked because its host-side helper tries to resolve `frontend`; direct Docker/in-stack health checks and Help > Releases smoke passed against the verified stack. Secret scan, hosted browser regression, image security/SBOM, hosted compose-smoke, and hosted runtime-smoke core/control-plane still need their normal GitHub Actions run before release promotion.
+- Files changed: `app-meta.json`, `backend/app-meta.json`, `backend/db/migrations.js`, `backend/middleware/auth.js`, `backend/middleware/csrf.js`, `backend/middleware/validate.js`, `backend/openapi/openapi.yaml`, `backend/package.json`, `backend/package-lock.json`, `backend/release-feed.json`, `backend/routes/mobileAuth.js`, `backend/scripts/mobile-auth-smoke.js`, `backend/scripts/rbac-regression-check.js`, `backend/scripts/unit-tests.js`, `backend/server.js`, `backend/services/mobileAuthTokens.js`, `docs/releases/v3.23.17.md`, `docs/wiki/07-Release-Roadmap.md`, `frontend/package.json`, `frontend/package-lock.json`, `frontend/src/app-meta.json`, `init.sql`, `preflight-go-no-go.md`, `artifacts/dependency-audit/frontend-audit.json`, and `artifacts/observability-evidence/observability-release-evidence.json`.
+- Risks/follow-ups: native iOS UI work remains separate; durable async scan queue work remains separate; mobile refresh/access token TTLs are configurable but should be tuned from real app usage; mobile tokens intentionally cannot call provider/enrichment/import/admin APIs.
+- What remains in the milestone: no implementation work remains for the `3.23.17` backend mobile auth/token contract slice; hosted CI/release gates remain required before push-ready release promotion.
+- Recommended commit message: `Release 3.23.17 with native mobile scanner auth tokens`.
+
 ## 3.23.16 — Frontend Hard-Error Baseline Zero
 
 **Goal:** Finish the current maintainability guardrail pass by clearing the remaining frontend ESLint hard-error baseline without broad component rewrites or product behavior changes.

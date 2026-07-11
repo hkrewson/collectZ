@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.23.17",
+      "version": "3.23.17",
+      "date": null,
+      "status": null,
+      "summary": "This release adds a dedicated mobile auth contract for the native SwiftUI scanner companion app. Mobile clients can now use opaque, mobile-scoped bearer tokens to read/write Capture Inbox records without relying on browser cookies, CSRF, personal access tokens, provider keys, or direct enrichment APIs.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added `POST /api/mobile/auth/login`, `POST /api/mobile/auth/refresh`, `POST /api/mobile/auth/logout`, and `GET /api/mobile/auth/session`.",
+            "Added hashed-at-rest mobile auth sessions with short-lived access tokens, longer-lived refresh tokens, refresh rotation, revocation, device metadata, and last-used tracking.",
+            "Added mobile bearer principal support in auth middleware with scopes limited to `profile:read`, `capture:read`, and `capture:write`.",
+            "Allowed mobile tokens on `/api/auth/me` and `/api/capture-items` only, while keeping provider/enrichment/import/admin route families unsupported by default.",
+            "Documented the native scanner barcode capture payload in OpenAPI."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.23.16",
       "version": "3.23.16",
       "date": null,
@@ -170,26 +189,6 @@
             "Removed a stale default React import.",
             "Kept personal access token expiry status based on token-data updates rather than an impure render-time clock call.",
             "Reduced the full frontend quality baseline from `81` errors / `34` warnings to `70` errors / `33` warnings."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.23.7",
-      "version": "3.23.7",
-      "date": null,
-      "status": null,
-      "summary": "This release continues the maintainability guardrails work where the current quality report shows clear value: `AdminMergeReviewView.jsx` was the top remaining frontend lint pocket after `3.23.6`. The slice clears stale hook dependencies and documents intentional debounced API/search synchronization without changing merge-review product behavior.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Stabilized Admin Merge Review context and lane-state capture helpers with React callbacks.",
-            "Stabilized Admin Merge Review queue-load helpers so effect dependencies point at the actual API sync functions.",
-            "Documented intentional initial-load, seeded-discovery, and debounced-search effects.",
-            "Removed a stale default React import.",
-            "Updated the focused admin-shell browser regression to enter Merge Review through the visible sidebar control.",
-            "Reduced the full frontend quality baseline from `89` errors / `39` warnings to `81` errors / `34` warnings."
           ]
         }
       ]

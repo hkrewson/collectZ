@@ -509,6 +509,26 @@ CREATE TABLE IF NOT EXISTS personal_access_tokens (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS mobile_auth_sessions (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    access_token_hash VARCHAR(64) UNIQUE NOT NULL,
+    refresh_token_hash VARCHAR(64) UNIQUE NOT NULL,
+    refresh_token_last_four VARCHAR(8),
+    scopes JSONB NOT NULL DEFAULT '[]'::jsonb,
+    device_name VARCHAR(255),
+    platform VARCHAR(80),
+    app_version VARCHAR(80),
+    ip_address INET,
+    user_agent TEXT,
+    last_used_at TIMESTAMP,
+    revoked_at TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL,
+    refresh_expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS service_account_keys (
     id SERIAL PRIMARY KEY,
     owner_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -1468,6 +1488,8 @@ CREATE INDEX IF NOT EXISTS idx_event_personal_ics_sources_event_user ON event_pe
 CREATE INDEX IF NOT EXISTS idx_event_schedule_plans_sched_ics_source ON event_schedule_plans(event_id, created_by, source_type, source_ref) WHERE source_type = 'sched_ics';
 CREATE INDEX IF NOT EXISTS idx_personal_access_tokens_user_id ON personal_access_tokens(user_id);
 CREATE INDEX IF NOT EXISTS idx_personal_access_tokens_active ON personal_access_tokens(user_id, revoked_at, expires_at);
+CREATE INDEX IF NOT EXISTS idx_mobile_auth_sessions_user_id ON mobile_auth_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_mobile_auth_sessions_active ON mobile_auth_sessions(user_id, revoked_at, expires_at, refresh_expires_at);
 CREATE INDEX IF NOT EXISTS idx_service_account_keys_owner_user_id ON service_account_keys(owner_user_id);
 CREATE INDEX IF NOT EXISTS idx_service_account_keys_active ON service_account_keys(owner_user_id, revoked_at, expires_at);
 CREATE INDEX IF NOT EXISTS idx_media_library_type_title ON media(library_id, media_type, title);
@@ -1715,6 +1737,10 @@ BEGIN
         CREATE TRIGGER update_personal_access_tokens_updated_at BEFORE UPDATE ON personal_access_tokens
             FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_mobile_auth_sessions_updated_at') THEN
+        CREATE TRIGGER update_mobile_auth_sessions_updated_at BEFORE UPDATE ON mobile_auth_sessions
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_service_account_keys_updated_at') THEN
         CREATE TRIGGER update_service_account_keys_updated_at BEFORE UPDATE ON service_account_keys
             FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -1890,5 +1916,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (112, 'Add Plex webhook receiver validation readback'),
     (113, 'Add explicit Plex writeback opt-in settings'),
     (114, 'Add persisted Plex readback refresh settings'),
-    (115, 'Add wishlist booth support for event field kits')
+    (115, 'Add wishlist booth support for event field kits'),
+    (116, 'Add mobile auth sessions for native scanner tokens')
 ON CONFLICT (version) DO NOTHING;

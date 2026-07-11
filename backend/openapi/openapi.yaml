@@ -34,7 +34,14 @@
       "bearerAuth": {
         "type": "http",
         "scheme": "bearer",
-        "bearerFormat": "PAT or Core API key"
+        "bearerFormat": "PAT, Core API key, or mobile access token",
+        "description": "Bearer token auth for personal access tokens, Core API keys, or mobile-scoped opaque access tokens."
+      },
+      "mobileBearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "Opaque mobile access token",
+        "description": "Short-lived opaque bearer token issued by /api/mobile/auth/login or /api/mobile/auth/refresh."
       },
       "csrfHeader": {
         "type": "apiKey",
@@ -771,6 +778,77 @@
           "user": { "$ref": "#/components/schemas/User" }
         },
         "required": ["user"]
+      },
+      "MobileLoginRequest": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string", "format": "email" },
+          "password": { "type": "string" },
+          "device_name": { "type": ["string", "null"] },
+          "platform": { "type": ["string", "null"], "example": "ios" },
+          "app_version": { "type": ["string", "null"] }
+        },
+        "required": ["email", "password"],
+        "additionalProperties": false
+      },
+      "MobileRefreshRequest": {
+        "type": "object",
+        "properties": {
+          "refreshToken": { "type": "string" }
+        },
+        "required": ["refreshToken"],
+        "additionalProperties": false
+      },
+      "MobileLogoutRequest": {
+        "type": "object",
+        "properties": {
+          "refreshToken": { "type": "string" }
+        },
+        "additionalProperties": false
+      },
+      "MobileScopeContext": {
+        "type": "object",
+        "properties": {
+          "active_space_id": { "type": ["integer", "null"] },
+          "active_library_id": { "type": ["integer", "null"] }
+        },
+        "required": ["active_space_id", "active_library_id"]
+      },
+      "MobileCapabilities": {
+        "type": "object",
+        "properties": {
+          "capture_inbox": { "type": "boolean" },
+          "barcode_capture": { "type": "boolean" },
+          "provider_enrichment": { "type": "boolean", "description": "Always false for mobile scanner tokens; collectZ backend owns enrichment." },
+          "media_import": { "type": "boolean" },
+          "admin": { "type": "boolean" }
+        },
+        "required": ["capture_inbox", "barcode_capture", "provider_enrichment", "media_import", "admin"]
+      },
+      "MobileAuthResponse": {
+        "type": "object",
+        "properties": {
+          "accessToken": { "type": "string" },
+          "refreshToken": { "type": "string" },
+          "expiresAt": { "type": "string", "format": "date-time" },
+          "refreshExpiresAt": { "type": "string", "format": "date-time" },
+          "tokenType": { "type": "string", "enum": ["Bearer"] },
+          "scope": { "type": "array", "items": { "type": "string", "enum": ["profile:read", "capture:read", "capture:write"] } },
+          "user": { "$ref": "#/components/schemas/User" },
+          "scopeContext": { "$ref": "#/components/schemas/MobileScopeContext" }
+        },
+        "required": ["accessToken", "refreshToken", "expiresAt", "refreshExpiresAt", "tokenType", "scope", "user", "scopeContext"]
+      },
+      "MobileSessionResponse": {
+        "type": "object",
+        "properties": {
+          "user": { "$ref": "#/components/schemas/User" },
+          "scopeContext": { "$ref": "#/components/schemas/MobileScopeContext" },
+          "scope": { "type": "array", "items": { "type": "string", "enum": ["profile:read", "capture:read", "capture:write"] } },
+          "tokenType": { "type": "string", "enum": ["Bearer"] },
+          "capabilities": { "$ref": "#/components/schemas/MobileCapabilities" }
+        },
+        "required": ["user", "scopeContext", "scope", "tokenType", "capabilities"]
       },
       "PasswordResetConsumeRequest": {
         "type": "object",
@@ -3847,6 +3925,19 @@
           "source_context": { "type": "object", "additionalProperties": true },
           "review_decision": { "type": "object", "additionalProperties": true }
         },
+        "example": {
+          "capture_type": "barcode",
+          "object_type": "movie",
+          "barcode": "012345678905",
+          "symbology": "upca",
+          "client_capture_id": "00000000-0000-4000-8000-000000000000",
+          "client_source": "ios-scanner",
+          "source_context": {
+            "source": "scanner",
+            "client_source": "ios-scanner",
+            "platform": "ios"
+          }
+        },
         "additionalProperties": false
       },
       "CaptureListResponse": {
@@ -4108,7 +4199,8 @@
         "summary": "List private saved Library views for the active scope",
         "security": [
           { "cookieSession": [] },
-          { "bearerAuth": [] }
+          { "bearerAuth": [] },
+          { "mobileBearerAuth": [] }
         ],
         "parameters": [
           {
@@ -4951,10 +5043,11 @@
       "post": {
         "tags": ["Capture"],
         "summary": "Create a quick-capture inbox record",
-        "description": "Stores a barcode, photo reference, OCR text, or manual note for later review. Native/mobile clients remain capture surfaces; the backend owns the reviewable record. Supplying a client_capture_id makes queued/offline retries idempotent within the active scope.",
+        "description": "Stores a barcode, photo reference, OCR text, or manual note for later review. Native/mobile clients remain capture surfaces; the backend owns the reviewable record. Supplying a client_capture_id makes queued/offline retries idempotent within the active scope. Native iOS scanner clients submit barcode captures here using mobile bearer tokens with capture:write; collectZ remains the source of truth for lookup, enrichment, review, and import.",
         "security": [
           { "cookieSession": [], "csrfHeader": [] },
-          { "bearerAuth": [] }
+          { "bearerAuth": [] },
+          { "mobileBearerAuth": [] }
         ],
         "requestBody": {
           "required": true,
@@ -5429,6 +5522,102 @@
           },
           "404": {
             "description": "Capture item not found",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      }
+    },
+    "/api/mobile/auth/login": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Issue mobile-scoped scanner tokens",
+        "description": "Native iOS scanner login. Returns short-lived opaque access and longer-lived opaque refresh tokens scoped only to profile:read, capture:read, and capture:write. Mobile clients store these tokens in Keychain and send Authorization: Bearer for Capture Inbox calls; they do not use cookies, CSRF, PATs, provider APIs, or enrichment keys.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/MobileLoginRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Mobile token pair issued",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MobileAuthResponse" } } }
+          },
+          "401": {
+            "description": "Invalid credentials",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          },
+          "403": {
+            "description": "Email verification required",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      }
+    },
+    "/api/mobile/auth/refresh": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Rotate a mobile refresh token",
+        "description": "Issues a new short-lived mobile access token and rotates the opaque refresh token when the submitted refresh token is valid and not revoked.",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MobileRefreshRequest" } } }
+        },
+        "responses": {
+          "200": {
+            "description": "Mobile token pair refreshed",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MobileAuthResponse" } } }
+          },
+          "401": {
+            "description": "Invalid or expired refresh token",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      }
+    },
+    "/api/mobile/auth/logout": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Revoke the current mobile token session",
+        "security": [{ "mobileBearerAuth": [] }],
+        "requestBody": {
+          "required": false,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MobileLogoutRequest" } } }
+        },
+        "responses": {
+          "200": {
+            "description": "Mobile token session revoked",
+            "content": { "application/json": { "schema": { "type": "object", "properties": { "revoked": { "type": "boolean" } }, "required": ["revoked"] } } }
+          },
+          "401": {
+            "description": "Authentication failed",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          },
+          "403": {
+            "description": "Mobile token authentication is required",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      }
+    },
+    "/api/mobile/auth/session": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "Read the current mobile token session",
+        "security": [{ "mobileBearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Current mobile user, scope, and capability payload",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MobileSessionResponse" } } }
+          },
+          "401": {
+            "description": "Authentication failed",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          },
+          "403": {
+            "description": "Mobile token authentication is required",
             "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
           }
         }

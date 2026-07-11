@@ -33,6 +33,7 @@ const { requestIdMiddleware } = require('./middleware/requestId');
 const { isHomelabEdition } = require('./config/productEdition');
 
 const { authRouter, authPlatformRouter } = require('./routes/auth');
+const mobileAuthRouter = require('./routes/mobileAuth');
 const coreRouter = require('./routes/core');
 const mediaRouter = require('./routes/media');
 const { adminCommonRouter } = require('./routes/admin');
@@ -250,6 +251,8 @@ const externalApiLimiter = makeLimiter({
 app.use('/api/', globalLimiter);
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
+app.use('/api/mobile/auth/login', authLimiter);
+app.use('/api/mobile/auth/refresh', authLimiter);
 app.use('/api/admin', adminLimiter);
 app.use('/api/media', mediaReadLimiter);
 app.use('/api/media', mediaWriteLimiter);
@@ -280,6 +283,7 @@ app.get('/api/health', (_req, res) => res.json(healthPayload()));
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.use('/api', coreRouter);
 app.use('/api/auth', authRouter);
+app.use('/api/mobile', mobileAuthRouter);
 if (!HOMELAB_EDITION) {
   app.use('/api/auth', authPlatformRouter);
 }

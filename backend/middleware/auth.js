@@ -12,6 +12,12 @@ const {
   touchServiceAccountKey,
   isServiceAccountPrefixAllowed
 } = require('../services/serviceAccountKeys');
+const {
+  getMobileAccessTokenPrincipal,
+  touchMobileAuthSession,
+  hasMobileAuthScope,
+  getRequiredMobileScopesForRequest
+} = require('../services/mobileAuthTokens');
 
 const parseBoolean = (value, fallback) => {
   if (value === undefined || value === null || value === '') return fallback;
@@ -111,6 +117,32 @@ const requireServiceAccountAccessForRequest = async (req, res) => {
   return true;
 };
 
+const requireMobileAccessForRequest = async (req, res) => {
+  const requiredScopes = getRequiredMobileScopesForRequest(req);
+  if (!requiredScopes || requiredScopes.length === 0) {
+    void logActivity(req, 'auth.mobile.denied', 'http_request', null, {
+      reason: 'unsupported_route',
+      method: req.method,
+      url: req.originalUrl
+    });
+    res.status(403).json({ error: 'Mobile tokens are not supported for this route' });
+    return false;
+  }
+
+  if (!hasMobileAuthScope(req.authContext?.scopes, requiredScopes)) {
+    void logActivity(req, 'auth.mobile.denied', 'http_request', null, {
+      reason: 'insufficient_scope',
+      method: req.method,
+      url: req.originalUrl,
+      requiredScopes
+    });
+    res.status(403).json({ error: 'Mobile token scope is insufficient for this route' });
+    return false;
+  }
+
+  return true;
+};
+
 /**
  * authenticateToken reads the session token from the httpOnly cookie.
  * Authorization Bearer fallback is disabled by default and only enabled via
@@ -172,8 +204,33 @@ const authenticateToken = async (req, res, next) => {
         return next();
       }
 
+      const mobilePrincipal = await getMobileAccessTokenPrincipal(bearerToken);
+      if (mobilePrincipal) {
+        req.user = {
+          id: mobilePrincipal.user_id,
+          email: mobilePrincipal.email,
+          role: mobilePrincipal.role,
+          scopeSpaceId: mobilePrincipal.scope_space_id ?? mobilePrincipal.active_space_id ?? null,
+          activeSpaceId: mobilePrincipal.scope_space_id ?? mobilePrincipal.active_space_id ?? null,
+          activeLibraryId: mobilePrincipal.active_library_id ?? null
+        };
+        req.authContext = {
+          type: 'mobile',
+          sessionId: mobilePrincipal.session_id,
+          scopes: Array.isArray(mobilePrincipal.scopes) ? mobilePrincipal.scopes : [],
+          deviceName: mobilePrincipal.device_name || null,
+          platform: mobilePrincipal.platform || null,
+          appVersion: mobilePrincipal.app_version || null
+        };
+        req.sessionId = null;
+        const allowed = await requireMobileAccessForRequest(req, res);
+        if (!allowed) return;
+        await touchMobileAuthSession(mobilePrincipal.session_id);
+        return next();
+      }
+
       if (!ALLOW_SESSION_BEARER_FALLBACK) {
-        void logActivity(req, 'auth.access.denied', 'http_request', null, {
+        void logActivity(req, 'auth.mobile.denied', 'http_request', null, {
           reason: 'invalid_or_expired_api_token',
           method: req.method,
           url: req.originalUrl

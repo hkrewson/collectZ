@@ -6,7 +6,9 @@ const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const DEFAULT_CSRF_COOKIE_NAME = 'csrf_token';
 const EXEMPT_PATHS = new Set([
   '/api/auth/login',
-  '/api/auth/register'
+  '/api/auth/register',
+  '/api/mobile/auth/login',
+  '/api/mobile/auth/refresh'
 ]);
 
 function getRequestPath(req) {

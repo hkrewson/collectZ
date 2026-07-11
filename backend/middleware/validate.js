@@ -57,6 +57,20 @@ const loginSchema = z.object({
   password: z.string().min(1, 'Password is required')
 });
 
+const mobileLoginSchema = loginSchema.extend({
+  device_name: z.preprocess(emptyStringToNull, z.string().trim().max(255).optional().nullable()),
+  platform: z.preprocess(emptyStringToNull, z.string().trim().max(80).optional().nullable()),
+  app_version: z.preprocess(emptyStringToNull, z.string().trim().max(80).optional().nullable())
+});
+
+const mobileRefreshSchema = z.object({
+  refreshToken: z.string().min(1, 'Refresh token is required')
+});
+
+const mobileLogoutSchema = z.object({
+  refreshToken: z.string().min(1, 'Refresh token is required').optional()
+});
+
 const passwordResetRequestSchema = z.object({
   email: z.string().email('Invalid email address')
 });
@@ -1157,6 +1171,9 @@ module.exports = {
   validate,
   registerSchema,
   loginSchema,
+  mobileLoginSchema,
+  mobileRefreshSchema,
+  mobileLogoutSchema,
   passwordResetRequestSchema,
   emailVerificationRequestSchema,
   emailVerificationConsumeSchema,

@@ -180,8 +180,14 @@ const {
   hasPersonalAccessTokenScope,
   getRequiredPatScopesForRequest
 } = require('../services/personalAccessTokens');
+const {
+  MOBILE_AUTH_SCOPES,
+  hasMobileAuthScope,
+  getRequiredMobileScopesForRequest
+} = require('../services/mobileAuthTokens');
 const { isServiceAccountPrefixAllowed } = require('../services/serviceAccountKeys');
 const authRoutesSource = fs.readFileSync(require.resolve('../routes/auth'), 'utf8');
+const mobileAuthRoutesSource = fs.readFileSync(require.resolve('../routes/mobileAuth'), 'utf8');
 const dashboardRoutesSource = fs.readFileSync(require.resolve('../routes/dashboard'), 'utf8');
 const wishlistRoutesSource = fs.readFileSync(require.resolve('../routes/wishlist'), 'utf8');
 const appleItunesServiceSource = fs.readFileSync(require.resolve('../services/appleItunes'), 'utf8');
@@ -204,6 +210,7 @@ const migrationsSource = fs.readFileSync(require.resolve('../db/migrations'), 'u
 const initSqlSource = fs.readFileSync(path.resolve(__dirname, '..', '..', 'init.sql'), 'utf8');
 const libraryServiceSource = fs.readFileSync(require.resolve('../services/libraries'), 'utf8');
 const personalAccessTokenSource = fs.readFileSync(require.resolve('../services/personalAccessTokens'), 'utf8');
+const mobileAuthTokenSource = fs.readFileSync(require.resolve('../services/mobileAuthTokens'), 'utf8');
 const serviceAccountKeySource = fs.readFileSync(require.resolve('../services/serviceAccountKeys'), 'utf8');
 const validateSource = fs.readFileSync(require.resolve('../middleware/validate'), 'utf8');
 const librariesRoutesSource = fs.readFileSync(require.resolve('../routes/libraries'), 'utf8');
@@ -7898,6 +7905,8 @@ results.push(run('mobile capture inbox foundation is scoped, routed, and reviewa
   assert.deepStrictEqual(getRequiredPatScopesForRequest({ originalUrl: '/api/capture-items/123/lookup-matches', method: 'POST' }), ['media:write']);
   assert.deepStrictEqual(getRequiredPatScopesForRequest({ originalUrl: '/api/capture-items/123/import-match', method: 'POST' }), ['media:write']);
   assert.deepStrictEqual(getRequiredPatScopesForRequest({ originalUrl: '/api/capture-items/123/resolve-replay-conflict', method: 'POST' }), ['media:write']);
+  assert.deepStrictEqual(getRequiredMobileScopesForRequest({ originalUrl: '/api/capture-items', method: 'GET' }), ['capture:read']);
+  assert.deepStrictEqual(getRequiredMobileScopesForRequest({ originalUrl: '/api/capture-items', method: 'POST' }), ['capture:write']);
   assert.ok(openApiSource.includes('"/api/capture-items"'));
   assert.ok(openApiSource.includes('"review_filter"'));
   assert.ok(openApiSource.includes('"review_counts"'));
@@ -8012,6 +8021,50 @@ results.push(run('mobile capture inbox foundation is scoped, routed, and reviewa
   assert.ok(captureImageOcrServiceSource.includes("form.append('file'"));
   assert.ok(captureImageOcrServiceSource.includes('extractOcrSpaceText'));
   assert.ok(integrationsServiceSource.includes('visionApiKey'));
+}));
+
+results.push(run('native mobile auth token contract is scoped to capture inbox', () => {
+  assert.deepStrictEqual(MOBILE_AUTH_SCOPES, ['profile:read', 'capture:read', 'capture:write']);
+  assert.strictEqual(hasMobileAuthScope(MOBILE_AUTH_SCOPES, ['capture:write']), true);
+  assert.strictEqual(hasMobileAuthScope(MOBILE_AUTH_SCOPES, ['media:write']), false);
+  assert.strictEqual(hasMobileAuthScope(MOBILE_AUTH_SCOPES, ['import:run']), false);
+  assert.strictEqual(hasMobileAuthScope(MOBILE_AUTH_SCOPES, ['admin:*']), false);
+  assert.deepStrictEqual(getRequiredMobileScopesForRequest({ originalUrl: '/api/auth/me', method: 'GET' }), ['profile:read']);
+  assert.deepStrictEqual(getRequiredMobileScopesForRequest({ originalUrl: '/api/mobile/auth/session', method: 'GET' }), ['profile:read']);
+  assert.deepStrictEqual(getRequiredMobileScopesForRequest({ originalUrl: '/api/mobile/auth/logout', method: 'POST' }), ['profile:read']);
+  assert.deepStrictEqual(getRequiredMobileScopesForRequest({ originalUrl: '/api/capture-items', method: 'GET' }), ['capture:read']);
+  assert.deepStrictEqual(getRequiredMobileScopesForRequest({ originalUrl: '/api/capture-items', method: 'POST' }), ['capture:write']);
+  assert.strictEqual(getRequiredMobileScopesForRequest({ originalUrl: '/api/media/import-barcode', method: 'POST' }), null);
+  assert.strictEqual(getRequiredMobileScopesForRequest({ originalUrl: '/api/admin/users', method: 'GET' }), null);
+  assert.ok(mobileAuthTokenSource.includes('cz_mobile_${kind}_'));
+  assert.ok(mobileAuthTokenSource.includes('access_token_hash'));
+  assert.ok(mobileAuthTokenSource.includes('refresh_token_hash'));
+  assert.ok(mobileAuthRoutesSource.includes("router.post('/auth/login'"));
+  assert.ok(mobileAuthRoutesSource.includes("router.post('/auth/refresh'"));
+  assert.ok(mobileAuthRoutesSource.includes("router.post('/auth/logout'"));
+  assert.ok(mobileAuthRoutesSource.includes("router.get('/auth/session'"));
+  assert.ok(mobileAuthRoutesSource.includes("!isHomelabEdition(getProductEdition()) && !user.email_verified"));
+  assert.ok(mobileAuthRoutesSource.includes('provider_enrichment: false'));
+  assert.ok(mobileAuthRoutesSource.includes('media_import: false'));
+  assert.ok(authMiddlewareSource.includes("type: 'mobile'"));
+  assert.ok(authMiddlewareSource.includes('requireMobileAccessForRequest'));
+  assert.ok(authMiddlewareSource.includes('auth.mobile.denied'));
+  assert.ok(serverSource.includes("const mobileAuthRouter = require('./routes/mobileAuth');"));
+  assert.ok(serverSource.includes("app.use('/api/mobile', mobileAuthRouter);"));
+  assert.ok(validateMiddlewareSource.includes('mobileLoginSchema'));
+  assert.ok(validateMiddlewareSource.includes('mobileRefreshSchema'));
+  assert.ok(validateMiddlewareSource.includes('mobileLogoutSchema'));
+  assert.ok(migrationsSource.includes('version: 116'));
+  assert.ok(migrationsSource.includes('CREATE TABLE IF NOT EXISTS mobile_auth_sessions'));
+  assert.ok(initSqlSource.includes("(116, 'Add mobile auth sessions for native scanner tokens')"));
+  assert.ok(openApiSource.includes('"/api/mobile/auth/login"'));
+  assert.ok(openApiSource.includes('"/api/mobile/auth/refresh"'));
+  assert.ok(openApiSource.includes('"/api/mobile/auth/logout"'));
+  assert.ok(openApiSource.includes('"/api/mobile/auth/session"'));
+  assert.ok(openApiSource.includes('"profile:read"'));
+  assert.ok(openApiSource.includes('"capture:read"'));
+  assert.ok(openApiSource.includes('"capture:write"'));
+  assert.ok(openApiSource.includes('"ios-scanner"'));
 }));
 
 results.push(run('capture OCR candidate extraction normalizes reviewable ISBN UPC and ASIN values', () => {

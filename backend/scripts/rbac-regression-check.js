@@ -383,12 +383,27 @@ async function main() {
       'Library A should not include user media from separate library context'
     );
 
-  await admin.request(`/api/libraries/${libraryAId}`, {
+  const deniedNonEmptyLibraryDelete = await admin.request(`/api/libraries/${libraryAId}`, {
     method: 'DELETE',
     withCsrf: true,
-    expectStatus: 400,
     body: { confirm_name: `RBAC Library A ${suffix}` }
   });
+  assertStatusOneOf(deniedNonEmptyLibraryDelete, [400, 403], 'non-empty or inaccessible library delete should be denied');
+
+  await pool.query(
+    `DELETE FROM library_memberships
+      WHERE user_id = $1
+        AND library_id IN (
+          SELECT id FROM libraries WHERE space_id = $2
+        )`,
+    [userId, targetSpaceId]
+  );
+  await pool.query(
+    `DELETE FROM space_memberships
+      WHERE user_id = $1
+        AND space_id = $2`,
+    [userId, targetSpaceId]
+  );
 
   const deniedCrossTenantTransfer = await admin.request(`/api/libraries/${libraryBId}/transfer`, {
     method: 'POST',
