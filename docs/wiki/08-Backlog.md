@@ -326,6 +326,59 @@ These are product-level capability gaps discovered from the current shape of the
 - Identifier searches return direct object matches where possible.
 - Search results clearly show object type and destination.
 
+### Backlog Item: Draft-First Async Scan Queue
+**Type:** Deferred milestone
+**Tags:** `product`, `scanner`, `barcode`, `capture`, `imports`, `queue`, `enrichment`, `metadata-quality`
+**Status:** Active backlog; scanner lookup, Capture Inbox review rows, and direct barcode import APIs exist, but there is no durable async scan queue and scanner import can still create/update canonical media directly.
+
+**Goal:** Build a draft-first, backend-owned scan queue that lets users continue scanning while barcode/ISBN/provider lookups run, without reducing match quality compared with the individual add/capture workflows.
+
+**Intent**
+- Treat every scan as a persisted reviewable draft/capture first, including web scanner, mobile browser, and future scanner clients.
+- Use the higher-quality individual add/capture workflows as the model for shared matching and enrichment.
+- Avoid standardizing on the current import queue behavior when it produces fewer or poorer matches than individual add surfaces.
+- Keep model-specific lookup behavior visible instead of flattening books, movies/TV, music, games, comics, and other item types into one generic resolver.
+- Make provider failures, ambiguous matches, duplicate candidates, no-match outcomes, and partial enrichment observable and recoverable.
+
+**Current state**
+- Capture Inbox stores reviewable `capture_items` with barcode/photo/OCR/manual-note fields, `review_decision` JSON, source context, review reasons, and explicit import/link actions.
+- `POST /api/media/lookup/barcode` provides a backend-owned scanner lookup path with catalog matches, provider candidates, ISBN-direct Books lookup, and type-aware enrichment.
+- `POST /api/media/import-barcode` can still create or update canonical media directly from a selected scanner match.
+- Capture Inbox batch scan exists, but lookup work is still synchronous request/response behavior rather than a durable worker-backed scan queue.
+- Import queue behavior has produced poorer matching in real use than individual add surfaces, so the shared backend should be validated against those better workflows before replacing them.
+
+**Scope**
+- Add a durable scan queue/draft model with explicit states such as `queued`, `looking_up`, `needs_review`, `no_match`, `failed`, `retrying`, `cancelled`, `linked`, and `imported`.
+- Route scanner submissions into draft/queue rows before canonical media creation.
+- Reuse the best individual add/capture lookup and enrichment paths as the shared backend contract.
+- Preserve type-specific provider handling: ISBN-aware Books lookup, title/provider enrichment for movies/TV/music/games/comics, and explicit fallback behavior.
+- Persist sanitized lookup attempts, provider status, candidate lists, confidence/readback, selected candidate, import/link result, and activity evidence.
+- Support continued scanning while lookups run, plus retry and failure recovery from the queue.
+
+**Candidate subtasks**
+- Compare current import queue matching against individual add/edit/capture lookup behavior and document the better backend paths to reuse.
+- Define scan draft and queue API contracts, including status, candidate, provider-attempt, and error shapes.
+- Add a worker or background processor for provider lookups with bounded retries and cancellation.
+- Move scanner direct-import clients toward draft creation plus explicit review/import.
+- Add candidate confidence/readback fields such as match reason, identifier basis, provider, model type, and ambiguity flags.
+- Add queue and activity filters for barcode, model, provider, status, date, action, and capture/job id.
+- Add browser/mobile regression coverage for manual barcode entry, camera capture fallback, batch scan, duplicate replay, no-match, ambiguous-match, provider-error, and exact ISBN flows.
+
+**Out of scope**
+- Do not remove individual add surfaces until the shared backend proves equal or better matching quality.
+- Do not use the current import queue as the matching-quality baseline if it performs worse than individual add workflows.
+- Do not build a native companion app before the web/mobile browser path is proven.
+- Do not expose provider secrets to scanner/browser clients.
+- Do not auto-import ambiguous UPC/provider matches without explicit user review.
+
+**Acceptance Criteria**
+- Every scan creates or updates a persisted draft/queue row before any canonical media mutation.
+- Users can continue scanning while lookup/enrichment work runs.
+- The shared queue backend matches or exceeds the match quality of the best existing individual add/capture workflows for representative books, movies/TV, music, games, comics, and no-match cases.
+- Queue states, provider attempts, retries, failures, duplicate handling, and selected candidates are visible through API and GUI.
+- Canonical import/link/update requires an explicit review action unless a narrowly defined safe exact-match rule is documented and tested.
+- Activity records are searchable, sanitized, and tied back to the scan draft/job.
+
 ### Backlog Item: Saved Views and Smart Collections
 **Type:** Deferred milestone
 **Tags:** `product`, `saved-views`, `smart-collections`, `filters`
