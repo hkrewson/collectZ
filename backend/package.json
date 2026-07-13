@@ -132,7 +132,7 @@
     "express-session": "^1.17.3",
     "fast-xml-parser": "^5.8.0",
     "form-data": "^4.0.0",
-    "helmet": "^8.2.0",
+    "helmet": "^8.3.0",
     "multer": "^2.2.0",
     "nodemailer": "^9.0.1",
     "pg": "^8.21.0",
