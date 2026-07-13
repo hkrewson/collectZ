@@ -6,6 +6,42 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.23.18 — Scanner Barcode Game Type Inference
+
+**Goal:** Fix native scanner barcode lookup/import candidates for console games so generic UPC provider results are typed as games instead of movies when the provider title or category includes strong game platform evidence.
+
+### Scope
+
+- Infer `game` for barcode provider results with common console/platform terms such as Nintendo 3DS, Switch, Wii, PlayStation, Xbox, Game Boy, and PC game listings.
+- Strip game retail platform/noise suffixes from lookup search titles before provider enrichment.
+- Preserve detected platform metadata in scanner lookup matches.
+- Treat Capture Inbox `other` as unknown during scanner barcode lookup so provider normalization can infer the type.
+- Keep existing book ISBN and TV season barcode heuristics intact.
+
+### Acceptance Criteria
+
+- UPC provider results like `Nintendo Pokemon Y (Nintendo 3DS)` return scanner matches typed as `game`.
+- Provider variants like `Pokemon Y - Pre-Played` inherit game evidence from the parent UPC item.
+- Scanner lookup for unknown/`other` captures does not force comic/movie enrichment before barcode normalization runs.
+- Barcode scanner API smoke covers game provider matches without calling real UPC or IGDB providers.
+
+### Active Slice Notes
+
+- This is a backend scanner lookup/import normalization patch selected from native scanner testing feedback on July 13, 2026.
+- Existing records already imported as movies are not rewritten in this slice.
+
+### Closeout
+
+- Status: completed in `3.23.18`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, and `docs/releases/v3.23.18.md`.
+- Runtime evidence: Docker local source-backed backend/frontend stack rebuilt with `APP_VERSION=3.23.18` on `docker-compose.yml` plus `docker-compose.localhost.yml`; `/api/health` through `http://localhost:3301/api/health` reported version/frontend/backend/build `3.23.18`; backend, frontend, and Postgres containers were healthy; Help > Releases smoke served `3.23.18` as the latest entry.
+- Verification: backend syntax checks passed for `backend/services/barcode.js`, `backend/routes/media.js`, and `backend/scripts/barcode-scanner-api-smoke.js`; host backend unit/source suite reached `All unit tests passed (342)` with the new barcode game inference tests before an existing activity-log open handle required manual interruption; Docker barcode scanner API smoke passed with `gameProviderLookupSuccess`; observability release evidence passed `9/9`; `npm run release:local-gate` passed `12/12` standard gates when run with `RELEASE_PREFLIGHT_BASE_URL=http://localhost:3301`; `git diff --check` passed through the local gate.
+- Blocked/unverified: Local preflight marks secure-cookie compose smoke environment-dependent because the local development stack uses `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`. Hosted CI still needs to confirm `compose-smoke`, `rbac-regression`, hosted full `browser-regression`, `runtime-smoke` core/control-plane, `dependency-scan`, `secret-scan`, and `image-security-and-sbom` before push-ready release promotion.
+- Files changed: `app-meta.json`, `artifacts/observability-evidence/observability-release-evidence.json`, `backend/app-meta.json`, `backend/package-lock.json`, `backend/package.json`, `backend/release-feed.json`, `backend/routes/media.js`, `backend/scripts/barcode-scanner-api-smoke.js`, `backend/scripts/unit-tests.js`, `backend/services/barcode.js`, `docs/releases/v3.23.18.md`, `docs/wiki/07-Release-Roadmap.md`, `frontend/package-lock.json`, `frontend/package.json`, `frontend/src/app-meta.json`, and `preflight-go-no-go.md`.
+- Risks/follow-ups: generic UPC provider quality still varies; existing movie-typed game records are not automatically rewritten.
+- What remains in the milestone: no implementation work remains for the `3.23.18` scanner barcode game type inference slice; hosted CI/release gates remain required before push-ready release promotion.
+- Recommended commit message: `Release 3.23.18 with scanner barcode game type inference`.
+
 ## 3.23.17 — Native Mobile Scanner Auth Token Contract
 
 **Goal:** Add backend-owned mobile auth/token support for the native SwiftUI scanner companion app so it can submit Capture Inbox events without browser cookies, CSRF tokens, personal access tokens, provider API keys, or direct enrichment access.

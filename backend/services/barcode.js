@@ -68,6 +68,86 @@ function inferTvSeasonMetadata(rawTitle = '') {
   };
 }
 
+const GAME_PLATFORM_PATTERNS = [
+  { label: 'Nintendo Switch 2', pattern: /\bnintendo\s+switch\s+2\b|\bswitch\s+2\b/i },
+  { label: 'Nintendo Switch', pattern: /\bnintendo\s+switch\b|\bswitch\b/i },
+  { label: 'Nintendo 3DS', pattern: /\bnintendo\s*3ds\b|\b3ds\b/i },
+  { label: 'Nintendo DS', pattern: /\bnintendo\s*ds\b|\bnds\b|\bds\b/i },
+  { label: 'Nintendo Wii U', pattern: /\bnintendo\s+wii\s+u\b|\bwii\s+u\b/i },
+  { label: 'Nintendo Wii', pattern: /\bnintendo\s+wii\b|\bwii\b/i },
+  { label: 'Nintendo GameCube', pattern: /\bgame\s*cube\b|\bgamecube\b/i },
+  { label: 'Game Boy Advance', pattern: /\bgame\s*boy\s*advance\b|\bgba\b/i },
+  { label: 'Game Boy', pattern: /\bgame\s*boy\b|\bgbc?\b/i },
+  { label: 'PlayStation 5', pattern: /\bplaystation\s*5\b|\bps5\b/i },
+  { label: 'PlayStation 4', pattern: /\bplaystation\s*4\b|\bps4\b/i },
+  { label: 'PlayStation 3', pattern: /\bplaystation\s*3\b|\bps3\b/i },
+  { label: 'PlayStation 2', pattern: /\bplaystation\s*2\b|\bps2\b/i },
+  { label: 'PlayStation', pattern: /\bplaystation\b|\bps1\b|\bpsx\b/i },
+  { label: 'PlayStation Vita', pattern: /\bps\s*vita\b|\bplaystation\s*vita\b/i },
+  { label: 'Xbox Series X|S', pattern: /\bxbox\s+series\s+[xs]\b|\bxbox\s+series\s+x\|s\b/i },
+  { label: 'Xbox One', pattern: /\bxbox\s+one\b/i },
+  { label: 'Xbox 360', pattern: /\bxbox\s*360\b/i },
+  { label: 'Xbox', pattern: /\bxbox\b/i },
+  { label: 'PC', pattern: /\bpc\s+game\b|\bwindows\s+pc\b/i }
+];
+
+function compactWhitespace(value = '') {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function inferGameMetadata(rawTitle = '', entry = {}, sourceEntry = {}) {
+  const source = String(rawTitle || '').trim();
+  const categoryText = [
+    entry?.category,
+    entry?.category_path,
+    entry?.categoryPath,
+    entry?.department,
+    entry?.product_type,
+    sourceEntry?.category,
+    sourceEntry?.category_path,
+    sourceEntry?.department
+  ].filter(Boolean).join(' ');
+  const evidenceText = [
+    source,
+    entry?.title,
+    entry?.name,
+    entry?.product_name,
+    entry?.description,
+    sourceEntry?.description,
+    entry?.brand,
+    entry?.manufacturer,
+    sourceEntry?.brand,
+    sourceEntry?.manufacturer,
+    categoryText
+  ].filter(Boolean).join(' ');
+  const platform = GAME_PLATFORM_PATTERNS.find((candidate) => candidate.pattern.test(evidenceText));
+  const categoryMatched = /\b(video\s*games?|games?\s*&\s*consoles|console\s+games?)\b/i.test(categoryText);
+
+  if (!platform && !categoryMatched) {
+    return { title: source, platform: null, matched: false };
+  }
+
+  let cleaned = source
+    .replace(/\((?:[^)]*(?:nintendo|switch|3ds|ds|wii|game\s*boy|gamecube|playstation|ps[1-5]|vita|xbox|pc\s+game)[^)]*)\)/gi, ' ')
+    .replace(/\[(?:[^\]]*(?:nintendo|switch|3ds|ds|wii|game\s*boy|gamecube|playstation|ps[1-5]|vita|xbox|pc\s+game)[^\]]*)\]/gi, ' ')
+    .replace(/\bfor\s+(?:nintendo\s+)?(?:switch\s+2|switch|3ds|ds|wii\s+u|wii|game\s*cube|gamecube|game\s*boy(?:\s*advance)?|playstation\s*[1-5]?|ps[1-5]|ps\s*vita|xbox(?:\s*(?:series\s+[xs]|one|360))?|pc\s+game)\b.*$/i, ' ')
+    .replace(/\s+[-:]\s+(?:nintendo\s+)?(?:switch\s+2|switch|3ds|ds|wii\s+u|wii|game\s*cube|gamecube|game\s*boy(?:\s*advance)?|playstation\s*[1-5]?|ps[1-5]|ps\s*vita|xbox(?:\s*(?:series\s+[xs]|one|360))?|pc\s+game)\b.*$/i, ' ')
+    .replace(/\b(pre[- ]?(?:owned|played)|used|new condition|multicolor|video game)\b/gi, ' ')
+    .replace(/\s*,\s*(multicolor|standard edition)\b.*$/i, ' ')
+    .replace(/\s+-\s*$/g, ' ');
+
+  cleaned = compactWhitespace(cleaned);
+  if (/^nintendo\s+\S+/i.test(cleaned) && platform?.label?.startsWith('Nintendo')) {
+    cleaned = compactWhitespace(cleaned.replace(/^nintendo\s+/i, ''));
+  }
+
+  return {
+    title: cleaned || source,
+    platform: platform?.label || null,
+    matched: true
+  };
+}
+
 function parseBarcodeTitleMetadata(rawTitle = '') {
   const source = String(rawTitle || '').trim();
   if (!source) {
@@ -177,13 +257,16 @@ function normalizeBarcodeEntryVariant(entry = {}, variant = {}, variantIndex = 0
   const rawTitle = variant.title || entry?.title || entry?.name || entry?.product_name || null;
   const { normalizedTitle, author, format, series } = parseBarcodeTitleMetadata(rawTitle);
   const tvMetadata = inferTvSeasonMetadata(normalizedTitle || rawTitle);
-  const searchTitle = normalizeBarcodeSearchTitle(tvMetadata.matched ? tvMetadata.title : (normalizedTitle || rawTitle));
+  const sourceEntry = variant.sourceEntry || entry;
+  const gameMetadata = inferGameMetadata(tvMetadata.matched ? tvMetadata.title : (normalizedTitle || rawTitle), entry, sourceEntry);
+  const searchTitle = normalizeBarcodeSearchTitle(
+    gameMetadata.matched ? gameMetadata.title : (tvMetadata.matched ? tvMetadata.title : (normalizedTitle || rawTitle))
+  );
   const upc = normalizeDigits(entry?.upc || entry?.barcode || entry?.ean || entry?.gtin || '');
   const inferredIsbn = inferBookBarcodeType(upc);
-  const mediaTypeGuess = inferredIsbn || format ? 'book' : (tvMetadata.matched ? 'tv_series' : 'movie');
+  const mediaTypeGuess = inferredIsbn || format ? 'book' : (gameMetadata.matched ? 'game' : (tvMetadata.matched ? 'tv_series' : 'movie'));
   const variantSource = variant.source || 'item';
   const variantSourceIndex = variant.sourceIndex;
-  const sourceEntry = variant.sourceEntry || entry;
 
   return {
     title: rawTitle,
@@ -215,6 +298,7 @@ function normalizeBarcodeEntryVariant(entry = {}, variant = {}, variantIndex = 0
       format: format || null,
       series: series || null,
       season_number: tvMetadata.seasonNumber || null,
+      platform: gameMetadata.platform || null,
       publisher: entry?.publisher || entry?.brand || entry?.manufacturer || sourceEntry?.merchant || null
     },
     raw: {

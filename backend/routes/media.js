@@ -12243,7 +12243,7 @@ async function lookupCatalogMediaByBarcode({ barcode, mediaType = null, scopeCon
   const code = normalizeBarcodeLookupCode(barcode);
   if (!code) return [];
   const digits = code.replace(/\D+/g, '');
-  const normalizedMediaType = mediaType ? normalizeMediaType(mediaType, null) : null;
+  const normalizedMediaType = normalizeScannerLookupMediaType(mediaType);
   const params = [code, digits || code];
   let typeClause = '';
   if (normalizedMediaType) {
@@ -12305,7 +12305,7 @@ function normalizeScannerProviderMatch(match = {}, barcode = '', symbology = '',
 
 async function lookupProviderMatchesForBarcode({ barcode, mediaType = null, config, limit = 10, symbology = '' }) {
   const upc = normalizeBarcodeLookupCode(barcode);
-  const normalizedMediaType = mediaType ? normalizeMediaType(mediaType, null) : null;
+  const normalizedMediaType = normalizeScannerLookupMediaType(mediaType);
   const directBookIsbn = normalizeIsbn(upc);
 
   if (directBookIsbn) {
@@ -12429,6 +12429,12 @@ function pickScannerField(...values) {
     if (text) return value;
   }
   return null;
+}
+
+function normalizeScannerLookupMediaType(mediaType = null) {
+  const raw = String(mediaType || '').trim().toLowerCase();
+  if (!raw || raw === 'other') return null;
+  return normalizeMediaType(raw, null);
 }
 
 function buildImportItemFromBarcodeMatch({ match = {}, barcode = '', mediaType = null, scopeContext = null }) {

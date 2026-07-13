@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.23.18",
+      "version": "3.23.18",
+      "date": null,
+      "status": null,
+      "summary": "This patch fixes scanner barcode lookups for console games that generic UPC providers describe with retail listing titles. Game-shaped UPC results such as Nintendo 3DS listings are now typed as games instead of falling through to movie matching.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added barcode-provider game inference for common console/platform terms including Nintendo 3DS, Switch, Wii, PlayStation, Xbox, Game Boy, and PC game listings.",
+            "Cleaned game retail suffixes such as platform tags, `Pre-Played`, and color/listing noise before provider enrichment search.",
+            "Preserved platform metadata on scanner lookup matches so imported game records can retain the detected console.",
+            "Treated Capture Inbox `other` media type as unknown during scanner lookup instead of forcing a concrete media type before provider normalization can infer one.",
+            "Made the scanner API smoke deterministic without requiring TMDB configuration for the existing UPC title-variant check."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.23.17",
       "version": "3.23.17",
       "date": null,
@@ -169,26 +188,6 @@
             "Replaced the Art editor backdrop click target with a native button control.",
             "Documented intentional Art state synchronization effects for artist lookup, detail loading, editor form resets, event option loading, list loading, and external focus targets.",
             "Reduced the full frontend quality baseline from `70` errors / `33` warnings to `60` errors / `32` warnings."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.23.8",
-      "version": "3.23.8",
-      "date": null,
-      "status": null,
-      "summary": "This release continues the maintainability guardrails work where the current quality report shows clear value: `ProfileView.jsx` was the top remaining frontend lint pocket after `3.23.7`. The slice clears Profile form accessibility findings, documents intentional account/token synchronization effects, and keeps token status rendering pure without changing profile product behavior.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Associated Profile form labels with their controls.",
-            "Kept the Profile token-scope group semantic without using a label for a non-control group.",
-            "Documented intentional personal access token loading and authenticated-user form synchronization effects.",
-            "Removed a stale default React import.",
-            "Kept personal access token expiry status based on token-data updates rather than an impure render-time clock call.",
-            "Reduced the full frontend quality baseline from `81` errors / `34` warnings to `70` errors / `33` warnings."
           ]
         }
       ]

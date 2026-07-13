@@ -555,6 +555,48 @@ results.push(run('barcode.normalizeBarcodeMatches strips combo-pack packaging no
   assert.strictEqual(matches[0].searchTitle, 'New Ghost in the Shell: The New Movie');
 }));
 
+results.push(run('barcode.normalizeBarcodeMatches infers video games from console retail titles', () => {
+  const matches = normalizeBarcodeMatches({
+    items: [
+      {
+        title: 'Nintendo Pokemon Y (Nintendo 3DS)',
+        upc: '0045496742508',
+        brand: 'Nintendo',
+        category: 'Video Games'
+      },
+      {
+        title: 'Animal Crossing: Happy Home Designer - 3DS',
+        upc: '0045496744007'
+      }
+    ]
+  });
+
+  assert.strictEqual(matches.length, 2);
+  assert.strictEqual(matches[0].mediaTypeGuess, 'game');
+  assert.strictEqual(matches[0].searchTitle, 'Pokemon Y');
+  assert.strictEqual(matches[0].typeDetails.platform, 'Nintendo 3DS');
+  assert.strictEqual(matches[1].mediaTypeGuess, 'game');
+  assert.strictEqual(matches[1].searchTitle, 'Animal Crossing: Happy Home Designer');
+}));
+
+results.push(run('barcode.normalizeBarcodeMatches strips game listing suffixes from provider variants', () => {
+  const matches = normalizeBarcodeMatches({
+    items: [
+      {
+        title: 'Pokemon Y - Nintendo 3DS',
+        upc: '0045496742508',
+        offers: [
+          { title: 'Pokemon Y - Pre-Played' },
+          { title: 'Pokemon Y for Nintendo 3DS, Multicolor' }
+        ]
+      }
+    ]
+  });
+
+  assert.deepStrictEqual(matches.map((match) => match.mediaTypeGuess), ['game', 'game', 'game']);
+  assert.deepStrictEqual(matches.map((match) => match.searchTitle), ['Pokemon Y', 'Pokemon Y', 'Pokemon Y']);
+}));
+
 results.push(run('barcode.normalizeBarcodeMatches prefers explicit trailing author suffixes for omnibus-style book titles', () => {
   const matches = normalizeBarcodeMatches({
     items: [

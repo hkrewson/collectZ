@@ -103,6 +103,7 @@ async function configureFakeBarcodeProvider({ spaceId, barcodeUrl, booksUrl }) {
 
 async function startFakeProvider() {
   const multiUpc = '0076783005990';
+  const gameUpc = '0045496742508';
   const isbn = '9780553572735';
   const isbnNoMatch = '0553572393';
   const isbnNoMatchCanonical = '9780553572391';
@@ -168,6 +169,27 @@ async function startFakeProvider() {
       }));
       return;
     }
+    if (upc === gameUpc) {
+      res.end(JSON.stringify({
+        code: 'OK',
+        total: 1,
+        items: [
+          {
+            title: 'Nintendo Pokemon Y (Nintendo 3DS)',
+            description: 'Retail game fixture with Nintendo 3DS platform metadata.',
+            upc,
+            brand: 'Nintendo',
+            category: 'Video Games',
+            offers: [
+              { title: 'Pokemon Y - Nintendo 3DS', merchant: 'Game Store A' },
+              { title: 'Pokemon Y - Pre-Played', merchant: 'Game Store B' },
+              { title: 'Pokemon Y for Nintendo 3DS, Multicolor', merchant: 'Game Store C' }
+            ]
+          }
+        ]
+      }));
+      return;
+    }
     if (upc === isbnNoMatch || upc === isbnNoMatchCanonical) {
       res.end(JSON.stringify({
         code: 'OK',
@@ -193,6 +215,7 @@ async function startFakeProvider() {
   const address = server.address();
   return {
     multiUpc,
+    gameUpc,
     isbn,
     isbnNoMatch,
     isbnNoMatchCanonical,
@@ -273,10 +296,23 @@ async function main() {
     const providerIds = new Set(providerMatches.map((match) => match.id));
     assert(providerIds.size === providerMatches.length, 'provider candidates should have unique ids');
 
+    const gameLookup = await request('/api/media/lookup/barcode', {
+      method: 'POST',
+      token: context.token,
+      body: { barcode: fakeProvider.gameUpc, symbology: 'ean13', limit: 10 },
+      expectStatus: 200
+    });
+    assert(gameLookup.data?.ok === true, 'game lookup should return ok=true');
+    const gameMatches = (gameLookup.data.matches || []).filter((match) => match.source === 'upcitemdb');
+    assert(gameMatches.length === 4, `game lookup should preserve provider game variants, got ${gameMatches.length}`);
+    assert(gameMatches.every((match) => match.media_type === 'game' || match.mediaTypeGuess === 'game'), 'game lookup matches should be typed as game');
+    assert(gameMatches.every((match) => match.searchTitle === 'Pokemon Y'), 'game lookup variants should use the game title for enrichment search');
+    assert(gameMatches.some((match) => match.typeDetails?.platform === 'Nintendo 3DS'), 'game lookup should include platform metadata');
+
     const webLookup = await request('/api/media/lookup-upc', {
       method: 'POST',
       token: context.token,
-      body: { upc: fakeProvider.multiUpc, mediaType: 'movie' },
+      body: { upc: fakeProvider.multiUpc, mediaType: 'book' },
       expectStatus: 200
     });
     const webMatches = Array.isArray(webLookup.data?.matches) ? webLookup.data.matches : [];
@@ -375,6 +411,7 @@ async function main() {
         lookupSuccess: true,
         emptyLookupSuccess: true,
         multiProviderLookupSuccess: true,
+        gameProviderLookupSuccess: true,
         webLookupTitleVariantSuccess: true,
         scannerIsbnLookupSuccess: true,
         webIsbnLookupSuccess: true,
