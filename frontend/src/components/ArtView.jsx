@@ -279,7 +279,9 @@ function formatPrintEdition(item) {
 function ArtCard({ item, supportsHover, onOpen, onEdit, onDelete }) {
   const mediumLabel = ART_MEDIUM_OPTIONS.find((option) => option.value === item.medium)?.label || null;
   const printEdition = formatPrintEdition(item);
-  const subtitle = [printEdition, item.signed ? 'Signed' : null, mediumLabel].filter(Boolean).join(' ');
+  const signerName = item.signer_name || item.signatures?.find((signature) => signature?.is_primary)?.signer_name || item.signatures?.[0]?.signer_name || null;
+  const subtitle = [mediumLabel, printEdition, item.signed && !signerName ? 'Signed' : null].filter(Boolean).join(' · ');
+  const secondaryText = signerName ? `Signed by ${signerName}` : null;
   return (
     <ObjectPosterCard
       title={item.title}
@@ -287,8 +289,8 @@ function ArtCard({ item, supportsHover, onOpen, onEdit, onDelete }) {
       fallbackIcon={<Icons.Library />}
       supportsHover={supportsHover}
       onOpen={() => onOpen(item)}
-      subtitle={subtitle || 'Artwork'}
-      meta={Array.isArray(item.collectible_traits) && item.collectible_traits.length ? <CollectibleTraitPills traits={item.collectible_traits} limit={3} /> : null}
+      subtitle={subtitle || null}
+      secondaryText={secondaryText}
       onEdit={() => onEdit(item)}
       onDelete={() => onDelete(item.id)}
     />

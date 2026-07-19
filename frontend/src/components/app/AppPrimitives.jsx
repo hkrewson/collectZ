@@ -1946,6 +1946,7 @@ export function ObjectPosterCard({
   rightBadge = null,
   overlayChildren = null,
   subtitle = null,
+  secondaryText = null,
   meta = null,
   titleClassName = '',
   articleClassName = ''
@@ -2000,7 +2001,8 @@ export function ObjectPosterCard({
       </div>
       <div className="mt-2 px-0.5">
         <p className={cx('min-w-0 truncate text-sm font-medium text-ink', titleClassName)}>{title}</p>
-        {subtitle ? <p className="text-xs text-ghost">{subtitle}</p> : null}
+        {subtitle ? <p className="truncate text-xs text-ghost" title={subtitle}>{subtitle}</p> : null}
+        {secondaryText ? <p className="truncate text-xs text-dim" title={secondaryText}>{secondaryText}</p> : null}
         {meta ? <div className="mt-1 flex min-w-0 max-w-full flex-wrap gap-2">{meta}</div> : null}
       </div>
     </article>

@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.23.20",
+      "version": "3.23.20",
+      "date": null,
+      "status": null,
+      "summary": "This patch removes signed, numbered-print, and event-acquisition pills from Art poster cards. Cards now keep the artwork and title dominant with at most two quiet plain-text metadata lines.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Replaced the combined numbered/signed/medium subtitle with a plain `medium · edition` line.",
+            "Added one optional plain signer line using `Signed by artist`.",
+            "Kept `Signed` on the first line only when an item is signed but no signer name is known.",
+            "Removed collectible trait pills, including event/vendor/booth context, from Art poster cards.",
+            "Kept complete collectible and acquisition metadata in existing list and detail surfaces.",
+            "Extended mobile browser coverage to verify the two-line contract, absence of trait/event pills, and viewport containment."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.23.19",
       "version": "3.23.19",
       "date": null,
@@ -168,25 +188,6 @@
             "Removed an unnecessary non-interactive member-menu click handler while preserving member action buttons.",
             "Preserved direct `/dashboard?tab=space-manage` navigation while backend-owned scope data finishes loading.",
             "Reduced the full frontend quality baseline from `52` errors / `30` warnings to `44` errors / `29` warnings."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.23.10",
-      "version": "3.23.10",
-      "date": null,
-      "status": null,
-      "summary": "This release continues the maintainability guardrails work where the current quality report shows clear value: `App.jsx` was the top remaining frontend lint pocket after `3.23.9`. The slice clears app-shell import, empty-catch, hook-baseline, and dependency findings without changing routing, auth, workspace scope, feature flags, dashboard tab, or now-playing behavior.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Removed the stale default React import from the app shell.",
-            "Kept local logout cleanup explicit when the backend logout request has already expired.",
-            "Documented intentional app-shell state synchronization effects for route normalization, backend-owned scope refresh, feature flag loading, retired tab redirects, feature-gated dashboard destinations, manageable workspace switching, and edition-safe dashboard tab selection.",
-            "Included support-staff edition state in the safe-tab effect dependencies.",
-            "Reduced the full frontend quality baseline from `60` errors / `32` warnings to `52` errors / `30` warnings."
           ]
         }
       ]

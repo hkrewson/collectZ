@@ -7140,7 +7140,9 @@ results.push(run('Art numbered print metadata and readback are wired through nat
   assert.ok(artViewSource.includes('<span className="label">Print #</span>'));
   assert.ok(artViewSource.includes('<span className="label">Run</span>'));
   assert.ok(artViewSource.includes("return `#${printNumber}/${printRun}`;"));
-  assert.ok(artViewSource.includes("const subtitle = [printEdition, item.signed ? 'Signed' : null, mediumLabel].filter(Boolean).join(' ');"));
+  assert.ok(artViewSource.includes("const subtitle = [mediumLabel, printEdition, item.signed && !signerName ? 'Signed' : null].filter(Boolean).join(' · ');"));
+  assert.ok(artViewSource.includes('const secondaryText = signerName ? `Signed by ${signerName}` : null;'));
+  assert.ok(artViewSource.includes('secondaryText={secondaryText}'));
   assert.ok(!artViewSource.includes("leftBadges={[`#${item.id}`, 'Art']}"));
   assert.ok(!artViewSource.includes('rightBadge={item.signed'));
   assert.ok(artViewSource.includes('{`Print ${printEdition}`}'));

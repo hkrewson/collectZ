@@ -6,6 +6,44 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.23.20 — Quiet Art Poster Card Metadata
+
+**Goal:** Make Art poster cards image-first by replacing signed, numbered, and event-acquisition pills with no more than two quiet plain-text metadata lines.
+
+### Scope
+
+- Use `medium · edition` as the first optional metadata line.
+- Use `Signed by artist` as the second optional metadata line when a signer is known.
+- Show `Signed` on the first line only when an item is signed without a known signer.
+- Remove collectible trait pills, including event/vendor/booth context, from Art poster cards.
+- Preserve complete signature, edition, acquisition, grading, proof, and relationship readback in list/detail surfaces.
+
+### Acceptance Criteria
+
+- A numbered signed print with a known signer shows `Print · #number/run` and `Signed by artist` beneath its title.
+- Signed, numbered, and event-acquisition pills do not appear on Art poster cards.
+- Art poster cards render at most two metadata lines beneath the title.
+- The two-column mobile Art grid remains within a 390px viewport.
+- Frontend build, focused browser regression, Docker runtime health, version sync, and Help > Releases verification pass or are explicitly marked blocked.
+
+### Active Slice Notes
+
+- This slice follows direct review of the `3.23.19` containment result on iPhone on July 18, 2026.
+- The `uncodixfy` guidance favors plain metadata hierarchy over repeated rounded tags; this slice applies that specifically to Art poster cards without changing other library surfaces.
+- No stored metadata, list-row behavior, drawer content, or Art grid-column behavior changes are included.
+
+### Closeout
+
+- Status: completed in `3.23.20`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, and `docs/releases/v3.23.20.md`.
+- Runtime evidence: rebuilt the source-backed Docker backend/frontend stack with `APP_VERSION=3.23.20` using `docker-compose.yml` plus `docker-compose.localhost.yml` on port `3301`; backend, frontend, and Postgres containers became healthy; `/api/health` reported version/frontend/backend/build `3.23.20`; running backend env confirmed `APP_VERSION=3.23.20`, `APP_EDITION=platform`, `NODE_ENV=development`, and `SESSION_COOKIE_SECURE=false`; Help > Releases smoke served `3.23.20` as the latest entry.
+- Verification: frontend production build passed with bundled Node 24 and in the Docker image build; focused mobile Art browser coverage passed at `390x844` and verified `Print · #150/200`, `Signed by artist`, removal of the old combined subtitle, absence of numbered/event trait pills, and document viewport containment; backend unit/source coverage passed all `342` checks after aligning the numbered-print source contract with the new card hierarchy; changed-file ESLint passed with `0` errors and `0` warnings; observability release evidence passed; `npm run release:local-gate` passed version sync, release note/feed, backend unit, OpenAPI, frontend build, backend/frontend dependency audits, local preflight, and diff hygiene; the full Playwright browser regression passed in one final run with `68` passed and `4` expected homelab skips after replacing one ambiguous empty-library Add locator with the exact visible action; `git diff --check` passed.
+- Blocked/unverified: local preflight marks secure-cookie compose smoke environment-dependent because the development stack uses `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`. Hosted CI still needs to confirm `compose-smoke`, `rbac-regression`, hosted `browser-regression`, `runtime-smoke` core/control-plane, `dependency-scan`, `secret-scan`, and `image-security-and-sbom` before push-ready release promotion.
+- Files changed: `app-meta.json`, `artifacts/observability-evidence/observability-release-evidence.json`, `backend/app-meta.json`, `backend/package-lock.json`, `backend/package.json`, `backend/release-feed.json`, `backend/scripts/unit-tests.js`, `docs/releases/v3.23.20.md`, `docs/wiki/07-Release-Roadmap.md`, `frontend/package-lock.json`, `frontend/package.json`, `frontend/src/app-meta.json`, `frontend/src/components/ArtView.jsx`, `frontend/src/components/app/AppPrimitives.jsx`, `preflight-go-no-go.md`, `tests/playwright/specs/events-collectibles.browser.spec.js`, and `tests/playwright/specs/library-multiformat.browser.spec.js`.
+- Risks/follow-ups: poster cards intentionally expose less acquisition context; full signature, event, vendor, booth, edition, grading, proof, and relationship detail remains available in list and drawer views. The shared poster primitive gained only an optional second plain-text line; non-Art card metadata remains unchanged.
+- What remains in the milestone: no implementation work remains for the `3.23.20` quiet Art poster metadata slice; hosted CI/release gates remain required before push-ready release promotion.
+- Recommended commit message: `Release 3.23.20 with quiet two-line Art poster metadata`.
+
 ## 3.23.19 — Mobile Art Card Trait Containment
 
 **Goal:** Keep long collectible trait labels inside narrow Art poster cards so the two-column iPhone layout remains readable and cannot widen the page beyond the viewport.

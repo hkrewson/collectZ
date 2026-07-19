@@ -1,4 +1,5 @@
 'use strict';
+/* global document, window */
 const fs = require('fs');
 const { test, expect, request: playwrightRequest } = require('@playwright/test');
 const { AUTH_STATE_PATH, createFreshUserCredentials, createAuthenticatedRequestContext, createRequestContextFromStorageState, ensureAuthenticatedAdminStorageState, fetchCsrfToken, patchWithCsrf, postWithCsrf, requestWithCsrf } = require('../helpers/auth');
@@ -458,7 +459,7 @@ test.describe('library multi-format browser regressions', () => {
       const storageState = await requestContext.storageState();
       await page.context().addCookies(storageState.cookies || []);
       await page.goto('/dashboard?tab=library-movies');
-      await page.getByRole('button', { name: /Add media/i }).first().click();
+      await page.getByRole('button', { name: 'Add Media', exact: true }).click();
 
       await expect(page.getByRole('heading', { name: /add to library/i })).toBeVisible();
       await page.getByPlaceholder('Movie title').fill(title);

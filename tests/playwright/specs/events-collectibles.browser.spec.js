@@ -66,7 +66,7 @@ test.describe('events and collectibles browser regressions', () => {
     }
   });
 
-  test('mobile art poster card contains long trait labels without widening the page', async ({ page }) => {
+  test('mobile art poster card uses two plain metadata lines without trait or event pills', async ({ page }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
     const adminRequestContext = await createAuthenticatedRequestContext(adminCredentials);
     const userCredentials = await createFreshUserCredentials();
@@ -90,7 +90,9 @@ test.describe('events and collectibles browser regressions', () => {
         print_number: 150,
         print_run: 200,
         signed: true,
-        signer_name: signerName
+        signer_name: signerName,
+        vendor: 'Playwright Studio',
+        booth: 'A12'
       }, 201);
 
       await page.setViewportSize({ width: 390, height: 844 });
@@ -99,20 +101,19 @@ test.describe('events and collectibles browser regressions', () => {
 
       const artCard = page.locator('article').filter({ hasText: artTitle }).first();
       await expect(artCard).toBeVisible();
-      await expect(artCard.getByText('#150/200 Signed Print')).toBeVisible();
+      await expect(artCard.getByText('Print · #150/200', { exact: true })).toBeVisible();
+      await expect(artCard.getByText(signedTraitSummary, { exact: true })).toBeVisible();
+      await expect(artCard.getByText('#150/200 Signed Print', { exact: true })).toHaveCount(0);
+      await expect(artCard.getByText('#150/200', { exact: true })).toHaveCount(0);
+      await expect(artCard.getByText(/Playwright Studio|A12/)).toHaveCount(0);
       await expect(artCard.locator('.badge')).toHaveCount(0);
-      const signedTrait = artCard.locator(`[title="${signedTraitSummary}"]`);
-      await expect(signedTrait).toBeVisible();
+      await expect(artCard.locator('span[title]')).toHaveCount(0);
 
       const cardBox = await artCard.boundingBox();
-      const traitBox = await signedTrait.boundingBox();
       const pageWidth = await page.evaluate('({ scrollWidth: document.documentElement.scrollWidth, viewportWidth: window.innerWidth })');
 
       expect(cardBox).not.toBeNull();
-      expect(traitBox).not.toBeNull();
       expect(pageWidth.scrollWidth).toBeLessThanOrEqual(pageWidth.viewportWidth);
-      expect(traitBox.x).toBeGreaterThanOrEqual(cardBox.x);
-      expect(traitBox.x + traitBox.width).toBeLessThanOrEqual(cardBox.x + cardBox.width);
 
       await artCard.click();
       await expect(page.getByText('Collectible details')).toBeVisible();
