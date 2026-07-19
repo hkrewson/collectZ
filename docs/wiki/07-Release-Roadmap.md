@@ -6,6 +6,42 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.23.19 — Mobile Art Card Trait Containment
+
+**Goal:** Keep long collectible trait labels inside narrow Art poster cards so the two-column iPhone layout remains readable and cannot widen the page beyond the viewport.
+
+### Scope
+
+- Allow shared poster cards and their metadata rows to shrink within responsive grid tracks.
+- Constrain long trait pills to the width of their owning card and retain compact truncation.
+- Preserve the existing two-column mobile Art grid, desktop card density, and full trait detail readback.
+- Add focused mobile browser coverage for both card containment and document horizontal overflow.
+
+### Acceptance Criteria
+
+- Long signer and event-acquisition traits do not overlap a neighboring Art card.
+- Art library content does not make a 390px mobile viewport horizontally scrollable.
+- Full trait values remain available in detail readback and pill title text.
+- Frontend build, focused browser regression, Docker runtime health, version sync, and Help > Releases verification pass or are explicitly marked blocked.
+
+### Active Slice Notes
+
+- This slice was selected from direct iPhone Art library feedback on July 18, 2026.
+- The fix is applied at the shared poster-card/trait primitive boundary because the intrinsic-width behavior can affect Art, Collectibles, and media Library cards using the same primitive.
+- No card taxonomy, metadata content, grid-column count, or drawer behavior changes are included.
+
+### Closeout
+
+- Status: completed in `3.23.19`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, and `docs/releases/v3.23.19.md`.
+- Runtime evidence: rebuilt the source-backed Docker backend/frontend stack with `APP_VERSION=3.23.19` using `docker-compose.yml` plus `docker-compose.localhost.yml` on port `3301`; backend, frontend, and Postgres containers became healthy; `/api/health` reported version/frontend/backend/build `3.23.19`; the running backend env confirmed `APP_VERSION=3.23.19`, `APP_EDITION=platform`, `NODE_ENV=development`, and `SESSION_COOKIE_SECURE=false`; Help > Releases smoke served `3.23.19` as the latest entry.
+- Verification: frontend production build passed with bundled Node 24 and in the Docker image build; focused mobile Art browser regression passed at a `390x844` viewport and asserted both trait-to-card containment and document scroll width; `npm run release:local-gate` passed version sync, release note/feed, backend unit, OpenAPI, frontend build, backend/frontend dependency audits, local preflight, and diff hygiene; observability release evidence passed; the full Playwright run completed with `64` passed and `4` expected skips, while four unrelated failures (one ambiguous selector and three suite-time setup/interaction timeouts) all passed on immediate focused rerun after tightening the ambiguous selector; changed-file ESLint passed after the final regression cleanup; `git diff --check` passed.
+- Blocked/unverified: the full browser suite did not produce a single clean run because of the four failures described above even though every failure passed on focused rerun. Local preflight marks secure-cookie compose smoke environment-dependent because the development stack uses `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`. Hosted CI still needs to confirm `compose-smoke`, `rbac-regression`, a clean full `browser-regression`, `runtime-smoke` core/control-plane, `dependency-scan`, `secret-scan`, and `image-security-and-sbom` before push-ready release promotion.
+- Files changed: `app-meta.json`, `artifacts/observability-evidence/observability-release-evidence.json`, `backend/app-meta.json`, `backend/package-lock.json`, `backend/package.json`, `backend/release-feed.json`, `docs/releases/v3.23.19.md`, `docs/wiki/07-Release-Roadmap.md`, `frontend/package-lock.json`, `frontend/package.json`, `frontend/src/app-meta.json`, `frontend/src/components/app/AppPrimitives.jsx`, `preflight-go-no-go.md`, `tests/playwright/specs/admin-shell.browser.spec.js`, and `tests/playwright/specs/events-collectibles.browser.spec.js`.
+- Risks/follow-ups: compact mobile trait pills intentionally truncate; full values remain available through title/detail readback. The shared primitive fix also protects Collectibles and media Library poster cards from the same intrinsic-width overflow class without changing their metadata content.
+- What remains in the milestone: no implementation work remains for the `3.23.19` mobile Art card containment slice; hosted CI/release gates remain required before push-ready release promotion.
+- Recommended commit message: `Release 3.23.19 with mobile Art card trait containment`.
+
 ## 3.23.18 — Scanner Barcode Game Type Inference
 
 **Goal:** Fix native scanner barcode lookup/import candidates for console games so generic UPC provider results are typed as games instead of movies when the provider title or category includes strong game platform evidence.

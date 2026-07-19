@@ -66,12 +66,14 @@ test.describe('events and collectibles browser regressions', () => {
     }
   });
 
-  test('art poster card shows numbered signed medium subtitle without badges', async ({ page }) => {
+  test('mobile art poster card contains long trait labels without widening the page', async ({ page }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
     const adminRequestContext = await createAuthenticatedRequestContext(adminCredentials);
     const userCredentials = await createFreshUserCredentials();
     const userRequestContext = await createAuthenticatedRequestContext(userCredentials);
     const artTitle = `Playwright Minimal Art Poster ${Date.now()}`;
+    const signerName = 'Playwright Artist With A Deliberately Long Display Name';
+    const signedTraitSummary = `Signed by ${signerName}`;
     const originalFlagsPayload = await getFeatureFlags(adminRequestContext);
     const originalFlags = Array.isArray(originalFlagsPayload?.flags) ? originalFlagsPayload.flags : [];
     const originalCollectiblesEnabled = Boolean(originalFlags.find((flag) => flag?.key === 'collectibles_enabled')?.enabled);
@@ -87,9 +89,11 @@ test.describe('events and collectibles browser regressions', () => {
         medium: 'print',
         print_number: 150,
         print_run: 200,
-        signed: true
+        signed: true,
+        signer_name: signerName
       }, 201);
 
+      await page.setViewportSize({ width: 390, height: 844 });
       await signInThroughUi(page, userCredentials);
       await page.goto('/dashboard?tab=library-art');
 
@@ -97,10 +101,22 @@ test.describe('events and collectibles browser regressions', () => {
       await expect(artCard).toBeVisible();
       await expect(artCard.getByText('#150/200 Signed Print')).toBeVisible();
       await expect(artCard.locator('.badge')).toHaveCount(0);
+      const signedTrait = artCard.locator(`[title="${signedTraitSummary}"]`);
+      await expect(signedTrait).toBeVisible();
+
+      const cardBox = await artCard.boundingBox();
+      const traitBox = await signedTrait.boundingBox();
+      const pageWidth = await page.evaluate('({ scrollWidth: document.documentElement.scrollWidth, viewportWidth: window.innerWidth })');
+
+      expect(cardBox).not.toBeNull();
+      expect(traitBox).not.toBeNull();
+      expect(pageWidth.scrollWidth).toBeLessThanOrEqual(pageWidth.viewportWidth);
+      expect(traitBox.x).toBeGreaterThanOrEqual(cardBox.x);
+      expect(traitBox.x + traitBox.width).toBeLessThanOrEqual(cardBox.x + cardBox.width);
 
       await artCard.click();
       await expect(page.getByText('Collectible details')).toBeVisible();
-      await expect(page.getByText('Signed copy').first()).toBeVisible();
+      await expect(page.getByText(signedTraitSummary).first()).toBeVisible();
       await expect(page.getByText('#150/200').first()).toBeVisible();
     } finally {
       await deleteArtByExactTitle(userRequestContext, artTitle).catch(() => {});

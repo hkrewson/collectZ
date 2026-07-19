@@ -309,7 +309,7 @@ test.describe('admin shell browser regressions', () => {
     await expect(page.getByText('Manual fallback')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Defer 7 days' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Dismiss' })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Save/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Save updates', exact: true })).toBeVisible();
   });
 
   test('mobile library search toolbars stay compact', async ({ page }) => {

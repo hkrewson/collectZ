@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.23.19",
+      "version": "3.23.19",
+      "date": null,
+      "status": null,
+      "summary": "This patch keeps long collectible-detail labels inside narrow Art poster cards. On iPhone-sized screens, signing and event-acquisition labels now truncate within their own card instead of overlapping the neighboring card or widening the page beyond the viewport.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Allowed shared poster cards to shrink below the intrinsic width of their metadata.",
+            "Constrained trait-pill containers and individual pills to the available card width.",
+            "Preserved the existing two-column mobile Art grid and full trait text through the pill title/readback.",
+            "Added a mobile browser regression that checks both card-boundary containment and document viewport width with a deliberately long signer label."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.23.18",
       "version": "3.23.18",
       "date": null,
@@ -169,25 +187,6 @@
             "Documented intentional app-shell state synchronization effects for route normalization, backend-owned scope refresh, feature flag loading, retired tab redirects, feature-gated dashboard destinations, manageable workspace switching, and edition-safe dashboard tab selection.",
             "Included support-staff edition state in the safe-tab effect dependencies.",
             "Reduced the full frontend quality baseline from `60` errors / `32` warnings to `52` errors / `30` warnings."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.23.9",
-      "version": "3.23.9",
-      "date": null,
-      "status": null,
-      "summary": "This release continues the maintainability guardrails work where the current quality report shows clear value: `ArtView.jsx` was the top remaining frontend lint pocket after `3.23.8`. The slice clears Art view accessibility and hook-baseline findings without changing Art product behavior.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Removed the stale default React import from the Art view.",
-            "Made Art list rows keyboard reachable while preserving row-level open behavior and edit/delete actions.",
-            "Replaced the Art editor backdrop click target with a native button control.",
-            "Documented intentional Art state synchronization effects for artist lookup, detail loading, editor form resets, event option loading, list loading, and external focus targets.",
-            "Reduced the full frontend quality baseline from `70` errors / `33` warnings to `60` errors / `32` warnings."
           ]
         }
       ]

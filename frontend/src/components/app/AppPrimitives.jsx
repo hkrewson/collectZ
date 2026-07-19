@@ -1969,7 +1969,7 @@ export function ObjectPosterCard({
       onClick={onOpen}
       onPointerUp={onPointerUp}
       onKeyDown={interactive ? handleKeyDown : undefined}
-      className={cx('group relative animate-fade-in text-left', onOpen && 'cursor-pointer', articleClassName)}
+      className={cx('group relative min-w-0 animate-fade-in text-left', onOpen && 'cursor-pointer', articleClassName)}
     >
       <div
         className={cx(
@@ -2001,7 +2001,7 @@ export function ObjectPosterCard({
       <div className="mt-2 px-0.5">
         <p className={cx('min-w-0 truncate text-sm font-medium text-ink', titleClassName)}>{title}</p>
         {subtitle ? <p className="text-xs text-ghost">{subtitle}</p> : null}
-        {meta ? <div className="mt-1 flex flex-wrap gap-2">{meta}</div> : null}
+        {meta ? <div className="mt-1 flex min-w-0 max-w-full flex-wrap gap-2">{meta}</div> : null}
       </div>
     </article>
   );
@@ -2011,12 +2011,12 @@ export function CollectibleTraitPills({ traits = [], limit = 4, className = '' }
   const visibleTraits = Array.isArray(traits) ? traits.filter((trait) => trait?.label || trait?.summary).slice(0, limit) : [];
   if (visibleTraits.length === 0) return null;
   return (
-    <div className={cx('flex flex-wrap gap-2', className)}>
+    <div className={cx('flex min-w-0 max-w-full flex-wrap gap-2', className)}>
       {visibleTraits.map((trait, index) => (
         <span
           key={trait.key || `${trait.family || 'trait'}-${index}`}
           className={cx(
-            'inline-flex min-w-0 items-center rounded-md border px-2 py-1 text-[11px] font-medium',
+            'inline-flex min-w-0 max-w-full items-center rounded-md border px-2 py-1 text-[11px] font-medium',
             trait.tone === 'brand' ? 'border-brand/30 bg-brand/10 text-brand' : 'border-edge bg-surface text-dim'
           )}
           title={trait.summary || trait.label}
