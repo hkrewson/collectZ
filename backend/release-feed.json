@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.23.21",
+      "version": "3.23.21",
+      "date": "2026-07-22",
+      "status": "completed",
+      "summary": "This patch gives CollectZ an explicit web-app identity so an iOS Home Screen installation owns the full site instead of treating the page used during installation as its return destination.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added a web app manifest with a root app identity and route scope.",
+            "Set `/dashboard` as the stable Home Screen launch URL while keeping every CollectZ route inside the installed app.",
+            "Added standalone display, theme, and Apple Home Screen metadata.",
+            "Reused the existing CollectZ mark and color palette for standard, maskable, and Apple touch icons.",
+            "Added browser coverage for the manifest contract, MIME type, metadata links, and install icon responses.",
+            "Updated Axios to `1.18.1` in backend and frontend and refreshed backend's transitive `body-parser` to `2.3.0` after newly published advisories surfaced during the release audit."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.23.20",
       "version": "3.23.20",
       "date": null,
@@ -168,26 +188,6 @@
             "Stabilized Plex scheduler, readback, and conflict-review refresh helpers with `useCallback` before the effect that invokes them.",
             "Removed redundant boolean casts from the log export debug control.",
             "Reduced the full frontend quality baseline from `44` errors / `29` warnings to `37` errors / `27` warnings."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.23.11",
-      "version": "3.23.11",
-      "date": null,
-      "status": null,
-      "summary": "This release continues the maintainability guardrails work where the current quality report shows clear value: `SpaceManagerView.jsx` was tied for the top remaining frontend lint pocket after `3.23.10`, and it was the more contained next slice. The slice clears Space Manager import, hook-baseline, purity, and accessibility findings without changing workspace management behavior.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Removed the stale default React import from the Space Manager view.",
-            "Documented intentional Space Manager state synchronization effects for selected workspace form state, active-scope resets, member loading, and invite loading.",
-            "Kept invite expiry filtering and rendering pure by using stable invite-status time state instead of render-time clock reads.",
-            "Removed an unnecessary non-interactive member-menu click handler while preserving member action buttons.",
-            "Preserved direct `/dashboard?tab=space-manage` navigation while backend-owned scope data finishes loading.",
-            "Reduced the full frontend quality baseline from `52` errors / `30` warnings to `44` errors / `29` warnings."
           ]
         }
       ]

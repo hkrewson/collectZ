@@ -7,6 +7,38 @@ const { signInThroughUi } = require('../helpers/session');
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
+test('web app manifest owns the full CollectZ route scope', async ({ page }) => {
+  const manifestResponse = await page.request.get('/manifest.webmanifest');
+  expect(manifestResponse.ok()).toBeTruthy();
+  expect(manifestResponse.headers()['content-type']).toContain('application/manifest+json');
+
+  const manifest = await manifestResponse.json();
+  expect(manifest).toMatchObject({
+    id: '/',
+    start_url: '/dashboard',
+    scope: '/',
+    display: 'standalone',
+    background_color: '#080b10',
+    theme_color: '#080b10'
+  });
+  expect(manifest.icons).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ src: '/icons/collectz-192.png', sizes: '192x192', type: 'image/png' }),
+      expect.objectContaining({ src: '/icons/collectz-512.png', sizes: '512x512', type: 'image/png' })
+    ])
+  );
+
+  for (const iconPath of ['/icons/collectz-192.png', '/icons/collectz-512.png', '/icons/apple-touch-icon.png']) {
+    const iconResponse = await page.request.get(iconPath);
+    expect(iconResponse.ok()).toBeTruthy();
+    expect(iconResponse.headers()['content-type']).toContain('image/png');
+  }
+
+  await page.goto('/login');
+  await expect(page.locator('link[rel="manifest"]')).toHaveAttribute('href', '/manifest.webmanifest');
+  await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveAttribute('href', '/icons/apple-touch-icon.png');
+});
+
 test('admin can sign in and sign out through the browser UI', async ({ page }) => {
   const credentials = fs.existsSync(AUTH_CREDENTIALS_PATH)
     ? JSON.parse(fs.readFileSync(AUTH_CREDENTIALS_PATH, 'utf8'))

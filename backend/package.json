@@ -1,6 +1,6 @@
 {
   "name": "collectz-backend",
-  "version": "3.23.20",
+  "version": "3.23.21",
   "description": "collectZ Backend API",
   "main": "server.js",
   "scripts": {
@@ -122,7 +122,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1058.0",
-    "axios": "^1.16.1",
+    "axios": "^1.18.1",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",

@@ -6,6 +6,46 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.23.21 — iOS Home Screen App Scope
+
+**Goal:** Give CollectZ an explicit root-scoped web-app identity so iOS Home Screen installs do not treat the page used during installation as the app's canonical return destination.
+
+### Scope
+
+- Add a standards-based web app manifest with stable app identity, `/dashboard` launch behavior, root scope, and standalone display.
+- Add Apple Home Screen metadata and install icons derived from the existing CollectZ mark and palette.
+- Serve the manifest with the correct manifest MIME type from the production frontend container.
+- Add focused browser coverage for the manifest, install metadata, icon assets, and route-scope contract.
+- Resolve any blocking production dependency advisories surfaced by the release audit with narrow patched-version updates.
+
+### Acceptance Criteria
+
+- The manifest declares `id: /`, `start_url: /dashboard`, `scope: /`, and `display: standalone`.
+- Books, Movies, Art, and every other same-origin CollectZ route remain inside one installed app scope.
+- iOS receives an Apple touch icon and standalone app metadata using the existing CollectZ identity.
+- The production frontend serves the manifest as `application/manifest+json` and all declared PNG icons successfully.
+- Frontend build, focused browser regression, Docker runtime health, version sync, and Help > Releases verification pass or are explicitly marked blocked.
+
+### Active Slice Notes
+
+- This slice was selected from direct iOS 26 Home Screen behavior observed on July 22, 2026: an install created from `/library/books` returned there when other sections opened in Safari View Controller.
+- CollectZ previously had no web app manifest, stable install identity, explicit route scope, or Apple Home Screen metadata.
+- A service worker and offline mode are intentionally out of scope; neither is required to establish launch identity or navigation scope.
+- The `uncodixfy` guidance is applied by reusing the existing stacked-collection mark and current palette without introducing new visible UI or generic decorative branding.
+- The release audit surfaced new Axios and `body-parser` advisories after implementation; patched versions are included because unresolved high findings block release closeout.
+
+### Closeout
+
+- Status: implementation complete in `3.23.21`; push-ready release promotion remains pending the blocked observability evidence refresh and hosted gates.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, and `docs/releases/v3.23.21.md`.
+- Runtime evidence: rebuilt the source-backed Docker backend/frontend stack with `APP_VERSION=3.23.21` using `docker-compose.yml` plus `docker-compose.localhost.yml` on port `3301`; backend, frontend, and Postgres containers became healthy; `/api/health` reported version/frontend/backend/build `3.23.21`; `/manifest.webmanifest` returned `200` with `application/manifest+json`; the Apple touch icon returned `200` as `image/png`; Help > Releases smoke served `3.23.21` as the latest entry.
+- Verification: frontend production build passed with bundled Node 24 and in the Docker image build; the focused manifest browser regression passed against the running Nginx container; the full Playwright browser regression passed with `69` checks and `4` expected homelab skips; in-stack backend unit/source coverage passed all `342` checks; backend and frontend production dependency audits passed with zero vulnerabilities after the Axios and `body-parser` updates; CI prepare, version synchronization, release-note/feed checks, and `git diff --check` passed. The standard local release gate completed with `11` passing gates and one failed preflight aggregation gate due only to the blocked observability evidence refresh described below.
+- Blocked/unverified: the observability evidence refresh was attempted for ten minutes but Docker did not complete the Graylog/MongoDB/OpenSearch image pull after those local images had been pruned, so the attempt was interrupted without changing the running CollectZ stack. Local preflight also marks secure-cookie compose smoke environment-dependent because the verified development stack uses `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`. RBAC and core/control-plane runtime smoke were not rerun because this slice changes only static frontend install metadata and dependency patch versions; hosted CI still needs to confirm `compose-smoke`, `rbac-regression`, hosted `browser-regression`, `runtime-smoke` core/control-plane, `dependency-scan`, `secret-scan`, and `image-security-and-sbom` before push-ready release promotion.
+- Files changed: `app-meta.json`, `artifacts/dependency-audit/frontend-audit.json`, `backend/app-meta.json`, `backend/package-lock.json`, `backend/package.json`, `backend/release-feed.json`, `docs/releases/v3.23.21.md`, `docs/wiki/07-Release-Roadmap.md`, `frontend/index.html`, `frontend/nginx.conf`, `frontend/package-lock.json`, `frontend/package.json`, `frontend/public/icons/apple-touch-icon.png`, `frontend/public/icons/collectz-192.png`, `frontend/public/icons/collectz-512.png`, `frontend/public/icons/collectz-mark.svg`, `frontend/public/manifest.webmanifest`, `frontend/src/app-meta.json`, `preflight-go-no-go.md`, and `tests/playwright/specs/auth.browser.spec.js`.
+- Risks/follow-ups: existing iOS Home Screen installations must be removed and re-added after deployment because iOS caches install metadata. A cold app launch now intentionally starts at `/dashboard`; internal same-origin navigation remains within the root scope.
+- What remains in the milestone: no implementation work remains; refresh observability evidence after Docker can pull the auxiliary images and run the hosted release gates before push-ready promotion.
+- Recommended commit message: `Release 3.23.21 with root-scoped iOS Home Screen app metadata`.
+
 ## 3.23.20 — Quiet Art Poster Card Metadata
 
 **Goal:** Make Art poster cards image-first by replacing signed, numbered, and event-acquisition pills with no more than two quiet plain-text metadata lines.

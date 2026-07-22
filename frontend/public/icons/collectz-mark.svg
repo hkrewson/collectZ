@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">CollectZ</title>
+  <rect width="512" height="512" fill="#080b10" />
+  <g
+    transform="translate(64 48) scale(16)"
+    fill="none"
+    stroke="#3b82f6"
+    stroke-width="1.2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path d="M9 5.5H16.5C17.3284 5.5 18 6.17157 18 7V14.5" opacity="0.35" />
+    <path d="M6.5 8H14C14.8284 8 15.5 8.67157 15.5 9.5V17" opacity="0.6" />
+    <rect x="4" y="10.5" width="9.5" height="9" rx="1.75" />
+  </g>
+  <g transform="translate(64 48) scale(16)" fill="#3b82f6">
+    <rect x="5.25" y="12" width="1.1" height="1.1" rx="0.2" />
+    <rect x="5.25" y="14.45" width="1.1" height="1.1" rx="0.2" />
+    <rect x="5.25" y="16.9" width="1.1" height="1.1" rx="0.2" />
+  </g>
+</svg>
