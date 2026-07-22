@@ -13,6 +13,63 @@ This file is the staging area for work that has not yet been assigned a release 
 - Keep the roadmap focused on milestone work only.
 - Update the roadmap, release notes, release feed, and verification steps together when a backlog item is promoted.
 
+## Next Primary Task — Node 20 Backend Runtime Replacement
+
+### Backlog Item: Migrate the Backend Runtime to Node 24 LTS
+
+**Type:** Runtime/security maintenance
+**Tags:** `p0`, `runtime`, `security`, `node`, `backend`, `docker`, `ci`, `release-blocker`
+**Status:** Next primary task; blocks all unrelated feature, UI, and routine maintenance work until completed and verified.
+
+**Goal:** Replace the end-of-life Node 20 backend runtime with Node 24 LTS across production images, local validation, and CI without changing application behavior.
+
+**Why this work exists**
+- Node 20 reached upstream end-of-life on March 24, 2026 and no longer receives normal security fixes.
+- The production backend image still uses `node:20-alpine`, and backend-oriented GitHub Actions checks still exercise Node 20.
+- The frontend build toolchain already uses Node 24, while the shipped frontend remains static output served by Nginx.
+- Runtime support must be restored before CollectZ accepts additional unrelated implementation work.
+
+**Priority and work gate**
+- This is the next primary CollectZ task.
+- Do not start another feature, UI refinement, dependency-maintenance slice, or architectural refactor until this item is promoted into the roadmap and completed.
+- Emergency production/security remediation may interrupt only when explicitly identified as an emergency.
+- When work begins, move this item into `docs/wiki/07-Release-Roadmap.md` as a numbered milestone instead of copying it.
+
+**Architecture direction**
+- Keep the backend on Node for this migration and move directly to Node 24 LTS.
+- Treat the EOL runtime replacement as a bounded platform upgrade, not as an application-language or backend-framework rewrite.
+- Consider a different backend architecture only as a separate, evidence-driven decision based on demonstrated limits in performance, concurrency, reliability, maintainability, or operations; runtime EOL alone is not sufficient justification.
+- Architectural improvements that do not require a platform rewrite—clearer module boundaries, background-worker isolation, stronger type coverage, and smaller integration boundaries—can be evaluated after the supported runtime baseline is restored.
+
+**Intended scope**
+- Update the backend Docker base image from Node 20 to Node 24 LTS.
+- Align backend installation, test, migration, dependency-scan, and runtime-oriented CI jobs with Node 24.
+- Add an explicit supported Node engine contract to the backend package manifest.
+- Regenerate lockfile metadata only where the Node/npm transition requires it; do not introduce unrelated dependency churn.
+- Audit deprecated APIs, native dependencies, OpenSSL/crypto behavior, fetch/Undici behavior, streams, timers, and process lifecycle assumptions affected by the runtime change.
+- Keep the frontend production architecture unchanged: Vite builds static assets under Node 24 and Nginx serves them.
+- Update CI/runtime documentation so the supported runtime and failure evidence are unambiguous.
+
+**Required verification**
+- Clean backend dependency installation under Node 24.
+- Backend unit and source-contract tests.
+- OpenAPI validation.
+- Database migration, init parity, and migration rehearsal checks.
+- API integration smoke, RBAC regression, and core/control-plane runtime smoke.
+- Full browser regression against the rebuilt stack.
+- Backend/frontend production dependency audits, secret scan, and image security/SBOM gates.
+- Docker image build and running-stack health/version verification.
+- Standard and full release gates required by the release checklist, with any genuinely blocked hosted-only gate recorded explicitly.
+
+**Acceptance Criteria**
+- No production image, supported local workflow, or blocking CI gate uses Node 20.
+- The backend declares and runs on Node 24 LTS.
+- Clean installs and the complete relevant regression/release suite pass without Node engine warnings or runtime compatibility failures.
+- Runtime, CI, deployment, and release documentation consistently identify Node 24 as the supported backend runtime.
+- Node 20 references remain only in historical release evidence or migration context, not in active configuration.
+- The running Docker stack is healthy and reports the expected release metadata after the upgrade.
+- Hosted CI confirms dependency scanning, secret scanning, runtime smoke, browser regression, and image security/SBOM before the milestone is closed.
+
 ## UI/UX Refinement Backlog
 
 These are unscheduled interface cleanup tasks discovered during the `3.10.x` mobile header and search work. Keep them versionless until selected and moved into the roadmap as numbered UI/UX milestones.
