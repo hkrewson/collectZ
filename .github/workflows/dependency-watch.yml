@@ -15,7 +15,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup Node
+      - name: Setup backend Node
         uses: actions/setup-node@v6
         with:
           node-version: 20
@@ -28,6 +28,11 @@ jobs:
           npm ci --no-fund --no-audit
           npm outdated --json > ../artifacts/backend-outdated.json || true
           npm audit --omit=dev --json > ../artifacts/backend-audit.json || true
+
+      - name: Setup frontend Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
 
       - name: Generate frontend dependency report
         run: |

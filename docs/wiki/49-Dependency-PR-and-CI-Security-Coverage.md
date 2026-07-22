@@ -18,8 +18,8 @@ Verified with `gh pr list` on 2026-06-03.
 
 | Gate | Location | Proves | Blocking posture |
 |---|---|---|---|
-| Dependency vulnerability scan | `.github/workflows/docker-publish.yml` `dependency-scan` | Backend/frontend production dependency audit runs from committed lockfiles. Critical vulnerabilities block. High findings require release-note triage. | Blocking for publish workflow. |
-| Dependency watch | `.github/workflows/dependency-watch.yml` | Scheduled outdated/audit reporting for backend and frontend dependencies. Produces review artifacts without blocking releases. | Advisory. |
+| Dependency vulnerability scan | `.github/workflows/docker-publish.yml` `dependency-scan` | Backend/frontend production dependency audit runs from committed lockfiles, with the backend installed under Node 20 and the frontend under Node 24. Critical vulnerabilities block. High findings require release-note triage. | Blocking for publish workflow. |
+| Dependency watch | `.github/workflows/dependency-watch.yml` | Scheduled outdated/audit reporting installs the backend under Node 20 and the frontend under Node 24. Produces review artifacts without blocking releases. | Advisory. |
 | Dependabot | `.github/dependabot.yml` | Weekly npm and GitHub Actions update PRs. | Advisory until PR selected. |
 | Snyk PR checks | GitHub/Snyk integration | External dependency/security signal on Dependabot PRs. | Advisory unless configured as required in GitHub branch protection. |
 | GitGuardian | GitHub/GitGuardian integration | External secret scanning signal on PRs. | Advisory unless configured as required in GitHub branch protection. |

@@ -61,7 +61,7 @@ Security and release gates in CI:
 - Local CI/CD release gate (`npm run release:local-gate`) for pre-push maintainer validation before public CI runs.
 - CodeQL code scanning for JavaScript/TypeScript source analysis.
 - Secret leak scan (gitleaks) against repository history and current tree.
-- Dependency vulnerability scan (`npm audit`) on backend/frontend dependencies.
+- Dependency vulnerability scan (`npm audit`) on backend/frontend dependencies, using Node 20 for the backend install and Node 24 for the frontend install so each committed lockfile is validated against its supported runtime.
 - RBAC regression gate (API-level ownership/role/scope allow-deny checks).
 - Playwright browser-regression gate against the live compose stack for key auth/admin shell flows.
 - Runtime smoke gate with a `Core runtime` step that verifies shared surfaces still work while control-plane-only APIs stay unmounted.

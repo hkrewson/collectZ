@@ -15,7 +15,8 @@
             "Added standalone display, theme, and Apple Home Screen metadata.",
             "Reused the existing CollectZ mark and color palette for standard, maskable, and Apple touch icons.",
             "Added browser coverage for the manifest contract, MIME type, metadata links, and install icon responses.",
-            "Updated Axios to `1.18.1` in backend and frontend and refreshed backend's transitive `body-parser` to `2.3.0` after newly published advisories surfaced during the release audit."
+            "Updated Axios to `1.18.1` in backend and frontend and refreshed backend's transitive `body-parser` to `2.3.0` after newly published advisories surfaced during the release audit.",
+            "Repaired the frontend lockfile's missing optional `@emnapi` peer entries and aligned dependency CI with the supported runtime split: Node 20 for backend installs and Node 24 for frontend installs."
           ]
         }
       ]

@@ -174,7 +174,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup Node
+      - name: Setup backend Node
         uses: actions/setup-node@v6
         with:
           node-version: 20
@@ -182,6 +182,11 @@ jobs:
       - name: Install backend deps
         working-directory: backend
         run: npm ci --no-fund
+
+      - name: Setup frontend Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
 
       - name: Install frontend deps
         working-directory: frontend
