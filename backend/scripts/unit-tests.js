@@ -326,6 +326,7 @@ const homelabSharedBrowserSpecSource = fs.readFileSync(require.resolve('../../te
 const homelabEditionBoundarySmokeSource = fs.readFileSync(require.resolve('../scripts/homelab-edition-boundary-smoke'), 'utf8');
 const platformEditionBoundarySmokeSource = fs.readFileSync(require.resolve('../scripts/platform-edition-boundary-smoke'), 'utf8');
 const dockerPublishWorkflowSource = fs.readFileSync(require.resolve('../../.github/workflows/docker-publish.yml'), 'utf8');
+const dependencyWatchWorkflowSource = fs.readFileSync(require.resolve('../../.github/workflows/dependency-watch.yml'), 'utf8');
 const codeqlWorkflowSource = fs.readFileSync(require.resolve('../../.github/workflows/codeql.yml'), 'utf8');
 const codeqlConfigSource = fs.readFileSync(require.resolve('../../.github/codeql/codeql-config.yml'), 'utf8');
 const codeqlMaintainedSourceSuite = fs.readFileSync(require.resolve('../../.github/codeql/collectz-maintained-source.qls'), 'utf8');
@@ -333,6 +334,8 @@ const codeqlModelPackSource = fs.readFileSync(require.resolve('../../.github/cod
 const codeqlRequestForgeryModelSource = fs.readFileSync(require.resolve('../../.github/codeql/collectz-js-models/models/request-forgery.model.yml'), 'utf8');
 const stablePromotionWorkflowSource = fs.readFileSync(require.resolve('../../.github/workflows/promote-stable.yml'), 'utf8');
 const browserCapturesWorkflowSource = fs.readFileSync(require.resolve('../../.github/workflows/browser-captures.yml'), 'utf8');
+const syslogComposeSource = fs.readFileSync(require.resolve('../../ops/logging/docker-compose.syslog.yml'), 'utf8');
+const sizingDockerfileSource = fs.readFileSync(require.resolve('../../ops/sizing/Dockerfile'), 'utf8');
 const nowPlayingViewerBrowserSpecSource = fs.readFileSync(require.resolve('../../tests/playwright/specs/now-playing-viewer.browser.spec.js'), 'utf8');
 const dockerComposeSource = fs.readFileSync(require.resolve('../../docker-compose.yml'), 'utf8');
 const ciBuildComposePath = path.resolve(__dirname, '..', '..', '.ci', 'docker-compose.build.yml');
@@ -3007,6 +3010,24 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
   assert.ok(!frontendDockerfileSource.includes('@playwright/test'));
 }));
 
+results.push(run('active runtime and CI configuration use the Node 24 baseline', () => {
+  assert.strictEqual(backendPackageJson.engines?.node, '>=24.0.0 <25');
+  assert.ok(backendDockerfileSource.startsWith('FROM node:24-alpine'));
+  assert.ok(sizingDockerfileSource.startsWith('FROM node:24-alpine'));
+  assert.ok(syslogComposeSource.includes('image: node:24-alpine'));
+  [
+    backendDockerfileSource,
+    sizingDockerfileSource,
+    syslogComposeSource,
+    dockerPublishWorkflowSource,
+    dependencyWatchWorkflowSource,
+    browserCapturesWorkflowSource
+  ].forEach((source) => {
+    assert.ok(!source.includes('node:20'));
+    assert.ok(!source.includes('node-version: 20'));
+  });
+}));
+
 results.push(run('release docs do not preserve fixed local Playwright bypass token values', () => {
   const fixedBypassTokenPattern = /PLAYWRIGHT_E2E_BYPASS_TOKEN=collectz-playwright\b/;
   assert.ok(!fixedBypassTokenPattern.test(releaseRoadmapSource));
@@ -4287,8 +4308,9 @@ results.push(run('repo includes local CI/CD release gate and opt-in pre-push hoo
   assert.ok(localRuntimeSmokeSource.includes('collectz-local-runtime-'));
   assert.ok(localRuntimeSmokeSource.includes('docker-compose.build.yml'));
   assert.ok(localRuntimeSmokeSource.includes('docker-compose.platform.yml'));
-  assert.ok(localRuntimeSmokeSource.includes('test:core-runtime-smoke'));
-  assert.ok(localRuntimeSmokeSource.includes('test:control-plane-runtime-smoke'));
+  assert.ok(localRuntimeSmokeSource.includes('scripts/homelab-edition-boundary-smoke.js'));
+  assert.ok(localRuntimeSmokeSource.includes('scripts/platform-edition-boundary-smoke.js'));
+  assert.ok(!localRuntimeSmokeSource.includes("'npm',\n      'run'"));
   assert.ok(localRuntimeSmokeSource.includes('--include-platform'));
   assert.ok(localRuntimeSmokeSource.includes('--platform-only'));
   assert.ok(localGitHooksInstallerSource.includes('collectZ managed local release gate hook'));
@@ -8262,7 +8284,7 @@ results.push(run('observability endpoint control-plane source includes stored co
   assert.ok(integrationsRoutesSource.includes('logExportControl'));
   assert.ok(integrationsRoutesSource.includes('log_export_host_label'));
   assert.ok(integrationsRoutesSource.includes('log_export_service'));
-  assert.ok(integrationsRoutesSource.includes('log_export_last_validation_status'));
+  assert.ok(integrationsServiceSource.includes('log_export_last_validation_status'));
   assert.ok(observabilityRuntimeSource.includes('configSource'));
   assert.ok(observabilityRuntimeSource.includes('storedBackend'));
   assert.ok(observabilityRuntimeSource.includes('storedHostLabel'));
@@ -8346,7 +8368,8 @@ results.push(run('portability status source keeps readback redacted and restore 
   });
   assert.strictEqual(notConfigured.status, 'not_configured');
   assert.strictEqual(notConfigured.configured, false);
-  const markerPath = path.join(os.tmpdir(), `collectz-backup-freshness-marker-${process.pid}.json`);
+  const markerDirectory = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'collectz-backup-freshness-'));
+  const markerPath = path.join(markerDirectory, 'marker.json');
   try {
     await fs.promises.writeFile(markerPath, JSON.stringify({
       status: 'ok',
@@ -8370,7 +8393,7 @@ results.push(run('portability status source keeps readback redacted and restore 
     assert.strictEqual(stale.status, 'stale');
     assert.ok(stale.detail.includes('4-hour freshness target'));
   } finally {
-    await fs.promises.rm(markerPath, { force: true });
+    await fs.promises.rm(markerDirectory, { recursive: true, force: true });
   }
   const redactionStats = { redacted: 0 };
   const redacted = redactPortableValue({

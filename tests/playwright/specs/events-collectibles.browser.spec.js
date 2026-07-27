@@ -408,8 +408,8 @@ test.describe('events and collectibles browser regressions', () => {
         title: eventTitle,
         url: `https://example.test/mobile-social/${suffix}`,
         location: 'San Diego Convention Center',
-        date_start: '2026-07-23',
-        date_end: '2026-07-26'
+        date_start: '2099-07-23',
+        date_end: '2099-07-26'
       }, 201);
       const eventPayload = await eventResponse.json();
       const eventId = Number(eventPayload?.id || 0);
@@ -436,7 +436,7 @@ test.describe('events and collectibles browser regressions', () => {
       await postWithCsrf(userRequestContext, `/api/events/${eventId}/meetups`, {
         title: 'Meet outside Hall H',
         group_id: groupId,
-        start_at: '2026-07-23T18:00:00.000Z',
+        start_at: '2099-07-23T18:00:00.000Z',
         location: 'Hall H doors',
         vendor: 'Hall H Cafe',
         booth: 'HH-12',
@@ -447,7 +447,7 @@ test.describe('events and collectibles browser regressions', () => {
       await postWithCsrf(userRequestContext, `/api/events/${eventId}/schedule-plans`, {
         title: 'Spotlight on Playwright',
         location: 'Room 6DE',
-        start_at: '2026-07-23T17:00:00.000Z',
+        start_at: '2099-07-23T17:00:00.000Z',
         source_type: 'manual',
         status: 'planned',
         visibility: 'event_workspace'

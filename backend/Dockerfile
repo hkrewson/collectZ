@@ -1,4 +1,4 @@
-FROM node:20-alpine
+FROM node:24-alpine
 
 WORKDIR /app
 
@@ -9,7 +9,7 @@ RUN apk upgrade --no-cache \
   && apk add --no-cache su-exec
 
 COPY package*.json ./
-RUN npm install --omit=dev \
+RUN npm ci --omit=dev \
   && npm cache clean --force \
   && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 

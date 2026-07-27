@@ -1,6 +1,29 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.24.0",
+      "version": "3.24.0",
+      "date": "2026-07-26",
+      "status": "implementation complete; hosted release gates pending",
+      "summary": "This release restores CollectZ to an upstream-supported runtime baseline by moving the backend, active CI jobs, and operational Node helper images from end-of-life Node 20 to Node 24 LTS.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Moved the production backend Docker image to Node 24.",
+            "Declared Node 24 as the supported backend package engine.",
+            "Made the production backend image use lockfile-strict `npm ci`.",
+            "Aligned active GitHub Actions jobs and scheduled dependency reporting on Node 24.",
+            "Moved the syslog collector and sizing helper images to Node 24.",
+            "Added source-contract coverage that rejects active Node 20 runtime or CI configuration.",
+            "Updated newly disclosed vulnerable transitive development/build dependencies without changing the application dependency architecture.",
+            "Repaired a stale browser fixture and pre-existing maintained-source CodeQL findings exposed by the full release gate.",
+            "Kept the current application architecture: Node/Express/Postgres for the backend and Vite-built static assets served by Nginx for the frontend."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.23.21",
       "version": "3.23.21",
       "date": "2026-07-22",
@@ -169,26 +192,6 @@
             "Moved filter/search pagination resets into the user-input paths that trigger them.",
             "Documented the loan-list fetch effect that intentionally synchronizes backend-owned loan state from the active filter/page query.",
             "Reduced the full frontend quality baseline from `37` errors / `27` warnings to `31` errors / `25` warnings."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.23.12",
-      "version": "3.23.12",
-      "date": null,
-      "status": null,
-      "summary": "This release continues the maintainability guardrails work where the current quality report shows clear value: `AdminIntegrationsView.jsx` was the top remaining frontend lint pocket after `3.23.11`. The slice clears Admin Integrations import, hook-baseline, helper-order, dependency, and boolean-cast findings without changing integration settings behavior.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Removed the stale default React import from the Admin Integrations view.",
-            "Documented intentional integration-section synchronization from external dashboard routes and runtime feature availability.",
-            "Documented workspace-scoped runtime feature-flag reset behavior.",
-            "Stabilized Plex scheduler, readback, and conflict-review refresh helpers with `useCallback` before the effect that invokes them.",
-            "Removed redundant boolean casts from the log export debug control.",
-            "Reduced the full frontend quality baseline from `44` errors / `29` warnings to `37` errors / `27` warnings."
           ]
         }
       ]

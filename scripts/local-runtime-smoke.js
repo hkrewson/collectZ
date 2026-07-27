@@ -109,7 +109,9 @@ function runRuntime({ runtime }) {
   const portsOverridePath = writeNoHostPortsOverride({ runtime });
   const baseCompose = composeArgs({ project, envPath, runtime, portsOverridePath });
   const expectedEdition = runtime === 'control-plane' ? 'platform' : 'homelab';
-  const smokeScript = runtime === 'control-plane' ? 'test:control-plane-runtime-smoke' : 'test:core-runtime-smoke';
+  const smokeScript = runtime === 'control-plane'
+    ? 'scripts/platform-edition-boundary-smoke.js'
+    : 'scripts/homelab-edition-boundary-smoke.js';
 
   try {
     console.log(`Running ${runtime} runtime smoke in isolated project ${project}...`);
@@ -139,8 +141,7 @@ function runRuntime({ runtime }) {
       '-e',
       'BASE_URL=http://frontend:3000',
       'backend',
-      'npm',
-      'run',
+      'node',
       smokeScript
     ]);
   } finally {

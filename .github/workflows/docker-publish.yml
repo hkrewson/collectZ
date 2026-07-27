@@ -28,7 +28,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Read version
         id: vars
@@ -177,7 +177,7 @@ jobs:
       - name: Setup backend Node
         uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Install backend deps
         working-directory: backend
@@ -331,7 +331,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Install backend deps
         working-directory: backend
@@ -564,7 +564,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Install root browser-test deps
         run: npm ci --no-audit --no-fund

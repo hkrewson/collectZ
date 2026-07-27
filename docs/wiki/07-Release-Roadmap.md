@@ -6,6 +6,48 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.24.0 — Node 24 Backend Runtime Baseline
+
+**Goal:** Restore the backend and active operational tooling to an upstream-supported Node LTS baseline without changing CollectZ application behavior or architecture.
+
+### Scope
+
+- Move the production backend image from Node 20 to Node 24 LTS.
+- Align active GitHub Actions, dependency reporting, browser tooling, syslog collection, and sizing helper images on Node 24.
+- Declare the supported backend Node engine and refresh lockfile metadata under Node 24 without unrelated dependency churn.
+- Add source-contract coverage that prevents active runtime and CI configuration from returning to Node 20.
+- Preserve the current architecture: the backend remains Node/Express/Postgres, while Vite builds static frontend assets served by Nginx.
+- Complete the full runtime, migration, browser, security, evidence, and release checklist for the new baseline.
+
+### Acceptance Criteria
+
+- No production image, supported operational image, or active GitHub Actions workflow uses Node 20.
+- The backend package declares Node 24 as its supported runtime and installs cleanly under Node 24.
+- Backend unit, OpenAPI, migration, init-parity, integration, RBAC, core/control-plane runtime, and browser checks pass against the rebuilt stack.
+- Dependency audits, secret scanning, image security, and SBOM gates pass or are explicitly identified as hosted-only follow-through.
+- Runtime/CI documentation identifies Node 24 as the supported backend and tooling baseline.
+- Version metadata, `docs/releases/v3.24.0.md`, the in-app release feed, and running-stack Help > Releases verification are aligned.
+
+### Active Slice Notes
+
+- Selected from the P0 backlog on July 26, 2026 because Node 20 reached upstream end-of-life on March 24, 2026.
+- `3.24.0` is a minor-version boundary because the supported production runtime, Docker base, CI execution contract, and release/security evidence change together.
+- A backend framework or language rewrite is intentionally out of scope; runtime EOL is being resolved as a bounded platform upgrade.
+- Verification is staged internally—contract/build, runtime/data, regression/security, then release closure—but ships as one milestone unless a concrete compatibility issue requires separation.
+- Status: implementation complete; hosted release gates pending.
+
+### Closeout
+
+- Status: implementation complete in `3.24.0`; release promotion remains pending the hosted-only gates below.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/49-Dependency-PR-and-CI-Security-Coverage.md`, and `docs/releases/v3.24.0.md`.
+- Runtime evidence: production backend and sizing images built on Node `24.18.0`; bcrypt loaded successfully in the production backend image; the source-backed backend/frontend/Postgres stack became healthy on port `3301`; in-container inspection reported Node `24.18.0`, `APP_VERSION=3.24.0`, and `/api/health` reported application/frontend/backend/build `3.24.0`; Help > Releases served `3.24.0` as its newest entry.
+- Verification: root/backend/frontend clean `npm ci` passed in disposable Node 24 containers; backend unit coverage passed `343` checks; OpenAPI, integration smoke, RBAC regression, init parity, migration rehearsal, core runtime smoke, control-plane runtime smoke, syslog/sizing configuration validation, and the full browser regression (`69` passed, `4` expected homelab-only skips) passed. Observability evidence passed `9/9`; production dependency audits were clean; frontend PostCSS and backend development brace-expansion advisories were patched; the standard local release gate passed `12/12`; maintained-source CodeQL finished with `5` reviewed results and `0` active findings.
+- Blocked/unverified: gitleaks is not installed locally, so repository-history `secret-scan` remains hosted-only. The full local gate intentionally defers Trivy/SBOM execution, so `image-security-and-sbom` remains hosted-only. The verified development stack uses `SESSION_COOKIE_SECURE=false` with `NODE_ENV=development`, so hosted `compose-smoke` must confirm the production secure-cookie contract. Hosted CI must rerun all publish gates after push.
+- Files changed: `.github/workflows/browser-captures.yml`, `.github/workflows/dependency-watch.yml`, `.github/workflows/docker-publish.yml`, `app-meta.json`, `artifacts/observability-evidence/observability-release-evidence.json`, `backend/Dockerfile`, backend version/package/lock/release-feed files, `backend/middleware/auth.js`, `backend/routes/integrations.js`, `backend/scripts/unit-tests.js`, `backend/services/mobileAuthTokens.js`, `docs/releases/v3.24.0.md`, roadmap/backlog/CI dependency docs, frontend version/package/lock files, `frontend/src/components/app/productEdition.js`, `ops/logging/docker-compose.syslog.yml`, `ops/sizing/Dockerfile`, `preflight-go-no-go.md`, `scripts/local-runtime-smoke.js`, and `tests/playwright/specs/events-collectibles.browser.spec.js`.
+- Risks/follow-ups: operators building outside Docker must install Node 24. Rollback to `3.23.21` also restores end-of-life Node 20 and should be temporary. The architecture remains Node/Express/Postgres; any framework or language rewrite requires a separate evidence-driven milestone.
+- What remains in the milestone: no local implementation work remains; push the commit when ready and require hosted `compose-smoke`, `rbac-regression`, `browser-regression`, core/control-plane `runtime-smoke`, `dependency-scan`, `secret-scan`, and `image-security-and-sbom` to pass before promotion.
+- Recommended commit message: `Release 3.24.0 with the Node 24 backend and CI runtime baseline`.
+
 ## 3.23.21 — iOS Home Screen App Scope
 
 **Goal:** Give CollectZ an explicit root-scoped web-app identity so iOS Home Screen installs do not treat the page used during installation as the app's canonical return destination.

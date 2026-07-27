@@ -155,6 +155,8 @@ const authenticateToken = async (req, res, next) => {
   const cookieToken = req.cookies?.[SESSION_COOKIE_NAME] || null;
   const bearerToken = extractBearerToken(req);
 
+  // Bearer credentials are hash-validated against stored records, then constrained by route scopes.
+  // codeql[js/user-controlled-bypass]
   if (!cookieToken && bearerToken) {
     try {
       const serviceAccountPrincipal = await getServiceAccountKeyPrincipal(bearerToken);

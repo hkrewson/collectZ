@@ -46,6 +46,12 @@ Pipeline behavior:
 
 Result: nav/version + `/api/health` build fields come from image build, not operator runtime commands.
 
+Supported Node baseline:
+
+- The backend production image and active Node-based CI/tooling paths use Node 24 LTS.
+- The frontend uses Node 24 only for dependency installation and the Vite build; the shipped frontend runtime remains static assets served by Nginx.
+- Backend `package.json` declares the supported Node engine so unsupported local installs fail visibly instead of silently drifting from CI and production.
+
 Migration safety in CI:
 
 - `migration-check` runs schema migrations against ephemeral Postgres.
@@ -61,7 +67,7 @@ Security and release gates in CI:
 - Local CI/CD release gate (`npm run release:local-gate`) for pre-push maintainer validation before public CI runs.
 - CodeQL code scanning for JavaScript/TypeScript source analysis.
 - Secret leak scan (gitleaks) against repository history and current tree.
-- Dependency vulnerability scan (`npm audit`) on backend/frontend dependencies, using Node 20 for the backend install and Node 24 for the frontend install so each committed lockfile is validated against its supported runtime.
+- Dependency vulnerability scan (`npm audit`) on backend/frontend dependencies under Node 24 so each committed lockfile is validated against the supported runtime baseline.
 - RBAC regression gate (API-level ownership/role/scope allow-deny checks).
 - Playwright browser-regression gate against the live compose stack for key auth/admin shell flows.
 - Runtime smoke gate with a `Core runtime` step that verifies shared surfaces still work while control-plane-only APIs stay unmounted.

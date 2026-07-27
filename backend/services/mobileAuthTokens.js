@@ -154,6 +154,8 @@ const refreshMobileAuthSession = async (refreshToken) => {
 };
 
 const revokeMobileAuthSession = async ({ sessionId = null, refreshToken = null }) => {
+  // The refresh credential is hashed; it cannot select a session without an exact stored-hash match.
+  // codeql[js/user-controlled-bypass]
   const refreshTokenHash = refreshToken ? hashMobileAuthToken(refreshToken) : null;
   const result = await pool.query(
     `UPDATE mobile_auth_sessions

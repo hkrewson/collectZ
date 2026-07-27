@@ -470,19 +470,6 @@ function resolveNextAdminValuationState(body = {}, existing = null) {
   };
 }
 
-function normalizeLogExportValidationRecord(row) {
-  const status = String(row?.log_export_last_validation_status || '').trim().toLowerCase();
-  if (!status) return null;
-  return {
-    status,
-    detail: String(row?.log_export_last_validation_message || '').trim() || '',
-    backend: row?.log_export_last_validation_backend || null,
-    host: row?.log_export_last_validation_host || null,
-    port: Number(row?.log_export_last_validation_port || 0) || null,
-    validatedAt: row?.log_export_last_validated_at || null
-  };
-}
-
 function hasPlatformOnlyIntegrationUpdate(body = {}) {
   return (
     body.priceChartingEnabled !== undefined

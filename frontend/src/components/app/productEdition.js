@@ -96,7 +96,7 @@ export function getSupportAdminAllowedTabs() {
 
 export function getAllowedDashboardTabs(productEdition, options = {}) {
   if (String(options?.userRole || '').trim().toLowerCase() === SUPPORT_STAFF_ROLE) {
-    return getSupportAdminAllowedTabs(productEdition, options);
+    return getSupportAdminAllowedTabs();
   }
   if (isLocalProductEdition(productEdition)) return getLocalRuntimeAllowedTabs(options);
   if (!options?.platformBridgeEnabled) return getLocalRuntimeAllowedTabs(options);
