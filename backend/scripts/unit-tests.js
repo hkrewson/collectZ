@@ -7947,7 +7947,11 @@ results.push(run('mobile capture inbox foundation is scoped, routed, and reviewa
   assert.ok(captureItemsRoutesSource.includes("await logActivity(req, 'capture.ocr.image_extract'"));
   assert.ok(captureItemsRoutesSource.includes("await logActivity(req, 'capture.ocr.apply_candidate'"));
   assert.ok(captureItemsRoutesSource.includes("await logActivity(req, 'capture.lookup_matches'"));
-  assert.ok(captureItemsRoutesSource.includes("await logActivity(req, 'capture.import_match'"));
+  assert.ok(captureItemsRoutesSource.includes("directReviewMatch ? 'capture.import_review' : 'capture.import_match'"));
+  assert.ok(captureItemsRoutesSource.includes("'capture.import_review'"));
+  assert.ok(captureItemsRoutesSource.includes("providedMatch.source === 'capture_review'"));
+  assert.ok(captureItemsRoutesSource.includes('MEDIA_LIBRARY_OBJECT_TYPES.has(requestedMediaType)'));
+  assert.ok(captureItemsRoutesSource.includes("capture_import_mode: directReviewMatch ? 'review_title' : 'lookup_match'"));
   assert.ok(captureItemsRoutesSource.includes('capture_lookup_matches'));
   assert.ok(captureItemsRoutesSource.includes('selected_capture_lookup_match'));
   assert.ok(mediaRoutesSource.includes('router.lookupScannerBarcodeCandidates'));
@@ -8021,6 +8025,9 @@ results.push(run('mobile capture inbox foundation is scoped, routed, and reviewa
   assert.ok(captureInboxViewSource.includes("apiCall('post', `/capture-items/${item.id}/apply-ocr-candidate`"));
   assert.ok(captureInboxViewSource.includes("apiCall('post', `/capture-items/${item.id}/lookup-matches`"));
   assert.ok(captureInboxViewSource.includes("apiCall('post', `/capture-items/${item.id}/import-match`"));
+  assert.ok(captureInboxViewSource.includes('captureReviewImportType'));
+  assert.ok(captureInboxViewSource.includes("match_type: 'capture_review'"));
+  assert.ok(captureInboxViewSource.includes('Add to library'));
   assert.ok(captureInboxViewSource.includes("apiCall('post', `/capture-items/${item.id}/resolve-replay-conflict`"));
   assert.ok(captureInboxViewSource.includes('Replay conflict'));
   assert.ok(captureInboxViewSource.includes('Use replayed values'));

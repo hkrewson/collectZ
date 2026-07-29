@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.24.1",
+      "version": "3.24.1",
+      "date": "2026-07-28",
+      "status": "implementation complete; hosted release gates pending",
+      "summary": "This release lets a title-only browser-extension capture complete Capture Inbox review as a normal library import after the reviewer chooses its media type.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added a compact library-type selector and explicit Add to library action for titled captures without lookup matches.",
+            "Added Book, Comic, Movie, TV, Audio, and Game as supported review-import targets.",
+            "Reused the existing media enrichment, deduplication, creation, and linking pipeline.",
+            "Kept the stored capture title authoritative during title-only review imports.",
+            "Recorded the chosen object type and title-review import provenance on converted captures.",
+            "Documented the title-only capture-review API contract and added backend and browser regression coverage."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.24.0",
       "version": "3.24.0",
       "date": "2026-07-26",
@@ -172,26 +192,6 @@
             "Documented auth route/query synchronization effects for invite, email, and token URL values.",
             "Documented route feedback clearing and automatic email-verification consumption as intentional auth side effects.",
             "Reduced the full frontend quality baseline from `31` errors / `25` warnings to `25` errors / `24` warnings."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.23.13",
-      "version": "3.23.13",
-      "date": null,
-      "status": null,
-      "summary": "This release continues the maintainability guardrails work where the current quality report shows clear value: `LibraryLoansView.jsx` was the top remaining frontend lint pocket after `3.23.12`. The slice clears Library Loans import, accessibility, and hook-baseline findings without changing loan tracking behavior.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Removed stale import and unused prop surface from the Library Loans view.",
-            "Replaced the loan editor backdrop click target with a native button control.",
-            "Initialized the loan editor from the selected loan without a form synchronization effect.",
-            "Moved filter/search pagination resets into the user-input paths that trigger them.",
-            "Documented the loan-list fetch effect that intentionally synchronizes backend-owned loan state from the active filter/page query.",
-            "Reduced the full frontend quality baseline from `37` errors / `27` warnings to `31` errors / `25` warnings."
           ]
         }
       ]

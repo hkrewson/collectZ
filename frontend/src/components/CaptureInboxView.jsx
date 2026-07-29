@@ -56,6 +56,11 @@ const OBJECT_TYPES = [
   { value: 'event_item', label: 'Event item' }
 ];
 
+const MEDIA_IMPORT_TYPES = OBJECT_TYPES.filter((option) => (
+  ['book', 'comic_book', 'movie', 'tv_series', 'audio', 'game'].includes(option.value)
+));
+const MEDIA_IMPORT_TYPE_VALUES = new Set(MEDIA_IMPORT_TYPES.map((option) => option.value));
+
 const EMPTY_FORM = {
   title: '',
   capture_type: 'manual_note',
@@ -160,6 +165,13 @@ function isSafeExactIsbnMatch(match, barcode) {
 function findSafeExactIsbnMatch(matches = [], barcode = '') {
   const candidates = (Array.isArray(matches) ? matches : []).filter((match) => isSafeExactIsbnMatch(match, barcode));
   return candidates.length === 1 && matches.length === 1 ? candidates[0] : null;
+}
+
+function captureReviewImportType(item = {}, overrides = {}) {
+  const override = String(overrides[item.id] || '').trim().toLowerCase();
+  if (MEDIA_IMPORT_TYPE_VALUES.has(override)) return override;
+  const objectType = String(item.object_type || '').trim().toLowerCase();
+  return MEDIA_IMPORT_TYPE_VALUES.has(objectType) ? objectType : '';
 }
 
 function CaptureFilterMenu({
@@ -599,6 +611,7 @@ export default function CaptureInboxView({ apiCall, onToast, Icons, Spinner }) {
   const [formLookup, setFormLookup] = useState(EMPTY_FORM_LOOKUP);
   const [error, setError] = useState(null);
   const [workingCaptureId, setWorkingCaptureId] = useState(null);
+  const [reviewImportTypes, setReviewImportTypes] = useState({});
   const [formImporting, setFormImporting] = useState(false);
   const [scanRequest, setScanRequest] = useState(0);
   const [batchMode, setBatchMode] = useState(false);
@@ -1053,6 +1066,48 @@ export default function CaptureInboxView({ apiCall, onToast, Icons, Spinner }) {
     }
   };
 
+  const importCaptureReview = async (item) => {
+    const mediaType = captureReviewImportType(item, reviewImportTypes);
+    const title = String(item.title || '').trim();
+    if (!title) {
+      onToast?.('Add a title before importing this capture.', 'error');
+      return;
+    }
+    if (!mediaType) {
+      onToast?.('Choose a library type before importing this capture.', 'error');
+      return;
+    }
+
+    setWorkingCaptureId(item.id);
+    try {
+      const response = await apiCall('post', `/capture-items/${item.id}/import-match`, {
+        match: {
+          id: `capture-review:${item.id}`,
+          source: 'capture_review',
+          match_type: 'capture_review',
+          title,
+          normalizedTitle: title,
+          searchTitle: title,
+          mediaTypeGuess: mediaType,
+          media_type: mediaType
+        },
+        media_type: mediaType
+      });
+      const action = response?.import?.action === 'matched_existing' ? 'linked' : 'imported';
+      onToast?.(`Capture ${action} to library.`, 'success');
+      setReviewImportTypes((current) => {
+        const next = { ...current };
+        delete next[item.id];
+        return next;
+      });
+      await loadCaptures(pagination.page || 1);
+    } catch (err) {
+      onToast?.(err?.message || 'Could not import capture.', 'error');
+    } finally {
+      setWorkingCaptureId(null);
+    }
+  };
+
   const resolveReplayConflict = async (item, action) => {
     setWorkingCaptureId(item.id);
     try {
@@ -1374,6 +1429,13 @@ export default function CaptureInboxView({ apiCall, onToast, Icons, Spinner }) {
             const reviewReasons = Array.isArray(item.review_reasons) ? item.review_reasons : [];
             const replayConflict = latestReplayConflict(item);
             const replayFields = Array.isArray(replayConflict?.fields) ? replayConflict.fields : [];
+            const reviewImportType = captureReviewImportType(item, reviewImportTypes);
+            const canImportTitleCapture = Boolean(
+              item.status !== 'converted'
+              && item.status !== 'discarded'
+              && String(item.title || '').trim()
+              && lookupMatchesList.length === 0
+            );
             return (
               <div key={item.id} className="grid gap-3 py-3 md:grid-cols-[auto_1fr_auto] md:items-center">
                 {item.image_path ? (
@@ -1497,6 +1559,34 @@ export default function CaptureInboxView({ apiCall, onToast, Icons, Spinner }) {
                   {item.notes ? <div className="mt-1 line-clamp-2 text-xs text-dim">{item.notes}</div> : null}
                 </div>
                 <div className="flex flex-wrap gap-2 md:justify-end">
+                  {canImportTitleCapture ? (
+                    <>
+                      <select
+                        className="select h-8 min-w-32 py-1 text-sm"
+                        value={reviewImportType}
+                        aria-label={`Library type for ${primary}`}
+                        disabled={workingCaptureId === item.id}
+                        onChange={(event) => {
+                          const nextType = event.target.value;
+                          setReviewImportTypes((current) => ({ ...current, [item.id]: nextType }));
+                        }}
+                      >
+                        <option value="">Choose type</option>
+                        {MEDIA_IMPORT_TYPES.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        className="btn-secondary btn-sm"
+                        disabled={workingCaptureId === item.id || !reviewImportType}
+                        aria-label={`Add ${primary} to library`}
+                        onClick={() => importCaptureReview(item)}
+                      >
+                        Add to library
+                      </button>
+                    </>
+                  ) : null}
                   {item.image_path && (
                     <button
                       type="button"

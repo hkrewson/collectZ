@@ -6,6 +6,44 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.24.1 — Browser Capture Review Import
+
+**Goal:** Let a title-only browser-extension capture complete its Capture Inbox review as a normal library import.
+
+### Scope
+
+- Add an explicit library-type choice and import action for titled Capture Inbox items that do not have barcode lookup matches.
+- Reuse the existing media enrichment, deduplication, creation, and linking pipeline instead of creating a separate extension-only import path.
+- Keep the stored capture title authoritative and record the selected media type, conversion result, and review-import provenance on the capture.
+- Document the title-only review contract in OpenAPI and cover it in backend source contracts and browser regression.
+
+### Acceptance Criteria
+
+- A new `manual_note` capture created by the browser extension exposes a disabled import action until a supported library type is selected.
+- Choosing Book, Comic, Movie, TV, Audio, or Game and confirming the action creates, updates, or links a scoped media row through the standard import pipeline.
+- The capture becomes `converted`, links to the resulting media row, retains its title, records the chosen object type, and identifies the conversion as a title review import.
+- Existing barcode/photo lookup-match and wishlist-conversion paths continue to work.
+- OpenAPI, version metadata, release notes/feed, Docker runtime evidence, and relevant regression gates are aligned for `3.24.1`.
+
+### Active Slice Notes
+
+- Selected from direct browser-extension capture testing on July 28, 2026 after a valid title-only capture reached the Capture Inbox without an available library import action.
+- The extension remains a capture producer; CollectZ owns review, media-type choice, enrichment, deduplication, and canonical library creation.
+- The `uncodixfy` guidance keeps the new control to one compact type selector and one plain secondary action within the existing row.
+- Status: implementation complete; hosted release gates pending.
+
+### Closeout
+
+- Status: implementation complete in `3.24.1`; release promotion remains pending the hosted-only gates below.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, and `docs/releases/v3.24.1.md`.
+- Runtime evidence: rebuilt the source-backed backend/frontend Docker stack with `APP_VERSION=3.24.1` on port `3301`; backend, frontend, and Postgres became healthy; the running backend reported Node `24.18.0`; `/api/health` reported application/frontend/backend/build `3.24.1`; Help > Releases served `3.24.1` as its newest entry. A browser-extension-shaped `manual_note` capture required an explicit Movie selection, then converted through the visible Add to library action into a linked canonical media row with the original capture title and title-review provenance.
+- Verification: backend unit/source coverage passed all `343` checks; OpenAPI, frontend production build, API integration smoke, RBAC regression, init parity, migration rehearsal, and focused Capture Inbox browser coverage passed. Isolated production-shaped core and control-plane runtime smokes passed. The full Playwright regression passed `69` checks with `4` expected homelab-only skips. Observability evidence passed `9/9`; backend and frontend production dependency audits reported zero vulnerabilities; the standard local release gate passed `12/12`; maintained-source CodeQL reviewed `5` results with `0` active findings; `git diff --check` passed.
+- Blocked/unverified: `gitleaks` is not installed locally, so repository-history `secret-scan` remains hosted-only. `trivy` is not installed locally, so `image-security-and-sbom` remains hosted-only. The full local gate's browser sub-gate requires an opt-in bypass token and reported blocked, while the complete authenticated browser suite passed independently without one. The verified development stack uses `SESSION_COOKIE_SECURE=false` with `NODE_ENV=development`; isolated production-shaped runtime smokes passed, and hosted `compose-smoke` must confirm the exact CI secure-cookie contract. Hosted CI must rerun all publish gates after push.
+- Files changed: `app-meta.json`, observability and local preflight evidence, backend/frontend app metadata and version/lock files, `backend/openapi/openapi.yaml`, `backend/release-feed.json`, `backend/routes/captureItems.js`, `backend/scripts/unit-tests.js`, `docs/releases/v3.24.1.md`, `docs/wiki/07-Release-Roadmap.md`, `frontend/src/components/CaptureInboxView.jsx`, and `tests/playwright/specs/admin-shell.browser.spec.js`.
+- Risks/follow-ups: reviewers must still choose the correct library type for title-only captures. Provider enrichment can refine a reviewed title, and the standard deduplication path can link or update an existing scoped item; automatic type inference remains intentionally out of scope.
+- What remains in the milestone: no local implementation work remains; push the commit when ready and require hosted `compose-smoke`, `rbac-regression`, `browser-regression`, core/control-plane `runtime-smoke`, `dependency-scan`, `secret-scan`, and `image-security-and-sbom` to pass before promotion.
+- Recommended commit message: `Release 3.24.1 with browser capture review imports`.
+
 ## 3.24.0 — Node 24 Backend Runtime Baseline
 
 **Goal:** Restore the backend and active operational tooling to an upstream-supported Node LTS baseline without changing CollectZ application behavior or architecture.

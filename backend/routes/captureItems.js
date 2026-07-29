@@ -31,6 +31,7 @@ const ALLOWED_IMAGE_MIME_TYPES = new Set(['image/jpeg', 'image/jpg', 'image/png'
 const CAPTURE_TYPES = new Set(['barcode', 'photo', 'ocr_text', 'manual_note']);
 const STATUSES = new Set(['new', 'reviewed', 'converted', 'discarded']);
 const OBJECT_TYPES = new Set(['movie', 'tv_series', 'book', 'comic_book', 'audio', 'game', 'art', 'collectible', 'event_item', 'other']);
+const MEDIA_LIBRARY_OBJECT_TYPES = new Set(['movie', 'tv_series', 'book', 'comic_book', 'audio', 'game']);
 const REVIEW_FILTERS = new Set(['all', 'needs_choice', 'no_match', 'ready', 'missing_details', 'problems']);
 const SOURCE_FILTERS = new Set(['all', 'scanner', 'web']);
 
@@ -1142,7 +1143,29 @@ router.post('/capture-items/:id/import-match', asyncHandler(async (req, res) => 
   const matchId = nullableString(req.body?.match_id);
   const storedMatch = matchId ? findStoredLookupMatch(shapedCurrent.review_decision, matchId) : null;
   const providedMatch = jsonObject(req.body?.match || req.body?.selectedMatch);
-  const selectedMatch = storedMatch || providedMatch;
+  const directReviewMatch = !storedMatch
+    && providedMatch.source === 'capture_review'
+    && providedMatch.match_type === 'capture_review';
+  if (directReviewMatch && !shapedCurrent.title) {
+    return res.status(400).json({ error: 'Capture needs a title before it can be imported.' });
+  }
+  const requestedMediaType = normalizeObjectType(
+    req.body?.media_type || providedMatch.media_type || providedMatch.mediaTypeGuess,
+    ''
+  );
+  if (directReviewMatch && !MEDIA_LIBRARY_OBJECT_TYPES.has(requestedMediaType)) {
+    return res.status(400).json({ error: 'Choose a supported library type before importing this capture.' });
+  }
+  const selectedMatch = directReviewMatch
+    ? {
+        ...providedMatch,
+        title: shapedCurrent.title,
+        normalizedTitle: shapedCurrent.title,
+        searchTitle: shapedCurrent.title,
+        mediaTypeGuess: requestedMediaType,
+        media_type: requestedMediaType
+      }
+    : (storedMatch || providedMatch);
   if (!selectedMatch?.media_id && !selectedMatch?.title) {
     return res.status(400).json({ error: 'Select a stored lookup match or provide a match with a title.' });
   }
@@ -1163,16 +1186,25 @@ router.post('/capture-items/:id/import-match', asyncHandler(async (req, res) => 
     selectedMatch,
     barcode,
     symbology: nullableString(req.body?.symbology) || selectedMatch.symbology || shapedCurrent.symbology || '',
-    mediaType: nullableString(req.body?.media_type) || selectedMatch.media_type || selectedMatch.mediaTypeGuess || shapedCurrent.object_type || null,
-    importSource: 'capture_lookup',
-    activityAction: 'media.import_capture_lookup',
-    existingActivityAction: 'media.import_capture_lookup.existing'
+    mediaType: directReviewMatch
+      ? requestedMediaType
+      : (nullableString(req.body?.media_type) || selectedMatch.media_type || selectedMatch.mediaTypeGuess || shapedCurrent.object_type || null),
+    importSource: directReviewMatch ? 'capture_review' : 'capture_lookup',
+    activityAction: directReviewMatch ? 'media.import_capture_review' : 'media.import_capture_lookup',
+    existingActivityAction: directReviewMatch ? 'media.import_capture_review.existing' : 'media.import_capture_lookup.existing'
   });
   if (!importResult?.body?.ok || !importResult.body.media_id) {
     return res.status(importResult?.statusCode || 400).json(importResult?.body || { error: 'Capture match import failed.' });
   }
 
   const importedAt = new Date().toISOString();
+  const importedObjectType = normalizeObjectType(
+    importResult.body.media?.media_type
+      || req.body?.media_type
+      || selectedMatch.media_type
+      || selectedMatch.mediaTypeGuess,
+    shapedCurrent.object_type || 'other'
+  );
   const reviewDecision = mergeReviewDecision(shapedCurrent.review_decision, {
     selected_capture_lookup_match: selectedMatch,
     selected_capture_lookup_match_at: importedAt,
@@ -1187,10 +1219,11 @@ router.post('/capture-items/:id/import-match', asyncHandler(async (req, res) => 
       lookup_status: importResult.body.lookup_status || null,
       imported_at: importedAt
     },
+    capture_import_mode: directReviewMatch ? 'review_title' : 'lookup_match',
     converted_to: 'media'
   });
   const sourceContext = mergeReviewDecision(shapedCurrent.source_context, {
-    capture_import_source: 'lookup_match',
+    capture_import_source: directReviewMatch ? 'review_title' : 'lookup_match',
     capture_imported_at: importedAt
   });
 
@@ -1198,14 +1231,16 @@ router.post('/capture-items/:id/import-match', asyncHandler(async (req, res) => 
     `UPDATE capture_items
         SET status = 'converted',
             linked_media_id = $1,
+            object_type = $2,
             converted_at = COALESCE(converted_at, CURRENT_TIMESTAMP),
-            review_decision = $2::jsonb,
-            source_context = $3::jsonb,
+            review_decision = $3::jsonb,
+            source_context = $4::jsonb,
             updated_at = CURRENT_TIMESTAMP
-      WHERE id = $4
+      WHERE id = $5
       RETURNING *`,
     [
       importResult.body.media_id,
+      importedObjectType,
       JSON.stringify(reviewDecision),
       JSON.stringify(sourceContext),
       id
@@ -1213,7 +1248,7 @@ router.post('/capture-items/:id/import-match', asyncHandler(async (req, res) => 
   );
 
   const updated = shapeCaptureItem(result.rows[0]);
-  await logActivity(req, 'capture.import_match', 'capture_item', updated.id, {
+  await logActivity(req, directReviewMatch ? 'capture.import_review' : 'capture.import_match', 'capture_item', updated.id, {
     title: updated.title,
     captureType: updated.capture_type,
     mediaId: importResult.body.media_id,

@@ -907,14 +907,18 @@ test.describe('admin shell browser regressions', () => {
     const suffix = Date.now();
     const title = `Playwright Capture ${suffix}`;
     const photoTitle = `Playwright Photo Capture ${suffix}`;
+    const browserCaptureTitle = `Playwright Browser Capture ${suffix}`;
     const clientCaptureId = `playwright-capture-${suffix}`;
     const photoClientCaptureId = `playwright-photo-${suffix}`;
     const scannerClientCaptureId = `playwright-scanner-${suffix}`;
+    const browserClientCaptureId = `playwright-browser-extension-${suffix}`;
     const adminCredentials = await ensureSavedAdminCredentials();
     const requestContext = await createAuthenticatedRequestContext(adminCredentials);
     let captureId = null;
     let photoCaptureId = null;
     let scannerCaptureId = null;
+    let browserCaptureId = null;
+    let browserCaptureMediaId = null;
     let wantedItemId = null;
     let catalogMediaId = null;
 
@@ -982,6 +986,19 @@ test.describe('admin shell browser regressions', () => {
       scannerCaptureId = Number(scannerCapturePayload?.item?.id || 0);
       expect(scannerCaptureId).toBeGreaterThan(0);
       expect(scannerCapturePayload?.item?.client_source).toBe('ios-scanner-app');
+
+      const browserCaptureResponse = await postWithCsrf(requestContext, '/api/capture-items', {
+        title: browserCaptureTitle,
+        capture_type: 'manual_note',
+        object_type: 'other',
+        client_capture_id: browserClientCaptureId,
+        client_source: 'browser-extension',
+        source_context: { source: 'browser_extension' }
+      }, 201);
+      const browserCapturePayload = await browserCaptureResponse.json();
+      browserCaptureId = Number(browserCapturePayload?.item?.id || 0);
+      expect(browserCaptureId).toBeGreaterThan(0);
+      expect(browserCapturePayload?.item?.client_source).toBe('browser-extension');
 
       const scannerFilterResponse = await requestContext.get('/api/capture-items?status=active&source_filter=scanner');
       expect(scannerFilterResponse.ok()).toBeTruthy();
@@ -1099,6 +1116,39 @@ test.describe('admin shell browser regressions', () => {
       expect((await allCapturesResponse).ok()).toBeTruthy();
       await expect(page.getByText(title, { exact: true })).toBeVisible();
       await expect(page.getByText(photoTitle, { exact: true })).toBeVisible();
+      await expect(page.getByText(browserCaptureTitle, { exact: true })).toBeVisible();
+      const browserCaptureRow = page.getByText(browserCaptureTitle, { exact: true })
+        .locator('xpath=ancestor::div[contains(@class, "md:grid-cols-[auto_1fr_auto]")][1]');
+      const browserImportType = browserCaptureRow.getByLabel(`Library type for ${browserCaptureTitle}`);
+      const browserImportButton = browserCaptureRow.getByRole('button', { name: `Add ${browserCaptureTitle} to library` });
+      await expect(browserImportType).toHaveValue('');
+      await expect(browserImportButton).toBeDisabled();
+      await browserImportType.selectOption('movie');
+      await expect(browserImportButton).toBeEnabled();
+      await page.route(`**/api/capture-items/${browserCaptureId}/import-match`, async (route) => {
+        await route.continue({
+          headers: {
+            ...route.request().headers(),
+            'x-import-enrichment-mode': 'skip'
+          }
+        });
+      });
+      const browserImportResponse = page.waitForResponse((response) => (
+        response.url().includes(`/api/capture-items/${browserCaptureId}/import-match`)
+        && response.request().method() === 'POST'
+      ));
+      await browserImportButton.click();
+      const browserImportPayload = await (await browserImportResponse).json();
+      expect(browserImportPayload?.ok).toBe(true);
+      expect(browserImportPayload?.item?.status).toBe('converted');
+      expect(browserImportPayload?.item?.object_type).toBe('movie');
+      expect(browserImportPayload?.item?.review_decision?.capture_import_mode).toBe('review_title');
+      expect(browserImportPayload?.item?.source_context?.capture_import_source).toBe('review_title');
+      expect(browserImportPayload?.match?.title).toBe(browserCaptureTitle);
+      expect(browserImportPayload?.import?.media?.title).toBe(browserCaptureTitle);
+      browserCaptureMediaId = Number(browserImportPayload?.item?.linked_media_id || 0);
+      expect(browserCaptureMediaId).toBeGreaterThan(0);
+      await page.unroute(`**/api/capture-items/${browserCaptureId}/import-match`);
       const replayConflictReview = page.getByLabel('Replay conflict review').first();
       const replayReason = page.getByLabel('Capture review reasons').filter({ hasText: 'Replay conflict' }).first();
       await expect(replayReason).toBeVisible();
@@ -1203,11 +1253,17 @@ test.describe('admin shell browser regressions', () => {
       if (scannerCaptureId) {
         await requestWithCsrf(requestContext, 'DELETE', `/api/capture-items/${scannerCaptureId}`, undefined, [200, 404]).catch(() => {});
       }
+      if (browserCaptureId) {
+        await requestWithCsrf(requestContext, 'DELETE', `/api/capture-items/${browserCaptureId}`, undefined, [200, 404]).catch(() => {});
+      }
       if (wantedItemId) {
         await requestWithCsrf(requestContext, 'DELETE', `/api/wishlist/${wantedItemId}`, undefined, [200, 404]).catch(() => {});
       }
       if (catalogMediaId) {
         await requestWithCsrf(requestContext, 'DELETE', `/api/media/${catalogMediaId}`, undefined, [200, 404]).catch(() => {});
+      }
+      if (browserCaptureMediaId) {
+        await requestWithCsrf(requestContext, 'DELETE', `/api/media/${browserCaptureMediaId}`, undefined, [200, 404]).catch(() => {});
       }
       await requestContext.dispose();
     }

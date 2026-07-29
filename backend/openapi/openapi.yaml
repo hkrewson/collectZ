@@ -5326,8 +5326,8 @@
     "/api/capture-items/{id}/import-match": {
       "post": {
         "tags": ["Capture"],
-        "summary": "Import or link a selected capture lookup match",
-        "description": "Converts an explicit user-selected capture lookup match into a canonical media row, or links the capture to an existing scoped media row when the match already exists. This is an explicit review action and reuses the scanner barcode import path rather than auto-importing lookup results.",
+        "summary": "Import a reviewed capture or link a selected lookup match",
+        "description": "Converts an explicit user-reviewed capture into a canonical media row, or links the capture to an existing scoped media row when a selected lookup match already exists. Barcode captures can identify a stored match by match_id. Title-only captures, including browser-extension manual notes, provide a capture_review match plus an explicit media_type. Both paths reuse the scanner import enrichment and deduplication pipeline; lookup results are never auto-imported.",
         "security": [
           { "cookieSession": [], "csrfHeader": [] },
           { "bearerAuth": [] }
@@ -5343,11 +5343,20 @@
                 "type": "object",
                 "properties": {
                   "match_id": { "type": "string", "description": "ID of a previously stored capture lookup match." },
-                  "match": { "$ref": "#/components/schemas/BarcodeLookupMatch" },
+                  "match": {
+                    "allOf": [
+                      { "$ref": "#/components/schemas/BarcodeLookupMatch" }
+                    ],
+                    "description": "Selected lookup match, or a title-only review match with source and match_type set to capture_review. The stored capture title remains authoritative for capture_review imports."
+                  },
                   "selectedMatch": { "$ref": "#/components/schemas/BarcodeLookupMatch" },
                   "barcode": { "type": "string" },
                   "symbology": { "type": "string" },
-                  "media_type": { "type": "string", "enum": ["movie", "tv_series", "book", "comic_book", "audio", "game", "other"] }
+                  "media_type": {
+                    "type": "string",
+                    "enum": ["movie", "tv_series", "book", "comic_book", "audio", "game", "other"],
+                    "description": "Required as one of movie, tv_series, book, comic_book, audio, or game for a title-only capture_review import."
+                  }
                 },
                 "additionalProperties": false
               }
