@@ -1,0 +1,146 @@
+name: fleetdm
+
+services:
+  mysql:
+    image: mysql:8.4.8
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: fleet
+      MYSQL_USER: fleet
+      MYSQL_PASSWORD_FILE: /run/secrets/mysql_password
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password
+    secrets:
+      - mysql_password
+      - mysql_root_password
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - fleet
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - mysqladmin ping -h 127.0.0.1 -ufleet -p"$$(cat /run/secrets/mysql_password)" --silent
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  redis:
+    image: redis:7.4.5-alpine
+    restart: unless-stopped
+    command:
+      - /bin/sh
+      - -ec
+      - exec redis-server --appendonly yes --requirepass "$$(cat /run/secrets/redis_password)"
+    secrets:
+      - redis_password
+    volumes:
+      - redis_data:/data
+    networks:
+      - fleet
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - redis-cli --no-auth-warning -a "$$(cat /run/secrets/redis_password)" ping | grep -q PONG
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  fleet-volume-init:
+    image: alpine:3.22.1
+    restart: "no"
+    network_mode: none
+    command: ["sh", "-ec", "chown -R 100:101 /fleet /logs /vulndb"]
+    volumes:
+      - fleet_data:/fleet
+      - fleet_logs:/logs
+      - fleet_vulndb:/vulndb
+
+  fleet:
+    image: fleetdm/fleet:v4.89.2
+    platform: linux/amd64
+    restart: unless-stopped
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        export FLEET_REDIS_PASSWORD="$$(cat /run/secrets/redis_password)"
+        export FLEET_SERVER_PRIVATE_KEY="$$(cat /run/secrets/server_private_key)"
+        /usr/bin/fleet prepare db --no-prompt
+        exec /usr/bin/fleet serve
+    environment:
+      FLEET_MYSQL_ADDRESS: mysql:3306
+      FLEET_MYSQL_DATABASE: fleet
+      FLEET_MYSQL_USERNAME: fleet
+      FLEET_MYSQL_PASSWORD_PATH: /run/secrets/mysql_password
+      FLEET_REDIS_ADDRESS: redis:6379
+      FLEET_SERVER_ADDRESS: 0.0.0.0:1337
+      FLEET_SERVER_TLS: "true"
+      FLEET_SERVER_CERT: /fleet-tls/fleet.crt
+      FLEET_SERVER_KEY: /fleet-tls/fleet.key
+      FLEET_SERVER_TRUSTED_PROXIES: none
+      FLEET_LOGGING_JSON: "true"
+      FLEET_OSQUERY_STATUS_LOG_PLUGIN: filesystem
+      FLEET_FILESYSTEM_STATUS_LOG_FILE: /logs/osqueryd.status.log
+      FLEET_FILESYSTEM_RESULT_LOG_FILE: /logs/osqueryd.results.log
+      FLEET_VULNERABILITIES_CURRENT_INSTANCE_CHECKS: "yes"
+      FLEET_VULNERABILITIES_DATABASES_PATH: /vulndb
+      FLEET_VULNERABILITIES_PERIODICITY: 1h
+      FLEET_LICENSE_KEY: ${FLEET_LICENSE_KEY:-}
+    secrets:
+      - mysql_password
+      - redis_password
+      - server_private_key
+    volumes:
+      - fleet_data:/fleet
+      - fleet_logs:/logs
+      - fleet_vulndb:/vulndb
+      - type: bind
+        source: ${FLEET_TLS_CERT:-./certs/fleet.crt}
+        target: /fleet-tls/fleet.crt
+        read_only: true
+      - type: bind
+        source: ${FLEET_TLS_KEY:-./certs/fleet.key}
+        target: /fleet-tls/fleet.key
+        read_only: true
+    ports:
+      - "${FLEET_PORT:-1337}:1337"
+    networks:
+      - fleet
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      fleet-volume-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget --no-check-certificate -qO- https://127.0.0.1:1337/healthz >/dev/null
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+secrets:
+  mysql_root_password:
+    file: ${FLEET_SECRETS_DIR:-./secrets}/mysql_root_password
+  mysql_password:
+    file: ${FLEET_SECRETS_DIR:-./secrets}/mysql_password
+  redis_password:
+    file: ${FLEET_SECRETS_DIR:-./secrets}/redis_password
+  server_private_key:
+    file: ${FLEET_SECRETS_DIR:-./secrets}/server_private_key
+
+volumes:
+  mysql_data:
+  redis_data:
+  fleet_data:
+  fleet_logs:
+  fleet_vulndb:
+
+networks:
+  fleet:
+    driver: bridge
