@@ -10,6 +10,7 @@ const { uploadBuffer, readLocalUploadBuffer } = require('../services/storage');
 const { buildCaptureOcrCandidates } = require('../services/captureOcr');
 const { extractTextFromImageBuffer } = require('../services/captureImageOcr');
 const { loadIntegrationConfigRow, normalizeIntegrationRecord } = require('../services/integrations');
+const { buildBrowserCaptureMapping, applyBrowserCaptureMapping } = require('../services/browserCaptureMapping');
 const mediaRouter = require('./media');
 
 const router = express.Router();
@@ -165,6 +166,7 @@ function buildCaptureReviewReasons(row = {}, reviewDecision = {}) {
 function shapeCaptureItem(row) {
   const sourceContext = jsonObject(row.source_context);
   const reviewDecision = jsonObject(row.review_decision);
+  const importMapping = buildBrowserCaptureMapping(sourceContext);
   return {
     id: row.id,
     title: row.title,
@@ -181,6 +183,7 @@ function shapeCaptureItem(row) {
     client_source: sourceContext.client_source || null,
     review_decision: reviewDecision,
     review_reasons: buildCaptureReviewReasons(row, reviewDecision),
+    import_mapping: importMapping.available ? importMapping : null,
     linked_media_id: row.linked_media_id,
     wanted_item_id: row.wanted_item_id,
     library_id: row.library_id,
@@ -1140,6 +1143,7 @@ router.post('/capture-items/:id/import-match', asyncHandler(async (req, res) => 
   if (!current) return res.status(404).json({ error: 'Capture item not found.' });
 
   const shapedCurrent = shapeCaptureItem(current);
+  const captureMapping = buildBrowserCaptureMapping(shapedCurrent.source_context);
   const matchId = nullableString(req.body?.match_id);
   const storedMatch = matchId ? findStoredLookupMatch(shapedCurrent.review_decision, matchId) : null;
   const providedMatch = jsonObject(req.body?.match || req.body?.selectedMatch);
@@ -1163,7 +1167,25 @@ router.post('/capture-items/:id/import-match', asyncHandler(async (req, res) => 
         normalizedTitle: shapedCurrent.title,
         searchTitle: shapedCurrent.title,
         mediaTypeGuess: requestedMediaType,
-        media_type: requestedMediaType
+        media_type: requestedMediaType,
+        year: captureMapping.import_hints?.year || providedMatch.year || null,
+        image: captureMapping.import_hints?.poster_path || providedMatch.image || null,
+        upc: captureMapping.import_hints?.upc || shapedCurrent.barcode || providedMatch.upc || null,
+        format: captureMapping.import_hints?.format || providedMatch.format || null,
+        owned_formats: captureMapping.import_hints?.owned_formats || providedMatch.owned_formats || null,
+        typeDetails: {
+          ...jsonObject(providedMatch.typeDetails || providedMatch.type_details),
+          ...jsonObject(captureMapping.import_hints?.type_details)
+        },
+        typeEnrichment: {
+          year: captureMapping.import_hints?.year || null,
+          runtime: captureMapping.import_hints?.runtime || null,
+          format: captureMapping.import_hints?.format || null,
+          owned_formats: captureMapping.import_hints?.owned_formats || null,
+          poster_path: captureMapping.import_hints?.poster_path || null,
+          trailer_url: captureMapping.import_hints?.trailer_url || null,
+          type_details: jsonObject(captureMapping.import_hints?.type_details)
+        }
       }
     : (storedMatch || providedMatch);
   if (!selectedMatch?.media_id && !selectedMatch?.title) {
@@ -1197,6 +1219,15 @@ router.post('/capture-items/:id/import-match', asyncHandler(async (req, res) => 
     return res.status(importResult?.statusCode || 400).json(importResult?.body || { error: 'Capture match import failed.' });
   }
 
+  const metadataMappingResult = captureMapping.available
+    ? await applyBrowserCaptureMapping({
+        db: pool,
+        mediaId: importResult.body.media_id,
+        scopeContext,
+        mapping: captureMapping
+      })
+    : { applied: [], skipped: [], variant_id: null };
+
   const importedAt = new Date().toISOString();
   const importedObjectType = normalizeObjectType(
     importResult.body.media?.media_type
@@ -1218,6 +1249,13 @@ router.post('/capture-items/:id/import-match', asyncHandler(async (req, res) => 
       lookup_path: importResult.body.lookup_path || null,
       lookup_status: importResult.body.lookup_status || null,
       imported_at: importedAt
+    },
+    capture_metadata_mapping: {
+      provider: captureMapping.provider || null,
+      applied: metadataMappingResult.applied,
+      skipped: metadataMappingResult.skipped,
+      variant_id: metadataMappingResult.variant_id,
+      mapped_at: importedAt
     },
     capture_import_mode: directReviewMatch ? 'review_title' : 'lookup_match',
     converted_to: 'media'
@@ -1255,6 +1293,9 @@ router.post('/capture-items/:id/import-match', asyncHandler(async (req, res) => 
     importStatus: importResult.body.status || null,
     matchId: selectedMatch.id || null,
     barcode: importResult.body.barcode || barcode || null,
+    mappingApplied: metadataMappingResult.applied,
+    mappingSkipped: metadataMappingResult.skipped,
+    variantId: metadataMappingResult.variant_id,
     spaceId: updated.space_id,
     libraryId: updated.library_id
   });
@@ -1262,7 +1303,8 @@ router.post('/capture-items/:id/import-match', asyncHandler(async (req, res) => 
     ok: true,
     item: updated,
     import: importResult.body,
-    match: selectedMatch
+    match: selectedMatch,
+    mapping: metadataMappingResult
   });
 }));
 

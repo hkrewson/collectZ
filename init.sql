@@ -1400,6 +1400,7 @@ CREATE INDEX IF NOT EXISTS idx_media_seasons_media_id_watch_state ON media_seaso
 CREATE INDEX IF NOT EXISTS idx_media_seasons_watchlist ON media_seasons(watchlist);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_media_variants_plex_part ON media_variants (source, source_part_id) WHERE source = 'plex' AND source_part_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_media_variants_plex_item ON media_variants (source, source_item_key) WHERE source = 'plex' AND source_item_key IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_media_variants_bluray_item ON media_variants (media_id, source, source_item_key) WHERE source = 'blu-ray.com' AND source_item_key IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_invites_token ON invites(token);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_invites_token_hash ON invites(token_hash) WHERE token_hash IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_invites_active ON invites(used, revoked, expires_at);
@@ -1917,5 +1918,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (113, 'Add explicit Plex writeback opt-in settings'),
     (114, 'Add persisted Plex readback refresh settings'),
     (115, 'Add wishlist booth support for event field kits'),
-    (116, 'Add mobile auth sessions for native scanner tokens')
+    (116, 'Add mobile auth sessions for native scanner tokens'),
+    (117, 'Add idempotent Blu-ray.com physical media variants')
 ON CONFLICT (version) DO NOTHING;

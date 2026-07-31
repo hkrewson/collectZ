@@ -1427,6 +1427,11 @@ export default function CaptureInboxView({ apiCall, onToast, Icons, Spinner }) {
             const lookupMatchesList = Array.isArray(item.review_decision?.capture_lookup_matches) ? item.review_decision.capture_lookup_matches : [];
             const lookupStatus = item.review_decision?.capture_lookup_status || {};
             const reviewReasons = Array.isArray(item.review_reasons) ? item.review_reasons : [];
+            const importPreview = Array.isArray(item.import_mapping?.preview) ? item.import_mapping.preview : [];
+            const importPreviewText = importPreview
+              .map((entry) => [entry?.label, entry?.value].filter(Boolean).join(' '))
+              .filter(Boolean)
+              .join(' · ');
             const replayConflict = latestReplayConflict(item);
             const replayFields = Array.isArray(replayConflict?.fields) ? replayConflict.fields : [];
             const reviewImportType = captureReviewImportType(item, reviewImportTypes);
@@ -1458,6 +1463,11 @@ export default function CaptureInboxView({ apiCall, onToast, Icons, Spinner }) {
                   {reviewReasons.length ? (
                     <div className="mt-1 text-xs text-ghost" aria-label="Capture review reasons">
                       Review: {reviewReasons.map((reason) => reason.label).join(' · ')}
+                    </div>
+                  ) : null}
+                  {importPreviewText ? (
+                    <div className="mt-1 line-clamp-2 text-xs text-dim" aria-label="Import mapping preview">
+                      Will add: {importPreviewText}
                     </div>
                   ) : null}
                   {item.image_path ? <div className="mt-1 truncate text-xs text-dim">{item.image_path}</div> : null}

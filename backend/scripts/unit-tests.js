@@ -92,6 +92,12 @@ const {
   buildMediaIdentityAliasEntries
 } = require('../services/mediaIdentityAliases');
 const { buildOwnedFormatsPayload, buildMergedOwnedFormatsPayload, getOwnedFormatLabel } = require('../services/mediaFormats');
+const {
+  BLURAY_VALUATION_SOURCE,
+  buildBrowserCaptureMapping,
+  formatsFromBlurayLabel,
+  parseLegacyUsedPrice
+} = require('../services/browserCaptureMapping');
 const { compareReleaseVersions, parseReleaseMarkdown } = require('../services/releaseNotes');
 const { buildCoreInstanceContract } = require('../services/coreInstance');
 const {
@@ -7952,6 +7958,9 @@ results.push(run('mobile capture inbox foundation is scoped, routed, and reviewa
   assert.ok(captureItemsRoutesSource.includes("providedMatch.source === 'capture_review'"));
   assert.ok(captureItemsRoutesSource.includes('MEDIA_LIBRARY_OBJECT_TYPES.has(requestedMediaType)'));
   assert.ok(captureItemsRoutesSource.includes("capture_import_mode: directReviewMatch ? 'review_title' : 'lookup_match'"));
+  assert.ok(captureItemsRoutesSource.includes('buildBrowserCaptureMapping'));
+  assert.ok(captureItemsRoutesSource.includes('applyBrowserCaptureMapping'));
+  assert.ok(captureItemsRoutesSource.includes('capture_metadata_mapping'));
   assert.ok(captureItemsRoutesSource.includes('capture_lookup_matches'));
   assert.ok(captureItemsRoutesSource.includes('selected_capture_lookup_match'));
   assert.ok(mediaRoutesSource.includes('router.lookupScannerBarcodeCandidates'));
@@ -7995,6 +8004,7 @@ results.push(run('mobile capture inbox foundation is scoped, routed, and reviewa
   assert.ok(openApiSource.includes('"CaptureOcrCandidateApplyResponse"'));
   assert.ok(openApiSource.includes('"CaptureLookupMatchesResponse"'));
   assert.ok(openApiSource.includes('"CaptureImportMatchResponse"'));
+  assert.ok(openApiSource.includes('"CaptureImportMapping"'));
   assert.ok(openApiSource.includes('"client_capture_id"'));
   assert.ok(openApiSource.includes('"clientCaptureId"'));
   assert.ok(openApiSource.includes('"idempotency"'));
@@ -8025,6 +8035,8 @@ results.push(run('mobile capture inbox foundation is scoped, routed, and reviewa
   assert.ok(captureInboxViewSource.includes("apiCall('post', `/capture-items/${item.id}/apply-ocr-candidate`"));
   assert.ok(captureInboxViewSource.includes("apiCall('post', `/capture-items/${item.id}/lookup-matches`"));
   assert.ok(captureInboxViewSource.includes("apiCall('post', `/capture-items/${item.id}/import-match`"));
+  assert.ok(captureInboxViewSource.includes('aria-label="Import mapping preview"'));
+  assert.ok(captureInboxViewSource.includes('Will add: {importPreviewText}'));
   assert.ok(captureInboxViewSource.includes('captureReviewImportType'));
   assert.ok(captureInboxViewSource.includes("match_type: 'capture_review'"));
   assert.ok(captureInboxViewSource.includes('Add to library'));
@@ -8094,6 +8106,72 @@ results.push(run('mobile capture inbox foundation is scoped, routed, and reviewa
   assert.ok(captureImageOcrServiceSource.includes("form.append('file'"));
   assert.ok(captureImageOcrServiceSource.includes('extractOcrSpaceText'));
   assert.ok(integrationsServiceSource.includes('visionApiKey'));
+}));
+
+results.push(run('blu-ray browser captures map structured release evidence without changing movie date semantics', () => {
+  const mapping = buildBrowserCaptureMapping({
+    contract: 'collectz.capture.v1',
+    extension_version: '0.1.1',
+    source: 'browser_extension',
+    client_source: 'browser-extension',
+    adapter: 'bluray',
+    url: 'https://www.blu-ray.com/movies/Dune-4K-Blu-ray/295838/',
+    canonical_url: 'https://www.blu-ray.com/movies/Dune-4K-Blu-ray/295838/',
+    captured_at: '2026-07-31T18:00:00.000Z',
+    identifiers: {
+      bluray_product_id: '295838',
+      bluray_content_id: '111111',
+      bluray_global_product_id: '222222',
+      imdb_id: 'tt1160419',
+      upc: '883929701223'
+    },
+    page_metadata: {
+      edition: '4K Ultra HD + Blu-ray + Digital',
+      media_format: '4K Ultra HD + Blu-ray + Digital',
+      cover_image_url: 'https://images.example.test/dune.jpg',
+      trailer_url: 'https://video.example.test/dune.mp4',
+      release_details: {
+        year: '2021',
+        runtime: '155 minutes',
+        release_date: 'January 11, 2022'
+      },
+      specs: {
+        video: 'Codec: HEVC / H.265 Resolution: Native 4K (2160p) HDR: HDR10',
+        audio: 'English: Dolby Atmos'
+      },
+      pricing: {
+        used: {
+          amount: 14.99,
+          currency: 'USD',
+          display: '$14.99',
+          seller: 'Amazon',
+          condition: 'used',
+          savings_percent: 50
+        }
+      }
+    }
+  });
+
+  assert.strictEqual(mapping.available, true);
+  assert.strictEqual(mapping.import_hints.year, 2021);
+  assert.strictEqual(mapping.import_hints.runtime, 155);
+  assert.deepStrictEqual(mapping.import_hints.owned_formats, ['bluray', 'uhd', 'digital']);
+  assert.strictEqual(mapping.identifiers.imdb_id, 'tt1160419');
+  assert.strictEqual(mapping.valuation.used_amount, 14.99);
+  assert.strictEqual(mapping.valuation.source, BLURAY_VALUATION_SOURCE);
+  assert.strictEqual(mapping.variant.source_item_key, '295838');
+  assert.strictEqual(mapping.variant.raw_json.physical_release_date, '2022-01-11');
+  assert.ok(!Object.prototype.hasOwnProperty.call(mapping.import_hints, 'release_date'));
+  assert.ok(mapping.preview.some((entry) => entry.key === 'valuation' && entry.value === '$14.99'));
+  assert.deepStrictEqual(formatsFromBlurayLabel('UHD/BD Combo + Digital HD'), ['bluray', 'uhd', 'digital']);
+  assert.deepStrictEqual(parseLegacyUsedPrice('List price: $29.99 Used from: $14.99 (Save 50%)', 'United States'), {
+    amount: 14.99,
+    currency: 'USD',
+    display: '$14.99',
+    seller: 'Amazon',
+    condition: 'used',
+    savings_percent: 50
+  });
 }));
 
 results.push(run('native mobile auth token contract is scoped to capture inbox', () => {

@@ -993,7 +993,41 @@ test.describe('admin shell browser regressions', () => {
         object_type: 'other',
         client_capture_id: browserClientCaptureId,
         client_source: 'browser-extension',
-        source_context: { source: 'browser_extension' }
+        source_context: {
+          source: 'browser_extension',
+          client_source: 'browser-extension',
+          contract: 'collectz.browser_capture.v1',
+          extension_version: '0.1.1',
+          adapter: 'bluray',
+          url: `https://www.blu-ray.com/movies/Playwright-Blu-ray/${suffix}/`,
+          canonical_url: `https://www.blu-ray.com/movies/Playwright-Blu-ray/${suffix}/`,
+          captured_at: '2026-07-31T18:00:00.000Z',
+          identifiers: {
+            bluray_product_id: String(suffix),
+            imdb_id: 'tt1160419',
+            asin: 'B09GWCX92K',
+            upc: String(suffix).slice(-12)
+          },
+          page_metadata: {
+            edition: '4K Ultra HD + Blu-ray + Digital',
+            media_format: '4K Ultra HD + Blu-ray + Digital',
+            release_details: {
+              year: '2021',
+              runtime: '155 minutes',
+              release_date: 'January 11, 2022'
+            },
+            pricing: {
+              used: {
+                amount: 14.99,
+                currency: 'USD',
+                display: '$14.99',
+                seller: 'Amazon',
+                condition: 'used',
+                savings_percent: 50
+              }
+            }
+          }
+        }
       }, 201);
       const browserCapturePayload = await browserCaptureResponse.json();
       browserCaptureId = Number(browserCapturePayload?.item?.id || 0);
@@ -1119,6 +1153,10 @@ test.describe('admin shell browser regressions', () => {
       await expect(page.getByText(browserCaptureTitle, { exact: true })).toBeVisible();
       const browserCaptureRow = page.getByText(browserCaptureTitle, { exact: true })
         .locator('xpath=ancestor::div[contains(@class, "md:grid-cols-[auto_1fr_auto]")][1]');
+      await expect(browserCaptureRow.getByLabel('Import mapping preview')).toContainText(
+        'Will add: Year 2021 · Runtime 155 min · Formats Blu-ray + 4K UHD + Digital'
+      );
+      await expect(browserCaptureRow.getByLabel('Import mapping preview')).toContainText('Used value $14.99');
       const browserImportType = browserCaptureRow.getByLabel(`Library type for ${browserCaptureTitle}`);
       const browserImportButton = browserCaptureRow.getByRole('button', { name: `Add ${browserCaptureTitle} to library` });
       await expect(browserImportType).toHaveValue('');
@@ -1144,10 +1182,17 @@ test.describe('admin shell browser regressions', () => {
       expect(browserImportPayload?.item?.object_type).toBe('movie');
       expect(browserImportPayload?.item?.review_decision?.capture_import_mode).toBe('review_title');
       expect(browserImportPayload?.item?.source_context?.capture_import_source).toBe('review_title');
-      expect(browserImportPayload?.match?.title).toBe(browserCaptureTitle);
-      expect(browserImportPayload?.import?.media?.title).toBe(browserCaptureTitle);
       browserCaptureMediaId = Number(browserImportPayload?.item?.linked_media_id || 0);
       expect(browserCaptureMediaId).toBeGreaterThan(0);
+      expect(browserImportPayload?.match?.title).toBe(browserCaptureTitle);
+      expect(browserImportPayload?.import?.media?.title).toBe(browserCaptureTitle);
+      expect(browserImportPayload?.mapping?.applied).toEqual(expect.arrayContaining([
+        'owned_formats',
+        'physical_variant',
+        'imdb_id',
+        'asin',
+        'used_value'
+      ]));
       await page.unroute(`**/api/capture-items/${browserCaptureId}/import-match`);
       const replayConflictReview = page.getByLabel('Replay conflict review').first();
       const replayReason = page.getByLabel('Capture review reasons').filter({ hasText: 'Replay conflict' }).first();

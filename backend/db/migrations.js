@@ -4756,6 +4756,15 @@ const MIGRATIONS = [
       END;
       $$;
     `
+  },
+  {
+    version: 117,
+    description: 'Add idempotent Blu-ray.com physical media variants',
+    up: `
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_media_variants_bluray_item
+        ON media_variants (media_id, source, source_item_key)
+        WHERE source = 'blu-ray.com' AND source_item_key IS NOT NULL;
+    `
   }
 ];
 

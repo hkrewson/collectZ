@@ -3860,6 +3860,54 @@
         },
         "required": ["ok", "item", "media"]
       },
+      "CaptureImportMappingPreviewEntry": {
+        "type": "object",
+        "properties": {
+          "key": { "type": "string" },
+          "label": { "type": "string" },
+          "value": { "type": "string" }
+        },
+        "required": ["key", "label", "value"],
+        "additionalProperties": false
+      },
+      "CaptureImportMapping": {
+        "type": "object",
+        "description": "Server-derived preview and normalized mapping contract for supported browser-extension captures. CollectZ owns persistence and overwrite policy; the source capture evidence remains in source_context.",
+        "properties": {
+          "available": { "type": "boolean" },
+          "provider": { "type": ["string", "null"] },
+          "import_hints": { "type": "object", "additionalProperties": true },
+          "identifiers": { "type": "object", "additionalProperties": true },
+          "valuation": {
+            "type": ["object", "null"],
+            "properties": {
+              "used_amount": { "type": "number", "minimum": 0 },
+              "currency": { "type": ["string", "null"] },
+              "display": { "type": ["string", "null"] },
+              "source": { "type": "string" },
+              "observed_at": { "type": ["string", "null"], "format": "date-time" }
+            },
+            "additionalProperties": false
+          },
+          "variant": { "type": ["object", "null"], "additionalProperties": true },
+          "preview": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/CaptureImportMappingPreviewEntry" }
+          }
+        },
+        "required": ["available", "provider", "import_hints", "identifiers", "preview"],
+        "additionalProperties": false
+      },
+      "CaptureImportMappingResult": {
+        "type": "object",
+        "properties": {
+          "applied": { "type": "array", "items": { "type": "string" } },
+          "skipped": { "type": "array", "items": { "type": "string" } },
+          "variant_id": { "type": ["integer", "null"] }
+        },
+        "required": ["applied", "skipped", "variant_id"],
+        "additionalProperties": false
+      },
       "CaptureItem": {
         "type": "object",
         "properties": {
@@ -3877,6 +3925,12 @@
           "client_capture_id": { "type": ["string", "null"], "description": "Client-generated retry/idempotency key normalized from source_context when supplied." },
           "client_source": { "type": ["string", "null"], "description": "Optional client/source label normalized from source_context when supplied." },
           "review_decision": { "type": "object", "additionalProperties": true },
+          "import_mapping": {
+            "anyOf": [
+              { "$ref": "#/components/schemas/CaptureImportMapping" },
+              { "type": "null" }
+            ]
+          },
           "review_reasons": {
             "type": "array",
             "description": "Backend-derived reasons this capture is reviewable or actionable.",
@@ -4129,9 +4183,10 @@
             },
             "required": ["ok", "status", "action", "media_id"]
           },
-          "match": { "$ref": "#/components/schemas/BarcodeLookupMatch" }
+          "match": { "$ref": "#/components/schemas/BarcodeLookupMatch" },
+          "mapping": { "$ref": "#/components/schemas/CaptureImportMappingResult" }
         },
-        "required": ["ok", "item", "import", "match"]
+        "required": ["ok", "item", "import", "match", "mapping"]
       },
       "CaptureReplayConflictResolveResponse": {
         "type": "object",
@@ -5327,7 +5382,7 @@
       "post": {
         "tags": ["Capture"],
         "summary": "Import a reviewed capture or link a selected lookup match",
-        "description": "Converts an explicit user-reviewed capture into a canonical media row, or links the capture to an existing scoped media row when a selected lookup match already exists. Barcode captures can identify a stored match by match_id. Title-only captures, including browser-extension manual notes, provide a capture_review match plus an explicit media_type. Both paths reuse the scanner import enrichment and deduplication pipeline; lookup results are never auto-imported.",
+        "description": "Converts an explicit user-reviewed capture into a canonical media row, or links the capture to an existing scoped media row when a selected lookup match already exists. Barcode captures can identify a stored match by match_id. Title-only captures, including browser-extension manual notes, provide a capture_review match plus an explicit media_type. Both paths reuse the scanner import enrichment and deduplication pipeline; lookup results are never auto-imported. Supported Blu-ray.com captures also apply their server-derived import_mapping: canonical fallbacks and owned formats go to media, IMDb identity goes to media_metadata, physical-release evidence goes to an idempotent media_variants row, and a used-from price can populate the low valuation only when it will not overwrite a manual or unrelated valuation source.",
         "security": [
           { "cookieSession": [], "csrfHeader": [] },
           { "bearerAuth": [] }

@@ -6,6 +6,50 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.24.2 — Browser Capture Metadata Mapping
+
+**Goal:** Carry structured browser-extension evidence through Capture Inbox review into canonical media, physical-edition, identifier, and valuation records instead of importing only the captured title, type, and barcode.
+
+### Scope
+
+- Pair CollectZ `3.24.2` with browser-extension `0.1.1` structured Blu-ray.com pricing and release extraction.
+- Keep the extension capture-only: it extracts normalized page facts and preserves source evidence, while CollectZ owns matching, review, overwrite policy, and persistence.
+- Use captured year and release identifiers as import hints so title review can distinguish similarly named movies.
+- Map canonical fields that fit the current media model, including runtime, ownership formats, cover/trailer fallbacks, and movie provider/edition details.
+- Upsert a Blu-ray.com-backed `media_variants` row for physical-edition identifiers, technical specifications, release details, ratings, links, pricing evidence, and the original capture payload.
+- Persist IMDb identity in `media_metadata` for future matching and audit use.
+- Map Blu-ray.com `pricing.used.amount` to `estimated_value_low`, with currency, source, and observed timestamp, without overwriting manual or unrelated valuation sources.
+- Show a compact mapping preview on browser-extension Capture Inbox rows before import.
+
+### Acceptance Criteria
+
+- Blu-ray.com pages with labeled list, Amazon/new, or used pricing emit structured `page_metadata.pricing` values with numeric amount, currency, display value, and savings percentage when present.
+- A browser capture exposes a compact review summary of the year, runtime, owned formats, edition, physical variant, IMDb identity, cover/trailer, and used-price valuation that CollectZ can map.
+- Importing a reviewed movie uses the captured year to improve provider matching, merges physical formats without removing existing ownership formats, and keeps canonical movie dates separate from physical release dates.
+- Import creates or updates one idempotent Blu-ray.com physical variant per media row and Blu-ray.com product id.
+- A used-from price populates `estimated_value_low`, `valuation_currency`, `valuation_source`, and `valuation_last_updated` only when the existing valuation is empty or already owned by the same Blu-ray.com mapping source.
+- Manual and non–Blu-ray.com valuations are preserved and the mapping result records which fields were applied or skipped.
+- OpenAPI, init/migration parity, extension compatibility docs, version/release artifacts, Docker runtime evidence, and relevant regression gates are aligned.
+
+### Active Slice Notes
+
+- Selected from live browser-extension testing on July 31, 2026 after the Blu-ray.com Dune capture proved that rich release evidence was retained in `source_context` but not consumed by library import.
+- The physical-release record belongs in `media_variants`; Blu-ray.com release dates, ratings, prices, and edition identifiers must not overwrite canonical movie semantics.
+- The `uncodixfy` guidance keeps the review preview as plain secondary text in the existing capture row with no new cards, badges, or dashboard treatment.
+- Status: implementation complete; hosted release gates pending.
+
+### Closeout
+
+- Status: implementation complete in `3.24.2`; release promotion remains pending the hosted-only gates below.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, and `docs/releases/v3.24.2.md`.
+- Runtime evidence: rebuilt and exercised the source-backed backend/frontend/Postgres Docker stack at `APP_VERSION=3.24.2`; `/api/health` reported application/frontend/backend/build `3.24.2`; migration `117` applied; Help > Releases served `3.24.2` as its newest entry. A transaction-backed in-stack smoke mapped year, runtime, cover, trailer, UPC, ownership formats, IMDb/ASIN metadata, one idempotent Blu-ray.com physical variant, and the used-price low valuation while proving that a manual valuation remains untouched.
+- Verification: backend unit coverage passed all `344` checks; OpenAPI validation, frontend production build, API integration smoke, RBAC regression, init parity, migration rehearsal, and focused Capture Inbox browser coverage passed. Isolated production-shaped core and control-plane runtime smokes passed. The complete Playwright regression passed `69` checks with `4` expected homelab-only skips. Observability evidence passed `9/9`; backend and frontend production dependency audits reported zero vulnerabilities; the standard portion of the local release gate passed `12/12`; maintained-source CodeQL reviewed `5` results with `0` active findings; `git diff --check` passed. Browser extension `0.1.1` passed a clean Node 24 typecheck, all `10` adapter tests, and the Chrome production build.
+- Blocked/unverified: `gitleaks` is not installed locally, so repository-history `secret-scan` remains hosted-only. `trivy` is not installed locally, so `image-security-and-sbom` and SBOM generation remain hosted-only. Hosted CI must rerun all publish gates after push, including the exact CI `compose-smoke` contract.
+- Files changed: collectZ version/release/feed and runtime evidence files; `backend/services/browserCaptureMapping.js`; Capture Inbox route, UI, OpenAPI, migration/init parity, unit/runtime smoke, and Playwright coverage; plus browser-extension `0.1.1` adapter, manifests, capture contract, bundled OpenAPI contract, tests, and compatibility documentation.
+- Risks/follow-ups: Blu-ray.com can change its markup, so the extension retains original source evidence and CollectZ treats external physical-release data as audited variant evidence. Used pricing is a marketplace floor and therefore maps only to `estimated_value_low`; automatic valuation refresh remains out of scope.
+- What remains in the milestone: no local implementation work remains; push the two commits when ready and require hosted `compose-smoke`, `rbac-regression`, `browser-regression`, core/control-plane `runtime-smoke`, `dependency-scan`, `secret-scan`, and `image-security-and-sbom` to pass before promotion.
+- Recommended commit message: `Release 3.24.2 with browser capture metadata mapping and Blu-ray.com used-value import`.
+
 ## 3.24.1 — Browser Capture Review Import
 
 **Goal:** Let a title-only browser-extension capture complete its Capture Inbox review as a normal library import.

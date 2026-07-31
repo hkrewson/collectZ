@@ -478,8 +478,6 @@ test.describe('library multi-format browser regressions', () => {
       expect(createdPayload.format).toBe('Blu-ray');
 
       await page.goto('/dashboard?tab=library-movies');
-      const searchInput = getLibrarySearchInput(page);
-      await searchInput.fill(title);
       const resultCard = page.locator('article').filter({
         has: page.getByText(title, { exact: true })
       }).first();
