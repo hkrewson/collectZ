@@ -264,6 +264,10 @@ async function main() {
     assert(Number(selectedSpace.data?.active_space_id || 0) === firstUserSpaceId, `Platform /api/spaces/select must keep active_space_id in its response: ${JSON.stringify(selectedSpace.data)}`);
     assert(Array.isArray(selectedSpace.data?.libraries), `Platform /api/spaces/select must keep libraries in its response: ${JSON.stringify(selectedSpace.data)}`);
     assert(typeof spaceIntegrations.data === 'object' && spaceIntegrations.data !== null, `Platform /api/spaces/:id/integrations must stay mounted: ${JSON.stringify(spaceIntegrations.data)}`);
+    assert(typeof spaceIntegrations.data?.plexWebhookReceiver?.enabled === 'boolean', `Workspace integrations must include workspace Plex receiver state: ${JSON.stringify(spaceIntegrations.data?.plexWebhookReceiver)}`);
+    assert(spaceIntegrations.data?.plexWebhookReceiver?.receiverPath === '/api/plex/webhooks/[token]', `Workspace integrations must retain the redacted Plex receiver path: ${JSON.stringify(spaceIntegrations.data?.plexWebhookReceiver)}`);
+    assert(spaceIntegrations.data?.plexWebhookReceiver?.scope === 'workspace', `Workspace integrations must identify the Plex receiver as workspace-scoped: ${JSON.stringify(spaceIntegrations.data?.plexWebhookReceiver)}`);
+    assert(Number(spaceIntegrations.data?.plexWebhookReceiver?.spaceId || 0) === firstUserSpaceId, `Workspace Plex receiver readback must retain its space id: ${JSON.stringify(spaceIntegrations.data?.plexWebhookReceiver)}`);
     assert(adminSpaces.status === 404, `Platform /api/admin/spaces must be owned by cairn, not Core: ${JSON.stringify(adminSpaces.data)}`);
     assert(adminSpaceCreate.status === 404, `Platform /api/admin/spaces/create-with-onboarding must be owned by cairn, not Core: ${JSON.stringify(adminSpaceCreate.data)}`);
     assert(adminSpaceInvite.status === 404, `Platform /api/admin/spaces/:id/invites must be owned by cairn, not Core: ${JSON.stringify(adminSpaceInvite.data)}`);

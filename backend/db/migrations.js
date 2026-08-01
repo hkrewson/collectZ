@@ -4791,6 +4791,106 @@ const MIGRATIONS = [
          AND jsonb_typeof(COALESCE(plex_library_sections, '[]'::jsonb)) = 'array'
          AND jsonb_array_length(COALESCE(plex_library_sections, '[]'::jsonb)) > 0;
     `
+  },
+  {
+    version: 119,
+    description: 'Move legacy Plex receiver and display ownership into its configured workspace',
+    up: `
+      WITH legacy AS (
+        SELECT *
+          FROM app_integrations
+         WHERE id = 1
+           AND space_id IS NULL
+           AND (
+             plex_webhook_receiver_token_hash IS NOT NULL
+             OR plex_now_playing_display_token_hash IS NOT NULL
+             OR COALESCE(plex_now_playing_display_preferences, '{}'::jsonb) <> '{}'::jsonb
+           )
+      ),
+      configured_targets AS (
+        SELECT ai.id
+          FROM app_integrations ai
+         WHERE ai.space_id IS NOT NULL
+           AND ai.plex_api_url IS NOT NULL
+           AND BTRIM(ai.plex_api_url) <> ''
+           AND ai.plex_api_key_encrypted IS NOT NULL
+      ),
+      scoped_targets AS (
+        SELECT ai.id
+          FROM app_integrations ai
+         WHERE ai.space_id IS NOT NULL
+      ),
+      target AS (
+        SELECT configured.id
+          FROM configured_targets configured
+         WHERE (SELECT COUNT(*) FROM configured_targets) = 1
+        UNION ALL
+        SELECT scoped.id
+          FROM scoped_targets scoped
+         WHERE (SELECT COUNT(*) FROM configured_targets) = 0
+           AND (SELECT COUNT(*) FROM scoped_targets) = 1
+      )
+      UPDATE app_integrations scoped
+         SET plex_webhook_receiver_token_hash = COALESCE(scoped.plex_webhook_receiver_token_hash, legacy.plex_webhook_receiver_token_hash),
+             plex_webhook_receiver_token_created_at = CASE WHEN scoped.plex_webhook_receiver_token_hash IS NULL THEN legacy.plex_webhook_receiver_token_created_at ELSE scoped.plex_webhook_receiver_token_created_at END,
+             plex_webhook_receiver_token_last_rotated_at = CASE WHEN scoped.plex_webhook_receiver_token_hash IS NULL THEN legacy.plex_webhook_receiver_token_last_rotated_at ELSE scoped.plex_webhook_receiver_token_last_rotated_at END,
+             plex_webhook_receiver_last_received_at = CASE WHEN scoped.plex_webhook_receiver_token_hash IS NULL THEN legacy.plex_webhook_receiver_last_received_at ELSE scoped.plex_webhook_receiver_last_received_at END,
+             plex_webhook_receiver_last_event = CASE WHEN scoped.plex_webhook_receiver_token_hash IS NULL THEN legacy.plex_webhook_receiver_last_event ELSE scoped.plex_webhook_receiver_last_event END,
+             plex_webhook_receiver_last_attempt_at = CASE WHEN scoped.plex_webhook_receiver_token_hash IS NULL THEN legacy.plex_webhook_receiver_last_attempt_at ELSE scoped.plex_webhook_receiver_last_attempt_at END,
+             plex_webhook_receiver_last_attempt_status = CASE WHEN scoped.plex_webhook_receiver_token_hash IS NULL THEN legacy.plex_webhook_receiver_last_attempt_status ELSE scoped.plex_webhook_receiver_last_attempt_status END,
+             plex_webhook_receiver_last_attempt_error = CASE WHEN scoped.plex_webhook_receiver_token_hash IS NULL THEN legacy.plex_webhook_receiver_last_attempt_error ELSE scoped.plex_webhook_receiver_last_attempt_error END,
+             plex_webhook_receiver_last_content_type = CASE WHEN scoped.plex_webhook_receiver_token_hash IS NULL THEN legacy.plex_webhook_receiver_last_content_type ELSE scoped.plex_webhook_receiver_last_content_type END,
+             plex_webhook_receiver_last_validation_status = CASE WHEN scoped.plex_webhook_receiver_token_hash IS NULL THEN legacy.plex_webhook_receiver_last_validation_status ELSE scoped.plex_webhook_receiver_last_validation_status END,
+             plex_webhook_receiver_last_validation_message = CASE WHEN scoped.plex_webhook_receiver_token_hash IS NULL THEN legacy.plex_webhook_receiver_last_validation_message ELSE scoped.plex_webhook_receiver_last_validation_message END,
+             plex_webhook_receiver_last_validated_at = CASE WHEN scoped.plex_webhook_receiver_token_hash IS NULL THEN legacy.plex_webhook_receiver_last_validated_at ELSE scoped.plex_webhook_receiver_last_validated_at END,
+             plex_now_playing_display_token_hash = COALESCE(scoped.plex_now_playing_display_token_hash, legacy.plex_now_playing_display_token_hash),
+             plex_now_playing_display_token_created_at = CASE WHEN scoped.plex_now_playing_display_token_hash IS NULL THEN legacy.plex_now_playing_display_token_created_at ELSE scoped.plex_now_playing_display_token_created_at END,
+             plex_now_playing_display_token_last_used_at = CASE WHEN scoped.plex_now_playing_display_token_hash IS NULL THEN legacy.plex_now_playing_display_token_last_used_at ELSE scoped.plex_now_playing_display_token_last_used_at END,
+             plex_now_playing_display_preferences = CASE
+               WHEN COALESCE(scoped.plex_now_playing_display_preferences, '{}'::jsonb) = '{}'::jsonb
+               THEN COALESCE(legacy.plex_now_playing_display_preferences, '{}'::jsonb)
+               ELSE scoped.plex_now_playing_display_preferences
+             END
+        FROM legacy, target
+       WHERE scoped.id = target.id;
+
+      UPDATE app_integrations legacy
+         SET plex_webhook_receiver_token_hash = NULL,
+             plex_webhook_receiver_token_created_at = NULL,
+             plex_webhook_receiver_token_last_rotated_at = NULL,
+             plex_webhook_receiver_last_received_at = NULL,
+             plex_webhook_receiver_last_event = NULL,
+             plex_webhook_receiver_last_attempt_at = NULL,
+             plex_webhook_receiver_last_attempt_status = NULL,
+             plex_webhook_receiver_last_attempt_error = NULL,
+             plex_webhook_receiver_last_content_type = NULL,
+             plex_webhook_receiver_last_validation_status = NULL,
+             plex_webhook_receiver_last_validation_message = NULL,
+             plex_webhook_receiver_last_validated_at = NULL
+       WHERE legacy.id = 1
+         AND legacy.space_id IS NULL
+         AND legacy.plex_webhook_receiver_token_hash IS NOT NULL
+         AND EXISTS (
+           SELECT 1
+             FROM app_integrations scoped
+            WHERE scoped.space_id IS NOT NULL
+              AND scoped.plex_webhook_receiver_token_hash = legacy.plex_webhook_receiver_token_hash
+         );
+
+      UPDATE app_integrations legacy
+         SET plex_now_playing_display_token_hash = NULL,
+             plex_now_playing_display_token_created_at = NULL,
+             plex_now_playing_display_token_last_used_at = NULL
+       WHERE legacy.id = 1
+         AND legacy.space_id IS NULL
+         AND legacy.plex_now_playing_display_token_hash IS NOT NULL
+         AND EXISTS (
+           SELECT 1
+             FROM app_integrations scoped
+            WHERE scoped.space_id IS NOT NULL
+              AND scoped.plex_now_playing_display_token_hash = legacy.plex_now_playing_display_token_hash
+         );
+    `
   }
 ];
 

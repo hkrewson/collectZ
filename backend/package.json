@@ -1,6 +1,6 @@
 {
   "name": "collectz-backend",
-  "version": "3.24.3",
+  "version": "3.24.4",
   "description": "collectZ Backend API",
   "main": "server.js",
   "engines": {
@@ -108,6 +108,7 @@
     "test:plex-now-playing-viewer-smoke": "node scripts/plex-now-playing-viewer-smoke.js",
     "test:plex-webhook-ratings-contract-smoke": "node scripts/plex-webhook-ratings-contract-smoke.js",
     "test:plex-webhook-receiver-admin-smoke": "node scripts/plex-webhook-receiver-admin-smoke.js",
+    "test:plex-webhook-workspace-scope-smoke": "node scripts/plex-webhook-workspace-scope-smoke.js",
     "test:plex-webhook-import-hint-processing-smoke": "node scripts/plex-webhook-receiver-admin-smoke.js",
     "test:plex-webhook-import-auto-processor-smoke": "node scripts/plex-webhook-receiver-admin-smoke.js",
     "test:plex-watch-state-sync-cadence-smoke": "node scripts/plex-watch-state-sync-cadence-smoke.js",

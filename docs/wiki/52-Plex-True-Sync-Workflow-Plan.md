@@ -18,6 +18,7 @@ The UI should teach the operating model through the workflow itself:
 - The previous "Plex operating model" block duplicated the controls instead of improving the workflow.
 - Plex import and reconciliation remain on maintained Plex library paths; provider discovery is still capability readback.
 - Plex webhook delivery uses the documented multipart form contract: JSON in `payload`, with an optional thumbnail that CollectZ does not retain.
+- Plex connection, webhook receiver, and Now Playing display-token state are workspace-owned. Their management uses `/api/spaces/{id}/integrations`, public tokens resolve the owning `app_integrations.space_id`, and actionable webhook jobs retain that workspace and library scope. Corrected in `3.24.4`.
 
 ## First Slice
 
@@ -38,6 +39,7 @@ The first slice removes the separate operating-model explainer from the UI. The 
 - Add scheduled pull sync controls for new Plex items, watched state, and rating readback. Library reconciliation cadence was completed in `3.20.1`; watched-state and rating readback status/manual run was surfaced in `3.20.7`; persisted readback refresh cadence was completed in `3.20.8`.
 - Add explicit opt-in writeback controls for ratings and watched state. Completed in `3.20.6`; no silent writeback.
 - Accept documented multipart deliveries and actively process `library.new`, `media.scrobble`, and `media.rate`. Promoted as `3.24.3`; the first event reuses single-title import and the state events fetch current Plex metadata before applying it.
+- Keep receiver generation, Now Playing display controls, reload, diagnostics, and queued work on the Plex workspace integration row instead of the installation default row. Completed in `3.24.4` with legacy token migration that preserves existing public URLs.
 - Enable persisted reconciliation and watched/rating readback for configured Plex connections so scheduled work covers title updates that Plex does not expose as a webhook event. Promoted as `3.24.3`.
 - Add activity entries for import, sync, webhook, and writeback outcomes. Activity readability for existing Plex events improved in `3.20.4`.
 - Add reconciliation review filters for Plex conflicts, skipped items, and provider errors. Conflict status and initial match-reason filters completed in `3.20.5`; server-backed match-reason filtering and counts completed in `3.20.9`.

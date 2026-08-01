@@ -6,6 +6,50 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.24.4 — Workspace-Scoped Plex Webhook Receiver
+
+**Goal:** Keep Plex webhook receiver ownership, readback, delivery diagnostics, and queued work in the same workspace integration scope as the Plex connection it serves.
+
+### Scope
+
+- Route Generate, Regenerate, Revoke, Validate, Save, and reload through `/api/spaces/{id}/integrations` from the workspace Integrations screen.
+- Route Plex Now Playing display-token and display-preference controls through the same workspace endpoint instead of bypassing it through installation-admin routes.
+- Persist receiver token metadata and delivery diagnostics on the matching `app_integrations.space_id` row.
+- Resolve incoming receiver tokens across workspace integration rows and retain the resolved workspace identity.
+- Queue actionable Plex webhook jobs with the workspace and its active library instead of falling back to a global receiver and the first administrator's default scope.
+- Migrate the existing installation-level receiver into the workspace row that owns the configured Plex connection without changing the one-time URL already stored in Plex.
+- Retain the installation-level receiver API only as a legacy/admin compatibility surface; workspace UI actions no longer call it.
+
+### Acceptance Criteria
+
+- Generating a receiver in workspace Integrations writes only that workspace row and returns `scope: workspace` plus the matching `spaceId`.
+- Reloading the page and saving integration settings preserve Enabled state and masked URL readback.
+- A valid receiver delivery updates diagnostics on the matching workspace row.
+- Plex Now Playing display-token generation, revocation, preference saves, and token-authenticated readback resolve the owning workspace row.
+- Actionable deliveries queue jobs with both `spaceId` and `libraryId`; identical Plex rating keys in separate workspaces do not deduplicate into one job.
+- Migration 119 moves an existing global receiver to the configured workspace only when a safe target row exists, preserving the token hash and URL compatibility.
+- OpenAPI, migration/init parity, runtime smoke, release/version artifacts, and relevant regression gates remain aligned.
+
+### Active Slice Notes
+
+- Selected on August 1, 2026 after the workspace Integrations page showed Enabled immediately after generation but lost the receiver URL after Save and refresh.
+- The root cause crossed the whole ownership chain: workspace UI buttons called global admin endpoints, token lookup and diagnostics were pinned to row `id=1`, and queued jobs omitted workspace scope.
+- Live data confirmed global row `id=1` held the receiver while `space_id=2` held the Plex URL and credential; migration 119 moved the existing receiver without rotating it.
+- A complete endpoint audit found and corrected the two remaining workspace-screen bypasses: Plex Now Playing display tokens and display preferences.
+- Status: implementation and local verification complete; hosted release gates pending after push.
+
+### Closeout
+
+- Status: implementation and local verification complete in `3.24.4`; release promotion remains pending hosted-only gates after push.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/52-Plex-True-Sync-Workflow-Plan.md`, and `docs/releases/v3.24.4.md`.
+- Runtime verification: rebuilt the canonical `collectz-private` backend/frontend/Postgres stack in place on port `3201`; local and tunneled health reported application/frontend/backend/build `3.24.4`; migration `119` left the installation row without a Plex connection or receiver and retained the configured Plex credential plus receiver on `space_id=2`. The focused Docker lifecycle smoke proved scoped webhook generation, reload, Save, delivery diagnostics, durable job workspace/library routing, Now Playing display-token and preference persistence, and revocation. Help > Releases served `3.24.4` as the newest entry.
+- CI/checks run: backend unit coverage passed all `346` checks; OpenAPI, frontend production build, API integration smoke, RBAC regression, platform boundary, init parity, migration rehearsal, and focused Plex workspace scope smoke passed. The full Playwright suite passed `69` checks with `4` expected homelab-only skips. Core and control-plane runtime smokes passed. Observability evidence passed `9/9`; backend and frontend production dependency audits reported zero vulnerabilities; the standard local release gate passed `12/12`; maintained-source CodeQL reviewed `5` results with `0` active findings; `git diff --check` passed.
+- Blocked/unverified: `gitleaks` is not installed locally, so repository-history `secret-scan` remains hosted-only. `trivy` is not installed locally, so `image-security-and-sbom` and SBOM generation remain hosted-only. The full local gate's browser wrapper lacked its opt-in bypass token, while the complete authenticated browser suite passed independently against port `3201`. Hosted CI must rerun the exact `compose-smoke` and all publish gates after push.
+- Files changed: version and release/feed metadata; migration `119` and `init.sql`; scoped integration normalization, Plex webhook receiver and Now Playing display-token services; installation and workspace integration routes; OpenAPI; workspace scope/unit/platform smoke coverage; workspace Integrations UI endpoint routing; Plex workflow and roadmap documentation; and refreshed dependency, observability, and preflight evidence.
+- Risks or follow-ups: one-time raw receiver and display URLs remain intentionally unrecoverable after generation; reload shows masked/status readback. Ambiguous legacy ownership is deliberately not migrated automatically. The installation-level admin APIs remain only for compatibility, while CollectZ workspace UI actions use `/spaces/{id}/integrations`. Runtime/log export remains installation-owned by design.
+- What remains in the milestone: no local implementation work remains; after push, require hosted `compose-smoke`, `rbac-regression`, `browser-regression`, core/control-plane `runtime-smoke`, `dependency-scan`, `secret-scan`, and `image-security-and-sbom` before promotion.
+- Recommended commit message: `Release 3.24.4 with workspace-scoped Plex webhook receiver persistence and job routing`.
+
 ## 3.24.3 — Plex Active Webhook Listener
 
 **Goal:** Make the configured Plex integration actively receive documented webhook deliveries, apply new-title/watched/rating changes through durable jobs, and use scheduled reconciliation as the fallback for changes Plex does not announce.

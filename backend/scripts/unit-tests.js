@@ -228,6 +228,8 @@ const collectibleTraitsRoutesSource = fs.readFileSync(require.resolve('../routes
 const integrationsRoutesSource = fs.readFileSync(require.resolve('../routes/integrations'), 'utf8');
 const spaceIntegrationsRoutesSource = fs.readFileSync(require.resolve('../routes/spaceIntegrations'), 'utf8');
 const integrationsServiceSource = fs.readFileSync(require.resolve('../services/integrations'), 'utf8');
+const plexWebhookReceiverServiceSource = fs.readFileSync(require.resolve('../services/plexWebhookReceiver'), 'utf8');
+const plexNowPlayingDisplayServiceSource = fs.readFileSync(require.resolve('../services/plexNowPlayingDisplay'), 'utf8');
 const integrationResponseSource = fs.readFileSync(require.resolve('../services/integrationResponse'), 'utf8');
 const portabilityServiceSource = fs.readFileSync(require.resolve('../services/portability'), 'utf8');
 const supportRoutesSource = fs.readFileSync(require.resolve('../routes/support'), 'utf8');
@@ -2121,8 +2123,8 @@ results.push(run('plex webhook receiver accepts documented multipart events and 
   assert.ok(integrationsRoutesSource.includes('hashPlexWebhookReceiverToken'));
   assert.ok(integrationsRoutesSource.includes('validatePlexWebhookReceiverSetup'));
   assert.ok(integrationsRoutesSource.includes('shapePlexWebhookReceiverStatus'));
-  assert.ok(integrationsRoutesSource.includes('buildPlexWebhookReceiverTokenFingerprint'));
-  assert.ok(integrationsRoutesSource.includes('receiverUrlMasked'));
+  assert.ok(plexWebhookReceiverServiceSource.includes('buildPlexWebhookReceiverTokenFingerprint'));
+  assert.ok(plexWebhookReceiverServiceSource.includes('receiverUrlMasked'));
   assert.ok(integrationsRoutesSource.includes('plex_webhook_receiver_last_validation_status'));
   assert.ok(integrationsRoutesSource.includes('plexWebhookMultipartUpload'));
   assert.ok(integrationsRoutesSource.includes("{ name: 'payload', maxCount: 1 }"));
@@ -2153,6 +2155,7 @@ results.push(run('plex webhook receiver accepts documented multipart events and 
   assert.ok(migrationsSource.includes('version: 98'));
   assert.ok(migrationsSource.includes('version: 112'));
   assert.ok(migrationsSource.includes('version: 118'));
+  assert.ok(migrationsSource.includes('version: 119'));
   assert.ok(migrationsSource.includes('plex_webhook_receiver_token_hash'));
   assert.ok(migrationsSource.includes('plex_webhook_receiver_last_validation_status'));
   assert.ok(migrationsSource.includes('plex_webhook_receiver_last_attempt_status'));
@@ -2161,6 +2164,7 @@ results.push(run('plex webhook receiver accepts documented multipart events and 
   assert.ok(initSqlSource.includes('plex_webhook_receiver_last_attempt_status VARCHAR(20)'));
   assert.ok(openApiSource.includes('/api/plex/webhooks/{token}'));
   assert.ok(openApiSource.includes('/api/admin/settings/integrations/plex-webhook-receiver-token'));
+  assert.ok(openApiSource.includes('/api/spaces/{id}/integrations/plex-webhook-receiver-token'));
   assert.ok(openApiSource.includes('/api/media/process-plex-webhook-import-hints'));
   assert.ok(openApiSource.includes('/api/media/plex-webhook-import-hints/auto-processor'));
   assert.ok(plexWebhookReceiverAdminSmokeSource.includes('/api/plex/webhooks/czpw_invalid_receiver_token'));
@@ -2314,6 +2318,29 @@ results.push(run('plex real-server provider discovery readback is wired as sanit
   assert.ok(plexProviderReadbackSmokeSource.includes('restorePlexSettings'));
   assert.ok(plexProviderReadbackSmokeSource.includes('Response must not contain raw Plex token'));
   assert.ok(releaseRoadmapSource.includes('3.4.113 — Plex Real-Server Provider Discovery Readback'));
+}));
+
+results.push(run('workspace integrations own all Plex token state and actions', () => {
+  assert.ok(spaceIntegrationsRoutesSource.includes('plexWebhookReceiver: shapePlexWebhookReceiverStatus(config, req)'));
+  assert.ok(spaceIntegrationsRoutesSource.includes("router.post('/spaces/:spaceId/integrations/plex-webhook-receiver-token'"));
+  assert.ok(spaceIntegrationsRoutesSource.includes("router.delete('/spaces/:spaceId/integrations/plex-webhook-receiver-token'"));
+  assert.ok(spaceIntegrationsRoutesSource.includes("router.post('/spaces/:spaceId/integrations/plex-webhook-receiver-validate'"));
+  assert.ok(adminIntegrationsViewSource.includes("`${endpointBase}/plex-webhook-receiver-token`"));
+  assert.ok(adminIntegrationsViewSource.includes("`${endpointBase}/plex-webhook-receiver-validate`"));
+  assert.ok(spaceIntegrationsRoutesSource.includes("router.post('/spaces/:spaceId/integrations/plex-now-playing-display-token'"));
+  assert.ok(spaceIntegrationsRoutesSource.includes("router.delete('/spaces/:spaceId/integrations/plex-now-playing-display-token'"));
+  assert.ok(spaceIntegrationsRoutesSource.includes("router.put('/spaces/:spaceId/integrations/plex-now-playing-display-preferences'"));
+  assert.ok(adminIntegrationsViewSource.includes("`${endpointBase}/plex-now-playing-display-token`"));
+  assert.ok(adminIntegrationsViewSource.includes("`${endpointBase}/plex-now-playing-display-preferences`"));
+  assert.ok(!adminIntegrationsViewSource.includes("apiCall('post', '/admin/settings/integrations/plex-now-playing-display-token'"));
+  assert.ok(!adminIntegrationsViewSource.includes("apiCall('put', '/admin/settings/integrations/plex-now-playing-display-preferences'"));
+  assert.ok(plexNowPlayingDisplayServiceSource.includes('WHERE plex_now_playing_display_token_hash = $1'));
+  assert.ok(plexNowPlayingDisplayServiceSource.includes('WHERE id = $1'));
+  assert.ok(openApiSource.includes('/api/spaces/{id}/integrations/plex-now-playing-display-token'));
+  assert.ok(openApiSource.includes('/api/spaces/{id}/integrations/plex-now-playing-display-preferences'));
+  assert.ok(platformEditionBoundarySmokeSource.includes('Workspace integrations must include workspace Plex receiver state'));
+  assert.ok(platformEditionBoundarySmokeSource.includes("receiverPath === '/api/plex/webhooks/[token]'"));
+  assert.ok(integrationsRoutesSource.includes('enqueuePlexWebhookEvent(normalizedEvent, config)'));
 }));
 
 results.push(run('plex now-playing provider proof keeps sessions read-only and secret-free', () => {

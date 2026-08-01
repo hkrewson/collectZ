@@ -1,18 +1,18 @@
 # Local Release Go/No-Go Preflight
 
-- Version: `3.24.3`
-- Generated: `2026-08-01T20:38:50.237Z`
-- Base URL: `http://localhost:3301`
+- Version: `3.24.4`
+- Generated: `2026-08-01T23:00:49.149Z`
+- Base URL: `http://localhost:3000`
 
 ## Gate Results
 
-- Version metadata sync: PASS — all manifests aligned on 3.24.3
-- Release note presence: PASS — docs/releases/v3.24.3.md
+- Version metadata sync: PASS — all manifests aligned on 3.24.4
+- Release note presence: PASS — docs/releases/v3.24.4.md
 - Backend dependency audit: PASS — low=0 moderate=0 high=0 critical=0
 - Frontend dependency audit: PASS — low=0 moderate=0 high=0 critical=0
 - Migration evidence presence: PASS — init parity and migration rehearsal evidence are present
-- Observability release evidence: PASS — observability artifact present for 3.24.3 with 9/9 checks passed
-- Compose smoke basics: BLOCKED — current local stack is not running with CI secure-cookie settings (SESSION_COOKIE_SECURE=false, NODE_ENV=development)
+- Observability release evidence: PASS — observability artifact present for 3.24.4 with 9/9 checks passed
+- Compose smoke basics: BLOCKED — in-stack /api/health probe failed: service "backend" is not running
 - Secret scan: BLOCKED — CI-only gitleaks gate
 - Browser regression: BLOCKED — not run by this local preflight helper
 - Image security and SBOM: BLOCKED — CI-only Trivy/SBOM gate
@@ -28,7 +28,7 @@
 
 ## Release Note
 
-- `docs/releases/v3.24.3.md`: present
+- `docs/releases/v3.24.4.md`: present
 - Security triage markers: present
 
 ## Blocking Criteria

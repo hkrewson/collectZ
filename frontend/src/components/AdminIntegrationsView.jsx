@@ -1094,7 +1094,7 @@ export default function AdminIntegrationsView({
     setTestLoading('plex-display-token');
     setTestMsg('');
     try {
-      const result = await apiCall('post', '/admin/settings/integrations/plex-now-playing-display-token', {});
+      const result = await apiCall('post', `${endpointBase}/plex-now-playing-display-token`, {});
       setPlexDisplayToken(result.plexNowPlayingDisplayToken || { enabled: true, createdAt: null, lastUsedAt: null });
       const path = result.displayPath || (result.token ? `/now-playing?token=${encodeURIComponent(result.token)}` : '');
       const link = path ? `${window.location.origin}${path}` : '';
@@ -1112,7 +1112,7 @@ export default function AdminIntegrationsView({
     setTestLoading('plex-display-token');
     setTestMsg('');
     try {
-      const result = await apiCall('delete', '/admin/settings/integrations/plex-now-playing-display-token');
+      const result = await apiCall('delete', `${endpointBase}/plex-now-playing-display-token`);
       setPlexDisplayToken(result.plexNowPlayingDisplayToken || { enabled: false, createdAt: null, lastUsedAt: null });
       setPlexDisplayLink('');
       setTestMsg('PLEX DISPLAY: Display link revoked.');
@@ -1128,7 +1128,7 @@ export default function AdminIntegrationsView({
     setTestLoading('plex-webhook-receiver-token');
     setTestMsg('');
     try {
-      const result = await apiCall('post', '/admin/settings/integrations/plex-webhook-receiver-token', {});
+      const result = await apiCall('post', `${endpointBase}/plex-webhook-receiver-token`, {});
       setPlexWebhookReceiver(result.plexWebhookReceiver || { enabled: true, lastReceivedAt: null, lastEvent: null, delivery: {} });
       setPlexWebhookReceiverLink(result.webhookUrl || result.webhookPath || '');
       setTestMsg('PLEX WEBHOOKS: Receiver URL generated. This is the only time the token is shown.');
@@ -1144,7 +1144,7 @@ export default function AdminIntegrationsView({
     setTestLoading('plex-webhook-receiver-token');
     setTestMsg('');
     try {
-      const result = await apiCall('delete', '/admin/settings/integrations/plex-webhook-receiver-token');
+      const result = await apiCall('delete', `${endpointBase}/plex-webhook-receiver-token`);
       setPlexWebhookReceiver(result.plexWebhookReceiver || { enabled: false, lastReceivedAt: null, lastEvent: null, delivery: {}, receiverPath: '/api/plex/webhooks/[token]' });
       setPlexWebhookReceiverLink('');
       setTestMsg('PLEX WEBHOOKS: Receiver URL revoked.');
@@ -1160,7 +1160,7 @@ export default function AdminIntegrationsView({
     setTestLoading('plex-webhook-receiver-validate');
     setTestMsg('');
     try {
-      const result = await apiCall('post', '/admin/settings/integrations/plex-webhook-receiver-validate', {});
+      const result = await apiCall('post', `${endpointBase}/plex-webhook-receiver-validate`, {});
       setPlexWebhookReceiver(result.plexWebhookReceiver || plexWebhookReceiver);
       const status = String(result.validation?.status || 'checked').toUpperCase();
       setTestMsg(`PLEX WEBHOOKS: ${status} - ${result.validation?.detail || 'Receiver setup checked.'}`);
@@ -1183,7 +1183,7 @@ export default function AdminIntegrationsView({
     setSavingPlexDisplayPreferences(true);
     setTestMsg('');
     try {
-      const result = await apiCall('put', '/admin/settings/integrations/plex-now-playing-display-preferences', {
+      const result = await apiCall('put', `${endpointBase}/plex-now-playing-display-preferences`, {
         preferences: plexDisplayPreferences
       });
       setPlexDisplayPreferences({

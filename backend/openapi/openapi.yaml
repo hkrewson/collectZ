@@ -80,6 +80,21 @@
         "type": "object",
         "additionalProperties": true,
         "properties": {
+          "plexWebhookReceiver": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "enabled": { "type": "boolean" },
+              "scope": { "type": "string", "enum": ["workspace", "installation"] },
+              "spaceId": { "type": ["integer", "null"] },
+              "receiverPath": { "type": "string", "example": "/api/plex/webhooks/[token]" },
+              "receiverPathMasked": { "type": ["string", "null"] },
+              "receiverUrlMasked": { "type": ["string", "null"] },
+              "lastReceivedAt": { "type": ["string", "null"], "format": "date-time" },
+              "lastEvent": { "type": ["string", "null"] }
+            },
+            "required": ["enabled", "scope", "spaceId", "receiverPath"]
+          },
           "integrationScope": {
             "type": "object",
             "additionalProperties": false,
@@ -6669,6 +6684,78 @@
               }
             }
           }
+        }
+      }
+    },
+    "/api/spaces/{id}/integrations/plex-webhook-receiver-token": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Generate or rotate this workspace's Plex webhook receiver token",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "responses": {
+          "200": { "description": "One-time workspace Plex webhook receiver token and URL", "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } },
+          "403": { "description": "Workspace management denied" }
+        }
+      },
+      "delete": {
+        "tags": ["Auth"],
+        "summary": "Revoke this workspace's Plex webhook receiver token",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "responses": {
+          "200": { "description": "Workspace Plex webhook receiver token revoked", "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } },
+          "403": { "description": "Workspace management denied" }
+        }
+      }
+    },
+    "/api/spaces/{id}/integrations/plex-now-playing-display-token": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Generate or rotate this workspace's Plex Now Playing display token",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "responses": {
+          "200": { "description": "One-time workspace Plex Now Playing display token and path", "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } },
+          "403": { "description": "Workspace management denied" }
+        }
+      },
+      "delete": {
+        "tags": ["Auth"],
+        "summary": "Revoke this workspace's Plex Now Playing display token",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "responses": {
+          "200": { "description": "Workspace Plex Now Playing display token revoked", "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } },
+          "403": { "description": "Workspace management denied" }
+        }
+      }
+    },
+    "/api/spaces/{id}/integrations/plex-now-playing-display-preferences": {
+      "put": {
+        "tags": ["Auth"],
+        "summary": "Update this workspace's Plex Now Playing display preferences",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "requestBody": {
+          "required": false,
+          "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } }
+        },
+        "responses": {
+          "200": { "description": "Workspace display preferences saved", "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } },
+          "403": { "description": "Workspace management denied" }
+        }
+      }
+    },
+    "/api/spaces/{id}/integrations/plex-webhook-receiver-validate": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Validate this workspace's Plex webhook receiver setup",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "responses": {
+          "200": { "description": "Workspace Plex webhook receiver validation result", "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } },
+          "403": { "description": "Workspace management denied" }
         }
       }
     },

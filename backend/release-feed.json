@@ -1,6 +1,28 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.24.4",
+      "version": "3.24.4",
+      "date": "2026-08-01",
+      "status": "local implementation and verification complete; hosted gates pending",
+      "summary": "This release fixes Plex webhook receiver persistence by making the receiver belong to the same workspace integration row as its Plex connection. Save and refresh now retain Enabled state and masked URL readback, and incoming events carry the correct workspace and library into durable jobs.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Workspace Plex webhook controls now call `/api/spaces/{id}/integrations` endpoints for generation, rotation, validation, and revocation.",
+            "Workspace integration GET and PUT responses shape receiver status from their own scoped row.",
+            "Plex Now Playing display-token generation/revocation and display-preference saves now use the same workspace integration endpoint and row.",
+            "Public Now Playing display tokens resolve the scoped row that owns the token, so readback uses that workspace's Plex connection.",
+            "Incoming tokens resolve across scoped integration rows instead of checking only installation row `id=1`.",
+            "Delivery diagnostics update the row that authenticated the receiver.",
+            "Actionable webhook jobs include `spaceId` and `libraryId`, and duplicate suppression includes workspace identity.",
+            "Added a focused Docker runtime smoke covering Generate, reload, Save, delivery diagnostics, scoped job enqueue, and Revoke."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.24.3",
       "version": "3.24.3",
       "date": "2026-08-01",
@@ -180,24 +202,6 @@
             "Added mobile bearer principal support in auth middleware with scopes limited to `profile:read`, `capture:read`, and `capture:write`.",
             "Allowed mobile tokens on `/api/auth/me` and `/api/capture-items` only, while keeping provider/enrichment/import/admin route families unsupported by default.",
             "Documented the native scanner barcode capture payload in OpenAPI."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.23.16",
-      "version": "3.23.16",
-      "date": null,
-      "status": null,
-      "summary": "This release continues the maintainability guardrails work by clearing the remaining hard ESLint error baseline without broad UI refactors. The full frontend quality report now has zero ESLint errors, while legacy warnings and Prettier findings remain report-first.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Tuned `react-hooks/set-state-in-effect` from error to warning because the remaining findings are mostly established async load/synchronization effects rather than immediate correctness failures.",
-            "Fixed the Design Lab slider accessibility error with explicit range input labeling.",
-            "Adjusted the mobile dashboard shell icon render path so the component is not recreated during render.",
-            "Reduced the full frontend quality baseline from `19` errors / `24` warnings to `0` errors / `40` warnings."
           ]
         }
       ]

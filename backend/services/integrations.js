@@ -193,6 +193,8 @@ const normalizeIntegrationRecord = (row) => {
     : (row?.audio_api_url || audioPreset.apiUrl || process.env.AUDIO_API_URL || '');
 
   return {
+    integrationId: Number(row?.id || 0) || null,
+    spaceId: Number(row?.space_id || 0) || null,
     barcodePreset: barcodePreset.preset || 'upcitemdb',
     barcodeProvider: barcodePreset.provider,
     barcodeApiUrl: row?.barcode_api_url || barcodePreset.apiUrl || process.env.BARCODE_API_URL || '',

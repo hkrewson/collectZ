@@ -1924,5 +1924,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (115, 'Add wishlist booth support for event field kits'),
     (116, 'Add mobile auth sessions for native scanner tokens'),
     (117, 'Add idempotent Blu-ray.com physical media variants'),
-    (118, 'Activate Plex inbound sync and add webhook delivery diagnostics')
+    (118, 'Activate Plex inbound sync and add webhook delivery diagnostics'),
+    (119, 'Move legacy Plex receiver and display ownership into its configured workspace')
 ON CONFLICT (version) DO NOTHING;

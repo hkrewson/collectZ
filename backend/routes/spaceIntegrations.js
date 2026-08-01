@@ -3,7 +3,26 @@ const axios = require('axios');
 const pool = require('../db/pool');
 const { asyncHandler } = require('../middleware/errors');
 const { authenticateToken, requireSessionAuth } = require('../middleware/auth');
-const { deriveCwaBaseUrl, loadIntegrationConfigRow, loadScopedIntegrationConfig, normalizeIntegrationRecord } = require('../services/integrations');
+const {
+  deriveCwaBaseUrl,
+  loadIntegrationConfigRow,
+  loadScopedIntegrationConfig,
+  normalizeIntegrationRecord
+} = require('../services/integrations');
+const {
+  generatePlexWebhookReceiverToken,
+  hashPlexWebhookReceiverToken,
+  buildPlexWebhookReceiverPath,
+  buildPlexWebhookReceiverUrl,
+  shapePlexWebhookReceiverStatus,
+  validatePlexWebhookReceiverSetup
+} = require('../services/plexWebhookReceiver');
+const {
+  normalizeNowPlayingDisplayPreferences,
+  generateNowPlayingDisplayToken,
+  hashNowPlayingDisplayToken,
+  shapeNowPlayingDisplayTokenStatus
+} = require('../services/plexNowPlayingDisplay');
 const { encryptSecret } = require('../services/crypto');
 const { buildIntegrationResponse } = require('../services/integrationResponse');
 const { resolveBarcodePreset } = require('../services/barcode');
@@ -93,7 +112,7 @@ function buildSectionSource({ configured = false, defaultAvailable = true, detai
   };
 }
 
-function buildSpaceIntegrationPayload(config, { workspaceRow = null } = {}) {
+function buildSpaceIntegrationPayload(config, { workspaceRow = null, req = null, spaceId = null } = {}) {
   const defaultConfig = normalizeIntegrationRecord(null);
   const row = workspaceRow || null;
   const hasRow = Boolean(row);
@@ -175,6 +194,9 @@ function buildSpaceIntegrationPayload(config, { workspaceRow = null } = {}) {
 
   return {
     ...buildIntegrationResponse(config),
+    plexNowPlayingDisplayToken: shapeNowPlayingDisplayTokenStatus(config),
+    plexNowPlayingDisplayPreferences: normalizeNowPlayingDisplayPreferences(config?.plexNowPlayingDisplayPreferences),
+    plexWebhookReceiver: shapePlexWebhookReceiverStatus({ ...config, spaceId: config?.spaceId || spaceId }, req),
     integrationScope: {
       scope: 'workspace',
       sections: sources
@@ -494,7 +516,7 @@ router.get('/spaces/:spaceId/integrations', authenticateToken, requireSessionAut
 
     const workspaceRow = await loadIntegrationConfigRow(spaceId, { allowFallback: false });
     const config = await loadScopedIntegrationConfig(spaceId);
-    res.json(buildSpaceIntegrationPayload(config, { workspaceRow }));
+    res.json(buildSpaceIntegrationPayload(config, { workspaceRow, req, spaceId }));
   } finally {
     client.release();
   }
@@ -595,7 +617,244 @@ router.put('/spaces/:spaceId/integrations', authenticateToken, requireSessionAut
       keyClears: nextState.keyClears
     });
 
-    res.json(buildSpaceIntegrationPayload(config, { workspaceRow: persisted }));
+    res.json(buildSpaceIntegrationPayload(config, { workspaceRow: persisted, req, spaceId }));
+  } finally {
+    client.release();
+  }
+}));
+
+router.post('/spaces/:spaceId/integrations/plex-now-playing-display-token', authenticateToken, requireSessionAuth, asyncHandler(async (req, res) => {
+  const spaceId = parseSpaceId(req.params.spaceId);
+  if (!spaceId) return res.status(400).json({ error: 'Invalid space id' });
+
+  const client = await pool.connect();
+  try {
+    const space = await requireManageableSpace(client, req, spaceId);
+    if (!space) return res.status(404).json({ error: 'Space not found' });
+    if (space === false) return res.status(403).json({ error: 'Space management denied' });
+
+    const token = generateNowPlayingDisplayToken();
+    const tokenHash = hashNowPlayingDisplayToken(token);
+    const result = await client.query(
+      `INSERT INTO app_integrations (
+         space_id,
+         plex_now_playing_display_token_hash,
+         plex_now_playing_display_token_created_at,
+         plex_now_playing_display_token_last_used_at
+       ) VALUES ($1, $2, NOW(), NULL)
+       ON CONFLICT (space_id) DO UPDATE SET
+         plex_now_playing_display_token_hash = EXCLUDED.plex_now_playing_display_token_hash,
+         plex_now_playing_display_token_created_at = EXCLUDED.plex_now_playing_display_token_created_at,
+         plex_now_playing_display_token_last_used_at = NULL
+       RETURNING *`,
+      [spaceId, tokenHash]
+    );
+    const config = normalizeIntegrationRecord(result.rows[0]);
+    await logActivity(req, 'space.settings.integrations.plex_now_playing_display_token.generate', 'app_integrations', config.integrationId, {
+      spaceId,
+      tokenCreated: true
+    });
+    return res.json({
+      ok: true,
+      token,
+      displayPath: `/now-playing?token=${encodeURIComponent(token)}`,
+      displayApiPath: '/api/plex/now-playing-display',
+      plexNowPlayingDisplayToken: shapeNowPlayingDisplayTokenStatus(config)
+    });
+  } finally {
+    client.release();
+  }
+}));
+
+router.delete('/spaces/:spaceId/integrations/plex-now-playing-display-token', authenticateToken, requireSessionAuth, asyncHandler(async (req, res) => {
+  const spaceId = parseSpaceId(req.params.spaceId);
+  if (!spaceId) return res.status(400).json({ error: 'Invalid space id' });
+
+  const client = await pool.connect();
+  try {
+    const space = await requireManageableSpace(client, req, spaceId);
+    if (!space) return res.status(404).json({ error: 'Space not found' });
+    if (space === false) return res.status(403).json({ error: 'Space management denied' });
+
+    const result = await client.query(
+      `UPDATE app_integrations
+          SET plex_now_playing_display_token_hash = NULL,
+              plex_now_playing_display_token_created_at = NULL,
+              plex_now_playing_display_token_last_used_at = NULL
+        WHERE space_id = $1
+        RETURNING *`,
+      [spaceId]
+    );
+    const config = normalizeIntegrationRecord(result.rows[0] || { space_id: spaceId });
+    await logActivity(req, 'space.settings.integrations.plex_now_playing_display_token.revoke', 'app_integrations', config.integrationId, {
+      spaceId,
+      tokenRevoked: true
+    });
+    return res.json({ ok: true, plexNowPlayingDisplayToken: shapeNowPlayingDisplayTokenStatus(config) });
+  } finally {
+    client.release();
+  }
+}));
+
+router.put('/spaces/:spaceId/integrations/plex-now-playing-display-preferences', authenticateToken, requireSessionAuth, asyncHandler(async (req, res) => {
+  const spaceId = parseSpaceId(req.params.spaceId);
+  if (!spaceId) return res.status(400).json({ error: 'Invalid space id' });
+
+  const client = await pool.connect();
+  try {
+    const space = await requireManageableSpace(client, req, spaceId);
+    if (!space) return res.status(404).json({ error: 'Space not found' });
+    if (space === false) return res.status(403).json({ error: 'Space management denied' });
+
+    const preferences = normalizeNowPlayingDisplayPreferences(req.body?.preferences || req.body || {});
+    const result = await client.query(
+      `INSERT INTO app_integrations (space_id, plex_now_playing_display_preferences)
+       VALUES ($1, $2::jsonb)
+       ON CONFLICT (space_id) DO UPDATE SET
+         plex_now_playing_display_preferences = EXCLUDED.plex_now_playing_display_preferences
+       RETURNING id`,
+      [spaceId, JSON.stringify(preferences)]
+    );
+    await logActivity(req, 'space.settings.integrations.plex_now_playing_display_preferences.update', 'app_integrations', result.rows[0]?.id || null, {
+      spaceId,
+      preferences
+    });
+    return res.json({ ok: true, plexNowPlayingDisplayPreferences: preferences });
+  } finally {
+    client.release();
+  }
+}));
+
+router.post('/spaces/:spaceId/integrations/plex-webhook-receiver-token', authenticateToken, requireSessionAuth, asyncHandler(async (req, res) => {
+  const spaceId = parseSpaceId(req.params.spaceId);
+  if (!spaceId) return res.status(400).json({ error: 'Invalid space id' });
+
+  const client = await pool.connect();
+  try {
+    const space = await requireManageableSpace(client, req, spaceId);
+    if (!space) return res.status(404).json({ error: 'Space not found' });
+    if (space === false) return res.status(403).json({ error: 'Space management denied' });
+
+    const token = generatePlexWebhookReceiverToken();
+    const tokenHash = hashPlexWebhookReceiverToken(token);
+    const result = await client.query(
+      `INSERT INTO app_integrations (
+         space_id,
+         plex_webhook_receiver_token_hash,
+         plex_webhook_receiver_token_created_at,
+         plex_webhook_receiver_token_last_rotated_at
+       ) VALUES ($1, $2, NOW(), NOW())
+       ON CONFLICT (space_id) DO UPDATE SET
+         plex_webhook_receiver_token_hash = EXCLUDED.plex_webhook_receiver_token_hash,
+         plex_webhook_receiver_token_created_at = COALESCE(app_integrations.plex_webhook_receiver_token_created_at, EXCLUDED.plex_webhook_receiver_token_created_at),
+         plex_webhook_receiver_token_last_rotated_at = EXCLUDED.plex_webhook_receiver_token_last_rotated_at,
+         plex_webhook_receiver_last_received_at = NULL,
+         plex_webhook_receiver_last_event = NULL,
+         plex_webhook_receiver_last_attempt_at = NULL,
+         plex_webhook_receiver_last_attempt_status = NULL,
+         plex_webhook_receiver_last_attempt_error = NULL,
+         plex_webhook_receiver_last_content_type = NULL,
+         plex_webhook_receiver_last_validation_status = NULL,
+         plex_webhook_receiver_last_validation_message = NULL,
+         plex_webhook_receiver_last_validated_at = NULL
+       RETURNING *`,
+      [spaceId, tokenHash]
+    );
+    const config = normalizeIntegrationRecord(result.rows[0]);
+    await logActivity(req, 'space.settings.integrations.plex_webhook_receiver_token.generate', 'app_integrations', config.integrationId, {
+      spaceId,
+      tokenCreated: true
+    });
+    return res.json({
+      ok: true,
+      token,
+      webhookPath: buildPlexWebhookReceiverPath(token),
+      webhookUrl: buildPlexWebhookReceiverUrl(req, token),
+      plexWebhookReceiver: shapePlexWebhookReceiverStatus(config, req)
+    });
+  } finally {
+    client.release();
+  }
+}));
+
+router.delete('/spaces/:spaceId/integrations/plex-webhook-receiver-token', authenticateToken, requireSessionAuth, asyncHandler(async (req, res) => {
+  const spaceId = parseSpaceId(req.params.spaceId);
+  if (!spaceId) return res.status(400).json({ error: 'Invalid space id' });
+
+  const client = await pool.connect();
+  try {
+    const space = await requireManageableSpace(client, req, spaceId);
+    if (!space) return res.status(404).json({ error: 'Space not found' });
+    if (space === false) return res.status(403).json({ error: 'Space management denied' });
+
+    const result = await client.query(
+      `UPDATE app_integrations
+          SET plex_webhook_receiver_token_hash = NULL,
+              plex_webhook_receiver_token_created_at = NULL,
+              plex_webhook_receiver_token_last_rotated_at = NULL,
+              plex_webhook_receiver_last_received_at = NULL,
+              plex_webhook_receiver_last_event = NULL,
+              plex_webhook_receiver_last_attempt_at = NULL,
+              plex_webhook_receiver_last_attempt_status = NULL,
+              plex_webhook_receiver_last_attempt_error = NULL,
+              plex_webhook_receiver_last_content_type = NULL,
+              plex_webhook_receiver_last_validation_status = NULL,
+              plex_webhook_receiver_last_validation_message = NULL,
+              plex_webhook_receiver_last_validated_at = NULL
+        WHERE space_id = $1
+        RETURNING *`,
+      [spaceId]
+    );
+    const config = normalizeIntegrationRecord(result.rows[0] || { space_id: spaceId });
+    await logActivity(req, 'space.settings.integrations.plex_webhook_receiver_token.revoke', 'app_integrations', config.integrationId, {
+      spaceId,
+      tokenRevoked: true
+    });
+    return res.json({ ok: true, plexWebhookReceiver: shapePlexWebhookReceiverStatus(config, req) });
+  } finally {
+    client.release();
+  }
+}));
+
+router.post('/spaces/:spaceId/integrations/plex-webhook-receiver-validate', authenticateToken, requireSessionAuth, asyncHandler(async (req, res) => {
+  const spaceId = parseSpaceId(req.params.spaceId);
+  if (!spaceId) return res.status(400).json({ error: 'Invalid space id' });
+
+  const client = await pool.connect();
+  try {
+    const space = await requireManageableSpace(client, req, spaceId);
+    if (!space) return res.status(404).json({ error: 'Space not found' });
+    if (space === false) return res.status(403).json({ error: 'Space management denied' });
+
+    const existing = await client.query('SELECT * FROM app_integrations WHERE space_id = $1 LIMIT 1', [spaceId]);
+    const config = normalizeIntegrationRecord(existing.rows[0] || { space_id: spaceId });
+    const validation = validatePlexWebhookReceiverSetup(config, req);
+    const now = new Date();
+    const result = await client.query(
+      `INSERT INTO app_integrations (
+         space_id,
+         plex_webhook_receiver_last_validation_status,
+         plex_webhook_receiver_last_validation_message,
+         plex_webhook_receiver_last_validated_at
+       ) VALUES ($1, $2, $3, $4)
+       ON CONFLICT (space_id) DO UPDATE SET
+         plex_webhook_receiver_last_validation_status = EXCLUDED.plex_webhook_receiver_last_validation_status,
+         plex_webhook_receiver_last_validation_message = EXCLUDED.plex_webhook_receiver_last_validation_message,
+         plex_webhook_receiver_last_validated_at = EXCLUDED.plex_webhook_receiver_last_validated_at
+       RETURNING *`,
+      [spaceId, validation.status, validation.detail, now]
+    );
+    const updatedConfig = normalizeIntegrationRecord(result.rows[0]);
+    await logActivity(req, 'space.settings.integrations.plex_webhook_receiver.validate', 'app_integrations', updatedConfig.integrationId, {
+      spaceId,
+      status: validation.status,
+      detail: validation.detail
+    });
+    return res.json({
+      ok: validation.status !== 'failed',
+      validation: { ...validation, validatedAt: now.toISOString() },
+      plexWebhookReceiver: shapePlexWebhookReceiverStatus(updatedConfig, req)
+    });
   } finally {
     client.release();
   }
