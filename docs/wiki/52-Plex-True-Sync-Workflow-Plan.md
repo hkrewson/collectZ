@@ -17,6 +17,7 @@ The UI should teach the operating model through the workflow itself:
 - The page has grown too long and explanatory.
 - The previous "Plex operating model" block duplicated the controls instead of improving the workflow.
 - Plex import and reconciliation remain on maintained Plex library paths; provider discovery is still capability readback.
+- Plex webhook delivery uses the documented multipart form contract: JSON in `payload`, with an optional thumbnail that CollectZ does not retain.
 
 ## First Slice
 
@@ -36,13 +37,15 @@ The first slice removes the separate operating-model explainer from the UI. The 
 - Add webhook setup validation so the UI can show whether Plex can reach the receiver. Completed in `3.20.2` with receiver-exists validation and local-only host warning readback.
 - Add scheduled pull sync controls for new Plex items, watched state, and rating readback. Library reconciliation cadence was completed in `3.20.1`; watched-state and rating readback status/manual run was surfaced in `3.20.7`; persisted readback refresh cadence was completed in `3.20.8`.
 - Add explicit opt-in writeback controls for ratings and watched state. Completed in `3.20.6`; no silent writeback.
+- Accept documented multipart deliveries and actively process `library.new`, `media.scrobble`, and `media.rate`. Promoted as `3.24.3`; the first event reuses single-title import and the state events fetch current Plex metadata before applying it.
+- Enable persisted reconciliation and watched/rating readback for configured Plex connections so scheduled work covers title updates that Plex does not expose as a webhook event. Promoted as `3.24.3`.
 - Add activity entries for import, sync, webhook, and writeback outcomes. Activity readability for existing Plex events improved in `3.20.4`.
 - Add reconciliation review filters for Plex conflicts, skipped items, and provider errors. Conflict status and initial match-reason filters completed in `3.20.5`; server-backed match-reason filtering and counts completed in `3.20.9`.
 
 ## Safety Rules
 
 - Do not expose Plex tokens, raw file paths, download locations, or secret-adjacent values in browser-visible payloads.
-- Keep writeback opt-in and user-triggered until a later release explicitly adds scheduler controls.
+- Keep watched-state and rating writeback opt-in. A later active behavioral-writeback slice may make opted-in writes automatic, but must remain limited to user state rather than general Plex metadata.
 - Keep provider discovery separate from item import behavior unless a runtime proof shows identity, metadata, and repeat-sync parity.
 - Keep the UI compact: no standalone operating-model copy blocks, no duplicated tab headings, and no large explanatory boxes.
 

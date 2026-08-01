@@ -379,6 +379,174 @@ These are product-level capability gaps discovered from the current shape of the
 - Canonical import/link/update requires an explicit review action unless a narrowly defined safe exact-match rule is documented and tested.
 - Activity records are searchable, sanitized, and tied back to the scan draft/job.
 
+### Backlog Item: Native Blu-ray Collection Intake, Edition Review, and Upgrade Discovery
+**Type:** Product/import architecture milestone candidate
+**Tags:** `imports`, `capture`, `browser-extension`, `blu-ray`, `movies`, `editions`, `review`, `pricing`, `ratings`, `notifications`, `plex`, `provenance`
+**Status:** Product decisions captured; the initial browser-extension capture path and single-title Blu-ray mapping exist, but authenticated collection traversal, batch review, full edition upsert, notification, price-history, and automatic Plex watched-state propagation remain unimplemented.
+
+**Goal:** Make Blu-ray.com intake a native CollectZ review-and-upsert workflow, using the browser extension only where an authenticated browser session is required, while preserving edition identity, useful source metadata, user control over conflicts, and reliable downstream Plex watched-state synchronization.
+
+**Why this work exists**
+- The first browser-extension capture successfully created a `manual_note` Capture Inbox row, and CollectZ can now convert that title-only capture after the user selects a supported library type.
+- A title-only capture does not provide enough information for a high-quality edition import, and the current Capture Inbox row is too terse to explain every proposed update.
+- Blu-ray.com public title pages expose useful release, technical, pricing, rating, and edition information; authenticated collection pages can additionally expose the user's owned, wishlist, ordered, loaned, trade/sell, rented, and watched state.
+- CollectZ should own matching, review, conflict handling, canonical/edition upserts, history, and persistence. The browser companion should capture authenticated page evidence, not become a second implementation of CollectZ's import rules.
+- The long-term product direction is native CollectZ intake. Retain the extension as a narrow authenticated-session bridge until CollectZ can safely obtain equivalent data without storing third-party credentials.
+
+**Evidence gathered during discovery**
+- The supplied complete-collection page represented `198` movies but rendered `40` entries on the first page across a five-page collection, proving that a complete sync must traverse pagination rather than parse only the initially captured HTML.
+- The collection list exposes useful canonical movie-level identity and status context, while linked product/category/detail pages provide the stronger release/product identifiers needed to distinguish physical editions.
+- A tested Blu-ray.com detail capture for the Dune 4K release proved that the extension can submit structured title, release, technical, source, and nested pricing evidence, including `pricing.used.amount`, for CollectZ-side mapping.
+- The current CollectZ schema and mapping service already have a Blu-ray.com edition-source identity path and used-valuation mapping foundation; this backlog expands it into a complete reviewed collection workflow rather than replacing it.
+
+**Settled product and architecture decisions**
+- Keep a review step initially; do not silently import an authenticated Blu-ray.com collection.
+- Use a hybrid architecture:
+  - CollectZ owns normalization, matching, review, decisions, imports, retries, activity, and source history.
+  - The extension reads pages available in the user's existing authenticated Blu-ray.com browser session and submits structured capture evidence.
+  - CollectZ may fetch public title/detail pages natively when no authenticated browser context is required.
+- Keep private Blu-ray.com synchronization read-only. Do not write collection state back to Blu-ray.com.
+- Do not store Blu-ray.com credentials in CollectZ for the initial implementation. Direct credential retention could theoretically enable native sync, but browser-session capture avoids credential/cookie custody and is the preferred first boundary.
+- Authenticate the extension to CollectZ with a revocable capture-specific, least-privilege credential/channel rather than the user's reusable password. Finalize its exact PAT/session contract in the first implementation slice.
+- Begin with manual collection sync only. Do not schedule or background-drive authenticated collection traversal initially.
+- A durable extension outbox is not required for the first slice because the Capture Inbox already provides server-side durable receipt. Revisit a client-side outbox only if offline capture, browser shutdown, intermittent delivery, or resumable upload evidence proves it necessary.
+- Treat CollectZ as one shared library per installation for this workflow. Do not ask users to select among multiple library destinations. Multiple users and role-aware access may remain.
+- Keep the browser extension alongside the CollectZ integration contract and tests when practical, but keep provider extraction isolated from canonical persistence so a native handler can replace it later.
+
+**Capture and authenticated collection traversal**
+- Support single-title captures and complete authenticated collection-list captures.
+- A collection capture creates one batch/session row in the Capture Inbox rather than one noisy row per title.
+- The batch row opens a drawer that lists the captured titles and their review state.
+- For complete collection capture, traverse all available pages/categories sequentially rather than assuming the current HTML page contains the full collection.
+- Use bounded, human-like randomized delays between page requests/clicks, rate-limit-aware backoff, and conservative concurrency.
+- Pause rather than evade when authentication expires or Blu-ray.com returns CAPTCHA, `403`, or `429`; require the user to resolve the condition and explicitly resume.
+- Persist traversal progress sufficiently to resume a paused manual batch without duplicating already captured rows.
+- Read collection statuses when the page exposes them; do not infer a status that is absent from the source.
+- Exact edition matches may skip redundant detail retrieval and expose an optional Refresh action.
+
+**Review workflow and drawer information architecture**
+- The Capture Inbox remains the intake ledger, but detailed decisions move into the standard CollectZ slide-over drawer so the Inbox itself stays compact.
+- A collection session appears as one batch row. Selecting Review opens a tabbed title review and defaults to items with conflicts or decisions required.
+- Provide a control to switch from the conflict/review subset to the full captured set.
+- Forward/back arrow buttons automatically traverse the currently selected set.
+- Stage decisions without mutating canonical records, then provide one Apply batch action.
+- Apply accepted items in independent transactions: successful items remain committed, while failed items remain in the batch with a plain-language failure reason and Retry action.
+- Remove a fully successful batch from the active Inbox and retain it in import history/audit readback.
+- Use the normal title drawer structure as the basis for review and later title editing:
+  - `Overview`: title, owned formats, current prices/valuation, cast/author/artist, and loan state.
+  - `Editions`: editions owned and the proposed edition addition/update.
+  - `Technical`: runtime, dates, HDR, video/audio tracks, subtitles, discs, and comparable release details.
+  - `Source`: capture source per owned edition, provider IDs such as IMDb/TMDB/Discogs where present, observations, and change history.
+  - `Provenance`: signatures, images, proofs, condition, grading, acquisition evidence, and related collectible facts.
+- Keep the default review concise. Surface conflict/new-detail indicators and place the full editable field set behind the appropriate tabs/More details path.
+- All captured fields should ultimately be user-editable, but the initial UI must avoid presenting every field as one overwhelming form. A future data-table library view may complement, but does not replace, the drawer review.
+
+**Matching, editions, and field decisions**
+- Match to the canonical CollectZ movie first, then match the specific physical/digital edition using the strongest available identifiers and release attributes.
+- When the canonical title exists but the edition is new, default to `Add as an edition` and merge the edition's formats into the title's owned-format readback; let the reviewer choose a different disposition.
+- When the edition is identical, update that edition rather than creating a duplicate.
+- Preserve and upsert against the same canonical title when an owned digital or other-format edition already exists.
+- For an empty CollectZ field with a captured value, accept the proposed value by default.
+- For a populated field that conflicts with a captured value, preserve the existing value by default and flag it for review.
+- Provide `Accept all non-conflicting` behavior plus field-level accept/revert choices for conflicts.
+- Record accepted and rejected decisions sufficiently to explain the resulting record and avoid repeatedly proposing the same rejected observation without new source evidence.
+- Apply imports to the one installation library; do not expose legacy multiple-library destination selection in this workflow.
+
+**Blu-ray.com status mapping**
+- `Owned`: add or update the owned edition and canonical owned formats.
+- `Wishlist` / `Want to buy`: create or update the native CollectZ Wishlist intent while reusing the canonical title and existing editions.
+- `Ordered`: create a pending-acquisition state attached to the canonical title and intended edition; continue to respect existing digital/other editions.
+- `Loaned`: flag for review and ask the user how to map borrower/loan detail rather than guessing.
+- `For trade` / `Want to sell`: flag for review and ask the user how to proceed.
+- `Rented`: do not import.
+- `Watched`: mark the canonical CollectZ movie watched.
+- A missing or negative watched flag from Blu-ray.com must not clear an existing CollectZ or Plex watched state.
+
+**Plex watched-state propagation and retry behavior**
+- When Blu-ray.com newly marks a canonical movie watched, update CollectZ even if Plex is unavailable.
+- If the title is linked to Plex and the administrator has enabled Plex watched-state writeback, automatically mark it watched in Plex; do not require a second review checkbox or manual title action.
+- Keep Plex writeback opt-in at the integration/admin level. Enabling it authorizes automatic positive watched-state propagation from an applied Blu-ray.com import.
+- Make propagation idempotent and loop-safe using canonical title, target watched state, source observation/change, destination, and timestamps or equivalent durable identity.
+- Queue failed Plex writebacks durably and retry automatically with increasing delays.
+- A Plex failure must not roll back or fail the Blu-ray.com/CollectZ import.
+- On repeated/permanent failure, retain a retryable job and notify the admin/owner with the reason.
+- Show the failure primarily in the global notification inbox with Retry and Dismiss actions, and show a quiet `Plex sync pending` or `Plex sync failed` status with Retry in the affected title's Overview or Source area.
+- Do not add persistent warning badges to every library card. Remove/resolve the title status and notification automatically after successful retry.
+
+**Provider data mapping and history**
+- Map every reliable Blu-ray.com field that has an appropriate current CollectZ destination, including canonical title data, edition/release identifiers, formats, UPC where available, release dates, studios/distributors, regions, packaging/edition labels, runtime, video/HDR, audio, subtitles, disc/feature information, covers/images, credits, and source URLs.
+- Store Blu-ray.com identifiers and URLs as source/provider identity on the applicable canonical title or edition; do not flatten edition IDs onto the canonical record when they identify a specific release.
+- Parse Blu-ray.com's `pricing.used.amount` value and store it as a Blu-ray.com used-price observation rather than an unqualified canonical value.
+- Model pricing as related observations linked to the canonical CollectZ ID and edition where known. Include source/seller, condition (`new`/`used`), amount, currency, shipping when available, availability, URL, observation time, and capture method.
+- Record a new price-history observation only when the relevant observed value changes. Preserve enough timestamp/source evidence to explain current and historical new/used values.
+- Show current new/used values in Overview with visible source tags. Prefer showing every current source initially; revisit a `best`-price summary only if the UI becomes too noisy.
+- Allow later Amazon and eBay handlers to append source-specific observations without replacing Blu-ray.com history.
+- Store external review scores as source-specific observations with source and timestamp. Keep the user's CollectZ rating visually and semantically primary.
+- Use a normalized related history/observation model rather than one long formatted text/JSON field for prices, ratings, or field changes. Raw source payload snapshots may be retained separately for audit/debugging with size, privacy, and retention limits.
+
+**Global notifications and upgrade discovery**
+- Add a global bell notification inbox with per-user read/dismiss state.
+- Include brief operational events such as capture added, import/sync completed, failures needing attention, and metadata-review needs. Do not include routine price changes by default.
+- Administrators may view notifications across users; ordinary users see their own notifications.
+- Route collection-upgrade notifications to the admin/owner only.
+- Add a native, public RSS monitor for `https://www.blu-ray.com/rss/reviewfeed.xml`; it does not require the authenticated extension session.
+- Compare reviewed releases with owned canonical titles/editions and notify about plausible upgrades:
+  - higher format/transfer quality, such as SD/DVD or HD/Blu-ray to 4K/UHD;
+  - same-format collector upgrades such as Criterion/restoration, SteelBook, improved transfer/audio, packaging, or meaningful extras.
+- Let an administrator configure which upgrade classes matter for the installation.
+- Default an upgrade/review conflict toward adding a distinct edition or asking the user how to proceed rather than silently replacing an owned edition.
+- Keep price tracking separate from upgrade discovery. A self-hosted price tracker may later augment the price-observation model, but is not required for the first Blu-ray intake slice.
+
+**Provider sequence and future handlers**
+- Stabilize the Blu-ray.com single-title and collection import before adding another provider.
+- Goodreads is the preferred next handler after Blu-ray.com reaches reliable mapped-field and edition-upsert parity.
+- Amazon and eBay are expected future capture/price sources.
+- An IMDb handler remains undecided and requires a value/terms discussion before selection.
+- A Discogs handler remains undecided until its concrete value beyond existing music/provider identity is established.
+
+**Security, privacy, and operating constraints**
+- Never send Blu-ray.com credentials or session cookies to CollectZ. Submit only the minimum extracted collection/detail evidence needed for review.
+- Sanitize captured HTML/source payloads, errors, activity, and retry evidence; do not retain unrelated account or page data.
+- Respect authenticated-user intent, provider rate limits, and manual pause/resume boundaries. Do not attempt CAPTCHA bypass or stealth automation.
+- Scope batches, decisions, notifications, and imported records to authorized CollectZ users/roles even though the installation uses one shared library.
+- Keep source evidence sufficient for provenance and troubleshooting without treating scraped raw HTML as the canonical data model.
+
+**Candidate implementation slices**
+1. Define the batch capture/session, normalized Blu-ray item payload, source observation, review-decision, and least-privilege extension-auth contracts; document single-library scoping and extension/native responsibilities.
+2. Expand single-title Blu-ray mapping and tests to cover all reliable existing CollectZ fields, edition identity, used-price observations, source IDs, and ratings.
+3. Add batch Inbox rows and the tabbed conflict-first drawer with full-set toggle, arrow traversal, staged decisions, and independent Apply batch transactions.
+4. Add authenticated extension collection traversal with pagination/category status extraction, jitter/backoff, pause/resume, and duplicate-safe batch delivery.
+5. Implement canonical/edition matching, owned-format merging, exact-edition updates, Wishlist/Ordered/status mapping, and review flags for Loaned/trade/sell; exclude Rented.
+6. Add normalized price/rating/source history and current per-source Overview readback.
+7. Add the per-user global notification inbox plus admin/owner aggregate visibility and title-local sync warnings.
+8. Add automatic positive watched-state propagation to Plex with durable retry, idempotency, activity evidence, notification failure handling, and title-local status.
+9. Add the public Blu-ray review RSS monitor and administrator-configured collector/quality upgrade matching.
+10. Evaluate retiring more extension behavior into native CollectZ only after authenticated-session requirements and provider constraints are proven.
+
+**Out of scope for the initial milestone**
+- Writing any state back to Blu-ray.com.
+- Storing Blu-ray.com usernames, passwords, session cookies, or browser storage in CollectZ.
+- Scheduled/background authenticated collection crawling.
+- Treating absent provider state as an instruction to delete, unown, unwatch, or overwrite user-entered data.
+- Automatic import of unresolved canonical/edition conflicts.
+- Routine price-change bell notifications, automated purchasing, or a full self-hosted price-tracker deployment.
+- Simultaneous Goodreads, IMDb, Discogs, Amazon, or eBay handler implementation.
+- Removing the Capture Inbox ledger before batch review/history has a proven replacement.
+- Building a separate browser-specific product for every browser in the first slice; keep extraction WebExtension-compatible where practical and validate additional browsers later.
+
+**Acceptance Criteria**
+- A manual authenticated Blu-ray.com collection capture produces one durable Capture Inbox batch row, traverses all collection pages safely, and can pause/resume without duplicate title rows.
+- The batch drawer defaults to conflicts/review-required titles, can show the full batch, supports arrow traversal, and exposes the agreed Overview, Editions, Technical, Source, and Provenance tabs.
+- Users can accept all non-conflicting proposals, decide individual conflicts, and Apply batch; successes commit independently and only failed items remain retryable with reasons.
+- Exact canonical and edition matches update rather than duplicate; new editions default to edition creation and merge owned formats while preserving the user's ability to choose otherwise.
+- Owned, Wishlist, Ordered, Loaned, trade/sell, Rented, and Watched source states follow the settled mapping and review rules.
+- Every reliable Blu-ray.com value with an appropriate CollectZ field is mapped at the correct canonical or edition scope, including used-price observations and source-specific ratings.
+- Current per-source new/used pricing is visible in Overview, while normalized history records only actual changes.
+- Applying a positive Blu-ray.com watched state updates CollectZ and automatically queues Plex writeback when enabled; Plex failure never rolls back the import and remains durably retryable with notification and title-local readback.
+- The global bell provides per-user state, admin aggregate visibility, operational outcomes, and admin/owner-only upgrade alerts without routine price-change noise.
+- Public review-feed monitoring can identify configurable format and collector-edition upgrades for owned titles without using private Blu-ray.com credentials.
+- Tests cover payload normalization, mapping, canonical/edition matching, conflict defaults, status handling, pagination/resume, batch transaction boundaries, price-change deduplication, watched-state idempotency/loop prevention, Plex retry recovery, notification permissions, and upgrade matching.
+
 ### Backlog Item: Saved Views and Smart Collections
 **Type:** Deferred milestone
 **Tags:** `product`, `saved-views`, `smart-collections`, `filters`
@@ -1517,7 +1685,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 ### Backlog Item: Plex True Sync Workflow
 **Type:** UI/UX and sync workflow refinement
 **Tags:** `plex`, `sync`, `imports`, `webhooks`, `ratings`, `activity`, `workflow`
-**Status:** Active plan; first UI slice promoted as `3.20.0`, sync cadence settings promoted as `3.20.1`, webhook setup validation promoted as `3.20.2`, initial import workflow promoted as `3.20.3`, activity readability promoted as `3.20.4`, reconciliation review filters promoted as `3.20.5`, explicit writeback opt-in promoted as `3.20.6`, readback refresh surface promoted as `3.20.7`, persisted readback refresh cadence promoted as `3.20.8`, server-backed conflict review filters promoted as `3.20.9`.
+**Status:** Active plan; the workflow UI and controls shipped across `3.20.0` through `3.20.9`, and the documented multipart receiver plus active inbound event processing has been promoted as `3.24.3`.
 
 **Goal:** Turn Plex from a long settings surface into a true sync workflow with clear setup, sync, webhook, and advanced diagnostics areas.
 
@@ -1533,6 +1701,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - `3.20.7` surfaces watched-state/rating readback refresh status and manual run controls in Plex Sync.
 - `3.20.8` persists watched-state/rating readback refresh enablement, interval, and max-items settings while preserving env overrides.
 - `3.20.9` moves Plex conflict review match-reason filtering into the backend query and returns reason counts for the current status.
+- `3.24.3` accepts Plex's documented multipart webhook delivery, queues new-title/watched/rating events durably, applies watched/rating readback automatically, records delivery failures, and activates scheduled inbound fallbacks for configured Plex connections.
 - Existing Plex import, reconciliation, provider discovery, and webhook behavior remains intact.
 
 **Remaining subtasks**
@@ -1542,6 +1711,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - Add scheduled pull sync controls for new items, watched state, and rating readback. Library reconciliation cadence completed in `3.20.1`; watched-state/rating readback refresh status and manual run completed in `3.20.7`; persisted readback refresh cadence completed in `3.20.8`.
 - Add explicit opt-in writeback controls for ratings and watched state. Completed in `3.20.6`.
 - Add activity entries for import, sync, webhook, and writeback outcomes. Existing Plex event readability improved in `3.20.4`; add new backend activity only when new scheduler/writeback controls are promoted.
+- Accept and process real Plex multipart webhook deliveries for new titles, watched state, and ratings. Promoted as `3.24.3`.
 - Add reconciliation review filters for Plex conflicts, skipped items, and provider errors. Conflict review status and initial match-reason filters completed in `3.20.5`; server-backed match-reason filtering and counts completed in `3.20.9`.
 
 **Acceptance Criteria**

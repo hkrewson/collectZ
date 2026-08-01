@@ -3,7 +3,7 @@
   "receiverStatus": {
     "enabled": true,
     "receiverPath": "/api/plex/webhooks/[token]",
-    "receiverPathMasked": "/api/plex/webhooks/czpw_c85379dc84...",
+    "receiverPathMasked": "/api/plex/webhooks/czpw_638d3c3afa...",
     "tokenFingerprintPresent": true,
     "supportedEvents": [
       "library.new",
@@ -17,27 +17,30 @@
       "media.stop",
       "playback.started"
     ],
-    "processingMode": "library_new_import_enqueue_only"
+    "processingMode": "active_webhook_event_queue"
   },
   "invalidTokenRejected": true,
+  "malformedMultipartRejectedAndDiagnosed": true,
   "validWebhookAccepted": {
     "event": "library.new",
     "supported": true,
     "action": "sync_new_title_hint",
-    "ratingKey": "receiver-admin-41d5273613fd",
-    "metadataReadbackPath": "/library/metadata/receiver-admin-41d5273613fd",
-    "processingMode": "import_enqueue_hint",
+    "ratingKey": "receiver-admin-fe25c19e3946",
+    "metadataReadbackPath": "/library/metadata/receiver-admin-fe25c19e3946",
+    "processingMode": "webhook_event_enqueue",
     "importEnqueue": {
       "queued": true,
       "jobType": "plex_webhook_import_hint",
       "provider": "plex",
       "status": "queued",
-      "ratingKey": "receiver-admin-41d5273613fd",
+      "ratingKey": "receiver-admin-fe25c19e3946",
       "processingMode": "queued_import_hint"
     }
   },
   "duplicateWebhookReusedExistingJob": true,
-  "watchedStateStayedReadOnly": true,
+  "multipartPayloadAccepted": true,
+  "watchedStateQueuedAndApplied": true,
+  "ratingQueuedAndApplied": true,
   "singleRatingKeyImportProcessed": {
     "status": "succeeded",
     "processingMode": "single_rating_key_import",

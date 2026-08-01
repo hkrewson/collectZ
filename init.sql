@@ -733,6 +733,10 @@ CREATE TABLE IF NOT EXISTS app_integrations (
     plex_webhook_receiver_token_last_rotated_at TIMESTAMP,
     plex_webhook_receiver_last_received_at TIMESTAMP,
     plex_webhook_receiver_last_event TEXT,
+    plex_webhook_receiver_last_attempt_at TIMESTAMP,
+    plex_webhook_receiver_last_attempt_status VARCHAR(20),
+    plex_webhook_receiver_last_attempt_error TEXT,
+    plex_webhook_receiver_last_content_type VARCHAR(120),
     plex_webhook_receiver_last_validation_status VARCHAR(20),
     plex_webhook_receiver_last_validation_message TEXT,
     plex_webhook_receiver_last_validated_at TIMESTAMP,
@@ -1919,5 +1923,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (114, 'Add persisted Plex readback refresh settings'),
     (115, 'Add wishlist booth support for event field kits'),
     (116, 'Add mobile auth sessions for native scanner tokens'),
-    (117, 'Add idempotent Blu-ray.com physical media variants')
+    (117, 'Add idempotent Blu-ray.com physical media variants'),
+    (118, 'Activate Plex inbound sync and add webhook delivery diagnostics')
 ON CONFLICT (version) DO NOTHING;

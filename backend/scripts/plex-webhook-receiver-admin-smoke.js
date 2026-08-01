@@ -12,6 +12,7 @@ const { encryptSecret } = require('../services/crypto');
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 const fakePlexToken = `plex-smoke-${crypto.randomBytes(6).toString('hex')}`;
+const fakePlexServerUuid = crypto.randomUUID();
 const ARTIFACT_PATH = path.resolve(
   __dirname,
   '..',
@@ -48,7 +49,8 @@ class HttpClient {
     const { method = 'GET', body, expectStatus, withCsrf = false, headers: extraHeaders = {} } = options;
     const headers = { Accept: 'application/json', ...extraHeaders };
     let requestBody = body;
-    if (body !== undefined && typeof body !== 'string' && !Buffer.isBuffer(body)) {
+    const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
+    if (body !== undefined && typeof body !== 'string' && !Buffer.isBuffer(body) && !isFormData) {
       headers['Content-Type'] = headers['Content-Type'] || 'application/json';
       requestBody = JSON.stringify(body);
     }
@@ -92,9 +94,9 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 function assertSecretFree(value, label = 'payload', rawToken = '') {
   const text = JSON.stringify(value);
   if (rawToken) assert(!text.includes(rawToken), `${label} surfaced raw webhook receiver token`);
+  assert(!text.includes(fakePlexToken), `${label} surfaced raw Plex token`);
+  assert(!text.includes(fakePlexServerUuid), `${label} surfaced raw server UUID`);
   assert(!/X-Plex-Token=/i.test(text), `${label} surfaced a Plex token query string`);
-  assert(!/receiver-admin-token/i.test(text), `${label} surfaced fixture token text`);
-  assert(!/server-uuid-secret/i.test(text), `${label} surfaced raw server UUID`);
   assert(!/\/mnt\/plex-media/i.test(text), `${label} surfaced raw media file path`);
 }
 
@@ -116,6 +118,10 @@ async function snapshotPlexWebhookSettings() {
             plex_webhook_receiver_token_last_rotated_at,
             plex_webhook_receiver_last_received_at,
             plex_webhook_receiver_last_event,
+            plex_webhook_receiver_last_attempt_at,
+            plex_webhook_receiver_last_attempt_status,
+            plex_webhook_receiver_last_attempt_error,
+            plex_webhook_receiver_last_content_type,
             plex_preset,
             plex_provider,
             plex_api_url,
@@ -156,6 +162,10 @@ async function restorePlexWebhookSettings(snapshot) {
               plex_webhook_receiver_token_last_rotated_at = NULL,
               plex_webhook_receiver_last_received_at = NULL,
               plex_webhook_receiver_last_event = NULL,
+              plex_webhook_receiver_last_attempt_at = NULL,
+              plex_webhook_receiver_last_attempt_status = NULL,
+              plex_webhook_receiver_last_attempt_error = NULL,
+              plex_webhook_receiver_last_content_type = NULL,
               plex_preset = 'plex',
               plex_provider = 'plex',
               plex_api_url = NULL,
@@ -173,12 +183,16 @@ async function restorePlexWebhookSettings(snapshot) {
             plex_webhook_receiver_token_last_rotated_at = $3,
             plex_webhook_receiver_last_received_at = $4,
             plex_webhook_receiver_last_event = $5,
-            plex_preset = $6,
-            plex_provider = $7,
-            plex_api_url = $8,
-            plex_api_key_encrypted = $9,
-            plex_library_sections = $10::jsonb,
-            tmdb_api_key_encrypted = $11
+            plex_webhook_receiver_last_attempt_at = $6,
+            plex_webhook_receiver_last_attempt_status = $7,
+            plex_webhook_receiver_last_attempt_error = $8,
+            plex_webhook_receiver_last_content_type = $9,
+            plex_preset = $10,
+            plex_provider = $11,
+            plex_api_url = $12,
+            plex_api_key_encrypted = $13,
+            plex_library_sections = $14::jsonb,
+            tmdb_api_key_encrypted = $15
       WHERE id = 1`,
     [
       snapshot.plex_webhook_receiver_token_hash,
@@ -186,6 +200,10 @@ async function restorePlexWebhookSettings(snapshot) {
       snapshot.plex_webhook_receiver_token_last_rotated_at,
       snapshot.plex_webhook_receiver_last_received_at,
       snapshot.plex_webhook_receiver_last_event,
+      snapshot.plex_webhook_receiver_last_attempt_at,
+      snapshot.plex_webhook_receiver_last_attempt_status,
+      snapshot.plex_webhook_receiver_last_attempt_error,
+      snapshot.plex_webhook_receiver_last_content_type,
       snapshot.plex_preset,
       snapshot.plex_provider,
       snapshot.plex_api_url,
@@ -207,7 +225,7 @@ async function cleanupWebhookJobs(ratingKey) {
   await pool.query(
     `DELETE FROM sync_jobs
       WHERE provider = 'plex'
-        AND job_type = 'plex_webhook_import_hint'
+        AND job_type IN ('plex_webhook_import_hint', 'plex_webhook_state_hint')
         AND scope->>'ratingKey' = $1`,
     [key]
   ).catch(() => {});
@@ -260,7 +278,7 @@ async function startFakePmsServer(ratingKey, title) {
     res.writeHead(200);
     res.end(`<?xml version="1.0" encoding="UTF-8"?>
 <MediaContainer size="1">
-  <Video ratingKey="${ratingKey}" key="/library/metadata/${ratingKey}" type="movie" title="${title}" year="2026" librarySectionID="1" duration="7200000" originallyAvailableAt="2026-05-08" thumb="https://images.example.invalid/plex-webhook-poster.jpg" />
+  <Video ratingKey="${ratingKey}" key="/library/metadata/${ratingKey}" type="movie" title="${title}" year="2026" librarySectionID="1" duration="7200000" viewCount="1" viewedAt="1778256000" userRating="8" originallyAvailableAt="2026-05-08" thumb="https://images.example.invalid/plex-webhook-poster.jpg" />
 </MediaContainer>`);
   });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -291,6 +309,35 @@ async function waitForProcessedWebhookJob(ratingKey, timeoutMs = 30000) {
     await sleep(500);
   }
   throw new Error(`Timed out waiting for Plex webhook import auto-processing: ${JSON.stringify(last)}`);
+}
+
+async function waitForProcessedStateJob(ratingKey, event, timeoutMs = 30000) {
+  const deadline = Date.now() + timeoutMs;
+  let last = null;
+  while (Date.now() < deadline) {
+    const readback = await pool.query(
+      `SELECT id, job_type, provider, status, scope, progress, summary, error
+         FROM sync_jobs
+        WHERE provider = 'plex'
+          AND job_type = 'plex_webhook_state_hint'
+          AND scope->>'ratingKey' = $1
+          AND scope->>'event' = $2
+        ORDER BY updated_at DESC
+        LIMIT 1`,
+      [ratingKey, event]
+    );
+    last = readback.rows[0] || null;
+    if (last && ['succeeded', 'failed'].includes(String(last.status))) return last;
+    await sleep(500);
+  }
+  throw new Error(`Timed out waiting for Plex webhook state processing: ${JSON.stringify(last)}`);
+}
+
+function buildPlexWebhookForm(payload, { includeThumb = false } = {}) {
+  const form = new FormData();
+  form.append('payload', JSON.stringify(payload));
+  if (includeThumb) form.append('thumb', new Blob([Buffer.from('plex-smoke-thumb')], { type: 'image/jpeg' }), 'thumb.jpg');
+  return form;
 }
 
 async function main() {
@@ -347,23 +394,42 @@ async function main() {
     });
 
     const webhook = new HttpClient('plex-webhook-valid-smoke');
+    const malformedForm = new FormData();
+    malformedForm.append('payload', 'not-json');
+    await webhook.request(`/api/plex/webhooks/${encodeURIComponent(rawToken)}`, {
+      method: 'POST',
+      expectStatus: 400,
+      body: malformedForm
+    });
+    const rejectedDelivery = await pool.query(
+      `SELECT plex_webhook_receiver_last_attempt_status,
+              plex_webhook_receiver_last_attempt_error,
+              plex_webhook_receiver_last_content_type
+         FROM app_integrations
+        WHERE id = 1`
+    );
+    assert(rejectedDelivery.rows[0]?.plex_webhook_receiver_last_attempt_status === 'rejected', 'Expected malformed multipart delivery to be recorded as rejected');
+    assert(String(rejectedDelivery.rows[0]?.plex_webhook_receiver_last_attempt_error || '').includes('not recognized'), 'Expected rejected delivery diagnostic to explain the unrecognized payload');
+    assert(String(rejectedDelivery.rows[0]?.plex_webhook_receiver_last_content_type || '').startsWith('multipart/form-data'), 'Expected rejected multipart content type readback');
+
+    const libraryPayload = {
+      event: 'library.new',
+      Metadata: {
+        ratingKey,
+        type: 'movie',
+        title: importedTitle,
+        librarySectionID: '1',
+        thumb: `https://plex.example.invalid/thumb?X-Plex-Token=${fakePlexToken}`,
+        Media: [{ Part: [{ file: '/mnt/plex-media/Receiver Admin New Movie.mkv' }] }]
+      },
+      Server: { title: 'Home Plex', uuid: fakePlexServerUuid }
+    };
     const accepted = await webhook.request(`/api/plex/webhooks/${encodeURIComponent(rawToken)}`, {
       method: 'POST',
       expectStatus: 200,
-      body: {
-        event: 'library.new',
-        Metadata: {
-          ratingKey,
-          type: 'movie',
-          title: importedTitle,
-          librarySectionID: '1',
-          thumb: 'https://plex.example.invalid/thumb?X-Plex-Token=receiver-admin-token',
-          Media: [{ Part: [{ file: '/mnt/plex-media/Receiver Admin New Movie.mkv' }] }]
-        },
-        Server: { title: 'Home Plex', uuid: 'server-uuid-secret' }
-      }
+      body: buildPlexWebhookForm(libraryPayload, { includeThumb: true })
     });
-    assert(accepted.data?.processingMode === 'import_enqueue_hint', `Expected import enqueue mode: ${JSON.stringify(accepted.data)}`);
+    assert(accepted.data?.processingMode === 'webhook_event_enqueue', `Expected webhook event enqueue mode: ${JSON.stringify(accepted.data)}`);
     assert(accepted.data?.event === 'library.new', `Expected library.new event: ${JSON.stringify(accepted.data)}`);
     assert(accepted.data?.supported === true, `Expected supported webhook event: ${JSON.stringify(accepted.data)}`);
     assert(accepted.data?.action === 'sync_new_title_hint', `Expected new-title hint action: ${JSON.stringify(accepted.data)}`);
@@ -378,10 +444,10 @@ async function main() {
     const duplicate = await webhook.request(`/api/plex/webhooks/${encodeURIComponent(rawToken)}`, {
       method: 'POST',
       expectStatus: 200,
-      body: {
+      body: buildPlexWebhookForm({
         event: 'library.new',
         Metadata: { ratingKey, type: 'movie', title: importedTitle, librarySectionID: '1' }
-      }
+      })
     });
     assert(duplicate.data?.importEnqueue?.queued === true, `Expected duplicate webhook import hint to remain queued: ${JSON.stringify(duplicate.data)}`);
     assert(duplicate.data?.importEnqueue?.job?.existing === true, `Expected duplicate webhook import hint to reuse existing job: ${JSON.stringify(duplicate.data)}`);
@@ -389,18 +455,31 @@ async function main() {
     const watched = await webhook.request(`/api/plex/webhooks/${encodeURIComponent(rawToken)}`, {
       method: 'POST',
       expectStatus: 200,
-      body: { event: 'media.scrobble', Metadata: { ratingKey, title: importedTitle } }
+      body: buildPlexWebhookForm({ event: 'media.scrobble', Metadata: { ratingKey, title: importedTitle } })
     });
-    assert(watched.data?.processingMode === 'read_only', `Expected watched-state event to stay read-only: ${JSON.stringify(watched.data)}`);
-    assert(watched.data?.importEnqueue?.queued === false, `Expected watched-state event not to enqueue import: ${JSON.stringify(watched.data)}`);
+    assert(watched.data?.processingMode === 'webhook_event_enqueue', `Expected watched-state event to queue refresh: ${JSON.stringify(watched.data)}`);
+    assert(watched.data?.importEnqueue?.queued === true, `Expected watched-state event to enqueue refresh: ${JSON.stringify(watched.data)}`);
+    assert(watched.data?.importEnqueue?.job?.jobType === 'plex_webhook_state_hint', `Expected watched-state hint job: ${JSON.stringify(watched.data)}`);
+
+    const rated = await webhook.request(`/api/plex/webhooks/${encodeURIComponent(rawToken)}`, {
+      method: 'POST',
+      expectStatus: 200,
+      body: buildPlexWebhookForm({ event: 'media.rate', Metadata: { ratingKey, title: importedTitle, userRating: 8 } })
+    });
+    assert(rated.data?.importEnqueue?.queued === true, `Expected rating event to enqueue refresh: ${JSON.stringify(rated.data)}`);
 
     const dbReadback = await pool.query(
-      `SELECT plex_webhook_receiver_last_received_at, plex_webhook_receiver_last_event
+      `SELECT plex_webhook_receiver_last_received_at, plex_webhook_receiver_last_event,
+              plex_webhook_receiver_last_attempt_at, plex_webhook_receiver_last_attempt_status,
+              plex_webhook_receiver_last_attempt_error, plex_webhook_receiver_last_content_type
          FROM app_integrations
         WHERE id = 1`
     );
     assert(dbReadback.rows[0]?.plex_webhook_receiver_last_received_at, 'Expected last received timestamp');
-    assert(dbReadback.rows[0]?.plex_webhook_receiver_last_event === 'media.scrobble', 'Expected last received event readback');
+    assert(dbReadback.rows[0]?.plex_webhook_receiver_last_event === 'media.rate', 'Expected last received event readback');
+    assert(dbReadback.rows[0]?.plex_webhook_receiver_last_attempt_status === 'accepted', 'Expected accepted delivery status');
+    assert(!dbReadback.rows[0]?.plex_webhook_receiver_last_attempt_error, 'Expected accepted delivery without error');
+    assert(String(dbReadback.rows[0]?.plex_webhook_receiver_last_content_type || '').startsWith('multipart/form-data'), 'Expected multipart content-type readback');
 
     const queuedJobs = await pool.query(
       `SELECT id, job_type, provider, status, scope, progress, summary
@@ -414,13 +493,13 @@ async function main() {
     assert(queuedJobs.rowCount === 1, `Expected one deduped webhook import hint job, got ${queuedJobs.rowCount}`);
     assert(queuedJobs.rows[0]?.status === 'queued', `Expected queued webhook import hint job: ${JSON.stringify(queuedJobs.rows[0])}`);
     assert(queuedJobs.rows[0]?.scope?.processingMode === 'queued_import_hint', `Expected queued import hint scope: ${JSON.stringify(queuedJobs.rows[0])}`);
-    assert(queuedJobs.rows[0]?.summary?.processor === 'pending_future_slice', `Expected no silent processor claim: ${JSON.stringify(queuedJobs.rows[0])}`);
+    assert(queuedJobs.rows[0]?.summary?.processor === 'active_webhook_event_processor', `Expected active webhook processor claim: ${JSON.stringify(queuedJobs.rows[0])}`);
 
     const autoStatus = await admin.request('/api/media/plex-webhook-import-hints/auto-processor', {
       expectStatus: 200
     });
     assert(autoStatus.data?.runtime?.enabled === true, `Expected webhook import auto-processor enabled: ${JSON.stringify(autoStatus.data)}`);
-    assert(autoStatus.data?.processingMode === 'auto_single_rating_key_import', `Expected auto processor readback: ${JSON.stringify(autoStatus.data)}`);
+    assert(autoStatus.data?.processingMode === 'auto_webhook_event_processing', `Expected auto processor readback: ${JSON.stringify(autoStatus.data)}`);
 
     const processedJob = await waitForProcessedWebhookJob(ratingKey);
     assert(processedJob?.status === 'succeeded', `Expected processed webhook import job to succeed: ${JSON.stringify(processedJob)}`);
@@ -429,6 +508,13 @@ async function main() {
     assert((processedJob?.summary?.created || 0) + (processedJob?.summary?.updated || 0) >= 1, `Expected processed hint to create or update a media row: ${JSON.stringify(processedJob)}`);
     assert(fakePms.requests.some((request) => request.pathname === `/library/metadata/${ratingKey}` && request.tokenMatched), `Expected fake PMS metadata readback with Plex token: ${JSON.stringify(fakePms.requests)}`);
     assertSecretFree(processedJob, 'processed webhook job readback', rawToken);
+
+    const watchedJob = await waitForProcessedStateJob(ratingKey, 'media.scrobble');
+    assert(watchedJob?.status === 'succeeded', `Expected watched-state refresh job to succeed: ${JSON.stringify(watchedJob)}`);
+    assert(watchedJob?.summary?.processingMode === 'single_rating_key_watch_state_refresh', `Expected watched-state processing mode: ${JSON.stringify(watchedJob)}`);
+    const ratingJob = await waitForProcessedStateJob(ratingKey, 'media.rate');
+    assert(ratingJob?.status === 'succeeded', `Expected rating refresh job to succeed: ${JSON.stringify(ratingJob)}`);
+    assert(ratingJob?.summary?.processingMode === 'single_rating_key_rating_refresh', `Expected rating processing mode: ${JSON.stringify(ratingJob)}`);
 
     const imported = await pool.query(
       `SELECT m.id, m.title, m.import_source, mm.value AS plex_item_key
@@ -467,6 +553,7 @@ async function main() {
         processingMode: generated.data.plexWebhookReceiver.processingMode
       },
       invalidTokenRejected: true,
+      malformedMultipartRejectedAndDiagnosed: true,
       validWebhookAccepted: {
         event: accepted.data.event,
         supported: accepted.data.supported,
@@ -484,7 +571,9 @@ async function main() {
         }
       },
       duplicateWebhookReusedExistingJob: duplicate.data.importEnqueue.job.existing,
-      watchedStateStayedReadOnly: watched.data.importEnqueue.queued === false,
+      multipartPayloadAccepted: String(dbReadback.rows[0].plex_webhook_receiver_last_content_type).startsWith('multipart/form-data'),
+      watchedStateQueuedAndApplied: watchedJob.status === 'succeeded',
+      ratingQueuedAndApplied: ratingJob.status === 'succeeded',
       singleRatingKeyImportProcessed: {
         status: processedJob.status,
         processingMode: processedJob.summary.processingMode,

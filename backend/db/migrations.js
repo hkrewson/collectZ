@@ -4765,6 +4765,32 @@ const MIGRATIONS = [
         ON media_variants (media_id, source, source_item_key)
         WHERE source = 'blu-ray.com' AND source_item_key IS NOT NULL;
     `
+  },
+  {
+    version: 118,
+    description: 'Activate Plex inbound sync and add webhook delivery diagnostics',
+    up: `
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS plex_webhook_receiver_last_attempt_at TIMESTAMP;
+
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS plex_webhook_receiver_last_attempt_status VARCHAR(20);
+
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS plex_webhook_receiver_last_attempt_error TEXT;
+
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS plex_webhook_receiver_last_content_type VARCHAR(120);
+
+      UPDATE app_integrations
+         SET plex_reconciliation_sync_enabled = true,
+             plex_readback_refresh_enabled = true
+       WHERE plex_api_url IS NOT NULL
+         AND BTRIM(plex_api_url) <> ''
+         AND plex_api_key_encrypted IS NOT NULL
+         AND jsonb_typeof(COALESCE(plex_library_sections, '[]'::jsonb)) = 'array'
+         AND jsonb_array_length(COALESCE(plex_library_sections, '[]'::jsonb)) > 0;
+    `
   }
 ];
 

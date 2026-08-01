@@ -7608,14 +7608,32 @@
         "requestBody": {
           "required": true,
           "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["payload"],
+                "properties": {
+                  "payload": {
+                    "type": "string",
+                    "description": "JSON-encoded Plex webhook payload"
+                  },
+                  "thumb": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Optional Plex thumbnail; accepted only as bounded transport evidence and not persisted"
+                  }
+                }
+              }
+            },
             "application/json": {
+              "description": "Compatibility shape for tests and non-Plex clients",
               "schema": { "type": "object", "additionalProperties": true }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Webhook event accepted; library.new may enqueue a Plex import hint job",
+            "description": "Webhook event accepted; actionable library, watched-state, and rating events are queued durably",
             "content": {
               "application/json": {
                 "schema": { "type": "object", "additionalProperties": true }

@@ -353,12 +353,18 @@ const startServer = async () => {
            error = COALESCE(error, 'Process restarted before job completion'),
            finished_at = COALESCE(finished_at, NOW())
        WHERE status = 'running'
-          OR (status = 'queued' AND job_type <> 'plex_webhook_import_hint')
+          OR (status = 'queued' AND job_type NOT IN ('plex_webhook_import_hint', 'plex_webhook_state_hint'))
        RETURNING id`
     );
     if (staleJobs.rowCount > 0) {
       console.warn(`Recovered ${staleJobs.rowCount} stale sync job(s) after restart`);
     }
+    const effectivePlexWatchRefreshRuntime = typeof mediaRouter.getEffectivePlexWatchStateRefreshRuntimeConfig === 'function'
+      ? await mediaRouter.getEffectivePlexWatchStateRefreshRuntimeConfig()
+      : PLEX_WATCH_STATE_REFRESH_RUNTIME;
+    const effectivePlexReconciliationRuntime = typeof mediaRouter.getEffectivePlexReconciliationSyncRuntimeConfig === 'function'
+      ? await mediaRouter.getEffectivePlexReconciliationSyncRuntimeConfig()
+      : PLEX_RECONCILIATION_SYNC_RUNTIME;
     // Run one cleanup pass on startup so stale rows are removed quickly.
     await cleanupExpiredSessions();
     const cleanupTimer = setInterval(async () => {
@@ -390,8 +396,8 @@ const startServer = async () => {
         `rateWindowMin=${RATE_LIMIT_WINDOW_MINUTES}, globalMax=${RATE_LIMIT_GLOBAL_MAX}, ` +
         `autoLoanReminders=${AUTO_LOAN_REMINDER_RUNTIME.enabled ? `on/${AUTO_LOAN_REMINDER_RUNTIME.intervalMinutes}m` : 'off'}, ` +
         `plexWebhookImportAuto=${PLEX_WEBHOOK_IMPORT_RUNTIME.enabled ? `on/${PLEX_WEBHOOK_IMPORT_RUNTIME.intervalSeconds}s` : 'off'}, ` +
-        `plexWatchRefresh=${PLEX_WATCH_STATE_REFRESH_RUNTIME.enabled ? `on/${PLEX_WATCH_STATE_REFRESH_RUNTIME.intervalMinutes}m` : 'off'}, ` +
-        `plexReconciliationSync=${PLEX_RECONCILIATION_SYNC_RUNTIME.enabled ? `on/${PLEX_RECONCILIATION_SYNC_RUNTIME.intervalMinutes}m` : 'off'}, ` +
+        `plexWatchRefresh=${effectivePlexWatchRefreshRuntime.enabled ? `on/${effectivePlexWatchRefreshRuntime.intervalMinutes}m` : 'off'}, ` +
+        `plexReconciliationSync=${effectivePlexReconciliationRuntime.enabled ? `on/${effectivePlexReconciliationRuntime.intervalMinutes}m` : 'off'}, ` +
         `appleWishlistPriceRefresh=${APPLE_ITUNES_WISHLIST_PRICE_REFRESH_RUNTIME.enabled ? `on/${APPLE_ITUNES_WISHLIST_PRICE_REFRESH_RUNTIME.intervalMinutes}m` : 'off'}, ` +
         `externalApiMax=${RATE_LIMIT_EXTERNAL_API_MAX})`
       );

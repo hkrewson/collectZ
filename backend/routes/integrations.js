@@ -1,6 +1,7 @@
 const express = require('express');
 const axios = require('axios');
 const crypto = require('crypto');
+const multer = require('multer');
 const pool = require('../db/pool');
 const { asyncHandler } = require('../middleware/errors');
 const { authenticateToken, requireRole } = require('../middleware/auth');
@@ -59,6 +60,19 @@ const DEFAULT_NOW_PLAYING_DISPLAY_PREFERENCES = Object.freeze({
   showSessionList: true,
   textScale: 'standard'
 });
+const plexWebhookMultipartUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fieldSize: 512 * 1024,
+    fileSize: 5 * 1024 * 1024,
+    fields: 8,
+    files: 1,
+    parts: 10
+  }
+}).fields([
+  { name: 'payload', maxCount: 1 },
+  { name: 'thumb', maxCount: 1 }
+]);
 
 function normalizeNowPlayingDisplayPreferences(input = {}) {
   const raw = input && typeof input === 'object' ? input : {};
@@ -169,6 +183,12 @@ function shapePlexWebhookReceiverStatus(config, req = null) {
     lastRotatedAt: config?.plexWebhookReceiverTokenLastRotatedAt || null,
     lastReceivedAt: config?.plexWebhookReceiverLastReceivedAt || null,
     lastEvent: config?.plexWebhookReceiverLastEvent || null,
+    delivery: {
+      lastAttemptAt: config?.plexWebhookReceiverLastAttemptAt || null,
+      status: config?.plexWebhookReceiverLastAttemptStatus || null,
+      detail: config?.plexWebhookReceiverLastAttemptError || null,
+      contentType: config?.plexWebhookReceiverLastContentType || null
+    },
     validation: {
       status: config?.plexWebhookReceiverLastValidationStatus || null,
       detail: config?.plexWebhookReceiverLastValidationMessage || null,
@@ -181,7 +201,7 @@ function shapePlexWebhookReceiverStatus(config, req = null) {
     receiverUrlTemplate: req ? `${getRequestOrigin(req)}${buildPlexWebhookReceiverPath()}` : null,
     supportedEvents: ['library.new', 'media.scrobble', 'media.rate'],
     observedOnlyEvents: ['media.play', 'media.pause', 'media.resume', 'media.stop', 'playback.started'],
-    processingMode: 'library_new_import_enqueue_only'
+    processingMode: 'active_webhook_event_queue'
   };
 }
 
@@ -258,24 +278,64 @@ function shapePlexWebhookImportJob(job = null, { existing = false } = {}) {
   };
 }
 
-async function enqueuePlexWebhookImportHint(normalizedEvent) {
-  if (!normalizedEvent || normalizedEvent.action !== 'sync_new_title_hint' || !normalizedEvent.ratingKey) {
-    return { queued: false, reason: 'not_import_hint', job: null };
+async function recordPlexWebhookDelivery(config, { status, detail = null, contentType = null, acceptedEvent = null } = {}) {
+  if (!config?.plexWebhookReceiverTokenHash) return;
+  const accepted = status === 'accepted' && acceptedEvent;
+  await pool.query(
+    `UPDATE app_integrations
+        SET plex_webhook_receiver_last_attempt_at = NOW(),
+            plex_webhook_receiver_last_attempt_status = $1,
+            plex_webhook_receiver_last_attempt_error = $2,
+            plex_webhook_receiver_last_content_type = $3,
+            plex_webhook_receiver_last_received_at = CASE WHEN $4::boolean THEN NOW() ELSE plex_webhook_receiver_last_received_at END,
+            plex_webhook_receiver_last_event = CASE WHEN $4::boolean THEN $5 ELSE plex_webhook_receiver_last_event END
+      WHERE id = 1
+        AND plex_webhook_receiver_token_hash = $6`,
+    [
+      String(status || 'received').slice(0, 20),
+      detail ? String(detail).slice(0, 1000) : null,
+      contentType ? String(contentType).slice(0, 120) : null,
+      Boolean(accepted),
+      acceptedEvent || null,
+      config.plexWebhookReceiverTokenHash
+    ]
+  );
+}
+
+function parsePlexWebhookMultipart(req, res, next) {
+  plexWebhookMultipartUpload(req, res, async (error) => {
+    if (!error) return next();
+    await recordPlexWebhookDelivery(req.plexWebhookConfig, {
+      status: 'rejected',
+      detail: error.message || 'Plex webhook multipart payload could not be parsed',
+      contentType: req.get('content-type') || null
+    }).catch(() => {});
+    return res.status(400).json({ ok: false, error: 'Plex webhook multipart payload could not be parsed' });
+  });
+}
+
+async function enqueuePlexWebhookEvent(normalizedEvent) {
+  if (!normalizedEvent || !normalizedEvent.supported || !normalizedEvent.ratingKey) {
+    return { queued: false, reason: 'not_actionable', job: null };
   }
+
+  const isImport = normalizedEvent.action === 'sync_new_title_hint';
+  const jobType = isImport ? 'plex_webhook_import_hint' : 'plex_webhook_state_hint';
+  const processingMode = isImport ? 'queued_import_hint' : 'queued_state_refresh_hint';
 
   const existing = await pool.query(
     `SELECT id, job_type, provider, status, created_by, scope, progress, summary, error,
             started_at, finished_at, created_at, updated_at
        FROM sync_jobs
-      WHERE job_type = 'plex_webhook_import_hint'
+      WHERE job_type = $1
         AND provider = 'plex'
         AND status IN ('queued', 'running')
         AND scope->>'trigger' = 'plex_webhook'
-        AND scope->>'event' = 'library.new'
-        AND scope->>'ratingKey' = $1
+        AND scope->>'event' = $2
+        AND scope->>'ratingKey' = $3
       ORDER BY created_at DESC
       LIMIT 1`,
-    [normalizedEvent.ratingKey]
+    [jobType, normalizedEvent.event, normalizedEvent.ratingKey]
   );
   if (existing.rows[0]) {
     return { queued: true, existing: true, job: existing.rows[0] };
@@ -290,8 +350,8 @@ async function enqueuePlexWebhookImportHint(normalizedEvent) {
     metadataTitle: normalizedEvent.metadata?.title || null,
     metadataType: normalizedEvent.metadata?.type || null,
     librarySectionId: normalizedEvent.metadata?.librarySectionId || null,
-    processingMode: 'queued_import_hint',
-    importMode: 'single_rating_key'
+    processingMode,
+    importMode: isImport ? 'single_rating_key' : 'single_rating_key_state_refresh'
   };
   const progress = {
     total: 1,
@@ -307,15 +367,15 @@ async function enqueuePlexWebhookImportHint(normalizedEvent) {
     action: normalizedEvent.action,
     ratingKey: normalizedEvent.ratingKey,
     metadataReadbackPath: normalizedEvent.metadataReadbackPath,
-    processingMode: 'queued_import_hint',
-    processor: 'pending_future_slice'
+    processingMode,
+    processor: 'active_webhook_event_processor'
   };
   const result = await pool.query(
     `INSERT INTO sync_jobs (job_type, provider, status, created_by, scope, progress, summary)
-     VALUES ('plex_webhook_import_hint', 'plex', 'queued', NULL, $1::jsonb, $2::jsonb, $3::jsonb)
+     VALUES ($1, 'plex', 'queued', NULL, $2::jsonb, $3::jsonb, $4::jsonb)
      RETURNING id, job_type, provider, status, created_by, scope, progress, summary, error,
                started_at, finished_at, created_at, updated_at`,
-    [JSON.stringify(scope), JSON.stringify(progress), JSON.stringify(summary)]
+    [jobType, JSON.stringify(scope), JSON.stringify(progress), JSON.stringify(summary)]
   );
   return { queued: true, existing: false, job: result.rows[0] || null };
 }
@@ -572,33 +632,42 @@ sharedRouter.get('/plex/now-playing-display-image', asyncHandler(async (req, res
   return res.send(image.body);
 }));
 
-sharedRouter.post('/plex/webhooks/:token', asyncHandler(async (req, res) => {
+sharedRouter.post('/plex/webhooks/:token', asyncHandler(async (req, res, next) => {
   const config = await loadConfigForPlexWebhookReceiverToken(req.params.token);
   if (!config) {
     return res.status(401).json({ ok: false, error: 'Invalid or revoked Plex webhook receiver token' });
   }
 
+  req.plexWebhookConfig = config;
+  return next();
+}), parsePlexWebhookMultipart, asyncHandler(async (req, res) => {
+  const config = req.plexWebhookConfig;
+
   const normalizedEvent = normalizePlexWebhookEvent(req.body || {});
   if (!normalizedEvent) {
+    await recordPlexWebhookDelivery(config, {
+      status: 'rejected',
+      detail: 'Plex webhook payload was not recognized',
+      contentType: req.get('content-type') || null
+    });
     return res.status(400).json({ ok: false, error: 'Plex webhook payload was not recognized' });
   }
 
-  await pool.query(
-    `UPDATE app_integrations
-        SET plex_webhook_receiver_last_received_at = NOW(),
-            plex_webhook_receiver_last_event = $1
-      WHERE id = 1
-        AND plex_webhook_receiver_token_hash = $2`,
-    [normalizedEvent.event, config.plexWebhookReceiverTokenHash]
-  );
-  const importEnqueue = await enqueuePlexWebhookImportHint(normalizedEvent);
+  await recordPlexWebhookDelivery(config, {
+    status: 'accepted',
+    contentType: req.get('content-type') || null,
+    acceptedEvent: normalizedEvent.event
+  });
+  const importEnqueue = await enqueuePlexWebhookEvent(normalizedEvent);
   if (importEnqueue.queued && importEnqueue.job && !importEnqueue.existing) {
     await logActivity({
       user: null,
       headers: req.headers,
       ip: req.ip,
       socket: req.socket
-    }, 'plex.webhook.import_hint.queued', 'sync_jobs', importEnqueue.job.id, {
+    }, normalizedEvent.action === 'sync_new_title_hint'
+      ? 'plex.webhook.import_hint.queued'
+      : 'plex.webhook.state_hint.queued', 'sync_jobs', importEnqueue.job.id, {
       event: normalizedEvent.event,
       action: normalizedEvent.action,
       ratingKey: normalizedEvent.ratingKey,
@@ -610,7 +679,7 @@ sharedRouter.post('/plex/webhooks/:token', asyncHandler(async (req, res) => {
   return res.json({
     ok: true,
     accepted: true,
-    processingMode: importEnqueue.queued ? 'import_enqueue_hint' : 'read_only',
+    processingMode: importEnqueue.queued ? 'webhook_event_enqueue' : 'observed_only',
     event: normalizedEvent.event,
     supported: normalizedEvent.supported,
     action: normalizedEvent.action,
@@ -947,6 +1016,21 @@ sharedRouter.put('/admin/settings/integrations', authenticateToken, requireRole(
       ? req.body.plexLibrarySections.map((value) => String(value || '').trim()).filter(Boolean)
       : [])
     : (Array.isArray(existing?.plex_library_sections) ? existing.plex_library_sections : []);
+  const existingPlexConnectionWasActive = Boolean(
+    existing?.plex_api_url
+    && existing?.plex_api_key_encrypted
+    && Array.isArray(existing?.plex_library_sections)
+    && existing.plex_library_sections.length > 0
+  );
+  const nextPlexConnectionIsActive = Boolean(
+    nextPlexApiUrl
+    && nextPlexApiKey
+    && nextPlexLibrarySections.length > 0
+  );
+  if (!existingPlexConnectionWasActive && nextPlexConnectionIsActive) {
+    if (req.body.plexReconciliationSyncSettings === undefined) plexSyncSettings.enabled = true;
+    if (req.body.plexReadbackRefreshSettings === undefined) plexReadbackRefreshSettings.enabled = true;
+  }
   const selectedBooksPreset = resolveBooksPreset(req.body.booksPreset || existing?.books_preset || 'googlebooks');
   const nextBooksPreset = pick(req.body.booksPreset, existing?.books_preset, 'googlebooks');
   const nextBooksProvider = pick(req.body.booksProvider, existing?.books_provider, selectedBooksPreset.provider);

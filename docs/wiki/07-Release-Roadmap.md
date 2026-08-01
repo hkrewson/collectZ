@@ -6,6 +6,52 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.24.3 — Plex Active Webhook Listener
+
+**Goal:** Make the configured Plex integration actively receive documented webhook deliveries, apply new-title/watched/rating changes through durable jobs, and use scheduled reconciliation as the fallback for changes Plex does not announce.
+
+### Scope
+
+- Accept Plex's documented `multipart/form-data` webhook shape with JSON in the `payload` field and an optional bounded thumbnail.
+- Authenticate the token-scoped receiver before parsing the multipart body and never retain the optional thumbnail or raw private Plex payload.
+- Queue `library.new`, `media.scrobble`, and `media.rate` as durable, duplicate-safe Plex jobs.
+- Keep `library.new` on the existing single-rating-key import path.
+- Make `media.scrobble` and `media.rate` fetch current metadata from Plex before applying watched state or user rating to a matching Plex-linked CollectZ row.
+- Record accepted/rejected webhook delivery attempts and compact diagnostics without exposing the receiver token, Plex token, raw payload, machine identity, IP addresses, or file paths.
+- Enable persisted full-library reconciliation and watched/rating readback for already-configured Plex integrations, while preserving administrator controls and environment overrides.
+- Treat the first enabled reconciliation as a real import sweep: create missing Plex titles, update only strong-identity matches automatically, and leave ambiguous matches for review.
+- Keep scheduled reconciliation as the fallback for title metadata updates because Plex does not document a general library-item-updated webhook event.
+
+### Acceptance Criteria
+
+- A documented Plex multipart request is accepted through the generated receiver URL and the optional thumbnail is bounded and discarded.
+- Invalid tokens, malformed multipart bodies, and unrecognized payloads fail safely; authenticated delivery failure is visible in redacted receiver diagnostics.
+- Duplicate queued/running events for the same event and rating key reuse one durable job.
+- `library.new` imports or updates one Plex title through the existing single-item import pipeline.
+- `media.scrobble` refreshes watched state and `media.rate` refreshes the Plex user rating without trusting the webhook body as authoritative state.
+- Configured Plex installations start with reconciliation and watched/rating readback enabled after migration; newly completed Plex connections default those inbound controls on unless an administrator explicitly supplies settings.
+- OpenAPI, migration/init parity, Plex workflow documentation, release/version artifacts, Docker runtime evidence, and relevant regression gates are aligned.
+
+### Active Slice Notes
+
+- Selected on August 1, 2026 after the running stack showed the webhook processor polling every 15 seconds while the receiver had no accepted delivery and both scheduled inbound paths were disabled.
+- The official [Plex webhook contract](https://support.plex.tv/articles/115002267687-webhooks/) sends JSON inside a multipart `payload` field; the existing receiver only had global JSON and URL-encoded parsing.
+- Plex documents `library.new`, `media.scrobble`, and `media.rate`, but no general title-metadata-update event. Active sync therefore requires both webhook hints and scheduled reconciliation.
+- This slice changes inbound Plex monitoring only. Automatic CollectZ-to-Plex watched/rating writeback remains a separate follow-up under the active behavioral-sync direction.
+- Status: implementation complete; hosted release gates pending.
+
+### Closeout
+
+- Status: implementation complete in `3.24.3`; release promotion remains pending the hosted-only gates below.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/52-Plex-True-Sync-Workflow-Plan.md`, and `docs/releases/v3.24.3.md`.
+- Runtime verification: rebuilt and deployed the source-backed backend/frontend/Postgres Docker stack as `3.24.3`; migration `118` applied; `/api/health` reported application/frontend/backend/build `3.24.3`; startup readback showed the event processor on at 15 seconds, watched/rating refresh on at 60 minutes, and reconciliation on at 360 minutes. The first active sweep processed 1,964 Plex items with 1,792 creates, 172 scoped updates, and no failures; scheduled state readback matched 100 rows. The fake-Plex multipart smoke proved authenticated delivery, malformed-payload diagnostics, duplicate suppression, one-title import, watched refresh, rating refresh, and revoked-token rejection.
+- CI/checks run: backend unit coverage passed all 345 checks; OpenAPI, init parity, migration rehearsal, API integration smoke, RBAC regression, Help > Releases, frontend production build, backend/frontend production dependency audits, focused integration browser coverage, and `git diff --check` passed. The complete Playwright suite passed 69 checks with four expected homelab-only skips. Isolated core and control-plane runtime smokes passed. Observability evidence passed 9/9. The standard local release gate passed 12/12. The full local gate passed 14 checks with zero failures and three explicit blockers; CodeQL reviewed five results with zero active findings.
+- Files changed: `app-meta.json`; backend/frontend version and lock metadata; release feed and `docs/releases/v3.24.3.md`; migration `118` and `init.sql`; Plex integration, media job processor, scheduler startup, integration normalization, and audit services; OpenAPI; webhook smoke and unit coverage; compact Plex delivery diagnostics in `AdminIntegrationsView.jsx`; roadmap, backlog, Plex workflow docs; and refreshed release evidence artifacts.
+- Risks or follow-ups: Plex has no general metadata-update webhook, so the six-hour reconciliation remains necessary. Five ambiguous title/year matches remain review-only. Legacy libraries are still independent scopes pending the selected single-library migration. Automatic opted-in CollectZ-to-Plex watched/rating writeback remains a later slice.
+- Blocked/unverified: `gitleaks` is unavailable locally, so `secret-scan` remains hosted-only. `trivy` is unavailable locally, so `image-security-and-sbom` and CycloneDX generation remain hosted-only. The exact CI secure-cookie `compose-smoke` remains hosted-only. The full gate's bypass-token browser wrapper was blocked, while the complete authenticated browser suite passed independently.
+- What remains in the milestone: no local implementation work remains; after the user commits and pushes, require hosted `compose-smoke`, `rbac-regression`, `browser-regression`, core/control-plane `runtime-smoke`, `dependency-scan`, `secret-scan`, and `image-security-and-sbom` to pass before release promotion.
+- Recommended commit message: `Release 3.24.3 with active Plex multipart webhooks and scheduled inbound synchronization`.
+
 ## 3.24.2 — Browser Capture Metadata Mapping
 
 **Goal:** Carry structured browser-extension evidence through Capture Inbox review into canonical media, physical-edition, identifier, and valuation records instead of importing only the captured title, type, and barcode.

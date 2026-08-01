@@ -7423,7 +7423,7 @@ async function runPlexReconciliationSyncJob({
 
 async function claimQueuedPlexWebhookImportHint({ jobId = null, ratingKey = null } = {}) {
   const filters = [
-    "job_type = 'plex_webhook_import_hint'",
+    "job_type IN ('plex_webhook_import_hint', 'plex_webhook_state_hint')",
     "provider = 'plex'",
     "status = 'queued'"
   ];
@@ -7457,6 +7457,111 @@ async function claimQueuedPlexWebhookImportHint({ jobId = null, ratingKey = null
     params
   );
   return result.rows[0] || null;
+}
+
+async function processPlexWebhookStateHint({
+  job,
+  action,
+  ratingKey,
+  target,
+  config,
+  auditReq
+} = {}) {
+  const isWatchRefresh = action === 'refresh_watched_state';
+  const isRatingRefresh = action === 'refresh_rating';
+  if (!isWatchRefresh && !isRatingRefresh) return null;
+
+  const processingMode = isWatchRefresh
+    ? 'single_rating_key_watch_state_refresh'
+    : 'single_rating_key_rating_refresh';
+  await updateSyncJob(job.id, {
+    scope: {
+      ...(job.scope || {}),
+      ...jobScopePayload(target.scopeContext, []),
+      ratingKey,
+      processingMode,
+      autoProcessorTarget: target.source,
+      targetUserId: target.targetUserId
+    },
+    progress: {
+      total: 1,
+      processed: 0,
+      updated: 0,
+      skipped: 0,
+      errorCount: 0
+    }
+  });
+
+  let snapshot;
+  let applySummary;
+  if (isWatchRefresh) {
+    snapshot = await fetchPlexWatchStateSnapshot(config, { ratingKeys: [ratingKey] });
+    applySummary = await applyPlexWatchStateEntries({
+      entries: snapshot.entries,
+      scopeContext: target.scopeContext
+    });
+  } else {
+    snapshot = await fetchPlexRatingSnapshot(config, { ratingKeys: [ratingKey] });
+    applySummary = await applyPlexRatingEntries({
+      entries: snapshot.entries,
+      scopeContext: target.scopeContext
+    });
+  }
+
+  const updated = isWatchRefresh
+    ? Number(applySummary.mediaMetadataUpdated || 0) + Number(applySummary.seasonsCreated || 0) + Number(applySummary.seasonsUpdated || 0)
+    : Number(applySummary.ratingsUpdated || 0);
+  const skipped = Number(applySummary.skippedNoMatch || 0)
+    + Number(applySummary.skippedNoRating || 0)
+    + Number(applySummary.skippedNoSeason || 0)
+    + Number(applySummary.skippedUnsupported || 0);
+  const finalSummary = {
+    processingMode,
+    action,
+    ratingKey,
+    targetScope: {
+      spaceId: target.scopeContext?.spaceId ?? null,
+      libraryId: target.scopeContext?.libraryId ?? null
+    },
+    readbacks: Array.isArray(snapshot.readbacks) ? snapshot.readbacks.length : 0,
+    readEntries: Number(applySummary.readEntries || 0),
+    mediaMatched: Number(applySummary.mediaMatched || 0),
+    updated,
+    skipped,
+    applySummary,
+    autoProcessorTarget: target.source,
+    targetUserId: target.targetUserId
+  };
+  const updatedJob = await updateSyncJob(job.id, {
+    status: 'succeeded',
+    summary: finalSummary,
+    error: null,
+    progress: {
+      total: 1,
+      processed: 1,
+      updated,
+      skipped,
+      errorCount: 0
+    },
+    finished_at: new Date()
+  });
+  await logActivity(auditReq, isWatchRefresh
+    ? 'media.plex.webhook.watch_state.refresh'
+    : 'media.plex.webhook.rating.refresh', 'sync_jobs', job.id, {
+    ratingKey,
+    readEntries: finalSummary.readEntries,
+    mediaMatched: finalSummary.mediaMatched,
+    updated,
+    skipped
+  });
+  return {
+    processed: true,
+    ok: true,
+    status: 'succeeded',
+    ratingKey,
+    job: updatedJob,
+    result: finalSummary
+  };
 }
 
 function buildPlexWebhookHintJobSummary(result = {}, extras = {}) {
@@ -7621,6 +7726,8 @@ async function processPlexWebhookImportHintJob({ jobId = null, ratingKey = null,
     return { processed: true, ok: false, status: 'failed', error: failed.error, job: failed };
   }
 
+  const webhookAction = String(jobScope.action || '').trim();
+
   const sectionId = String(
     jobScope.librarySectionId
     || (Array.isArray(config.plexLibrarySections) && config.plexLibrarySections.length === 1 ? config.plexLibrarySections[0] : '')
@@ -7628,6 +7735,16 @@ async function processPlexWebhookImportHintJob({ jobId = null, ratingKey = null,
   ).trim();
 
   try {
+    const stateResult = await processPlexWebhookStateHint({
+      job,
+      action: webhookAction,
+      ratingKey: normalizedRatingKey,
+      target,
+      config,
+      auditReq: effectiveAuditReq
+    });
+    if (stateResult) return stateResult;
+
     const item = await fetchPlexMetadataItem(config, normalizedRatingKey, { sectionId });
     const itemSectionId = String(item.sectionId || sectionId || '').trim();
     const sectionIds = itemSectionId ? [itemSectionId] : [];
@@ -7708,19 +7825,24 @@ async function processPlexWebhookImportHintJob({ jobId = null, ratingKey = null,
     });
     return { processed: true, ok: status === 'succeeded', status, ratingKey: normalizedRatingKey, job: updatedJob, result: finalSummary };
   } catch (error) {
-    logError('Plex webhook import hint processing failed', error);
+    const processingLabel = webhookAction === 'refresh_watched_state'
+      ? 'Plex webhook watched-state refresh failed'
+      : (webhookAction === 'refresh_rating' ? 'Plex webhook rating refresh failed' : 'Plex webhook import hint processing failed');
+    logError(processingLabel, error);
     recordImportJobEvent('plex_webhook', 'failed');
     const failed = await updateSyncJob(job.id, {
       status: 'failed',
-      error: error.message || 'Plex webhook import hint processing failed',
+      error: error.message || processingLabel,
       finished_at: new Date()
     });
-    await logActivity(effectiveAuditReq, 'media.import.plex_webhook_hint.failed', 'sync_jobs', job.id, {
+    await logActivity(effectiveAuditReq, webhookAction === 'refresh_watched_state'
+      ? 'media.plex.webhook.watch_state.refresh.failed'
+      : (webhookAction === 'refresh_rating' ? 'media.plex.webhook.rating.refresh.failed' : 'media.import.plex_webhook_hint.failed'), 'sync_jobs', job.id, {
       ratingKey: normalizedRatingKey,
-      detail: error.message || 'Plex webhook import hint processing failed',
+      detail: error.message || processingLabel,
       autoProcessorTarget: target.source
     });
-    return { processed: true, ok: false, status: 'failed', ratingKey: normalizedRatingKey, error: error.message || 'Plex webhook import hint processing failed', job: failed };
+    return { processed: true, ok: false, status: 'failed', ratingKey: normalizedRatingKey, error: error.message || processingLabel, job: failed };
   }
 }
 
@@ -15108,7 +15230,7 @@ router.get('/plex-webhook-import-hints/auto-processor', asyncHandler(async (req,
   const runtimeConfig = getPlexWebhookImportAutoProcessorRuntimeConfig();
   res.json({
     ok: true,
-    processingMode: 'auto_single_rating_key_import',
+    processingMode: 'auto_webhook_event_processing',
     runtime: runtimeConfig,
     state: { ...plexWebhookImportAutoProcessorState }
   });
@@ -15124,7 +15246,7 @@ router.post('/plex-webhook-import-hints/auto-processor/run', asyncHandler(async 
   });
   res.json({
     ok: true,
-    processingMode: 'auto_single_rating_key_import',
+    processingMode: 'auto_webhook_event_processing',
     summary
   });
 }));
@@ -16323,6 +16445,7 @@ router.getEffectivePlexWatchStateRefreshRuntimeConfig = getEffectivePlexWatchSta
 router.runPlexWatchStateRefreshOnce = runPlexWatchStateRefreshOnce;
 router.startPlexReconciliationSyncScheduler = startPlexReconciliationSyncScheduler;
 router.getPlexReconciliationSyncRuntimeConfig = getPlexReconciliationSyncRuntimeConfig;
+router.getEffectivePlexReconciliationSyncRuntimeConfig = getEffectivePlexReconciliationSyncRuntimeConfig;
 router.runPlexReconciliationSyncSchedulerOnce = runPlexReconciliationSyncSchedulerOnce;
 router.importBarcodeMatchForRequest = importBarcodeMatchForRequest;
 router.lookupScannerBarcodeCandidates = async function lookupScannerBarcodeCandidates({

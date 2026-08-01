@@ -538,7 +538,7 @@ export default function AdminIntegrationsView({
   const [plexDisplayLink, setPlexDisplayLink] = useState('');
   const [plexDisplayPreferences, setPlexDisplayPreferences] = useState(DEFAULT_PLEX_DISPLAY_PREFERENCES);
   const [savingPlexDisplayPreferences, setSavingPlexDisplayPreferences] = useState(false);
-  const [plexWebhookReceiver, setPlexWebhookReceiver] = useState({ enabled: false, lastReceivedAt: null, lastEvent: null, receiverPath: '/api/plex/webhooks/[token]' });
+  const [plexWebhookReceiver, setPlexWebhookReceiver] = useState({ enabled: false, lastReceivedAt: null, lastEvent: null, delivery: {}, receiverPath: '/api/plex/webhooks/[token]' });
   const [plexWebhookReceiverLink, setPlexWebhookReceiverLink] = useState('');
   const [plexReconciliationLimit, setPlexReconciliationLimit] = useState('');
   const [plexReconciliationResult, setPlexReconciliationResult] = useState(null);
@@ -641,7 +641,7 @@ export default function AdminIntegrationsView({
       setLogExportControl(data.logExportControl || null);
       setIntegrationScope(data.integrationScope || null);
       setPlexDisplayToken(data.plexNowPlayingDisplayToken || { enabled: false, createdAt: null, lastUsedAt: null });
-      setPlexWebhookReceiver(data.plexWebhookReceiver || { enabled: false, lastReceivedAt: null, lastEvent: null, receiverPath: '/api/plex/webhooks/[token]' });
+      setPlexWebhookReceiver(data.plexWebhookReceiver || { enabled: false, lastReceivedAt: null, lastEvent: null, delivery: {}, receiverPath: '/api/plex/webhooks/[token]' });
       setPlexDisplayPreferences({
         ...DEFAULT_PLEX_DISPLAY_PREFERENCES,
         ...(data.plexNowPlayingDisplayPreferences || {})
@@ -1129,7 +1129,7 @@ export default function AdminIntegrationsView({
     setTestMsg('');
     try {
       const result = await apiCall('post', '/admin/settings/integrations/plex-webhook-receiver-token', {});
-      setPlexWebhookReceiver(result.plexWebhookReceiver || { enabled: true, lastReceivedAt: null, lastEvent: null });
+      setPlexWebhookReceiver(result.plexWebhookReceiver || { enabled: true, lastReceivedAt: null, lastEvent: null, delivery: {} });
       setPlexWebhookReceiverLink(result.webhookUrl || result.webhookPath || '');
       setTestMsg('PLEX WEBHOOKS: Receiver URL generated. This is the only time the token is shown.');
       onToast('Plex webhook receiver URL generated');
@@ -1145,7 +1145,7 @@ export default function AdminIntegrationsView({
     setTestMsg('');
     try {
       const result = await apiCall('delete', '/admin/settings/integrations/plex-webhook-receiver-token');
-      setPlexWebhookReceiver(result.plexWebhookReceiver || { enabled: false, lastReceivedAt: null, lastEvent: null, receiverPath: '/api/plex/webhooks/[token]' });
+      setPlexWebhookReceiver(result.plexWebhookReceiver || { enabled: false, lastReceivedAt: null, lastEvent: null, delivery: {}, receiverPath: '/api/plex/webhooks/[token]' });
       setPlexWebhookReceiverLink('');
       setTestMsg('PLEX WEBHOOKS: Receiver URL revoked.');
       onToast('Plex webhook receiver URL revoked');
@@ -2011,6 +2011,8 @@ export default function AdminIntegrationsView({
               <div className="grid gap-2 text-xs text-ghost sm:grid-cols-2">
                 <span>Mode: {plexWebhookReceiver.processingMode === 'contract_only' ? 'Contract only' : (plexWebhookReceiver.processingMode || 'Read-only')}</span>
                 <span>Last event: {plexWebhookReceiver.lastEvent || 'None yet'}</span>
+                <span>Last delivery: {plexWebhookReceiver.delivery?.status || 'None yet'}</span>
+                <span>Delivery time: {plexWebhookReceiver.delivery?.lastAttemptAt ? new Date(plexWebhookReceiver.delivery.lastAttemptAt).toLocaleString() : 'Never'}</span>
                 <span>Validation: {plexWebhookReceiver.validation?.status || 'Not checked'}</span>
                 <span>Checked: {plexWebhookReceiver.validation?.validatedAt ? new Date(plexWebhookReceiver.validation.validatedAt).toLocaleString() : 'Never'}</span>
                 {plexWebhookReceiver.enabled && (
@@ -2030,8 +2032,11 @@ export default function AdminIntegrationsView({
               <p className="text-xs text-ghost">
                 {plexWebhookReceiver.enabled && !plexWebhookReceiverLink
                   ? 'Existing receiver shown with a masked token. Regenerate if Plex needs the full URL again.'
-                  : 'Accepts Plex webhook hints for newly added media, watched state, and ratings. Imports can be auto-processed when the backend scheduler is enabled; writeback stays manual.'}
+                  : 'Accepts Plex multipart webhooks for newly added media, watched state, and ratings. Actionable events are queued and verified against Plex before CollectZ applies them.'}
               </p>
+              {plexWebhookReceiver.delivery?.status === 'rejected' && plexWebhookReceiver.delivery?.detail && (
+                <p className="text-xs text-danger">Last delivery rejected: {plexWebhookReceiver.delivery.detail}</p>
+              )}
             </PlainSettingsSection>
           </SectionTabPanel>
 

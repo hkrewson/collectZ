@@ -1,6 +1,27 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.24.3",
+      "version": "3.24.3",
+      "date": "2026-08-01",
+      "status": "implementation complete; hosted release gates pending",
+      "summary": "This release makes Plex an active inbound source by accepting its documented multipart webhooks, processing new-title/watched/rating events through durable jobs, and enabling scheduled reconciliation and state readback as a fallback.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added bounded multipart parsing for Plex's JSON `payload` field and optional thumbnail.",
+            "Kept token authentication ahead of body parsing and discarded thumbnail bytes after request handling.",
+            "Queued `library.new`, `media.scrobble`, and `media.rate` events durably with queued/running duplicate suppression.",
+            "Reused the existing single-rating-key import for newly added Plex titles.",
+            "Made watched and rating events read current state from Plex before applying it to matching CollectZ rows.",
+            "Added redacted accepted/rejected delivery diagnostics to the Plex Webhook settings readback.",
+            "Enabled reconciliation and watched/rating readback for existing configured Plex integrations and made completed new connections default to active inbound monitoring."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.24.2",
       "version": "3.24.2",
       "date": "2026-07-31",
@@ -177,25 +198,6 @@
             "Fixed the Design Lab slider accessibility error with explicit range input labeling.",
             "Adjusted the mobile dashboard shell icon render path so the component is not recreated during render.",
             "Reduced the full frontend quality baseline from `19` errors / `24` warnings to `0` errors / `40` warnings."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.23.15",
-      "version": "3.23.15",
-      "date": null,
-      "status": null,
-      "summary": "This release continues the maintainability guardrails work where the current quality report shows clear value: `useImportJobPolling.js` was the top remaining frontend lint error pocket after `3.23.14`. The slice clears import polling hook purity, empty-catch, and documented leader-sync findings without changing import polling behavior.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Generated the per-tab import polling id through lazy state initialization instead of impure render-time ref initialization.",
-            "Replaced empty local-storage catch blocks with explicit comments for tolerated malformed or unavailable storage.",
-            "Documented the initial import polling leader claim as intentional synchronization with browser focus/storage state.",
-            "Preserved import job persistence, localStorage keys, leader election, heartbeat/stale windows, polling cadence, and job upsert/dismiss/clear behavior.",
-            "Reduced the full frontend quality baseline from `25` errors / `24` warnings to `19` errors / `24` warnings."
           ]
         }
       ]

@@ -1,4 +1,5 @@
 const pool = require('../db/pool');
+const net = require('net');
 const { buildGelfEvent, maybeExportActivityLog, debugLog, resolveExportConfig } = require('./logExport');
 
 const REDACTED = '[REDACTED]';
@@ -45,9 +46,10 @@ const extractRequestIp = (req) => {
   const forwarded = req?.headers?.['x-forwarded-for'];
   if (forwarded) {
     const first = String(forwarded).split(',')[0].trim();
-    return first || null;
+    if (net.isIP(first)) return first;
   }
-  return req?.ip || req?.socket?.remoteAddress || null;
+  const direct = String(req?.ip || req?.socket?.remoteAddress || '').trim();
+  return net.isIP(direct) ? direct : null;
 };
 
 const logActivity = async (req, action, entityType = null, entityId = null, details = null) => {

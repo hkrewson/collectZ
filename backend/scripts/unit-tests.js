@@ -2091,7 +2091,7 @@ results.push(run('plex full-library reconciliation preview stays read-only and c
   assert.ok(plexTrueSyncWorkflowPlanSource.includes('Webhook'));
   assert.ok(plexTrueSyncWorkflowPlanSource.includes('Advanced'));
   assert.ok(backlogSource.includes('Plex True Sync Workflow'));
-  assert.ok(backlogSource.includes('first UI slice promoted as `3.20.0`'));
+  assert.ok(backlogSource.includes('workflow UI and controls shipped across `3.20.0` through `3.20.9`'));
   assert.ok(plexPmsModernizationDocSource.includes('Starting with `3.20.0`, the admin Plex surface stops carrying a separate operating-model explainer'));
   assert.ok(integrationsBrowserSpecSource.includes('Plex reconciliation sync surface displays durable conflict review actions'));
   assert.ok(integrationsBrowserSpecSource.includes('/api/media/plex-reconciliation-conflicts*'));
@@ -2111,7 +2111,7 @@ results.push(run('plex full-library reconciliation preview stays read-only and c
   assert.ok(mediaRoutesSource.includes('normalizedMatchedBy'));
 }));
 
-results.push(run('plex webhook receiver administration contract is token-scoped and queues library-new import hints only', () => {
+results.push(run('plex webhook receiver accepts documented multipart events and queues active imports and state refreshes', () => {
   assert.ok(backendPackageJson.scripts['test:plex-webhook-receiver-admin-smoke']);
   assert.ok(backendPackageJson.scripts['test:plex-webhook-import-hint-processing-smoke']);
   assert.ok(backendPackageJson.scripts['test:plex-webhook-import-auto-processor-smoke']);
@@ -2124,36 +2124,52 @@ results.push(run('plex webhook receiver administration contract is token-scoped 
   assert.ok(integrationsRoutesSource.includes('buildPlexWebhookReceiverTokenFingerprint'));
   assert.ok(integrationsRoutesSource.includes('receiverUrlMasked'));
   assert.ok(integrationsRoutesSource.includes('plex_webhook_receiver_last_validation_status'));
-  assert.ok(integrationsRoutesSource.includes('enqueuePlexWebhookImportHint'));
+  assert.ok(integrationsRoutesSource.includes('plexWebhookMultipartUpload'));
+  assert.ok(integrationsRoutesSource.includes("{ name: 'payload', maxCount: 1 }"));
+  assert.ok(integrationsRoutesSource.includes("{ name: 'thumb', maxCount: 1 }"));
+  assert.ok(integrationsRoutesSource.includes('recordPlexWebhookDelivery'));
+  assert.ok(integrationsRoutesSource.includes('enqueuePlexWebhookEvent'));
   assert.ok(integrationsRoutesSource.includes("'plex_webhook_import_hint'"));
+  assert.ok(integrationsRoutesSource.includes("'plex_webhook_state_hint'"));
   assert.ok(integrationsRoutesSource.includes("'queued_import_hint'"));
-  assert.ok(integrationsRoutesSource.includes("'pending_future_slice'"));
+  assert.ok(integrationsRoutesSource.includes("'queued_state_refresh_hint'"));
+  assert.ok(integrationsRoutesSource.includes("'active_webhook_event_processor'"));
   assert.ok(mediaRoutesSource.includes("router.post('/process-plex-webhook-import-hints'"));
   assert.ok(mediaRoutesSource.includes("router.get('/plex-webhook-import-hints/auto-processor'"));
   assert.ok(mediaRoutesSource.includes('startPlexWebhookImportHintAutoProcessor'));
   assert.ok(mediaRoutesSource.includes('runPlexWebhookImportHintAutoProcessorOnce'));
   assert.ok(mediaRoutesSource.includes('PLEX_WEBHOOK_IMPORT_AUTO_PROCESSOR_INTERVAL_SECONDS'));
   assert.ok(mediaRoutesSource.includes('claimQueuedPlexWebhookImportHint'));
+  assert.ok(mediaRoutesSource.includes('processPlexWebhookStateHint'));
+  assert.ok(mediaRoutesSource.includes("'single_rating_key_watch_state_refresh'"));
+  assert.ok(mediaRoutesSource.includes("'single_rating_key_rating_refresh'"));
   assert.ok(mediaRoutesSource.includes('fetchPlexMetadataItem'));
   assert.ok(mediaRoutesSource.includes("processingMode: 'single_rating_key_import'"));
-  assert.ok(serverSource.includes("job_type <> 'plex_webhook_import_hint'"));
+  assert.ok(serverSource.includes("job_type NOT IN ('plex_webhook_import_hint', 'plex_webhook_state_hint')"));
   assert.ok(serverSource.includes('startPlexWebhookImportHintAutoProcessor'));
   assert.ok(integrationsServiceSource.includes('plexWebhookReceiverTokenHash'));
   assert.ok(integrationsServiceSource.includes('plexWebhookReceiverLastValidationStatus'));
+  assert.ok(integrationsServiceSource.includes('plexWebhookReceiverLastAttemptStatus'));
   assert.ok(migrationsSource.includes('version: 98'));
   assert.ok(migrationsSource.includes('version: 112'));
+  assert.ok(migrationsSource.includes('version: 118'));
   assert.ok(migrationsSource.includes('plex_webhook_receiver_token_hash'));
   assert.ok(migrationsSource.includes('plex_webhook_receiver_last_validation_status'));
+  assert.ok(migrationsSource.includes('plex_webhook_receiver_last_attempt_status'));
   assert.ok(initSqlSource.includes('plex_webhook_receiver_token_hash TEXT'));
   assert.ok(initSqlSource.includes('plex_webhook_receiver_last_validation_status VARCHAR(20)'));
+  assert.ok(initSqlSource.includes('plex_webhook_receiver_last_attempt_status VARCHAR(20)'));
   assert.ok(openApiSource.includes('/api/plex/webhooks/{token}'));
   assert.ok(openApiSource.includes('/api/admin/settings/integrations/plex-webhook-receiver-token'));
   assert.ok(openApiSource.includes('/api/media/process-plex-webhook-import-hints'));
   assert.ok(openApiSource.includes('/api/media/plex-webhook-import-hints/auto-processor'));
   assert.ok(plexWebhookReceiverAdminSmokeSource.includes('/api/plex/webhooks/czpw_invalid_receiver_token'));
   assert.ok(plexWebhookReceiverAdminSmokeSource.includes("event: 'library.new'"));
-  assert.ok(plexWebhookReceiverAdminSmokeSource.includes('import_enqueue_hint'));
-  assert.ok(plexWebhookReceiverAdminSmokeSource.includes('watchedStateStayedReadOnly'));
+  assert.ok(plexWebhookReceiverAdminSmokeSource.includes('webhook_event_enqueue'));
+  assert.ok(plexWebhookReceiverAdminSmokeSource.includes('multipartPayloadAccepted'));
+  assert.ok(plexWebhookReceiverAdminSmokeSource.includes('malformedMultipartRejectedAndDiagnosed'));
+  assert.ok(plexWebhookReceiverAdminSmokeSource.includes('watchedStateQueuedAndApplied'));
+  assert.ok(plexWebhookReceiverAdminSmokeSource.includes('ratingQueuedAndApplied'));
   assert.ok(plexWebhookReceiverAdminSmokeSource.includes('duplicateWebhookReusedExistingJob'));
   assert.ok(plexWebhookReceiverAdminSmokeSource.includes('waitForProcessedWebhookJob'));
   assert.ok(plexWebhookReceiverAdminSmokeSource.includes('/api/media/plex-webhook-import-hints/auto-processor'));
@@ -2173,6 +2189,10 @@ results.push(run('plex webhook receiver administration contract is token-scoped 
   assert.ok(adminIntegrationsViewSource.includes('Check setup'));
   assert.ok(adminIntegrationsViewSource.includes('receiverUrlMasked'));
   assert.ok(adminIntegrationsViewSource.includes('Token fingerprint'));
+  assert.ok(adminIntegrationsViewSource.includes('Last delivery:'));
+  assert.ok(adminIntegrationsViewSource.includes('Last delivery rejected:'));
+  assert.ok(adminIntegrationsViewSource.includes('Accepts Plex multipart webhooks'));
+  assert.ok(releaseRoadmapSource.includes('3.24.3 — Plex Active Webhook Listener'));
   assert.strictEqual(sanitizeRequestUrl('/api/plex/webhooks/czpw_secret-token_123'), '/api/plex/webhooks/[REDACTED]');
   assert.strictEqual(sanitizeRequestUrl('/api/plex/webhooks/not-a-receiver-token'), '/api/plex/webhooks/not-a-receiver-token');
   assert.strictEqual(sanitizeRequestUrl('/api/thing?token=czpw_secret-token_123'), '/api/thing?token=[REDACTED]');
@@ -4749,6 +4769,12 @@ results.push(run('audit.sanitizeAuditDetails redacts sensitive string patterns e
     reason: 'missing_token',
     resetTokenId: 22
   });
+}));
+
+results.push(run('audit.extractRequestIp rejects scheduler labels that are not valid inet values', () => {
+  const { extractRequestIp } = require('../services/audit');
+  assert.strictEqual(extractRequestIp({ ip: 'system', headers: {}, socket: null }), null);
+  assert.strictEqual(extractRequestIp({ ip: '127.0.0.1', headers: {}, socket: null }), '127.0.0.1');
 }));
 
 results.push(run('log field sanitizers remove line breaks before console output', () => {
