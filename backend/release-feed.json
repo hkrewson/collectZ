@@ -4,7 +4,7 @@
       "title": "collectZ v3.24.3",
       "version": "3.24.3",
       "date": "2026-08-01",
-      "status": "implementation complete; hosted release gates pending",
+      "status": "complete; hosted release gates passed",
       "summary": "This release makes Plex an active inbound source by accepting its documented multipart webhooks, processing new-title/watched/rating events through durable jobs, and enabling scheduled reconciliation and state readback as a fallback.",
       "details": [
         {
