@@ -81,3 +81,7 @@ For milestone, release, runtime, monitoring, auth, migration, or deployment work
    - `docs/wiki/07-Release-Roadmap.md` stays focused on numbered milestones and active milestone slices.
    - `docs/wiki/08-Backlog.md` is the source of truth for unscheduled work.
    - When a backlog item is selected for work, move it into the roadmap as a numbered milestone; do not copy it.
+24. The canonical local development stack is the `collectz-private` Compose project exposed on host port `3201`.
+   - Rebuild and recreate that stack in place for normal development updates.
+   - Do not start another CollectZ development project, allocate another frontend port, or redirect the development hostname to a parallel stack unless the user explicitly requests an isolated stack.
+   - Temporary CI, release-smoke, homelab-boundary, and other purpose-built verification stacks must remain clearly isolated and must not replace or redirect the canonical development stack.

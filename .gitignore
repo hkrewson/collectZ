@@ -3,7 +3,6 @@
 .env.ci
 .env.local
 .env.production
-.env.cloudflare
 .env.*.local
 
 # Secrets
