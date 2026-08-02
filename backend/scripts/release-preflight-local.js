@@ -270,17 +270,14 @@ async function runComposeSmokeBasics() {
 
     const integrationSmoke = runCommand(
       'docker',
-      [
-        'compose',
-        '--env-file',
-        '.env',
+      buildComposeArgs([
         'exec',
         '-T',
         'backend',
         'sh',
         '-lc',
         'API_SMOKE_BASE_URL="http://frontend:3000/api" npm run test:integration-smoke'
-      ],
+      ]),
       { cwd: repoRoot }
     );
     if (integrationSmoke.status !== 0) {

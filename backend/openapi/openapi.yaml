@@ -80,6 +80,38 @@
         "type": "object",
         "additionalProperties": true,
         "properties": {
+          "plexReconciliationSyncSettings": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "enabled": { "type": "boolean" },
+              "intervalMinutes": { "type": "integer", "minimum": 60, "maximum": 10080 },
+              "limit": { "type": ["integer", "null"], "minimum": 1, "maximum": 50000 },
+              "source": { "type": "string" }
+            },
+            "required": ["enabled", "intervalMinutes", "limit", "source"]
+          },
+          "plexReadbackRefreshSettings": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "enabled": { "type": "boolean" },
+              "intervalMinutes": { "type": "integer", "minimum": 15, "maximum": 10080 },
+              "maxItems": { "type": "integer", "minimum": 1, "maximum": 500 },
+              "source": { "type": "string" }
+            },
+            "required": ["enabled", "intervalMinutes", "maxItems", "source"]
+          },
+          "plexWritebackSettings": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "ratingEnabled": { "type": "boolean" },
+              "watchStateEnabled": { "type": "boolean" },
+              "source": { "type": "string" }
+            },
+            "required": ["ratingEnabled", "watchStateEnabled", "source"]
+          },
           "plexWebhookReceiver": {
             "type": "object",
             "additionalProperties": true,
@@ -6670,7 +6702,35 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "additionalProperties": true
+                "additionalProperties": true,
+                "properties": {
+                  "plexReconciliationSyncSettings": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "enabled": { "type": "boolean" },
+                      "intervalMinutes": { "type": ["integer", "string"] },
+                      "limit": { "type": ["integer", "string", "null"] }
+                    }
+                  },
+                  "plexReadbackRefreshSettings": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "enabled": { "type": "boolean" },
+                      "intervalMinutes": { "type": ["integer", "string"] },
+                      "maxItems": { "type": ["integer", "string"] }
+                    }
+                  },
+                  "plexWritebackSettings": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "ratingEnabled": { "type": "boolean" },
+                      "watchStateEnabled": { "type": "boolean" }
+                    }
+                  }
+                }
               }
             }
           }
@@ -7199,6 +7259,85 @@
             }
           }
         }
+      }
+    },
+    "/api/spaces/{id}/integrations/test-barcode": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Test the workspace barcode provider",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "requestBody": { "required": false, "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } },
+        "responses": { "200": { "description": "Workspace barcode provider test result", "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } }, "400": { "description": "Missing or invalid barcode configuration" } }
+      }
+    },
+    "/api/spaces/{id}/integrations/test-tmdb": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Test the workspace TMDB provider",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "requestBody": { "required": false, "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } },
+        "responses": { "200": { "description": "Workspace TMDB provider test result", "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } }, "400": { "description": "Missing or invalid TMDB configuration" } }
+      }
+    },
+    "/api/spaces/{id}/integrations/test-plex": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Test the workspace Plex connection",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "requestBody": { "required": false, "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } },
+        "responses": { "200": { "description": "Workspace Plex connection test result", "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } }, "400": { "description": "Missing or invalid Plex configuration" } }
+      }
+    },
+    "/api/spaces/{id}/integrations/test-books": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Test the workspace books provider",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "requestBody": { "required": false, "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } },
+        "responses": { "200": { "description": "Workspace books provider test result", "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } }, "400": { "description": "Missing or invalid books configuration" } }
+      }
+    },
+    "/api/spaces/{id}/integrations/test-audio": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Test the workspace audio provider",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "requestBody": { "required": false, "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } },
+        "responses": { "200": { "description": "Workspace audio provider test result", "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } }, "400": { "description": "Missing or invalid audio configuration" } }
+      }
+    },
+    "/api/spaces/{id}/integrations/test-games": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Test the workspace games provider",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "requestBody": { "required": false, "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } },
+        "responses": { "200": { "description": "Workspace games provider test result", "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } }, "400": { "description": "Missing or invalid games configuration" } }
+      }
+    },
+    "/api/spaces/{id}/integrations/test-comics": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Test the workspace comics provider",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "requestBody": { "required": false, "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } },
+        "responses": { "200": { "description": "Workspace comics provider test result", "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } }, "400": { "description": "Missing or invalid comics configuration" } }
+      }
+    },
+    "/api/spaces/{id}/integrations/test-cwa": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Read the deferred workspace CWA connection-test status",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "responses": { "410": { "description": "CWA live connection testing is intentionally deferred", "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } } }
       }
     },
     "/api/spaces/{id}/integrations/test-plex-providers": {

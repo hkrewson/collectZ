@@ -33,6 +33,25 @@ async function updateIntegrationSettings(requestContext, payload) {
   return response.json();
 }
 
+async function getWorkspaceIntegrationSettings(requestContext, spaceId) {
+  const response = await requestContext.get(`/api/spaces/${Number(spaceId)}/integrations`);
+  if (!response.ok()) {
+    throw new Error(`Failed to load workspace integration settings (${response.status()})`);
+  }
+  return response.json();
+}
+
+async function updateWorkspaceIntegrationSettings(requestContext, spaceId, payload) {
+  const response = await requestWithCsrf(
+    requestContext,
+    'PUT',
+    `/api/spaces/${Number(spaceId)}/integrations`,
+    payload,
+    200
+  );
+  return response.json();
+}
+
 async function getFeatureFlags(requestContext) {
   const response = await requestContext.get('/api/admin/feature-flags');
   if (!response.ok()) {
@@ -71,6 +90,8 @@ module.exports = {
   buildIntegrationRestorePayload,
   getIntegrationSettings,
   updateIntegrationSettings,
+  getWorkspaceIntegrationSettings,
+  updateWorkspaceIntegrationSettings,
   getFeatureFlags,
   updateFeatureFlag,
   snapshotIntegrationState,

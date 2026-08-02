@@ -3,7 +3,7 @@
 const fs = require('fs');
 const { test, expect, request: playwrightRequest } = require('@playwright/test');
 const { AUTH_STATE_PATH, createFreshUserCredentials, createAuthenticatedRequestContext, createRequestContextFromStorageState, ensureAuthenticatedAdminStorageState, fetchCsrfToken, patchWithCsrf, postWithCsrf, requestWithCsrf } = require('../helpers/auth');
-const { updateIntegrationSettings } = require('../helpers/integrations');
+const { getWorkspaceIntegrationSettings, updateWorkspaceIntegrationSettings } = require('../helpers/integrations');
 const { deleteMediaByExactTitle, findExactMediaByTitle } = require('../helpers/media');
 
 const PLAYWRIGHT_BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000';
@@ -294,6 +294,8 @@ test.describe('library multi-format browser regressions', () => {
     let mediaId = null;
     let ratingPayload = null;
     let watchPayload = null;
+    let spaceId = null;
+    let originalWritebackSettings = null;
 
     await deleteMediaByExactTitle(requestContext, title).catch(() => {});
 
@@ -314,7 +316,14 @@ test.describe('library multi-format browser regressions', () => {
       const created = await createResponse.json();
       mediaId = Number(created?.id || 0) || null;
       expect(mediaId).toBeTruthy();
-      await updateIntegrationSettings(requestContext, {
+      const meResponse = await requestContext.get('/api/auth/me');
+      expect(meResponse.ok()).toBeTruthy();
+      const currentUser = await meResponse.json();
+      spaceId = Number(currentUser?.active_space_id || 0) || null;
+      expect(spaceId).toBeTruthy();
+      const originalIntegrationSettings = await getWorkspaceIntegrationSettings(requestContext, spaceId);
+      originalWritebackSettings = originalIntegrationSettings?.plexWritebackSettings || null;
+      await updateWorkspaceIntegrationSettings(requestContext, spaceId, {
         plexWritebackSettings: {
           ratingEnabled: true,
           watchStateEnabled: true
@@ -361,6 +370,11 @@ test.describe('library multi-format browser regressions', () => {
       await page.getByTestId('plex-watch-scrobble-button').click();
       await expect.poll(() => watchPayload).toMatchObject({ mediaId, action: 'scrobble' });
     } finally {
+      if (spaceId && originalWritebackSettings) {
+        await updateWorkspaceIntegrationSettings(requestContext, spaceId, {
+          plexWritebackSettings: originalWritebackSettings
+        }).catch(() => {});
+      }
       await deleteMediaByExactTitle(requestContext, title).catch(() => {});
       await requestContext.dispose();
     }

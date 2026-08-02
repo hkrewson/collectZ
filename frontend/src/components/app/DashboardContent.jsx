@@ -214,7 +214,13 @@ export default function DashboardContent({
         active = false;
       };
     }
-    apiCall('get', '/admin/settings/integrations')
+    if (!activeSpaceId) {
+      setPlexWritebackSettings({ ratingEnabled: false, watchStateEnabled: false });
+      return () => {
+        active = false;
+      };
+    }
+    apiCall('get', `/spaces/${activeSpaceId}/integrations`)
       .then((data) => {
         if (!active) return;
         setPlexWritebackSettings({
@@ -228,7 +234,7 @@ export default function DashboardContent({
     return () => {
       active = false;
     };
-  }, [apiCall, scopeKey, user?.role]);
+  }, [activeSpaceId, apiCall, scopeKey, user?.role]);
 
   if (isAdminTab && user?.role !== 'admin') {
     return <ForbiddenView detail="Admin permissions are required to access this view." />;
@@ -493,6 +499,7 @@ export default function DashboardContent({
           cx={cx}
           section={activeIntegrationSection}
           onSectionChange={setActiveIntegrationSection}
+          endpointBase={coreRuntime ? `/spaces/${activeSpaceId}/integrations` : '/admin/settings/integrations'}
           title="Integrations"
           includeRuntimeSections={!coreRuntime}
           includeValuationSections={false}

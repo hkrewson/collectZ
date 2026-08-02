@@ -1,6 +1,27 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.24.5",
+      "version": "3.24.5",
+      "date": "2026-08-01",
+      "status": "implementation and local verification complete; hosted release gates pending after push",
+      "summary": "This release makes the active workspace integration row authoritative for provider saves and Plex automation. It removes silent installation-row Plex credential fallback, persists workspace Plex reconciliation/readback/writeback controls, and sends the Core/homelab provider screen to the active workspace endpoint.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Workspace integration saves now persist Plex reconciliation, watched/rating readback, and rating/watch-state writeback controls.",
+            "Plex scheduler enablement and cadence are resolved from enabled workspace integration rows unless an explicit environment override is present.",
+            "Scheduled Plex work filters out workspaces that have not enabled the corresponding automation.",
+            "Workspace Plex execution no longer fills missing URL, credential, or section values from installation row `id=1`.",
+            "Core/homelab provider settings and Plex writeback readback use `/api/spaces/{id}/integrations` for the active workspace.",
+            "OpenAPI now documents all implemented workspace provider diagnostic endpoints and the Plex automation/writeback request and response fields.",
+            "Added focused source and Docker runtime coverage for workspace persistence, unchanged installation state, and workspace-derived scheduler configuration."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.24.4",
       "version": "3.24.4",
       "date": "2026-08-01",
@@ -183,25 +204,6 @@
             "Preserved platform metadata on scanner lookup matches so imported game records can retain the detected console.",
             "Treated Capture Inbox `other` media type as unknown during scanner lookup instead of forcing a concrete media type before provider normalization can infer one.",
             "Made the scanner API smoke deterministic without requiring TMDB configuration for the existing UPC title-variant check."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.23.17",
-      "version": "3.23.17",
-      "date": null,
-      "status": null,
-      "summary": "This release adds a dedicated mobile auth contract for the native SwiftUI scanner companion app. Mobile clients can now use opaque, mobile-scoped bearer tokens to read/write Capture Inbox records without relying on browser cookies, CSRF, personal access tokens, provider keys, or direct enrichment APIs.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added `POST /api/mobile/auth/login`, `POST /api/mobile/auth/refresh`, `POST /api/mobile/auth/logout`, and `GET /api/mobile/auth/session`.",
-            "Added hashed-at-rest mobile auth sessions with short-lived access tokens, longer-lived refresh tokens, refresh rotation, revocation, device metadata, and last-used tracking.",
-            "Added mobile bearer principal support in auth middleware with scopes limited to `profile:read`, `capture:read`, and `capture:write`.",
-            "Allowed mobile tokens on `/api/auth/me` and `/api/capture-items` only, while keeping provider/enrichment/import/admin route families unsupported by default.",
-            "Documented the native scanner barcode capture payload in OpenAPI."
           ]
         }
       ]

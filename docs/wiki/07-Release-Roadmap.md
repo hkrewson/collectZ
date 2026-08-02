@@ -6,6 +6,47 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.24.5 — Workspace Integration Scope Enforcement
+
+**Goal:** Make the workspace integration row authoritative for provider settings and Plex runtime behavior, with no silent installation-level credential or scheduler fallback.
+
+### Scope
+
+- Persist Plex reconciliation, watched/rating readback, and rating/watch-state writeback controls on the active `app_integrations.space_id` row.
+- Resolve Plex scheduler enablement and cadence from configured workspace rows unless an explicit environment override is present.
+- Keep scheduled Plex work limited to workspaces that enabled the corresponding automation.
+- Remove the legacy global Plex URL, token, and library-section fallback from workspace execution.
+- Route the Core/homelab provider integration screen and Plex writeback readback through the active workspace endpoint.
+- Document all implemented workspace provider diagnostic endpoints in OpenAPI and add regression coverage for the corrected ownership boundary.
+
+### Acceptance Criteria
+
+- Saving Plex automation or writeback controls through `/api/spaces/{id}/integrations` persists and reloads the same values from that workspace row.
+- A workspace with reconciliation/readback enabled starts the corresponding scheduler even when the legacy installation row is disabled.
+- Scheduled reconciliation/readback ignores workspace rows where that automation is disabled.
+- Workspace Plex imports, webhook jobs, readback, and writeback never fill missing connection fields from the installation row.
+- The Core/homelab Integrations screen saves Barcode, TMDB, Books, Audio, Games, Comics, CWA, Kavita, and Plex settings to the active workspace.
+- OpenAPI, source tests, Docker runtime evidence, version/release artifacts, and relevant regression gates remain aligned.
+
+### Active Slice Notes
+
+- Selected on August 1, 2026 after the post-webhook scope audit found that the workspace stored enabled Plex automation while the running schedulers read disabled installation-row values.
+- The same audit found the Core/homelab provider screen still used `/api/admin/settings/integrations`, causing some provider saves to land globally and others to be silently discarded.
+- PriceCharting/eBay valuation ownership, Vision/OCR ownership, and a homelab-only workspace SMTP override remain separate follow-up decisions so this correction does not mix new provider policy into the Plex/runtime repair.
+- Status: implementation and local verification complete; hosted release gates pending after push.
+
+### Closeout
+
+- Status: implementation and local verification complete in `3.24.5`; release promotion remains pending hosted-only gates after push.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/52-Plex-True-Sync-Workflow-Plan.md`, and `docs/releases/v3.24.5.md`.
+- Runtime verification used: rebuilt the canonical `collectz-private` backend/frontend/Postgres stack in place on port `3201`; live health reported `3.24.5`; startup readback enabled Plex readback and reconciliation from the configured workspace even while legacy installation controls were disabled. A focused in-stack smoke proved workspace automation persistence, unchanged installation values, workspace-derived scheduler runtime, receiver/display-token scope, durable job workspace/library routing, and revocation. Help > Releases served `3.24.5` as the newest entry.
+- CI/checks run: backend unit coverage passed all `347` checks; OpenAPI, frontend production build, API integration smoke, RBAC regression, platform boundary, init parity, migration rehearsal, and focused Plex workspace scope smoke passed. The full Playwright suite passed `69` checks with `4` expected homelab-only skips. Isolated Core and control-plane runtime smokes passed. Observability evidence passed `9/9`; backend and frontend production dependency audits reported zero vulnerabilities; the standard local release gate passed `12/12`; targeted generated-artifact secret-pattern scanning and `git diff --check` passed.
+- Blocked/unverified: the strict local compose preflight cannot prove CI secure-cookie settings against the intentionally development-configured canonical stack (`SESSION_COOKIE_SECURE=false`, `NODE_ENV=development`), although in-stack health, security headers, API integration, RBAC, and isolated runtime checks passed. `gitleaks` is not installed locally, so repository-history `secret-scan` remains hosted-only. `trivy` and `syft` are not installed locally, so `image-security-and-sbom` and CycloneDX generation remain hosted-only. Hosted CI must rerun the exact `compose-smoke` and all publish gates after push.
+- Files changed: version and release/feed metadata; workspace integration persistence and response shaping; Plex webhook, scheduler, reconciliation, and readback scope resolution; provider-screen and media-drawer workspace routing; OpenAPI; unit, focused Docker, and Playwright scope coverage; canonical-project release preflight routing; Plex workflow, roadmap, backlog, and release documentation; and refreshed dependency, migration, observability, and preflight evidence.
+- Risks or follow-ups: when more than one workspace enables a scheduler with different cadences, the in-process scheduler uses the shortest enabled workspace interval and applies each run only to enabled workspace targets; exact per-workspace timer isolation would require a later scheduler architecture. PriceCharting/eBay valuation and Vision/OCR execution ownership remain in `Remaining Workspace Integration Ownership Cleanup`. The homelab-only workspace SMTP override remains independently backlogged. No new UI pattern was introduced; the existing integration surface was only routed to its correct owner.
+- What remains in the milestone: no local implementation work remains; after push, require hosted `compose-smoke`, `rbac-regression`, `browser-regression`, Core/control-plane `runtime-smoke`, `dependency-scan`, `secret-scan`, and `image-security-and-sbom` before promotion.
+- Recommended commit message: `Release 3.24.5 with workspace-owned provider settings and Plex automation runtime`.
+
 ## 3.24.4 — Workspace-Scoped Plex Webhook Receiver
 
 **Goal:** Keep Plex webhook receiver ownership, readback, delivery diagnostics, and queued work in the same workspace integration scope as the Plex connection it serves.

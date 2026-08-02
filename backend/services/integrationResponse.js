@@ -34,6 +34,17 @@ const buildIntegrationResponse = (config) => ({
     limit: null,
     source: 'stored'
   },
+  plexReadbackRefreshSettings: config.plexReadbackRefreshSettings || {
+    enabled: false,
+    intervalMinutes: 60,
+    maxItems: 100,
+    source: 'stored'
+  },
+  plexWritebackSettings: config.plexWritebackSettings || {
+    ratingEnabled: false,
+    watchStateEnabled: false,
+    source: 'stored'
+  },
   plexApiKeySet: Boolean(config.plexApiKey),
   plexApiKeyMasked: maskSecret(config.plexApiKey),
   booksPreset: config.booksPreset,

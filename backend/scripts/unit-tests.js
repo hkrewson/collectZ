@@ -371,6 +371,7 @@ const plexRealNowPlayingRuntimeProofSource = fs.readFileSync(require.resolve('..
 const plexNowPlayingViewerSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-now-playing-viewer-smoke'), 'utf8');
 const plexWebhookRatingsContractSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-webhook-ratings-contract-smoke'), 'utf8');
 const plexWebhookReceiverAdminSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-webhook-receiver-admin-smoke'), 'utf8');
+const plexWebhookWorkspaceScopeSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-webhook-workspace-scope-smoke'), 'utf8');
 const plexWatchStateSyncCadenceSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-watch-state-sync-cadence-smoke'), 'utf8');
 const plexWatchStateApplySmokeSource = fs.readFileSync(require.resolve('../scripts/plex-watch-state-apply-smoke'), 'utf8');
 const plexWatchStateRefreshSchedulerSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-watch-state-refresh-scheduler-smoke'), 'utf8');
@@ -2341,6 +2342,30 @@ results.push(run('workspace integrations own all Plex token state and actions', 
   assert.ok(platformEditionBoundarySmokeSource.includes('Workspace integrations must include workspace Plex receiver state'));
   assert.ok(platformEditionBoundarySmokeSource.includes("receiverPath === '/api/plex/webhooks/[token]'"));
   assert.ok(integrationsRoutesSource.includes('enqueuePlexWebhookEvent(normalizedEvent, config)'));
+}));
+
+results.push(run('workspace integrations own provider saves and Plex automation runtime', () => {
+  assert.ok(spaceIntegrationsRoutesSource.includes('plex_reconciliation_sync_enabled'));
+  assert.ok(spaceIntegrationsRoutesSource.includes('plex_readback_refresh_enabled'));
+  assert.ok(spaceIntegrationsRoutesSource.includes('plex_rating_writeback_enabled'));
+  assert.ok(spaceIntegrationsRoutesSource.includes('plex_watch_state_writeback_enabled'));
+  assert.ok(spaceIntegrationsRoutesSource.includes('normalizePlexReconciliationSyncSettings'));
+  assert.ok(spaceIntegrationsRoutesSource.includes('normalizePlexReadbackRefreshSettings'));
+  assert.ok(spaceIntegrationsRoutesSource.includes('normalizePlexWritebackSettings'));
+  assert.ok(mediaRoutesSource.includes("source: 'workspace'"));
+  assert.ok(mediaRoutesSource.includes('plex_readback_refresh_enabled = TRUE'));
+  assert.ok(mediaRoutesSource.includes('plex_reconciliation_sync_enabled = TRUE'));
+  assert.ok(!mediaRoutesSource.includes('plexApiUrl: config.plexApiUrl || adminConfig.plexApiUrl'));
+  assert.ok(!mediaRoutesSource.includes('plexApiKey: config.plexApiKey || adminConfig.plexApiKey'));
+  assert.ok(dashboardContentSource.includes('`/spaces/${activeSpaceId}/integrations`'));
+  assert.ok(dashboardContentSource.includes("endpointBase={coreRuntime ? `/spaces/${activeSpaceId}/integrations` : '/admin/settings/integrations'}"));
+  for (const diagnostic of ['barcode', 'tmdb', 'plex', 'books', 'audio', 'games', 'comics', 'cwa', 'kavita']) {
+    assert.ok(openApiSource.includes(`/api/spaces/{id}/integrations/test-${diagnostic}`));
+  }
+  assert.ok(plexWebhookWorkspaceScopeSmokeSource.includes('automationPersistedOnWorkspace'));
+  assert.ok(plexWebhookWorkspaceScopeSmokeSource.includes('installationAutomationUnchanged'));
+  assert.ok(plexWebhookWorkspaceScopeSmokeSource.includes('schedulerRuntimeResolvedFromWorkspace'));
+  assert.ok(releaseRoadmapSource.includes('3.24.5 — Workspace Integration Scope Enforcement'));
 }));
 
 results.push(run('plex now-playing provider proof keeps sessions read-only and secret-free', () => {

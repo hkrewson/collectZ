@@ -7,7 +7,10 @@ const {
   deriveCwaBaseUrl,
   loadIntegrationConfigRow,
   loadScopedIntegrationConfig,
-  normalizeIntegrationRecord
+  normalizeIntegrationRecord,
+  normalizePlexReconciliationSyncSettings,
+  normalizePlexReadbackRefreshSettings,
+  normalizePlexWritebackSettings
 } = require('../services/integrations');
 const {
   generatePlexWebhookReceiverToken,
@@ -211,7 +214,8 @@ function resolveNextSpaceIntegrationState(body = {}, existing = null) {
     tmdbPreset, tmdbProvider, tmdbApiUrl,
     tmdbApiKey, clearTmdbApiKey,
     plexPreset, plexProvider, plexApiUrl, plexLibrarySections,
-    plexApiKey, clearPlexApiKey,
+    plexApiKey, clearPlexApiKey, plexReconciliationSyncSettings,
+    plexReadbackRefreshSettings, plexWritebackSettings,
     booksPreset, booksProvider, booksApiUrl,
     booksApiKey, clearBooksApiKey,
     audioPreset, audioProvider, audioApiUrl,
@@ -278,6 +282,23 @@ function resolveNextSpaceIntegrationState(body = {}, existing = null) {
       20000
     )
   );
+  const resolvedPlexReconciliationSyncSettings = normalizePlexReconciliationSyncSettings({
+    enabled: existing?.plex_reconciliation_sync_enabled,
+    intervalMinutes: existing?.plex_reconciliation_sync_interval_minutes,
+    limit: existing?.plex_reconciliation_sync_limit,
+    ...(plexReconciliationSyncSettings || {})
+  });
+  const resolvedPlexReadbackRefreshSettings = normalizePlexReadbackRefreshSettings({
+    enabled: existing?.plex_readback_refresh_enabled,
+    intervalMinutes: existing?.plex_readback_refresh_interval_minutes,
+    maxItems: existing?.plex_readback_refresh_max_items,
+    ...(plexReadbackRefreshSettings || {})
+  });
+  const resolvedPlexWritebackSettings = normalizePlexWritebackSettings({
+    ratingEnabled: existing?.plex_rating_writeback_enabled,
+    watchStateEnabled: existing?.plex_watch_state_writeback_enabled,
+    ...(plexWritebackSettings || {})
+  });
 
   return {
     barcode_preset: pick(barcodePreset, existing?.barcode_preset, 'upcitemdb'),
@@ -299,6 +320,14 @@ function resolveNextSpaceIntegrationState(body = {}, existing = null) {
     plex_api_key_encrypted: finalPlexApiKey,
     plex_api_key_query_param: selectedPlexPreset.apiKeyQueryParam,
     plex_library_sections: Array.isArray(plexLibrarySections) ? plexLibrarySections : (existing?.plex_library_sections || []),
+    plex_reconciliation_sync_enabled: resolvedPlexReconciliationSyncSettings.enabled,
+    plex_reconciliation_sync_interval_minutes: resolvedPlexReconciliationSyncSettings.intervalMinutes,
+    plex_reconciliation_sync_limit: resolvedPlexReconciliationSyncSettings.limit,
+    plex_readback_refresh_enabled: resolvedPlexReadbackRefreshSettings.enabled,
+    plex_readback_refresh_interval_minutes: resolvedPlexReadbackRefreshSettings.intervalMinutes,
+    plex_readback_refresh_max_items: resolvedPlexReadbackRefreshSettings.maxItems,
+    plex_rating_writeback_enabled: resolvedPlexWritebackSettings.ratingEnabled,
+    plex_watch_state_writeback_enabled: resolvedPlexWritebackSettings.watchStateEnabled,
     books_preset: pick(booksPreset, existing?.books_preset, 'googlebooks'),
     books_provider: pick(booksProvider, existing?.books_provider, selectedBooksPreset.provider),
     books_api_url: pick(booksApiUrl, existing?.books_api_url, selectedBooksPreset.apiUrl),
@@ -374,7 +403,10 @@ async function upsertSpaceIntegrationState(client, spaceId, nextState) {
        games_preset, games_provider, games_api_url, games_api_key_encrypted, games_api_key_header, games_api_key_query_param, games_client_id, games_client_secret_encrypted,
        comics_preset, comics_provider, comics_api_url, comics_api_key_encrypted, comics_api_key_header, comics_api_key_query_param, comics_username,
        cwa_opds_url, cwa_base_url, cwa_username, cwa_password_encrypted, cwa_timeout_ms,
-       kavita_base_url, kavita_api_key_encrypted, kavita_timeout_ms
+       kavita_base_url, kavita_api_key_encrypted, kavita_timeout_ms,
+       plex_reconciliation_sync_enabled, plex_reconciliation_sync_interval_minutes, plex_reconciliation_sync_limit,
+       plex_readback_refresh_enabled, plex_readback_refresh_interval_minutes, plex_readback_refresh_max_items,
+       plex_rating_writeback_enabled, plex_watch_state_writeback_enabled
      ) VALUES (
        $1,
        $2,$3,$4,$5,$6,$7,
@@ -385,7 +417,10 @@ async function upsertSpaceIntegrationState(client, spaceId, nextState) {
        $33,$34,$35,$36,$37,$38,$39,$40,
        $41,$42,$43,$44,$45,$46,$47,
        $48,$49,$50,$51,$52,
-       $53,$54,$55
+       $53,$54,$55,
+       $56,$57,$58,
+       $59,$60,$61,
+       $62,$63
      )
      ON CONFLICT (space_id) DO UPDATE SET
        barcode_preset = EXCLUDED.barcode_preset,
@@ -441,7 +476,15 @@ async function upsertSpaceIntegrationState(client, spaceId, nextState) {
        cwa_timeout_ms = EXCLUDED.cwa_timeout_ms,
        kavita_base_url = EXCLUDED.kavita_base_url,
        kavita_api_key_encrypted = EXCLUDED.kavita_api_key_encrypted,
-       kavita_timeout_ms = EXCLUDED.kavita_timeout_ms
+       kavita_timeout_ms = EXCLUDED.kavita_timeout_ms,
+       plex_reconciliation_sync_enabled = EXCLUDED.plex_reconciliation_sync_enabled,
+       plex_reconciliation_sync_interval_minutes = EXCLUDED.plex_reconciliation_sync_interval_minutes,
+       plex_reconciliation_sync_limit = EXCLUDED.plex_reconciliation_sync_limit,
+       plex_readback_refresh_enabled = EXCLUDED.plex_readback_refresh_enabled,
+       plex_readback_refresh_interval_minutes = EXCLUDED.plex_readback_refresh_interval_minutes,
+       plex_readback_refresh_max_items = EXCLUDED.plex_readback_refresh_max_items,
+       plex_rating_writeback_enabled = EXCLUDED.plex_rating_writeback_enabled,
+       plex_watch_state_writeback_enabled = EXCLUDED.plex_watch_state_writeback_enabled
      RETURNING *`,
     [
       spaceId,
@@ -498,7 +541,15 @@ async function upsertSpaceIntegrationState(client, spaceId, nextState) {
       nextState.cwa_timeout_ms,
       nextState.kavita_base_url,
       nextState.kavita_api_key_encrypted,
-      nextState.kavita_timeout_ms
+      nextState.kavita_timeout_ms,
+      nextState.plex_reconciliation_sync_enabled,
+      nextState.plex_reconciliation_sync_interval_minutes,
+      nextState.plex_reconciliation_sync_limit,
+      nextState.plex_readback_refresh_enabled,
+      nextState.plex_readback_refresh_interval_minutes,
+      nextState.plex_readback_refresh_max_items,
+      nextState.plex_rating_writeback_enabled,
+      nextState.plex_watch_state_writeback_enabled
     ]
   );
   return result.rows[0] || null;
@@ -613,6 +664,9 @@ router.put('/spaces/:spaceId/integrations', authenticateToken, requireSessionAut
       cwaEnabled: Boolean(config.cwaOpdsUrl),
       kavitaEnabled: Boolean(config.kavitaBaseUrl),
       kavitaTimeoutMs: config.kavitaTimeoutMs,
+      plexReconciliationSyncSettings: config.plexReconciliationSyncSettings,
+      plexReadbackRefreshSettings: config.plexReadbackRefreshSettings,
+      plexWritebackSettings: config.plexWritebackSettings,
       keyUpdates: nextState.keyUpdates,
       keyClears: nextState.keyClears
     });

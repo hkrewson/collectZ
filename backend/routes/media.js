@@ -5223,8 +5223,23 @@ function hasPlexWatchStateRefreshEnvOverride() {
 async function getEffectivePlexWatchStateRefreshRuntimeConfig() {
   if (hasPlexWatchStateRefreshEnvOverride()) return getPlexWatchStateRefreshRuntimeConfig();
   try {
-    const config = await loadAdminIntegrationConfig();
-    return normalizePlexReadbackRefreshSettings(config.plexReadbackRefreshSettings || {});
+    const result = await pool.query(
+      `SELECT COUNT(*)::int AS enabled_count,
+              MIN(COALESCE(plex_readback_refresh_interval_minutes, 60))::int AS interval_minutes,
+              MAX(COALESCE(plex_readback_refresh_max_items, 100))::int AS max_items
+         FROM app_integrations
+        WHERE space_id IS NOT NULL
+          AND plex_readback_refresh_enabled = TRUE
+          AND COALESCE(plex_api_url, '') <> ''
+          AND plex_api_key_encrypted IS NOT NULL`
+    );
+    const row = result.rows[0] || {};
+    return normalizePlexReadbackRefreshSettings({
+      enabled: Number(row.enabled_count || 0) > 0,
+      intervalMinutes: row.interval_minutes,
+      maxItems: row.max_items,
+      source: 'workspace'
+    });
   } catch (error) {
     logError('Load Plex readback refresh settings', error);
     return getPlexWatchStateRefreshRuntimeConfig();
@@ -5264,15 +5279,17 @@ function normalizePlexRatingKeyValue(value) {
   return parts.length > 0 ? parts[parts.length - 1] : raw;
 }
 
-async function collectPlexWatchStateRefreshTargets({ maxItems = 100 } = {}) {
+async function collectPlexWatchStateRefreshTargets({ maxItems = 100, enabledOnly = false } = {}) {
   const limit = Math.max(1, Math.min(500, Number(maxItems || 100)));
   const result = await pool.query(
     `SELECT m.id, m.media_type, m.library_id, m.space_id, mm."value" AS plex_item_key
        FROM media m
        JOIN media_metadata mm ON mm.media_id = m.id
-      WHERE mm."key" = 'plex_item_key'
+       ${enabledOnly ? 'JOIN app_integrations ai ON ai.space_id = m.space_id' : ''}
+       WHERE mm."key" = 'plex_item_key'
         AND COALESCE(mm."value", '') <> ''
         AND m.library_id IS NOT NULL
+        ${enabledOnly ? 'AND ai.plex_readback_refresh_enabled = TRUE' : ''}
       ORDER BY m.updated_at DESC, m.created_at DESC, m.id DESC
       LIMIT $1`,
     [limit]
@@ -5338,7 +5355,8 @@ function mergePlexRatingApplySummary(target, applySummary = {}) {
 async function runPlexWatchStateRefreshOnce({ reason = 'manual', maxItems = null } = {}) {
   const runtimeConfig = await getEffectivePlexWatchStateRefreshRuntimeConfig();
   const targetReadback = await collectPlexWatchStateRefreshTargets({
-    maxItems: maxItems || runtimeConfig.maxItems
+    maxItems: maxItems || runtimeConfig.maxItems,
+    enabledOnly: reason === 'scheduled' && !hasPlexWatchStateRefreshEnvOverride()
   });
   const summary = {
     reason,
@@ -7676,21 +7694,7 @@ async function resolvePlexWebhookImportHintTarget(job = {}, actorUser = null) {
 }
 
 async function loadPlexWebhookImportConfig(scopeContext = {}) {
-  let config = await loadScopedIntegrationConfig(scopeContext.spaceId || null);
-  if ((!config.plexApiUrl || !config.plexApiKey) && scopeContext.spaceId) {
-    const adminConfig = await loadAdminIntegrationConfig();
-    if (adminConfig.plexApiUrl || adminConfig.plexApiKey) {
-      config = {
-        ...config,
-        plexApiUrl: config.plexApiUrl || adminConfig.plexApiUrl,
-        plexApiKey: config.plexApiKey || adminConfig.plexApiKey,
-        plexLibrarySections: (Array.isArray(config.plexLibrarySections) && config.plexLibrarySections.length > 0)
-          ? config.plexLibrarySections
-          : adminConfig.plexLibrarySections
-      };
-    }
-  }
-  return config;
+  return loadScopedIntegrationConfig(scopeContext.spaceId || null);
 }
 
 async function processPlexWebhookImportHintJob({ jobId = null, ratingKey = null, actorUser = null, auditReq = null, valuationMode = 'live' } = {}) {
@@ -7867,8 +7871,23 @@ function hasPlexReconciliationSyncEnvOverride() {
 async function getEffectivePlexReconciliationSyncRuntimeConfig() {
   if (hasPlexReconciliationSyncEnvOverride()) return getPlexReconciliationSyncRuntimeConfig();
   try {
-    const config = await loadAdminIntegrationConfig();
-    return normalizePlexReconciliationSyncSettings(config.plexReconciliationSyncSettings || {});
+    const result = await pool.query(
+      `SELECT COUNT(*)::int AS enabled_count,
+              MIN(COALESCE(plex_reconciliation_sync_interval_minutes, 360))::int AS interval_minutes,
+              MIN(plex_reconciliation_sync_limit)::int AS reconciliation_limit
+         FROM app_integrations
+        WHERE space_id IS NOT NULL
+          AND plex_reconciliation_sync_enabled = TRUE
+          AND COALESCE(plex_api_url, '') <> ''
+          AND plex_api_key_encrypted IS NOT NULL`
+    );
+    const row = result.rows[0] || {};
+    return normalizePlexReconciliationSyncSettings({
+      enabled: Number(row.enabled_count || 0) > 0,
+      intervalMinutes: row.interval_minutes,
+      limit: row.reconciliation_limit,
+      source: 'workspace'
+    });
   } catch (error) {
     logError('Load Plex reconciliation sync settings', error);
     return getPlexReconciliationSyncRuntimeConfig();
@@ -7939,31 +7958,9 @@ async function findFirstLibraryForSpace(spaceId) {
   return Number(result.rows[0]?.id || 0) || null;
 }
 
-async function collectPlexReconciliationSyncTargets() {
+async function collectPlexReconciliationSyncTargets({ enabledOnly = false } = {}) {
   const targets = [];
-  const seen = new Set();
   const firstAdmin = await findFirstAdminUser();
-
-  if (firstAdmin) {
-    const defaultScope = await ensureUserDefaultScope(firstAdmin.id);
-    const config = await loadPlexWebhookImportConfig({
-      spaceId: defaultScope.spaceId || null,
-      libraryId: defaultScope.libraryId || null
-    });
-    if (config.plexApiUrl && config.plexApiKey && defaultScope.libraryId) {
-      const key = `${defaultScope.spaceId || 'global'}:${defaultScope.libraryId}`;
-      seen.add(key);
-      targets.push({
-        user: firstAdmin,
-        config,
-        scopeContext: {
-          spaceId: defaultScope.spaceId || null,
-          libraryId: defaultScope.libraryId
-        },
-        source: 'first_admin_default_scope'
-      });
-    }
-  }
 
   const scoped = await pool.query(
     `SELECT DISTINCT space_id
@@ -7971,6 +7968,7 @@ async function collectPlexReconciliationSyncTargets() {
       WHERE space_id IS NOT NULL
         AND plex_api_url IS NOT NULL
         AND plex_api_key_encrypted IS NOT NULL
+        ${enabledOnly ? 'AND plex_reconciliation_sync_enabled = TRUE' : ''}
       ORDER BY space_id ASC`
   );
   for (const row of scoped.rows) {
@@ -7978,13 +7976,10 @@ async function collectPlexReconciliationSyncTargets() {
     if (!spaceId) continue;
     const libraryId = await findFirstLibraryForSpace(spaceId);
     if (!libraryId) continue;
-    const key = `${spaceId}:${libraryId}`;
-    if (seen.has(key)) continue;
     const user = await findSpaceAutomationUser(spaceId) || firstAdmin;
     if (!user) continue;
     const config = await loadPlexWebhookImportConfig({ spaceId, libraryId });
     if (!config.plexApiUrl || !config.plexApiKey) continue;
-    seen.add(key);
     targets.push({
       user,
       config,
@@ -7997,9 +7992,11 @@ async function collectPlexReconciliationSyncTargets() {
 }
 
 async function runPlexReconciliationSyncSchedulerOnce({ reason = 'manual', limit = null } = {}) {
-  const runtimeConfig = getPlexReconciliationSyncRuntimeConfig();
+  const runtimeConfig = await getEffectivePlexReconciliationSyncRuntimeConfig();
   const effectiveLimit = parsePlexReconciliationLimit(limit) || runtimeConfig.limit || null;
-  const targets = await collectPlexReconciliationSyncTargets();
+  const targets = await collectPlexReconciliationSyncTargets({
+    enabledOnly: reason === 'scheduled' && !hasPlexReconciliationSyncEnvOverride()
+  });
   const summary = {
     reason,
     enabled: runtimeConfig.enabled,

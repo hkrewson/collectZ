@@ -141,14 +141,87 @@ async function main() {
     assert(reloaded.data?.plexNowPlayingDisplayPreferences?.layoutMode === 'poster_only', 'Workspace display preferences did not survive GET reload');
     assert(!JSON.stringify(reloaded.data).includes(displayToken), 'Workspace integration reload exposed the raw display token');
 
+    const globalAutomationBefore = await pool.query(
+      `SELECT plex_reconciliation_sync_enabled,
+              plex_reconciliation_sync_interval_minutes,
+              plex_reconciliation_sync_limit,
+              plex_readback_refresh_enabled,
+              plex_readback_refresh_interval_minutes,
+              plex_readback_refresh_max_items,
+              plex_rating_writeback_enabled,
+              plex_watch_state_writeback_enabled
+         FROM app_integrations
+        WHERE id = 1`
+    );
     const saved = await client.request(`/api/spaces/${spaceId}/integrations`, {
       method: 'PUT',
-      body: {},
+      body: {
+        plexApiUrl: 'http://plex.workspace.invalid:32400',
+        plexApiKey: `workspace-plex-${suffix}`,
+        plexReconciliationSyncSettings: { enabled: true, intervalMinutes: 180, limit: 250 },
+        plexReadbackRefreshSettings: { enabled: true, intervalMinutes: 30, maxItems: 125 },
+        plexWritebackSettings: { ratingEnabled: true, watchStateEnabled: false }
+      },
       withCsrf: true
     });
     assert(saved.data?.plexWebhookReceiver?.enabled === true, 'Workspace Save cleared the receiver state');
     assert(Number(saved.data?.plexWebhookReceiver?.spaceId || 0) === spaceId, 'Workspace Save returned the wrong receiver scope');
     assert(saved.data?.plexNowPlayingDisplayToken?.enabled === true, 'Workspace Save cleared the display token state');
+    assert(saved.data?.plexReconciliationSyncSettings?.enabled === true, 'Workspace Save did not retain reconciliation enablement');
+    assert(saved.data?.plexReconciliationSyncSettings?.intervalMinutes === 180, 'Workspace Save did not retain reconciliation cadence');
+    assert(
+      saved.data?.plexReadbackRefreshSettings?.enabled === true,
+      `Workspace Save did not retain readback enablement: ${JSON.stringify(saved.data?.plexReadbackRefreshSettings || null)}`
+    );
+    assert(saved.data?.plexReadbackRefreshSettings?.maxItems === 125, 'Workspace Save did not retain readback batch size');
+    assert(saved.data?.plexWritebackSettings?.ratingEnabled === true, 'Workspace Save did not retain rating writeback');
+    assert(saved.data?.plexWritebackSettings?.watchStateEnabled === false, 'Workspace Save changed watched-state writeback unexpectedly');
+
+    const persistedAutomation = await pool.query(
+      `SELECT plex_reconciliation_sync_enabled,
+              plex_reconciliation_sync_interval_minutes,
+              plex_reconciliation_sync_limit,
+              plex_readback_refresh_enabled,
+              plex_readback_refresh_interval_minutes,
+              plex_readback_refresh_max_items,
+              plex_rating_writeback_enabled,
+              plex_watch_state_writeback_enabled
+         FROM app_integrations
+        WHERE space_id = $1`,
+      [spaceId]
+    );
+    assert(persistedAutomation.rows[0]?.plex_reconciliation_sync_enabled === true, 'Reconciliation enablement was not persisted on the workspace row');
+    assert(Number(persistedAutomation.rows[0]?.plex_reconciliation_sync_interval_minutes) === 180, 'Reconciliation cadence was not persisted on the workspace row');
+    assert(Number(persistedAutomation.rows[0]?.plex_reconciliation_sync_limit) === 250, 'Reconciliation limit was not persisted on the workspace row');
+    assert(persistedAutomation.rows[0]?.plex_readback_refresh_enabled === true, 'Readback enablement was not persisted on the workspace row');
+    assert(Number(persistedAutomation.rows[0]?.plex_readback_refresh_interval_minutes) === 30, 'Readback cadence was not persisted on the workspace row');
+    assert(Number(persistedAutomation.rows[0]?.plex_readback_refresh_max_items) === 125, 'Readback batch size was not persisted on the workspace row');
+    assert(persistedAutomation.rows[0]?.plex_rating_writeback_enabled === true, 'Rating writeback was not persisted on the workspace row');
+    assert(persistedAutomation.rows[0]?.plex_watch_state_writeback_enabled === false, 'Watched-state writeback was not persisted on the workspace row');
+
+    const globalAutomationAfter = await pool.query(
+      `SELECT plex_reconciliation_sync_enabled,
+              plex_reconciliation_sync_interval_minutes,
+              plex_reconciliation_sync_limit,
+              plex_readback_refresh_enabled,
+              plex_readback_refresh_interval_minutes,
+              plex_readback_refresh_max_items,
+              plex_rating_writeback_enabled,
+              plex_watch_state_writeback_enabled
+         FROM app_integrations
+        WHERE id = 1`
+    );
+    assert(
+      JSON.stringify(globalAutomationAfter.rows[0] || null) === JSON.stringify(globalAutomationBefore.rows[0] || null),
+      'Workspace integration save changed installation-level Plex automation settings'
+    );
+
+    const reconciliationRuntime = await client.request('/api/media/plex-reconciliation-sync/scheduler');
+    assert(reconciliationRuntime.data?.runtime?.enabled === true, 'Reconciliation runtime did not discover the enabled workspace row');
+    assert(reconciliationRuntime.data?.runtime?.source === 'workspace', 'Reconciliation runtime did not report workspace ownership');
+    const readbackRuntime = await client.request('/api/media/plex-watch-state/refresh-scheduler');
+    assert(readbackRuntime.data?.runtime?.enabled === true, 'Readback runtime did not discover the enabled workspace row');
+    assert(readbackRuntime.data?.runtime?.source === 'workspace', 'Readback runtime did not report workspace ownership');
 
     const form = new FormData();
     form.append('payload', JSON.stringify({
@@ -219,6 +292,9 @@ async function main() {
       generated: true,
       reloadPreserved: true,
       savePreserved: true,
+      automationPersistedOnWorkspace: true,
+      installationAutomationUnchanged: true,
+      schedulerRuntimeResolvedFromWorkspace: true,
       deliveryRecordedOnWorkspace: true,
       queuedJobScopedToWorkspaceLibrary: true,
       nowPlayingDisplayScopedToWorkspace: true,

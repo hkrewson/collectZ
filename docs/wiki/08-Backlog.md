@@ -1143,7 +1143,54 @@ These are product-level capability gaps discovered from the current shape of the
 - Workspace integrations are the clear place to configure Plex, Kavita, barcode, books, audio/music, games, comics, CWA, TMDB, and similar data providers.
 - Platform settings clearly contain platform-only setup and instance-wide backup/export.
 - Workspace settings clearly contain workspace-scoped preferences, members, integrations, and workspace export/portability.
+
+### Backlog Item: Homelab-Only Workspace SMTP Override
+**Type:** Deferred milestone
+**Tags:** `homelab`, `workspace`, `smtp`, `email`, `notifications`, `security`
+
+**Goal:** Allow a homelab workspace to configure its own SMTP delivery without exposing workspace-controlled mail transport in the hosted platform runtime.
+
+**Intent**
+- Keep Cairn-owned SMTP as the only editable mail-delivery configuration for hosted/platform installs.
+- Expose `Workspace > Notifications > Email Delivery` only when the backend advertises a homelab-only `workspace_smtp_override` capability.
+- Enforce the runtime boundary in the API as well as the frontend; platform runtimes must reject or omit workspace SMTP mutation endpoints.
+- Store workspace SMTP credentials encrypted and return only secret-free configured/masked readback.
+- Resolve homelab delivery as workspace SMTP first, then local environment SMTP, then unavailable.
+- Include a scoped test-delivery action, audit events, rate limiting, OpenAPI coverage, and secret-leak regression checks.
+
+**Acceptance Criteria**
+- Homelab workspace administrators can configure and test SMTP under Workspace Notifications.
+- Hosted/platform workspace administrators cannot see or call workspace SMTP configuration endpoints.
+- Cairn remains the platform authority for hosted email delivery.
+- Passwords are encrypted at rest and absent from API readback, activity logs, and validation artifacts.
+- Invitations, reminders, notifications, and other supported homelab mail use the documented workspace-first resolution order.
 - Keyless provider defaults can be inherited without making users think the platform owns every workspace’s provider setup.
+
+### Backlog Item: Remaining Workspace Integration Ownership Cleanup
+**Type:** Deferred milestone
+**Tags:** `workspace`, `integrations`, `valuation`, `ocr`, `scope`, `security`
+
+**Goal:** Finish the integration-scope audit after the `3.24.5` provider-screen and Plex runtime correction by making valuation and OCR execution resolve from the workspace that owns the collection data.
+
+**Why this remains**
+- `3.24.5` makes the active workspace authoritative for the provider screen and Plex automation, but does not change provider policy for unrelated execution paths.
+- PriceCharting and eBay valuation helpers still need an explicit workspace-owned resolution path and must not infer credentials through Kavita or an installation row.
+- Vision/OCR execution and repair utilities need the same workspace context, secret masking, and inherited-default semantics as the maintained provider integrations.
+
+**Scope**
+- Resolve PriceCharting and eBay valuation configuration from the active workspace integration row, with only documented inheritable platform defaults allowed as fallback.
+- Remove unrelated-provider and first-row fallback behavior from valuation execution.
+- Resolve Vision/OCR configuration from the workspace that owns the capture or image being processed.
+- Update repair and maintenance scripts to require or derive an explicit workspace instead of silently using installation integration row `id=1`.
+- Keep platform runtime integrations such as analytics, metrics, and external log delivery Cairn/installation-owned.
+- Add API, OpenAPI, Docker runtime, cross-workspace isolation, secret-readback, and regression coverage for each promoted provider family.
+
+**Acceptance Criteria**
+- Valuation and OCR jobs use the settings for the workspace that owns the target record.
+- Missing workspace credentials never cause execution with another workspace's or an unrelated provider's credentials.
+- Supported inherited defaults are explicit in API readback and cannot be mistaken for workspace-owned secrets.
+- Maintenance scripts do not select a global or first integration row without an explicit documented installation-level purpose.
+- Platform-only runtime integrations remain absent from workspace mutation surfaces.
 
 ### Backlog Item: Backup, Export, and Portability UX
 **Type:** Promoted milestone
