@@ -219,7 +219,7 @@ const globalLimiter = makeLimiter({
 });
 const authLimiter = makeLimiter({
   max: RATE_LIMIT_AUTH_MAX,
-  message: { error: 'Too many login attempts, please try again later' }
+  message: { error: 'Too many authentication attempts, please try again later' }
 });
 const adminLimiter = makeLimiter({
   max: RATE_LIMIT_ADMIN_MAX,
@@ -251,6 +251,8 @@ const externalApiLimiter = makeLimiter({
 app.use('/api/', globalLimiter);
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
+app.use('/api/auth/password-reset', authLimiter);
+app.use('/api/auth/email-verification', authLimiter);
 app.use('/api/mobile/auth/login', authLimiter);
 app.use('/api/mobile/auth/refresh', authLimiter);
 app.use('/api/admin', adminLimiter);

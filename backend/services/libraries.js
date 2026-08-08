@@ -182,9 +182,11 @@ async function ensureUserDefaultScope(userId, options = {}) {
     ? preferredSpaceIdRaw
     : null;
 
-  const client = await pool.connect();
+  const providedClient = options.client || null;
+  const client = providedClient || await pool.connect();
+  const ownsTransaction = !providedClient;
   try {
-    await client.query('BEGIN');
+    if (ownsTransaction) await client.query('BEGIN');
     const userScope = await client.query(
       `SELECT id, role, active_space_id, active_library_id
        FROM users
@@ -271,7 +273,7 @@ async function ensureUserDefaultScope(userId, options = {}) {
          WHERE id = $1`,
         [numericUserId]
       );
-      await client.query('COMMIT');
+      if (ownsTransaction) await client.query('COMMIT');
       return { spaceId: null, libraryId: null };
     }
 
@@ -339,13 +341,13 @@ async function ensureUserDefaultScope(userId, options = {}) {
       [numericUserId, resolvePersistedActiveSpaceId(spaceId, productEdition), libraryId]
     );
 
-    await client.query('COMMIT');
+    if (ownsTransaction) await client.query('COMMIT');
     return { spaceId, libraryId };
   } catch (error) {
-    await client.query('ROLLBACK');
+    if (ownsTransaction) await client.query('ROLLBACK');
     throw error;
   } finally {
-    client.release();
+    if (ownsTransaction) client.release();
   }
 }
 

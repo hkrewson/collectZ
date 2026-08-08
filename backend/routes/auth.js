@@ -420,41 +420,122 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
     : firstUserBootstrap || (selfRegistrationEnabled && smtpConfigured);
   const inviteTokenForLookup = String(inviteToken || '').trim();
 
+  const hashedPassword = await bcrypt.hash(password, 12);
+  const role = firstUserBootstrap ? 'admin' : 'user';
+  const inviteTokenHash = hashInviteToken(inviteTokenForLookup);
+  const client = await pool.connect();
   let claimedInvite = null;
-  if (!homelabEdition) {
-    const tokenHash = hashInviteToken(inviteTokenForLookup);
-    const invite = await pool.query(
-      `SELECT * FROM invites
-       WHERE $2 <> ''
-         AND (token_hash = $1 OR token = $2)
-         AND used = false
-         AND revoked = false
-         AND expires_at > NOW()`,
-      [tokenHash, inviteTokenForLookup]
-    );
-    if (invite.rows.length > 0 && String(invite.rows[0].email).toLowerCase() !== String(email).toLowerCase()) {
-      recordAuthEvent('register', 'failed');
-      return res.status(400).json({ error: 'Invite token is not valid for this email address' });
-    }
-    claimedInvite = invite.rows[0] || null;
-  }
-
   let registrationFailure = null;
-  if (!homelabEdition && inviteTokenForLookup && !claimedInvite) {
-    registrationFailure = {
-      status: 400,
-      body: { error: 'Invalid or expired invite token' }
-    };
-  } else if (!homelabEdition && !claimedInvite && existingUserCount > 0 && !selfRegistrationEnabled) {
-    registrationFailure = {
-      status: 400,
-      body: { error: 'An invite token is required to register' }
-    };
-  } else if (!claimedInvite && !publicRegistrationAllowed) {
-    registrationFailure = {
-      status: 503,
-      body: { error: 'Registration is temporarily unavailable until email verification delivery is configured' }
-    };
+  let result = null;
+  let personalWorkspace = null;
+  let ensuredScope = null;
+  let sessionToken = null;
+  let emailVerified = false;
+
+  try {
+    await client.query('BEGIN');
+
+    if (!homelabEdition && inviteTokenForLookup) {
+      const inviteClaim = await client.query(
+        `UPDATE invites
+         SET used = true,
+             used_at = NOW()
+         WHERE $2 <> ''
+           AND (token_hash = $1 OR token = $2)
+           AND lower(email) = lower($3)
+           AND used = false
+           AND revoked = false
+           AND expires_at > NOW()
+         RETURNING id, email, expires_at, created_by, space_id, space_role`,
+        [inviteTokenHash, inviteTokenForLookup, email]
+      );
+      claimedInvite = inviteClaim.rows[0] || null;
+    }
+
+    if (!homelabEdition && inviteTokenForLookup && !claimedInvite) {
+      registrationFailure = { status: 400, body: { error: 'Invalid or expired invite token' } };
+    } else if (!homelabEdition && !claimedInvite && existingUserCount > 0 && !selfRegistrationEnabled) {
+      registrationFailure = { status: 400, body: { error: 'An invite token is required to register' } };
+    } else if (!claimedInvite && !publicRegistrationAllowed) {
+      registrationFailure = {
+        status: 503,
+        body: { error: 'Registration is temporarily unavailable until email verification delivery is configured' }
+      };
+    }
+
+    if (!registrationFailure) {
+      const existingUser = await client.query('SELECT id FROM users WHERE lower(email) = lower($1)', [email]);
+      if (existingUser.rows.length > 0) {
+        registrationFailure = { status: 409, body: { error: 'An account with that email already exists' } };
+      }
+    }
+
+    if (registrationFailure) {
+      await client.query('ROLLBACK');
+    } else {
+      emailVerified = homelabEdition || Boolean(claimedInvite) || bootstrapWithoutSmtp;
+      const emailVerifiedAt = emailVerified ? new Date() : null;
+      result = await client.query(
+        `INSERT INTO users (email, password, name, role, email_verified, email_verified_at)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING id, email, name, role, email_verified, email_verified_at`,
+        [email, hashedPassword, name, role, emailVerified, emailVerifiedAt]
+      );
+
+      if (claimedInvite?.space_id) {
+        await client.query(
+          `INSERT INTO space_memberships (space_id, user_id, role, created_by)
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT (space_id, user_id) DO UPDATE
+           SET role = EXCLUDED.role,
+               updated_at = CURRENT_TIMESTAMP,
+               created_by = COALESCE(space_memberships.created_by, EXCLUDED.created_by)`,
+          [
+            claimedInvite.space_id,
+            result.rows[0].id,
+            claimedInvite.space_role || 'member',
+            claimedInvite.created_by || null
+          ]
+        );
+        await syncLibraryMembershipsForSpaceUser(client, {
+          spaceId: claimedInvite.space_id,
+          userId: result.rows[0].id
+        });
+      }
+
+      if (claimedInvite) {
+        await client.query(
+          'UPDATE invites SET used_by = $2 WHERE id = $1',
+          [claimedInvite.id, result.rows[0].id]
+        );
+      }
+
+      if (!claimedInvite && !homelabEdition) {
+        personalWorkspace = await createPersonalWorkspaceForUser(client, {
+          userId: result.rows[0].id,
+          email: result.rows[0].email,
+          name: result.rows[0].name
+        });
+      }
+
+      if (emailVerified) {
+        ensuredScope = await ensureUserDefaultScope(result.rows[0].id, {
+          preferredSpaceId: claimedInvite?.space_id || null,
+          client
+        });
+        sessionToken = await createSession(result.rows[0].id, {
+          ipAddress: req.ip,
+          userAgent: req.get('user-agent') || null,
+          queryable: client
+        });
+      }
+      await client.query('COMMIT');
+    }
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
   }
 
   if (registrationFailure) {
@@ -462,90 +543,29 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
     return res.status(registrationFailure.status).json(registrationFailure.body);
   }
 
-  const existingUser = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
-  if (existingUser.rows.length > 0) {
-    recordAuthEvent('register', 'failed');
-    return res.status(409).json({ error: 'An account with that email already exists' });
-  }
-
-  const hashedPassword = await bcrypt.hash(password, 12);
-  const role = firstUserBootstrap ? 'admin' : 'user';
-
-  const emailVerified = homelabEdition || Boolean(claimedInvite) || bootstrapWithoutSmtp;
-  const emailVerifiedAt = emailVerified ? new Date() : null;
-  const result = await pool.query(
-    `INSERT INTO users (email, password, name, role, email_verified, email_verified_at)
-     VALUES ($1, $2, $3, $4, $5, $6)
-     RETURNING id, email, name, role, email_verified, email_verified_at`,
-    [email, hashedPassword, name, role, emailVerified, emailVerifiedAt]
-  );
-  if (claimedInvite?.space_id) {
-    await pool.query(
-      `INSERT INTO space_memberships (space_id, user_id, role, created_by)
-       VALUES ($1, $2, $3, $4)
-       ON CONFLICT (space_id, user_id) DO UPDATE
-       SET role = EXCLUDED.role,
-           updated_at = CURRENT_TIMESTAMP,
-           created_by = COALESCE(space_memberships.created_by, EXCLUDED.created_by)`,
-      [
-        claimedInvite.space_id,
-        result.rows[0].id,
-        claimedInvite.space_role || 'member',
-        claimedInvite.created_by || null
-      ]
-    );
-    const syncClient = await pool.connect();
-    try {
-      await syncLibraryMembershipsForSpaceUser(syncClient, {
-        spaceId: claimedInvite.space_id,
-        userId: result.rows[0].id
-      });
-    } finally {
-      syncClient.release();
-    }
-  }
   if (claimedInvite) {
-    await pool.query(
-      'UPDATE invites SET used = true, used_by = $2, used_at = NOW() WHERE id = $1',
-      [claimedInvite.id, result.rows[0].id]
-    );
-    await logActivity({ ...req, user: { id: result.rows[0].id } }, 'invite.claimed', 'invite', claimedInvite?.id || null, {
-      inviteEmail: claimedInvite?.email || null,
+    await logActivity({ ...req, user: { id: result.rows[0].id } }, 'invite.claimed', 'invite', claimedInvite.id, {
+      inviteEmail: claimedInvite.email,
       claimedByEmail: result.rows[0].email,
-      spaceId: claimedInvite?.space_id || null,
-      role: claimedInvite?.space_role || null
+      spaceId: claimedInvite.space_id || null,
+      role: claimedInvite.space_role || null
     });
   }
 
-  if (!claimedInvite && !homelabEdition) {
-    const personalWorkspaceClient = await pool.connect();
-    try {
-      await personalWorkspaceClient.query('BEGIN');
-      const personalWorkspace = await createPersonalWorkspaceForUser(personalWorkspaceClient, {
-        userId: result.rows[0].id,
-        email: result.rows[0].email,
-        name: result.rows[0].name
-      });
-      await personalWorkspaceClient.query('COMMIT');
-      await logActivity(req, 'workspace.create.personal', 'space', personalWorkspace.id, {
-        userId: result.rows[0].id,
-        email: result.rows[0].email,
-        name: personalWorkspace.name,
-        isPersonal: true
-      });
-    } catch (error) {
-      await personalWorkspaceClient.query('ROLLBACK');
-      throw error;
-    } finally {
-      personalWorkspaceClient.release();
-    }
+  if (personalWorkspace) {
+    await logActivity(req, 'workspace.create.personal', 'space', personalWorkspace.id, {
+      userId: result.rows[0].id,
+      email: result.rows[0].email,
+      name: personalWorkspace.name,
+      isPersonal: true
+    });
   }
 
   if (!emailVerified) {
     const verification = await issueEmailVerificationToken({
       userId: result.rows[0].id
     });
-    const verificationUrl = `${getRequestOrigin(req)}/verify-email?token=${encodeURIComponent(verification.token)}&email=${encodeURIComponent(result.rows[0].email)}`;
+    const verificationUrl = `${getRequestOrigin(req)}/verify-email#token=${encodeURIComponent(verification.token)}`;
 
     await logActivity({ ...req, user: { id: result.rows[0].id, role: result.rows[0].role, email: result.rows[0].email } }, 'auth.user.register.pending_verification', 'user', result.rows[0].id, {
       email: result.rows[0].email,
@@ -589,18 +609,10 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
     }
   }
 
-  const ensuredScope = await ensureUserDefaultScope(result.rows[0].id, {
-    preferredSpaceId: claimedInvite?.space_id || null
-  });
   const activeLibraryId = ensuredScope.libraryId;
   const activeSpaceId = ensuredScope.spaceId;
 
-  const token = await createSession(result.rows[0].id, {
-    ipAddress: req.ip,
-    userAgent: req.get('user-agent') || null
-  });
-
-  res.cookie(SESSION_COOKIE_NAME, token, SESSION_COOKIE_OPTIONS);
+  res.cookie(SESSION_COOKIE_NAME, sessionToken, SESSION_COOKIE_OPTIONS);
   issueCsrfToken(res);
   await logActivity({ ...req, user: { id: result.rows[0].id, role: result.rows[0].role, email: result.rows[0].email } }, 'auth.user.register', 'user', result.rows[0].id, {
     email: result.rows[0].email,
@@ -694,7 +706,7 @@ router.post('/email-verification/request', validate(emailVerificationRequestSche
   const verification = await issueEmailVerificationToken({
     userId: user.id
   });
-  const verificationUrl = `${getRequestOrigin(req)}/verify-email?token=${encodeURIComponent(verification.token)}&email=${encodeURIComponent(user.email)}`;
+  const verificationUrl = `${getRequestOrigin(req)}/verify-email#token=${encodeURIComponent(verification.token)}`;
 
   await logActivity(req, 'auth.email_verification.request', 'user', user.id, {
     email: user.email,
@@ -734,56 +746,61 @@ router.post('/email-verification/request', validate(emailVerificationRequestSche
 }));
 
 router.post('/email-verification/consume', validate(emailVerificationConsumeSchema), asyncHandler(async (req, res) => {
-  const { token, email } = req.body;
+  const { token } = req.body;
   const tokenHash = hashInviteToken(token);
-  const verificationLookup = await pool.query(
-    `SELECT evt.id, evt.user_id, u.email
-     FROM email_verification_tokens evt
-     JOIN users u ON u.id = evt.user_id
-     WHERE evt.token_hash = $1
-       AND evt.used = false
-       AND evt.revoked = false
-       AND evt.expires_at > NOW()
-     LIMIT 1`,
-    [tokenHash]
-  );
-  if (verificationLookup.rows.length === 0) {
+  const client = await pool.connect();
+  let verificationRow = null;
+  let ensuredScope = null;
+  let newSessionToken = null;
+  let me = null;
+  try {
+    await client.query('BEGIN');
+    const claimed = await client.query(
+      `UPDATE email_verification_tokens
+       SET used = true,
+           used_at = NOW()
+       WHERE token_hash = $1
+         AND used = false
+         AND revoked = false
+         AND expires_at > NOW()
+       RETURNING id, user_id`,
+      [tokenHash]
+    );
+    if (claimed.rows.length === 0) {
+      await client.query('ROLLBACK');
+    } else {
+      const userResult = await client.query(
+        `UPDATE users
+         SET email_verified = true,
+             email_verified_at = COALESCE(email_verified_at, NOW())
+         WHERE id = $1
+         RETURNING id, email, name, role, image_path, created_at, updated_at, email_verified, email_verified_at`,
+        [claimed.rows[0].user_id]
+      );
+      verificationRow = { ...claimed.rows[0], email: userResult.rows[0].email };
+      me = userResult.rows[0];
+      ensuredScope = await ensureUserDefaultScope(verificationRow.user_id, { client });
+      newSessionToken = await createSession(verificationRow.user_id, {
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent') || null,
+        queryable: client
+      });
+      await client.query('COMMIT');
+    }
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+
+  if (!verificationRow) {
     recordAuthEvent('email_verification_consume', 'failed');
     await logActivity(req, 'auth.email_verification.consume.failed', 'email_verification', null, {
-      email,
       reason: 'invalid_or_expired_token'
     });
     return res.status(400).json({ error: 'Invalid or expired verification token' });
   }
-  const verificationRow = verificationLookup.rows[0];
-  if (String(verificationRow.email).toLowerCase() !== String(email).toLowerCase()) {
-    recordAuthEvent('email_verification_consume', 'failed');
-    await logActivity(req, 'auth.email_verification.consume.failed', 'user', verificationRow.user_id, {
-      email,
-      reason: 'email_mismatch'
-    });
-    return res.status(400).json({ error: 'Verification token is not valid for this email address' });
-  }
-
-  await pool.query(
-    'UPDATE users SET email_verified = true, email_verified_at = NOW() WHERE id = $1',
-    [verificationRow.user_id]
-  );
-  await pool.query(
-    'UPDATE email_verification_tokens SET used = true, used_at = NOW() WHERE id = $1',
-    [verificationRow.id]
-  );
-
-  const ensuredScope = await ensureUserDefaultScope(verificationRow.user_id);
-  const newSessionToken = await createSession(verificationRow.user_id, {
-    ipAddress: req.ip,
-    userAgent: req.get('user-agent') || null
-  });
-  const meResult = await pool.query(
-    'SELECT id, email, name, role, image_path, created_at, updated_at, email_verified, email_verified_at FROM users WHERE id = $1',
-    [verificationRow.user_id]
-  );
-  const me = meResult.rows[0];
 
   res.cookie(SESSION_COOKIE_NAME, newSessionToken, SESSION_COOKIE_OPTIONS);
   issueCsrfToken(res);
@@ -827,7 +844,7 @@ router.post('/password-reset/request', validate(passwordResetRequestSchema), asy
     userId: user.id,
     createdBy: null
   });
-  const resetUrl = `${getRequestOrigin(req)}/reset-password?token=${encodeURIComponent(issued.token)}&email=${encodeURIComponent(user.email)}`;
+  const resetUrl = `${getRequestOrigin(req)}/reset-password#token=${encodeURIComponent(issued.token)}`;
 
   await logActivity(req, 'auth.password_reset.request', 'user', user.id, {
     email: user.email,
@@ -902,61 +919,63 @@ router.post('/logout', asyncHandler(async (req, res) => {
 
 // ── Password reset consume (one-time token) ───────────────────────────────────
 router.post('/password-reset/consume', validate(passwordResetConsumeSchema), asyncHandler(async (req, res) => {
-  const { token, email, password } = req.body;
+  const { token, password } = req.body;
   const tokenHash = hashInviteToken(token);
-  const resetLookup = await pool.query(
-    `SELECT prt.id, prt.user_id, u.email
-     FROM password_reset_tokens prt
-     JOIN users u ON u.id = prt.user_id
-     WHERE prt.token_hash = $1
-       AND prt.used = false
-       AND prt.revoked = false
-       AND prt.expires_at > NOW()
-     LIMIT 1`,
-    [tokenHash]
-  );
-  if (resetLookup.rows.length === 0) {
+  const hashedPassword = await bcrypt.hash(password, 12);
+  const client = await pool.connect();
+  let resetRow = null;
+  let revokedCount = 0;
+  let newSessionToken = null;
+  let me = null;
+  try {
+    await client.query('BEGIN');
+    const claimed = await client.query(
+      `UPDATE password_reset_tokens
+       SET used = true,
+           used_at = NOW()
+       WHERE token_hash = $1
+         AND used = false
+         AND revoked = false
+         AND expires_at > NOW()
+       RETURNING id, user_id`,
+      [tokenHash]
+    );
+    if (claimed.rows.length === 0) {
+      await client.query('ROLLBACK');
+    } else {
+      const userResult = await client.query(
+        `UPDATE users
+         SET password = $1,
+             email_verified = true,
+             email_verified_at = COALESCE(email_verified_at, NOW())
+         WHERE id = $2
+         RETURNING id, email, name, role, image_path, created_at, updated_at, email_verified, email_verified_at`,
+        [hashedPassword, claimed.rows[0].user_id]
+      );
+      resetRow = { ...claimed.rows[0], email: userResult.rows[0].email };
+      me = userResult.rows[0];
+      revokedCount = await revokeSessionsForUser(resetRow.user_id, { queryable: client });
+      newSessionToken = await createSession(resetRow.user_id, {
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent') || null,
+        queryable: client
+      });
+      await client.query('COMMIT');
+    }
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+
+  if (!resetRow) {
     recordAuthEvent('password_reset_consume', 'failed');
     await logActivity(req, 'auth.password_reset.consume.failed', 'password_reset', null, {
-      email,
       reason: 'invalid_or_expired_token'
     });
     return res.status(400).json({ error: 'Invalid or expired reset token' });
   }
-  const resetRow = resetLookup.rows[0];
-  if (String(resetRow.email).toLowerCase() !== String(email).toLowerCase()) {
-    recordAuthEvent('password_reset_consume', 'failed');
-    await logActivity(req, 'auth.password_reset.consume.failed', 'user', resetRow.user_id, {
-      email,
-      reason: 'email_mismatch'
-    });
-    return res.status(400).json({ error: 'Reset token is not valid for this email address' });
-  }
-
-  const hashedPassword = await bcrypt.hash(password, 12);
-  await pool.query(
-    `UPDATE users
-     SET password = $1,
-         email_verified = true,
-         email_verified_at = COALESCE(email_verified_at, NOW())
-     WHERE id = $2`,
-    [hashedPassword, resetRow.user_id]
-  );
-  await pool.query(
-    'UPDATE password_reset_tokens SET used = true, used_at = NOW() WHERE id = $1',
-    [resetRow.id]
-  );
-
-  const revokedCount = await revokeSessionsForUser(resetRow.user_id);
-  const newSessionToken = await createSession(resetRow.user_id, {
-    ipAddress: req.ip,
-    userAgent: req.get('user-agent') || null
-  });
-  const meResult = await pool.query(
-    'SELECT id, email, name, role, image_path, created_at, updated_at, email_verified, email_verified_at FROM users WHERE id = $1',
-    [resetRow.user_id]
-  );
-  const me = meResult.rows[0];
 
   res.cookie(SESSION_COOKIE_NAME, newSessionToken, SESSION_COOKIE_OPTIONS);
   issueCsrfToken(res);

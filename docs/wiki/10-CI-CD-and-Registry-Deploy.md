@@ -68,7 +68,7 @@ Security and release gates in CI:
 - CodeQL code scanning for JavaScript/TypeScript source analysis.
 - Secret leak scan (gitleaks) against repository history and current tree.
 - Dependency vulnerability scan (`npm audit`) on backend/frontend dependencies under Node 24 so each committed lockfile is validated against the supported runtime baseline.
-- RBAC regression gate (API-level ownership/role/scope allow-deny checks).
+- RBAC regression gate (API-level ownership/role/scope allow-deny checks), including the live Postgres auth-token abuse smoke for reset/invitation/verification replay, concurrency, CSRF non-consumption, session revocation, invalid token states, enumeration resistance, audit token leakage, and focused reset rate limiting.
 - Playwright browser-regression gate against the live compose stack for key auth/admin shell flows.
 - Runtime smoke gate with a `Core runtime` step that verifies shared surfaces still work while control-plane-only APIs stay unmounted.
 - Runtime smoke gate with a `Control-plane runtime` step that verifies invite-based registration plus tenant/admin control-plane surfaces remain mounted.

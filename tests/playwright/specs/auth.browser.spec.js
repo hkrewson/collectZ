@@ -88,9 +88,21 @@ test('login screen exposes self-registration when public registration is availab
 });
 
 test('verify-email route handles invalid tokens gracefully', async ({ page }) => {
-  await page.goto('/verify-email?token=invalid-token&email=test@example.com');
+  await page.goto('/verify-email#token=invalid-token');
 
   await expect(page.getByText('Confirm your email')).toBeVisible();
   await expect(page.getByText('Invalid or expired verification token')).toBeVisible();
+  await expect(page).toHaveURL(/\/verify-email$/);
   await expect(page.getByRole('button', { name: 'Back to Sign In' })).toBeVisible();
+});
+
+test('reset and invitation fragments are scrubbed before auth forms render', async ({ page }) => {
+  await page.goto('/reset-password#token=invalid-reset-token');
+  await expect(page).toHaveURL(/\/reset-password$/);
+  await expect(page.getByText('Choose a new password')).toBeVisible();
+  await expect(page.locator('input[type="email"]')).toHaveCount(0);
+
+  await page.goto('/register#invite=invalid-invite-token');
+  await expect(page).toHaveURL(/\/register$/);
+  await expect(page.getByText('Invite link detected for this account.')).toBeVisible();
 });

@@ -1,6 +1,27 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.24.6",
+      "version": "3.24.6",
+      "date": "2026-08-08",
+      "status": "implementation and local verification complete; hosted release gates pending after push",
+      "summary": "This release keeps reset, invitation, and verification tokens out of query strings and makes their one-time state transitions safe under replay and concurrent requests. The browser consumes token fragments and scrubs the address bar immediately, while the backend commits token claims together with the required account, membership, session, and credential changes.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "New reset, invitation, and verification links carry raw tokens only in URL fragments and no longer include account email addresses.",
+            "The auth screen accepts fragment tokens, supports legacy query links during transition, and removes token-bearing URL state before rendering the form.",
+            "Reset and verification consume payloads no longer require an email address because the hashed token identifies the account server-side.",
+            "Password reset now conditionally claims the token, updates the password, revokes prior sessions, and creates one replacement session in a single database transaction.",
+            "Invited registration now conditionally claims the invite and commits the new user, workspace/library memberships, default scope, and session in a single database transaction.",
+            "Password-reset and email-verification endpoints now receive the focused authentication rate limiter.",
+            "Added focused unit, browser, OpenAPI, and live Postgres abuse coverage for replay, concurrency, CSRF, session revocation, enumeration resistance, invalid token states, and audit token leakage."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.24.5",
       "version": "3.24.5",
       "date": "2026-08-01",
@@ -185,25 +206,6 @@
             "Constrained trait-pill containers and individual pills to the available card width.",
             "Preserved the existing two-column mobile Art grid and full trait text through the pill title/readback.",
             "Added a mobile browser regression that checks both card-boundary containment and document viewport width with a deliberately long signer label."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.23.18",
-      "version": "3.23.18",
-      "date": null,
-      "status": null,
-      "summary": "This patch fixes scanner barcode lookups for console games that generic UPC providers describe with retail listing titles. Game-shaped UPC results such as Nintendo 3DS listings are now typed as games instead of falling through to movie matching.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added barcode-provider game inference for common console/platform terms including Nintendo 3DS, Switch, Wii, PlayStation, Xbox, Game Boy, and PC game listings.",
-            "Cleaned game retail suffixes such as platform tags, `Pre-Played`, and color/listing noise before provider enrichment search.",
-            "Preserved platform metadata on scanner lookup matches so imported game records can retain the detected console.",
-            "Treated Capture Inbox `other` media type as unknown during scanner lookup instead of forcing a concrete media type before provider normalization can infer one.",
-            "Made the scanner API smoke deterministic without requiring TMDB configuration for the existing UPC title-variant check."
           ]
         }
       ]

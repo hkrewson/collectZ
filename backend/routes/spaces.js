@@ -929,7 +929,7 @@ router.post('/spaces/:id/members/:memberId/password-reset', asyncHandler(async (
       userId: target.user_id,
       createdBy: req.user.id
     });
-    const resetUrl = `${getRequestOrigin(req)}/reset-password?token=${encodeURIComponent(issued.token)}&email=${encodeURIComponent(target.email)}`;
+    const resetUrl = `${getRequestOrigin(req)}/reset-password#token=${encodeURIComponent(issued.token)}`;
 
     await logActivity(req, 'space.member.password_reset.create', 'user', target.user_id, {
       email: target.email,
@@ -1185,7 +1185,7 @@ router.post('/spaces/:id/invites', validate(spaceInviteCreateSchema), asyncHandl
       [email, tokenHash, expiresAt, req.user.id, spaceId, nextRole]
     );
     const invite = result.rows[0];
-    const inviteUrl = `${getRequestOrigin(req)}/register?invite=${encodeURIComponent(token)}&email=${encodeURIComponent(invite.email)}`;
+    const inviteUrl = `${getRequestOrigin(req)}/register#invite=${encodeURIComponent(token)}`;
 
     await logActivity(req, 'space.invite.create', 'invite', invite.id, {
       email: invite.email,

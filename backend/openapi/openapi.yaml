@@ -478,10 +478,9 @@
       "EmailVerificationConsumeRequest": {
         "type": "object",
         "properties": {
-          "email": { "type": "string", "format": "email" },
           "token": { "type": "string" }
         },
-        "required": ["email", "token"]
+        "required": ["token"]
       },
       "VerificationPendingResponse": {
         "type": "object",
@@ -901,10 +900,9 @@
         "type": "object",
         "properties": {
           "token": { "type": "string" },
-          "email": { "type": "string", "format": "email" },
           "password": { "type": "string" }
         },
-        "required": ["token", "email", "password"]
+        "required": ["token", "password"]
       },
       "NamedTokenRecord": {
         "type": "object",
@@ -5892,7 +5890,7 @@
             }
           },
           "400": {
-            "description": "Invalid or expired token, or email mismatch",
+            "description": "Invalid or expired token",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/Error" }
@@ -5956,7 +5954,7 @@
             }
           },
           "400": {
-            "description": "Invalid or expired token, or email mismatch",
+            "description": "Invalid or expired token",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/Error" }

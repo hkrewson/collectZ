@@ -1,6 +1,6 @@
 {
   "name": "collectz-backend",
-  "version": "3.24.5",
+  "version": "3.24.6",
   "description": "collectZ Backend API",
   "main": "server.js",
   "engines": {
@@ -24,6 +24,7 @@
     "test:platform-edition-boundary": "node scripts/platform-edition-boundary-smoke.js",
     "test:csv-import": "node scripts/csv-parse-smoke.js",
     "test:rbac-regression": "node scripts/rbac-regression-check.js",
+    "test:auth-token-abuse-smoke": "node scripts/auth-token-abuse-smoke.js",
     "test:import-normalization-smoke": "node scripts/import-normalization-smoke.js",
     "test:import-normalization-review-smoke": "node scripts/import-normalization-review-smoke.js",
     "test:repeat-sync-idempotency-smoke": "node scripts/repeat-sync-idempotency-smoke.js",
@@ -148,6 +149,7 @@
   },
   "overrides": {
     "follow-redirects": "1.16.0",
+    "ip-address": "10.4.0",
     "nodemon": {
       "minimatch": "10.2.3"
     }

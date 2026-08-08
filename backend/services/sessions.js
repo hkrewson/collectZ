@@ -14,22 +14,22 @@ const hashSessionToken = (token) => crypto
   .update(token)
   .digest('hex');
 
-const cleanupExpiredSessions = async () => {
-  const result = await pool.query('DELETE FROM user_sessions WHERE expires_at <= NOW()');
+const cleanupExpiredSessions = async (queryable = pool) => {
+  const result = await queryable.query('DELETE FROM user_sessions WHERE expires_at <= NOW()');
   return result.rowCount || 0;
 };
 
-const createSession = async (userId, { ipAddress = null, userAgent = null } = {}) => {
+const createSession = async (userId, { ipAddress = null, userAgent = null, queryable = pool } = {}) => {
   const token = crypto.randomBytes(48).toString('hex');
   const tokenHash = hashSessionToken(token);
 
-  await cleanupExpiredSessions();
-  await pool.query(
+  await cleanupExpiredSessions(queryable);
+  await queryable.query(
     `INSERT INTO user_sessions (user_id, token_hash, ip_address, user_agent, expires_at)
      VALUES ($1, $2, $3, $4, NOW() + INTERVAL '${SESSION_TTL_DAYS} days')`,
     [userId, tokenHash, ipAddress, userAgent]
   );
-  await pool.query(
+  await queryable.query(
     `DELETE FROM user_sessions
      WHERE user_id = $1
        AND id NOT IN (
@@ -95,16 +95,16 @@ const revokeSessionByToken = async (token) => {
   await pool.query('DELETE FROM user_sessions WHERE token_hash = $1', [tokenHash]);
 };
 
-const revokeSessionsForUser = async (userId, { keepSessionId = null } = {}) => {
+const revokeSessionsForUser = async (userId, { keepSessionId = null, queryable = pool } = {}) => {
   if (!Number.isFinite(Number(userId))) return 0;
   if (keepSessionId && Number.isFinite(Number(keepSessionId))) {
-    const result = await pool.query(
+    const result = await queryable.query(
       'DELETE FROM user_sessions WHERE user_id = $1 AND id <> $2',
       [userId, keepSessionId]
     );
     return result.rowCount || 0;
   }
-  const result = await pool.query('DELETE FROM user_sessions WHERE user_id = $1', [userId]);
+  const result = await queryable.query('DELETE FROM user_sessions WHERE user_id = $1', [userId]);
   return result.rowCount || 0;
 };
 

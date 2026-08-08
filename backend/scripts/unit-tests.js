@@ -2615,7 +2615,40 @@ results.push(run('platform first-user bootstrap no longer depends on SMTP delive
   assert.ok(authRoutesSource.includes('const bootstrapWithoutSmtp = !homelabEdition && firstUserBootstrap && !smtpConfigured;'));
   assert.ok(authRoutesSource.includes(': firstUserBootstrap || (registrationRequested && smtpConfigured);'));
   assert.ok(authRoutesSource.includes('email_verification_required: !homelabEdition && !firstUserBootstrap'));
-  assert.ok(authRoutesSource.includes('const emailVerified = homelabEdition || Boolean(claimedInvite) || bootstrapWithoutSmtp;'));
+  assert.ok(authRoutesSource.includes('emailVerified = homelabEdition || Boolean(claimedInvite) || bootstrapWithoutSmtp;'));
+}));
+
+results.push(run('auth token links use scrubbed fragments and token-only consume contracts', () => {
+  const authPageSource = readFrontendSource(path.join('components', 'AuthPage'));
+  assert.ok(authRoutesSource.includes('/reset-password#token='));
+  assert.ok(authRoutesSource.includes('/verify-email#token='));
+  assert.ok(spacesRoutesSource.includes('/register#invite='));
+  assert.ok(!authRoutesSource.includes('/reset-password?token='));
+  assert.ok(!authRoutesSource.includes('/verify-email?token='));
+  assert.ok(!spacesRoutesSource.includes('/register?invite='));
+  assert.ok(authPageSource.includes('window.history.replaceState(window.history.state'));
+  assert.ok(authPageSource.includes("fragmentParams.get('invite')"));
+  assert.ok(authPageSource.includes("fragmentParams.get('token')"));
+  assert.ok(!authPageSource.includes('payload = { token: resetToken, email, password }'));
+}));
+
+results.push(run('browser auth fixtures generate ephemeral credentials and sanitize command failures', () => {
+  const playwrightAuthSource = fs.readFileSync(require.resolve('../../tests/playwright/helpers/auth.js'), 'utf8');
+  assert.ok(playwrightAuthSource.includes('function randomEphemeralPassword()'));
+  assert.ok(playwrightAuthSource.includes("crypto.randomBytes(24).toString('base64url')"));
+  assert.ok(playwrightAuthSource.includes('Backend user fixture creation failed'));
+  assert.ok(!playwrightAuthSource.includes('Passw0rd!123'));
+}));
+
+results.push(run('reset and invite consumption use conditional transactional claims', () => {
+  assert.ok(authRoutesSource.includes('UPDATE password_reset_tokens'));
+  assert.ok(authRoutesSource.includes('UPDATE email_verification_tokens'));
+  assert.ok(authRoutesSource.includes('AND used = false'));
+  assert.ok(authRoutesSource.includes('queryable: client'));
+  assert.ok(authRoutesSource.includes('UPDATE invites'));
+  assert.ok(authRoutesSource.includes('lower(email) = lower($3)'));
+  assert.ok(authRoutesSource.includes("await client.query('COMMIT')"));
+  assert.ok(authRoutesSource.includes("await client.query('ROLLBACK')"));
 }));
 
 results.push(run('support route source is limited to the Core release feed after cairn extraction', () => {
@@ -4357,7 +4390,7 @@ results.push(run('repo includes local release preflight helper coverage for depe
   assert.ok(releasePreflightLocalSource.includes('test:browser'));
   assert.ok(localReleaseGateSource.includes('test:browser:core'));
   assert.ok(releasePreflightLocalSource.includes('Image security and SBOM'));
-  assert.ok(releasePreflightLocalSource.includes('test:integration-smoke'));
+  assert.ok(releasePreflightLocalSource.includes('node scripts/api-integration-smoke.js'));
   assert.ok(releasePreflightLocalSource.includes('/api/auth/csrf-token'));
   assert.ok(releasePreflightLocalSource.includes('/api/auth/me'));
   assert.ok(releasePreflightLocalSource.includes('npm audit'));

@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { execFileSync } = require('child_process');
 const { request: playwrightRequest } = require('@playwright/test');
 const { primeEnvFromRootFile } = require('./env');
@@ -21,6 +22,10 @@ const PLAYWRIGHT_COMPOSE_ENV_FILE = String(process.env.PLAYWRIGHT_COMPOSE_ENV_FI
 const PLAYWRIGHT_COMPOSE_PROJECT = String(process.env.PLAYWRIGHT_COMPOSE_PROJECT || '').trim();
 const PLAYWRIGHT_DOCKER_COMPOSE_BIN = String(process.env.PLAYWRIGHT_DOCKER_COMPOSE_BIN || 'docker').trim() || 'docker';
 const FRESH_CREDENTIALS_CACHE = new Map();
+
+function randomEphemeralPassword() {
+  return `Pw!${crypto.randomBytes(24).toString('base64url')}`;
+}
 
 function getPlaywrightBypassHeaders() {
   return PLAYWRIGHT_E2E_BYPASS_TOKEN
@@ -235,15 +240,22 @@ async function createDirectUser({ email, password, name, role = 'admin' }) {
     "})().catch((error)=>{console.error(error.stack||error.message||error);process.exit(1);});"
   ].join('');
   const composeCommand = buildComposeCommand('backend', ['node', '-e', script, email, password, name, role]);
-  const output = execFileSync(
-    composeCommand.binary,
-    composeCommand.args,
-    {
-      cwd: REPO_ROOT,
-      env: process.env,
-      encoding: 'utf8'
-    }
-  );
+  let output;
+  try {
+    output = execFileSync(
+      composeCommand.binary,
+      composeCommand.args,
+      {
+        cwd: REPO_ROOT,
+        env: process.env,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe']
+      }
+    );
+  } catch (error) {
+    const stderr = String(error?.stderr || '').trim();
+    throw new Error(`Backend user fixture creation failed${stderr ? `: ${stderr}` : ''}`);
+  }
   return JSON.parse(String(output || '{}').trim() || '{}');
 }
 
@@ -330,7 +342,7 @@ async function bootstrapAdminCredentials(requestContext) {
   const adminName = process.env.PLAYWRIGHT_ADMIN_NAME || 'Playwright Admin';
   const defaultCredentials = {
     email: configuredEmail || 'ci-playwright-admin@example.com',
-    password: configuredPassword || 'Passw0rd!123'
+    password: configuredPassword || randomEphemeralPassword()
   };
   const candidateCredentials = [];
   const seenCandidates = new Set();
@@ -393,7 +405,7 @@ async function bootstrapAdminCredentials(requestContext) {
   }
 
   const fallbackEmail = `playwright-admin-${Date.now()}@example.com`;
-  const fallbackPassword = 'Passw0rd!123';
+  const fallbackPassword = randomEphemeralPassword();
   await createDirectUser({
     email: fallbackEmail,
     password: fallbackPassword,
@@ -427,7 +439,7 @@ async function ensureSavedAdminCredentials() {
 
 async function createFreshAdminCredentials() {
   const fallbackEmail = `playwright-admin-${Date.now()}@example.com`;
-  const fallbackPassword = 'Passw0rd!123';
+  const fallbackPassword = randomEphemeralPassword();
   const fallbackName = process.env.PLAYWRIGHT_ADMIN_NAME || 'Playwright Admin';
   await createDirectUser({
     email: fallbackEmail,
@@ -458,7 +470,7 @@ async function createFreshUserCredentials() {
   }
   const roleSlug = role.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
   const fallbackEmail = `playwright-${roleSlug}-${Date.now()}@example.com`;
-  const fallbackPassword = 'Passw0rd!123';
+  const fallbackPassword = randomEphemeralPassword();
   await createDirectUser({
     email: fallbackEmail,
     password: fallbackPassword,

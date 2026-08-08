@@ -6,6 +6,47 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.24.6 — Authentication Token Consumption Hardening
+
+**Goal:** Prevent credential-recovery and invitation tokens from leaking through request URLs, and make one-time token consumption safe under replay and concurrency.
+
+### Scope
+
+- Deliver password-reset, invitation, and email-verification tokens in URL fragments and scrub fragment or legacy query parameters from the browser address bar before auth forms render.
+- Let reset and verification tokens identify their account server-side so email addresses are not required in those links or consume payloads.
+- Atomically claim reset and verification tokens with their account mutation and replacement-session creation in one database transaction.
+- Atomically claim invitations with user creation, membership/default-scope setup, and session creation in one database transaction while retaining the documented legacy plaintext invite lookup only as a migration compatibility fallback.
+- Apply the focused authentication limiter to password-reset and email-verification request/consume routes.
+- Add focused source, browser, and live Postgres abuse coverage for replay, concurrency, CSRF rejection, session revocation, enumeration-resistant reset requests, invalid token states, and raw-token audit leakage.
+
+### Acceptance Criteria
+
+- Newly generated reset, verification, and invitation links never place raw token or email material in the query string.
+- The frontend reads fragment tokens and immediately removes token-bearing URL state; legacy query links remain consumable and are scrubbed on load.
+- Exactly one of two concurrent reset attempts succeeds, the winning password commits, all prior sessions are revoked, and exactly one replacement session remains.
+- Exactly one of two concurrent invitation claims succeeds, with one user, one committed invite claim, and the intended workspace membership.
+- Used, expired, revoked, malformed, and mismatched tokens are rejected without consuming valid state.
+- Reset-request responses remain enumeration-resistant, CSRF rejection does not consume a reset token, and auth audit details contain no raw tested token material.
+- OpenAPI, version/release artifacts, Docker runtime evidence, and relevant release gates remain aligned.
+
+### Active Slice Notes
+
+- Selected on August 8, 2026 from the TekDocs-to-CollectZ security review supplied by the maintainer.
+- Auth audit allowlisted schemas, identity-preserving upgrade fixtures, and migration-only fresh-install schema authority remain separate later slices.
+- Status: implementation and local verification complete; hosted release gates pending after push.
+
+### Closeout
+
+- Status: implementation and local verification complete in `3.24.6`; release promotion remains pending hosted-only gates after push.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, and `docs/releases/v3.24.6.md`.
+- Runtime verification used: rebuilt the canonical `collectz-private` backend/frontend/Postgres stack in place on port `3201`; live health reported `3.24.6`. The in-stack Postgres auth abuse smoke proved exactly one success from concurrent reset, invitation, and verification consumes; winner-password persistence; old-session revocation with exactly one replacement reset session; one committed invite user/membership; replay and invalid-state rejection; CSRF non-consumption; enumeration-resistant reset responses; and no raw tested tokens in audit details. Help > Releases served `3.24.6` as the newest entry.
+- CI/checks run: backend unit coverage passed all `350` checks; OpenAPI, frontend production build, API integration smoke, RBAC regression, focused and full browser regression, init parity, migration rehearsal, and observability evidence passed. The full Playwright suite passed `70` checks with `4` expected homelab-only skips. Isolated Core and control-plane runtime smokes passed. Backend and frontend production dependency audits reported zero vulnerabilities. The standard local release gate passed completely; the strict full profile passed CodeQL with `5` reviewed results and `0` active findings plus Core runtime smoke before stopping on the explicit local blockers. Targeted generated-artifact secret checks and `git diff --check` passed.
+- Blocked/unverified: the canonical development stack intentionally uses `NODE_ENV=development` and `SESSION_COOKIE_SECURE=false`, so hosted `compose-smoke` must prove the production-shaped secure-cookie contract. `gitleaks` is not installed locally, so repository-history `secret-scan` remains hosted-only. `trivy` is not installed locally, so `image-security-and-sbom` and required SBOM output remain hosted-only. The full-gate browser wrapper lacked its opt-in bypass token, while the complete authenticated browser suite passed independently against port `3201`. Hosted CI must rerun the exact publish gates after push.
+- Files changed: reset, verification, invitation, session, default-scope, validation, rate-limit, and workspace invite backend paths; fragment-token and URL-scrubbing frontend auth flows; OpenAPI; focused live Postgres abuse, source, and browser regression coverage; CI auth-smoke wiring; release-preflight execution; dependency remediation; version/release/feed metadata; roadmap and CI documentation; and refreshed dependency, migration, observability, preflight, and local-gate evidence.
+- Risks or follow-ups: security-sensitive auth audit details still need dedicated allowlisted schemas; identity-preserving upgrade fixtures remain a separate migration-rehearsal refinement; and removal of the legacy plaintext invitation lookup requires a controlled compatibility migration. No later roadmap work was introduced by this slice.
+- What remains in the milestone: no local implementation work remains; after push, require hosted `compose-smoke`, `rbac-regression`, `browser-regression`, Core/control-plane `runtime-smoke`, `dependency-scan`, `secret-scan`, and `image-security-and-sbom` before promotion.
+- Recommended commit message: `Release 3.24.6 with atomic authentication token consumption and fragment-safe recovery links`.
+
 ## 3.24.5 — Workspace Integration Scope Enforcement
 
 **Goal:** Make the workspace integration row authoritative for provider settings and Plex runtime behavior, with no silent installation-level credential or scheduler fallback.

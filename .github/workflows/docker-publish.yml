@@ -523,6 +523,7 @@ jobs:
           NODE_ENV: production
           SESSION_COOKIE_SECURE: true
           TRUST_PROXY: 1
+          RATE_LIMIT_AUTH_MAX: 60
         run: |
           set -euo pipefail
           CI_PROJECT="collectz-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-core-rbac"
@@ -542,6 +543,7 @@ jobs:
             echo "NODE_ENV=${NODE_ENV}"
             echo "SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE}"
             echo "TRUST_PROXY=${TRUST_PROXY}"
+            echo "RATE_LIMIT_AUTH_MAX=${RATE_LIMIT_AUTH_MAX}"
           } >> .env.ci
           docker compose -p "${CI_PROJECT}" --env-file .env.ci -f docker-compose.yml -f .ci/docker-compose.build.yml up -d --build
           BACKEND_CID="$(docker compose -p "${CI_PROJECT}" --env-file .env.ci ps -q backend)"
@@ -552,6 +554,7 @@ jobs:
           timeout 120 sh -c 'until [ "$(docker inspect -f "{{.State.Health.Status}}" "'"${FRONTEND_CID}"'")" = "healthy" ]; do sleep 3; done'
           docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T -e BASE_URL=http://frontend:3000 backend node scripts/rbac-regression-check.js
           docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T -e BASE_URL=http://frontend:3000 backend node scripts/cross-type-isolation-check.js
+          docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T -e BASE_URL=http://frontend:3000 -e VERIFY_AUTH_RATE_LIMIT=true backend node scripts/auth-token-abuse-smoke.js
 
   browser-regression:
     name: core-browser-regression

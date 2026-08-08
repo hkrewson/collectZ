@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import CollectzMark from './CollectzMark';
 import { SectionTabs } from './app/AppPrimitives';
@@ -68,13 +68,22 @@ export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion
           ? ''
           : '';
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    // AuthPage is reused across auth routes; query params are route-owned URL state.
+  useLayoutEffect(() => {
+    const queryParams = new URLSearchParams(window.location.search);
+    const fragmentParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const inviteToken = fragmentParams.get('invite') || queryParams.get('invite');
+    const authToken = fragmentParams.get('token') || queryParams.get('token');
+    const legacyEmail = queryParams.get('email');
+
+    // Read legacy query-string links for compatibility, then scrub every token-bearing
+    // auth URL before the browser paints or can carry it into history/referrer data.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (params.get('invite')) setInvite(params.get('invite'));
-    if (params.get('email')) setEmail(params.get('email'));
-    if (params.get('token')) setResetToken(params.get('token'));
+    if (inviteToken) setInvite(inviteToken);
+    if (legacyEmail) setEmail(legacyEmail);
+    if (authToken) setResetToken(authToken);
+    if (inviteToken || authToken || legacyEmail) {
+      window.history.replaceState(window.history.state, '', window.location.pathname);
+    }
   }, [route]);
 
   useEffect(() => {
@@ -108,7 +117,7 @@ export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion
 
   useEffect(() => {
     if (!isVerify || verifyAttemptedRef.current) return;
-    if (!resetToken || !email) return;
+    if (!resetToken) return;
 
     verifyAttemptedRef.current = true;
     // Email verification is an external auth side effect that owns loading/feedback state.
@@ -118,7 +127,7 @@ export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion
     setNotice('');
     setErrorCode('');
 
-    axios.post(`${apiUrl}/auth/email-verification/consume`, { token: resetToken, email }, { withCredentials: true })
+    axios.post(`${apiUrl}/auth/email-verification/consume`, { token: resetToken }, { withCredentials: true })
       .then((response) => {
         onAuth(response.data.user);
       })
@@ -129,7 +138,7 @@ export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion
       .finally(() => {
         setLoading(false);
       });
-  }, [apiUrl, email, isVerify, onAuth, resetToken]);
+  }, [apiUrl, isVerify, onAuth, resetToken]);
 
   const resendVerification = async () => {
     if (!email) {
@@ -173,7 +182,7 @@ export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion
           return;
         }
         endpoint = '/auth/password-reset/consume';
-        payload = { token: resetToken, email, password };
+        payload = { token: resetToken, password };
       } else if (isRegister) {
         endpoint = '/auth/register';
         payload = { name, email, password, inviteToken: invite || undefined };
@@ -257,10 +266,10 @@ export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion
                       <input id="auth-name" className="input input-lg" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} required />
                     </div>
                   )}
-                  <div className="field">
+                  {!isReset && <div className="field">
                     <label className="label" htmlFor="auth-email">Email</label>
                     <input id="auth-email" className="input input-lg" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
-                  </div>
+                  </div>}
                   {!isForgot && <div className="field">
                     <label className="label" htmlFor="auth-password">{isReset ? 'New Password' : 'Password'}</label>
                     <div className="relative">

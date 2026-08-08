@@ -276,7 +276,7 @@ async function runComposeSmokeBasics() {
         'backend',
         'sh',
         '-lc',
-        'API_SMOKE_BASE_URL="http://frontend:3000/api" npm run test:integration-smoke'
+        'API_SMOKE_BASE_URL="http://frontend:3000/api" node scripts/api-integration-smoke.js'
       ]),
       { cwd: repoRoot }
     );

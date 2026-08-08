@@ -80,7 +80,6 @@ const emailVerificationRequestSchema = z.object({
 });
 
 const emailVerificationConsumeSchema = z.object({
-  email: z.string().email('Invalid email address'),
   token: z.string().min(1, 'Verification token is required')
 });
 
@@ -538,7 +537,6 @@ const profileUpdateSchema = z.object({
 
 const passwordResetConsumeSchema = z.object({
   token: z.string().min(10, 'Reset token is required'),
-  email: z.string().email('Invalid email address'),
   password: z.string().min(8, 'Password must be at least 8 characters')
 });
 

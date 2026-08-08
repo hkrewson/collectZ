@@ -199,7 +199,7 @@ export default function SpaceManagerView({
     try {
       const payload = await apiCall('post', `/spaces/${activeSpaceId}/invites`, inviteForm);
       const url = payload?.invite_url || (payload?.token
-        ? `${window.location.origin}/register?invite=${encodeURIComponent(payload.token)}&email=${encodeURIComponent(payload.email)}`
+        ? `${window.location.origin}/register#invite=${encodeURIComponent(payload.token)}`
         : '');
       setInviteUrl(url);
       setInvites((prev) => [payload, ...prev]);
