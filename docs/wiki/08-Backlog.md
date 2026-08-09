@@ -13,6 +13,357 @@ This file is the staging area for work that has not yet been assigned a release 
 - Keep the roadmap focused on milestone work only.
 - Update the roadmap, release notes, release feed, and verification steps together when a backlog item is promoted.
 
+## Architecture Modernization Priorities
+
+These items capture the practical lessons from building CollectZ and TekDocs. They describe incremental improvements to the existing product, not permission to begin a broad rewrite. When an item is selected, move the selected slice into the roadmap and leave the rest here.
+
+Priority meaning for this section:
+
+- `P0` — security, data ownership, or upgrade-integrity work that should be considered before additional architectural expansion in the affected area.
+- `P1` — foundational work with material runtime or operational value; schedule after its named P0 dependencies or alongside compatible feature work.
+- `P2` — strategic product/data-model evolution that should proceed through additive slices when concrete workflows need it.
+- `P3` — maintainability improvement to adopt opportunistically; it must not displace higher-value product, security, or reliability work.
+
+Program sequencing:
+
+1. Complete authentication hardening, identity-preserving upgrade certification, and the workspace ownership inventory.
+2. Use the certified ownership model to introduce the non-owner runtime database role and pilot RLS safely.
+3. Make migrations authoritative for fresh installation after identity-preserving upgrade and restore evidence is stable.
+4. Continue Core/Cairn API extraction and introduce common durable-job/provider mechanics without making Core depend on Cairn.
+5. Evolve URL-derived workspace context and the work/edition/copy model additively, with compatibility paths for existing clients and data.
+
+Explicit non-goals for this program:
+
+- Do not rewrite CollectZ in another framework or replace working authentication solely to match TekDocs' implementation stack.
+- Do not split Core into domain microservices; keep it a modular, independently deployable application.
+- Do not convert every existing primary key to UUID or introduce a universal entity/EAV abstraction without a concrete cross-domain requirement.
+- Do not perform a big-bang RLS activation, frontend TypeScript conversion, route rewrite, or collection-schema replacement.
+- Do not let Cairn share or mutate the CollectZ database.
+
+### Backlog Item: Authentication Audit and Sensitive Operation Completion
+**Type:** Security hardening program
+**Tags:** `security`, `authentication`, `audit`, `reauthentication`, `csrf`, `rate-limiting`, `tokens`
+**Priority:** `P0`
+**Status:** Active backlog following `3.24.6`; atomic token consumption and fragment-safe links are complete, while the stricter audit and sensitive-operation contract remains open.
+
+**Goal:** Finish the authentication hardening line by ensuring security-sensitive operations expose only minimal status, require the appropriate proof of authority, and write allowlisted audit evidence without retaining account-discovery or credential material.
+
+**Why this work exists**
+- Generic recursive redaction is a useful backstop, but it does not prove that each authentication event stores only fields that are necessary.
+- Some auth events can still carry submitted email addresses, delivery details, internal token-record identifiers, or other discovery material that is unnecessary for security review.
+- API keys, SMTP credentials, provider credentials, support access, and future recovery material need a consistent distinction between harmless status readback and reveal, rotation, or destructive actions.
+- The `3.24.6` abuse smoke proves reset CSRF non-consumption and reset rate limiting, but the complete sensitive-auth endpoint matrix is not yet exercised explicitly.
+- The legacy plaintext invitation-token lookup remains as a compatibility fallback and needs a controlled removal rather than indefinite retention.
+
+**Scope**
+- Define allowlisted detail schemas for every security-sensitive auth activity event, including registration, login, logout, reset request/consume, email verification, invitation claim/revoke, session revocation, API/service-account keys, support-session delegation, and future MFA/recovery events.
+- Store stable result/reason codes, known actor and subject identifiers when available, request correlation ID, scope, and safe delivery outcome; omit submitted unknown addresses, raw headers, credentials, tokens, token hashes, reset/invite row identifiers when unnecessary, and provider delivery payloads.
+- Inventory credential-bearing APIs and split ordinary status/readback from reveal, create, rotate, revoke, test, and recovery actions. Status responses should normally expose booleans, masked labels, last-updated timestamps, expiry, and safe health state only.
+- Require recent reauthentication or an equivalently strong proof for operations that reveal or rotate credentials, generate recovery material, delegate support access, or make a high-impact authentication change.
+- Extend the focused live abuse suite across the maintained sensitive endpoint matrix: CSRF rejection, replay, concurrency, enumeration resistance, cross-session isolation, expired/revoked/malformed/mismatched values, successful and failed audit minimization, and focused rate-limit exhaustion.
+- Create a migration/remediation check for legacy plaintext invitation tokens, prove all active compatible invitations use hashes or can be safely reissued, then remove plaintext lookup and prevent new plaintext persistence.
+- Keep OpenAPI descriptions, security response contracts, operator documentation, and release evidence aligned with the implemented behavior.
+
+**Candidate subtasks**
+- Build a central auth-event catalog mapping event name to allowed detail keys and safe reason codes; reject or drop unrecognized keys before persistence.
+- Add tests that compare stored detail keys to the allowlist rather than searching only for known secret patterns.
+- Inventory API key, SMTP, provider-token, support-session, reset, verification, invitation, and future recovery endpoints and record the required authorization/reauthentication level for each operation.
+- Add invitation-specific limiter exhaustion coverage and CSRF non-consumption checks for every cookie-authenticated sensitive mutation that is not deliberately exempt.
+- Add a read-only report for unhashed active invitation rows, a controlled reissue/expiry strategy, migration evidence, and removal of the legacy `token = supplied_value` lookup.
+
+**Out of scope**
+- Do not replace the complete authentication implementation or change session technology solely for architectural consistency.
+- Do not put secret values into audit evidence to prove that redaction ran.
+- Do not expose a generic credential-reveal endpoint.
+- Do not weaken enumeration-resistant responses to improve operator diagnostics; use correlation IDs and protected audit readback instead.
+
+**Acceptance Criteria**
+- Every security-sensitive auth event has an explicit allowed detail shape and tests reject unexpected sensitive fields on both success and failure paths.
+- Unknown submitted account addresses, raw tokens, token hashes, credentials, cookie/header values, and secret-bearing delivery content are absent from stored auth audit details and generated evidence.
+- Ordinary UI status calls cannot reveal or rotate credentials, and every sensitive mutation enforces documented authorization, CSRF, rate limiting, and recent-reauthentication policy.
+- Focused runtime tests cover the complete maintained sensitive-auth endpoint inventory, including invitation-specific rate limiting and CSRF behavior.
+- No active invitation depends on plaintext token lookup; the fallback and any plaintext persistence path are removed with migration/rollback guidance.
+
+### Backlog Item: Workspace Ownership and Authorization Certification
+**Type:** Security and architecture foundation
+**Tags:** `workspace`, `authorization`, `rbac`, `scope`, `isolation`, `jobs`, `integrations`, `database`
+**Priority:** `P0`
+**Status:** Active backlog; many workspace-specific repairs and regression checks exist, but there is no single maintained inventory covering every table, route, worker, script, search, export, and audit path.
+
+**Goal:** Turn workspace ownership from a collection of local conventions into a complete, machine-checked contract that identifies the owner and authorization boundary of every persisted model and executable data path.
+
+**Why this work exists**
+- Recent Plex, provider-settings, webhook, scheduler, OCR, valuation, and workspace-admin corrections repeatedly found code resolving the first integration row, installation defaults, or mutable active scope instead of the workspace that owned the record.
+- Route-level RBAC tests do not by themselves prove that workers, maintenance scripts, exports, searches, backlinks, and raw queries preserve the same boundary.
+- A certified inventory is the prerequisite for safe database-role separation, staged RLS, explicit URL scope, and reliable Cairn operation bridges.
+
+**Scope**
+- Classify each maintained database table as installation-owned, workspace-owned, library-owned within a workspace, user-owned, shared catalog/reference data, or authorization/bootstrap control plane.
+- For every workspace/library-owned table, identify the authoritative ownership column and same-workspace foreign-key expectations; document legitimate exceptions instead of relying on nullable or inferred scope silently.
+- Maintain an authenticated route inventory containing method, required permission, scope shape, CSRF policy, reauthentication policy where relevant, and whether the operation is Core-local or a Cairn bridge.
+- Inventory background processors, schedulers, webhooks, imports, repair/maintenance scripts, search, export, portability, audit, and provider paths; require each to receive or derive explicit workspace ownership from its target record.
+- Centralize stable permission keys and policy evaluation so production callers do not authorize by scattered role-name comparisons.
+- Add method-level denial, cross-workspace, cross-library where applicable, identifier-tampering, and background-job isolation coverage.
+
+**Candidate subtasks**
+- Add machine-readable table and route inventories with CI checks that fail when a maintained table or authenticated endpoint is unclassified.
+- Add source/runtime checks for global-row, first-row, first-admin, and active-scope fallbacks in workspace-owned execution.
+- Define a common scoped operation context carrying actor, workspace, optional library, request/job correlation, and permission decision.
+- Extend RBAC regression with owner/admin/member/read-only and unrelated-workspace fixtures across list, detail, mutation, search, export, webhook, and job behavior.
+- Resolve `Remaining Workspace Integration Ownership Cleanup` as a concrete provider-family slice under this certification program rather than creating a competing ownership policy.
+
+**Out of scope**
+- Do not activate RLS on all tables in the inventory slice.
+- Do not treat library selection as an independent tenant boundary unless a future product decision explicitly changes that model.
+- Do not authorize from frontend navigation visibility.
+- Do not move Core-owned data into Cairn as part of classification.
+
+**Acceptance Criteria**
+- Every maintained table and authenticated route has exactly one documented ownership/scope classification.
+- New unclassified tables or authenticated routes fail CI.
+- Workspace-owned jobs, scripts, provider operations, searches, and exports cannot silently use another workspace's data or credentials.
+- Permission decisions use stable centralized permission keys, while roles remain configurable bundles of permissions.
+- Runtime isolation suites prove anonymous, non-member, insufficient-role, sibling-workspace, identifier-tampering, and background-execution denial for representative domain families.
+
+### Backlog Item: Identity-Preserving Upgrade Certification
+**Type:** Migration and release safety
+**Tags:** `migrations`, `authentication`, `rbac`, `sessions`, `audit`, `upgrade`, `release-gates`
+**Priority:** `P0`
+**Status:** Active backlog following the TekDocs comparison; current rehearsal proves schema and row-count behavior but does not maintain a representative identity state across every auth/RBAC/session-affecting upgrade.
+
+**Goal:** Make every auth, membership, role, session, or ownership migration prove that a realistic identity and authorization fixture retains its intended behavior across upgrade and restore.
+
+**Scope**
+- Create a runtime-generated fixture containing a verified user, password credential, multiple roles/memberships, active workspace/library state, concurrent sessions with documented survival/revocation expectations, invitation/reset/verification lifecycle rows, representative audit history, API/service-account key metadata, and MFA/recovery material when implemented.
+- Capture a secret-free pre-upgrade identity manifest containing identifiers, counts, safe fingerprints, scope relationships, and expected authentication/session policy.
+- Upgrade a cloned legacy database through the production migration runner, then authenticate and exercise scoped API behavior rather than validating only columns and row counts.
+- Verify password login, verified-email state, membership and role preservation, workspace/library reachability, session policy, decryptability of encrypted identity material, API-key policy, and audit-history integrity.
+- Rehearse restore-based rollback and prove the baseline application can authenticate and resolve the original authorization state after restore.
+- Run the certification automatically for releases containing migrations that touch users, auth tokens, sessions, memberships, roles, ownership columns, encryption, or audit storage; retain a smaller generic migration rehearsal for unrelated migrations.
+
+**Candidate subtasks**
+- Extend the synthetic legacy fixture builder rather than embedding real credentials or production-derived identity data.
+- Define versioned identity-manifest assertions so an intentional policy change must update an explicit expectation.
+- Add both surviving-session and forced-revocation fixture variants where migration policy differs.
+- Store only safe fingerprints and redacted commands in evidence artifacts, then scan those artifacts for credential leakage.
+
+**Out of scope**
+- Do not use production credentials or copied production identity records.
+- Do not require sessions to survive when the documented migration policy intentionally revokes them.
+- Do not treat unchanged row counts as proof that authentication or authorization still works.
+
+**Acceptance Criteria**
+- A representative legacy identity can authenticate after upgrade and can access exactly the same intended workspaces/libraries and permissions unless an explicit migration policy says otherwise.
+- Verified-email, role, membership, audit, API-key, session, and encrypted identity/recovery state match versioned expectations.
+- Restore-based rollback returns the fixture to its valid pre-upgrade behavior.
+- Evidence contains no plaintext password, token, key, recovery value, or secret-bearing command.
+
+### Backlog Item: Non-Owner Runtime Database Role and Staged Row-Level Security
+**Type:** Database security program
+**Tags:** `postgresql`, `rls`, `workspace`, `security`, `database-role`, `isolation`
+**Priority:** `P1`
+**Status:** Deferred until the workspace ownership inventory and identity-preserving upgrade fixture are complete enough to certify activation safely.
+
+**Goal:** Add PostgreSQL defense-in-depth so an omitted application predicate cannot read or write another workspace's domain rows, while keeping application policy as the primary authorization decision.
+
+**Dependencies**
+- `Workspace Ownership and Authorization Certification` must classify the target tables and executable paths.
+- `Identity-Preserving Upgrade Certification` must cover database-role and policy activation migrations.
+- Pre-auth token redemption, bootstrap, workers, maintenance commands, and migrations must have deliberately constrained database execution paths before broad activation.
+
+**Scope**
+- Separate migration-owner and runtime database credentials; ensure the runtime role is not a table owner and has neither `SUPERUSER` nor `BYPASSRLS`.
+- Define transaction-local workspace and optional library scope settings that cannot persist across pooled connection reuse.
+- Apply both `USING` and `WITH CHECK` policies to a small, low-risk workspace-owned domain first, then expand by certified table family.
+- Keep authorization/bootstrap control-plane tables outside RLS until their pre-scope access contract is explicitly designed and tested.
+- Bind scope for authenticated HTTP requests, background jobs, webhooks, imports, exports, and maintenance commands; missing scope must fail closed.
+- Add raw-SQL tests proving the runtime role cannot cross workspace boundaries, spoof an unrestricted scope, mutate ownership, or retain scope after transaction completion.
+- Add startup/release checks that reject owner or `BYPASSRLS` runtime credentials after activation.
+
+**Out of scope**
+- Do not treat RLS as a replacement for application authorization or permission checks.
+- Do not activate every policy in one migration.
+- Do not give pre-authentication token flows a general runtime-role bypass.
+- Do not introduce hosted multi-tenant claims beyond the certified CollectZ installation/workspace model.
+
+**Acceptance Criteria**
+- The runtime database role cannot access another workspace's protected rows even through direct SQL.
+- Missing, invalid, or stale transaction scope denies access, and committed scope cannot leak through the connection pool.
+- Application permission failures and database scope failures remain distinguishable in tests and sanitized diagnostics.
+- Each activated table family has migration, rollback/restore, request, worker, raw-SQL, and cross-workspace evidence before the next family is enabled.
+
+### Backlog Item: Migration-Chain Fresh Installation Authority
+**Type:** Database and deployment simplification
+**Tags:** `migrations`, `init`, `postgresql`, `docker`, `deployment`, `parity`
+**Priority:** `P1`
+**Status:** Deferred; `init.sql` and the migration chain currently remain dual schema sources with CI parity checks.
+
+**Goal:** Make the append-only migration chain the sole authoritative path for both fresh installation and upgrade, eventually retiring hand-maintained duplicate schema initialization.
+
+**Dependencies**
+- Identity-preserving upgrade and restore certification must be reliable.
+- Fresh migration-built databases must continue to pass current init-parity, runtime, seed, and release checks across multiple releases before `init.sql` is removed.
+
+**Scope**
+- Add a one-shot migration service to the production-shaped Compose startup order; application processes use only the non-owner runtime credential after migrations finish.
+- Treat a database created from an empty PostgreSQL instance by the migration runner as the authoritative fresh-install test target.
+- Inventory schema, constraints, indexes, triggers, functions, seed/reference rows, feature flags, bootstrap behavior, and database grants currently supplied by `init.sql`.
+- Move any missing bootstrap behavior into versioned migrations or explicit idempotent provisioning steps.
+- Convert `init.sql` first into generated/reference output if operators still benefit from it, then remove it only after the migration path has demonstrated stable fresh-install and upgrade behavior.
+- Update Docker health/start ordering, operator documentation, backup/restore instructions, migration evidence, and CI gates.
+
+**Out of scope**
+- Do not squash or rewrite production migration history casually.
+- Do not remove `init.sql` before every behavior it supplies is inventoried and reproducible.
+- Do not let normal backend startup run migrations with the long-lived runtime credential.
+
+**Acceptance Criteria**
+- A completely empty supported PostgreSQL instance reaches the current schema and required seed/bootstrap state using only the migration/provisioning path.
+- Backend, workers, and scheduled processes start only after the migration job succeeds and never receive schema-owner privileges.
+- Fresh-install, legacy-upgrade, backup/restore, Core runtime, and control-plane boundary checks pass from the migration-built schema.
+- `init.sql` is either generated from the authority or retired; no hand-maintained second schema source remains.
+
+### Backlog Item: Durable Workspace-Aware Job and Provider Adapter Contract
+**Type:** Runtime reliability architecture
+**Tags:** `jobs`, `integrations`, `providers`, `webhooks`, `imports`, `idempotency`, `workspace`
+**Priority:** `P1`
+**Status:** Active architectural backlog; several durable processors and provider-specific smokes exist, but shared ownership, observation, retry, and outcome mechanics remain inconsistent.
+
+**Goal:** Standardize the safe mechanics of asynchronous and provider-driven work while preserving provider-specific matching and domain behavior.
+
+**Why this work exists**
+- Imports, scanner lookup, Plex events, reconciliation, OCR, valuations, reminders, and future notifications need the same durable ownership and failure guarantees.
+- Existing provider corrections show that implicit active scope, global credential fallback, and unscoped scheduler execution are recurring hazards.
+- A generic provider domain model would erase important differences; the useful shared layer is job mechanics, provenance, security, and outcome reporting.
+
+**Scope**
+- Define a common job envelope with stable ID, job type/version, workspace, optional library, initiating actor or system principal, correlation ID, idempotency key, target reference, state, attempt count, scheduling timestamps, and sanitized result/error summary.
+- Use a transactional outbox or equivalent atomic enqueue pattern where a committed database mutation must cause background work.
+- Define bounded retry, cancellation, lease/heartbeat, stale-job recovery, terminal failure/dead-letter, and operator retry behavior.
+- Store secret references rather than credential values; resolve workspace-owned provider configuration at execution time under documented inheritance rules.
+- Preserve an immutable or append-only source observation for external facts where provenance and later rematching matter, then let provider-specific adapters normalize, match, propose review, and apply.
+- Require every adapter to declare supported source identities, idempotency rules, workspace ownership, rate-limit behavior, redacted diagnostics, and contract fixtures.
+- Provide consistent API/UI readback for state, attempts, next action, safe failure reason, and resulting object links.
+
+**Relationship to existing backlog**
+- `Draft-First Async Scan Queue` should become one consumer of this contract, not a separate queue architecture.
+- `Remaining Workspace Integration Ownership Cleanup` supplies immediate valuation/OCR ownership corrections.
+- `Shared Digital Library Provider Abstractions` should share only stable mechanics and contracts, while keeping Kavita, CWA/OPDS, Plex, and other domain interpretation separate.
+
+**Out of scope**
+- Do not introduce Kafka, RabbitMQ, or another broker without measured scale or reliability need; PostgreSQL-backed durable work remains acceptable.
+- Do not force every synchronous request into a job.
+- Do not flatten provider-specific candidate, matching, or writeback semantics into one generic payload.
+
+**Acceptance Criteria**
+- Retried or concurrently delivered work cannot create duplicate canonical mutations for the same documented idempotency identity.
+- Every job executes with explicit workspace ownership and can never resolve another workspace's credentials or records.
+- Process interruption, lease expiry, provider throttling, permanent failure, cancellation, and manual retry have deterministic tested behavior.
+- Operators and users receive useful sanitized state without raw provider payloads, credentials, or stack traces.
+- At least two materially different workflows adopt the contract before it is declared the standard.
+
+### Backlog Item: URL-Derived Workspace Context Migration
+**Type:** Product and authorization architecture
+**Tags:** `workspace`, `routing`, `authorization`, `frontend`, `api`, `multi-tab`
+**Priority:** `P2`
+**Status:** Strategic backlog; current active space/library state remains persisted and widely consumed, so this must be an additive compatibility migration.
+
+**Goal:** Make the workspace requested by the URL/API path the explicit scope for each operation so bookmarks, history, multiple tabs, jobs, and authorization do not depend on a globally mutable active-workspace selection.
+
+**Why this work exists**
+- Mutable active scope can let one tab or request change the context assumed by another.
+- Explicit routes make scope reviewable in logs, API contracts, tests, deep links, browser history, and background operation creation.
+- Workspace selection should choose context, not grant permission; every route must still resolve membership and required permission independently.
+
+**Dependencies**
+- Complete the workspace ownership/route inventory first.
+- Establish a central scope resolver and compatibility behavior for existing API and Apple/mobile clients before removing active-scope APIs.
+
+**Scope**
+- Define canonical workspace-prefixed frontend and API route shapes and a shared resolver that validates the requested workspace against the authenticated user and permission policy.
+- Derive new record ownership from the authorized route scope rather than accepting workspace identifiers from request bodies.
+- Clear or cancel stale frontend data when route scope changes; ensure simultaneous tabs can remain in different workspaces.
+- Include explicit workspace identity in job creation, provider operations, search, export, audit, and generated links.
+- Retain active workspace/library fields temporarily for default landing and legacy compatibility, but stop treating them as authoritative authorization context.
+- Migrate one feature family at a time with redirects/adapters, telemetry or diagnostics for legacy use, and a documented removal threshold.
+
+**Out of scope**
+- Do not remove active-scope compatibility in the first slice.
+- Do not make library selection a separate tenant boundary.
+- Do not infer authorization merely because a workspace ID appears in a valid URL.
+
+**Acceptance Criteria**
+- Two browser tabs can operate in different authorized workspaces without changing each other's data scope.
+- Direct links, refresh, history navigation, API calls, jobs, search, exports, and audits preserve the explicit workspace.
+- Unauthorized and nonexistent workspace routes return one non-disclosing failure shape and never fall back to another workspace.
+- New scoped routes no longer depend on `users.active_space_id` for authorization, while documented compatibility clients continue working during migration.
+
+### Backlog Item: Work, Edition, Owned Copy, and External Observation Model
+**Type:** Strategic collection data-model program
+**Tags:** `identity`, `media`, `editions`, `copies`, `providers`, `provenance`, `imports`, `valuation`
+**Priority:** `P2`
+**Status:** Strategic backlog; existing media, variant, provider metadata, and type-specific models carry parts of the concept but do not consistently separate creative work, market release, owned object, and provider observation.
+
+**Goal:** Evolve collection identity so CollectZ can distinguish what a title/object is, which edition or release exists, which copy the user owns, and what an external provider observed without overwriting one concept with another.
+
+**Why this work exists**
+- Physical release dates, canonical work dates, formats, regions, packaging, ISBNs, pressings, platform releases, multiple owned copies, condition, provenance, and valuations have different lifecycles.
+- Plex, Blu-ray.com, Books, Kavita, comic providers, storefronts, and valuation sources identify different layers of the same collection.
+- Flattening these facts into one media row creates duplicate ambiguity, provider overwrite risk, and difficulty representing multiple copies or editions.
+
+**Scope**
+- Define explicit concepts and invariants for `work/title`, `edition/release`, `owned copy/item`, `external identity`, `source observation`, and typed relationship.
+- Use stable workspace-owned identifiers for new records; do not require a global primary-key conversion of existing tables.
+- Add provider/external identity uniqueness rules that account for provider, identity kind, workspace, and whether the identity belongs to a work, edition, or copy.
+- Preserve source observations with provider, observed timestamp, normalized facts, safe source reference, and provenance so later rematching does not require trusting the latest flattened row.
+- Define conflict/overwrite policy among manual data, reviewed imports, provider refreshes, locked fields, and newer observations.
+- Introduce tables additively, populate them for selected new workflows, backfill only high-confidence existing records, and provide compatibility projections for current APIs/UI.
+- Start with a workflow that materially needs the distinction, such as Blu-ray physical releases and owned copies, then prove the model with a different family such as books, games, or audio before generalizing.
+
+**Relationship to existing backlog**
+- `Physical Media Edition and Variant Modeling` and `Library-Specific Edition Editors` provide product-facing edition requirements and should become slices of this broader identity model.
+- `Native Blu-ray Collection Intake, Edition Review, and Upgrade Discovery` provides a concrete initial ingestion/review workflow.
+- Certification, provenance, bundles, and valuation work should attach to the owned copy or edition level deliberately rather than adding more ambiguous fields to a canonical title.
+
+**Out of scope**
+- Do not create a universal EAV/custom-object store for built-in domains.
+- Do not migrate every media row or provider in one release.
+- Do not automatically split ambiguous existing records.
+- Do not remove existing API fields until compatibility projections and client migrations are complete.
+
+**Acceptance Criteria**
+- The model can represent one work with multiple releases and multiple owned copies without duplicating the canonical work.
+- Canonical dates, release dates, acquisition data, condition, provenance, provider identities, and valuation observations remain attached to the correct layer.
+- Repeated provider imports update or link through stable identity and do not silently overwrite manual/locked facts.
+- Migration and browser/API evidence prove existing collections remain readable and editable throughout additive adoption.
+- At least two different domain/provider families validate the abstractions before the model is generalized further.
+
+### Backlog Item: Contract and Build Metadata Source Consolidation
+**Type:** Maintainability and release architecture
+**Tags:** `openapi`, `typescript`, `frontend`, `versions`, `release-feed`, `ci`, `generated-artifacts`
+**Priority:** `P3`
+**Status:** Opportunistic backlog; current version synchronization and release gates are reliable, but several derived files and handwritten client contracts still require coordinated maintenance.
+
+**Goal:** Reduce synchronization work by making API types, version/build metadata, and release-feed data derive from clear authoritative sources without turning this into a frontend or build-system rewrite.
+
+**Scope**
+- Keep backend OpenAPI as the supported API contract and introduce generated client/types for newly touched frontend feature modules first.
+- Define one authoritative application version/build input and derive backend/frontend metadata during the existing sync/build process while preserving runtime readback and published image tags.
+- Continue treating human-authored release notes as authoritative; generate the in-app release feed during build/release or verify committed output deterministically until runtime packaging no longer requires a committed snapshot.
+- Distinguish durable repository documentation from transient CI evidence; retain required evidence as uploaded CI artifacts where policy permits rather than committing noisy machine output solely for traceability.
+- Adopt TypeScript only for new or materially rewritten frontend modules when it improves contract safety; migrate shared boundaries before leaf UI and keep mixed JS/TS builds supported during transition.
+
+**Out of scope**
+- Do not rewrite the frontend in TypeScript.
+- Do not weaken version, release-note, Help > Releases, dependency, migration, browser, runtime, image, secret, or SBOM gates.
+- Do not make builds depend on an unavailable external schema registry.
+
+**Acceptance Criteria**
+- Newly generated API types come from the maintained OpenAPI contract and fail CI when regeneration is required.
+- Version/build metadata has one authoritative input and all runtime/package representations remain deterministically verifiable.
+- Release-feed generation is deterministic from release notes and cannot drift silently.
+- Any change to evidence storage preserves the exact release-gate proof, retention, and failure-diagnostic requirements documented by CI policy.
+
 ## UI/UX Refinement Backlog
 
 These are unscheduled interface cleanup tasks discovered during the `3.10.x` mobile header and search work. Keep them versionless until selected and moved into the roadmap as numbered UI/UX milestones.
@@ -329,6 +680,7 @@ These are product-level capability gaps discovered from the current shape of the
 ### Backlog Item: Draft-First Async Scan Queue
 **Type:** Deferred milestone
 **Tags:** `product`, `scanner`, `barcode`, `capture`, `imports`, `queue`, `enrichment`, `metadata-quality`
+**Priority:** `P2` under `Durable Workspace-Aware Job and Provider Adapter Contract`
 **Status:** Active backlog; scanner lookup, Capture Inbox review rows, and direct barcode import APIs exist, but there is no durable async scan queue and scanner import can still create/update canonical media directly.
 
 **Goal:** Build a draft-first, backend-owned scan queue that lets users continue scanning while barcode/ISBN/provider lookups run, without reducing match quality compared with the individual add/capture workflows.
@@ -382,6 +734,7 @@ These are product-level capability gaps discovered from the current shape of the
 ### Backlog Item: Native Blu-ray Collection Intake, Edition Review, and Upgrade Discovery
 **Type:** Product/import architecture milestone candidate
 **Tags:** `imports`, `capture`, `browser-extension`, `blu-ray`, `movies`, `editions`, `review`, `pricing`, `ratings`, `notifications`, `plex`, `provenance`
+**Priority:** `P2` as a candidate first workflow under `Work, Edition, Owned Copy, and External Observation Model`
 **Status:** Product decisions captured; the initial browser-extension capture path and single-title Blu-ray mapping exist, but authenticated collection traversal, batch review, full edition upsert, notification, price-history, and automatic Plex watched-state propagation remain unimplemented.
 
 **Goal:** Make Blu-ray.com intake a native CollectZ review-and-upsert workflow, using the browser extension only where an authenticated browser session is required, while preserving edition identity, useful source metadata, user control over conflicts, and reliable downstream Plex watched-state synchronization.
@@ -881,6 +1234,7 @@ These are product-level capability gaps discovered from the current shape of the
 ### Backlog Item: Physical Media Edition and Variant Modeling
 **Type:** Deferred milestone
 **Tags:** `media`, `games`, `books`, `variants`, `editions`, `physical-media`
+**Priority:** `P2` under `Work, Edition, Owned Copy, and External Observation Model`
 **Status:** Active backlog; retained as the broader discovery umbrella for `Library-Specific Edition Editors`.
 
 **Goal:** Improve how collectZ represents physical media variants such as SteelBooks, slipcovers, screeners, promo/demo discs, limited-run releases, collector editions, ARCs, and book printings.
@@ -1169,6 +1523,7 @@ These are product-level capability gaps discovered from the current shape of the
 ### Backlog Item: Remaining Workspace Integration Ownership Cleanup
 **Type:** Deferred milestone
 **Tags:** `workspace`, `integrations`, `valuation`, `ocr`, `scope`, `security`
+**Priority:** `P0` as a concrete provider-family slice of `Workspace Ownership and Authorization Certification`
 
 **Goal:** Finish the integration-scope audit after the `3.24.5` provider-screen and Plex runtime correction by making valuation and OCR execution resolve from the workspace that owns the collection data.
 
@@ -1422,6 +1777,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 ### Backlog Item: Shared Digital Library Provider Abstractions
 **Type:** Deferred milestone
 **Tags:** `kavita`, `calibre`, `cwa`, `opds`, `providers`, `imports`
+**Priority:** `P2` under `Durable Workspace-Aware Job and Provider Adapter Contract`; reuse mechanics without flattening provider-specific behavior.
 **Status:** Active backlog; extraction/refactor task only, not a new provider feature.
 
 **Goal:** Consolidate common provider/import contracts across Kavita, Calibre/CWA OPDS, and future digital-library sources without hiding provider-specific behavior.
@@ -1566,6 +1922,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 ### Backlog Item: Canonical Public Core and Platform Extraction
 **Type:** Deferred infrastructure milestone
 **Tags:** `public-repo`, `open-source`, `platform-extraction`, `cairn`, `ci`, `security`, `docs`, `subscription-readiness`
+**Priority:** `P1`; continue through bounded API-contract and dead-surface cleanup slices after P0 security/ownership work where dependencies overlap.
 **Status:** Active 3.x closeout line. The canonical public-source repository transition is complete; remaining work is the narrower Core/`cairn` platform-surface split and compatibility cleanup.
 
 **Goal:** Make collectZ the canonical public open-source Core repository again, retire the generated mirror workflow, and extract SaaS/platform behavior into a separate service named `cairn`.
