@@ -644,6 +644,101 @@ These are product-level capability gaps discovered from the current shape of the
 - Health findings can be filtered by library, media type, provider, and severity.
 - Each finding links to a repair, review, or source record where available.
 
+### Backlog Item: Plex Playback Readiness and Streamability Assessment
+**Type:** Deferred product and provider-integration milestone
+**Tags:** `plex`, `media`, `playback`, `transcoding`, `bandwidth`, `client-profiles`, `analysis`
+**Priority:** `P2`
+**Status:** Active backlog; research direction is documented, but no playback-readiness contract or UI has been implemented.
+
+**Goal:** Tell a user whether a specific movie or episode version is likely to Direct Play, Direct Stream, require audio or video transcoding, burn subtitles, exceed a network budget, or remain unknown for a named Plex playback target.
+
+**Why this work exists**
+- collectZ currently normalizes useful Plex variant fields such as container, video codec, audio codec, resolution, dimensions, channel count, and duration, but does not expose enough first-class file, stream, network, client, or server-capacity data to make a dependable playback decision.
+- Movie variants currently retain more technical detail than the TV season summary, while the TV summary reduces episode evidence primarily to resolution and dimensions.
+- Average bitrate alone is not a safe network requirement. Plex can use deep-analysis bandwidth requirements to account for bitrate spikes and otherwise applies a more conservative estimate.
+- A file is not simply "streamable" or "not streamable." The result changes with the selected media version, audio and subtitle tracks, Plex app and device capabilities, display/audio chain, app settings, LAN/WAN location, bandwidth limit, and current server transcoding capability.
+
+**Authoritative Plex behavior**
+- Use Plex PMS `GET /video/:/transcode/universal/decision` as the authoritative preflight when a Plex-linked item and a credible target profile/scenario are available. The endpoint evaluates a requested item against a client profile plus settings such as bandwidth, resolution, stream selection, Direct Play, and Direct Stream.
+- Treat the response as a decision for that exact request, not a permanent property of the file. Preserve overall, media, part, and stream decisions and Plex's reason/code text where returned.
+- Do not describe the endpoint as automatic client detection. Plex documents `X-Plex-Client-Profile-Name` primarily for the built-in Generic profile and supports capability augmentation through `X-Plex-Client-Profile-Extra`; a friendly label such as "Apple TV" does not by itself supply the complete Plex app capability profile.
+- Use `GET /status/sessions` as empirical evidence from real playback. It exposes the active player's identity/context and the actual media, part, and stream decisions, but it must not be presented as an API that enumerates every rule in the client's internal profile.
+
+**Client-profile discovery and confidence model**
+- Add a workspace-scoped `playback target` concept such as "Living Room Apple TV" with device, model, platform, platform/app version, LAN/WAN location, display capability, audio-output capability, and optional user-entered bandwidth constraints.
+- Prefer targets learned from a real Plex session. Offer a calibration flow that asks the user to start playback on the intended client, observes the matching active session, and records sanitized device/app characteristics plus the actual Direct Play/Direct Stream/transcode outcome.
+- Never persist a Plex access token, IP address, raw client identifier, raw session identifier, or media file path in the target, assessment result, activity text, logs, or browser payload. Store only the minimum normalized capability and provenance data needed for future comparisons.
+- If Plex exposes enough request headers/capability augmentation data to reproduce the observed target, use it for later decision preflights. If it does not, retain the observation as evidence and mark future predictions as inferred; do not invent or scrape an undocumented built-in profile.
+- Allow an explicitly user-defined Generic target with documented profile augmentations for preflight experimentation. Label it `configured heuristic`, not `observed device` or `Plex-authoritative client profile`.
+- Record assessment provenance and confidence as one of: `plex_decision` for a complete decision request, `observed_session` for an actual playback result, `metadata_heuristic` for a local compatibility estimate, or `unknown` when required evidence is missing.
+- Invalidate or age confidence when the Plex app/platform version, target settings, selected tracks, media analysis, server capabilities, or relevant network settings change.
+
+**Normalized media evidence**
+- Preserve every Plex `Media`, `Part`, and `Stream` row for movies and episodes instead of basing readiness on only the first media/part or a season-level maximum.
+- Add first-class part evidence for file size, duration, container, overall/average bitrate, Plex deep-analysis bandwidth requirements when available, analysis timestamp/version, and Plex media/part identity.
+- Add first-class video stream evidence for codec, profile, level, bitrate, dimensions, frame rate, scan type, bit depth, chroma subsampling, HDR format, Dolby Vision profile/level, and default/selected state where Plex supplies it.
+- Add first-class audio stream evidence for codec, profile, bitrate, channel count/layout, sample rate, language, object-audio indicators where available, and default/selected state.
+- Add first-class subtitle evidence for format/codec, language, forced/default/selected state, embedded versus external delivery, and whether the decision requires burn-in.
+- Keep provider payloads available for diagnostics, but do not make `raw_json` the frontend/API contract for playback readiness.
+- For TV, calculate readiness per episode media version. A season/show surface may summarize the worst or unknown cases only when it links back to the underlying episode evidence.
+
+**Bandwidth assessment**
+- Prefer the bandwidth reserved/reported by a Plex decision for the exact scenario.
+- Otherwise prefer Plex deep-analysis required-bandwidth values appropriate to the relevant buffer window.
+- If neither is available, estimate average bitrate as `file_size_bytes * 8 / duration_seconds` and apply Plex's documented conservative fallback of approximately twice average bitrate. Clearly label this result as estimated.
+- Compare required bandwidth with a scenario budget. For remote playback, account for Plex's effective server upload allowance, any configured per-stream limit, the client's stated download limit, and concurrent-session reservation when reliable data exists. For LAN playback, allow an explicit measured or configured link budget rather than assuming Wi-Fi or Ethernet speed from the device name.
+- Present separate results for compatibility and throughput: a compatible file can still be network-risky, and an incompatible file can be made playable by a capable transcoder.
+- Initial UI language should be `comfortable`, `borderline`, `too large for this network budget`, or `unknown`, with the exact required/available estimates and source of each value visible. Any safety margin beyond Plex's documented behavior must be configurable and labeled as a collectZ policy rather than a Plex fact.
+
+**Server transcoding capacity**
+- Read Plex server capability indicators and configured transcoding/hardware-acceleration state where supported, but do not equate a capability flag with guaranteed capacity.
+- Distinguish audio remux/transcode, video transcode, HDR tone mapping, and subtitle burn-in because their resource costs differ materially.
+- Base stronger capacity predictions on observed Plex transcode-session speed and relevant concurrent load over time. A transcode speed above real time is necessary; retain a configurable safety reserve instead of promising success from a CPU model or RAM total.
+- Treat CPU/GPU support, hardware-transcode availability, tone-mapping support, temporary-transcode storage, current load, and observed speed as primary evidence. RAM may be shown as supporting telemetry but must not be the principal pass/fail rule.
+- When only compatibility is known, report `transcode required; server capacity unverified` rather than guessing that the stream will succeed.
+
+**Product surface**
+- Add a compact `Playback readiness` section to movie and episode drawers that starts with the selected source version and its normalized technical summary.
+- Let the user choose a saved playback target/scenario and selected audio/subtitle tracks before evaluating.
+- Show the predicted path (`Direct Play`, `Direct Stream`, `audio transcode`, `video transcode`, `subtitle burn-in`, `cannot play`, or `unknown`), the main reasons, required versus available bandwidth, server-capacity confidence, assessment provenance, and freshness.
+- Support multiple media versions independently and explain when Plex would choose a different version for the scenario.
+- Keep raw Plex decision payloads and profile augmentation syntax in admin diagnostics; ordinary users should see plain-language reasons and evidence.
+
+**Phased delivery**
+1. **Media inventory and bandwidth evidence:** normalize all media/part/stream data, preserve per-episode evidence, expose file size/bitrate/deep-analysis requirements, and deliver read-only bandwidth-risk summaries without claiming device compatibility.
+2. **Observed Plex target and decision preflight:** add the sanitized target/calibration workflow, support one proven target class such as an observed Apple TV Plex session, call the universal decision endpoint with selected tracks and scenario constraints, and cache provenance-aware results.
+3. **Capacity forecasting:** add live/observed transcoder evidence, concurrency and tone-mapping distinctions, history-based confidence, and capacity warnings after real-session telemetry proves the model.
+4. **Non-Plex fallback:** optionally use `ffprobe` only for files collectZ is explicitly authorized to read, then apply a clearly labeled metadata heuristic. Never accept arbitrary request paths or shell fragments as probe input.
+
+**Out of scope**
+- Do not maintain a hand-written universal device compatibility matrix as the primary source of truth.
+- Do not promise that all devices with the same retail name behave identically across Plex app versions, settings, operating-system versions, displays, receivers, or selected tracks.
+- Do not trigger a real transcode merely to answer a library-list or drawer request.
+- Do not automatically change Plex client quality, Direct Play, subtitle, server-transcoder, or network settings.
+- Do not expose Plex tokens, private network details, client identifiers, session identifiers, or raw filesystem paths.
+- Do not collapse playback readiness into one unexplained green/red score.
+
+**Research anchors**
+- [Plex PMS API: playback decision, profile augmentation, sessions, and server capabilities](https://developer.plex.tv/pms/)
+- [Plex: Streaming Media — Direct Play and Direct Stream](https://support.plex.tv/articles/200250387-streaming-media-direct-play-and-direct-stream/)
+- [Plex: Bandwidth and Transcoding Limits](https://support.plex.tv/articles/227715247-server-settings-bandwidth-and-transcoding-limits/)
+- [Plex: Investigate Media Information and Formats](https://support.plex.tv/articles/201998867-investigate-media-information-and-formats/)
+- [Plex: Using Hardware-Accelerated Streaming](https://support.plex.tv/articles/115002178853-using-hardware-accelerated-streaming/)
+- [Plex: Why Is My Video Stream Buffering?](https://support.plex.tv/articles/201575036-why-is-my-video-stream-buffering/)
+- [FFmpeg: ffprobe Documentation](https://ffmpeg.org/ffprobe.html)
+
+**Acceptance Criteria**
+- A movie or episode with multiple Plex versions and streams retains normalized evidence for every relevant media, part, audio, video, and subtitle stream.
+- A user can create or learn a sanitized playback target and can tell whether its evidence is observed, Plex-decision-based, heuristic, stale, or unknown.
+- For a Plex-linked item with a sufficiently described target, selected tracks, and network scenario, collectZ can request and explain Plex's Direct Play/Direct Stream/transcode decision without starting playback.
+- The same file can produce different, correctly scoped results for different targets, locations, bandwidth budgets, and subtitle selections.
+- Required network throughput is sourced from Plex decision/deep-analysis evidence when available and otherwise displays the documented conservative estimate with an `estimated` label.
+- A required transcode is reported separately from whether the server has enough verified capacity to sustain it.
+- Missing target, network, deep-analysis, or transcoder evidence produces an actionable `unknown`/`unverified` result rather than a false assurance.
+- TV summaries are traceable to episode/version evidence and no longer discard the technical fields needed for readiness assessment.
+- API, activity, logs, and browser payloads do not expose Plex tokens, private network details, raw client/session identifiers, or media filesystem paths.
+- Unit/integration coverage exercises Direct Play, container-only Direct Stream, audio transcode, video transcode, subtitle burn-in, insufficient bandwidth, multiple versions, stale target evidence, and unknown server capacity; browser coverage verifies understandable provenance and reason readback.
+
 ### Backlog Item: Universal Search
 **Type:** Deferred milestone
 **Tags:** `product`, `search`, `navigation`, `identifiers`
