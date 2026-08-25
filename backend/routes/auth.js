@@ -2,7 +2,16 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const pool = require('../db/pool');
 const { asyncHandler } = require('../middleware/errors');
-const { authenticateToken, requireRole, requireSessionAuth, SESSION_COOKIE_OPTIONS, SESSION_COOKIE_NAME } = require('../middleware/auth');
+const {
+  authenticateToken,
+  requireRole,
+  requireSessionAuth,
+  requireRecentReauthentication,
+  hasRecentReauthentication,
+  REAUTH_MAX_AGE_MINUTES,
+  SESSION_COOKIE_OPTIONS,
+  SESSION_COOKIE_NAME
+} = require('../middleware/auth');
 const {
   validate,
   registerSchema,
@@ -12,6 +21,7 @@ const {
   emailVerificationConsumeSchema,
   profileUpdateSchema,
   passwordResetConsumeSchema,
+  reauthenticationSchema,
   personalAccessTokenCreateSchema,
   serviceAccountKeyCreateSchema,
   authScopeSelectSchema,
@@ -436,18 +446,24 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
     await client.query('BEGIN');
 
     if (!homelabEdition && inviteTokenForLookup) {
+      // Serialize claims for the same supplied token before the conditional UPDATE.
+      // This keeps a concurrent loser on the deliberate invalid-token path instead
+      // of allowing downstream user uniqueness races to surface as a 500.
+      await client.query(
+        'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
+        [inviteTokenHash]
+      );
       const inviteClaim = await client.query(
         `UPDATE invites
          SET used = true,
              used_at = NOW()
-         WHERE $2 <> ''
-           AND (token_hash = $1 OR token = $2)
-           AND lower(email) = lower($3)
+         WHERE token_hash = $1
+           AND lower(email) = lower($2)
            AND used = false
            AND revoked = false
            AND expires_at > NOW()
          RETURNING id, email, expires_at, created_by, space_id, space_role`,
-        [inviteTokenHash, inviteTokenForLookup, email]
+        [inviteTokenHash, email]
       );
       claimedInvite = inviteClaim.rows[0] || null;
     }
@@ -545,8 +561,6 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
 
   if (claimedInvite) {
     await logActivity({ ...req, user: { id: result.rows[0].id } }, 'invite.claimed', 'invite', claimedInvite.id, {
-      inviteEmail: claimedInvite.email,
-      claimedByEmail: result.rows[0].email,
       spaceId: claimedInvite.space_id || null,
       role: claimedInvite.space_role || null
     });
@@ -555,8 +569,6 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
   if (personalWorkspace) {
     await logActivity(req, 'workspace.create.personal', 'space', personalWorkspace.id, {
       userId: result.rows[0].id,
-      email: result.rows[0].email,
-      name: personalWorkspace.name,
       isPersonal: true
     });
   }
@@ -568,11 +580,9 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
     const verificationUrl = `${getRequestOrigin(req)}/verify-email#token=${encodeURIComponent(verification.token)}`;
 
     await logActivity({ ...req, user: { id: result.rows[0].id, role: result.rows[0].role, email: result.rows[0].email } }, 'auth.user.register.pending_verification', 'user', result.rows[0].id, {
-      email: result.rows[0].email,
       role: result.rows[0].role,
       inviteTokenUsed: false,
       productEdition,
-      verificationTokenId: verification.id,
       verificationExpiresAt: verification.expires_at
     });
 
@@ -583,8 +593,6 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
         expiresAt: verification.expires_at
       });
       await logActivity(req, delivery.sent ? 'auth.email_verification.request.delivered' : 'auth.email_verification.request.delivery_skipped', 'user', result.rows[0].id, {
-        email: result.rows[0].email,
-        verificationTokenId: verification.id,
         delivery: delivery.sent ? 'smtp' : 'none',
         reason: delivery.reason || null
       });
@@ -596,9 +604,7 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
       });
     } catch (error) {
       await logActivity(req, 'auth.email_verification.request.delivery_failed', 'user', result.rows[0].id, {
-        email: result.rows[0].email,
-        verificationTokenId: verification.id,
-        reason: error.message || 'smtp_send_failed'
+        reason: 'smtp_send_failed'
       });
       recordAuthEvent('register', 'delivery_failed');
       return res.status(202).json({
@@ -615,7 +621,6 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
   res.cookie(SESSION_COOKIE_NAME, sessionToken, SESSION_COOKIE_OPTIONS);
   issueCsrfToken(res);
   await logActivity({ ...req, user: { id: result.rows[0].id, role: result.rows[0].role, email: result.rows[0].email } }, 'auth.user.register', 'user', result.rows[0].id, {
-    email: result.rows[0].email,
     role: result.rows[0].role,
     inviteTokenUsed: Boolean(claimedInvite),
     productEdition,
@@ -670,7 +675,7 @@ router.post('/login', validate(loginSchema), asyncHandler(async (req, res) => {
   const { password: _, ...userWithoutPassword } = user;
   res.cookie(SESSION_COOKIE_NAME, token, SESSION_COOKIE_OPTIONS);
   issueCsrfToken(res);
-  await logActivity({ ...req, user: { id: user.id, role: user.role, email: user.email } }, 'auth.user.login', 'user', user.id, { email: user.email });
+  await logActivity({ ...req, user: { id: user.id, role: user.role, email: user.email } }, 'auth.user.login', 'user', user.id, null);
   recordAuthEvent('login', 'succeeded');
   res.json({
     user: {
@@ -680,6 +685,40 @@ router.post('/login', validate(loginSchema), asyncHandler(async (req, res) => {
       active_space_id: stripHomelabSpaceContext({ active_space_id: activeSpaceId }, getProductEdition()).active_space_id,
       active_library_id: activeLibraryId
     }
+  });
+}));
+
+router.post('/reauthenticate', authenticateToken, requireSessionAuth, validate(reauthenticationSchema), asyncHandler(async (req, res) => {
+  const result = await pool.query('SELECT password FROM users WHERE id = $1', [req.user.id]);
+  const validPassword = result.rows[0]
+    ? await bcrypt.compare(req.body.password, result.rows[0].password)
+    : false;
+  if (!validPassword) {
+    await logActivity(req, 'auth.reauthentication.failed', 'user_session', req.sessionId, {
+      reason: 'invalid_password'
+    });
+    return res.status(401).json({ error: 'Password confirmation failed', code: 'reauthentication_failed' });
+  }
+
+  const updated = await pool.query(
+    `UPDATE user_sessions
+        SET reauthenticated_at = NOW()
+      WHERE id = $1 AND user_id = $2 AND expires_at > NOW()
+      RETURNING reauthenticated_at`,
+    [req.sessionId, req.user.id]
+  );
+  if (updated.rows.length === 0) {
+    return res.status(401).json({ error: 'Invalid or expired session' });
+  }
+
+  req.authContext.reauthenticatedAt = updated.rows[0].reauthenticated_at;
+  await logActivity(req, 'auth.reauthentication.succeeded', 'user_session', req.sessionId, {
+    maxAgeMinutes: REAUTH_MAX_AGE_MINUTES
+  });
+  res.json({
+    reauthenticated: true,
+    validUntil: new Date(new Date(updated.rows[0].reauthenticated_at).getTime() + REAUTH_MAX_AGE_MINUTES * 60 * 1000).toISOString(),
+    maxAgeMinutes: REAUTH_MAX_AGE_MINUTES
   });
 }));
 
@@ -698,7 +737,7 @@ router.post('/email-verification/request', validate(emailVerificationRequestSche
   if (!user || user.email_verified) {
     recordAuthEvent('email_verification_request', 'ignored');
     await logActivity(req, 'auth.email_verification.request.ignored', 'user', user?.id || null, {
-      email
+      reason: user ? 'already_verified' : 'account_not_found'
     });
     return res.json(genericResponse);
   }
@@ -709,8 +748,6 @@ router.post('/email-verification/request', validate(emailVerificationRequestSche
   const verificationUrl = `${getRequestOrigin(req)}/verify-email#token=${encodeURIComponent(verification.token)}`;
 
   await logActivity(req, 'auth.email_verification.request', 'user', user.id, {
-    email: user.email,
-    verificationTokenId: verification.id,
     expiresAt: verification.expires_at
   });
 
@@ -726,8 +763,6 @@ router.post('/email-verification/request', validate(emailVerificationRequestSche
       'user',
       user.id,
       {
-        email: user.email,
-        verificationTokenId: verification.id,
         delivery: delivery.sent ? 'smtp' : 'none',
         reason: delivery.reason || null
       }
@@ -736,9 +771,7 @@ router.post('/email-verification/request', validate(emailVerificationRequestSche
   } catch (error) {
     recordAuthEvent('email_verification_request', 'failed');
     await logActivity(req, 'auth.email_verification.request.delivery_failed', 'user', user.id, {
-      email: user.email,
-      verificationTokenId: verification.id,
-      reason: error.message || 'smtp_send_failed'
+      reason: 'smtp_send_failed'
     });
   }
 
@@ -804,9 +837,7 @@ router.post('/email-verification/consume', validate(emailVerificationConsumeSche
 
   res.cookie(SESSION_COOKIE_NAME, newSessionToken, SESSION_COOKIE_OPTIONS);
   issueCsrfToken(res);
-  await logActivity(req, 'auth.email_verification.consume', 'user', verificationRow.user_id, {
-    email: verificationRow.email
-  });
+  await logActivity(req, 'auth.email_verification.consume', 'user', verificationRow.user_id, null);
   recordAuthEvent('email_verification_consume', 'succeeded');
   res.json({
     user: {
@@ -835,7 +866,7 @@ router.post('/password-reset/request', validate(passwordResetRequestSchema), asy
   if (!user) {
     recordAuthEvent('password_reset_request', 'ignored');
     await logActivity(req, 'auth.password_reset.request.unknown', 'password_reset', null, {
-      email
+      reason: 'account_not_found'
     });
     return res.json(genericResponse);
   }
@@ -847,8 +878,6 @@ router.post('/password-reset/request', validate(passwordResetRequestSchema), asy
   const resetUrl = `${getRequestOrigin(req)}/reset-password#token=${encodeURIComponent(issued.token)}`;
 
   await logActivity(req, 'auth.password_reset.request', 'user', user.id, {
-    email: user.email,
-    resetTokenId: issued.id,
     expiresAt: issued.expires_at
   });
 
@@ -865,8 +894,6 @@ router.post('/password-reset/request', validate(passwordResetRequestSchema), asy
       'user',
       user.id,
       {
-        email: user.email,
-        resetTokenId: issued.id,
         delivery: delivery.sent ? 'smtp' : 'none',
         reason: delivery.reason || null
       }
@@ -875,9 +902,7 @@ router.post('/password-reset/request', validate(passwordResetRequestSchema), asy
   } catch (error) {
     recordAuthEvent('password_reset_request', 'failed');
     await logActivity(req, 'auth.password_reset.request.delivery_failed', 'user', user.id, {
-      email: user.email,
-      resetTokenId: issued.id,
-      reason: error.message || 'smtp_send_failed'
+      reason: 'smtp_send_failed'
     });
   }
 
@@ -980,7 +1005,6 @@ router.post('/password-reset/consume', validate(passwordResetConsumeSchema), asy
   res.cookie(SESSION_COOKIE_NAME, newSessionToken, SESSION_COOKIE_OPTIONS);
   issueCsrfToken(res);
   await logActivity(req, 'auth.password_reset.consume', 'user', resetRow.user_id, {
-    email: resetRow.email,
     revokedSessionCount: revokedCount
   });
   recordAuthEvent('password_reset_consume', 'succeeded');
@@ -1101,7 +1125,7 @@ router.post('/scope', authenticateToken, requireSessionAuth, validate(authScopeS
   res.json(payload);
 }));
 
-platformRouter.post('/support-session/start', authenticateToken, requireSessionAuth, requireRole('admin', 'support_admin'), validate(supportSessionStartSchema), asyncHandler(async (req, res) => {
+platformRouter.post('/support-session/start', authenticateToken, requireSessionAuth, requireRecentReauthentication, requireRole('admin', 'support_admin'), validate(supportSessionStartSchema), asyncHandler(async (req, res) => {
   const targetSpaceId = Number(req.body.space_id || 0);
   const requestedLibraryId = Number(req.body.library_id || 0) || null;
   const requestId = Number(req.body.request_id || 0) || null;
@@ -1218,11 +1242,9 @@ platformRouter.post('/support-session/start', authenticateToken, requireSessionA
     req.user.activeLibraryId = targetLibraryId;
 
     await logActivity(req, 'auth.support_session.started', 'space', targetSpaceId, {
-      reason,
       supportRequestId: approvedSupportRequest?.id || null,
       supportRequestKey: formatSupportRequestKey(approvedSupportRequest?.id || null),
       requesterUserId: approvedSupportRequest?.requester_user_id || null,
-      requesterEmail: approvedSupportRequest?.requester_email || null,
       supportSpaceId: targetSpaceId,
       supportLibraryId: targetLibraryId,
       previousSpaceId,
@@ -1283,7 +1305,6 @@ platformRouter.delete('/support-session', authenticateToken, requireSessionAuth,
     committed = true;
 
     await logActivity(req, 'auth.support_session.ended', 'space', currentSession.support_space_id || null, {
-      reason: currentSession.support_reason || null,
       supportRequestId: currentSession.support_request_id || null,
       supportRequestKey: formatSupportRequestKey(currentSession.support_request_id || null),
       supportSpaceId: currentSession.support_space_id || null,
@@ -1349,6 +1370,11 @@ router.patch('/profile', authenticateToken, validate(profileUpdateSchema), async
     return res.status(404).json({ error: 'User not found' });
   }
 
+  const emailChanged = Boolean(email) && String(email).toLowerCase() !== String(previous.rows[0].email).toLowerCase();
+  if (emailChanged && !hasRecentReauthentication(req)) {
+    return requireRecentReauthentication(req, res, () => {});
+  }
+
   const updates = [];
   const values = [];
 
@@ -1412,12 +1438,12 @@ router.patch('/profile', authenticateToken, validate(profileUpdateSchema), async
   }
 
   await logActivity(req, 'auth.profile.update', 'user', req.user.id, {
-    previousName: previous.rows[0].name,
-    previousEmail: previous.rows[0].email,
-    previousImagePath: previous.rows[0].image_path || null,
-    nextName: result.rows[0].name,
-    nextEmail: result.rows[0].email,
-    nextImagePath: result.rows[0].image_path || null,
+    changedFields: [
+      ...(name ? ['name'] : []),
+      ...(email ? ['email'] : []),
+      ...(Object.prototype.hasOwnProperty.call(req.body, 'image_path') ? ['image_path'] : []),
+      ...(password ? ['password'] : [])
+    ],
     passwordChanged: Boolean(password),
     revokedSessionCount
   });
@@ -1435,7 +1461,7 @@ router.get('/personal-access-tokens', authenticateToken, requireSessionAuth, asy
   });
 }));
 
-router.post('/personal-access-tokens', authenticateToken, requireSessionAuth, validate(personalAccessTokenCreateSchema), asyncHandler(async (req, res) => {
+router.post('/personal-access-tokens', authenticateToken, requireSessionAuth, requireRecentReauthentication, validate(personalAccessTokenCreateSchema), asyncHandler(async (req, res) => {
   const expiresAt = req.body.expires_at ? new Date(req.body.expires_at) : null;
   const created = await createPersonalAccessToken({
     userId: req.user.id,
@@ -1444,7 +1470,6 @@ router.post('/personal-access-tokens', authenticateToken, requireSessionAuth, va
     expiresAt
   });
   await logActivity(req, 'auth.pat.create', 'personal_access_token', created.record.id, {
-    name: created.record.name,
     scopes: created.record.scopes,
     expiresAt: created.record.expires_at
   });
@@ -1454,7 +1479,7 @@ router.post('/personal-access-tokens', authenticateToken, requireSessionAuth, va
   });
 }));
 
-router.delete('/personal-access-tokens/:id', authenticateToken, requireSessionAuth, asyncHandler(async (req, res) => {
+router.delete('/personal-access-tokens/:id', authenticateToken, requireSessionAuth, requireRecentReauthentication, asyncHandler(async (req, res) => {
   const tokenId = Number(req.params.id);
   if (!Number.isFinite(tokenId) || tokenId <= 0) {
     return res.status(400).json({ error: 'Invalid token id' });
@@ -1464,7 +1489,6 @@ router.delete('/personal-access-tokens/:id', authenticateToken, requireSessionAu
     return res.status(404).json({ error: 'Personal access token not found' });
   }
   await logActivity(req, 'auth.pat.revoke', 'personal_access_token', revoked.id, {
-    name: revoked.name,
     revokedAt: revoked.revoked_at
   });
   res.json(revoked);
@@ -1481,7 +1505,7 @@ router.get('/service-account-keys', authenticateToken, requireSessionAuth, requi
   });
 }));
 
-router.post('/service-account-keys', authenticateToken, requireSessionAuth, requireRole('admin'), validate(serviceAccountKeyCreateSchema), asyncHandler(async (req, res) => {
+router.post('/service-account-keys', authenticateToken, requireSessionAuth, requireRecentReauthentication, requireRole('admin'), validate(serviceAccountKeyCreateSchema), asyncHandler(async (req, res) => {
   const expiresAt = req.body.expires_at ? new Date(req.body.expires_at) : null;
   const created = await createServiceAccountKey({
     ownerUserId: req.user.id,
@@ -1492,9 +1516,7 @@ router.post('/service-account-keys', authenticateToken, requireSessionAuth, requ
     expiresAt
   });
   await logActivity(req, 'auth.service_account.create', 'service_account_key', created.record.id, {
-    name: created.record.name,
     scopes: created.record.scopes,
-    allowedPrefixes: created.record.allowed_prefixes,
     expiresAt: created.record.expires_at
   });
   res.status(201).json({
@@ -1503,7 +1525,7 @@ router.post('/service-account-keys', authenticateToken, requireSessionAuth, requ
   });
 }));
 
-router.delete('/service-account-keys/:id', authenticateToken, requireSessionAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+router.delete('/service-account-keys/:id', authenticateToken, requireSessionAuth, requireRecentReauthentication, requireRole('admin'), asyncHandler(async (req, res) => {
   const keyId = Number(req.params.id);
   if (!Number.isFinite(keyId) || keyId <= 0) {
     return res.status(400).json({ error: 'Invalid service account key id' });
@@ -1513,7 +1535,6 @@ router.delete('/service-account-keys/:id', authenticateToken, requireSessionAuth
     return res.status(404).json({ error: 'Service account key not found' });
   }
   await logActivity(req, 'auth.service_account.revoke', 'service_account_key', revoked.id, {
-    name: revoked.name,
     revokedAt: revoked.revoked_at
   });
   res.json(revoked);

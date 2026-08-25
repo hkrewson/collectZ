@@ -58,7 +58,10 @@ export default function ProfileView({ user, apiCall, onToast, Spinner, onUserUpd
         payload.current_password = form.current_password;
         payload.password = form.password;
       }
-      const nextUser = await apiCall('patch', '/profile', payload);
+      const nextUser = await apiCall('patch', '/profile', payload, {
+        requireRecentReauthentication: String(form.email || '').toLowerCase() !== String(user?.email || '').toLowerCase(),
+        reauthenticationReason: 'Confirm your current password before changing your account email.'
+      });
       onUserUpdate?.(nextUser);
       onToast('Profile updated');
       setForm((current) => ({ ...current, current_password: '', password: '' }));
@@ -103,7 +106,10 @@ export default function ProfileView({ user, apiCall, onToast, Spinner, onUserUpd
         scopes: patSelectedScopes,
         expires_at: patExpiresAt ? new Date(patExpiresAt).toISOString() : null
       };
-      const data = await apiCall('post', '/auth/personal-access-tokens', payload);
+      const data = await apiCall('post', '/auth/personal-access-tokens', payload, {
+        requireRecentReauthentication: true,
+        reauthenticationReason: 'Confirm your password before creating a personal access token.'
+      });
       setCreatedPatToken(data?.token || '');
       setPatTokens((current) => [data.record, ...current]);
       setPatStatusNow(new Date().getTime());
@@ -122,7 +128,10 @@ export default function ProfileView({ user, apiCall, onToast, Spinner, onUserUpd
     if (!window.confirm('Revoke this personal access token?')) return;
     setPatBusy(true);
     try {
-      const revoked = await apiCall('delete', `/auth/personal-access-tokens/${tokenId}`);
+      const revoked = await apiCall('delete', `/auth/personal-access-tokens/${tokenId}`, undefined, {
+        requireRecentReauthentication: true,
+        reauthenticationReason: 'Confirm your password before revoking this personal access token.'
+      });
       setPatTokens((current) => current.map((item) => (item.id === tokenId ? revoked : item)));
       setPatStatusNow(new Date().getTime());
       onToast('Personal access token revoked');

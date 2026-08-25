@@ -6,6 +6,252 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.24.12 — Sensitive Operation Reauthentication Contract
+
+**Goal:** Make high-impact credential and delegation operations require a recent, session-bound password proof while keeping ordinary status readback harmless and useful.
+
+### Scope
+
+- Maintain a reviewed operation inventory for API and service-account keys, SMTP and provider credentials, Plex receiver/display tokens, support sessions, profile email/password changes, and future MFA/recovery material.
+- Record permission, CSRF, limiter, session-auth, recent-proof, response-disclosure, and audit policy for every inventoried operation.
+- Add a rate-limited password reauthentication endpoint that stamps only the current opaque browser session and never stores submitted credential material in audit or evidence.
+- Reject stale sessions and PAT, service-account, mobile, or legacy bearer authentication on guarded operations before protected state changes.
+- Apply recent proof to raw key/token creation, rotation and revocation, provider and SMTP credential mutation/test paths, and support-session delegation; retain current-password proof for password changes and require recent proof for email changes.
+- Keep status/list responses limited to booleans, masked labels, safe timestamps, expiry, and health state.
+- Add shared frontend retry/prompt behavior, OpenAPI contracts, reason-coded audit events, and live PostgreSQL non-mutation proof.
+
+### Acceptance Criteria
+
+- Every inventoried sensitive operation has one machine-checked authority, CSRF, limiter, session-auth, reauthentication, disclosure, and audit policy.
+- Successful password proof is bound to one current session for a documented short lifetime; a different, stale, expired, or non-session credential cannot reuse it.
+- Credential reveal/create/rotate/revoke/test and support-session delegation reject missing recent proof before mutation, while safe readback never returns raw credential material.
+- Profile email changes require recent proof; password changes keep an equivalent current-password proof and revoke other sessions.
+- The UI explains the proof requirement and retries only the originally requested operation after an explicit password prompt.
+- Focused unit, OpenAPI, browser, and live PostgreSQL evidence proves authorization, CSRF, limiter, stale/non-session rejection, cross-session isolation, successful proof, and absence of submitted passwords or returned raw credentials from retained evidence.
+
+### Active Slice Notes
+
+- Selected on August 25, 2026 as the final P0 authentication follow-up after `3.24.11` removed plaintext invitation compatibility.
+- Status: complete locally on August 25, 2026. The reviewed sensitive-operation contract, session-bound proof lifecycle, guarded backend and frontend flows, migration and identity certification, live non-mutation and rate-limit evidence, canonical and isolated runtimes, browser/RBAC regressions, observability, dependency audits, and maintained-source CodeQL all passed. Hosted CI must still confirm repository-history secret scanning and image security/SBOM generation after push.
+
+### Closeout
+
+- Roadmap slice: `3.24.12 — Sensitive Operation Reauthentication Contract`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/02-Environment-Variables.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, and `docs/releases/v3.24.12.md`.
+- Runtime verification used: rebuilt and recreated the canonical `collectz-private` backend/frontend stack in place on port `3201`; live health and Help > Releases reported `3.24.12`, the live database was at migration `122`, and the nullable `user_sessions.reauthenticated_at` column was present. A production-shaped in-stack reauthentication smoke proved safe status readback, credential-mutation and provider-test denial for stale sessions, CSRF non-mutation, wrong-password denial, current-session success, sibling-session isolation, PAT/non-session denial, support-delegation non-mutation, authentication rate limiting, and zero sensitive audit-value leaks. Separate Core and control-plane runtime stacks passed and cleaned up.
+- CI/checks run: all `361` backend unit checks, OpenAPI validation, frontend production build, CI preparation, version/feed validation, fresh-init parity through migration `122`, generic migration `121 -> 122` plus snapshot-restore rehearsal, identity upgrade/restore certification through migration `122`, the `20`-operation sensitive contract (`11` recent-proof guarded and `2` explicitly unavailable), ownership snapshot drift certification (`66` tables, `336` routes, and `11` execution paths), live workspace authorization certification, canonical RBAC regression, cross-type isolation, Core Playwright regression (`71` passed, `4` expected homelab-only skips), Core runtime smoke, control-plane runtime smoke, observability evidence (`9/9`), backend/frontend production dependency audits (zero vulnerabilities), Help > Releases readback, local release preflight, and diff hygiene passed. The frontend clean install also passed under the hosted Node `24.19.0` / npm `11.17.0` toolchain after regenerating optional-peer lock entries. Maintained-source CodeQL reported `5` baseline/suppressed results and `0` active findings. The full local release profile reported `15` passed, `0` failed, and `2` locally blocked.
+- Blocked/unverified: `gitleaks` is not installed locally, so hosted `secret-scan` must scan repository history. `trivy` is not installed locally, so hosted `image-security-and-sbom` must scan published images and generate CycloneDX artifacts. The canonical development profile intentionally uses insecure local cookies, so hosted `compose-smoke` must confirm the exact CI secure-cookie environment after push.
+- Files changed: migration `122` and fresh-install parity; session proof creation, lookup, expiry, and middleware; the rate-limited reauthentication endpoint; guarded PAT, service-account, integration, Plex-token, profile-email, and support-delegation routes; reason-coded audit allowlists; the reviewed sensitive-operation contract and static/live certification scripts; shared frontend prompt-and-single-retry behavior; OpenAPI, CI, environment, version, release-feed, roadmap, backlog, and release documentation; and migration-rehearsal fixtures compatible with both plaintext-compatible and hash-only invitation baselines.
+- Risks or follow-ups: the current frontend uses the browser-native password prompt; a dedicated accessible modal can replace it without changing the API contract. SMTP credentials and MFA/recovery material remain explicitly unavailable and policy-locked for future implementation. The recent proof is intentionally unavailable to PAT, service-account, mobile, and legacy bearer credentials. Existing sessions upgrade stale, which can prompt once on their next guarded action.
+- What remains in the milestone: no local implementation or verification work remains, and no P0 backlog item remains. After push, require hosted `compose-smoke`, `rbac-regression`, `browser-regression`, Core/control-plane `runtime-smoke`, `dependency-scan`, `secret-scan`, and `image-security-and-sbom` before promotion.
+- Recommended commit message: `Release 3.24.12 with session-bound reauthentication for sensitive operations`.
+
+## 3.24.11 — Legacy Plaintext Invitation Fallback Removal
+
+**Goal:** Remove the final plaintext invitation-token compatibility path and make hashed invitation identity a database-enforced invariant.
+
+### Scope
+
+- Upgrade all remaining legacy invitations through a migration that clears plaintext values, retires rows without usable hashes, and makes `token_hash` mandatory.
+- Drop the plaintext `invites.token` column and index from upgraded and fresh-install schemas.
+- Claim invitations only by the SHA-256 hash of the supplied token; retain concurrency serialization and one-time conditional consumption.
+- Keep an aggregate-only inventory that proves whether the plaintext column still exists and whether any active invitation lacks a hash.
+- Prove fresh init, legacy upgrade, snapshot restore, replay, concurrency, audit hygiene, and identity preservation.
+
+### Acceptance Criteria
+
+- The maintained registration path contains no plaintext invitation lookup.
+- Fresh and upgraded schemas have no plaintext invitation-token column and require a unique non-null hash.
+- Legacy rows without a hash are revoked before receiving a non-claimable retirement hash; rows with valid hashes remain claimable after plaintext is cleared.
+- The aggregate inventory reports no plaintext column, no active missing hash, and fallback-removal readiness.
+- Migration, identity, auth abuse, RBAC, browser, runtime, version, release-feed, and security gates remain aligned.
+
+### Active Slice Notes
+
+- Selected on August 25, 2026 from the P0 follow-up left intentionally separate by `3.24.9`.
+- Status: complete locally on August 25, 2026. Hash-only fresh and upgraded schemas, legacy upgrade and restore behavior, live invitation abuse behavior, identity preservation, canonical and isolated runtimes, browser/RBAC regressions, observability, dependency audits, and maintained-source CodeQL all passed. Hosted CI must still confirm repository-history secret scanning and image security/SBOM generation after push.
+
+### Closeout
+
+- Roadmap slice: `3.24.11 — Legacy Plaintext Invitation Fallback Removal`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, and `docs/releases/v3.24.11.md`.
+- Runtime verification used: rebuilt and recreated the canonical `collectz-private` backend/frontend stack in place on port `3201`; live health and Help > Releases reported `3.24.11`. The live database had no `invites.token` column, required `token_hash`, contained zero missing hashes, and the aggregate inventory reported fallback-removal readiness with no plaintext exposure. The in-stack abuse smoke preserved one-time invitation behavior under concurrency (`200`/`400`), rejected replay and CSRF without consuming tokens, and found zero sensitive audit-value leaks. Separate Core and control-plane runtime stacks passed and cleaned up.
+- CI/checks run: all `360` backend unit checks, OpenAPI validation, frontend production build, CI preparation, version/feed validation, fresh-init parity, generic migration `120 -> 121` plus snapshot-restore rehearsal, identity upgrade/restore certification through migration `121`, ownership snapshot drift certification, live workspace authorization certification, canonical RBAC regression, cross-type isolation, Core Playwright regression (`71` passed, `4` expected homelab-only skips), Core runtime smoke, control-plane runtime smoke, observability evidence (`9/9`), backend/frontend production dependency audits (zero vulnerabilities), Help > Releases readback, local release preflight, and diff hygiene passed. Maintained-source CodeQL reported `5` baseline/suppressed results and `0` active findings. The full local release profile reported `15` passed, `0` failed, and `2` locally blocked.
+- Blocked/unverified: `gitleaks` is not installed locally, so hosted `secret-scan` must scan repository history. `trivy` is not installed locally, so hosted `image-security-and-sbom` must scan published images and generate CycloneDX artifacts. The canonical development profile intentionally uses insecure local cookies, so hosted `compose-smoke` must confirm the exact CI secure-cookie environment after push.
+- Files changed: migration `121`; fresh-install invitation schema and migration ledger; hash-only registration lookup; aggregate fallback inventory; secret-free invitation migration/restore evidence; identity certification baseline; focused unit coverage; synchronized version, release note, Help release feed, roadmap, and backlog records.
+- Risks or follow-ups: rollback requires the pre-upgrade database snapshot because discarded plaintext credential material is intentionally unrecoverable. Invitations created after that snapshot must be reissued after restore. Sensitive credential-operation reauthentication remains the final separate P0 authentication slice.
+- What remains in the milestone: no local implementation or verification work remains. After push, require hosted `compose-smoke`, `rbac-regression`, `browser-regression`, Core/control-plane `runtime-smoke`, `dependency-scan`, `secret-scan`, and `image-security-and-sbom` before promotion.
+- Recommended commit message: `Release 3.24.11 with database-enforced hash-only invitation tokens`.
+
+## 3.24.10 — Workspace Ownership and Authorization Certification
+
+**Goal:** Turn workspace ownership from scattered route and query conventions into a reviewed, machine-checked contract for every persisted table, maintained route, permission, and non-request execution path.
+
+### Scope
+
+- Maintain a generated-but-reviewed ownership snapshot for every fresh-install table and every Express route declaration; certification fails when schema, route, permission, scope, CSRF, session-credential, or locality metadata drifts.
+- Classify tables as installation-, workspace-, library-, user-, shared-reference-, or authorization-control-plane owned and record the direct or inherited ownership key plus legitimate compatibility exceptions.
+- Introduce stable permission keys and role bundles, then route workspace membership-management decisions through that policy rather than direct role-name comparisons.
+- Certify durable jobs, Plex webhook/reconciliation/readback, capture OCR, valuation, workspace export, media search, activity audit, and provider-backed repair paths against an explicit workspace source.
+- Require provider execution paths to use the workspace-owned valuation/OCR/repair behavior completed in `3.24.7`.
+- Add a production-shaped runtime smoke covering anonymous denial, read-only mutation denial, sibling-workspace detail and provider denial, identifier tampering, and durable-job isolation.
+- Wire static ownership drift and live authorization certification into the maintained RBAC CI job.
+
+### Acceptance Criteria
+
+- Every maintained table and route declaration has exactly one reviewed ownership/scope classification and new declarations fail CI until the snapshot is reviewed.
+- Authenticated route entries identify method, stable permission key, scope source, CSRF policy, session-credential requirement, and Core/control-plane locality.
+- Workspace execution paths cannot pass certification while they retain an installation-row, environment-credential, first-row, or implicit repair-script workspace fallback.
+- Permission evaluation rejects unknown keys and preserves owner/admin/member/viewer behavior through stable permission bundles.
+- Runtime evidence proves anonymous, insufficient-role, sibling-workspace, identifier-tampering, provider, and background-job denial while preserving intended read access.
+- The contract remains a prerequisite and evidence source for later non-owner database roles, staged RLS, explicit URL scope, and Cairn bridges; this slice does not activate those later architectures.
+
+### Active Slice Notes
+
+- Selected on August 24, 2026 from the TekDocs-to-CollectZ architecture review.
+- The valuation/OCR/repair execution entries are regenerated against the completed `3.24.7` workspace integration slice and must certify without deferred prerequisites.
+- Status: complete locally on August 25, 2026. The reviewed ownership snapshot, canonical live authorization proof, migration and identity certification, browser/RBAC regressions, isolated runtime stacks, observability evidence, dependency audits, and maintained-source CodeQL analysis all passed. Hosted CI must still confirm repository-history secret scanning and image security/SBOM generation after push.
+
+### Closeout
+
+- Roadmap slice: `3.24.10 — Workspace Ownership and Authorization Certification`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, and `docs/releases/v3.24.10.md`.
+- Runtime verification used: rebuilt and recreated the canonical `collectz-private` backend/frontend stack in place on port `3201`; live health and Help > Releases reported `3.24.10`. The in-stack certification classified `66` tables, `335` maintained route declarations (`320` authenticated), `11` permission keys, `44` tables with explicit same-workspace foreign-key expectations, and `11/11` selected execution paths without deferred prerequisites. Live PostgreSQL/API proof preserved intended viewer reads while denying anonymous access, viewer mutation, sibling-workspace detail and mutation access, identifier tampering, sibling provider readback, and sibling durable-job readback. Canonical RBAC and cross-type isolation passed. Separate production-shaped Core and control-plane stacks passed and cleaned up.
+- CI/checks run: all `360` backend unit checks, OpenAPI validation, frontend production build, CI preparation, version/feed validation, fresh-init parity, generic migration `119 -> 120` plus restore rehearsal, identity upgrade/restore certification through migration `120`, ownership snapshot drift certification, live workspace authorization certification, canonical RBAC regression, cross-type isolation, full Playwright regression (`71` passed, `4` expected homelab-only skips), Core runtime smoke, control-plane runtime smoke, observability evidence (`9/9`), backend/frontend production dependency audits (zero vulnerabilities), Help > Releases readback, local release preflight, and diff hygiene passed. Maintained-source CodeQL reported `5` baseline/suppressed results and `0` active findings. The full local release profile reported `15` passed, `0` failed, and `2` locally blocked.
+- Blocked/unverified: `gitleaks` is not installed locally, so hosted `secret-scan` must scan repository history. `trivy` is not installed locally, so hosted `image-security-and-sbom` must scan the published images and generate CycloneDX artifacts. The canonical development profile intentionally uses insecure local cookies, so hosted `compose-smoke` must confirm the exact CI secure-cookie environment after push.
+- Files changed: generated ownership/route/execution-path contract; table same-workspace foreign-key expectations; stable permission keys and role bundles; workspace membership-management policy integration; live authorization certification smoke; unit and RBAC CI wiring; version, release-feed, observability evidence, roadmap, backlog, CI, and release-checklist documentation.
+- Risks or follow-ups: the route contract maps current middleware behavior to stable permissions; converting every legacy role-name check to direct permission enforcement remains incremental. The certification does not activate a non-owner database role or RLS. A source pattern can prove required ownership evidence is present but cannot replace representative live isolation tests, so both static drift and runtime denial gates remain required.
+- What remains in the milestone: no local implementation or verification work remains. After push, require hosted `compose-smoke`, `rbac-regression`, `browser-regression`, Core/control-plane `runtime-smoke`, `dependency-scan`, `secret-scan`, and `image-security-and-sbom` before promotion.
+- Recommended commit message: `Release 3.24.10 with machine-checked workspace ownership and authorization certification`.
+
+## 3.24.9 — Authentication Audit Allowlist Enforcement
+
+**Goal:** Make authentication and invitation audit persistence fail closed to explicit minimal detail schemas, and complete focused invitation CSRF, rate-limit, and legacy-token inventory evidence.
+
+### Scope
+
+- Add a central catalog for every maintained `auth.*`, invitation, membership/ownership transfer, CSRF, and scope-denial activity action with explicitly allowed detail keys and normalized value types.
+- Reject unknown detail keys before database persistence and structured-log export; fail uncataloged future security-sensitive actions closed to an empty detail payload.
+- Remove submitted account and membership addresses, credential/token hashes, unnecessary token-row identifiers, device labels, free-form delivery failures, support-requester addresses, ownership-transfer labels, and profile before/after values from security-sensitive audit details.
+- Restrict generic request-outcome audit entries to method, query-free path, status, and duration instead of retaining response bodies or original query strings.
+- Apply a focused rate limiter to authenticated workspace invitation creation and revocation.
+- Extend the live Postgres auth abuse smoke to prove invitation create/revoke CSRF non-mutation, invitation limiter exhaustion, allowlisted stored detail keys, and absence of tested addresses, raw tokens, and token hashes.
+- Add a read-only, aggregate-only inventory of active/historical plaintext invitation-token state to determine whether later removal of the legacy lookup is safe; do not expose invite identities or token values.
+- Keep OpenAPI, rate-limit policy, logging/triage contracts, CI wiring, version/release artifacts, and runtime evidence aligned.
+
+### Acceptance Criteria
+
+- Every maintained security-sensitive auth activity action has exactly one explicit detail schema, and source/unit checks fail when a new action is uncataloged.
+- Unexpected fields and unsafe values cannot reach `activity_log.details` or structured log export for cataloged security-sensitive actions.
+- Submitted addresses, raw credentials/tokens, token hashes, cookie/header values, free-form delivery payloads, and unnecessary token-row identifiers are absent from focused live audit evidence.
+- Cookie-authenticated invitation create and revoke requests without matching CSRF proof return `403` and do not create or revoke an invitation.
+- Repeated authenticated invitation mutations reach a dedicated `429` without weakening the global or authentication limiter contracts.
+- The plaintext invitation inventory returns counts only and reports whether active rows still depend on plaintext or missing hashes.
+- The existing plaintext compatibility lookup remains unchanged and explicitly tracked for a later controlled removal slice.
+- OpenAPI, unit/runtime/browser/RBAC evidence, version metadata, release notes, Help > Releases, and relevant release gates remain aligned.
+
+### Active Slice Notes
+
+- Selected on August 24, 2026 as the bounded first slice of the P0 `Authentication Audit and Sensitive Operation Completion` program after `3.24.6` completed fragment-safe atomic token consumption.
+- Credential status/reveal/rotate/revoke reauthentication policy and actual removal of the legacy plaintext invitation lookup remain separate backlog tasks.
+- Status: complete locally on August 25, 2026. The canonical stack, production-shaped authentication abuse proof, migration and identity certification, browser/RBAC regressions, isolated runtime stacks, observability evidence, dependency audits, and maintained-source CodeQL analysis all passed. Hosted CI must still confirm repository-history secret scanning and image security/SBOM generation after push.
+
+### Closeout
+
+- Roadmap slice: `3.24.9 — Authentication Audit Allowlist Enforcement`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/02-Environment-Variables.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/13-Rate-Limit-Policy.md`, `docs/wiki/16-Activity-Triage-Runbook.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/22-Logging-and-Observability-Contract.md`, and `docs/releases/v3.24.9.md`.
+- Runtime verification used: rebuilt and recreated the canonical `collectz-private` backend/frontend stack in place on port `3201`; live health and Help > Releases reported `3.24.9`. A temporarily production-shaped canonical backend with secure cookies and explicit auth/invitation limits passed live PostgreSQL reset, verification, invitation, CSRF, limiter, and audit-persistence proof, then the canonical stack was restored to its normal development profile. Concurrent reset, invitation, and verification attempts each resolved as one `200` and one `400`; invitation create/revoke CSRF failures did not mutate state; auth and invitation limiters reached `429`; all `63` observed sensitive audit rows used cataloged keys; and no tested password, address, raw token, token hash, or credential material appeared in audit details. Aggregate invitation inventory reported zero active/historical plaintext tokens and zero missing hashes. Separate production-shaped Core and control-plane stacks passed and cleaned up.
+- CI/checks run: all `358` backend unit checks, OpenAPI validation, frontend production build, CI preparation, version/feed validation, fresh-init parity, generic migration `119 -> 120` plus restore rehearsal, identity upgrade/restore certification through migration `120`, canonical RBAC regression, cross-type isolation, full Playwright regression (`71` passed, `4` expected homelab-only skips), Core runtime smoke, control-plane runtime smoke, observability evidence (`9/9`), backend/frontend production dependency audits (zero vulnerabilities), Help > Releases readback, local release preflight, and diff hygiene passed. Maintained-source CodeQL reported `5` baseline/suppressed results and `0` active findings. The full local release profile reported `15` passed, `0` failed, and `2` locally blocked.
+- Blocked/unverified: `gitleaks` is not installed locally, so hosted `secret-scan` must scan repository history. `trivy` is not installed locally, so hosted `image-security-and-sbom` must scan the published images and generate CycloneDX artifacts. The canonical development profile intentionally uses insecure local cookies, while the secure-cookie production startup contract and focused abuse behavior were separately exercised; hosted `compose-smoke` must still confirm the exact CI environment after push.
+- Files changed: central authentication audit-detail contract and enforcement; minimized auth, invitation, membership, transfer, CSRF, and scope-denial callers; query-free request audit metadata; invitation mutation limiter and Compose/CI configuration; concurrency-safe invitation claims; expanded live abuse and unit/browser coverage; aggregate-only invitation-token inventory; OpenAPI, environment, rate-limit, logging, triage, CI, version, release-feed, evidence, roadmap, and backlog documentation.
+- Risks or follow-ups: credential reveal/rotate/revoke reauthentication remains independently backlogged. The clean invitation inventory says removal is eligible for a controlled migration, but this slice deliberately retains the legacy plaintext lookup for rollback compatibility. Historical audit rows are not rewritten. New security-sensitive actions fail closed to empty details until added to the reviewed contract.
+- What remains in the milestone: no local implementation or verification work remains. After push, require hosted `compose-smoke`, `rbac-regression`, `browser-regression`, Core/control-plane `runtime-smoke`, `dependency-scan`, `secret-scan`, and `image-security-and-sbom` before promotion.
+- Recommended commit message: `Release 3.24.9 with allowlisted authentication audit details and invitation abuse controls`.
+
+## 3.24.8 — Identity-Preserving Upgrade Certification
+
+**Goal:** Make every authentication, membership, role, session, ownership, encryption, or audit migration prove that a realistic identity fixture retains its explicitly intended authentication and authorization behavior across upgrade and restore.
+
+### Scope
+
+- Build a runtime-generated legacy identity fixture with a verified user and password credential, multiple workspace/library roles and memberships, active scope, concurrent sessions with versioned survival or revocation expectations, invitation/reset/verification lifecycle records, representative audit history, API and service-account key metadata, and MFA/recovery state when those features exist.
+- Capture a versioned, secret-free pre-upgrade manifest containing identifiers, counts, credential-presence flags, scope relationships, and explicit authentication/session expectations; exact fingerprints remain in memory only for comparison.
+- Keep default preservation and migration-specific session, active-scope, or API-credential revocation expectations in a reviewed versioned policy file; intentional security invalidation must be declared rather than silently weakening the certification.
+- Upgrade a cloned legacy database through the production migration runner, then authenticate and exercise real scoped API behavior rather than validating only columns and row counts.
+- Verify password login, verified-email state, global and workspace/library roles, active workspace/library reachability, session policy, decryptability of encrypted identity material, API/service-account key policy, and audit-history integrity.
+- Rehearse restore-based rollback and prove the baseline application can authenticate and resolve the original authorization state after restore.
+- Run the identity certification automatically when a release changes users, authentication tokens, sessions, memberships, roles, ownership columns, encryption, or audit storage; retain the smaller generic migration rehearsal for unrelated migrations.
+- Scan certification evidence before publication and fail if plaintext passwords, tokens, keys, recovery values, or secret-bearing command strings are retained.
+
+### Acceptance Criteria
+
+- A representative legacy identity authenticates after upgrade and can access exactly the same intended workspaces, libraries, and permissions unless a versioned migration policy explicitly changes that behavior.
+- Verified-email state, role, memberships, audit history, API/service-account key metadata, concurrent-session policy, and implemented encrypted/recovery state match the pre-upgrade manifest.
+- Restore-based rollback returns the fixture to valid pre-upgrade authentication and authorization behavior.
+- Fixture credentials are generated at runtime; production credentials and copied production identity records are never used.
+- Evidence contains no plaintext password, token, key, recovery value, or secret-bearing command.
+- The generic migration rehearsal remains available for migrations that do not affect identity or authorization behavior.
+
+### Active Slice Notes
+
+- Selected on August 24, 2026 from the TekDocs-to-CollectZ architecture review supplied by the maintainer.
+- Milestone `3.24.8` follows the separately preserved `3.24.7` workspace-integration ownership slice; it does not reuse or absorb that work.
+- This certification is a prerequisite for non-owner runtime database roles, staged row-level security, and migration-chain fresh-install authority.
+- Status: complete on August 25, 2026. Automatic certification from migration `119` through `120` and forced historical certification from `118` through `120` both preserved declared identity behavior before upgrade, after the production migration runner, and after snapshot restore. Canonical and isolated release gates passed; hosted CI promotion gates remain after push.
+
+### Closeout
+
+- Roadmap slice: `3.24.8 — Identity-Preserving Upgrade Certification`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, and `docs/releases/v3.24.8.md`.
+- Runtime verification used: rebuilt the canonical `collectz-private` backend/frontend/PostgreSQL stack in place on port `3201`; health and Help > Releases reported `3.24.8`. The live database ran automatic `119 -> 120` and forced `118 -> 120` identity certifications. Baseline, upgraded, and restored applications each accepted the runtime-generated password, preserved verified email, two declared sessions, owner/viewer workspace and library relationships, active scope, personal API access, and service-account access. Temporary certification databases were dropped after each run. Separate production-shaped Core and control-plane stacks passed and cleaned up.
+- CI/checks run: all `353` backend unit checks, OpenAPI validation, frontend production build, CI preparation/YAML parsing, current init parity, generic migration `119 -> 120` plus restore rehearsal, canonical RBAC regression, cross-type isolation, full Playwright regression (`71` passed, `4` expected homelab-only skips), Core runtime smoke, control-plane runtime smoke, observability evidence (`9/9`), backend/frontend production dependency audits (zero vulnerabilities), semantic identity-evidence preflight, and diff hygiene passed. A new CodeQL finding against redundant password-hash fingerprinting was fixed by removing that evidence field; the final maintained-source analysis reported `5` baseline/suppressed results and `0` active findings.
+- Blocked/unverified: the canonical development stack intentionally runs with `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`, so hosted `compose-smoke` must confirm the CI secure-cookie contract. `gitleaks` is not installed locally, so hosted `secret-scan` must scan repository history. `trivy` is not installed locally, so hosted `image-security-and-sbom` must scan images and produce CycloneDX artifacts. The full browser and both runtime gates passed independently despite those local-tool blocks.
+- Files changed: identity policy, certification runner, current identity/init/migration evidence, migration-rehearsal fixture hygiene, test-gated server startup control, migration-check CI and release artifact collection, semantic local preflight validation, version/release/feed metadata, and roadmap/release/CI checklist documentation.
+- Risks or follow-ups: MFA/recovery and encrypted user identity material remain explicitly `notImplemented` and need fixtures when those capabilities exist. Intentional future session, scope, or API-credential invalidation must be declared in the versioned policy. Selector breadth intentionally favors false-positive certification over missing an identity-sensitive migration.
+- What remains in the milestone: no local implementation or verification work remains. After push, require hosted `compose-smoke`, `rbac-regression`, `browser-regression`, Core/control-plane `runtime-smoke`, `dependency-scan`, `secret-scan`, and `image-security-and-sbom` before promotion.
+- Recommended commit message: `Release 3.24.8 with identity-preserving migration and restore certification`.
+
+## 3.24.7 — Workspace-Owned Valuation and OCR Integrations
+
+**Goal:** Finish the remaining integration ownership cleanup by making valuation, capture-image OCR, and provider-backed maintenance execution resolve only from the workspace that owns the target data.
+
+### Scope
+
+- Make PriceCharting and eBay Browse settings, credentials, enablement, and execution workspace-owned.
+- Make Vision/OCR settings, credentials, enablement, and capture execution workspace-owned.
+- Permit inheritance only for documented non-secret provider defaults such as built-in endpoints, presets, rate-limit floors, and marketplace identifiers; never inherit credentials from another workspace or the installation integration row.
+- Remove the valuation import path's unrelated Kavita credential check and installation-row fallback.
+- Require provider-backed repair utilities to receive an explicit workspace and scope their selected/updated rows to it.
+- Add workspace integration API/readback, OpenAPI, UI, cross-workspace isolation, secret-masking, migration/init parity, and live runtime coverage.
+- Keep analytics, metrics, external log delivery, and other platform-runtime integrations installation-owned and absent from workspace mutation surfaces.
+
+### Acceptance Criteria
+
+- Valuation refreshes and OCR jobs use the exact `app_integrations.space_id` row belonging to the target record.
+- Missing workspace credentials or disabled providers fail closed without using another workspace, environment credential, Kavita state, or installation row `id=1`.
+- Workspace readback distinguishes workspace-owned secrets from inherited non-secret defaults and never returns raw credentials.
+- Workspace managers can configure and clear valuation/OCR credentials through the maintained workspace integration endpoint and UI.
+- Provider-backed repair scripts require `--space-id`, restrict their queries and updates to that workspace, and never load installation configuration.
+- Platform-only runtime integrations remain read-only/absent on workspace integration routes.
+- OpenAPI, migration/init parity, unit/runtime/browser/RBAC evidence, version metadata, release notes, and Help > Releases remain aligned.
+
+### Active Slice Notes
+
+- Selected on August 24, 2026 from the P0 `Remaining Workspace Integration Ownership Cleanup` backlog continuation after `3.24.5` corrected provider-screen and Plex ownership.
+- The explicit inheritance contract in this slice is intentionally narrow: built-in non-secret defaults may be reused, but workspace execution never inherits stored or environment credentials.
+- Status: complete on August 24, 2026. The canonical stack, isolated release runtimes, migration/init paths, browser/RBAC regressions, observability evidence, production dependency audits, and maintained-source CodeQL analysis all passed. Hosted CI must still confirm its secure-cookie `compose-smoke`, repository-history `secret-scan`, and image-security/SBOM gates after push.
+
+### Closeout
+
+- Roadmap slice: `3.24.7 — Workspace-Owned Valuation and OCR Integrations`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, and `docs/releases/v3.24.7.md`.
+- Runtime verification used: rebuilt and recreated the canonical `collectz-private` backend/frontend/PostgreSQL stack in place on port `3201`; live health and authenticated Help > Releases readback reported `3.24.7`. In-stack valuation/OCR ownership and capture-image OCR smokes proved exact-workspace credential selection, cross-workspace denial, masked secret readback, fail-closed missing configuration, and platform-only integration exclusion. Separate production-shaped Core and control-plane stacks passed their edition-boundary smokes and removed their temporary volumes afterward.
+- CI/checks run: all `352` backend unit checks, OpenAPI validation, frontend production build, fresh-init parity, migration `119 -> 120` rehearsal, RBAC regression, cross-type isolation, workspace integration ownership smoke, capture OCR smoke, full Playwright regression (`71` passed, `4` expected homelab-only skips), Core runtime smoke, control-plane runtime smoke, observability evidence (`9/9`), backend/frontend production dependency audits (zero vulnerabilities), local release preflight, and diff hygiene passed. Local CodeQL reported `5` suppressed/baseline results and `0` active findings after updating its managed CLI to `2.26.3`.
+- Blocked/unverified: the canonical development stack intentionally runs with `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`, so hosted `compose-smoke` must confirm the CI secure-cookie contract. `gitleaks` is not installed locally, so hosted `secret-scan` must scan repository history. `trivy` is not installed locally, so hosted `image-security-and-sbom` must scan the published images and generate the required CycloneDX artifacts. The full browser and both runtime gates were independently run locally despite the standalone preflight helper listing those checks as hosted follow-through.
+- Files changed: version/release/feed metadata; migration `120` and fresh-init parity; workspace integration API, OpenAPI, settings UI, and provider loaders; valuation, capture OCR, and provider-backed repair workspace routing; focused unit/runtime/browser certification; release evidence; roadmap and backlog cross-references.
+- Risks or follow-ups: legacy installation-row provider values remain stored only for rollback compatibility and are ignored by corrected valuation/OCR execution. Live third-party calls remain operator-controlled; automation uses fixture and isolation proofs. A later controlled cleanup may remove unused legacy fields after rollback compatibility is no longer needed.
+- What remains in the milestone: no local implementation or verification work remains. After push, require hosted `compose-smoke`, `rbac-regression`, `browser-regression`, Core/control-plane `runtime-smoke`, `dependency-scan`, `secret-scan`, and `image-security-and-sbom` before promotion.
+- Recommended commit message: `Release 3.24.7 with workspace-owned valuation and OCR integration enforcement`.
 ## 3.24.6 — Authentication Token Consumption Hardening
 
 **Goal:** Prevent credential-recovery and invitation tokens from leaking through request URLs, and make one-time token consumption safe under replay and concurrency.
@@ -84,7 +330,7 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 - CI/checks run: backend unit coverage passed all `347` checks; OpenAPI, frontend production build, API integration smoke, RBAC regression, platform boundary, init parity, migration rehearsal, and focused Plex workspace scope smoke passed. The full Playwright suite passed `69` checks with `4` expected homelab-only skips. Isolated Core and control-plane runtime smokes passed. Observability evidence passed `9/9`; backend and frontend production dependency audits reported zero vulnerabilities; the standard local release gate passed `12/12`; targeted generated-artifact secret-pattern scanning and `git diff --check` passed.
 - Blocked/unverified: the strict local compose preflight cannot prove CI secure-cookie settings against the intentionally development-configured canonical stack (`SESSION_COOKIE_SECURE=false`, `NODE_ENV=development`), although in-stack health, security headers, API integration, RBAC, and isolated runtime checks passed. `gitleaks` is not installed locally, so repository-history `secret-scan` remains hosted-only. `trivy` and `syft` are not installed locally, so `image-security-and-sbom` and CycloneDX generation remain hosted-only. Hosted CI must rerun the exact `compose-smoke` and all publish gates after push.
 - Files changed: version and release/feed metadata; workspace integration persistence and response shaping; Plex webhook, scheduler, reconciliation, and readback scope resolution; provider-screen and media-drawer workspace routing; OpenAPI; unit, focused Docker, and Playwright scope coverage; canonical-project release preflight routing; Plex workflow, roadmap, backlog, and release documentation; and refreshed dependency, migration, observability, and preflight evidence.
-- Risks or follow-ups: when more than one workspace enables a scheduler with different cadences, the in-process scheduler uses the shortest enabled workspace interval and applies each run only to enabled workspace targets; exact per-workspace timer isolation would require a later scheduler architecture. PriceCharting/eBay valuation and Vision/OCR execution ownership remain in `Remaining Workspace Integration Ownership Cleanup`. The homelab-only workspace SMTP override remains independently backlogged. No new UI pattern was introduced; the existing integration surface was only routed to its correct owner.
+- Risks or follow-ups: when more than one workspace enables a scheduler with different cadences, the in-process scheduler uses the shortest enabled workspace interval and applies each run only to enabled workspace targets; exact per-workspace timer isolation would require a later scheduler architecture. PriceCharting/eBay valuation and Vision/OCR execution ownership were completed in `3.24.7`. The homelab-only workspace SMTP override remains independently backlogged. No new UI pattern was introduced; the existing integration surface was only routed to its correct owner.
 - What remains in the milestone: no local implementation work remains; after push, require hosted `compose-smoke`, `rbac-regression`, `browser-regression`, Core/control-plane `runtime-smoke`, `dependency-scan`, `secret-scan`, and `image-security-and-sbom` before promotion.
 - Recommended commit message: `Release 3.24.5 with workspace-owned provider settings and Plex automation runtime`.
 

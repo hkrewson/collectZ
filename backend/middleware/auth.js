@@ -24,9 +24,15 @@ const parseBoolean = (value, fallback) => {
   return ['1', 'true', 'yes', 'on'].includes(String(value).toLowerCase());
 };
 
+const parsePositiveInt = (value, fallback) => {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+};
+
 const ALLOW_SESSION_BEARER_FALLBACK = parseBoolean(process.env.ALLOW_SESSION_BEARER_FALLBACK, false);
 const SESSION_COOKIE_NAME = String(process.env.SESSION_COOKIE_NAME || 'session_token').trim() || 'session_token';
 const CSRF_COOKIE_NAME = String(process.env.CSRF_COOKIE_NAME || 'csrf_token').trim() || 'csrf_token';
+const REAUTH_MAX_AGE_MINUTES = parsePositiveInt(process.env.REAUTH_MAX_AGE_MINUTES, 15);
 
 const extractBearerToken = (req) => {
   const authHeader = req.headers['authorization'];
@@ -60,7 +66,7 @@ const requirePatScopesForRequest = async (req, res) => {
     void logActivity(req, 'auth.pat.denied', 'http_request', null, {
       reason: 'unsupported_route',
       method: req.method,
-      url: req.originalUrl
+      path: req.originalUrl?.split('?')[0]
     });
     res.status(403).json({ error: 'Personal access tokens are not supported for this route' });
     return false;
@@ -70,7 +76,7 @@ const requirePatScopesForRequest = async (req, res) => {
     void logActivity(req, 'auth.pat.denied', 'http_request', null, {
       reason: 'insufficient_scope',
       method: req.method,
-      url: req.originalUrl,
+      path: req.originalUrl?.split('?')[0],
       requiredScopes
     });
     res.status(403).json({ error: 'Personal access token scope is insufficient for this route' });
@@ -85,7 +91,7 @@ const requireServiceAccountAccessForRequest = async (req, res) => {
     void logActivity(req, 'auth.service_account.denied', 'http_request', null, {
       reason: 'disallowed_prefix',
       method: req.method,
-      url: req.originalUrl,
+      path: req.originalUrl?.split('?')[0],
       allowedPrefixes: req.authContext?.allowedPrefixes || []
     });
     res.status(403).json({ error: 'Service account key is not allowed for this route' });
@@ -97,7 +103,7 @@ const requireServiceAccountAccessForRequest = async (req, res) => {
     void logActivity(req, 'auth.service_account.denied', 'http_request', null, {
       reason: 'unsupported_route',
       method: req.method,
-      url: req.originalUrl
+      path: req.originalUrl?.split('?')[0]
     });
     res.status(403).json({ error: 'Service account keys are not supported for this route' });
     return false;
@@ -107,7 +113,7 @@ const requireServiceAccountAccessForRequest = async (req, res) => {
     void logActivity(req, 'auth.service_account.denied', 'http_request', null, {
       reason: 'insufficient_scope',
       method: req.method,
-      url: req.originalUrl,
+      path: req.originalUrl?.split('?')[0],
       requiredScopes
     });
     res.status(403).json({ error: 'Service account key scope is insufficient for this route' });
@@ -123,7 +129,7 @@ const requireMobileAccessForRequest = async (req, res) => {
     void logActivity(req, 'auth.mobile.denied', 'http_request', null, {
       reason: 'unsupported_route',
       method: req.method,
-      url: req.originalUrl
+      path: req.originalUrl?.split('?')[0]
     });
     res.status(403).json({ error: 'Mobile tokens are not supported for this route' });
     return false;
@@ -133,7 +139,7 @@ const requireMobileAccessForRequest = async (req, res) => {
     void logActivity(req, 'auth.mobile.denied', 'http_request', null, {
       reason: 'insufficient_scope',
       method: req.method,
-      url: req.originalUrl,
+      path: req.originalUrl?.split('?')[0],
       requiredScopes
     });
     res.status(403).json({ error: 'Mobile token scope is insufficient for this route' });
@@ -235,7 +241,7 @@ const authenticateToken = async (req, res, next) => {
         void logActivity(req, 'auth.mobile.denied', 'http_request', null, {
           reason: 'invalid_or_expired_api_token',
           method: req.method,
-          url: req.originalUrl
+          path: req.originalUrl?.split('?')[0]
         });
         return res.status(401).json({ error: 'Invalid or expired API token' });
       }
@@ -250,7 +256,7 @@ const authenticateToken = async (req, res, next) => {
     void logActivity(req, 'auth.access.denied', 'http_request', null, {
       reason: deniedReason,
       method: req.method,
-      url: req.originalUrl
+      path: req.originalUrl?.split('?')[0]
     });
     if (deniedReason === 'bearer_session_fallback_disabled') {
       return res.status(401).json({ error: 'Bearer session auth is disabled for browser hardening' });
@@ -267,7 +273,7 @@ const authenticateToken = async (req, res, next) => {
       void logActivity(req, 'auth.access.denied', 'http_request', null, {
         reason: 'invalid_or_expired_session',
         method: req.method,
-        url: req.originalUrl
+        path: req.originalUrl?.split('?')[0]
       });
       return res.status(401).json({ error: 'Invalid or expired session' });
     }
@@ -287,7 +293,11 @@ const authenticateToken = async (req, res, next) => {
       supportPreviousSpaceId: sessionUser.support_previous_space_id ?? null,
       supportPreviousLibraryId: sessionUser.support_previous_library_id ?? null
     };
-    req.authContext = { type: 'session', scopes: [] };
+    req.authContext = {
+      type: 'session',
+      scopes: [],
+      reauthenticatedAt: sessionUser.reauthenticated_at || null
+    };
     req.sessionId = sessionUser.session_id;
     next();
   } catch (error) {
@@ -307,7 +317,7 @@ const requireRole = (...roles) => (req, res, next) => {
     void logActivity(req, 'auth.permission.denied', 'http_request', null, {
       reason: 'insufficient_permissions',
       method: req.method,
-      url: req.originalUrl,
+      path: req.originalUrl?.split('?')[0],
       requiredRoles: roles,
       userRole: req.user?.role || null
     });
@@ -321,10 +331,34 @@ const requireSessionAuth = (req, res, next) => {
     void logActivity(req, 'auth.permission.denied', 'http_request', null, {
       reason: 'session_auth_required',
       method: req.method,
-      url: req.originalUrl,
+      path: req.originalUrl?.split('?')[0],
       authType: req.authContext?.type || null
     });
     return res.status(403).json({ error: 'Session authentication is required for this route' });
+  }
+  next();
+};
+
+const hasRecentReauthentication = (req, now = Date.now()) => {
+  if (req.authContext?.type !== 'session' || !req.sessionId) return false;
+  const timestamp = new Date(req.authContext.reauthenticatedAt || 0).getTime();
+  return Number.isFinite(timestamp)
+    && timestamp > 0
+    && now - timestamp <= REAUTH_MAX_AGE_MINUTES * 60 * 1000;
+};
+
+const requireRecentReauthentication = (req, res, next) => {
+  if (!hasRecentReauthentication(req)) {
+    void logActivity(req, 'auth.reauthentication.required', 'http_request', null, {
+      reason: req.authContext?.type === 'session' ? 'stale_or_missing_proof' : 'session_auth_required',
+      method: req.method,
+      path: req.originalUrl?.split('?')[0]
+    });
+    return res.status(403).json({
+      error: 'Recent password confirmation is required for this operation',
+      code: 'recent_reauthentication_required',
+      maxAgeMinutes: REAUTH_MAX_AGE_MINUTES
+    });
   }
   next();
 };
@@ -353,6 +387,9 @@ module.exports = {
   authenticateToken,
   requireRole,
   requireSessionAuth,
+  requireRecentReauthentication,
+  hasRecentReauthentication,
+  REAUTH_MAX_AGE_MINUTES,
   SESSION_COOKIE_OPTIONS,
   CSRF_COOKIE_OPTIONS,
   resolveSessionToken,

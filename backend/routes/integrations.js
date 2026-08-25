@@ -3,7 +3,7 @@ const axios = require('axios');
 const multer = require('multer');
 const pool = require('../db/pool');
 const { asyncHandler } = require('../middleware/errors');
-const { authenticateToken, requireRole } = require('../middleware/auth');
+const { authenticateToken, requireRole, requireSessionAuth, requireRecentReauthentication } = require('../middleware/auth');
 const { isHomelabEdition } = require('../config/productEdition');
 const {
   loadAdminIntegrationConfig,
@@ -542,7 +542,7 @@ sharedRouter.get('/admin/settings/integrations', authenticateToken, requireRole(
   res.json(await (HOMELAB_EDITION ? buildHomelabIntegrationPayload(config, req) : buildPlatformIntegrationPayload(config, req)));
 }));
 
-sharedRouter.post('/admin/settings/integrations/plex-now-playing-display-token', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
+sharedRouter.post('/admin/settings/integrations/plex-now-playing-display-token', authenticateToken, requireSessionAuth, requireRecentReauthentication, requireRole('admin'), asyncHandler(async (req, res) => {
   const token = generateNowPlayingDisplayToken();
   const tokenHash = hashNowPlayingDisplayToken(token);
   const result = await pool.query(
@@ -575,7 +575,7 @@ sharedRouter.post('/admin/settings/integrations/plex-now-playing-display-token',
   });
 }));
 
-sharedRouter.delete('/admin/settings/integrations/plex-now-playing-display-token', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
+sharedRouter.delete('/admin/settings/integrations/plex-now-playing-display-token', authenticateToken, requireSessionAuth, requireRecentReauthentication, requireRole('admin'), asyncHandler(async (req, res) => {
   await pool.query(
     `UPDATE app_integrations
         SET plex_now_playing_display_token_hash = NULL,
@@ -596,7 +596,7 @@ sharedRouter.delete('/admin/settings/integrations/plex-now-playing-display-token
   });
 }));
 
-sharedRouter.post('/admin/settings/integrations/plex-webhook-receiver-token', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
+sharedRouter.post('/admin/settings/integrations/plex-webhook-receiver-token', authenticateToken, requireSessionAuth, requireRecentReauthentication, requireRole('admin'), asyncHandler(async (req, res) => {
   const token = generatePlexWebhookReceiverToken();
   const tokenHash = hashPlexWebhookReceiverToken(token);
   const result = await pool.query(
@@ -630,7 +630,7 @@ sharedRouter.post('/admin/settings/integrations/plex-webhook-receiver-token', au
   });
 }));
 
-sharedRouter.delete('/admin/settings/integrations/plex-webhook-receiver-token', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
+sharedRouter.delete('/admin/settings/integrations/plex-webhook-receiver-token', authenticateToken, requireSessionAuth, requireRecentReauthentication, requireRole('admin'), asyncHandler(async (req, res) => {
   await pool.query(
     `UPDATE app_integrations
         SET plex_webhook_receiver_token_hash = NULL,
@@ -649,7 +649,7 @@ sharedRouter.delete('/admin/settings/integrations/plex-webhook-receiver-token', 
   });
 }));
 
-sharedRouter.post('/admin/settings/integrations/plex-webhook-receiver-validate', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
+sharedRouter.post('/admin/settings/integrations/plex-webhook-receiver-validate', authenticateToken, requireSessionAuth, requireRecentReauthentication, requireRole('admin'), asyncHandler(async (req, res) => {
   const row = await pool.query('SELECT * FROM app_integrations WHERE id = 1');
   const config = normalizeIntegrationRecord(row.rows[0] || null);
   const validation = validatePlexWebhookReceiverSetup(config, req);
@@ -703,7 +703,7 @@ sharedRouter.put('/admin/settings/integrations/plex-now-playing-display-preferen
   });
 }));
 
-sharedRouter.put('/admin/settings/integrations', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
+sharedRouter.put('/admin/settings/integrations', authenticateToken, requireSessionAuth, requireRecentReauthentication, requireRole('admin'), asyncHandler(async (req, res) => {
   const {
     logExportBackend, logExportHost, logExportPort, logExportHostLabel, logExportService, logExportDebug
   } = req.body;
@@ -1097,7 +1097,7 @@ sharedRouter.put('/admin/settings/integrations', authenticateToken, requireRole(
 
 // ── Integration test endpoints ────────────────────────────────────────────────
 
-sharedRouter.post('/admin/settings/integrations/test-barcode', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
+sharedRouter.post('/admin/settings/integrations/test-barcode', authenticateToken, requireSessionAuth, requireRecentReauthentication, requireRole('admin'), asyncHandler(async (req, res) => {
   const { upc } = req.body || {};
   const config = await loadAdminIntegrationConfig();
   const testUpc = String(upc || '012569828708').trim();
@@ -1124,7 +1124,7 @@ sharedRouter.post('/admin/settings/integrations/test-barcode', authenticateToken
   });
 }));
 
-sharedRouter.post('/admin/settings/integrations/test-tmdb', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
+sharedRouter.post('/admin/settings/integrations/test-tmdb', authenticateToken, requireSessionAuth, requireRecentReauthentication, requireRole('admin'), asyncHandler(async (req, res) => {
   const { title, year } = req.body || {};
   const config = await loadAdminIntegrationConfig();
 
@@ -1145,7 +1145,7 @@ sharedRouter.post('/admin/settings/integrations/test-tmdb', authenticateToken, r
   }
 }));
 
-sharedRouter.post('/admin/settings/integrations/test-plex', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
+sharedRouter.post('/admin/settings/integrations/test-plex', authenticateToken, requireSessionAuth, requireRecentReauthentication, requireRole('admin'), asyncHandler(async (req, res) => {
   const config = await loadAdminIntegrationConfig();
   if (!config.plexApiUrl) {
     return res.status(400).json({ ok: false, authenticated: false, detail: 'Plex API URL is not configured' });
@@ -1184,7 +1184,7 @@ sharedRouter.post('/admin/settings/integrations/test-plex', authenticateToken, r
   }
 }));
 
-sharedRouter.post('/admin/settings/integrations/test-plex-providers', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
+sharedRouter.post('/admin/settings/integrations/test-plex-providers', authenticateToken, requireSessionAuth, requireRecentReauthentication, requireRole('admin'), asyncHandler(async (req, res) => {
   const config = await loadAdminIntegrationConfig();
   if (!config.plexApiUrl) {
     return res.status(400).json({ ok: false, authenticated: false, detail: 'Plex API URL is not configured' });
@@ -1219,7 +1219,7 @@ sharedRouter.post('/admin/settings/integrations/test-plex-providers', authentica
   }
 }));
 
-sharedRouter.post('/admin/settings/integrations/test-plex-now-playing', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
+sharedRouter.post('/admin/settings/integrations/test-plex-now-playing', authenticateToken, requireSessionAuth, requireRecentReauthentication, requireRole('admin'), asyncHandler(async (req, res) => {
   const config = await loadAdminIntegrationConfig();
   if (!config.plexApiUrl) {
     return res.status(400).json({ ok: false, authenticated: false, detail: 'Plex API URL is not configured' });
@@ -1254,7 +1254,7 @@ sharedRouter.post('/admin/settings/integrations/test-plex-now-playing', authenti
   }
 }));
 
-sharedRouter.post('/admin/settings/integrations/test-books', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
+sharedRouter.post('/admin/settings/integrations/test-books', authenticateToken, requireSessionAuth, requireRecentReauthentication, requireRole('admin'), asyncHandler(async (req, res) => {
   const { title, author } = req.body || {};
   const config = await loadAdminIntegrationConfig();
   if (!config.booksApiUrl) {
@@ -1283,7 +1283,7 @@ sharedRouter.post('/admin/settings/integrations/test-books', authenticateToken, 
   }
 }));
 
-sharedRouter.post('/admin/settings/integrations/test-audio', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
+sharedRouter.post('/admin/settings/integrations/test-audio', authenticateToken, requireSessionAuth, requireRecentReauthentication, requireRole('admin'), asyncHandler(async (req, res) => {
   const { title, artist } = req.body || {};
   const config = await loadAdminIntegrationConfig();
   if (!config.audioApiUrl) {
@@ -1312,7 +1312,7 @@ sharedRouter.post('/admin/settings/integrations/test-audio', authenticateToken, 
   }
 }));
 
-sharedRouter.post('/admin/settings/integrations/test-games', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
+sharedRouter.post('/admin/settings/integrations/test-games', authenticateToken, requireSessionAuth, requireRecentReauthentication, requireRole('admin'), asyncHandler(async (req, res) => {
   const { title } = req.body || {};
   const config = await loadAdminIntegrationConfig();
   if (!config.gamesApiUrl) {
@@ -1341,7 +1341,7 @@ sharedRouter.post('/admin/settings/integrations/test-games', authenticateToken, 
   }
 }));
 
-sharedRouter.post('/admin/settings/integrations/test-comics', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
+sharedRouter.post('/admin/settings/integrations/test-comics', authenticateToken, requireSessionAuth, requireRecentReauthentication, requireRole('admin'), asyncHandler(async (req, res) => {
   const { title } = req.body || {};
   const config = await loadAdminIntegrationConfig();
   if (!config.comicsApiUrl) {
@@ -1382,7 +1382,7 @@ sharedRouter.post('/admin/settings/integrations/test-comics', authenticateToken,
   }
 }));
 
-sharedRouter.post('/admin/settings/integrations/test-cwa', authenticateToken, requireRole('admin'), asyncHandler(async (_req, res) => {
+sharedRouter.post('/admin/settings/integrations/test-cwa', authenticateToken, requireSessionAuth, requireRecentReauthentication, requireRole('admin'), asyncHandler(async (_req, res) => {
   return res.status(410).json({
     ok: false,
     authenticated: false,
@@ -1392,7 +1392,7 @@ sharedRouter.post('/admin/settings/integrations/test-cwa', authenticateToken, re
   });
 }));
 
-sharedRouter.post('/admin/settings/integrations/test-kavita', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
+sharedRouter.post('/admin/settings/integrations/test-kavita', authenticateToken, requireSessionAuth, requireRecentReauthentication, requireRole('admin'), asyncHandler(async (req, res) => {
   const storedConfig = await loadAdminIntegrationConfig();
   const config = {
     ...storedConfig,

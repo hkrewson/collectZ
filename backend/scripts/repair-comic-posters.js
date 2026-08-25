@@ -1,19 +1,31 @@
 'use strict';
 
 const pool = require('../db/pool');
-const { loadAdminIntegrationConfig } = require('../services/integrations');
+const { loadWorkspaceComicsIntegrationConfig } = require('../services/integrations');
 const { fetchMetronIssueDetails } = require('../services/comics');
 
 function parseArgs(argv = []) {
   const args = {
     apply: false,
-    limit: 500
+    limit: 500,
+    spaceId: null
   };
   for (let i = 0; i < argv.length; i += 1) {
     const token = String(argv[i] || '').trim();
     if (!token) continue;
     if (token === '--apply') {
       args.apply = true;
+      continue;
+    }
+    if (token.startsWith('--space-id=')) {
+      const value = Number(token.split('=')[1]);
+      if (Number.isSafeInteger(value) && value > 0) args.spaceId = value;
+      continue;
+    }
+    if (token === '--space-id') {
+      const value = Number(argv[i + 1]);
+      if (Number.isSafeInteger(value) && value > 0) args.spaceId = value;
+      i += 1;
       continue;
     }
     if (token.startsWith('--limit=')) {
@@ -32,7 +44,8 @@ function parseArgs(argv = []) {
 
 async function run() {
   const options = parseArgs(process.argv.slice(2));
-  const config = await loadAdminIntegrationConfig();
+  if (!options.spaceId) throw new Error('--space-id is required');
+  const config = await loadWorkspaceComicsIntegrationConfig(options.spaceId);
   if (String(config.comicsProvider || '').toLowerCase() !== 'metron') {
     throw new Error('Comics provider is not set to metron');
   }
@@ -40,17 +53,19 @@ async function run() {
   const rows = await pool.query(
     `SELECT id, title, poster_path, type_details
      FROM media
-     WHERE media_type = 'comic_book'
+     WHERE space_id = $1
+       AND media_type = 'comic_book'
        AND COALESCE(NULLIF(trim(poster_path), ''), '') = ''
        AND COALESCE(type_details->>'provider_issue_id', '') <> ''
      ORDER BY id ASC
-     LIMIT $1`,
-    [options.limit]
+     LIMIT $2`,
+    [options.spaceId, options.limit]
   );
 
   const candidates = rows.rows || [];
   const summary = {
     mode: options.apply ? 'apply' : 'dry-run',
+    spaceId: options.spaceId,
     scanned: candidates.length,
     foundPoster: 0,
     updated: 0,
@@ -79,8 +94,9 @@ async function run() {
           `UPDATE media
            SET poster_path = $2,
                updated_at = NOW()
-           WHERE id = $1`,
-          [row.id, poster]
+           WHERE id = $1
+             AND space_id = $3`,
+          [row.id, poster, options.spaceId]
         );
         summary.updated += 1;
       }
@@ -110,4 +126,3 @@ run()
       // ignore close errors
     }
   });
-

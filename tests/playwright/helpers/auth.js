@@ -234,8 +234,8 @@ async function createDirectUser({ email, password, name, role = 'admin' }) {
     "const role=process.argv[4] || 'admin';",
     "const hash=await bcrypt.hash(password,12);",
     "const result=await pool.query(`INSERT INTO users (email, password, name, role, email_verified, email_verified_at) VALUES ($1, $2, $3, $4, true, NOW()) RETURNING id, email, name, role`, [email, hash, name, role]);",
-    "await ensureUserDefaultScope(result.rows[0].id);",
-    "console.log(JSON.stringify(result.rows[0]));",
+    "const scope=await ensureUserDefaultScope(result.rows[0].id);",
+    "console.log(JSON.stringify({...result.rows[0],active_space_id:scope.spaceId||null,active_library_id:scope.libraryId||null}));",
     "await pool.end();",
     "})().catch((error)=>{console.error(error.stack||error.message||error);process.exit(1);});"
   ].join('');
@@ -471,13 +471,20 @@ async function createFreshUserCredentials() {
   const roleSlug = role.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
   const fallbackEmail = `playwright-${roleSlug}-${Date.now()}@example.com`;
   const fallbackPassword = randomEphemeralPassword();
-  await createDirectUser({
+  const createdUser = await createDirectUser({
     email: fallbackEmail,
     password: fallbackPassword,
     name: fallbackName,
     role
   });
-  const createdCredentials = { email: fallbackEmail, password: fallbackPassword, name: fallbackName, role };
+  const createdCredentials = {
+    email: fallbackEmail,
+    password: fallbackPassword,
+    name: fallbackName,
+    role,
+    activeSpaceId: Number(createdUser?.active_space_id || 0) || null,
+    activeLibraryId: Number(createdUser?.active_library_id || 0) || null
+  };
   if (!noCache) FRESH_CREDENTIALS_CACHE.set(role, createdCredentials);
   return { ...createdCredentials };
 }

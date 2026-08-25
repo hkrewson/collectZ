@@ -13,8 +13,11 @@ Default window: `RATE_LIMIT_WINDOW_MINUTES` (default `15`).
 - Global API safety net (`/api/*`, except `/api/media/sync-jobs`)
   - env: `RATE_LIMIT_GLOBAL_MAX` (default `600`)
 - Auth
-  - routes: `/api/auth/login`, `/api/auth/register`
+  - routes: `/api/auth/login`, `/api/auth/register`, `/api/auth/password-reset/*`, `/api/auth/email-verification/*`, `/api/mobile/auth/login`, `/api/mobile/auth/refresh`
   - env: `RATE_LIMIT_AUTH_MAX` (default `20`)
+- Invitation mutation
+  - routes: `POST /api/spaces/{spaceId}/invites`, `PATCH /api/spaces/{spaceId}/invites/{inviteId}/revoke`
+  - env: `RATE_LIMIT_INVITE_MAX` (default `20`)
 - Admin
   - routes: `/api/admin/*`
   - env: `RATE_LIMIT_ADMIN_MAX` (default `300`)
@@ -51,6 +54,7 @@ Client IP attribution depends on `TRUST_PROXY`.
 2. Confirm only one active limiting layer (Express).
 3. Verify auth throttling:
    - repeated bad login attempts trigger `429`.
+   - repeated authenticated invitation mutations trigger `429` without weakening CSRF enforcement.
 4. Verify import status polling:
    - multi-tab dashboard usage does not starve login/admin endpoints.
 5. Verify admin workflows remain usable under normal usage:

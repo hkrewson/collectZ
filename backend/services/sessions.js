@@ -29,6 +29,16 @@ const createSession = async (userId, { ipAddress = null, userAgent = null, query
      VALUES ($1, $2, $3, $4, NOW() + INTERVAL '${SESSION_TTL_DAYS} days')`,
     [userId, tokenHash, ipAddress, userAgent]
   );
+  try {
+    await queryable.query(
+      'UPDATE user_sessions SET reauthenticated_at = NOW() WHERE token_hash = $1',
+      [tokenHash]
+    );
+  } catch (error) {
+    // Current code must remain able to exercise the immediately previous schema
+    // during identity upgrade certification before migration 122 is applied.
+    if (error?.code !== '42703') throw error;
+  }
   await queryable.query(
     `DELETE FROM user_sessions
      WHERE user_id = $1
@@ -57,6 +67,7 @@ const getSessionUserByToken = async (token) => {
        s.support_reason,
        s.support_previous_space_id,
        s.support_previous_library_id,
+       (to_jsonb(s)->>'reauthenticated_at')::timestamp AS reauthenticated_at,
        u.id,
        u.email,
        u.role,

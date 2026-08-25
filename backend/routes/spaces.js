@@ -196,10 +196,7 @@ router.post('/spaces', validate(spaceCreateSchema), asyncHandler(async (req, res
     await client.query('COMMIT');
 
     await logActivity(req, 'space.create', 'space', space.id, {
-      name: space.name,
-      slug: space.slug || null,
-      ownerUserId,
-      ownerEmail: ownerLookup.rows[0].email
+      ownerUserId
     });
 
     res.status(201).json({
@@ -677,7 +674,6 @@ router.post('/spaces/:id/members', validate(spaceMembershipCreateSchema), asyncH
 
     await logActivity(req, 'space.member.add', 'space_membership', inserted.rows[0].id, {
       targetUserId,
-      targetUserEmail: userResult.rows[0].email,
       role: nextRole,
       spaceId
     });
@@ -761,9 +757,7 @@ router.patch('/spaces/:id/members/:memberId', validate(spaceMembershipUpdateSche
 
     await logActivity(req, 'space.member.update', 'space_membership', membershipId, {
       targetUserId: current.rows[0].user_id,
-      targetUserEmail: current.rows[0].email,
-      previousRole: current.rows[0].role,
-      nextRole,
+      role: nextRole,
       spaceId
     });
 
@@ -860,8 +854,6 @@ router.patch('/spaces/:id/members/:memberId/suspension', validate(spaceMembershi
 
     await logActivity(req, nextSuspended ? 'space.member.suspend' : 'space.member.restore', 'space_membership', membershipId, {
       targetUserId: target.user_id,
-      targetUserEmail: target.email,
-      targetUserName: target.name || null,
       role: target.role,
       spaceId
     });
@@ -932,23 +924,16 @@ router.post('/spaces/:id/members/:memberId/password-reset', asyncHandler(async (
     const resetUrl = `${getRequestOrigin(req)}/reset-password#token=${encodeURIComponent(issued.token)}`;
 
     await logActivity(req, 'space.member.password_reset.create', 'user', target.user_id, {
-      email: target.email,
-      name: target.name || null,
       spaceId,
-      spaceName: accessibleSpace.name,
       membershipId,
-      memberRole: target.role,
-      resetTokenId: issued.id,
+      role: target.role,
       expiresAt: issued.expires_at
     });
     if (exposeToken) {
       await logActivity(req, 'space.member.password_reset.token_exposed', 'user', target.user_id, {
-        email: target.email,
         spaceId,
-        spaceName: accessibleSpace.name,
         membershipId,
-        memberRole: target.role,
-        resetTokenId: issued.id,
+        role: target.role,
         exposureMode: 'workspace_copy_link'
       });
     }
@@ -962,25 +947,19 @@ router.post('/spaces/:id/members/:memberId/password-reset', asyncHandler(async (
       });
       if (delivery.sent) {
         await logActivity(req, 'space.member.password_reset.delivered', 'user', target.user_id, {
-          email: target.email,
           spaceId,
-          spaceName: accessibleSpace.name,
           membershipId,
-          memberRole: target.role,
-          resetTokenId: issued.id,
+          role: target.role,
           delivery: 'smtp'
         });
       }
     } catch (error) {
       delivery = { attempted: true, sent: false, reason: error.message || 'smtp_send_failed' };
       await logActivity(req, 'space.member.password_reset.delivery_failed', 'user', target.user_id, {
-        email: target.email,
         spaceId,
-        spaceName: accessibleSpace.name,
         membershipId,
-        memberRole: target.role,
-        resetTokenId: issued.id,
-        reason: delivery.reason
+        role: target.role,
+        reason: 'smtp_send_failed'
       });
     }
 
@@ -1087,8 +1066,7 @@ router.delete('/spaces/:id/members/:memberId', asyncHandler(async (req, res) => 
 
     await logActivity(req, 'space.member.remove', 'space_membership', membershipId, {
       targetUserId: current.rows[0].user_id,
-      targetUserEmail: current.rows[0].email,
-      previousRole: current.rows[0].role,
+      role: current.rows[0].role,
       spaceId
     });
 
@@ -1188,14 +1166,12 @@ router.post('/spaces/:id/invites', validate(spaceInviteCreateSchema), asyncHandl
     const inviteUrl = `${getRequestOrigin(req)}/register#invite=${encodeURIComponent(token)}`;
 
     await logActivity(req, 'space.invite.create', 'invite', invite.id, {
-      email: invite.email,
       role: nextRole,
       spaceId,
       expiresAt: invite.expires_at
     });
     if (exposeToken) {
       await logActivity(req, 'space.invite.token_exposed', 'invite', invite.id, {
-        email: invite.email,
         role: nextRole,
         spaceId,
         exposureMode: 'space_admin_copy_link'
@@ -1211,7 +1187,6 @@ router.post('/spaces/:id/invites', validate(spaceInviteCreateSchema), asyncHandl
       });
       if (delivery.sent) {
         await logActivity(req, 'space.invite.delivered', 'invite', invite.id, {
-          email: invite.email,
           role: nextRole,
           spaceId,
           delivery: 'smtp'
@@ -1220,10 +1195,9 @@ router.post('/spaces/:id/invites', validate(spaceInviteCreateSchema), asyncHandl
     } catch (error) {
       delivery = { attempted: true, sent: false, reason: error.message || 'smtp_send_failed' };
       await logActivity(req, 'space.invite.delivery_failed', 'invite', invite.id, {
-        email: invite.email,
         role: nextRole,
         spaceId,
-        reason: delivery.reason
+        reason: 'smtp_send_failed'
       });
     }
 
@@ -1275,7 +1249,6 @@ router.patch('/spaces/:id/invites/:inviteId/revoke', asyncHandler(async (req, re
     }
 
     await logActivity(req, 'space.invite.revoke', 'invite', inviteId, {
-      email: result.rows[0].email,
       role: result.rows[0].space_role || null,
       spaceId
     });
@@ -1415,9 +1388,7 @@ router.post('/spaces/:id/members/:memberId/transfer-new-space', validate(spaceTr
     await logActivity(req, 'space.member.transfer_new_space', 'space_membership', membershipId, {
       sourceSpaceId,
       targetSpaceId: newSpace.id,
-      targetUserId: sourceMembership.rows[0].user_id,
-      targetUserEmail: sourceMembership.rows[0].email,
-      movedLibraryIds
+      targetUserId: sourceMembership.rows[0].user_id
     });
 
     res.status(201).json({

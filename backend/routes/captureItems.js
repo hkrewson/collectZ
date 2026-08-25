@@ -9,7 +9,7 @@ const { logActivity } = require('../services/audit');
 const { uploadBuffer, readLocalUploadBuffer } = require('../services/storage');
 const { buildCaptureOcrCandidates } = require('../services/captureOcr');
 const { extractTextFromImageBuffer } = require('../services/captureImageOcr');
-const { loadIntegrationConfigRow, normalizeIntegrationRecord } = require('../services/integrations');
+const { loadWorkspaceOcrIntegrationConfig } = require('../services/integrations');
 const { buildBrowserCaptureMapping, applyBrowserCaptureMapping } = require('../services/browserCaptureMapping');
 const mediaRouter = require('./media');
 
@@ -931,8 +931,7 @@ router.post('/capture-items/:id/ocr-image', asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'Backend OCR currently supports images stored by the local upload provider.' });
   }
 
-  const integrationRow = await loadIntegrationConfigRow(scopeContext.spaceId, { allowFallback: true });
-  const config = normalizeIntegrationRecord(integrationRow || null);
+  const config = await loadWorkspaceOcrIntegrationConfig(current.space_id || scopeContext.spaceId);
   const ocrResult = await extractTextFromImageBuffer(imageBuffer, {
     filename: shapedCurrent.source_context?.original_filename || `capture-${id}`,
     mimeType: shapedCurrent.source_context?.mime_type || 'application/octet-stream',

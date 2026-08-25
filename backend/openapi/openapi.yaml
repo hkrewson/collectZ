@@ -112,6 +112,47 @@
             },
             "required": ["ratingEnabled", "watchStateEnabled", "source"]
           },
+          "visionEnabled": { "type": "boolean" },
+          "visionPreset": { "type": "string" },
+          "visionProvider": { "type": "string" },
+          "visionApiUrl": { "type": "string" },
+          "visionApiKeyHeader": { "type": "string" },
+          "visionApiKeySet": { "type": "boolean" },
+          "visionApiKeyMasked": { "type": "string" },
+          "valuationProviders": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "pricecharting": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "enabled": { "type": "boolean" },
+                  "apiUrl": { "type": "string" },
+                  "apiKeySet": { "type": "boolean" },
+                  "apiKeyMasked": { "type": "string" },
+                  "rateLimitMs": { "type": "integer" },
+                  "credentialSource": { "type": "string", "enum": ["workspace", "not_configured"] }
+                },
+                "required": ["enabled", "apiUrl", "apiKeySet", "apiKeyMasked", "rateLimitMs", "credentialSource"]
+              },
+              "ebayBrowse": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "enabled": { "type": "boolean" },
+                  "apiUrl": { "type": "string" },
+                  "clientId": { "type": "string" },
+                  "clientSecretSet": { "type": "boolean" },
+                  "clientSecretMasked": { "type": "string" },
+                  "marketplaceId": { "type": "string" },
+                  "credentialSource": { "type": "string", "enum": ["workspace", "not_configured"] }
+                },
+                "required": ["enabled", "apiUrl", "clientId", "clientSecretSet", "clientSecretMasked", "marketplaceId", "credentialSource"]
+              }
+            },
+            "required": ["pricecharting", "ebayBrowse"]
+          },
           "plexWebhookReceiver": {
             "type": "object",
             "additionalProperties": true,
@@ -793,6 +834,24 @@
           "password": { "type": "string" }
         },
         "required": ["email", "password"]
+      },
+      "ReauthenticationRequest": {
+        "type": "object",
+        "properties": {
+          "password": { "type": "string", "writeOnly": true }
+        },
+        "required": ["password"],
+        "additionalProperties": false
+      },
+      "ReauthenticationResponse": {
+        "type": "object",
+        "properties": {
+          "reauthenticated": { "type": "boolean" },
+          "validUntil": { "type": "string", "format": "date-time" },
+          "maxAgeMinutes": { "type": "integer", "minimum": 1 }
+        },
+        "required": ["reauthenticated", "validUntil", "maxAgeMinutes"],
+        "additionalProperties": false
       },
       "RegisterRequest": {
         "type": "object",
@@ -5844,6 +5903,58 @@
         }
       }
     },
+    "/api/auth/reauthenticate": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Confirm the current session password for a short sensitive-operation window",
+        "description": "Requires cookie-session authentication, matching CSRF proof, and the authentication limiter. The submitted password is verified in memory and is not retained in audit details or evidence.",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ReauthenticationRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The current opaque browser session has recent proof",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ReauthenticationResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Password confirmation failed or the session expired",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "403": {
+            "description": "Cookie-session or CSRF proof is missing",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "429": {
+            "description": "Authentication attempt limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/auth/email-verification/request": {
       "post": {
         "tags": ["Auth"],
@@ -6702,6 +6813,24 @@
                 "type": "object",
                 "additionalProperties": true,
                 "properties": {
+                  "visionEnabled": { "type": "boolean" },
+                  "visionPreset": { "type": "string" },
+                  "visionProvider": { "type": "string" },
+                  "visionApiUrl": { "type": "string" },
+                  "visionApiKey": { "type": "string", "writeOnly": true },
+                  "clearVisionApiKey": { "type": "boolean" },
+                  "visionApiKeyHeader": { "type": "string" },
+                  "priceChartingEnabled": { "type": "boolean" },
+                  "priceChartingApiUrl": { "type": "string" },
+                  "priceChartingApiKey": { "type": "string", "writeOnly": true },
+                  "clearPriceChartingApiKey": { "type": "boolean" },
+                  "priceChartingRateLimitMs": { "type": ["integer", "string"] },
+                  "eBayBrowseEnabled": { "type": "boolean" },
+                  "eBayBrowseApiUrl": { "type": "string" },
+                  "eBayBrowseClientId": { "type": "string" },
+                  "eBayBrowseClientSecret": { "type": "string", "writeOnly": true },
+                  "clearEBayBrowseClientSecret": { "type": "boolean" },
+                  "eBayBrowseMarketplaceId": { "type": "string" },
                   "plexReconciliationSyncSettings": {
                     "type": "object",
                     "additionalProperties": false,
@@ -6925,6 +7054,9 @@
                 "schema": { "$ref": "#/components/schemas/SpaceInviteRecord" }
               }
             }
+          },
+          "429": {
+            "description": "Invitation mutation rate limit exceeded"
           }
         }
       }
@@ -6948,6 +7080,9 @@
                 "schema": { "$ref": "#/components/schemas/SpaceInviteRecord" }
               }
             }
+          },
+          "429": {
+            "description": "Invitation mutation rate limit exceeded"
           }
         }
       }

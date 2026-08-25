@@ -347,7 +347,8 @@ async function main() {
     assert(metrics.status === 404, `Homelab /api/metrics must be unmounted: ${JSON.stringify(metrics.data)}`);
     assert(spaces.status === 404, `Homelab /api/spaces must be unmounted: ${JSON.stringify(spaces.data)}`);
     assert(typeof spaceIntegrations.data === 'object' && spaceIntegrations.data !== null, `Homelab /api/spaces/:id/integrations must stay mounted for workspace-owned provider settings: ${JSON.stringify(spaceIntegrations.data)}`);
-    assert(!('valuationProviders' in spaceIntegrations.data), `Homelab workspace integrations must not expose platform valuation providers: ${JSON.stringify(spaceIntegrations.data)}`);
+    assert(typeof spaceIntegrations.data?.valuationProviders === 'object' && spaceIntegrations.data.valuationProviders !== null, `Homelab workspace integrations must expose workspace-owned valuation providers: ${JSON.stringify(spaceIntegrations.data)}`);
+    assert(typeof spaceIntegrations.data?.visionEnabled === 'boolean', `Homelab workspace integrations must expose workspace-owned OCR enablement: ${JSON.stringify(spaceIntegrations.data)}`);
     assert(!('logExportControl' in spaceIntegrations.data), `Homelab workspace integrations must not expose platform log export controls: ${JSON.stringify(spaceIntegrations.data)}`);
     assert(!('observabilityRuntime' in spaceIntegrations.data), `Homelab workspace integrations must not expose platform observability diagnostics: ${JSON.stringify(spaceIntegrations.data)}`);
     assert(spaceSelect.status === 404, `Homelab /api/spaces/select must be unmounted: ${JSON.stringify(spaceSelect.data)}`);

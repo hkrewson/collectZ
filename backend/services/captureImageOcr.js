@@ -36,17 +36,25 @@ function extractOcrSpaceText(payload = {}) {
 }
 
 function buildOcrProviderConfig(config = {}) {
-  const preset = normalizeVisionPreset(config.visionPreset || config.visionProvider || process.env.VISION_PRESET || process.env.VISION_PROVIDER);
+  const allowEnvironmentFallback = config.allowEnvironmentFallback !== false;
+  const envPreset = allowEnvironmentFallback ? (process.env.VISION_PRESET || process.env.VISION_PROVIDER) : '';
+  const preset = normalizeVisionPreset(config.visionPreset || config.visionProvider || envPreset);
   return {
     preset: preset.preset,
     provider: config.visionProvider || preset.provider,
-    apiUrl: config.visionApiUrl || preset.apiUrl || process.env.VISION_API_URL || '',
-    apiKey: config.visionApiKey || process.env.VISION_API_KEY || '',
-    apiKeyHeader: config.visionApiKeyHeader || preset.apiKeyHeader || process.env.VISION_API_KEY_HEADER || 'apikey'
+    apiUrl: config.visionApiUrl || preset.apiUrl || (allowEnvironmentFallback ? process.env.VISION_API_URL : '') || '',
+    apiKey: config.visionApiKey || (allowEnvironmentFallback ? process.env.VISION_API_KEY : '') || '',
+    apiKeyHeader: config.visionApiKeyHeader || preset.apiKeyHeader || (allowEnvironmentFallback ? process.env.VISION_API_KEY_HEADER : '') || 'apikey'
   };
 }
 
 async function extractTextFromImageBuffer(buffer, { filename = 'capture-image', mimeType = 'application/octet-stream', config = {} } = {}) {
+  if (config.visionEnabled === false) {
+    const error = new Error('Workspace image OCR is not enabled.');
+    error.status = 409;
+    error.code = 'vision_not_enabled';
+    throw error;
+  }
   const providerConfig = buildOcrProviderConfig(config);
   if (providerConfig.provider === 'mock' || providerConfig.provider === 'fixture') {
     return {

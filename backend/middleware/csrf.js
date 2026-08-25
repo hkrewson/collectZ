@@ -56,7 +56,7 @@ function csrfProtection(req, res, next) {
 
   void logActivity(req, 'security.csrf.failed', 'http_request', null, {
     method: req.method,
-    url: req.originalUrl,
+    path: getRequestPath(req),
     reason: !cookieToken ? 'missing_csrf_cookie' : (!headerToken ? 'missing_csrf_header' : 'mismatch')
   });
   return res.status(403).json({ error: 'CSRF validation failed' });
