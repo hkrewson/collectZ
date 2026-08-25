@@ -2,11 +2,13 @@ const express = require('express');
 const axios = require('axios');
 const pool = require('../db/pool');
 const { asyncHandler } = require('../middleware/errors');
-const { authenticateToken, requireSessionAuth } = require('../middleware/auth');
+const { authenticateToken, requireSessionAuth, requireRecentReauthentication } = require('../middleware/auth');
 const {
   deriveCwaBaseUrl,
   loadIntegrationConfigRow,
   loadScopedIntegrationConfig,
+  loadWorkspaceValuationIntegrationConfig,
+  loadWorkspaceOcrIntegrationConfig,
   normalizeIntegrationRecord,
   normalizePlexReconciliationSyncSettings,
   normalizePlexReadbackRefreshSettings,
@@ -26,7 +28,7 @@ const {
   hashNowPlayingDisplayToken,
   shapeNowPlayingDisplayTokenStatus
 } = require('../services/plexNowPlayingDisplay');
-const { encryptSecret } = require('../services/crypto');
+const { encryptSecret, maskSecret } = require('../services/crypto');
 const { buildIntegrationResponse } = require('../services/integrationResponse');
 const { resolveBarcodePreset } = require('../services/barcode');
 const { resolveTmdbPreset, searchTmdbMovie } = require('../services/tmdb');
@@ -41,7 +43,14 @@ const {
   buildPortabilityJsonExport,
   buildPortabilityStatus
 } = require('../services/portability');
-const { normalizePositiveInteger } = require('../services/valuations');
+const {
+  DEFAULT_PRICECHARTING_API_URL,
+  DEFAULT_EBAY_BROWSE_API_URL,
+  DEFAULT_EBAY_MARKETPLACE_ID,
+  MIN_PRICECHARTING_INTERVAL_MS,
+  normalizePositiveInteger
+} = require('../services/valuations');
+const { normalizeVisionPreset } = require('../services/captureImageOcr');
 const { logActivity, logError } = require('../services/audit');
 const {
   getAccessibleSpaceForUser,
@@ -115,7 +124,13 @@ function buildSectionSource({ configured = false, defaultAvailable = true, detai
   };
 }
 
-function buildSpaceIntegrationPayload(config, { workspaceRow = null, req = null, spaceId = null } = {}) {
+function buildSpaceIntegrationPayload(config, {
+  workspaceRow = null,
+  req = null,
+  spaceId = null,
+  valuationConfig = null,
+  ocrConfig = null
+} = {}) {
   const defaultConfig = normalizeIntegrationRecord(null);
   const row = workspaceRow || null;
   const hasRow = Boolean(row);
@@ -124,6 +139,19 @@ function buildSpaceIntegrationPayload(config, { workspaceRow = null, req = null,
     const right = meaningfulText(defaultValue);
     return left && left !== right;
   };
+  const visionWorkspaceConfigured = hasRow && (
+    Boolean(row.vision_enabled) ||
+    Boolean(row.vision_api_key_encrypted)
+  );
+  const priceChartingWorkspaceConfigured = hasRow && (
+    Boolean(row.pricecharting_enabled) ||
+    Boolean(row.pricecharting_api_key_encrypted)
+  );
+  const ebayWorkspaceConfigured = hasRow && (
+    Boolean(row.ebay_browse_enabled) ||
+    Boolean(row.ebay_browse_client_secret_encrypted) ||
+    Boolean(meaningfulText(row.ebay_browse_client_id))
+  );
 
   const sources = {
     barcode: buildSectionSource({
@@ -192,11 +220,64 @@ function buildSpaceIntegrationPayload(config, { workspaceRow = null, req = null,
         Boolean(meaningfulText(row.kavita_base_url))
       ),
       defaultAvailable: false
+    }),
+    vision: buildSectionSource({
+      configured: visionWorkspaceConfigured,
+      defaultAvailable: true,
+      detail: hasRow && Boolean(row.vision_enabled)
+        ? 'OCR execution and credentials are owned by this workspace.'
+        : visionWorkspaceConfigured
+          ? 'Workspace OCR settings are saved, but OCR execution is disabled.'
+        : 'OCR is disabled; only non-secret provider defaults are inherited.'
+    }),
+    pricecharting: buildSectionSource({
+      configured: priceChartingWorkspaceConfigured,
+      defaultAvailable: true,
+      detail: hasRow && Boolean(row.pricecharting_enabled)
+        ? 'Valuation execution and credentials are owned by this workspace.'
+        : priceChartingWorkspaceConfigured
+          ? 'Workspace PriceCharting settings are saved, but valuation execution is disabled.'
+        : 'Valuation is disabled; only the non-secret provider endpoint and rate-limit floor are inherited.'
+    }),
+    ebay: buildSectionSource({
+      configured: ebayWorkspaceConfigured,
+      defaultAvailable: true,
+      detail: hasRow && Boolean(row.ebay_browse_enabled)
+        ? 'Valuation execution and credentials are owned by this workspace.'
+        : ebayWorkspaceConfigured
+          ? 'Workspace eBay settings are saved, but valuation execution is disabled.'
+        : 'Valuation is disabled; only the non-secret provider endpoint and marketplace identifier are inherited.'
     })
   };
 
   return {
     ...buildIntegrationResponse(config),
+    visionEnabled: Boolean(ocrConfig?.visionEnabled),
+    visionPreset: ocrConfig?.visionPreset || 'ocrspace',
+    visionProvider: ocrConfig?.visionProvider || 'ocrspace',
+    visionApiUrl: ocrConfig?.visionApiUrl || '',
+    visionApiKeyHeader: ocrConfig?.visionApiKeyHeader || 'apikey',
+    visionApiKeySet: Boolean(ocrConfig?.visionApiKey),
+    visionApiKeyMasked: maskSecret(ocrConfig?.visionApiKey || ''),
+    valuationProviders: {
+      pricecharting: {
+        enabled: Boolean(valuationConfig?.priceChartingEnabled),
+        apiUrl: valuationConfig?.priceChartingApiUrl || DEFAULT_PRICECHARTING_API_URL,
+        apiKeySet: Boolean(valuationConfig?.priceChartingApiKey),
+        apiKeyMasked: maskSecret(valuationConfig?.priceChartingApiKey || ''),
+        rateLimitMs: valuationConfig?.priceChartingRateLimitMs || MIN_PRICECHARTING_INTERVAL_MS,
+        credentialSource: valuationConfig?.priceChartingApiKey ? 'workspace' : 'not_configured'
+      },
+      ebayBrowse: {
+        enabled: Boolean(valuationConfig?.eBayBrowseEnabled),
+        apiUrl: valuationConfig?.eBayBrowseApiUrl || DEFAULT_EBAY_BROWSE_API_URL,
+        clientId: valuationConfig?.eBayBrowseClientId || '',
+        clientSecretSet: Boolean(valuationConfig?.eBayBrowseClientSecret),
+        clientSecretMasked: maskSecret(valuationConfig?.eBayBrowseClientSecret || ''),
+        marketplaceId: valuationConfig?.eBayBrowseMarketplaceId || DEFAULT_EBAY_MARKETPLACE_ID,
+        credentialSource: valuationConfig?.eBayBrowseClientSecret ? 'workspace' : 'not_configured'
+      }
+    },
     plexNowPlayingDisplayToken: shapeNowPlayingDisplayTokenStatus(config),
     plexNowPlayingDisplayPreferences: normalizeNowPlayingDisplayPreferences(config?.plexNowPlayingDisplayPreferences),
     plexWebhookReceiver: shapePlexWebhookReceiverStatus({ ...config, spaceId: config?.spaceId || spaceId }, req),
@@ -225,7 +306,13 @@ function resolveNextSpaceIntegrationState(body = {}, existing = null) {
     comicsPreset, comicsProvider, comicsApiUrl, comicsUsername,
     comicsApiKey, clearComicsApiKey,
     cwaOpdsUrl, cwaUsername, cwaPassword, clearCwaPassword,
-    kavitaBaseUrl, kavitaApiKey, clearKavitaApiKey, kavitaTimeoutMs
+    kavitaBaseUrl, kavitaApiKey, clearKavitaApiKey, kavitaTimeoutMs,
+    visionEnabled, visionPreset, visionProvider, visionApiUrl,
+    visionApiKey, clearVisionApiKey, visionApiKeyHeader,
+    priceChartingEnabled, priceChartingApiUrl, priceChartingApiKey,
+    clearPriceChartingApiKey, priceChartingRateLimitMs,
+    eBayBrowseEnabled, eBayBrowseApiUrl, eBayBrowseClientId,
+    eBayBrowseClientSecret, clearEBayBrowseClientSecret, eBayBrowseMarketplaceId
   } = body;
 
   const pick = (incoming, existingValue, fallback) =>
@@ -238,6 +325,7 @@ function resolveNextSpaceIntegrationState(body = {}, existing = null) {
   const selectedAudioPreset = resolveAudioPreset(audioPreset || existing?.audio_preset || 'discogs');
   const selectedGamesPreset = resolveGamesPreset(gamesPreset || existing?.games_preset || 'igdb');
   const selectedComicsPreset = resolveComicsPreset(comicsPreset || existing?.comics_preset || 'metron');
+  const selectedVisionPreset = normalizeVisionPreset(visionPreset || visionProvider || existing?.vision_preset || 'ocrspace');
 
   const finalBarcodeApiKey = clearBarcodeApiKey
     ? null
@@ -269,6 +357,15 @@ function resolveNextSpaceIntegrationState(body = {}, existing = null) {
   const finalKavitaApiKey = clearKavitaApiKey
     ? null
     : (kavitaApiKey ? encryptSecret(kavitaApiKey) : existing?.kavita_api_key_encrypted || null);
+  const finalVisionApiKey = clearVisionApiKey
+    ? null
+    : (visionApiKey ? encryptSecret(visionApiKey) : existing?.vision_api_key_encrypted || null);
+  const finalPriceChartingApiKey = clearPriceChartingApiKey
+    ? null
+    : (priceChartingApiKey ? encryptSecret(priceChartingApiKey) : existing?.pricecharting_api_key_encrypted || null);
+  const finalEbayBrowseClientSecret = clearEBayBrowseClientSecret
+    ? null
+    : (eBayBrowseClientSecret ? encryptSecret(eBayBrowseClientSecret) : existing?.ebay_browse_client_secret_encrypted || null);
 
   const resolvedCwaOpdsUrl = pick(cwaOpdsUrl, existing?.cwa_opds_url, '');
   const resolvedCwaBaseUrl = deriveCwaBaseUrl(resolvedCwaOpdsUrl);
@@ -363,6 +460,24 @@ function resolveNextSpaceIntegrationState(body = {}, existing = null) {
     kavita_base_url: resolvedKavitaBaseUrl,
     kavita_api_key_encrypted: finalKavitaApiKey,
     kavita_timeout_ms: resolvedKavitaTimeoutMs,
+    vision_enabled: Boolean(pick(visionEnabled, existing?.vision_enabled, false)),
+    vision_preset: pick(visionPreset, existing?.vision_preset, selectedVisionPreset.preset),
+    vision_provider: pick(visionProvider, existing?.vision_provider, selectedVisionPreset.provider),
+    vision_api_url: pick(visionApiUrl, existing?.vision_api_url, selectedVisionPreset.apiUrl),
+    vision_api_key_encrypted: finalVisionApiKey,
+    vision_api_key_header: pick(visionApiKeyHeader, existing?.vision_api_key_header, selectedVisionPreset.apiKeyHeader),
+    pricecharting_enabled: Boolean(pick(priceChartingEnabled, existing?.pricecharting_enabled, false)),
+    pricecharting_api_url: pick(priceChartingApiUrl, existing?.pricecharting_api_url, DEFAULT_PRICECHARTING_API_URL),
+    pricecharting_api_key_encrypted: finalPriceChartingApiKey,
+    pricecharting_rate_limit_ms: Math.max(
+      MIN_PRICECHARTING_INTERVAL_MS,
+      normalizePositiveInteger(pick(priceChartingRateLimitMs, existing?.pricecharting_rate_limit_ms, MIN_PRICECHARTING_INTERVAL_MS), MIN_PRICECHARTING_INTERVAL_MS)
+    ),
+    ebay_browse_enabled: Boolean(pick(eBayBrowseEnabled, existing?.ebay_browse_enabled, false)),
+    ebay_browse_api_url: pick(eBayBrowseApiUrl, existing?.ebay_browse_api_url, DEFAULT_EBAY_BROWSE_API_URL),
+    ebay_browse_client_id: pick(eBayBrowseClientId, existing?.ebay_browse_client_id, ''),
+    ebay_browse_client_secret_encrypted: finalEbayBrowseClientSecret,
+    ebay_browse_marketplace_id: pick(eBayBrowseMarketplaceId, existing?.ebay_browse_marketplace_id, DEFAULT_EBAY_MARKETPLACE_ID),
     keyUpdates: {
       barcode: Boolean(barcodeApiKey),
       tmdb: Boolean(tmdbApiKey),
@@ -373,7 +488,10 @@ function resolveNextSpaceIntegrationState(body = {}, existing = null) {
       gamesClientSecret: Boolean(gamesClientSecret),
       comics: Boolean(comicsApiKey),
       cwaPassword: Boolean(cwaPassword),
-      kavita: Boolean(kavitaApiKey)
+      kavita: Boolean(kavitaApiKey),
+      vision: Boolean(visionApiKey),
+      pricecharting: Boolean(priceChartingApiKey),
+      ebayBrowseClientSecret: Boolean(eBayBrowseClientSecret)
     },
     keyClears: {
       barcode: Boolean(clearBarcodeApiKey),
@@ -385,7 +503,10 @@ function resolveNextSpaceIntegrationState(body = {}, existing = null) {
       gamesClientSecret: Boolean(clearGamesClientSecret),
       comics: Boolean(clearComicsApiKey),
       cwaPassword: Boolean(clearCwaPassword),
-      kavita: Boolean(clearKavitaApiKey)
+      kavita: Boolean(clearKavitaApiKey),
+      vision: Boolean(clearVisionApiKey),
+      pricecharting: Boolean(clearPriceChartingApiKey),
+      ebayBrowseClientSecret: Boolean(clearEBayBrowseClientSecret)
     }
   };
 }
@@ -552,7 +673,45 @@ async function upsertSpaceIntegrationState(client, spaceId, nextState) {
       nextState.plex_watch_state_writeback_enabled
     ]
   );
-  return result.rows[0] || null;
+  const providerOwnership = await client.query(
+    `UPDATE app_integrations
+        SET vision_enabled = $2,
+            vision_preset = $3,
+            vision_provider = $4,
+            vision_api_url = $5,
+            vision_api_key_encrypted = $6,
+            vision_api_key_header = $7,
+            pricecharting_enabled = $8,
+            pricecharting_api_url = $9,
+            pricecharting_api_key_encrypted = $10,
+            pricecharting_rate_limit_ms = $11,
+            ebay_browse_enabled = $12,
+            ebay_browse_api_url = $13,
+            ebay_browse_client_id = $14,
+            ebay_browse_client_secret_encrypted = $15,
+            ebay_browse_marketplace_id = $16
+      WHERE space_id = $1
+      RETURNING *`,
+    [
+      spaceId,
+      nextState.vision_enabled,
+      nextState.vision_preset,
+      nextState.vision_provider,
+      nextState.vision_api_url,
+      nextState.vision_api_key_encrypted,
+      nextState.vision_api_key_header,
+      nextState.pricecharting_enabled,
+      nextState.pricecharting_api_url,
+      nextState.pricecharting_api_key_encrypted,
+      nextState.pricecharting_rate_limit_ms,
+      nextState.ebay_browse_enabled,
+      nextState.ebay_browse_api_url,
+      nextState.ebay_browse_client_id,
+      nextState.ebay_browse_client_secret_encrypted,
+      nextState.ebay_browse_marketplace_id
+    ]
+  );
+  return providerOwnership.rows[0] || result.rows[0] || null;
 }
 
 router.get('/spaces/:spaceId/integrations', authenticateToken, requireSessionAuth, asyncHandler(async (req, res) => {
@@ -567,7 +726,9 @@ router.get('/spaces/:spaceId/integrations', authenticateToken, requireSessionAut
 
     const workspaceRow = await loadIntegrationConfigRow(spaceId, { allowFallback: false });
     const config = await loadScopedIntegrationConfig(spaceId);
-    res.json(buildSpaceIntegrationPayload(config, { workspaceRow, req, spaceId }));
+    const valuationConfig = await loadWorkspaceValuationIntegrationConfig(spaceId);
+    const ocrConfig = await loadWorkspaceOcrIntegrationConfig(spaceId);
+    res.json(buildSpaceIntegrationPayload(config, { workspaceRow, req, spaceId, valuationConfig, ocrConfig }));
   } finally {
     client.release();
   }
@@ -634,23 +795,40 @@ router.post('/spaces/:spaceId/portability/export', authenticateToken, requireSes
   }
 }));
 
-router.put('/spaces/:spaceId/integrations', authenticateToken, requireSessionAuth, asyncHandler(async (req, res) => {
+router.put('/spaces/:spaceId/integrations', authenticateToken, requireSessionAuth, requireRecentReauthentication, asyncHandler(async (req, res) => {
   const spaceId = parseSpaceId(req.params.spaceId);
   if (!spaceId) return res.status(400).json({ error: 'Invalid space id' });
   if (SPACE_READ_ONLY_FIELDS.some((field) => req.body?.[field] !== undefined)) {
     return res.status(400).json({ error: 'Logs and metrics remain global-only integrations' });
   }
+  if (req.body?.priceChartingRateLimitMs !== undefined) {
+    const interval = Number(req.body.priceChartingRateLimitMs);
+    if (!Number.isInteger(interval) || interval < MIN_PRICECHARTING_INTERVAL_MS) {
+      return res.status(400).json({ error: `PriceCharting interval must be an integer >= ${MIN_PRICECHARTING_INTERVAL_MS}ms` });
+    }
+  }
 
   const client = await pool.connect();
+  let transactionStarted = false;
   try {
     const space = await requireManageableSpace(client, req, spaceId);
     if (!space) return res.status(404).json({ error: 'Space not found' });
     if (space === false) return res.status(403).json({ error: 'Space management denied' });
 
-    const inheritedRow = await loadIntegrationConfigRow(spaceId, { allowFallback: false });
+    await client.query('BEGIN');
+    transactionStarted = true;
+    const inheritedResult = await client.query(
+      'SELECT * FROM app_integrations WHERE space_id = $1 LIMIT 1 FOR UPDATE',
+      [spaceId]
+    );
+    const inheritedRow = inheritedResult.rows[0] || null;
     const nextState = resolveNextSpaceIntegrationState(req.body || {}, inheritedRow || null);
     const persisted = await upsertSpaceIntegrationState(client, spaceId, nextState);
+    await client.query('COMMIT');
+    transactionStarted = false;
     const config = await loadScopedIntegrationConfig(spaceId);
+    const valuationConfig = await loadWorkspaceValuationIntegrationConfig(spaceId);
+    const ocrConfig = await loadWorkspaceOcrIntegrationConfig(spaceId);
 
     await logActivity(req, 'space.settings.integrations.update', 'app_integrations', persisted?.id || null, {
       spaceId,
@@ -663,6 +841,9 @@ router.put('/spaces/:spaceId/integrations', authenticateToken, requireSessionAut
       comicsPreset: config.comicsPreset,
       cwaEnabled: Boolean(config.cwaOpdsUrl),
       kavitaEnabled: Boolean(config.kavitaBaseUrl),
+      visionEnabled: Boolean(ocrConfig.visionEnabled),
+      priceChartingEnabled: Boolean(valuationConfig.priceChartingEnabled),
+      eBayBrowseEnabled: Boolean(valuationConfig.eBayBrowseEnabled),
       kavitaTimeoutMs: config.kavitaTimeoutMs,
       plexReconciliationSyncSettings: config.plexReconciliationSyncSettings,
       plexReadbackRefreshSettings: config.plexReadbackRefreshSettings,
@@ -671,13 +852,22 @@ router.put('/spaces/:spaceId/integrations', authenticateToken, requireSessionAut
       keyClears: nextState.keyClears
     });
 
-    res.json(buildSpaceIntegrationPayload(config, { workspaceRow: persisted, req, spaceId }));
+    res.json(buildSpaceIntegrationPayload(config, {
+      workspaceRow: persisted,
+      req,
+      spaceId,
+      valuationConfig,
+      ocrConfig
+    }));
+  } catch (error) {
+    if (transactionStarted) await client.query('ROLLBACK');
+    throw error;
   } finally {
     client.release();
   }
 }));
 
-router.post('/spaces/:spaceId/integrations/plex-now-playing-display-token', authenticateToken, requireSessionAuth, asyncHandler(async (req, res) => {
+router.post('/spaces/:spaceId/integrations/plex-now-playing-display-token', authenticateToken, requireSessionAuth, requireRecentReauthentication, asyncHandler(async (req, res) => {
   const spaceId = parseSpaceId(req.params.spaceId);
   if (!spaceId) return res.status(400).json({ error: 'Invalid space id' });
 
@@ -720,7 +910,7 @@ router.post('/spaces/:spaceId/integrations/plex-now-playing-display-token', auth
   }
 }));
 
-router.delete('/spaces/:spaceId/integrations/plex-now-playing-display-token', authenticateToken, requireSessionAuth, asyncHandler(async (req, res) => {
+router.delete('/spaces/:spaceId/integrations/plex-now-playing-display-token', authenticateToken, requireSessionAuth, requireRecentReauthentication, asyncHandler(async (req, res) => {
   const spaceId = parseSpaceId(req.params.spaceId);
   if (!spaceId) return res.status(400).json({ error: 'Invalid space id' });
 
@@ -779,7 +969,7 @@ router.put('/spaces/:spaceId/integrations/plex-now-playing-display-preferences',
   }
 }));
 
-router.post('/spaces/:spaceId/integrations/plex-webhook-receiver-token', authenticateToken, requireSessionAuth, asyncHandler(async (req, res) => {
+router.post('/spaces/:spaceId/integrations/plex-webhook-receiver-token', authenticateToken, requireSessionAuth, requireRecentReauthentication, asyncHandler(async (req, res) => {
   const spaceId = parseSpaceId(req.params.spaceId);
   if (!spaceId) return res.status(400).json({ error: 'Invalid space id' });
 
@@ -831,7 +1021,7 @@ router.post('/spaces/:spaceId/integrations/plex-webhook-receiver-token', authent
   }
 }));
 
-router.delete('/spaces/:spaceId/integrations/plex-webhook-receiver-token', authenticateToken, requireSessionAuth, asyncHandler(async (req, res) => {
+router.delete('/spaces/:spaceId/integrations/plex-webhook-receiver-token', authenticateToken, requireSessionAuth, requireRecentReauthentication, asyncHandler(async (req, res) => {
   const spaceId = parseSpaceId(req.params.spaceId);
   if (!spaceId) return res.status(400).json({ error: 'Invalid space id' });
 
@@ -870,7 +1060,7 @@ router.delete('/spaces/:spaceId/integrations/plex-webhook-receiver-token', authe
   }
 }));
 
-router.post('/spaces/:spaceId/integrations/plex-webhook-receiver-validate', authenticateToken, requireSessionAuth, asyncHandler(async (req, res) => {
+router.post('/spaces/:spaceId/integrations/plex-webhook-receiver-validate', authenticateToken, requireSessionAuth, requireRecentReauthentication, asyncHandler(async (req, res) => {
   const spaceId = parseSpaceId(req.params.spaceId);
   if (!spaceId) return res.status(400).json({ error: 'Invalid space id' });
 
@@ -930,7 +1120,7 @@ async function runManagedIntegrationTest(req, res, { section, handler }) {
   }
 }
 
-router.post('/spaces/:spaceId/integrations/test-barcode', authenticateToken, requireSessionAuth, asyncHandler(async (req, res) => runManagedIntegrationTest(req, res, {
+router.post('/spaces/:spaceId/integrations/test-barcode', authenticateToken, requireSessionAuth, requireRecentReauthentication, asyncHandler(async (req, res) => runManagedIntegrationTest(req, res, {
   section: 'barcode',
   handler: async (config) => {
     const testUpc = String(req.body?.upc || '012569828708').trim();
@@ -951,7 +1141,7 @@ router.post('/spaces/:spaceId/integrations/test-barcode', authenticateToken, req
   }
 })));
 
-router.post('/spaces/:spaceId/integrations/test-tmdb', authenticateToken, requireSessionAuth, asyncHandler(async (req, res) => runManagedIntegrationTest(req, res, {
+router.post('/spaces/:spaceId/integrations/test-tmdb', authenticateToken, requireSessionAuth, requireRecentReauthentication, asyncHandler(async (req, res) => runManagedIntegrationTest(req, res, {
   section: 'tmdb',
   handler: async (config) => {
     try {
@@ -965,7 +1155,7 @@ router.post('/spaces/:spaceId/integrations/test-tmdb', authenticateToken, requir
   }
 })));
 
-router.post('/spaces/:spaceId/integrations/test-plex', authenticateToken, requireSessionAuth, asyncHandler(async (req, res) => runManagedIntegrationTest(req, res, {
+router.post('/spaces/:spaceId/integrations/test-plex', authenticateToken, requireSessionAuth, requireRecentReauthentication, asyncHandler(async (req, res) => runManagedIntegrationTest(req, res, {
   section: 'plex',
   handler: async (config) => {
     if (!config.plexApiUrl) return res.status(400).json({ ok: false, authenticated: false, detail: 'Plex API URL is not configured' });
@@ -987,7 +1177,7 @@ router.post('/spaces/:spaceId/integrations/test-plex', authenticateToken, requir
   }
 })));
 
-router.post('/spaces/:spaceId/integrations/test-plex-providers', authenticateToken, requireSessionAuth, asyncHandler(async (req, res) => runManagedIntegrationTest(req, res, {
+router.post('/spaces/:spaceId/integrations/test-plex-providers', authenticateToken, requireSessionAuth, requireRecentReauthentication, asyncHandler(async (req, res) => runManagedIntegrationTest(req, res, {
   section: 'plex',
   handler: async (config) => {
     if (!config.plexApiUrl) return res.status(400).json({ ok: false, authenticated: false, detail: 'Plex API URL is not configured' });
@@ -1019,7 +1209,7 @@ router.post('/spaces/:spaceId/integrations/test-plex-providers', authenticateTok
   }
 })));
 
-router.post('/spaces/:spaceId/integrations/test-plex-now-playing', authenticateToken, requireSessionAuth, asyncHandler(async (req, res) => runManagedIntegrationTest(req, res, {
+router.post('/spaces/:spaceId/integrations/test-plex-now-playing', authenticateToken, requireSessionAuth, requireRecentReauthentication, asyncHandler(async (req, res) => runManagedIntegrationTest(req, res, {
   section: 'plex',
   handler: async (config) => {
     if (!config.plexApiUrl) return res.status(400).json({ ok: false, authenticated: false, detail: 'Plex API URL is not configured' });
@@ -1051,7 +1241,7 @@ router.post('/spaces/:spaceId/integrations/test-plex-now-playing', authenticateT
   }
 })));
 
-router.post('/spaces/:spaceId/integrations/test-books', authenticateToken, requireSessionAuth, asyncHandler(async (req, res) => runManagedIntegrationTest(req, res, {
+router.post('/spaces/:spaceId/integrations/test-books', authenticateToken, requireSessionAuth, requireRecentReauthentication, asyncHandler(async (req, res) => runManagedIntegrationTest(req, res, {
   section: 'books',
   handler: async (config) => {
     if (!config.booksApiUrl) return res.status(400).json({ ok: false, authenticated: false, detail: 'Books API URL is not configured' });
@@ -1066,7 +1256,7 @@ router.post('/spaces/:spaceId/integrations/test-books', authenticateToken, requi
   }
 })));
 
-router.post('/spaces/:spaceId/integrations/test-audio', authenticateToken, requireSessionAuth, asyncHandler(async (req, res) => runManagedIntegrationTest(req, res, {
+router.post('/spaces/:spaceId/integrations/test-audio', authenticateToken, requireSessionAuth, requireRecentReauthentication, asyncHandler(async (req, res) => runManagedIntegrationTest(req, res, {
   section: 'audio',
   handler: async (config) => {
     if (!config.audioApiUrl) return res.status(400).json({ ok: false, authenticated: false, detail: 'Audio API URL is not configured' });
@@ -1081,7 +1271,7 @@ router.post('/spaces/:spaceId/integrations/test-audio', authenticateToken, requi
   }
 })));
 
-router.post('/spaces/:spaceId/integrations/test-games', authenticateToken, requireSessionAuth, asyncHandler(async (req, res) => runManagedIntegrationTest(req, res, {
+router.post('/spaces/:spaceId/integrations/test-games', authenticateToken, requireSessionAuth, requireRecentReauthentication, asyncHandler(async (req, res) => runManagedIntegrationTest(req, res, {
   section: 'games',
   handler: async (config) => {
     if (!config.gamesApiUrl) return res.status(400).json({ ok: false, authenticated: false, detail: 'Games API URL is not configured' });
@@ -1096,7 +1286,7 @@ router.post('/spaces/:spaceId/integrations/test-games', authenticateToken, requi
   }
 })));
 
-router.post('/spaces/:spaceId/integrations/test-comics', authenticateToken, requireSessionAuth, asyncHandler(async (req, res) => runManagedIntegrationTest(req, res, {
+router.post('/spaces/:spaceId/integrations/test-comics', authenticateToken, requireSessionAuth, requireRecentReauthentication, asyncHandler(async (req, res) => runManagedIntegrationTest(req, res, {
   section: 'comics',
   handler: async (config) => {
     if (!config.comicsApiUrl) return res.status(400).json({ ok: false, authenticated: false, detail: 'Comics API URL is not configured' });
@@ -1120,12 +1310,12 @@ router.post('/spaces/:spaceId/integrations/test-comics', authenticateToken, requ
   }
 })));
 
-router.post('/spaces/:spaceId/integrations/test-cwa', authenticateToken, requireSessionAuth, asyncHandler(async (req, res) => runManagedIntegrationTest(req, res, {
+router.post('/spaces/:spaceId/integrations/test-cwa', authenticateToken, requireSessionAuth, requireRecentReauthentication, asyncHandler(async (req, res) => runManagedIntegrationTest(req, res, {
   section: 'cwa',
   handler: async () => res.status(410).json({ ok: false, authenticated: false, status: 410, provider: 'cwa_opds', detail: 'CWA OPDS integration testing is deferred and currently disabled.' })
 })));
 
-router.post('/spaces/:spaceId/integrations/test-kavita', authenticateToken, requireSessionAuth, asyncHandler(async (req, res) => runManagedIntegrationTest(req, res, {
+router.post('/spaces/:spaceId/integrations/test-kavita', authenticateToken, requireSessionAuth, requireRecentReauthentication, asyncHandler(async (req, res) => runManagedIntegrationTest(req, res, {
   section: 'kavita',
   handler: async (storedConfig) => {
     const config = {

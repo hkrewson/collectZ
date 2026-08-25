@@ -22,8 +22,9 @@ const reportPath = process.env.RELEASE_PREFLIGHT_REPORT
   : path.join(repoRoot, 'preflight-go-no-go.md');
 const backendAuditPath = path.join(dependencyAuditDir, 'backend-audit.json');
 const frontendAuditPath = path.join(dependencyAuditDir, 'frontend-audit.json');
-const initParityEvidencePath = path.join(repoRoot, 'artifacts', 'init-parity-evidence', 'init-parity-evidence.json');
-const migrationRehearsalEvidencePath = path.join(repoRoot, 'artifacts', 'migration-rehearsal-evidence', 'migration-rehearsal-evidence.json');
+const initParityEvidencePath = path.join(backendRoot, 'artifacts', 'init-parity-evidence.json');
+const migrationRehearsalEvidencePath = path.join(backendRoot, 'artifacts', 'migration-rehearsal-evidence.json');
+const identityCertificationEvidencePath = path.join(backendRoot, 'artifacts', 'identity-upgrade-certification-evidence.json');
 const observabilityEvidencePath = path.join(repoRoot, 'artifacts', 'observability-evidence', 'observability-release-evidence.json');
 const releaseNotePath = path.join(repoRoot, 'docs', 'releases', `v${appMeta.version}.md`);
 const browserRegressionSpec = 'tests/playwright/specs/admin-shell.browser.spec.js';
@@ -75,6 +76,11 @@ function formatStatus(status, detail) {
 
 function buildGate(name, status, detail, extras = {}) {
   return { name, status, detail, ...extras };
+}
+
+function commandFailureDetail(prefix, result) {
+  const output = String(result?.stderr || result?.stdout || '').trim();
+  return output ? `${prefix}: ${output}` : `${prefix} (exit ${result?.status ?? 'unknown'})`;
 }
 
 function getAuditCounts(auditJson) {
@@ -207,7 +213,7 @@ async function runComposeSmokeBasics() {
   try {
     const healthResult = runInStackHttpGet('/api/health');
     if (healthResult.status !== 0) {
-      return buildGate('Compose smoke basics', 'BLOCKED', `in-stack /api/health probe failed: ${String(healthResult.stderr || '').trim()}`);
+      return buildGate('Compose smoke basics', 'BLOCKED', commandFailureDetail('in-stack /api/health probe failed', healthResult));
     }
     const healthPayload = JSON.parse(String(healthResult.stdout || '{}'));
     const health = JSON.parse(String(healthPayload.body || '{}'));
@@ -227,7 +233,7 @@ async function runComposeSmokeBasics() {
 
     const csrfResponse = runInStackHttpGet('/api/auth/csrf-token');
     if (csrfResponse.status !== 0) {
-      return buildGate('Compose smoke basics', 'BLOCKED', `in-stack csrf-token probe failed: ${String(csrfResponse.stderr || '').trim()}`);
+      return buildGate('Compose smoke basics', 'BLOCKED', commandFailureDetail('in-stack csrf-token probe failed', csrfResponse));
     }
     const csrfPayload = JSON.parse(String(csrfResponse.stdout || '{}'));
     const csrfJson = JSON.parse(String(csrfPayload.body || '{}'));
@@ -261,7 +267,7 @@ async function runComposeSmokeBasics() {
 
     const meResult = runInStackHttpGet('/api/auth/me');
     if (meResult.status !== 0) {
-      return buildGate('Compose smoke basics', 'BLOCKED', `in-stack auth/me probe failed: ${String(meResult.stderr || '').trim()}`);
+      return buildGate('Compose smoke basics', 'BLOCKED', commandFailureDetail('in-stack auth/me probe failed', meResult));
     }
     const mePayload = JSON.parse(String(meResult.stdout || '{}'));
     if (Number(mePayload.statusCode) !== 401) {
@@ -347,8 +353,9 @@ function buildMarkdownReport({ gates, noteExists, noteText }) {
   lines.push('');
   lines.push(`- \`artifacts/dependency-audit/backend-audit.json\`: ${fs.existsSync(backendAuditPath) ? 'present' : 'missing'}`);
   lines.push(`- \`artifacts/dependency-audit/frontend-audit.json\`: ${fs.existsSync(frontendAuditPath) ? 'present' : 'missing'}`);
-  lines.push(`- \`artifacts/init-parity-evidence/init-parity-evidence.json\`: ${fs.existsSync(initParityEvidencePath) ? 'present' : 'missing'}`);
-  lines.push(`- \`artifacts/migration-rehearsal-evidence/migration-rehearsal-evidence.json\`: ${fs.existsSync(migrationRehearsalEvidencePath) ? 'present' : 'missing'}`);
+  lines.push(`- \`${path.relative(repoRoot, initParityEvidencePath)}\`: ${fs.existsSync(initParityEvidencePath) ? 'present' : 'missing'}`);
+  lines.push(`- \`${path.relative(repoRoot, migrationRehearsalEvidencePath)}\`: ${fs.existsSync(migrationRehearsalEvidencePath) ? 'present' : 'missing'}`);
+  lines.push(`- \`${path.relative(repoRoot, identityCertificationEvidencePath)}\`: ${fs.existsSync(identityCertificationEvidencePath) ? 'present' : 'missing'}`);
   lines.push(`- \`artifacts/observability-evidence/observability-release-evidence.json\`: ${fs.existsSync(observabilityEvidencePath) ? 'present' : 'missing'}`);
   lines.push(`- \`preflight-go-no-go.md\`: will be written by this helper`);
   lines.push('');
@@ -428,6 +435,30 @@ async function main() {
       initParityEvidence && migrationEvidence
         ? 'init parity and migration rehearsal evidence are present'
         : 'missing init parity or migration rehearsal evidence'
+    )
+  );
+
+  const identityEvidence = safeReadJson(identityCertificationEvidencePath);
+  const identityStatusAccepted = ['passed', 'not_required'].includes(identityEvidence?.status);
+  const identityTargetsCurrentChain = Number(identityEvidence?.latestVersion) === Number(migrationEvidence?.latestVersion);
+  const identityPassedBehavior = identityEvidence?.status !== 'passed' || (
+    ['baseline', 'upgrade', 'restore'].every((phase) => identityEvidence?.phases?.[phase]?.passwordLogin === 'passed')
+    && identityEvidence?.evidenceHygiene?.runtimeSecretsRetained === false
+    && identityEvidence?.evidenceHygiene?.credentialBearingCommandsRetained === false
+  );
+  const identityCertificationValid = Boolean(
+    identityEvidence
+    && identityStatusAccepted
+    && identityTargetsCurrentChain
+    && identityPassedBehavior
+  );
+  gates.push(
+    buildGate(
+      'Identity upgrade certification evidence',
+      identityCertificationValid ? 'PASS' : 'FAIL',
+      identityCertificationValid
+        ? `${identityEvidence.status} for migration chain through ${identityEvidence.latestVersion}`
+        : 'identity certification is missing, stale, failed, or retained unsafe evidence'
     )
   );
 

@@ -1,13 +1,14 @@
 'use strict';
 
 const pool = require('../db/pool');
-const { loadAdminIntegrationConfig } = require('../services/integrations');
+const { loadWorkspaceComicsIntegrationConfig } = require('../services/integrations');
 const { searchComicsByTitle } = require('../services/comics');
 
 function parseArgs(argv = []) {
   const args = {
     apply: false,
     fixProvider: false,
+    spaceId: null,
     libraryId: null,
     limit: 10000
   };
@@ -20,6 +21,17 @@ function parseArgs(argv = []) {
     }
     if (token === '--fix-provider') {
       args.fixProvider = true;
+      continue;
+    }
+    if (token.startsWith('--space-id=')) {
+      const value = Number(token.split('=')[1]);
+      if (Number.isSafeInteger(value) && value > 0) args.spaceId = value;
+      continue;
+    }
+    if (token === '--space-id') {
+      const value = Number(argv[i + 1]);
+      if (Number.isSafeInteger(value) && value > 0) args.spaceId = value;
+      i += 1;
       continue;
     }
     if (token.startsWith('--library-id=')) {
@@ -106,9 +118,9 @@ function pickProviderRemapCandidate(matches = [], rowTitle, titleIssueToken) {
   return null;
 }
 
-function buildWhereClause({ libraryId }) {
-  const conditions = ['media_type = $1'];
-  const params = ['comic_book'];
+function buildWhereClause({ libraryId, spaceId }) {
+  const conditions = ['media_type = $1', 'space_id = $2'];
+  const params = ['comic_book', spaceId];
   if (libraryId) {
     params.push(libraryId);
     conditions.push(`library_id = $${params.length}`);
@@ -121,7 +133,8 @@ function buildWhereClause({ libraryId }) {
 
 async function run() {
   const options = parseArgs(process.argv.slice(2));
-  const integrationConfig = options.fixProvider ? await loadAdminIntegrationConfig() : null;
+  if (!options.spaceId) throw new Error('--space-id is required');
+  const integrationConfig = options.fixProvider ? await loadWorkspaceComicsIntegrationConfig(options.spaceId) : null;
   const { where, params } = buildWhereClause(options);
   params.push(options.limit);
 
@@ -206,8 +219,9 @@ async function run() {
     ? [...mismatches, ...providerDrift]
     : mismatches;
   if (options.apply && applyRows.length) {
-    await pool.query('BEGIN');
+    const client = await pool.connect();
     try {
+      await client.query('BEGIN');
       for (const row of applyRows) {
         let nextProviderIssueId = null;
         let shouldUpdateIssue = Object.prototype.hasOwnProperty.call(row, 'to');
@@ -221,7 +235,7 @@ async function run() {
         const issueValue = targetIssue;
         const editionValue = issueValue ? `Issue ${issueValue}` : null;
         const providerValue = nextProviderIssueId || currentProviderIssueId || null;
-        await pool.query(
+        await client.query(
           `UPDATE media
            SET type_details = jsonb_set(
                  jsonb_set(
@@ -235,17 +249,20 @@ async function run() {
                  true
                ),
                updated_at = NOW()
-           WHERE id = $1`,
-          [row.id, issueValue, editionValue, providerValue]
+           WHERE id = $1
+             AND space_id = $5`,
+          [row.id, issueValue, editionValue, providerValue, options.spaceId]
         );
         updated += 1;
         if (nextProviderIssueId) providerRemapped += 1;
         if (!shouldUpdateIssue && (nextProviderIssueId || editionValue)) providerDriftUpdated += 1;
       }
-      await pool.query('COMMIT');
+      await client.query('COMMIT');
     } catch (error) {
-      await pool.query('ROLLBACK');
+      await client.query('ROLLBACK');
       throw error;
+    } finally {
+      client.release();
     }
   }
 
@@ -258,6 +275,7 @@ async function run() {
     providerRemapped,
     providerDriftUpdated,
     storedIssueWithoutTitleIssue: missingInTitle.length,
+    spaceId: options.spaceId,
     libraryId: options.libraryId || null,
     sample: mismatches.slice(0, 25),
     sampleStoredWithoutTitle: missingInTitle.slice(0, 10)

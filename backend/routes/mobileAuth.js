@@ -72,7 +72,7 @@ router.post('/auth/login', validate(mobileLoginSchema), asyncHandler(async (req,
   const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
   if (result.rows.length === 0) {
     recordAuthEvent('mobile_login', 'failed');
-    await logActivity(req, 'auth.mobile.login.failed', 'user', null, { email, reason: 'invalid_credentials' });
+    await logActivity(req, 'auth.mobile.login.failed', 'user', null, { reason: 'invalid_credentials' });
     return res.status(401).json({ error: 'Invalid email or password' });
   }
 
@@ -80,14 +80,13 @@ router.post('/auth/login', validate(mobileLoginSchema), asyncHandler(async (req,
   const validPassword = await bcrypt.compare(password, user.password);
   if (!validPassword) {
     recordAuthEvent('mobile_login', 'failed');
-    await logActivity(req, 'auth.mobile.login.failed', 'user', user.id, { email: user.email, reason: 'invalid_credentials' });
+    await logActivity(req, 'auth.mobile.login.failed', 'user', user.id, { reason: 'invalid_credentials' });
     return res.status(401).json({ error: 'Invalid email or password' });
   }
 
   if (!isHomelabEdition(getProductEdition()) && !user.email_verified) {
     recordAuthEvent('mobile_login', 'verification_required');
     await logActivity(req, 'auth.mobile.login.denied', 'user', user.id, {
-      email: user.email,
       reason: 'email_verification_required'
     });
     return res.status(403).json({
@@ -107,11 +106,9 @@ router.post('/auth/login', validate(mobileLoginSchema), asyncHandler(async (req,
   });
 
   await logActivity({ ...req, user: { id: user.id, role: user.role, email: user.email } }, 'auth.mobile.login', 'user', user.id, {
-    email: user.email,
     scopes: MOBILE_AUTH_SCOPES,
     activeSpaceId: scope.spaceId,
     activeLibraryId: scope.libraryId,
-    deviceName: deviceName || null,
     platform: platform || null,
     appVersion: appVersion || null
   });

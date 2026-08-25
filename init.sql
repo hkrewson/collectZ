@@ -27,8 +27,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS invites (
     id SERIAL PRIMARY KEY,
     email VARCHAR(255) NOT NULL,
-    token VARCHAR(255) UNIQUE,
-    token_hash VARCHAR(64),
+    token_hash VARCHAR(64) NOT NULL,
     used BOOLEAN DEFAULT false,
     revoked BOOLEAN DEFAULT false,
     used_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
@@ -469,7 +468,8 @@ CREATE TABLE IF NOT EXISTS user_sessions (
     support_previous_space_id INTEGER REFERENCES spaces(id) ON DELETE SET NULL,
     support_previous_library_id INTEGER REFERENCES libraries(id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    expires_at TIMESTAMP NOT NULL
+    expires_at TIMESTAMP NOT NULL,
+    reauthenticated_at TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS password_reset_tokens (
@@ -742,6 +742,7 @@ CREATE TABLE IF NOT EXISTS app_integrations (
     plex_webhook_receiver_last_validated_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    vision_enabled BOOLEAN DEFAULT false,
     CONSTRAINT app_integrations_space_id_key UNIQUE (space_id)
 );
 
@@ -1405,8 +1406,7 @@ CREATE INDEX IF NOT EXISTS idx_media_seasons_watchlist ON media_seasons(watchlis
 CREATE UNIQUE INDEX IF NOT EXISTS idx_media_variants_plex_part ON media_variants (source, source_part_id) WHERE source = 'plex' AND source_part_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_media_variants_plex_item ON media_variants (source, source_item_key) WHERE source = 'plex' AND source_item_key IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_media_variants_bluray_item ON media_variants (media_id, source, source_item_key) WHERE source = 'blu-ray.com' AND source_item_key IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_invites_token ON invites(token);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_invites_token_hash ON invites(token_hash) WHERE token_hash IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_invites_token_hash ON invites(token_hash);
 CREATE INDEX IF NOT EXISTS idx_invites_active ON invites(used, revoked, expires_at);
 CREATE INDEX IF NOT EXISTS idx_activity_log_user_id ON activity_log(user_id);
 CREATE INDEX IF NOT EXISTS idx_activity_log_created_at ON activity_log(created_at);
@@ -1925,5 +1925,8 @@ INSERT INTO schema_migrations (version, description) VALUES
     (116, 'Add mobile auth sessions for native scanner tokens'),
     (117, 'Add idempotent Blu-ray.com physical media variants'),
     (118, 'Activate Plex inbound sync and add webhook delivery diagnostics'),
-    (119, 'Move legacy Plex receiver and display ownership into its configured workspace')
+    (119, 'Move legacy Plex receiver and display ownership into its configured workspace'),
+    (120, 'Add explicit workspace Vision OCR enablement'),
+    (121, 'Retire plaintext invitation token compatibility'),
+    (122, 'Add session-bound recent reauthentication proof')
 ON CONFLICT (version) DO NOTHING;

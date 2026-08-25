@@ -66,6 +66,7 @@ const RATE_LIMIT_WINDOW_MINUTES = Math.max(1, Number(process.env.RATE_LIMIT_WIND
 const RATE_LIMIT_WINDOW_MS = RATE_LIMIT_WINDOW_MINUTES * 60 * 1000;
 const RATE_LIMIT_GLOBAL_MAX = Math.max(50, Number(process.env.RATE_LIMIT_GLOBAL_MAX || (IS_PRODUCTION ? 600 : 5000)));
 const RATE_LIMIT_AUTH_MAX = Math.max(5, Number(process.env.RATE_LIMIT_AUTH_MAX || (IS_PRODUCTION ? 20 : 200)));
+const RATE_LIMIT_INVITE_MAX = Math.max(5, Number(process.env.RATE_LIMIT_INVITE_MAX || (IS_PRODUCTION ? 20 : 200)));
 const RATE_LIMIT_ADMIN_MAX = Math.max(30, Number(process.env.RATE_LIMIT_ADMIN_MAX || 300));
 const RATE_LIMIT_MEDIA_READ_MAX = Math.max(60, Number(process.env.RATE_LIMIT_MEDIA_READ_MAX || 600));
 const RATE_LIMIT_MEDIA_WRITE_MAX = Math.max(20, Number(process.env.RATE_LIMIT_MEDIA_WRITE_MAX || 240));
@@ -91,6 +92,12 @@ const parseBoolean = (value, fallback = false) => {
   if (value === undefined || value === null || value === '') return fallback;
   return ['1', 'true', 'yes', 'on'].includes(String(value).toLowerCase().trim());
 };
+
+const skipStartupMigrationsForIdentityCertification = () => (
+  process.env.NODE_ENV === 'test'
+  && parseBoolean(process.env.IDENTITY_UPGRADE_CERTIFICATION, false)
+  && parseBoolean(process.env.IDENTITY_CERTIFICATION_SKIP_STARTUP_MIGRATIONS, false)
+);
 
 const parseTrustProxy = (value) => {
   if (value === undefined || value === null || value === '') {
@@ -221,6 +228,21 @@ const authLimiter = makeLimiter({
   max: RATE_LIMIT_AUTH_MAX,
   message: { error: 'Too many authentication attempts, please try again later' }
 });
+const inviteLimiter = makeLimiter({
+  max: RATE_LIMIT_INVITE_MAX,
+  message: { error: 'Too many invitation operations, please try again later' },
+  skip: (req) => {
+    const path = String(req.originalUrl || '').split('?')[0];
+    const inviteMutation = (
+      req.method === 'POST'
+      && /^\/api\/spaces\/\d+\/invites\/?$/.test(path)
+    ) || (
+      req.method === 'PATCH'
+      && /^\/api\/spaces\/\d+\/invites\/\d+\/revoke\/?$/.test(path)
+    );
+    return !inviteMutation;
+  }
+});
 const adminLimiter = makeLimiter({
   max: RATE_LIMIT_ADMIN_MAX,
   message: { error: 'Too many admin requests, please slow down' }
@@ -253,8 +275,10 @@ app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
 app.use('/api/auth/password-reset', authLimiter);
 app.use('/api/auth/email-verification', authLimiter);
+app.use('/api/auth/reauthenticate', authLimiter);
 app.use('/api/mobile/auth/login', authLimiter);
 app.use('/api/mobile/auth/refresh', authLimiter);
+app.use('/api/spaces', inviteLimiter);
 app.use('/api/admin', adminLimiter);
 app.use('/api/media', mediaReadLimiter);
 app.use('/api/media', mediaWriteLimiter);
@@ -348,7 +372,11 @@ app.use(errorHandler);
 const startServer = async () => {
   try {
     validateStartupSecurityConfig();
-    await runMigrations();
+    if (skipStartupMigrationsForIdentityCertification()) {
+      console.warn('Identity upgrade certification: startup migrations are disabled for baseline behavior verification.');
+    } else {
+      await runMigrations();
+    }
     const staleJobs = await pool.query(
       `UPDATE sync_jobs
        SET status = 'failed',

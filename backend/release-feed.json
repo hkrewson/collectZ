@@ -1,6 +1,136 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.24.12",
+      "version": "3.24.12",
+      "date": "2026-08-25",
+      "status": "complete locally; hosted release gates pending",
+      "summary": "This release makes CollectZ credential and support-delegation operations require a recent password confirmation bound to the current opaque browser session. A reviewed operation inventory now separates harmless masked status from key/token creation, rotation, revocation, provider testing, identity changes, and delegation, with machine-checked authority and disclosure policy.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added a rate-limited `POST /api/auth/reauthenticate` endpoint that verifies the current password and stamps only the current browser session for a configurable 15-minute window.",
+            "Existing sessions upgrade without proof and therefore fail sensitive operations closed; fresh password logins start with recent proof.",
+            "Added reusable middleware that rejects stale or non-session credentials with the stable `recent_reauthentication_required` reason before protected mutation.",
+            "Guarded personal access token and service-account key create/revoke, platform and workspace integration credential saves/tests, Plex display/webhook token operations, support-session start, and profile email change.",
+            "Kept password change protected by its equivalent current-password proof and other-session revocation; support-session end remains an unguarded safety off-ramp.",
+            "Added a 20-operation reviewed contract covering permissions, CSRF, limiter, session authentication, reauthentication, disclosure, and audit behavior. SMTP and MFA/recovery material are explicitly recorded as unavailable with mandatory future policy.",
+            "Added shared frontend password prompting and exact-operation retry for guarded profile and integration actions.",
+            "Added live PostgreSQL proof for safe status readback, stale and sibling-session non-mutation, CSRF, wrong-password, non-session, support-delegation, limiter, and audit-retention behavior."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "collectZ v3.24.11",
+      "version": "3.24.11",
+      "date": "2026-08-25",
+      "status": "complete locally; hosted CI promotion gates pending after push",
+      "summary": "This release removes CollectZ's final plaintext invitation-token compatibility path. Fresh and upgraded databases now store only a required unique token hash, registration claims invitations only by that hash, and maintained migration evidence proves legacy upgrade and restore behavior without retaining usable credential material.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added migration `121` to revoke legacy invitations without a usable hash, assign non-claimable retirement hashes, clear plaintext values, remove the plaintext index and column, and enforce a non-null unique hash.",
+            "Updated the fresh-install schema to create hash-only invitations from the outset.",
+            "Removed the plaintext fallback from invitation registration while retaining advisory-lock serialization and one-time conditional consumption.",
+            "Updated the aggregate invitation inventory to prove column absence and hash completeness without exposing invitation identities or token material.",
+            "Extended generic migration rehearsal evidence to capture secret-free invitation schema state before upgrade, after upgrade, and after snapshot restore.",
+            "Updated focused unit and live abuse coverage for hash-only lookup, replay, concurrency, CSRF non-mutation, and audit hygiene."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "collectZ v3.24.10",
+      "version": "3.24.10",
+      "date": "2026-08-25",
+      "status": "complete locally; hosted CI promotion gates pending after push",
+      "summary": "This release turns CollectZ workspace ownership from scattered conventions into a reviewed, machine-checked contract. It classifies every fresh-install table and maintained Express route, records same-workspace foreign-key expectations, certifies important jobs and provider paths, centralizes stable permission keys for workspace membership management, and adds live cross-workspace authorization proof.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added a generated and reviewed ownership snapshot covering all fresh-install database tables, maintained route declarations, stable permission keys, and selected non-request execution paths.",
+            "Table entries identify their ownership category, authoritative ownership key, rationale, and same-workspace foreign-key expectations.",
+            "Authenticated route entries record method, ownership/locality, stable read or mutation permission, scope source, CSRF policy, and session-credential requirement.",
+            "Added stable account, platform, workspace, content, member, and integration permission keys with owner/admin/member/viewer role bundles that reject unknown permissions.",
+            "Routed workspace membership-management decisions through the stable permission evaluator while retaining the existing role assignment hierarchy.",
+            "Certified durable sync jobs, Plex webhook/reconciliation/readback, capture OCR, valuation, workspace export, media search, activity audit, and provider-backed repair paths against explicit workspace sources.",
+            "Added a live PostgreSQL-backed authorization smoke for anonymous denial, read-only mutation denial, sibling-workspace read/mutation/provider denial, identifier tampering, and durable-job isolation.",
+            "Added ownership snapshot drift and live authorization certification to the maintained RBAC CI job."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "collectZ v3.24.9",
+      "version": "3.24.9",
+      "date": "2026-08-25",
+      "status": "complete locally; hosted CI promotion gates pending after push",
+      "summary": "This release makes authentication and invitation audit details fail closed to an explicit minimal catalog. It removes account-discovery and credential-adjacent values from security audit payloads, adds focused invitation mutation throttling and CSRF proof, and inventories legacy plaintext invitation state without exposing invitation identities or token values.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Every maintained authentication, mobile-auth, invitation, membership/ownership-transfer, CSRF, support-scope, and scope-denial activity action now has an explicit detail-key and value-type schema.",
+            "Unknown detail fields are rejected before database persistence and structured-log export; uncataloged future security-sensitive actions retain no details until deliberately classified.",
+            "Security audit callers no longer submit account or membership email addresses, token-row identifiers, profile before/after values, device names, support-requester addresses, ownership-transfer labels, or free-form SMTP errors.",
+            "Generic request-outcome audit rows retain only method, query-free path, status, and duration, without response bodies or original query strings.",
+            "Workspace invitation creation and revocation have a dedicated application-layer limiter controlled by `RATE_LIMIT_INVITE_MAX`.",
+            "Concurrent claims for the same invitation token are serialized so the losing request receives the deliberate invalid-token response instead of racing into a duplicate-account error.",
+            "Live auth abuse verification covers invitation create/revoke CSRF non-mutation, invitation limiter exhaustion, persisted detail-key allowlists, and tested sensitive-value absence.",
+            "A read-only invitation-token inventory reports aggregate active plaintext, missing-hash, and historical plaintext counts without selecting invite identities or values."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "collectZ v3.24.8",
+      "version": "3.24.8",
+      "date": "2026-08-24",
+      "status": "complete locally; hosted CI promotion gates pending after push",
+      "summary": "This release adds a production-migration certification that proves representative authentication and authorization state still behaves as declared before upgrade, after upgrade, and after snapshot restore. It complements schema parity and row-count rehearsal with password login, concurrent sessions, verified email, active workspace/library scope, memberships and roles, personal API credentials, service credentials, audit history, and secret-free evidence.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added a runtime-generated synthetic identity fixture with two users, owner/viewer workspace and library relationships, two concurrent sessions, invitation/reset/verification lifecycle rows, audit history, a personal access token, and a service-account key.",
+            "Added a keyed, secret-free identity manifest and explicit versioned policy for session survival or revocation, active-scope preservation or clearing, and API-credential validity or revocation.",
+            "Added baseline, production-runner upgrade, and snapshot-restore HTTP certification through the real application server while preventing automatic startup migrations only inside the explicitly gated test harness.",
+            "Added migration-range selection so every migration newer than the maintained certified marker is evaluated and identity-sensitive changes cannot be hidden by a later unrelated migration.",
+            "Added CI execution and release artifact collection for identity certification alongside init parity and generic migration rehearsal.",
+            "Replaced static migration-rehearsal identity credentials and the migration-check PostgreSQL password with runtime-derived values.",
+            "Updated migration/release checklists and local preflight artifact readback for the new certification evidence."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "collectZ v3.24.7",
+      "version": "3.24.7",
+      "date": "2026-08-24",
+      "status": "complete locally; hosted CI promotion gates pending after push",
+      "summary": "This release makes the workspace integration row authoritative for PriceCharting, eBay Browse, capture-image OCR, and provider-backed comic repair execution. Missing workspace settings now fail closed instead of borrowing credentials from the installation row, environment, another workspace, or an unrelated Kavita configuration.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Valuation refreshes now load PriceCharting and eBay settings from the workspace that owns the imported or directly refreshed media row.",
+            "The valuation import path no longer gates execution on Kavita or falls back to installation integration row `id=1`.",
+            "Capture-image OCR now loads the exact workspace row that owns the capture, requires explicit workspace OCR enablement, and disables environment and installation credential fallback.",
+            "Workspace managers can configure, mask, replace, and clear Vision/OCR, PriceCharting, and eBay credentials from the workspace Integrations screen.",
+            "Workspace integration readback identifies workspace-owned credentials separately from built-in non-secret endpoint, preset, rate-limit, header, and marketplace defaults.",
+            "Provider-backed comic repair utilities now require `--space-id`, use workspace-only Metron/comics configuration, and restrict selected and updated media rows to that workspace.",
+            "Added migration `120` and fresh-install parity for explicit workspace OCR enablement.",
+            "Added unit, OpenAPI, browser, cross-workspace provider ownership, and OCR fail-closed smoke coverage.",
+            "Associated all integration field labels with their controls so workspace credentials and existing Plex/provider settings expose stable accessible names."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.24.6",
       "version": "3.24.6",
       "date": "2026-08-08",
@@ -81,131 +211,6 @@
             "Made watched and rating events read current state from Plex before applying it to matching CollectZ rows.",
             "Added redacted accepted/rejected delivery diagnostics to the Plex Webhook settings readback.",
             "Enabled reconciliation and watched/rating readback for existing configured Plex integrations and made completed new connections default to active inbound monitoring."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.24.2",
-      "version": "3.24.2",
-      "date": "2026-07-31",
-      "status": "implementation complete; hosted release gates pending",
-      "summary": "This release carries structured Blu-ray.com browser captures through review into canonical movie fallbacks, physical-edition evidence, identifiers, ownership formats, and a guarded used-price valuation.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added a server-derived import mapping and compact, plain-text preview for supported browser captures.",
-            "Used captured year and runtime as provider-enrichment hints while preserving canonical movie release-date semantics.",
-            "Merged captured Blu-ray, 4K UHD, DVD, and digital ownership formats without removing formats already owned.",
-            "Added an idempotent Blu-ray.com physical variant keyed by canonical media row and Blu-ray.com product ID.",
-            "Stored the full physical-release evidence, including technical specs, ratings, release date, links, pricing, and original page metadata, in the variant record.",
-            "Stored IMDb and ASIN identities in media metadata.",
-            "Mapped the Blu-ray.com used-from amount to the low estimated value with currency, source, and observation time.",
-            "Preserved manual and unrelated valuations instead of silently overwriting them.",
-            "Paired collectZ `3.24.2` with browser extension `0.1.1`, which emits structured Blu-ray.com pricing while retaining the original Price text."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.24.1",
-      "version": "3.24.1",
-      "date": "2026-07-28",
-      "status": "implementation complete; hosted release gates pending",
-      "summary": "This release lets a title-only browser-extension capture complete Capture Inbox review as a normal library import after the reviewer chooses its media type.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added a compact library-type selector and explicit Add to library action for titled captures without lookup matches.",
-            "Added Book, Comic, Movie, TV, Audio, and Game as supported review-import targets.",
-            "Reused the existing media enrichment, deduplication, creation, and linking pipeline.",
-            "Kept the stored capture title authoritative during title-only review imports.",
-            "Recorded the chosen object type and title-review import provenance on converted captures.",
-            "Documented the title-only capture-review API contract and added backend and browser regression coverage."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.24.0",
-      "version": "3.24.0",
-      "date": "2026-07-26",
-      "status": "implementation complete; hosted release gates pending",
-      "summary": "This release restores CollectZ to an upstream-supported runtime baseline by moving the backend, active CI jobs, and operational Node helper images from end-of-life Node 20 to Node 24 LTS.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Moved the production backend Docker image to Node 24.",
-            "Declared Node 24 as the supported backend package engine.",
-            "Made the production backend image use lockfile-strict `npm ci`.",
-            "Aligned active GitHub Actions jobs and scheduled dependency reporting on Node 24.",
-            "Moved the syslog collector and sizing helper images to Node 24.",
-            "Added source-contract coverage that rejects active Node 20 runtime or CI configuration.",
-            "Updated newly disclosed vulnerable transitive development/build dependencies without changing the application dependency architecture.",
-            "Repaired a stale browser fixture and pre-existing maintained-source CodeQL findings exposed by the full release gate.",
-            "Kept the current application architecture: Node/Express/Postgres for the backend and Vite-built static assets served by Nginx for the frontend."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.23.21",
-      "version": "3.23.21",
-      "date": "2026-07-22",
-      "status": "completed",
-      "summary": "This patch gives CollectZ an explicit web-app identity so an iOS Home Screen installation owns the full site instead of treating the page used during installation as its return destination.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added a web app manifest with a root app identity and route scope.",
-            "Set `/dashboard` as the stable Home Screen launch URL while keeping every CollectZ route inside the installed app.",
-            "Added standalone display, theme, and Apple Home Screen metadata.",
-            "Reused the existing CollectZ mark and color palette for standard, maskable, and Apple touch icons.",
-            "Added browser coverage for the manifest contract, MIME type, metadata links, and install icon responses.",
-            "Updated Axios to `1.18.1` in backend and frontend and refreshed backend's transitive `body-parser` to `2.3.0` after newly published advisories surfaced during the release audit.",
-            "Repaired the frontend lockfile's missing optional `@emnapi` peer entries and aligned dependency CI with the supported runtime split: Node 20 for backend installs and Node 24 for frontend installs."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.23.20",
-      "version": "3.23.20",
-      "date": null,
-      "status": null,
-      "summary": "This patch removes signed, numbered-print, and event-acquisition pills from Art poster cards. Cards now keep the artwork and title dominant with at most two quiet plain-text metadata lines.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Replaced the combined numbered/signed/medium subtitle with a plain `medium · edition` line.",
-            "Added one optional plain signer line using `Signed by artist`.",
-            "Kept `Signed` on the first line only when an item is signed but no signer name is known.",
-            "Removed collectible trait pills, including event/vendor/booth context, from Art poster cards.",
-            "Kept complete collectible and acquisition metadata in existing list and detail surfaces.",
-            "Extended mobile browser coverage to verify the two-line contract, absence of trait/event pills, and viewport containment."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.23.19",
-      "version": "3.23.19",
-      "date": null,
-      "status": null,
-      "summary": "This patch keeps long collectible-detail labels inside narrow Art poster cards. On iPhone-sized screens, signing and event-acquisition labels now truncate within their own card instead of overlapping the neighboring card or widening the page beyond the viewport.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Allowed shared poster cards to shrink below the intrinsic width of their metadata.",
-            "Constrained trait-pill containers and individual pills to the available card width.",
-            "Preserved the existing two-column mobile Art grid and full trait text through the pill title/readback.",
-            "Added a mobile browser regression that checks both card-boundary containment and document viewport width with a deliberately long signer label."
           ]
         }
       ]

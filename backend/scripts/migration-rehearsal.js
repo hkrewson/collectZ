@@ -2,6 +2,8 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
+const bcrypt = require('bcrypt');
 const { Client } = require('pg');
 
 const useDatabaseSSL = process.env.DATABASE_SSL === 'true' || process.env.DATABASE_SSL === '1';
@@ -74,6 +76,7 @@ async function verifyCriticalColumns(client) {
   const checks = [
     ['app_integrations', 'plex_api_url'],
     ['app_integrations', 'plex_library_sections'],
+    ['app_integrations', 'vision_enabled'],
     ['invites', 'revoked'],
     ['invites', 'used_by'],
     ['feature_flags', 'created_at'],
@@ -90,15 +93,44 @@ async function verifyCriticalColumns(client) {
   }
 }
 
+async function collectInvitationTokenState(client) {
+  const columns = await client.query(
+    `SELECT column_name, is_nullable
+       FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'invites'
+        AND column_name IN ('token', 'token_hash')`
+  );
+  const tokenColumnPresent = columns.rows.some((row) => row.column_name === 'token');
+  const tokenHash = columns.rows.find((row) => row.column_name === 'token_hash');
+  const missingHash = await client.query(
+    `SELECT COUNT(*)::int AS count FROM invites WHERE token_hash IS NULL`
+  );
+  const plaintext = tokenColumnPresent
+    ? await client.query(`SELECT COUNT(*)::int AS count FROM invites WHERE token IS NOT NULL`)
+    : { rows: [{ count: 0 }] };
+  return {
+    tokenColumnPresent,
+    tokenHashRequired: tokenHash?.is_nullable === 'NO',
+    missingHashCount: Number(missingHash.rows[0]?.count || 0),
+    plaintextValueCount: Number(plaintext.rows[0]?.count || 0)
+  };
+}
+
 async function seedLegacyFixture(client) {
+  const fixtureSuffix = crypto.randomBytes(8).toString('hex');
+  const fixtureEmail = `migration-rehearsal-${fixtureSuffix}@example.invalid`;
+  const fixturePassword = crypto.randomBytes(32).toString('hex');
+  const fixturePasswordHash = await bcrypt.hash(fixturePassword, 12);
+  const fixtureInviteToken = crypto.randomBytes(32).toString('hex');
   await client.query(
     `INSERT INTO users (email, password, name, role)
      VALUES ($1, $2, $3, $4)
      ON CONFLICT (email) DO NOTHING`,
-    ['rehearsal-admin@example.com', '$2b$10$legacyfixturehashplaceholder', 'Rehearsal Admin', 'admin']
+    [fixtureEmail, fixturePasswordHash, 'Migration Rehearsal Admin', 'admin']
   );
 
-  const userRes = await client.query('SELECT id FROM users WHERE email = $1 LIMIT 1', ['rehearsal-admin@example.com']);
+  const userRes = await client.query('SELECT id FROM users WHERE email = $1 LIMIT 1', [fixtureEmail]);
   const userId = userRes.rows[0]?.id;
   if (!userId) throw new Error('Failed to create fixture user');
 
@@ -108,12 +140,32 @@ async function seedLegacyFixture(client) {
      ON CONFLICT (id) DO NOTHING`
   );
 
-  await client.query(
-    `INSERT INTO invites (email, token, used, revoked, expires_at, created_by)
-     VALUES ($1, $2, false, false, NOW() + INTERVAL '7 days', $3)
-     ON CONFLICT (token) DO NOTHING`,
-    ['rehearsal-invite@example.com', 'rehearsal-token-1', userId]
+  const inviteColumns = await client.query(
+    `SELECT column_name
+       FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'invites'
+        AND column_name IN ('token', 'token_hash')`
   );
+  const inviteColumnNames = new Set(inviteColumns.rows.map((row) => row.column_name));
+  if (inviteColumnNames.has('token')) {
+    await client.query(
+      `INSERT INTO invites (email, token, used, revoked, expires_at, created_by)
+       VALUES ($1, $2, false, false, NOW() + INTERVAL '7 days', $3)
+       ON CONFLICT (token) DO NOTHING`,
+      [`migration-rehearsal-invite-${fixtureSuffix}@example.invalid`, fixtureInviteToken, userId]
+    );
+  } else if (inviteColumnNames.has('token_hash')) {
+    const fixtureInviteTokenHash = crypto.createHash('sha256').update(fixtureInviteToken).digest('hex');
+    await client.query(
+      `INSERT INTO invites (email, token_hash, used, revoked, expires_at, created_by)
+       VALUES ($1, $2, false, false, NOW() + INTERVAL '7 days', $3)
+       ON CONFLICT (token_hash) DO NOTHING`,
+      [`migration-rehearsal-invite-${fixtureSuffix}@example.invalid`, fixtureInviteTokenHash, userId]
+    );
+  } else {
+    throw new Error('Invitation fixture requires token or token_hash identity');
+  }
 
   await client.query(
     `INSERT INTO media (title, year, format, added_by, notes)
@@ -167,6 +219,7 @@ async function main() {
       await seedLegacyFixture(legacyClient);
       evidence.preUpgradeCounts = await collectCounts(legacyClient);
       evidence.checks.preUpgradeVersion = await maxMigrationVersion(legacyClient);
+      evidence.checks.preUpgradeInvitationState = await collectInvitationTokenState(legacyClient);
     } finally {
       await legacyClient.end();
     }
@@ -179,6 +232,7 @@ async function main() {
       await verifyCriticalColumns(upgradeClient);
       evidence.postUpgradeCounts = await collectCounts(upgradeClient);
       evidence.checks.postUpgradeVersion = await maxMigrationVersion(upgradeClient);
+      evidence.checks.postUpgradeInvitationState = await collectInvitationTokenState(upgradeClient);
     } finally {
       await upgradeClient.end();
     }
@@ -188,6 +242,7 @@ async function main() {
     try {
       evidence.rollbackCounts = await collectCounts(rollbackClient);
       evidence.checks.rollbackVersion = await maxMigrationVersion(rollbackClient);
+      evidence.checks.rollbackInvitationState = await collectInvitationTokenState(rollbackClient);
     } finally {
       await rollbackClient.end();
     }
@@ -201,6 +256,15 @@ async function main() {
     }
     if (!evidence.checks.rollbackVersionMatchesBaseline) {
       throw new Error(`Rollback version mismatch: expected ${baselineVersion}, got ${evidence.checks.rollbackVersion}`);
+    }
+    const postInvite = evidence.checks.postUpgradeInvitationState;
+    if (postInvite.tokenColumnPresent || !postInvite.tokenHashRequired || postInvite.missingHashCount !== 0 || postInvite.plaintextValueCount !== 0) {
+      throw new Error('Upgraded invitation token state did not enforce hash-only storage');
+    }
+    const rollbackInvite = evidence.checks.rollbackInvitationState;
+    const preUpgradeInvite = evidence.checks.preUpgradeInvitationState;
+    if (JSON.stringify(rollbackInvite) !== JSON.stringify(preUpgradeInvite)) {
+      throw new Error('Rollback snapshot did not restore the baseline invitation identity state');
     }
 
     fs.writeFileSync(outputPath, `${JSON.stringify(evidence, null, 2)}\n`, 'utf8');

@@ -316,10 +316,10 @@ test.describe('library multi-format browser regressions', () => {
       const created = await createResponse.json();
       mediaId = Number(created?.id || 0) || null;
       expect(mediaId).toBeTruthy();
-      const meResponse = await requestContext.get('/api/auth/me');
-      expect(meResponse.ok()).toBeTruthy();
-      const currentUser = await meResponse.json();
-      spaceId = Number(currentUser?.active_space_id || 0) || null;
+      // Core/homelab intentionally omits workspace identifiers from /api/auth/me.
+      // Use the fixture's server-side scope so this test exercises the supported
+      // workspace integration endpoint without weakening that product boundary.
+      spaceId = Number(credentials.activeSpaceId || 0) || null;
       expect(spaceId).toBeTruthy();
       const originalIntegrationSettings = await getWorkspaceIntegrationSettings(requestContext, spaceId);
       originalWritebackSettings = originalIntegrationSettings?.plexWritebackSettings || null;

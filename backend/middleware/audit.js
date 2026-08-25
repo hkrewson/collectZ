@@ -8,17 +8,6 @@ const getMode = () => {
   return VALID_MODES.has(raw) ? raw : 'failures';
 };
 
-const summarizeErrorBody = (body) => {
-  if (!body) return null;
-  if (typeof body === 'string') return { message: body.slice(0, 400) };
-  if (typeof body !== 'object') return null;
-  return {
-    error: body.error || body.message || null,
-    detail: body.detail || null,
-    details: body.details || null
-  };
-};
-
 const auditRequestOutcome = (req, res, next) => {
   if (!req.originalUrl?.startsWith('/api/')) return next();
 
@@ -26,20 +15,11 @@ const auditRequestOutcome = (req, res, next) => {
   if (mode === 'off') return next();
 
   const startedAt = Date.now();
-  let responseBody = null;
-
-  const originalJson = res.json.bind(res);
-  res.json = (body) => {
-    responseBody = body;
-    return originalJson(body);
-  };
 
   res.on('finish', () => {
     const status = res.statusCode;
     const isFailure = status >= 400;
     const isMutation = MUTATING_METHODS.has(req.method);
-    const errorSummary = summarizeErrorBody(responseBody);
-
     const shouldLog =
       mode === 'all'
       || (mode === 'failures' && isFailure)
@@ -51,11 +31,8 @@ const auditRequestOutcome = (req, res, next) => {
     const details = {
       method: req.method,
       path: req.originalUrl?.split('?')[0] || req.path || req.originalUrl || null,
-      url: req.originalUrl,
       status,
-      durationMs: Date.now() - startedAt,
-      errorSummary,
-      response: errorSummary
+      durationMs: Date.now() - startedAt
     };
 
     void logActivity(req, action, 'http_request', null, details);

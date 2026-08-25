@@ -2,7 +2,10 @@ const DEFAULT_SPACE_NAME = 'Default Space';
 const DEFAULT_SPACE_SLUG = 'default';
 const DEFAULT_SPACE_DESCRIPTION = 'Default space for single-space installs';
 const SPACE_MEMBERSHIP_ROLES = ['owner', 'admin', 'member', 'viewer'];
-const SPACE_MANAGE_ROLES = ['owner', 'admin'];
+const { PERMISSIONS, hasPermission } = require('./authorizationPolicy');
+const SPACE_MANAGE_ROLES = SPACE_MEMBERSHIP_ROLES.filter((membershipRole) => (
+  hasPermission({ membershipRole, permission: PERMISSIONS.WORKSPACE_MEMBERS_MANAGE })
+));
 
 const DEFAULT_SPACE_SELECT_SQL = `
   SELECT id, name, slug, description, created_by, is_personal, created_at, updated_at, archived_at
@@ -115,11 +118,16 @@ function isGlobalAdmin(userRole) {
 }
 
 function canManageSpaceMemberships({ userRole, membershipRole }) {
-  return SPACE_MANAGE_ROLES.includes(membershipRole);
+  return hasPermission({ userRole, membershipRole, permission: PERMISSIONS.WORKSPACE_MEMBERS_MANAGE });
 }
 
 function canAssignSpaceRole({ actorUserRole, actorMembershipRole, nextRole }) {
   if (!SPACE_MEMBERSHIP_ROLES.includes(nextRole)) return false;
+  if (!hasPermission({
+    userRole: actorUserRole,
+    membershipRole: actorMembershipRole,
+    permission: PERMISSIONS.WORKSPACE_MEMBERS_MANAGE
+  })) return false;
   if (actorMembershipRole === 'owner') return ['admin', 'member', 'viewer'].includes(nextRole);
   if (actorMembershipRole === 'admin') return ['member', 'viewer'].includes(nextRole);
   return false;
