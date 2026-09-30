@@ -411,7 +411,7 @@ jobs:
       - name: Run migration restore rehearsal
         working-directory: backend
         run: |
-          BASELINE=$(node -e "const policy=require('./config/identity-upgrade-policies.json'); process.stdout.write(String(policy.certifiedThroughVersion));")
+          BASELINE=$(node -e "const policy=require('./config/identity-upgrade-policies.json'); const {MIGRATIONS}=require('./db/migrations'); const latest=Math.max(...MIGRATIONS.map(({version})=>version)); process.stdout.write(String(Math.min(Number(policy.certifiedThroughVersion), latest - 1)));")
           echo "Using baseline migration version: ${BASELINE}"
           MIGRATION_BASELINE_VERSION="${BASELINE}" \
           MIGRATION_REHEARSAL_OUTPUT="artifacts/migration-rehearsal-evidence.json" \

@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.24.13",
+      "version": "3.24.13",
+      "date": "2026-09-29",
+      "status": "verification in progress; hosted release gates pending",
+      "summary": "This maintenance release restores trustworthy dependency monitoring and main-branch release validation. It repairs Node 24 clean installs, remediates known production and tooling dependency findings, preserves Dependency Watch evidence when installs fail, and keeps migration rehearsal valid when identity certification is already current.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Updated backend CSV parsing, upload handling, mail delivery, rate limiting, IP parsing, and query-string parsing dependencies to remediated releases.",
+            "Updated frontend Vitest and refreshed root tooling transitive dependencies so clean Node 24 audits cover all three lockfiles without known vulnerabilities.",
+            "Added root tooling to Dependency Watch and made the workflow run for dependency-changing pull requests.",
+            "Kept later Dependency Watch report and artifact steps running after an earlier ecosystem failure, so a broken lockfile no longer erases the diagnostic evidence.",
+            "Changed generic migration rehearsal to select the latest real upgrade boundary while leaving identity-upgrade certification anchored to its reviewed policy marker.",
+            "Restored direct commits to `main` as the default CollectZ delivery workflow; pull requests remain available when explicitly requested or operationally necessary."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.24.12",
       "version": "3.24.12",
       "date": "2026-08-25",
@@ -190,27 +210,6 @@
             "Delivery diagnostics update the row that authenticated the receiver.",
             "Actionable webhook jobs include `spaceId` and `libraryId`, and duplicate suppression includes workspace identity.",
             "Added a focused Docker runtime smoke covering Generate, reload, Save, delivery diagnostics, scoped job enqueue, and Revoke."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.24.3",
-      "version": "3.24.3",
-      "date": "2026-08-01",
-      "status": "complete; hosted release gates passed",
-      "summary": "This release makes Plex an active inbound source by accepting its documented multipart webhooks, processing new-title/watched/rating events through durable jobs, and enabling scheduled reconciliation and state readback as a fallback.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added bounded multipart parsing for Plex's JSON `payload` field and optional thumbnail.",
-            "Kept token authentication ahead of body parsing and discarded thumbnail bytes after request handling.",
-            "Queued `library.new`, `media.scrobble`, and `media.rate` events durably with queued/running duplicate suppression.",
-            "Reused the existing single-rating-key import for newly added Plex titles.",
-            "Made watched and rating events read current state from Plex before applying it to matching CollectZ rows.",
-            "Added redacted accepted/rejected delivery diagnostics to the Plex Webhook settings readback.",
-            "Enabled reconciliation and watched/rating readback for existing configured Plex integrations and made completed new connections default to active inbound monitoring."
           ]
         }
       ]

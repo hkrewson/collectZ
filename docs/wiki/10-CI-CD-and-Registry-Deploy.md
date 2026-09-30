@@ -59,6 +59,7 @@ Migration safety in CI:
 - Runs `init.sql` parity check against migration-built schema to detect bootstrap drift.
 - Verifies critical columns expected by current release.
 - Runs restore-based rollback rehearsal (`npm run test:migration-rehearsal`).
+- The generic rehearsal selects the newest real upgrade boundary: it uses the lesser of the reviewed identity-certification marker and `latest migration - 1`. This prevents a current certification marker from collapsing the rehearsal into an invalid `latest -> latest` run. Identity certification still evaluates its reviewed marker independently and may correctly report `not_required` when no newer identity-sensitive migration exists.
 - Evaluates migrations after the selected baseline for identity-sensitive tables, roles, ownership, encryption, or audit storage. When matched, `npm run test:identity-upgrade-certification` creates a runtime-only synthetic identity and proves password, concurrent-session, workspace/library-role, personal API credential, and service credential behavior through the real HTTP server before upgrade, after the production migration runner, and after snapshot restore.
 - Uploads artifact `migration-rehearsal-evidence.json` for generic schema and row-count traceability.
 - Uploads artifact `identity-upgrade-certification-evidence.json`, whose `status` is `passed` when certification was required or `not_required` with the evaluated migration versions when it was not. Exact identity and credential continuity is compared with runtime-keyed fingerprints held only in memory; the written artifact contains identifiers, presence flags, and policy results, and rejects fingerprints, usable fixture credentials, and credential-bearing commands.
@@ -74,6 +75,7 @@ Security and release gates in CI:
 - CodeQL code scanning for JavaScript/TypeScript source analysis.
 - Secret leak scan (gitleaks) against repository history and current tree.
 - Dependency vulnerability scan (`npm audit`) on backend/frontend dependencies under Node 24 so each committed lockfile is validated against the supported runtime baseline.
+- Dependency Watch runs weekly, on demand, and for pull requests that change root/backend/frontend dependency manifests, lockfiles, or the workflow itself. It clean-installs root tooling plus both applications under Node 24, reports root tooling and production dependency audit counts, and uploads partial summaries/artifacts even when one ecosystem's clean install fails.
 - RBAC regression gate (API-level ownership/role/scope allow-deny checks), including the live Postgres auth-token abuse smoke for reset/invitation/verification replay, concurrency, CSRF non-mutation, session revocation, invalid token states, enumeration resistance, audit allowlist/value-leakage checks, focused reset rate limiting, and the dedicated invitation mutation limiter.
 - Playwright browser-regression gate against the live compose stack for key auth/admin shell flows.
 - Runtime smoke gate with a `Core runtime` step that verifies shared surfaces still work while control-plane-only APIs stay unmounted.

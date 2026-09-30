@@ -568,6 +568,7 @@ results.push(run('identity upgrade certification selects identity-sensitive migr
   assert.ok(serverSource.includes('IDENTITY_CERTIFICATION_SKIP_STARTUP_MIGRATIONS'));
   assert.ok(dockerPublishWorkflowSource.includes('npm run test:identity-upgrade-certification'));
   assert.ok((dockerPublishWorkflowSource.match(/policy\.certifiedThroughVersion/g) || []).length >= 2);
+  assert.ok(dockerPublishWorkflowSource.includes('Math.min(Number(policy.certifiedThroughVersion), latest - 1)'));
   assert.ok(migrationRehearsalSource.includes('crypto.randomBytes'));
   assert.ok(migrationRehearsalSource.includes('bcrypt.hash'));
   assert.ok(!migrationRehearsalSource.includes('rehearsal-token-1'));
@@ -6524,7 +6525,8 @@ results.push(run('frontend package and vite scaffold support the Vite-first buil
   assert.strictEqual(frontendPackageJson.scripts['build:cra'], undefined);
   assert.strictEqual(frontendPackageJson.scripts.test, undefined);
   assert.strictEqual(frontendPackageJson.scripts.eject, undefined);
-  assert.deepStrictEqual(Object.keys(frontendPackageJson.overrides || {}), ['follow-redirects']);
+  assert.deepStrictEqual(Object.keys(frontendPackageJson.overrides || {}), ['follow-redirects', 'nanoid']);
+  assert.strictEqual(frontendPackageJson.overrides.nanoid, '3.3.18');
   [
     '@eslint/eslintrc',
     '@humanwhocodes/config-array',

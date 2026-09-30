@@ -85,3 +85,7 @@ For milestone, release, runtime, monitoring, auth, migration, or deployment work
    - Rebuild and recreate that stack in place for normal development updates.
    - Do not start another CollectZ development project, allocate another frontend port, or redirect the development hostname to a parallel stack unless the user explicitly requests an isolated stack.
    - Temporary CI, release-smoke, homelab-boundary, and other purpose-built verification stacks must remain clearly isolated and must not replace or redirect the canonical development stack.
+25. The default delivery workflow is direct-to-`main`: finish and verify the scoped work, commit it on `main`, and push `main` only after the user explicitly authorizes a push.
+   - Do not create or leave work pending on a feature branch, worktree branch, or pull request unless the user explicitly requests review/isolation or concurrent work makes isolation necessary.
+   - If work begins on another branch, return the completed commits to `main` with a safe fast-forward when possible before the authorized push; if `main` has diverged, stop and explain the integration choice instead of silently introducing a PR workflow.
+   - A pushed feature branch or green pull-request check is not delivery completion when scheduled and release workflows run from `main`.

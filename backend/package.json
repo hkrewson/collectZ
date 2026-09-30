@@ -1,6 +1,6 @@
 {
   "name": "collectz-backend",
-  "version": "3.24.12",
+  "version": "3.24.13",
   "description": "collectZ Backend API",
   "main": "server.js",
   "engines": {
@@ -139,15 +139,15 @@
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
-    "csv-parse": "^6.2.1",
+    "csv-parse": "^7.0.3",
     "express": "^5.2.1",
-    "express-rate-limit": "^8.5.2",
+    "express-rate-limit": "^8.7.0",
     "express-session": "^1.17.3",
     "fast-xml-parser": "^5.8.0",
     "form-data": "^4.0.0",
     "helmet": "^8.2.0",
-    "multer": "^2.2.0",
-    "nodemailer": "^9.0.1",
+    "multer": "^2.4.0",
+    "nodemailer": "^10.0.12",
     "pg": "^8.21.0",
     "zod": "^4.4.3"
   },
@@ -156,7 +156,8 @@
   },
   "overrides": {
     "follow-redirects": "1.16.0",
-    "ip-address": "10.4.0",
+    "ip-address": "10.7.2",
+    "qs": "6.16.0",
     "nodemon": {
       "minimatch": "10.2.3"
     }

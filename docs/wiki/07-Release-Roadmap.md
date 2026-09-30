@@ -6,6 +6,41 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.24.13 — Dependency Watch and Release Gate Recovery
+
+**Goal:** Restore trustworthy dependency monitoring and main-branch release validation after repeated clean-install failures masked dependency risk and a current certification marker made the generic migration rehearsal select an invalid baseline.
+
+### Scope
+
+- Remediate the currently reported backend production and root tooling vulnerabilities while preserving supported Node 24 clean installs.
+- Run Dependency Watch for dependency-changing pull requests as well as its weekly schedule, include root tooling, and retain summaries/artifacts even when one clean install fails.
+- Keep generic migration rehearsal meaningful when the identity certification marker already equals the latest migration by selecting the newest real upgrade boundary.
+- Restore direct-to-`main` delivery as the documented default workflow; use branches and pull requests only when review, isolation, or concurrent work requires them.
+
+### Acceptance Criteria
+
+- Clean Node 24 installs and audits report zero known vulnerabilities for root tooling and backend/frontend production dependencies.
+- Dependency Watch covers root, backend, and frontend lockfiles and preserves useful evidence on a failed install.
+- Migration CI rehearses `latest - 1 -> latest` when the certified identity baseline is already current, while identity certification continues to evaluate its reviewed marker.
+- The canonical stack reports `3.24.13`, Help > Releases serves this note, and release-shaped local and hosted gates are accounted for.
+
+### Active Slice Notes
+
+- Selected on September 29, 2026 after five consecutive weekly Dependency Watch failures and the first `3.24.12` main-branch publish run failed its generic migration rehearsal before later gates could run.
+- Direct-to-`main` delivery is restored as the repository default; this slice does not require a feature branch or pull request.
+
+### Closeout
+
+- Roadmap slice: `3.24.13 — Dependency Watch and Release Gate Recovery`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/49-Dependency-PR-and-CI-Security-Coverage.md`, and `docs/releases/v3.24.13.md`.
+- Runtime verification used: rebuilt and recreated the canonical `collectz-private` backend/frontend stack in place on port `3201`; live health reported frontend/backend/build `3.24.13`, authenticated Help > Releases served `3.24.13` first, and the in-container CSV parser smoke passed. Canonical RBAC, cross-type isolation, and auth-token abuse checks passed. Separate Core and control-plane runtime smokes passed; the isolated control-plane stack cleaned up after verification. The observability release rehearsal passed all `9/9` persistence, collector, non-blocking-failure, restore, and final-health checks against the named canonical project.
+- CI/checks run: Node 24 clean installs passed for root tooling, backend, and frontend; root tooling plus backend/frontend production audits reported zero vulnerabilities. All `361` backend unit checks, OpenAPI, frontend production build, CI preparation, version/feed validation, local release preflight, diff hygiene, public-source boundary, and changed-artifact secret-candidate checks passed. Generic migration rehearsal passed from `121 -> 122`; identity certification correctly reported `not_required` from reviewed baseline `122`. Maintained-source CodeQL reported `5` baseline/suppressed results and `0` active findings. Core Playwright passed `29` tests with `2` expected control-plane-only skips. The full local release profile reported `15` passed, `0` failed, and `2` locally blocked.
+- Blocked/unverified: `gitleaks` is not installed locally, so hosted `secret-scan` must scan repository history. `trivy` is not installed locally, so hosted `image-security-and-sbom` must scan published images and generate CycloneDX artifacts. The local preflight helper's internal DNS probe cannot resolve the Compose service name from the host, although direct host health, in-container Help/CSV checks, both isolated runtime smokes, RBAC, browser, and observability evidence passed; hosted `compose-smoke` must confirm the exact CI environment after push.
+- Files changed: direct-to-`main` repository policy; Dependency Watch triggers, root-tooling coverage, failure-tolerant summaries, and artifacts; backend/frontend/root dependency manifests and lockfiles; the generic migration baseline selection and unit assertion; synchronized `3.24.13` version metadata, release note, in-app release feed, preflight/dependency/observability evidence, roadmap, CI/CD guide, and dependency-security coverage map.
+- Risks or follow-ups: backend dependency upgrades include major versions of CSV parsing and Nodemailer, but unit, CSV, browser upload/import, RBAC, auth, runtime, and production build evidence passed. The open automated dependency queue still contains superseded proposals and unrelated upgrades; close superseded entries after the main push and review unrelated changes separately. Do not combine the intentionally deferred ZXing peer boundary with this cleanup.
+- What remains in the milestone: no local implementation or verification work remains. After the direct main push, require hosted `migration-check`, `compose-smoke`, `rbac-regression`, `browser-regression`, Core/control-plane `runtime-smoke`, `dependency-scan`, `secret-scan`, and `image-security-and-sbom`, plus a manual Dependency Watch dispatch on the delivered commit, before promotion.
+- Recommended commit message: `Release 3.24.13 with dependency remediation and resilient CI dependency gates`.
+
 ## 3.24.12 — Sensitive Operation Reauthentication Contract
 
 **Goal:** Make high-impact credential and delegation operations require a recent, session-bound password proof while keeping ordinary status readback harmless and useful.

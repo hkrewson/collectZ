@@ -1,25 +1,21 @@
 # Dependency PR and CI Security Coverage
 
-This document records the `3.10.28` dependency PR and CI security review. It is a maintainer-facing coverage map for dependency PR triage, vulnerability gates, and source/code scanning.
+This document records the dependency PR and CI security review, refreshed for `3.24.13`. It is a maintainer-facing coverage map for dependency PR triage, vulnerability gates, and source/code scanning.
 
 ## Current PR Queue
 
-Verified with `gh pr list` on 2026-06-03.
+Verified with `gh pr list` on 2026-09-29.
 
-| PR | Source | Status | Disposition |
-|---:|---|---|---|
-| `#77` | Dependabot: `react-dom` `19.2.6` to `19.2.7` | Mergeable; GitGuardian and Snyk green | Covered by local `3.10.25` React runtime compatibility work. Close or let GitHub mark obsolete after local commits are pushed. |
-| `#76` | Dependabot: `react` `19.2.6` to `19.2.7` | Mergeable; GitGuardian and Snyk green | Covered by local `3.10.25` React runtime compatibility work. Close or let GitHub mark obsolete after local commits are pushed. |
-| `#71` | Dependabot: `@zxing/library` `0.22.0` to `0.23.0` | Mergeable; GitGuardian and Snyk green | Keep open/deferred. `@zxing/browser@0.2.0` currently peers with `@zxing/library ^0.22.0`; treat this as an intentional compatibility patch, not a blind merge. The Node 20 engine warning from `@zxing/library@0.22.0` is handled separately by the `3.12.17` frontend Node 24 builder alignment. |
-| `#65` | Dependabot: `@zxing/browser` `0.1.5` to `0.2.0` | Conflicting; GitGuardian and Snyk green | Covered by local `3.10.23` ZXing browser decoder upgrade. Close or let GitHub mark obsolete after local commits are pushed. |
-| `#14` | Dependabot: `express` `4.22.1` to `5.2.1` | Conflicting; no current check rollup | Covered by local `3.10.27` Express 5 runtime compatibility work. Close or let GitHub mark obsolete after local commits are pushed. |
+The queue contains 22 automated update PRs and has exceeded the configured per-ecosystem open-PR limits. Several proposals are stale or superseded by intentional local maintenance. In particular, `3.24.13` supersedes the proposed Nodemailer, CSV parser, Express rate-limit, and Vitest versions with newer remediated releases and full clean-install/runtime evidence. Close superseded PRs after the main commit lands; keep unrelated updates as separately reviewed maintenance rather than bulk-merging them.
+
+`@zxing/library@0.23.0` and Express major-version work remain intentional compatibility boundaries. Do not treat an automated green check as sufficient evidence for those changes.
 
 ## Coverage Map
 
 | Gate | Location | Proves | Blocking posture |
 |---|---|---|---|
 | Dependency vulnerability scan | `.github/workflows/docker-publish.yml` `dependency-scan` | Backend/frontend production dependency audit runs from committed lockfiles under Node 24. Critical vulnerabilities block. High findings require release-note triage. | Blocking for publish workflow. |
-| Dependency watch | `.github/workflows/dependency-watch.yml` | Scheduled outdated/audit reporting installs both backend and frontend dependencies under Node 24. Produces review artifacts without blocking releases. | Advisory. |
+| Dependency watch | `.github/workflows/dependency-watch.yml` | Weekly, manual, and dependency-PR clean installs cover root tooling plus backend/frontend under Node 24. Audit/outdated summaries and partial artifacts survive an ecosystem install failure, making lockfile drift actionable. | Advisory monitor; dependency-changing PRs must pass their clean installs. |
 | Dependabot | `.github/dependabot.yml` | Weekly npm and GitHub Actions update PRs. | Advisory until PR selected. |
 | Snyk PR checks | GitHub/Snyk integration | External dependency/security signal on Dependabot PRs. | Advisory unless configured as required in GitHub branch protection. |
 | GitGuardian | GitHub/GitGuardian integration | External secret scanning signal on PRs. | Advisory unless configured as required in GitHub branch protection. |
@@ -79,6 +75,7 @@ Local exploratory scans may intentionally include uncommitted/generated files or
 ## Operating Policy
 
 - Treat Dependabot PRs as prompts to create intentional local maintenance patches when the dependency has runtime, peer, or major-version risk.
+- Prefer one verified main-branch maintenance slice over stacking stale automated PRs; close automated PRs that the delivered slice supersedes.
 - Merge or close PRs only after the selected local patch has release notes, release-feed output, and runtime evidence.
 - Keep vulnerability-bearing PRs ahead of routine patch churn.
 - Do not blindly merge PRs that cross major versions, peer dependency boundaries, framework runtimes, router/parser behavior, auth/session behavior, migration tooling, or image/build tooling.
