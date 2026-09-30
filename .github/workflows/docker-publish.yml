@@ -310,23 +310,28 @@ jobs:
   migration-check:
     runs-on: ubuntu-latest
     needs: prepare
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_DB: collectz_ci
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d collectz_ci"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+    env:
+      DATABASE_SSL: "false"
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Start PostgreSQL with a runtime-generated credential
+        run: |
+          DB_CONTAINER="collectz-migration-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          MIGRATION_DB_CREDENTIAL="$(openssl rand -hex 32)"
+          echo "::add-mask::${MIGRATION_DB_CREDENTIAL}"
+          echo "MIGRATION_DB_CONTAINER=${DB_CONTAINER}" >> "$GITHUB_ENV"
+          echo "DATABASE_URL=postgresql://postgres:${MIGRATION_DB_CREDENTIAL}@localhost:5432/collectz_ci" >> "$GITHUB_ENV"
+          echo "INIT_PARITY_ADMIN_URL=postgresql://postgres:${MIGRATION_DB_CREDENTIAL}@localhost:5432/postgres" >> "$GITHUB_ENV"
+          echo "MIGRATION_REHEARSAL_ADMIN_URL=postgresql://postgres:${MIGRATION_DB_CREDENTIAL}@localhost:5432/postgres" >> "$GITHUB_ENV"
+          echo "IDENTITY_CERTIFICATION_ADMIN_URL=postgresql://postgres:${MIGRATION_DB_CREDENTIAL}@localhost:5432/postgres" >> "$GITHUB_ENV"
+          docker run -d --name "${DB_CONTAINER}" \
+            -e POSTGRES_DB=collectz_ci \
+            -e POSTGRES_USER=postgres \
+            -e POSTGRES_PASSWORD="${MIGRATION_DB_CREDENTIAL}" \
+            -p 127.0.0.1:5432:5432 \
+            postgres:16-alpine
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -347,25 +352,16 @@ jobs:
 
       - name: Wait for Postgres
         working-directory: backend
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/collectz_ci
-          DATABASE_SSL: "false"
         run: |
           node -e "const {Client}=require('pg'); (async()=>{for(let i=0;i<30;i++){const c=new Client({connectionString:process.env.DATABASE_URL, ssl:false}); try{await c.connect(); await c.end(); console.log('Postgres ready'); process.exit(0);}catch(e){try{await c.end();}catch{} await new Promise(r=>setTimeout(r,2000));}} console.error('Postgres service did not become ready in time'); process.exit(1);})();"
 
       - name: Run migrations
         working-directory: backend
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/collectz_ci
-          DATABASE_SSL: "false"
         run: |
           node -e "const {runMigrations}=require('./db/migrations'); const pool=require('./db/pool'); (async()=>{await runMigrations(); await pool.end();})().catch(async (e)=>{console.error(e); try{await pool.end();}catch{} process.exit(1);});"
 
       - name: Verify critical schema columns
         working-directory: backend
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/collectz_ci
-          DATABASE_SSL: "false"
         run: |
           node <<'NODE'
           const pool = require('./db/pool');
@@ -403,10 +399,6 @@ jobs:
 
       - name: Verify init.sql parity with migrations
         working-directory: backend
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/collectz_ci
-          INIT_PARITY_ADMIN_URL: postgresql://postgres:postgres@localhost:5432/postgres
-          DATABASE_SSL: "false"
         run: |
           INIT_PARITY_OUTPUT="artifacts/init-parity-evidence.json" npm run test:init-parity
 
@@ -418,12 +410,8 @@ jobs:
 
       - name: Run migration restore rehearsal
         working-directory: backend
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/collectz_ci
-          MIGRATION_REHEARSAL_ADMIN_URL: postgresql://postgres:postgres@localhost:5432/postgres
-          DATABASE_SSL: "false"
         run: |
-          BASELINE=$(node -e "const {MIGRATIONS}=require('./db/migrations'); const latest=Math.max(...MIGRATIONS.map(m=>m.version)); process.stdout.write(String(latest-1));")
+          BASELINE=$(node -e "const policy=require('./config/identity-upgrade-policies.json'); process.stdout.write(String(policy.certifiedThroughVersion));")
           echo "Using baseline migration version: ${BASELINE}"
           MIGRATION_BASELINE_VERSION="${BASELINE}" \
           MIGRATION_REHEARSAL_OUTPUT="artifacts/migration-rehearsal-evidence.json" \
@@ -434,6 +422,28 @@ jobs:
         with:
           name: migration-rehearsal-evidence
           path: backend/artifacts/migration-rehearsal-evidence.json
+
+      - name: Certify identity-preserving upgrade and restore behavior
+        working-directory: backend
+        run: |
+          BASELINE=$(node -e "const policy=require('./config/identity-upgrade-policies.json'); process.stdout.write(String(policy.certifiedThroughVersion));")
+          echo "Evaluating identity certification from migration baseline: ${BASELINE}"
+          IDENTITY_CERTIFICATION_BASELINE_VERSION="${BASELINE}" \
+          IDENTITY_CERTIFICATION_OUTPUT="artifacts/identity-upgrade-certification-evidence.json" \
+          npm run test:identity-upgrade-certification
+
+      - name: Upload identity upgrade certification evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: identity-upgrade-certification-evidence
+          path: backend/artifacts/identity-upgrade-certification-evidence.json
+
+      - name: Stop migration PostgreSQL
+        if: always()
+        run: |
+          if [ -n "${MIGRATION_DB_CONTAINER:-}" ]; then
+            docker rm -f "${MIGRATION_DB_CONTAINER}"
+          fi
 
   compose-smoke:
     runs-on: ubuntu-latest
@@ -524,6 +534,7 @@ jobs:
           SESSION_COOKIE_SECURE: true
           TRUST_PROXY: 1
           RATE_LIMIT_AUTH_MAX: 60
+          RATE_LIMIT_INVITE_MAX: 5
         run: |
           set -euo pipefail
           CI_PROJECT="collectz-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-core-rbac"
@@ -544,6 +555,7 @@ jobs:
             echo "SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE}"
             echo "TRUST_PROXY=${TRUST_PROXY}"
             echo "RATE_LIMIT_AUTH_MAX=${RATE_LIMIT_AUTH_MAX}"
+            echo "RATE_LIMIT_INVITE_MAX=${RATE_LIMIT_INVITE_MAX}"
           } >> .env.ci
           docker compose -p "${CI_PROJECT}" --env-file .env.ci -f docker-compose.yml -f .ci/docker-compose.build.yml up -d --build
           BACKEND_CID="$(docker compose -p "${CI_PROJECT}" --env-file .env.ci ps -q backend)"
@@ -554,6 +566,10 @@ jobs:
           timeout 120 sh -c 'until [ "$(docker inspect -f "{{.State.Health.Status}}" "'"${FRONTEND_CID}"'")" = "healthy" ]; do sleep 3; done'
           docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T -e BASE_URL=http://frontend:3000 backend node scripts/rbac-regression-check.js
           docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T -e BASE_URL=http://frontend:3000 backend node scripts/cross-type-isolation-check.js
+          docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T backend node scripts/workspace-ownership-certification.js
+          docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T -e BASE_URL=http://frontend:3000 backend node scripts/workspace-authorization-certification-smoke.js
+          docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T backend node scripts/sensitive-operation-certification.js
+          docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T -e BASE_URL=http://frontend:3000 -e VERIFY_REAUTH_RATE_LIMIT=true backend node scripts/sensitive-operation-smoke.js
           docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T -e BASE_URL=http://frontend:3000 -e VERIFY_AUTH_RATE_LIMIT=true backend node scripts/auth-token-abuse-smoke.js
 
   browser-regression:
@@ -875,6 +891,12 @@ jobs:
           name: migration-rehearsal-evidence
           path: artifacts/migration-rehearsal-evidence
 
+      - name: Download identity upgrade certification evidence artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: identity-upgrade-certification-evidence
+          path: artifacts/identity-upgrade-certification-evidence
+
       - name: Download SBOM artifact
         uses: actions/download-artifact@v8
         with:
@@ -894,6 +916,7 @@ jobs:
           test -f artifacts/dependency-audit/frontend-audit.json
           test -f artifacts/init-parity-evidence/init-parity-evidence.json
           test -f artifacts/migration-rehearsal-evidence/migration-rehearsal-evidence.json
+          test -f artifacts/identity-upgrade-certification-evidence/identity-upgrade-certification-evidence.json
           test -f artifacts/sbom-cyclonedx/backend-sbom.cdx.json
           test -f artifacts/sbom-cyclonedx/frontend-sbom.cdx.json
 
@@ -923,6 +946,7 @@ jobs:
             echo "- \`dependency-audit/frontend-audit.json\`"
             echo "- \`init-parity-evidence/init-parity-evidence.json\`"
             echo "- \`migration-rehearsal-evidence/migration-rehearsal-evidence.json\`"
+            echo "- \`identity-upgrade-certification-evidence/identity-upgrade-certification-evidence.json\`"
             echo "- \`sbom-cyclonedx/backend-sbom.cdx.json\`"
             echo "- \`sbom-cyclonedx/frontend-sbom.cdx.json\`"
             echo

@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "certifiedThroughVersion": 122,
+  "defaultPolicy": {
+    "existingSessions": "survive",
+    "activeScope": "preserve",
+    "apiCredentials": "remainValid"
+  },
+  "migrationOverrides": {}
+}

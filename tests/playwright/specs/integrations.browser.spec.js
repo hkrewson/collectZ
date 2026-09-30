@@ -280,7 +280,7 @@ test.describe('integrations browser regressions', () => {
     await page.getByRole('tab', { name: 'Sync', exact: true }).click();
     await expect(page.getByText('Plex library sync', { exact: true })).toBeVisible();
     await expect(page.getByText('Automatic: on/360m', { exact: true })).toBeVisible();
-    await expect(page.getByRole('textbox', { name: 'All' }).first()).toBeVisible();
+    await expect(activeSectionRoot(page).getByRole('textbox', { name: 'Scan Limit' })).toBeVisible();
 
     await page.getByRole('button', { name: 'Check now' }).click();
 
@@ -304,5 +304,28 @@ test.describe('integrations browser regressions', () => {
     await expect(page.getByText('PLEX CONFLICT: attached the Plex identity to the existing title.')).toBeVisible();
     await expect(page.getByText('No open Plex conflicts match this view.')).toBeVisible();
     await expect(page.getByRole('button', { name: /apply/i })).toHaveCount(0);
+  });
+
+  test('workspace integrations expose valuation and OCR ownership controls', async ({ page }) => {
+    const adminCredentials = await ensureSavedAdminCredentials();
+    await signInThroughUi(page, adminCredentials);
+    await openWorkspaceIntegrations(page);
+
+    const tabs = page.getByRole('tablist', { name: 'Integration sections' });
+    await expect(tabs.getByRole('tab', { name: 'Image OCR', exact: true })).toBeVisible();
+    await expect(tabs.getByRole('tab', { name: 'PriceCharting', exact: true })).toBeVisible();
+    await expect(tabs.getByRole('tab', { name: 'eBay Browse', exact: true })).toBeVisible();
+
+    await openIntegrationsSection(page, 'Image OCR');
+    await expect(page.getByText('Enable workspace image OCR', { exact: true })).toBeVisible();
+    await expect(activeSectionRoot(page).getByLabel(/OCR API Key/)).toBeVisible();
+
+    await openIntegrationsSection(page, 'PriceCharting');
+    await expect(page.getByText('Enable PriceCharting', { exact: true })).toBeVisible();
+    await expect(activeSectionRoot(page).getByLabel(/API Key/)).toBeVisible();
+
+    await openIntegrationsSection(page, 'eBay Browse');
+    await expect(page.getByText('Enable eBay Browse', { exact: true })).toBeVisible();
+    await expect(activeSectionRoot(page).getByLabel(/Client Secret/)).toBeVisible();
   });
 });

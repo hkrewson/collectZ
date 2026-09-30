@@ -27,7 +27,8 @@ For most failures, start with:
 - Auth failures:
   - action: `request.failed`
   - entity: `http_request`
-  - reason/status in `details`
+  - method, query-free path, and status in `details`
+  - use the correlated allowlisted `auth.*`, `security.csrf.failed`, or invitation event for a safe reason code when one exists
 - Scope denials:
   - action: `scope.access.denied`
   - entity: `scope`
@@ -58,9 +59,9 @@ docker compose --env-file .env exec -T db \
 
 - exact action key(s)
 - status and reason values
-- affected user id/email
+- affected user id; resolve account contact data through authorized user administration rather than expecting submitted addresses in auth audit details
 - time window
-- endpoint URL/method (for `http_request` events)
+- query-free endpoint path/method (for `http_request` events)
 
 ## 5) Next actions
 

@@ -502,9 +502,9 @@ export default function DashboardContent({
           endpointBase={coreRuntime ? `/spaces/${activeSpaceId}/integrations` : '/admin/settings/integrations'}
           title="Integrations"
           includeRuntimeSections={!coreRuntime}
-          includeValuationSections={false}
+          includeValuationSections={coreRuntime}
           visibleSections={coreRuntime
-            ? ['audio', 'barcode', 'books', 'cwa', 'comics', 'games', 'kavita', 'plex', 'tmdb']
+            ? ['audio', 'barcode', 'books', 'cwa', 'comics', 'ebay', 'games', 'kavita', 'plex', 'pricecharting', 'tmdb', 'vision']
             : ['logs', 'metrics']}
         />
       );

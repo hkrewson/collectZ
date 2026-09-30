@@ -39,8 +39,8 @@ const {
   signatureRecordUpdateSchema
 } = require('../middleware/validate');
 const {
-  loadAdminIntegrationConfig,
   loadScopedIntegrationConfig,
+  loadWorkspaceValuationIntegrationConfig,
   loadWorkspaceKavitaIntegrationConfig,
   normalizePlexReconciliationSyncSettings,
   normalizePlexReadbackRefreshSettings
@@ -5753,10 +5753,25 @@ async function queueImportedValuationRefresh({
     return { queued: false, count: 0, jobId: null, provider: null };
   }
 
-  const scopedConfig = await loadScopedIntegrationConfig(scopeContext?.spaceId || null);
-  const config = scopedConfig?.kavitaBaseUrl && scopedConfig?.kavitaApiKey
-    ? scopedConfig
-    : await loadAdminIntegrationConfig();
+  const ownershipResult = await pool.query(
+    `SELECT DISTINCT space_id
+       FROM media
+      WHERE id = ANY($1::int[])
+        AND space_id IS NOT NULL`,
+    [uniqueMediaIds]
+  );
+  const ownedSpaceIds = ownershipResult.rows
+    .map((row) => Number(row.space_id || 0))
+    .filter((spaceId) => Number.isSafeInteger(spaceId) && spaceId > 0);
+  if (ownedSpaceIds.length !== 1) {
+    return { queued: false, count: 0, jobId: null, provider: null, reason: 'workspace_ownership_unresolved' };
+  }
+  const ownedSpaceId = ownedSpaceIds[0];
+  if (scopeContext?.spaceId && Number(scopeContext.spaceId) !== ownedSpaceId) {
+    return { queued: false, count: 0, jobId: null, provider: null, reason: 'workspace_scope_mismatch' };
+  }
+  const effectiveScopeContext = { ...(scopeContext || {}), spaceId: ownedSpaceId };
+  const config = await loadWorkspaceValuationIntegrationConfig(ownedSpaceId);
   if (!canExecuteValuationForConfig(config, mode)) {
     return { queued: false, count: 0, jobId: null, provider: null };
   }
@@ -5767,7 +5782,7 @@ async function queueImportedValuationRefresh({
     jobType: 'valuation_refresh',
     provider,
     scope: {
-      ...jobScopePayload(scopeContext),
+      ...jobScopePayload(effectiveScopeContext),
       importSource: importSource || null,
       mediaCount: uniqueMediaIds.length
     },
@@ -5795,7 +5810,7 @@ async function queueImportedValuationRefresh({
       for (let index = 0; index < uniqueMediaIds.length; index += 1) {
         const mediaId = uniqueMediaIds[index];
         try {
-          const media = await loadScopedMediaItem(mediaId, scopeContext);
+          const media = await loadScopedMediaItem(mediaId, effectiveScopeContext);
           if (!media) {
             summary.skipped += 1;
           } else {
@@ -5843,7 +5858,8 @@ async function queueImportedValuationRefresh({
         matched: summary.matched,
         skipped: summary.skipped,
         errorCount: summary.errorCount,
-        jobId: job.id
+        jobId: job.id,
+        spaceId: ownedSpaceId
       });
     } catch (error) {
       await updateSyncJob(job.id, {
@@ -5858,7 +5874,8 @@ async function queueImportedValuationRefresh({
         mode,
         mediaCount: uniqueMediaIds.length,
         detail: error.message || 'Import valuation refresh failed',
-        jobId: job.id
+        jobId: job.id,
+        spaceId: ownedSpaceId
       });
     }
   });
@@ -11677,7 +11694,7 @@ router.post('/:id/valuation-refresh', validate(mediaValuationRefreshSchema), asy
     return res.status(403).json({ error: 'Fixture valuation mode is not available in production' });
   }
 
-  const config = await loadScopedIntegrationConfig(scopeContext?.spaceId || null);
+  const config = await loadWorkspaceValuationIntegrationConfig(media.space_id || scopeContext?.spaceId || null);
   const asyncMode = shouldQueueImportByDefault(req);
   const auditReq = {
     user: req.user,

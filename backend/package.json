@@ -1,6 +1,6 @@
 {
   "name": "collectz-backend",
-  "version": "3.24.6",
+  "version": "3.24.12",
   "description": "collectZ Backend API",
   "main": "server.js",
   "engines": {
@@ -25,6 +25,7 @@
     "test:csv-import": "node scripts/csv-parse-smoke.js",
     "test:rbac-regression": "node scripts/rbac-regression-check.js",
     "test:auth-token-abuse-smoke": "node scripts/auth-token-abuse-smoke.js",
+    "test:invite-token-inventory": "node scripts/invite-token-inventory.js",
     "test:import-normalization-smoke": "node scripts/import-normalization-smoke.js",
     "test:import-normalization-review-smoke": "node scripts/import-normalization-review-smoke.js",
     "test:repeat-sync-idempotency-smoke": "node scripts/repeat-sync-idempotency-smoke.js",
@@ -79,6 +80,11 @@
     "test:mixed-media-filters": "node scripts/check-mixed-media-filters.js",
     "test:mixed-media-benchmark": "node scripts/benchmark-mixed-media-queries.js",
     "test:migration-rehearsal": "node scripts/migration-rehearsal.js",
+    "test:identity-upgrade-certification": "node scripts/identity-upgrade-certification.js",
+    "test:workspace-ownership-certification": "node scripts/workspace-ownership-certification.js",
+    "test:sensitive-operation-certification": "node scripts/sensitive-operation-certification.js",
+    "test:sensitive-operation-smoke": "node scripts/sensitive-operation-smoke.js",
+    "test:workspace-authorization-certification-smoke": "node scripts/workspace-authorization-certification-smoke.js",
     "test:init-parity": "node scripts/check-init-parity.js",
     "test:release-preflight-local": "node scripts/release-preflight-local.js",
     "test:upgrade-preservation-audit": "node scripts/upgrade-preservation-audit.js",
@@ -124,7 +130,8 @@
     "test:plex-watched-state-writeback-smoke": "node scripts/plex-watched-state-writeback-smoke.js",
     "test:barcode-scanner-api-smoke": "node scripts/barcode-scanner-api-smoke.js",
     "test:mobile-auth-smoke": "node scripts/mobile-auth-smoke.js",
-    "test:capture-image-ocr-smoke": "node scripts/capture-image-ocr-smoke.js"
+    "test:capture-image-ocr-smoke": "node scripts/capture-image-ocr-smoke.js",
+    "test:workspace-integration-ownership-smoke": "node scripts/workspace-integration-ownership-smoke.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1058.0",

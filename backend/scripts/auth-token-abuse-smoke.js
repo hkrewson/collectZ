@@ -8,6 +8,7 @@ const pool = require('../db/pool');
 const { hashInviteToken } = require('../services/invites');
 const { issuePasswordResetToken } = require('../services/passwordResets');
 const { issueEmailVerificationToken } = require('../services/emailVerifications');
+const { AUTH_AUDIT_DETAIL_SCHEMAS, isSensitiveAuditAction } = require('../services/authAuditContract');
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 const SESSION_COOKIE_NAME = process.env.SESSION_COOKIE_NAME || 'session_token';
@@ -107,6 +108,7 @@ async function login(client, email, password) {
 }
 
 async function main() {
+  const startedAt = new Date();
   const suffix = `${Date.now()}-${crypto.randomInt(100000, 999999)}`;
   const password = `A!${randomSecret(18)}`;
   const resetPasswords = [`B!${randomSecret(18)}`, `C!${randomSecret(18)}`];
@@ -114,13 +116,14 @@ async function main() {
   const resetEmail = `auth-reset-${suffix}@example.invalid`;
   const mismatchEmail = `auth-mismatch-${suffix}@example.invalid`;
   const verificationEmail = `auth-verify-${suffix}@example.invalid`;
+  const ownerEmail = `auth-owner-${suffix}@example.invalid`;
   const fixtureUserIds = [];
   let fixtureSpaceId = null;
   let fixtureLibraryId = null;
 
   try {
     const ownerId = await createUser({
-      email: `auth-owner-${suffix}@example.invalid`,
+      email: ownerEmail,
       password,
       name: 'Auth Abuse Owner'
     });
@@ -159,6 +162,41 @@ async function main() {
        VALUES ($1, $4, 'owner'), ($2, $4, 'member'), ($3, $4, 'member')`,
       [ownerId, resetUserId, verificationUserId, fixtureLibraryId]
     );
+
+    const ownerClient = new HttpClient('invite-owner');
+    await login(ownerClient, ownerEmail, password);
+    await ownerClient.fetchCsrfToken();
+
+    const inviteCountBeforeCsrf = await pool.query(
+      'SELECT COUNT(*)::int AS count FROM invites WHERE space_id = $1',
+      [fixtureSpaceId]
+    );
+    const inviteCreateCsrfFailure = await ownerClient.request(`/api/spaces/${fixtureSpaceId}/invites`, {
+      method: 'POST',
+      body: { email: `csrf-create-${suffix}@example.invalid`, role: 'member' }
+    });
+    assert(inviteCreateCsrfFailure.status === 403, `Invite create without CSRF returned ${inviteCreateCsrfFailure.status}`);
+    const inviteCountAfterCsrf = await pool.query(
+      'SELECT COUNT(*)::int AS count FROM invites WHERE space_id = $1',
+      [fixtureSpaceId]
+    );
+    assert(
+      inviteCountAfterCsrf.rows[0].count === inviteCountBeforeCsrf.rows[0].count,
+      'CSRF rejection created an invitation row'
+    );
+
+    const revokeCsrfInvite = await createInvite({
+      email: `csrf-revoke-${suffix}@example.invalid`,
+      spaceId: fixtureSpaceId,
+      createdBy: ownerId
+    });
+    const inviteRevokeCsrfFailure = await ownerClient.request(
+      `/api/spaces/${fixtureSpaceId}/invites/${revokeCsrfInvite.id}/revoke`,
+      { method: 'PATCH' }
+    );
+    assert(inviteRevokeCsrfFailure.status === 403, `Invite revoke without CSRF returned ${inviteRevokeCsrfFailure.status}`);
+    const revokeCsrfState = await pool.query('SELECT revoked FROM invites WHERE id = $1', [revokeCsrfInvite.id]);
+    assert(revokeCsrfState.rows[0]?.revoked === false, 'CSRF rejection revoked an invitation');
 
     const oldSessionA = new HttpClient('old-session-a');
     const oldSessionB = new HttpClient('old-session-b');
@@ -298,6 +336,7 @@ async function main() {
     assert(genericKnown.data?.message === genericUnknown.data?.message, 'Reset request enumeration responses did not share the same message');
 
     let resetRateLimitVerified = false;
+    let inviteRateLimitVerified = false;
     if (VERIFY_AUTH_RATE_LIMIT) {
       const rateClient = new HttpClient('reset-rate-limit');
       for (let attempt = 0; attempt < 100; attempt += 1) {
@@ -312,12 +351,67 @@ async function main() {
         assert(response.status === 200, `Reset rate-limit probe returned unexpected ${response.status}`);
       }
       assert(resetRateLimitVerified, 'Password reset request did not reach the focused authentication rate limit');
+
+      for (let attempt = 0; attempt < 20; attempt += 1) {
+        const response = await ownerClient.request(`/api/spaces/${fixtureSpaceId}/invites`, {
+          method: 'POST',
+          body: {},
+          withCsrf: true
+        });
+        if (response.status === 429) {
+          inviteRateLimitVerified = true;
+          break;
+        }
+        assert(response.status === 400, `Invitation rate-limit probe returned unexpected ${response.status}`);
+      }
+      assert(inviteRateLimitVerified, 'Invitation mutations did not reach the focused invitation rate limit');
     }
 
-    const secretCandidates = [reset.token, invite.token, mismatchInvite.token];
+    const secretCandidates = [
+      password,
+      ...resetPasswords,
+      csrfFailureToken.token,
+      csrfFailureToken.token_hash,
+      reset.token,
+      reset.token_hash,
+      verification.token,
+      verification.token_hash,
+      revokeCsrfInvite.token,
+      hashInviteToken(revokeCsrfInvite.token),
+      invite.token,
+      hashInviteToken(invite.token),
+      mismatchInvite.token,
+      hashInviteToken(mismatchInvite.token),
+      ownerEmail,
+      invitedEmail,
+      resetEmail,
+      mismatchEmail,
+      verificationEmail
+    ];
     for (const candidate of secretCandidates) {
       const leaked = await pool.query('SELECT COUNT(*)::int AS count FROM activity_log WHERE details::text LIKE $1', [`%${candidate}%`]);
-      assert(leaked.rows[0].count === 0, 'Authentication audit details contained raw token material');
+      assert(leaked.rows[0].count === 0, 'Authentication audit details contained tested sensitive material');
+    }
+
+    const authAuditRows = await pool.query(
+      `SELECT action, details
+       FROM activity_log
+       WHERE created_at >= $1
+         AND (
+           action LIKE 'auth.%'
+           OR action LIKE 'space.invite.%'
+           OR action LIKE 'space.member.%'
+           OR action IN ('invite.claimed', 'library.transfer', 'scope.access.denied', 'security.csrf.failed', 'space.create', 'workspace.create.personal')
+         )`,
+      [startedAt]
+    );
+    for (const row of authAuditRows.rows) {
+      assert(isSensitiveAuditAction(row.action), `Sensitive audit action classification missed ${row.action}`);
+      const contract = AUTH_AUDIT_DETAIL_SCHEMAS[row.action];
+      assert(contract, `Sensitive audit action is not cataloged: ${row.action}`);
+      for (const key of Object.keys(row.details || {})) {
+        assert(Object.prototype.hasOwnProperty.call(contract, key), `Audit action ${row.action} persisted unexpected key ${key}`);
+      }
     }
 
     const replacementClient = resetClients[winningResetIndex];
@@ -335,7 +429,11 @@ async function main() {
       expiredRevokedMalformedAndMismatchedRejected: true,
       enumerationResponseStable: true,
       resetRateLimitVerified: VERIFY_AUTH_RATE_LIMIT ? resetRateLimitVerified : 'not-requested',
-      auditTokenLeakCount: 0
+      inviteRateLimitVerified: VERIFY_AUTH_RATE_LIMIT ? inviteRateLimitVerified : 'not-requested',
+      inviteCreateCsrfNonMutationVerified: true,
+      inviteRevokeCsrfNonMutationVerified: true,
+      authAuditAllowlistRowsVerified: authAuditRows.rows.length,
+      auditSensitiveValueLeakCount: 0
     }));
   } finally {
     if (fixtureSpaceId) {

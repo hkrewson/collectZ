@@ -59,16 +59,22 @@ Migration safety in CI:
 - Runs `init.sql` parity check against migration-built schema to detect bootstrap drift.
 - Verifies critical columns expected by current release.
 - Runs restore-based rollback rehearsal (`npm run test:migration-rehearsal`).
- - Uploads artifact `migration-rehearsal-evidence.json` for release traceability.
- - Uploads artifact `init-parity-evidence.json` for bootstrap parity traceability.
+- Evaluates migrations after the selected baseline for identity-sensitive tables, roles, ownership, encryption, or audit storage. When matched, `npm run test:identity-upgrade-certification` creates a runtime-only synthetic identity and proves password, concurrent-session, workspace/library-role, personal API credential, and service credential behavior through the real HTTP server before upgrade, after the production migration runner, and after snapshot restore.
+- Uploads artifact `migration-rehearsal-evidence.json` for generic schema and row-count traceability.
+- Uploads artifact `identity-upgrade-certification-evidence.json`, whose `status` is `passed` when certification was required or `not_required` with the evaluated migration versions when it was not. Exact identity and credential continuity is compared with runtime-keyed fingerprints held only in memory; the written artifact contains identifiers, presence flags, and policy results, and rejects fingerprints, usable fixture credentials, and credential-bearing commands.
+- Starts the migration-check PostgreSQL container inside the job with a runtime-generated masked credential, exports the connection URLs only through the job environment, and removes the container in an `always()` cleanup step.
+- `backend/config/identity-upgrade-policies.json` is the reviewed source for the last certified migration version, default preservation behavior, and exact migration-version overrides that intentionally revoke existing sessions or API credentials or clear active scope. CI evaluates every migration newer than `certifiedThroughVersion`, so a release containing multiple migrations cannot hide an earlier identity-sensitive change behind an unrelated final migration. Advance the marker only after that range has passed certification and becomes the established release baseline.
+- Uploads artifact `init-parity-evidence.json` for bootstrap parity traceability.
 
 Security and release gates in CI:
+
+- `rbac-regression` also runs the machine-checked workspace ownership contract, the production-shaped workspace authorization certification smoke, the sensitive-operation inventory contract, and live recent-reauthentication non-mutation proof. The ownership snapshot must classify every table and route declaration and certify maintained job/provider/search/export/audit paths; the authorization smoke proves anonymous, read-only, sibling-workspace, identifier-tampering, provider, and durable-job denial. The sensitive-operation checks prove safe credential status readback plus CSRF, stale-session, sibling-session, non-session credential, password-proof, credential mutation, support-delegation, and audit-retention behavior without retaining fixture secrets.
 
 - Local CI/CD release gate (`npm run release:local-gate`) for pre-push maintainer validation before public CI runs.
 - CodeQL code scanning for JavaScript/TypeScript source analysis.
 - Secret leak scan (gitleaks) against repository history and current tree.
 - Dependency vulnerability scan (`npm audit`) on backend/frontend dependencies under Node 24 so each committed lockfile is validated against the supported runtime baseline.
-- RBAC regression gate (API-level ownership/role/scope allow-deny checks), including the live Postgres auth-token abuse smoke for reset/invitation/verification replay, concurrency, CSRF non-consumption, session revocation, invalid token states, enumeration resistance, audit token leakage, and focused reset rate limiting.
+- RBAC regression gate (API-level ownership/role/scope allow-deny checks), including the live Postgres auth-token abuse smoke for reset/invitation/verification replay, concurrency, CSRF non-mutation, session revocation, invalid token states, enumeration resistance, audit allowlist/value-leakage checks, focused reset rate limiting, and the dedicated invitation mutation limiter.
 - Playwright browser-regression gate against the live compose stack for key auth/admin shell flows.
 - Runtime smoke gate with a `Core runtime` step that verifies shared surfaces still work while control-plane-only APIs stay unmounted.
 - Runtime smoke gate with a `Control-plane runtime` step that verifies invite-based registration plus tenant/admin control-plane surfaces remain mounted.

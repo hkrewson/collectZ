@@ -12,7 +12,12 @@ export default function useApiClient() {
   const apiCall = useCallback(async (method, path, data, config = {}) => {
     const methodUpper = String(method || 'GET').toUpperCase();
     const needsCsrf = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(methodUpper);
-    const { rawResponse = false, ...axiosConfig } = config;
+    const {
+      rawResponse = false,
+      requireRecentReauthentication = false,
+      reauthenticationReason = 'Confirm your password to continue with this sensitive operation.',
+      ...axiosConfig
+    } = config;
     const headers = { ...(axiosConfig.headers || {}) };
     const playwrightBypassToken = readCookie('playwright_e2e_bypass');
     const apiBase = API_URL;
@@ -61,8 +66,27 @@ export default function useApiClient() {
       return requestPromise;
     }
 
-    const response = await axios(requestConfig);
-    return rawResponse ? response : response.data;
+    try {
+      const response = await axios(requestConfig);
+      return rawResponse ? response : response.data;
+    } catch (error) {
+      const shouldPrompt = requireRecentReauthentication
+        && error?.response?.status === 403
+        && error?.response?.data?.code === 'recent_reauthentication_required';
+      if (!shouldPrompt) throw error;
+
+      const password = window.prompt(reauthenticationReason);
+      if (!password) throw error;
+      await axios({
+        method: 'post',
+        url: `${apiBase}/auth/reauthenticate`,
+        data: { password },
+        headers,
+        withCredentials: true
+      });
+      const response = await axios(requestConfig);
+      return rawResponse ? response : response.data;
+    }
   }, []);
 
   return { apiCall, apiUrl: API_URL };

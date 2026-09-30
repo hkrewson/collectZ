@@ -1,17 +1,18 @@
 # Local Release Go/No-Go Preflight
 
-- Version: `3.24.6`
-- Generated: `2026-08-08T17:41:43.326Z`
+- Version: `3.24.12`
+- Generated: `2026-08-25T13:00:30.940Z`
 - Base URL: `http://localhost:3201`
 
 ## Gate Results
 
-- Version metadata sync: PASS — all manifests aligned on 3.24.6
-- Release note presence: PASS — docs/releases/v3.24.6.md
+- Version metadata sync: PASS — all manifests aligned on 3.24.12
+- Release note presence: PASS — docs/releases/v3.24.12.md
 - Backend dependency audit: PASS — low=0 moderate=0 high=0 critical=0
 - Frontend dependency audit: PASS — low=0 moderate=0 high=0 critical=0
 - Migration evidence presence: PASS — init parity and migration rehearsal evidence are present
-- Observability release evidence: PASS — observability artifact present for 3.24.6 with 9/9 checks passed
+- Identity upgrade certification evidence: PASS — passed for migration chain through 122
+- Observability release evidence: PASS — observability artifact present for 3.24.12 with 9/9 checks passed
 - Compose smoke basics: BLOCKED — current local stack is not running with CI secure-cookie settings (SESSION_COOKIE_SECURE=false, NODE_ENV=development)
 - Secret scan: BLOCKED — CI-only gitleaks gate
 - Browser regression: BLOCKED — not run by this local preflight helper
@@ -21,14 +22,15 @@
 
 - `artifacts/dependency-audit/backend-audit.json`: present
 - `artifacts/dependency-audit/frontend-audit.json`: present
-- `artifacts/init-parity-evidence/init-parity-evidence.json`: present
-- `artifacts/migration-rehearsal-evidence/migration-rehearsal-evidence.json`: present
+- `backend/artifacts/init-parity-evidence.json`: present
+- `backend/artifacts/migration-rehearsal-evidence.json`: present
+- `backend/artifacts/identity-upgrade-certification-evidence.json`: present
 - `artifacts/observability-evidence/observability-release-evidence.json`: present
 - `preflight-go-no-go.md`: will be written by this helper
 
 ## Release Note
 
-- `docs/releases/v3.24.6.md`: present
+- `docs/releases/v3.24.12.md`: present
 - Security triage markers: present
 
 ## Blocking Criteria

@@ -9,9 +9,10 @@ All blocking gates must pass. Advisory gates must be reviewed and explicitly acc
 1. CodeQL code scanning should be reviewed when present. It is advisory at introduction and may become blocking after the baseline is understood.
 2. Secret scan.
 3. Dependency vulnerability scan.
-4. Migration check (including init parity + rehearsal evidence).
+4. Migration check (including init parity, generic rehearsal evidence, and identity-upgrade certification evidence).
 5. Compose smoke check.
 6. RBAC regression check.
+   - Includes workspace ownership snapshot drift, stable permission-key policy, maintained execution-path certification, and live sibling-workspace/job isolation evidence.
 7. Browser regression check.
 8. Runtime smoke check.
    - Core runtime.
@@ -31,7 +32,7 @@ Minimum closeout expectation:
 5. Run `npm run release:local-gate` so the standard local gate checks version/release metadata, backend unit tests, OpenAPI, frontend build, dependency audits, local preflight, and diff hygiene.
 6. For release handoff, run `npm run release:local-gate:full -- --fail-on-blocked` when local CodeQL, secret scan, runtime smoke, browser regression, and image/SBOM readiness should stop on blocked heavy gates.
 7. Generate or refresh a local preflight report with `npm --prefix backend run test:release-preflight-local` when you need the standalone `preflight-go-no-go.md` evidence outside the local gate.
-8. Run init parity / migration rehearsal checks in an environment with database access when not already covered by the local preflight evidence.
+8. Run init parity and generic migration rehearsal checks in an environment with database access when not already covered by local preflight evidence; for an identity-sensitive migration, require a `passed` identity-upgrade certification rather than `not_required`.
 9. Run production dependency audit checks for backend and frontend when not already covered by the local gate.
 10. Generate observability release evidence with `npm --prefix backend run test:observability-evidence` and review the resulting artifact for passed persistence, collector-path, non-blocking failure, backend-restore, and final-health checks.
 11. Review CodeQL alerts if the workflow has run for the branch or release commit.
@@ -59,6 +60,7 @@ Tagged runs must produce:
 - `dependency-audit/frontend-audit.json`
 - `init-parity-evidence/init-parity-evidence.json`
 - `migration-rehearsal-evidence/migration-rehearsal-evidence.json`
+- `identity-upgrade-certification-evidence/identity-upgrade-certification-evidence.json`
 - `sbom-cyclonedx/backend-sbom.cdx.json`
 - `sbom-cyclonedx/frontend-sbom.cdx.json`
 - `preflight-go-no-go.md`

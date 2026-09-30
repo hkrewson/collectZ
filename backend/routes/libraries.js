@@ -382,8 +382,7 @@ router.post('/libraries/select', requireSessionAuth, validate(librarySelectSchem
       req.user.supportLibraryId = library.id;
 
       await logActivity(req, 'auth.support_session.library.select', 'library', library.id, {
-        supportSpaceId,
-        libraryName: library.name
+        supportSpaceId
       });
 
       return res.json(stripHomelabSpaceContext({
@@ -503,10 +502,8 @@ router.post('/libraries/:id/transfer', validate(libraryTransferSchema), asyncHan
   );
 
   await logActivity(req, 'library.transfer', 'library', libraryId, {
-    libraryName: target.name,
     previousOwnerUserId: target.created_by || null,
-    nextOwnerUserId: newOwnerUserId,
-    nextOwnerEmail: newOwnerResult.rows[0].email
+    nextOwnerUserId: newOwnerUserId
   });
 
   res.json({

@@ -88,6 +88,15 @@ The following MUST NOT appear in `_details` (or any GELF field):
 
 Allowed pattern: masked values only (for example `****abcd`) and boolean `...Set` flags.
 
+Authentication and invitation audit events use a stricter contract than general activity events:
+
+- every maintained `auth.*`, invitation, membership/ownership-transfer, CSRF, and scope-denial action must have an explicit detail-key schema in `backend/services/authAuditContract.js`
+- unknown detail keys are rejected before database persistence and structured-log export
+- uncataloged future security-sensitive actions fail closed to an empty detail payload until their schema is added
+- values are normalized by type; free-form delivery errors, submitted addresses, credential material, token hashes, token-row identifiers, raw URLs/query strings, device labels, and provider delivery payloads are not allowed
+- actor/subject identity belongs in the event's `user_id`, entity type/id, and stable scope identifiers rather than duplicated email/name fields
+- request-outcome events retain only method, query-free path, status, and duration, never the response body
+
 ### Example event (integration update)
 
 ```json

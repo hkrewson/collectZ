@@ -268,6 +268,8 @@ async function main() {
     assert(spaceIntegrations.data?.plexWebhookReceiver?.receiverPath === '/api/plex/webhooks/[token]', `Workspace integrations must retain the redacted Plex receiver path: ${JSON.stringify(spaceIntegrations.data?.plexWebhookReceiver)}`);
     assert(spaceIntegrations.data?.plexWebhookReceiver?.scope === 'workspace', `Workspace integrations must identify the Plex receiver as workspace-scoped: ${JSON.stringify(spaceIntegrations.data?.plexWebhookReceiver)}`);
     assert(Number(spaceIntegrations.data?.plexWebhookReceiver?.spaceId || 0) === firstUserSpaceId, `Workspace Plex receiver readback must retain its space id: ${JSON.stringify(spaceIntegrations.data?.plexWebhookReceiver)}`);
+    assert(typeof spaceIntegrations.data?.valuationProviders === 'object' && spaceIntegrations.data.valuationProviders !== null, `Platform workspace integrations must expose workspace-owned valuation providers: ${JSON.stringify(spaceIntegrations.data)}`);
+    assert(typeof spaceIntegrations.data?.visionEnabled === 'boolean', `Platform workspace integrations must expose workspace-owned OCR enablement: ${JSON.stringify(spaceIntegrations.data)}`);
     assert(adminSpaces.status === 404, `Platform /api/admin/spaces must be owned by cairn, not Core: ${JSON.stringify(adminSpaces.data)}`);
     assert(adminSpaceCreate.status === 404, `Platform /api/admin/spaces/create-with-onboarding must be owned by cairn, not Core: ${JSON.stringify(adminSpaceCreate.data)}`);
     assert(adminSpaceInvite.status === 404, `Platform /api/admin/spaces/:id/invites must be owned by cairn, not Core: ${JSON.stringify(adminSpaceInvite.data)}`);
@@ -285,7 +287,7 @@ async function main() {
     assert(adminActivity.status === 404, `Platform /api/admin/activity must be owned by cairn, not Core: ${JSON.stringify(adminActivity.data)}`);
     assert(loanReminderOperations.status === 404, `Platform /api/admin/loan-reminder-operations must be owned by cairn, not Core: ${JSON.stringify(loanReminderOperations.data)}`);
     assert(typeof integrations.data === 'object' && integrations.data !== null, `Platform /api/admin/settings/integrations must stay mounted: ${JSON.stringify(integrations.data)}`);
-    assert(typeof integrations.data?.valuationProviders === 'object' && integrations.data.valuationProviders !== null, `Platform integrations payload must keep valuation providers: ${JSON.stringify(integrations.data)}`);
+    assert(typeof integrations.data?.valuationProviders === 'object' && integrations.data.valuationProviders !== null, `Platform integrations payload must retain legacy valuation readback compatibility: ${JSON.stringify(integrations.data)}`);
     assert(typeof integrations.data?.logExportControl === 'object' && integrations.data.logExportControl !== null, `Platform integrations payload must keep log export control: ${JSON.stringify(integrations.data)}`);
     assert(typeof integrations.data?.observabilityRuntime === 'object' && integrations.data.observabilityRuntime !== null, `Platform integrations payload must keep observability runtime diagnostics: ${JSON.stringify(integrations.data)}`);
     assert(priceChartingTest.status === 404, `Platform PriceCharting diagnostic must be owned by cairn, not Core: ${JSON.stringify(priceChartingTest.data)}`);

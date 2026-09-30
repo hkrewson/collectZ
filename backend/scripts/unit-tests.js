@@ -121,7 +121,14 @@ const {
   isSupportAccessApprovalActive
 } = require('../services/supportAccess');
 const { extractScopeHints, resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
+const { PERMISSIONS, hasPermission } = require('../services/authorizationPolicy');
+const { buildContract: buildWorkspaceOwnershipContract } = require('../scripts/workspace-ownership-certification');
 const { sanitizeAuditDetails, sanitizeLogField: sanitizeAuditLogField } = require('../services/audit');
+const {
+  AUTH_AUDIT_DETAIL_SCHEMAS,
+  applyAuthAuditDetailPolicy,
+  isSensitiveAuditAction
+} = require('../services/authAuditContract');
 const { sanitizeLogField: sanitizeRequestLogField, sanitizeRequestUrl } = require('../middleware/errors');
 const { buildGelfEvent, inferLevel, inferOutcome, truncateJsonValue, readExportConfig, promoteDetailFields, omitNilFields, formatSyslogMessage } = require('../services/logExport');
 const { requestIdMiddleware } = require('../middleware/requestId');
@@ -144,6 +151,12 @@ const {
   refreshMediaValuation
 } = require('../services/valuations');
 process.env.INTEGRATION_ENCRYPTION_KEY = process.env.INTEGRATION_ENCRYPTION_KEY || 'unit-test-integration-key';
+const { encryptSecret } = require('../services/crypto');
+const {
+  buildWorkspaceValuationIntegrationConfig,
+  buildWorkspaceOcrIntegrationConfig,
+  buildWorkspaceComicsIntegrationConfig
+} = require('../services/integrations');
 const { buildIntegrationResponse } = require('../services/integrationResponse');
 const { buildCompactJobSummary, formatSyncJob } = require('../services/syncJobs');
 const { ICS_FETCH_USER_AGENT, fetchIcsText, parseIcsEvents, parseIcsCatalogSessions, linkPersonalPlansToCatalogSessions } = require('../services/schedIcsSync');
@@ -177,6 +190,7 @@ const artMigrationBackfillSmokeSource = fs.readFileSync(require.resolve('../scri
 const nativeArtReadCutoverSmokeSource = fs.readFileSync(require.resolve('../scripts/native-art-read-cutover-smoke'), 'utf8');
 const authModulePath = require.resolve('../middleware/auth');
 const authMiddlewareSource = fs.readFileSync(authModulePath, 'utf8');
+const { hasRecentReauthentication, REAUTH_MAX_AGE_MINUTES } = require('../middleware/auth');
 const validateMiddlewareSource = fs.readFileSync(require.resolve('../middleware/validate'), 'utf8');
 const scopeAccessSource = fs.readFileSync(require.resolve('../middleware/scopeAccess'), 'utf8');
 const scopeContextSource = fs.readFileSync(require.resolve('../db/scopeContext'), 'utf8');
@@ -211,6 +225,15 @@ const reviewCluesServiceSource = fs.readFileSync(require.resolve('../services/re
 const openApiSource = fs.readFileSync(require.resolve('../openapi/openapi.yaml'), 'utf8');
 const logExportSource = fs.readFileSync(require.resolve('../services/logExport'), 'utf8');
 const serverSource = fs.readFileSync(require.resolve('../server'), 'utf8');
+const identityCertificationSource = fs.readFileSync(require.resolve('../scripts/identity-upgrade-certification'), 'utf8');
+const identityUpgradePolicies = require('../config/identity-upgrade-policies.json');
+const migrationRehearsalSource = fs.readFileSync(require.resolve('../scripts/migration-rehearsal'), 'utf8');
+const {
+  assertSecretFreeEvidence,
+  assertManifestMatchesPolicy,
+  identityMigrationPattern,
+  resolveIdentityPolicy
+} = require('../scripts/identity-upgrade-certification');
 const coreRoutesSource = fs.readFileSync(require.resolve('../routes/core'), 'utf8');
 const migrationsSource = fs.readFileSync(require.resolve('../db/migrations'), 'utf8');
 const initSqlSource = fs.readFileSync(path.resolve(__dirname, '..', '..', 'init.sql'), 'utf8');
@@ -227,7 +250,11 @@ const collectiblesRoutesSource = fs.readFileSync(require.resolve('../routes/coll
 const collectibleTraitsRoutesSource = fs.readFileSync(require.resolve('../routes/collectibleTraits'), 'utf8');
 const integrationsRoutesSource = fs.readFileSync(require.resolve('../routes/integrations'), 'utf8');
 const spaceIntegrationsRoutesSource = fs.readFileSync(require.resolve('../routes/spaceIntegrations'), 'utf8');
+const { certifySensitiveOperationContract } = require('../scripts/sensitive-operation-certification');
 const integrationsServiceSource = fs.readFileSync(require.resolve('../services/integrations'), 'utf8');
+const repairComicPostersSource = fs.readFileSync(require.resolve('../scripts/repair-comic-posters'), 'utf8');
+const repairComicIssueMismatchesSource = fs.readFileSync(require.resolve('../scripts/repair-comic-issue-mismatches'), 'utf8');
+const workspaceIntegrationOwnershipSmokeSource = fs.readFileSync(require.resolve('../scripts/workspace-integration-ownership-smoke'), 'utf8');
 const plexWebhookReceiverServiceSource = fs.readFileSync(require.resolve('../services/plexWebhookReceiver'), 'utf8');
 const plexNowPlayingDisplayServiceSource = fs.readFileSync(require.resolve('../services/plexNowPlayingDisplay'), 'utf8');
 const integrationResponseSource = fs.readFileSync(require.resolve('../services/integrationResponse'), 'utf8');
@@ -288,6 +315,7 @@ const wishlistViewSource = readFrontendSource(path.join('components', 'WishlistV
 const importViewSource = readFrontendSource(path.join('components', 'ImportView'));
 const captureInboxViewSource = readFrontendSource(path.join('components', 'CaptureInboxView'));
 const adminIntegrationsViewSource = readFrontendSource(path.join('components', 'AdminIntegrationsView'));
+const profileViewSource = readFrontendSource(path.join('components', 'ProfileView'));
 const spaceManagerViewSource = readFrontendSource(path.join('components', 'SpaceManagerView'));
 const libraryLoansViewSource = readFrontendSource(path.join('components', 'LibraryLoansView'));
 const adminMergeReviewViewSource = readFrontendSource(path.join('components', 'AdminMergeReviewView'));
@@ -474,6 +502,117 @@ async function run(name, fn) {
 }
 
 const results = [];
+
+results.push(run('sensitive operations require a machine-checked session-bound recent password proof', () => {
+  const certified = certifySensitiveOperationContract();
+  assert.deepStrictEqual(certified, {
+    operationCount: 20,
+    unavailableCount: 2,
+    recentProtectedCount: 11,
+    safeReadbackCount: 4
+  });
+  const now = Date.now();
+  assert.strictEqual(hasRecentReauthentication({
+    sessionId: 1,
+    authContext: { type: 'session', reauthenticatedAt: new Date(now - 1000).toISOString() }
+  }, now), true);
+  assert.strictEqual(hasRecentReauthentication({
+    sessionId: 1,
+    authContext: { type: 'session', reauthenticatedAt: new Date(now - (REAUTH_MAX_AGE_MINUTES + 1) * 60 * 1000).toISOString() }
+  }, now), false);
+  assert.strictEqual(hasRecentReauthentication({
+    sessionId: null,
+    authContext: { type: 'pat', reauthenticatedAt: new Date(now).toISOString() }
+  }, now), false);
+  assert.ok(migrationsSource.includes("version: 122"));
+  assert.ok(initSqlSource.includes('reauthenticated_at TIMESTAMP'));
+  assert.ok(useApiClientSource.includes("code === 'recent_reauthentication_required'"));
+  assert.ok(useApiClientSource.includes("url: `${apiBase}/auth/reauthenticate`"));
+  assert.ok(profileViewSource.includes('requireRecentReauthentication: true'));
+  assert.ok(adminIntegrationsViewSource.includes('sensitiveOperationConfig'));
+}));
+
+results.push(run('identity upgrade certification selects identity-sensitive migrations and protects evidence', () => {
+  const runtimeOnlyValue = require('crypto').randomBytes(24).toString('base64url');
+  assert.ok(identityMigrationPattern.test('ALTER TABLE user_sessions ADD COLUMN policy_version INTEGER'));
+  assert.ok(identityMigrationPattern.test('Move ownership into workspace membership records'));
+  assert.ok(!identityMigrationPattern.test('Add movie runtime metadata index'));
+  assert.deepStrictEqual(resolveIdentityPolicy([119]), {
+    existingSessions: 'survive',
+    activeScope: 'preserve',
+    apiCredentials: 'remainValid'
+  });
+  assert.strictEqual(identityUpgradePolicies.certifiedThroughVersion, 122);
+  assert.doesNotThrow(() => assertSecretFreeEvidence(JSON.stringify({ status: 'passed' }), {
+    password: runtimeOnlyValue
+  }));
+  assert.throws(
+    () => assertSecretFreeEvidence(JSON.stringify({ leaked: runtimeOnlyValue }), {
+      password: runtimeOnlyValue
+    }),
+    /runtime-generated fixture secret/
+  );
+  assert.ok(identityCertificationSource.includes("source: 'runtime_generated_synthetic'"));
+  assert.ok(identityCertificationSource.includes("productionDataUsed: false"));
+  assert.ok(identityCertificationSource.includes('identity-upgrade-policies.json'));
+  assert.ok(identityCertificationSource.includes('assertManifestMatchesPolicy(upgradedManifest'));
+  assert.ok(identityCertificationSource.includes('assert.deepStrictEqual(rollbackManifest, baselineManifest'));
+  assert.ok(identityCertificationSource.includes('buildSecretFreeEvidenceManifest(baselineManifest)'));
+  assert.ok(identityCertificationSource.includes("storedCredentials: 'certified_in_memory'"));
+  assert.ok(identityCertificationSource.includes("fingerprintsRetained: false"));
+  assert.throws(
+    () => assertSecretFreeEvidence(JSON.stringify({ storedCredentialFingerprint: 'not-retained' }), {}),
+    /in-memory identity fingerprint/
+  );
+  assert.ok(serverSource.includes("process.env.NODE_ENV === 'test'"));
+  assert.ok(serverSource.includes('IDENTITY_CERTIFICATION_SKIP_STARTUP_MIGRATIONS'));
+  assert.ok(dockerPublishWorkflowSource.includes('npm run test:identity-upgrade-certification'));
+  assert.ok((dockerPublishWorkflowSource.match(/policy\.certifiedThroughVersion/g) || []).length >= 2);
+  assert.ok(migrationRehearsalSource.includes('crypto.randomBytes'));
+  assert.ok(migrationRehearsalSource.includes('bcrypt.hash'));
+  assert.ok(!migrationRehearsalSource.includes('rehearsal-token-1'));
+  assert.ok(!migrationRehearsalSource.includes('legacyfixturehashplaceholder'));
+
+  const manifest = {
+    users: [{ active_space_id: 1, active_library_id: 2 }],
+    sessions: [{ id: 1 }],
+    apiCredentials: {
+      personal: [{ id: 1, revoked_at: null }],
+      service: [{ id: 2, revoked_at: null }]
+    }
+  };
+  const revoked = structuredClone(manifest);
+  revoked.sessions = [];
+  revoked.apiCredentials.personal[0].revoked_at = '2026-08-24T00:00:00.000Z';
+  revoked.apiCredentials.service[0].revoked_at = '2026-08-24T00:00:00.000Z';
+  assert.doesNotThrow(() => assertManifestMatchesPolicy(revoked, manifest, {
+    existingSessions: 'revoke',
+    activeScope: 'preserve',
+    apiCredentials: 'revoke'
+  }, 'unit'));
+}));
+
+results.push(run('workspace ownership contract classifies every schema table, route, and maintained execution path', () => {
+  const contract = buildWorkspaceOwnershipContract();
+  const snapshot = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'config', 'workspace-ownership-contract.json'), 'utf8'));
+  assert.deepStrictEqual(contract, snapshot);
+  assert.strictEqual(contract.tables.length, 66);
+  assert.ok(contract.routes.length >= 300);
+  assert.ok(contract.routes.filter((route) => route.authentication === 'required').length >= 300);
+  assert.ok(contract.executionPaths.some((entry) => entry.id === 'sync_jobs'));
+  assert.ok(contract.executionPaths.every((entry) => entry.status === 'certified'));
+  assert.ok(contract.tables.some((entry) => entry.sameWorkspaceForeignKeys.length > 0));
+  assert.deepStrictEqual(contract.permissionKeys, Object.values(PERMISSIONS).sort());
+}));
+
+results.push(run('stable permission keys preserve role bundles without authorizing unknown permissions', () => {
+  assert.strictEqual(hasPermission({ membershipRole: 'owner', permission: PERMISSIONS.WORKSPACE_MEMBERS_MANAGE }), true);
+  assert.strictEqual(hasPermission({ membershipRole: 'admin', permission: PERMISSIONS.WORKSPACE_INTEGRATIONS_MANAGE }), true);
+  assert.strictEqual(hasPermission({ membershipRole: 'member', permission: PERMISSIONS.WORKSPACE_CONTENT_MANAGE }), true);
+  assert.strictEqual(hasPermission({ membershipRole: 'viewer', permission: PERMISSIONS.WORKSPACE_CONTENT_MANAGE }), false);
+  assert.strictEqual(hasPermission({ userRole: 'admin', permission: PERMISSIONS.PLATFORM_MANAGE }), true);
+  assert.strictEqual(hasPermission({ userRole: 'admin', permission: 'workspace.future.unreviewed' }), false);
+}));
 
 results.push(run('csv.parseCsvText parses headers and rows', () => {
   const input = 'title,year,format\nDune,1984,VHS\nAliens,1986,Blu-ray\n';
@@ -1818,7 +1957,8 @@ results.push(run('plex watched-state refresh scheduler reuses apply path without
   assert.ok(mediaRoutesSource.includes('ratingsUpdated'));
   assert.ok(mediaRoutesSource.includes('startPlexWatchStateRefreshScheduler'));
   assert.ok(mediaRoutesSource.includes('getEffectivePlexWatchStateRefreshRuntimeConfig'));
-  assert.ok(mediaRoutesSource.includes('loadAdminIntegrationConfig'));
+  assert.ok(!mediaRoutesSource.includes('loadAdminIntegrationConfig'));
+  assert.ok(mediaRoutesSource.includes('loadPlexWebhookImportConfig(target.scopeContext)'));
   assert.ok(mediaRoutesSource.includes('normalizePlexReadbackRefreshSettings'));
   assert.ok(mediaRoutesSource.includes("router.get('/plex-watch-state/refresh-scheduler'"));
   assert.ok(mediaRoutesSource.includes("router.post('/plex-watch-state/refresh-scheduler/run'"));
@@ -2368,6 +2508,95 @@ results.push(run('workspace integrations own provider saves and Plex automation 
   assert.ok(releaseRoadmapSource.includes('3.24.5 — Workspace Integration Scope Enforcement'));
 }));
 
+results.push(run('workspace valuation and OCR configs fail closed without environment or installation secrets', () => {
+  const runtimeSecret = (label) => `${label}-${require('crypto').randomBytes(18).toString('base64url')}`;
+  const decoys = {
+    priceChartingEnvironment: runtimeSecret('pricecharting-environment'),
+    ebayEnvironment: runtimeSecret('ebay-environment'),
+    visionEnvironment: runtimeSecret('vision-environment'),
+    comicsEnvironment: runtimeSecret('comics-environment'),
+    priceChartingWorkspace: runtimeSecret('pricecharting-workspace'),
+    ebayWorkspace: runtimeSecret('ebay-workspace'),
+    visionWorkspace: runtimeSecret('vision-workspace')
+  };
+  const priorEnvironment = {
+    priceCharting: process.env.PRICECHARTING_API_KEY,
+    ebay: process.env.EBAY_BROWSE_CLIENT_SECRET,
+    vision: process.env.VISION_API_KEY,
+    comics: process.env.COMICS_API_KEY
+  };
+  process.env.PRICECHARTING_API_KEY = decoys.priceChartingEnvironment;
+  process.env.EBAY_BROWSE_CLIENT_SECRET = decoys.ebayEnvironment;
+  process.env.VISION_API_KEY = decoys.visionEnvironment;
+  process.env.COMICS_API_KEY = decoys.comicsEnvironment;
+  try {
+    const emptyValuation = buildWorkspaceValuationIntegrationConfig(null, 17);
+    const emptyOcr = buildWorkspaceOcrIntegrationConfig(null, 17);
+    const emptyComics = buildWorkspaceComicsIntegrationConfig(null, 17);
+    assert.strictEqual(emptyValuation.spaceId, 17);
+    assert.strictEqual(emptyValuation.priceChartingEnabled, false);
+    assert.strictEqual(emptyValuation.priceChartingApiKey, '');
+    assert.strictEqual(emptyValuation.eBayBrowseEnabled, false);
+    assert.strictEqual(emptyValuation.eBayBrowseClientSecret, '');
+    assert.strictEqual(emptyOcr.spaceId, 17);
+    assert.strictEqual(emptyOcr.visionEnabled, false);
+    assert.strictEqual(emptyOcr.visionApiKey, '');
+    assert.strictEqual(emptyOcr.allowEnvironmentFallback, false);
+    assert.strictEqual(emptyComics.comicsApiKey, '');
+    assert.strictEqual(emptyComics.integrationOwnership.secretInheritance, false);
+
+    const workspaceValuation = buildWorkspaceValuationIntegrationConfig({
+      pricecharting_enabled: true,
+      pricecharting_api_key_encrypted: encryptSecret(decoys.priceChartingWorkspace),
+      ebay_browse_enabled: true,
+      ebay_browse_client_secret_encrypted: encryptSecret(decoys.ebayWorkspace)
+    }, 23);
+    const workspaceOcr = buildWorkspaceOcrIntegrationConfig({
+      vision_enabled: true,
+      vision_preset: 'ocrspace',
+      vision_api_key_encrypted: encryptSecret(decoys.visionWorkspace)
+    }, 23);
+    assert.strictEqual(workspaceValuation.priceChartingApiKey, decoys.priceChartingWorkspace);
+    assert.strictEqual(workspaceValuation.eBayBrowseClientSecret, decoys.ebayWorkspace);
+    assert.strictEqual(workspaceOcr.visionApiKey, decoys.visionWorkspace);
+    assert.strictEqual(workspaceValuation.integrationOwnership.secretInheritance, false);
+    assert.strictEqual(workspaceOcr.integrationOwnership.secretInheritance, false);
+    assert.throws(() => buildWorkspaceValuationIntegrationConfig(null, null), /workspace id/i);
+    assert.throws(() => buildWorkspaceOcrIntegrationConfig(null, null), /workspace id/i);
+  } finally {
+    if (priorEnvironment.priceCharting === undefined) delete process.env.PRICECHARTING_API_KEY;
+    else process.env.PRICECHARTING_API_KEY = priorEnvironment.priceCharting;
+    if (priorEnvironment.ebay === undefined) delete process.env.EBAY_BROWSE_CLIENT_SECRET;
+    else process.env.EBAY_BROWSE_CLIENT_SECRET = priorEnvironment.ebay;
+    if (priorEnvironment.vision === undefined) delete process.env.VISION_API_KEY;
+    else process.env.VISION_API_KEY = priorEnvironment.vision;
+    if (priorEnvironment.comics === undefined) delete process.env.COMICS_API_KEY;
+    else process.env.COMICS_API_KEY = priorEnvironment.comics;
+  }
+}));
+
+results.push(run('valuation, OCR, and provider repair execution require explicit workspace ownership', () => {
+  assert.ok(backendPackageJson.scripts['test:workspace-integration-ownership-smoke']);
+  assert.ok(mediaRoutesSource.includes('loadWorkspaceValuationIntegrationConfig(media.space_id || scopeContext?.spaceId || null)'));
+  assert.ok(mediaRoutesSource.includes('loadWorkspaceValuationIntegrationConfig(ownedSpaceId)'));
+  assert.ok(mediaRoutesSource.includes("reason: 'workspace_scope_mismatch'"));
+  assert.ok(!mediaRoutesSource.includes('scopedConfig?.kavitaBaseUrl && scopedConfig?.kavitaApiKey'));
+  assert.ok(captureItemsRoutesSource.includes('loadWorkspaceOcrIntegrationConfig(current.space_id || scopeContext.spaceId)'));
+  assert.ok(spaceIntegrationsRoutesSource.includes('vision_enabled = $2'));
+  assert.ok(spaceIntegrationsRoutesSource.includes('pricecharting_enabled = $8'));
+  assert.ok(spaceIntegrationsRoutesSource.includes('ebay_browse_enabled = $12'));
+  assert.ok(migrationsSource.includes('Add explicit workspace Vision OCR enablement'));
+  assert.ok(initSqlSource.includes('vision_enabled BOOLEAN DEFAULT false'));
+  assert.ok(repairComicPostersSource.includes("throw new Error('--space-id is required')"));
+  assert.ok(repairComicIssueMismatchesSource.includes("throw new Error('--space-id is required')"));
+  assert.ok(!repairComicPostersSource.includes('loadAdminIntegrationConfig'));
+  assert.ok(!repairComicIssueMismatchesSource.includes('loadAdminIntegrationConfig'));
+  assert.ok(repairComicPostersSource.includes('loadWorkspaceComicsIntegrationConfig'));
+  assert.ok(repairComicIssueMismatchesSource.includes('loadWorkspaceComicsIntegrationConfig'));
+  assert.ok(workspaceIntegrationOwnershipSmokeSource.includes('crossed workspace boundaries'));
+  assert.ok(workspaceIntegrationOwnershipSmokeSource.includes('Workspace integration readback exposed a raw provider secret'));
+}));
+
 results.push(run('plex now-playing provider proof keeps sessions read-only and secret-free', () => {
   const contract = buildPlexPmsModernizationContract();
   assert.strictEqual(contract.nowPlayingPath, '/status/sessions');
@@ -2561,7 +2790,8 @@ results.push(run('auth route source includes explicit support session endpoints'
   assert.ok(authRoutesSource.includes('stripHomelabSpaceContextFromUser('));
   assert.ok(authRoutesSource.includes('const homelabEdition = isHomelabEdition(productEdition);'));
   assert.ok(authRoutesSource.includes("const inviteTokenForLookup = String(inviteToken || '').trim();"));
-  assert.ok(authRoutesSource.includes("WHERE $2 <> ''"));
+  assert.ok(authRoutesSource.includes('WHERE token_hash = $1'));
+  assert.ok(!authRoutesSource.includes('OR token = $2'));
   assert.ok(authRoutesSource.includes('if (!homelabEdition && inviteTokenForLookup && !claimedInvite) {'));
   assert.ok(authRoutesSource.includes('} else if (!homelabEdition && !claimedInvite && existingUserCount > 0 && !selfRegistrationEnabled) {'));
   assert.ok(authRoutesSource.includes('if (registrationFailure) {'));
@@ -2646,7 +2876,9 @@ results.push(run('reset and invite consumption use conditional transactional cla
   assert.ok(authRoutesSource.includes('AND used = false'));
   assert.ok(authRoutesSource.includes('queryable: client'));
   assert.ok(authRoutesSource.includes('UPDATE invites'));
-  assert.ok(authRoutesSource.includes('lower(email) = lower($3)'));
+  assert.ok(authRoutesSource.includes('pg_advisory_xact_lock(hashtextextended($1, 0))'));
+  assert.ok(authRoutesSource.includes('lower(email) = lower($2)'));
+  assert.ok(!authRoutesSource.includes('token_hash = $1 OR token ='));
   assert.ok(authRoutesSource.includes("await client.query('COMMIT')"));
   assert.ok(authRoutesSource.includes("await client.query('ROLLBACK')"));
 }));
@@ -2890,7 +3122,8 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(homelabEditionBoundarySmokeSource.includes('const persistedAdminScope = await getPersistedUserScope(adminUserId);'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/spaces/${adminSpaceId}/integrations'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('must stay mounted for workspace-owned provider settings'));
-  assert.ok(homelabEditionBoundarySmokeSource.includes('must not expose platform valuation providers'));
+  assert.ok(homelabEditionBoundarySmokeSource.includes('must expose workspace-owned valuation providers'));
+  assert.ok(homelabEditionBoundarySmokeSource.includes('must expose workspace-owned OCR enablement'));
   assert.ok(
     serverSource.indexOf("app.use('/api', spaceIntegrationsRouter);") > serverSource.indexOf("app.use('/api/admin', adminCommonRouter);")
       && serverSource.indexOf("app.use('/api', spaceIntegrationsRouter);") < serverSource.indexOf("app.use('/api/admin/settings/email-delivery'"),
@@ -3712,7 +3945,7 @@ results.push(run('kavita workspace-owned administration implementation is wired 
   assert.ok(spaceManagerViewSource.includes("'kavita'"));
   assert.ok(adminIntegrationsViewSource.includes('IntegrationSourceBadge'));
   assert.ok(adminIntegrationsViewSource.includes('integrationScope?.sections?.[section]'));
-  assert.ok(dashboardContentSource.includes("['audio', 'barcode', 'books', 'cwa', 'comics', 'games', 'kavita', 'plex', 'tmdb']"));
+  assert.ok(dashboardContentSource.includes("['audio', 'barcode', 'books', 'cwa', 'comics', 'ebay', 'games', 'kavita', 'plex', 'pricecharting', 'tmdb', 'vision']"));
   assert.ok(dashboardContentSource.includes("['logs', 'metrics']"));
   assert.ok(spaceManagerViewSource.includes('title=""'));
   assert.ok(!spaceManagerViewSource.includes('title="Workspace Integrations"'));
@@ -4383,6 +4616,7 @@ results.push(run('repo includes local release preflight helper coverage for depe
   assert.ok(backendPackageJson.scripts['test:release-preflight-local']);
   assert.ok(releasePreflightLocalSource.includes("artifacts', 'dependency-audit'"));
   assert.ok(releasePreflightLocalSource.includes('preflight-go-no-go.md'));
+  assert.ok(releasePreflightLocalSource.includes('identity-upgrade-certification-evidence.json'));
   assert.ok(releasePreflightLocalSource.includes('Compose smoke basics'));
   assert.ok(releasePreflightLocalSource.includes('Secret scan'));
   assert.ok(releasePreflightLocalSource.includes('RELEASE_PREFLIGHT_RUN_BROWSER'));
@@ -4393,6 +4627,7 @@ results.push(run('repo includes local release preflight helper coverage for depe
   assert.ok(releasePreflightLocalSource.includes('node scripts/api-integration-smoke.js'));
   assert.ok(releasePreflightLocalSource.includes('/api/auth/csrf-token'));
   assert.ok(releasePreflightLocalSource.includes('/api/auth/me'));
+  assert.ok(releasePreflightLocalSource.includes('commandFailureDetail'));
   assert.ok(releasePreflightLocalSource.includes('npm audit'));
 }));
 
@@ -4854,6 +5089,85 @@ results.push(run('audit.sanitizeAuditDetails redacts sensitive string patterns e
     reason: 'missing_token',
     resetTokenId: 22
   });
+}));
+
+results.push(run('auth audit contract persists only cataloged minimal fields', () => {
+  const policy = applyAuthAuditDetailPolicy('auth.password_reset.request.delivered', {
+    delivery: 'smtp',
+    email: 'submitted@example.invalid',
+    resetTokenId: 42,
+    token_hash: 'not-for-audit',
+    password: 'submitted-credential',
+    authorization: 'Bearer submitted-token',
+    credentialMaterial: { clientSecret: 'provider-credential' },
+    deliveryPayload: { response: 'provider-secret' }
+  });
+  assert.strictEqual(policy.cataloged, true);
+  assert.strictEqual(policy.rejectedFieldCount, 7);
+  assert.deepStrictEqual(policy.details, { delivery: 'smtp' });
+
+  const invitation = applyAuthAuditDetailPolicy('space.invite.create', {
+    role: 'member',
+    spaceId: 7,
+    email: 'invitee@example.invalid',
+    token: 'submitted-invite-token',
+    tokenHash: 'submitted-invite-hash',
+    deliveryPayload: { to: 'invitee@example.invalid' }
+  });
+  assert.strictEqual(invitation.rejectedFieldCount, 4);
+  assert.deepStrictEqual(invitation.details, { role: 'member', spaceId: 7 });
+
+  const accessDenied = applyAuthAuditDetailPolicy('auth.access.denied', {
+    reason: 'invalid_or_expired_session',
+    method: 'get',
+    path: '/api/auth/me?token=never-store-this',
+    authorization: 'Bearer never-store-this'
+  });
+  assert.strictEqual(accessDenied.rejectedFieldCount, 1);
+  assert.deepStrictEqual(accessDenied.details, {
+    reason: 'invalid_or_expired_session',
+    method: 'GET',
+    path: '/api/auth/me'
+  });
+}));
+
+results.push(run('auth audit contract fails closed for uncataloged sensitive actions and unsafe values', () => {
+  const unknown = applyAuthAuditDetailPolicy('auth.future.recovery', {
+    email: 'future@example.invalid',
+    secret: 'future-secret'
+  });
+  assert.strictEqual(unknown.cataloged, false);
+  assert.strictEqual(unknown.rejectedFieldCount, 2);
+  assert.strictEqual(unknown.details, null);
+
+  const unsafe = applyAuthAuditDetailPolicy('auth.password_reset.request.delivery_failed', {
+    reason: 'SMTP rejected recipient future@example.invalid with credential=secret'
+  });
+  assert.strictEqual(unsafe.rejectedFieldCount, 1);
+  assert.strictEqual(unsafe.details, null);
+}));
+
+results.push(run('every maintained sensitive auth audit action has an explicit detail schema', () => {
+  const sourcePaths = [
+    '../middleware/auth',
+    '../middleware/csrf',
+    '../middleware/scopeAccess',
+    '../routes/auth',
+    '../routes/libraries',
+    '../routes/mobileAuth',
+    '../routes/spaces'
+  ];
+  const actionPattern = /['"]((?:auth\.|space\.invite\.|space\.member\.)[A-Za-z0-9._-]+|invite\.claimed|library\.transfer|scope\.access\.denied|security\.csrf\.failed|space\.create|workspace\.create\.personal)['"]/g;
+  const actions = new Set();
+  for (const sourcePath of sourcePaths) {
+    const source = fs.readFileSync(require.resolve(sourcePath), 'utf8');
+    for (const match of source.matchAll(actionPattern)) actions.add(match[1]);
+  }
+  assert.ok(actions.size > 30, `Expected broad auth audit action coverage, found ${actions.size}`);
+  for (const action of actions) {
+    assert.strictEqual(isSensitiveAuditAction(action), true, `Sensitive action classification missed ${action}`);
+    assert.ok(AUTH_AUDIT_DETAIL_SCHEMAS[action], `Missing auth audit detail schema for ${action}`);
+  }
 }));
 
 results.push(run('audit.extractRequestIp rejects scheduler labels that are not valid inet values', () => {
@@ -5920,11 +6234,33 @@ results.push(run('audit source wires structured log export behind activity loggi
   assert.ok(auditSource.includes('maybeExportActivityLog'));
 }));
 
-results.push(run('audit middleware source records path and error summary for request outcome entries', () => {
+results.push(run('audit middleware source records only query-free request outcome metadata', () => {
   const auditMiddlewareSource = require('fs').readFileSync(require.resolve('../middleware/audit'), 'utf8');
   assert.ok(auditMiddlewareSource.includes("path: req.originalUrl?.split('?')[0]"));
-  assert.ok(auditMiddlewareSource.includes('errorSummary'));
-  assert.ok(auditMiddlewareSource.includes('response: errorSummary'));
+  assert.ok(!auditMiddlewareSource.includes('responseBody'));
+  assert.ok(!auditMiddlewareSource.includes('errorSummary'));
+  assert.ok(!auditMiddlewareSource.includes('url: req.originalUrl'));
+}));
+
+results.push(run('server applies a focused invitation mutation limiter', () => {
+  const serverSource = fs.readFileSync(require.resolve('../server'), 'utf8');
+  assert.ok(serverSource.includes('RATE_LIMIT_INVITE_MAX'));
+  assert.ok(serverSource.includes("app.use('/api/spaces', inviteLimiter)"));
+  assert.ok(serverSource.includes('Too many invitation operations'));
+}));
+
+results.push(run('invite token inventory reports counts without selecting identity or token values', () => {
+  const inventorySource = fs.readFileSync(path.join(__dirname, 'invite-token-inventory.js'), 'utf8');
+  assert.ok(inventorySource.includes('active_plaintext_token_count'));
+  assert.ok(inventorySource.includes('active_missing_hash_count'));
+  assert.ok(inventorySource.includes('historical_plaintext_token_count'));
+  assert.ok(!inventorySource.includes('SELECT id'));
+  assert.ok(!inventorySource.includes('SELECT email'));
+  assert.ok(!inventorySource.includes('SELECT token,'));
+  assert.ok(inventorySource.includes('plaintextColumnPresent'));
+  assert.ok(migrationsSource.includes("version: 121"));
+  assert.ok(migrationsSource.includes('DROP COLUMN IF EXISTS token'));
+  assert.ok(!initSqlSource.includes('token VARCHAR(255) UNIQUE'));
 }));
 
 results.push(run('logout route resolves session user before revoking token for audit attribution', () => {
@@ -8644,6 +8980,10 @@ Promise.all(results)
       return;
     }
     console.log(`All unit tests passed (${resolved.length})`);
+    // Some source-contract imports initialize shared clients. Unit completion is
+    // authoritative once every registered promise resolves; do not leave CI
+    // waiting on unrelated client handles.
+    process.exit(0);
   })
   .catch((error) => {
     console.error(error.stack || error.message || error);

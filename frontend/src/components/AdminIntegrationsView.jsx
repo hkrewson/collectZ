@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { cloneElement, isValidElement, useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { CheckboxControl, FixedPageShell, SectionTabPanel, SectionTabs, UtilityPageHeader } from './app/AppPrimitives';
 
 const BARCODE_PRESETS = {
@@ -58,10 +58,12 @@ const SETTINGS_SECTION_FEATURES = {
   logs: 'external_log_export_enabled'
 };
 function LabeledField({ label, className = '', children, cx }) {
+  const generatedId = useId();
+  const controlId = isValidElement(children) ? (children.props.id || generatedId) : generatedId;
   return (
     <div className={cx('field', className)}>
-      <label className="label">{label}</label>
-      {children}
+      <label className="label" htmlFor={controlId}>{label}</label>
+      {isValidElement(children) ? cloneElement(children, { id: controlId }) : children}
     </div>
   );
 }
@@ -467,6 +469,7 @@ export default function AdminIntegrationsView({
         { id: 'pricecharting', label: 'PriceCharting' },
         { id: 'ebay', label: 'eBay Browse' }
       ] : []),
+      { id: 'vision', label: 'Image OCR' },
       { id: 'games', label: 'Games' },
       { id: 'kavita', label: 'Kavita' },
       ...(includeRuntimeSections ? [
@@ -503,6 +506,7 @@ export default function AdminIntegrationsView({
     comicsPreset: 'metron', comicsProvider: 'metron', comicsApiUrl: 'https://metron.cloud/api/issue/',
     comicsApiKey: '', comicsUsername: '', clearComicsApiKey: false,
     kavitaBaseUrl: '', kavitaApiKey: '', clearKavitaApiKey: false, kavitaTimeoutMs: '20000',
+    visionEnabled: false, visionPreset: 'ocrspace', visionProvider: 'ocrspace', visionApiUrl: 'https://api.ocr.space/parse/image', visionApiKey: '', clearVisionApiKey: false, visionApiKeyHeader: 'apikey',
     priceChartingEnabled: false, priceChartingApiUrl: 'https://www.pricecharting.com/api', priceChartingApiKey: '', clearPriceChartingApiKey: false, priceChartingRateLimitMs: '1100',
     eBayBrowseEnabled: false, eBayBrowseApiUrl: 'https://api.ebay.com/buy/browse/v1/item_summary/search', eBayBrowseClientId: '', eBayBrowseClientSecret: '', clearEBayBrowseClientSecret: false, eBayBrowseMarketplaceId: 'EBAY_US',
     cwaOpdsUrl: '', cwaUsername: '', cwaPassword: '', clearCwaPassword: false,
@@ -517,13 +521,14 @@ export default function AdminIntegrationsView({
     gamesApiKeySet: false, gamesApiKeyMasked: '',
     gamesClientSecretSet: false, gamesClientSecretMasked: '',
     comicsApiKeySet: false, comicsApiKeyMasked: '',
+    visionApiKeySet: false, visionApiKeyMasked: '',
     priceChartingApiKeySet: false, priceChartingApiKeyMasked: '',
     eBayBrowseClientSecretSet: false, eBayBrowseClientSecretMasked: '',
     cwaPasswordSet: false, cwaPasswordMasked: '',
     kavitaApiKeySet: false, kavitaApiKeyMasked: '',
     decryptHealth: { hasWarnings: false, warnings: [], remediation: '' }
   });
-  const [status, setStatus] = useState({ barcode: 'unknown', tmdb: 'unknown', plex: 'unknown', books: 'unknown', audio: 'unknown', games: 'unknown', comics: 'unknown', cwa: 'unknown', kavita: 'unknown', pricecharting: 'unknown', ebay: 'unknown' });
+  const [status, setStatus] = useState({ barcode: 'unknown', tmdb: 'unknown', plex: 'unknown', books: 'unknown', audio: 'unknown', games: 'unknown', comics: 'unknown', cwa: 'unknown', kavita: 'unknown', vision: 'unknown', pricecharting: 'unknown', ebay: 'unknown' });
   const [testLoading, setTestLoading] = useState('');
   const [testMsg, setTestMsg] = useState('');
   const [saving, setSaving] = useState(false);
@@ -559,6 +564,10 @@ export default function AdminIntegrationsView({
   const [observabilityRuntime, setObservabilityRuntime] = useState({ logs: null, metrics: null });
   const [logExportControl, setLogExportControl] = useState(null);
   const [integrationScope, setIntegrationScope] = useState(null);
+  const sensitiveOperationConfig = {
+    requireRecentReauthentication: true,
+    reauthenticationReason: 'Confirm your password before using or changing stored integration credentials.'
+  };
 
   useEffect(() => {
     if (!externalSection || externalSection === section) return;
@@ -604,6 +613,7 @@ export default function AdminIntegrationsView({
         audioPreset: data.audioPreset || 'discogs', audioProvider: data.audioProvider || 'discogs', audioApiUrl: data.audioApiUrl || 'https://api.discogs.com/database/search',
         gamesPreset: data.gamesPreset || 'igdb', gamesProvider: data.gamesProvider || 'igdb', gamesApiUrl: data.gamesApiUrl || 'https://api.igdb.com/v4/games', gamesClientId: data.gamesClientId || '',
         comicsPreset: data.comicsPreset || 'metron', comicsProvider: data.comicsProvider || 'metron', comicsApiUrl: data.comicsApiUrl || 'https://metron.cloud/api/issue/', comicsUsername: data.comicsUsername || '',
+        visionEnabled: Boolean(data.visionEnabled), visionPreset: data.visionPreset || 'ocrspace', visionProvider: data.visionProvider || 'ocrspace', visionApiUrl: data.visionApiUrl || 'https://api.ocr.space/parse/image', visionApiKeyHeader: data.visionApiKeyHeader || 'apikey',
         priceChartingEnabled: Boolean(data.valuationProviders?.pricecharting?.enabled),
         priceChartingApiUrl: data.valuationProviders?.pricecharting?.apiUrl || 'https://www.pricecharting.com/api',
         priceChartingRateLimitMs: String(data.valuationProviders?.pricecharting?.rateLimitMs || '1100'),
@@ -631,6 +641,7 @@ export default function AdminIntegrationsView({
         gamesApiKeySet: Boolean(data.gamesApiKeySet), gamesApiKeyMasked: data.gamesApiKeyMasked || '',
         gamesClientSecretSet: Boolean(data.gamesClientSecretSet), gamesClientSecretMasked: data.gamesClientSecretMasked || '',
         comicsApiKeySet: Boolean(data.comicsApiKeySet), comicsApiKeyMasked: data.comicsApiKeyMasked || '',
+        visionApiKeySet: Boolean(data.visionApiKeySet), visionApiKeyMasked: data.visionApiKeyMasked || '',
         priceChartingApiKeySet: Boolean(data.valuationProviders?.pricecharting?.apiKeySet), priceChartingApiKeyMasked: data.valuationProviders?.pricecharting?.apiKeyMasked || '',
         eBayBrowseClientSecretSet: Boolean(data.valuationProviders?.ebayBrowse?.clientSecretSet), eBayBrowseClientSecretMasked: data.valuationProviders?.ebayBrowse?.clientSecretMasked || '',
         cwaPasswordSet: Boolean(data.cwaPasswordSet), cwaPasswordMasked: data.cwaPasswordMasked || '',
@@ -654,6 +665,7 @@ export default function AdminIntegrationsView({
         audio: data.audioApiKeySet ? 'configured' : 'missing',
         games: (data.gamesApiKeySet || (data.gamesClientId && data.gamesClientSecretSet)) ? 'configured' : 'missing',
         comics: data.comicsApiKeySet ? 'configured' : 'missing',
+        vision: data.visionEnabled ? 'configured' : 'missing',
         pricecharting: (data.valuationProviders?.pricecharting?.enabled && data.valuationProviders?.pricecharting?.apiKeySet) ? 'configured' : 'missing',
         ebay: (data.valuationProviders?.ebayBrowse?.enabled && data.valuationProviders?.ebayBrowse?.clientSecretSet && data.valuationProviders?.ebayBrowse?.clientId) ? 'configured' : 'missing',
         cwa: data.cwaOpdsUrl ? 'configured' : 'missing',
@@ -834,6 +846,15 @@ export default function AdminIntegrationsView({
       ...(form.gamesApiKey && { gamesApiKey: form.gamesApiKey }),
       ...(form.gamesClientSecret && { gamesClientSecret: form.gamesClientSecret })
     });
+    else if (sec === 'vision') Object.assign(payload, {
+      visionEnabled: form.visionEnabled,
+      visionPreset: form.visionPreset,
+      visionProvider: form.visionProvider,
+      visionApiUrl: form.visionApiUrl,
+      visionApiKeyHeader: form.visionApiKeyHeader,
+      clearVisionApiKey: form.clearVisionApiKey,
+      ...(form.visionApiKey && { visionApiKey: form.visionApiKey })
+    });
     else if (sec === 'pricecharting') Object.assign(payload, {
       priceChartingEnabled: form.priceChartingEnabled,
       priceChartingApiUrl: form.priceChartingApiUrl,
@@ -875,7 +896,7 @@ export default function AdminIntegrationsView({
       logExportDebug: form.logExportDebug
     });
     try {
-      const updated = await apiCall('put', endpointBase, payload);
+      const updated = await apiCall('put', endpointBase, payload, sensitiveOperationConfig);
       setMeta({
         barcodeApiKeySet: Boolean(updated.barcodeApiKeySet), barcodeApiKeyMasked: updated.barcodeApiKeyMasked || '',
         tmdbApiKeySet: Boolean(updated.tmdbApiKeySet), tmdbApiKeyMasked: updated.tmdbApiKeyMasked || '',
@@ -885,6 +906,7 @@ export default function AdminIntegrationsView({
         gamesApiKeySet: Boolean(updated.gamesApiKeySet), gamesApiKeyMasked: updated.gamesApiKeyMasked || '',
         gamesClientSecretSet: Boolean(updated.gamesClientSecretSet), gamesClientSecretMasked: updated.gamesClientSecretMasked || '',
         comicsApiKeySet: Boolean(updated.comicsApiKeySet), comicsApiKeyMasked: updated.comicsApiKeyMasked || '',
+        visionApiKeySet: Boolean(updated.visionApiKeySet), visionApiKeyMasked: updated.visionApiKeyMasked || '',
         priceChartingApiKeySet: Boolean(updated.valuationProviders?.pricecharting?.apiKeySet), priceChartingApiKeyMasked: updated.valuationProviders?.pricecharting?.apiKeyMasked || '',
         eBayBrowseClientSecretSet: Boolean(updated.valuationProviders?.ebayBrowse?.clientSecretSet), eBayBrowseClientSecretMasked: updated.valuationProviders?.ebayBrowse?.clientSecretMasked || '',
         cwaPasswordSet: Boolean(updated.cwaPasswordSet), cwaPasswordMasked: updated.cwaPasswordMasked || '',
@@ -929,13 +951,15 @@ export default function AdminIntegrationsView({
             ? (updated.cwaOpdsUrl ? 'configured' : 'missing')
           : sec === 'kavita'
             ? ((updated.kavitaBaseUrl && updated.kavitaApiKeySet) ? 'configured' : 'missing')
+          : sec === 'vision'
+            ? (updated.visionEnabled ? 'configured' : 'missing')
           : (updated[`${sec}ApiKeySet`] ? 'configured' : 'missing')
       }));
       setForm((f) => ({
         ...f,
-        barcodeApiKey: '', tmdbApiKey: '', plexApiKey: '', booksApiKey: '', audioApiKey: '', gamesApiKey: '', gamesClientSecret: '', comicsApiKey: '', cwaPassword: '', kavitaApiKey: '', priceChartingApiKey: '', eBayBrowseClientSecret: '',
+        barcodeApiKey: '', tmdbApiKey: '', plexApiKey: '', booksApiKey: '', audioApiKey: '', gamesApiKey: '', gamesClientSecret: '', comicsApiKey: '', cwaPassword: '', kavitaApiKey: '', visionApiKey: '', priceChartingApiKey: '', eBayBrowseClientSecret: '',
         clearBarcodeApiKey: false, clearTmdbApiKey: false, clearPlexApiKey: false,
-        clearBooksApiKey: false, clearAudioApiKey: false, clearGamesApiKey: false, clearGamesClientSecret: false, clearComicsApiKey: false, clearCwaPassword: false, clearKavitaApiKey: false, clearPriceChartingApiKey: false, clearEBayBrowseClientSecret: false
+        clearBooksApiKey: false, clearAudioApiKey: false, clearGamesApiKey: false, clearGamesClientSecret: false, clearComicsApiKey: false, clearCwaPassword: false, clearKavitaApiKey: false, clearVisionApiKey: false, clearPriceChartingApiKey: false, clearEBayBrowseClientSecret: false
       }));
       if (updated.kavitaBaseUrl !== undefined) {
         setForm((f) => ({
@@ -954,6 +978,16 @@ export default function AdminIntegrationsView({
           eBayBrowseApiUrl: updated.valuationProviders?.ebayBrowse?.apiUrl || f.eBayBrowseApiUrl,
           eBayBrowseClientId: updated.valuationProviders?.ebayBrowse?.clientId || '',
           eBayBrowseMarketplaceId: updated.valuationProviders?.ebayBrowse?.marketplaceId || 'EBAY_US'
+        }));
+      }
+      if (updated.visionEnabled !== undefined) {
+        setForm((f) => ({
+          ...f,
+          visionEnabled: Boolean(updated.visionEnabled),
+          visionPreset: updated.visionPreset || 'ocrspace',
+          visionProvider: updated.visionProvider || 'ocrspace',
+          visionApiUrl: updated.visionApiUrl || 'https://api.ocr.space/parse/image',
+          visionApiKeyHeader: updated.visionApiKeyHeader || 'apikey'
         }));
       }
       if (updated.logExportControl) {
@@ -1037,7 +1071,7 @@ export default function AdminIntegrationsView({
                     ...(form.kavitaApiKey && { kavitaApiKey: form.kavitaApiKey })
                   }
               : {};
-      const result = await apiCall('post', `${endpointBase}/test-${sec}`, payload);
+      const result = await apiCall('post', `${endpointBase}/test-${sec}`, payload, sensitiveOperationConfig);
       if (sec === 'logs') {
         setLogExportControl(result.logExportControl || result.config?.logExportControl || null);
         setObservabilityRuntime(result.observabilityRuntime || result.config?.observabilityRuntime || { logs: null, metrics: null });
@@ -1059,7 +1093,7 @@ export default function AdminIntegrationsView({
     setTestLoading('plex-providers');
     setTestMsg('');
     try {
-      const result = await apiCall('post', `${endpointBase}/test-plex-providers`, {});
+      const result = await apiCall('post', `${endpointBase}/test-plex-providers`, {}, sensitiveOperationConfig);
       setStatus((s) => ({ ...s, plex: result.authenticated ? 'ok' : 'auth_failed' }));
       setPlexProviders(Array.isArray(result.providers) ? result.providers : []);
       setTestMsg(`PLEX PROVIDERS: ${result.authenticated ? 'Connected' : 'Auth failed'} — ${result.detail}`);
@@ -1076,7 +1110,7 @@ export default function AdminIntegrationsView({
     setTestMsg('');
     setPlexNowPlayingChecked(false);
     try {
-      const result = await apiCall('post', `${endpointBase}/test-plex-now-playing`, {});
+      const result = await apiCall('post', `${endpointBase}/test-plex-now-playing`, {}, sensitiveOperationConfig);
       setStatus((s) => ({ ...s, plex: result.authenticated ? 'ok' : 'auth_failed' }));
       setPlexNowPlayingSessions(Array.isArray(result.sessions) ? result.sessions : []);
       setPlexNowPlayingChecked(true);
@@ -1094,7 +1128,7 @@ export default function AdminIntegrationsView({
     setTestLoading('plex-display-token');
     setTestMsg('');
     try {
-      const result = await apiCall('post', `${endpointBase}/plex-now-playing-display-token`, {});
+      const result = await apiCall('post', `${endpointBase}/plex-now-playing-display-token`, {}, sensitiveOperationConfig);
       setPlexDisplayToken(result.plexNowPlayingDisplayToken || { enabled: true, createdAt: null, lastUsedAt: null });
       const path = result.displayPath || (result.token ? `/now-playing?token=${encodeURIComponent(result.token)}` : '');
       const link = path ? `${window.location.origin}${path}` : '';
@@ -1112,7 +1146,7 @@ export default function AdminIntegrationsView({
     setTestLoading('plex-display-token');
     setTestMsg('');
     try {
-      const result = await apiCall('delete', `${endpointBase}/plex-now-playing-display-token`);
+      const result = await apiCall('delete', `${endpointBase}/plex-now-playing-display-token`, undefined, sensitiveOperationConfig);
       setPlexDisplayToken(result.plexNowPlayingDisplayToken || { enabled: false, createdAt: null, lastUsedAt: null });
       setPlexDisplayLink('');
       setTestMsg('PLEX DISPLAY: Display link revoked.');
@@ -1128,7 +1162,7 @@ export default function AdminIntegrationsView({
     setTestLoading('plex-webhook-receiver-token');
     setTestMsg('');
     try {
-      const result = await apiCall('post', `${endpointBase}/plex-webhook-receiver-token`, {});
+      const result = await apiCall('post', `${endpointBase}/plex-webhook-receiver-token`, {}, sensitiveOperationConfig);
       setPlexWebhookReceiver(result.plexWebhookReceiver || { enabled: true, lastReceivedAt: null, lastEvent: null, delivery: {} });
       setPlexWebhookReceiverLink(result.webhookUrl || result.webhookPath || '');
       setTestMsg('PLEX WEBHOOKS: Receiver URL generated. This is the only time the token is shown.');
@@ -1144,7 +1178,7 @@ export default function AdminIntegrationsView({
     setTestLoading('plex-webhook-receiver-token');
     setTestMsg('');
     try {
-      const result = await apiCall('delete', `${endpointBase}/plex-webhook-receiver-token`);
+      const result = await apiCall('delete', `${endpointBase}/plex-webhook-receiver-token`, undefined, sensitiveOperationConfig);
       setPlexWebhookReceiver(result.plexWebhookReceiver || { enabled: false, lastReceivedAt: null, lastEvent: null, delivery: {}, receiverPath: '/api/plex/webhooks/[token]' });
       setPlexWebhookReceiverLink('');
       setTestMsg('PLEX WEBHOOKS: Receiver URL revoked.');
@@ -1160,7 +1194,7 @@ export default function AdminIntegrationsView({
     setTestLoading('plex-webhook-receiver-validate');
     setTestMsg('');
     try {
-      const result = await apiCall('post', `${endpointBase}/plex-webhook-receiver-validate`, {});
+      const result = await apiCall('post', `${endpointBase}/plex-webhook-receiver-validate`, {}, sensitiveOperationConfig);
       setPlexWebhookReceiver(result.plexWebhookReceiver || plexWebhookReceiver);
       const status = String(result.validation?.status || 'checked').toUpperCase();
       setTestMsg(`PLEX WEBHOOKS: ${status} - ${result.validation?.detail || 'Receiver setup checked.'}`);
@@ -2207,11 +2241,51 @@ export default function AdminIntegrationsView({
           </div>
         </>}
 
+        {section === 'vision' && <>
+          <div className="flex items-start justify-between gap-4 py-1">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-ink">Enable workspace image OCR</p>
+              <p className="mt-1 text-sm text-dim">OCR runs only with this workspace&apos;s provider settings. Credentials are never inherited from the installation or another workspace.</p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={Boolean(form.visionEnabled)}
+              aria-label={`${form.visionEnabled ? 'Disable' : 'Enable'} workspace image OCR`}
+              onClick={() => setForm((f) => ({ ...f, visionEnabled: !f.visionEnabled }))}
+              className={[
+                'relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-colors duration-150',
+                form.visionEnabled ? 'border-gold/30 bg-gold/15' : 'border-edge bg-raised/80'
+              ].join(' ')}
+            >
+              <span className={[
+                'inline-block h-5 w-5 rounded-full shadow-sm transition-transform duration-150',
+                form.visionEnabled ? 'translate-x-6 bg-gold' : 'translate-x-1 bg-dim'
+              ].join(' ')} />
+            </button>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <LabeledField label="Provider preset" cx={cx}>
+              <select className="select" value={form.visionPreset} onChange={(e) => setForm((f) => ({ ...f, visionPreset: e.target.value, visionProvider: e.target.value }))}>
+                <option value="ocrspace">OCR.Space</option>
+              </select>
+            </LabeledField>
+            <LabeledField label="API key header" cx={cx}><input className="input font-mono" value={form.visionApiKeyHeader} onChange={(e) => setForm((f) => ({ ...f, visionApiKeyHeader: e.target.value }))} /></LabeledField>
+          </div>
+          <LabeledField label="OCR API URL" cx={cx}><input className="input" value={form.visionApiUrl} onChange={(e) => setForm((f) => ({ ...f, visionApiUrl: e.target.value }))} /></LabeledField>
+          <LabeledField label={`OCR API Key ${meta.visionApiKeySet ? `(set: ${meta.visionApiKeyMasked})` : '(not set)'}`} cx={cx}>
+            <input className="input font-mono" type="password" placeholder="Enter new key to update" value={form.visionApiKey} onChange={(e) => setForm((f) => ({ ...f, visionApiKey: e.target.value }))} />
+          </LabeledField>
+          <CheckboxControl id="clear-vision-api-key" checked={form.clearVisionApiKey} onChange={(e) => setForm((f) => ({ ...f, clearVisionApiKey: e.target.checked }))}>
+            Clear saved key
+          </CheckboxControl>
+        </>}
+
         {section === 'pricecharting' && <>
           <div className="flex items-start justify-between gap-4 py-1">
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium text-ink">Enable PriceCharting</p>
-              <p className="mt-1 text-sm text-dim">Keep this provider optional. The runtime contract for `2.11.0` stays queued, serialized, and identifier-first.</p>
+              <p className="mt-1 text-sm text-dim">Optional workspace-owned valuation. Requests stay queued, serialized, and identifier-first.</p>
             </div>
             <button
               type="button"

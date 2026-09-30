@@ -1,6 +1,7 @@
 const pool = require('../db/pool');
 const net = require('net');
 const { buildGelfEvent, maybeExportActivityLog, debugLog, resolveExportConfig } = require('./logExport');
+const { applyAuthAuditDetailPolicy } = require('./authAuditContract');
 
 const REDACTED = '[REDACTED]';
 const SENSITIVE_KEY_PATTERN = /(authorization|cookie|session(_|-)?token|csrf(_|-)?token|api(_|-)?key|secret|password|token)$/i;
@@ -56,7 +57,13 @@ const logActivity = async (req, action, entityType = null, entityId = null, deta
   try {
     const userId = req.user?.id || null;
     const ipAddress = extractRequestIp(req);
-    const sanitizedDetails = details ? sanitizeAuditDetails(details) : null;
+    const policyResult = applyAuthAuditDetailPolicy(action, details);
+    if (policyResult.rejectedFieldCount > 0) {
+      console.warn(
+        `Auth audit detail policy rejected ${policyResult.rejectedFieldCount} field(s) for action=${sanitizeLogField(action)}`
+      );
+    }
+    const sanitizedDetails = policyResult.details ? sanitizeAuditDetails(policyResult.details) : null;
     await pool.query(
       `INSERT INTO activity_log (user_id, action, entity_type, entity_id, details, ip_address)
        VALUES ($1, $2, $3, $4, $5::jsonb, $6)`,

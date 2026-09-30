@@ -540,6 +540,10 @@ const passwordResetConsumeSchema = z.object({
   password: z.string().min(8, 'Password must be at least 8 characters')
 });
 
+const reauthenticationSchema = z.object({
+  password: z.string().min(1, 'Password is required').max(2000)
+});
+
 // ── Admin ─────────────────────────────────────────────────────────────────────
 
 const roleUpdateSchema = z.object({
@@ -1156,7 +1160,7 @@ const validate = (schema) => (req, res, next) => {
     }));
     void logActivity(req, 'request.validation.failed', 'http_request', null, {
       method: req.method,
-      url: req.originalUrl,
+      path: req.originalUrl?.split('?')[0],
       errors
     });
     return res.status(400).json({ error: 'Validation failed', details: errors });
@@ -1206,6 +1210,7 @@ module.exports = {
   mediaMergeRecommendationRestoreSchema,
   profileUpdateSchema,
   passwordResetConsumeSchema,
+  reauthenticationSchema,
   roleUpdateSchema,
   adminSpaceOwnerAssignSchema,
   adminSpaceArchiveSchema,

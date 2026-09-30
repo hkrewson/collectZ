@@ -50,15 +50,17 @@ openssl rand -hex 32
   - `failures`: log failed API requests only
   - `mutations`: log write requests (`POST/PUT/PATCH/DELETE`) plus failures
   - `all`: log all API requests
-  - request-outcome entries include method, path, status, duration, and a sanitized error summary when present
+  - request-outcome entries include only method, query-free path, status, and duration; response bodies and submitted values are not retained
 - Session controls:
   - `SESSION_TTL_DAYS` (default `7`): session lifetime in days.
   - `SESSION_MAX_PER_USER` (default `10`): max active sessions retained per user.
+  - `REAUTH_MAX_AGE_MINUTES` (default `15`): lifetime of a successful password confirmation on one opaque browser session before sensitive credential or support-delegation operations require another proof.
   - `SESSION_CLEANUP_INTERVAL_MINUTES` (default `60`): periodic expired-session cleanup cadence.
 - Rate limiting controls (app-layer authoritative policy):
   - `RATE_LIMIT_WINDOW_MINUTES` (default `15`)
   - `RATE_LIMIT_GLOBAL_MAX` (default `600`) — global `/api/*` safety net.
-  - `RATE_LIMIT_AUTH_MAX` (default `20`) — `/api/auth/login`, `/api/auth/register`.
+  - `RATE_LIMIT_AUTH_MAX` (default `20`) — login, registration, password reset, email verification, recent-password confirmation, and mobile login/refresh routes.
+  - `RATE_LIMIT_INVITE_MAX` (default `20`) — authenticated workspace invite creation and revocation mutations.
   - `RATE_LIMIT_ADMIN_MAX` (default `300`) — `/api/admin/*`.
   - `RATE_LIMIT_MEDIA_READ_MAX` (default `600`) — `GET/HEAD /api/media/*`.
   - `RATE_LIMIT_MEDIA_WRITE_MAX` (default `240`) — write methods on `/api/media/*`.

@@ -4891,6 +4891,64 @@ const MIGRATIONS = [
               AND scoped.plex_now_playing_display_token_hash = legacy.plex_now_playing_display_token_hash
          );
     `
+  },
+  {
+    version: 120,
+    description: 'Add explicit workspace Vision OCR enablement',
+    up: `
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS vision_enabled BOOLEAN DEFAULT false;
+
+      UPDATE app_integrations
+         SET vision_enabled = true
+       WHERE space_id IS NOT NULL
+         AND vision_enabled = false
+         AND (
+           vision_api_key_encrypted IS NOT NULL
+           OR NULLIF(BTRIM(COALESCE(vision_api_url, '')), '') IS NOT NULL
+           OR NULLIF(BTRIM(COALESCE(vision_provider, '')), '') IS NOT NULL
+         );
+
+      UPDATE app_integrations
+         SET vision_enabled = false
+       WHERE vision_enabled IS NULL;
+    `
+  },
+  {
+    version: 121,
+    description: 'Retire plaintext invitation token compatibility',
+    up: `
+      CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+      UPDATE invites
+         SET revoked = true
+       WHERE token_hash IS NULL;
+
+      UPDATE invites
+         SET token_hash = encode(digest('retired-invite-' || id::text || '-' || COALESCE(token, ''), 'sha256'), 'hex')
+       WHERE token_hash IS NULL;
+
+      UPDATE invites
+         SET token = NULL
+       WHERE token IS NOT NULL;
+
+      DROP INDEX IF EXISTS idx_invites_token;
+
+      ALTER TABLE invites
+        ALTER COLUMN token_hash SET NOT NULL,
+        DROP COLUMN IF EXISTS token;
+
+      DROP INDEX IF EXISTS idx_invites_token_hash;
+      CREATE UNIQUE INDEX idx_invites_token_hash ON invites(token_hash);
+    `
+  },
+  {
+    version: 122,
+    description: 'Add session-bound recent reauthentication proof',
+    up: `
+      ALTER TABLE user_sessions
+        ADD COLUMN IF NOT EXISTS reauthenticated_at TIMESTAMP;
+    `
   }
 ];
 

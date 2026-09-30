@@ -356,6 +356,116 @@ const loadScopedIntegrationConfig = async (spaceId) => {
   return normalizeIntegrationRecord(row || null);
 };
 
+const requireWorkspaceId = (spaceId) => {
+  const numericSpaceId = Number(spaceId || 0);
+  if (!Number.isSafeInteger(numericSpaceId) || numericSpaceId <= 0) {
+    const error = new Error('A valid workspace id is required for provider execution');
+    error.code = 'workspace_scope_required';
+    throw error;
+  }
+  return numericSpaceId;
+};
+
+const buildWorkspaceValuationIntegrationConfig = (row, spaceId) => {
+  const numericSpaceId = requireWorkspaceId(spaceId);
+  const priceChartingSecret = decryptSecretWithStatus(
+    row?.pricecharting_api_key_encrypted,
+    'pricecharting_api_key_encrypted'
+  );
+  const ebaySecret = decryptSecretWithStatus(
+    row?.ebay_browse_client_secret_encrypted,
+    'ebay_browse_client_secret_encrypted'
+  );
+
+  return {
+    spaceId: numericSpaceId,
+    priceChartingEnabled: Boolean(row?.pricecharting_enabled),
+    priceChartingApiUrl: row?.pricecharting_api_url || DEFAULT_PRICECHARTING_API_URL,
+    priceChartingApiKey: priceChartingSecret.value || '',
+    priceChartingRateLimitMs: Math.max(
+      MIN_PRICECHARTING_INTERVAL_MS,
+      normalizePositiveInteger(row?.pricecharting_rate_limit_ms, MIN_PRICECHARTING_INTERVAL_MS)
+    ),
+    eBayBrowseEnabled: Boolean(row?.ebay_browse_enabled),
+    eBayBrowseApiUrl: row?.ebay_browse_api_url || DEFAULT_EBAY_BROWSE_API_URL,
+    eBayBrowseClientId: row?.ebay_browse_client_id || '',
+    eBayBrowseClientSecret: ebaySecret.value || '',
+    eBayBrowseMarketplaceId: row?.ebay_browse_marketplace_id || DEFAULT_EBAY_MARKETPLACE_ID,
+    integrationOwnership: {
+      scope: 'workspace',
+      spaceId: numericSpaceId,
+      secretInheritance: false,
+      inheritedDefaults: ['provider_endpoint', 'rate_limit_floor', 'marketplace_id']
+    }
+  };
+};
+
+const loadWorkspaceValuationIntegrationConfig = async (spaceId) => {
+  const numericSpaceId = requireWorkspaceId(spaceId);
+  const row = await loadIntegrationConfigRow(numericSpaceId, { allowFallback: false });
+  return buildWorkspaceValuationIntegrationConfig(row || null, numericSpaceId);
+};
+
+const buildWorkspaceOcrIntegrationConfig = (row, spaceId) => {
+  const numericSpaceId = requireWorkspaceId(spaceId);
+  const preset = normalizeVisionPreset(row?.vision_preset || row?.vision_provider || 'ocrspace');
+  const visionSecret = decryptSecretWithStatus(row?.vision_api_key_encrypted, 'vision_api_key_encrypted');
+
+  return {
+    spaceId: numericSpaceId,
+    visionEnabled: Boolean(row?.vision_enabled),
+    visionPreset: preset.preset,
+    visionProvider: row?.vision_provider || preset.provider,
+    visionApiUrl: row?.vision_api_url || preset.apiUrl || '',
+    visionApiKey: visionSecret.value || '',
+    visionApiKeyHeader: row?.vision_api_key_header || preset.apiKeyHeader || 'apikey',
+    allowEnvironmentFallback: false,
+    decryptWarnings: row?.vision_api_key_encrypted && visionSecret.error
+      ? [{ provider: 'vision', field: 'vision_api_key_encrypted', code: 'decrypt_failed', message: visionSecret.error }]
+      : [],
+    integrationOwnership: {
+      scope: 'workspace',
+      spaceId: numericSpaceId,
+      secretInheritance: false,
+      inheritedDefaults: ['provider_preset', 'provider_endpoint', 'api_key_header']
+    }
+  };
+};
+
+const loadWorkspaceOcrIntegrationConfig = async (spaceId) => {
+  const numericSpaceId = requireWorkspaceId(spaceId);
+  const row = await loadIntegrationConfigRow(numericSpaceId, { allowFallback: false });
+  return buildWorkspaceOcrIntegrationConfig(row || null, numericSpaceId);
+};
+
+const buildWorkspaceComicsIntegrationConfig = (row, spaceId) => {
+  const numericSpaceId = requireWorkspaceId(spaceId);
+  const preset = resolveComicsPreset(row?.comics_preset || row?.comics_provider || 'metron');
+  const comicsSecret = decryptSecretWithStatus(row?.comics_api_key_encrypted, 'comics_api_key_encrypted');
+  return {
+    spaceId: numericSpaceId,
+    comicsPreset: preset.preset,
+    comicsProvider: row?.comics_provider || preset.provider,
+    comicsApiUrl: row?.comics_api_url || preset.apiUrl || '',
+    comicsApiKey: comicsSecret.value || '',
+    comicsApiKeyHeader: row?.comics_api_key_header || preset.apiKeyHeader || '',
+    comicsApiKeyQueryParam: row?.comics_api_key_query_param || preset.apiKeyQueryParam || '',
+    comicsUsername: row?.comics_username || '',
+    integrationOwnership: {
+      scope: 'workspace',
+      spaceId: numericSpaceId,
+      secretInheritance: false,
+      inheritedDefaults: ['provider_preset', 'provider_endpoint', 'api_key_transport']
+    }
+  };
+};
+
+const loadWorkspaceComicsIntegrationConfig = async (spaceId) => {
+  const numericSpaceId = requireWorkspaceId(spaceId);
+  const row = await loadIntegrationConfigRow(numericSpaceId, { allowFallback: false });
+  return buildWorkspaceComicsIntegrationConfig(row || null, numericSpaceId);
+};
+
 const loadWorkspaceKavitaIntegrationConfig = async (spaceId) => {
   const row = await loadIntegrationConfigRow(spaceId, { allowFallback: false });
   const normalized = normalizeIntegrationRecord(row || null);
@@ -447,6 +557,12 @@ module.exports = {
   loadIntegrationConfigRow,
   loadAdminIntegrationConfig,
   loadScopedIntegrationConfig,
+  buildWorkspaceValuationIntegrationConfig,
+  loadWorkspaceValuationIntegrationConfig,
+  buildWorkspaceOcrIntegrationConfig,
+  loadWorkspaceOcrIntegrationConfig,
+  buildWorkspaceComicsIntegrationConfig,
+  loadWorkspaceComicsIntegrationConfig,
   loadWorkspaceKavitaIntegrationConfig,
   loadGeneralSettings,
   updateScopedGeneralSettings,
