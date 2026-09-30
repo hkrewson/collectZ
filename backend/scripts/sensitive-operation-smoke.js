@@ -5,6 +5,7 @@
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const pool = require('../db/pool');
+const { isHomelabEdition } = require('../config/productEdition');
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 const VERIFY_REAUTH_RATE_LIMIT = process.env.VERIFY_REAUTH_RATE_LIMIT === 'true';
@@ -193,7 +194,11 @@ async function main() {
       body: { space_id: spaceId, library_id: libraryId, reason: 'stale proof check' },
       withCsrf: true
     });
-    assert(staleSupport.status === 403, 'Stale support-session delegation was allowed');
+    const supportDelegationAvailable = !isHomelabEdition();
+    assert(
+      staleSupport.status === (supportDelegationAvailable ? 403 : 404),
+      `Stale support-session delegation returned ${staleSupport.status}`
+    );
     const siblingCookie = sibling.cookies.get(process.env.SESSION_COOKIE_NAME || 'session_token');
     const siblingState = await pool.query(
       `SELECT support_space_id FROM user_sessions WHERE token_hash = encode(digest($1, 'sha256'), 'hex')`,
@@ -201,12 +206,21 @@ async function main() {
     );
     assert(siblingState.rows[0]?.support_space_id === null, 'Rejected support delegation mutated session scope');
 
-    const supportStarted = await current.request('/api/auth/support-session/start', {
-      method: 'POST',
-      body: { space_id: spaceId, library_id: libraryId, reason: 'recent proof check' },
-      withCsrf: true
-    });
-    assert(supportStarted.status === 200 && supportStarted.data?.support_session?.active === true, 'Recent support-session delegation failed');
+    if (supportDelegationAvailable) {
+      const supportStarted = await current.request('/api/auth/support-session/start', {
+        method: 'POST',
+        body: { space_id: spaceId, library_id: libraryId, reason: 'recent proof check' },
+        withCsrf: true
+      });
+      assert(supportStarted.status === 200 && supportStarted.data?.support_session?.active === true, 'Recent support-session delegation failed');
+    } else {
+      const unavailableSupport = await current.request('/api/auth/support-session/start', {
+        method: 'POST',
+        body: { space_id: spaceId, library_id: libraryId, reason: 'unavailable core runtime check' },
+        withCsrf: true
+      });
+      assert(unavailableSupport.status === 404, `Core runtime exposed support-session delegation: ${unavailableSupport.status}`);
+    }
 
     let limiterVerified = false;
     if (VERIFY_REAUTH_RATE_LIMIT) {
@@ -247,6 +261,7 @@ async function main() {
       siblingSessionIsolationVerified: true,
       nonSessionCredentialDenied: true,
       supportDelegationNonMutationVerified: true,
+      supportDelegationAvailable,
       reauthenticationRateLimitVerified: VERIFY_REAUTH_RATE_LIMIT ? limiterVerified : 'not-requested',
       sensitiveAuditLeakCount: 0
     }));
