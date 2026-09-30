@@ -380,19 +380,29 @@ async function main() {
       }
       assert(resetRateLimitVerified, 'Password reset request did not reach the focused authentication rate limit');
 
-      for (let attempt = 0; attempt < 20; attempt += 1) {
+      if (homelabEdition) {
         const response = await ownerClient.request(`/api/spaces/${fixtureSpaceId}/invites`, {
           method: 'POST',
           body: {},
           withCsrf: true
         });
-        if (response.status === 429) {
-          inviteRateLimitVerified = true;
-          break;
+        assert(response.status === 404, `Core invitation mutation boundary returned unexpected ${response.status}`);
+        inviteRateLimitVerified = 'not-applicable-in-homelab';
+      } else {
+        for (let attempt = 0; attempt < 20; attempt += 1) {
+          const response = await ownerClient.request(`/api/spaces/${fixtureSpaceId}/invites`, {
+            method: 'POST',
+            body: {},
+            withCsrf: true
+          });
+          if (response.status === 429) {
+            inviteRateLimitVerified = true;
+            break;
+          }
+          assert(response.status === 400, `Invitation rate-limit probe returned unexpected ${response.status}`);
         }
-        assert(response.status === 400, `Invitation rate-limit probe returned unexpected ${response.status}`);
+        assert(inviteRateLimitVerified, 'Invitation mutations did not reach the focused invitation rate limit');
       }
-      assert(inviteRateLimitVerified, 'Invitation mutations did not reach the focused invitation rate limit');
     }
 
     const secretCandidates = [

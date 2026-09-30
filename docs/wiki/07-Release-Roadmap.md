@@ -16,7 +16,7 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 - Run Dependency Watch for dependency-changing pull requests as well as its weekly schedule, include root tooling, and retain summaries/artifacts even when one clean install fails.
 - Keep generic migration rehearsal meaningful when the identity certification marker already equals the latest migration by selecting the newest real upgrade boundary.
 - Restore direct-to-`main` delivery as the documented default workflow; use branches and pull requests only when review, isolation, or concurrent work requires them.
-- Keep concurrent registration failures deliberate and edition-correct: Core ignores invite tokens and rejects a duplicate email with `409`, while the platform preserves atomic one-time invite claims with a `400` loser.
+- Keep concurrent registration failures deliberate and edition-correct: Core ignores invite tokens, rejects a duplicate email with `409`, and keeps invitation mutation unavailable; the platform preserves atomic one-time invite claims with a `400` loser and a focused invitation limiter.
 - Preserve Core's hidden workspace presentation while deriving the internal active-library workspace needed for workspace-owned integration settings and Plex writeback controls.
 
 ### Acceptance Criteria

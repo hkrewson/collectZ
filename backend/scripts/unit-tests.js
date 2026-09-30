@@ -464,6 +464,7 @@ const strongIdPlexTmdbConflictGuardSmokeSource = fs.readFileSync(require.resolve
 const manualMergeMetronIdentityAliasSmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-metron-identity-alias-smoke'), 'utf8');
 const manualMergePlexIdentityAliasSmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-plex-identity-alias-smoke'), 'utf8');
 const helpReleasesSmokeSource = fs.readFileSync(require.resolve('../scripts/help-releases-smoke'), 'utf8');
+const authTokenAbuseSmokeSource = fs.readFileSync(require.resolve('../scripts/auth-token-abuse-smoke'), 'utf8');
 const collectionDuplicatePreviewSmokeSource = fs.readFileSync(require.resolve('../scripts/collection-duplicate-preview-smoke'), 'utf8');
 const collectionMergeApplyRevertSmokeSource = fs.readFileSync(require.resolve('../scripts/collection-merge-apply-revert-smoke'), 'utf8');
 const comicDuplicateCandidatesSmokeSource = fs.readFileSync(require.resolve('../scripts/comic-duplicate-candidates-smoke'), 'utf8');
@@ -2884,6 +2885,7 @@ results.push(run('reset and invite consumption use conditional transactional cla
   assert.ok(!authRoutesSource.includes('token_hash = $1 OR token ='));
   assert.ok(authRoutesSource.includes("await client.query('COMMIT')"));
   assert.ok(authRoutesSource.includes("await client.query('ROLLBACK')"));
+  assert.ok(authTokenAbuseSmokeSource.includes("inviteRateLimitVerified = 'not-applicable-in-homelab'"));
 }));
 
 results.push(run('support route source is limited to the Core release feed after cairn extraction', () => {
