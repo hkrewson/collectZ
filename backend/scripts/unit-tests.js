@@ -2498,8 +2498,9 @@ results.push(run('workspace integrations own provider saves and Plex automation 
   assert.ok(mediaRoutesSource.includes('plex_reconciliation_sync_enabled = TRUE'));
   assert.ok(!mediaRoutesSource.includes('plexApiUrl: config.plexApiUrl || adminConfig.plexApiUrl'));
   assert.ok(!mediaRoutesSource.includes('plexApiKey: config.plexApiKey || adminConfig.plexApiKey'));
-  assert.ok(dashboardContentSource.includes('`/spaces/${activeSpaceId}/integrations`'));
-  assert.ok(dashboardContentSource.includes("endpointBase={coreRuntime ? `/spaces/${activeSpaceId}/integrations` : '/admin/settings/integrations'}"));
+  assert.ok(dashboardContentSource.includes('const integrationSpaceId = Number(activeSpaceId || activeLibrary?.space_id || 0) || null;'));
+  assert.ok(dashboardContentSource.includes('`/spaces/${integrationSpaceId}/integrations`'));
+  assert.ok(dashboardContentSource.includes("endpointBase={coreRuntime ? `/spaces/${integrationSpaceId}/integrations` : '/admin/settings/integrations'}"));
   for (const diagnostic of ['barcode', 'tmdb', 'plex', 'books', 'audio', 'games', 'comics', 'cwa', 'kavita']) {
     assert.ok(openApiSource.includes(`/api/spaces/{id}/integrations/test-${diagnostic}`));
   }
@@ -2877,6 +2878,7 @@ results.push(run('reset and invite consumption use conditional transactional cla
   assert.ok(authRoutesSource.includes('AND used = false'));
   assert.ok(authRoutesSource.includes('queryable: client'));
   assert.ok(authRoutesSource.includes('UPDATE invites'));
+  assert.ok(authRoutesSource.includes("`register:${String(email).trim().toLowerCase()}`"));
   assert.ok(authRoutesSource.includes('pg_advisory_xact_lock(hashtextextended($1, 0))'));
   assert.ok(authRoutesSource.includes('lower(email) = lower($2)'));
   assert.ok(!authRoutesSource.includes('token_hash = $1 OR token ='));

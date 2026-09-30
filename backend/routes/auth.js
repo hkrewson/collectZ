@@ -445,6 +445,15 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
   try {
     await client.query('BEGIN');
 
+    // Serialize registrations for the same normalized email before checking
+    // for an existing account. Without this lock, concurrent self-registration
+    // requests can both pass the lookup and surface the users.email uniqueness
+    // constraint as a 500 instead of the deliberate 409 response.
+    await client.query(
+      'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
+      [`register:${String(email).trim().toLowerCase()}`]
+    );
+
     if (!homelabEdition && inviteTokenForLookup) {
       // Serialize claims for the same supplied token before the conditional UPDATE.
       // This keeps a concurrent loser on the deliberate invalid-token path instead

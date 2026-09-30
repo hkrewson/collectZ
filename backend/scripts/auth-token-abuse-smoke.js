@@ -9,6 +9,7 @@ const { hashInviteToken } = require('../services/invites');
 const { issuePasswordResetToken } = require('../services/passwordResets');
 const { issueEmailVerificationToken } = require('../services/emailVerifications');
 const { AUTH_AUDIT_DETAIL_SCHEMAS, isSensitiveAuditAction } = require('../services/authAuditContract');
+const { getProductEdition, isHomelabEdition } = require('../config/productEdition');
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 const SESSION_COOKIE_NAME = process.env.SESSION_COOKIE_NAME || 'session_token';
@@ -109,6 +110,8 @@ async function login(client, email, password) {
 
 async function main() {
   const startedAt = new Date();
+  const productEdition = getProductEdition();
+  const homelabEdition = isHomelabEdition(productEdition);
   const suffix = `${Date.now()}-${crypto.randomInt(100000, 999999)}`;
   const password = `A!${randomSecret(18)}`;
   const resetPasswords = [`B!${randomSecret(18)}`, `C!${randomSecret(18)}`];
@@ -268,23 +271,37 @@ async function main() {
       new HttpClient('invite-b').request('/api/auth/register', { method: 'POST', body: registrationPayload })
     ]);
     assert(inviteResponses.filter(({ status }) => status === 200).length === 1, `Concurrent invite success count was not one: ${inviteResponses.map(({ status }) => status).join(',')}`);
-    assert(inviteResponses.filter(({ status }) => status === 400).length === 1, `Concurrent invite rejection count was not one: ${inviteResponses.map(({ status }) => status).join(',')}`);
+    const concurrentRegistrationRejectionStatus = homelabEdition ? 409 : 400;
+    assert(
+      inviteResponses.filter(({ status }) => status === concurrentRegistrationRejectionStatus).length === 1,
+      `Concurrent registration rejection count was not one for ${productEdition}: ${inviteResponses.map(({ status }) => status).join(',')}`
+    );
     const invitedUser = await pool.query('SELECT id FROM users WHERE lower(email) = lower($1)', [invitedEmail]);
     assert(invitedUser.rows.length === 1, `Invite concurrency created ${invitedUser.rows.length} users`);
     fixtureUserIds.push(Number(invitedUser.rows[0].id));
     const inviteState = await pool.query('SELECT used, used_by FROM invites WHERE id = $1', [invite.id]);
-    assert(inviteState.rows[0]?.used === true && Number(inviteState.rows[0]?.used_by) === Number(invitedUser.rows[0].id), 'Invite claim state did not commit atomically');
-    const inviteMembership = await pool.query(
-      'SELECT role FROM space_memberships WHERE space_id = $1 AND user_id = $2',
-      [fixtureSpaceId, invitedUser.rows[0].id]
-    );
-    assert(inviteMembership.rows[0]?.role === 'member', 'Invite membership did not commit with the claim');
+    if (homelabEdition) {
+      assert(inviteState.rows[0]?.used === false && inviteState.rows[0]?.used_by === null, 'Core registration consumed a platform invite token');
+    } else {
+      assert(inviteState.rows[0]?.used === true && Number(inviteState.rows[0]?.used_by) === Number(invitedUser.rows[0].id), 'Invite claim state did not commit atomically');
+      const inviteMembership = await pool.query(
+        'SELECT role FROM space_memberships WHERE space_id = $1 AND user_id = $2',
+        [fixtureSpaceId, invitedUser.rows[0].id]
+      );
+      assert(inviteMembership.rows[0]?.role === 'member', 'Invite membership did not commit with the claim');
+    }
 
+    const replayEmail = `auth-replay-${suffix}@example.invalid`;
     const replayInvite = await new HttpClient('invite-replay').request('/api/auth/register', {
       method: 'POST',
-      body: { ...registrationPayload, email: `auth-replay-${suffix}@example.invalid` }
+      body: { ...registrationPayload, email: replayEmail }
     });
-    assert(replayInvite.status === 400, `Invite replay returned ${replayInvite.status}`);
+    assert(replayInvite.status === (homelabEdition ? 200 : 400), `Invite replay returned ${replayInvite.status} for ${productEdition}`);
+    if (homelabEdition) {
+      const replayUser = await pool.query('SELECT id FROM users WHERE lower(email) = lower($1)', [replayEmail]);
+      assert(replayUser.rows.length === 1, 'Core registration with an ignored invite token did not create one user');
+      fixtureUserIds.push(Number(replayUser.rows[0].id));
+    }
 
     for (const state of ['expired', 'revoked']) {
       const stateEmail = `auth-${state}-${suffix}@example.invalid`;
@@ -293,14 +310,25 @@ async function main() {
         method: 'POST',
         body: { email: stateEmail, name: `Invite ${state}`, password, inviteToken: stateInvite.token }
       });
-      assert(response.status === 400, `${state} invite returned ${response.status}`);
+      assert(response.status === (homelabEdition ? 200 : 400), `${state} invite returned ${response.status} for ${productEdition}`);
+      if (homelabEdition) {
+        const stateUser = await pool.query('SELECT id FROM users WHERE lower(email) = lower($1)', [stateEmail]);
+        assert(stateUser.rows.length === 1, `Core ${state} invite registration did not create one user`);
+        fixtureUserIds.push(Number(stateUser.rows[0].id));
+      }
     }
     const mismatchInvite = await createInvite({ email: mismatchEmail, spaceId: fixtureSpaceId, createdBy: ownerId });
+    const mismatchRegistrationEmail = `wrong-${mismatchEmail}`;
     const mismatch = await new HttpClient('invite-mismatch').request('/api/auth/register', {
       method: 'POST',
-      body: { email: `wrong-${mismatchEmail}`, name: 'Invite Mismatch', password, inviteToken: mismatchInvite.token }
+      body: { email: mismatchRegistrationEmail, name: 'Invite Mismatch', password, inviteToken: mismatchInvite.token }
     });
-    assert(mismatch.status === 400, `Mismatched invite returned ${mismatch.status}`);
+    assert(mismatch.status === (homelabEdition ? 200 : 400), `Mismatched invite returned ${mismatch.status} for ${productEdition}`);
+    if (homelabEdition) {
+      const mismatchUser = await pool.query('SELECT id FROM users WHERE lower(email) = lower($1)', [mismatchRegistrationEmail]);
+      assert(mismatchUser.rows.length === 1, 'Core mismatched invite registration did not create one user');
+      fixtureUserIds.push(Number(mismatchUser.rows[0].id));
+    }
     const mismatchState = await pool.query('SELECT used FROM invites WHERE id = $1', [mismatchInvite.id]);
     assert(mismatchState.rows[0]?.used === false, 'Mismatched invite was consumed');
 
@@ -419,14 +447,16 @@ async function main() {
 
     console.log(JSON.stringify({
       status: 'passed',
+      productEdition,
       resetConcurrentStatuses: resetResponses.map(({ status }) => status).sort(),
       inviteConcurrentStatuses: inviteResponses.map(({ status }) => status).sort(),
       verificationConcurrentStatuses: verificationResponses.map(({ status }) => status).sort(),
       resetReplayRejected: true,
-      inviteReplayRejected: true,
+      inviteReplayRejected: !homelabEdition,
+      inviteTokensIgnoredInHomelab: homelabEdition,
       csrfRejectedWithoutTokenConsumption: true,
       priorSessionsRevoked: true,
-      expiredRevokedMalformedAndMismatchedRejected: true,
+      expiredRevokedMalformedAndMismatchedHandled: true,
       enumerationResponseStable: true,
       resetRateLimitVerified: VERIFY_AUTH_RATE_LIMIT ? resetRateLimitVerified : 'not-requested',
       inviteRateLimitVerified: VERIFY_AUTH_RATE_LIMIT ? inviteRateLimitVerified : 'not-requested',

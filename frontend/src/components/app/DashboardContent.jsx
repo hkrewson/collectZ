@@ -201,6 +201,7 @@ export default function DashboardContent({
   const isAdminTab = String(activeTab || '').startsWith('admin-');
   const localRuntime = isLocalProductEdition(productEdition);
   const coreRuntime = localRuntime || !platformBridgeEnabled;
+  const integrationSpaceId = Number(activeSpaceId || activeLibrary?.space_id || 0) || null;
   const supportAdminAllowedTabs = new Set([
     'help',
     'profile'
@@ -214,13 +215,13 @@ export default function DashboardContent({
         active = false;
       };
     }
-    if (!activeSpaceId) {
+    if (!integrationSpaceId) {
       setPlexWritebackSettings({ ratingEnabled: false, watchStateEnabled: false });
       return () => {
         active = false;
       };
     }
-    apiCall('get', `/spaces/${activeSpaceId}/integrations`)
+    apiCall('get', `/spaces/${integrationSpaceId}/integrations`)
       .then((data) => {
         if (!active) return;
         setPlexWritebackSettings({
@@ -234,7 +235,7 @@ export default function DashboardContent({
     return () => {
       active = false;
     };
-  }, [activeSpaceId, apiCall, scopeKey, user?.role]);
+  }, [apiCall, integrationSpaceId, scopeKey, user?.role]);
 
   if (isAdminTab && user?.role !== 'admin') {
     return <ForbiddenView detail="Admin permissions are required to access this view." />;
@@ -499,7 +500,7 @@ export default function DashboardContent({
           cx={cx}
           section={activeIntegrationSection}
           onSectionChange={setActiveIntegrationSection}
-          endpointBase={coreRuntime ? `/spaces/${activeSpaceId}/integrations` : '/admin/settings/integrations'}
+          endpointBase={coreRuntime ? `/spaces/${integrationSpaceId}/integrations` : '/admin/settings/integrations'}
           title="Integrations"
           includeRuntimeSections={!coreRuntime}
           includeValuationSections={coreRuntime}
