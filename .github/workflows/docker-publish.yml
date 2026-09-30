@@ -570,6 +570,9 @@ jobs:
           docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T -e BASE_URL=http://frontend:3000 backend node scripts/workspace-authorization-certification-smoke.js
           docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T backend node scripts/sensitive-operation-certification.js
           docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T -e BASE_URL=http://frontend:3000 -e VERIFY_REAUTH_RATE_LIMIT=true backend node scripts/sensitive-operation-smoke.js
+          docker compose -p "${CI_PROJECT}" --env-file .env.ci restart backend
+          BACKEND_CID="$(docker compose -p "${CI_PROJECT}" --env-file .env.ci ps -q backend)"
+          timeout 120 sh -c 'until [ "$(docker inspect -f "{{.State.Health.Status}}" "'"${BACKEND_CID}"'")" = "healthy" ]; do sleep 3; done'
           docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T -e BASE_URL=http://frontend:3000 -e VERIFY_AUTH_RATE_LIMIT=true backend node scripts/auth-token-abuse-smoke.js
 
   browser-regression:
