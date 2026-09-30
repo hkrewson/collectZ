@@ -134,7 +134,7 @@
     "test:workspace-integration-ownership-smoke": "node scripts/workspace-integration-ownership-smoke.js"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1058.0",
+    "@aws-sdk/client-s3": "^3.1120.0",
     "axios": "^1.18.1",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.6",
