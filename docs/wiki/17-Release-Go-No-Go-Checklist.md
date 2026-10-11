@@ -9,7 +9,7 @@ All blocking gates must pass. Advisory gates must be reviewed and explicitly acc
 1. CodeQL code scanning should be reviewed when present. It is advisory at introduction and may become blocking after the baseline is understood.
 2. Secret scan.
 3. Dependency vulnerability scan.
-4. Migration check (including init parity, generic rehearsal evidence, and identity-upgrade certification evidence).
+4. Migration check (including init parity, generic rehearsal evidence, identity-upgrade certification evidence, and runtime-role certification evidence).
 5. Compose smoke check.
 6. RBAC regression check.
    - Includes workspace ownership snapshot drift, stable permission-key policy, maintained execution-path certification, and live sibling-workspace/job isolation evidence.
@@ -61,6 +61,7 @@ Tagged runs must produce:
 - `init-parity-evidence/init-parity-evidence.json`
 - `migration-rehearsal-evidence/migration-rehearsal-evidence.json`
 - `identity-upgrade-certification-evidence/identity-upgrade-certification-evidence.json`
+- `runtime-role-certification-evidence/runtime-role-certification-evidence.json`
 - `sbom-cyclonedx/backend-sbom.cdx.json`
 - `sbom-cyclonedx/frontend-sbom.cdx.json`
 - `preflight-go-no-go.md`

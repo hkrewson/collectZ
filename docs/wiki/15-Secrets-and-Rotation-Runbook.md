@@ -7,6 +7,7 @@ Use this runbook for routine key rotation and secret-compromise response.
 This applies to:
 
 - `DB_PASSWORD`
+- `DB_RUNTIME_PASSWORD`
 - `SESSION_SECRET`
 - `INTEGRATION_ENCRYPTION_KEY`
 - provider keys (TMDB, Barcode, Plex, SMTP)
@@ -63,13 +64,15 @@ Rotate in this order to reduce avoidable downtime and false-negative troubleshoo
    - Plex token
    - SMTP credentials
 2. `SESSION_SECRET`
-3. `INTEGRATION_ENCRYPTION_KEY`
-4. `DB_PASSWORD`
+3. `DB_RUNTIME_PASSWORD`
+4. `INTEGRATION_ENCRYPTION_KEY`
+5. `DB_PASSWORD`
 
 Why this order:
 
 - provider/API key rotation is usually isolated and easy to verify quickly,
 - `SESSION_SECRET` forces re-auth but does not break encrypted integration config,
+- `DB_RUNTIME_PASSWORD` is self-healing: the one-shot `migrate` service re-provisions the runtime role from `.env` before the backend starts, so a plain `docker compose up -d` applies it,
 - `INTEGRATION_ENCRYPTION_KEY` is highest-risk for operator error because stored provider secrets must be re-saved,
 - `DB_PASSWORD` is last because it can cause full backend startup failure if compose and Postgres drift out of sync.
 

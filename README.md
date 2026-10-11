@@ -30,6 +30,7 @@ Use the included docker compose file and an env file with prebuilt images from G
 
    ```text
    DB_PASSWORD=
+   DB_RUNTIME_PASSWORD=
    SESSION_SECRET=
    INTEGRATION_ENCRYPTION_KEY=
    ```
@@ -67,6 +68,7 @@ The helper checks prerequisites, creates `.env` when needed, can generate missin
 Required for reliable operation:
 
 - `DB_PASSWORD`
+- `DB_RUNTIME_PASSWORD`
 - `SESSION_SECRET`
 - `INTEGRATION_ENCRYPTION_KEY`
 

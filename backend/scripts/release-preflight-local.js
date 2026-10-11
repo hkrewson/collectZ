@@ -25,6 +25,7 @@ const frontendAuditPath = path.join(dependencyAuditDir, 'frontend-audit.json');
 const initParityEvidencePath = path.join(backendRoot, 'artifacts', 'init-parity-evidence.json');
 const migrationRehearsalEvidencePath = path.join(backendRoot, 'artifacts', 'migration-rehearsal-evidence.json');
 const identityCertificationEvidencePath = path.join(backendRoot, 'artifacts', 'identity-upgrade-certification-evidence.json');
+const runtimeRoleEvidencePath = path.join(backendRoot, 'artifacts', 'runtime-role-certification-evidence.json');
 const observabilityEvidencePath = path.join(repoRoot, 'artifacts', 'observability-evidence', 'observability-release-evidence.json');
 const releaseNotePath = path.join(repoRoot, 'docs', 'releases', `v${appMeta.version}.md`);
 const browserRegressionSpec = 'tests/playwright/specs/admin-shell.browser.spec.js';
@@ -356,6 +357,7 @@ function buildMarkdownReport({ gates, noteExists, noteText }) {
   lines.push(`- \`${path.relative(repoRoot, initParityEvidencePath)}\`: ${fs.existsSync(initParityEvidencePath) ? 'present' : 'missing'}`);
   lines.push(`- \`${path.relative(repoRoot, migrationRehearsalEvidencePath)}\`: ${fs.existsSync(migrationRehearsalEvidencePath) ? 'present' : 'missing'}`);
   lines.push(`- \`${path.relative(repoRoot, identityCertificationEvidencePath)}\`: ${fs.existsSync(identityCertificationEvidencePath) ? 'present' : 'missing'}`);
+  lines.push(`- \`${path.relative(repoRoot, runtimeRoleEvidencePath)}\`: ${fs.existsSync(runtimeRoleEvidencePath) ? 'present' : 'missing'}`);
   lines.push(`- \`artifacts/observability-evidence/observability-release-evidence.json\`: ${fs.existsSync(observabilityEvidencePath) ? 'present' : 'missing'}`);
   lines.push(`- \`preflight-go-no-go.md\`: will be written by this helper`);
   lines.push('');
@@ -459,6 +461,26 @@ async function main() {
       identityCertificationValid
         ? `${identityEvidence.status} for migration chain through ${identityEvidence.latestVersion}`
         : 'identity certification is missing, stale, failed, or retained unsafe evidence'
+    )
+  );
+
+  const runtimeRoleEvidence = safeReadJson(runtimeRoleEvidencePath);
+  const runtimeRoleChecks = Array.isArray(runtimeRoleEvidence?.checks) ? runtimeRoleEvidence.checks : [];
+  const runtimeRoleCertified = Boolean(
+    runtimeRoleEvidence
+    && runtimeRoleEvidence.status === 'passed'
+    && Number(runtimeRoleEvidence.latest_migration) === Number(migrationEvidence?.latestVersion)
+    && runtimeRoleChecks.length > 0
+    && runtimeRoleChecks.every((check) => check.pass === true)
+    && runtimeRoleEvidence.runtime_role === 'ephemeral (redacted)'
+  );
+  gates.push(
+    buildGate(
+      'Runtime role certification evidence',
+      runtimeRoleCertified ? 'PASS' : 'FAIL',
+      runtimeRoleCertified
+        ? `passed ${runtimeRoleChecks.length}/${runtimeRoleChecks.length} checks for migration chain through ${runtimeRoleEvidence.latest_migration}`
+        : 'runtime role certification is missing, stale, failed, or not redacted'
     )
   );
 

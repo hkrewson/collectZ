@@ -9,6 +9,14 @@ const ciDir = path.join(root, '.ci');
 fs.mkdirSync(ciDir, { recursive: true });
 
 const buildOverride = `services:
+  migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        APP_VERSION: \${APP_VERSION:-}
+    image: collectz-backend:ci
+
   backend:
     build:
       context: ./backend

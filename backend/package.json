@@ -1,6 +1,6 @@
 {
   "name": "collectz-backend",
-  "version": "3.24.13",
+  "version": "3.24.14",
   "description": "collectZ Backend API",
   "main": "server.js",
   "engines": {
@@ -81,6 +81,8 @@
     "test:mixed-media-benchmark": "node scripts/benchmark-mixed-media-queries.js",
     "test:migration-rehearsal": "node scripts/migration-rehearsal.js",
     "test:identity-upgrade-certification": "node scripts/identity-upgrade-certification.js",
+    "test:runtime-role-certification": "node scripts/runtime-role-certification.js",
+    "db:migrate": "node scripts/migrate-and-provision.js",
     "test:workspace-ownership-certification": "node scripts/workspace-ownership-certification.js",
     "test:sensitive-operation-certification": "node scripts/sensitive-operation-certification.js",
     "test:sensitive-operation-smoke": "node scripts/sensitive-operation-smoke.js",

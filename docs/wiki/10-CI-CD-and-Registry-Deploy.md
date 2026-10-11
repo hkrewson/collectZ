@@ -66,6 +66,9 @@ Migration safety in CI:
 - Starts the migration-check PostgreSQL container inside the job with a runtime-generated masked credential, exports the connection URLs only through the job environment, and removes the container in an `always()` cleanup step.
 - `backend/config/identity-upgrade-policies.json` is the reviewed source for the last certified migration version, default preservation behavior, and exact migration-version overrides that intentionally revoke existing sessions or API credentials or clear active scope. CI evaluates every migration newer than `certifiedThroughVersion`, so a release containing multiple migrations cannot hide an earlier identity-sensitive change behind an unrelated final migration. Advance the marker only after that range has passed certification and becomes the established release baseline.
 - Uploads artifact `init-parity-evidence.json` for bootstrap parity traceability.
+- Certifies the non-owner runtime database role (`npm run test:runtime-role-certification`, since `3.24.14`): in a scratch database it migrates a legacy owner-created install to `latest - 1`, runs the same migrate-and-provision path as the Compose `migrate` service, and proves with raw SQL that the runtime role can perform application DML and read legacy rows but cannot create, alter, drop, truncate, index, or disable triggers on tables, write `schema_migrations`, create schemas/roles/databases, grant itself `BYPASSRLS`, or assume the owner role; that future migration-created tables inherit runtime grants; and that the startup guard rejects the owner credential and owner-role members. The role name and password are ephemeral and are never written to the uploaded `runtime-role-certification-evidence.json`. A failure here means a grant, default privilege, or guard check regressed; inspect the failing `label` in the artifact.
+
+Compose-backed jobs (`compose-smoke`, `rbac-regression`, `browser-regression`, `runtime-smoke`) generate both `DB_PASSWORD` and `DB_RUNTIME_PASSWORD`. The stack starts the one-shot `migrate` service with the owner credential first; the backend receives only the runtime credential under `DATABASE_RUNTIME_ROLE_POLICY=enforce`, so in-container smoke scripts run with DML-only privileges. If the backend never becomes healthy, check `docker compose logs migrate` before the backend logs.
 
 Security and release gates in CI:
 
@@ -142,6 +145,7 @@ cp env.example .env
 2. Set required secrets in `.env`:
 
 - `DB_PASSWORD`
+- `DB_RUNTIME_PASSWORD`
 - `SESSION_SECRET`
 - `INTEGRATION_ENCRYPTION_KEY`
 

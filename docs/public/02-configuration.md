@@ -6,7 +6,8 @@ collectZ can start with a small environment file. Provider keys and many integra
 
 | Variable | Purpose |
 | --- | --- |
-| `DB_PASSWORD` | Password for the bundled Postgres user. |
+| `DB_PASSWORD` | Password for the bundled Postgres owner user, used only to apply database upgrades. |
+| `DB_RUNTIME_PASSWORD` | Password for the limited database user collectZ runs as day to day. Letters, digits, and `. _ ~ -` only. |
 | `SESSION_SECRET` | Secret used to protect browser sessions. |
 | `INTEGRATION_ENCRYPTION_KEY` | Key used to encrypt stored provider credentials. |
 

@@ -4,7 +4,7 @@
  * This file is responsible for:
  *   - Express app setup and middleware stack
  *   - Mounting route modules
- *   - Running database migrations on startup
+ *   - Verifying (or, in legacy startup mode, running) migrations and the runtime-role guard
  *   - Starting the HTTP server
  *
  * Business logic, database queries, and service integrations live in:
@@ -23,8 +23,9 @@ const rateLimit = require('express-rate-limit');
 const cookieParser = require('cookie-parser');
 const appMeta = require('./app-meta.json');
 
-const { runMigrations } = require('./db/migrations');
+const { runMigrations, assertSchemaCurrent } = require('./db/migrations');
 const pool = require('./db/pool');
+const { assertRuntimeRolePolicy, normalizeRuntimeRolePolicy } = require('./db/runtimeRole');
 const { requestLogger, errorHandler } = require('./middleware/errors');
 const { auditRequestOutcome, getMode } = require('./middleware/audit');
 const { metricsMiddleware } = require('./middleware/metrics');
@@ -98,6 +99,46 @@ const skipStartupMigrationsForIdentityCertification = () => (
   && parseBoolean(process.env.IDENTITY_UPGRADE_CERTIFICATION, false)
   && parseBoolean(process.env.IDENTITY_CERTIFICATION_SKIP_STARTUP_MIGRATIONS, false)
 );
+
+const resolveDatabaseMigrationsMode = () => {
+  const mode = String(process.env.DATABASE_MIGRATIONS_MODE || 'startup').trim().toLowerCase();
+  if (!['startup', 'external'].includes(mode)) {
+    throw new Error('DATABASE_MIGRATIONS_MODE must be either "startup" or "external".');
+  }
+  return mode;
+};
+
+// Externalized migrations imply the backend holds only the runtime credential,
+// so the privilege guard defaults to enforce in that mode.
+const prepareDatabaseForStartup = async () => {
+  const migrationsMode = resolveDatabaseMigrationsMode();
+  const rolePolicy = normalizeRuntimeRolePolicy(
+    process.env.DATABASE_RUNTIME_ROLE_POLICY,
+    migrationsMode === 'external' ? 'enforce' : 'warn'
+  );
+  if (skipStartupMigrationsForIdentityCertification()) {
+    console.warn('Identity upgrade certification: startup migrations are disabled for baseline behavior verification.');
+  } else if (migrationsMode === 'external') {
+    const client = await pool.connect();
+    try {
+      await assertSchemaCurrent(client);
+    } finally {
+      client.release();
+    }
+  } else {
+    console.warn(
+      'DATABASE_MIGRATIONS_MODE=startup: the backend is applying migrations itself, which requires the schema-owner credential. ' +
+      'Use the one-shot migrate service and a non-owner runtime role for production installs.'
+    );
+    await runMigrations();
+  }
+  const client = await pool.connect();
+  try {
+    await assertRuntimeRolePolicy(client, { policy: rolePolicy });
+  } finally {
+    client.release();
+  }
+};
 
 const parseTrustProxy = (value) => {
   if (value === undefined || value === null || value === '') {
@@ -372,11 +413,7 @@ app.use(errorHandler);
 const startServer = async () => {
   try {
     validateStartupSecurityConfig();
-    if (skipStartupMigrationsForIdentityCertification()) {
-      console.warn('Identity upgrade certification: startup migrations are disabled for baseline behavior verification.');
-    } else {
-      await runMigrations();
-    }
+    await prepareDatabaseForStartup();
     const staleJobs = await pool.query(
       `UPDATE sync_jobs
        SET status = 'failed',

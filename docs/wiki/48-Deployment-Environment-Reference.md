@@ -8,7 +8,8 @@ The included `docker-compose.yml` uses prebuilt GHCR images and passes only the 
 
 Set these before first startup:
 
-- `DB_PASSWORD`: Postgres password for the app database user.
+- `DB_PASSWORD`: Postgres password for the schema-owner user. Only the one-shot `migrate` service receives it.
+- `DB_RUNTIME_PASSWORD`: password for the non-owner role the backend runs as (default role `collectz_app`, override with `DB_RUNTIME_USER`). Use 16+ characters from letters, digits, and `. _ ~ -`; `openssl rand -hex 24` works.
 - `SESSION_SECRET`: browser session secret. Use a strong unique value.
 - `INTEGRATION_ENCRYPTION_KEY`: encrypts stored integration credentials. Use a strong unique value.
 

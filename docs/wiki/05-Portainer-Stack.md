@@ -8,6 +8,7 @@ Generate secure values:
 
 ```bash
 openssl rand -hex 24  # DB_PASSWORD
+openssl rand -hex 24  # DB_RUNTIME_PASSWORD
 openssl rand -hex 32  # SESSION_SECRET
 openssl rand -hex 32  # INTEGRATION_ENCRYPTION_KEY
 ```
@@ -28,6 +29,7 @@ In Portainer:
 Minimum required:
 
 - `DB_PASSWORD`
+- `DB_RUNTIME_PASSWORD` (backend's non-owner database role; the stack's one-shot `migrate` container provisions it and should show `Exited (0)`)
 - `SESSION_SECRET`
 - `INTEGRATION_ENCRYPTION_KEY`
 

@@ -8,7 +8,8 @@ All runtime variables are loaded from `.env` via `docker compose --env-file .env
 
 These must be set for a working deployment:
 
-- `DB_PASSWORD`: Postgres app user password.
+- `DB_PASSWORD`: Postgres schema-owner password. Since `3.24.14` only the one-shot `migrate` service receives it.
+- `DB_RUNTIME_PASSWORD`: password for the non-owner runtime role the backend connects as (16+ characters; letters, digits, and `. _ ~ -` only). The `migrate` service creates or updates the role on every start, so changing this value and re-running `docker compose up -d` rotates it.
 - `SESSION_SECRET`: session security secret for cookie/session infrastructure.
 - `INTEGRATION_ENCRYPTION_KEY`: secret used to encrypt integration API keys at rest. Required in production.
 - Production hardening:
@@ -23,7 +24,11 @@ openssl rand -hex 32
 
 ## Core Database/Runtime
 
-- `DB_USER` (default: `collectz`)
+- `DB_USER` (default: `collectz`): schema-owner role used only by the `migrate` service.
+- `DB_RUNTIME_USER` (default: `collectz_app`): non-owner login role the backend uses. Must differ from `DB_USER` and be a lowercase PostgreSQL identifier.
+- `DATABASE_MIGRATION_URL` (set by Compose for `migrate`): owner connection string for `scripts/migrate-and-provision.js`; falls back to `DATABASE_URL` when unset.
+- `DATABASE_MIGRATIONS_MODE` (`external` in Compose; `startup` when unset): `external` makes the backend verify the schema is current and refuse to start otherwise; `startup` keeps the legacy in-process migration runner, which requires the owner credential and logs a warning.
+- `DATABASE_RUNTIME_ROLE_POLICY` (`enforce` in Compose; defaults to `enforce` with external migrations and `warn` otherwise; `off` disables): the startup guard fails when the backend's database role is a superuser, has `CREATEROLE`/`CREATEDB`/`REPLICATION`/`BYPASSRLS`, owns or inherits ownership of application relations, or can create schemas or objects.
 - `POSTGRES_DB` (default: `collectz`)
 - `DATABASE_SSL` (`false` by default)
 - `NODE_ENV` (`production` by default)

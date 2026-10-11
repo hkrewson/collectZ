@@ -1,0 +1,201 @@
+{
+  "generated_at": "2026-10-10T22:07:42.123Z",
+  "certification": "runtime-role",
+  "latest_migration": 122,
+  "legacy_baseline": 121,
+  "runtime_role": "ephemeral (redacted)",
+  "checks": [
+    {
+      "label": "legacy baseline migrated with seeded row",
+      "pass": true,
+      "detail": {
+        "baseline": 121
+      }
+    },
+    {
+      "label": "runtime role created then updated idempotently",
+      "pass": true
+    },
+    {
+      "label": "runtime role verifies schema current",
+      "pass": true,
+      "detail": {
+        "version": 122
+      }
+    },
+    {
+      "label": "runtime role reads legacy data",
+      "pass": true
+    },
+    {
+      "label": "runtime role passes enforce guard",
+      "pass": true,
+      "detail": {
+        "violations": []
+      }
+    },
+    {
+      "label": "select/insert/update/delete application rows",
+      "expected": "allowed",
+      "outcome": "allowed",
+      "pass": true
+    },
+    {
+      "label": "sequence nextval",
+      "expected": "allowed",
+      "outcome": "allowed",
+      "pass": true
+    },
+    {
+      "label": "read schema_migrations",
+      "expected": "allowed",
+      "outcome": "allowed",
+      "pass": true
+    },
+    {
+      "label": "transaction advisory lock",
+      "expected": "allowed",
+      "outcome": "allowed",
+      "pass": true
+    },
+    {
+      "label": "create table",
+      "expected": "denied",
+      "outcome": "denied",
+      "pass": true
+    },
+    {
+      "label": "alter table",
+      "expected": "denied",
+      "outcome": "denied",
+      "pass": true
+    },
+    {
+      "label": "drop table",
+      "expected": "denied",
+      "outcome": "denied",
+      "pass": true
+    },
+    {
+      "label": "truncate table",
+      "expected": "denied",
+      "outcome": "denied",
+      "pass": true
+    },
+    {
+      "label": "create index",
+      "expected": "denied",
+      "outcome": "denied",
+      "pass": true
+    },
+    {
+      "label": "disable triggers",
+      "expected": "denied",
+      "outcome": "denied",
+      "pass": true
+    },
+    {
+      "label": "create function in schema",
+      "expected": "denied",
+      "outcome": "denied",
+      "pass": true
+    },
+    {
+      "label": "insert schema_migrations",
+      "expected": "denied",
+      "outcome": "denied",
+      "pass": true
+    },
+    {
+      "label": "update schema_migrations",
+      "expected": "denied",
+      "outcome": "denied",
+      "pass": true
+    },
+    {
+      "label": "delete schema_migrations",
+      "expected": "denied",
+      "outcome": "denied",
+      "pass": true
+    },
+    {
+      "label": "create schema",
+      "expected": "denied",
+      "outcome": "denied",
+      "pass": true
+    },
+    {
+      "label": "create role",
+      "expected": "denied",
+      "outcome": "denied",
+      "pass": true
+    },
+    {
+      "label": "grant self bypassrls",
+      "expected": "denied",
+      "outcome": "denied",
+      "pass": true
+    },
+    {
+      "label": "assume owner role",
+      "expected": "denied",
+      "outcome": "denied",
+      "pass": true
+    },
+    {
+      "label": "create database",
+      "expected": "denied",
+      "outcome": "denied",
+      "pass": true
+    },
+    {
+      "label": "future table inherits DML grants",
+      "expected": "allowed",
+      "outcome": "allowed",
+      "pass": true
+    },
+    {
+      "label": "future table not droppable",
+      "expected": "denied",
+      "outcome": "denied",
+      "pass": true
+    },
+    {
+      "label": "guard rejects owner credential",
+      "pass": true,
+      "detail": {
+        "violations": [
+          "role is a superuser",
+          "role has BYPASSRLS",
+          "role has CREATEROLE",
+          "role has CREATEDB",
+          "role has REPLICATION",
+          "role can create schemas in the database",
+          "role can create objects in the application schema",
+          "role owns or inherits ownership of 123 application relation(s)"
+        ]
+      }
+    },
+    {
+      "label": "enforce policy throws for owner credential",
+      "pass": true
+    },
+    {
+      "label": "guard rejects member of owner role",
+      "pass": true,
+      "detail": {
+        "violations": [
+          "role can create schemas in the database",
+          "role can create objects in the application schema",
+          "role owns or inherits ownership of 123 application relation(s)",
+          "role is a member of a privileged role"
+        ]
+      }
+    },
+    {
+      "label": "re-provisioning removes owner membership",
+      "pass": true
+    }
+  ],
+  "status": "passed"
+}

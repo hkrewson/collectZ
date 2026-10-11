@@ -5008,4 +5008,46 @@ async function runMigrations(options = {}) {
   }
 }
 
-module.exports = { runMigrations, runMigrationsForClient, MIGRATIONS };
+function getExpectedMigrationVersion() {
+  return MIGRATIONS.reduce((max, migration) => Math.max(max, migration.version), 0);
+}
+
+/**
+ * Read-only schema status for processes that must not migrate (the runtime
+ * role). Reports pending versions without attempting DDL.
+ */
+async function getSchemaMigrationStatus(client) {
+  const expectedVersion = getExpectedMigrationVersion();
+  const tableResult = await client.query(`SELECT to_regclass('public.schema_migrations') IS NOT NULL AS present`);
+  if (!tableResult.rows[0].present) {
+    return { current: false, expectedVersion, appliedVersion: 0, pendingVersions: MIGRATIONS.map((m) => m.version) };
+  }
+  const applied = await client.query('SELECT version FROM schema_migrations');
+  const appliedVersions = new Set(applied.rows.map((row) => Number(row.version)));
+  const pendingVersions = MIGRATIONS.map((m) => m.version).filter((version) => !appliedVersions.has(version));
+  const appliedVersion = applied.rows.reduce((max, row) => Math.max(max, Number(row.version)), 0);
+  return { current: pendingVersions.length === 0, expectedVersion, appliedVersion, pendingVersions };
+}
+
+async function assertSchemaCurrent(client) {
+  const status = await getSchemaMigrationStatus(client);
+  if (!status.current) {
+    const preview = status.pendingVersions.slice(0, 5).join(', ');
+    throw new Error(
+      `Database schema is not current (applied v${status.appliedVersion}, expected v${status.expectedVersion}; ` +
+      `pending: ${preview}${status.pendingVersions.length > 5 ? ', ...' : ''}). ` +
+      'Run the one-shot migrate service (node scripts/migrate-and-provision.js) with the owner credential before starting the backend.'
+    );
+  }
+  console.log(`Database schema verified current at v${status.expectedVersion} (migrations managed externally).`);
+  return status;
+}
+
+module.exports = {
+  runMigrations,
+  runMigrationsForClient,
+  getExpectedMigrationVersion,
+  getSchemaMigrationStatus,
+  assertSchemaCurrent,
+  MIGRATIONS
+};

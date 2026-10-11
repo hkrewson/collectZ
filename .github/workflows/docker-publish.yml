@@ -438,6 +438,20 @@ jobs:
           name: identity-upgrade-certification-evidence
           path: backend/artifacts/identity-upgrade-certification-evidence.json
 
+      - name: Certify non-owner runtime database role
+        working-directory: backend
+        run: |
+          RUNTIME_ROLE_CERT_ADMIN_URL="${MIGRATION_REHEARSAL_ADMIN_URL}" \
+          RUNTIME_ROLE_CERT_OUTPUT="artifacts/runtime-role-certification-evidence.json" \
+          npm run test:runtime-role-certification
+
+      - name: Upload runtime role certification evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: runtime-role-certification-evidence
+          path: backend/artifacts/runtime-role-certification-evidence.json
+
       - name: Stop migration PostgreSQL
         if: always()
         run: |
@@ -464,6 +478,7 @@ jobs:
           set -euo pipefail
           CI_PROJECT="collectz-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           DB_PASSWORD="$(openssl rand -hex 16)"
+          DB_RUNTIME_PASSWORD="$(openssl rand -hex 24)"
           SESSION_SECRET="$(openssl rand -hex 32)"
           INTEGRATION_ENCRYPTION_KEY="$(openssl rand -hex 32)"
           trap 'docker compose -p "${CI_PROJECT}" --env-file .env.ci down -v --remove-orphans' EXIT
@@ -471,6 +486,7 @@ jobs:
           node scripts/write-ci-compose-overrides.js
           {
             echo "DB_PASSWORD=${DB_PASSWORD}"
+            echo "DB_RUNTIME_PASSWORD=${DB_RUNTIME_PASSWORD}"
             echo "SESSION_SECRET=${SESSION_SECRET}"
             echo "INTEGRATION_ENCRYPTION_KEY=${INTEGRATION_ENCRYPTION_KEY}"
             echo "APP_VERSION=${APP_VERSION}"
@@ -539,6 +555,7 @@ jobs:
           set -euo pipefail
           CI_PROJECT="collectz-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-core-rbac"
           DB_PASSWORD="$(openssl rand -hex 16)"
+          DB_RUNTIME_PASSWORD="$(openssl rand -hex 24)"
           SESSION_SECRET="$(openssl rand -hex 32)"
           INTEGRATION_ENCRYPTION_KEY="$(openssl rand -hex 32)"
           trap 'docker compose -p "${CI_PROJECT}" --env-file .env.ci down -v --remove-orphans' EXIT
@@ -546,6 +563,7 @@ jobs:
           node scripts/write-ci-compose-overrides.js
           {
             echo "DB_PASSWORD=${DB_PASSWORD}"
+            echo "DB_RUNTIME_PASSWORD=${DB_RUNTIME_PASSWORD}"
             echo "SESSION_SECRET=${SESSION_SECRET}"
             echo "INTEGRATION_ENCRYPTION_KEY=${INTEGRATION_ENCRYPTION_KEY}"
             echo "APP_VERSION=${APP_VERSION}"
@@ -607,6 +625,7 @@ jobs:
           set -euo pipefail
           CI_PROJECT="collectz-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-core-browser"
           DB_PASSWORD="$(openssl rand -hex 16)"
+          DB_RUNTIME_PASSWORD="$(openssl rand -hex 24)"
           SESSION_SECRET="$(openssl rand -hex 32)"
           INTEGRATION_ENCRYPTION_KEY="$(openssl rand -hex 32)"
           PLAYWRIGHT_E2E_BYPASS_TOKEN="$(openssl rand -hex 16)"
@@ -615,6 +634,7 @@ jobs:
           node scripts/write-ci-compose-overrides.js
           {
             echo "DB_PASSWORD=${DB_PASSWORD}"
+            echo "DB_RUNTIME_PASSWORD=${DB_RUNTIME_PASSWORD}"
             echo "SESSION_SECRET=${SESSION_SECRET}"
             echo "INTEGRATION_ENCRYPTION_KEY=${INTEGRATION_ENCRYPTION_KEY}"
             echo "APP_VERSION=${APP_VERSION}"
@@ -669,6 +689,7 @@ jobs:
           set -euo pipefail
           CI_PROJECT="collectz-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-core"
           DB_PASSWORD="$(openssl rand -hex 16)"
+          DB_RUNTIME_PASSWORD="$(openssl rand -hex 24)"
           SESSION_SECRET="$(openssl rand -hex 32)"
           INTEGRATION_ENCRYPTION_KEY="$(openssl rand -hex 32)"
           PLAYWRIGHT_E2E_BYPASS_TOKEN="$(openssl rand -hex 16)"
@@ -677,6 +698,7 @@ jobs:
           node scripts/write-ci-compose-overrides.js
           {
             echo "DB_PASSWORD=${DB_PASSWORD}"
+            echo "DB_RUNTIME_PASSWORD=${DB_RUNTIME_PASSWORD}"
             echo "SESSION_SECRET=${SESSION_SECRET}"
             echo "INTEGRATION_ENCRYPTION_KEY=${INTEGRATION_ENCRYPTION_KEY}"
             echo "APP_VERSION=${APP_VERSION}"

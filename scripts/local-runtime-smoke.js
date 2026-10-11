@@ -49,6 +49,7 @@ function writeRuntimeEnv({ runtime }) {
   const lines = [
     base,
     `DB_PASSWORD=${randomHex(16)}`,
+    `DB_RUNTIME_PASSWORD=${randomHex(24)}`,
     `SESSION_SECRET=${randomHex(32)}`,
     `INTEGRATION_ENCRYPTION_KEY=${randomHex(32)}`,
     `APP_VERSION=${appMeta.version}`,

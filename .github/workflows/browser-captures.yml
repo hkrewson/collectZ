@@ -45,6 +45,7 @@ jobs:
           set -euo pipefail
           CI_PROJECT="collectz-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-captures"
           DB_PASSWORD="$(openssl rand -hex 16)"
+          DB_RUNTIME_PASSWORD="$(openssl rand -hex 24)"
           SESSION_SECRET="$(openssl rand -hex 32)"
           INTEGRATION_ENCRYPTION_KEY="$(openssl rand -hex 32)"
           PLAYWRIGHT_E2E_BYPASS_TOKEN="$(openssl rand -hex 16)"
@@ -53,6 +54,7 @@ jobs:
           node scripts/write-ci-compose-overrides.js
           {
             echo "DB_PASSWORD=${DB_PASSWORD}"
+            echo "DB_RUNTIME_PASSWORD=${DB_RUNTIME_PASSWORD}"
             echo "SESSION_SECRET=${SESSION_SECRET}"
             echo "INTEGRATION_ENCRYPTION_KEY=${INTEGRATION_ENCRYPTION_KEY}"
             echo "APP_VERSION=${APP_VERSION}"

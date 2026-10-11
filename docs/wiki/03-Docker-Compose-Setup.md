@@ -11,9 +11,12 @@ cp env.example .env
 2. Set at least:
 
 - `DB_PASSWORD`
+- `DB_RUNTIME_PASSWORD`
 - `SESSION_SECRET`
 - `INTEGRATION_ENCRYPTION_KEY`
 - `SESSION_COOKIE_SECURE=true` for HTTPS access
+
+Startup order: `db` becomes healthy, the one-shot `migrate` service applies migrations and provisions the non-owner `DB_RUNTIME_USER` role with the owner credential and then exits `0`, and only then does `backend` start with the runtime credential. `docker compose ps -a` shows `migrate` as `Exited (0)` on a healthy stack; if it exits non-zero, read `docker compose logs migrate`.
 
 For optional deployment settings, use `docs/wiki/48-Deployment-Environment-Reference.md`. Keep `env.example` focused on the minimum values needed to start.
 
@@ -90,5 +93,7 @@ docker compose --env-file .env exec -T db \
   psql -U "${DB_USER:-collectz}" -d "${POSTGRES_DB:-collectz}" \
   -c "ALTER USER ${DB_USER:-collectz} WITH PASSWORD '${DB_PASSWORD}';"
 
-docker compose --env-file .env restart backend
+docker compose --env-file .env up -d
 ```
+
+The runtime role password needs no manual SQL: set `DB_RUNTIME_PASSWORD` in `.env` and run `docker compose --env-file .env up -d`; the `migrate` service re-provisions the role before the backend restarts.

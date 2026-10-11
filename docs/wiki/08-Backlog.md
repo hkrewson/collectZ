@@ -44,7 +44,7 @@ Explicit non-goals for this program:
 **Type:** Database security program
 **Tags:** `postgresql`, `rls`, `workspace`, `security`, `database-role`, `isolation`
 **Priority:** `P1`
-**Status:** Deferred until the workspace ownership inventory and identity-preserving upgrade fixture are complete enough to certify activation safely.
+**Status:** Dependencies satisfied by `3.24.8` and `3.24.10`. The non-owner runtime role and credential split were promoted to `3.24.14 — Non-Owner Runtime Database Role and Credential Split` in [07-Release-Roadmap.md](07-Release-Roadmap.md). Remaining backlog scope is the transaction-local scope settings, the staged RLS policy pilot and expansion, and scope binding for requests, jobs, and maintenance commands.
 
 **Goal:** Add PostgreSQL defense-in-depth so an omitted application predicate cannot read or write another workspace's domain rows, while keeping application policy as the primary authorization decision.
 

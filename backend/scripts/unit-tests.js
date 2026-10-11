@@ -504,6 +504,104 @@ async function run(name, fn) {
 
 const results = [];
 
+results.push(run('runtime database role is non-owner, verifier-provisioned, and enforced by Compose', () => {
+  const crypto = require('crypto');
+  const runtimeRole = require('../db/runtimeRole');
+  const migrationsModule = require('../db/migrations');
+
+  assert.strictEqual(runtimeRole.normalizeRuntimeRoleName(''), 'collectz_app');
+  assert.strictEqual(runtimeRole.normalizeRuntimeRoleName('collectz_runtime'), 'collectz_runtime');
+  for (const invalid of ['Collectz', 'app-role', 'pg_monitor', 'postgres', 'x; DROP ROLE y', 'a'.repeat(64)]) {
+    assert.throws(() => runtimeRole.normalizeRuntimeRoleName(invalid), /DB_RUNTIME_USER/);
+  }
+  assert.throws(() => runtimeRole.validateRuntimePassword('short'), /at least 16/);
+  assert.throws(() => runtimeRole.validateRuntimePassword('has@url/special#chars!!'), /letters, digits/);
+  assert.strictEqual(runtimeRole.validateRuntimePassword('a'.repeat(16)), 'a'.repeat(16));
+
+  const salt = Buffer.alloc(16, 7);
+  const verifier = runtimeRole.buildScramSha256Verifier('runtime-password-0001', { salt });
+  assert.match(verifier, /^SCRAM-SHA-256\$4096:[A-Za-z0-9+/=]+\$[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+$/);
+  assert.strictEqual(verifier, runtimeRole.buildScramSha256Verifier('runtime-password-0001', { salt }));
+  assert.ok(!verifier.includes('runtime-password-0001'));
+  const salted = crypto.pbkdf2Sync('runtime-password-0001', salt, 4096, 32, 'sha256');
+  const storedKey = crypto.createHash('sha256')
+    .update(crypto.createHmac('sha256', salted).update('Client Key').digest())
+    .digest('base64');
+  assert.ok(verifier.includes(`$${storedKey}:`));
+  assert.notStrictEqual(verifier, runtimeRole.buildScramSha256Verifier('runtime-password-0001'));
+
+  assert.strictEqual(runtimeRole.normalizeRuntimeRolePolicy('', 'enforce'), 'enforce');
+  assert.strictEqual(runtimeRole.normalizeRuntimeRolePolicy('WARN'), 'warn');
+  assert.throws(() => runtimeRole.normalizeRuntimeRolePolicy('strict'), /enforce, warn, off/);
+
+  const clean = {
+    role_name: 'collectz_app',
+    is_superuser: false,
+    can_create_roles: false,
+    can_create_databases: false,
+    has_replication: false,
+    bypasses_rls: false,
+    can_create_in_database: false,
+    can_create_in_schema: false,
+    owned_relation_count: 0,
+    privileged_membership_count: 0
+  };
+  assert.deepStrictEqual(runtimeRole.evaluateRuntimeRolePrivileges(clean), { ok: true, violations: [] });
+  const flags = [
+    ['is_superuser', true, /superuser/],
+    ['bypasses_rls', true, /BYPASSRLS/],
+    ['can_create_roles', true, /CREATEROLE/],
+    ['can_create_databases', true, /CREATEDB/],
+    ['has_replication', true, /REPLICATION/],
+    ['can_create_in_database', true, /schemas in the database/],
+    ['can_create_in_schema', true, /application schema/],
+    ['owned_relation_count', 3, /ownership of 3/],
+    ['privileged_membership_count', 1, /privileged role/]
+  ];
+  for (const [key, value, pattern] of flags) {
+    const result = runtimeRole.evaluateRuntimeRolePrivileges({ ...clean, [key]: value });
+    assert.strictEqual(result.ok, false, key);
+    assert.ok(result.violations.some((violation) => pattern.test(violation)), key);
+  }
+  assert.strictEqual(runtimeRole.evaluateRuntimeRolePrivileges(null).ok, false);
+
+  assert.strictEqual(
+    migrationsModule.getExpectedMigrationVersion(),
+    Math.max(...migrationsModule.MIGRATIONS.map(({ version }) => version))
+  );
+
+  const runtimeRoleSource = fs.readFileSync(require.resolve('../db/runtimeRole'), 'utf8');
+  assert.ok(/PASSWORD \$\{quoteLiteral\(verifier\)\}/.test(runtimeRoleSource), 'role password must be sent as a SCRAM verifier');
+  assert.ok(!/PASSWORD \$\{quoteLiteral\(password\)\}/.test(runtimeRoleSource));
+  assert.ok(runtimeRoleSource.includes('REVOKE INSERT, UPDATE, DELETE ON ${schemaIdent}.schema_migrations'));
+
+  const composeSource = fs.readFileSync(require.resolve('../../docker-compose.yml'), 'utf8');
+  const serviceBlock = (name) => {
+    const match = composeSource.match(new RegExp(`\\n  ${name}:\\n([\\s\\S]*?)(?=\\n  [a-z][a-z0-9_-]*:\\n|\\nvolumes:)`));
+    assert.ok(match, `compose service ${name} missing`);
+    return match[1];
+  };
+  const migrateBlock = serviceBlock('migrate');
+  const backendBlock = serviceBlock('backend');
+  assert.ok(migrateBlock.includes('scripts/migrate-and-provision.js'));
+  assert.ok(migrateBlock.includes('DATABASE_MIGRATION_URL: postgresql://${DB_USER:-collectz}:${DB_PASSWORD}@db'));
+  assert.ok(migrateBlock.includes('restart: "no"'));
+  assert.ok(!backendBlock.includes('DB_PASSWORD'), 'backend must not receive the owner credential');
+  assert.ok(!backendBlock.includes('DATABASE_MIGRATION_URL'));
+  assert.ok(backendBlock.includes('DATABASE_URL: postgresql://${DB_RUNTIME_USER:-collectz_app}:${DB_RUNTIME_PASSWORD:?'));
+  assert.ok(backendBlock.includes('DATABASE_MIGRATIONS_MODE: external'));
+  assert.ok(backendBlock.includes('DATABASE_RUNTIME_ROLE_POLICY: ${DATABASE_RUNTIME_ROLE_POLICY:-enforce}'));
+  assert.ok(/migrate:\n\s+condition: service_completed_successfully/.test(backendBlock));
+
+  const serverSource = fs.readFileSync(require.resolve('../server.js'), 'utf8');
+  assert.ok(serverSource.includes("migrationsMode === 'external' ? 'enforce' : 'warn'"));
+  assert.ok(serverSource.includes('await assertSchemaCurrent(client)'));
+  assert.ok(serverSource.includes('await assertRuntimeRolePolicy(client, { policy: rolePolicy })'));
+
+  const ciOverrideSource = fs.readFileSync(path.resolve(__dirname, '..', '..', 'scripts', 'write-ci-compose-overrides.js'), 'utf8');
+  assert.ok(/services:\n  migrate:\n    build:/.test(ciOverrideSource), 'CI build override must build the migrate job from source');
+}));
+
 results.push(run('sensitive operations require a machine-checked session-bound recent password proof', () => {
   const certified = certifySensitiveOperationContract();
   assert.deepStrictEqual(certified, {

@@ -47,6 +47,7 @@ docker compose --env-file .env logs -f backend frontend db
 Set these in stack environment:
 
 - `DB_PASSWORD`
+- `DB_RUNTIME_PASSWORD`
 - `SESSION_SECRET`
 - `INTEGRATION_ENCRYPTION_KEY`
 
