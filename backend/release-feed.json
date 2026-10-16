@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.25.0",
+      "version": "3.25.0",
+      "date": "2026-10-16",
+      "status": null,
+      "summary": "Adds a native Apple TV companion for CollectZ Core with browser-approved sign-in, read-only collection browsing, and the existing CollectZ visual identity. The SwiftUI client is maintained in the sibling `collectZ-tvos` repository.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Browser `/activate` approval uses short-lived device codes, existing cookie authentication, and CSRF protection. Device credentials/codes are hashed; polling is limited and redemption is atomic.",
+            "Dedicated TV permissions reuse mobile access/refresh sessions. Existing scanner permissions are unchanged. TV sessions cannot edit data, trigger imports, or use capture APIs.",
+            "Explicit library selection checks current membership on every read, including administrator accounts, without changing the web application's active library.",
+            "TV responses expose safe metadata and authorized artwork paths rather than raw integration payloads or source URLs. Collection joins check linked media ownership.",
+            "Native tvOS 18+ screens use CollectZ's colors, logo, bundled fonts, cards, and badges, with remote focus, accessible labels, stale states, and Keychain credentials.",
+            "Updated compatible axios and proxy-addr lockfile resolutions to remove production dependency advisories identified during release validation."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.24.14",
       "version": "3.24.14",
       "date": "2026-10-10",
@@ -190,27 +210,6 @@
             "Invited registration now conditionally claims the invite and commits the new user, workspace/library memberships, default scope, and session in a single database transaction.",
             "Password-reset and email-verification endpoints now receive the focused authentication rate limiter.",
             "Added focused unit, browser, OpenAPI, and live Postgres abuse coverage for replay, concurrency, CSRF, session revocation, enumeration resistance, invalid token states, and audit token leakage."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.24.5",
-      "version": "3.24.5",
-      "date": "2026-08-01",
-      "status": "implementation and local verification complete; hosted release gates pending after push",
-      "summary": "This release makes the active workspace integration row authoritative for provider saves and Plex automation. It removes silent installation-row Plex credential fallback, persists workspace Plex reconciliation/readback/writeback controls, and sends the Core/homelab provider screen to the active workspace endpoint.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Workspace integration saves now persist Plex reconciliation, watched/rating readback, and rating/watch-state writeback controls.",
-            "Plex scheduler enablement and cadence are resolved from enabled workspace integration rows unless an explicit environment override is present.",
-            "Scheduled Plex work filters out workspaces that have not enabled the corresponding automation.",
-            "Workspace Plex execution no longer fills missing URL, credential, or section values from installation row `id=1`.",
-            "Core/homelab provider settings and Plex writeback readback use `/api/spaces/{id}/integrations` for the active workspace.",
-            "OpenAPI now documents all implemented workspace provider diagnostic endpoints and the Plex automation/writeback request and response fields.",
-            "Added focused source and Docker runtime coverage for workspace persistence, unchanged installation state, and workspace-derived scheduler configuration."
           ]
         }
       ]

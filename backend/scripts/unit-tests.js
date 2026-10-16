@@ -696,7 +696,7 @@ results.push(run('workspace ownership contract classifies every schema table, ro
   const contract = buildWorkspaceOwnershipContract();
   const snapshot = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'config', 'workspace-ownership-contract.json'), 'utf8'));
   assert.deepStrictEqual(contract, snapshot);
-  assert.strictEqual(contract.tables.length, 66);
+  assert.strictEqual(contract.tables.length, 67);
   assert.ok(contract.routes.length >= 300);
   assert.ok(contract.routes.filter((route) => route.authentication === 'required').length >= 300);
   assert.ok(contract.executionPaths.some((entry) => entry.id === 'sync_jobs'));

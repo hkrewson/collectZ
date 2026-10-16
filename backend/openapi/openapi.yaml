@@ -4319,6 +4319,318 @@
     }
   },
   "paths": {
+  "/api/mobile/tv/capabilities": {
+    "get": {
+      "summary": "Discover native TV capability version and edition",
+      "tags": [
+        "Mobile"
+      ],
+      "security": [],
+      "responses": {
+        "200": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "capabilityVersion": {
+                    "type": "integer"
+                  },
+                  "supported": {
+                    "type": "boolean"
+                  },
+                  "edition": {
+                    "type": "string"
+                  },
+                  "deviceAuthorization": {
+                    "type": "boolean"
+                  },
+                  "readOnly": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "400": {
+          "description": "Invalid, expired, denied, pending, consumed, or polling too quickly"
+        },
+        "403": {
+          "description": "Core edition or valid browser session/CSRF required"
+        },
+        "429": {
+          "description": "Rate limited"
+        }
+      }
+    }
+  },
+  "/api/mobile/auth/device/start": {
+    "post": {
+      "summary": "Start a ten-minute Apple TV device authorization",
+      "tags": [
+        "Mobile"
+      ],
+      "security": [],
+      "responses": {
+        "201": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "device_code": {
+                    "type": "string"
+                  },
+                  "user_code": {
+                    "type": "string"
+                  },
+                  "verification_path": {
+                    "type": "string"
+                  },
+                  "expires_in": {
+                    "type": "integer"
+                  },
+                  "interval": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "400": {
+          "description": "Invalid, expired, denied, pending, consumed, or polling too quickly"
+        },
+        "403": {
+          "description": "Core edition or valid browser session/CSRF required"
+        },
+        "429": {
+          "description": "Rate limited"
+        }
+      },
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "device_name": {
+                  "type": "string",
+                  "maxLength": 80
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/mobile/auth/device/decision": {
+    "post": {
+      "summary": "Approve or deny the code shown on your own TV",
+      "tags": [
+        "Mobile"
+      ],
+      "security": [
+        {
+          "cookieSession": [],
+          "csrfHeader": []
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "approved": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "400": {
+          "description": "Invalid, expired, denied, pending, consumed, or polling too quickly"
+        },
+        "403": {
+          "description": "Core edition or valid browser session/CSRF required"
+        },
+        "429": {
+          "description": "Rate limited"
+        }
+      },
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "user_code": {
+                  "type": "string"
+                },
+                "decision": {
+                  "type": "string",
+                  "enum": [
+                    "approve",
+                    "deny"
+                  ]
+                }
+              },
+              "required": [
+                "user_code",
+                "decision"
+              ]
+            }
+          }
+        }
+      },
+      "description": "Browser cookie session only. Requires matching CSRF cookie/header; bearer headers are rejected. Confirmation grants profile:read and tv:read only."
+    }
+  },
+  "/api/mobile/auth/device/token": {
+    "post": {
+      "summary": "Poll and atomically redeem an approved device credential",
+      "tags": [
+        "Mobile"
+      ],
+      "security": [],
+      "responses": {
+        "200": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "accessToken": {
+                    "type": "string"
+                  },
+                  "refreshToken": {
+                    "type": "string"
+                  },
+                  "expiresAt": {
+                    "type": "string"
+                  },
+                  "refreshExpiresAt": {
+                    "type": "string"
+                  },
+                  "tokenType": {
+                    "type": "string"
+                  },
+                  "scope": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "400": {
+          "description": "Invalid, expired, denied, pending, consumed, or polling too quickly"
+        },
+        "403": {
+          "description": "Core edition or valid browser session/CSRF required"
+        },
+        "429": {
+          "description": "Rate limited"
+        }
+      },
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "device_code": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "device_code"
+              ]
+            }
+          }
+        }
+      },
+      "description": "Errors: authorization_pending, slow_down, access_denied, expired_token, invalid_grant. Start polling at interval seconds; increase interval by five seconds on slow_down. Never blindly replay a successful or ambiguous redemption."
+    }
+  },
+  "/api/mobile/tv/artwork/{kind}/{id}": {
+    "get": {
+      "summary": "Read authorized artwork without exposing upstream credentials",
+      "security": [
+        {
+          "mobileBearerAuth": []
+        }
+      ],
+      "parameters": [
+        {
+          "name": "kind",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "enum": [
+              "media",
+              "art",
+              "collectibles",
+                "collections"
+            ]
+          }
+        },
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        {
+          "name": "library_id",
+          "in": "query",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Image bytes; no-store",
+          "content": {
+            "image/jpeg": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "403": {
+          "description": "Library authorization denied"
+        },
+        "404": {
+          "description": "Item or supported artwork unavailable"
+        }
+      }
+    }
+  },
     "/api/health": {
       "get": {
         "tags": ["Health"],
@@ -11754,7 +12066,8 @@
       "get": {
         "summary": "List duplicate collections in the active operator scope",
         "tags": ["Media"],
-        "security": [{ "bearerAuth": [] }, { "cookieAuth": [] }],
+        "security": [{ "bearerAuth": [] }, { "cookieSession": [],
+          "csrfHeader": [] }],
         "parameters": [
           {
             "in": "query",

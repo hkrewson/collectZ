@@ -34,6 +34,24 @@ function enforceScopeAccess(options = {}) {
       const productEdition = getProductEdition();
       const homelabEdition = isHomelabEdition(productEdition);
 
+      // TV scope is request-local, mandatory, and never inherits admin bypasses.
+      if (req.authContext?.scopes?.includes('tv:read')) {
+        if (homelabEdition && req.originalUrl?.split('?')[0] === '/api/libraries' && ['GET', 'HEAD'].includes(req.method)) return next();
+        if (!homelabEdition || !hints.libraryId || hints.spaceProvided || hints.libraryCleared) {
+          return denyScopeRequest(req, res, 'tv_library_required', hints);
+        }
+        const access = await pool.query(
+          `SELECT l.id, l.space_id FROM libraries l
+           JOIN library_memberships lm ON lm.library_id = l.id AND lm.user_id = $1
+           JOIN space_memberships sm ON sm.space_id = l.space_id AND sm.user_id = lm.user_id
+           WHERE l.id = $2 AND l.archived_at IS NULL AND sm.suspended_at IS NULL`,
+          [userId, hints.libraryId]
+        );
+        if (!access.rows[0]) return denyScopeRequest(req, res, 'library_membership_required', hints);
+        req.scopeContext = { libraryId: access.rows[0].id, spaceId: access.rows[0].space_id };
+        return next();
+      }
+
       const isLibrarySelectPath = (
         req.path === '/select'
         && String(req.baseUrl || '').endsWith('/libraries')

@@ -1,6 +1,6 @@
 {
   "name": "collectz-backend",
-  "version": "3.24.14",
+  "version": "3.25.0",
   "description": "collectZ Backend API",
   "main": "server.js",
   "engines": {
@@ -133,7 +133,8 @@
     "test:barcode-scanner-api-smoke": "node scripts/barcode-scanner-api-smoke.js",
     "test:mobile-auth-smoke": "node scripts/mobile-auth-smoke.js",
     "test:capture-image-ocr-smoke": "node scripts/capture-image-ocr-smoke.js",
-    "test:workspace-integration-ownership-smoke": "node scripts/workspace-integration-ownership-smoke.js"
+    "test:workspace-integration-ownership-smoke": "node scripts/workspace-integration-ownership-smoke.js",
+    "test:tv-auth-smoke": "node scripts/tv-auth-smoke.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1058.0",

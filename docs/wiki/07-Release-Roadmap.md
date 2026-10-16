@@ -6,6 +6,21 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.25.0 — Apple TV Device Authorization and Read-Only Client
+
+**Status:** Implementation saved locally; release verification blocked by Docker disk exhaustion and external signing/hardware gates. Not release-ready.
+
+**Scope:** Core-only native tvOS 18+ client in the sibling collectZ-tvos repository; CollectZ brand fidelity, browser device approval, scoped read-only mobile sessions, request-local library selection, safe artwork, all collectible categories, and TestFlight preparation.
+
+**Acceptance:** Device authorization abuse/concurrency tests; scanner regression; per-request membership and collection-member isolation; native build/unit/UI tests; branded screenshot review; migration/init parity; OpenAPI; release local gate and named hosted security/runtime gates. No playback, mutation, direct source clients, uploads, or publication.
+
+**Implementation evidence (2026-10-16):** 55 dedicated TV authorization/isolation checks; browser approval; Core RBAC; 362 backend unit checks; OpenAPI and ownership inventory; migration 122 → 123 and init parity; native simulator/device/Release-archive compilation; real pairing/browse/detail/focus UI proof; final native local suite of 16 tests. Final full live UI rerun and extended release verification were interrupted by a full Docker virtual disk. The canonical stack was recovered and serves 3.25.0.
+
+**Policies/checklists:** `AGENTS.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, and the local release gate. The detailed boundary and evidence record is `docs/wiki/61-Apple-TV-Client.md`; native build/distribution guidance lives in the sibling `collectZ-tvos` repository.
+
+**Remaining:** Free Docker space with approval for shared cache cleanup; rerun identity/runtime/observability and full browser/native live checks; require secure-cookie compose, secret/image/SBOM CI gates, owner signing and physical-device acceptance. No push or publication performed.
+
+
 ## 3.24.14 — Non-Owner Runtime Database Role and Credential Split
 
 **Goal:** Stop running the CollectZ backend as the PostgreSQL owner/superuser. Migrations and provisioning keep the owner credential in a one-shot job; the long-lived backend and its workers connect through a least-privilege runtime role that owns no tables and cannot bypass future row-level security.

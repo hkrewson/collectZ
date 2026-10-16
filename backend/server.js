@@ -350,6 +350,8 @@ app.get('/api/health', (_req, res) => res.json(healthPayload()));
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.use('/api', coreRouter);
 app.use('/api/auth', authRouter);
+app.use('/api/mobile', require('./routes/tvAuth'));
+app.use('/api/mobile', require('./routes/tvArtwork'));
 app.use('/api/mobile', mobileAuthRouter);
 if (!HOMELAB_EDITION) {
   app.use('/api/auth', authPlatformRouter);

@@ -1928,5 +1928,20 @@ INSERT INTO schema_migrations (version, description) VALUES
     (119, 'Move legacy Plex receiver and display ownership into its configured workspace'),
     (120, 'Add explicit workspace Vision OCR enablement'),
     (121, 'Retire plaintext invitation token compatibility'),
-    (122, 'Add session-bound recent reauthentication proof')
+    (122, 'Add session-bound recent reauthentication proof'),
+    (123, 'Apple TV device authorization')
 ON CONFLICT (version) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS tv_device_authorizations (
+  id SERIAL PRIMARY KEY,
+  device_hash VARCHAR(64) NOT NULL UNIQUE,
+  user_code_hash VARCHAR(64) NOT NULL UNIQUE,
+  device_name VARCHAR(80) NOT NULL,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  status VARCHAR(16) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','denied','consumed')),
+  expires_at TIMESTAMPTZ NOT NULL,
+  next_poll_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  poll_interval INTEGER NOT NULL DEFAULT 5,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_tv_device_expiry ON tv_device_authorizations(expires_at);

@@ -15492,7 +15492,7 @@ router.get('/collections', asyncHandler(async (req, res) => {
        SELECT m.poster_path
        FROM collection_items ci_rep
        JOIN media m ON m.id = ci_rep.media_id
-       WHERE ci_rep.collection_id = c.id
+       WHERE ci_rep.collection_id = c.id AND m.library_id = c.library_id AND m.space_id = c.space_id
          AND COALESCE(m.poster_path, '') <> ''
        ORDER BY COALESCE(ci_rep.position, 999999), ci_rep.id
        LIMIT 1
@@ -15501,7 +15501,7 @@ router.get('/collections', asyncHandler(async (req, res) => {
        SELECT BOOL_OR(COALESCE(m.format, '') ILIKE '%digital%') AS has_digital
        FROM collection_items ci_fmt
        LEFT JOIN media m ON m.id = ci_fmt.media_id
-       WHERE ci_fmt.collection_id = c.id
+       WHERE ci_fmt.collection_id = c.id AND m.library_id = c.library_id AND m.space_id = c.space_id
      ) fmt ON TRUE
      ${whereWithScope}
      GROUP BY c.id, rep.poster_path, fmt.has_digital
@@ -15553,10 +15553,10 @@ router.get('/collections/:id', asyncHandler(async (req, res) => {
        ci.resolution_status, ci.source_payload, ci.created_at, ci.updated_at,
        m.title AS media_title, m.media_type AS media_type, m.poster_path AS media_poster_path, m.year AS media_year
      FROM collection_items ci
-     LEFT JOIN media m ON m.id = ci.media_id
+     LEFT JOIN media m ON m.id = ci.media_id AND m.library_id = $2 AND m.space_id = $3
      WHERE ci.collection_id = $1
      ORDER BY COALESCE(ci.position, 999999), ci.id ASC`,
-    [collectionId]
+    [collectionId, collection.rows[0].library_id, collection.rows[0].space_id]
   );
 
   res.json({

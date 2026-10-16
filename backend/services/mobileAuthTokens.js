@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const pool = require('../db/pool');
 
+const TV_AUTH_SCOPES = ['profile:read', 'tv:read'];
 const MOBILE_AUTH_SCOPES = ['profile:read', 'capture:read', 'capture:write'];
 const MOBILE_ACCESS_TTL_MINUTES = Math.max(5, Number(process.env.MOBILE_ACCESS_TTL_MINUTES || 15));
 const MOBILE_REFRESH_TTL_DAYS = Math.max(1, Number(process.env.MOBILE_REFRESH_TTL_DAYS || 30));
@@ -27,11 +28,13 @@ const createMobileAuthSession = async ({
   platform = null,
   appVersion = null,
   ipAddress = null,
-  userAgent = null
+  userAgent = null,
+  scopes = MOBILE_AUTH_SCOPES,
+  client = pool
 }) => {
   const accessToken = generateMobileToken('access');
   const refreshToken = generateMobileToken('refresh');
-  const result = await pool.query(
+  const result = await client.query(
     `INSERT INTO mobile_auth_sessions (
        user_id, access_token_hash, refresh_token_hash, refresh_token_last_four, scopes,
        device_name, platform, app_version, ip_address, user_agent,
@@ -49,7 +52,7 @@ const createMobileAuthSession = async ({
       hashMobileAuthToken(accessToken),
       hashMobileAuthToken(refreshToken),
       refreshToken.slice(-4),
-      JSON.stringify(MOBILE_AUTH_SCOPES),
+      JSON.stringify(scopes),
       deviceName,
       platform,
       appVersion,
@@ -187,12 +190,16 @@ const getRequiredMobileScopesForRequest = (req) => {
 
   if (path === '/api/mobile/auth/session' || path === '/api/mobile/auth/logout') return ['profile:read'];
   if (path === '/api/auth/me') return ['profile:read'];
+  if (isRead && (/^\/api\/(libraries|media|media\/feature-flags|media\/collections|collectibles|art)$/.test(path)
+    || /^\/api\/(media|media\/collections|collectibles|art)\/[1-9][0-9]*$/.test(path)
+    || /^\/api\/mobile\/tv\/artwork\/(media|art|collectibles|collections)\/[1-9][0-9]*$/.test(path))) return ['tv:read'];
   if (path.startsWith('/api/capture-items')) return [isRead ? 'capture:read' : 'capture:write'];
   return null;
 };
 
 module.exports = {
   MOBILE_AUTH_SCOPES,
+  TV_AUTH_SCOPES,
   MOBILE_ACCESS_TTL_MINUTES,
   MOBILE_REFRESH_TTL_DAYS,
   hashMobileAuthToken,

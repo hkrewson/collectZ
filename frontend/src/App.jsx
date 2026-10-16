@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import TVActivationView from './components/TVActivationView';
 import appMeta from './app-meta.json';
 import AuthPageView from './components/AuthPage';
 import DashboardShell from './components/app/DashboardShell';
@@ -28,6 +29,11 @@ import {
 const APP_VERSION = readFrontendEnv('VITE_APP_VERSION', appMeta.frontend || appMeta.version || 'unknown');
 
 export default function App() {
+  if (window.location.pathname === '/activate') return <TVActivationView />;
+  return <CollectZApp />;
+}
+
+function CollectZApp() {
   const initialDashboardState = readDashboardStateFromUrl();
   const [route, setRoute] = useState(routeFromPath(window.location.pathname));
   const [activeTab, setActiveTab] = useState(initialDashboardState.tab);
