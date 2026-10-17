@@ -24,7 +24,7 @@ async function main() {
   const suffix=crypto.randomBytes(8).toString('hex'); const password=crypto.randomBytes(24).toString('base64url');
   const user=(await pool.query("INSERT INTO users(email,password,name,role,email_verified) VALUES($1,$2,'TV test','user',true) RETURNING id,email", [`tv-${suffix}@example.invalid`,await bcrypt.hash(password,10)])).rows[0];
   const other=(await pool.query("INSERT INTO users(email,password,name,role,email_verified) VALUES($1,$2,'Other test','user',true) RETURNING id", [`tv-other-${suffix}@example.invalid`,await bcrypt.hash(password,10)])).rows[0];
-  const scope=await ensureUserDefaultScope(user.id); const otherScope=await ensureUserDefaultScope(other.id);
+  const scope=await ensureUserDefaultScope(user.id); await ensureUserDefaultScope(other.id);
   // Core may share a default installation library; create a distinct private library for isolation proof.
   const foreign=(await pool.query("INSERT INTO libraries(name,space_id,created_by) VALUES('Private TV fixture',$1,$2) RETURNING id",[scope.spaceId,other.id])).rows[0];
   const media=(await pool.query("INSERT INTO media(title,media_type,space_id,library_id) VALUES('TV fixture','movie',$1,$2) RETURNING id",[scope.spaceId,scope.libraryId])).rows[0];

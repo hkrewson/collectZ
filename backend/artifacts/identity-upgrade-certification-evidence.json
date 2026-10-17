@@ -1,16 +1,16 @@
 {
-  "generatedAt": "2026-08-25T12:48:34.652Z",
+  "generatedAt": "2026-10-17T00:01:25.102Z",
   "status": "passed",
   "manifestSchemaVersion": 1,
-  "baselineVersion": 121,
-  "latestVersion": 122,
+  "baselineVersion": 122,
+  "latestVersion": 123,
   "certifiedMigrationVersions": [
-    122
+    123
   ],
   "selectorMatches": [
     {
-      "version": 122,
-      "description": "Add session-bound recent reauthentication proof"
+      "version": 123,
+      "description": "Apple TV device authorization"
     }
   ],
   "fixturePolicy": {
@@ -87,13 +87,13 @@
       {
         "id": 1,
         "user_id": 1,
-        "expires_at": "2026-09-01T12:48:35.483Z",
+        "expires_at": "2026-10-24T00:01:30.784Z",
         "storedCredentialPresent": true
       },
       {
         "id": 2,
         "user_id": 1,
-        "expires_at": "2026-09-01T12:48:35.484Z",
+        "expires_at": "2026-10-24T00:01:30.786Z",
         "storedCredentialPresent": true
       }
     ],
@@ -149,7 +149,7 @@
             "libraries:read"
           ],
           "revoked_at": null,
-          "expires_at": "2026-09-01T12:48:35.487Z",
+          "expires_at": "2026-10-24T00:01:30.791Z",
           "storedCredentialPresent": true
         }
       ],
@@ -165,7 +165,7 @@
             "/api/libraries"
           ],
           "revoked_at": null,
-          "expires_at": "2026-09-01T12:48:35.487Z",
+          "expires_at": "2026-10-24T00:01:30.792Z",
           "storedCredentialPresent": true
         }
       ]

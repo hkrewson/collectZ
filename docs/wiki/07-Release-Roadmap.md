@@ -8,17 +8,17 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ## 3.25.0 — Apple TV Device Authorization and Read-Only Client
 
-**Status:** Implementation saved locally; release verification blocked by Docker disk exhaustion and external signing/hardware gates. Not release-ready.
+**Status:** Implementation saved locally; Docker recovery and extended verification completed or recorded below. Historical secret-scan findings and external signing/hardware gates keep release readiness blocked.
 
 **Scope:** Core-only native tvOS 18+ client in the sibling collectZ-tvos repository; CollectZ brand fidelity, browser device approval, scoped read-only mobile sessions, request-local library selection, safe artwork, all collectible categories, and TestFlight preparation.
 
 **Acceptance:** Device authorization abuse/concurrency tests; scanner regression; per-request membership and collection-member isolation; native build/unit/UI tests; branded screenshot review; migration/init parity; OpenAPI; release local gate and named hosted security/runtime gates. No playback, mutation, direct source clients, uploads, or publication.
 
-**Implementation evidence (2026-10-16):** 55 dedicated TV authorization/isolation checks; browser approval; Core RBAC; 362 backend unit checks; OpenAPI and ownership inventory; migration 122 → 123 and init parity; native simulator/device/Release-archive compilation; real pairing/browse/detail/focus UI proof; final native local suite of 16 tests. Final full live UI rerun and extended release verification were interrupted by a full Docker virtual disk. The canonical stack was recovered and serves 3.25.0.
+**Implementation evidence (2026-10-16):** 55 dedicated TV authorization/isolation checks; browser approval; Core RBAC; 362 backend unit checks; OpenAPI and ownership inventory; migration 122 → 123 and init parity; native simulator/device/Release-archive compilation; real pairing/browse/detail/focus UI proof; final native suite of 17 tests including live pairing after final UI polish. Approved build-cache cleanup reclaimed 14.47 GB. Identity certification through 123, 30 runtime-role checks, both runtime editions, 31 Core browser checks, secure-cookie compose checks, zero-fixable-critical image scans, and CycloneDX SBOM generation passed. The canonical stack remains healthy at 3.25.0.
 
 **Policies/checklists:** `AGENTS.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, and the local release gate. The detailed boundary and evidence record is `docs/wiki/61-Apple-TV-Client.md`; native build/distribution guidance lives in the sibling `collectZ-tvos` repository.
 
-**Remaining:** Free Docker space with approval for shared cache cleanup; rerun identity/runtime/observability and full browser/native live checks; require secure-cookie compose, secret/image/SBOM CI gates, owner signing and physical-device acceptance. No push or publication performed.
+**Remaining:** Resolve the 16 historical credential-fingerprint findings in the full-history secret gate; confirm hosted release gates (local observability now passes 9/9); obtain owner signing and physical-device acceptance. TV-only commits and the native repository scan clean. No history rewrite, push, or publication performed.
 
 
 ## 3.24.14 — Non-Owner Runtime Database Role and Credential Split
