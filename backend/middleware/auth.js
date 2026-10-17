@@ -234,8 +234,6 @@ const authenticateToken = async (req, res, next) => {
         const allowed = await requireMobileAccessForRequest(req, res);
         if (!allowed) return;
         if (req.authContext.scopes.includes('tv:read')) {
-          const { isHomelabEdition, getProductEdition } = require('../config/productEdition');
-          if (!isHomelabEdition(getProductEdition())) return res.status(403).json({ error: 'Core edition required' });
           require('../services/tvPresentation').installTVPresentation(req, res);
         }
         await touchMobileAuthSession(mobilePrincipal.session_id);

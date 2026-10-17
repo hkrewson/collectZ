@@ -1,12 +1,14 @@
 # Apple TV client
 
-The native app lives in the sibling `collectZ-tvos` repository. Version 1.0.0 targets tvOS 18+, CollectZ Core 3.25.0+, and TV capability version 1. It browses existing media, media collections, art, and collectibles without editing or playing content. The web application's shipped theme and assets are the visual source of truth.
+The native app lives in the sibling `collectZ-tvos` repository. Version 1.0.0 targets tvOS 18+, CollectZ 3.25.0+, and TV capability version 1. It browses existing media, media collections, art, and collectibles without editing or playing content. The web application's shipped theme and assets are the visual source of truth.
 
 ## Connect
 
-Enter the HTTPS origin of your Core installation on Apple TV. Open the displayed `/activate` address on another device, sign in, and enter the code shown on your own television. Approval grants read-only access to your current authorized libraries. No Plex or other source connection is made by the TV.
+Cairn may be running alongside CollectZ. Enter the CollectZ application address, not the standalone Cairn API address. The client presents the same CollectZ UI and uses the same read-only scope in either deployment mode. Debug simulator builds also accept `localhost:3201` and private IPv4 LAN addresses, normalized to HTTP; explicit HTTPS remains HTTPS.
 
-`GET /api/mobile/tv/capabilities` advertises version/edition support. Device start, decision, and token endpoints live under `/api/mobile/auth/device`. Start returns a same-origin verification path, a short code, a secret device credential, a 600-second expiry, and a 5-second initial polling interval. `authorization_pending` continues polling; `slow_down` adds five seconds. Denial, expiration, and consumed credentials stop polling. Approval requires cookie authentication and CSRF; authorization headers are rejected on that browser endpoint.
+Enter the HTTPS origin of your CollectZ installation on Apple TV. Open the displayed `/activate` address on another device, sign in, and enter the code shown on your own television. Approval grants read-only access to your current authorized libraries. No Plex or other source connection is made by the TV.
+
+`GET /api/mobile/tv/capabilities` advertises capability support; deployment edition does not restrict the TV client. Device start, decision, and token endpoints live under `/api/mobile/auth/device`. Start returns a same-origin verification path, a short code, a secret device credential, a 600-second expiry, and a 5-second initial polling interval. `authorization_pending` continues polling; `slow_down` adds five seconds. Denial, expiration, and consumed credentials stop polling. Approval requires cookie authentication and CSRF; authorization headers are rejected on that browser endpoint.
 
 TV sessions use the existing mobile token lifecycle and only `profile:read` plus `tv:read`. Existing scanner permissions remain unchanged. Refresh and logout use `/api/mobile/auth/refresh` and `/api/mobile/auth/logout`. Lost refresh/redemption responses require reconnecting rather than unsafe retries. Offline sign-out clears the Keychain immediately; an unreachable server session remains bounded by its server TTL.
 
@@ -20,7 +22,7 @@ Collection refresh reads stored CollectZ data; it never triggers imports, source
 
 ## Verification
 
-Run `npm run test:tv-auth-smoke` in the backend against an **isolated disposable Core database**. It creates fixture identities/content and intentionally suspends a fixture membership; do not run against user data. It proves polling/CSRF/one-time redemption, rotation/revocation, scanner isolation, forbidden writes, cross-library item/artwork denial, collection-join isolation, and membership revocation. Run existing mobile-auth, RBAC, integration, migration/init-parity and release gates as well.
+Run `npm run test:tv-auth-smoke` in the backend against an **isolated disposable database in each deployment mode**. It creates fixture identities/content and intentionally suspends a fixture membership; do not run against user data. It proves polling/CSRF/one-time redemption, rotation/revocation, scanner isolation, forbidden writes, cross-library item/artwork denial, collection-join isolation, and membership revocation. Run existing mobile-auth, RBAC, integration, migration/init-parity and release gates as well.
 
 Native test/build instructions and TestFlight preparation are in `collectZ-tvos/README.md`. Hardware focus/VoiceOver and signed distribution checks must be recorded separately from simulator evidence.
 
@@ -38,3 +40,9 @@ Native test/build instructions and TestFlight preparation are in `collectZ-tvos/
 - External acceptance still includes signed TestFlight validation, physical-device accessibility, beta-review access, and hosted CI on the eventual authorized push. Do not publish or describe 3.25.0 as release-ready until blocking gates are resolved.
 
 Final full local wrapper: **13 passed, 0 failed, 3 blocked**, with runtime excluded from the duplicate run because both editions had just passed independently. Maintained-source CodeQL reports 5 baseline/suppressed results and **0 active findings** after removing an unused fixture variable; the 55-check TV smoke was rerun successfully. Wrapper blocks for host gitleaks/Trivy availability and browser opt-in do not replace the actual Docker-backed scan outcomes above, including the failed history secret gate. Policies used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, and `docs/wiki/10-CI-CD-and-Registry-Deploy.md`. Saved local scan/SBOM evidence is indexed at `artifacts/tv-release/README.md`.
+
+## Deployment-neutral follow-up — October 16, 2026
+
+User-directed scope correction within 3.25.0: remove the Core-only restriction without adding an edition distinction to the native UI. Both homelab and platform mode pass the expanded **63-check** TV authorization/isolation smoke. Explicit library selection still requires current workspace/library membership, including for administrators; archived workspaces are now excluded from both enumeration and reads. Native tests pass **18/18** (including bare-localhost pairing); the unsigned Release archive succeeds. Backend unit checks pass **362/362**, OpenAPI and ownership certification pass, and the standard local release gate passes. The canonical platform stack on port 3201 was rebuilt in place and advertises TV capability support. No public deployment or push was performed.
+
+This follow-up changes no schema or dependency manifests. Prior migration/init, full browser/RBAC/runtime, image/SBOM, and observability evidence above remains the earlier full-release baseline; those complete release gates were not rerun for this targeted follow-up. The dual-mode TV smoke exercises the changed authorization paths directly. Existing history-secret and external signing/hardware blockers remain; this is not release publication approval. Policies/checklists: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`.

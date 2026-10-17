@@ -10,7 +10,9 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 **Status:** Implementation saved locally; Docker recovery and extended verification completed or recorded below. Historical secret-scan findings and external signing/hardware gates keep release readiness blocked.
 
-**Scope:** Core-only native tvOS 18+ client in the sibling collectZ-tvos repository; CollectZ brand fidelity, browser device approval, scoped read-only mobile sessions, request-local library selection, safe artwork, all collectible categories, and TestFlight preparation.
+**Scope:** Native tvOS 18+ client for both deployment modes (including Cairn-backed installations) in the sibling collectZ-tvos repository; CollectZ brand fidelity, browser device approval, scoped read-only mobile sessions, request-local library selection, safe artwork, all collectible categories, and TestFlight preparation.
+
+**Deployment-neutral correction:** Cairn/platform deployments are now supported with identical native presentation. Expanded TV isolation checks pass 63/63 in each deployment mode; native simulator tests pass 18/18, including scheme-less localhost connection. See `61-Apple-TV-Client.md` for the scoped verification and remaining release gates.
 
 **Acceptance:** Device authorization abuse/concurrency tests; scanner regression; per-request membership and collection-member isolation; native build/unit/UI tests; branded screenshot review; migration/init parity; OpenAPI; release local gate and named hosted security/runtime gates. No playback, mutation, direct source clients, uploads, or publication.
 

@@ -5,11 +5,13 @@
       "version": "3.25.0",
       "date": "2026-10-16",
       "status": null,
-      "summary": "Adds a native Apple TV companion for CollectZ Core with browser-approved sign-in, read-only collection browsing, and the existing CollectZ visual identity. The SwiftUI client is maintained in the sibling `collectZ-tvos` repository.",
+      "summary": "Adds a native Apple TV companion for CollectZ with browser-approved sign-in, read-only collection browsing, and the existing CollectZ visual identity. The SwiftUI client is maintained in the sibling `collectZ-tvos` repository.",
       "details": [
         {
           "heading": "Highlights",
           "bullets": [
+            "TV pairing and browsing work in both deployment modes, including installations with Cairn. Every read still requires current library/workspace membership; archived workspaces are excluded.",
+            "Native screens use only the CollectZ name. Debug simulator builds recognize bare localhost and private IPv4 LAN addresses as HTTP; public connections and Release builds still require HTTPS.",
             "Browser `/activate` approval uses short-lived device codes, existing cookie authentication, and CSRF protection. Device credentials/codes are hashed; polling is limited and redemption is atomic.",
             "Dedicated TV permissions reuse mobile access/refresh sessions. Existing scanner permissions are unchanged. TV sessions cannot edit data, trigger imports, or use capture APIs.",
             "Explicit library selection checks current membership on every read, including administrator accounts, without changing the web application's active library.",

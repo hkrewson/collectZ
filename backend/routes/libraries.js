@@ -89,6 +89,7 @@ router.get('/libraries', asyncHandler(async (req, res) => {
   if (req.authContext?.scopes?.includes('tv:read')) {
     const result = await pool.query(
       `SELECT l.id, l.name, l.description FROM libraries l
+       JOIN spaces tv_space ON tv_space.id = l.space_id AND tv_space.archived_at IS NULL
        JOIN library_memberships lm ON lm.library_id = l.id AND lm.user_id = $1
        JOIN space_memberships sm ON sm.space_id = l.space_id AND sm.user_id = lm.user_id
        WHERE l.archived_at IS NULL AND sm.suspended_at IS NULL ORDER BY l.name, l.id`, [req.user.id]);

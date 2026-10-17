@@ -13,10 +13,8 @@ const limit = (max) => rateLimit({ windowMs: 60 * 1000, limit: max, standardHead
 const normalizeCode = value => String(value || '').toUpperCase().replace(/[- ]/g, '');
 router.use((_req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
 router.get('/tv/capabilities', (_req, res) => res.json({ capabilityVersion: 1,
-  supported: isHomelabEdition(getProductEdition()), edition: isHomelabEdition(getProductEdition()) ? 'core' : 'platform',
+  supported: true, edition: isHomelabEdition(getProductEdition()) ? 'core' : 'platform',
   deviceAuthorization: true, readOnly: true }));
-router.use('/auth/device', (_req, res, next) => isHomelabEdition(getProductEdition())
-  ? next() : res.status(403).json({ error: 'unsupported_edition' }));
 router.post('/auth/device/start', limit(6), asyncHandler(async (req, res) => {
   const deviceName = String(req.body?.device_name || 'Apple TV').trim().slice(0, 80) || 'Apple TV';
   const deviceCode = crypto.randomBytes(32).toString('base64url');

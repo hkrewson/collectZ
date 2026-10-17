@@ -4321,7 +4321,7 @@
   "paths": {
   "/api/mobile/tv/capabilities": {
     "get": {
-      "summary": "Discover native TV capability version and edition",
+      "summary": "Discover native TV capabilities (supported in both deployment modes)",
       "tags": [
         "Mobile"
       ],
@@ -4358,7 +4358,7 @@
           "description": "Invalid, expired, denied, pending, consumed, or polling too quickly"
         },
         "403": {
-          "description": "Core edition or valid browser session/CSRF required"
+          "description": "Valid authorization and browser session/CSRF required"
         },
         "429": {
           "description": "Rate limited"
@@ -4405,7 +4405,7 @@
           "description": "Invalid, expired, denied, pending, consumed, or polling too quickly"
         },
         "403": {
-          "description": "Core edition or valid browser session/CSRF required"
+          "description": "Valid authorization and browser session/CSRF required"
         },
         "429": {
           "description": "Rate limited"
@@ -4461,7 +4461,7 @@
           "description": "Invalid, expired, denied, pending, consumed, or polling too quickly"
         },
         "403": {
-          "description": "Core edition or valid browser session/CSRF required"
+          "description": "Valid authorization and browser session/CSRF required"
         },
         "429": {
           "description": "Rate limited"
@@ -4541,7 +4541,7 @@
           "description": "Invalid, expired, denied, pending, consumed, or polling too quickly"
         },
         "403": {
-          "description": "Core edition or valid browser session/CSRF required"
+          "description": "Valid authorization and browser session/CSRF required"
         },
         "429": {
           "description": "Rate limited"

@@ -50,7 +50,15 @@ async function main() {
   assert.deepEqual(attempts.map(r=>r.status).sort(),[200,400]); checks++;
   const pair=await attempts.find(r=>r.status===200).json(); const token=pair.accessToken;
   assert.deepEqual(pair.scope,TV_AUTH_SCOPES); checks++;
+  const webScopeBefore=(await pool.query('SELECT active_space_id,active_library_id FROM users WHERE id=$1',[user.id])).rows[0];
   await request('/api/libraries',{token});
+  const siblingSpace=(await pool.query("INSERT INTO spaces(name,created_by) VALUES('Sibling TV workspace',$1) RETURNING id",[other.id])).rows[0];
+  const siblingLibrary=(await pool.query("INSERT INTO libraries(name,space_id,created_by) VALUES('Sibling TV library',$1,$2) RETURNING id",[siblingSpace.id,other.id])).rows[0];
+  await request(`/api/media?library_id=${siblingLibrary.id}`,{token,status:403});
+  await request(`/api/media?library_id=${scope.libraryId}&space_id=${siblingSpace.id}`,{token,status:403});
+  const visibleLibraries=await request('/api/libraries',{token});
+  assert(!visibleLibraries.data.libraries.some(l=>l.id===siblingLibrary.id)); checks++;
+
   const page=await request(`/api/media?library_id=${scope.libraryId}`,{token}); assert(page.data.items.some(item=>item.id===media.id)); assert(!page.data.items.some(item=>item.id===hidden.id));
   await request('/api/media',{token,status:403});
   await request(`/api/media?library_id=${foreign.id}`,{token,status:403});
@@ -86,7 +94,13 @@ async function main() {
     const result=await request('/api/mobile/auth/device/token',{body:{device_code:code.device_code},status:400});
     assert.equal(result.data.error,decision==='deny'?'access_denied':'expired_token');
   }
+  const webScopeAfter=(await pool.query('SELECT active_space_id,active_library_id FROM users WHERE id=$1',[user.id])).rows[0];
+  assert.deepEqual(webScopeAfter,webScopeBefore); checks++;
   const readPair=await createMobileAuthSession({userId:user.id,scopes:TV_AUTH_SCOPES});
+  await pool.query('UPDATE spaces SET archived_at=NOW() WHERE id=$1',[scope.spaceId]);
+  await request(`/api/media?library_id=${scope.libraryId}`,{token:readPair.accessToken,status:403});
+  const archivedList=await request('/api/libraries',{token:readPair.accessToken}); assert.equal(archivedList.data.libraries.length,0); checks++;
+  await pool.query('UPDATE spaces SET archived_at=NULL WHERE id=$1',[scope.spaceId]);
   await pool.query('UPDATE space_memberships SET suspended_at=NOW() WHERE space_id=$1 AND user_id=$2',[scope.spaceId,user.id]);
   await request(`/api/media?library_id=${scope.libraryId}`,{token:readPair.accessToken,status:403});
   const list=await request('/api/libraries',{token:readPair.accessToken}); assert.equal(list.data.libraries.length,0); checks++;
