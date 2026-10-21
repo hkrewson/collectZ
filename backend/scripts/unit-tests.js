@@ -3480,6 +3480,13 @@ results.push(run('active runtime and CI configuration use the patched Node 24.22
   });
 }));
 
+results.push(run('development tooling stays on fixed packages and Node built-in watch mode', () => {
+  assert.strictEqual(backendPackageJson.scripts?.dev, 'node --watch server.js');
+  assert.ok(!backendPackageJson.devDependencies?.nodemon);
+  assert.strictEqual(frontendPackageJson.devDependencies?.vite, '^8.3.5');
+  assert.strictEqual(frontendPackageJson.overrides?.['source-map-js'], '1.2.2');
+}));
+
 results.push(run('release docs do not preserve fixed local Playwright bypass token values', () => {
   const fixedBypassTokenPattern = /PLAYWRIGHT_E2E_BYPASS_TOKEN=collectz-playwright\b/;
   assert.ok(!fixedBypassTokenPattern.test(releaseRoadmapSource));
@@ -6632,7 +6639,7 @@ results.push(run('frontend package and vite scaffold support the Vite-first buil
   assert.strictEqual(frontendPackageJson.scripts['build:cra'], undefined);
   assert.strictEqual(frontendPackageJson.scripts.test, undefined);
   assert.strictEqual(frontendPackageJson.scripts.eject, undefined);
-  assert.deepStrictEqual(Object.keys(frontendPackageJson.overrides || {}), ['follow-redirects', 'nanoid']);
+  assert.deepStrictEqual(Object.keys(frontendPackageJson.overrides || {}), ['follow-redirects', 'nanoid', 'source-map-js']);
   assert.strictEqual(frontendPackageJson.overrides.nanoid, '3.3.18');
   [
     '@eslint/eslintrc',

@@ -6,6 +6,43 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.25.2 — Build Tool Dependency Security Fixes
+
+**Goal:** Clear the newly reported build-tool advisories across the complete backend and frontend dependency trees while keeping development runtime behavior on the supported Node 24 baseline.
+
+### Scope
+
+- Upgrade frontend Vite to `8.3.5` and pin transitive `source-map-js` to `1.2.2`, beyond the fixed versions for the affected Vite/launch-editor and source-map-js advisories.
+- Replace backend Nodemon with Node's built-in `--watch` mode to remove the vulnerable watcher dependency chain from the backend development install.
+- Align app/package versions, release documentation, and Help > Releases at `3.25.2`; verify clean installs, full dependency audits, builds, and the canonical Docker stack.
+
+### Acceptance Criteria
+
+- Full `npm audit` reports zero vulnerabilities for backend and frontend, including development dependencies.
+- Backend unit tests and frontend production build pass; the canonical stack runs Node `v24.22.1` and reports version `3.25.2`.
+- Help > Releases serves `3.25.2` as its newest entry. No API or data migration is introduced.
+
+### Status
+
+Implementation and local verification complete; hosted release gates pending.
+
+### Closeout
+
+- **Roadmap slice:** `3.25.2 — Build Tool Dependency Security Fixes`.
+- **Project docs/checklists:** `AGENTS.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/49-Dependency-PR-and-CI-Security-Coverage.md`; `docs/releases/v3.25.2.md`.
+- **Runtime verification:** Rebuilt the canonical `collectz-private` stack in place. The backend reported Node `v24.22.1`; `/api/health` reported app, frontend, backend, and build as `3.25.2`; Help > Releases served `3.25.2` as newest. Observability evidence passed 9/9 checks. Isolated control-plane runtime smoke passed; the full local release gate also exercises core runtime smoke.
+- **Checks run:** Clean backend/frontend installs passed. Full `npm audit` passed with zero vulnerabilities in both dependency trees. Backend unit tests passed (363); frontend production build passed using Vite `8.3.5`; OpenAPI validation, version sync, release feed, local preflight, and diff hygiene passed. `release:local-gate:full -- --fail-on-blocked` reported 14 passed, 0 failed, 3 blocked: CodeQL had 0 active results and core runtime passed; Gitleaks is unavailable, browser regression lacks `PLAYWRIGHT_E2E_BYPASS_TOKEN`, and the local profile defers image/SBOM scanning because Trivy is unavailable. The canonical development stack cannot prove CI secure-cookie `compose-smoke` settings. The isolated control-plane runtime smoke also passed. Hosted CI must confirm `compose-smoke`, `rbac-regression`, `browser-regression`, `runtime-smoke`, `dependency-scan`, `secret-scan`, and `image-security-and-sbom` for this version.
+- **Files changed:** Backend development command and dependency lock, frontend Vite/source-map versions and lock, source-contract tests, app/package versions, release note/feed, CI runtime documentation, and this roadmap entry.
+- **Risks/follow-ups:** The Vite build emits an existing source-map warning from the Tailwind Vite plugin and a chunk-size advisory; the build succeeds. The sibling Cairn repository owns a separate Node runtime and remains an independent review item.
+- **Remaining in milestone:** Hosted CI release gates and their artifacts must pass before release publication.
+
+### Release references
+
+- Advisories: `GHSA-68fv-2mgg-jv7q` (`source-map-js`), `GHSA-698v-4r3x-3vcv`, `GHSA-r825-w8mm-5pxw`, and `GHSA-587h-7wmj-h5pm` (Vite/launch-editor), plus backend watcher-chain findings in `brace-expansion` and `braces`.
+- Matching release note: `docs/releases/v3.25.2.md`.
+
+---
+
 ## 3.25.1 — Node.js October 2026 Security Release
 
 **Goal:** Replace the affected Node 24.21.0 runtime in CollectZ's canonical backend and align every maintained build, CI, and operational Node environment with the security-fixed Node `24.22.1` maintenance-LTS release.
@@ -27,17 +64,17 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ### Status
 
-Implementation and local verification complete; hosted release gates pending.
+Hosted release gates passed and the `v3.25.1` tag was created from `main`.
 
 ### Closeout
 
 - **Roadmap slice:** `3.25.1 — Node.js October 2026 Security Release`.
 - **Project docs/checklists:** `AGENTS.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/49-Dependency-PR-and-CI-Security-Coverage.md`; `docs/releases/v3.25.1.md`.
 - **Runtime verification:** Rebuilt the canonical `collectz-private` stack in place. The backend container reported Node `v24.22.1`, app version `3.25.1`, and `follow-redirects` `1.16.1`; backend/frontend were healthy; `/api/health` and Help > Releases served `3.25.1`. Observability evidence passed 9/9 checks. Isolated core and control-plane runtime smoke checks passed.
-- **Checks run:** `npm run release:local-gate` passed all 12 checks, including unit, OpenAPI, frontend build, production dependency audits, release preflight, and diff hygiene. The full local gate passed CodeQL with zero active results and core runtime smoke; Gitleaks was unavailable, browser regression lacked the temporary bypass token, and local image/SBOM scanning is deferred by the local gate. The local preflight marks secure-cookie Compose smoke blocked because the canonical development stack uses development cookie settings. Hosted CI must confirm `compose-smoke`, `rbac-regression`, `browser-regression`, `runtime-smoke`, `dependency-scan`, `secret-scan`, and `image-security-and-sbom`.
+- **Checks run:** `npm run release:local-gate` passed all 12 checks, including unit, OpenAPI, frontend build, production dependency audits, release preflight, and diff hygiene. The full local gate passed CodeQL with zero active results and core runtime smoke; Gitleaks was unavailable, browser regression lacked the temporary bypass token, and local image/SBOM scanning is deferred by the local gate. The canonical dev-stack preflight could not prove CI secure-cookie settings. Hosted run [39645665952](https://github.com/hkrewson/collectZ/actions/runs/39645665952) passed dependency scan, secret scan, migration check, compose smoke, RBAC regression, browser regression, core runtime, image security/SBOM, release preflight, and auto-tag; CodeQL run [39645665951](https://github.com/hkrewson/collectZ/actions/runs/39645665951) passed.
 - **Files changed:** Node baseline and dependency pins, package metadata/locks, unit source contract, release feed, release note, CI/runtime documentation, and this roadmap entry.
 - **Risks/follow-ups:** Do not deploy the old running container; rebuild and recreate it. The sibling Cairn repository owns a separate Node runtime and needs independent review. Direct-host Node users must update their Node 24 patch level.
-- **Remaining in milestone:** Hosted CI release gates and their artifacts must pass before release publication.
+- **Remaining in milestone:** No remaining CollectZ release gates. Review the sibling Cairn runtime separately.
 
 ### Release references
 

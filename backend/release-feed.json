@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.25.2",
+      "version": "3.25.2",
+      "date": "2026-10-21",
+      "status": null,
+      "summary": "Remediates reported vulnerabilities in CollectZ's development and build tooling. Vite and its source-map dependency are upgraded to fixed releases, and the backend development command now uses Node's built-in watch mode instead of Nodemon and its affected watcher tree.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Upgrade frontend Vite from affected `8.0.16` to `8.3.5` and lock `source-map-js` to `1.2.2`, addressing the reported Vite/launch-editor and source-map-js advisories.",
+            "Replace `nodemon server.js` with `node --watch server.js` and remove Nodemon from backend development dependencies. This removes the backend watcher chain that included vulnerable `braces` and `brace-expansion` packages.",
+            "Keep backend and frontend production dependencies on the previously patched `follow-redirects@1.16.1`.",
+            "Synchronize app metadata and Help > Releases to `3.25.2`."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.25.1",
       "version": "3.25.1",
       "date": "2026-10-21",
@@ -187,29 +205,6 @@
             "Added CI execution and release artifact collection for identity certification alongside init parity and generic migration rehearsal.",
             "Replaced static migration-rehearsal identity credentials and the migration-check PostgreSQL password with runtime-derived values.",
             "Updated migration/release checklists and local preflight artifact readback for the new certification evidence."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.24.7",
-      "version": "3.24.7",
-      "date": "2026-08-24",
-      "status": "complete locally; hosted CI promotion gates pending after push",
-      "summary": "This release makes the workspace integration row authoritative for PriceCharting, eBay Browse, capture-image OCR, and provider-backed comic repair execution. Missing workspace settings now fail closed instead of borrowing credentials from the installation row, environment, another workspace, or an unrelated Kavita configuration.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Valuation refreshes now load PriceCharting and eBay settings from the workspace that owns the imported or directly refreshed media row.",
-            "The valuation import path no longer gates execution on Kavita or falls back to installation integration row `id=1`.",
-            "Capture-image OCR now loads the exact workspace row that owns the capture, requires explicit workspace OCR enablement, and disables environment and installation credential fallback.",
-            "Workspace managers can configure, mask, replace, and clear Vision/OCR, PriceCharting, and eBay credentials from the workspace Integrations screen.",
-            "Workspace integration readback identifies workspace-owned credentials separately from built-in non-secret endpoint, preset, rate-limit, header, and marketplace defaults.",
-            "Provider-backed comic repair utilities now require `--space-id`, use workspace-only Metron/comics configuration, and restrict selected and updated media rows to that workspace.",
-            "Added migration `120` and fresh-install parity for explicit workspace OCR enablement.",
-            "Added unit, OpenAPI, browser, cross-workspace provider ownership, and OCR fail-closed smoke coverage.",
-            "Associated all integration field labels with their controls so workspace credentials and existing Plex/provider settings expose stable accessible names."
           ]
         }
       ]

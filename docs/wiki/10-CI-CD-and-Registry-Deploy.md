@@ -52,6 +52,8 @@ Supported Node baseline:
 - The frontend uses Node 24.22.1 only for dependency installation and the Vite build; the shipped frontend runtime remains static assets served by Nginx.
 - Backend `package.json` declares `>=24.22.1 <25` so unsupported local installs fail visibly instead of silently drifting from CI and production.
 - Node runtime advisories are separate from npm package audits. Keep the Node base image and CI runtime on a fixed upstream security release even when `npm audit` reports no package vulnerabilities.
+- Backend development uses Node's built-in `--watch` mode so a separate file watcher package is not needed in the backend dependency tree.
+- Release `dependency-scan` audits production dependencies with `--omit=dev`; it does not cover development/build tools such as Vite or source-map consumers. When a tooling advisory is reported, run full `npm audit` in both application directories and review Dependabot's lockfile path in addition to the release gate.
 
 Migration safety in CI:
 

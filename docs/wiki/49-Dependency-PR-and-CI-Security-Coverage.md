@@ -14,7 +14,7 @@ The queue contains 22 automated update PRs and has exceeded the configured per-e
 
 | Gate | Location | Proves | Blocking posture |
 |---|---|---|---|
-| Dependency vulnerability scan | `.github/workflows/docker-publish.yml` `dependency-scan` | Backend/frontend production dependency audit runs from committed lockfiles under Node 24.22.1. Critical vulnerabilities block. High findings require release-note triage. Node runtime and bundled-library advisories are handled by updating the image/CI Node baseline and image scan. | Blocking for publish workflow. |
+| Dependency vulnerability scan | `.github/workflows/docker-publish.yml` `dependency-scan` | Backend/frontend production dependency audit (`npm audit --omit=dev`) runs from committed lockfiles under Node 24.22.1. Critical vulnerabilities block. High findings require release-note triage. This gate does not cover development/build tools; use a full `npm audit` in both apps when those advisories are reported. Node runtime and bundled-library advisories are handled by updating the image/CI Node baseline and image scan. | Blocking for publish workflow. |
 | Dependency watch | `.github/workflows/dependency-watch.yml` | Weekly, manual, and dependency-PR clean installs cover root tooling plus backend/frontend under Node 24.22.1. Audit/outdated summaries and partial artifacts survive an ecosystem install failure, making lockfile drift actionable. | Advisory monitor; dependency-changing PRs must pass their clean installs. |
 | Dependabot | `.github/dependabot.yml` | Weekly npm and GitHub Actions update PRs. | Advisory until PR selected. |
 | Snyk PR checks | GitHub/Snyk integration | External dependency/security signal on Dependabot PRs. | Advisory unless configured as required in GitHub branch protection. |
