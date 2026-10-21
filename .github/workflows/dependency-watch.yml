@@ -27,7 +27,7 @@ jobs:
       - name: Setup backend Node
         uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version: 24.22.1
 
       - name: Generate root tooling dependency report
         run: |
@@ -50,7 +50,7 @@ jobs:
       - name: Setup frontend Node
         uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version: 24.22.1
 
       - name: Generate frontend dependency report
         if: always()

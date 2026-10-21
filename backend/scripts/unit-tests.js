@@ -3457,11 +3457,16 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
   assert.ok(!frontendDockerfileSource.includes('@playwright/test'));
 }));
 
-results.push(run('active runtime and CI configuration use the Node 24 baseline', () => {
-  assert.strictEqual(backendPackageJson.engines?.node, '>=24.0.0 <25');
-  assert.ok(backendDockerfileSource.startsWith('FROM node:24-alpine'));
-  assert.ok(sizingDockerfileSource.startsWith('FROM node:24-alpine'));
-  assert.ok(syslogComposeSource.includes('image: node:24-alpine'));
+results.push(run('active runtime and CI configuration use the patched Node 24.22.1 baseline', () => {
+  assert.strictEqual(backendPackageJson.engines?.node, '>=24.22.1 <25');
+  assert.strictEqual(fs.readFileSync(path.resolve(__dirname, '../../.nvmrc'), 'utf8').trim(), '24.22.1');
+  assert.ok(backendDockerfileSource.startsWith('FROM node:24.22.1-alpine'));
+  assert.ok(sizingDockerfileSource.startsWith('FROM node:24.22.1-alpine'));
+  assert.ok(syslogComposeSource.includes('image: node:24.22.1-alpine'));
+  assert.ok(dockerPublishWorkflowSource.includes('node-version: 24.22.1'));
+  assert.ok(dependencyWatchWorkflowSource.includes('node-version: 24.22.1'));
+  assert.ok(browserCapturesWorkflowSource.includes('node-version: 24.22.1'));
+  assert.ok(localReleaseGateSource.includes("'node:24.22.1-alpine'"));
   [
     backendDockerfileSource,
     sizingDockerfileSource,
@@ -6655,7 +6660,7 @@ results.push(run('frontend package and vite scaffold support the Vite-first buil
   assert.ok(frontendViteConfigSource.includes("outDir: 'dist'"));
   assert.ok(frontendViteIndexHtmlSource.includes('src="/src/main.jsx"'));
   assert.ok(frontendViteIndexHtmlSource.includes('<div id="root"></div>'));
-  assert.ok(frontendDockerfileSource.includes('FROM node:24-alpine AS builder'));
+  assert.ok(frontendDockerfileSource.includes('FROM node:24.22.1-alpine AS builder'));
   assert.ok(!frontendDockerfileSource.includes('FROM node:20-alpine AS builder'));
   assert.ok(frontendDockerfileSource.includes('ARG VITE_API_URL=/api'));
   assert.ok(!frontendDockerfileSource.includes('ARG VITE_PLATFORM_API_URL='));

@@ -1,10 +1,10 @@
 {
   "name": "collectz-backend",
-  "version": "3.25.0",
+  "version": "3.25.1",
   "description": "collectZ Backend API",
   "main": "server.js",
   "engines": {
-    "node": ">=24.0.0 <25"
+    "node": ">=24.22.1 <25"
   },
   "scripts": {
     "start": "node server.js",
@@ -158,7 +158,7 @@
     "nodemon": "^3.0.2"
   },
   "overrides": {
-    "follow-redirects": "1.16.0",
+    "follow-redirects": "1.16.1",
     "ip-address": "10.7.2",
     "qs": "6.16.0",
     "nodemon": {

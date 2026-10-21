@@ -216,7 +216,7 @@ function runDockerDependencyAudit(id, name, relativeDir, localResult) {
     });
   }
 
-  const image = process.env.LOCAL_GATE_AUDIT_IMAGE || 'node:24-alpine';
+  const image = process.env.LOCAL_GATE_AUDIT_IMAGE || 'node:24.22.1-alpine';
   const projectDir = path.join(repoRoot, relativeDir);
   const dockerResult = runCommand('docker', [
     'run',

@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.25.1",
+      "version": "3.25.1",
+      "date": "2026-10-21",
+      "status": null,
+      "summary": "Moves CollectZ's Node 24 runtime, build, CI, and operational helper environments to Node `24.22.1`, the security-fixed Node 24 maintenance-LTS release. The previous canonical backend container was running Node `24.21.0`, which predates the October 21 security release.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Pin backend and frontend build images, syslog and sizing helper images, and the local dependency-audit image to `node:24.22.1-alpine`.",
+            "Pin active Node-based GitHub Actions workflows to Node `24.22.1` and add `.nvmrc` for maintainers.",
+            "Raise the declared minimum backend engine to `>=24.22.1 <25` and add source-contract coverage for all maintained runtime and CI selectors.",
+            "Update the backend and frontend `follow-redirects` override from `1.16.0` to `1.16.1` to resolve two newly reported high-severity advisories found during release preflight.",
+            "Document that `npm audit` covers package dependencies, not the Node runtime and its bundled OpenSSL, c-ares, CA certificates, and Undici components."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.25.0",
       "version": "3.25.0",
       "date": "2026-10-16",
@@ -191,27 +210,6 @@
             "Added migration `120` and fresh-install parity for explicit workspace OCR enablement.",
             "Added unit, OpenAPI, browser, cross-workspace provider ownership, and OCR fail-closed smoke coverage.",
             "Associated all integration field labels with their controls so workspace credentials and existing Plex/provider settings expose stable accessible names."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.24.6",
-      "version": "3.24.6",
-      "date": "2026-08-08",
-      "status": "implementation and local verification complete; hosted release gates pending after push",
-      "summary": "This release keeps reset, invitation, and verification tokens out of query strings and makes their one-time state transitions safe under replay and concurrent requests. The browser consumes token fragments and scrubs the address bar immediately, while the backend commits token claims together with the required account, membership, session, and credential changes.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "New reset, invitation, and verification links carry raw tokens only in URL fragments and no longer include account email addresses.",
-            "The auth screen accepts fragment tokens, supports legacy query links during transition, and removes token-bearing URL state before rendering the form.",
-            "Reset and verification consume payloads no longer require an email address because the hashed token identifies the account server-side.",
-            "Password reset now conditionally claims the token, updates the password, revokes prior sessions, and creates one replacement session in a single database transaction.",
-            "Invited registration now conditionally claims the invite and commits the new user, workspace/library memberships, default scope, and session in a single database transaction.",
-            "Password-reset and email-verification endpoints now receive the focused authentication rate limiter.",
-            "Added focused unit, browser, OpenAPI, and live Postgres abuse coverage for replay, concurrency, CSRF, session revocation, enumeration resistance, invalid token states, and audit token leakage."
           ]
         }
       ]

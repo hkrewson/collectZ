@@ -48,9 +48,10 @@ Result: nav/version + `/api/health` build fields come from image build, not oper
 
 Supported Node baseline:
 
-- The backend production image and active Node-based CI/tooling paths use Node 24 LTS.
-- The frontend uses Node 24 only for dependency installation and the Vite build; the shipped frontend runtime remains static assets served by Nginx.
-- Backend `package.json` declares the supported Node engine so unsupported local installs fail visibly instead of silently drifting from CI and production.
+- The supported Node 24 maintenance-LTS baseline is `24.22.1` or a later Node 24 security patch. Production images use the exact patch tag `node:24.22.1-alpine`; update the Dockerfiles, operational helper images, CI selectors, `.nvmrc`, and engine range together when the baseline advances.
+- The frontend uses Node 24.22.1 only for dependency installation and the Vite build; the shipped frontend runtime remains static assets served by Nginx.
+- Backend `package.json` declares `>=24.22.1 <25` so unsupported local installs fail visibly instead of silently drifting from CI and production.
+- Node runtime advisories are separate from npm package audits. Keep the Node base image and CI runtime on a fixed upstream security release even when `npm audit` reports no package vulnerabilities.
 
 Migration safety in CI:
 
@@ -77,8 +78,8 @@ Security and release gates in CI:
 - Local CI/CD release gate (`npm run release:local-gate`) for pre-push maintainer validation before public CI runs.
 - CodeQL code scanning for JavaScript/TypeScript source analysis.
 - Secret leak scan (gitleaks) against repository history and current tree.
-- Dependency vulnerability scan (`npm audit`) on backend/frontend dependencies under Node 24 so each committed lockfile is validated against the supported runtime baseline.
-- Dependency Watch runs weekly, on demand, and for pull requests that change root/backend/frontend dependency manifests, lockfiles, or the workflow itself. It clean-installs root tooling plus both applications under Node 24, reports root tooling and production dependency audit counts, and uploads partial summaries/artifacts even when one ecosystem's clean install fails.
+- Dependency vulnerability scan (`npm audit`) on backend/frontend dependencies under Node 24.22.1 so each committed lockfile is validated against the supported runtime baseline; this does not scan Node's bundled OpenSSL, c-ares, certificate store, or Undici components.
+- Dependency Watch runs weekly, on demand, and for pull requests that change root/backend/frontend dependency manifests, lockfiles, or the workflow itself. It clean-installs root tooling plus both applications under Node 24.22.1, reports root tooling and production dependency audit counts, and uploads partial summaries/artifacts even when one ecosystem's clean install fails.
 - RBAC regression gate (API-level ownership/role/scope allow-deny checks), including the live Postgres auth-token abuse smoke for reset/invitation/verification replay, concurrency, CSRF non-mutation, session revocation, invalid token states, enumeration resistance, audit allowlist/value-leakage checks, focused reset rate limiting, and the dedicated invitation mutation limiter.
 - Playwright browser-regression gate against the live compose stack for key auth/admin shell flows.
 - Runtime smoke gate with a `Core runtime` step that verifies shared surfaces still work while control-plane-only APIs stay unmounted.

@@ -14,8 +14,8 @@ The queue contains 22 automated update PRs and has exceeded the configured per-e
 
 | Gate | Location | Proves | Blocking posture |
 |---|---|---|---|
-| Dependency vulnerability scan | `.github/workflows/docker-publish.yml` `dependency-scan` | Backend/frontend production dependency audit runs from committed lockfiles under Node 24. Critical vulnerabilities block. High findings require release-note triage. | Blocking for publish workflow. |
-| Dependency watch | `.github/workflows/dependency-watch.yml` | Weekly, manual, and dependency-PR clean installs cover root tooling plus backend/frontend under Node 24. Audit/outdated summaries and partial artifacts survive an ecosystem install failure, making lockfile drift actionable. | Advisory monitor; dependency-changing PRs must pass their clean installs. |
+| Dependency vulnerability scan | `.github/workflows/docker-publish.yml` `dependency-scan` | Backend/frontend production dependency audit runs from committed lockfiles under Node 24.22.1. Critical vulnerabilities block. High findings require release-note triage. Node runtime and bundled-library advisories are handled by updating the image/CI Node baseline and image scan. | Blocking for publish workflow. |
+| Dependency watch | `.github/workflows/dependency-watch.yml` | Weekly, manual, and dependency-PR clean installs cover root tooling plus backend/frontend under Node 24.22.1. Audit/outdated summaries and partial artifacts survive an ecosystem install failure, making lockfile drift actionable. | Advisory monitor; dependency-changing PRs must pass their clean installs. |
 | Dependabot | `.github/dependabot.yml` | Weekly npm and GitHub Actions update PRs. | Advisory until PR selected. |
 | Snyk PR checks | GitHub/Snyk integration | External dependency/security signal on Dependabot PRs. | Advisory unless configured as required in GitHub branch protection. |
 | GitGuardian | GitHub/GitGuardian integration | External secret scanning signal on PRs. | Advisory unless configured as required in GitHub branch protection. |
@@ -81,7 +81,7 @@ Local exploratory scans may intentionally include uncommitted/generated files or
 - Do not blindly merge PRs that cross major versions, peer dependency boundaries, framework runtimes, router/parser behavior, auth/session behavior, migration tooling, or image/build tooling.
 - Document high vulnerabilities in the matching release note with owner and target milestone.
 - Keep `@zxing/library@0.23.0` deferred until the browser peer boundary is resolved or explicitly overridden with runtime proof.
-- Treat frontend build-runtime changes separately from ZXing package-version changes; the supported `0.22.0` decoder pair now expects the frontend Docker builder to run on Node 24.
+- Treat frontend build-runtime changes separately from ZXing package-version changes; the supported `0.22.0` decoder pair expects the frontend Docker builder to run on the current patched Node 24 baseline (`24.22.1` or later security patch).
 - Treat the clean GitHub Actions CodeQL baseline as authoritative for product security triage. Local generated-artifact findings are advisory context only unless they trace to committed maintained source.
 
 ## Follow-Up Options

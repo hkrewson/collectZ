@@ -6,6 +6,47 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.25.1 — Node.js October 2026 Security Release
+
+**Goal:** Replace the affected Node 24.21.0 runtime in CollectZ's canonical backend and align every maintained build, CI, and operational Node environment with the security-fixed Node `24.22.1` maintenance-LTS release.
+
+### Scope
+
+- Pin backend and frontend build images, syslog/sizing helper images, and local release-audit images to `node:24.22.1-alpine`.
+- Pin active Node-based CI setup to `24.22.1`, record `.nvmrc`, and raise the backend minimum engine to `>=24.22.1 <25`.
+- Update runtime/security docs and Help > Releases, and verify the canonical Docker stack after recreating its backend container.
+- Keep the Cairn repository's independently owned control-plane runtime out of this slice; report that separate follow-up explicitly.
+- Resolve the two high-severity `follow-redirects` advisories found during release preflight by pinning the patched `1.16.1` dependency in both applications.
+
+### Acceptance Criteria
+
+- All maintained runtime/build/CI Node selectors use the fixed Node `24.22.1` baseline; no active CollectZ path is left on an older Node 24 patch.
+- The backend unit contract, clean installs, application builds, release preflight, and named hosted release gates pass.
+- The recreated canonical backend reports `v24.22.1`, the application health endpoint reports version `3.25.1`, and Help > Releases serves `3.25.1`.
+- No DB migration or collection-data change is introduced.
+
+### Status
+
+Implementation and local verification complete; hosted release gates pending.
+
+### Closeout
+
+- **Roadmap slice:** `3.25.1 — Node.js October 2026 Security Release`.
+- **Project docs/checklists:** `AGENTS.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/49-Dependency-PR-and-CI-Security-Coverage.md`; `docs/releases/v3.25.1.md`.
+- **Runtime verification:** Rebuilt the canonical `collectz-private` stack in place. The backend container reported Node `v24.22.1`, app version `3.25.1`, and `follow-redirects` `1.16.1`; backend/frontend were healthy; `/api/health` and Help > Releases served `3.25.1`. Observability evidence passed 9/9 checks. Isolated core and control-plane runtime smoke checks passed.
+- **Checks run:** `npm run release:local-gate` passed all 12 checks, including unit, OpenAPI, frontend build, production dependency audits, release preflight, and diff hygiene. The full local gate passed CodeQL with zero active results and core runtime smoke; Gitleaks was unavailable, browser regression lacked the temporary bypass token, and local image/SBOM scanning is deferred by the local gate. The local preflight marks secure-cookie Compose smoke blocked because the canonical development stack uses development cookie settings. Hosted CI must confirm `compose-smoke`, `rbac-regression`, `browser-regression`, `runtime-smoke`, `dependency-scan`, `secret-scan`, and `image-security-and-sbom`.
+- **Files changed:** Node baseline and dependency pins, package metadata/locks, unit source contract, release feed, release note, CI/runtime documentation, and this roadmap entry.
+- **Risks/follow-ups:** Do not deploy the old running container; rebuild and recreate it. The sibling Cairn repository owns a separate Node runtime and needs independent review. Direct-host Node users must update their Node 24 patch level.
+- **Remaining in milestone:** Hosted CI release gates and their artifacts must pass before release publication.
+
+### Release references
+
+- Advisory: [Node.js October 2026 security releases](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases).
+- Fixed Node 24 release: `v24.22.1`.
+- Matching release note: `docs/releases/v3.25.1.md`.
+
+---
+
 ## 3.25.0 — Apple TV Device Authorization and Read-Only Client
 
 **Status:** Implementation saved locally; Docker recovery and extended verification completed or recorded below. Historical secret-scan findings and external signing/hardware gates keep release readiness blocked.

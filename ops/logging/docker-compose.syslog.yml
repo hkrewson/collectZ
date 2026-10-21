@@ -1,6 +1,6 @@
 services:
   syslog-collector:
-    image: node:24-alpine
+    image: node:24.22.1-alpine
     restart: unless-stopped
     command: ["node", "/app/collector.js"]
     environment:
