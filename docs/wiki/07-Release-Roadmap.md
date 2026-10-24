@@ -6,6 +6,40 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.25.3 — October Dependency Security Updates
+
+**Goal:** Remediate currently reported backend and frontend package vulnerabilities with compatible patched releases and refresh the release evidence for the supported Node 24.22.1 runtime.
+
+### Scope
+
+- Resolve all findings from full backend and frontend `npm audit`, including production dependencies and build/test tooling.
+- Keep changes within current major-version compatibility boundaries; defer Express 5 migration and barcode library changes for focused compatibility work.
+- Synchronize version metadata, release notes, and Help > Releases to `3.25.3`.
+- Verify the canonical Docker stack and the release gates before declaring the security slice complete.
+
+### Acceptance Criteria
+
+- Full backend and frontend dependency audits report zero vulnerabilities.
+- Backend unit/OpenAPI checks, frontend build/tests, and the standard local release gate pass.
+- Canonical Docker stack reports version `3.25.3`; Help > Releases serves it as newest.
+- Hosted CI confirms release, migration, dependency, secret, regression, runtime, and image/SBOM gates.
+
+### Status
+
+Local implementation and verification complete; hosted release gates and Dependabot refresh are pending push. The full audit initially found six backend and two frontend vulnerability records; the updated lockfiles now audit clean. Six stale Dependabot PRs superseded by newer versions on `main` were closed, and three reviewed CodeQL false positives were dismissed with recorded justifications.
+
+### Closeout
+
+- **Roadmap slice:** `3.25.3 — October Dependency Security Updates`.
+- **Project docs/checklists:** `AGENTS.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backup-and-Restore.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/49-Dependency-PR-and-CI-Security-Coverage.md`; `docs/releases/v3.25.3.md`.
+- **Runtime verification:** Rebuilt the canonical `collectz-private` stack in place. `/api/health` reports app/frontend/backend/build `3.25.3`; the backend reports Node `v24.22.1` and patched `body-parser@2.4.0`, `multer@2.5.0`, `nodemailer@10.2.1`, `ip-address@10.7.4`, and `zod@4.6.7`. Help > Releases served `3.25.3` newest. Observability evidence passed 9/9 checks and its artifact passed credential-pattern review.
+- **Checks run:** Clean backend/frontend `npm ci` and full `npm audit` passed with zero findings. Backend unit tests passed (363), frontend unit tests passed (4), OpenAPI validation and frontend production build passed. `npm run release:local-gate` passed all 12 checks. The strict full profile reported 14 passed, 0 failed, 3 blocked: Gitleaks unavailable, browser regression missing `PLAYWRIGHT_E2E_BYPASS_TOKEN`, and Trivy unavailable for local image/SBOM. Preflight marks production secure-cookie `compose-smoke` conditions blocked because the canonical stack is a development profile. Hosted CI must confirm `compose-smoke`, `rbac-regression`, `browser-regression`, `runtime-smoke`, `dependency-scan`, `secret-scan`, `image-security-and-sbom`, and release preflight after push.
+- **Files changed:** backend/frontend package manifests and lockfiles, app version metadata, Help > Releases feed, 3.25.3 release note, dependency/CodeQL triage documentation, and this roadmap entry; 3.25.2 closeout notes were updated with their completed hosted CI results.
+- **Risks or follow-ups:** Nine GitHub Dependabot alerts still appear against the pushed 3.25.2 lockfiles; expect GitHub to refresh them after the fixed lockfiles are pushed, then verify each closes. The remaining 16 Dependabot PRs have August-era checks and need refreshed checks before merge. Wait on Express 4-to-5 and `@zxing/library` compatibility work; review GitHub Actions major upgrades separately.
+- **Remaining in milestone:** Commit this release locally, push only after explicit authorization, then verify hosted release gates, tag, and Dependabot alert refresh.
+
+---
+
 ## 3.25.2 — Build Tool Dependency Security Fixes
 
 **Goal:** Clear the newly reported build-tool advisories across the complete backend and frontend dependency trees while keeping development runtime behavior on the supported Node 24 baseline.
@@ -24,7 +58,7 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ### Status
 
-Implementation and local verification complete; hosted release gates pending.
+Complete. Hosted run `39647603870` passed all 13 jobs, including dependency and secret scans, migration check, compose smoke, RBAC, browser, runtime, image security/SBOM, and release preflight. CodeQL run `39647603735` passed, and tag `v3.25.2` exists on origin.
 
 ### Closeout
 
@@ -34,7 +68,7 @@ Implementation and local verification complete; hosted release gates pending.
 - **Checks run:** Clean backend/frontend installs passed. Full `npm audit` passed with zero vulnerabilities in both dependency trees. Backend unit tests passed (363); frontend production build passed using Vite `8.3.5`; OpenAPI validation, version sync, release feed, local preflight, and diff hygiene passed. `release:local-gate:full -- --fail-on-blocked` reported 14 passed, 0 failed, 3 blocked: CodeQL had 0 active results and core runtime passed; Gitleaks is unavailable, browser regression lacks `PLAYWRIGHT_E2E_BYPASS_TOKEN`, and the local profile defers image/SBOM scanning because Trivy is unavailable. The canonical development stack cannot prove CI secure-cookie `compose-smoke` settings. The isolated control-plane runtime smoke also passed. Hosted CI must confirm `compose-smoke`, `rbac-regression`, `browser-regression`, `runtime-smoke`, `dependency-scan`, `secret-scan`, and `image-security-and-sbom` for this version.
 - **Files changed:** Backend development command and dependency lock, frontend Vite/source-map versions and lock, source-contract tests, app/package versions, release note/feed, CI runtime documentation, and this roadmap entry.
 - **Risks/follow-ups:** The Vite build emits an existing source-map warning from the Tailwind Vite plugin and a chunk-size advisory; the build succeeds. The sibling Cairn repository owns a separate Node runtime and remains an independent review item.
-- **Remaining in milestone:** Hosted CI release gates and their artifacts must pass before release publication.
+- **Remaining in milestone:** None. The sibling Cairn Node runtime remains a separate follow-up.
 
 ### Release references
 

@@ -1,14 +1,21 @@
 # Dependency PR and CI Security Coverage
 
-This document records the dependency PR and CI security review, refreshed for `3.24.13`. It is a maintainer-facing coverage map for dependency PR triage, vulnerability gates, and source/code scanning.
+This document records dependency PR triage, vulnerability gates, and source/code scanning. The current queue and alert dispositions were refreshed on `2026-10-24`.
 
 ## Current PR Queue
 
-Verified with `gh pr list` on 2026-09-29.
+Verified with `gh pr list` on 2026-10-24.
 
-The queue contains 22 automated update PRs and has exceeded the configured per-ecosystem open-PR limits. Several proposals are stale or superseded by intentional local maintenance. In particular, `3.24.13` supersedes the proposed Nodemailer, CSV parser, Express rate-limit, and Vitest versions with newer remediated releases and full clean-install/runtime evidence. Close superseded PRs after the main commit lands; keep unrelated updates as separately reviewed maintenance rather than bulk-merging them.
+The queue had 22 automated update PRs. Six proposals were closed as superseded by newer versions already resolved on `main`: Nodemailer, CSV parser, Express rate limit, Vite, frontend Axios, and Vitest. Sixteen PRs remain open; their August-era green checks do not certify the current base and must be refreshed before merging.
 
-`@zxing/library@0.23.0` and Express major-version work remain intentional compatibility boundaries. Do not treat an automated green check as sufficient evidence for those changes.
+Wait on Express 4-to-5 migration and `@zxing/library@0.23.0` until dedicated API/browser compatibility checks are run. Review GitHub Actions major-version PRs (`actions/checkout` 6-to-7 and `actions/setup-node` 6-to-7) separately because they change CI execution behavior. Do not treat an automated green check on an old base as sufficient evidence.
+
+### October 24, 2026 security triage
+
+- Full clean-install `npm audit` under Node `24.22.1` found six backend and two frontend vulnerable package records. Backend fixes selected: `body-parser@2.4.0`, `multer@2.5.0`, `nodemailer@10.2.1`, `ip-address@10.7.4`, and `zod@4.6.7`. Frontend Vitest and `@vitest/mocker` are updated to `4.1.12`.
+- Backend and frontend `npm ci` completed and audited zero vulnerabilities after those updates. Full audits also report zero. Hosted `dependency-scan` must verify the committed locks after push.
+- GitHub Dependabot alerts on the currently pushed `3.25.2` commit predate these new advisories and include versions already fixed in its lockfiles (`follow-redirects@1.16.1`, Vite `8.3.5`, and `source-map-js@1.2.2`). Do not manually dismiss them; recheck after the remediation commit updates GitHub's dependency graph.
+- CodeQL alerts #121–123 (`js/user-controlled-bypass`) were reviewed and dismissed as false positives on `2026-10-24`. Service-account bearer keys are SHA-256 hash-matched to active, unexpired stored records, then constrained by route scopes and allowed prefixes. Mobile auth requires an exact stored hash match; logout only revokes the authenticated session or a row with an exact refresh-token hash. Existing RBAC, auth-abuse, and source-contract checks cover these paths. The dismissal comments record these reasons; do not weaken authorization logic to silence the taint-model warnings.
 
 ## Coverage Map
 

@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.25.3",
+      "version": "3.25.3",
+      "date": "2026-10-24",
+      "status": null,
+      "summary": "Updates vulnerable backend runtime dependencies and frontend test tooling to patched compatible releases following fresh full dependency audits.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Update affected backend packages and transitive dependencies: `body-parser@2.4.0`, `multer@2.5.0`, `nodemailer@10.2.1`, `ip-address@10.7.4`, and `zod@4.6.7`.",
+            "Update frontend `vitest` and `@vitest/mocker` to `4.1.12`.",
+            "Preserve the established Node `24.22.1` baseline and avoid unrelated major-version migrations.",
+            "Synchronize application metadata and Help > Releases to `3.25.3`."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.25.2",
       "version": "3.25.2",
       "date": "2026-10-21",
@@ -184,27 +202,6 @@
             "Concurrent claims for the same invitation token are serialized so the losing request receives the deliberate invalid-token response instead of racing into a duplicate-account error.",
             "Live auth abuse verification covers invitation create/revoke CSRF non-mutation, invitation limiter exhaustion, persisted detail-key allowlists, and tested sensitive-value absence.",
             "A read-only invitation-token inventory reports aggregate active plaintext, missing-hash, and historical plaintext counts without selecting invite identities or values."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.24.8",
-      "version": "3.24.8",
-      "date": "2026-08-24",
-      "status": "complete locally; hosted CI promotion gates pending after push",
-      "summary": "This release adds a production-migration certification that proves representative authentication and authorization state still behaves as declared before upgrade, after upgrade, and after snapshot restore. It complements schema parity and row-count rehearsal with password login, concurrent sessions, verified email, active workspace/library scope, memberships and roles, personal API credentials, service credentials, audit history, and secret-free evidence.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added a runtime-generated synthetic identity fixture with two users, owner/viewer workspace and library relationships, two concurrent sessions, invitation/reset/verification lifecycle rows, audit history, a personal access token, and a service-account key.",
-            "Added a keyed, secret-free identity manifest and explicit versioned policy for session survival or revocation, active-scope preservation or clearing, and API-credential validity or revocation.",
-            "Added baseline, production-runner upgrade, and snapshot-restore HTTP certification through the real application server while preventing automatic startup migrations only inside the explicitly gated test harness.",
-            "Added migration-range selection so every migration newer than the maintained certified marker is evaluated and identity-sensitive changes cannot be hidden by a later unrelated migration.",
-            "Added CI execution and release artifact collection for identity certification alongside init parity and generic migration rehearsal.",
-            "Replaced static migration-rehearsal identity credentials and the migration-check PostgreSQL password with runtime-derived values.",
-            "Updated migration/release checklists and local preflight artifact readback for the new certification evidence."
           ]
         }
       ]
