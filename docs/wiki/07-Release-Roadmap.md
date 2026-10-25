@@ -6,6 +6,40 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.25.4 — Dependabot Maintenance Queue
+
+**Goal:** Clear compatible, non-major dependency PRs from the open queue, preserve focused review for major compatibility changes, and reconcile GitHub vulnerability alerts against the shipped dependency graph.
+
+### Scope
+
+- Promote the 10 compatible dependency updates currently represented by Dependabot PRs into a single versioned maintenance slice.
+- Keep the coupled `@zxing/browser` 0.2.1 / `@zxing/library` 0.23 update and GitHub Actions major updates outside this slice until their compatibility is explicitly reviewed.
+- Reconcile the nine open Dependabot alerts against the fixed versions on `main`; do not dismiss an alert while its affected dependency remains in the default-branch graph.
+- Synchronize version metadata, release note, Help > Releases feed, and Docker runtime verification at `3.25.4`.
+
+### Acceptance Criteria
+
+- Backend and frontend clean installs, full audits, unit/build checks, and standard release gate pass.
+- Canonical Docker stack and Help > Releases report `3.25.4`.
+- Hosted CI confirms release gates after the authorized push.
+- Safe PRs are closed as superseded only after their updates are present on `main`; five compatibility-sensitive PRs remain separately documented.
+
+### Status
+
+Local implementation and verification complete; hosted gates and duplicate PR cleanup remain after an authorized push. Ten dependency updates are included locally, and the standard gate passes. PR #14 was already represented on `main` and is closed. The nine Dependabot alerts (#105, #133–140) are now fixed and GitHub reports zero open Dependabot or CodeQL alerts. The 10 superseded PRs remain open until this release reaches GitHub. Hold PRs #71/#124 together and review Actions PRs #113/#134/#148 separately.
+
+### Closeout
+
+- **Roadmap slice:** `3.25.4 — Dependabot Maintenance Queue`.
+- **Project docs/checklists:** `AGENTS.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/49-Dependency-PR-and-CI-Security-Coverage.md`; `docs/releases/v3.25.4.md`.
+- **Runtime verification:** Rebuilt the canonical `collectz-private` stack on port `3201`. `/api/health` reports app/frontend/backend/build `3.25.4`; backend reports Node `v24.22.1` and updated AWS SDK S3 `3.1156.0`, Axios `1.20.0`, fast-xml-parser `5.11.2`, Helmet `8.3.0`, and pg `8.23.1`. Help > Releases serves `3.25.4` first. Observability evidence passed `9/9`; admin and Graylog password fields were redacted and no bearer/basic/test-password patterns were present.
+- **Checks run:** Clean backend/frontend `npm ci` and full audits passed with zero vulnerabilities. Backend unit tests passed (`363`), OpenAPI validation passed, frontend unit tests passed (`4`), and frontend build passed. Standard `npm run release:local-gate` passed all `12` checks. Strict full profile passed CodeQL (`5` total, `0` active) and Core runtime smoke; it was blocked on local Gitleaks absence, missing `PLAYWRIGHT_E2E_BYPASS_TOKEN`, and missing Trivy. Local preflight passed version sync, audits, migration/init parity evidence through `123`, identity certification, runtime role certification (`30/30`), and observability evidence; production-cookie `compose-smoke` settings remain CI-only. Hosted CI must confirm `compose-smoke`, `rbac-regression`, browser regression, Core and Control-plane runtime, `dependency-scan`, `secret-scan`, `image-security-and-sbom`, and release preflight after push.
+- **Files changed:** Backend/frontend manifests and lockfiles, version metadata, generated Help > Releases feed, release note, dependency/CodeQL coverage documentation, and roadmap.
+- **Risks or follow-ups:** The ten selected Dependabot PRs remain open as duplicates until push; after they are closed, five PRs remain for separate compatibility review. GitHub marked all nine stale Dependabot alerts fixed at `2026-10-24 23:50 UTC` after its graph refresh; there are now zero open alerts.
+- **Remaining in milestone:** Commit locally, push only after explicit authorization, verify hosted release gates and tag, and close ten superseded PRs. Retain PRs #71/#124 and #113/#134/#148 for focused follow-up.
+
+---
+
 ## 3.25.3 — October Dependency Security Updates
 
 **Goal:** Remediate currently reported backend and frontend package vulnerabilities with compatible patched releases and refresh the release evidence for the supported Node 24.22.1 runtime.
@@ -13,7 +47,7 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 ### Scope
 
 - Resolve all findings from full backend and frontend `npm audit`, including production dependencies and build/test tooling.
-- Keep changes within current major-version compatibility boundaries; defer Express 5 migration and barcode library changes for focused compatibility work.
+- Keep changes within the existing dependency ranges; defer the barcode library update for focused compatibility work. `express@5.2.1` was already present in the `3.25.2` baseline.
 - Synchronize version metadata, release notes, and Help > Releases to `3.25.3`.
 - Verify the canonical Docker stack and the release gates before declaring the security slice complete.
 
@@ -26,7 +60,7 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ### Status
 
-Local implementation and verification complete; hosted release gates and Dependabot refresh are pending push. The full audit initially found six backend and two frontend vulnerability records; the updated lockfiles now audit clean. Six stale Dependabot PRs superseded by newer versions on `main` were closed, and three reviewed CodeQL false positives were dismissed with recorded justifications.
+Complete. Main-branch Build and Publish Images run `40112124504` passed all 13 jobs, and CodeQL run `40112124520` passed; tag `v3.25.3` exists at the release commit. GitHub later refreshed its dependency graph and marked alerts #105 and #133–140 fixed at `2026-10-24 23:50 UTC`; there are zero open Dependabot or CodeQL alerts. Six stale PRs were closed as superseded, and three reviewed CodeQL false positives were dismissed with recorded justifications.
 
 ### Closeout
 
@@ -35,8 +69,8 @@ Local implementation and verification complete; hosted release gates and Dependa
 - **Runtime verification:** Rebuilt the canonical `collectz-private` stack in place. `/api/health` reports app/frontend/backend/build `3.25.3`; the backend reports Node `v24.22.1` and patched `body-parser@2.4.0`, `multer@2.5.0`, `nodemailer@10.2.1`, `ip-address@10.7.4`, and `zod@4.6.7`. Help > Releases served `3.25.3` newest. Observability evidence passed 9/9 checks and its artifact passed credential-pattern review.
 - **Checks run:** Clean backend/frontend `npm ci` and full `npm audit` passed with zero findings. Backend unit tests passed (363), frontend unit tests passed (4), OpenAPI validation and frontend production build passed. `npm run release:local-gate` passed all 12 checks. The strict full profile reported 14 passed, 0 failed, 3 blocked: Gitleaks unavailable, browser regression missing `PLAYWRIGHT_E2E_BYPASS_TOKEN`, and Trivy unavailable for local image/SBOM. Preflight marks production secure-cookie `compose-smoke` conditions blocked because the canonical stack is a development profile. Hosted CI must confirm `compose-smoke`, `rbac-regression`, `browser-regression`, `runtime-smoke`, `dependency-scan`, `secret-scan`, `image-security-and-sbom`, and release preflight after push.
 - **Files changed:** backend/frontend package manifests and lockfiles, app version metadata, Help > Releases feed, 3.25.3 release note, dependency/CodeQL triage documentation, and this roadmap entry; 3.25.2 closeout notes were updated with their completed hosted CI results.
-- **Risks or follow-ups:** Nine GitHub Dependabot alerts still appear against the pushed 3.25.2 lockfiles; expect GitHub to refresh them after the fixed lockfiles are pushed, then verify each closes. The remaining 16 Dependabot PRs have August-era checks and need refreshed checks before merge. Wait on Express 4-to-5 and `@zxing/library` compatibility work; review GitHub Actions major upgrades separately.
-- **Remaining in milestone:** Commit this release locally, push only after explicit authorization, then verify hosted release gates, tag, and Dependabot alert refresh.
+- **Risks or follow-ups:** Fifteen Dependabot PRs remain open after the superseded Express PR was closed; ten are represented by 3.25.4 and five require separate compatibility review.
+- **Remaining in milestone:** None for 3.25.3. PR cleanup is tracked in 3.25.4.
 
 ---
 

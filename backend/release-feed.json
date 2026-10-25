@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.25.4",
+      "version": "3.25.4",
+      "date": "2026-10-24",
+      "status": null,
+      "summary": "Updates compatible backend and frontend dependencies represented by ten Dependabot PRs, consolidating the changes into one tested release. Keeps the barcode package pair and GitHub Actions major updates under separate compatibility review.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Backend: update `@aws-sdk/client-s3`, `axios`, `fast-xml-parser`, `helmet`, and `pg` within their existing major-version ranges.",
+            "Frontend: update React, React DOM, `@vitejs/plugin-react`, Tailwind CSS, and its Vite plugin within their existing major-version ranges.",
+            "Keep `@zxing/browser` and `@zxing/library` together for a focused compatibility check; `@zxing/browser@0.2.1` requires `@zxing/library@^0.23.0`.",
+            "Keep GitHub Actions major upgrades under separate workflow compatibility review.",
+            "Synchronize application metadata and Help > Releases to `3.25.4`."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.25.3",
       "version": "3.25.3",
       "date": "2026-10-24",
@@ -12,7 +31,7 @@
           "bullets": [
             "Update affected backend packages and transitive dependencies: `body-parser@2.4.0`, `multer@2.5.0`, `nodemailer@10.2.1`, `ip-address@10.7.4`, and `zod@4.6.7`.",
             "Update frontend `vitest` and `@vitest/mocker` to `4.1.12`.",
-            "Preserve the established Node `24.22.1` baseline and avoid unrelated major-version migrations.",
+            "Preserve the established Node `24.22.1` baseline and avoid unrelated major-version changes; `express@5.2.1` was already present before this release.",
             "Synchronize application metadata and Help > Releases to `3.25.3`."
           ]
         }
@@ -180,28 +199,6 @@
             "Certified durable sync jobs, Plex webhook/reconciliation/readback, capture OCR, valuation, workspace export, media search, activity audit, and provider-backed repair paths against explicit workspace sources.",
             "Added a live PostgreSQL-backed authorization smoke for anonymous denial, read-only mutation denial, sibling-workspace read/mutation/provider denial, identifier tampering, and durable-job isolation.",
             "Added ownership snapshot drift and live authorization certification to the maintained RBAC CI job."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.24.9",
-      "version": "3.24.9",
-      "date": "2026-08-25",
-      "status": "complete locally; hosted CI promotion gates pending after push",
-      "summary": "This release makes authentication and invitation audit details fail closed to an explicit minimal catalog. It removes account-discovery and credential-adjacent values from security audit payloads, adds focused invitation mutation throttling and CSRF proof, and inventories legacy plaintext invitation state without exposing invitation identities or token values.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Every maintained authentication, mobile-auth, invitation, membership/ownership-transfer, CSRF, support-scope, and scope-denial activity action now has an explicit detail-key and value-type schema.",
-            "Unknown detail fields are rejected before database persistence and structured-log export; uncataloged future security-sensitive actions retain no details until deliberately classified.",
-            "Security audit callers no longer submit account or membership email addresses, token-row identifiers, profile before/after values, device names, support-requester addresses, ownership-transfer labels, or free-form SMTP errors.",
-            "Generic request-outcome audit rows retain only method, query-free path, status, and duration, without response bodies or original query strings.",
-            "Workspace invitation creation and revocation have a dedicated application-layer limiter controlled by `RATE_LIMIT_INVITE_MAX`.",
-            "Concurrent claims for the same invitation token are serialized so the losing request receives the deliberate invalid-token response instead of racing into a duplicate-account error.",
-            "Live auth abuse verification covers invitation create/revoke CSRF non-mutation, invitation limiter exhaustion, persisted detail-key allowlists, and tested sensitive-value absence.",
-            "A read-only invitation-token inventory reports aggregate active plaintext, missing-hash, and historical plaintext counts without selecting invite identities or values."
           ]
         }
       ]

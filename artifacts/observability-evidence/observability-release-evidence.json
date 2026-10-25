@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-10-24T15:31:02.169Z",
-  "appVersion": "3.25.3",
+  "generatedAt": "2026-10-24T21:13:00.619Z",
+  "appVersion": "3.25.4",
   "scope": "release_evidence_first",
   "outputIntent": "Local or release-shaped observability evidence artifact",
   "checks": [
@@ -9,10 +9,10 @@
       "kind": "automated",
       "status": "passed",
       "command": "bash ops/monitoring/verify-monitoring-persistence.sh",
-      "startedAt": "2026-10-24T15:28:59.919Z",
-      "durationMs": 1242,
+      "startedAt": "2026-10-24T21:10:57.410Z",
+      "durationMs": 1302,
       "exitCode": 0,
-      "stdout": "Starting monitoring example stack...\nWriting persistence markers...\nRecreating monitoring example stack without removing volumes...\nVerifying markers survived recreate...\nMonitoring persistence rehearsal passed.\nMarker value: collectz-monitoring-persistence-1792855739\n",
+      "stdout": "Starting monitoring example stack...\nWriting persistence markers...\nRecreating monitoring example stack without removing volumes...\nVerifying markers survived recreate...\nMonitoring persistence rehearsal passed.\nMarker value: collectz-monitoring-persistence-1792876257\n",
       "stderr": " Container monitoring-grafana-1 Running \n Container monitoring-prometheus-1 Running \n Container monitoring-grafana-1 Stopping \n Container monitoring-grafana-1 Stopped \n Container monitoring-grafana-1 Removing \n Container monitoring-grafana-1 Removed \n Container monitoring-prometheus-1 Stopping \n Container monitoring-prometheus-1 Stopped \n Container monitoring-prometheus-1 Removing \n Container monitoring-prometheus-1 Removed \n Network monitoring_default Removing \n Network monitoring_default Removed \n Network monitoring_default Creating \n Network monitoring_default Creating \n Network monitoring_default Created \n Network monitoring_default Created \n Container monitoring-prometheus-1 Creating \n Container monitoring-prometheus-1 Created \n Container monitoring-grafana-1 Creating \n Container monitoring-grafana-1 Created \n Container monitoring-prometheus-1 Starting \n Container monitoring-prometheus-1 Started \n Container monitoring-grafana-1 Starting \n Container monitoring-grafana-1 Started \n"
     },
     {
@@ -20,22 +20,22 @@
       "kind": "automated",
       "status": "passed",
       "command": "bash ops/logging/verify-graylog-persistence.sh",
-      "startedAt": "2026-10-24T15:29:01.162Z",
-      "durationMs": 5486,
+      "startedAt": "2026-10-24T21:10:58.713Z",
+      "durationMs": 5420,
       "exitCode": 0,
-      "stdout": "Starting Graylog example stack...\nWriting persistence markers...\nRecreating Graylog example stack without removing volumes...\nVerifying markers survived recreate...\nGraylog persistence rehearsal passed.\nMarker value: collectz-graylog-persistence-1792855741\n",
-      "stderr": " Network logging_default Creating \n Network logging_default Creating \n Network logging_default Created \n Network logging_default Created \n Container logging-mongodb-1 Creating \n Container logging-opensearch-1 Creating \n Container logging-mongodb-1 Created \n Container logging-opensearch-1 Created \n Container logging-graylog-1 Creating \n Container logging-graylog-1 Created \n Container logging-mongodb-1 Starting \n Container logging-opensearch-1 Starting \n Container logging-mongodb-1 Started \n Container logging-opensearch-1 Started \n Container logging-graylog-1 Starting \n Container logging-graylog-1 Started \n Container logging-graylog-1 Stopping \n Container logging-graylog-1 Stopped \n Container logging-graylog-1 Removing \n Container logging-graylog-1 Removed \n Container logging-mongodb-1 Stopping \n Container logging-opensearch-1 Stopping \n Container logging-mongodb-1 Stopped \n Container logging-mongodb-1 Removing \n Container logging-mongodb-1 Removed \n Container logging-opensearch-1 Stopped \n Container logging-opensearch-1 Removing \n Container logging-opensearch-1 Removed \n Network logging_default Removing \n Network logging_default Removed \n Network logging_default Creating \n Network logging_default Creating \n Network logging_default Created \n Network logging_default Created \n Container logging-mongodb-1 Creating \n Container logging-opensearch-1 Creating \n Container logging-opensearch-1 Created \n Container logging-mongodb-1 Created \n Container logging-graylog-1 Creating \n Container logging-graylog-1 Created \n Container logging-opensearch-1 Starting \n Container logging-mongodb-1 Starting \n Container logging-opensearch-1 Started \n Container logging-mongodb-1 Started \n Container logging-graylog-1 Starting \n Container logging-graylog-1 Started \n"
+      "stdout": "Starting Graylog example stack...\nWriting persistence markers...\nRecreating Graylog example stack without removing volumes...\nVerifying markers survived recreate...\nGraylog persistence rehearsal passed.\nMarker value: collectz-graylog-persistence-1792876258\n",
+      "stderr": " Network logging_default Creating \n Network logging_default Creating \n Network logging_default Created \n Network logging_default Created \n Container logging-mongodb-1 Creating \n Container logging-opensearch-1 Creating \n Container logging-mongodb-1 Created \n Container logging-opensearch-1 Created \n Container logging-graylog-1 Creating \n Container logging-graylog-1 Created \n Container logging-mongodb-1 Starting \n Container logging-opensearch-1 Starting \n Container logging-mongodb-1 Started \n Container logging-opensearch-1 Started \n Container logging-graylog-1 Starting \n Container logging-graylog-1 Started \n Container logging-graylog-1 Stopping \n Container logging-graylog-1 Stopped \n Container logging-graylog-1 Removing \n Container logging-graylog-1 Removed \n Container logging-mongodb-1 Stopping \n Container logging-opensearch-1 Stopping \n Container logging-mongodb-1 Stopped \n Container logging-mongodb-1 Removing \n Container logging-mongodb-1 Removed \n Container logging-opensearch-1 Stopped \n Container logging-opensearch-1 Removing \n Container logging-opensearch-1 Removed \n Network logging_default Removing \n Network logging_default Removed \n Network logging_default Creating \n Network logging_default Creating \n Network logging_default Created \n Network logging_default Created \n Container logging-opensearch-1 Creating \n Container logging-mongodb-1 Creating \n Container logging-mongodb-1 Created \n Container logging-opensearch-1 Created \n Container logging-graylog-1 Creating \n Container logging-graylog-1 Created \n Container logging-mongodb-1 Starting \n Container logging-opensearch-1 Starting \n Container logging-mongodb-1 Started \n Container logging-opensearch-1 Started \n Container logging-graylog-1 Starting \n Container logging-graylog-1 Started \n"
     },
     {
       "name": "loki_persistence_rehearsal",
       "kind": "automated",
       "status": "passed",
       "command": "bash ops/logging/verify-loki-persistence.sh",
-      "startedAt": "2026-10-24T15:29:06.648Z",
-      "durationMs": 3435,
+      "startedAt": "2026-10-24T21:11:04.133Z",
+      "durationMs": 2650,
       "exitCode": 0,
-      "stdout": "Starting Loki example stack...\nWriting persistence markers...\nRecreating Loki example stack without removing volumes...\nVerifying markers survived recreate...\nLoki persistence rehearsal passed.\nMarker value: collectz-loki-persistence-1792855746\n",
-      "stderr": "time=\"2026-10-24T10:29:06-05:00\" level=warning msg=\"Found orphan containers (logging-graylog-1, logging-opensearch-1, logging-mongodb-1) for this project. If you removed or renamed this service in your compose file, you can run this command with the --remove-orphans flag to clean it up.\"\n Container logging-loki-1 Creating \n Container logging-loki-1 Created \n Container logging-promtail-1 Creating \n Container logging-promtail-1 Created \n Container logging-loki-1 Starting \n Container logging-loki-1 Started \n Container logging-promtail-1 Starting \n Container logging-promtail-1 Started \n Container logging-promtail-1 Stopping \n Container logging-promtail-1 Stopped \n Container logging-promtail-1 Removing \n Container logging-promtail-1 Removed \n Container logging-loki-1 Stopping \n Container logging-loki-1 Stopped \n Container logging-loki-1 Removing \n Container logging-loki-1 Removed \ntime=\"2026-10-24T10:29:09-05:00\" level=warning msg=\"Found orphan containers (logging-graylog-1, logging-opensearch-1, logging-mongodb-1) for this project. If you removed or renamed this service in your compose file, you can run this command with the --remove-orphans flag to clean it up.\"\n Container logging-loki-1 Creating \n Container logging-loki-1 Created \n Container logging-promtail-1 Creating \n Container logging-promtail-1 Created \n Container logging-loki-1 Starting \n Container logging-loki-1 Started \n Container logging-promtail-1 Starting \n Container logging-promtail-1 Started \n"
+      "stdout": "Starting Loki example stack...\nWriting persistence markers...\nRecreating Loki example stack without removing volumes...\nVerifying markers survived recreate...\nLoki persistence rehearsal passed.\nMarker value: collectz-loki-persistence-1792876264\n",
+      "stderr": "time=\"2026-10-24T16:11:04-05:00\" level=warning msg=\"Found orphan containers (logging-graylog-1, logging-mongodb-1, logging-opensearch-1) for this project. If you removed or renamed this service in your compose file, you can run this command with the --remove-orphans flag to clean it up.\"\n Container logging-loki-1 Creating \n Container logging-loki-1 Created \n Container logging-promtail-1 Creating \n Container logging-promtail-1 Created \n Container logging-loki-1 Starting \n Container logging-loki-1 Started \n Container logging-promtail-1 Starting \n Container logging-promtail-1 Started \n Container logging-promtail-1 Stopping \n Container logging-promtail-1 Stopped \n Container logging-promtail-1 Removing \n Container logging-promtail-1 Removed \n Container logging-loki-1 Stopping \n Container logging-loki-1 Stopped \n Container logging-loki-1 Removing \n Container logging-loki-1 Removed \ntime=\"2026-10-24T16:11:06-05:00\" level=warning msg=\"Found orphan containers (logging-graylog-1, logging-mongodb-1, logging-opensearch-1) for this project. If you removed or renamed this service in your compose file, you can run this command with the --remove-orphans flag to clean it up.\"\n Container logging-loki-1 Creating \n Container logging-loki-1 Created \n Container logging-promtail-1 Creating \n Container logging-promtail-1 Created \n Container logging-loki-1 Starting \n Container logging-loki-1 Started \n Container logging-promtail-1 Starting \n Container logging-promtail-1 Started \n"
     },
     {
       "name": "graylog_collector_smoke",
@@ -47,30 +47,30 @@
           "kind": "automated",
           "status": "passed",
           "command": "docker compose -f ops/logging/docker-compose.graylog.yml down -v --remove-orphans",
-          "startedAt": "2026-10-24T15:29:10.468Z",
-          "durationMs": 2596,
+          "startedAt": "2026-10-24T21:11:07.166Z",
+          "durationMs": 2611,
           "exitCode": 0,
           "stdout": "",
-          "stderr": " Container logging-graylog-1 Stopping \n Container logging-graylog-1 Stopped \n Container logging-graylog-1 Removing \n Container logging-graylog-1 Removed \n Container logging-opensearch-1 Stopping \n Container logging-mongodb-1 Stopping \n Container logging-mongodb-1 Stopped \n Container logging-mongodb-1 Removing \n Container logging-mongodb-1 Removed \n Container logging-opensearch-1 Stopped \n Container logging-opensearch-1 Removing \n Container logging-opensearch-1 Removed \n Container logging-loki-1 Stopping \n Container logging-promtail-1 Stopping \n Container logging-promtail-1 Stopped \n Container logging-promtail-1 Removing \n Container logging-promtail-1 Removed \n Container logging-loki-1 Stopped \n Container logging-loki-1 Removing \n Container logging-loki-1 Removed \n Volume logging_graylog_opensearch_data Removing \n Network logging_default Removing \n Volume logging_graylog_mongo_data Removing \n Volume logging_graylog_data Removing \n Volume logging_graylog_opensearch_data Removed \n Volume logging_graylog_data Removed \n Volume logging_graylog_mongo_data Removed \n Network logging_default Removed \n"
+          "stderr": " Container logging-graylog-1 Stopping \n Container logging-graylog-1 Stopped \n Container logging-graylog-1 Removing \n Container logging-graylog-1 Removed \n Container logging-mongodb-1 Stopping \n Container logging-opensearch-1 Stopping \n Container logging-mongodb-1 Stopped \n Container logging-mongodb-1 Removing \n Container logging-mongodb-1 Removed \n Container logging-opensearch-1 Stopped \n Container logging-opensearch-1 Removing \n Container logging-opensearch-1 Removed \n Container logging-loki-1 Stopping \n Container logging-promtail-1 Stopping \n Container logging-promtail-1 Stopped \n Container logging-promtail-1 Removing \n Container logging-promtail-1 Removed \n Container logging-loki-1 Stopped \n Container logging-loki-1 Removing \n Container logging-loki-1 Removed \n Volume logging_graylog_opensearch_data Removing \n Volume logging_graylog_data Removing \n Network logging_default Removing \n Volume logging_graylog_mongo_data Removing \n Volume logging_graylog_data Removed \n Volume logging_graylog_opensearch_data Removed \n Volume logging_graylog_mongo_data Removed \n Network logging_default Removed \n"
         },
         {
           "name": "graylog_stack_up",
           "kind": "automated",
           "status": "passed",
           "command": "docker compose -f ops/logging/docker-compose.graylog.yml up -d",
-          "startedAt": "2026-10-24T15:29:13.064Z",
-          "durationMs": 478,
+          "startedAt": "2026-10-24T21:11:09.777Z",
+          "durationMs": 542,
           "exitCode": 0,
           "stdout": "",
-          "stderr": " Network logging_default Creating \n Volume logging_graylog_opensearch_data Creating \n Volume logging_graylog_opensearch_data Creating \n Volume logging_graylog_data Creating \n Network logging_default Creating \n Volume logging_graylog_mongo_data Creating \n Volume logging_graylog_mongo_data Creating \n Volume logging_graylog_data Creating \n Volume logging_graylog_opensearch_data Created \n Volume logging_graylog_opensearch_data Created \n Volume logging_graylog_data Created \n Volume logging_graylog_data Created \n Volume logging_graylog_mongo_data Created \n Volume logging_graylog_mongo_data Created \n Network logging_default Created \n Network logging_default Created \n Container logging-mongodb-1 Creating \n Container logging-opensearch-1 Creating \n Container logging-mongodb-1 Created \n Container logging-opensearch-1 Created \n Container logging-graylog-1 Creating \n Container logging-graylog-1 Created \n Container logging-mongodb-1 Starting \n Container logging-opensearch-1 Starting \n Container logging-mongodb-1 Started \n Container logging-opensearch-1 Started \n Container logging-graylog-1 Starting \n Container logging-graylog-1 Started \n"
+          "stderr": " Network logging_default Creating \n Volume logging_graylog_mongo_data Creating \n Network logging_default Creating \n Volume logging_graylog_opensearch_data Creating \n Volume logging_graylog_opensearch_data Creating \n Volume logging_graylog_mongo_data Creating \n Volume logging_graylog_data Creating \n Volume logging_graylog_data Creating \n Volume logging_graylog_mongo_data Created \n Volume logging_graylog_mongo_data Created \n Volume logging_graylog_opensearch_data Created \n Volume logging_graylog_opensearch_data Created \n Volume logging_graylog_data Created \n Volume logging_graylog_data Created \n Network logging_default Created \n Network logging_default Created \n Container logging-opensearch-1 Creating \n Container logging-mongodb-1 Creating \n Container logging-opensearch-1 Created \n Container logging-mongodb-1 Created \n Container logging-graylog-1 Creating \n Container logging-graylog-1 Created \n Container logging-opensearch-1 Starting \n Container logging-mongodb-1 Starting \n Container logging-opensearch-1 Started \n Container logging-mongodb-1 Started \n Container logging-graylog-1 Starting \n Container logging-graylog-1 Started \n"
         },
         {
           "name": "graylog_ready",
           "kind": "automated",
           "status": "passed",
           "command": "curl -fsS -u admin:[REDACTED] -H X-Requested-By: collectz-evidence http://localhost:9000/api/system/inputs",
-          "startedAt": "2026-10-24T15:29:13.542Z",
-          "durationMs": 10310,
+          "startedAt": "2026-10-24T21:11:10.319Z",
+          "durationMs": 12322,
           "exitCode": 0,
           "stdout": "{\"inputs\":[],\"total\":0}",
           "stderr": ""
@@ -80,32 +80,32 @@
           "kind": "automated",
           "status": "passed",
           "command": "docker compose -p collectz-private --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml -f .ci/docker-compose.platform.yml -f docker-compose.localhost.yml up -d --build backend",
-          "startedAt": "2026-10-24T15:29:23.853Z",
-          "durationMs": 5246,
+          "startedAt": "2026-10-24T21:11:22.643Z",
+          "durationMs": 5538,
           "exitCode": 0,
-          "stdout": "#1 [internal] load local bake definitions\n#1 reading from stdin 1.20kB done\n#1 DONE 0.0s\n\n#2 [backend internal] load build definition from Dockerfile\n#2 transferring dockerfile: 735B done\n#2 DONE 0.0s\n\n#3 [backend internal] load metadata for docker.io/library/node:24.22.1-alpine\n#3 DONE 0.0s\n\n#4 [backend internal] load .dockerignore\n#4 transferring context: 145B done\n#4 DONE 0.0s\n\n#5 [migrate 1/9] FROM docker.io/library/node:24.22.1-alpine\n#5 DONE 0.0s\n\n#6 [migrate internal] load build context\n#6 transferring context: 13.23kB done\n#6 DONE 0.0s\n\n#7 [backend 2/9] WORKDIR /app\n#7 CACHED\n\n#8 [backend 4/9] COPY package*.json ./\n#8 CACHED\n\n#9 [backend 7/9] RUN mkdir -p uploads && chown -R node:node /app\n#9 CACHED\n\n#10 [backend 8/9] COPY docker-entrypoint.sh /usr/local/bin/collectz-backend-entrypoint\n#10 CACHED\n\n#11 [backend 3/9] RUN apk upgrade --no-cache   && apk add --no-cache su-exec\n#11 CACHED\n\n#12 [backend 5/9] RUN npm ci --omit=dev   && npm cache clean --force   && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx\n#12 CACHED\n\n#13 [backend 6/9] COPY . .\n#13 CACHED\n\n#14 [backend 9/9] RUN chmod +x /usr/local/bin/collectz-backend-entrypoint\n#14 CACHED\n\n#15 [migrate] exporting to image\n#15 exporting layers done\n#15 writing image sha256:1d623cfeec0572de9372719b4fc2a474f12f6e7fe178b64eced01924e93ca7ae done\n#15 naming to docker.io/library/mediavault-backend:ci done\n#15 DONE 0.0s\n\n#16 [backend] exporting to image\n#16 exporting layers done\n#16 writing image sha256:f2e403247e22cb1222dded38ecf951575cc7271d10458103afd5d369c1f147df done\n#16 naming to docker.io/library/mediavault-backend:ci done\n#16 DONE 0.0s\n\n#17 [backend] resolving provenance for metadata file\n#17 DONE 0.1s\n\n#18 [migrate] resolving provenance for metadata file\n#18 DONE 0.1s\n",
-          "stderr": " Image mediavault-backend:ci Building \n Image mediavault-backend:ci Building \n Image mediavault-backend:ci Built \n Image mediavault-backend:ci Built \ntime=\"2026-10-24T10:29:24-05:00\" level=warning msg=\"Found orphan containers (collectz-private-cairn-1, collectz-private-cairn-db-1) for this project. If you removed or renamed this service in your compose file, you can run this command with the --remove-orphans flag to clean it up.\"\n Container collectz-private-db-1 Running \n Container collectz-private-backend-1 Recreate \n Container collectz-private-backend-1 Recreated \n Container collectz-private-db-1 Waiting \n Container collectz-private-db-1 Healthy \n Container collectz-private-migrate-1 Starting \n Container collectz-private-migrate-1 Started \n Container collectz-private-db-1 Waiting \n Container collectz-private-migrate-1 Waiting \n Container collectz-private-db-1 Healthy \n Container collectz-private-migrate-1 Exited \n Container collectz-private-backend-1 Starting \n Container collectz-private-backend-1 Started \n"
+          "stdout": "#1 [internal] load local bake definitions\n#1 reading from stdin 1.20kB done\n#1 DONE 0.0s\n\n#2 [backend internal] load build definition from Dockerfile\n#2 transferring dockerfile: 735B done\n#2 DONE 0.0s\n\n#3 [migrate internal] load metadata for docker.io/library/node:24.22.1-alpine\n#3 DONE 0.0s\n\n#4 [migrate internal] load .dockerignore\n#4 transferring context: 145B done\n#4 DONE 0.0s\n\n#5 [backend 1/9] FROM docker.io/library/node:24.22.1-alpine\n#5 DONE 0.0s\n\n#6 [backend internal] load build context\n#6 transferring context: 13.23kB done\n#6 DONE 0.0s\n\n#7 [backend 4/9] COPY package*.json ./\n#7 CACHED\n\n#8 [backend 7/9] RUN mkdir -p uploads && chown -R node:node /app\n#8 CACHED\n\n#9 [backend 8/9] COPY docker-entrypoint.sh /usr/local/bin/collectz-backend-entrypoint\n#9 CACHED\n\n#10 [backend 5/9] RUN npm ci --omit=dev   && npm cache clean --force   && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx\n#10 CACHED\n\n#11 [backend 6/9] COPY . .\n#11 CACHED\n\n#12 [backend 2/9] WORKDIR /app\n#12 CACHED\n\n#13 [backend 3/9] RUN apk upgrade --no-cache   && apk add --no-cache su-exec\n#13 CACHED\n\n#14 [backend 9/9] RUN chmod +x /usr/local/bin/collectz-backend-entrypoint\n#14 CACHED\n\n#15 [migrate] exporting to image\n#15 exporting layers done\n#15 writing image sha256:55f7a7ae1c58b898b0089685f4b9cb7e00f8bc53d174b158c207df513f59b245 done\n#15 naming to docker.io/library/mediavault-backend:ci done\n#15 DONE 0.0s\n\n#16 [backend] exporting to image\n#16 exporting layers done\n#16 writing image sha256:4706d2ea86e2736c46cce6f13bd2b37add1820f6a2fe223e208555d5cc34d648 done\n#16 naming to docker.io/library/mediavault-backend:ci done\n#16 DONE 0.0s\n\n#17 [migrate] resolving provenance for metadata file\n#17 DONE 0.2s\n\n#18 [backend] resolving provenance for metadata file\n#18 DONE 0.2s\n",
+          "stderr": " Image mediavault-backend:ci Building \n Image mediavault-backend:ci Building \n Image mediavault-backend:ci Built \n Image mediavault-backend:ci Built \ntime=\"2026-10-24T16:11:23-05:00\" level=warning msg=\"Found orphan containers (collectz-private-cairn-1, collectz-private-cairn-db-1) for this project. If you removed or renamed this service in your compose file, you can run this command with the --remove-orphans flag to clean it up.\"\n Container collectz-private-db-1 Running \n Container collectz-private-migrate-1 Recreate \n Container collectz-private-migrate-1 Recreated \n Container collectz-private-backend-1 Recreate \n Container collectz-private-backend-1 Recreated \n Container collectz-private-db-1 Waiting \n Container collectz-private-db-1 Healthy \n Container collectz-private-migrate-1 Starting \n Container collectz-private-migrate-1 Started \n Container collectz-private-db-1 Waiting \n Container collectz-private-migrate-1 Waiting \n Container collectz-private-db-1 Healthy \n Container collectz-private-migrate-1 Exited \n Container collectz-private-backend-1 Starting \n Container collectz-private-backend-1 Started \n"
         },
         {
           "name": "backend_ready_graylog_gelf",
           "kind": "automated",
           "status": "passed",
           "command": "curl -fsS http://localhost:3201/api/health",
-          "startedAt": "2026-10-24T15:29:29.099Z",
-          "durationMs": 1043,
+          "startedAt": "2026-10-24T21:11:28.182Z",
+          "durationMs": 1077,
           "exitCode": 0,
-          "stdout": "{\"status\":\"ok\",\"app\":\"collectZ\",\"version\":\"3.25.3\",\"frontend\":\"3.25.3\",\"backend\":\"3.25.3\",\"build\":\"v3.25.3\"}",
+          "stdout": "{\"status\":\"ok\",\"app\":\"collectZ\",\"version\":\"3.25.4\",\"frontend\":\"3.25.4\",\"backend\":\"3.25.4\",\"build\":\"v3.25.4\"}",
           "stderr": ""
         },
         {
           "name": "graylog_smoke",
           "kind": "automated",
           "status": "passed",
-          "command": "docker compose -p collectz-private --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml -f .ci/docker-compose.platform.yml -f docker-compose.localhost.yml exec -T backend sh -lc BASE_URL=\"http://frontend:3000\" ADMIN_EMAIL=\"observability-evidence-1792855750083@example.com\" ADMIN_PASSWORD=\"[REDACTED]\" GRAYLOG_URL=\"http://graylog:9000\" GRAYLOG_USERNAME=\"admin\" GRAYLOG_PASSWORD=\"[REDACTED]\" OPENSEARCH_URL=\"http://opensearch:9200\" node scripts/structured-log-smoke.js",
-          "startedAt": "2026-10-24T15:29:30.142Z",
-          "durationMs": 11564,
+          "command": "docker compose -p collectz-private --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml -f .ci/docker-compose.platform.yml -f docker-compose.localhost.yml exec -T backend sh -lc BASE_URL=\"http://frontend:3000\" ADMIN_EMAIL=\"observability-evidence-1792876266784@example.com\" ADMIN_PASSWORD=\"[REDACTED]\" GRAYLOG_URL=\"http://graylog:9000\" GRAYLOG_USERNAME=\"admin\" GRAYLOG_PASSWORD=\"[REDACTED]\" OPENSEARCH_URL=\"http://opensearch:9200\" node scripts/structured-log-smoke.js",
+          "startedAt": "2026-10-24T21:11:29.260Z",
+          "durationMs": 11647,
           "exitCode": 0,
-          "stdout": "Ensuring Graylog GELF UDP input exists for structured-log-smoke-71629944-e7cb-4811-b15c-bf9efe3a3a04...\nLogging into collectZ admin session...\nEnabling external_log_export_enabled...\nWaiting 11000ms for feature-flag cache to settle...\nToggling metrics_enabled to emit a deterministic audit event...\nPolling Graylog for exported event...\nStructured log smoke passed.\n{\n  \"source\": \"graylog-search\",\n  \"message\": {\n    \"app_version\": \"3.25.3\",\n    \"detail_next_enabled\": \"true\",\n    \"gl2_remote_ip\": \"172.23.0.6\",\n    \"gl2_remote_port\": 42214,\n    \"source\": \"collectz-backend\",\n    \"gl2_source_input\": \"6adcceda69e58f2898bac120\",\n    \"action\": \"admin.feature_flag.update\",\n    \"details\": \"{\\\"key\\\":\\\"external_log_export_enabled\\\",\\\"previousEnabled\\\":false,\\\"nextEnabled\\\":true,\\\"envOverride\\\":null}\",\n    \"gl2_source_node\": \"636df1b7-a98a-49d6-acf4-f82187060fa7\",\n    \"outcome\": \"success\",\n    \"timestamp\": \"2026-10-24T15:29:30.538Z\",\n    \"gl2_accounted_message_size\": 572,\n    \"method\": \"PATCH\",\n    \"level\": 6,\n    \"streams\": [\n      \"000000000000000000000001\"\n    ],\n    \"gl2_message_id\": \"01M5Q8G1DA0000003TDPXV9YET\",\n    \"ip_address\": \"172.23.0.6\",\n    \"message\": \"admin.feature_flag.update\",\n    \"env\": \"development\",\n    \"detail_key\": \"external_log_export_enabled\",\n    \"entity_type\": \"feature_flag\",\n    \"route\": \"/feature-flags/:key\",\n    \"user_id\": 793,\n    \"service\": \"backend\",\n    \"_id\": \"b4e49b20-cfbf-11f1-8541-6af597cd767b\",\n    \"request_id\": \"structured-log-smoke-71629944-e7cb-4811-b15c-bf9efe3a3a04\",\n    \"detail_previous_enabled\": \"false\"\n  }\n}\n",
+          "stdout": "Ensuring Graylog GELF UDP input exists for structured-log-smoke-4d348897-0400-46b6-b3cf-df13662bd8b6...\nLogging into collectZ admin session...\nEnabling external_log_export_enabled...\nWaiting 11000ms for feature-flag cache to settle...\nToggling metrics_enabled to emit a deterministic audit event...\nPolling Graylog for exported event...\nStructured log smoke passed.\n{\n  \"source\": \"graylog-search\",\n  \"message\": {\n    \"app_version\": \"3.25.4\",\n    \"detail_next_enabled\": \"true\",\n    \"gl2_remote_ip\": \"172.23.0.6\",\n    \"gl2_remote_port\": 46552,\n    \"source\": \"collectz-backend\",\n    \"gl2_source_input\": \"6add1f01acf4654d3b9b0816\",\n    \"action\": \"admin.feature_flag.update\",\n    \"details\": \"{\\\"key\\\":\\\"external_log_export_enabled\\\",\\\"previousEnabled\\\":false,\\\"nextEnabled\\\":true,\\\"envOverride\\\":null}\",\n    \"gl2_source_node\": \"74ec1b67-f2d1-49be-a826-88cd46673342\",\n    \"outcome\": \"success\",\n    \"timestamp\": \"2026-10-24T21:11:29.723Z\",\n    \"gl2_accounted_message_size\": 572,\n    \"method\": \"PATCH\",\n    \"level\": 6,\n    \"streams\": [\n      \"000000000000000000000001\"\n    ],\n    \"gl2_message_id\": \"01M5QW27NV0000004NNNC1XP6B\",\n    \"ip_address\": \"172.23.0.6\",\n    \"message\": \"admin.feature_flag.update\",\n    \"env\": \"development\",\n    \"detail_key\": \"external_log_export_enabled\",\n    \"entity_type\": \"feature_flag\",\n    \"route\": \"/feature-flags/:key\",\n    \"user_id\": 800,\n    \"service\": \"backend\",\n    \"_id\": \"7b4a8250-cfef-11f1-8717-9eaf17846408\",\n    \"request_id\": \"structured-log-smoke-4d348897-0400-46b6-b3cf-df13662bd8b6\",\n    \"detail_previous_enabled\": \"false\"\n  }\n}\n",
           "stderr": ""
         },
         {
@@ -113,15 +113,15 @@
           "kind": "automated",
           "status": "passed",
           "command": "docker compose -f ops/logging/docker-compose.graylog.yml down",
-          "startedAt": "2026-10-24T15:29:41.706Z",
-          "durationMs": 3758,
+          "startedAt": "2026-10-24T21:11:40.907Z",
+          "durationMs": 3752,
           "exitCode": 0,
           "stdout": "",
           "stderr": " Container logging-graylog-1 Stopping \n Container logging-graylog-1 Stopped \n Container logging-graylog-1 Removing \n Container logging-graylog-1 Removed \n Container logging-mongodb-1 Stopping \n Container logging-opensearch-1 Stopping \n Container logging-mongodb-1 Stopped \n Container logging-mongodb-1 Removing \n Container logging-mongodb-1 Removed \n Container logging-opensearch-1 Stopped \n Container logging-opensearch-1 Removing \n Container logging-opensearch-1 Removed \n Network logging_default Removing \n Network logging_default Removed \n"
         }
       ],
-      "startedAt": "2026-10-24T15:29:10.083Z",
-      "durationMs": 35381
+      "startedAt": "2026-10-24T21:11:06.784Z",
+      "durationMs": 37875
     },
     {
       "name": "loki_collector_smoke",
@@ -133,21 +133,21 @@
           "kind": "automated",
           "status": "passed",
           "command": "docker compose -p collectz-private --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml -f .ci/docker-compose.platform.yml -f docker-compose.localhost.yml up -d --build backend",
-          "startedAt": "2026-10-24T15:29:45.945Z",
-          "durationMs": 5131,
+          "startedAt": "2026-10-24T21:11:45.156Z",
+          "durationMs": 5050,
           "exitCode": 0,
-          "stdout": "#1 [internal] load local bake definitions\n#1 reading from stdin 1.20kB done\n#1 DONE 0.0s\n\n#2 [backend internal] load build definition from Dockerfile\n#2 transferring dockerfile: 735B done\n#2 DONE 0.0s\n\n#3 [backend internal] load metadata for docker.io/library/node:24.22.1-alpine\n#3 DONE 0.0s\n\n#4 [backend internal] load .dockerignore\n#4 transferring context: 145B done\n#4 DONE 0.0s\n\n#5 [backend 1/9] FROM docker.io/library/node:24.22.1-alpine\n#5 DONE 0.0s\n\n#6 [backend internal] load build context\n#6 transferring context: 13.23kB done\n#6 DONE 0.0s\n\n#7 [backend 8/9] COPY docker-entrypoint.sh /usr/local/bin/collectz-backend-entrypoint\n#7 CACHED\n\n#8 [backend 3/9] RUN apk upgrade --no-cache   && apk add --no-cache su-exec\n#8 CACHED\n\n#9 [backend 4/9] COPY package*.json ./\n#9 CACHED\n\n#10 [backend 6/9] COPY . .\n#10 CACHED\n\n#11 [backend 2/9] WORKDIR /app\n#11 CACHED\n\n#12 [backend 5/9] RUN npm ci --omit=dev   && npm cache clean --force   && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx\n#12 CACHED\n\n#13 [backend 7/9] RUN mkdir -p uploads && chown -R node:node /app\n#13 CACHED\n\n#14 [backend 9/9] RUN chmod +x /usr/local/bin/collectz-backend-entrypoint\n#14 CACHED\n\n#15 [backend] exporting to image\n#15 exporting layers done\n#15 writing image sha256:f2e403247e22cb1222dded38ecf951575cc7271d10458103afd5d369c1f147df done\n#15 naming to docker.io/library/mediavault-backend:ci done\n#15 DONE 0.0s\n\n#16 [migrate] exporting to image\n#16 exporting layers done\n#16 writing image sha256:1d623cfeec0572de9372719b4fc2a474f12f6e7fe178b64eced01924e93ca7ae done\n#16 naming to docker.io/library/mediavault-backend:ci done\n#16 DONE 0.0s\n\n#17 [backend] resolving provenance for metadata file\n#17 DONE 0.0s\n\n#18 [migrate] resolving provenance for metadata file\n#18 DONE 0.0s\n",
-          "stderr": " Image mediavault-backend:ci Building \n Image mediavault-backend:ci Building \n Image mediavault-backend:ci Built \n Image mediavault-backend:ci Built \ntime=\"2026-10-24T10:29:46-05:00\" level=warning msg=\"Found orphan containers (collectz-private-cairn-1, collectz-private-cairn-db-1) for this project. If you removed or renamed this service in your compose file, you can run this command with the --remove-orphans flag to clean it up.\"\n Container collectz-private-db-1 Running \n Container collectz-private-migrate-1 Recreate \n Container collectz-private-migrate-1 Recreated \n Container collectz-private-backend-1 Recreate \n Container collectz-private-backend-1 Recreated \n Container collectz-private-db-1 Waiting \n Container collectz-private-db-1 Healthy \n Container collectz-private-migrate-1 Starting \n Container collectz-private-migrate-1 Started \n Container collectz-private-db-1 Waiting \n Container collectz-private-migrate-1 Waiting \n Container collectz-private-migrate-1 Exited \n Container collectz-private-db-1 Healthy \n Container collectz-private-backend-1 Starting \n Container collectz-private-backend-1 Started \n"
+          "stdout": "#1 [internal] load local bake definitions\n#1 reading from stdin 1.20kB done\n#1 DONE 0.0s\n\n#2 [migrate internal] load build definition from Dockerfile\n#2 transferring dockerfile: 735B done\n#2 DONE 0.0s\n\n#3 [migrate internal] load metadata for docker.io/library/node:24.22.1-alpine\n#3 DONE 0.0s\n\n#4 [backend internal] load .dockerignore\n#4 transferring context: 145B done\n#4 DONE 0.0s\n\n#5 [migrate 1/9] FROM docker.io/library/node:24.22.1-alpine\n#5 DONE 0.0s\n\n#6 [backend internal] load build context\n#6 transferring context: 13.23kB done\n#6 DONE 0.0s\n\n#7 [migrate 8/9] COPY docker-entrypoint.sh /usr/local/bin/collectz-backend-entrypoint\n#7 CACHED\n\n#8 [migrate 2/9] WORKDIR /app\n#8 CACHED\n\n#9 [migrate 5/9] RUN npm ci --omit=dev   && npm cache clean --force   && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx\n#9 CACHED\n\n#10 [migrate 3/9] RUN apk upgrade --no-cache   && apk add --no-cache su-exec\n#10 CACHED\n\n#11 [migrate 4/9] COPY package*.json ./\n#11 CACHED\n\n#12 [migrate 6/9] COPY . .\n#12 CACHED\n\n#13 [migrate 7/9] RUN mkdir -p uploads && chown -R node:node /app\n#13 CACHED\n\n#14 [migrate 9/9] RUN chmod +x /usr/local/bin/collectz-backend-entrypoint\n#14 CACHED\n\n#15 [migrate] exporting to image\n#15 exporting layers done\n#15 writing image sha256:55f7a7ae1c58b898b0089685f4b9cb7e00f8bc53d174b158c207df513f59b245 done\n#15 naming to docker.io/library/mediavault-backend:ci done\n#15 DONE 0.0s\n\n#16 [backend] exporting to image\n#16 exporting layers done\n#16 writing image sha256:4706d2ea86e2736c46cce6f13bd2b37add1820f6a2fe223e208555d5cc34d648 done\n#16 naming to docker.io/library/mediavault-backend:ci done\n#16 DONE 0.0s\n\n#17 [migrate] resolving provenance for metadata file\n#17 DONE 0.0s\n\n#18 [backend] resolving provenance for metadata file\n#18 DONE 0.0s\n",
+          "stderr": " Image mediavault-backend:ci Building \n Image mediavault-backend:ci Building \n Image mediavault-backend:ci Built \n Image mediavault-backend:ci Built \ntime=\"2026-10-24T16:11:45-05:00\" level=warning msg=\"Found orphan containers (collectz-private-cairn-1, collectz-private-cairn-db-1) for this project. If you removed or renamed this service in your compose file, you can run this command with the --remove-orphans flag to clean it up.\"\n Container collectz-private-db-1 Running \n Container collectz-private-migrate-1 Recreate \n Container collectz-private-migrate-1 Recreated \n Container collectz-private-backend-1 Recreate \n Container collectz-private-backend-1 Recreated \n Container collectz-private-db-1 Waiting \n Container collectz-private-db-1 Healthy \n Container collectz-private-migrate-1 Starting \n Container collectz-private-migrate-1 Started \n Container collectz-private-migrate-1 Waiting \n Container collectz-private-db-1 Waiting \n Container collectz-private-db-1 Healthy \n Container collectz-private-migrate-1 Exited \n Container collectz-private-backend-1 Starting \n Container collectz-private-backend-1 Started \n"
         },
         {
           "name": "backend_ready_stdout_json",
           "kind": "automated",
           "status": "passed",
           "command": "curl -fsS http://localhost:3201/api/health",
-          "startedAt": "2026-10-24T15:29:51.076Z",
-          "durationMs": 1070,
+          "startedAt": "2026-10-24T21:11:50.206Z",
+          "durationMs": 1068,
           "exitCode": 0,
-          "stdout": "{\"status\":\"ok\",\"app\":\"collectZ\",\"version\":\"3.25.3\",\"frontend\":\"3.25.3\",\"backend\":\"3.25.3\",\"build\":\"v3.25.3\"}",
+          "stdout": "{\"status\":\"ok\",\"app\":\"collectZ\",\"version\":\"3.25.4\",\"frontend\":\"3.25.4\",\"backend\":\"3.25.4\",\"build\":\"v3.25.4\"}",
           "stderr": ""
         },
         {
@@ -155,8 +155,8 @@
           "kind": "automated",
           "status": "passed",
           "command": "docker compose -f ops/logging/docker-compose.loki.yml up -d",
-          "startedAt": "2026-10-24T15:29:52.146Z",
-          "durationMs": 298,
+          "startedAt": "2026-10-24T21:11:51.274Z",
+          "durationMs": 299,
           "exitCode": 0,
           "stdout": "",
           "stderr": " Container logging-loki-1 Creating \n Container logging-loki-1 Created \n Container logging-promtail-1 Creating \n Container logging-promtail-1 Created \n Container logging-loki-1 Starting \n Container logging-loki-1 Started \n Container logging-promtail-1 Starting \n Container logging-promtail-1 Started \n"
@@ -165,11 +165,11 @@
           "name": "loki_smoke",
           "kind": "automated",
           "status": "passed",
-          "command": "docker compose -p collectz-private --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml -f .ci/docker-compose.platform.yml -f docker-compose.localhost.yml exec -T backend sh -lc BASE_URL=\"http://frontend:3000\" ADMIN_EMAIL=\"observability-evidence-1792855785617@example.com\" ADMIN_PASSWORD=\"[REDACTED]\" LOKI_URL=\"http://loki:3100\" node scripts/structured-log-loki-smoke.js",
-          "startedAt": "2026-10-24T15:29:52.444Z",
-          "durationMs": 11428,
+          "command": "docker compose -p collectz-private --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml -f .ci/docker-compose.platform.yml -f docker-compose.localhost.yml exec -T backend sh -lc BASE_URL=\"http://frontend:3000\" ADMIN_EMAIL=\"observability-evidence-1792876304823@example.com\" ADMIN_PASSWORD=\"[REDACTED]\" LOKI_URL=\"http://loki:3100\" node scripts/structured-log-loki-smoke.js",
+          "startedAt": "2026-10-24T21:11:51.573Z",
+          "durationMs": 11429,
           "exitCode": 0,
-          "stdout": "Logging into collectZ admin session...\nEnabling external_log_export_enabled...\nWaiting 11000ms for feature-flag cache to settle...\nToggling metrics_enabled to emit a deterministic audit event...\nPolling Loki for exported event...\nLoki structured log smoke passed.\n{\n  \"source\": \"loki-query\",\n  \"line\": \"{\\\"version\\\":\\\"1.1\\\",\\\"host\\\":\\\"collectz-backend\\\",\\\"short_message\\\":\\\"admin.feature_flag.update\\\",\\\"timestamp\\\":1792855792.814,\\\"level\\\":6,\\\"_service\\\":\\\"backend\\\",\\\"_env\\\":\\\"development\\\",\\\"_app_version\\\":\\\"3.25.3\\\",\\\"_action\\\":\\\"admin.feature_flag.update\\\",\\\"_entity_type\\\":\\\"feature_flag\\\",\\\"_user_id\\\":794,\\\"_ip_address\\\":\\\"172.23.0.6\\\",\\\"_request_id\\\":\\\"structured-log-smoke-2270afad-ebb6-4d24-9392-003516aed56e\\\",\\\"_route\\\":\\\"/feature-flags/:key\\\",\\\"_method\\\":\\\"PATCH\\\",\\\"_outcome\\\":\\\"success\\\",\\\"_details\\\":{\\\"key\\\":\\\"external_log_export_enabled\\\",\\\"previousEnabled\\\":false,\\\"nextEnabled\\\":true,\\\"envOverride\\\":null},\\\"_detail_key\\\":\\\"external_log_export_enabled\\\",\\\"_detail_previous_enabled\\\":\\\"false\\\",\\\"_detail_next_enabled\\\":\\\"true\\\"}\"\n}\n",
+          "stdout": "Logging into collectZ admin session...\nEnabling external_log_export_enabled...\nWaiting 11000ms for feature-flag cache to settle...\nToggling metrics_enabled to emit a deterministic audit event...\nPolling Loki for exported event...\nLoki structured log smoke passed.\n{\n  \"source\": \"loki-query\",\n  \"line\": \"{\\\"version\\\":\\\"1.1\\\",\\\"host\\\":\\\"collectz-backend\\\",\\\"short_message\\\":\\\"admin.feature_flag.update\\\",\\\"timestamp\\\":1792876311.927,\\\"level\\\":6,\\\"_service\\\":\\\"backend\\\",\\\"_env\\\":\\\"development\\\",\\\"_app_version\\\":\\\"3.25.4\\\",\\\"_action\\\":\\\"admin.feature_flag.update\\\",\\\"_entity_type\\\":\\\"feature_flag\\\",\\\"_user_id\\\":801,\\\"_ip_address\\\":\\\"172.23.0.6\\\",\\\"_request_id\\\":\\\"structured-log-smoke-91763f32-82a6-4225-8afd-07864ceabee8\\\",\\\"_route\\\":\\\"/feature-flags/:key\\\",\\\"_method\\\":\\\"PATCH\\\",\\\"_outcome\\\":\\\"success\\\",\\\"_details\\\":{\\\"key\\\":\\\"external_log_export_enabled\\\",\\\"previousEnabled\\\":false,\\\"nextEnabled\\\":true,\\\"envOverride\\\":null},\\\"_detail_key\\\":\\\"external_log_export_enabled\\\",\\\"_detail_previous_enabled\\\":\\\"false\\\",\\\"_detail_next_enabled\\\":\\\"true\\\"}\"\n}\n",
           "stderr": ""
         },
         {
@@ -177,15 +177,15 @@
           "kind": "automated",
           "status": "passed",
           "command": "docker compose -f ops/logging/docker-compose.loki.yml down",
-          "startedAt": "2026-10-24T15:30:03.872Z",
-          "durationMs": 2707,
+          "startedAt": "2026-10-24T21:12:03.002Z",
+          "durationMs": 1721,
           "exitCode": 0,
           "stdout": "",
           "stderr": " Container logging-promtail-1 Stopping \n Container logging-promtail-1 Stopped \n Container logging-promtail-1 Removing \n Container logging-promtail-1 Removed \n Container logging-loki-1 Stopping \n Container logging-loki-1 Stopped \n Container logging-loki-1 Removing \n Container logging-loki-1 Removed \n"
         }
       ],
-      "startedAt": "2026-10-24T15:29:45.617Z",
-      "durationMs": 20963
+      "startedAt": "2026-10-24T21:11:44.823Z",
+      "durationMs": 19900
     },
     {
       "name": "syslog_collector_smoke",
@@ -197,21 +197,21 @@
           "kind": "automated",
           "status": "passed",
           "command": "docker compose -p collectz-private --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml -f .ci/docker-compose.platform.yml -f docker-compose.localhost.yml up -d --build backend",
-          "startedAt": "2026-10-24T15:30:07.064Z",
-          "durationMs": 4984,
+          "startedAt": "2026-10-24T21:12:05.212Z",
+          "durationMs": 5093,
           "exitCode": 0,
-          "stdout": "#1 [internal] load local bake definitions\n#1 reading from stdin 1.20kB done\n#1 DONE 0.0s\n\n#2 [migrate internal] load build definition from Dockerfile\n#2 transferring dockerfile: 735B done\n#2 DONE 0.0s\n\n#3 [backend internal] load metadata for docker.io/library/node:24.22.1-alpine\n#3 DONE 0.0s\n\n#4 [backend internal] load .dockerignore\n#4 transferring context: 145B done\n#4 DONE 0.0s\n\n#5 [migrate 1/9] FROM docker.io/library/node:24.22.1-alpine\n#5 DONE 0.0s\n\n#6 [backend internal] load build context\n#6 transferring context: 13.23kB done\n#6 DONE 0.0s\n\n#7 [migrate 5/9] RUN npm ci --omit=dev   && npm cache clean --force   && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx\n#7 CACHED\n\n#8 [migrate 2/9] WORKDIR /app\n#8 CACHED\n\n#9 [migrate 7/9] RUN mkdir -p uploads && chown -R node:node /app\n#9 CACHED\n\n#10 [migrate 8/9] COPY docker-entrypoint.sh /usr/local/bin/collectz-backend-entrypoint\n#10 CACHED\n\n#11 [migrate 3/9] RUN apk upgrade --no-cache   && apk add --no-cache su-exec\n#11 CACHED\n\n#12 [migrate 4/9] COPY package*.json ./\n#12 CACHED\n\n#13 [migrate 6/9] COPY . .\n#13 CACHED\n\n#14 [migrate 9/9] RUN chmod +x /usr/local/bin/collectz-backend-entrypoint\n#14 CACHED\n\n#15 [migrate] exporting to image\n#15 exporting layers done\n#15 writing image sha256:1d623cfeec0572de9372719b4fc2a474f12f6e7fe178b64eced01924e93ca7ae done\n#15 naming to docker.io/library/mediavault-backend:ci done\n#15 DONE 0.0s\n\n#16 [backend] exporting to image\n#16 exporting layers done\n#16 writing image sha256:f2e403247e22cb1222dded38ecf951575cc7271d10458103afd5d369c1f147df done\n#16 naming to docker.io/library/mediavault-backend:ci done\n#16 DONE 0.0s\n\n#17 [migrate] resolving provenance for metadata file\n#17 DONE 0.0s\n\n#18 [backend] resolving provenance for metadata file\n#18 DONE 0.0s\n",
-          "stderr": " Image mediavault-backend:ci Building \n Image mediavault-backend:ci Building \n Image mediavault-backend:ci Built \n Image mediavault-backend:ci Built \ntime=\"2026-10-24T10:30:07-05:00\" level=warning msg=\"Found orphan containers (collectz-private-cairn-1, collectz-private-cairn-db-1) for this project. If you removed or renamed this service in your compose file, you can run this command with the --remove-orphans flag to clean it up.\"\n Container collectz-private-db-1 Running \n Container collectz-private-migrate-1 Recreate \n Container collectz-private-migrate-1 Recreated \n Container collectz-private-backend-1 Recreate \n Container collectz-private-backend-1 Recreated \n Container collectz-private-db-1 Waiting \n Container collectz-private-db-1 Healthy \n Container collectz-private-migrate-1 Starting \n Container collectz-private-migrate-1 Started \n Container collectz-private-migrate-1 Waiting \n Container collectz-private-db-1 Waiting \n Container collectz-private-db-1 Healthy \n Container collectz-private-migrate-1 Exited \n Container collectz-private-backend-1 Starting \n Container collectz-private-backend-1 Started \n"
+          "stdout": "#1 [internal] load local bake definitions\n#1 reading from stdin 1.20kB done\n#1 DONE 0.0s\n\n#2 [backend internal] load build definition from Dockerfile\n#2 transferring dockerfile: 735B done\n#2 DONE 0.0s\n\n#3 [backend internal] load metadata for docker.io/library/node:24.22.1-alpine\n#3 DONE 0.0s\n\n#4 [backend internal] load .dockerignore\n#4 transferring context: 145B done\n#4 DONE 0.0s\n\n#5 [backend 1/9] FROM docker.io/library/node:24.22.1-alpine\n#5 DONE 0.0s\n\n#6 [backend internal] load build context\n#6 transferring context: 13.23kB done\n#6 DONE 0.0s\n\n#7 [backend 6/9] COPY . .\n#7 CACHED\n\n#8 [backend 8/9] COPY docker-entrypoint.sh /usr/local/bin/collectz-backend-entrypoint\n#8 CACHED\n\n#9 [backend 4/9] COPY package*.json ./\n#9 CACHED\n\n#10 [backend 5/9] RUN npm ci --omit=dev   && npm cache clean --force   && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx\n#10 CACHED\n\n#11 [backend 2/9] WORKDIR /app\n#11 CACHED\n\n#12 [backend 3/9] RUN apk upgrade --no-cache   && apk add --no-cache su-exec\n#12 CACHED\n\n#13 [backend 7/9] RUN mkdir -p uploads && chown -R node:node /app\n#13 CACHED\n\n#14 [backend 9/9] RUN chmod +x /usr/local/bin/collectz-backend-entrypoint\n#14 CACHED\n\n#15 [backend] exporting to image\n#15 exporting layers done\n#15 writing image sha256:4706d2ea86e2736c46cce6f13bd2b37add1820f6a2fe223e208555d5cc34d648 done\n#15 naming to docker.io/library/mediavault-backend:ci done\n#15 DONE 0.0s\n\n#16 [migrate] exporting to image\n#16 exporting layers done\n#16 writing image sha256:55f7a7ae1c58b898b0089685f4b9cb7e00f8bc53d174b158c207df513f59b245 done\n#16 naming to docker.io/library/mediavault-backend:ci done\n#16 DONE 0.0s\n\n#17 [backend] resolving provenance for metadata file\n#17 DONE 0.0s\n\n#18 [migrate] resolving provenance for metadata file\n#18 DONE 0.0s\n",
+          "stderr": " Image mediavault-backend:ci Building \n Image mediavault-backend:ci Building \n Image mediavault-backend:ci Built \n Image mediavault-backend:ci Built \ntime=\"2026-10-24T16:12:05-05:00\" level=warning msg=\"Found orphan containers (collectz-private-cairn-1, collectz-private-cairn-db-1) for this project. If you removed or renamed this service in your compose file, you can run this command with the --remove-orphans flag to clean it up.\"\n Container collectz-private-db-1 Running \n Container collectz-private-backend-1 Recreate \n Container collectz-private-backend-1 Recreated \n Container collectz-private-db-1 Waiting \n Container collectz-private-db-1 Healthy \n Container collectz-private-migrate-1 Starting \n Container collectz-private-migrate-1 Started \n Container collectz-private-db-1 Waiting \n Container collectz-private-migrate-1 Waiting \n Container collectz-private-migrate-1 Exited \n Container collectz-private-db-1 Healthy \n Container collectz-private-backend-1 Starting \n Container collectz-private-backend-1 Started \n"
         },
         {
           "name": "backend_ready_syslog_tcp",
           "kind": "automated",
           "status": "passed",
           "command": "curl -fsS http://localhost:3201/api/health",
-          "startedAt": "2026-10-24T15:30:12.048Z",
-          "durationMs": 1064,
+          "startedAt": "2026-10-24T21:12:10.305Z",
+          "durationMs": 1062,
           "exitCode": 0,
-          "stdout": "{\"status\":\"ok\",\"app\":\"collectZ\",\"version\":\"3.25.3\",\"frontend\":\"3.25.3\",\"backend\":\"3.25.3\",\"build\":\"v3.25.3\"}",
+          "stdout": "{\"status\":\"ok\",\"app\":\"collectZ\",\"version\":\"3.25.4\",\"frontend\":\"3.25.4\",\"backend\":\"3.25.4\",\"build\":\"v3.25.4\"}",
           "stderr": ""
         },
         {
@@ -219,8 +219,8 @@
           "kind": "automated",
           "status": "passed",
           "command": "docker compose -f ops/logging/docker-compose.syslog.yml up -d --force-recreate syslog-collector",
-          "startedAt": "2026-10-24T15:30:13.112Z",
-          "durationMs": 184,
+          "startedAt": "2026-10-24T21:12:11.367Z",
+          "durationMs": 192,
           "exitCode": 0,
           "stdout": "",
           "stderr": " Container logging-syslog-collector-1 Creating \n Container logging-syslog-collector-1 Created \n Container logging-syslog-collector-1 Starting \n Container logging-syslog-collector-1 Started \n"
@@ -229,11 +229,11 @@
           "name": "syslog_smoke",
           "kind": "automated",
           "status": "passed",
-          "command": "docker compose -p collectz-private --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml -f .ci/docker-compose.platform.yml -f docker-compose.localhost.yml exec -T backend sh -lc BASE_URL=\"http://frontend:3000\" ADMIN_EMAIL=\"observability-evidence-1792855806743@example.com\" ADMIN_PASSWORD=\"[REDACTED]\" node scripts/structured-log-syslog-smoke.js",
-          "startedAt": "2026-10-24T15:30:13.296Z",
-          "durationMs": 11384,
+          "command": "docker compose -p collectz-private --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml -f .ci/docker-compose.platform.yml -f docker-compose.localhost.yml exec -T backend sh -lc BASE_URL=\"http://frontend:3000\" ADMIN_EMAIL=\"observability-evidence-1792876324877@example.com\" ADMIN_PASSWORD=\"[REDACTED]\" node scripts/structured-log-syslog-smoke.js",
+          "startedAt": "2026-10-24T21:12:11.559Z",
+          "durationMs": 11425,
           "exitCode": 0,
-          "stdout": "Logging into collectZ admin session...\nEnabling external_log_export_enabled...\nWaiting 11000ms for feature-flag cache to settle...\nToggling metrics_enabled to emit a deterministic audit event...\nPolling syslog collector log for exported event...\nSyslog structured log smoke passed.\n{\n  \"source\": \"syslog-tail\",\n  \"line\": \"<14>1 2026-10-24T15:30:13.633Z collectz-backend backend - admin.feature_flag.update [collectz@41058 action=\\\"admin.feature_flag.update\\\" entity_type=\\\"feature_flag\\\" user_id=\\\"795\\\" request_id=\\\"structured-log-smoke-b15b7e96-f29a-4fd1-b0e6-451920f19484\\\" route=\\\"/feature-flags/:key\\\" method=\\\"PATCH\\\" outcome=\\\"success\\\" detail_key=\\\"external_log_export_enabled\\\"] {\\\"version\\\":\\\"1.1\\\",\\\"host\\\":\\\"collectz-backend\\\",\\\"short_message\\\":\\\"admin.feature_flag.update\\\",\\\"timestamp\\\":1792855813.633,\\\"level\\\":6,\\\"_service\\\":\\\"backend\\\",\\\"_env\\\":\\\"development\\\",\\\"_app_version\\\":\\\"3.25.3\\\",\\\"_action\\\":\\\"admin.feature_flag.update\\\",\\\"_entity_type\\\":\\\"feature_flag\\\",\\\"_user_id\\\":795,\\\"_ip_address\\\":\\\"172.23.0.6\\\",\\\"_request_id\\\":\\\"structured-log-smoke-b15b7e96-f29a-4fd1-b0e6-451920f19484\\\",\\\"_route\\\":\\\"/feature-flags/:key\\\",\\\"_method\\\":\\\"PATCH\\\",\\\"_outcome\\\":\\\"success\\\",\\\"_details\\\":{\\\"key\\\":\\\"external_log_export_enabled\\\",\\\"previousEnabled\\\":false,\\\"nextEnabled\\\":true,\\\"envOverride\\\":null},\\\"_detail_key\\\":\\\"external_log_export_enabled\\\",\\\"_detail_previous_enabled\\\":\\\"false\\\",\\\"_detail_next_enabled\\\":\\\"true\\\"}\"\n}\n",
+          "stdout": "Logging into collectZ admin session...\nEnabling external_log_export_enabled...\nWaiting 11000ms for feature-flag cache to settle...\nToggling metrics_enabled to emit a deterministic audit event...\nPolling syslog collector log for exported event...\nSyslog structured log smoke passed.\n{\n  \"source\": \"syslog-tail\",\n  \"line\": \"<14>1 2026-10-24T21:12:11.898Z collectz-backend backend - admin.feature_flag.update [collectz@41058 action=\\\"admin.feature_flag.update\\\" entity_type=\\\"feature_flag\\\" user_id=\\\"802\\\" request_id=\\\"structured-log-smoke-ae6c13a4-d3e9-48cf-9e62-0cda93da1709\\\" route=\\\"/feature-flags/:key\\\" method=\\\"PATCH\\\" outcome=\\\"success\\\" detail_key=\\\"external_log_export_enabled\\\"] {\\\"version\\\":\\\"1.1\\\",\\\"host\\\":\\\"collectz-backend\\\",\\\"short_message\\\":\\\"admin.feature_flag.update\\\",\\\"timestamp\\\":1792876331.898,\\\"level\\\":6,\\\"_service\\\":\\\"backend\\\",\\\"_env\\\":\\\"development\\\",\\\"_app_version\\\":\\\"3.25.4\\\",\\\"_action\\\":\\\"admin.feature_flag.update\\\",\\\"_entity_type\\\":\\\"feature_flag\\\",\\\"_user_id\\\":802,\\\"_ip_address\\\":\\\"172.23.0.6\\\",\\\"_request_id\\\":\\\"structured-log-smoke-ae6c13a4-d3e9-48cf-9e62-0cda93da1709\\\",\\\"_route\\\":\\\"/feature-flags/:key\\\",\\\"_method\\\":\\\"PATCH\\\",\\\"_outcome\\\":\\\"success\\\",\\\"_details\\\":{\\\"key\\\":\\\"external_log_export_enabled\\\",\\\"previousEnabled\\\":false,\\\"nextEnabled\\\":true,\\\"envOverride\\\":null},\\\"_detail_key\\\":\\\"external_log_export_enabled\\\",\\\"_detail_previous_enabled\\\":\\\"false\\\",\\\"_detail_next_enabled\\\":\\\"true\\\"}\"\n}\n",
           "stderr": ""
         },
         {
@@ -241,15 +241,15 @@
           "kind": "automated",
           "status": "passed",
           "command": "docker compose -f ops/logging/docker-compose.syslog.yml down",
-          "startedAt": "2026-10-24T15:30:24.680Z",
-          "durationMs": 3224,
+          "startedAt": "2026-10-24T21:12:22.984Z",
+          "durationMs": 3245,
           "exitCode": 0,
           "stdout": "",
           "stderr": " Container logging-syslog-collector-1 Stopping \n Container logging-syslog-collector-1 Stopped \n Container logging-syslog-collector-1 Removing \n Container logging-syslog-collector-1 Removed \n"
         }
       ],
-      "startedAt": "2026-10-24T15:30:06.743Z",
-      "durationMs": 21161
+      "startedAt": "2026-10-24T21:12:04.877Z",
+      "durationMs": 21352
     },
     {
       "name": "nonblocking_export_failure_smoke",
@@ -261,58 +261,58 @@
           "kind": "automated",
           "status": "passed",
           "command": "docker compose -p collectz-private --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml -f .ci/docker-compose.platform.yml -f docker-compose.localhost.yml up -d --build backend",
-          "startedAt": "2026-10-24T15:30:28.359Z",
-          "durationMs": 4966,
+          "startedAt": "2026-10-24T21:12:26.721Z",
+          "durationMs": 5105,
           "exitCode": 0,
-          "stdout": "#1 [internal] load local bake definitions\n#1 reading from stdin 1.20kB done\n#1 DONE 0.0s\n\n#2 [backend internal] load build definition from Dockerfile\n#2 transferring dockerfile: 735B done\n#2 DONE 0.0s\n\n#3 [migrate internal] load metadata for docker.io/library/node:24.22.1-alpine\n#3 DONE 0.0s\n\n#4 [migrate internal] load .dockerignore\n#4 transferring context: 145B done\n#4 DONE 0.0s\n\n#5 [backend 1/9] FROM docker.io/library/node:24.22.1-alpine\n#5 DONE 0.0s\n\n#6 [backend internal] load build context\n#6 transferring context: 13.23kB done\n#6 DONE 0.0s\n\n#7 [backend 6/9] COPY . .\n#7 CACHED\n\n#8 [backend 8/9] COPY docker-entrypoint.sh /usr/local/bin/collectz-backend-entrypoint\n#8 CACHED\n\n#9 [backend 3/9] RUN apk upgrade --no-cache   && apk add --no-cache su-exec\n#9 CACHED\n\n#10 [backend 5/9] RUN npm ci --omit=dev   && npm cache clean --force   && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx\n#10 CACHED\n\n#11 [backend 4/9] COPY package*.json ./\n#11 CACHED\n\n#12 [backend 7/9] RUN mkdir -p uploads && chown -R node:node /app\n#12 CACHED\n\n#13 [backend 2/9] WORKDIR /app\n#13 CACHED\n\n#14 [backend 9/9] RUN chmod +x /usr/local/bin/collectz-backend-entrypoint\n#14 CACHED\n\n#15 [migrate] exporting to image\n#15 exporting layers done\n#15 writing image sha256:1d623cfeec0572de9372719b4fc2a474f12f6e7fe178b64eced01924e93ca7ae done\n#15 naming to docker.io/library/mediavault-backend:ci done\n#15 DONE 0.0s\n\n#16 [backend] exporting to image\n#16 exporting layers done\n#16 writing image sha256:f2e403247e22cb1222dded38ecf951575cc7271d10458103afd5d369c1f147df done\n#16 naming to docker.io/library/mediavault-backend:ci done\n#16 DONE 0.0s\n\n#17 [migrate] resolving provenance for metadata file\n#17 DONE 0.0s\n\n#18 [backend] resolving provenance for metadata file\n#18 DONE 0.0s\n",
-          "stderr": " Image mediavault-backend:ci Building \n Image mediavault-backend:ci Building \n Image mediavault-backend:ci Built \n Image mediavault-backend:ci Built \ntime=\"2026-10-24T10:30:28-05:00\" level=warning msg=\"Found orphan containers (collectz-private-cairn-1, collectz-private-cairn-db-1) for this project. If you removed or renamed this service in your compose file, you can run this command with the --remove-orphans flag to clean it up.\"\n Container collectz-private-db-1 Running \n Container collectz-private-backend-1 Recreate \n Container collectz-private-backend-1 Recreated \n Container collectz-private-db-1 Waiting \n Container collectz-private-db-1 Healthy \n Container collectz-private-migrate-1 Starting \n Container collectz-private-migrate-1 Started \n Container collectz-private-migrate-1 Waiting \n Container collectz-private-db-1 Waiting \n Container collectz-private-migrate-1 Exited \n Container collectz-private-db-1 Healthy \n Container collectz-private-backend-1 Starting \n Container collectz-private-backend-1 Started \n"
+          "stdout": "#1 [internal] load local bake definitions\n#1 reading from stdin 1.20kB done\n#1 DONE 0.0s\n\n#2 [backend internal] load build definition from Dockerfile\n#2 transferring dockerfile: 735B done\n#2 DONE 0.0s\n\n#3 [backend internal] load metadata for docker.io/library/node:24.22.1-alpine\n#3 DONE 0.0s\n\n#4 [backend internal] load .dockerignore\n#4 transferring context: 145B done\n#4 DONE 0.0s\n\n#5 [backend 1/9] FROM docker.io/library/node:24.22.1-alpine\n#5 DONE 0.0s\n\n#6 [backend internal] load build context\n#6 transferring context: 13.23kB done\n#6 DONE 0.0s\n\n#7 [migrate 5/9] RUN npm ci --omit=dev   && npm cache clean --force   && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx\n#7 CACHED\n\n#8 [migrate 6/9] COPY . .\n#8 CACHED\n\n#9 [migrate 2/9] WORKDIR /app\n#9 CACHED\n\n#10 [migrate 4/9] COPY package*.json ./\n#10 CACHED\n\n#11 [migrate 7/9] RUN mkdir -p uploads && chown -R node:node /app\n#11 CACHED\n\n#12 [migrate 3/9] RUN apk upgrade --no-cache   && apk add --no-cache su-exec\n#12 CACHED\n\n#13 [migrate 8/9] COPY docker-entrypoint.sh /usr/local/bin/collectz-backend-entrypoint\n#13 CACHED\n\n#14 [migrate 9/9] RUN chmod +x /usr/local/bin/collectz-backend-entrypoint\n#14 CACHED\n\n#15 [backend] exporting to image\n#15 exporting layers done\n#15 writing image sha256:4706d2ea86e2736c46cce6f13bd2b37add1820f6a2fe223e208555d5cc34d648 done\n#15 naming to docker.io/library/mediavault-backend:ci done\n#15 DONE 0.0s\n\n#16 [migrate] exporting to image\n#16 exporting layers done\n#16 writing image sha256:55f7a7ae1c58b898b0089685f4b9cb7e00f8bc53d174b158c207df513f59b245 done\n#16 naming to docker.io/library/mediavault-backend:ci done\n#16 DONE 0.0s\n\n#17 [backend] resolving provenance for metadata file\n#17 DONE 0.0s\n\n#18 [migrate] resolving provenance for metadata file\n#18 DONE 0.0s\n",
+          "stderr": " Image mediavault-backend:ci Building \n Image mediavault-backend:ci Building \n Image mediavault-backend:ci Built \n Image mediavault-backend:ci Built \ntime=\"2026-10-24T16:12:27-05:00\" level=warning msg=\"Found orphan containers (collectz-private-cairn-1, collectz-private-cairn-db-1) for this project. If you removed or renamed this service in your compose file, you can run this command with the --remove-orphans flag to clean it up.\"\n Container collectz-private-db-1 Running \n Container collectz-private-migrate-1 Recreate \n Container collectz-private-migrate-1 Recreated \n Container collectz-private-backend-1 Recreate \n Container collectz-private-backend-1 Recreated \n Container collectz-private-db-1 Waiting \n Container collectz-private-db-1 Healthy \n Container collectz-private-migrate-1 Starting \n Container collectz-private-migrate-1 Started \n Container collectz-private-migrate-1 Waiting \n Container collectz-private-db-1 Waiting \n Container collectz-private-migrate-1 Exited \n Container collectz-private-db-1 Healthy \n Container collectz-private-backend-1 Starting \n Container collectz-private-backend-1 Started \n"
         },
         {
           "name": "backend_ready_unreachable_syslog",
           "kind": "automated",
           "status": "passed",
           "command": "curl -fsS http://localhost:3201/api/health",
-          "startedAt": "2026-10-24T15:30:33.325Z",
-          "durationMs": 1052,
+          "startedAt": "2026-10-24T21:12:31.826Z",
+          "durationMs": 1071,
           "exitCode": 0,
-          "stdout": "{\"status\":\"ok\",\"app\":\"collectZ\",\"version\":\"3.25.3\",\"frontend\":\"3.25.3\",\"backend\":\"3.25.3\",\"build\":\"v3.25.3\"}",
+          "stdout": "{\"status\":\"ok\",\"app\":\"collectZ\",\"version\":\"3.25.4\",\"frontend\":\"3.25.4\",\"backend\":\"3.25.4\",\"build\":\"v3.25.4\"}",
           "stderr": ""
         },
         {
           "name": "nonblocking_smoke",
           "kind": "automated",
           "status": "passed",
-          "command": "docker compose -p collectz-private --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml -f .ci/docker-compose.platform.yml -f docker-compose.localhost.yml exec -T backend sh -lc BASE_URL=\"http://frontend:3000\" ADMIN_EMAIL=\"observability-evidence-1792855828043@example.com\" ADMIN_PASSWORD=\"[REDACTED]\" node scripts/structured-log-nonblocking-smoke.js",
-          "startedAt": "2026-10-24T15:30:34.377Z",
-          "durationMs": 21518,
+          "command": "docker compose -p collectz-private --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml -f .ci/docker-compose.platform.yml -f docker-compose.localhost.yml exec -T backend sh -lc BASE_URL=\"http://frontend:3000\" ADMIN_EMAIL=\"observability-evidence-1792876346378@example.com\" ADMIN_PASSWORD=\"[REDACTED]\" node scripts/structured-log-nonblocking-smoke.js",
+          "startedAt": "2026-10-24T21:12:32.897Z",
+          "durationMs": 21500,
           "exitCode": 0,
-          "stdout": "Logging into collectZ admin session...\nEnabling external_log_export_enabled...\nWaiting 11000ms for feature-flag cache to settle...\nToggling metrics_enabled to emit a deterministic audit event...\nStructured log non-blocking smoke passed.\nRequest ID: structured-log-smoke-2f5c8290-e35b-4a8b-8b49-9c180a2d9b14\nActivity row: 858731\nHealth version: 3.25.3\n",
+          "stdout": "Logging into collectZ admin session...\nEnabling external_log_export_enabled...\nWaiting 11000ms for feature-flag cache to settle...\nToggling metrics_enabled to emit a deterministic audit event...\nStructured log non-blocking smoke passed.\nRequest ID: structured-log-smoke-c2e994b5-3436-48e5-9222-4af39b5b86f5\nActivity row: 861477\nHealth version: 3.25.4\n",
           "stderr": ""
         }
       ],
-      "startedAt": "2026-10-24T15:30:28.043Z",
-      "durationMs": 27852
+      "startedAt": "2026-10-24T21:12:26.378Z",
+      "durationMs": 28019
     },
     {
       "name": "backend_restore_graylog",
       "kind": "automated",
       "status": "passed",
       "command": "docker compose -p collectz-private --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml -f .ci/docker-compose.platform.yml -f docker-compose.localhost.yml up -d --build backend",
-      "startedAt": "2026-10-24T15:30:56.049Z",
-      "durationMs": 5058,
+      "startedAt": "2026-10-24T21:12:54.559Z",
+      "durationMs": 4989,
       "exitCode": 0,
-      "stdout": "#1 [internal] load local bake definitions\n#1 reading from stdin 1.20kB done\n#1 DONE 0.0s\n\n#2 [backend internal] load build definition from Dockerfile\n#2 transferring dockerfile: 735B done\n#2 DONE 0.0s\n\n#3 [migrate internal] load metadata for docker.io/library/node:24.22.1-alpine\n#3 DONE 0.0s\n\n#4 [backend internal] load .dockerignore\n#4 transferring context: 145B done\n#4 DONE 0.0s\n\n#5 [backend 1/9] FROM docker.io/library/node:24.22.1-alpine\n#5 DONE 0.0s\n\n#6 [migrate internal] load build context\n#6 transferring context: 13.23kB done\n#6 DONE 0.0s\n\n#7 [migrate 4/9] COPY package*.json ./\n#7 CACHED\n\n#8 [migrate 3/9] RUN apk upgrade --no-cache   && apk add --no-cache su-exec\n#8 CACHED\n\n#9 [migrate 7/9] RUN mkdir -p uploads && chown -R node:node /app\n#9 CACHED\n\n#10 [migrate 2/9] WORKDIR /app\n#10 CACHED\n\n#11 [migrate 6/9] COPY . .\n#11 CACHED\n\n#12 [migrate 5/9] RUN npm ci --omit=dev   && npm cache clean --force   && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx\n#12 CACHED\n\n#13 [migrate 8/9] COPY docker-entrypoint.sh /usr/local/bin/collectz-backend-entrypoint\n#13 CACHED\n\n#14 [migrate 9/9] RUN chmod +x /usr/local/bin/collectz-backend-entrypoint\n#14 CACHED\n\n#15 [backend] exporting to image\n#15 exporting layers done\n#15 writing image sha256:f2e403247e22cb1222dded38ecf951575cc7271d10458103afd5d369c1f147df done\n#15 naming to docker.io/library/mediavault-backend:ci done\n#15 DONE 0.0s\n\n#16 [migrate] exporting to image\n#16 exporting layers done\n#16 writing image sha256:1d623cfeec0572de9372719b4fc2a474f12f6e7fe178b64eced01924e93ca7ae done\n#16 naming to docker.io/library/mediavault-backend:ci done\n#16 DONE 0.0s\n\n#17 [backend] resolving provenance for metadata file\n#17 DONE 0.0s\n\n#18 [migrate] resolving provenance for metadata file\n#18 DONE 0.0s\n",
-      "stderr": " Image mediavault-backend:ci Building \n Image mediavault-backend:ci Building \n Image mediavault-backend:ci Built \n Image mediavault-backend:ci Built \ntime=\"2026-10-24T10:30:56-05:00\" level=warning msg=\"Found orphan containers (collectz-private-cairn-1, collectz-private-cairn-db-1) for this project. If you removed or renamed this service in your compose file, you can run this command with the --remove-orphans flag to clean it up.\"\n Container collectz-private-db-1 Running \n Container collectz-private-migrate-1 Recreate \n Container collectz-private-migrate-1 Recreated \n Container collectz-private-backend-1 Recreate \n Container collectz-private-backend-1 Recreated \n Container collectz-private-db-1 Waiting \n Container collectz-private-db-1 Healthy \n Container collectz-private-migrate-1 Starting \n Container collectz-private-migrate-1 Started \n Container collectz-private-db-1 Waiting \n Container collectz-private-migrate-1 Waiting \n Container collectz-private-migrate-1 Exited \n Container collectz-private-db-1 Healthy \n Container collectz-private-backend-1 Starting \n Container collectz-private-backend-1 Started \n"
+      "stdout": "#1 [internal] load local bake definitions\n#1 reading from stdin 1.20kB done\n#1 DONE 0.0s\n\n#2 [backend internal] load build definition from Dockerfile\n#2 transferring dockerfile: 735B done\n#2 DONE 0.0s\n\n#3 [migrate internal] load metadata for docker.io/library/node:24.22.1-alpine\n#3 DONE 0.0s\n\n#4 [migrate internal] load .dockerignore\n#4 transferring context: 145B done\n#4 DONE 0.0s\n\n#5 [migrate 1/9] FROM docker.io/library/node:24.22.1-alpine\n#5 DONE 0.0s\n\n#6 [migrate internal] load build context\n#6 transferring context: 13.23kB done\n#6 DONE 0.0s\n\n#7 [backend 5/9] RUN npm ci --omit=dev   && npm cache clean --force   && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx\n#7 CACHED\n\n#8 [backend 6/9] COPY . .\n#8 CACHED\n\n#9 [backend 4/9] COPY package*.json ./\n#9 CACHED\n\n#10 [backend 3/9] RUN apk upgrade --no-cache   && apk add --no-cache su-exec\n#10 CACHED\n\n#11 [backend 8/9] COPY docker-entrypoint.sh /usr/local/bin/collectz-backend-entrypoint\n#11 CACHED\n\n#12 [backend 2/9] WORKDIR /app\n#12 CACHED\n\n#13 [backend 7/9] RUN mkdir -p uploads && chown -R node:node /app\n#13 CACHED\n\n#14 [backend 9/9] RUN chmod +x /usr/local/bin/collectz-backend-entrypoint\n#14 CACHED\n\n#15 [migrate] exporting to image\n#15 exporting layers done\n#15 writing image sha256:55f7a7ae1c58b898b0089685f4b9cb7e00f8bc53d174b158c207df513f59b245 done\n#15 naming to docker.io/library/mediavault-backend:ci done\n#15 DONE 0.0s\n\n#16 [backend] exporting to image\n#16 exporting layers done\n#16 writing image sha256:4706d2ea86e2736c46cce6f13bd2b37add1820f6a2fe223e208555d5cc34d648 done\n#16 naming to docker.io/library/mediavault-backend:ci done\n#16 DONE 0.0s\n\n#17 [migrate] resolving provenance for metadata file\n#17 DONE 0.0s\n\n#18 [backend] resolving provenance for metadata file\n#18 DONE 0.0s\n",
+      "stderr": " Image mediavault-backend:ci Building \n Image mediavault-backend:ci Building \n Image mediavault-backend:ci Built \n Image mediavault-backend:ci Built \ntime=\"2026-10-24T16:12:55-05:00\" level=warning msg=\"Found orphan containers (collectz-private-cairn-1, collectz-private-cairn-db-1) for this project. If you removed or renamed this service in your compose file, you can run this command with the --remove-orphans flag to clean it up.\"\n Container collectz-private-db-1 Running \n Container collectz-private-migrate-1 Recreate \n Container collectz-private-migrate-1 Recreated \n Container collectz-private-backend-1 Recreate \n Container collectz-private-backend-1 Recreated \n Container collectz-private-db-1 Waiting \n Container collectz-private-db-1 Healthy \n Container collectz-private-migrate-1 Starting \n Container collectz-private-migrate-1 Started \n Container collectz-private-db-1 Waiting \n Container collectz-private-migrate-1 Waiting \n Container collectz-private-migrate-1 Exited \n Container collectz-private-db-1 Healthy \n Container collectz-private-backend-1 Starting \n Container collectz-private-backend-1 Started \n"
     },
     {
       "name": "main_stack_health",
       "kind": "automated",
       "status": "passed",
       "command": "curl -fsS http://localhost:3201/api/health",
-      "startedAt": "2026-10-24T15:31:01.107Z",
-      "durationMs": 1062,
+      "startedAt": "2026-10-24T21:12:59.548Z",
+      "durationMs": 1071,
       "exitCode": 0,
-      "stdout": "{\"status\":\"ok\",\"app\":\"collectZ\",\"version\":\"3.25.3\",\"frontend\":\"3.25.3\",\"backend\":\"3.25.3\",\"build\":\"v3.25.3\"}",
+      "stdout": "{\"status\":\"ok\",\"app\":\"collectZ\",\"version\":\"3.25.4\",\"frontend\":\"3.25.4\",\"backend\":\"3.25.4\",\"build\":\"v3.25.4\"}",
       "stderr": ""
     }
   ],
