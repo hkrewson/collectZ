@@ -196,3 +196,9 @@ Browser-regression expectation:
 - Keep `.github/workflows/docker-publish.yml` running the `runtime-smoke` gate before publish/release jobs so both core and control-plane runtime contracts stay enforced.
 - Keep `.github/workflows/browser-captures.yml` as a separate manual screenshot-generation path for support/docs visuals instead of folding capture mode into the blocking regression gate.
 - Do not add Playwright browsers or the root test harness as dependencies of the shipped backend/frontend runtime images.
+
+## Saved-view RLS pilot certification (3.26.0)
+
+`migration-check` runs `test:saved-view-rls-certification` using its masked PostgreSQL admin URL and uploads `saved-view-rls-evidence/saved-view-rls-evidence.json`. The check uses scratch databases and ephemeral runtime/broker roles, verifies raw-SQL CRUD isolation and scope spoof denial, blocks parent-delete cascade bypass, certifies migration/backfill and fail-closed ambiguous ownership, and restores a database snapshot. Runtime SQL alone cannot mint the transaction grants. Failure labels identify the denied operation or migration/restore assumption; the artifact contains only labels, booleans, and the migration number, never fixture credentials. Hosted preflight requires a passed artifact with at least 15 checks.
+
+The `rbac-regression` job also runs `test:saved-view-rls-http-smoke` against its running backend. It proves authenticated CRUD, committed readback, peer/sibling-workspace denial, and request scope-spoof denial. Local equivalents use the existing canonical backend container and scratch databases inside the existing PostgreSQL service; no parallel Compose project or volume is needed.

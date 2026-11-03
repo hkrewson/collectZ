@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.26.0",
+      "version": "3.26.0",
+      "date": "2026-11-02",
+      "status": null,
+      "summary": "Saved library views now use database-enforced workspace, library, and owner isolation in addition to existing application authorization.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Bind saved-view CRUD to one authorized transaction and commit before returning an HTTP success.",
+            "A narrowly privileged, separately authenticated scope broker grants access only to a specific runtime role, backend PID, full transaction ID, actor, workspace, and optional library. Grants expire after five minutes and are removed after work finishes.",
+            "Enable SELECT/INSERT/UPDATE/DELETE policies on saved views; reject ownership changes and guard referential-action deletes that bypass RLS.",
+            "Deny unscoped SQL and spoofed settings; retain existing application permission checks.",
+            "Patch the existing `follow-redirects` overrides to `1.16.2` in both applications to clear the newly reported redirect credential-leak advisory without updating Axios.",
+            "Certify runtime isolation, upgrade/backfill, rollback, concurrent connections, expiry, and snapshot restore in the existing PostgreSQL service locally and in hosted migration-check."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.25.4",
       "version": "3.25.4",
       "date": "2026-10-24",
@@ -177,28 +197,6 @@
             "Updated the aggregate invitation inventory to prove column absence and hash completeness without exposing invitation identities or token material.",
             "Extended generic migration rehearsal evidence to capture secret-free invitation schema state before upgrade, after upgrade, and after snapshot restore.",
             "Updated focused unit and live abuse coverage for hash-only lookup, replay, concurrency, CSRF non-mutation, and audit hygiene."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.24.10",
-      "version": "3.24.10",
-      "date": "2026-08-25",
-      "status": "complete locally; hosted CI promotion gates pending after push",
-      "summary": "This release turns CollectZ workspace ownership from scattered conventions into a reviewed, machine-checked contract. It classifies every fresh-install table and maintained Express route, records same-workspace foreign-key expectations, certifies important jobs and provider paths, centralizes stable permission keys for workspace membership management, and adds live cross-workspace authorization proof.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added a generated and reviewed ownership snapshot covering all fresh-install database tables, maintained route declarations, stable permission keys, and selected non-request execution paths.",
-            "Table entries identify their ownership category, authoritative ownership key, rationale, and same-workspace foreign-key expectations.",
-            "Authenticated route entries record method, ownership/locality, stable read or mutation permission, scope source, CSRF policy, and session-credential requirement.",
-            "Added stable account, platform, workspace, content, member, and integration permission keys with owner/admin/member/viewer role bundles that reject unknown permissions.",
-            "Routed workspace membership-management decisions through the stable permission evaluator while retaining the existing role assignment hierarchy.",
-            "Certified durable sync jobs, Plex webhook/reconciliation/readback, capture OCR, valuation, workspace export, media search, activity audit, and provider-backed repair paths against explicit workspace sources.",
-            "Added a live PostgreSQL-backed authorization smoke for anonymous denial, read-only mutation denial, sibling-workspace read/mutation/provider denial, identifier tampering, and durable-job isolation.",
-            "Added ownership snapshot drift and live authorization certification to the maintained RBAC CI job."
           ]
         }
       ]

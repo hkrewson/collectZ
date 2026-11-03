@@ -1,16 +1,21 @@
 {
-  "generatedAt": "2026-10-17T00:01:25.102Z",
+  "generatedAt": "2026-11-03T03:53:11.290Z",
   "status": "passed",
   "manifestSchemaVersion": 1,
   "baselineVersion": 122,
-  "latestVersion": 123,
+  "latestVersion": 124,
   "certifiedMigrationVersions": [
-    123
+    123,
+    124
   ],
   "selectorMatches": [
     {
       "version": 123,
       "description": "Apple TV device authorization"
+    },
+    {
+      "version": 124,
+      "description": "Saved view ownership RLS and transaction scope broker"
     }
   ],
   "fixturePolicy": {
@@ -87,13 +92,13 @@
       {
         "id": 1,
         "user_id": 1,
-        "expires_at": "2026-10-24T00:01:30.784Z",
+        "expires_at": "2026-11-10T03:53:12.428Z",
         "storedCredentialPresent": true
       },
       {
         "id": 2,
         "user_id": 1,
-        "expires_at": "2026-10-24T00:01:30.786Z",
+        "expires_at": "2026-11-10T03:53:12.429Z",
         "storedCredentialPresent": true
       }
     ],
@@ -149,7 +154,7 @@
             "libraries:read"
           ],
           "revoked_at": null,
-          "expires_at": "2026-10-24T00:01:30.791Z",
+          "expires_at": "2026-11-10T03:53:12.434Z",
           "storedCredentialPresent": true
         }
       ],
@@ -165,7 +170,7 @@
             "/api/libraries"
           ],
           "revoked_at": null,
-          "expires_at": "2026-10-24T00:01:30.792Z",
+          "expires_at": "2026-11-10T03:53:12.435Z",
           "storedCredentialPresent": true
         }
       ]

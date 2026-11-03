@@ -4964,7 +4964,9 @@ CREATE TABLE IF NOT EXISTS tv_device_authorizations (
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_tv_device_expiry ON tv_device_authorizations(expires_at);
-` }
+` },
+  { version: 124, description: 'Saved view ownership RLS and transaction scope broker',
+    up: require('fs').readFileSync(require('path').join(__dirname, 'savedViewRls.sql'), 'utf8') }
 ];
 
 async function runMigrationsForClient(client, options = {}) {

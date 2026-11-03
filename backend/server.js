@@ -135,6 +135,12 @@ const prepareDatabaseForStartup = async () => {
   const client = await pool.connect();
   try {
     await assertRuntimeRolePolicy(client, { policy: rolePolicy });
+    if (migrationsMode === 'external') {
+      await require('./db/scopeBroker').assertScopeBrokerPolicy(process.env.DATABASE_URL, {
+        ssl: ['true', '1'].includes(process.env.DATABASE_SSL) ? { rejectUnauthorized: false } : false,
+        connectionTimeoutMillis: 5000
+      });
+    }
   } finally {
     client.release();
   }

@@ -97,3 +97,7 @@ docker compose --env-file .env up -d
 ```
 
 The runtime role password needs no manual SQL: set `DB_RUNTIME_PASSWORD` in `.env` and run `docker compose --env-file .env up -d`; the `migrate` service re-provisions the role before the backend restarts.
+
+### Saved-view scope broker (3.26.0)
+
+The provisioner also creates a narrowly privileged scope-broker login derived from `DB_RUNTIME_USER` and `DB_RUNTIME_PASSWORD`. It has no table access or membership in the runtime/owner roles; it can only authorize/revoke one transaction's saved-view context. No additional environment secret is required. Rerun the migrate/provision job and recreate the backend together when rotating the runtime password. External-mode startup verifies the broker's privileges and refuses to start with an unavailable or overprivileged broker. See [50-Staged-Row-Level-Security.md](50-Staged-Row-Level-Security.md).

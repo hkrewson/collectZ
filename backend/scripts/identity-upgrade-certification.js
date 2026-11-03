@@ -397,6 +397,10 @@ async function startCertificationServer(databaseUrl, secrets) {
     env: {
       ...process.env,
       DATABASE_URL: databaseUrl,
+      // This synthetic identity rehearsal intentionally starts an owner server
+      // against old schemas; runtime-role enforcement is certified separately.
+      DATABASE_MIGRATIONS_MODE: 'startup',
+      DATABASE_RUNTIME_ROLE_POLICY: 'warn',
       DB_PASSWORD: '',
       DATABASE_SSL: useDatabaseSSL ? 'true' : 'false',
       PORT: String(port),

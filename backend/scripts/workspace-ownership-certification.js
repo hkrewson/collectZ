@@ -22,6 +22,8 @@ const TABLE_CATEGORIES = Object.freeze([
 ]);
 
 const TABLE_OVERRIDES = Object.freeze({
+  'collectz_scope.brokers': ['authorization_control_plane', 'broker_role', 'Owner-only mapping from scope broker to runtime role; no runtime table grants.'],
+  'collectz_scope.transactions': ['authorization_control_plane', 'backend_pid,transaction_id', 'Short-lived owner-only transaction grants minted by a separately authenticated broker.'],
   users: ['authorization_control_plane', 'id', 'Identity root; active scope is a pointer, not ownership.'],
   invites: ['authorization_control_plane', 'space_id', 'Invitation lifecycle is authorization state scoped to a workspace.'],
   spaces: ['authorization_control_plane', 'id', 'Workspace root.'],
@@ -92,7 +94,7 @@ const EXECUTION_PATHS = Object.freeze([
 
 function extractTables(sql) {
   const entries = [];
-  const pattern = /CREATE TABLE IF NOT EXISTS\s+([a-z0-9_]+)\s*\(([\s\S]*?)\n\);/gi;
+  const pattern = /CREATE TABLE IF NOT EXISTS\s+([a-z0-9_.]+)\s*\(([\s\S]*?)\n\);/gi;
   for (const match of sql.matchAll(pattern)) {
     const name = match[1];
     const body = match[2];

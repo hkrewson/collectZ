@@ -464,6 +464,12 @@ async function main() {
     )
   );
 
+  const rlsEvidence = safeReadJson(path.join(backendRoot, 'artifacts/saved-view-rls-evidence.json'));
+  const rlsCertified = rlsEvidence?.status === 'passed' && rlsEvidence.migration === 124
+    && rlsEvidence.checks?.length >= 15 && rlsEvidence.checks.every(check => check.pass === true);
+  gates.push(buildGate('Saved-view RLS certification evidence', rlsCertified ? 'PASS' : 'FAIL',
+    rlsCertified ? `passed ${rlsEvidence.checks.length} live isolation and restore checks` : 'saved-view RLS evidence is missing or failed'));
+
   const runtimeRoleEvidence = safeReadJson(runtimeRoleEvidencePath);
   const runtimeRoleChecks = Array.isArray(runtimeRoleEvidence?.checks) ? runtimeRoleEvidence.checks : [];
   const runtimeRoleCertified = Boolean(

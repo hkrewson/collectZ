@@ -5,6 +5,7 @@ function scopeId(value, optional = false) {
   if (!Number.isInteger(value) || value <= 0 || value > 2147483647) {
     const error = new Error('A valid database scope is required');
     error.code = 'INVALID_DATABASE_SCOPE';
+    error.status = 403;
     throw error;
   }
   return String(value);
@@ -19,7 +20,7 @@ async function withScopedTransaction(pool, scope, work) {
   const client = await pool.connect();
   let discard;
   try {
-    await client.query('BEGIN');
+    await client.query('BEGIN ISOLATION LEVEL READ COMMITTED');
     await client.query(
       `SELECT set_config('collectz.space_id', $1, true),
               set_config('collectz.library_id', $2, true)`,

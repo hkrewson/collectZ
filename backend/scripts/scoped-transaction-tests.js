@@ -58,3 +58,17 @@ test('rollback failure discards connection and preserves original failure', asyn
   await assert.rejects(withScopedTransaction(f.pool, { spaceId: 7 }, async () => { throw new Error('original'); }), /original/);
   assert.equal(f.calls.at(-1).error.message, 'ROLLBACK');
 });
+
+
+test('scope broker credentials are independent and bounded PostgreSQL identifiers', () => {
+  const { brokerCredentials } = require('../db/scopeBroker');
+  const secret = require('crypto').randomBytes(32).toString('hex');
+  const a = brokerCredentials('a'.repeat(63), secret);
+  assert.ok(a.role.length <= 63);
+  assert.match(a.role, /^[a-z_][a-z0-9_]*$/);
+  assert.notEqual(a.password, secret);
+  assert.deepEqual(a, brokerCredentials('a'.repeat(63), secret));
+  assert.notEqual(a.password, brokerCredentials('a'.repeat(63), secret + 'x').password);
+  assert.notEqual(a.role, brokerCredentials('b'.repeat(63), secret).role);
+  assert.notEqual(a.password, brokerCredentials('b'.repeat(63), secret).password);
+});

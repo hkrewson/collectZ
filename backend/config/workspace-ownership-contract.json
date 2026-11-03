@@ -173,6 +173,20 @@
       ]
     },
     {
+      "name": "collectz_scope.brokers",
+      "category": "authorization_control_plane",
+      "ownershipKey": "broker_role",
+      "rationale": "Owner-only mapping from scope broker to runtime role; no runtime table grants.",
+      "sameWorkspaceForeignKeys": []
+    },
+    {
+      "name": "collectz_scope.transactions",
+      "category": "authorization_control_plane",
+      "ownershipKey": "backend_pid,transaction_id",
+      "rationale": "Short-lived owner-only transaction grants minted by a separately authenticated broker.",
+      "sameWorkspaceForeignKeys": []
+    },
+    {
       "name": "directors",
       "category": "shared_reference",
       "ownershipKey": "id",

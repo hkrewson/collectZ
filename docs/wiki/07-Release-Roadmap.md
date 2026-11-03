@@ -9,22 +9,26 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 ## 3.26.0 — Transaction-Local Workspace Scope and Saved-View RLS Pilot
 
 **Goal:** Bind authorized workspace/library context to one database transaction and certify a small saved-view RLS pilot before broader activation.
-**Status:** In progress. Transaction helper and focused tests implemented; no production policy enabled and no version closeout claimed.
+**Status:** Implementation and local runtime verification complete; release readiness is NO-GO and this work remains uncommitted. Do not close the milestone while the gates below remain pending.
 
 ### Selected scope
 
-- Move transaction-local scope mechanics and the first staged RLS pilot from the architecture backlog into this milestone; expansion to other table families remains unscheduled.
-- Use saved library views as the candidate after checking nullable legacy ownership and its maintained CRUD paths.
-- Establish a scope-validation mechanism that the shared runtime role cannot forge through raw SQL; custom PostgreSQL settings alone are insufficient.
-- Preserve application permission checks and certify USING/WITH CHECK, ownership mutation denial, missing/invalid/spoofed scope, connection reuse, concurrent requests, upgrade/init parity, and restore behavior.
-- Complete version/release-feed alignment and all relevant release gates before closing the milestone.
+- Transaction-local scope mechanics and the first saved-view RLS pilot moved from the architecture backlog; other table-family expansion remains unscheduled.
+- Migration 124 activates saved-view USING/WITH CHECK, immutable ownership and guarded cascade deletion, backed by owner-only transaction grants minted through a separate narrowly privileged broker login.
+- All four saved-view HTTP routes use a committed authorized transaction. Untrusted PostgreSQL settings cannot manufacture grants.
+- Preserve application permission checks, certify legacy ownership backfill/fail-closed ambiguity, raw-SQL isolation, pooling/concurrency/expiry, identity continuity and snapshot restore.
 
-### Initial evidence and remaining work
+### Verification and pending closeout
 
-- Focused transaction tests pass. A live check inside the canonical backend container proved transaction-local settings clear after commit and rollback on a reused runtime connection, with superuser and BYPASSRLS both false.
-- Contract and reproducible checks: `docs/wiki/50-Staged-Row-Level-Security.md`.
-- Pending: trusted scope mechanism, legacy-row inventory, route binding, production migration/policy, raw-SQL isolation certification, restore evidence, relevant browser/RBAC/runtime regressions, and full version/release closeout. The helper is not yet called by production routes.
-- Current shipped application version remains `3.25.4` while this milestone is open.
+- **Project docs/checklists used:** `AGENTS.md`; `docs/wiki/02-Environment-Variables.md`; `docs/wiki/03-Docker-Compose-Setup.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/15-Secrets-and-Rotation-Runbook.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/50-Staged-Row-Level-Security.md`; `backend/config/workspace-ownership-contract.json`.
+- **Verified runtime facts:** Rebuilt canonical `collectz-private` in place; health reports app/frontend/backend/build `3.26.0` on port `3201`; migration 124 is active; backend role has neither superuser nor BYPASSRLS. Saved-view HTTP CRUD/isolation and settings cleanup pass. Core runtime passed by temporarily switching the same backend in place and restoring platform mode; platform runtime also passed. No parallel development project or data volume was created.
+- **Checks passed:** 363 existing backend units plus six focused transaction/broker tests; frontend unit tests (4); OpenAPI; frontend build; 17 raw-SQL RLS checks, including broker privilege enforcement, same-session isolation defaults, cross-workspace/library/actor denial, spoof/cascade denial, concurrency, expiry, legacy backfill, rollback and snapshot restore; runtime-role certification (30/30); identity baseline/upgrade/restore; init parity through 124 including private functions/policies; RBAC and workspace authorization; API smoke; browser regression (29 passed, two edition-specific skips); Help > Releases serving 3.26.0. A known-credential-value scan of 49 generated artifact/log files found zero matches; this supplements but does not replace hosted Gitleaks. Both dependency audits report zero vulnerabilities after patching the existing redirect override to 1.16.2.
+- **Release gates run:** Standard `npm run release:local-gate` and strict full profile with `--skip=runtime-smoke --fail-on-blocked`. The full profile's stock runtime launcher creates a separate Compose project and volumes, so it was not used; both editions were instead verified in the existing stack. The full profile reports 12 passed, one failed and three blocked; CodeQL reports five total results and zero active findings. Local preflight's current remaining failure is stale observability evidence. The full-profile browser wrapper requires a bypass token, but the actual browser suite passed directly without one.
+- **Blocked/unverified:** The observability release rehearsal creates/resets collector stacks and volumes, including a Graylog `down -v`; AGENTS.md policy 24 disallows this default local execution. It needs an explicitly authorized disposable environment or a retained-data-safe rehearsal before the milestone can close. Production Secure-cookie Compose smoke remains CI-only because canonical development uses development cookies. Gitleaks and Trivy are unavailable locally; hosted `secret-scan` and `image-security-and-sbom` must confirm them. Hosted CI must also rerun migration-check/RLS artifact validation, compose-smoke, rbac-regression, browser-regression, and Core/control-plane runtime-smoke after an explicitly authorized push. Do not interpret an unrun hosted gate as passed.
+- **Files changed:** Database transaction/broker helpers and SQL migration; provisioning and backend startup guard; saved-view routes; SQL and HTTP certification scripts plus unit and ownership/init-parity/identity/preflight checks; CI certification/artifact gates; version manifests/lockfiles/app metadata and Help > Releases snapshot; release note and the operator/security/roadmap/backlog docs named above; sanitized certification/dependency/preflight evidence.
+- **Risks/follow-ups:** Managed PostgreSQL needs migration-owner visibility of runtime transaction statistics. Ambiguous legacy saved-view ownership intentionally blocks upgrade. The five-minute authorization limit fails closed; no provider/network work belongs inside these transactions. Old application images require a matching pre-upgrade snapshot for rollback. Broader table families and job/maintenance adoption remain backlog scope.
+- **Remaining in milestone:** Resolve or explicitly authorize the blocked observability rehearsal and review the full uncommitted diff before the next local commit. Push only after explicit authorization, then require mandatory hosted gates before closing the release. Version metadata, matching release note/feed, and running-stack Releases readback are aligned locally.
+- **Recommended commit message:** `Release 3.26.0 with transaction-bound saved-view row-level security, isolated scope-broker authorization, and live isolation certification`.
 
 ---
 

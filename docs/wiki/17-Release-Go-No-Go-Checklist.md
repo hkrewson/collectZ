@@ -62,6 +62,7 @@ Tagged runs must produce:
 - `migration-rehearsal-evidence/migration-rehearsal-evidence.json`
 - `identity-upgrade-certification-evidence/identity-upgrade-certification-evidence.json`
 - `runtime-role-certification-evidence/runtime-role-certification-evidence.json`
+- `saved-view-rls-evidence/saved-view-rls-evidence.json`
 - `sbom-cyclonedx/backend-sbom.cdx.json`
 - `sbom-cyclonedx/frontend-sbom.cdx.json`
 - `preflight-go-no-go.md`
@@ -98,3 +99,5 @@ Any exception must include:
 - documented risk,
 - compensating controls,
 - expiration/remediation target.
+
+For migration 124 and later, saved-view RLS certification must pass its raw-SQL, cascade, scope-forgery, concurrency, migration, and restore checks, and the live saved-view HTTP smoke must pass in `rbac-regression`. Missing or failed `saved-view-rls-evidence` is a NO-GO; inspect its failing check label and the migration-check log. The canonical stack must still serve recent Help > Releases entries after the scoped CRUD change.

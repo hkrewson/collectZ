@@ -16,6 +16,7 @@
  */
 
 const crypto = require('crypto');
+const { brokerCredentials } = require('./scopeBroker');
 
 const DEFAULT_RUNTIME_ROLE = 'collectz_app';
 const ROLE_NAME_PATTERN = /^[a-z_][a-z0-9_]{0,62}$/;
@@ -165,6 +166,30 @@ async function provisionRuntimeRole(client, options = {}) {
       `ALTER DEFAULT PRIVILEGES FOR ROLE ${ownerRole} IN SCHEMA ${schemaIdent}
        GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO ${role}`
     );
+    const scopeSchema = await client.query("SELECT to_regclass('collectz_scope.brokers') IS NOT NULL AS present");
+    if (scopeSchema.rows[0].present) {
+      const credential = brokerCredentials(roleName, password);
+      const broker = quoteIdent(credential.role);
+      const brokerExists = await client.query('SELECT 1 FROM pg_roles WHERE rolname = $1', [credential.role]);
+      const brokerAttributes = ['LOGIN', 'NOINHERIT', 'NOCREATEDB', 'NOCREATEROLE'];
+      if (owner.owner_is_superuser) brokerAttributes.push('NOSUPERUSER', 'NOREPLICATION', 'NOBYPASSRLS');
+      await client.query(`${brokerExists.rowCount ? 'ALTER' : 'CREATE'} ROLE ${broker} WITH ${brokerAttributes.join(' ')} PASSWORD ${quoteLiteral(buildScramSha256Verifier(credential.password))}`);
+      const brokerMemberships = await client.query('SELECT r.rolname FROM pg_auth_members m JOIN pg_roles r ON r.oid=m.roleid JOIN pg_roles u ON u.oid=m.member WHERE u.rolname=$1', [credential.role]);
+      for (const membership of brokerMemberships.rows) await client.query(`REVOKE ${quoteIdent(membership.rolname)} FROM ${broker}`);
+      await client.query(`GRANT CONNECT ON DATABASE ${database} TO ${broker}`);
+      await client.query(`REVOKE CREATE ON DATABASE ${database} FROM ${broker}`);
+      await client.query(`REVOKE ALL ON SCHEMA public FROM ${broker}`);
+      await client.query(`REVOKE ALL ON ALL TABLES IN SCHEMA public FROM ${broker}`);
+      await client.query(`REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM ${broker}`);
+      for (const principal of [broker, role]) {
+        await client.query(`GRANT USAGE ON SCHEMA collectz_scope TO ${principal}`);
+        await client.query(`REVOKE ALL ON ALL TABLES IN SCHEMA collectz_scope FROM ${principal}`);
+        await client.query(`REVOKE ALL ON ALL FUNCTIONS IN SCHEMA collectz_scope FROM ${principal}`);
+      }
+      await client.query(`GRANT EXECUTE ON FUNCTION collectz_scope.authorize(integer,text,integer,integer,integer), collectz_scope.revoke(integer,text) TO ${broker}`);
+      await client.query(`GRANT EXECUTE ON FUNCTION collectz_scope.allows(integer,integer,integer) TO ${role}`);
+      await client.query('INSERT INTO collectz_scope.brokers(broker_role,runtime_role) VALUES ($1,$2) ON CONFLICT (broker_role) DO UPDATE SET runtime_role=EXCLUDED.runtime_role', [credential.role, roleName]);
+    }
     await client.query('COMMIT');
   } catch (error) {
     await client.query('ROLLBACK');

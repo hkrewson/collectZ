@@ -27,6 +27,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { Client } = require('pg');
+const { brokerCredentials } = require('../db/scopeBroker');
 const { runMigrationsForClient, getExpectedMigrationVersion, assertSchemaCurrent } = require('../db/migrations');
 const {
   provisionRuntimeRole,
@@ -256,7 +257,7 @@ async function main() {
     if (runtime) await runtime.end().catch(() => {});
     if (owner) await owner.end().catch(() => {});
     await dropDatabase(admin, dbName).catch(() => {});
-    for (const role of [roleName, probeRole]) {
+    for (const role of [brokerCredentials(roleName, runtimePassword).role, roleName, probeRole]) {
       const exists = await admin.query('SELECT 1 FROM pg_roles WHERE rolname = $1', [role]);
       if (exists.rowCount > 0) {
         await admin.query(`DROP ROLE ${quoteIdent(role)}`).catch((error) => {

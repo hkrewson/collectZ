@@ -94,6 +94,20 @@ async function schemaFingerprint(client) {
      ORDER BY key`
   );
 
+  const scopeSecurity = await client.query(`
+    SELECT 'table' AS kind, n.nspname || '.' || c.relname AS name,
+      c.relrowsecurity::text || ':' || c.relforcerowsecurity::text AS definition
+    FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='collectz_scope' OR (n.nspname='public' AND c.relname='saved_library_views')
+    UNION ALL
+    SELECT 'policy', schemaname || '.' || tablename || '.' || policyname,
+      concat_ws(':', permissive, roles::text, cmd, qual, with_check)
+    FROM pg_policies WHERE schemaname IN ('public','collectz_scope')
+    UNION ALL
+    SELECT 'function', n.nspname || '.' || p.proname, pg_get_functiondef(p.oid)
+    FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='collectz_scope'
+    ORDER BY kind, name`);
+
   return {
     columns: columns.rows.map((r) => ({
       table: r.table_name,
@@ -112,6 +126,7 @@ async function schemaFingerprint(client) {
       table: r.table_name,
       name: r.trigger_name
     })),
+    scopeSecurity: scopeSecurity.rows.map(r => ({ ...r, definition: normalizeSql(r.definition) })),
     migrations: migrationRows.rows,
     featureFlags: featureFlags.rows
   };
@@ -181,6 +196,7 @@ async function main() {
       diffRows('columns', initFp.columns, migFp.columns),
       diffRows('indexes', initFp.indexes, migFp.indexes),
       diffRows('triggers', initFp.triggers, migFp.triggers),
+      diffRows('scope_security', initFp.scopeSecurity, migFp.scopeSecurity),
       diffRows('migrations', initFp.migrations, migFp.migrations),
       diffRows('feature_flags', initFp.featureFlags, migFp.featureFlags)
     ];
