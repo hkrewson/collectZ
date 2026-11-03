@@ -6,6 +6,28 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 
 ---
 
+## 3.26.0 — Transaction-Local Workspace Scope and Saved-View RLS Pilot
+
+**Goal:** Bind authorized workspace/library context to one database transaction and certify a small saved-view RLS pilot before broader activation.
+**Status:** In progress. Transaction helper and focused tests implemented; no production policy enabled and no version closeout claimed.
+
+### Selected scope
+
+- Move transaction-local scope mechanics and the first staged RLS pilot from the architecture backlog into this milestone; expansion to other table families remains unscheduled.
+- Use saved library views as the candidate after checking nullable legacy ownership and its maintained CRUD paths.
+- Establish a scope-validation mechanism that the shared runtime role cannot forge through raw SQL; custom PostgreSQL settings alone are insufficient.
+- Preserve application permission checks and certify USING/WITH CHECK, ownership mutation denial, missing/invalid/spoofed scope, connection reuse, concurrent requests, upgrade/init parity, and restore behavior.
+- Complete version/release-feed alignment and all relevant release gates before closing the milestone.
+
+### Initial evidence and remaining work
+
+- Focused transaction tests pass. A live check inside the canonical backend container proved transaction-local settings clear after commit and rollback on a reused runtime connection, with superuser and BYPASSRLS both false.
+- Contract and reproducible checks: `docs/wiki/50-Staged-Row-Level-Security.md`.
+- Pending: trusted scope mechanism, legacy-row inventory, route binding, production migration/policy, raw-SQL isolation certification, restore evidence, relevant browser/RBAC/runtime regressions, and full version/release closeout. The helper is not yet called by production routes.
+- Current shipped application version remains `3.25.4` while this milestone is open.
+
+---
+
 ## 3.25.4 — Dependabot Maintenance Queue
 
 **Goal:** Clear compatible, non-major dependency PRs from the open queue, preserve focused review for major compatibility changes, and reconcile GitHub vulnerability alerts against the shipped dependency graph.

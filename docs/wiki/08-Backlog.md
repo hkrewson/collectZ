@@ -44,7 +44,7 @@ Explicit non-goals for this program:
 **Type:** Database security program
 **Tags:** `postgresql`, `rls`, `workspace`, `security`, `database-role`, `isolation`
 **Priority:** `P1`
-**Status:** Dependencies satisfied by `3.24.8` and `3.24.10`. The non-owner runtime role and credential split were promoted to `3.24.14 — Non-Owner Runtime Database Role and Credential Split` in [07-Release-Roadmap.md](07-Release-Roadmap.md). Remaining backlog scope is the transaction-local scope settings, the staged RLS policy pilot and expansion, and scope binding for requests, jobs, and maintenance commands.
+**Status:** Dependencies satisfied by `3.24.8` and `3.24.10`. The non-owner runtime role and credential split were promoted to `3.24.14 — Non-Owner Runtime Database Role and Credential Split` in [07-Release-Roadmap.md](07-Release-Roadmap.md). Transaction-local settings and the first saved-view RLS pilot are now promoted to `3.26.0 — Transaction-Local Workspace Scope and Saved-View RLS Pilot` (in progress). Remaining backlog scope is expansion to other table families and scope binding for their requests, jobs, and maintenance commands.
 
 **Goal:** Add PostgreSQL defense-in-depth so an omitted application predicate cannot read or write another workspace's domain rows, while keeping application policy as the primary authorization decision.
 
@@ -55,8 +55,7 @@ Explicit non-goals for this program:
 
 **Scope**
 - Separate migration-owner and runtime database credentials; ensure the runtime role is not a table owner and has neither `SUPERUSER` nor `BYPASSRLS`.
-- Define transaction-local workspace and optional library scope settings that cannot persist across pooled connection reuse.
-- Apply both `USING` and `WITH CHECK` policies to a small, low-risk workspace-owned domain first, then expand by certified table family.
+- Expand both `USING` and `WITH CHECK` policies by certified table family after the first pilot in `3.26.0` passes.
 - Keep authorization/bootstrap control-plane tables outside RLS until their pre-scope access contract is explicitly designed and tested.
 - Bind scope for authenticated HTTP requests, background jobs, webhooks, imports, exports, and maintenance commands; missing scope must fail closed.
 - Add raw-SQL tests proving the runtime role cannot cross workspace boundaries, spoof an unrestricted scope, mutate ownership, or retain scope after transaction completion.

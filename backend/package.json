@@ -9,7 +9,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "test:unit": "node scripts/unit-tests.js",
+    "test:unit": "node scripts/unit-tests.js && node --test scripts/scoped-transaction-tests.js",
+    "test:scoped-transaction-smoke": "node scripts/scoped-transaction-smoke.js",
     "test:openapi": "node scripts/validate-openapi.js",
     "test:integration-smoke": "node scripts/api-integration-smoke.js",
     "test:browser-capture-mapping-smoke": "node scripts/browser-capture-mapping-smoke.js",
