@@ -73,6 +73,47 @@ Explicit non-goals for this program:
 - Application permission failures and database scope failures remain distinguishable in tests and sanitized diagnostics.
 - Each activated table family has migration, rollback/restore, request, worker, raw-SQL, and cross-workspace evidence before the next family is enabled.
 
+### Backlog Item: Reusable Transaction Execution and Domain Persistence Modules
+**Type:** Database maintainability and transaction-safety architecture
+**Tags:** `postgresql`, `transactions`, `database`, `domain-modules`, `workspace`, `rls`, `testing`
+**Priority:** `P1`
+**Status:** Unscheduled. The `3.26.0` saved-view RLS pilot introduced `backend/db/scopedTransaction.js` and the specialized saved-view scope broker, but most established business workflows still own connection acquisition and repeat `BEGIN`/`COMMIT`/`ROLLBACK` handling inside routes or domain files. Current inspection found roughly 32 explicit production transaction starts across 12 route or service files.
+
+**Goal:** Put safe transaction execution and workspace-scoped database context behind reusable interfaces, then deepen selected domain modules so HTTP routes, jobs, and other callers invoke meaningful business operations instead of reproducing transaction mechanics and multi-table persistence rules.
+
+**Why this work exists**
+- Repeated transaction lifecycle code handles rollback failure, connection release, isolation, error translation, and diagnostics inconsistently.
+- The saved-view pilot has a stronger scoped transaction implementation than older transaction-owning workflows, but it is deliberately specialized and is not yet the common transaction foundation.
+- Several lower-level functions already accept a database client, so an incremental caller-owned transaction seam can be introduced without an ORM or a route rewrite.
+- RLS expansion, workspace-aware jobs, and URL-derived scope will be safer when request, job, and maintenance callers share one well-tested way to bind authorized scope for the duration of a transaction.
+
+**Dependencies**
+- Close or deliberately sequence after the `3.26.0` saved-view RLS pilot so its scope-grant and failed-cleanup guarantees remain intact.
+- Preserve the certified workspace ownership and authorization contracts; transaction context must only receive scope already authorized at the request or job interface.
+- Coordinate each adopted table family with the staged RLS backlog item rather than treating the reusable executor as proof that RLS coverage exists.
+
+**Scope**
+- Introduce a small general transaction executor that owns connection acquisition, isolation selection, commit, rollback, failed-rollback connection disposal, and sanitized timing/error diagnostics.
+- Rebuild the existing scoped transaction helper on that executor while preserving transaction-local workspace/library settings and the saved-view broker's narrower authorization contract.
+- Let domain modules accept a transaction client internally and expose business operations such as setting a primary signature, converting a capture to a wishlist item, or changing workspace membership atomically.
+- Start with one cohesive, lower-risk pilot such as signature persistence, then consider workspace administration, capture conversion, event notification creation, and feature-flag initialization in separate verified slices.
+- Add interface-level tests for success, caller failure, query failure, rollback failure, connection disposal, isolation selection, scope cleanup, and any narrowly allowed deadlock or serialization retry behavior.
+- Keep PostgreSQL error mapping and observability consistent without logging SQL parameters, credentials, provider payloads, or other sensitive data.
+
+**Out of scope**
+- Do not add a universal `create(table, data)`/`update(table, id, data)` CRUD interface, generic repository for every table, or a single database god module.
+- Do not introduce an ORM or query-builder migration solely to complete this work.
+- Do not move authorization decisions into the transaction executor or trust workspace identifiers merely because a caller supplied them.
+- Do not treat application scope predicates or reusable transaction context as a replacement for staged RLS policies.
+- Do not convert every direct SQL call or transaction in one release; adopt the interface when a bounded domain slice is selected and preserve proven behavior throughout.
+
+**Acceptance Criteria**
+- Selected callers no longer implement connection/commit/rollback boilerplate, and rollback failure cannot return an uncertain connection to the pool.
+- Scoped callers install only pre-authorized workspace/library context, and transaction-local settings cannot leak to the next pool borrower after success or failure.
+- At least two materially different domain workflows use the common executor before it is declared the default transaction path.
+- Domain interfaces hide multi-table ordering, locking, and persistence invariants while remaining testable with an injected transaction client or adapter.
+- Existing unit, API, RBAC, raw-SQL isolation, browser, migration/init-parity, Core runtime, and control-plane runtime gates remain green for each promoted slice.
+
 ### Backlog Item: Migration-Chain Fresh Installation Authority
 **Type:** Database and deployment simplification
 **Tags:** `migrations`, `init`, `postgresql`, `docker`, `deployment`, `parity`
