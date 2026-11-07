@@ -1,4 +1,5 @@
 const pool = require('../db/pool');
+const { executeTransaction } = require('../db/transactionExecutor');
 
 const FEATURE_FLAG_DEFINITIONS = {
   self_registration_enabled: {
@@ -66,9 +67,8 @@ function normalizeFeatureFlagRecord(key, storedEnabled, row = null) {
 
 async function ensureDefaultFlags() {
   if (FLAG_KEYS.length === 0) return;
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
+  // This database-only upsert loop is safe for one complete transaction retry.
+  await executeTransaction(pool, async (client) => {
     for (const key of FLAG_KEYS) {
       const def = FEATURE_FLAG_DEFINITIONS[key];
       await client.query(
@@ -79,13 +79,7 @@ async function ensureDefaultFlags() {
         [key, def.defaultEnabled, def.description]
       );
     }
-    await client.query('COMMIT');
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
-  }
+  }, { retries: 1 });
 }
 
 async function loadFeatureFlags({ forceRefresh = false } = {}) {

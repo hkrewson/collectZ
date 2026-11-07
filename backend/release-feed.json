@@ -1,6 +1,28 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.27.0",
+      "version": "3.27.0",
+      "date": "2026-11-07",
+      "status": null,
+      "summary": "Database workflows can now use one tested transaction executor for connection acquisition, isolation selection, commit, rollback, failed-rollback disposal, bounded retry, and sanitized diagnostics.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Add `executeTransaction(pool, work, options)` as the common database transaction interface.",
+            "Limit isolation selection to PostgreSQL `READ COMMITTED`, `REPEATABLE READ`, and `SERIALIZABLE` modes.",
+            "Keep retry disabled by default and permit at most two explicitly requested retries, only for serialization failures and deadlocks.",
+            "Discard connections after failed `BEGIN` or failed rollback so uncertain transaction state cannot return to the pool.",
+            "Emit optional timing/outcome diagnostics without SQL, parameters, error messages, or credentials; diagnostic sink failures cannot alter transaction results.",
+            "Rebuild authorized saved-view scoped transactions on the executor without moving authorization into the executor.",
+            "Adopt the interface for feature-flag default persistence as the first low-risk database-only workflow.",
+            "Add interface tests for success, work/query/commit failure, rollback failure, disposal, isolation, bounded retries, and diagnostic sanitization."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.26.0",
       "version": "3.26.0",
       "date": "2026-11-02",
@@ -177,26 +199,6 @@
             "Added a 20-operation reviewed contract covering permissions, CSRF, limiter, session authentication, reauthentication, disclosure, and audit behavior. SMTP and MFA/recovery material are explicitly recorded as unavailable with mandatory future policy.",
             "Added shared frontend password prompting and exact-operation retry for guarded profile and integration actions.",
             "Added live PostgreSQL proof for safe status readback, stale and sibling-session non-mutation, CSRF, wrong-password, non-session, support-delegation, limiter, and audit-retention behavior."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.24.11",
-      "version": "3.24.11",
-      "date": "2026-08-25",
-      "status": "complete locally; hosted CI promotion gates pending after push",
-      "summary": "This release removes CollectZ's final plaintext invitation-token compatibility path. Fresh and upgraded databases now store only a required unique token hash, registration claims invitations only by that hash, and maintained migration evidence proves legacy upgrade and restore behavior without retaining usable credential material.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added migration `121` to revoke legacy invitations without a usable hash, assign non-claimable retirement hashes, clear plaintext values, remove the plaintext index and column, and enforce a non-null unique hash.",
-            "Updated the fresh-install schema to create hash-only invitations from the outset.",
-            "Removed the plaintext fallback from invitation registration while retaining advisory-lock serialization and one-time conditional consumption.",
-            "Updated the aggregate invitation inventory to prove column absence and hash completeness without exposing invitation identities or token material.",
-            "Extended generic migration rehearsal evidence to capture secret-free invitation schema state before upgrade, after upgrade, and after snapshot restore.",
-            "Updated focused unit and live abuse coverage for hash-only lookup, replay, concurrency, CSRF non-mutation, and audit hygiene."
           ]
         }
       ]

@@ -11,7 +11,7 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 ## 3.27.0 — Reusable Transaction Execution Foundation
 
 **Goal:** Put safe transaction execution and authorized workspace scope behind one deep module before external-identity persistence depends on atomic multi-table behavior.
-**Status:** Selected as the active next milestone; planning complete, implementation not started.
+**Status:** Local implementation and version closeout complete. Hosted release gates and tag creation remain pending until an authorized push.
 
 ### Scope
 
@@ -33,6 +33,18 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 
 - No provider-identity schema, provider backfill, BookOrbit adapter, or digital-library migration belongs in `3.27.0`.
 - `3.27.1` may begin only after this transaction interface is verified and `3.27.0` completes its version closeout.
+
+### Closeout
+
+- **Roadmap slice:** `3.27.0 — Reusable Transaction Execution Foundation`.
+- **Project docs/checklists used:** `AGENTS.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/50-Staged-Row-Level-Security.md`; `docs/releases/v3.27.0.md`.
+- **Verified runtime facts:** Rebuilt and recreated the canonical `collectz-private` backend/frontend in place on port `3201`. Health reports app/frontend/backend/build `3.27.0`; the retained-database feature-flag initialization returns all five expected flags through the new executor; transaction-local scope clears after commit and rollback; saved-view HTTP CRUD/isolation and the platform boundary smoke pass; Help > Releases serves `3.27.0` first. The stack was restored to platform mode with no browser bypass credential after the exact Core browser gate.
+- **Checks passed:** 363 existing backend assertions plus 15 transaction/scoped-transaction interface tests; OpenAPI; frontend production build; backend/frontend production dependency audits with zero findings; CI prepare/version/release-feed checks; standard local release gate (12/12); CodeQL with five total and zero active findings; Core runtime and in-stack control-plane runtime; exact hosted Core browser suite (31/31); RBAC; saved-view HTTP isolation; transaction-scope cleanup; 17-check raw-SQL RLS migration/isolation/restore certification; observability evidence (9/9); diff hygiene.
+- **Blocked/unverified:** Local Gitleaks and Trivy/SBOM are unavailable. CI-secure-cookie Compose smoke is not reproducible in the retained development profile. Hosted `secret-scan`, `compose-smoke`, `image-security-and-sbom`, release preflight, image builds, and auto-tag remain required after push. The broad local `test:browser:core-regression` convenience target mixes Core and platform-only expectations and is not the hosted browser gate; the exact workflow gate passed.
+- **Files changed:** Transaction executor and interface tests; scoped transaction composition; feature-flag transaction adoption; backend test command; app/package version metadata and lockfiles; release note/feed; observability and preflight evidence; roadmap.
+- **Risks or follow-ups:** Retry is opt-in, capped at two, and limited to PostgreSQL serialization/deadlock codes; opted-in work may run more than once and must remain database-only. The executor intentionally does not authorize scope. Existing transactions are not migrated wholesale; the external-identity registry is the required second materially different adopter. The broader mixed-edition browser convenience target needs a separate harness cleanup if it is retained.
+- **Remaining in milestone:** Hosted gates and `v3.27.0` tag creation after an authorized push; no local implementation work remains.
+- **Recommended commit message:** `Release 3.27.0 with reusable transaction execution, scoped RLS composition, and bounded database retry safeguards`.
 
 ---
 
