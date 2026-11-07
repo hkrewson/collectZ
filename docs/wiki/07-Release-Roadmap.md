@@ -1,15 +1,164 @@
-# Release Roadmap (1.6.3 → 2.0.0)
+# Release Roadmap
 
 This roadmap converts product direction into implementation milestones with acceptance criteria and DB/API checklists. It incorporates findings from two independent architecture reviews conducted after the 1.6.3 baseline, and reflects the project's core priorities: security, data integrity, simple end-user deployment, CI/CD robustness, and a clear path to multi-space support.
 
 Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file stays focused on numbered milestones and the work that has already been selected for release planning.
+
+The `3.27.x` line below is intentionally planned ahead under an explicit maintainer exception to the normal one-active-slice convention. `3.27.0` is the only active next milestone. Later `3.27.x` entries are ordered milestone boundaries, not authorization to implement them early; each must still begin only after the preceding milestone closes or the roadmap is deliberately revised.
+
+---
+
+## 3.27.0 — Reusable Transaction Execution Foundation
+
+**Goal:** Put safe transaction execution and authorized workspace scope behind one deep module before external-identity persistence depends on atomic multi-table behavior.
+**Status:** Selected as the active next milestone; planning complete, implementation not started.
+
+### Scope
+
+- Introduce a small transaction-execution interface that owns connection acquisition, isolation selection, commit, rollback, failed-rollback connection disposal, and sanitized timing/error diagnostics.
+- Rebuild the existing scoped transaction helper on that executor without weakening the certified `3.26.0` saved-view scope-grant contract.
+- Adopt the interface in one cohesive lower-risk domain workflow, then use the external-identity registry in `3.27.1` as the second materially different adopter before declaring the executor the default transaction path.
+- Keep authorization outside the executor: callers must supply scope that has already been authorized at the request, job, or maintenance interface.
+- Add interface-level proof for success, caller failure, query failure, rollback failure, connection disposal, isolation selection, transaction-local scope cleanup, and narrowly permitted retry behavior.
+
+### Acceptance Criteria
+
+- Selected callers no longer reproduce connection/commit/rollback boilerplate.
+- A rollback failure cannot return an uncertain connection to the pool.
+- Authorized transaction-local workspace/library settings cannot leak to another pool borrower after success or failure.
+- The `3.26.0` saved-view RLS, raw-SQL isolation, migration/init-parity, RBAC, browser, and runtime evidence remains green.
+- Version metadata, `docs/releases/v3.27.0.md`, the generated release feed, and running Help > Releases readback are aligned before closeout.
+
+### Milestone Boundary
+
+- No provider-identity schema, provider backfill, BookOrbit adapter, or digital-library migration belongs in `3.27.0`.
+- `3.27.1` may begin only after this transaction interface is verified and `3.27.0` completes its version closeout.
+
+---
+
+## 3.27.1 — Canonical Object UUID and External Identity Registry
+
+**Goal:** Make external provider identity a durable, provider-instance-scoped relation instead of a mutable field embedded only in canonical object data.
+**Status:** Planned ahead; inactive until `3.27.0` closes.
+
+### Scope
+
+- Record the hard-to-reverse identity decision in an ADR before the schema migration is finalized.
+- Add a generated, immutable UUID public identifier to existing canonical media rows while retaining the current numeric primary key and foreign keys for internal database use.
+- Add stable provider-connection records so identities remain scoped to a configured provider instance even when its hostname or endpoint changes.
+- Add an external-identity relation that records workspace, provider connection, identity kind, external id, canonical media target, safe source URL, first-seen time, last-seen time, and active state.
+- Enforce active identity uniqueness by workspace, provider connection, identity kind, and external id; do not rely on provider-name prefixes or JSON conventions for uniqueness.
+- Protect the new workspace-owned tables with RLS from their first migration and access them only through authorized transactions.
+- Expose a small identity module interface for resolve, attach, list, deactivate, and transactional reassignment operations.
+
+### Acceptance Criteria
+
+- Two installations of the same provider may both own `book:42` without collision because provider connection is part of identity.
+- One canonical object may hold multiple provider identities without one source overwriting another.
+- Concurrent attachment of one active external identity cannot bind it to two canonical objects.
+- A canonical UUID is independent of every provider id and survives provider removal, endpoint changes, and identity reassignment.
+- Existing media reads and edits remain compatible; no existing primary-key conversion is required.
+- Version metadata, `docs/releases/v3.27.1.md`, the generated release feed, migration/init parity, restore evidence, and running Help > Releases readback are aligned before closeout.
+
+### Milestone Boundary
+
+- Do not backfill ambiguous legacy identities, switch production match precedence, or add BookOrbit in this slice.
+- Work/title, edition/release, owned copy/item, and append-only source-observation modeling remain broader backlog work; the identity relation must leave room for those target levels without pretending they already exist.
+
+---
+
+## 3.27.2 — Provider Identity Dual-Write, Matching, and Merge Integration
+
+**Goal:** Make the external-identity registry authoritative for repeat sync and merge behavior while preserving compatibility with existing provider fields during migration.
+**Status:** Planned ahead; inactive until `3.27.1` closes.
+
+### Scope
+
+- Dual-write authoritative external identities and the existing `type_details` / `media_metadata` compatibility fields for adopted flows.
+- Change repeat-sync resolution to require provider connection plus identity kind plus external id instead of matching `provider_item_id` without provider scope.
+- Backfill only high-confidence existing identities; route ambiguous or conflicting rows to explicit review and leave them unchanged.
+- Reassign identities transactionally during canonical merges and restore them during merge reverts without losing historical aliases.
+- Add conflict diagnostics for one external identity attached to multiple candidates, one canonical row carrying incompatible active identities, and legacy values that cannot be assigned to a provider connection safely.
+- Keep compatibility projections readable until every supported caller has migrated; do not silently delete legacy provider fields.
+
+### Acceptance Criteria
+
+- Repeat sync resolves through the authoritative relation and cannot cross provider instances or workspaces.
+- Merge, multi-hop merge, revert, and later re-sync preserve the correct canonical target.
+- High-confidence backfill is idempotent, auditable, and restore-safe; ambiguous rows are reported rather than guessed.
+- Existing CWA, Kavita, Plex, Metron, scanner, and generic import behavior remains compatible until each provider is explicitly adopted.
+- Version metadata, `docs/releases/v3.27.2.md`, the generated release feed, migration/init parity, runtime regression evidence, and running Help > Releases readback are aligned before closeout.
+
+### Milestone Boundary
+
+- Do not add BookOrbit or broadly refactor every provider adapter in this slice.
+- Do not remove legacy compatibility fields.
+
+---
+
+## 3.27.3 — BookOrbit OPDS Adapter
+
+**Goal:** Add BookOrbit as an explicit digital-library provider adapter over shared OPDS transport, using the authoritative external-identity registry rather than presenting BookOrbit as Calibre/CWA.
+**Status:** Planned ahead; inactive until `3.27.2` closes.
+
+### Scope
+
+- Reuse shared HTTP Basic authentication, Atom parsing, URL resolution, pagination, and feed traversal mechanics without duplicating the OPDS transport implementation.
+- Preserve the Atom entry id such as `urn:bookorbit:book:{id}` as the BookOrbit provider-record identity; store ISBN separately as a bibliographic identifier.
+- Recognize BookOrbit comic MIME types including `application/vnd.comicbook+zip` and `application/vnd.comicbook-rar`.
+- Parse BookOrbit series links and keep feed `updated` timestamps separate from publication/release dates.
+- Preserve cover, acquisition/download, and provider launch semantics without inventing a browse/detail link when the feed does not supply one.
+- Add workspace-owned BookOrbit connection settings, redacted credential readback, explicit BookOrbit labels, import controls, and provider-specific result diagnostics.
+- Prove root/catalog pagination, stable repeat sync, books, comics, missing/changed ISBN, two provider instances with overlapping local ids, authentication failure, truncated-feed safety, and secret-free browser responses.
+
+### Acceptance Criteria
+
+- BookOrbit books and comics import with correct media classification and stable provider identity.
+- Adding, removing, or correcting ISBN metadata does not change the BookOrbit identity or create a duplicate canonical row.
+- Two BookOrbit connections containing the same local numeric book id remain isolated.
+- BookOrbit is visible as BookOrbit in configuration, diagnostics, links, and imported provenance.
+- CWA/Calibre behavior remains unchanged.
+- Version metadata, `docs/releases/v3.27.3.md`, the generated release feed, provider/runtime regression evidence, and running Help > Releases readback are aligned before closeout.
+
+### Milestone Boundary
+
+- No reading-progress sync, metadata writeback, embedded reader, file proxy, automatic schedule, or broad work/edition/copy migration is included.
+- Durable background scheduling remains under the separate workspace-aware job contract unless explicitly promoted later.
+
+---
+
+## 3.27.4 — Existing Digital-Library Provider Identity Adoption
+
+**Goal:** Move CWA/Calibre and Kavita onto the authoritative provider-identity module, then extract only the shared digital-library mechanics proven by BookOrbit and the existing providers.
+**Status:** Planned ahead; inactive until `3.27.3` closes.
+
+### Scope
+
+- Adopt provider-connection-scoped external identities for CWA/Calibre and Kavita while retaining their provider-specific route names, settings, UI, smoke tests, links, cover behavior, reader/progress behavior, and writeback semantics.
+- Backfill stable CWA/Calibre and Kavita identities only where provider connection and identity kind are unambiguous.
+- Preserve Kavita series/chapter distinctions and stop relying on string prefixes alone as the database uniqueness guarantee.
+- Extract the smallest proven shared helpers for identity payloads, source/download/reader links, cover references, credential redaction, repeat-sync results, and conflict diagnostics.
+- Document every intentional provider exception; do not flatten BookOrbit, CWA/Calibre, and Kavita into one generic domain model.
+
+### Acceptance Criteria
+
+- Existing provider-specific smokes prove identity, links, covers, repeat sync, and provider-specific exceptions through the new relation.
+- Cross-provider and same-provider/multiple-instance identities cannot collide.
+- Compatibility fields remain readable while the authoritative relation drives matching.
+- The shared module has a small interface and at least three real adapters; deleting it would reintroduce duplicated mechanics across those adapters.
+- Version metadata, `docs/releases/v3.27.4.md`, the generated release feed, migration/init parity, full provider regressions, and running Help > Releases readback are aligned before closeout.
+
+### Milestone Boundary
+
+- Plex, Metron, scanner providers, Playnite, source-observation history, scheduling, reading progress, and metadata writeback do not enter this slice unless separately promoted.
+- The remaining durable job/provider-adapter and work/edition/owned-copy programs stay in backlog after this line closes.
 
 ---
 
 ## 3.26.0 — Transaction-Local Workspace Scope and Saved-View RLS Pilot
 
 **Goal:** Bind authorized workspace/library context to one database transaction and certify a small saved-view RLS pilot before broader activation.
-**Status:** Implementation and local runtime verification complete; release readiness is NO-GO and this work remains uncommitted. Do not close the milestone while the gates below remain pending.
+**Status:** Complete. Hosted release gates passed, `v3.26.0` was created from `main`, and the canonical running stack serves `3.26.0`.
 
 ### Selected scope
 
@@ -18,16 +167,16 @@ Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file 
 - All four saved-view HTTP routes use a committed authorized transaction. Untrusted PostgreSQL settings cannot manufacture grants.
 - Preserve application permission checks, certify legacy ownership backfill/fail-closed ambiguity, raw-SQL isolation, pooling/concurrency/expiry, identity continuity and snapshot restore.
 
-### Verification and pending closeout
+### Closeout
 
 - **Project docs/checklists used:** `AGENTS.md`; `docs/wiki/02-Environment-Variables.md`; `docs/wiki/03-Docker-Compose-Setup.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/15-Secrets-and-Rotation-Runbook.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/50-Staged-Row-Level-Security.md`; `backend/config/workspace-ownership-contract.json`.
 - **Verified runtime facts:** Rebuilt canonical `collectz-private` in place; health reports app/frontend/backend/build `3.26.0` on port `3201`; migration 124 is active; backend role has neither superuser nor BYPASSRLS. Saved-view HTTP CRUD/isolation and settings cleanup pass. Core runtime passed by temporarily switching the same backend in place and restoring platform mode; platform runtime also passed. No parallel development project or data volume was created.
 - **Checks passed:** 363 existing backend units plus six focused transaction/broker tests; frontend unit tests (4); OpenAPI; frontend build; 17 raw-SQL RLS checks, including broker privilege enforcement, same-session isolation defaults, cross-workspace/library/actor denial, spoof/cascade denial, concurrency, expiry, legacy backfill, rollback and snapshot restore; runtime-role certification (30/30); identity baseline/upgrade/restore; init parity through 124 including private functions/policies; RBAC and workspace authorization; API smoke; browser regression (29 passed, two edition-specific skips); Help > Releases serving 3.26.0. A known-credential-value scan of 49 generated artifact/log files found zero matches; this supplements but does not replace hosted Gitleaks. Both dependency audits report zero vulnerabilities after patching the existing redirect override to 1.16.2.
-- **Release gates run:** Standard `npm run release:local-gate` and strict full profile with `--skip=runtime-smoke --fail-on-blocked`. The full profile's stock runtime launcher creates a separate Compose project and volumes, so it was not used; both editions were instead verified in the existing stack. The full profile reports 12 passed, one failed and three blocked; CodeQL reports five total results and zero active findings. Local preflight's current remaining failure is stale observability evidence. The full-profile browser wrapper requires a bypass token, but the actual browser suite passed directly without one.
-- **Blocked/unverified:** The observability release rehearsal creates/resets collector stacks and volumes, including a Graylog `down -v`; AGENTS.md policy 24 disallows this default local execution. It needs an explicitly authorized disposable environment or a retained-data-safe rehearsal before the milestone can close. Production Secure-cookie Compose smoke remains CI-only because canonical development uses development cookies. Gitleaks and Trivy are unavailable locally; hosted `secret-scan` and `image-security-and-sbom` must confirm them. Hosted CI must also rerun migration-check/RLS artifact validation, compose-smoke, rbac-regression, browser-regression, and Core/control-plane runtime-smoke after an explicitly authorized push. Do not interpret an unrun hosted gate as passed.
+- **Release gates run:** Standard `npm run release:local-gate` and the strict local profile recorded the retained-data and locally unavailable-tool constraints. Hosted Build and Publish Images run `41580177088` then passed `migration-check`, `dependency-scan`, `secret-scan`, `compose-smoke`, Core `rbac-regression`, Core `browser-regression`, Core `runtime-smoke`, backend/frontend image builds, `image-security-and-sbom`, `release-preflight`, and `auto-tag`. Hosted CodeQL run `41580177211` also passed. Local control-plane runtime verification had already passed in the canonical stack before release.
+- **Blocked/unverified:** None remaining for the `3.26.0` release. Later table-family RLS expansion, reusable transaction adoption, jobs, and maintenance-command scope binding remain separate roadmap/backlog work.
 - **Files changed:** Database transaction/broker helpers and SQL migration; provisioning and backend startup guard; saved-view routes; SQL and HTTP certification scripts plus unit and ownership/init-parity/identity/preflight checks; CI certification/artifact gates; version manifests/lockfiles/app metadata and Help > Releases snapshot; release note and the operator/security/roadmap/backlog docs named above; sanitized certification/dependency/preflight evidence.
 - **Risks/follow-ups:** Managed PostgreSQL needs migration-owner visibility of runtime transaction statistics. Ambiguous legacy saved-view ownership intentionally blocks upgrade. The five-minute authorization limit fails closed; no provider/network work belongs inside these transactions. Old application images require a matching pre-upgrade snapshot for rollback. Broader table families and job/maintenance adoption remain backlog scope.
-- **Remaining in milestone:** Resolve or explicitly authorize the blocked observability rehearsal and review the full uncommitted diff before the next local commit. Push only after explicit authorization, then require mandatory hosted gates before closing the release. Version metadata, matching release note/feed, and running-stack Releases readback are aligned locally.
+- **Remaining in milestone:** None. Version metadata, the matching release note/feed, hosted tag, and running-stack Releases readback are aligned at `3.26.0`.
 - **Recommended commit message:** `Release 3.26.0 with transaction-bound saved-view row-level security, isolated scope-broker authorization, and live isolation certification`.
 
 ---

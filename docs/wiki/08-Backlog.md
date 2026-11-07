@@ -44,7 +44,7 @@ Explicit non-goals for this program:
 **Type:** Database security program
 **Tags:** `postgresql`, `rls`, `workspace`, `security`, `database-role`, `isolation`
 **Priority:** `P1`
-**Status:** Dependencies satisfied by `3.24.8` and `3.24.10`. The non-owner runtime role and credential split were promoted to `3.24.14 — Non-Owner Runtime Database Role and Credential Split` in [07-Release-Roadmap.md](07-Release-Roadmap.md). Transaction-local settings and the first saved-view RLS pilot are now promoted to `3.26.0 — Transaction-Local Workspace Scope and Saved-View RLS Pilot` (in progress). Remaining backlog scope is expansion to other table families and scope binding for their requests, jobs, and maintenance commands.
+**Status:** Dependencies satisfied by `3.24.8` and `3.24.10`. The non-owner runtime role and credential split shipped in `3.24.14`; transaction-local settings and the first saved-view RLS pilot shipped in `3.26.0`. The reusable transaction foundation has moved to `3.27.0` in [07-Release-Roadmap.md](07-Release-Roadmap.md). Remaining backlog scope is expansion to other table families and scope binding for their requests, jobs, and maintenance commands.
 
 **Goal:** Add PostgreSQL defense-in-depth so an omitted application predicate cannot read or write another workspace's domain rows, while keeping application policy as the primary authorization decision.
 
@@ -72,47 +72,6 @@ Explicit non-goals for this program:
 - Missing, invalid, or stale transaction scope denies access, and committed scope cannot leak through the connection pool.
 - Application permission failures and database scope failures remain distinguishable in tests and sanitized diagnostics.
 - Each activated table family has migration, rollback/restore, request, worker, raw-SQL, and cross-workspace evidence before the next family is enabled.
-
-### Backlog Item: Reusable Transaction Execution and Domain Persistence Modules
-**Type:** Database maintainability and transaction-safety architecture
-**Tags:** `postgresql`, `transactions`, `database`, `domain-modules`, `workspace`, `rls`, `testing`
-**Priority:** `P1`
-**Status:** Unscheduled. The `3.26.0` saved-view RLS pilot introduced `backend/db/scopedTransaction.js` and the specialized saved-view scope broker, but most established business workflows still own connection acquisition and repeat `BEGIN`/`COMMIT`/`ROLLBACK` handling inside routes or domain files. Current inspection found roughly 32 explicit production transaction starts across 12 route or service files.
-
-**Goal:** Put safe transaction execution and workspace-scoped database context behind reusable interfaces, then deepen selected domain modules so HTTP routes, jobs, and other callers invoke meaningful business operations instead of reproducing transaction mechanics and multi-table persistence rules.
-
-**Why this work exists**
-- Repeated transaction lifecycle code handles rollback failure, connection release, isolation, error translation, and diagnostics inconsistently.
-- The saved-view pilot has a stronger scoped transaction implementation than older transaction-owning workflows, but it is deliberately specialized and is not yet the common transaction foundation.
-- Several lower-level functions already accept a database client, so an incremental caller-owned transaction seam can be introduced without an ORM or a route rewrite.
-- RLS expansion, workspace-aware jobs, and URL-derived scope will be safer when request, job, and maintenance callers share one well-tested way to bind authorized scope for the duration of a transaction.
-
-**Dependencies**
-- Close or deliberately sequence after the `3.26.0` saved-view RLS pilot so its scope-grant and failed-cleanup guarantees remain intact.
-- Preserve the certified workspace ownership and authorization contracts; transaction context must only receive scope already authorized at the request or job interface.
-- Coordinate each adopted table family with the staged RLS backlog item rather than treating the reusable executor as proof that RLS coverage exists.
-
-**Scope**
-- Introduce a small general transaction executor that owns connection acquisition, isolation selection, commit, rollback, failed-rollback connection disposal, and sanitized timing/error diagnostics.
-- Rebuild the existing scoped transaction helper on that executor while preserving transaction-local workspace/library settings and the saved-view broker's narrower authorization contract.
-- Let domain modules accept a transaction client internally and expose business operations such as setting a primary signature, converting a capture to a wishlist item, or changing workspace membership atomically.
-- Start with one cohesive, lower-risk pilot such as signature persistence, then consider workspace administration, capture conversion, event notification creation, and feature-flag initialization in separate verified slices.
-- Add interface-level tests for success, caller failure, query failure, rollback failure, connection disposal, isolation selection, scope cleanup, and any narrowly allowed deadlock or serialization retry behavior.
-- Keep PostgreSQL error mapping and observability consistent without logging SQL parameters, credentials, provider payloads, or other sensitive data.
-
-**Out of scope**
-- Do not add a universal `create(table, data)`/`update(table, id, data)` CRUD interface, generic repository for every table, or a single database god module.
-- Do not introduce an ORM or query-builder migration solely to complete this work.
-- Do not move authorization decisions into the transaction executor or trust workspace identifiers merely because a caller supplied them.
-- Do not treat application scope predicates or reusable transaction context as a replacement for staged RLS policies.
-- Do not convert every direct SQL call or transaction in one release; adopt the interface when a bounded domain slice is selected and preserve proven behavior throughout.
-
-**Acceptance Criteria**
-- Selected callers no longer implement connection/commit/rollback boilerplate, and rollback failure cannot return an uncertain connection to the pool.
-- Scoped callers install only pre-authorized workspace/library context, and transaction-local settings cannot leak to the next pool borrower after success or failure.
-- At least two materially different domain workflows use the common executor before it is declared the default transaction path.
-- Domain interfaces hide multi-table ordering, locking, and persistence invariants while remaining testable with an injected transaction client or adapter.
-- Existing unit, API, RBAC, raw-SQL isolation, browser, migration/init-parity, Core runtime, and control-plane runtime gates remain green for each promoted slice.
 
 ### Backlog Item: Migration-Chain Fresh Installation Authority
 **Type:** Database and deployment simplification
@@ -170,7 +129,7 @@ Explicit non-goals for this program:
 **Relationship to existing backlog**
 - `Draft-First Async Scan Queue` should become one consumer of this contract, not a separate queue architecture.
 - Completed roadmap slice `3.24.7 — Workspace-Owned Valuation and OCR Integrations` supplies the valuation/OCR ownership corrections this contract must preserve.
-- `Shared Digital Library Provider Abstractions` should share only stable mechanics and contracts, while keeping Kavita, CWA/OPDS, Plex, and other domain interpretation separate.
+- Planned roadmap slices `3.27.1` through `3.27.4` establish synchronous provider identity and explicit BookOrbit/CWA/Kavita adapters without claiming durable scheduling, retry, or job ownership. Those remaining mechanics stay in this backlog item.
 
 **Out of scope**
 - Do not introduce Kafka, RabbitMQ, or another broker without measured scale or reliability need; PostgreSQL-backed durable work remains acceptable.
@@ -224,7 +183,7 @@ Explicit non-goals for this program:
 **Type:** Strategic collection data-model program
 **Tags:** `identity`, `media`, `editions`, `copies`, `providers`, `provenance`, `imports`, `valuation`
 **Priority:** `P2`
-**Status:** Strategic backlog; existing media, variant, provider metadata, and type-specific models carry parts of the concept but do not consistently separate creative work, market release, owned object, and provider observation.
+**Status:** Strategic backlog. The canonical UUID and external-identity subset has moved to planned roadmap slices `3.27.1` and `3.27.2`; the remaining program still separates creative work, market release, owned object, source observation, conflict policy, and provenance.
 
 **Goal:** Evolve collection identity so CollectZ can distinguish what a title/object is, which edition or release exists, which copy the user owns, and what an external provider observed without overwriting one concept with another.
 
@@ -234,15 +193,14 @@ Explicit non-goals for this program:
 - Flattening these facts into one media row creates duplicate ambiguity, provider overwrite risk, and difficulty representing multiple copies or editions.
 
 **Scope**
-- Define explicit concepts and invariants for `work/title`, `edition/release`, `owned copy/item`, `external identity`, `source observation`, and typed relationship.
-- Use stable workspace-owned identifiers for new records; do not require a global primary-key conversion of existing tables.
-- Add provider/external identity uniqueness rules that account for provider, identity kind, workspace, and whether the identity belongs to a work, edition, or copy.
+- Define explicit concepts and invariants for `work/title`, `edition/release`, `owned copy/item`, `source observation`, and typed relationship after the external-identity foundation proves compatibility with current media rows.
 - Preserve source observations with provider, observed timestamp, normalized facts, safe source reference, and provenance so later rematching does not require trusting the latest flattened row.
 - Define conflict/overwrite policy among manual data, reviewed imports, provider refreshes, locked fields, and newer observations.
-- Introduce tables additively, populate them for selected new workflows, backfill only high-confidence existing records, and provide compatibility projections for current APIs/UI.
+- Introduce remaining work/edition/copy and observation tables additively, populate them for selected new workflows, and provide compatibility projections for current APIs/UI.
 - Start with a workflow that materially needs the distinction, such as Blu-ray physical releases and owned copies, then prove the model with a different family such as books, games, or audio before generalizing.
 
 **Relationship to existing backlog**
+- Planned roadmap slices `3.27.1` and `3.27.2` own canonical public UUIDs, provider connections, external-identity uniqueness, compatibility dual-write, matching, and merge/revert integration. Do not duplicate that selected scope here.
 - `Physical Media Edition and Variant Modeling` and `Library-Specific Edition Editors` provide product-facing edition requirements and should become slices of this broader identity model.
 - `Native Blu-ray Collection Intake, Edition Review, and Upgrade Discovery` provides a concrete initial ingestion/review workflow.
 - Certification, provenance, bundles, and valuation work should attach to the owned copy or edition level deliberately rather than adding more ambiguous fields to a canonical title.
@@ -1763,57 +1721,6 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - Special chapters can be imported or skipped with clear readback.
 - Non-standard numbering does not collapse into issue `1` or overwrite standard issue rows.
 - Repeat sync remains idempotent.
-
-### Backlog Item: Shared Digital Library Provider Abstractions
-**Type:** Deferred milestone
-**Tags:** `kavita`, `calibre`, `cwa`, `opds`, `providers`, `imports`
-**Priority:** `P2` under `Durable Workspace-Aware Job and Provider Adapter Contract`; reuse mechanics without flattening provider-specific behavior.
-**Status:** Active backlog; extraction/refactor task only, not a new provider feature.
-
-**Goal:** Consolidate common provider/import contracts across Kavita, Calibre/CWA OPDS, and future digital-library sources without hiding provider-specific behavior.
-
-**Why this work exists**
-- Kavita, CWA/Calibre, and OPDS sources now share concepts such as provider ids, external URLs, download/reader links, cover art, and repeat-sync identity.
-- A shared abstraction can reduce duplication, but only after provider-specific behavior has been proven.
-- The phrase "shared provider abstractions" is easy to overread as a large generic integration framework; this task should instead extract the smallest proven helpers and contracts that reduce duplicated provider plumbing.
-
-**Intent**
-- Treat this as refactor/extraction work after at least two provider behaviors have been proven in production-shaped flows.
-- Keep each provider's user-facing behavior, route names, docs, smoke tests, and readback explicit.
-- Make future provider work easier by standardizing only the boring repeated parts: source identity, source links, cover identity, credential redaction, import result readback, and repeat-sync matching.
-
-**Current state**
-- Kavita has substantial provider-specific behavior across import identity, issue fan-out, cover handling, progress, writeback planning, and workspace-owned administration.
-- CWA/Calibre/OPDS-style sources share some link, cover, reader, and repeat-sync concepts, but their provider-specific behavior should remain visible.
-- Playnite game intake is tracked separately and should prove its own import/update behavior before any shared abstraction is applied to it.
-
-**Scope**
-- Inventory common provider fields and source-specific exceptions.
-- Define small shared import identity, source-link, reader/download-link, cover-art, and credential-redaction helpers.
-- Define a common import result/readback shape for created, updated, skipped, failed, duplicate, and needs-review rows where providers already expose equivalent concepts.
-- Define repeat-sync identity helpers that make provider matching auditable without forcing every provider into the same schema.
-- Preserve provider-specific API behavior and smoke coverage.
-- Document where each provider intentionally diverges from the shared helper behavior.
-
-**Candidate subtasks**
-- Compare Kavita and CWA/Calibre/OPDS source identity, link, cover, and import-result fields.
-- Identify duplicated helper logic that can be extracted without changing runtime behavior.
-- Add shared helper/service modules only for proven duplication.
-- Update provider-specific tests so they prove both shared helper behavior and provider-specific exceptions.
-- Add docs explaining when future provider work should use the shared helpers and when it should stay provider-local.
-
-**Out of scope**
-- Do not build a broad generic provider framework.
-- Do not add a new provider integration as part of this abstraction task.
-- Do not move provider-specific route names, admin UI, smoke tests, or user-facing readback behind generic labels.
-- Do not include metadata writeback, reading-progress sync, embedded readers, provider scheduling, or file proxying unless those are separately promoted milestones.
-- Do not block Playnite Game Library Intake on this task; Playnite should prove its import behavior first and may reuse shared pieces later.
-
-**Acceptance Criteria**
-- Common digital-library import plumbing has one documented contract for the extracted helper layer.
-- Existing Kavita and CWA/Calibre smokes continue to prove provider-specific identity, link, cover, and readback behavior.
-- Provider-specific exceptions remain documented and visible in tests or smoke readback.
-- A future implementer can tell this is limited extraction work, not permission to flatten every provider into one generic integration model.
 
 ### Backlog Item: Playnite Game Library Intake
 **Type:** Deferred milestone
