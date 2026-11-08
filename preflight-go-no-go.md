@@ -1,7 +1,7 @@
 # Local Release Go/No-Go Preflight
 
 - Version: `3.27.0`
-- Generated: `2026-11-07T20:10:53.110Z`
+- Generated: `2026-11-08T05:57:42.780Z`
 - Base URL: `http://localhost:3201`
 
 ## Gate Results
@@ -15,7 +15,7 @@
 - Saved-view RLS certification evidence: PASS — passed 17 live isolation and restore checks
 - Runtime role certification evidence: PASS — passed 30/30 checks for migration chain through 124
 - Observability release evidence: PASS — observability artifact present for 3.27.0 with 9/9 checks passed
-- Compose smoke basics: BLOCKED — current local stack is not running with CI secure-cookie settings (SESSION_COOKIE_SECURE=false, NODE_ENV=development)
+- Compose smoke basics: PASS — in-stack health, headers, CSRF cookie, 401 auth check, and integration smoke passed
 - Secret scan: BLOCKED — CI-only gitleaks gate
 - Browser regression: BLOCKED — not run by this local preflight helper
 - Image security and SBOM: BLOCKED — CI-only Trivy/SBOM gate
