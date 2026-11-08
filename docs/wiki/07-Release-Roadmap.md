@@ -4,7 +4,7 @@ This roadmap converts product direction into implementation milestones with acce
 
 Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file stays focused on numbered milestones and the work that has already been selected for release planning.
 
-The `3.27.x` line below is intentionally planned ahead under an explicit maintainer exception to the normal one-active-slice convention. `3.27.1` is the active next milestone. Later `3.27.x` entries are ordered milestone boundaries, not authorization to implement them early; each must still begin only after the preceding milestone closes or the roadmap is deliberately revised.
+The `3.27.x` line below is intentionally planned ahead under an explicit maintainer exception to the normal one-active-slice convention. `3.27.2` is the active next milestone. Later `3.27.x` entries are ordered milestone boundaries, not authorization to implement them early; each must still begin only after the preceding milestone closes or the roadmap is deliberately revised.
 
 ---
 
@@ -51,7 +51,7 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 ## 3.27.1 — Canonical Object UUID and External Identity Registry
 
 **Goal:** Make external provider identity a durable, provider-instance-scoped relation instead of a mutable field embedded only in canonical object data.
-**Status:** Complete locally. The canonical stack and release artifacts are aligned on `3.27.1`; hosted release gates remain pending until `main` is pushed.
+**Status:** Complete. Local and hosted release certification passed, the canonical stack serves `3.27.1`, and annotated tag `v3.27.1` identifies the certified release commit.
 
 ### Scope
 
@@ -93,19 +93,46 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 - **Roadmap slice:** `3.27.1 — Canonical Object UUID and External Identity Registry`.
 - **Project docs/checklists used:** `AGENTS.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/50-Staged-Row-Level-Security.md`; `docs/adr/0001-canonical-object-and-provider-identity.md`; `docs/releases/v3.27.1.md`.
 - **Verified runtime facts:** Rebuilt and recreated the canonical `collectz-private` stack in place on port `3201` and restored it to platform/development mode without a browser bypass credential. Health reports app/frontend/backend/build `3.27.1`; retained PostgreSQL is at migration `127`; all 2,080 retained media rows have non-null, distinct canonical UUIDs; all four external-identity tables have RLS enabled; platform and Core edition-boundary smokes pass; and authenticated Help > Releases serves `3.27.1` first. Browser/RBAC fixtures created by the local gates were resolved by exact generated identity and removed, returning the retained media count to its pre-gate value.
-- **CI/checks run:** 363 existing backend assertions plus 19 transaction/scoped-transaction/external-identity interface tests; OpenAPI; frontend production build; workspace ownership certification (`73` tables, `341` routes, `11` execution paths); API integration; init parity through `127`; `126 -> 127` migration/rollback rehearsal; identity-upgrade/restore certification through `127`; runtime-role certification (`30/30`); saved-view raw-SQL RLS (`17` checks) and live HTTP isolation; external-identity certification (`15` checks); RBAC, cross-type isolation, workspace authorization, sensitive-operation contract/runtime proof, and transaction-scope cleanup; Core and control-plane runtime smokes; exact Core Playwright gate (`31/31`); observability evidence (`9/9`); backend/frontend production dependency audits (zero vulnerabilities); secure-cookie Compose preflight; standard local release gate (`12/12`); maintained-source CodeQL (`5` total baseline/suppressed results, `0` active); release-feed generation; Help > Releases readback; diff hygiene; and generated-evidence secret inspection.
-- **Blocked/unverified:** Local `gitleaks` and `trivy` executables are unavailable, so hosted `secret-scan` and `image-security-and-sbom` remain required after push. Hosted `compose-smoke`, `rbac-regression` (including the newly required external-identity evidence artifact), `browser-regression`, Core `runtime-smoke`, `dependency-scan`, release preflight, image builds, Trivy scans, and CycloneDX SBOM generation must rerun on the pushed commit. No push was authorized in this slice.
+- **CI/checks run:** 363 existing backend assertions plus 19 transaction/scoped-transaction/external-identity interface tests; OpenAPI; frontend production build; workspace ownership certification (`73` tables, `341` routes, `11` execution paths); API integration; init parity through `127`; `126 -> 127` migration/rollback rehearsal; identity-upgrade/restore certification through `127`; runtime-role certification (`30/30`); saved-view raw-SQL RLS (`17` checks) and live HTTP isolation; external-identity certification (`15` checks); RBAC, cross-type isolation, workspace authorization, sensitive-operation contract/runtime proof, and transaction-scope cleanup; Core and control-plane runtime smokes; exact Core Playwright gate (`31/31`); observability evidence (`9/9`); backend/frontend production dependency audits (zero vulnerabilities); secure-cookie Compose preflight; standard local release gate (`12/12`); maintained-source CodeQL (`5` total baseline/suppressed results, `0` active); release-feed generation; Help > Releases readback; diff hygiene; and generated-evidence secret inspection. Hosted Build and Publish Images run `42461643510` passed migration/init parity and certification, dependency and secret scans, secure-cookie Compose smoke, Core RBAC/browser/runtime regression, image builds, Trivy image scans, CycloneDX SBOM generation, release preflight, and auto-tag; hosted CodeQL run `42461643533` passed.
+- **Blocked/unverified:** None for the `3.27.1` release closeout.
 - **Files changed:** ADR and glossary; migrations `125`–`127` plus bootstrap parity; runtime-role and authorized-scope transaction support; provider adapter, provider connection, and external media identity modules; unit and live certification coverage; workspace ownership/migration/init-parity/release-preflight tooling; hosted CI evidence wiring; RLS, CI, release, and roadmap documentation; version metadata/lockfiles; release feed; and sanitized local release evidence.
-- **Risks or follow-ups:** The registry exists but is not yet authoritative for legacy provider matching. Ambiguous legacy ids remain untouched, and existing provider fields remain compatible by design. Provider dual-write, match precedence, merge/revert integration, and conflict diagnostics are the `3.27.2` boundary; BookOrbit and CBZ/CBR OPDS classification remain `3.27.3`.
-- **What remains in the milestone:** Nothing locally. Hosted gates must certify the pushed commit before tagging or publication; stable-channel promotion remains a later operational decision.
-- **Recommended commit message:** `Release 3.27.1 with canonical media UUIDs and a scoped external identity registry`.
+- **Risks or follow-ups:** The registry exists but is not yet authoritative for legacy provider matching. Ambiguous legacy ids remain untouched, and existing provider fields remain compatible by design. Runtime/transport dependency maintenance is isolated in `3.27.2`; provider dual-write, match precedence, merge/revert integration, and conflict diagnostics move to `3.27.3`; BookOrbit and CBZ/CBR OPDS classification move to `3.27.4`.
+- **What remains in the milestone:** Nothing. Stable-channel promotion remains a later operational decision.
+- **Recommended commit message:** `Close 3.27.1 after hosted external-identity certification and schedule 3.27.2 runtime dependency maintenance`.
 
 ---
 
-## 3.27.2 — Provider Identity Dual-Write, Matching, and Merge Integration
+## 3.27.2 — Runtime and Transport Dependency Maintenance
+
+**Goal:** Stabilize the application runtime, provider HTTP transport, rate limiting, mail transport, object-storage client, and frontend build tooling before provider-identity and BookOrbit implementation begins.
+**Status:** Active. Selected after the `3.27.1` hosted closeout and before architectural work resumes.
+
+### Scope
+
+- Update Express from `5.2.1` to `5.3.0`, Axios from `1.20.0` to `1.21.0`, express-rate-limit from `8.7.1` to `8.7.2`, Nodemailer from `10.2.1` to `10.3.1`, AWS SDK S3 from `3.1156.0` to `3.1162.0`, and esbuild from `0.28.1` to `0.28.2` as one tested maintenance release.
+- Exercise provider/auth HTTP behavior for the Axios header-default change and full API/browser/runtime behavior for the Express update before BookOrbit builds on those seams.
+- Preserve the existing dependency overrides unless the clean installed graph proves they are no longer required.
+- Close already-absorbed or superseded dependency PRs only after confirming `main` contains equal or newer versions; retain Vitest 5, GitHub Actions majors, and the coupled ZXing update for dedicated compatibility slices.
+- Synchronize version metadata, `docs/releases/v3.27.2.md`, the generated Help > Releases feed, and the canonical running stack.
+
+### Acceptance Criteria
+
+- Backend and frontend clean installs and complete production/development audits report no release-blocking vulnerabilities.
+- Backend unit/OpenAPI/API/provider/auth coverage, frontend unit/build coverage, exact Core browser regression, RBAC, and Core/control-plane runtime smoke remain green.
+- The canonical `collectz-private` stack reports `3.27.2`, retained migration `127` remains unchanged, and Help > Releases serves `3.27.2` first.
+- The standard local release gate passes; hosted CI must confirm compose smoke, dependency/secret scans, migration/init parity, RBAC/browser/runtime regression, image security/SBOM, release preflight, and tag creation after an authorized push.
+
+### Milestone Boundary
+
+- No database schema, provider-identity matching, BookOrbit adapter, Vitest major, GitHub Actions major, or ZXing peer-boundary work belongs in this slice.
+- Provider identity resumes in `3.27.3` only after this maintenance release closes.
+
+---
+
+## 3.27.3 — Provider Identity Dual-Write, Matching, and Merge Integration
 
 **Goal:** Make the external-identity registry authoritative for repeat sync and merge behavior while preserving compatibility with existing provider fields during migration.
-**Status:** Active next milestone following the locally completed `3.27.1` closeout; implementation has not started.
+**Status:** Planned ahead; inactive until `3.27.2` closes.
 
 ### Scope
 
@@ -126,7 +153,7 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 - Manual, reviewed, or locked canonical values survive repeat sync unless an explicit reviewed overwrite policy allows replacement.
 - Compatibility diagnostics identify remaining legacy-only readers/writers and prove authoritative identity writes and compatibility projections cannot drift silently.
 - Existing CWA, Kavita, Plex, Metron, scanner, and generic import behavior remains compatible until each provider is explicitly adopted.
-- Version metadata, `docs/releases/v3.27.2.md`, the generated release feed, migration/init parity, runtime regression evidence, and running Help > Releases readback are aligned before closeout.
+- Version metadata, `docs/releases/v3.27.3.md`, the generated release feed, migration/init parity, runtime regression evidence, and running Help > Releases readback are aligned before closeout.
 
 ### Milestone Boundary
 
@@ -135,10 +162,10 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 
 ---
 
-## 3.27.3 — BookOrbit OPDS Adapter
+## 3.27.4 — BookOrbit OPDS Adapter
 
 **Goal:** Add BookOrbit as an explicit digital-library provider adapter over shared OPDS transport, using the authoritative external-identity registry rather than presenting BookOrbit as Calibre/CWA.
-**Status:** Planned ahead; inactive until `3.27.2` closes.
+**Status:** Planned ahead; inactive until `3.27.3` closes.
 
 ### Scope
 
@@ -149,7 +176,7 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 - Parse BookOrbit series links and keep feed `updated` timestamps separate from publication/release dates.
 - Preserve cover, acquisition/download, and provider launch semantics without inventing a browse/detail link when the feed does not supply one.
 - Add BookOrbit as a provider-specific adapter over the multi-instance connection model, with validated settings, redacted credential readback, explicit BookOrbit labels, import controls, typed normalized results, and provider-specific diagnostics.
-- Make repeat import idempotent through the authoritative identity tuple and apply the `3.27.2` manual/reviewed/locked-value precedence contract; do not let a feed refresh become an implicit metadata overwrite policy.
+- Make repeat import idempotent through the authoritative identity tuple and apply the `3.27.3` manual/reviewed/locked-value precedence contract; do not let a feed refresh become an implicit metadata overwrite policy.
 - Prove root/catalog pagination, stable repeat sync, books, comics, missing/changed ISBN, two provider instances with overlapping local ids, authentication failure, truncated-feed safety, and secret-free browser responses.
 
 ### Acceptance Criteria
@@ -160,7 +187,7 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 - Cyclic or unbounded pagination, oversized/malformed feeds, stalled responses, unsafe resolved URLs, and partial traversal fail safely without deleting previously synchronized records or leaking credentials.
 - BookOrbit is visible as BookOrbit in configuration, diagnostics, links, and imported provenance.
 - CWA/Calibre behavior remains unchanged.
-- Version metadata, `docs/releases/v3.27.3.md`, the generated release feed, provider/runtime regression evidence, and running Help > Releases readback are aligned before closeout.
+- Version metadata, `docs/releases/v3.27.4.md`, the generated release feed, provider/runtime regression evidence, and running Help > Releases readback are aligned before closeout.
 
 ### Milestone Boundary
 
@@ -169,10 +196,10 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 
 ---
 
-## 3.27.4 — Existing Digital-Library Provider Identity Adoption
+## 3.27.5 — Existing Digital-Library Provider Identity Adoption
 
 **Goal:** Move CWA/Calibre and Kavita onto the authoritative provider-identity module, then extract only the shared digital-library mechanics proven by BookOrbit and the existing providers.
-**Status:** Planned ahead; inactive until `3.27.3` closes.
+**Status:** Planned ahead; inactive until `3.27.4` closes.
 
 ### Scope
 
@@ -190,7 +217,7 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 - Compatibility fields remain readable while the authoritative relation drives matching.
 - Provider-connection migration is idempotent, auditable, restore-safe, and leaves ambiguous configuration or identity rows unchanged for explicit review.
 - The shared module has a small interface and at least three real adapters; deleting it would reintroduce duplicated mechanics across those adapters.
-- Version metadata, `docs/releases/v3.27.4.md`, the generated release feed, migration/init parity, full provider regressions, and running Help > Releases readback are aligned before closeout.
+- Version metadata, `docs/releases/v3.27.5.md`, the generated release feed, migration/init parity, full provider regressions, and running Help > Releases readback are aligned before closeout.
 
 ### Milestone Boundary
 

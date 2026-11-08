@@ -131,7 +131,7 @@ Explicit non-goals for this program:
 **Relationship to existing backlog**
 - `Draft-First Async Scan Queue` should become one consumer of this contract, not a separate queue architecture.
 - Completed roadmap slice `3.24.7 — Workspace-Owned Valuation and OCR Integrations` supplies the valuation/OCR ownership corrections this contract must preserve.
-- Planned roadmap slices `3.27.1` through `3.27.4` establish synchronous provider identity and explicit BookOrbit/CWA/Kavita adapters without claiming durable scheduling, retry, or job ownership. Those remaining mechanics stay in this backlog item.
+- Planned roadmap slices `3.27.1` and `3.27.3` through `3.27.5` establish synchronous provider identity and explicit BookOrbit/CWA/Kavita adapters without claiming durable scheduling, retry, or job ownership. Those remaining mechanics stay in this backlog item; `3.27.2` is an isolated dependency-maintenance release.
 
 **Out of scope**
 - Do not introduce Kafka, RabbitMQ, or another broker without measured scale or reliability need; PostgreSQL-backed durable work remains acceptable.
@@ -185,7 +185,7 @@ Explicit non-goals for this program:
 **Type:** Strategic collection data-model program
 **Tags:** `identity`, `media`, `editions`, `copies`, `providers`, `provenance`, `imports`, `valuation`
 **Priority:** `P2`
-**Status:** Strategic backlog. The canonical UUID and external-identity subset has moved to planned roadmap slices `3.27.1` and `3.27.2`; the remaining program still separates creative work, market release, owned object, source observation, conflict policy, and provenance.
+**Status:** Strategic backlog. The canonical UUID and external-identity subset has moved to planned roadmap slices `3.27.1` and `3.27.3`; the remaining program still separates creative work, market release, owned object, source observation, conflict policy, and provenance.
 
 **Goal:** Evolve collection identity so CollectZ can distinguish what a title/object is, which edition or release exists, which copy the user owns, and what an external provider observed without overwriting one concept with another.
 
@@ -202,7 +202,7 @@ Explicit non-goals for this program:
 - Start with a workflow that materially needs the distinction, such as Blu-ray physical releases and owned copies, then prove the model with a different family such as books, games, or audio before generalizing.
 
 **Relationship to existing backlog**
-- Planned roadmap slices `3.27.1` and `3.27.2` own canonical public UUIDs, provider connections, external-identity uniqueness, compatibility dual-write, matching, and merge/revert integration. Do not duplicate that selected scope here.
+- Planned roadmap slices `3.27.1` and `3.27.3` own canonical public UUIDs, provider connections, external-identity uniqueness, compatibility dual-write, matching, and merge/revert integration. Do not duplicate that selected scope here.
 - `Physical Media Edition and Variant Modeling` and `Library-Specific Edition Editors` provide product-facing edition requirements and should become slices of this broader identity model.
 - `Native Blu-ray Collection Intake, Edition Review, and Upgrade Discovery` provides a concrete initial ingestion/review workflow.
 - Certification, provenance, bundles, and valuation work should attach to the owned copy or edition level deliberately rather than adding more ambiguous fields to a canonical title.
