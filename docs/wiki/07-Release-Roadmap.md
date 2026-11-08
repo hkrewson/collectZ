@@ -57,17 +57,25 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 
 - Record the hard-to-reverse identity decision in an ADR before the schema migration is finalized.
 - Add a generated, immutable UUID public identifier to existing canonical media rows while retaining the current numeric primary key and foreign keys for internal database use.
-- Add stable provider-connection records so identities remain scoped to a configured provider instance even when its hostname or endpoint changes.
-- Add an external-identity relation that records workspace, provider connection, identity kind, external id, canonical media target, safe source URL, first-seen time, last-seen time, and active state.
-- Enforce active identity uniqueness by workspace, provider connection, identity kind, and external id; do not rely on provider-name prefixes or JSON conventions for uniqueness.
+- Add stable, workspace-owned provider-connection records as a true multi-instance model rather than extending the singleton `app_integrations` row with another provider-specific column set. One workspace may configure multiple installations or accounts for the same provider; endpoint and display-name changes must not change connection identity.
+- Give provider connections an explicit lifecycle: active connections may be archived or disabled without deleting their identity history, endpoint changes are updates to the same connection, and credentials/configuration remain securely stored with redacted readback.
+- Add an external-identity relation that records workspace, provider connection, identity kind, raw external id, normalized comparison id, canonical media target, safe source URL, first-seen time, last-seen time, and active/deactivated state.
+- Enforce active identity uniqueness by workspace, provider connection, identity kind, and normalized external id; preserve the provider-supplied raw value and do not rely on provider-name prefixes or JSON conventions for uniqueness.
+- Enforce workspace consistency in the database between each external identity, provider connection, and canonical media target through concrete foreign keys and composite scope constraints or a single unambiguous derived scope. Service-layer checks alone are insufficient.
+- Add the missing foreign key from `media.library_id` to `libraries.id`, validate the retained database before enforcement, and prevent a media row from referencing a library in another workspace through a database-enforced scope constraint.
+- Preserve identity history when a connection or identity is retired: normal lifecycle operations must deactivate or archive rather than cascade-delete provider identity, and reassignment must remain transactional and auditable.
 - Protect the new workspace-owned tables with RLS from their first migration and access them only through authorized transactions.
 - Expose a small identity module interface for resolve, attach, list, deactivate, and transactional reassignment operations.
 
 ### Acceptance Criteria
 
 - Two installations of the same provider may both own `book:42` without collision because provider connection is part of identity.
+- A workspace may configure, distinguish, rename, re-endpoint, disable, and later reactivate multiple connections of the same provider type without changing their stable connection identifiers or losing identity history.
 - One canonical object may hold multiple provider identities without one source overwriting another.
 - Concurrent attachment of one active external identity cannot bind it to two canonical objects.
+- The database rejects an identity whose connection and canonical target belong to different workspaces, and rejects a media/library relationship that crosses workspace scope.
+- Archiving a provider connection or deactivating an identity retains its historical association, first/last-seen evidence, and safe restoration path; normal connection retirement cannot cascade-delete identity history.
+- External-id normalization is defined per identity kind, preserves the raw provider value, and is covered for case, whitespace, URL/URN, and numeric-id behavior without changing provider semantics.
 - A canonical UUID is independent of every provider id and survives provider removal, endpoint changes, and identity reassignment.
 - Existing media reads and edits remain compatible; no existing primary-key conversion is required.
 - Version metadata, `docs/releases/v3.27.1.md`, the generated release feed, migration/init parity, restore evidence, and running Help > Releases readback are aligned before closeout.
