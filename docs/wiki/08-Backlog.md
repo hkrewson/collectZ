@@ -31,6 +31,8 @@ Program sequencing:
 3. Make migrations authoritative for fresh installation after identity-preserving upgrade and restore evidence is stable.
 4. Continue Core/Cairn API extraction and introduce common durable-job/provider mechanics without making Core depend on Cairn.
 5. Evolve URL-derived workspace context and the work/edition/copy model additively, with compatibility paths for existing clients and data.
+6. Introduce managed asset records and search/read projections only when concrete backup, lifecycle, or measured query-scale needs justify their selected slices.
+7. Decompose oversized route implementations incrementally around adopted domain workflows; do not schedule a broad route or framework rewrite.
 
 Explicit non-goals for this program:
 
@@ -243,6 +245,58 @@ Explicit non-goals for this program:
 - Version/build metadata has one authoritative input and all runtime/package representations remain deterministically verifiable.
 - Release-feed generation is deterministic from release notes and cannot drift silently.
 - Any change to evidence storage preserves the exact release-gate proof, retention, and failure-diagnostic requirements documented by CI policy.
+
+### Backlog Item: Managed Workspace Asset Registry
+**Type:** Storage and data-lifecycle architecture
+**Tags:** `assets`, `uploads`, `storage`, `backup`, `restore`, `workspace`, `integrity`
+**Priority:** `P2`
+**Status:** Unscheduled. Local and S3-compatible storage adapters exist, while domain rows currently retain upload paths and portability exports require upload binaries to be backed up separately.
+
+**Goal:** Give uploaded covers, capture images, event attachments, signature proofs, and future provenance documents stable workspace-owned identity and lifecycle without turning storage paths into domain identity.
+
+**Scope**
+- Add a workspace-owned asset record with immutable public ID, storage provider, opaque storage key, content type, byte size, content hash, created/retired timestamps, and sanitized source/original-name metadata.
+- Link assets to supported domain records through concrete typed relations or deliberately constrained attachment records; do not make arbitrary paths or external URLs authoritative ownership references.
+- Make replacement and retirement transactional, retain references needed by audit/provenance workflows, and add safe orphan detection before any garbage collection.
+- Extend backup, restore, portability, and storage-provider migration evidence so database references and binary inventory can be reconciled without exposing signed URLs, credentials, or local filesystem paths.
+- Adopt the registry with two materially different workflows before declaring it the standard, such as capture images and signature/provenance proofs.
+
+**Out of scope**
+- Do not store large binary payloads in PostgreSQL by default.
+- Do not introduce a separate media-processing platform, CDN requirement, or automatic destructive garbage collection.
+- Do not migrate every existing image/path in one release or treat remote provider artwork as an owned upload without an explicit ingest operation.
+
+**Acceptance Criteria**
+- Asset ownership cannot cross workspaces, and deleting or archiving a domain record cannot silently orphan or destroy an asset still referenced elsewhere.
+- Backup/restore evidence detects missing, extra, or hash-mismatched owned binaries and provides a safe reconciliation report.
+- Storage-provider changes do not alter asset identity or domain references.
+- Browser/API responses expose stable safe asset references without leaking storage credentials, bucket internals, or server filesystem paths.
+
+### Backlog Item: Workflow-Oriented Backend Module Decomposition
+**Type:** Maintainability and testability architecture
+**Tags:** `backend`, `modules`, `routes`, `workflows`, `testing`, `maintainability`
+**Priority:** `P2`
+**Status:** Unscheduled and incremental. High-traffic route files currently contain multiple catalog, import, merge, asset, and provider workflows; selected helpers already demonstrate that behavior can move behind smaller interfaces without changing routes wholesale.
+
+**Goal:** Move cohesive business behavior behind deep workflow-oriented module interfaces while keeping HTTP routes thin, stable, and compatible.
+
+**Scope**
+- Extract only from workflows being materially changed, beginning with identity/import/merge behavior touched by `3.27.x`; keep request parsing, authorization, and response shaping at the HTTP adapter seam.
+- Prefer operation interfaces such as resolve identity, apply import result, merge canonical records, or attach an asset over generic table repositories and one-method pass-through wrappers.
+- Centralize invariants, transaction ownership, idempotency, conflict outcomes, and sanitized diagnostics inside the owning module.
+- Test through the same module interface used by callers, with database-backed contract coverage where constraints or concurrency are material.
+- Track route-size and duplication trends as diagnostics, not release targets; delete superseded inline implementations after each adopted slice proves parity.
+
+**Out of scope**
+- Do not rewrite all routes, change frameworks, split Core into microservices, or introduce a universal repository/domain layer.
+- Do not move authorization into generic persistence modules or conceal provider-specific behavior behind a lowest-common-denominator interface.
+- Do not measure module quality by file count or lines of code alone.
+
+**Acceptance Criteria**
+- At least two materially different callers or adapters gain leverage from each declared shared interface.
+- Deleting an extracted module would reintroduce meaningful invariant/transaction/conflict logic across callers rather than merely remove a pass-through.
+- Existing HTTP/OpenAPI/browser contracts remain compatible while focused module tests cover the moved behavior.
+- Subsequent fixes to an adopted invariant are localized to one module and its interface-level tests.
 
 ## UI/UX Refinement Backlog
 
@@ -634,15 +688,21 @@ These are product-level capability gaps discovered from the current shape of the
 - Library search, provider lookup, scanner barcode/ISBN lookup, event search, and admin/search-like workflows exist separately.
 - The first selected slice, `3.19.2 — Library Identifier Search`, promotes identifier-aware matching inside the existing Library search box before adding a global command/search surface.
 - There is no app-wide command/search surface that returns typed destinations across collection objects and operational records.
+- Existing catalog queries combine PostgreSQL full-text expressions, `ILIKE`, JSON extraction, and offset pagination. This remains adequate at current scale but should not be copied into every domain or treated as the final global-search read model.
 
 **Scope**
 - Include barcode, ISBN, UPC, provider identity, artist, vendor, event, and object-title lookups.
 - Provide direct navigation to matched records.
 - Keep search scoped to the user's accessible workspace and library permissions.
+- Start with a PostgreSQL-owned search projection/read model containing normalized searchable text, typed identifiers, destination metadata, workspace/library scope, source-row revision, and deterministic ranking inputs.
+- Use maintained/generated search documents with GIN full-text indexes and targeted trigram indexes where substring behavior is required; add indexes only with realistic query-plan/latency evidence.
+- Prefer keyset pagination with stable rank/type/id tie-breakers for deep result sets; retain offset pagination only for bounded compatibility surfaces.
+- Update the projection transactionally with canonical writes or through the durable outbox/job contract when asynchronous refresh is justified, with observable lag and rebuild behavior.
 
 **Candidate subtasks**
 - Define a shared search result shape with object type, title, subtitle, source, destination, and match reason.
 - Add a backend global-search endpoint that fans out to existing scoped object queries.
+- Compare fan-out against a unified PostgreSQL search projection using realistic mixed-domain fixtures; adopt the projection only when it improves interface consistency or measured query behavior.
 - Add identifier-first matching for ISBN/UPC/provider IDs before title search.
 - Add a compact command/search UI that can navigate directly to records.
 - Later: include review queue findings, activity entries, people/places, and provider sync records.
@@ -651,6 +711,13 @@ These are product-level capability gaps discovered from the current shape of the
 - Users can find known records without knowing which section owns them.
 - Identifier searches return direct object matches where possible.
 - Search results clearly show object type and destination.
+- Search remains permission-correct under direct SQL/runtime-role tests and cannot return another workspace's projection rows or stale destinations after archival/removal.
+- Realistic large-library benchmarks record query plans, latency, and pagination stability before a separate search engine is considered.
+
+**Out of scope**
+- Do not introduce Elasticsearch, OpenSearch, or another separately operated search service until measured PostgreSQL limits and a concrete self-hosted operating model justify it.
+- Do not make raw provider payloads or unvalidated JSON blobs the search contract.
+- Do not use a search projection as the authoritative canonical record or authorization source.
 
 ### Backlog Item: Draft-First Async Scan Queue
 **Type:** Deferred milestone

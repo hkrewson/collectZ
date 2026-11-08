@@ -56,10 +56,11 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 ### Scope
 
 - Record the hard-to-reverse identity decision in an ADR before the schema migration is finalized.
-- Add a generated, immutable UUID public identifier to existing canonical media rows while retaining the current numeric primary key and foreign keys for internal database use.
+- Add a generated UUID public identifier to existing canonical media rows, enforce that it cannot change after insertion, and retain the current numeric primary key and foreign keys for internal database use.
 - Add stable, workspace-owned provider-connection records as a true multi-instance model rather than extending the singleton `app_integrations` row with another provider-specific column set. One workspace may configure multiple installations or accounts for the same provider; endpoint and display-name changes must not change connection identity.
-- Give provider connections an explicit lifecycle: active connections may be archived or disabled without deleting their identity history, endpoint changes are updates to the same connection, and credentials/configuration remain securely stored with redacted readback.
-- Add an external-identity relation that records workspace, provider connection, identity kind, raw external id, normalized comparison id, canonical media target, safe source URL, first-seen time, last-seen time, and active/deactivated state.
+- Keep common connection identity/lifecycle fields relational and put provider-specific validated settings behind the owning adapter; do not replace the wide singleton integration row with an unvalidated universal JSON/EAV configuration store. Store credential references or encrypted values separately from secret-free connection readback.
+- Give provider connections an explicit lifecycle: active connections may be archived or disabled without deleting their identity history, endpoint changes are updates to the same connection, and credentials/configuration remain securely stored with redacted readback. New lifecycle and observation timestamps use `timestamptz`.
+- Add an external-media-identity relation with a concrete `media_id` foreign key that records workspace, provider connection, identity kind, raw external id, normalized comparison id, canonical media target, safe source URL, first-seen time, last-seen time, and active/deactivated state. Do not introduce a generic `(target_type, target_id)` relation or several nullable target columns before edition/copy targets exist.
 - Enforce active identity uniqueness by workspace, provider connection, identity kind, and normalized external id; preserve the provider-supplied raw value and do not rely on provider-name prefixes or JSON conventions for uniqueness.
 - Enforce workspace consistency in the database between each external identity, provider connection, and canonical media target through concrete foreign keys and composite scope constraints or a single unambiguous derived scope. Service-layer checks alone are insufficient.
 - Add the missing foreign key from `media.library_id` to `libraries.id`, validate the retained database before enforcement, and prevent a media row from referencing a library in another workspace through a database-enforced scope constraint.
@@ -76,6 +77,8 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 - The database rejects an identity whose connection and canonical target belong to different workspaces, and rejects a media/library relationship that crosses workspace scope.
 - Archiving a provider connection or deactivating an identity retains its historical association, first/last-seen evidence, and safe restoration path; normal connection retirement cannot cascade-delete identity history.
 - External-id normalization is defined per identity kind, preserves the raw provider value, and is covered for case, whitespace, URL/URN, and numeric-id behavior without changing provider semantics.
+- The canonical UUID is database-enforced as write-once, and all new lifecycle/observation instants have unambiguous timezone semantics.
+- Provider-specific settings fail validation through their owning adapter, while connection list/detail responses remain secret-free and do not expose encrypted payloads or credential references.
 - A canonical UUID is independent of every provider id and survives provider removal, endpoint changes, and identity reassignment.
 - Existing media reads and edits remain compatible; no existing primary-key conversion is required.
 - Version metadata, `docs/releases/v3.27.1.md`, the generated release feed, migration/init parity, restore evidence, and running Help > Releases readback are aligned before closeout.
@@ -99,13 +102,17 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 - Backfill only high-confidence existing identities; route ambiguous or conflicting rows to explicit review and leave them unchanged.
 - Reassign identities transactionally during canonical merges and restore them during merge reverts without losing historical aliases.
 - Add conflict diagnostics for one external identity attached to multiple candidates, one canonical row carrying incompatible active identities, and legacy values that cannot be assigned to a provider connection safely.
-- Keep compatibility projections readable until every supported caller has migrated; do not silently delete legacy provider fields.
+- Define source precedence for the migration period so provider sync cannot silently overwrite manual, reviewed, or locked canonical values; retain enough source attribution and last-seen evidence for later Source Observation adoption without implementing that broader model here.
+- Keep compatibility projections readable until every supported caller has migrated; instrument remaining legacy reads/writes, define an evidence-based cutover threshold, and do not silently delete legacy provider fields.
+- Adopt the reusable transaction executor from `3.27.0` in the identity module as its second materially different workflow and verify atomic attach, deactivate, reassignment, merge, and revert behavior through the module interface.
 
 ### Acceptance Criteria
 
 - Repeat sync resolves through the authoritative relation and cannot cross provider instances or workspaces.
 - Merge, multi-hop merge, revert, and later re-sync preserve the correct canonical target.
 - High-confidence backfill is idempotent, auditable, and restore-safe; ambiguous rows are reported rather than guessed.
+- Manual, reviewed, or locked canonical values survive repeat sync unless an explicit reviewed overwrite policy allows replacement.
+- Compatibility diagnostics identify remaining legacy-only readers/writers and prove authoritative identity writes and compatibility projections cannot drift silently.
 - Existing CWA, Kavita, Plex, Metron, scanner, and generic import behavior remains compatible until each provider is explicitly adopted.
 - Version metadata, `docs/releases/v3.27.2.md`, the generated release feed, migration/init parity, runtime regression evidence, and running Help > Releases readback are aligned before closeout.
 
@@ -124,11 +131,13 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 ### Scope
 
 - Reuse shared HTTP Basic authentication, Atom parsing, URL resolution, pagination, and feed traversal mechanics without duplicating the OPDS transport implementation.
+- Apply bounded request timeouts, response-size and page-count limits, pagination-cycle detection, safe URL resolution, and the existing private-network/provider connection policy at the shared OPDS transport seam.
 - Preserve the Atom entry id such as `urn:bookorbit:book:{id}` as the BookOrbit provider-record identity; store ISBN separately as a bibliographic identifier.
 - Recognize BookOrbit comic MIME types including `application/vnd.comicbook+zip` and `application/vnd.comicbook-rar`.
 - Parse BookOrbit series links and keep feed `updated` timestamps separate from publication/release dates.
 - Preserve cover, acquisition/download, and provider launch semantics without inventing a browse/detail link when the feed does not supply one.
-- Add workspace-owned BookOrbit connection settings, redacted credential readback, explicit BookOrbit labels, import controls, and provider-specific result diagnostics.
+- Add BookOrbit as a provider-specific adapter over the multi-instance connection model, with validated settings, redacted credential readback, explicit BookOrbit labels, import controls, typed normalized results, and provider-specific diagnostics.
+- Make repeat import idempotent through the authoritative identity tuple and apply the `3.27.2` manual/reviewed/locked-value precedence contract; do not let a feed refresh become an implicit metadata overwrite policy.
 - Prove root/catalog pagination, stable repeat sync, books, comics, missing/changed ISBN, two provider instances with overlapping local ids, authentication failure, truncated-feed safety, and secret-free browser responses.
 
 ### Acceptance Criteria
@@ -136,6 +145,7 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 - BookOrbit books and comics import with correct media classification and stable provider identity.
 - Adding, removing, or correcting ISBN metadata does not change the BookOrbit identity or create a duplicate canonical row.
 - Two BookOrbit connections containing the same local numeric book id remain isolated.
+- Cyclic or unbounded pagination, oversized/malformed feeds, stalled responses, unsafe resolved URLs, and partial traversal fail safely without deleting previously synchronized records or leaking credentials.
 - BookOrbit is visible as BookOrbit in configuration, diagnostics, links, and imported provenance.
 - CWA/Calibre behavior remains unchanged.
 - Version metadata, `docs/releases/v3.27.3.md`, the generated release feed, provider/runtime regression evidence, and running Help > Releases readback are aligned before closeout.
@@ -156,6 +166,7 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 
 - Adopt provider-connection-scoped external identities for CWA/Calibre and Kavita while retaining their provider-specific route names, settings, UI, smoke tests, links, cover behavior, reader/progress behavior, and writeback semantics.
 - Backfill stable CWA/Calibre and Kavita identities only where provider connection and identity kind are unambiguous.
+- Materialize stable provider-connection records from existing CWA/Calibre and Kavita configuration without deleting or mutating legacy configuration until migration readback, rollback, and restore evidence passes.
 - Preserve Kavita series/chapter distinctions and stop relying on string prefixes alone as the database uniqueness guarantee.
 - Extract the smallest proven shared helpers for identity payloads, source/download/reader links, cover references, credential redaction, repeat-sync results, and conflict diagnostics.
 - Document every intentional provider exception; do not flatten BookOrbit, CWA/Calibre, and Kavita into one generic domain model.
@@ -165,6 +176,7 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 - Existing provider-specific smokes prove identity, links, covers, repeat sync, and provider-specific exceptions through the new relation.
 - Cross-provider and same-provider/multiple-instance identities cannot collide.
 - Compatibility fields remain readable while the authoritative relation drives matching.
+- Provider-connection migration is idempotent, auditable, restore-safe, and leaves ambiguous configuration or identity rows unchanged for explicit review.
 - The shared module has a small interface and at least three real adapters; deleting it would reintroduce duplicated mechanics across those adapters.
 - Version metadata, `docs/releases/v3.27.4.md`, the generated release feed, migration/init parity, full provider regressions, and running Help > Releases readback are aligned before closeout.
 
