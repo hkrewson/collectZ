@@ -71,7 +71,7 @@ Migration safety in CI:
 - Uploads artifact `init-parity-evidence.json` for bootstrap parity traceability.
 - Certifies the non-owner runtime database role (`npm run test:runtime-role-certification`, since `3.24.14`): in a scratch database it migrates a legacy owner-created install to `latest - 1`, runs the same migrate-and-provision path as the Compose `migrate` service, and proves with raw SQL that the runtime role can perform application DML and read legacy rows but cannot create, alter, drop, truncate, index, or disable triggers on tables, write `schema_migrations`, create schemas/roles/databases, grant itself `BYPASSRLS`, or assume the owner role; that future migration-created tables inherit runtime grants; and that the startup guard rejects the owner credential and owner-role members. The role name and password are ephemeral and are never written to the uploaded `runtime-role-certification-evidence.json`. A failure here means a grant, default privilege, or guard check regressed; inspect the failing `label` in the artifact.
 
-Compose-backed jobs (`compose-smoke`, `rbac-regression`, `browser-regression`, `runtime-smoke`) generate both `DB_PASSWORD` and `DB_RUNTIME_PASSWORD`. The stack starts the one-shot `migrate` service with the owner credential first; the backend receives only the runtime credential under `DATABASE_RUNTIME_ROLE_POLICY=enforce`, so in-container smoke scripts run with DML-only privileges. If the backend never becomes healthy, check `docker compose logs migrate` before the backend logs.
+Compose-backed jobs (`compose-smoke`, `rbac-regression`, `browser-regression`, and the hosted Core `runtime-smoke`) generate both `DB_PASSWORD` and `DB_RUNTIME_PASSWORD`. The stack starts the one-shot `migrate` service with the owner credential first; the backend receives only the runtime credential under `DATABASE_RUNTIME_ROLE_POLICY=enforce`, so in-container smoke scripts run with DML-only privileges. If the backend never becomes healthy, check `docker compose logs migrate` before the backend logs.
 
 Security and release gates in CI:
 
@@ -84,8 +84,9 @@ Security and release gates in CI:
 - Dependency Watch runs weekly, on demand, and for pull requests that change root/backend/frontend dependency manifests, lockfiles, or the workflow itself. It clean-installs root tooling plus both applications under Node 24.22.1, reports root tooling and production dependency audit counts, and uploads partial summaries/artifacts even when one ecosystem's clean install fails.
 - RBAC regression gate (API-level ownership/role/scope allow-deny checks), including the live Postgres auth-token abuse smoke for reset/invitation/verification replay, concurrency, CSRF non-mutation, session revocation, invalid token states, enumeration resistance, audit allowlist/value-leakage checks, focused reset rate limiting, and the dedicated invitation mutation limiter.
 - Playwright browser-regression gate against the live compose stack for key auth/admin shell flows.
-- Runtime smoke gate with a `Core runtime` step that verifies shared surfaces still work while control-plane-only APIs stay unmounted.
-- Runtime smoke gate with a `Control-plane runtime` step that verifies invite-based registration plus tenant/admin control-plane surfaces remain mounted.
+- Hosted `runtime-smoke` job (`core-runtime-smoke`) with a `Core runtime` step that verifies shared surfaces still work while control-plane-only APIs stay unmounted. A failure is investigated from that job's Compose logs and failing step output.
+- Required control-plane runtime certification with `docker compose -p collectz-private --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T -e BASE_URL=http://frontend:3000 backend node scripts/platform-edition-boundary-smoke.js` against the canonical platform stack and its Cairn companion. It verifies invite-based registration plus tenant/admin control-plane surfaces remain mounted. This private-edition contract is release-closeout evidence rather than a job in the public workflow; preserve the local command output and relevant container logs on failure.
+- The hosted Core check and canonical-stack control-plane check are complementary. Neither substitutes for the other, and both must be explicitly accounted for before release closeout.
 - OpenAPI contract validation gate for key auth/admin/media endpoints.
 - Container image vulnerability scan (Trivy) for backend/frontend images.
 - SBOM generation (CycloneDX JSON) for backend/frontend images, uploaded as CI artifacts.
@@ -193,7 +194,7 @@ Browser-regression expectation:
 - Maintain the root Playwright manifest and lockfile in git.
 - Run `npm run release:local-gate` before push, or install the opt-in hook with `npm run release:install-hooks`.
 - Keep `.github/workflows/docker-publish.yml` running the browser-regression gate before publish/release jobs.
-- Keep `.github/workflows/docker-publish.yml` running the `runtime-smoke` gate before publish/release jobs so both core and control-plane runtime contracts stay enforced.
+- Keep `.github/workflows/docker-publish.yml` running the hosted Core `runtime-smoke` gate before publish/release jobs, and keep canonical-stack control-plane runtime certification in the release closeout so both edition contracts remain enforced at their available boundaries.
 - Keep `.github/workflows/browser-captures.yml` as a separate manual screenshot-generation path for support/docs visuals instead of folding capture mode into the blocking regression gate.
 - Do not add Playwright browsers or the root test harness as dependencies of the shipped backend/frontend runtime images.
 

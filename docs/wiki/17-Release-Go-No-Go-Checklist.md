@@ -14,9 +14,9 @@ All blocking gates must pass. Advisory gates must be reviewed and explicitly acc
 6. RBAC regression check.
    - Includes workspace ownership snapshot drift, stable permission-key policy, maintained execution-path certification, and live sibling-workspace/job isolation evidence.
 7. Browser regression check.
-8. Runtime smoke check.
-   - Core runtime.
-   - Control-plane runtime.
+8. Runtime contract certification.
+   - Hosted Core runtime smoke in `.github/workflows/docker-publish.yml`.
+   - Control-plane runtime smoke against the canonical `collectz-private` platform stack and Cairn companion.
 9. Image security scan + SBOM generation.
 
 ## Release Closeout Must-Do
@@ -38,11 +38,11 @@ Minimum closeout expectation:
 11. Review CodeQL alerts if the workflow has run for the branch or release commit.
 12. Confirm the remaining CI-only gates are green, especially gitleaks, compose smoke, RBAC, Trivy, and SBOM generation.
 13. Confirm the Playwright browser-regression gate is green and its artifacts are available when failures occur.
-14. Confirm the `runtime-smoke` gate is green.
-15. Confirm the `Core runtime` step keeps the shared runtime surface mounted and keeps control-plane-only APIs unavailable.
-16. Confirm the `Control-plane runtime` step preserves invite-based registration and the tenant/admin control-plane APIs that must remain mounted.
+14. Confirm the hosted `runtime-smoke` job (`core-runtime-smoke`) is green and its `Core runtime` step keeps the shared runtime surface mounted while control-plane-only APIs remain unavailable.
+15. Run `docker compose -p collectz-private --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T -e BASE_URL=http://frontend:3000 backend node scripts/platform-edition-boundary-smoke.js` against the canonical platform stack and Cairn companion; confirm invite-based registration and the tenant/admin control-plane APIs remain mounted. This private-edition certification is required release-closeout evidence and is not currently a public-workflow job.
+16. If either runtime contract fails, preserve the hosted Core job's Compose logs/step output or the local control-plane command output and relevant container logs. Repair the concrete runtime/configuration assumption and rerun the affected check; one edition's passing check does not waive the other.
 17. Confirm `latest` and moving minor tags are release-publish outputs, while `stable` remains a separate manual promotion decision.
-18. When any of `rbac-regression`, `browser-regression`, or `runtime-smoke` fail, inspect the exact failing artifact or step log and repair the concrete runtime/spec assumption locally before calling the release push-ready.
+18. When any of `rbac-regression`, `browser-regression`, hosted `runtime-smoke`, or canonical-stack control-plane runtime certification fail, inspect the exact failing artifact or step log and repair the concrete runtime/spec assumption locally before calling the release push-ready.
 
 Stable promotion expectation:
 

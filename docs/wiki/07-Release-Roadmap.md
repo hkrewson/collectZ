@@ -4,14 +4,14 @@ This roadmap converts product direction into implementation milestones with acce
 
 Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file stays focused on numbered milestones and the work that has already been selected for release planning.
 
-The `3.27.x` line below is intentionally planned ahead under an explicit maintainer exception to the normal one-active-slice convention. `3.27.0` is the only active next milestone. Later `3.27.x` entries are ordered milestone boundaries, not authorization to implement them early; each must still begin only after the preceding milestone closes or the roadmap is deliberately revised.
+The `3.27.x` line below is intentionally planned ahead under an explicit maintainer exception to the normal one-active-slice convention. `3.27.1` is the active next milestone. Later `3.27.x` entries are ordered milestone boundaries, not authorization to implement them early; each must still begin only after the preceding milestone closes or the roadmap is deliberately revised.
 
 ---
 
 ## 3.27.0 — Reusable Transaction Execution Foundation
 
 **Goal:** Put safe transaction execution and authorized workspace scope behind one deep module before external-identity persistence depends on atomic multi-table behavior.
-**Status:** Local implementation and version closeout complete. Hosted release gates and tag creation remain pending until an authorized push.
+**Status:** Complete. Local and hosted release certification passed, the canonical stack serves `3.27.0`, and annotated tag `v3.27.0` identifies the certified release commit.
 
 ### Scope
 
@@ -39,19 +39,19 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 - **Roadmap slice:** `3.27.0 — Reusable Transaction Execution Foundation`.
 - **Project docs/checklists used:** `AGENTS.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/50-Staged-Row-Level-Security.md`; `docs/releases/v3.27.0.md`.
 - **Verified runtime facts:** Rebuilt and recreated the canonical `collectz-private` backend/frontend in place on port `3201`. Health reports app/frontend/backend/build `3.27.0`; the retained-database feature-flag initialization returns all five expected flags through the new executor; transaction-local scope clears after commit and rollback; saved-view HTTP CRUD/isolation and the platform boundary smoke pass; Help > Releases serves `3.27.0` first. The stack was restored to platform mode with no browser bypass credential after the exact Core browser gate.
-- **Checks passed:** 363 existing backend assertions plus 15 transaction/scoped-transaction interface tests; OpenAPI; frontend production build; backend/frontend production dependency audits with zero findings; CI prepare/version/release-feed checks; standard local release gate (12/12); CodeQL with five total and zero active findings; Core runtime and in-stack control-plane runtime; exact hosted Core browser suite (31/31); RBAC; saved-view HTTP isolation; transaction-scope cleanup; 17-check raw-SQL RLS migration/isolation/restore certification; observability evidence (9/9); diff hygiene.
-- **Blocked/unverified:** Local Gitleaks and Trivy/SBOM are unavailable. CI-secure-cookie Compose smoke is not reproducible in the retained development profile. Hosted `secret-scan`, `compose-smoke`, `image-security-and-sbom`, release preflight, image builds, and auto-tag remain required after push. The broad local `test:browser:core-regression` convenience target mixes Core and platform-only expectations and is not the hosted browser gate; the exact workflow gate passed.
+- **Checks passed:** 363 existing backend assertions plus 15 transaction/scoped-transaction interface tests; OpenAPI; frontend production build; backend/frontend production dependency audits with zero findings; standard local release gate (12/12); local CodeQL with five total and zero active findings; Core runtime and in-stack control-plane runtime; exact Core browser suite (31/31); RBAC; saved-view HTTP isolation; transaction-scope cleanup; 17-check raw-SQL RLS migration/isolation/restore certification; observability evidence (9/9); diff hygiene. Hosted Build and Publish Images run `42453497822` passed prepare/version/release-feed validation, migration/init parity and certification, dependency scan, secret scan, secure-cookie Compose smoke, RBAC, browser regression, Core runtime smoke, backend/frontend image builds, Trivy image scans, CycloneDX SBOM generation, release preflight, and auto-tag. Hosted CodeQL run `42453497774` passed JavaScript/TypeScript analysis.
+- **Blocked/unverified:** None for `3.27.0` release closeout. The public workflow intentionally certifies the public Core runtime; the control-plane runtime contract was separately verified against the canonical local platform stack and Cairn companion. The broad local `test:browser:core-regression` convenience target still mixes Core and platform-only expectations and is not the hosted browser gate; the exact workflow gate passed.
 - **Files changed:** Transaction executor and interface tests; scoped transaction composition; feature-flag transaction adoption; backend test command; app/package version metadata and lockfiles; release note/feed; observability and preflight evidence; roadmap.
 - **Risks or follow-ups:** Retry is opt-in, capped at two, and limited to PostgreSQL serialization/deadlock codes; opted-in work may run more than once and must remain database-only. The executor intentionally does not authorize scope. Existing transactions are not migrated wholesale; the external-identity registry is the required second materially different adopter. The broader mixed-edition browser convenience target needs a separate harness cleanup if it is retained.
-- **Remaining in milestone:** Hosted gates and `v3.27.0` tag creation after an authorized push; no local implementation work remains.
-- **Recommended commit message:** `Release 3.27.0 with reusable transaction execution, scoped RLS composition, and bounded database retry safeguards`.
+- **Remaining in milestone:** Nothing. Stable-channel promotion remains a separate post-release decision after the documented observation period and is not part of this milestone.
+- **Recommended commit message:** `Close 3.27.0 after hosted transaction-foundation release certification and tag publication`.
 
 ---
 
 ## 3.27.1 — Canonical Object UUID and External Identity Registry
 
 **Goal:** Make external provider identity a durable, provider-instance-scoped relation instead of a mutable field embedded only in canonical object data.
-**Status:** Planned ahead; inactive until `3.27.0` closes.
+**Status:** Active next milestone following the completed `3.27.0` closeout.
 
 ### Scope
 
