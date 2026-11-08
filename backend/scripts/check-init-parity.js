@@ -98,7 +98,13 @@ async function schemaFingerprint(client) {
     SELECT 'table' AS kind, n.nspname || '.' || c.relname AS name,
       c.relrowsecurity::text || ':' || c.relforcerowsecurity::text AS definition
     FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
-    WHERE n.nspname='collectz_scope' OR (n.nspname='public' AND c.relname='saved_library_views')
+    WHERE n.nspname='collectz_scope' OR (n.nspname='public' AND c.relname IN (
+      'saved_library_views',
+      'provider_connections',
+      'provider_connection_credentials',
+      'external_media_identities',
+      'external_media_identity_events'
+    ))
     UNION ALL
     SELECT 'policy', schemaname || '.' || tablename || '.' || policyname,
       concat_ws(':', permissive, roles::text, cmd, qual, with_check)

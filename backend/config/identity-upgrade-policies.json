@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "certifiedThroughVersion": 122,
+  "certifiedThroughVersion": 127,
   "defaultPolicy": {
     "existingSessions": "survive",
     "activeScope": "preserve",

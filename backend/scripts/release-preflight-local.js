@@ -26,6 +26,12 @@ const initParityEvidencePath = path.join(backendRoot, 'artifacts', 'init-parity-
 const migrationRehearsalEvidencePath = path.join(backendRoot, 'artifacts', 'migration-rehearsal-evidence.json');
 const identityCertificationEvidencePath = path.join(backendRoot, 'artifacts', 'identity-upgrade-certification-evidence.json');
 const runtimeRoleEvidencePath = path.join(backendRoot, 'artifacts', 'runtime-role-certification-evidence.json');
+const externalIdentityEvidencePath = path.join(
+  backendRoot,
+  'artifacts',
+  'external-identity-certification',
+  'external-identity-certification.json'
+);
 const observabilityEvidencePath = path.join(repoRoot, 'artifacts', 'observability-evidence', 'observability-release-evidence.json');
 const releaseNotePath = path.join(repoRoot, 'docs', 'releases', `v${appMeta.version}.md`);
 const browserRegressionSpec = 'tests/playwright/specs/admin-shell.browser.spec.js';
@@ -358,6 +364,7 @@ function buildMarkdownReport({ gates, noteExists, noteText }) {
   lines.push(`- \`${path.relative(repoRoot, migrationRehearsalEvidencePath)}\`: ${fs.existsSync(migrationRehearsalEvidencePath) ? 'present' : 'missing'}`);
   lines.push(`- \`${path.relative(repoRoot, identityCertificationEvidencePath)}\`: ${fs.existsSync(identityCertificationEvidencePath) ? 'present' : 'missing'}`);
   lines.push(`- \`${path.relative(repoRoot, runtimeRoleEvidencePath)}\`: ${fs.existsSync(runtimeRoleEvidencePath) ? 'present' : 'missing'}`);
+  lines.push(`- \`${path.relative(repoRoot, externalIdentityEvidencePath)}\`: ${fs.existsSync(externalIdentityEvidencePath) ? 'present' : 'missing'}`);
   lines.push(`- \`artifacts/observability-evidence/observability-release-evidence.json\`: ${fs.existsSync(observabilityEvidencePath) ? 'present' : 'missing'}`);
   lines.push(`- \`preflight-go-no-go.md\`: will be written by this helper`);
   lines.push('');
@@ -469,6 +476,25 @@ async function main() {
     && rlsEvidence.checks?.length >= 15 && rlsEvidence.checks.every(check => check.pass === true);
   gates.push(buildGate('Saved-view RLS certification evidence', rlsCertified ? 'PASS' : 'FAIL',
     rlsCertified ? `passed ${rlsEvidence.checks.length} live isolation and restore checks` : 'saved-view RLS evidence is missing or failed'));
+
+  const externalIdentityEvidence = safeReadJson(externalIdentityEvidencePath);
+  const externalIdentityChecks = Array.isArray(externalIdentityEvidence?.checks)
+    ? externalIdentityEvidence.checks
+    : [];
+  const externalIdentityCertified = Boolean(
+    externalIdentityEvidence
+    && externalIdentityEvidence.passed === true
+    && Number(externalIdentityEvidence.migrationVersion) === Number(migrationEvidence?.latestVersion)
+    && externalIdentityChecks.length >= 15
+    && externalIdentityChecks.every((check) => check.passed === true)
+  );
+  gates.push(buildGate(
+    'External identity registry certification evidence',
+    externalIdentityCertified ? 'PASS' : 'FAIL',
+    externalIdentityCertified
+      ? `passed ${externalIdentityChecks.length} UUID, scope, lifecycle, and RLS checks through migration ${externalIdentityEvidence.migrationVersion}`
+      : 'external identity registry evidence is missing, stale, or failed'
+  ));
 
   const runtimeRoleEvidence = safeReadJson(runtimeRoleEvidencePath);
   const runtimeRoleChecks = Array.isArray(runtimeRoleEvidence?.checks) ? runtimeRoleEvidence.checks : [];

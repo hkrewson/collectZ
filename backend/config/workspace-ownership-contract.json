@@ -428,6 +428,47 @@
       ]
     },
     {
+      "name": "external_media_identities",
+      "category": "workspace_owned",
+      "ownershipKey": "space_id",
+      "rationale": "Provider-instance identity attached to a canonical media target in the same workspace.",
+      "sameWorkspaceForeignKeys": [
+        {
+          "column": "space_id",
+          "referencesTable": "spaces",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "media_id",
+          "referencesTable": "media",
+          "expectation": "same_workspace"
+        }
+      ]
+    },
+    {
+      "name": "external_media_identity_events",
+      "category": "workspace_owned",
+      "ownershipKey": "space_id",
+      "rationale": "Append-only identity lifecycle evidence inherits the external identity workspace.",
+      "sameWorkspaceForeignKeys": [
+        {
+          "column": "space_id",
+          "referencesTable": "spaces",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "from_media_id",
+          "referencesTable": "media",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "to_media_id",
+          "referencesTable": "media",
+          "expectation": "same_workspace"
+        }
+      ]
+    },
+    {
       "name": "feature_flags",
       "category": "installation_owned",
       "ownershipKey": "key",
@@ -702,6 +743,26 @@
         {
           "column": "library_id",
           "referencesTable": "libraries",
+          "expectation": "same_workspace"
+        }
+      ]
+    },
+    {
+      "name": "provider_connection_credentials",
+      "category": "workspace_owned",
+      "ownershipKey": "space_id",
+      "rationale": "Encrypted provider credentials inherit the owning connection workspace and are never ordinary readback.",
+      "sameWorkspaceForeignKeys": []
+    },
+    {
+      "name": "provider_connections",
+      "category": "workspace_owned",
+      "ownershipKey": "space_id",
+      "rationale": "Stable multi-instance provider configuration owned by one workspace.",
+      "sameWorkspaceForeignKeys": [
+        {
+          "column": "space_id",
+          "referencesTable": "spaces",
           "expectation": "same_workspace"
         }
       ]

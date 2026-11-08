@@ -101,3 +101,5 @@ Any exception must include:
 - expiration/remediation target.
 
 For migration 124 and later, saved-view RLS certification must pass its raw-SQL, cascade, scope-forgery, concurrency, migration, and restore checks, and the live saved-view HTTP smoke must pass in `rbac-regression`. Missing or failed `saved-view-rls-evidence` is a NO-GO; inspect its failing check label and the migration-check log. The canonical stack must still serve recent Help > Releases entries after the scoped CRUD change.
+
+For migration 127 and later, `external-identity-certification-evidence` is also a NO-GO gate. It must identify migration `127` and contain at least 15 passed checks covering immutable canonical UUIDs, provider-instance uniqueness, workspace-consistent foreign keys, RLS denial, separate credential storage, concurrent active-identity conflict prevention, lifecycle retention/reactivation/reassignment, append-only audit events, and unscoped runtime denial. Investigate the named failed check without retaining fixture credentials.

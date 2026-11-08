@@ -48,6 +48,10 @@ const TABLE_OVERRIDES = Object.freeze({
   collectible_categories: ['shared_reference', 'id', 'Canonical shared collectible taxonomy.'],
   user_integrations: ['user_owned', 'user_id', 'Private integration configuration owned by one user.'],
   app_integrations: ['workspace_owned', 'space_id', 'Workspace provider configuration; a documented nullable installation compatibility row remains only for installation runtime settings.'],
+  provider_connections: ['workspace_owned', 'space_id', 'Stable multi-instance provider configuration owned by one workspace.'],
+  provider_connection_credentials: ['workspace_owned', 'space_id', 'Encrypted provider credentials inherit the owning connection workspace and are never ordinary readback.'],
+  external_media_identities: ['workspace_owned', 'space_id', 'Provider-instance identity attached to a canonical media target in the same workspace.'],
+  external_media_identity_events: ['workspace_owned', 'space_id', 'Append-only identity lifecycle evidence inherits the external identity workspace.'],
   sync_jobs: ['workspace_owned', 'scope.spaceId', 'Durable jobs must persist workspace and library ownership in the structured scope payload.']
 });
 
@@ -96,11 +100,11 @@ function extractTables(sql) {
   const entries = [];
   const pattern = /CREATE TABLE IF NOT EXISTS\s+([a-z0-9_.]+)\s*\(([\s\S]*?)\n\);/gi;
   for (const match of sql.matchAll(pattern)) {
-    const name = match[1];
+    const name = match[1].replace(/^public\./, '');
     const body = match[2];
     const columns = Array.from(body.matchAll(/^\s*([a-z][a-z0-9_]*)\s+[A-Z]/gm), (item) => item[1]);
     const foreignKeys = Array.from(
-      body.matchAll(/^\s*([a-z][a-z0-9_]*)\s+[^\n]*REFERENCES\s+([a-z0-9_]+)\s*\(/gim),
+      body.matchAll(/^\s*([a-z][a-z0-9_]*)\s+[^\n]*REFERENCES\s+(?:public\.)?([a-z0-9_]+)\s*\(/gim),
       (item) => ({ column: item[1], referencesTable: item[2] })
     );
     const references = foreignKeys.map((entry) => entry.referencesTable);

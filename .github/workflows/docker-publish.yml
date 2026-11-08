@@ -598,6 +598,9 @@ jobs:
           timeout 120 sh -c 'until [ "$(docker inspect -f "{{.State.Health.Status}}" "'"${FRONTEND_CID}"'")" = "healthy" ]; do sleep 3; done'
           docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T -e BASE_URL=http://frontend:3000 backend node scripts/rbac-regression-check.js
           docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T -e BASE_URL=http://frontend:3000 backend node scripts/saved-view-rls-http-smoke.js
+          docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T -e EXTERNAL_IDENTITY_CERTIFICATION_OUTPUT=/tmp/external-identity-certification.json backend node scripts/external-identity-certification.js
+          mkdir -p artifacts/external-identity-certification
+          docker cp "${BACKEND_CID}:/tmp/external-identity-certification.json" artifacts/external-identity-certification/external-identity-certification.json
           docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T -e BASE_URL=http://frontend:3000 backend node scripts/cross-type-isolation-check.js
           docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T backend node scripts/workspace-ownership-certification.js
           docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T -e BASE_URL=http://frontend:3000 backend node scripts/workspace-authorization-certification-smoke.js
@@ -607,6 +610,13 @@ jobs:
           BACKEND_CID="$(docker compose -p "${CI_PROJECT}" --env-file .env.ci ps -q backend)"
           timeout 120 sh -c 'until [ "$(docker inspect -f "{{.State.Health.Status}}" "'"${BACKEND_CID}"'")" = "healthy" ]; do sleep 3; done'
           docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T -e BASE_URL=http://frontend:3000 -e VERIFY_AUTH_RATE_LIMIT=true backend node scripts/auth-token-abuse-smoke.js
+
+      - name: Upload external identity registry certification evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: external-identity-certification-evidence
+          path: artifacts/external-identity-certification/external-identity-certification.json
 
   browser-regression:
     name: core-browser-regression
@@ -943,6 +953,12 @@ jobs:
           name: saved-view-rls-evidence
           path: artifacts/saved-view-rls-evidence
 
+      - name: Download external identity registry certification evidence
+        uses: actions/download-artifact@v8
+        with:
+          name: external-identity-certification-evidence
+          path: artifacts/external-identity-certification-evidence
+
       - name: Download SBOM artifact
         uses: actions/download-artifact@v8
         with:
@@ -965,6 +981,8 @@ jobs:
           test -f artifacts/identity-upgrade-certification-evidence/identity-upgrade-certification-evidence.json
           test -f artifacts/saved-view-rls-evidence/saved-view-rls-evidence.json
           node -e "const e=require('./artifacts/saved-view-rls-evidence/saved-view-rls-evidence.json');if(e.status!=='passed'||e.migration!==124||e.checks.length<15||e.checks.some(c=>!c.pass))process.exit(1);"
+          test -f artifacts/external-identity-certification-evidence/external-identity-certification.json
+          node -e "const e=require('./artifacts/external-identity-certification-evidence/external-identity-certification.json');if(e.passed!==true||e.migrationVersion!==127||!Array.isArray(e.checks)||e.checks.length<15||e.checks.some(c=>c.passed!==true))process.exit(1);"
           test -f artifacts/sbom-cyclonedx/backend-sbom.cdx.json
           test -f artifacts/sbom-cyclonedx/frontend-sbom.cdx.json
 
@@ -995,6 +1013,7 @@ jobs:
             echo "- \`init-parity-evidence/init-parity-evidence.json\`"
             echo "- \`migration-rehearsal-evidence/migration-rehearsal-evidence.json\`"
             echo "- \`identity-upgrade-certification-evidence/identity-upgrade-certification-evidence.json\`"
+            echo "- \`external-identity-certification-evidence/external-identity-certification.json\`"
             echo "- \`sbom-cyclonedx/backend-sbom.cdx.json\`"
             echo "- \`sbom-cyclonedx/frontend-sbom.cdx.json\`"
             echo

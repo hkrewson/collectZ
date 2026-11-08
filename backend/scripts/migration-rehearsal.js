@@ -80,7 +80,12 @@ async function verifyCriticalColumns(client) {
     ['invites', 'revoked'],
     ['invites', 'used_by'],
     ['feature_flags', 'created_at'],
-    ['feature_flags', 'updated_by']
+    ['feature_flags', 'updated_by'],
+    ['media', 'public_id'],
+    ['provider_connections', 'provider_type'],
+    ['provider_connection_credentials', 'secret_payload_encrypted'],
+    ['external_media_identities', 'external_id_normalized'],
+    ['external_media_identity_events', 'event_type']
   ];
   for (const [table, column] of checks) {
     const r = await client.query(

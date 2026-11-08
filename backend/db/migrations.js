@@ -4966,7 +4966,13 @@ CREATE TABLE IF NOT EXISTS tv_device_authorizations (
 CREATE INDEX IF NOT EXISTS idx_tv_device_expiry ON tv_device_authorizations(expires_at);
 ` },
   { version: 124, description: 'Saved view ownership RLS and transaction scope broker',
-    up: require('fs').readFileSync(require('path').join(__dirname, 'savedViewRls.sql'), 'utf8') }
+    up: require('fs').readFileSync(require('path').join(__dirname, 'savedViewRls.sql'), 'utf8') },
+  { version: 125, description: 'Expand canonical UUID and external identity registry schema',
+    up: require('fs').readFileSync(require('path').join(__dirname, 'externalIdentitySchema.sql'), 'utf8') },
+  { version: 126, description: 'Backfill canonical media UUIDs',
+    up: require('fs').readFileSync(require('path').join(__dirname, 'externalIdentityBackfill.sql'), 'utf8') },
+  { version: 127, description: 'Harden external identity scope and lifecycle invariants',
+    up: require('fs').readFileSync(require('path').join(__dirname, 'externalIdentityHardening.sql'), 'utf8') }
 ];
 
 async function runMigrationsForClient(client, options = {}) {

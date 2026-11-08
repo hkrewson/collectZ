@@ -51,7 +51,7 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 ## 3.27.1 — Canonical Object UUID and External Identity Registry
 
 **Goal:** Make external provider identity a durable, provider-instance-scoped relation instead of a mutable field embedded only in canonical object data.
-**Status:** Active next milestone following the completed `3.27.0` closeout.
+**Status:** Complete locally. The canonical stack and release artifacts are aligned on `3.27.1`; hosted release gates remain pending until `main` is pushed.
 
 ### Scope
 
@@ -88,12 +88,24 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 - Do not backfill ambiguous legacy identities, switch production match precedence, or add BookOrbit in this slice.
 - Work/title, edition/release, owned copy/item, and append-only source-observation modeling remain broader backlog work; the identity relation must leave room for those target levels without pretending they already exist.
 
+### Closeout
+
+- **Roadmap slice:** `3.27.1 — Canonical Object UUID and External Identity Registry`.
+- **Project docs/checklists used:** `AGENTS.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/50-Staged-Row-Level-Security.md`; `docs/adr/0001-canonical-object-and-provider-identity.md`; `docs/releases/v3.27.1.md`.
+- **Verified runtime facts:** Rebuilt and recreated the canonical `collectz-private` stack in place on port `3201` and restored it to platform/development mode without a browser bypass credential. Health reports app/frontend/backend/build `3.27.1`; retained PostgreSQL is at migration `127`; all 2,080 retained media rows have non-null, distinct canonical UUIDs; all four external-identity tables have RLS enabled; platform and Core edition-boundary smokes pass; and authenticated Help > Releases serves `3.27.1` first. Browser/RBAC fixtures created by the local gates were resolved by exact generated identity and removed, returning the retained media count to its pre-gate value.
+- **CI/checks run:** 363 existing backend assertions plus 19 transaction/scoped-transaction/external-identity interface tests; OpenAPI; frontend production build; workspace ownership certification (`73` tables, `341` routes, `11` execution paths); API integration; init parity through `127`; `126 -> 127` migration/rollback rehearsal; identity-upgrade/restore certification through `127`; runtime-role certification (`30/30`); saved-view raw-SQL RLS (`17` checks) and live HTTP isolation; external-identity certification (`15` checks); RBAC, cross-type isolation, workspace authorization, sensitive-operation contract/runtime proof, and transaction-scope cleanup; Core and control-plane runtime smokes; exact Core Playwright gate (`31/31`); observability evidence (`9/9`); backend/frontend production dependency audits (zero vulnerabilities); secure-cookie Compose preflight; standard local release gate (`12/12`); maintained-source CodeQL (`5` total baseline/suppressed results, `0` active); release-feed generation; Help > Releases readback; diff hygiene; and generated-evidence secret inspection.
+- **Blocked/unverified:** Local `gitleaks` and `trivy` executables are unavailable, so hosted `secret-scan` and `image-security-and-sbom` remain required after push. Hosted `compose-smoke`, `rbac-regression` (including the newly required external-identity evidence artifact), `browser-regression`, Core `runtime-smoke`, `dependency-scan`, release preflight, image builds, Trivy scans, and CycloneDX SBOM generation must rerun on the pushed commit. No push was authorized in this slice.
+- **Files changed:** ADR and glossary; migrations `125`–`127` plus bootstrap parity; runtime-role and authorized-scope transaction support; provider adapter, provider connection, and external media identity modules; unit and live certification coverage; workspace ownership/migration/init-parity/release-preflight tooling; hosted CI evidence wiring; RLS, CI, release, and roadmap documentation; version metadata/lockfiles; release feed; and sanitized local release evidence.
+- **Risks or follow-ups:** The registry exists but is not yet authoritative for legacy provider matching. Ambiguous legacy ids remain untouched, and existing provider fields remain compatible by design. Provider dual-write, match precedence, merge/revert integration, and conflict diagnostics are the `3.27.2` boundary; BookOrbit and CBZ/CBR OPDS classification remain `3.27.3`.
+- **What remains in the milestone:** Nothing locally. Hosted gates must certify the pushed commit before tagging or publication; stable-channel promotion remains a later operational decision.
+- **Recommended commit message:** `Release 3.27.1 with canonical media UUIDs and a scoped external identity registry`.
+
 ---
 
 ## 3.27.2 — Provider Identity Dual-Write, Matching, and Merge Integration
 
 **Goal:** Make the external-identity registry authoritative for repeat sync and merge behavior while preserving compatibility with existing provider fields during migration.
-**Status:** Planned ahead; inactive until `3.27.1` closes.
+**Status:** Active next milestone following the locally completed `3.27.1` closeout; implementation has not started.
 
 ### Scope
 

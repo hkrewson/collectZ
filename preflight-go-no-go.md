@@ -1,20 +1,21 @@
 # Local Release Go/No-Go Preflight
 
-- Version: `3.27.0`
-- Generated: `2026-11-08T06:19:13.915Z`
+- Version: `3.27.1`
+- Generated: `2026-11-08T07:28:25.147Z`
 - Base URL: `http://localhost:3201`
 
 ## Gate Results
 
-- Version metadata sync: PASS — all manifests aligned on 3.27.0
-- Release note presence: PASS — docs/releases/v3.27.0.md
+- Version metadata sync: PASS — all manifests aligned on 3.27.1
+- Release note presence: PASS — docs/releases/v3.27.1.md
 - Backend dependency audit: PASS — low=0 moderate=0 high=0 critical=0
 - Frontend dependency audit: PASS — low=0 moderate=0 high=0 critical=0
 - Migration evidence presence: PASS — init parity and migration rehearsal evidence are present
-- Identity upgrade certification evidence: PASS — passed for migration chain through 124
+- Identity upgrade certification evidence: PASS — passed for migration chain through 127
 - Saved-view RLS certification evidence: PASS — passed 17 live isolation and restore checks
-- Runtime role certification evidence: PASS — passed 30/30 checks for migration chain through 124
-- Observability release evidence: PASS — observability artifact present for 3.27.0 with 9/9 checks passed
+- External identity registry certification evidence: PASS — passed 15 UUID, scope, lifecycle, and RLS checks through migration 127
+- Runtime role certification evidence: PASS — passed 30/30 checks for migration chain through 127
+- Observability release evidence: PASS — observability artifact present for 3.27.1 with 9/9 checks passed
 - Compose smoke basics: PASS — in-stack health, headers, CSRF cookie, 401 auth check, and integration smoke passed
 - Secret scan: BLOCKED — CI-only gitleaks gate
 - Browser regression: BLOCKED — not run by this local preflight helper
@@ -28,12 +29,13 @@
 - `backend/artifacts/migration-rehearsal-evidence.json`: present
 - `backend/artifacts/identity-upgrade-certification-evidence.json`: present
 - `backend/artifacts/runtime-role-certification-evidence.json`: present
+- `backend/artifacts/external-identity-certification/external-identity-certification.json`: present
 - `artifacts/observability-evidence/observability-release-evidence.json`: present
 - `preflight-go-no-go.md`: will be written by this helper
 
 ## Release Note
 
-- `docs/releases/v3.27.0.md`: present
+- `docs/releases/v3.27.1.md`: present
 - Security triage markers: present
 
 ## Blocking Criteria

@@ -1,6 +1,28 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.27.1",
+      "version": "3.27.1",
+      "date": "2026-11-08",
+      "status": null,
+      "summary": "Canonical media objects now have immutable collectZ UUIDs, while provider identifiers live in a separate, workspace-safe registry scoped to stable provider connections.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Add a collectZ-generated `media.public_id` UUID without replacing the existing numeric primary key or internal foreign keys.",
+            "Add multi-instance `provider_connections` with stable UUID identity, explicit active/disabled/archived lifecycle, validated provider settings, and separately stored encrypted credential payloads.",
+            "Add provider-connection-scoped external media identities with raw and normalized values, concrete canonical media targets, first/last-seen timestamps, safe source URLs, active/deactivated history, and append-only lifecycle events.",
+            "Enforce active identity uniqueness by workspace, provider connection, identity kind, and normalized external id, allowing two installations of the same provider to use the same local id safely.",
+            "Add database-enforced workspace consistency between media and libraries and between external identities, provider connections, and media targets.",
+            "Protect every new workspace-owned identity table with RLS from its first migration and route identity operations through authorized transactions.",
+            "Add adapter-owned settings, credential, and external-id normalization contracts plus the `resolve`, `attach`, `listForMedia`, `deactivate`, and transactional `reassign` identity interface.",
+            "Record the identity decision and rejected alternatives in `docs/adr/0001-canonical-object-and-provider-identity.md`."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.27.0",
       "version": "3.27.0",
       "date": "2026-11-07",
@@ -177,28 +199,6 @@
             "Serialized same-email registration attempts so concurrent Core self-registration returns one success and one deliberate conflict instead of leaking a database uniqueness failure as an internal error.",
             "Made the authentication abuse smoke edition-aware: Core proves invite tokens and invitation mutation routes are unavailable, while the platform contract continues to prove atomic one-time invite claims, replay rejection, and invitation rate limiting.",
             "Restored Core workspace-owned integration readback by deriving its internal workspace scope from the active library while keeping workspace identifiers hidden from the homelab user contract."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.24.12",
-      "version": "3.24.12",
-      "date": "2026-08-25",
-      "status": "complete locally; hosted release gates pending",
-      "summary": "This release makes CollectZ credential and support-delegation operations require a recent password confirmation bound to the current opaque browser session. A reviewed operation inventory now separates harmless masked status from key/token creation, rotation, revocation, provider testing, identity changes, and delegation, with machine-checked authority and disclosure policy.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added a rate-limited `POST /api/auth/reauthenticate` endpoint that verifies the current password and stamps only the current browser session for a configurable 15-minute window.",
-            "Existing sessions upgrade without proof and therefore fail sensitive operations closed; fresh password logins start with recent proof.",
-            "Added reusable middleware that rejects stale or non-session credentials with the stable `recent_reauthentication_required` reason before protected mutation.",
-            "Guarded personal access token and service-account key create/revoke, platform and workspace integration credential saves/tests, Plex display/webhook token operations, support-session start, and profile email change.",
-            "Kept password change protected by its equivalent current-password proof and other-session revocation; support-session end remains an unguarded safety off-ramp.",
-            "Added a 20-operation reviewed contract covering permissions, CSRF, limiter, session authentication, reauthentication, disclosure, and audit behavior. SMTP and MFA/recovery material are explicitly recorded as unavailable with mandatory future policy.",
-            "Added shared frontend password prompting and exact-operation retry for guarded profile and integration actions.",
-            "Added live PostgreSQL proof for safe status readback, stale and sibling-session non-mutation, CSRF, wrong-password, non-session, support-delegation, limiter, and audit-retention behavior."
           ]
         }
       ]

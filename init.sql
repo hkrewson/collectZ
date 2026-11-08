@@ -1930,7 +1930,10 @@ INSERT INTO schema_migrations (version, description) VALUES
     (121, 'Retire plaintext invitation token compatibility'),
     (122, 'Add session-bound recent reauthentication proof'),
     (123, 'Apple TV device authorization'),
-    (124, 'Saved view ownership RLS and transaction scope broker')
+    (124, 'Saved view ownership RLS and transaction scope broker'),
+    (125, 'Expand canonical UUID and external identity registry schema'),
+    (126, 'Backfill canonical media UUIDs'),
+    (127, 'Harden external identity scope and lifecycle invariants')
 ON CONFLICT (version) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS tv_device_authorizations (
@@ -2057,3 +2060,269 @@ REVOKE ALL ON FUNCTION collectz_scope.guard_saved_view_delete() FROM PUBLIC;
 DROP TRIGGER IF EXISTS saved_view_scoped_delete ON public.saved_library_views;
 CREATE TRIGGER saved_view_scoped_delete BEFORE DELETE ON public.saved_library_views
   FOR EACH ROW EXECUTE FUNCTION collectz_scope.guard_saved_view_delete();
+
+-- Canonical UUID and external provider identity registry (migrations 125-127).
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+ALTER TABLE public.media
+  ADD COLUMN IF NOT EXISTS public_id UUID;
+
+ALTER TABLE public.media
+  ALTER COLUMN public_id SET DEFAULT gen_random_uuid();
+
+CREATE OR REPLACE FUNCTION collectz_scope.allows_workspace(p_space INTEGER)
+RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog AS $$
+  SELECT EXISTS (
+    SELECT 1
+      FROM collectz_scope.transactions s
+     WHERE s.backend_pid = pg_backend_pid()
+       AND s.transaction_id = pg_current_xact_id()::text
+       AND s.runtime_role = session_user
+       AND s.server_started = pg_postmaster_start_time()
+       AND s.expires_at > statement_timestamp()
+       AND s.space_id = p_space
+  );
+$$;
+REVOKE ALL ON FUNCTION collectz_scope.allows_workspace(integer) FROM PUBLIC;
+
+CREATE TABLE IF NOT EXISTS public.provider_connections (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  space_id INTEGER NOT NULL REFERENCES public.spaces(id) ON DELETE RESTRICT,
+  provider_type VARCHAR(80) NOT NULL CHECK (provider_type ~ '^[a-z][a-z0-9_-]{1,79}$'),
+  display_name VARCHAR(255) NOT NULL CHECK (BTRIM(display_name) <> ''),
+  endpoint_url TEXT,
+  status VARCHAR(16) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'disabled', 'archived')),
+  settings JSONB NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(settings) = 'object'),
+  created_by INTEGER REFERENCES public.users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  disabled_at TIMESTAMPTZ,
+  archived_at TIMESTAMPTZ,
+  CONSTRAINT provider_connections_lifecycle_check CHECK (
+    (status = 'active' AND disabled_at IS NULL AND archived_at IS NULL)
+    OR (status = 'disabled' AND disabled_at IS NOT NULL AND archived_at IS NULL)
+    OR (status = 'archived' AND archived_at IS NOT NULL)
+  ),
+  CONSTRAINT provider_connections_space_id_id_key UNIQUE (space_id, id)
+);
+
+CREATE TABLE IF NOT EXISTS public.provider_connection_credentials (
+  provider_connection_id UUID PRIMARY KEY,
+  space_id INTEGER NOT NULL,
+  secret_payload_encrypted TEXT NOT NULL CHECK (BTRIM(secret_payload_encrypted) <> ''),
+  updated_by INTEGER REFERENCES public.users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT provider_connection_credentials_owner_fk
+    FOREIGN KEY (space_id, provider_connection_id)
+    REFERENCES public.provider_connections(space_id, id) ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS public.external_media_identities (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  space_id INTEGER NOT NULL REFERENCES public.spaces(id) ON DELETE RESTRICT,
+  provider_connection_id UUID NOT NULL,
+  identity_kind VARCHAR(80) NOT NULL CHECK (identity_kind ~ '^[a-z][a-z0-9_.:-]{0,79}$'),
+  external_id_raw TEXT NOT NULL CHECK (BTRIM(external_id_raw) <> ''),
+  external_id_normalized TEXT NOT NULL CHECK (BTRIM(external_id_normalized) <> ''),
+  media_id INTEGER NOT NULL REFERENCES public.media(id) ON DELETE RESTRICT,
+  source_url TEXT,
+  first_seen_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  last_seen_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  active BOOLEAN NOT NULL DEFAULT true,
+  deactivated_at TIMESTAMPTZ,
+  created_by INTEGER REFERENCES public.users(id) ON DELETE SET NULL,
+  updated_by INTEGER REFERENCES public.users(id) ON DELETE SET NULL,
+  CONSTRAINT external_media_identities_connection_fk
+    FOREIGN KEY (space_id, provider_connection_id)
+    REFERENCES public.provider_connections(space_id, id) ON DELETE RESTRICT,
+  CONSTRAINT external_media_identities_lifecycle_check
+    CHECK ((active AND deactivated_at IS NULL) OR (NOT active AND deactivated_at IS NOT NULL)),
+  CONSTRAINT external_media_identities_seen_check CHECK (last_seen_at >= first_seen_at),
+  CONSTRAINT external_media_identities_space_id_id_key UNIQUE (space_id, id)
+);
+
+CREATE TABLE IF NOT EXISTS public.external_media_identity_events (
+  id BIGSERIAL PRIMARY KEY,
+  space_id INTEGER NOT NULL REFERENCES public.spaces(id) ON DELETE RESTRICT,
+  identity_id UUID NOT NULL,
+  event_type VARCHAR(24) NOT NULL CHECK (event_type IN ('attached', 'observed', 'deactivated', 'reactivated', 'reassigned')),
+  from_media_id INTEGER REFERENCES public.media(id) ON DELETE RESTRICT,
+  to_media_id INTEGER REFERENCES public.media(id) ON DELETE RESTRICT,
+  actor_user_id INTEGER NOT NULL REFERENCES public.users(id) ON DELETE RESTRICT,
+  details JSONB NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(details) = 'object'),
+  occurred_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT external_media_identity_events_identity_fk
+    FOREIGN KEY (space_id, identity_id)
+    REFERENCES public.external_media_identities(space_id, id) ON DELETE RESTRICT
+);
+
+CREATE INDEX IF NOT EXISTS idx_provider_connections_space_status
+  ON public.provider_connections(space_id, status, provider_type);
+CREATE INDEX IF NOT EXISTS idx_external_media_identities_media
+  ON public.external_media_identities(space_id, media_id, active);
+CREATE INDEX IF NOT EXISTS idx_external_media_identity_events_identity
+  ON public.external_media_identity_events(space_id, identity_id, occurred_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS external_media_identities_active_key
+  ON public.external_media_identities(space_id, provider_connection_id, identity_kind, external_id_normalized)
+  WHERE active;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_provider_connections_updated_at') THEN
+    CREATE TRIGGER update_provider_connections_updated_at BEFORE UPDATE ON public.provider_connections
+      FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_provider_connection_credentials_updated_at') THEN
+    CREATE TRIGGER update_provider_connection_credentials_updated_at BEFORE UPDATE ON public.provider_connection_credentials
+      FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+  END IF;
+END;
+$$;
+
+ALTER TABLE public.provider_connections ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.provider_connection_credentials ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.external_media_identities ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.external_media_identity_events ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS provider_connections_scope ON public.provider_connections;
+CREATE POLICY provider_connections_scope ON public.provider_connections
+  USING (collectz_scope.allows_workspace(space_id))
+  WITH CHECK (collectz_scope.allows_workspace(space_id));
+DROP POLICY IF EXISTS provider_connection_credentials_scope ON public.provider_connection_credentials;
+CREATE POLICY provider_connection_credentials_scope ON public.provider_connection_credentials
+  USING (collectz_scope.allows_workspace(space_id))
+  WITH CHECK (collectz_scope.allows_workspace(space_id));
+DROP POLICY IF EXISTS external_media_identities_scope ON public.external_media_identities;
+CREATE POLICY external_media_identities_scope ON public.external_media_identities
+  USING (collectz_scope.allows_workspace(space_id))
+  WITH CHECK (collectz_scope.allows_workspace(space_id));
+DROP POLICY IF EXISTS external_media_identity_events_scope ON public.external_media_identity_events;
+CREATE POLICY external_media_identity_events_scope ON public.external_media_identity_events
+  USING (collectz_scope.allows_workspace(space_id))
+  WITH CHECK (collectz_scope.allows_workspace(space_id));
+
+UPDATE public.media
+   SET public_id = gen_random_uuid()
+ WHERE public_id IS NULL;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+      FROM public.media m
+     WHERE m.library_id IS NOT NULL
+       AND (
+         m.space_id IS NULL
+         OR NOT EXISTS (
+           SELECT 1 FROM public.libraries l
+            WHERE l.id = m.library_id AND l.space_id = m.space_id
+         )
+       )
+  ) THEN
+    RAISE EXCEPTION 'Media/library ownership is unresolved; repair retained data before migration 127';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.media WHERE public_id IS NULL) THEN
+    RAISE EXCEPTION 'Canonical media UUID backfill is incomplete';
+  END IF;
+END;
+$$;
+
+ALTER TABLE public.media
+  ALTER COLUMN public_id SET DEFAULT gen_random_uuid(),
+  ALTER COLUMN public_id SET NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS media_public_id_key ON public.media(public_id);
+CREATE UNIQUE INDEX IF NOT EXISTS libraries_id_space_id_key ON public.libraries(id, space_id);
+CREATE UNIQUE INDEX IF NOT EXISTS media_id_space_id_key ON public.media(id, space_id);
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'media_library_requires_space_check') THEN
+    ALTER TABLE public.media
+      ADD CONSTRAINT media_library_requires_space_check
+      CHECK (library_id IS NULL OR space_id IS NOT NULL);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'media_library_scope_fk') THEN
+    ALTER TABLE public.media
+      ADD CONSTRAINT media_library_scope_fk
+      FOREIGN KEY (library_id, space_id)
+      REFERENCES public.libraries(id, space_id) ON DELETE RESTRICT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'external_media_identities_media_scope_fk') THEN
+    ALTER TABLE public.external_media_identities
+      ADD CONSTRAINT external_media_identities_media_scope_fk
+      FOREIGN KEY (media_id, space_id)
+      REFERENCES public.media(id, space_id) ON DELETE RESTRICT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'external_media_identity_events_from_media_scope_fk') THEN
+    ALTER TABLE public.external_media_identity_events
+      ADD CONSTRAINT external_media_identity_events_from_media_scope_fk
+      FOREIGN KEY (from_media_id, space_id)
+      REFERENCES public.media(id, space_id) ON DELETE RESTRICT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'external_media_identity_events_to_media_scope_fk') THEN
+    ALTER TABLE public.external_media_identity_events
+      ADD CONSTRAINT external_media_identity_events_to_media_scope_fk
+      FOREIGN KEY (to_media_id, space_id)
+      REFERENCES public.media(id, space_id) ON DELETE RESTRICT;
+  END IF;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION collectz_scope.immutable_media_public_id()
+RETURNS TRIGGER LANGUAGE plpgsql SET search_path = pg_catalog AS $$
+BEGIN
+  IF OLD.public_id IS DISTINCT FROM NEW.public_id THEN
+    RAISE EXCEPTION 'Canonical media UUID is immutable' USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+REVOKE ALL ON FUNCTION collectz_scope.immutable_media_public_id() FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION collectz_scope.immutable_provider_connection_owner()
+RETURNS TRIGGER LANGUAGE plpgsql SET search_path = pg_catalog AS $$
+BEGIN
+  IF (OLD.id, OLD.space_id, OLD.provider_type) IS DISTINCT FROM
+     (NEW.id, NEW.space_id, NEW.provider_type) THEN
+    RAISE EXCEPTION 'Provider connection identity is immutable' USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+REVOKE ALL ON FUNCTION collectz_scope.immutable_provider_connection_owner() FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION collectz_scope.immutable_external_identity_key()
+RETURNS TRIGGER LANGUAGE plpgsql SET search_path = pg_catalog AS $$
+BEGIN
+  IF (OLD.id, OLD.space_id, OLD.provider_connection_id, OLD.identity_kind, OLD.external_id_normalized, OLD.first_seen_at)
+     IS DISTINCT FROM
+     (NEW.id, NEW.space_id, NEW.provider_connection_id, NEW.identity_kind, NEW.external_id_normalized, NEW.first_seen_at) THEN
+    RAISE EXCEPTION 'External identity key is immutable' USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+REVOKE ALL ON FUNCTION collectz_scope.immutable_external_identity_key() FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION collectz_scope.append_only_identity_event()
+RETURNS TRIGGER LANGUAGE plpgsql SET search_path = pg_catalog AS $$
+BEGIN
+  RAISE EXCEPTION 'External identity lifecycle events are append-only' USING ERRCODE = '42501';
+END;
+$$;
+REVOKE ALL ON FUNCTION collectz_scope.append_only_identity_event() FROM PUBLIC;
+
+DROP TRIGGER IF EXISTS media_immutable_public_id ON public.media;
+CREATE TRIGGER media_immutable_public_id BEFORE UPDATE ON public.media
+  FOR EACH ROW EXECUTE FUNCTION collectz_scope.immutable_media_public_id();
+DROP TRIGGER IF EXISTS provider_connection_immutable_owner ON public.provider_connections;
+CREATE TRIGGER provider_connection_immutable_owner BEFORE UPDATE ON public.provider_connections
+  FOR EACH ROW EXECUTE FUNCTION collectz_scope.immutable_provider_connection_owner();
+DROP TRIGGER IF EXISTS external_identity_immutable_key ON public.external_media_identities;
+CREATE TRIGGER external_identity_immutable_key BEFORE UPDATE ON public.external_media_identities
+  FOR EACH ROW EXECUTE FUNCTION collectz_scope.immutable_external_identity_key();
+DROP TRIGGER IF EXISTS external_identity_event_append_only ON public.external_media_identity_events;
+CREATE TRIGGER external_identity_event_append_only BEFORE UPDATE OR DELETE ON public.external_media_identity_events
+  FOR EACH ROW EXECUTE FUNCTION collectz_scope.append_only_identity_event();

@@ -76,6 +76,7 @@ Compose-backed jobs (`compose-smoke`, `rbac-regression`, `browser-regression`, a
 Security and release gates in CI:
 
 - `rbac-regression` also runs the machine-checked workspace ownership contract, the production-shaped workspace authorization certification smoke, the sensitive-operation inventory contract, and live recent-reauthentication non-mutation proof. The ownership snapshot must classify every table and route declaration and certify maintained job/provider/search/export/audit paths; the authorization smoke proves anonymous, read-only, sibling-workspace, identifier-tampering, provider, and durable-job denial. The sensitive-operation checks prove safe credential status readback plus CSRF, stale-session, sibling-session, non-session credential, password-proof, credential mutation, support-delegation, and audit-retention behavior without retaining fixture secrets.
+- `rbac-regression` runs the external identity registry certification under the provisioned non-owner runtime role and uploads `external-identity-certification-evidence`. Release preflight requires migration `127`, at least 15 passed checks, and no failed UUID, provider-instance, cross-workspace, lifecycle, credential-separation, append-only-event, or unscoped-read assertion.
 
 - Local CI/CD release gate (`npm run release:local-gate`) for pre-push maintainer validation before public CI runs.
 - CodeQL code scanning for JavaScript/TypeScript source analysis.

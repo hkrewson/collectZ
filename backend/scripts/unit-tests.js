@@ -641,7 +641,7 @@ results.push(run('identity upgrade certification selects identity-sensitive migr
     activeScope: 'preserve',
     apiCredentials: 'remainValid'
   });
-  assert.strictEqual(identityUpgradePolicies.certifiedThroughVersion, 122);
+  assert.strictEqual(identityUpgradePolicies.certifiedThroughVersion, 127);
   assert.doesNotThrow(() => assertSecretFreeEvidence(JSON.stringify({ status: 'passed' }), {
     password: runtimeOnlyValue
   }));
@@ -666,6 +666,8 @@ results.push(run('identity upgrade certification selects identity-sensitive migr
   assert.ok(serverSource.includes("process.env.NODE_ENV === 'test'"));
   assert.ok(serverSource.includes('IDENTITY_CERTIFICATION_SKIP_STARTUP_MIGRATIONS'));
   assert.ok(dockerPublishWorkflowSource.includes('npm run test:identity-upgrade-certification'));
+  assert.ok(dockerPublishWorkflowSource.includes('external-identity-certification.js'));
+  assert.ok(dockerPublishWorkflowSource.includes('external-identity-certification-evidence'));
   assert.ok((dockerPublishWorkflowSource.match(/policy\.certifiedThroughVersion/g) || []).length >= 2);
   assert.ok(dockerPublishWorkflowSource.includes('Math.min(Number(policy.certifiedThroughVersion), latest - 1)'));
   assert.ok(migrationRehearsalSource.includes('crypto.randomBytes'));
@@ -696,13 +698,19 @@ results.push(run('workspace ownership contract classifies every schema table, ro
   const contract = buildWorkspaceOwnershipContract();
   const snapshot = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'config', 'workspace-ownership-contract.json'), 'utf8'));
   assert.deepStrictEqual(contract, snapshot);
-  assert.strictEqual(contract.tables.length, 69);
+  assert.strictEqual(contract.tables.length, 73);
   assert.ok(contract.tables.filter(t => t.name.startsWith('collectz_scope.')).every(t => t.category === 'authorization_control_plane'));
   assert.ok(contract.routes.length >= 300);
   assert.ok(contract.routes.filter((route) => route.authentication === 'required').length >= 300);
   assert.ok(contract.executionPaths.some((entry) => entry.id === 'sync_jobs'));
   assert.ok(contract.executionPaths.every((entry) => entry.status === 'certified'));
   assert.ok(contract.tables.some((entry) => entry.sameWorkspaceForeignKeys.length > 0));
+  assert.ok(contract.tables.filter((entry) => [
+    'provider_connections',
+    'provider_connection_credentials',
+    'external_media_identities',
+    'external_media_identity_events'
+  ].includes(entry.name)).every((entry) => entry.category === 'workspace_owned'));
   assert.deepStrictEqual(contract.permissionKeys, Object.values(PERMISSIONS).sort());
 }));
 
@@ -4733,6 +4741,8 @@ results.push(run('repo includes local release preflight helper coverage for depe
   assert.ok(releasePreflightLocalSource.includes("artifacts', 'dependency-audit'"));
   assert.ok(releasePreflightLocalSource.includes('preflight-go-no-go.md'));
   assert.ok(releasePreflightLocalSource.includes('identity-upgrade-certification-evidence.json'));
+  assert.ok(releasePreflightLocalSource.includes('external-identity-certification.json'));
+  assert.ok(releasePreflightLocalSource.includes('External identity registry certification evidence'));
   assert.ok(releasePreflightLocalSource.includes('Compose smoke basics'));
   assert.ok(releasePreflightLocalSource.includes('Secret scan'));
   assert.ok(releasePreflightLocalSource.includes('RELEASE_PREFLIGHT_RUN_BROWSER'));

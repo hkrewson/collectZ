@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-10-16T21:37:33.590Z",
-  "initSqlPath": "/work/init.sql",
-  "initDb": "collectz_init_parity_init_mvbhnr7q",
-  "migDb": "collectz_init_parity_mig_mvbhnr7q",
+  "generatedAt": "2026-11-08T07:12:01.298Z",
+  "initSqlPath": "/init.sql",
+  "initDb": "collectz_init_parity_init_mw7hv9fy",
+  "migDb": "collectz_init_parity_mig_mw7hv9fy",
   "checks": [
     {
       "label": "columns",
@@ -18,6 +18,12 @@
     },
     {
       "label": "triggers",
+      "onlyInitSql": [],
+      "onlyMigrations": [],
+      "matches": true
+    },
+    {
+      "label": "scope_security",
       "onlyInitSql": [],
       "onlyMigrations": [],
       "matches": true

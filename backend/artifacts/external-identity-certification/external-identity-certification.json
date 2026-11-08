@@ -1,0 +1,75 @@
+{
+  "generatedAt": "2026-11-08T07:13:03.388Z",
+  "migrationVersion": 127,
+  "passed": true,
+  "checks": [
+    {
+      "label": "canonical UUID generated and unique",
+      "passed": true
+    },
+    {
+      "label": "canonical UUID is write-once",
+      "passed": true,
+      "code": "23514"
+    },
+    {
+      "label": "media cannot reference sibling workspace library",
+      "passed": true,
+      "code": "23503"
+    },
+    {
+      "label": "connection identity survives rename and endpoint change",
+      "passed": true
+    },
+    {
+      "label": "connection workspace is immutable",
+      "passed": true,
+      "code": "23514"
+    },
+    {
+      "label": "RLS blocks sibling workspace connection insert",
+      "passed": true,
+      "code": "42501"
+    },
+    {
+      "label": "credentials stored in separate scoped relation",
+      "passed": true
+    },
+    {
+      "label": "same external id remains isolated across provider instances",
+      "passed": true
+    },
+    {
+      "label": "active identity cannot bind two media targets",
+      "passed": true,
+      "code": "23505"
+    },
+    {
+      "label": "identity cannot target sibling workspace media",
+      "passed": true,
+      "code": "23503"
+    },
+    {
+      "label": "external identity key is immutable",
+      "passed": true,
+      "code": "23514"
+    },
+    {
+      "label": "identity lifecycle events are append-only",
+      "passed": true,
+      "code": "42501"
+    },
+    {
+      "label": "deactivation retains history and supports transactional restoration/reassignment",
+      "passed": true
+    },
+    {
+      "label": "connection archive/reactivation preserves identity history",
+      "passed": true
+    },
+    {
+      "label": "unscoped runtime SQL cannot read provider connections",
+      "passed": true
+    }
+  ]
+}

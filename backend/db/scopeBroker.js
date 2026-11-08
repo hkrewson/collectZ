@@ -43,9 +43,9 @@ async function assertScopeBrokerPolicy(runtimeUrl, options = {}) {
 }
 
 let broker;
-async function withSavedViewTransaction(pool, scope, actorId, work) {
+async function withAuthorizedScopeTransaction(pool, scope, actorId, work) {
   if (!Number.isInteger(actorId) || actorId <= 0 || actorId > 2147483647) {
-    throw new Error('Authorized saved-view actor is required');
+    throw new Error('Authorized workspace actor is required');
   }
   // Do not acquire runtime connections until scope validation has passed.
   let transaction;
@@ -82,4 +82,12 @@ async function withSavedViewTransaction(pool, scope, actorId, work) {
   }
 }
 
-module.exports = { brokerCredentials, createScopeBroker, assertScopeBrokerPolicy, withSavedViewTransaction };
+const withSavedViewTransaction = withAuthorizedScopeTransaction;
+
+module.exports = {
+  brokerCredentials,
+  createScopeBroker,
+  assertScopeBrokerPolicy,
+  withAuthorizedScopeTransaction,
+  withSavedViewTransaction
+};
