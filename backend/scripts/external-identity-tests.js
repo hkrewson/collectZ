@@ -19,6 +19,11 @@ const {
   createProviderIdentityBackfillPlanner
 } = require('../services/providerIdentityBackfillPlanner');
 const {
+  createProviderIdentityBackfill,
+  publicClaim,
+  publicDiagnostic
+} = require('../services/providerIdentityBackfill');
+const {
   normalizeControl,
   decideProviderFieldUpdate
 } = require('../services/canonicalMediaFieldControls');
@@ -357,6 +362,109 @@ test('backfill planner fails closed on unavailable adapters and incompatible can
     }]
   });
   assert.equal(incompatible.diagnostics[0].code, 'canonical_identity_conflict');
+});
+
+function backfillAction(overrides = {}) {
+  return {
+    mediaId: 10,
+    spaceId: 7,
+    libraryId: 3,
+    providerType: 'cwa',
+    identityKind: 'book',
+    providerConnectionId: 'cwa-a',
+    externalId: 'book:42',
+    normalizedExternalId: 'book:42',
+    externalIdFingerprint: 'fingerprint-42',
+    evidenceKeys: ['typeDetails.provider_item_id'],
+    ...overrides
+  };
+}
+
+function backfillHarness(plans) {
+  const attached = [];
+  let transactions = 0;
+  let planIndex = 0;
+  const identityService = {
+    async transaction(scope, work) {
+      transactions += 1;
+      assert.deepEqual(scope, { spaceId: 7, actorId: 9 });
+      return work({
+        client: { query: async () => { throw new Error('planner owns queries'); } },
+        identities: {
+          async attach(input) {
+            attached.push(input);
+            if (input.externalId === 'fail') throw new Error('attach failed');
+            return { id: 'identity' };
+          }
+        }
+      });
+    }
+  };
+  const planner = {
+    async planWorkspace(_client, spaceId) {
+      assert.equal(spaceId, 7);
+      return plans[Math.min(planIndex++, plans.length - 1)];
+    }
+  };
+  return {
+    backfill: createProviderIdentityBackfill({ identityService, planner }),
+    attached,
+    transactionCount: () => transactions
+  };
+}
+
+test('backfill plan is transaction-scoped and redacts raw identity values', async () => {
+  const action = backfillAction();
+  const diagnostic = { ...action, code: 'external_identity_target_conflict', normalizedExternalId: 'book:42' };
+  const harness = backfillHarness([{
+    actions: [action],
+    aligned: [],
+    diagnostics: [diagnostic],
+    summary: { scannedRows: 1, eligible: 1, aligned: 0, reviewRequired: 1, diagnosticCounts: { external_identity_target_conflict: 1 } }
+  }]);
+  const result = await harness.backfill.run({ spaceId: 7, actorId: 9 });
+  assert.equal(result.mode, 'plan');
+  assert.equal(result.summary.planned, 1);
+  assert.equal(result.summary.applied, 0);
+  assert.equal(harness.attached.length, 0);
+  assert.equal(harness.transactionCount(), 1);
+  assert.equal(JSON.stringify(result).includes('book:42'), false);
+  assert.deepEqual(result.candidates[0], publicClaim(action));
+  assert.deepEqual(result.diagnostics[0], publicDiagnostic(diagnostic));
+});
+
+test('backfill apply attaches every eligible identity atomically and reruns idempotently', async () => {
+  const action = backfillAction();
+  const harness = backfillHarness([{
+    actions: [action], aligned: [], diagnostics: [],
+    summary: { scannedRows: 1, eligible: 1, aligned: 0, reviewRequired: 0, diagnosticCounts: {} }
+  }, {
+    actions: [], aligned: [action], diagnostics: [],
+    summary: { scannedRows: 1, eligible: 0, aligned: 1, reviewRequired: 0, diagnosticCounts: {} }
+  }]);
+  const first = await harness.backfill.run({ spaceId: 7, actorId: 9, mode: 'apply' });
+  assert.equal(first.summary.applied, 1);
+  assert.deepEqual(harness.attached[0], {
+    connectionId: 'cwa-a', identityKind: 'book', externalId: 'book:42', mediaId: 10
+  });
+  assert.equal(JSON.stringify(first).includes('book:42'), false);
+
+  const second = await harness.backfill.run({ spaceId: 7, actorId: 9, mode: 'apply' });
+  assert.equal(second.summary.applied, 0);
+  assert.equal(second.summary.aligned, 1);
+  assert.equal(harness.attached.length, 1);
+  assert.equal(harness.transactionCount(), 2);
+});
+
+test('backfill apply propagates attachment conflicts so the transaction can roll back', async () => {
+  const harness = backfillHarness([{
+    actions: [backfillAction({ externalId: 'fail' })], aligned: [], diagnostics: [],
+    summary: { scannedRows: 1, eligible: 1, aligned: 0, reviewRequired: 0, diagnosticCounts: {} }
+  }]);
+  await assert.rejects(
+    harness.backfill.run({ spaceId: 7, actorId: 9, mode: 'apply' }),
+    /attach failed/
+  );
 });
 
 function mergeIdentityClient(initialMediaId = 41) {
