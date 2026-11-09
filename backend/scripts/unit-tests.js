@@ -1480,8 +1480,8 @@ results.push(run('playwright multi-format regressions cover create, edit, and im
 results.push(run('playwright library lifecycle regressions cover archive and transfer fallback in browser-visible shell state', () => {
   assert.ok(libraryLifecycleBrowserSpecSource.includes('archiving the active library falls back the browser shell onto a surviving accessible library'));
   assert.ok(libraryLifecycleBrowserSpecSource.includes('transferring the active library away from the previous owner falls back the browser shell onto a surviving accessible library'));
-  assert.ok(libraryLifecycleBrowserSpecSource.includes("postWithCsrf(requestContext, `/api/libraries/${archiveTarget.id}/archive`"));
-  assert.ok(libraryLifecycleBrowserSpecSource.includes("postWithCsrf(ownerContext, `/api/libraries/${transferTarget.id}/transfer`"));
+  assert.match(libraryLifecycleBrowserSpecSource, /postWithCsrf\(\s*requestContext,\s*`\/api\/libraries\/\$\{archiveTarget\.id\}\/archive`/);
+  assert.match(libraryLifecycleBrowserSpecSource, /postWithCsrf\(\s*ownerContext,\s*`\/api\/libraries\/\$\{transferTarget\.id\}\/transfer`/);
   assert.ok(libraryLifecycleBrowserSpecSource.includes("getByRole('tablist', { name: 'Import sources' })"));
   assert.ok(libraryLifecycleBrowserSpecSource.includes("Bring titles into “${libraryName}” from files or connected services."));
   assert.ok(!importViewSource.includes('Bring titles into'));

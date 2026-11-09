@@ -36,7 +36,7 @@ function getReplacementLibrary(libraries, removedLibraryId) {
   return replacement;
 }
 
-async function expectImportLibraryContext(page, { libraryId, libraryName }) {
+async function expectImportLibraryContext(page, { libraryName }) {
   await page.goto('/dashboard?tab=library-import');
   await expect(page.getByRole('heading', { name: 'Import Media' })).toBeVisible();
   await expect(page.getByRole('tablist', { name: 'Import sources' })).toBeVisible();
@@ -63,9 +63,14 @@ test.describe('library lifecycle browser regressions', () => {
         libraryName: archiveTarget.name
       });
 
-      await postWithCsrf(requestContext, `/api/libraries/${archiveTarget.id}/archive`, {
-        confirm_name: archiveTarget.name
-      }, 200);
+      await postWithCsrf(
+        requestContext,
+        `/api/libraries/${archiveTarget.id}/archive`,
+        {
+          confirm_name: archiveTarget.name
+        },
+        200
+      );
 
       await page.reload();
       await expectImportLibraryContext(page, {
@@ -78,7 +83,9 @@ test.describe('library lifecycle browser regressions', () => {
     }
   });
 
-  test('transferring the active library away from the previous owner falls back the browser shell onto a surviving accessible library', async ({ page }) => {
+  test('transferring the active library away from the previous owner falls back the browser shell onto a surviving accessible library', async ({
+    page
+  }) => {
     const ownerCredentials = await createFreshUserCredentials({ noCache: true });
     const recipientCredentials = await createFreshUserCredentials({ noCache: true });
     const ownerContext = await createAuthenticatedRequestContext(ownerCredentials);
@@ -88,7 +95,7 @@ test.describe('library lifecycle browser regressions', () => {
     try {
       const ownerUser = await getCurrentUser(ownerContext);
       const recipientUser = await getCurrentUser(recipientContext);
-      const ownerSpaceId = Number(ownerUser?.active_space_id || 0) || null;
+      const ownerSpaceId = Number(ownerCredentials?.activeSpaceId || ownerUser?.active_space_id || 0) || null;
       const recipientUserId = Number(recipientUser?.id || 0) || null;
       expect(ownerSpaceId).toBeTruthy();
       expect(recipientUserId).toBeTruthy();
@@ -113,9 +120,14 @@ test.describe('library lifecycle browser regressions', () => {
         libraryName: transferTarget.name
       });
 
-      await postWithCsrf(ownerContext, `/api/libraries/${transferTarget.id}/transfer`, {
-        new_owner_user_id: recipientUserId
-      }, 200);
+      await postWithCsrf(
+        ownerContext,
+        `/api/libraries/${transferTarget.id}/transfer`,
+        {
+          new_owner_user_id: recipientUserId
+        },
+        200
+      );
 
       await page.reload();
       await expectImportLibraryContext(page, {

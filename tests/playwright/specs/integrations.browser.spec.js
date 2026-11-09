@@ -1,7 +1,7 @@
 'use strict';
 
 const { test, expect } = require('@playwright/test');
-const { ensureSavedAdminCredentials, createAuthenticatedRequestContext } = require('../helpers/auth');
+const { ensureSavedAdminCredentials, createAuthenticatedRequestContext, getCurrentUser } = require('../helpers/auth');
 const { getIntegrationSettings, snapshotIntegrationState, restoreIntegrationState } = require('../helpers/integrations');
 const { signInThroughUi } = require('../helpers/session');
 
@@ -13,19 +13,33 @@ async function openIntegrationsSection(page, name) {
 
 async function expectPlatformRuntime(page) {
   await expect(page.getByRole('heading', { name: 'Integrations' })).toBeVisible();
-  await expect(page.getByRole('tablist', { name: 'Integration sections' }).getByRole('tab')).toHaveText([
-    'External Logs',
-    'Metrics'
-  ]);
+  await expect(page.getByRole('tablist', { name: 'Integration sections' }).getByRole('tab')).toHaveText(['External Logs', 'Metrics']);
 }
 
-async function openWorkspaceIntegrations(page) {
-  await page.goto('/dashboard?tab=space-manage');
-  const workspaceSections = page.getByLabel('Workspace sections');
-  await expect(workspaceSections.getByRole('button', { name: 'Integrations', exact: true })).toBeVisible();
-  await workspaceSections.getByRole('button', { name: 'Integrations', exact: true }).click();
+async function openLocalIntegrations(page) {
+  await page.goto('/dashboard?tab=admin-integrations');
   await expect(page.getByRole('tablist', { name: 'Integration sections' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Workspace Integrations', exact: true })).toHaveCount(0);
+}
+
+async function ensurePlatformEdition(requestContext) {
+  const currentUser = await getCurrentUser(requestContext);
+  test.skip(
+    String(currentUser?.product_edition || '')
+      .trim()
+      .toLowerCase() !== 'platform',
+    'Platform-only integration coverage'
+  );
+}
+
+async function ensureLocalEdition(requestContext) {
+  const currentUser = await getCurrentUser(requestContext);
+  test.skip(
+    String(currentUser?.product_edition || '')
+      .trim()
+      .toLowerCase() === 'platform',
+    'Local-edition integration coverage'
+  );
 }
 
 function activeSectionRoot(page) {
@@ -43,10 +57,9 @@ async function openDisclosureSection(page, title) {
 }
 
 async function saveSection(page, sectionLabel) {
-  const responsePromise = page.waitForResponse((response) => (
-    response.url().includes('/api/admin/settings/integrations')
-      && response.request().method() === 'PUT'
-  ));
+  const responsePromise = page.waitForResponse(
+    (response) => response.url().includes('/api/admin/settings/integrations') && response.request().method() === 'PUT'
+  );
   await page.getByRole('button', { name: `Save ${sectionLabel}` }).click();
   const response = await responsePromise;
   expect(response.ok()).toBeTruthy();
@@ -56,6 +69,7 @@ test.describe('integrations browser regressions', () => {
   test('platform admin runtime integrations expose observability sections and log settings persist after reload', async ({ page }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
     const requestContext = await createAuthenticatedRequestContext(adminCredentials);
+    await ensurePlatformEdition(requestContext);
     const snapshot = await snapshotIntegrationState(requestContext);
     const suffix = Date.now();
     const logHost = `collector-${suffix}`;
@@ -84,6 +98,7 @@ test.describe('integrations browser regressions', () => {
   test('metrics integration toggle persists after reload and platform integrations layout stays stable', async ({ page }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
     const requestContext = await createAuthenticatedRequestContext(adminCredentials);
+    await ensurePlatformEdition(requestContext);
     const snapshot = await snapshotIntegrationState(requestContext);
 
     try {
@@ -96,10 +111,9 @@ test.describe('integrations browser regressions', () => {
       const initialChecked = await metricsSwitch.getAttribute('aria-checked');
       const nextChecked = initialChecked === 'true' ? 'false' : 'true';
 
-      const toggleResponsePromise = page.waitForResponse((response) => (
-        response.url().includes('/api/admin/feature-flags/metrics_enabled')
-          && response.request().method() === 'PATCH'
-      ));
+      const toggleResponsePromise = page.waitForResponse(
+        (response) => response.url().includes('/api/admin/feature-flags/metrics_enabled') && response.request().method() === 'PATCH'
+      );
       await metricsSwitch.click();
       const toggleResponse = await toggleResponsePromise;
       expect(toggleResponse.ok()).toBeTruthy();
@@ -116,9 +130,7 @@ test.describe('integrations browser regressions', () => {
       const logsRuntime = (await getIntegrationSettings(requestContext)).observabilityRuntime?.logs;
       expect(logsRuntime).toBeTruthy();
       await expect(logsRuntimeChecks.getByText(String(logsRuntime.backend), { exact: true })).toBeVisible();
-      await expect(
-        logsRuntimeChecks.getByText(`${logsRuntime.host}:${logsRuntime.port}`, { exact: true })
-      ).toBeVisible();
+      await expect(logsRuntimeChecks.getByText(`${logsRuntime.host}:${logsRuntime.port}`, { exact: true })).toBeVisible();
     } finally {
       await restoreIntegrationState(requestContext, snapshot).catch(() => {});
       await requestContext.dispose();
@@ -127,6 +139,7 @@ test.describe('integrations browser regressions', () => {
 
   test('Plex reconciliation sync surface displays durable conflict review actions', async ({ page }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
+    const requestContext = await createAuthenticatedRequestContext(adminCredentials);
     let conflictOpen = true;
     await page.route('**/api/media/plex-reconciliation-sync/scheduler', async (route) => {
       await route.fulfill({
@@ -159,27 +172,35 @@ test.describe('integrations browser regressions', () => {
             conflict: 1
           },
           buckets: {
-            alreadyLinked: [{
-              item: { title: 'Linked Movie', media_type: 'movie', year: 2024, sectionId: '1', plex_item_key: '1:1001' },
-              existing: { id: 101, title: 'Linked Movie', media_type: 'movie', year: 2024, import_source: 'plex' },
-              matchedBy: 'plex_item_key'
-            }],
-            wouldUpdate: [{
-              item: { title: 'TMDB Movie', media_type: 'movie', year: 2023, tmdb_id: 12345, sectionId: '1', plex_item_key: '1:1002' },
-              existing: { id: 102, title: 'TMDB Movie', media_type: 'movie', year: 2023, tmdb_id: 12345, import_source: 'tmdb' },
-              matchedBy: 'tmdb_id'
-            }],
-            wouldCreate: [{
-              item: { title: 'New Plex Movie', media_type: 'movie', year: 2022, sectionId: '1', plex_item_key: '1:1003' },
-              existing: null,
-              matchedBy: null
-            }],
-            conflict: [{
-              item: { title: 'Conflict Movie', media_type: 'movie', year: 2021, sectionId: '1', plex_item_key: '1:1004' },
-              existing: { id: 104, title: 'Conflict Movie', media_type: 'movie', year: 2021, import_source: 'manual' },
-              matchedBy: 'title_year_conflict',
-              reason: 'A same-title row exists, but strong identifiers disagree.'
-            }]
+            alreadyLinked: [
+              {
+                item: { title: 'Linked Movie', media_type: 'movie', year: 2024, sectionId: '1', plex_item_key: '1:1001' },
+                existing: { id: 101, title: 'Linked Movie', media_type: 'movie', year: 2024, import_source: 'plex' },
+                matchedBy: 'plex_item_key'
+              }
+            ],
+            wouldUpdate: [
+              {
+                item: { title: 'TMDB Movie', media_type: 'movie', year: 2023, tmdb_id: 12345, sectionId: '1', plex_item_key: '1:1002' },
+                existing: { id: 102, title: 'TMDB Movie', media_type: 'movie', year: 2023, tmdb_id: 12345, import_source: 'tmdb' },
+                matchedBy: 'tmdb_id'
+              }
+            ],
+            wouldCreate: [
+              {
+                item: { title: 'New Plex Movie', media_type: 'movie', year: 2022, sectionId: '1', plex_item_key: '1:1003' },
+                existing: null,
+                matchedBy: null
+              }
+            ],
+            conflict: [
+              {
+                item: { title: 'Conflict Movie', media_type: 'movie', year: 2021, sectionId: '1', plex_item_key: '1:1004' },
+                existing: { id: 104, title: 'Conflict Movie', media_type: 'movie', year: 2021, import_source: 'manual' },
+                matchedBy: 'title_year_conflict',
+                reason: 'A same-title row exists, but strong identifiers disagree.'
+              }
+            ]
           }
         })
       });
@@ -219,12 +240,14 @@ test.describe('integrations browser regressions', () => {
             conflict: 1,
             autoApplied: { created: 1, updated: 1, skippedAlreadyLinked: 1 },
             conflictReviewCount: 1,
-            conflictReview: [{
-              item: { title: 'Conflict Movie', media_type: 'movie', year: 2021, sectionId: '1', plex_item_key: '1:1004' },
-              existing: { id: 104, title: 'Conflict Movie', media_type: 'movie', year: 2021, import_source: 'manual' },
-              matchedBy: 'title_year_conflict',
-              reason: 'A same-title row exists, but strong identifiers disagree.'
-            }]
+            conflictReview: [
+              {
+                item: { title: 'Conflict Movie', media_type: 'movie', year: 2021, sectionId: '1', plex_item_key: '1:1004' },
+                existing: { id: 104, title: 'Conflict Movie', media_type: 'movie', year: 2021, import_source: 'manual' },
+                matchedBy: 'title_year_conflict',
+                reason: 'A same-title row exists, but strong identifiers disagree.'
+              }
+            ]
           }
         })
       });
@@ -239,14 +262,18 @@ test.describe('integrations browser regressions', () => {
           processingMode: 'plex_reconciliation_conflict_review',
           status: 'open',
           count: conflictOpen ? 1 : 0,
-          reviews: conflictOpen ? [{
-            id: 77,
-            existingMediaId: 104,
-            item: { title: 'Conflict Movie', media_type: 'movie', year: 2021, sectionId: '1', plex_item_key: '1:1004' },
-            existing: { id: 104, title: 'Conflict Movie', media_type: 'movie', year: 2021, import_source: 'manual' },
-            matchedBy: 'title_year_conflict',
-            reason: 'A same-title row exists, but strong identifiers disagree.'
-          }] : []
+          reviews: conflictOpen
+            ? [
+                {
+                  id: 77,
+                  existingMediaId: 104,
+                  item: { title: 'Conflict Movie', media_type: 'movie', year: 2021, sectionId: '1', plex_item_key: '1:1004' },
+                  existing: { id: 104, title: 'Conflict Movie', media_type: 'movie', year: 2021, import_source: 'manual' },
+                  matchedBy: 'title_year_conflict',
+                  reason: 'A same-title row exists, but strong identifiers disagree.'
+                }
+              ]
+            : []
         })
       });
     });
@@ -273,59 +300,70 @@ test.describe('integrations browser regressions', () => {
       });
     });
 
-    await signInThroughUi(page, adminCredentials);
-    await openWorkspaceIntegrations(page);
-    await openIntegrationsSection(page, 'Plex');
-    await expect(page.getByRole('tablist', { name: 'Plex settings sections' })).toBeVisible();
-    await page.getByRole('tab', { name: 'Sync', exact: true }).click();
-    await expect(page.getByText('Plex library sync', { exact: true })).toBeVisible();
-    await expect(page.getByText('Automatic: on/360m', { exact: true })).toBeVisible();
-    await expect(activeSectionRoot(page).getByRole('textbox', { name: 'Scan Limit' })).toBeVisible();
+    try {
+      await ensureLocalEdition(requestContext);
+      await signInThroughUi(page, adminCredentials);
+      await openLocalIntegrations(page);
+      await openIntegrationsSection(page, 'Plex');
+      await expect(page.getByRole('tablist', { name: 'Plex settings sections' })).toBeVisible();
+      await page.getByRole('tab', { name: 'Sync', exact: true }).click();
+      await expect(page.getByText('Plex library sync', { exact: true })).toBeVisible();
+      await expect(page.getByText('Automatic: on/360m', { exact: true })).toBeVisible();
+      await expect(activeSectionRoot(page).getByRole('textbox', { name: 'Scan Limit' })).toBeVisible();
 
-    await page.getByRole('button', { name: 'Check now' }).click();
+      await page.getByRole('button', { name: 'Check now' }).click();
 
-    await expect(page.getByText('PLEX CHECK: scanned 4 item(s) without changes.')).toBeVisible();
-    await activeSectionRoot(page).locator('details').filter({ hasText: 'Linked' }).first().locator('summary').click();
-    await activeSectionRoot(page).locator('details').filter({ hasText: 'Creates' }).first().locator('summary').click();
-    await expect(page.getByText('Linked Movie', { exact: true })).toBeVisible();
-    await expect(page.getByText('New Plex Movie')).toBeVisible();
-    await expect(page.getByText('A same-title row exists, but strong identifiers disagree.').first()).toBeVisible();
+      await expect(page.getByText('PLEX CHECK: scanned 4 item(s) without changes.')).toBeVisible();
+      await activeSectionRoot(page).locator('details').filter({ hasText: 'Linked' }).first().locator('summary').click();
+      await activeSectionRoot(page).locator('details').filter({ hasText: 'Creates' }).first().locator('summary').click();
+      await expect(page.getByText('Linked Movie', { exact: true })).toBeVisible();
+      await expect(page.getByText('New Plex Movie')).toBeVisible();
+      await expect(page.getByText('A same-title row exists, but strong identifiers disagree.').first()).toBeVisible();
 
-    await page.getByRole('button', { name: 'Sync Plex Library' }).click();
-    await expect(page.getByText('PLEX SYNC: job #901 created 1, updated 1, review 1.')).toBeVisible();
-    await expect(page.getByText('Sync issues')).toBeVisible();
-    await expect(page.getByText('Created', { exact: true })).toBeVisible();
-    await expect(page.getByText('Updated', { exact: true })).toBeVisible();
-    await expect(page.getByText('Needs review', { exact: true })).toBeVisible();
-    await expect(page.getByText('Conflict review', { exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Attach to existing' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Create separate title' })).toBeVisible();
-    await page.getByRole('button', { name: 'Attach to existing' }).click();
-    await expect(page.getByText('PLEX CONFLICT: attached the Plex identity to the existing title.')).toBeVisible();
-    await expect(page.getByText('No open Plex conflicts match this view.')).toBeVisible();
-    await expect(page.getByRole('button', { name: /apply/i })).toHaveCount(0);
+      await page.getByRole('button', { name: 'Sync Plex Library' }).click();
+      await expect(page.getByText('PLEX SYNC: job #901 created 1, updated 1, review 1.')).toBeVisible();
+      await expect(page.getByText('Sync issues')).toBeVisible();
+      await expect(page.getByText('Created', { exact: true })).toBeVisible();
+      await expect(page.getByText('Updated', { exact: true })).toBeVisible();
+      await expect(page.getByText('Needs review', { exact: true })).toBeVisible();
+      await expect(page.getByText('Conflict review', { exact: true })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Attach to existing' })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Create separate title' })).toBeVisible();
+      await page.getByRole('button', { name: 'Attach to existing' }).click();
+      await expect(page.getByText('PLEX CONFLICT: attached the Plex identity to the existing title.')).toBeVisible();
+      await expect(page.getByText('No open Plex conflicts match this view.')).toBeVisible();
+      await expect(page.getByRole('button', { name: /apply/i })).toHaveCount(0);
+    } finally {
+      await requestContext.dispose();
+    }
   });
 
   test('workspace integrations expose valuation and OCR ownership controls', async ({ page }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
-    await signInThroughUi(page, adminCredentials);
-    await openWorkspaceIntegrations(page);
+    const requestContext = await createAuthenticatedRequestContext(adminCredentials);
+    try {
+      await ensureLocalEdition(requestContext);
+      await signInThroughUi(page, adminCredentials);
+      await openLocalIntegrations(page);
 
-    const tabs = page.getByRole('tablist', { name: 'Integration sections' });
-    await expect(tabs.getByRole('tab', { name: 'Image OCR', exact: true })).toBeVisible();
-    await expect(tabs.getByRole('tab', { name: 'PriceCharting', exact: true })).toBeVisible();
-    await expect(tabs.getByRole('tab', { name: 'eBay Browse', exact: true })).toBeVisible();
+      const tabs = page.getByRole('tablist', { name: 'Integration sections' });
+      await expect(tabs.getByRole('tab', { name: 'Image OCR', exact: true })).toBeVisible();
+      await expect(tabs.getByRole('tab', { name: 'PriceCharting', exact: true })).toBeVisible();
+      await expect(tabs.getByRole('tab', { name: 'eBay Browse', exact: true })).toBeVisible();
 
-    await openIntegrationsSection(page, 'Image OCR');
-    await expect(page.getByText('Enable workspace image OCR', { exact: true })).toBeVisible();
-    await expect(activeSectionRoot(page).getByLabel(/OCR API Key/)).toBeVisible();
+      await openIntegrationsSection(page, 'Image OCR');
+      await expect(page.getByText('Enable workspace image OCR', { exact: true })).toBeVisible();
+      await expect(activeSectionRoot(page).getByLabel(/OCR API Key/)).toBeVisible();
 
-    await openIntegrationsSection(page, 'PriceCharting');
-    await expect(page.getByText('Enable PriceCharting', { exact: true })).toBeVisible();
-    await expect(activeSectionRoot(page).getByLabel(/API Key/)).toBeVisible();
+      await openIntegrationsSection(page, 'PriceCharting');
+      await expect(page.getByText('Enable PriceCharting', { exact: true })).toBeVisible();
+      await expect(activeSectionRoot(page).getByLabel(/API Key/)).toBeVisible();
 
-    await openIntegrationsSection(page, 'eBay Browse');
-    await expect(page.getByText('Enable eBay Browse', { exact: true })).toBeVisible();
-    await expect(activeSectionRoot(page).getByLabel(/Client Secret/)).toBeVisible();
+      await openIntegrationsSection(page, 'eBay Browse');
+      await expect(page.getByText('Enable eBay Browse', { exact: true })).toBeVisible();
+      await expect(activeSectionRoot(page).getByLabel(/Client Secret/)).toBeVisible();
+    } finally {
+      await requestContext.dispose();
+    }
   });
 });

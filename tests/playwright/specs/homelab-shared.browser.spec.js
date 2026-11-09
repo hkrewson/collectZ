@@ -1,12 +1,7 @@
 'use strict';
 
 const { test, expect } = require('@playwright/test');
-const {
-  createFreshUserCredentials,
-  createAuthenticatedRequestContext,
-  getCurrentUser,
-  requestWithCsrf
-} = require('../helpers/auth');
+const { createFreshUserCredentials, createAuthenticatedRequestContext, getCurrentUser, requestWithCsrf } = require('../helpers/auth');
 const { signInThroughUi } = require('../helpers/session');
 const { snapshotIntegrationState, restoreIntegrationState } = require('../helpers/integrations');
 
@@ -54,10 +49,9 @@ test.describe('homelab shared workflow regressions', () => {
       const nameInput = page.locator('.field').filter({ hasText: 'Name' }).locator('input').first();
       await nameInput.fill(updatedName);
 
-      const saveProfilePromise = page.waitForResponse((response) => (
-        response.url().includes('/api/profile')
-          && response.request().method() === 'PATCH'
-      ));
+      const saveProfilePromise = page.waitForResponse(
+        (response) => response.url().includes('/api/profile') && response.request().method() === 'PATCH'
+      );
       await page.getByRole('button', { name: 'Save Changes' }).click();
       const saveProfileResponse = await saveProfilePromise;
       expect(saveProfileResponse.ok()).toBeTruthy();
@@ -83,13 +77,12 @@ test.describe('homelab shared workflow regressions', () => {
 
       await page.goto('/dashboard?tab=admin-settings');
       await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
-      const themeSelect = page.locator('select').first();
+      const themeSelect = page.getByLabel('Theme', { exact: true });
       await expect(themeSelect).toHaveValue(originalSettings.theme);
 
-      const themeSavePromise = page.waitForResponse((response) => (
-        response.url().includes('/api/admin/settings/general')
-          && response.request().method() === 'PUT'
-      ));
+      const themeSavePromise = page.waitForResponse(
+        (response) => response.url().includes('/api/admin/settings/general') && response.request().method() === 'PUT'
+      );
       await themeSelect.selectOption(nextTheme);
       const themeSaveResponse = await themeSavePromise;
       expect(themeSaveResponse.ok()).toBeTruthy();
@@ -97,17 +90,16 @@ test.describe('homelab shared workflow regressions', () => {
 
       await page.reload();
       await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
-      await expect(page.locator('select').first()).toHaveValue(nextTheme);
+      await expect(page.getByLabel('Theme', { exact: true })).toHaveValue(nextTheme);
 
       await page.goto('/dashboard?tab=admin-integrations&integration=barcode');
       await expect(page.getByRole('heading', { name: 'Integrations' })).toBeVisible();
       const barcodeApiUrlInput = page.locator('.space-y-4.min-w-0').locator('input:visible').first();
       await barcodeApiUrlInput.fill(barcodeUrl);
 
-      const saveIntegrationPromise = page.waitForResponse((response) => (
-        response.url().includes('/api/admin/settings/integrations')
-          && response.request().method() === 'PUT'
-      ));
+      const saveIntegrationPromise = page.waitForResponse(
+        (response) => response.url().includes('/api/admin/settings/integrations') && response.request().method() === 'PUT'
+      );
       await page.getByRole('button', { name: 'Save BARCODE' }).click();
       const saveIntegrationResponse = await saveIntegrationPromise;
       expect(saveIntegrationResponse.ok()).toBeTruthy();
