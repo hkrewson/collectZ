@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 const { createProviderAdapterRegistry, identityNormalizers } = require('../services/providerAdapterRegistry');
 const { publicConnection } = require('../services/providerConnections');
 const {
+  createExternalMediaIdentityService,
   publicIdentity,
   reassignMediaIdentitiesForMerge,
   restoreMediaIdentitiesFromMerge
@@ -66,6 +67,19 @@ test('public external identity projection preserves raw identity and omits compa
   });
   assert.equal(projected.externalId, '00042');
   assert.equal(projected.external_id_normalized, undefined);
+});
+
+test('external identity service exposes one authorized transaction composition boundary', async () => {
+  const registry = createProviderAdapterRegistry({ fixture: adapter() });
+  const service = createExternalMediaIdentityService({
+    pool: { connect: async () => { throw new Error('must not acquire'); } },
+    adapterRegistry: registry
+  });
+  assert.equal(typeof service.transaction, 'function');
+  await assert.rejects(
+    service.transaction({ spaceId: 0, actorId: 9 }, async () => {}),
+    (error) => error.code === 'INVALID_EXTERNAL_IDENTITY_INPUT'
+  );
 });
 
 function mergeIdentityClient(initialMediaId = 41) {

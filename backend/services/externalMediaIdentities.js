@@ -188,6 +188,16 @@ function createExternalMediaIdentityService({ pool, adapterRegistry } = {}) {
     return withAuthorizedScopeTransaction(pool, { spaceId }, actorId, work);
   }
 
+  async function scopedOrCurrent(client, spaceIdValue, actorIdValue, work) {
+    const spaceId = positiveInteger(spaceIdValue, 'Workspace');
+    positiveInteger(actorIdValue, 'Actor');
+    if (client) {
+      if (typeof client.query !== 'function') throw new TypeError('Transaction client must provide query()');
+      return work(client, spaceId);
+    }
+    return scoped(spaceId, actorIdValue, (authorizedClient) => work(authorizedClient, spaceId));
+  }
+
   async function connection(client, spaceId, connectionId, { requireActive = false } = {}) {
     const result = await client.query(
       `SELECT id, provider_type, status
@@ -216,9 +226,9 @@ function createExternalMediaIdentityService({ pool, adapterRegistry } = {}) {
     return adapterRegistry.normalizeExternalId(provider.provider_type, identityKind, externalId);
   }
 
-  async function resolve({ spaceId, actorId, connectionId, identityKind, externalId, includeInactive = false } = {}) {
-    return scoped(spaceId, actorId, async (client) => {
-      const identity = await normalizedIdentity(client, spaceId, connectionId, identityKind, externalId);
+  async function resolve({ spaceId, actorId, connectionId, identityKind, externalId, includeInactive = false } = {}, transactionClient = null) {
+    return scopedOrCurrent(transactionClient, spaceId, actorId, async (client, workspaceId) => {
+      const identity = await normalizedIdentity(client, workspaceId, connectionId, identityKind, externalId);
       const result = await client.query(
         `SELECT * FROM external_media_identities
           WHERE space_id = $1 AND provider_connection_id = $2
@@ -226,23 +236,23 @@ function createExternalMediaIdentityService({ pool, adapterRegistry } = {}) {
             AND ($5::boolean OR active)
           ORDER BY active DESC, last_seen_at DESC, id
           LIMIT 1`,
-        [spaceId, connectionId, identity.identityKind, identity.normalizedExternalId, Boolean(includeInactive)]
+        [workspaceId, connectionId, identity.identityKind, identity.normalizedExternalId, Boolean(includeInactive)]
       );
       return publicIdentity(result.rows[0]);
     });
   }
 
-  async function attach({ spaceId, actorId, connectionId, identityKind, externalId, mediaId, sourceUrl } = {}) {
+  async function attach({ spaceId, actorId, connectionId, identityKind, externalId, mediaId, sourceUrl } = {}, transactionClient = null) {
     const targetMediaId = positiveInteger(mediaId, 'Canonical object');
     const normalizedSourceUrl = safeSourceUrl(sourceUrl);
-    return scoped(spaceId, actorId, async (client) => {
-      const identity = await normalizedIdentity(client, spaceId, connectionId, identityKind, externalId, { requireActive: true });
+    return scopedOrCurrent(transactionClient, spaceId, actorId, async (client, workspaceId) => {
+      const identity = await normalizedIdentity(client, workspaceId, connectionId, identityKind, externalId, { requireActive: true });
       const activeResult = await client.query(
         `SELECT * FROM external_media_identities
           WHERE space_id = $1 AND provider_connection_id = $2
             AND identity_kind = $3 AND external_id_normalized = $4 AND active
           FOR UPDATE`,
-        [spaceId, connectionId, identity.identityKind, identity.normalizedExternalId]
+        [workspaceId, connectionId, identity.identityKind, identity.normalizedExternalId]
       );
       const active = activeResult.rows[0];
       if (active) {
@@ -253,9 +263,9 @@ function createExternalMediaIdentityService({ pool, adapterRegistry } = {}) {
                   external_id_raw = $4, updated_by = $5
             WHERE space_id = $1 AND id = $2
             RETURNING *`,
-          [spaceId, active.id, normalizedSourceUrl, identity.rawExternalId, actorId]
+          [workspaceId, active.id, normalizedSourceUrl, identity.rawExternalId, actorId]
         );
-        await identityEvent(client, { spaceId, identityId: active.id, type: 'observed', fromMediaId: targetMediaId, toMediaId: targetMediaId, actorId });
+        await identityEvent(client, { spaceId: workspaceId, identityId: active.id, type: 'observed', fromMediaId: targetMediaId, toMediaId: targetMediaId, actorId });
         return publicIdentity(observed.rows[0]);
       }
 
@@ -264,7 +274,7 @@ function createExternalMediaIdentityService({ pool, adapterRegistry } = {}) {
           WHERE space_id = $1 AND provider_connection_id = $2
             AND identity_kind = $3 AND external_id_normalized = $4 AND NOT active
           ORDER BY last_seen_at DESC, id LIMIT 1 FOR UPDATE`,
-        [spaceId, connectionId, identity.identityKind, identity.normalizedExternalId]
+        [workspaceId, connectionId, identity.identityKind, identity.normalizedExternalId]
       );
       const inactive = inactiveResult.rows[0];
       if (inactive) {
@@ -276,9 +286,9 @@ function createExternalMediaIdentityService({ pool, adapterRegistry } = {}) {
                     external_id_raw = $5, updated_by = $6
               WHERE space_id = $1 AND id = $2
               RETURNING *`,
-            [spaceId, inactive.id, targetMediaId, normalizedSourceUrl, identity.rawExternalId, actorId]
+            [workspaceId, inactive.id, targetMediaId, normalizedSourceUrl, identity.rawExternalId, actorId]
           );
-          await identityEvent(client, { spaceId, identityId: inactive.id, type: 'reactivated', fromMediaId: inactive.media_id, toMediaId: targetMediaId, actorId });
+          await identityEvent(client, { spaceId: workspaceId, identityId: inactive.id, type: 'reactivated', fromMediaId: inactive.media_id, toMediaId: targetMediaId, actorId });
           return publicIdentity(reactivated.rows[0]);
         } catch (error) {
           if (error.code === '23505') throw conflictError();
@@ -295,18 +305,18 @@ function createExternalMediaIdentityService({ pool, adapterRegistry } = {}) {
            ON CONFLICT (space_id, provider_connection_id, identity_kind, external_id_normalized)
              WHERE active DO NOTHING
            RETURNING *`,
-          [spaceId, connectionId, identity.identityKind, identity.rawExternalId,
+          [workspaceId, connectionId, identity.identityKind, identity.rawExternalId,
             identity.normalizedExternalId, targetMediaId, normalizedSourceUrl, actorId]
         );
         if (inserted.rows[0]) {
-          await identityEvent(client, { spaceId, identityId: inserted.rows[0].id, type: 'attached', toMediaId: targetMediaId, actorId });
+          await identityEvent(client, { spaceId: workspaceId, identityId: inserted.rows[0].id, type: 'attached', toMediaId: targetMediaId, actorId });
           return publicIdentity(inserted.rows[0]);
         }
         const winner = await client.query(
           `SELECT * FROM external_media_identities
             WHERE space_id = $1 AND provider_connection_id = $2
               AND identity_kind = $3 AND external_id_normalized = $4 AND active`,
-          [spaceId, connectionId, identity.identityKind, identity.normalizedExternalId]
+          [workspaceId, connectionId, identity.identityKind, identity.normalizedExternalId]
         );
         if (Number(winner.rows[0]?.media_id) !== targetMediaId) throw conflictError();
         return publicIdentity(winner.rows[0]);
@@ -317,41 +327,41 @@ function createExternalMediaIdentityService({ pool, adapterRegistry } = {}) {
     });
   }
 
-  async function listForMedia({ spaceId, actorId, mediaId, includeInactive = true } = {}) {
+  async function listForMedia({ spaceId, actorId, mediaId, includeInactive = true } = {}, transactionClient = null) {
     const targetMediaId = positiveInteger(mediaId, 'Canonical object');
-    return scoped(spaceId, actorId, async (client) => {
+    return scopedOrCurrent(transactionClient, spaceId, actorId, async (client, workspaceId) => {
       const result = await client.query(
         `SELECT * FROM external_media_identities
           WHERE space_id = $1 AND media_id = $2 AND ($3::boolean OR active)
           ORDER BY active DESC, provider_connection_id, identity_kind, first_seen_at`,
-        [spaceId, targetMediaId, Boolean(includeInactive)]
+        [workspaceId, targetMediaId, Boolean(includeInactive)]
       );
       return result.rows.map(publicIdentity);
     });
   }
 
-  async function deactivate({ spaceId, actorId, identityId } = {}) {
-    return scoped(spaceId, actorId, async (client) => {
+  async function deactivate({ spaceId, actorId, identityId } = {}, transactionClient = null) {
+    return scopedOrCurrent(transactionClient, spaceId, actorId, async (client, workspaceId) => {
       const result = await client.query(
         `UPDATE external_media_identities
             SET active = false, deactivated_at = CURRENT_TIMESTAMP, updated_by = $3
           WHERE space_id = $1 AND id = $2 AND active
           RETURNING *`,
-        [spaceId, identityId, actorId]
+        [workspaceId, identityId, actorId]
       );
       const row = result.rows[0];
       if (!row) return null;
-      await identityEvent(client, { spaceId, identityId: row.id, type: 'deactivated', fromMediaId: row.media_id, actorId });
+      await identityEvent(client, { spaceId: workspaceId, identityId: row.id, type: 'deactivated', fromMediaId: row.media_id, actorId });
       return publicIdentity(row);
     });
   }
 
-  async function reassign({ spaceId, actorId, identityId, mediaId } = {}) {
+  async function reassign({ spaceId, actorId, identityId, mediaId } = {}, transactionClient = null) {
     const targetMediaId = positiveInteger(mediaId, 'Canonical object');
-    return scoped(spaceId, actorId, async (client) => {
+    return scopedOrCurrent(transactionClient, spaceId, actorId, async (client, workspaceId) => {
       const current = await client.query(
         'SELECT * FROM external_media_identities WHERE space_id = $1 AND id = $2 FOR UPDATE',
-        [spaceId, identityId]
+        [workspaceId, identityId]
       );
       const row = current.rows[0];
       if (!row) return null;
@@ -361,14 +371,35 @@ function createExternalMediaIdentityService({ pool, adapterRegistry } = {}) {
             SET media_id = $3, updated_by = $4
           WHERE space_id = $1 AND id = $2
           RETURNING *`,
-        [spaceId, identityId, targetMediaId, actorId]
+        [workspaceId, identityId, targetMediaId, actorId]
       );
-      await identityEvent(client, { spaceId, identityId, type: 'reassigned', fromMediaId: row.media_id, toMediaId: targetMediaId, actorId });
+      await identityEvent(client, { spaceId: workspaceId, identityId, type: 'reassigned', fromMediaId: row.media_id, toMediaId: targetMediaId, actorId });
       return publicIdentity(result.rows[0]);
     });
   }
 
-  return Object.freeze({ resolve, attach, listForMedia, deactivate, reassign });
+  async function transaction({ spaceId, libraryId = null, actorId } = {}, work) {
+    const workspaceId = positiveInteger(spaceId, 'Workspace');
+    const userId = positiveInteger(actorId, 'Actor');
+    if (typeof work !== 'function') throw new TypeError('External identity transaction work must be a function');
+    return withAuthorizedScopeTransaction(pool, { spaceId: workspaceId, libraryId }, userId, async (client) => {
+      const bind = (operation) => (args = {}) => operation({
+        ...args,
+        spaceId: workspaceId,
+        actorId: userId
+      }, client);
+      const identities = Object.freeze({
+        resolve: bind(resolve),
+        attach: bind(attach),
+        listForMedia: bind(listForMedia),
+        deactivate: bind(deactivate),
+        reassign: bind(reassign)
+      });
+      return work(Object.freeze({ client, identities }));
+    });
+  }
+
+  return Object.freeze({ resolve, attach, listForMedia, deactivate, reassign, transaction });
 }
 
 module.exports = {

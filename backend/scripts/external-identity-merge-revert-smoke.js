@@ -4,11 +4,23 @@
 
 const assert = require('node:assert/strict');
 const pool = require('../db/pool');
-const { withAuthorizedScopeTransaction } = require('../db/scopeBroker');
+const { createProviderAdapterRegistry } = require('../services/providerAdapterRegistry');
+const { createExternalMediaIdentityService } = require('../services/externalMediaIdentities');
 const {
   mergeDuplicateIntoCanonical,
   revertDuplicateAttachIntoSeparateRow
 } = require('./repair-book-comic-duplicates');
+
+const adapterRegistry = createProviderAdapterRegistry({
+  fixture: {
+    validateSettings(settings = {}) { return settings; },
+    validateCredentials(credentials = {}) { return credentials; },
+    normalizeExternalId(kind, raw, normalizers) {
+      return normalizers.exact(raw);
+    }
+  }
+});
+const identityService = createExternalMediaIdentityService({ pool, adapterRegistry });
 
 async function loadFixtureScope() {
   const result = await pool.query(
@@ -36,7 +48,11 @@ async function main() {
   let evidence = null;
 
   try {
-    await withAuthorizedScopeTransaction(pool, { spaceId: scope.spaceId, libraryId: scope.libraryId }, scope.actorId, async (client) => {
+    await identityService.transaction({
+      spaceId: scope.spaceId,
+      libraryId: scope.libraryId,
+      actorId: scope.actorId
+    }, async ({ client, identities }) => {
       const connection = (await client.query(
         `INSERT INTO provider_connections (space_id, provider_type, display_name, status, created_by)
          VALUES ($1, 'fixture', 'Merge lifecycle smoke', 'active', $2)
@@ -53,14 +69,12 @@ async function main() {
       )).rows;
       const canonical = media[0];
       const duplicate = media[1];
-      const identity = (await client.query(
-        `INSERT INTO external_media_identities
-           (space_id, provider_connection_id, identity_kind, external_id_raw,
-            external_id_normalized, media_id, created_by, updated_by)
-         VALUES ($1, $2, 'book', 'fixture:merge:42', 'fixture:merge:42', $3, $4, $4)
-         RETURNING id`,
-        [scope.spaceId, connection.id, duplicate.id, scope.actorId]
-      )).rows[0];
+      const identity = await identities.attach({
+        connectionId: connection.id,
+        identityKind: 'book',
+        externalId: 'fixture:merge:42',
+        mediaId: duplicate.id
+      });
 
       const applied = await mergeDuplicateIntoCanonical(
         client,
