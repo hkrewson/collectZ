@@ -14,6 +14,10 @@ const {
   normalizeCompatibilityProjection,
   compareProjection
 } = require('../services/providerIdentityCompatibility');
+const {
+  extractLegacyClaims,
+  createProviderIdentityBackfillPlanner
+} = require('../services/providerIdentityBackfillPlanner');
 
 function adapter() {
   return {
@@ -116,6 +120,175 @@ test('compatibility comparison fills missing fields and reports conflicting lega
   assert.deepEqual(comparison.conflicts.map(({ storage, key }) => ({ storage, key })), [
     { storage: 'type_details', key: 'provider_item_id' }
   ]);
+});
+
+test('legacy identity extraction rejects conflicting values and preserves provider-specific kinds', () => {
+  const conflict = extractLegacyClaims({
+    id: 10,
+    space_id: 7,
+    type_details: { provider_name: 'cwa_opds', provider_item_id: 'book:42', calibre_entry_id: 'book:99' }
+  });
+  assert.equal(conflict.claims.length, 0);
+  assert.equal(conflict.diagnostics[0].code, 'legacy_identity_values_conflict');
+
+  const kavita = extractLegacyClaims({
+    id: 11,
+    space_id: 7,
+    type_details: {
+      provider_name: 'kavita',
+      provider_item_id: 'kavita:chapter:42',
+      provider_issue_id: 'kavita:chapter:42',
+      kavita_chapter_provider_item_id: 'kavita:chapter:42',
+      kavita_series_provider_item_id: 'kavita:series:4'
+    }
+  });
+  assert.equal(kavita.claims[0].providerType, 'kavita');
+  assert.equal(kavita.claims[0].identityKind, 'chapter');
+  assert.equal(kavita.claims[0].externalId, 'kavita:chapter:42');
+});
+
+test('backfill planner only emits actions for one exact active provider connection', () => {
+  const exactAdapter = {
+    validateSettings: (value) => value,
+    validateCredentials: (value) => value,
+    normalizeExternalId: (_kind, raw, normalizers) => normalizers.exact(raw)
+  };
+  const registry = createProviderAdapterRegistry({ cwa: exactAdapter });
+  const planner = createProviderIdentityBackfillPlanner({ adapterRegistry: registry });
+  const row = {
+    id: 10,
+    space_id: 7,
+    type_details: { provider_name: 'cwa_opds', provider_item_id: 'book:42', calibre_entry_id: 'book:42' }
+  };
+
+  const missing = planner.plan({ mediaRows: [row] });
+  assert.equal(missing.summary.eligible, 0);
+  assert.equal(missing.diagnostics[0].code, 'provider_connection_missing');
+  assert.equal(missing.diagnostics[0].externalId, undefined);
+
+  const ambiguous = planner.plan({
+    mediaRows: [row],
+    connections: [
+      { id: 'cwa-a', space_id: 7, provider_type: 'cwa', status: 'active' },
+      { id: 'cwa-b', space_id: 7, provider_type: 'cwa', status: 'active' }
+    ]
+  });
+  assert.equal(ambiguous.diagnostics[0].code, 'provider_connection_ambiguous');
+
+  const eligible = planner.plan({
+    mediaRows: [row],
+    connections: [{ id: 'cwa-a', space_id: 7, provider_type: 'cwa', status: 'active' }]
+  });
+  assert.equal(eligible.summary.eligible, 1);
+  assert.equal(eligible.actions[0].providerConnectionId, 'cwa-a');
+  assert.equal(eligible.actions[0].identityKind, 'book');
+});
+
+test('backfill planner reports duplicate candidates, target conflicts, and idempotent alignment', () => {
+  const exactAdapter = {
+    validateSettings: (value) => value,
+    validateCredentials: (value) => value,
+    normalizeExternalId: (_kind, raw, normalizers) => normalizers.exact(raw)
+  };
+  const planner = createProviderIdentityBackfillPlanner({
+    adapterRegistry: createProviderAdapterRegistry({ metron: exactAdapter })
+  });
+  const connection = { id: 'metron-a', space_id: 7, provider_type: 'metron', status: 'active' };
+  const mediaRow = (id, externalId = '42') => ({
+    id,
+    space_id: 7,
+    import_source: 'metron',
+    type_details: { provider_issue_id: externalId },
+    metadata: { metron_issue_id: externalId }
+  });
+
+  const duplicate = planner.plan({ mediaRows: [mediaRow(10), mediaRow(11)], connections: [connection] });
+  assert.equal(duplicate.summary.eligible, 0);
+  assert.deepEqual(duplicate.diagnostics.map(({ code }) => code), [
+    'external_identity_multiple_candidates',
+    'external_identity_multiple_candidates'
+  ]);
+
+  const aligned = planner.plan({
+    mediaRows: [mediaRow(10)],
+    connections: [connection],
+    existingIdentities: [{
+      provider_connection_id: 'metron-a', identity_kind: 'issue', external_id_normalized: '42', media_id: 10, active: true
+    }]
+  });
+  assert.equal(aligned.summary.aligned, 1);
+  assert.equal(aligned.summary.eligible, 0);
+
+  const conflict = planner.plan({
+    mediaRows: [mediaRow(10)],
+    connections: [connection],
+    existingIdentities: [{
+      provider_connection_id: 'metron-a', identity_kind: 'issue', external_id_normalized: '42', media_id: 99, active: true
+    }]
+  });
+  assert.equal(conflict.diagnostics[0].code, 'external_identity_target_conflict');
+});
+
+test('backfill planner loads legacy evidence through one authorized workspace client', async () => {
+  const exactAdapter = {
+    validateSettings: (value) => value,
+    validateCredentials: (value) => value,
+    normalizeExternalId: (_kind, raw, normalizers) => normalizers.exact(raw)
+  };
+  const planner = createProviderIdentityBackfillPlanner({
+    adapterRegistry: createProviderAdapterRegistry({ cwa: exactAdapter })
+  });
+  const calls = [];
+  const client = {
+    async query(sql, params) {
+      calls.push({ sql, params });
+      if (sql.includes('FROM media m')) return { rows: [{
+        id: 10,
+        space_id: 7,
+        library_id: 3,
+        type_details: { provider_name: 'cwa_opds', provider_item_id: 'book:42', calibre_entry_id: 'book:42' },
+        metadata: {}
+      }] };
+      if (sql.includes('FROM provider_connections')) return { rows: [{
+        id: 'cwa-a', space_id: 7, provider_type: 'cwa', status: 'active'
+      }] };
+      if (sql.includes('FROM external_media_identities')) return { rows: [] };
+      throw new Error(`Unexpected query: ${sql}`);
+    }
+  };
+  const result = await planner.planWorkspace(client, 7);
+  assert.equal(result.summary.eligible, 1);
+  assert.equal(calls.length, 3);
+  assert.ok(calls.every(({ params }) => params[0] === 7));
+});
+
+test('backfill planner fails closed on unavailable adapters and incompatible canonical identities', () => {
+  const row = {
+    id: 10,
+    space_id: 7,
+    type_details: { provider_name: 'cwa_opds', provider_item_id: 'book:42', calibre_entry_id: 'book:42' }
+  };
+  const connection = { id: 'cwa-a', space_id: 7, provider_type: 'cwa', status: 'active' };
+  const unavailable = createProviderIdentityBackfillPlanner({
+    adapterRegistry: createProviderAdapterRegistry()
+  }).plan({ mediaRows: [row], connections: [connection] });
+  assert.equal(unavailable.diagnostics[0].code, 'provider_adapter_unavailable');
+
+  const exactAdapter = {
+    validateSettings: (value) => value,
+    validateCredentials: (value) => value,
+    normalizeExternalId: (_kind, raw, normalizers) => normalizers.exact(raw)
+  };
+  const incompatible = createProviderIdentityBackfillPlanner({
+    adapterRegistry: createProviderAdapterRegistry({ cwa: exactAdapter })
+  }).plan({
+    mediaRows: [row],
+    connections: [connection],
+    existingIdentities: [{
+      provider_connection_id: 'cwa-a', identity_kind: 'book', external_id_normalized: 'book:99', media_id: 10, active: true
+    }]
+  });
+  assert.equal(incompatible.diagnostics[0].code, 'canonical_identity_conflict');
 });
 
 function mergeIdentityClient(initialMediaId = 41) {
