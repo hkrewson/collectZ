@@ -2,6 +2,7 @@
 
 const { withAuthorizedScopeTransaction } = require('../db/scopeBroker');
 const { normalizeTrustedConnectorHttpUrl } = require('./outboundUrlPolicy');
+const { applyCompatibilityProjection } = require('./providerIdentityCompatibility');
 
 function positiveInteger(value, label) {
   const parsed = Number(value);
@@ -378,6 +379,68 @@ function createExternalMediaIdentityService({ pool, adapterRegistry } = {}) {
     });
   }
 
+  async function reconcile({
+    spaceId,
+    libraryId = null,
+    actorId,
+    connectionId,
+    identityKind,
+    externalId,
+    sourceUrl,
+    compatibility
+  } = {}, work, transactionClient = null) {
+    if (typeof work !== 'function') throw new TypeError('External identity reconciliation work must be a function');
+    const run = async (client, identities, workspaceId, userId) => {
+      const resolved = await identities.resolve({ connectionId, identityKind, externalId });
+      const workResult = await work(Object.freeze({
+        client,
+        resolvedMediaId: resolved?.mediaId ?? null,
+        matchedBy: resolved ? 'external_identity' : null
+      }));
+      const mediaId = positiveInteger(
+        typeof workResult === 'number' ? workResult : workResult?.mediaId,
+        'Canonical object'
+      );
+      if (resolved && Number(resolved.mediaId) !== mediaId) throw conflictError();
+      const identity = await identities.attach({
+        connectionId,
+        identityKind,
+        externalId,
+        mediaId,
+        sourceUrl
+      });
+      const projection = await applyCompatibilityProjection(client, {
+        spaceId: workspaceId,
+        mediaId,
+        externalId,
+        projection: compatibility
+      });
+      return {
+        mediaId,
+        identity,
+        matchedBy: resolved ? 'external_identity' : 'canonical_candidate',
+        compatibility: projection,
+        value: typeof workResult === 'object' && workResult !== null ? workResult.value : undefined
+      };
+    };
+
+    if (transactionClient) {
+      const workspaceId = positiveInteger(spaceId, 'Workspace');
+      const userId = positiveInteger(actorId, 'Actor');
+      const bind = (operation) => (args = {}) => operation({
+        ...args,
+        spaceId: workspaceId,
+        actorId: userId
+      }, transactionClient);
+      return run(transactionClient, Object.freeze({
+        resolve: bind(resolve),
+        attach: bind(attach)
+      }), workspaceId, userId);
+    }
+    return transaction({ spaceId, libraryId, actorId }, ({ client, identities }) =>
+      run(client, identities, positiveInteger(spaceId, 'Workspace'), positiveInteger(actorId, 'Actor')));
+  }
+
   async function transaction({ spaceId, libraryId = null, actorId } = {}, work) {
     const workspaceId = positiveInteger(spaceId, 'Workspace');
     const userId = positiveInteger(actorId, 'Actor');
@@ -393,13 +456,18 @@ function createExternalMediaIdentityService({ pool, adapterRegistry } = {}) {
         attach: bind(attach),
         listForMedia: bind(listForMedia),
         deactivate: bind(deactivate),
-        reassign: bind(reassign)
+        reassign: bind(reassign),
+        reconcile: (args = {}, reconcileWork) => reconcile({
+          ...args,
+          spaceId: workspaceId,
+          actorId: userId
+        }, reconcileWork, client)
       });
       return work(Object.freeze({ client, identities }));
     });
   }
 
-  return Object.freeze({ resolve, attach, listForMedia, deactivate, reassign, transaction });
+  return Object.freeze({ resolve, attach, listForMedia, deactivate, reassign, reconcile, transaction });
 }
 
 module.exports = {

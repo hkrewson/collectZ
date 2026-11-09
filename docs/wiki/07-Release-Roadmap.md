@@ -177,6 +177,7 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 - Migrations `128`–`131` preserve immutable source/target Canonical UUIDs in identity lifecycle events while allowing obsolete numeric references to clear after a merged row is deleted.
 - Manual canonical merge/revert now uses one authorized scoped transaction for merge history, exact identity-set reassignment/restoration, canonical row deletion/restoration, and append-only lifecycle evidence.
 - The external-identity service now exposes a client-bound transaction composition interface so later provider sync adoption can resolve or write authoritative identities in the same transaction as legacy compatibility projections.
+- Authoritative reconciliation now resolves only by workspace, Provider Connection, Identity Kind, and normalized external id; it rejects target changes and applies allowlisted fill-only Compatibility Projections atomically. Equal projections are idempotent, conflicts roll back, and overlapping ids across provider instances remain isolated.
 - Revert restores the duplicate's original Canonical UUID, leaves identities observed later on the surviving object untouched, and fails closed when a captured identity has moved since the merge.
 - Focused module tests and a rollback-only canonical-stack smoke prove merge, revert, conflict refusal, numeric-reference cleanup, durable public UUID evidence, and Canonical UUID restoration. Existing external-identity certification and manual merge/revert/scope-isolation smokes remain green.
 

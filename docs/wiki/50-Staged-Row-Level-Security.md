@@ -18,6 +18,8 @@ The broker password is a domain-separated HMAC of the high-entropy runtime passw
 
 The identity service's transaction composition method returns a client-bound identity API plus the same authorized client. This is the required seam for atomic provider dual-write: canonical compatibility fields and authoritative identity relations must commit or roll back together, and callers must not invoke a second identity transaction from inside an import transaction.
 
+The authoritative reconciliation interface resolves by `(space_id, provider_connection_id, identity_kind, external_id_normalized)` before provider work runs. It then attaches or observes that identity and applies an allowlisted Compatibility Projection on the same client. Missing legacy fields may be filled, equal fields are idempotent, and conflicting fields fail the transaction without exposing their values in diagnostics. Two provider connections may therefore use the same local external id without crossing targets.
+
 Policy USING and WITH CHECK require the matching grant and row ownership. Optional library scope means all libraries in the same workspace for the same owner; a supplied library restricts rows to that library. Non-null row libraries must belong to the same workspace and remain active. An update trigger rejects changes to owner/workspace/library, and a delete trigger also guards foreign-key cascades, which otherwise bypass RLS. Requests send success only after the database commit. Audit logging remains outside the short transaction.
 
 ## Upgrade and rollback

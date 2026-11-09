@@ -28,6 +28,10 @@ _Avoid_: Source observation, mutable audit field
 A reversible consolidation of one Canonical Object into another that moves the exact External Identity set as part of the same transaction while retaining immutable identity evidence.
 _Avoid_: Row delete, metadata merge
 
+**Compatibility Projection**:
+A temporary legacy representation derived from an authoritative External Identity for callers that have not yet migrated to the identity registry.
+_Avoid_: Provider identity, source observation
+
 **Identity Kind**:
 The provider-defined level identified by an External Identity, such as book, series, chapter, edition, or file.
 _Avoid_: Media type

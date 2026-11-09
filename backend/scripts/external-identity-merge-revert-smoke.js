@@ -59,22 +59,105 @@ async function main() {
          RETURNING id`,
         [scope.spaceId, scope.actorId]
       )).rows[0];
+      const secondConnection = (await client.query(
+        `INSERT INTO provider_connections (space_id, provider_type, display_name, status, created_by)
+         VALUES ($1, 'fixture', 'Second merge lifecycle smoke', 'active', $2)
+         RETURNING id`,
+        [scope.spaceId, scope.actorId]
+      )).rows[0];
       const media = (await client.query(
         `INSERT INTO media (title, media_type, format, library_id, space_id, added_by, import_source)
          VALUES
            ('Identity merge canonical', 'book', 'Digital', $1, $2, $3, 'identity_merge_smoke'),
-           ('Identity merge duplicate', 'book', 'Digital', $1, $2, $3, 'identity_merge_smoke')
+           ('Identity merge duplicate', 'book', 'Digital', $1, $2, $3, 'identity_merge_smoke'),
+           ('Identity second provider target', 'book', 'Digital', $1, $2, $3, 'identity_merge_smoke')
          RETURNING *`,
         [scope.libraryId, scope.spaceId, scope.actorId]
       )).rows;
       const canonical = media[0];
       const duplicate = media[1];
-      const identity = await identities.attach({
+      const secondProviderTarget = media[2];
+      const compatibility = {
+        typeDetails: {
+          provider_name: 'fixture',
+          provider_item_id: 'fixture:merge:42'
+        },
+        metadata: {
+          provider_item_id: 'fixture:merge:42'
+        }
+      };
+      const firstReconciliation = await identities.reconcile({
         connectionId: connection.id,
         identityKind: 'book',
         externalId: 'fixture:merge:42',
-        mediaId: duplicate.id
+        compatibility
+      }, async ({ resolvedMediaId }) => {
+        assert.equal(resolvedMediaId, null);
+        return { mediaId: duplicate.id };
       });
+      assert.equal(firstReconciliation.matchedBy, 'canonical_candidate');
+      assert.equal(firstReconciliation.compatibility.written, 3);
+      const repeatReconciliation = await identities.reconcile({
+        connectionId: connection.id,
+        identityKind: 'book',
+        externalId: 'fixture:merge:42',
+        compatibility
+      }, async ({ resolvedMediaId, matchedBy }) => {
+        assert.equal(Number(resolvedMediaId), Number(duplicate.id));
+        assert.equal(matchedBy, 'external_identity');
+        return { mediaId: resolvedMediaId };
+      });
+      assert.equal(repeatReconciliation.matchedBy, 'external_identity');
+      assert.equal(repeatReconciliation.compatibility.written, 0);
+      assert.equal(repeatReconciliation.compatibility.aligned, 3);
+      const identity = repeatReconciliation.identity;
+      const secondProvider = await identities.reconcile({
+        connectionId: secondConnection.id,
+        identityKind: 'book',
+        externalId: 'fixture:merge:42',
+        compatibility
+      }, async ({ resolvedMediaId }) => {
+        assert.equal(resolvedMediaId, null);
+        return { mediaId: secondProviderTarget.id };
+      });
+      assert.equal(Number(secondProvider.mediaId), Number(secondProviderTarget.id));
+      assert.notEqual(secondProvider.identity.id, identity.id);
+
+      await client.query('SAVEPOINT compatibility_conflict');
+      let conflictCode = null;
+      try {
+        const conflictConnection = (await client.query(
+          `INSERT INTO provider_connections (space_id, provider_type, display_name, status, created_by)
+           VALUES ($1, 'fixture', 'Conflict merge lifecycle smoke', 'active', $2)
+           RETURNING id`,
+          [scope.spaceId, scope.actorId]
+        )).rows[0];
+        await identities.reconcile({
+          connectionId: conflictConnection.id,
+          identityKind: 'book',
+          externalId: 'fixture:merge:conflict',
+          compatibility: {
+            typeDetails: {
+              provider_name: 'fixture',
+              provider_item_id: 'fixture:merge:conflict'
+            },
+            metadata: {
+              provider_item_id: 'fixture:merge:conflict'
+            }
+          }
+        }, async () => ({ mediaId: secondProviderTarget.id }));
+      } catch (error) {
+        conflictCode = error.code;
+      }
+      assert.equal(conflictCode, 'EXTERNAL_IDENTITY_COMPATIBILITY_CONFLICT');
+      await client.query('ROLLBACK TO SAVEPOINT compatibility_conflict');
+      const conflictingIdentityCount = await client.query(
+        `SELECT COUNT(*)::int AS count
+           FROM external_media_identities
+          WHERE space_id = $1 AND external_id_normalized = 'fixture:merge:conflict'`,
+        [scope.spaceId]
+      );
+      assert.equal(Number(conflictingIdentityCount.rows[0]?.count || 0), 0);
 
       const applied = await mergeDuplicateIntoCanonical(
         client,
@@ -120,7 +203,11 @@ async function main() {
         revertRestored: reverted.restoredExternalIdentities,
         deletedNumericReferenceCleared: afterMerge.from_media_id === null,
         immutablePublicReferenceRetained: afterMerge.from_media_public_id === duplicate.public_id,
-        canonicalUuidRestored: afterRevert.public_id === duplicate.public_id
+        canonicalUuidRestored: afterRevert.public_id === duplicate.public_id,
+        authoritativeRepeatMatch: repeatReconciliation.matchedBy === 'external_identity',
+        compatibilityProjectionAligned: repeatReconciliation.compatibility.aligned === 3,
+        providerInstanceIsolation: Number(secondProvider.mediaId) === Number(secondProviderTarget.id),
+        projectionConflictRolledBack: Number(conflictingIdentityCount.rows[0]?.count || 0) === 0
       };
       throw rollback;
     });

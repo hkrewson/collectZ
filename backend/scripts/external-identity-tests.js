@@ -10,6 +10,10 @@ const {
   reassignMediaIdentitiesForMerge,
   restoreMediaIdentitiesFromMerge
 } = require('../services/externalMediaIdentities');
+const {
+  normalizeCompatibilityProjection,
+  compareProjection
+} = require('../services/providerIdentityCompatibility');
 
 function adapter() {
   return {
@@ -80,6 +84,38 @@ test('external identity service exposes one authorized transaction composition b
     service.transaction({ spaceId: 0, actorId: 9 }, async () => {}),
     (error) => error.code === 'INVALID_EXTERNAL_IDENTITY_INPUT'
   );
+});
+
+test('compatibility projection accepts only exact authoritative identity values', () => {
+  assert.deepEqual(normalizeCompatibilityProjection({
+    typeDetails: { provider_name: 'fixture', provider_item_id: 'book:42' },
+    metadata: { provider_item_id: 'book:42' }
+  }, 'book:42'), {
+    typeDetails: { provider_name: 'fixture', provider_item_id: 'book:42' },
+    metadata: { provider_item_id: 'book:42' }
+  });
+  assert.throws(() => normalizeCompatibilityProjection({
+    typeDetails: { provider_item_id: 'book:other' }
+  }, 'book:42'), /project the authoritative external id exactly/);
+  assert.throws(() => normalizeCompatibilityProjection({
+    typeDetails: { title: 'not-an-identity-field' }
+  }, 'book:42'), /is not supported/);
+});
+
+test('compatibility comparison fills missing fields and reports conflicting legacy values', () => {
+  const comparison = compareProjection(
+    { provider_name: 'fixture', provider_item_id: 'book:old' },
+    {},
+    {
+      typeDetails: { provider_name: 'fixture', provider_item_id: 'book:42' },
+      metadata: { provider_item_id: 'book:42' }
+    }
+  );
+  assert.deepEqual(comparison.aligned, [{ storage: 'type_details', key: 'provider_name' }]);
+  assert.deepEqual(comparison.missingMetadata, { provider_item_id: 'book:42' });
+  assert.deepEqual(comparison.conflicts.map(({ storage, key }) => ({ storage, key })), [
+    { storage: 'type_details', key: 'provider_item_id' }
+  ]);
 });
 
 function mergeIdentityClient(initialMediaId = 41) {
