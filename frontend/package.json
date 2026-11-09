@@ -1,6 +1,6 @@
 {
   "name": "collectz-frontend",
-  "version": "3.27.1",
+  "version": "3.27.2",
   "private": true,
   "dependencies": {
     "@zxing/browser": "^0.2.0",
@@ -13,7 +13,7 @@
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
     "@vitejs/plugin-react": "^6.1.2",
-    "esbuild": "^0.28.1",
+    "esbuild": "^0.28.2",
     "tailwindcss": "^4.3.3",
     "vite": "^8.3.5",
     "vitest": "^4.1.12"

@@ -105,7 +105,7 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 ## 3.27.2 — Runtime and Transport Dependency Maintenance
 
 **Goal:** Stabilize the application runtime, provider HTTP transport, rate limiting, mail transport, object-storage client, and frontend build tooling before provider-identity and BookOrbit implementation begins.
-**Status:** Active. Selected after the `3.27.1` hosted closeout and before architectural work resumes.
+**Status:** Complete locally. The canonical stack and release artifacts are aligned on `3.27.2`; hosted release certification remains pending until `main` is pushed.
 
 ### Scope
 
@@ -126,6 +126,18 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 
 - No database schema, provider-identity matching, BookOrbit adapter, Vitest major, GitHub Actions major, or ZXing peer-boundary work belongs in this slice.
 - Provider identity resumes in `3.27.3` only after this maintenance release closes.
+
+### Closeout
+
+- **Roadmap slice:** `3.27.2 — Runtime and Transport Dependency Maintenance`.
+- **Project docs/checklists used:** `AGENTS.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/49-Dependency-PR-and-CI-Security-Coverage.md`; `docs/releases/v3.27.2.md`.
+- **Verified runtime facts:** Rebuilt and recreated the canonical `collectz-private` backend/frontend in place on port `3201` without replacing the retained database. Health reports app/frontend/backend/build `3.27.2`; the backend runs Node `v24.22.1`, Express `5.3.0`, Axios `1.21.0`, express-rate-limit `8.7.2`, and AWS SDK S3 `3.1162.0`; installed manifests confirm Nodemailer `10.3.1` and esbuild `0.28.2`. Retained PostgreSQL remains at migration `127`; Core mode was verified temporarily and the stack was restored to platform mode with Cairn healthy. Help > Releases serves `3.27.2` first.
+- **CI/checks run:** Clean Node 24 backend/frontend installs and complete audits passed with zero vulnerabilities; backend unit tests (`363`) plus transaction/scope/identity interface tests (`19`); OpenAPI; frontend Vitest (`4`) and production build; API integration; auth token abuse; CWA repeat-sync, link, and comic-identity smokes; Kavita connection/import smokes; RBAC; external-identity certification (`15` checks); exact Core Playwright regression (`31/31`); Core and control-plane runtime smokes; observability evidence (`9/9`); standard local release gate (`12/12`); strict local profile (`13` passed, two blocked); local CodeQL (`5` total baseline/suppressed results, `0` active); release preflight; release-feed generation; Help > Releases readback; diff hygiene; and generated-evidence credential-pattern inspection (`0` matches).
+- **Blocked/unverified:** Local Gitleaks and Trivy are unavailable, so hosted `secret-scan` and `image-security-and-sbom` remain required. The retained development stack does not use CI secure-cookie settings, so hosted `compose-smoke` must certify them. Hosted migration/init parity, dependency scan, RBAC, browser regression, Core runtime smoke, image builds, release preflight, and auto-tag must rerun on the pushed commit. No push was authorized in this slice.
+- **Files changed:** Backend/frontend manifests and lockfiles; application version metadata; `docs/releases/v3.27.2.md`; generated Help > Releases feed; dependency-audit, observability, and release-preflight evidence; roadmap and backlog milestone boundaries.
+- **Risks or follow-ups:** Axios `1.21.0` changes header-default handling and Express `5.3.0` changes runtime response dependencies; provider/auth/API/browser coverage passed, but normal provider use should continue to watch header and redirect behavior. Superseded PRs `#160`, `#153`, `#145`, `#142`, `#141`, `#139`, `#137`, and `#127` were closed after confirming equal or newer versions on `main`; `#148` was closed because the repository intentionally follows the maintained CodeQL `@v4` major tag. Vitest 5, GitHub Actions majors, and the coupled ZXing update remain separate compatibility work.
+- **What remains in the milestone:** Push only with explicit authorization, verify all hosted release gates and the `v3.27.2` tag, then close the six represented dependency PRs. Provider identity dual-write and matching remains the `3.27.3` boundary.
+- **Recommended commit message:** `Release 3.27.2 with stabilized runtime, provider transport, and dependency maintenance`.
 
 ---
 

@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.27.2",
+      "version": "3.27.2",
+      "date": "2026-11-08",
+      "status": null,
+      "summary": "Updates the application runtime, provider HTTP transport, rate limiting, mail transport, object-storage client, and frontend build tooling before provider-identity and BookOrbit implementation resumes.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Updated Express from `5.2.1` to `5.3.0` and express-rate-limit from `8.7.1` to `8.7.2`.",
+            "Updated backend Axios from `1.20.0` to `1.21.0` before BookOrbit begins using the shared provider HTTP seam.",
+            "Updated Nodemailer from `10.2.1` to `10.3.1` and AWS SDK S3 from `3.1156.0` to `3.1162.0`.",
+            "Updated frontend esbuild from `0.28.1` to `0.28.2` without changing Vite, Vitest, React, Tailwind, or ZXing.",
+            "Kept the existing security overrides until the installed graph proves they are no longer required."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.27.1",
       "version": "3.27.1",
       "date": "2026-11-08",
@@ -176,29 +195,6 @@
             "Added a backend startup privilege guard (`DATABASE_RUNTIME_ROLE_POLICY`, `enforce` in Compose). It fails closed on superuser, `CREATEROLE`, `CREATEDB`, `REPLICATION`, or `BYPASSRLS`; on owned or inherited table ownership; on privileged role membership; and on schema or database `CREATE`.",
             "With `DATABASE_MIGRATIONS_MODE=external` (Compose), the backend checks that the schema is current and will not start against an un-migrated database. The legacy in-process runner remains available as `startup` mode for ad-hoc runs and logs a warning.",
             "Added the `runtime-role-certification` CI step and evidence artifact, a local preflight gate for that evidence, and unit coverage for the role, verifier, guard, and Compose contract."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.24.13",
-      "version": "3.24.13",
-      "date": "2026-09-29",
-      "status": "complete locally; hosted release gates pending",
-      "summary": "This maintenance release restores trustworthy dependency monitoring and main-branch release validation. It repairs Node 24 clean installs, remediates known production and tooling dependency findings, preserves Dependency Watch evidence when installs fail, and keeps migration rehearsal valid when identity certification is already current.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Updated backend CSV parsing, upload handling, mail delivery, rate limiting, IP parsing, and query-string parsing dependencies to remediated releases.",
-            "Updated frontend Vitest and refreshed root tooling transitive dependencies so clean Node 24 audits cover all three lockfiles without known vulnerabilities.",
-            "Added root tooling to Dependency Watch and made the workflow run for dependency-changing pull requests.",
-            "Kept later Dependency Watch report and artifact steps running after an earlier ecosystem failure, so a broken lockfile no longer erases the diagnostic evidence.",
-            "Changed generic migration rehearsal to select the latest real upgrade boundary while leaving identity-upgrade certification anchored to its reviewed policy marker.",
-            "Restored direct commits to `main` as the default CollectZ delivery workflow; pull requests remain available when explicitly requested or operationally necessary.",
-            "Serialized same-email registration attempts so concurrent Core self-registration returns one success and one deliberate conflict instead of leaking a database uniqueness failure as an internal error.",
-            "Made the authentication abuse smoke edition-aware: Core proves invite tokens and invitation mutation routes are unavailable, while the platform contract continues to prove atomic one-time invite claims, replay rejection, and invitation rate limiting.",
-            "Restored Core workspace-owned integration readback by deriving its internal workspace scope from the active library while keeping workspace identifiers hidden from the homelab user contract."
           ]
         }
       ]
