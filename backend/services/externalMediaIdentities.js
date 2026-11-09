@@ -3,6 +3,7 @@
 const { withAuthorizedScopeTransaction } = require('../db/scopeBroker');
 const { normalizeTrustedConnectorHttpUrl } = require('./outboundUrlPolicy');
 const { applyCompatibilityProjection } = require('./providerIdentityCompatibility');
+const { applyProviderFieldUpdates } = require('./canonicalMediaFieldControls');
 
 function positiveInteger(value, label) {
   const parsed = Number(value);
@@ -387,7 +388,8 @@ function createExternalMediaIdentityService({ pool, adapterRegistry } = {}) {
     identityKind,
     externalId,
     sourceUrl,
-    compatibility
+    compatibility,
+    canonicalFields
   } = {}, work, transactionClient = null) {
     if (typeof work !== 'function') throw new TypeError('External identity reconciliation work must be a function');
     const run = async (client, identities, workspaceId, userId) => {
@@ -409,6 +411,15 @@ function createExternalMediaIdentityService({ pool, adapterRegistry } = {}) {
         mediaId,
         sourceUrl
       });
+      const fieldUpdates = canonicalFields
+        ? await applyProviderFieldUpdates(client, {
+            spaceId: workspaceId,
+            mediaId,
+            providerConnectionId: connectionId,
+            actorId: userId,
+            candidates: canonicalFields
+          })
+        : { applied: [], observed: [], skipped: [] };
       const projection = await applyCompatibilityProjection(client, {
         spaceId: workspaceId,
         mediaId,
@@ -419,6 +430,7 @@ function createExternalMediaIdentityService({ pool, adapterRegistry } = {}) {
         mediaId,
         identity,
         matchedBy: resolved ? 'external_identity' : 'canonical_candidate',
+        canonicalFields: fieldUpdates,
         compatibility: projection,
         value: typeof workResult === 'object' && workResult !== null ? workResult.value : undefined
       };

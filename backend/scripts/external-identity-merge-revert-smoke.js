@@ -6,6 +6,7 @@ const assert = require('node:assert/strict');
 const pool = require('../db/pool');
 const { createProviderAdapterRegistry } = require('../services/providerAdapterRegistry');
 const { createExternalMediaIdentityService } = require('../services/externalMediaIdentities');
+const { setCanonicalFieldControl } = require('../services/canonicalMediaFieldControls');
 const {
   mergeDuplicateIntoCanonical,
   revertDuplicateAttachIntoSeparateRow
@@ -90,18 +91,27 @@ async function main() {
         connectionId: connection.id,
         identityKind: 'book',
         externalId: 'fixture:merge:42',
-        compatibility
+        compatibility,
+        canonicalFields: {
+          'media.overview': 'Provider synopsis v1',
+          'type_details.publisher': 'Provider Publisher'
+        }
       }, async ({ resolvedMediaId }) => {
         assert.equal(resolvedMediaId, null);
         return { mediaId: duplicate.id };
       });
       assert.equal(firstReconciliation.matchedBy, 'canonical_candidate');
       assert.equal(firstReconciliation.compatibility.written, 3);
+      assert.equal(firstReconciliation.canonicalFields.applied.length, 2);
       const repeatReconciliation = await identities.reconcile({
         connectionId: connection.id,
         identityKind: 'book',
         externalId: 'fixture:merge:42',
-        compatibility
+        compatibility,
+        canonicalFields: {
+          'media.overview': 'Provider synopsis v2',
+          'type_details.publisher': 'Provider Publisher'
+        }
       }, async ({ resolvedMediaId, matchedBy }) => {
         assert.equal(Number(resolvedMediaId), Number(duplicate.id));
         assert.equal(matchedBy, 'external_identity');
@@ -110,6 +120,33 @@ async function main() {
       assert.equal(repeatReconciliation.matchedBy, 'external_identity');
       assert.equal(repeatReconciliation.compatibility.written, 0);
       assert.equal(repeatReconciliation.compatibility.aligned, 3);
+      assert.deepEqual(repeatReconciliation.canonicalFields.applied, [
+        { fieldPath: 'media.overview', action: 'refresh' }
+      ]);
+      assert.deepEqual(repeatReconciliation.canonicalFields.observed, [
+        { fieldPath: 'type_details.publisher', reason: 'already_equal' }
+      ]);
+      await setCanonicalFieldControl(client, {
+        spaceId: scope.spaceId,
+        mediaId: duplicate.id,
+        fieldPath: 'media.overview',
+        authority: 'manual',
+        providerWriteMode: 'preserve',
+        locked: true,
+        actorId: scope.actorId
+      });
+      const preservedReconciliation = await identities.reconcile({
+        connectionId: connection.id,
+        identityKind: 'book',
+        externalId: 'fixture:merge:42',
+        compatibility,
+        canonicalFields: { 'media.overview': 'Provider synopsis v3' }
+      }, async ({ resolvedMediaId }) => ({ mediaId: resolvedMediaId }));
+      assert.deepEqual(preservedReconciliation.canonicalFields.skipped, [
+        { fieldPath: 'media.overview', reason: 'locked' }
+      ]);
+      const preservedOverview = await client.query('SELECT overview FROM media WHERE id = $1', [duplicate.id]);
+      assert.equal(preservedOverview.rows[0].overview, 'Provider synopsis v2');
       const identity = repeatReconciliation.identity;
       const secondProvider = await identities.reconcile({
         connectionId: secondConnection.id,
@@ -207,7 +244,9 @@ async function main() {
         authoritativeRepeatMatch: repeatReconciliation.matchedBy === 'external_identity',
         compatibilityProjectionAligned: repeatReconciliation.compatibility.aligned === 3,
         providerInstanceIsolation: Number(secondProvider.mediaId) === Number(secondProviderTarget.id),
-        projectionConflictRolledBack: Number(conflictingIdentityCount.rows[0]?.count || 0) === 0
+        projectionConflictRolledBack: Number(conflictingIdentityCount.rows[0]?.count || 0) === 0,
+        providerFieldRefreshControlled: repeatReconciliation.canonicalFields.applied.length === 1,
+        manualFieldLockPreserved: preservedOverview.rows[0].overview === 'Provider synopsis v2'
       };
       throw rollback;
     });

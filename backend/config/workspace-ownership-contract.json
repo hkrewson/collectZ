@@ -79,6 +79,24 @@
       ]
     },
     {
+      "name": "canonical_media_field_controls",
+      "category": "workspace_owned",
+      "ownershipKey": "space_id",
+      "rationale": "Per-field canonical authority and provider-refresh policy inherit the media workspace.",
+      "sameWorkspaceForeignKeys": [
+        {
+          "column": "space_id",
+          "referencesTable": "spaces",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "media_id",
+          "referencesTable": "media",
+          "expectation": "same_workspace"
+        }
+      ]
+    },
+    {
       "name": "capture_items",
       "category": "library_owned",
       "ownershipKey": "library_id",

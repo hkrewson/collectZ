@@ -36,6 +36,10 @@ _Avoid_: Provider identity, source observation
 A legacy identity claim eligible for authoritative migration only when its provider semantics and single owning Provider Connection are explicit and conflict-free.
 _Avoid_: Inferred provider identity, probable match
 
+**Canonical Field Control**:
+A per-field decision stating whose value is authoritative, whether provider refresh is permitted, and whether the current canonical value is locked.
+_Avoid_: Source observation, provider metadata
+
 **Identity Kind**:
 The provider-defined level identified by an External Identity, such as book, series, chapter, edition, or file.
 _Avoid_: Media type

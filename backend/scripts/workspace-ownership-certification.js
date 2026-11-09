@@ -52,6 +52,7 @@ const TABLE_OVERRIDES = Object.freeze({
   provider_connection_credentials: ['workspace_owned', 'space_id', 'Encrypted provider credentials inherit the owning connection workspace and are never ordinary readback.'],
   external_media_identities: ['workspace_owned', 'space_id', 'Provider-instance identity attached to a canonical media target in the same workspace.'],
   external_media_identity_events: ['workspace_owned', 'space_id', 'Append-only identity lifecycle evidence inherits the external identity workspace.'],
+  canonical_media_field_controls: ['workspace_owned', 'space_id', 'Per-field canonical authority and provider-refresh policy inherit the media workspace.'],
   sync_jobs: ['workspace_owned', 'scope.spaceId', 'Durable jobs must persist workspace and library ownership in the structured scope payload.']
 });
 

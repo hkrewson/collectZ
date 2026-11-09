@@ -364,6 +364,10 @@ async function snapshotDuplicateState(client, duplicateId) {
   const actorRows = await client.query('SELECT actor_id FROM media_actors WHERE media_id = $1 ORDER BY actor_id ASC', [duplicateId]);
   const collectionRows = await client.query('SELECT * FROM collection_items WHERE media_id = $1 ORDER BY id ASC', [duplicateId]);
   const seriesRows = await client.query('SELECT id FROM media WHERE series_id = $1 ORDER BY id ASC', [duplicateId]);
+  const fieldControlRows = await client.query(
+    'SELECT * FROM canonical_media_field_controls WHERE media_id = $1 ORDER BY field_path ASC',
+    [duplicateId]
+  );
 
   return {
     media: mediaRow.rows[0] || null,
@@ -374,8 +378,26 @@ async function snapshotDuplicateState(client, duplicateId) {
     media_directors: directorRows.rows || [],
     media_actors: actorRows.rows || [],
     collection_items: collectionRows.rows || [],
-    child_series_refs: seriesRows.rows || []
+    child_series_refs: seriesRows.rows || [],
+    canonical_field_controls: fieldControlRows.rows || []
   };
+}
+
+async function mergeDuplicateFieldControls(client, canonicalId, duplicateId) {
+  const inserted = await client.query(
+    `INSERT INTO canonical_media_field_controls
+       (space_id, media_id, field_path, authority, provider_write_mode, locked,
+        source_provider_connection_id, last_observed_at, decided_by, decided_at, created_at, updated_at)
+     SELECT space_id, $1, field_path, authority, provider_write_mode, locked,
+            source_provider_connection_id, last_observed_at, decided_by, decided_at, created_at, updated_at
+       FROM canonical_media_field_controls
+      WHERE media_id = $2
+     ON CONFLICT (media_id, field_path) DO NOTHING
+     RETURNING *`,
+    [canonicalId, duplicateId]
+  );
+  await client.query('DELETE FROM canonical_media_field_controls WHERE media_id = $1', [duplicateId]);
+  return inserted.rows || [];
 }
 
 async function mergeDuplicateMetadataIntoCanonical(client, canonicalId, duplicateId) {
@@ -525,13 +547,15 @@ async function mergeDuplicateIntoCanonical(client, canonicalRow, duplicateRow, m
       })
     : [];
   attachContext.reassignedExternalIdentityIds = reassignedExternalIdentities.map((identity) => identity.id);
-  await upsertDuplicateAttachHistory(client, canonicalRow.id, duplicateRow.id, snapshot, attachContext);
 
   const mergedMetadataEntries = await mergeDuplicateMetadataIntoCanonical(client, canonicalRow.id, duplicateRow.id);
   const preservedIdentityAliases = await preserveDuplicateIdentityAliases(client, canonicalRow, snapshot);
   const mergedTaxonomy = await mergeDuplicateTaxonomyIntoCanonical(client, canonicalRow.id, duplicateRow.id);
   const mergedSeasons = await mergeDuplicateSeasonsIntoCanonical(client, canonicalRow.id, duplicateRow.id);
   const rewired = await rewireDuplicateReferences(client, canonicalRow.id, duplicateRow.id);
+  const mergedFieldControls = await mergeDuplicateFieldControls(client, canonicalRow.id, duplicateRow.id);
+  attachContext.mergedCanonicalFieldControls = mergedFieldControls;
+  await upsertDuplicateAttachHistory(client, canonicalRow.id, duplicateRow.id, snapshot, attachContext);
 
   await client.query('DELETE FROM media WHERE id = $1', [duplicateRow.id]);
 
@@ -541,10 +565,59 @@ async function mergeDuplicateIntoCanonical(client, canonicalRow, duplicateRow, m
     reassignedExternalIdentities: reassignedExternalIdentities.length,
     mergedMetadataEntries,
     preservedIdentityAliases,
+    mergedFieldControls: mergedFieldControls.length,
     mergedTaxonomy,
     mergedSeasons,
     rewired
   };
+}
+
+function fieldControlState(row = {}) {
+  return JSON.stringify({
+    field_path: row.field_path,
+    authority: row.authority,
+    provider_write_mode: row.provider_write_mode,
+    locked: Boolean(row.locked),
+    source_provider_connection_id: row.source_provider_connection_id || null,
+    last_observed_at: row.last_observed_at ? new Date(row.last_observed_at).toISOString() : null,
+    decided_by: row.decided_by ?? null,
+    decided_at: row.decided_at ? new Date(row.decided_at).toISOString() : null
+  });
+}
+
+async function restoreDuplicateFieldControls(client, duplicateId, snapshot = {}, context = {}) {
+  const moved = Array.isArray(context.mergedCanonicalFieldControls)
+    ? context.mergedCanonicalFieldControls
+    : [];
+  for (const expected of moved) {
+    const current = await client.query(
+      `SELECT * FROM canonical_media_field_controls
+        WHERE media_id = $1 AND field_path = $2
+        FOR UPDATE`,
+      [context.canonicalMediaId || expected.media_id, expected.field_path]
+    );
+    const row = current.rows[0];
+    if (!row || fieldControlState(row) !== fieldControlState(expected)) {
+      const error = new Error('Canonical field control changed after merge');
+      error.code = 'CANONICAL_FIELD_CONTROL_CONFLICT';
+      throw error;
+    }
+    await client.query(
+      'DELETE FROM canonical_media_field_controls WHERE media_id = $1 AND field_path = $2',
+      [row.media_id, row.field_path]
+    );
+  }
+  for (const row of snapshot.canonical_field_controls || []) {
+    await client.query(
+      `INSERT INTO canonical_media_field_controls
+         (space_id, media_id, field_path, authority, provider_write_mode, locked,
+          source_provider_connection_id, last_observed_at, decided_by, decided_at, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+      [row.space_id, duplicateId, row.field_path, row.authority, row.provider_write_mode, row.locked,
+        row.source_provider_connection_id, row.last_observed_at, row.decided_by, row.decided_at,
+        row.created_at, row.updated_at]
+    );
+  }
 }
 
 function parseJsonText(value, fallback = null) {
@@ -964,6 +1037,8 @@ async function revertDuplicateAttachIntoSeparateRow(client, canonicalRow, duplic
   }
 
   await restoreDuplicateMediaRow(client, snapshot.media);
+  context.canonicalMediaId = canonicalRow.id;
+  await restoreDuplicateFieldControls(client, duplicateId, snapshot, context);
   const reassignedExternalIdentityIds = Array.isArray(context.reassignedExternalIdentityIds)
     ? context.reassignedExternalIdentityIds
     : [];

@@ -134,6 +134,25 @@ async function main() {
           [spaceA, second.id, mediaA2.id, userId]
         );
         checks.push({ label: 'same external id remains isolated across provider instances', passed: true });
+        await client.query(
+          `INSERT INTO canonical_media_field_controls
+             (space_id,media_id,field_path,authority,provider_write_mode,source_provider_connection_id,decided_by)
+           VALUES ($1,$2,'media.overview','provider','refresh',$3,$4)`,
+          [spaceA, mediaA.id, first.id, userId]
+        );
+        checks.push({ label: 'provider field authority is scoped to one canonical target and connection', passed: true });
+        checks.push(await expectCode(client, 'field control cannot target sibling workspace media', ['23503'], () =>
+          client.query(
+            `INSERT INTO canonical_media_field_controls
+               (space_id,media_id,field_path,authority,provider_write_mode,source_provider_connection_id,decided_by)
+             VALUES ($1,$2,'media.overview','provider','refresh',$3,$4)`,
+            [spaceA, mediaB.id, first.id, userId])));
+        checks.push(await expectCode(client, 'manual field authority cannot silently permit provider refresh', ['23514'], () =>
+          client.query(
+            `INSERT INTO canonical_media_field_controls
+               (space_id,media_id,field_path,authority,provider_write_mode,source_provider_connection_id,decided_by)
+             VALUES ($1,$2,'media.title','manual','refresh',$3,$4)`,
+            [spaceA, mediaA.id, first.id, userId])));
         checks.push(await expectCode(client, 'active identity cannot bind two media targets', ['23505'], () =>
           client.query(
             `INSERT INTO external_media_identities
@@ -195,9 +214,12 @@ async function main() {
     assert.equal(Number(unscoped.rows[0].count), 0);
     checks.push({ label: 'unscoped runtime SQL cannot read provider connections', passed: true });
 
+    const migrationVersion = Number((await pool.query(
+      'SELECT COALESCE(MAX(version), 0)::int AS version FROM schema_migrations'
+    )).rows[0].version);
     const evidence = {
       generatedAt: new Date().toISOString(),
-      migrationVersion: 127,
+      migrationVersion,
       passed: true,
       checks
     };

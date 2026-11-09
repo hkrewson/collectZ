@@ -18,6 +18,10 @@ const {
   extractLegacyClaims,
   createProviderIdentityBackfillPlanner
 } = require('../services/providerIdentityBackfillPlanner');
+const {
+  normalizeControl,
+  decideProviderFieldUpdate
+} = require('../services/canonicalMediaFieldControls');
 
 function adapter() {
   return {
@@ -120,6 +124,70 @@ test('compatibility comparison fills missing fields and reports conflicting lega
   assert.deepEqual(comparison.conflicts.map(({ storage, key }) => ({ storage, key })), [
     { storage: 'type_details', key: 'provider_item_id' }
   ]);
+});
+
+test('canonical field precedence preserves uncontrolled, manual, reviewed, and locked values by default', () => {
+  assert.deepEqual(decideProviderFieldUpdate({
+    currentValue: null,
+    proposedValue: 'Provider value',
+    providerConnectionId: 'provider-a'
+  }), { action: 'fill', reason: 'canonical_value_missing' });
+  assert.deepEqual(decideProviderFieldUpdate({
+    currentValue: 'Existing value',
+    proposedValue: 'Provider value',
+    providerConnectionId: 'provider-a'
+  }), { action: 'skip', reason: 'uncontrolled_existing_value' });
+  assert.equal(decideProviderFieldUpdate({
+    currentValue: 'Manual value',
+    proposedValue: 'Provider value',
+    providerConnectionId: 'provider-a',
+    control: { authority: 'manual', provider_write_mode: 'preserve', locked: false }
+  }).reason, 'manual_preserved');
+  assert.equal(decideProviderFieldUpdate({
+    currentValue: 'Locked value',
+    proposedValue: 'Provider value',
+    providerConnectionId: 'provider-a',
+    control: { authority: 'provider', provider_write_mode: 'preserve', locked: true,
+      source_provider_connection_id: 'provider-a' }
+  }).reason, 'locked');
+  assert.equal(decideProviderFieldUpdate({
+    currentValue: 'Reviewed value',
+    proposedValue: 'Provider refresh',
+    providerConnectionId: 'provider-a',
+    control: { authority: 'reviewed', provider_write_mode: 'refresh', locked: false,
+      source_provider_connection_id: 'provider-a' }
+  }).action, 'refresh');
+});
+
+test('canonical field controls require explicit compatible provider refresh authority', () => {
+  assert.deepEqual(normalizeControl({
+    authority: 'reviewed',
+    providerWriteMode: 'refresh',
+    providerConnectionId: 'provider-a'
+  }), {
+    authority: 'reviewed',
+    providerWriteMode: 'refresh',
+    locked: false,
+    providerConnectionId: 'provider-a'
+  });
+  assert.throws(() => normalizeControl({
+    authority: 'manual',
+    providerWriteMode: 'refresh',
+    providerConnectionId: 'provider-a'
+  }), /requires an unlocked provider or reviewed authority/);
+  assert.throws(() => normalizeControl({
+    authority: 'reviewed',
+    providerWriteMode: 'refresh',
+    providerConnectionId: 'provider-a',
+    locked: true
+  }), /requires an unlocked provider or reviewed authority/);
+  assert.equal(decideProviderFieldUpdate({
+    currentValue: 'Provider A value',
+    proposedValue: 'Provider B value',
+    providerConnectionId: 'provider-b',
+    control: { authority: 'provider', provider_write_mode: 'refresh', locked: false,
+      source_provider_connection_id: 'provider-a' }
+  }).reason, 'different_provider_preserved');
 });
 
 test('legacy identity extraction rejects conflicting values and preserves provider-specific kinds', () => {
