@@ -4,7 +4,7 @@ This roadmap converts product direction into implementation milestones with acce
 
 Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file stays focused on numbered milestones and the work that has already been selected for release planning.
 
-The `3.27.x` line below is intentionally planned ahead under an explicit maintainer exception to the normal one-active-slice convention. `3.27.2` is the active next milestone. Later `3.27.x` entries are ordered milestone boundaries, not authorization to implement them early; each must still begin only after the preceding milestone closes or the roadmap is deliberately revised.
+The `3.27.x` line below is intentionally planned ahead under an explicit maintainer exception to the normal one-active-slice convention. `3.27.3` is the active milestone. Later `3.27.x` entries are ordered milestone boundaries, not authorization to implement them early; each must still begin only after the preceding milestone closes or the roadmap is deliberately revised.
 
 ---
 
@@ -105,7 +105,7 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 ## 3.27.2 — Runtime and Transport Dependency Maintenance
 
 **Goal:** Stabilize the application runtime, provider HTTP transport, rate limiting, mail transport, object-storage client, and frontend build tooling before provider-identity and BookOrbit implementation begins.
-**Status:** Complete locally. The canonical stack and release artifacts are aligned on `3.27.2`; hosted release certification remains pending until `main` is pushed.
+**Status:** Complete. Hosted release certification and annotated tag `v3.27.2` are complete.
 
 ### Scope
 
@@ -132,11 +132,11 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 - **Roadmap slice:** `3.27.2 — Runtime and Transport Dependency Maintenance`.
 - **Project docs/checklists used:** `AGENTS.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/49-Dependency-PR-and-CI-Security-Coverage.md`; `docs/releases/v3.27.2.md`.
 - **Verified runtime facts:** Rebuilt and recreated the canonical `collectz-private` backend/frontend in place on port `3201` without replacing the retained database. Health reports app/frontend/backend/build `3.27.2`; the backend runs Node `v24.22.1`, Express `5.3.0`, Axios `1.21.0`, express-rate-limit `8.7.2`, and AWS SDK S3 `3.1162.0`; installed manifests confirm Nodemailer `10.3.1` and esbuild `0.28.2`. Retained PostgreSQL remains at migration `127`; Core mode was verified temporarily and the stack was restored to platform mode with Cairn healthy. Help > Releases serves `3.27.2` first.
-- **CI/checks run:** Clean Node 24 backend/frontend installs and complete audits passed with zero vulnerabilities; backend unit tests (`363`) plus transaction/scope/identity interface tests (`19`); OpenAPI; frontend Vitest (`4`) and production build; API integration; auth token abuse; CWA repeat-sync, link, and comic-identity smokes; Kavita connection/import smokes; RBAC; external-identity certification (`15` checks); exact Core Playwright regression (`31/31`); Core and control-plane runtime smokes; observability evidence (`9/9`); standard local release gate (`12/12`); strict local profile (`13` passed, two blocked); local CodeQL (`5` total baseline/suppressed results, `0` active); release preflight; release-feed generation; Help > Releases readback; diff hygiene; and generated-evidence credential-pattern inspection (`0` matches).
-- **Blocked/unverified:** Local Gitleaks and Trivy are unavailable, so hosted `secret-scan` and `image-security-and-sbom` remain required. The retained development stack does not use CI secure-cookie settings, so hosted `compose-smoke` must certify them. Hosted migration/init parity, dependency scan, RBAC, browser regression, Core runtime smoke, image builds, release preflight, and auto-tag must rerun on the pushed commit. No push was authorized in this slice.
+- **CI/checks run:** Clean Node 24 backend/frontend installs and complete audits passed with zero vulnerabilities; backend unit tests (`363`) plus transaction/scope/identity interface tests (`19`); OpenAPI; frontend Vitest (`4`) and production build; API integration; auth token abuse; CWA repeat-sync, link, and comic-identity smokes; Kavita connection/import smokes; RBAC; external-identity certification (`15` checks); exact Core Playwright regression (`31/31`); Core and control-plane runtime smokes; observability evidence (`9/9`); standard local release gate (`12/12`); strict local profile (`13` passed, two locally blocked tools); local CodeQL (`5` total baseline/suppressed results, `0` active); release preflight; release-feed generation; Help > Releases readback; diff hygiene; and generated-evidence credential-pattern inspection (`0` matches). Hosted Build and Publish Images run `42543701892` passed migration/init parity, dependency and secret scans, secure-cookie Compose smoke, Core RBAC/browser/runtime regression, both image builds, Trivy image scans, CycloneDX SBOM generation, release preflight, and auto-tag; hosted CodeQL run `42543701882` passed.
+- **Blocked/unverified:** None for the `3.27.2` release closeout.
 - **Files changed:** Backend/frontend manifests and lockfiles; application version metadata; `docs/releases/v3.27.2.md`; generated Help > Releases feed; dependency-audit, observability, and release-preflight evidence; roadmap and backlog milestone boundaries.
-- **Risks or follow-ups:** Axios `1.21.0` changes header-default handling and Express `5.3.0` changes runtime response dependencies; provider/auth/API/browser coverage passed, but normal provider use should continue to watch header and redirect behavior. Superseded PRs `#160`, `#153`, `#145`, `#142`, `#141`, `#139`, `#137`, and `#127` were closed after confirming equal or newer versions on `main`; `#148` was closed because the repository intentionally follows the maintained CodeQL `@v4` major tag. Vitest 5, GitHub Actions majors, and the coupled ZXing update remain separate compatibility work.
-- **What remains in the milestone:** Push only with explicit authorization, verify all hosted release gates and the `v3.27.2` tag, then close the six represented dependency PRs. Provider identity dual-write and matching remains the `3.27.3` boundary.
+- **Risks or follow-ups:** Axios `1.21.0` changes header-default handling and Express `5.3.0` changes runtime response dependencies; provider/auth/API/browser coverage passed, but normal provider use should continue to watch header and redirect behavior. The pushed manifest updates caused the represented Express, Axios, Nodemailer, and esbuild PRs to close. The express-rate-limit PR advanced to `8.7.3` and the AWS SDK PR advanced to `3.1163.0`; `#166` remains open, while GitHub could not reopen `#165` after its Dependabot branch became unavailable, so that newer rate-limit update must be rediscovered or recreated in a later compatibility slice. Vitest 5, GitHub Actions majors, and the coupled ZXing update remain separate compatibility work.
+- **What remains in the milestone:** Nothing. Provider identity dual-write and matching is active as `3.27.3`.
 - **Recommended commit message:** `Release 3.27.2 with stabilized runtime, provider transport, and dependency maintenance`.
 
 ---
@@ -144,7 +144,7 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 ## 3.27.3 — Provider Identity Dual-Write, Matching, and Merge Integration
 
 **Goal:** Make the external-identity registry authoritative for repeat sync and merge behavior while preserving compatibility with existing provider fields during migration.
-**Status:** Planned ahead; inactive until `3.27.2` closes.
+**Status:** Active after the hosted `3.27.2` closeout.
 
 ### Scope
 
