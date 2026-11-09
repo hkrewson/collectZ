@@ -79,12 +79,13 @@ Security and release gates in CI:
 - `rbac-regression` runs the external identity registry certification under the provisioned non-owner runtime role and uploads `external-identity-certification-evidence`. Release preflight requires its migration version to match the latest migration in the same run's migration-rehearsal evidence, at least 15 passed checks, and no failed UUID, provider-instance, cross-workspace, lifecycle, credential-separation, append-only-event, or unscoped-read assertion.
 
 - Local CI/CD release gate (`npm run release:local-gate`) for pre-push maintainer validation before public CI runs.
+- Frontend quality gate: Vitest plus ESLint and Prettier enforcement on files changed by the pushed commit. The existing report-first full-source baseline remains available through `npm run quality:frontend`; new changes may not add formatting or lint failures.
 - CodeQL code scanning for JavaScript/TypeScript source analysis.
 - Secret leak scan (gitleaks) against repository history and current tree.
 - Dependency vulnerability scan (`npm audit`) on backend/frontend dependencies under Node 24.22.1 so each committed lockfile is validated against the supported runtime baseline; this does not scan Node's bundled OpenSSL, c-ares, certificate store, or Undici components.
 - Dependency Watch runs weekly, on demand, and for pull requests that change root/backend/frontend dependency manifests, lockfiles, or the workflow itself. It clean-installs root tooling plus both applications under Node 24.22.1, reports root tooling and production dependency audit counts, and uploads partial summaries/artifacts even when one ecosystem's clean install fails.
 - RBAC regression gate (API-level ownership/role/scope allow-deny checks), including the live Postgres auth-token abuse smoke for reset/invitation/verification replay, concurrency, CSRF non-mutation, session revocation, invalid token states, enumeration resistance, audit allowlist/value-leakage checks, focused reset rate limiting, and the dedicated invitation mutation limiter.
-- Playwright browser-regression gate against the live compose stack for key auth/admin shell flows.
+- Playwright browser-regression gate against the live compose stack for the maintained Core regression set, including auth, events/collectibles, shared Help behavior, imports, integrations, library lifecycle, multiformat browsing, and now-playing behavior.
 - Hosted `runtime-smoke` job (`core-runtime-smoke`) with a `Core runtime` step that verifies shared surfaces still work while control-plane-only APIs stay unmounted. A failure is investigated from that job's Compose logs and failing step output.
 - Required control-plane runtime certification with `docker compose -p collectz-private --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T -e BASE_URL=http://frontend:3000 backend node scripts/platform-edition-boundary-smoke.js` against the canonical platform stack and its Cairn companion. It verifies invite-based registration plus tenant/admin control-plane surfaces remain mounted. This private-edition contract is release-closeout evidence rather than a job in the public workflow; preserve the local command output and relevant container logs on failure.
 - The hosted Core check and canonical-stack control-plane check are complementary. Neither substitutes for the other, and both must be explicitly accounted for before release closeout.
@@ -194,7 +195,7 @@ Browser-regression expectation:
 
 - Maintain the root Playwright manifest and lockfile in git.
 - Run `npm run release:local-gate` before push, or install the opt-in hook with `npm run release:install-hooks`.
-- Keep `.github/workflows/docker-publish.yml` running the browser-regression gate before publish/release jobs.
+- Keep `.github/workflows/docker-publish.yml` running `test:browser:core-regression` before publish/release jobs; the smaller `test:browser:core` target remains a focused local convenience target.
 - Keep `.github/workflows/docker-publish.yml` running the hosted Core `runtime-smoke` gate before publish/release jobs, and keep canonical-stack control-plane runtime certification in the release closeout so both edition contracts remain enforced at their available boundaries.
 - Keep `.github/workflows/browser-captures.yml` as a separate manual screenshot-generation path for support/docs visuals instead of folding capture mode into the blocking regression gate.
 - Do not add Playwright browsers or the root test harness as dependencies of the shipped backend/frontend runtime images.

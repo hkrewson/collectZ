@@ -46,6 +46,8 @@ The standard profile is intended for ordinary pre-push use. It runs:
 - Help > Releases feed check
 - backend unit tests
 - OpenAPI validation
+- frontend unit tests
+- changed-file ESLint and Prettier enforcement
 - frontend production build
 - backend production dependency audit
 - frontend production dependency audit

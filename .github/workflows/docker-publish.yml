@@ -274,6 +274,54 @@ jobs:
             backend-audit.json
             frontend-audit.json
 
+  frontend-quality:
+    runs-on: ubuntu-latest
+    needs: prepare
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 2
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.22.1
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            frontend/package-lock.json
+
+      - name: Install quality dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci --no-audit --no-fund
+
+      - name: Run frontend unit tests
+        working-directory: frontend
+        run: npm run test:unit
+
+      - name: Enforce changed-file frontend quality
+        run: |
+          npm run quality:frontend:changed -- --base=HEAD^
+          node <<'NODE'
+          const report = require('./artifacts/quality/changed-quality-report.json');
+          if (report.eslint.status !== 0 || report.prettier.status !== 0) {
+            throw new Error(`Changed frontend quality failed: eslint=${report.eslint.status}, prettier=${report.prettier.status}`);
+          }
+          console.log(`Changed frontend quality passed for ${report.changed.paths.length} changed path(s).`);
+          NODE
+
+      - name: Upload frontend quality report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: frontend-quality
+          path: artifacts/quality/changed-quality-report.*
+          if-no-files-found: error
+
   secret-scan:
     runs-on: ubuntu-latest
     needs: prepare
@@ -683,7 +731,7 @@ jobs:
           PLAYWRIGHT_BASE_URL="http://127.0.0.1:3000" \
           PLAYWRIGHT_COMPOSE_PROJECT="${CI_PROJECT}" \
           PLAYWRIGHT_COMPOSE_ENV_FILE=".env.ci" \
-          npm run test:browser:core
+          npm run test:browser:core-regression
 
       - name: Upload Playwright artifacts
         if: always()
@@ -747,7 +795,7 @@ jobs:
 
   backend:
     runs-on: ubuntu-latest
-    needs: [prepare, migration-check, dependency-scan, secret-scan, compose-smoke, rbac-regression, browser-regression, runtime-smoke]
+    needs: [prepare, migration-check, dependency-scan, frontend-quality, secret-scan, compose-smoke, rbac-regression, browser-regression, runtime-smoke]
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -801,7 +849,7 @@ jobs:
 
   frontend:
     runs-on: ubuntu-latest
-    needs: [prepare, migration-check, dependency-scan, secret-scan, compose-smoke, rbac-regression, browser-regression, runtime-smoke]
+    needs: [prepare, migration-check, dependency-scan, frontend-quality, secret-scan, compose-smoke, rbac-regression, browser-regression, runtime-smoke]
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -920,7 +968,7 @@ jobs:
 
   release-preflight:
     runs-on: ubuntu-latest
-    needs: [prepare, secret-scan, dependency-scan, migration-check, compose-smoke, rbac-regression, browser-regression, runtime-smoke, image-security-and-sbom]
+    needs: [prepare, secret-scan, dependency-scan, frontend-quality, migration-check, compose-smoke, rbac-regression, browser-regression, runtime-smoke, image-security-and-sbom]
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
     steps:
       - name: Download dependency audit artifact
@@ -999,6 +1047,7 @@ jobs:
             echo
             echo "- Secret scan: PASS"
             echo "- Dependency scan: PASS"
+            echo "- Frontend unit and changed-file quality: PASS"
             echo "- Migration check: PASS"
             echo "- Compose smoke: PASS"
             echo "- RBAC regression: PASS"
@@ -1034,7 +1083,7 @@ jobs:
 
   auto-tag:
     runs-on: ubuntu-latest
-    needs: [prepare, migration-check, dependency-scan, secret-scan, compose-smoke, rbac-regression, browser-regression, runtime-smoke, backend, frontend, image-security-and-sbom, release-preflight]
+    needs: [prepare, migration-check, dependency-scan, frontend-quality, secret-scan, compose-smoke, rbac-regression, browser-regression, runtime-smoke, backend, frontend, image-security-and-sbom, release-preflight]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - name: Checkout full history

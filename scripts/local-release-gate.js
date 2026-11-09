@@ -381,8 +381,33 @@ function runBrowserRegression() {
   if (!String(process.env.PLAYWRIGHT_E2E_BYPASS_TOKEN || '').trim()) {
     return blocked('browser-regression', name, 'missing PLAYWRIGHT_E2E_BYPASS_TOKEN');
   }
-  return runNpmScript('browser-regression', name, ['run', 'test:browser:core'], {
+  return runNpmScript('browser-regression', name, ['run', 'test:browser:core-regression'], {
     passDetail: 'Core Playwright browser regression passed'
+  });
+}
+
+function runChangedFrontendQuality() {
+  const id = 'frontend-quality';
+  const name = 'Changed-file frontend quality';
+  const result = runNpm(['run', 'quality:frontend:changed']);
+  const reportPath = path.join(repoRoot, 'artifacts', 'quality', 'changed-quality-report.json');
+  if (result.status !== 0 || !fs.existsSync(reportPath)) {
+    return fail(id, name, 'frontend quality report failed or was not produced', {
+      stdout: result.stdout,
+      stderr: result.stderr,
+      durationMs: result.durationMs
+    });
+  }
+  const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+  if (report?.eslint?.status !== 0 || report?.prettier?.status !== 0) {
+    return fail(id, name, `changed files failed quality checks: eslint=${report?.eslint?.status}, prettier=${report?.prettier?.status}`, {
+      report: path.relative(repoRoot, reportPath),
+      durationMs: result.durationMs
+    });
+  }
+  return pass(id, name, `${report.changed.paths.length} changed path(s) passed ESLint and Prettier`, {
+    report: path.relative(repoRoot, reportPath),
+    durationMs: result.durationMs
   });
 }
 
@@ -412,6 +437,14 @@ const gateDefinitions = [
       passDetail: 'OpenAPI validation passed'
     })
   },
+  {
+    id: 'frontend-unit',
+    profile: 'standard',
+    run: () => runNpmScript('frontend-unit', 'Frontend unit tests', ['--prefix', 'frontend', 'run', 'test:unit'], {
+      passDetail: 'frontend unit tests passed'
+    })
+  },
+  { id: 'frontend-quality', profile: 'standard', run: runChangedFrontendQuality },
   {
     id: 'frontend-build',
     profile: 'standard',

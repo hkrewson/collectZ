@@ -9,15 +9,16 @@ All blocking gates must pass. Advisory gates must be reviewed and explicitly acc
 1. CodeQL code scanning should be reviewed when present. It is advisory at introduction and may become blocking after the baseline is understood.
 2. Secret scan.
 3. Dependency vulnerability scan.
-4. Migration check (including init parity, generic rehearsal evidence, identity-upgrade certification evidence, and runtime-role certification evidence).
-5. Compose smoke check.
-6. RBAC regression check.
+4. Frontend unit and changed-file quality check.
+5. Migration check (including init parity, generic rehearsal evidence, identity-upgrade certification evidence, and runtime-role certification evidence).
+6. Compose smoke check.
+7. RBAC regression check.
    - Includes workspace ownership snapshot drift, stable permission-key policy, maintained execution-path certification, and live sibling-workspace/job isolation evidence.
-7. Browser regression check.
-8. Runtime contract certification.
+8. Browser regression check using the maintained Core regression set.
+9. Runtime contract certification.
    - Hosted Core runtime smoke in `.github/workflows/docker-publish.yml`.
    - Control-plane runtime smoke against the canonical `collectz-private` platform stack and Cairn companion.
-9. Image security scan + SBOM generation.
+10. Image security scan + SBOM generation.
 
 ## Release Closeout Must-Do
 
@@ -29,7 +30,7 @@ Minimum closeout expectation:
 2. Confirm the matching release note exists and includes the required security triage markers.
 3. Regenerate the in-app release snapshot consumed by `Help > Releases` and confirm the latest semver appears in that feed.
 4. Run backend unit tests.
-5. Run `npm run release:local-gate` so the standard local gate checks version/release metadata, backend unit tests, OpenAPI, frontend build, dependency audits, local preflight, and diff hygiene.
+5. Run `npm run release:local-gate` so the standard local gate checks version/release metadata, backend and frontend unit tests, OpenAPI, changed-file frontend quality, frontend build, dependency audits, local preflight, and diff hygiene.
 6. For release handoff, run `npm run release:local-gate:full -- --fail-on-blocked` when local CodeQL, secret scan, runtime smoke, browser regression, and image/SBOM readiness should stop on blocked heavy gates.
 7. Generate or refresh a local preflight report with `npm --prefix backend run test:release-preflight-local` when you need the standalone `preflight-go-no-go.md` evidence outside the local gate.
 8. Run init parity and generic migration rehearsal checks in an environment with database access when not already covered by local preflight evidence; for an identity-sensitive migration, require a `passed` identity-upgrade certification rather than `not_required`.

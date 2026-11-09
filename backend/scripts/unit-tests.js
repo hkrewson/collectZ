@@ -3406,7 +3406,10 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
   assert.ok(dockerPublishWorkflowSource.includes('browser-regression:'));
   assert.ok(dockerPublishWorkflowSource.includes('name: core-browser-regression'));
   assert.ok(dockerPublishWorkflowSource.includes('npx playwright install --with-deps chromium'));
-  assert.ok(dockerPublishWorkflowSource.includes('npm run test:browser:core'));
+  assert.ok(dockerPublishWorkflowSource.includes('npm run test:browser:core-regression'));
+  assert.ok(dockerPublishWorkflowSource.includes('frontend-quality:'));
+  assert.ok(dockerPublishWorkflowSource.includes('npm run test:unit'));
+  assert.ok(dockerPublishWorkflowSource.includes('npm run quality:frontend:changed -- --base=HEAD^'));
   assert.ok(dockerPublishWorkflowSource.includes('playwright-browser-regression'));
   assert.ok(dockerPublishWorkflowSource.includes('PLAYWRIGHT_E2E_BYPASS_TOKEN="$(openssl rand -hex 16)"'));
   assert.ok(!dockerPublishWorkflowSource.includes('collectz-playwright-ci'));
