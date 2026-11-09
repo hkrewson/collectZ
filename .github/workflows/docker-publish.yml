@@ -982,7 +982,7 @@ jobs:
           test -f artifacts/saved-view-rls-evidence/saved-view-rls-evidence.json
           node -e "const e=require('./artifacts/saved-view-rls-evidence/saved-view-rls-evidence.json');if(e.status!=='passed'||e.migration!==124||e.checks.length<15||e.checks.some(c=>!c.pass))process.exit(1);"
           test -f artifacts/external-identity-certification-evidence/external-identity-certification.json
-          node -e "const e=require('./artifacts/external-identity-certification-evidence/external-identity-certification.json');if(e.passed!==true||e.migrationVersion!==127||!Array.isArray(e.checks)||e.checks.length<15||e.checks.some(c=>c.passed!==true))process.exit(1);"
+          node -e "const e=require('./artifacts/external-identity-certification-evidence/external-identity-certification.json');const m=require('./artifacts/migration-rehearsal-evidence/migration-rehearsal-evidence.json');if(e.passed!==true||Number(e.migrationVersion)!==Number(m.latestVersion)||!Array.isArray(e.checks)||e.checks.length<15||e.checks.some(c=>c.passed!==true))process.exit(1);"
           test -f artifacts/sbom-cyclonedx/backend-sbom.cdx.json
           test -f artifacts/sbom-cyclonedx/frontend-sbom.cdx.json
 

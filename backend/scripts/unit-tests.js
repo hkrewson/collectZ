@@ -668,6 +668,8 @@ results.push(run('identity upgrade certification selects identity-sensitive migr
   assert.ok(dockerPublishWorkflowSource.includes('npm run test:identity-upgrade-certification'));
   assert.ok(dockerPublishWorkflowSource.includes('external-identity-certification.js'));
   assert.ok(dockerPublishWorkflowSource.includes('external-identity-certification-evidence'));
+  assert.ok(dockerPublishWorkflowSource.includes('Number(e.migrationVersion)!==Number(m.latestVersion)'));
+  assert.ok(!dockerPublishWorkflowSource.includes('e.migrationVersion!==127'));
   assert.ok((dockerPublishWorkflowSource.match(/policy\.certifiedThroughVersion/g) || []).length >= 2);
   assert.ok(dockerPublishWorkflowSource.includes('Math.min(Number(policy.certifiedThroughVersion), latest - 1)'));
   assert.ok(migrationRehearsalSource.includes('crypto.randomBytes'));
