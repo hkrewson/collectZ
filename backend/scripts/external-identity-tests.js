@@ -4,7 +4,11 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createProviderAdapterRegistry, identityNormalizers } = require('../services/providerAdapterRegistry');
 const { publicConnection } = require('../services/providerConnections');
-const { publicIdentity } = require('../services/externalMediaIdentities');
+const {
+  publicIdentity,
+  reassignMediaIdentitiesForMerge,
+  restoreMediaIdentitiesFromMerge
+} = require('../services/externalMediaIdentities');
 
 function adapter() {
   return {
@@ -62,4 +66,79 @@ test('public external identity projection preserves raw identity and omits compa
   });
   assert.equal(projected.externalId, '00042');
   assert.equal(projected.external_id_normalized, undefined);
+});
+
+function mergeIdentityClient(initialMediaId = 41) {
+  const row = {
+    id: '11111111-1111-4111-8111-111111111111',
+    space_id: 7,
+    provider_connection_id: '22222222-2222-4222-8222-222222222222',
+    identity_kind: 'book',
+    external_id_raw: 'book:42',
+    media_id: initialMediaId,
+    active: true
+  };
+  const events = [];
+  return {
+    row,
+    events,
+    async query(sql, params) {
+      if (sql.includes('SELECT * FROM external_media_identities')) {
+        const selectedIds = Array.isArray(params[1]) ? params[1] : null;
+        const matchesId = !selectedIds || selectedIds.includes(row.id);
+        const matchesMedia = selectedIds ? true : Number(params[1]) === Number(row.media_id);
+        return { rows: matchesId && matchesMedia ? [{ ...row }] : [] };
+      }
+      if (sql.includes('UPDATE external_media_identities')) {
+        if (Number(row.media_id) !== Number(params[4])) return { rows: [] };
+        row.media_id = Number(params[2]);
+        return { rows: [{ ...row }] };
+      }
+      if (sql.includes('INSERT INTO external_media_identity_events')) {
+        events.push({ params: [...params], details: JSON.parse(params[6]) });
+        return { rows: [], rowCount: 1 };
+      }
+      throw new Error(`Unexpected query: ${sql}`);
+    }
+  };
+}
+
+test('merge reassignment and revert reuse one transaction client and retain explicit lifecycle reasons', async () => {
+  const client = mergeIdentityClient(41);
+  const reassigned = await reassignMediaIdentitiesForMerge(client, {
+    spaceId: 7,
+    actorId: 9,
+    fromMediaId: 41,
+    toMediaId: 52
+  });
+  assert.equal(reassigned.length, 1);
+  assert.equal(client.row.media_id, 52);
+  assert.equal(client.events[0].details.reason, 'canonical_merge');
+
+  const restored = await restoreMediaIdentitiesFromMerge(client, {
+    spaceId: 7,
+    actorId: 9,
+    identityIds: [client.row.id],
+    fromMediaId: 52,
+    toMediaId: 41
+  });
+  assert.equal(restored.length, 1);
+  assert.equal(client.row.media_id, 41);
+  assert.equal(client.events[1].details.reason, 'canonical_merge_revert');
+});
+
+test('merge revert refuses to move an identity that changed targets after the merge', async () => {
+  const client = mergeIdentityClient(99);
+  await assert.rejects(
+    restoreMediaIdentitiesFromMerge(client, {
+      spaceId: 7,
+      actorId: 9,
+      identityIds: [client.row.id],
+      fromMediaId: 52,
+      toMediaId: 41
+    }),
+    (error) => error.code === 'EXTERNAL_IDENTITY_CONFLICT'
+  );
+  assert.equal(client.row.media_id, 99);
+  assert.equal(client.events.length, 0);
 });

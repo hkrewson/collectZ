@@ -4972,7 +4972,15 @@ CREATE INDEX IF NOT EXISTS idx_tv_device_expiry ON tv_device_authorizations(expi
   { version: 126, description: 'Backfill canonical media UUIDs',
     up: require('fs').readFileSync(require('path').join(__dirname, 'externalIdentityBackfill.sql'), 'utf8') },
   { version: 127, description: 'Harden external identity scope and lifecycle invariants',
-    up: require('fs').readFileSync(require('path').join(__dirname, 'externalIdentityHardening.sql'), 'utf8') }
+    up: require('fs').readFileSync(require('path').join(__dirname, 'externalIdentityHardening.sql'), 'utf8') },
+  { version: 128, description: 'Expand durable external identity event media references',
+    up: require('fs').readFileSync(require('path').join(__dirname, 'externalIdentityEventRetentionExpand.sql'), 'utf8') },
+  { version: 129, description: 'Backfill external identity event media UUIDs',
+    up: require('fs').readFileSync(require('path').join(__dirname, 'externalIdentityEventRetentionBackfill.sql'), 'utf8') },
+  { version: 130, description: 'Harden durable external identity event media references',
+    up: require('fs').readFileSync(require('path').join(__dirname, 'externalIdentityEventRetentionHardening.sql'), 'utf8') },
+  { version: 131, description: 'Permit immutable identity event numeric reference cleanup',
+    up: require('fs').readFileSync(require('path').join(__dirname, 'externalIdentityEventReferenceCleanup.sql'), 'utf8') }
 ];
 
 async function runMigrationsForClient(client, options = {}) {

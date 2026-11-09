@@ -1,6 +1,7 @@
 'use strict';
 
 const pool = require('../db/pool');
+const { withAuthorizedScopeTransaction } = require('../db/scopeBroker');
 const {
   buildBookNormalizationIdentity,
   buildComicNormalizationIdentity,
@@ -10,6 +11,10 @@ const {
 } = require('../services/bookComicNormalization');
 const { buildMergedOwnedFormatsPayload } = require('../services/mediaFormats');
 const { buildMediaIdentityAliasEntries } = require('../services/mediaIdentityAliases');
+const {
+  reassignMediaIdentitiesForMerge,
+  restoreMediaIdentitiesFromMerge
+} = require('../services/externalMediaIdentities');
 
 function parseArgs(argv = []) {
   const args = {
@@ -479,7 +484,7 @@ async function rewireDuplicateReferences(client, canonicalId, duplicateId) {
   };
 }
 
-async function mergeDuplicateIntoCanonical(client, canonicalRow, duplicateRow, mergeEvidence = null) {
+async function mergeDuplicateIntoCanonical(client, canonicalRow, duplicateRow, mergeEvidence = null, identityActorId = null) {
   const canonicalTypeDetails = toPlainTypeDetails(canonicalRow.type_details);
   const duplicateTypeDetails = toPlainTypeDetails(duplicateRow.type_details);
   const mergedTypeDetails = mergeMissingObjectFields(canonicalTypeDetails, duplicateTypeDetails);
@@ -511,6 +516,15 @@ async function mergeDuplicateIntoCanonical(client, canonicalRow, duplicateRow, m
   attachContext.mergeEvidence = mergeEvidence && typeof mergeEvidence === 'object'
     ? mergeEvidence
     : null;
+  const reassignedExternalIdentities = identityActorId
+    ? await reassignMediaIdentitiesForMerge(client, {
+        spaceId: duplicateRow.space_id,
+        actorId: identityActorId,
+        fromMediaId: duplicateRow.id,
+        toMediaId: canonicalRow.id
+      })
+    : [];
+  attachContext.reassignedExternalIdentityIds = reassignedExternalIdentities.map((identity) => identity.id);
   await upsertDuplicateAttachHistory(client, canonicalRow.id, duplicateRow.id, snapshot, attachContext);
 
   const mergedMetadataEntries = await mergeDuplicateMetadataIntoCanonical(client, canonicalRow.id, duplicateRow.id);
@@ -524,6 +538,7 @@ async function mergeDuplicateIntoCanonical(client, canonicalRow, duplicateRow, m
   return {
     duplicateId: Number(duplicateRow.id || 0) || null,
     historyStored: true,
+    reassignedExternalIdentities: reassignedExternalIdentities.length,
     mergedMetadataEntries,
     preservedIdentityAliases,
     mergedTaxonomy,
@@ -562,11 +577,11 @@ async function restoreDuplicateMediaRow(client, mediaRow) {
        signed_on, signed_at, signed_proof_path, location, notes, estimated_value_low,
        estimated_value_mid, estimated_value_high, valuation_currency, valuation_source,
        valuation_last_updated, type_details, library_id, space_id, series_id, import_source,
-       added_by, created_at, updated_at
+       added_by, created_at, updated_at, public_id
      ) VALUES (
        $1, $2, $3, $4, $5, $6, $7, $8::text[], $9, $10, $11, $12, $13, $14, $15, $16,
        $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30,
-       $31, $32, $33, $34, $35, $36::jsonb, $37, $38, $39, $40, $41, $42, $43
+       $31, $32, $33, $34, $35, $36::jsonb, $37, $38, $39, $40, $41, $42, $43, $44
      )`,
     [
       mediaRow.id,
@@ -611,7 +626,8 @@ async function restoreDuplicateMediaRow(client, mediaRow) {
       mediaRow.import_source,
       mediaRow.added_by,
       mediaRow.created_at,
-      mediaRow.updated_at
+      mediaRow.updated_at,
+      mediaRow.public_id
     ]
   );
 }
@@ -907,7 +923,7 @@ async function revertCanonicalTaxonomyAndSeasons(client, canonicalId, snapshot =
   }
 }
 
-async function revertDuplicateAttachIntoSeparateRow(client, canonicalRow, duplicateId) {
+async function revertDuplicateAttachIntoSeparateRow(client, canonicalRow, duplicateId, identityActorId = null) {
   const history = await getDuplicateAttachHistory(client, canonicalRow.id, duplicateId);
   let snapshot = history?.snapshot || null;
   let context = history?.context || null;
@@ -948,6 +964,21 @@ async function revertDuplicateAttachIntoSeparateRow(client, canonicalRow, duplic
   }
 
   await restoreDuplicateMediaRow(client, snapshot.media);
+  const reassignedExternalIdentityIds = Array.isArray(context.reassignedExternalIdentityIds)
+    ? context.reassignedExternalIdentityIds
+    : [];
+  if (reassignedExternalIdentityIds.length > 0 && !identityActorId) {
+    throw new Error('Reverting provider identity reassignment requires an authorized actor');
+  }
+  const restoredExternalIdentities = reassignedExternalIdentityIds.length > 0
+    ? await restoreMediaIdentitiesFromMerge(client, {
+        spaceId: snapshot.media.space_id,
+        actorId: identityActorId,
+        identityIds: reassignedExternalIdentityIds,
+        fromMediaId: canonicalRow.id,
+        toMediaId: duplicateId
+      })
+    : [];
   await restoreDuplicateMetadata(client, duplicateId, snapshot.media_metadata || []);
   await restoreDuplicateVariants(client, duplicateId, snapshot.media_variants || []);
   await restoreDuplicateSeasons(client, duplicateId, snapshot.media_seasons || []);
@@ -974,6 +1005,7 @@ async function revertDuplicateAttachIntoSeparateRow(client, canonicalRow, duplic
   return {
     duplicateId,
     restored: true,
+    restoredExternalIdentities: restoredExternalIdentities.length,
     usedHistoryTable: Boolean(history)
   };
 }
@@ -1123,6 +1155,11 @@ async function runRepairBookComicDuplicates(options = {}) {
 async function runManualMediaMergeApply(options = {}) {
   const canonicalId = Number(options.canonicalId || 0);
   const duplicateId = Number(options.duplicateId || 0);
+  const spaceId = Number(options.spaceId || 0);
+  const libraryId = options.libraryId === null || options.libraryId === undefined
+    ? null
+    : Number(options.libraryId);
+  const actorId = Number(options.actorId || 0);
   if (!Number.isFinite(canonicalId) || canonicalId <= 0) {
     throw new Error('Manual merge apply requires a valid canonicalId');
   }
@@ -1132,9 +1169,11 @@ async function runManualMediaMergeApply(options = {}) {
   if (canonicalId === duplicateId) {
     throw new Error('Manual merge apply requires different canonical and duplicate ids');
   }
+  if (!Number.isInteger(spaceId) || spaceId <= 0 || !Number.isInteger(actorId) || actorId <= 0) {
+    throw new Error('Manual merge apply requires an authorized workspace actor');
+  }
 
-  const client = await pool.connect();
-  try {
+  return withAuthorizedScopeTransaction(pool, { spaceId, libraryId }, actorId, async (client) => {
     const rows = await loadRows(client, [canonicalId, duplicateId]);
     if (rows.length !== 2) {
       throw new Error('Manual merge apply requires both records to exist');
@@ -1144,6 +1183,18 @@ async function runManualMediaMergeApply(options = {}) {
     const duplicateRow = rows.find((row) => Number(row.id) === duplicateId);
     if (!canonicalRow || !duplicateRow) {
       throw new Error('Manual merge apply requires both records to exist');
+    }
+    if (
+      Number(canonicalRow.space_id) !== spaceId ||
+      Number(duplicateRow.space_id) !== spaceId ||
+      (libraryId !== null && (
+        Number(canonicalRow.library_id) !== libraryId ||
+        Number(duplicateRow.library_id) !== libraryId
+      ))
+    ) {
+      const error = new Error('Manual merge apply records are outside the authorized scope');
+      error.status = 404;
+      throw error;
     }
 
     const canonicalMediaType = String(canonicalRow.media_type || '').trim();
@@ -1186,26 +1237,22 @@ async function runManualMediaMergeApply(options = {}) {
       appliedDetails: []
     };
 
-    await client.query('BEGIN');
-    try {
-      const detail = await mergeDuplicateIntoCanonical(client, canonicalRow, duplicateRow, mergeEvidence);
-      result.appliedDetails.push(detail);
-      result.attached = 1;
-      await client.query('COMMIT');
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    }
+    const detail = await mergeDuplicateIntoCanonical(client, canonicalRow, duplicateRow, mergeEvidence, actorId);
+    result.appliedDetails.push(detail);
+    result.attached = 1;
 
     return result;
-  } finally {
-    client.release();
-  }
+  });
 }
 
 async function runManualMediaMergeRevert(options = {}) {
   const canonicalId = Number(options.canonicalId || 0);
   const duplicateId = Number(options.duplicateId || 0);
+  const spaceId = Number(options.spaceId || 0);
+  const libraryId = options.libraryId === null || options.libraryId === undefined
+    ? null
+    : Number(options.libraryId);
+  const actorId = Number(options.actorId || 0);
   if (!Number.isFinite(canonicalId) || canonicalId <= 0) {
     throw new Error('Manual merge revert requires a valid canonicalId');
   }
@@ -1215,11 +1262,33 @@ async function runManualMediaMergeRevert(options = {}) {
   if (canonicalId === duplicateId) {
     throw new Error('Manual merge revert requires different canonical and duplicate ids');
   }
+  if (!Number.isInteger(spaceId) || spaceId <= 0 || !Number.isInteger(actorId) || actorId <= 0) {
+    throw new Error('Manual merge revert requires an authorized workspace actor');
+  }
 
-  return runRepairBookComicDuplicates({
-    ids: [canonicalId, duplicateId],
-    canonicalId,
-    revert: true
+  return withAuthorizedScopeTransaction(pool, { spaceId, libraryId }, actorId, async (client) => {
+    const rows = await loadRows(client, [canonicalId]);
+    const canonicalRow = rows[0];
+    if (
+      !canonicalRow ||
+      Number(canonicalRow.space_id) !== spaceId ||
+      (libraryId !== null && Number(canonicalRow.library_id) !== libraryId)
+    ) {
+      const error = new Error('Manual merge revert record is outside the authorized scope');
+      error.status = 404;
+      throw error;
+    }
+    const detail = await revertDuplicateAttachIntoSeparateRow(client, canonicalRow, duplicateId, actorId);
+    return {
+      mode: 'manual-revert',
+      canonical: {
+        id: canonicalRow.id,
+        title: canonicalRow.title,
+        media_type: canonicalRow.media_type
+      },
+      reverted: 1,
+      appliedDetails: [detail]
+    };
   });
 }
 
@@ -1243,6 +1312,8 @@ if (require.main === module) {
 module.exports = {
   buildClusterFromRows,
   mergeMissingObjectFields,
+  mergeDuplicateIntoCanonical,
+  revertDuplicateAttachIntoSeparateRow,
   runRepairBookComicDuplicates,
   runManualMediaMergeApply,
   runManualMediaMergeRevert

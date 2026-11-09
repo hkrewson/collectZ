@@ -13,6 +13,7 @@
     "test:saved-view-rls-http-smoke": "node scripts/saved-view-rls-http-smoke.js",
     "test:saved-view-rls-certification": "node scripts/saved-view-rls-certification.js",
     "test:external-identity-certification": "node scripts/external-identity-certification.js",
+    "test:external-identity-merge-revert-smoke": "node scripts/external-identity-merge-revert-smoke.js",
     "test:scoped-transaction-smoke": "node scripts/scoped-transaction-smoke.js",
     "test:openapi": "node scripts/validate-openapi.js",
     "test:integration-smoke": "node scripts/api-integration-smoke.js",

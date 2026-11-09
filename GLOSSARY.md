@@ -24,6 +24,10 @@ _Avoid_: Metadata field, provider ID field
 An append-only record that an External Identity was attached, observed, deactivated, reactivated, or reassigned.
 _Avoid_: Source observation, mutable audit field
 
+**Canonical Merge**:
+A reversible consolidation of one Canonical Object into another that moves the exact External Identity set as part of the same transaction while retaining immutable identity evidence.
+_Avoid_: Row delete, metadata merge
+
 **Identity Kind**:
 The provider-defined level identified by an External Identity, such as book, series, chapter, edition, or file.
 _Avoid_: Media type

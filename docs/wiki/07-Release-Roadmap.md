@@ -144,7 +144,7 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 ## 3.27.3 — Provider Identity Dual-Write, Matching, and Merge Integration
 
 **Goal:** Make the external-identity registry authoritative for repeat sync and merge behavior while preserving compatibility with existing provider fields during migration.
-**Status:** Active after the hosted `3.27.2` closeout.
+**Status:** Active after the hosted `3.27.2` closeout. The atomic merge/revert identity-lifecycle foundation is implemented locally; authoritative matching, dual-write, backfill/diagnostics, and precedence work remain.
 
 ### Scope
 
@@ -171,6 +171,13 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 
 - Do not add BookOrbit or broadly refactor every provider adapter in this slice.
 - Do not remove legacy compatibility fields.
+
+### Current implementation progress
+
+- Migrations `128`–`131` preserve immutable source/target Canonical UUIDs in identity lifecycle events while allowing obsolete numeric references to clear after a merged row is deleted.
+- Manual canonical merge/revert now uses one authorized scoped transaction for merge history, exact identity-set reassignment/restoration, canonical row deletion/restoration, and append-only lifecycle evidence.
+- Revert restores the duplicate's original Canonical UUID, leaves identities observed later on the surviving object untouched, and fails closed when a captured identity has moved since the merge.
+- Focused module tests and a rollback-only canonical-stack smoke prove merge, revert, conflict refusal, numeric-reference cleanup, durable public UUID evidence, and Canonical UUID restoration. Existing external-identity certification and manual merge/revert/scope-isolation smokes remain green.
 
 ---
 

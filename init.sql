@@ -1933,7 +1933,11 @@ INSERT INTO schema_migrations (version, description) VALUES
     (124, 'Saved view ownership RLS and transaction scope broker'),
     (125, 'Expand canonical UUID and external identity registry schema'),
     (126, 'Backfill canonical media UUIDs'),
-    (127, 'Harden external identity scope and lifecycle invariants')
+    (127, 'Harden external identity scope and lifecycle invariants'),
+    (128, 'Expand durable external identity event media references'),
+    (129, 'Backfill external identity event media UUIDs'),
+    (130, 'Harden durable external identity event media references'),
+    (131, 'Permit immutable identity event numeric reference cleanup')
 ON CONFLICT (version) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS tv_device_authorizations (
@@ -2147,8 +2151,10 @@ CREATE TABLE IF NOT EXISTS public.external_media_identity_events (
   space_id INTEGER NOT NULL REFERENCES public.spaces(id) ON DELETE RESTRICT,
   identity_id UUID NOT NULL,
   event_type VARCHAR(24) NOT NULL CHECK (event_type IN ('attached', 'observed', 'deactivated', 'reactivated', 'reassigned')),
-  from_media_id INTEGER REFERENCES public.media(id) ON DELETE RESTRICT,
-  to_media_id INTEGER REFERENCES public.media(id) ON DELETE RESTRICT,
+  from_media_id INTEGER REFERENCES public.media(id) ON DELETE SET NULL,
+  to_media_id INTEGER REFERENCES public.media(id) ON DELETE SET NULL,
+  from_media_public_id UUID,
+  to_media_public_id UUID,
   actor_user_id INTEGER NOT NULL REFERENCES public.users(id) ON DELETE RESTRICT,
   details JSONB NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(details) = 'object'),
   occurred_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -2259,13 +2265,21 @@ BEGIN
     ALTER TABLE public.external_media_identity_events
       ADD CONSTRAINT external_media_identity_events_from_media_scope_fk
       FOREIGN KEY (from_media_id, space_id)
-      REFERENCES public.media(id, space_id) ON DELETE RESTRICT;
+      REFERENCES public.media(id, space_id) ON DELETE SET NULL (from_media_id);
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'external_media_identity_events_to_media_scope_fk') THEN
     ALTER TABLE public.external_media_identity_events
       ADD CONSTRAINT external_media_identity_events_to_media_scope_fk
       FOREIGN KEY (to_media_id, space_id)
-      REFERENCES public.media(id, space_id) ON DELETE RESTRICT;
+      REFERENCES public.media(id, space_id) ON DELETE SET NULL (to_media_id);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'external_media_identity_events_public_reference_check') THEN
+    ALTER TABLE public.external_media_identity_events
+      ADD CONSTRAINT external_media_identity_events_public_reference_check
+      CHECK (
+        (from_media_id IS NULL OR from_media_public_id IS NOT NULL)
+        AND (to_media_id IS NULL OR to_media_public_id IS NOT NULL)
+      );
   END IF;
 END;
 $$;
@@ -2309,6 +2323,19 @@ REVOKE ALL ON FUNCTION collectz_scope.immutable_external_identity_key() FROM PUB
 CREATE OR REPLACE FUNCTION collectz_scope.append_only_identity_event()
 RETURNS TRIGGER LANGUAGE plpgsql SET search_path = pg_catalog AS $$
 BEGIN
+  IF TG_OP = 'UPDATE'
+     AND (to_jsonb(OLD) - 'from_media_id' - 'to_media_id') =
+         (to_jsonb(NEW) - 'from_media_id' - 'to_media_id')
+     AND (
+       NEW.from_media_id IS NOT DISTINCT FROM OLD.from_media_id
+       OR (OLD.from_media_id IS NOT NULL AND NEW.from_media_id IS NULL)
+     )
+     AND (
+       NEW.to_media_id IS NOT DISTINCT FROM OLD.to_media_id
+       OR (OLD.to_media_id IS NOT NULL AND NEW.to_media_id IS NULL)
+     ) THEN
+    RETURN NEW;
+  END IF;
   RAISE EXCEPTION 'External identity lifecycle events are append-only' USING ERRCODE = '42501';
 END;
 $$;

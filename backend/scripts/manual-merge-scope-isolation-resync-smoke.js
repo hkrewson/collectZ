@@ -157,10 +157,13 @@ async function seedRow({ title, notes, providerItemId, libraryId, spaceId, userI
   return Number(result.rows[0]?.id || 0) || null;
 }
 
-async function applyMerge(canonicalId, duplicateId) {
+async function applyMerge(canonicalId, duplicateId, { spaceId, libraryId, actorId }) {
   const applyResponse = await runManualMediaMergeApply({
     canonicalId,
     duplicateId,
+    spaceId,
+    libraryId,
+    actorId,
     mergeEvidence: {
       action: 'manual_merge',
       source: 'scope_isolation_smoke',
@@ -274,7 +277,11 @@ async function main() {
     });
     assert(canonicalId && duplicateId, 'Expected scope A canonical and duplicate ids');
 
-    await applyMerge(canonicalId, duplicateId);
+    await applyMerge(canonicalId, duplicateId, {
+      spaceId: scopeASpaceId,
+      libraryId: scopeALibraryId,
+      actorId: userId
+    });
 
     const libraryB = await client.request('/api/libraries', {
       method: 'POST',

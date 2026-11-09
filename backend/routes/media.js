@@ -11615,6 +11615,9 @@ router.post('/merge-apply', requireSessionAuth, requireRole('admin', 'support_ad
   const result = await runManualMediaMergeApply({
     canonicalId: canonicalMediaId,
     duplicateId: duplicateMediaId,
+    spaceId: scopeContext.spaceId,
+    libraryId: scopeContext.libraryId,
+    actorId: req.user.id,
     mergeEvidence
   });
   const mergeDetails = await loadScopedMergeDetails(canonicalMediaId, scopeContext);
@@ -11656,7 +11659,10 @@ router.post('/merge-revert', requireSessionAuth, requireRole('admin', 'support_a
 
   const result = await runManualMediaMergeRevert({
     canonicalId: canonicalMediaId,
-    duplicateId: duplicateMediaId
+    duplicateId: duplicateMediaId,
+    spaceId: scopeContext.spaceId,
+    libraryId: scopeContext.libraryId,
+    actorId: req.user.id
   });
   const mergeDetails = await loadScopedMergeDetails(canonicalMediaId, scopeContext);
   const restoredDuplicate = await loadScopedMediaItem(duplicateMediaId, scopeContext);

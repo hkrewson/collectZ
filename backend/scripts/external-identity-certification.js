@@ -151,8 +151,8 @@ async function main() {
 
         await client.query(
           `INSERT INTO external_media_identity_events
-             (space_id,identity_id,event_type,to_media_id,actor_user_id)
-           VALUES ($1,$2,'attached',$3,$4)`, [spaceA, identityA.id, mediaA.id, userId]
+             (space_id,identity_id,event_type,to_media_id,to_media_public_id,actor_user_id)
+           VALUES ($1,$2,'attached',$3,$4,$5)`, [spaceA, identityA.id, mediaA.id, mediaA.public_id, userId]
         );
         checks.push(await expectCode(client, 'identity lifecycle events are append-only', ['42501'], () =>
           client.query(`UPDATE external_media_identity_events SET event_type='observed' WHERE identity_id=$1`, [identityA.id])));

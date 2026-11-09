@@ -48,6 +48,137 @@ function conflictError() {
   return error;
 }
 
+async function identityEvent(client, {
+  spaceId,
+  identityId,
+  type,
+  fromMediaId,
+  toMediaId,
+  actorId,
+  details = {}
+}) {
+  await client.query(
+    `INSERT INTO external_media_identity_events
+       (space_id, identity_id, event_type, from_media_id, to_media_id,
+        from_media_public_id, to_media_public_id, actor_user_id, details)
+     VALUES (
+       $1, $2, $3, $4, $5,
+       (SELECT public_id FROM media WHERE id = $4 AND space_id = $1),
+       (SELECT public_id FROM media WHERE id = $5 AND space_id = $1),
+       $6, $7::jsonb
+     )`,
+    [
+      positiveInteger(spaceId, 'Workspace'),
+      identityId,
+      type,
+      fromMediaId ?? null,
+      toMediaId ?? null,
+      positiveInteger(actorId, 'Actor'),
+      JSON.stringify(details && typeof details === 'object' ? details : {})
+    ]
+  );
+}
+
+async function reassignMediaIdentitiesForMerge(client, {
+  spaceId,
+  actorId,
+  fromMediaId,
+  toMediaId
+} = {}) {
+  if (!client || typeof client.query !== 'function') {
+    throw new TypeError('External identity merge reassignment requires a transaction client');
+  }
+  const workspaceId = positiveInteger(spaceId, 'Workspace');
+  const userId = positiveInteger(actorId, 'Actor');
+  const sourceMediaId = positiveInteger(fromMediaId, 'Source canonical object');
+  const targetMediaId = positiveInteger(toMediaId, 'Target canonical object');
+  if (sourceMediaId === targetMediaId) return [];
+
+  const locked = await client.query(
+    `SELECT * FROM external_media_identities
+      WHERE space_id = $1 AND media_id = $2
+      ORDER BY id
+      FOR UPDATE`,
+    [workspaceId, sourceMediaId]
+  );
+  const reassigned = [];
+  for (const row of locked.rows || []) {
+    const updated = await client.query(
+      `UPDATE external_media_identities
+          SET media_id = $3, updated_by = $4
+        WHERE space_id = $1 AND id = $2 AND media_id = $5
+        RETURNING *`,
+      [workspaceId, row.id, targetMediaId, userId, sourceMediaId]
+    );
+    if (!updated.rows[0]) throw conflictError();
+    await identityEvent(client, {
+      spaceId: workspaceId,
+      identityId: row.id,
+      type: 'reassigned',
+      fromMediaId: sourceMediaId,
+      toMediaId: targetMediaId,
+      actorId: userId,
+      details: { reason: 'canonical_merge' }
+    });
+    reassigned.push(publicIdentity(updated.rows[0]));
+  }
+  return reassigned;
+}
+
+async function restoreMediaIdentitiesFromMerge(client, {
+  spaceId,
+  actorId,
+  identityIds,
+  fromMediaId,
+  toMediaId
+} = {}) {
+  if (!client || typeof client.query !== 'function') {
+    throw new TypeError('External identity merge restoration requires a transaction client');
+  }
+  const workspaceId = positiveInteger(spaceId, 'Workspace');
+  const userId = positiveInteger(actorId, 'Actor');
+  const sourceMediaId = positiveInteger(fromMediaId, 'Source canonical object');
+  const targetMediaId = positiveInteger(toMediaId, 'Target canonical object');
+  const ids = Array.from(new Set((identityIds || []).map((value) => String(value || '').trim()).filter(Boolean)));
+  if (ids.length === 0 || sourceMediaId === targetMediaId) return [];
+
+  const locked = await client.query(
+    `SELECT * FROM external_media_identities
+      WHERE space_id = $1 AND id = ANY($2::uuid[])
+      ORDER BY id
+      FOR UPDATE`,
+    [workspaceId, ids]
+  );
+  if ((locked.rows || []).length !== ids.length || locked.rows.some((row) => Number(row.media_id) !== sourceMediaId)) {
+    const error = conflictError();
+    error.message = 'External identity changed after merge and cannot be restored automatically';
+    throw error;
+  }
+
+  const restored = [];
+  for (const row of locked.rows) {
+    const updated = await client.query(
+      `UPDATE external_media_identities
+          SET media_id = $3, updated_by = $4
+        WHERE space_id = $1 AND id = $2 AND media_id = $5
+        RETURNING *`,
+      [workspaceId, row.id, targetMediaId, userId, sourceMediaId]
+    );
+    if (!updated.rows[0]) throw conflictError();
+    await identityEvent(client, {
+      spaceId: workspaceId,
+      identityId: row.id,
+      type: 'reassigned',
+      fromMediaId: sourceMediaId,
+      toMediaId: targetMediaId,
+      actorId: userId,
+      details: { reason: 'canonical_merge_revert' }
+    });
+    restored.push(publicIdentity(updated.rows[0]));
+  }
+  return restored;
+}
+
 function createExternalMediaIdentityService({ pool, adapterRegistry } = {}) {
   if (!pool || !adapterRegistry) throw new TypeError('External identity service requires a pool and adapter registry');
 
@@ -78,15 +209,6 @@ function createExternalMediaIdentityService({ pool, adapterRegistry } = {}) {
       throw error;
     }
     return row;
-  }
-
-  async function event(client, { spaceId, identityId, type, fromMediaId, toMediaId, actorId }) {
-    await client.query(
-      `INSERT INTO external_media_identity_events
-         (space_id, identity_id, event_type, from_media_id, to_media_id, actor_user_id)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [spaceId, identityId, type, fromMediaId ?? null, toMediaId ?? null, actorId]
-    );
   }
 
   async function normalizedIdentity(client, spaceId, connectionId, identityKind, externalId, options = {}) {
@@ -133,7 +255,7 @@ function createExternalMediaIdentityService({ pool, adapterRegistry } = {}) {
             RETURNING *`,
           [spaceId, active.id, normalizedSourceUrl, identity.rawExternalId, actorId]
         );
-        await event(client, { spaceId, identityId: active.id, type: 'observed', fromMediaId: targetMediaId, toMediaId: targetMediaId, actorId });
+        await identityEvent(client, { spaceId, identityId: active.id, type: 'observed', fromMediaId: targetMediaId, toMediaId: targetMediaId, actorId });
         return publicIdentity(observed.rows[0]);
       }
 
@@ -156,7 +278,7 @@ function createExternalMediaIdentityService({ pool, adapterRegistry } = {}) {
               RETURNING *`,
             [spaceId, inactive.id, targetMediaId, normalizedSourceUrl, identity.rawExternalId, actorId]
           );
-          await event(client, { spaceId, identityId: inactive.id, type: 'reactivated', fromMediaId: inactive.media_id, toMediaId: targetMediaId, actorId });
+          await identityEvent(client, { spaceId, identityId: inactive.id, type: 'reactivated', fromMediaId: inactive.media_id, toMediaId: targetMediaId, actorId });
           return publicIdentity(reactivated.rows[0]);
         } catch (error) {
           if (error.code === '23505') throw conflictError();
@@ -177,7 +299,7 @@ function createExternalMediaIdentityService({ pool, adapterRegistry } = {}) {
             identity.normalizedExternalId, targetMediaId, normalizedSourceUrl, actorId]
         );
         if (inserted.rows[0]) {
-          await event(client, { spaceId, identityId: inserted.rows[0].id, type: 'attached', toMediaId: targetMediaId, actorId });
+          await identityEvent(client, { spaceId, identityId: inserted.rows[0].id, type: 'attached', toMediaId: targetMediaId, actorId });
           return publicIdentity(inserted.rows[0]);
         }
         const winner = await client.query(
@@ -219,7 +341,7 @@ function createExternalMediaIdentityService({ pool, adapterRegistry } = {}) {
       );
       const row = result.rows[0];
       if (!row) return null;
-      await event(client, { spaceId, identityId: row.id, type: 'deactivated', fromMediaId: row.media_id, actorId });
+      await identityEvent(client, { spaceId, identityId: row.id, type: 'deactivated', fromMediaId: row.media_id, actorId });
       return publicIdentity(row);
     });
   }
@@ -241,7 +363,7 @@ function createExternalMediaIdentityService({ pool, adapterRegistry } = {}) {
           RETURNING *`,
         [spaceId, identityId, targetMediaId, actorId]
       );
-      await event(client, { spaceId, identityId, type: 'reassigned', fromMediaId: row.media_id, toMediaId: targetMediaId, actorId });
+      await identityEvent(client, { spaceId, identityId, type: 'reassigned', fromMediaId: row.media_id, toMediaId: targetMediaId, actorId });
       return publicIdentity(result.rows[0]);
     });
   }
@@ -249,4 +371,9 @@ function createExternalMediaIdentityService({ pool, adapterRegistry } = {}) {
   return Object.freeze({ resolve, attach, listForMedia, deactivate, reassign });
 }
 
-module.exports = { createExternalMediaIdentityService, publicIdentity };
+module.exports = {
+  createExternalMediaIdentityService,
+  publicIdentity,
+  reassignMediaIdentitiesForMerge,
+  restoreMediaIdentitiesFromMerge
+};
