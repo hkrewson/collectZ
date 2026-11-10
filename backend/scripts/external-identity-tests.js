@@ -5,6 +5,10 @@ const assert = require('node:assert/strict');
 const { createProviderAdapterRegistry, identityNormalizers } = require('../services/providerAdapterRegistry');
 const { publicConnection } = require('../services/providerConnections');
 const {
+  METRON_INTEGRATION_KEY,
+  createProviderIntegrationBindingService
+} = require('../services/providerIntegrationBindings');
+const {
   createExternalMediaIdentityService,
   publicIdentity,
   reassignMediaIdentitiesForMerge,
@@ -79,6 +83,60 @@ test('public provider connection projection never includes credential storage fi
   assert.equal(projected.id, 'connection');
   assert.equal(projected.secret_payload_encrypted, undefined);
   assert.equal(projected.credential_reference, undefined);
+});
+
+test('Metron integration binding creates one stable connection through the caller transaction', async () => {
+  const queries = [];
+  const client = {
+    async query(sql, params) {
+      queries.push({ sql, params });
+      if (sql.includes('pg_advisory_xact_lock')) return { rows: [{}] };
+      if (sql.includes('FROM provider_integration_bindings b')) return { rows: [] };
+      if (sql.includes('INSERT INTO provider_connections')) {
+        return { rows: [{ id: 'connection-1', provider_type: 'metron', status: 'active', endpoint_url: params[1] }] };
+      }
+      if (sql.includes('INSERT INTO provider_integration_bindings')) {
+        return { rows: [{ space_id: params[0], integration_key: params[1], provider_connection_id: params[2] }] };
+      }
+      throw new Error(`Unexpected query: ${sql}`);
+    }
+  };
+  const service = createProviderIntegrationBindingService({ pool: {} });
+  const binding = await service.ensureMetronBinding({
+    spaceId: 7,
+    actorId: 9,
+    endpointUrl: 'https://metron.example/api/'
+  }, client);
+  assert.deepEqual(binding, {
+    spaceId: 7,
+    integrationKey: METRON_INTEGRATION_KEY,
+    providerConnectionId: 'connection-1',
+    providerType: 'metron',
+    status: 'active',
+    endpointUrl: 'https://metron.example/api'
+  });
+  assert.equal(queries.length, 4);
+});
+
+test('Metron integration binding preserves lifecycle decisions instead of silently reactivating', async () => {
+  const service = createProviderIntegrationBindingService({ pool: {} });
+  const client = {
+    async query(sql) {
+      if (sql.includes('pg_advisory_xact_lock')) return { rows: [{}] };
+      return { rows: [{
+        space_id: 7,
+        integration_key: METRON_INTEGRATION_KEY,
+        provider_connection_id: 'connection-1',
+        provider_type: 'metron',
+        status: 'disabled',
+        endpoint_url: 'https://metron.example/api'
+      }] };
+    }
+  };
+  await assert.rejects(
+    service.ensureMetronBinding({ spaceId: 7, actorId: 9, endpointUrl: 'https://metron.example/api' }, client),
+    (error) => error.code === 'PROVIDER_CONNECTION_INACTIVE' && error.status === 409
+  );
 });
 
 test('public external identity projection preserves raw identity and omits comparison internals', () => {

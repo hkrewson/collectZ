@@ -4982,7 +4982,9 @@ CREATE INDEX IF NOT EXISTS idx_tv_device_expiry ON tv_device_authorizations(expi
   { version: 131, description: 'Permit immutable identity event numeric reference cleanup',
     up: require('fs').readFileSync(require('path').join(__dirname, 'externalIdentityEventReferenceCleanup.sql'), 'utf8') },
   { version: 132, description: 'Add canonical media field authority controls',
-    up: require('fs').readFileSync(require('path').join(__dirname, 'canonicalMediaFieldControls.sql'), 'utf8') }
+    up: require('fs').readFileSync(require('path').join(__dirname, 'canonicalMediaFieldControls.sql'), 'utf8') },
+  { version: 133, description: 'Bind legacy integration slots to stable provider connections',
+    up: require('fs').readFileSync(require('path').join(__dirname, 'providerIntegrationBindings.sql'), 'utf8') }
 ];
 
 async function runMigrationsForClient(client, options = {}) {

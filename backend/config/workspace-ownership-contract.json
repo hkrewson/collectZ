@@ -786,6 +786,19 @@
       ]
     },
     {
+      "name": "provider_integration_bindings",
+      "category": "workspace_owned",
+      "ownershipKey": "space_id",
+      "rationale": "Legacy integration slots select one stable provider connection without collapsing the multi-instance registry.",
+      "sameWorkspaceForeignKeys": [
+        {
+          "column": "space_id",
+          "referencesTable": "spaces",
+          "expectation": "same_workspace"
+        }
+      ]
+    },
+    {
       "name": "saved_library_views",
       "category": "library_owned",
       "ownershipKey": "library_id",

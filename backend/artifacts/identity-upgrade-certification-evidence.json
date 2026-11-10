@@ -1,32 +1,25 @@
 {
-  "generatedAt": "2026-11-08T07:12:03.079Z",
+  "generatedAt": "2026-11-10T03:49:13.450Z",
   "status": "passed",
   "manifestSchemaVersion": 1,
-  "baselineVersion": 122,
-  "latestVersion": 127,
+  "baselineVersion": 127,
+  "latestVersion": 133,
   "certifiedMigrationVersions": [
-    123,
-    124,
-    125,
-    126,
-    127
+    128,
+    129,
+    130,
+    131,
+    132,
+    133
   ],
   "selectorMatches": [
     {
-      "version": 123,
-      "description": "Apple TV device authorization"
+      "version": 132,
+      "description": "Add canonical media field authority controls"
     },
     {
-      "version": 124,
-      "description": "Saved view ownership RLS and transaction scope broker"
-    },
-    {
-      "version": 125,
-      "description": "Expand canonical UUID and external identity registry schema"
-    },
-    {
-      "version": 127,
-      "description": "Harden external identity scope and lifecycle invariants"
+      "version": 133,
+      "description": "Bind legacy integration slots to stable provider connections"
     }
   ],
   "fixturePolicy": {
@@ -103,13 +96,13 @@
       {
         "id": 1,
         "user_id": 1,
-        "expires_at": "2026-11-15T07:12:04.835Z",
+        "expires_at": "2026-11-17T03:49:14.288Z",
         "storedCredentialPresent": true
       },
       {
         "id": 2,
         "user_id": 1,
-        "expires_at": "2026-11-15T07:12:04.837Z",
+        "expires_at": "2026-11-17T03:49:14.289Z",
         "storedCredentialPresent": true
       }
     ],
@@ -165,7 +158,7 @@
             "libraries:read"
           ],
           "revoked_at": null,
-          "expires_at": "2026-11-15T07:12:04.843Z",
+          "expires_at": "2026-11-17T03:49:14.293Z",
           "storedCredentialPresent": true
         }
       ],
@@ -181,7 +174,7 @@
             "/api/libraries"
           ],
           "revoked_at": null,
-          "expires_at": "2026-11-15T07:12:04.844Z",
+          "expires_at": "2026-11-17T03:49:14.294Z",
           "storedCredentialPresent": true
         }
       ]

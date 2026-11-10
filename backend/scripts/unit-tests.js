@@ -700,7 +700,7 @@ results.push(run('workspace ownership contract classifies every schema table, ro
   const contract = buildWorkspaceOwnershipContract();
   const snapshot = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'config', 'workspace-ownership-contract.json'), 'utf8'));
   assert.deepStrictEqual(contract, snapshot);
-  assert.strictEqual(contract.tables.length, 74);
+  assert.strictEqual(contract.tables.length, 75);
   assert.ok(contract.tables.filter(t => t.name.startsWith('collectz_scope.')).every(t => t.category === 'authorization_control_plane'));
   assert.ok(contract.routes.length >= 300);
   assert.ok(contract.routes.filter((route) => route.authentication === 'required').length >= 300);
@@ -709,6 +709,7 @@ results.push(run('workspace ownership contract classifies every schema table, ro
   assert.ok(contract.tables.some((entry) => entry.sameWorkspaceForeignKeys.length > 0));
   assert.ok(contract.tables.filter((entry) => [
     'provider_connections',
+    'provider_integration_bindings',
     'provider_connection_credentials',
     'external_media_identities',
     'external_media_identity_events',

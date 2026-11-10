@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-11-08T07:13:03.388Z",
-  "migrationVersion": 127,
+  "generatedAt": "2026-11-10T03:50:43.579Z",
+  "migrationVersion": 133,
   "passed": true,
   "checks": [
     {
@@ -36,8 +36,31 @@
       "passed": true
     },
     {
+      "label": "legacy integration slot binds one stable provider connection",
+      "passed": true
+    },
+    {
+      "label": "integration slot cannot bind two provider connections",
+      "passed": true,
+      "code": "23505"
+    },
+    {
       "label": "same external id remains isolated across provider instances",
       "passed": true
+    },
+    {
+      "label": "provider field authority is scoped to one canonical target and connection",
+      "passed": true
+    },
+    {
+      "label": "field control cannot target sibling workspace media",
+      "passed": true,
+      "code": "23503"
+    },
+    {
+      "label": "manual field authority cannot silently permit provider refresh",
+      "passed": true,
+      "code": "23514"
     },
     {
       "label": "active identity cannot bind two media targets",
@@ -69,6 +92,10 @@
     },
     {
       "label": "unscoped runtime SQL cannot read provider connections",
+      "passed": true
+    },
+    {
+      "label": "unscoped runtime SQL cannot read provider integration bindings",
       "passed": true
     }
   ]

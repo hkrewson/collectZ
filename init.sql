@@ -1938,7 +1938,8 @@ INSERT INTO schema_migrations (version, description) VALUES
     (129, 'Backfill external identity event media UUIDs'),
     (130, 'Harden durable external identity event media references'),
     (131, 'Permit immutable identity event numeric reference cleanup'),
-    (132, 'Add canonical media field authority controls')
+    (132, 'Add canonical media field authority controls'),
+    (133, 'Bind legacy integration slots to stable provider connections')
 ON CONFLICT (version) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS tv_device_authorizations (
@@ -2199,6 +2200,22 @@ CREATE TABLE IF NOT EXISTS public.canonical_media_field_controls (
     CHECK (NOT locked OR provider_write_mode = 'preserve')
 );
 
+CREATE TABLE IF NOT EXISTS public.provider_integration_bindings (
+  space_id INTEGER NOT NULL REFERENCES public.spaces(id) ON DELETE RESTRICT,
+  integration_key VARCHAR(80) NOT NULL
+    CHECK (integration_key ~ '^[a-z][a-z0-9_.:-]{1,79}$'),
+  provider_connection_id UUID NOT NULL,
+  created_by INTEGER REFERENCES public.users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (space_id, integration_key),
+  CONSTRAINT provider_integration_bindings_connection_scope_fk
+    FOREIGN KEY (space_id, provider_connection_id)
+    REFERENCES public.provider_connections(space_id, id) ON DELETE RESTRICT,
+  CONSTRAINT provider_integration_bindings_connection_key
+    UNIQUE (space_id, provider_connection_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_provider_connections_space_status
   ON public.provider_connections(space_id, status, provider_type);
 CREATE INDEX IF NOT EXISTS idx_external_media_identities_media
@@ -2213,6 +2230,8 @@ CREATE INDEX IF NOT EXISTS idx_canonical_media_field_controls_scope
 CREATE INDEX IF NOT EXISTS idx_canonical_media_field_controls_provider
   ON public.canonical_media_field_controls(space_id, source_provider_connection_id)
   WHERE source_provider_connection_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_provider_integration_bindings_connection
+  ON public.provider_integration_bindings(space_id, provider_connection_id);
 
 DO $$
 BEGIN
@@ -2229,6 +2248,11 @@ BEGIN
       BEFORE UPDATE ON public.canonical_media_field_controls
       FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
   END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_provider_integration_bindings_updated_at') THEN
+    CREATE TRIGGER update_provider_integration_bindings_updated_at
+      BEFORE UPDATE ON public.provider_integration_bindings
+      FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+  END IF;
 END;
 $$;
 
@@ -2237,6 +2261,7 @@ ALTER TABLE public.provider_connection_credentials ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.external_media_identities ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.external_media_identity_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.canonical_media_field_controls ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.provider_integration_bindings ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS provider_connections_scope ON public.provider_connections;
 CREATE POLICY provider_connections_scope ON public.provider_connections
@@ -2256,6 +2281,10 @@ CREATE POLICY external_media_identity_events_scope ON public.external_media_iden
   WITH CHECK (collectz_scope.allows_workspace(space_id));
 DROP POLICY IF EXISTS canonical_media_field_controls_scope ON public.canonical_media_field_controls;
 CREATE POLICY canonical_media_field_controls_scope ON public.canonical_media_field_controls
+  USING (collectz_scope.allows_workspace(space_id))
+  WITH CHECK (collectz_scope.allows_workspace(space_id));
+DROP POLICY IF EXISTS provider_integration_bindings_scope ON public.provider_integration_bindings;
+CREATE POLICY provider_integration_bindings_scope ON public.provider_integration_bindings
   USING (collectz_scope.allows_workspace(space_id))
   WITH CHECK (collectz_scope.allows_workspace(space_id));
 

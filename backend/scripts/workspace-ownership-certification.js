@@ -49,6 +49,7 @@ const TABLE_OVERRIDES = Object.freeze({
   user_integrations: ['user_owned', 'user_id', 'Private integration configuration owned by one user.'],
   app_integrations: ['workspace_owned', 'space_id', 'Workspace provider configuration; a documented nullable installation compatibility row remains only for installation runtime settings.'],
   provider_connections: ['workspace_owned', 'space_id', 'Stable multi-instance provider configuration owned by one workspace.'],
+  provider_integration_bindings: ['workspace_owned', 'space_id', 'Legacy integration slots select one stable provider connection without collapsing the multi-instance registry.'],
   provider_connection_credentials: ['workspace_owned', 'space_id', 'Encrypted provider credentials inherit the owning connection workspace and are never ordinary readback.'],
   external_media_identities: ['workspace_owned', 'space_id', 'Provider-instance identity attached to a canonical media target in the same workspace.'],
   external_media_identity_events: ['workspace_owned', 'space_id', 'Append-only identity lifecycle evidence inherits the external identity workspace.'],

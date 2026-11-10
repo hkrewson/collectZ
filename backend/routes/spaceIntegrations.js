@@ -52,6 +52,8 @@ const {
 } = require('../services/valuations');
 const { normalizeVisionPreset } = require('../services/captureImageOcr');
 const { logActivity, logError } = require('../services/audit');
+const { withAuthorizedScopeTransaction } = require('../db/scopeBroker');
+const { createProviderIntegrationBindingService } = require('../services/providerIntegrationBindings');
 const {
   getAccessibleSpaceForUser,
   getSpaceMembershipForUser,
@@ -60,6 +62,7 @@ const {
 } = require('../services/spaces');
 
 const router = express.Router();
+const providerIntegrationBindings = createProviderIntegrationBindingService({ pool });
 
 const SPACE_READ_ONLY_FIELDS = [
   'logExportBackend',
@@ -809,23 +812,32 @@ router.put('/spaces/:spaceId/integrations', authenticateToken, requireSessionAut
   }
 
   const client = await pool.connect();
-  let transactionStarted = false;
   try {
     const space = await requireManageableSpace(client, req, spaceId);
     if (!space) return res.status(404).json({ error: 'Space not found' });
     if (space === false) return res.status(403).json({ error: 'Space management denied' });
-
-    await client.query('BEGIN');
-    transactionStarted = true;
-    const inheritedResult = await client.query(
-      'SELECT * FROM app_integrations WHERE space_id = $1 LIMIT 1 FOR UPDATE',
-      [spaceId]
+    const { persisted, nextState } = await withAuthorizedScopeTransaction(
+      pool,
+      { spaceId },
+      Number(req.user.id),
+      async (scopedClient) => {
+        const inheritedResult = await scopedClient.query(
+          'SELECT * FROM app_integrations WHERE space_id = $1 LIMIT 1 FOR UPDATE',
+          [spaceId]
+        );
+        const inheritedRow = inheritedResult.rows[0] || null;
+        const resolvedState = resolveNextSpaceIntegrationState(req.body || {}, inheritedRow || null);
+        const saved = await upsertSpaceIntegrationState(scopedClient, spaceId, resolvedState);
+        if (String(resolvedState.comics_provider || '').trim().toLowerCase() === 'metron') {
+          await providerIntegrationBindings.ensureMetronBinding({
+            spaceId,
+            actorId: req.user.id,
+            endpointUrl: resolvedState.comics_api_url
+          }, scopedClient);
+        }
+        return { persisted: saved, nextState: resolvedState };
+      }
     );
-    const inheritedRow = inheritedResult.rows[0] || null;
-    const nextState = resolveNextSpaceIntegrationState(req.body || {}, inheritedRow || null);
-    const persisted = await upsertSpaceIntegrationState(client, spaceId, nextState);
-    await client.query('COMMIT');
-    transactionStarted = false;
     const config = await loadScopedIntegrationConfig(spaceId);
     const valuationConfig = await loadWorkspaceValuationIntegrationConfig(spaceId);
     const ocrConfig = await loadWorkspaceOcrIntegrationConfig(spaceId);
@@ -860,7 +872,6 @@ router.put('/spaces/:spaceId/integrations', authenticateToken, requireSessionAut
       ocrConfig
     }));
   } catch (error) {
-    if (transactionStarted) await client.query('ROLLBACK');
     throw error;
   } finally {
     client.release();

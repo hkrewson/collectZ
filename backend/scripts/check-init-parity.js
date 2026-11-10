@@ -103,7 +103,9 @@ async function schemaFingerprint(client) {
       'provider_connections',
       'provider_connection_credentials',
       'external_media_identities',
-      'external_media_identity_events'
+      'external_media_identity_events',
+      'canonical_media_field_controls',
+      'provider_integration_bindings'
     ))
     UNION ALL
     SELECT 'policy', schemaname || '.' || tablename || '.' || policyname,

@@ -121,6 +121,20 @@ async function main() {
         );
         checks.push({ label: 'credentials stored in separate scoped relation', passed: true });
 
+        await client.query(
+          `INSERT INTO provider_integration_bindings
+             (space_id,integration_key,provider_connection_id,created_by)
+           VALUES ($1,'comics.metron',$2,$3)`,
+          [spaceA, first.id, userId]
+        );
+        checks.push({ label: 'legacy integration slot binds one stable provider connection', passed: true });
+        checks.push(await expectCode(client, 'integration slot cannot bind two provider connections', ['23505'], () =>
+          client.query(
+            `INSERT INTO provider_integration_bindings
+               (space_id,integration_key,provider_connection_id,created_by)
+             VALUES ($1,'comics.metron',$2,$3)`,
+            [spaceA, second.id, userId])));
+
         const identityA = (await client.query(
           `INSERT INTO external_media_identities
              (space_id,provider_connection_id,identity_kind,external_id_raw,external_id_normalized,media_id,created_by,updated_by)
@@ -213,6 +227,12 @@ async function main() {
     const unscoped = await pool.query('SELECT COUNT(*)::int AS count FROM provider_connections WHERE space_id = $1', [spaceA]);
     assert.equal(Number(unscoped.rows[0].count), 0);
     checks.push({ label: 'unscoped runtime SQL cannot read provider connections', passed: true });
+    const unscopedBindings = await pool.query(
+      'SELECT COUNT(*)::int AS count FROM provider_integration_bindings WHERE space_id = $1',
+      [spaceA]
+    );
+    assert.equal(Number(unscopedBindings.rows[0].count), 0);
+    checks.push({ label: 'unscoped runtime SQL cannot read provider integration bindings', passed: true });
 
     const migrationVersion = Number((await pool.query(
       'SELECT COALESCE(MAX(version), 0)::int AS version FROM schema_migrations'
