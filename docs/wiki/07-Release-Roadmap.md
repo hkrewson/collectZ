@@ -144,7 +144,7 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 ## 3.27.3 — Provider Identity Dual-Write, Matching, and Merge Integration
 
 **Goal:** Make the external-identity registry authoritative for repeat sync and merge behavior while preserving compatibility with existing provider fields during migration.
-**Status:** Active after the hosted `3.27.2` closeout. Identity lifecycle, authoritative reconciliation, fail-closed backfill execution, and canonical field precedence are implemented; production-flow adoption, compatibility cutover diagnostics, and version closeout remain.
+**Status:** Active after the hosted `3.27.2` closeout. Identity lifecycle, authoritative reconciliation, fail-closed backfill execution, canonical field precedence, and Metron production-flow adoption are implemented; remaining provider adoption, compatibility cutover diagnostics, and version closeout remain.
 
 ### Scope
 
@@ -183,6 +183,7 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 - Revert restores the duplicate's original Canonical UUID, leaves identities observed later on the surviving object untouched, and fails closed when a captured identity has moved since the merge.
 - Bounded, secret-free compatibility telemetry now distinguishes legacy provider-id reads and writes from authoritative projection writes, alignment, and conflicts. The documented cutover threshold requires a quiet observation window for legacy activity and zero authoritative projection conflicts; metrics never label external ids or endpoints.
 - Migration `133` adds an explicit workspace integration-to-Provider Connection relation. Saving the legacy Metron comics slot now creates or updates one stable connection UUID in the same authorized transaction, refuses inactive or wrong-provider bindings, and leaves credentials in the existing encrypted store until the Metron import path adopts authoritative reconciliation.
+- Metron collection import now resolves numeric issue ids through the bound Provider Connection and authoritative workspace/connection/kind/id tuple. New and legacy-adopted rows attach the identity, canonical field decisions, normalized ownership, and compatibility projections in one transaction; repeat sync refreshes only provider-controlled fields, preserves uncontrolled/manual/reviewed/locked values, and no longer trusts unscoped `provider_issue_id` matching. The merge/re-sync regression now seeds an authoritative identity before merge and proves the HTTP import returns to the surviving canonical object without creating another comic.
 - Focused module tests and a rollback-only canonical-stack smoke prove merge, revert, conflict refusal, numeric-reference cleanup, durable public UUID evidence, and Canonical UUID restoration. Existing external-identity certification and manual merge/revert/scope-isolation smokes remain green.
 
 ---

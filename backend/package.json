@@ -14,6 +14,7 @@
     "test:saved-view-rls-certification": "node scripts/saved-view-rls-certification.js",
     "test:external-identity-certification": "node scripts/external-identity-certification.js",
     "test:provider-integration-binding-smoke": "node scripts/provider-integration-binding-smoke.js",
+    "test:metron-authoritative-sync-smoke": "node scripts/metron-authoritative-sync-smoke.js",
     "test:external-identity-merge-revert-smoke": "node scripts/external-identity-merge-revert-smoke.js",
     "test:scoped-transaction-smoke": "node scripts/scoped-transaction-smoke.js",
     "test:openapi": "node scripts/validate-openapi.js",

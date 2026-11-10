@@ -160,6 +160,7 @@ const { buildCollectibleTraits } = require('../services/collectibleTraits');
 const { loadTraitRecords, loadTraitRecordsForOwner } = require('../services/collectibleTraitRecords');
 const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
 const { isFeatureEnabledForSpace } = require('../services/featureFlags');
+const { createMetronImportIdentityModule } = require('../services/metronImportIdentity');
 const { enforceScopeAccess } = require('../middleware/scopeAccess');
 const { ensureUserDefaultScope } = require('../services/libraries');
 const { refreshMediaValuation } = require('../services/valuations');
@@ -173,6 +174,7 @@ const {
 const { runManualMediaMergeApply, runManualMediaMergeRevert } = require('../scripts/repair-book-comic-duplicates');
 
 const router = express.Router();
+const metronImportIdentity = createMetronImportIdentityModule({ pool });
 
 const ALLOWED_COVER_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 
@@ -4022,7 +4024,7 @@ function getIdentifierMatchPriority({ mediaType, importSource }) {
   return ['ean_upc', 'isbn', 'asin'];
 }
 
-async function findExistingByIdentifier({ identifierType, identifierValue, normalizedMediaType, scopeContext = null }) {
+async function findExistingByIdentifier({ identifierType, identifierValue, normalizedMediaType, scopeContext = null, client = pool }) {
   if (!identifierValue) return { row: null, conflict: false };
   const params = [normalizedMediaType, identifierValue];
   let condition = '';
@@ -4043,7 +4045,7 @@ async function findExistingByIdentifier({ identifierType, identifierValue, norma
     libraryColumn: 'm.library_id'
   });
 
-  const result = await pool.query(
+  const result = await client.query(
     `SELECT DISTINCT m.id
      FROM media m
      LEFT JOIN media_metadata mm ON mm.media_id = m.id
@@ -4080,7 +4082,8 @@ async function findExistingByProviderIds({
   importSource,
   normalizedMediaType,
   normalizedTmdbType,
-  scopeContext = null
+  scopeContext = null,
+  client = pool
 }) {
   const providerMetricLabel = providerIdentityMetricLabel(item, importSource);
   const providerItemId = String(
@@ -4096,7 +4099,7 @@ async function findExistingByProviderIds({
       spaceColumn: 'm.space_id',
       libraryColumn: 'm.library_id'
     });
-    const byProviderItemId = await pool.query(
+    const byProviderItemId = await client.query(
       `SELECT DISTINCT m.id
        FROM media m
        LEFT JOIN media_metadata mm ON mm.media_id = m.id
@@ -4133,7 +4136,7 @@ async function findExistingByProviderIds({
         spaceColumn: 'm.space_id',
         libraryColumn: 'm.library_id'
       });
-      const byProviderIssueId = await pool.query(
+      const byProviderIssueId = await client.query(
         `SELECT DISTINCT m.id
          FROM media m
          LEFT JOIN media_metadata mm ON mm.media_id = m.id
@@ -4160,7 +4163,7 @@ async function findExistingByProviderIds({
   if (item.tmdb_id) {
     const params = [item.tmdb_id, normalizedTmdbType, normalizedMediaType];
     const scopeClause = appendScopeSql(params, scopeContext);
-    const byTmdb = await pool.query(
+    const byTmdb = await client.query(
       `SELECT id
        FROM media
        WHERE tmdb_id = $1
@@ -4183,7 +4186,7 @@ async function findExistingByProviderIds({
       spaceColumn: 'm.space_id',
       libraryColumn: 'm.library_id'
     });
-    const byPlexGuid = await pool.query(
+    const byPlexGuid = await client.query(
       `SELECT m.id
        FROM media m
        JOIN media_metadata mm ON mm.media_id = m.id
@@ -4209,7 +4212,7 @@ async function findExistingByProviderIds({
       spaceColumn: 'm.space_id',
       libraryColumn: 'm.library_id'
     });
-    const byPlexRatingKey = await pool.query(
+    const byPlexRatingKey = await client.query(
       `SELECT m.id
        FROM media m
        JOIN media_metadata mm ON mm.media_id = m.id
@@ -4325,7 +4328,8 @@ function shouldRefreshKavitaSeriesImportTitle({
 async function findNormalizationReviewCandidates({
   normalizedMediaType,
   normalizationIdentity,
-  scopeContext = null
+  scopeContext = null,
+  client = pool
 }) {
   if (!normalizationIdentity?.key || normalizationIdentity.confidence !== 'medium') {
     return [];
@@ -4363,7 +4367,7 @@ async function findNormalizationReviewCandidates({
     return [];
   }
 
-  const result = await pool.query(candidateQuery, params);
+  const result = await client.query(candidateQuery, params);
   return buildNormalizationReviewCandidatesForRows({
     rows: result.rows || [],
     normalizedMediaType,
@@ -4376,7 +4380,8 @@ async function findExistingByNormalizationIdentity({
   normalizationIdentity,
   title,
   normalizedTypeDetails,
-  scopeContext = null
+  scopeContext = null,
+  client = pool
 }) {
   if (!normalizationIdentity?.key || normalizationIdentity.confidence !== 'high') {
     return { row: null, matchedBy: null, matchMode: null };
@@ -4424,7 +4429,7 @@ async function findExistingByNormalizationIdentity({
     return { row: null, matchedBy: null, matchMode: null };
   }
 
-  const result = await pool.query(candidateQuery, params);
+  const result = await client.query(candidateQuery, params);
   const builder = normalizedMediaType === 'book' ? buildBookNormalizationIdentity : buildComicNormalizationIdentity;
   const matchedRow = (result.rows || []).find((candidate) => {
     const candidateIdentity = builder(candidate);
@@ -4439,7 +4444,17 @@ async function findExistingByNormalizationIdentity({
   };
 }
 
-async function upsertImportedMedia({ userId, item, importSource, scopeContext = null, identifiers = null }) {
+async function upsertImportedMedia({
+  userId,
+  item,
+  importSource,
+  scopeContext = null,
+  identifiers = null,
+  client = pool,
+  authoritativeProviderMode = false,
+  preferredMediaId = null,
+  preferredMatchedBy = null
+}) {
   const title = String(item.title || '').trim();
   if (!title) {
     return { type: 'invalid', detail: 'Missing title' };
@@ -4466,6 +4481,30 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
     let normalizationReviewCandidates = [];
     let normalizationIdentity = null;
 
+    const preferredId = Number(preferredMediaId);
+    if (Number.isInteger(preferredId) && preferredId > 0) {
+      const preferredParams = [preferredId, normalizedMediaType];
+      const preferredScopeClause = appendScopeSql(preferredParams, scopeContext);
+      const preferred = await client.query(
+        `SELECT id
+           FROM media
+          WHERE id = $1
+            AND COALESCE(media_type, 'movie') = $2
+            ${preferredScopeClause}
+          FOR UPDATE`,
+        preferredParams
+      );
+      if (!preferred.rows[0]) {
+        const error = new Error('Authoritative provider target was not found in the import scope');
+        error.code = 'CANONICAL_OBJECT_NOT_FOUND';
+        error.status = 404;
+        throw error;
+      }
+      existingRow = preferred.rows[0];
+      matchedBy = preferredMatchedBy || 'external_identity';
+      matchMode = 'matched_by_provider_identity';
+    }
+
     const identifierPriority = getIdentifierMatchPriority({
       mediaType: normalizedMediaType,
       importSource
@@ -4482,7 +4521,8 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
         identifierType,
         identifierValue,
         normalizedMediaType,
-        scopeContext
+        scopeContext,
+        client
       });
       if (matchByIdentifier.row) {
         existingRow = matchByIdentifier.row;
@@ -4492,13 +4532,14 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
       }
     }
 
-    if (!existingRow) {
+    if (!existingRow && !authoritativeProviderMode) {
       const providerMatch = await findExistingByProviderIds({
         item,
         importSource,
         normalizedMediaType,
         normalizedTmdbType,
-        scopeContext
+        scopeContext,
+        client
       });
       if (providerMatch.row) {
         existingRow = providerMatch.row;
@@ -4507,18 +4548,27 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
     }
 
     if (!existingRow && ['book', 'comic_book'].includes(normalizedMediaType)) {
+      const identityTypeDetails = authoritativeProviderMode
+        ? {
+            ...normalizedTypeDetails,
+            provider_name: null,
+            provider_item_id: null,
+            provider_issue_id: null
+          }
+        : normalizedTypeDetails;
       normalizationIdentity = buildNormalizationIdentityForImportedItem({
         normalizedMediaType,
         title,
-        normalizedTypeDetails,
+        normalizedTypeDetails: identityTypeDetails,
         resolvedIdentifiers
       });
       const normalizationMatch = await findExistingByNormalizationIdentity({
         normalizedMediaType,
         normalizationIdentity,
         title,
-        normalizedTypeDetails,
-        scopeContext
+        normalizedTypeDetails: identityTypeDetails,
+        scopeContext,
+        client
       });
       if (normalizationMatch.row) {
         existingRow = normalizationMatch.row;
@@ -4531,7 +4581,8 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
       normalizationReviewCandidates = await findNormalizationReviewCandidates({
         normalizedMediaType,
         normalizationIdentity,
-        scopeContext
+        scopeContext,
+        client
       });
       if (normalizationReviewCandidates.length > 0) {
         matchMode = 'normalization_review_medium';
@@ -4549,7 +4600,7 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
         const year = item.year ?? null;
         const existingParams = [title, year, normalizedMediaType];
         const existingScopeClause = appendScopeSql(existingParams, scopeContext);
-        const existing = await pool.query(
+        const existing = await client.query(
           `SELECT id, title, media_type, type_details, upc, tmdb_id
            FROM media
            WHERE LOWER(TRIM(title)) = LOWER(TRIM($1))
@@ -4580,7 +4631,26 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
     }
 
     if (existingRow) {
-      const currentFormatStateResult = await pool.query(
+      if (authoritativeProviderMode) {
+        if (importSource) {
+          await client.query(
+            `UPDATE media
+                SET import_source = $2
+              WHERE id = $1`,
+            [existingRow.id, importSource]
+          );
+        }
+        return {
+          type: 'updated',
+          mediaId: existingRow.id,
+          matchMode,
+          matchedBy,
+          identifiers: resolvedIdentifiers,
+          identifierConflict,
+          normalizationReviewCandidates
+        };
+      }
+      const currentFormatStateResult = await client.query(
         'SELECT title, media_type, format, owned_formats, import_source, type_details FROM media WHERE id = $1 LIMIT 1',
         [existingRow.id]
       );
@@ -4630,7 +4700,7 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
         existingRow.id
       ];
       const updateScopeClause = appendScopeSql(updateParams, scopeContext);
-      await pool.query(
+      await client.query(
         `UPDATE media SET
            media_type = COALESCE($1, media_type),
            original_title = COALESCE($2, original_title),
@@ -4675,20 +4745,21 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
       })) {
         const titleParams = [title, existingRow.id];
         const titleScopeClause = appendScopeSql(titleParams, scopeContext);
-        await pool.query(
+        await client.query(
           `UPDATE media
               SET title = $1
             WHERE id = $2${titleScopeClause}`,
           titleParams
         );
       }
-      const refreshed = await pool.query('SELECT id, genre, director, cast_members AS cast FROM media WHERE id = $1', [existingRow.id]);
+      const refreshed = await client.query('SELECT id, genre, director, cast_members AS cast FROM media WHERE id = $1', [existingRow.id]);
       const updatedRow = refreshed.rows[0] || { id: existingRow.id, genre: item.genre || null, director: item.director || null, cast: item.cast || null };
       await syncNormalizedMetadataForMedia({
         mediaId: updatedRow.id,
         genre: updatedRow.genre,
         director: updatedRow.director,
-        cast: updatedRow.cast
+        cast: updatedRow.cast,
+        client
       });
       recordLegacyProviderIdentityWrite(item, importSource, 'updated');
       return {
@@ -4703,7 +4774,22 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
     }
 
     const ownedFormatState = buildOwnedFormatsPayload(normalizedMediaType, item.owned_formats, item.format);
-    const inserted = await pool.query(
+    const inserted = authoritativeProviderMode
+      ? await client.query(
+        `INSERT INTO media
+           (title, media_type, library_id, space_id, added_by, import_source)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING id, genre, director, cast_members AS cast`,
+        [
+          title,
+          normalizedMediaType,
+          item.library_id || scopeContext?.libraryId || null,
+          item.space_id || scopeContext?.spaceId || null,
+          userId,
+          importSource || null
+        ]
+      )
+      : await client.query(
       `INSERT INTO media (
          title, media_type, original_title, release_date, year, format, owned_formats, genre, director, cast_members,
          rating, user_rating, tmdb_id, tmdb_media_type, tmdb_url, poster_path, backdrop_path, overview, trailer_url,
@@ -4754,10 +4840,11 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
         mediaId: insertedRow.id,
         genre: insertedRow.genre,
         director: insertedRow.director,
-        cast: insertedRow.cast
+        cast: insertedRow.cast,
+        client
       });
     }
-    recordLegacyProviderIdentityWrite(item, importSource, 'created');
+    if (!authoritativeProviderMode) recordLegacyProviderIdentityWrite(item, importSource, 'created');
     return {
       type: 'created',
       mediaId: insertedRow?.id || null,
@@ -4770,9 +4857,9 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
   });
 }
 
-async function upsertMediaMetadataEntry(mediaId, key, value) {
+async function upsertMediaMetadataEntry(mediaId, key, value, client = pool) {
   if (!mediaId || !key || value === undefined || value === null || value === '') return;
-  await pool.query(
+  await client.query(
     `INSERT INTO media_metadata (media_id, "key", "value")
      VALUES ($1::int, $2::varchar, $3::text)
      ON CONFLICT (media_id, "key")
@@ -8316,46 +8403,29 @@ async function runMetronImport({ req, config, scopeContext = null, onProgress = 
     await onProgress(progress);
   };
 
+  const spaceId = Number(scopeContext?.spaceId || 0);
+  const libraryId = Number(scopeContext?.libraryId || 0) || null;
+  if (!Number.isInteger(spaceId) || spaceId <= 0) {
+    const error = new Error('Metron import requires an explicit workspace');
+    error.code = 'workspace_scope_required';
+    error.status = 400;
+    throw error;
+  }
+  const identitySession = await metronImportIdentity.open({
+    spaceId,
+    actorId: req.user.id,
+    libraryId,
+    endpointUrl: config.comicsApiUrl
+  });
+
   const { issues, endpoint } = await fetchMetronCollectionIssues(config, { limit: 2500 });
   const incomingProviderIssueIds = [...new Set(
     issues
       .map((issue) => String(issue?.type_details?.provider_issue_id || issue?.id || '').trim())
       .filter(Boolean)
   )];
-  const existingProviderIssueIds = new Set();
-  if (incomingProviderIssueIds.length > 0) {
-    const existingParams = [incomingProviderIssueIds];
-    const existingScopeClause = appendScopeSql(existingParams, scopeContext, {
-      spaceColumn: 'm.space_id',
-      libraryColumn: 'm.library_id'
-    });
-    const existing = await pool.query(
-      `SELECT DISTINCT COALESCE(m.type_details->>'provider_issue_id', '') AS provider_issue_id
-       FROM media m
-       WHERE m.media_type = 'comic_book'
-         AND COALESCE(m.type_details->>'provider_issue_id', '') = ANY($1::text[])
-         ${existingScopeClause}`,
-      existingParams
-    );
-    for (const row of existing.rows || []) {
-      const value = String(row?.provider_issue_id || '').trim();
-      if (value) existingProviderIssueIds.add(value);
-    }
-    if (existingProviderIssueIds.size > 0) {
-      recordProviderIdentityCompatibilityEvent(
-        'metron',
-        'legacy_read_provider_issue',
-        'matched',
-        existingProviderIssueIds.size
-      );
-    }
-  }
-  const pendingIssues = issues.filter((issue) => {
-    const providerIssueId = String(issue?.type_details?.provider_issue_id || issue?.id || '').trim();
-    if (!providerIssueId) return true;
-    return !existingProviderIssueIds.has(providerIssueId);
-  });
-  summary.skipped_existing = issues.length - pendingIssues.length;
+  const authoritativeIssueIds = await identitySession.knownIssueIds(incomingProviderIssueIds);
+  const pendingIssues = issues;
 
   await updateProgress({
     total: pendingIssues.length,
@@ -8375,31 +8445,36 @@ async function runMetronImport({ req, config, scopeContext = null, onProgress = 
     try {
       let mergedIssue = issue;
       const providerIssueId = String(issue?.type_details?.provider_issue_id || issue?.id || '').trim();
-      if (providerIssueId) {
-        if (!detailCache.has(providerIssueId)) {
-          try {
-            const detailed = await fetchDetailWithRetry(providerIssueId);
-            detailCache.set(providerIssueId, detailed);
-          } catch (_detailError) {
-            detailCache.set(providerIssueId, null);
-          }
+      if (!providerIssueId) {
+        const error = new Error('Metron issue is missing its provider identity');
+        error.code = 'INVALID_EXTERNAL_IDENTITY';
+        throw error;
+      }
+      const normalizedProviderIssueId = identitySession.normalizeIssueId(providerIssueId);
+      const authoritativeExisting = authoritativeIssueIds.has(normalizedProviderIssueId);
+      if (!detailCache.has(providerIssueId)) {
+        try {
+          const detailed = await fetchDetailWithRetry(providerIssueId);
+          detailCache.set(providerIssueId, detailed);
+        } catch (_detailError) {
+          detailCache.set(providerIssueId, null);
         }
-        const detailed = detailCache.get(providerIssueId);
-        if (detailed) {
-          mergedIssue = {
-            ...issue,
-            ...detailed,
-            type_details: {
-              ...(issue.type_details || {}),
-              ...(detailed.type_details || {}),
-              provider_issue_id: providerIssueId
-            },
-            tmdb_url: detailed.external_url || issue.external_url || null,
-            poster_path: detailed.poster_path || issue.poster_path || null,
-            overview: detailed.overview || issue.overview || null,
-            upc: detailed.upc || issue.upc || null
-          };
-        }
+      }
+      const detailed = detailCache.get(providerIssueId);
+      if (detailed) {
+        mergedIssue = {
+          ...issue,
+          ...detailed,
+          type_details: {
+            ...(issue.type_details || {}),
+            ...(detailed.type_details || {}),
+            provider_issue_id: providerIssueId
+          },
+          tmdb_url: detailed.external_url || issue.external_url || null,
+          poster_path: detailed.poster_path || issue.poster_path || null,
+          overview: detailed.overview || issue.overview || null,
+          upc: detailed.upc || issue.upc || null
+        };
       }
 
       const prepared = {
@@ -8419,21 +8494,31 @@ async function runMetronImport({ req, config, scopeContext = null, onProgress = 
         library_id: scopeContext?.libraryId || null,
         space_id: scopeContext?.spaceId || null
       };
-      const result = await upsertImportedMedia({
-        userId: req.user.id,
+      const reconciled = await identitySession.reconcileIssue({
+        providerIssueId,
         item: prepared,
-        importSource: 'metron',
-        scopeContext
+        sourceUrl: mergedIssue.external_url || null
+      }, async ({ client, preferredMediaId, matchedBy }) => {
+          return upsertImportedMedia({
+            userId: req.user.id,
+            item: prepared,
+            importSource: 'metron',
+            scopeContext,
+            client,
+            authoritativeProviderMode: true,
+            preferredMediaId,
+            preferredMatchedBy: matchedBy
+          });
       });
-      if (result.type === 'created') {
+      const result = reconciled.value;
+      if (authoritativeExisting) {
+        summary.skipped_existing += 1;
+      } else if (result.type === 'created') {
         summary.created += 1;
         if (result.mediaId) createdMediaIds.push(result.mediaId);
       }
       else if (result.type === 'updated') summary.updated += 1;
       else summary.skipped += 1;
-      if (result.mediaId && issue.id) {
-        await upsertMediaMetadataEntry(result.mediaId, 'metron_issue_id', issue.id);
-      }
     } catch (error) {
       summary.errors.push({ title: issue.title, detail: error.message || 'Metron import failed' });
     }

@@ -6,6 +6,7 @@ const bcrypt = require('bcrypt');
 const pool = require('../db/pool');
 const { buildMediaIdentityAliasKey } = require('../services/mediaIdentityAliases');
 const { encryptSecret } = require('../services/crypto');
+const { createMetronImportIdentityModule } = require('../services/metronImportIdentity');
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 
@@ -136,7 +137,24 @@ async function cleanupTemporaryState({ userId, libraryId, spaceId }) {
     await pool.query('DELETE FROM spaces WHERE id = $1', [spaceId]).catch(() => {});
   }
   if (userId) {
-    await pool.query('DELETE FROM users WHERE id = $1', [userId]).catch(() => {});
+    try {
+      await pool.query('DELETE FROM users WHERE id = $1', [userId]);
+    } catch {
+      const retiredPasswordHash = await bcrypt.hash(crypto.randomBytes(48).toString('hex'), 12);
+      await pool.query(
+        `UPDATE users
+            SET email = $2,
+                password = $3,
+                name = 'Retired Metron identity smoke actor',
+                role = 'user'
+          WHERE id = $1`,
+        [
+          userId,
+          `retired-metron-identity-smoke-${userId}@example.invalid`,
+          retiredPasswordHash
+        ]
+      ).catch(() => {});
+    }
   }
 }
 
@@ -157,7 +175,7 @@ function decodeBasicAuth(headerValue) {
 }
 
 async function startFakeMetronServer() {
-  const issueId = 'duplicate-issue-001';
+  const issueId = String(crypto.randomInt(100000000, 1000000000));
   const token = crypto.randomBytes(16).toString('hex');
   const username = 'metron-smoke';
   const collectionPayload = [
@@ -290,8 +308,6 @@ async function main() {
       [
         'Metron Alias Canonical Issue',
         JSON.stringify({
-          provider_name: 'metron',
-          provider_issue_id: 'canonical-issue-001',
           series: 'Alias Smoke Series',
           issue_number: '11',
           volume: '9',
@@ -330,6 +346,37 @@ async function main() {
     );
     const duplicateId = Number(duplicateInsert.rows[0]?.id || 0) || null;
     assert(canonicalId && duplicateId, 'Expected seeded canonical and duplicate comic ids');
+
+    const metronIdentity = createMetronImportIdentityModule({ pool });
+    const identitySession = await metronIdentity.open({
+      spaceId,
+      libraryId,
+      actorId: userId,
+      endpointUrl: fakeMetron.apiUrl
+    });
+    await identitySession.reconcileIssue({
+      providerIssueId: fakeMetron.issueId,
+      item: {
+        title: 'Metron Alias Duplicate Issue',
+        media_type: 'comic_book',
+        format: 'Digital',
+        year: 2024,
+        type_details: {
+          series: 'Alias Smoke Series',
+          issue_number: '11',
+          volume: '9',
+          publisher: 'Marvel',
+          cover_date: '2024-03-01'
+        }
+      }
+    }, async ({ preferredMediaId, matchedBy }) => {
+      assert(
+        Number(preferredMediaId) === duplicateId,
+        `Expected legacy Metron evidence to adopt duplicate ${duplicateId}, resolved ${preferredMediaId || 'none'}`
+      );
+      assert(matchedBy === 'legacy_metron_issue', 'Expected legacy Metron adoption evidence');
+      return { type: 'updated', mediaId: duplicateId };
+    });
 
     const preview = await client.request('/api/media/merge-preview', {
       method: 'POST',
@@ -371,7 +418,7 @@ async function main() {
        WHERE id = $1`,
       [canonicalId]
     );
-    assert(String(preImportCanonical.rows[0]?.type_details?.provider_issue_id || '') === 'canonical-issue-001', 'Expected canonical row to retain its original provider_issue_id before re-sync');
+    assert(String(preImportCanonical.rows[0]?.type_details?.provider_issue_id || '') === fakeMetron.issueId, 'Expected canonical row to carry the merged authoritative compatibility id before re-sync');
 
     const importResponse = await client.request('/api/media/import-comics?sync=1', {
       method: 'POST',
@@ -383,7 +430,7 @@ async function main() {
 
     const summary = importResponse?.data?.summary || {};
     assert(Number(summary.created || 0) === 0, `Expected no created rows after alias-preserved Metron reimport, got ${JSON.stringify(summary)}`);
-    assert(Number(summary.updated || 0) === 1, `Expected one updated row after alias-preserved Metron reimport, got ${JSON.stringify(summary)}`);
+    assert(Number(summary.skipped_existing || 0) === 1, `Expected one authoritative repeat-sync match, got ${JSON.stringify(summary)}`);
 
     const mediaCount = await pool.query(
       `SELECT COUNT(*)::int AS count
@@ -409,7 +456,7 @@ async function main() {
     assert(count === 1, `Expected one comic row after alias-preserved Metron reimport, found ${count}`);
     assert(String(canonicalRow.rows[0]?.import_source || '') === 'metron', 'Expected canonical row import_source to update to metron');
     assert(String(canonicalRow.rows[0]?.type_details?.provider_issue_id || '') === fakeMetron.issueId, 'Expected canonical row provider_issue_id to update from Metron re-sync');
-    assert(String(canonicalRow.rows[0]?.type_details?.cover_date || '') === '2024-03-01', 'Expected canonical row cover_date to update from Metron detail fetch');
+    assert(String(canonicalRow.rows[0]?.type_details?.cover_date || '') === '2024-01-01', 'Expected uncontrolled canonical cover_date to survive Metron repeat sync');
     assert(String(canonicalRow.rows[0]?.upc || '') === '111111111111', 'Expected canonical row UPC to update from Metron detail fetch');
     assert(metronMetadataRows.rows.length === 1, 'Expected canonical row to store metron_issue_id metadata after alias-preserved sync');
 

@@ -20,7 +20,8 @@ const MEDIA_FIELD_COLUMNS = Object.freeze({
   overview: 'overview',
   trailer_url: 'trailer_url',
   runtime: 'runtime',
-  network: 'network'
+  network: 'network',
+  upc: 'upc'
 });
 
 function positiveInteger(value, label) {

@@ -9,6 +9,11 @@ const {
   createProviderIntegrationBindingService
 } = require('../services/providerIntegrationBindings');
 const {
+  buildMetronCanonicalFields,
+  buildMetronCompatibility,
+  createMetronAdapterRegistry
+} = require('../services/metronIdentity');
+const {
   createExternalMediaIdentityService,
   publicIdentity,
   reassignMediaIdentitiesForMerge,
@@ -137,6 +142,30 @@ test('Metron integration binding preserves lifecycle decisions instead of silent
     service.ensureMetronBinding({ spaceId: 7, actorId: 9, endpointUrl: 'https://metron.example/api' }, client),
     (error) => error.code === 'PROVIDER_CONNECTION_INACTIVE' && error.status === 409
   );
+});
+
+test('Metron adapter owns numeric issue identity and bounded canonical projections', () => {
+  const registry = createMetronAdapterRegistry();
+  assert.equal(registry.normalizeExternalId('metron', 'issue', '00042').normalizedExternalId, '42');
+  assert.throws(() => registry.normalizeExternalId('metron', 'issue', 'issue-42'), /digits only/);
+  assert.deepEqual(buildMetronCompatibility('42'), {
+    typeDetails: { provider_name: 'metron', provider_issue_id: '42' },
+    metadata: { provider_issue_id: '42', metron_issue_id: '42' }
+  });
+  const canonical = buildMetronCanonicalFields({
+    title: 'Alpha Flight #11',
+    year: 1984,
+    upc: '012345678905',
+    type_details: { series: 'Alpha Flight', issue_number: '11', provider_issue_id: '42' }
+  });
+  assert.deepEqual(canonical, {
+    'media.title': 'Alpha Flight #11',
+    'media.year': 1984,
+    'media.upc': '012345678905',
+    'type_details.series': 'Alpha Flight',
+    'type_details.issue_number': '11'
+  });
+  assert.equal(Object.values(canonical).includes('42'), false);
 });
 
 test('public external identity projection preserves raw identity and omits comparison internals', () => {

@@ -472,6 +472,8 @@ const comicQueryContractSmokeSource = fs.readFileSync(require.resolve('../script
 const comicSeriesQueryContractSmokeSource = fs.readFileSync(require.resolve('../scripts/comic-series-query-contract-smoke'), 'utf8');
 const comicSeriesIssuesQueryContractSmokeSource = fs.readFileSync(require.resolve('../scripts/comic-series-issues-query-contract-smoke'), 'utf8');
 const comicMetronOverviewTruncationSmokeSource = fs.readFileSync(require.resolve('../scripts/comic-metron-overview-truncation-smoke'), 'utf8');
+const metronAuthoritativeSyncSmokeSource = fs.readFileSync(require.resolve('../scripts/metron-authoritative-sync-smoke'), 'utf8');
+const metronImportIdentitySource = fs.readFileSync(require.resolve('../services/metronImportIdentity'), 'utf8');
 const libraryLoanReminderWorkflowSmokeSource = fs.readFileSync(require.resolve('../scripts/library-loan-reminder-workflow-smoke'), 'utf8');
 const automaticLoanRemindersSmokeSource = fs.readFileSync(require.resolve('../scripts/automatic-loan-reminders-smoke'), 'utf8');
 const loanRemindersServiceSource = fs.readFileSync(require.resolve('../services/loanReminders'), 'utf8');
@@ -4242,6 +4244,18 @@ results.push(run('repo includes comic Metron overview truncation smoke coverage 
   assert.ok(comicMetronOverviewTruncationSmokeSource.includes('Expected saved overview to clamp to 10000'));
   assert.ok(comicMetronOverviewTruncationSmokeSource.includes('savedOverviewLength'));
   assert.ok(comicMetronOverviewTruncationSmokeSource.includes('truncated'));
+}));
+
+results.push(run('Metron production import uses authoritative provider identity reconciliation', () => {
+  assert.ok(backendPackageJson.scripts['test:metron-authoritative-sync-smoke']);
+  assert.ok(mediaRoutesSource.includes('metronImportIdentity.open'));
+  assert.ok(mediaRoutesSource.includes('identitySession.reconcileIssue'));
+  assert.ok(mediaRoutesSource.includes('authoritativeProviderMode: true'));
+  assert.ok(metronImportIdentitySource.includes('external_media_identities'));
+  assert.ok(metronImportIdentitySource.includes("'legacy_read_provider_issue'"));
+  assert.ok(metronImportIdentitySource.includes('setCanonicalFieldControl'));
+  assert.ok(metronAuthoritativeSyncSmokeSource.includes('locked-field preservation'));
+  assert.ok(metronAuthoritativeSyncSmokeSource.includes("matchedBy, 'external_identity'"));
 }));
 
 results.push(run('repo includes dry-run historical repair plan coverage for duplicate and type-repair reporting', () => {
