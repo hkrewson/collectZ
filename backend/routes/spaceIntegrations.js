@@ -835,6 +835,13 @@ router.put('/spaces/:spaceId/integrations', authenticateToken, requireSessionAut
             endpointUrl: resolvedState.comics_api_url
           }, scopedClient);
         }
+        if (String(resolvedState.cwa_opds_url || '').trim()) {
+          await providerIntegrationBindings.ensureCwaBinding({
+            spaceId,
+            actorId: req.user.id,
+            endpointUrl: resolvedState.cwa_opds_url
+          }, scopedClient);
+        }
         return { persisted: saved, nextState: resolvedState };
       }
     );

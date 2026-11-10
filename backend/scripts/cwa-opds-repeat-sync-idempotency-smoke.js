@@ -1,6 +1,7 @@
 'use strict';
 
 const http = require('http');
+const crypto = require('node:crypto');
 const bcrypt = require('bcrypt');
 const pool = require('../db/pool');
 const { encryptSecret } = require('../services/crypto');
@@ -79,6 +80,12 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
+function randomIsbn13() {
+  const stem = `978${String(crypto.randomInt(0, 1000000000)).padStart(9, '0')}`;
+  const weighted = [...stem].reduce((sum, digit, index) => sum + Number(digit) * (index % 2 === 0 ? 1 : 3), 0);
+  return `${stem}${(10 - (weighted % 10)) % 10}`;
+}
+
 async function createDirectUser({ email, password, name, role = 'admin' }) {
   const passwordHash = await bcrypt.hash(password, 12);
   const result = await pool.query(
@@ -128,7 +135,20 @@ async function cleanupTemporaryState({ userId, libraryId, spaceId }) {
     await pool.query('DELETE FROM spaces WHERE id = $1', [spaceId]).catch(() => {});
   }
   if (userId) {
-    await pool.query('DELETE FROM users WHERE id = $1', [userId]).catch(() => {});
+    try {
+      await pool.query('DELETE FROM users WHERE id = $1', [userId]);
+    } catch {
+      const retiredPasswordHash = await bcrypt.hash(crypto.randomBytes(48).toString('hex'), 12);
+      await pool.query(
+        `UPDATE users
+            SET email = $2,
+                password = $3,
+                name = 'Retired CWA identity smoke actor',
+                role = 'user'
+          WHERE id = $1`,
+        [userId, `retired-cwa-identity-smoke-${userId}@example.invalid`, retiredPasswordHash]
+      ).catch(() => {});
+    }
   }
 }
 
@@ -210,7 +230,7 @@ async function fetchScopeContext(client) {
 async function main() {
   const suffix = Date.now();
   const email = `cwa-opds-repeat-sync-${suffix}@example.com`;
-  const password = 'Passw0rd!123';
+  const password = `Cwa!${crypto.randomBytes(18).toString('base64url')}`;
   const client = new HttpClient('cwa-opds-repeat-sync-idempotency-smoke');
   let userId = null;
   let libraryId = null;
@@ -220,7 +240,7 @@ async function main() {
   const entryId = 'urn:uuid:cwa-opds-repeat-sync-entry';
   const title = 'CWA OPDS Repeat Sync Smoke Book';
   const author = 'Repeat Sync Smoke Author';
-  const isbn = '9781476735402';
+  const isbn = randomIsbn13();
 
   try {
     fakeOpds = await startFakeOpdsServer({ entryId, title, author, isbn });

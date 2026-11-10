@@ -161,6 +161,7 @@ const { loadTraitRecords, loadTraitRecordsForOwner } = require('../services/coll
 const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
 const { isFeatureEnabledForSpace } = require('../services/featureFlags');
 const { createMetronImportIdentityModule } = require('../services/metronImportIdentity');
+const { createCwaImportIdentityModule } = require('../services/cwaImportIdentity');
 const { enforceScopeAccess } = require('../middleware/scopeAccess');
 const { ensureUserDefaultScope } = require('../services/libraries');
 const { refreshMediaValuation } = require('../services/valuations');
@@ -175,6 +176,7 @@ const { runManualMediaMergeApply, runManualMediaMergeRevert } = require('../scri
 
 const router = express.Router();
 const metronImportIdentity = createMetronImportIdentityModule({ pool });
+const cwaImportIdentity = createCwaImportIdentityModule({ pool });
 
 const ALLOWED_COVER_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 
@@ -8589,7 +8591,8 @@ async function runGenericCsvImport({
   onProgress = null,
   importSource = 'csv_generic',
   reviewContext = null,
-  enrichmentMode = 'live'
+  enrichmentMode = 'live',
+  authoritativeIdentitySession = null
 }) {
   const summary = {
     created: 0,
@@ -8807,7 +8810,7 @@ async function runGenericCsvImport({
       continue;
     }
     const rowIdentifiers = normalizeIdentifierSet({
-      isbn: value('isbn') || value('isbn13'),
+      isbn: value('isbn') || value('isbn13') || rowTypeDetails.isbn || rowTypeDetails.isbn13,
       ean_upc: value('ean') || value('upc') || value('ean_upc'),
       asin: value('asin') || value('amazon_item_id') || value('amazon_link') || value('amazon link')
     });
@@ -8822,21 +8825,57 @@ async function runGenericCsvImport({
         );
       const enriched = enrichmentResult.item;
       incrementImportEnrichmentCounter(summary.enrichment, enrichmentResult.enrichmentStatus);
-      const result = await upsertImportedMedia({
-        userId,
-        item: enriched,
-        importSource,
-        scopeContext,
-        identifiers: rowIdentifiers
-      });
+      const persistMetadata = async (upserted, client = pool) => {
+        if (!upserted.mediaId) return;
+        await upsertMediaMetadataEntry(upserted.mediaId, 'isbn', rowIdentifiers.isbn, client);
+        await upsertMediaMetadataEntry(upserted.mediaId, 'ean', rowIdentifiers.eanUpc, client);
+        await upsertMediaMetadataEntry(upserted.mediaId, 'ean_upc', rowIdentifiers.eanUpc, client);
+        await upsertMediaMetadataEntry(upserted.mediaId, 'amazon_item_id', rowIdentifiers.asin, client);
+        if (!authoritativeIdentitySession) {
+          await upsertMediaMetadataEntry(upserted.mediaId, 'provider_item_id', mapped.type_details?.provider_item_id || '', client);
+          await upsertMediaMetadataEntry(upserted.mediaId, 'provider_issue_id', mapped.type_details?.provider_issue_id || '', client);
+          await upsertMediaMetadataEntry(upserted.mediaId, 'calibre_entry_id', mapped.type_details?.calibre_entry_id || '', client);
+        }
+      };
+      let result;
+      if (authoritativeIdentitySession) {
+        const externalId = String(mapped.type_details?.provider_item_id || mapped.type_details?.calibre_entry_id || '').trim();
+        if (!externalId) {
+          const error = new Error('Provider import row is missing its authoritative external identity');
+          error.code = 'INVALID_EXTERNAL_IDENTITY';
+          throw error;
+        }
+        const reconciled = await authoritativeIdentitySession.reconcileItem({
+          externalId,
+          item: enriched,
+          sourceUrl: mapped.type_details?.provider_external_url || null
+        }, async ({ client, preferredMediaId, matchedBy }) => {
+          const upserted = await upsertImportedMedia({
+            userId,
+            item: enriched,
+            importSource,
+            scopeContext,
+            identifiers: rowIdentifiers,
+            client,
+            authoritativeProviderMode: true,
+            preferredMediaId,
+            preferredMatchedBy: matchedBy
+          });
+          await persistMetadata(upserted, client);
+          return upserted;
+        });
+        result = reconciled.value;
+      } else {
+        result = await upsertImportedMedia({
+          userId,
+          item: enriched,
+          importSource,
+          scopeContext,
+          identifiers: rowIdentifiers
+        });
+        await persistMetadata(result);
+      }
       if (result.mediaId) {
-        await upsertMediaMetadataEntry(result.mediaId, 'isbn', rowIdentifiers.isbn);
-        await upsertMediaMetadataEntry(result.mediaId, 'ean', rowIdentifiers.eanUpc);
-        await upsertMediaMetadataEntry(result.mediaId, 'ean_upc', rowIdentifiers.eanUpc);
-        await upsertMediaMetadataEntry(result.mediaId, 'amazon_item_id', rowIdentifiers.asin);
-        await upsertMediaMetadataEntry(result.mediaId, 'provider_item_id', mapped.type_details?.provider_item_id || '');
-        await upsertMediaMetadataEntry(result.mediaId, 'provider_issue_id', mapped.type_details?.provider_issue_id || '');
-        await upsertMediaMetadataEntry(result.mediaId, 'calibre_entry_id', mapped.type_details?.calibre_entry_id || '');
         if (collectionId) {
           const itemId = await addCollectionItem({
             collectionId,
@@ -13877,6 +13916,19 @@ router.post('/import-cwa', asyncHandler(async (req, res) => {
   };
 
   const runImport = async ({ onProgress = null, reviewContext = null } = {}) => {
+    const spaceId = Number(scopeContext?.spaceId || 0);
+    if (!Number.isInteger(spaceId) || spaceId <= 0) {
+      const error = new Error('CWA import requires an explicit workspace');
+      error.code = 'workspace_scope_required';
+      error.status = 400;
+      throw error;
+    }
+    const identitySession = await cwaImportIdentity.open({
+      spaceId,
+      libraryId: Number(scopeContext?.libraryId || 0) || null,
+      actorId: req.user.id,
+      endpointUrl: config.cwaOpdsUrl
+    });
     const fetched = await fetchCwaOpdsItems(config, { maxPages });
     const result = await runGenericCsvImport({
       rows: fetched.rows,
@@ -13884,7 +13936,8 @@ router.post('/import-cwa', asyncHandler(async (req, res) => {
       scopeContext,
       onProgress,
       importSource: 'cwa_opds',
-      reviewContext
+      reviewContext,
+      authoritativeIdentitySession: identitySession
     });
     const valuationRefresh = await queueImportedValuationRefresh({
       mediaIds: result.createdMediaIds,

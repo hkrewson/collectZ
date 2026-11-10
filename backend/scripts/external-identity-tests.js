@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 const { createProviderAdapterRegistry, identityNormalizers } = require('../services/providerAdapterRegistry');
 const { publicConnection } = require('../services/providerConnections');
 const {
+  CWA_INTEGRATION_KEY,
   METRON_INTEGRATION_KEY,
   createProviderIntegrationBindingService
 } = require('../services/providerIntegrationBindings');
@@ -13,6 +14,11 @@ const {
   buildMetronCompatibility,
   createMetronAdapterRegistry
 } = require('../services/metronIdentity');
+const {
+  buildCwaCanonicalFields,
+  buildCwaCompatibility,
+  createCwaAdapterRegistry
+} = require('../services/cwaIdentity');
 const {
   createExternalMediaIdentityService,
   publicIdentity,
@@ -98,7 +104,7 @@ test('Metron integration binding creates one stable connection through the calle
       if (sql.includes('pg_advisory_xact_lock')) return { rows: [{}] };
       if (sql.includes('FROM provider_integration_bindings b')) return { rows: [] };
       if (sql.includes('INSERT INTO provider_connections')) {
-        return { rows: [{ id: 'connection-1', provider_type: 'metron', status: 'active', endpoint_url: params[1] }] };
+        return { rows: [{ id: 'connection-1', provider_type: params[1], status: 'active', endpoint_url: params[3] }] };
       }
       if (sql.includes('INSERT INTO provider_integration_bindings')) {
         return { rows: [{ space_id: params[0], integration_key: params[1], provider_connection_id: params[2] }] };
@@ -144,6 +150,35 @@ test('Metron integration binding preserves lifecycle decisions instead of silent
   );
 });
 
+test('CWA integration binding creates one stable OPDS connection through the caller transaction', async () => {
+  const client = {
+    async query(sql, params) {
+      if (sql.includes('pg_advisory_xact_lock')) return { rows: [{}] };
+      if (sql.includes('FROM provider_integration_bindings b')) return { rows: [] };
+      if (sql.includes('INSERT INTO provider_connections')) {
+        return { rows: [{ id: 'cwa-connection', provider_type: params[1], status: 'active', endpoint_url: params[3] }] };
+      }
+      if (sql.includes('INSERT INTO provider_integration_bindings')) {
+        return { rows: [{ space_id: params[0], integration_key: params[1], provider_connection_id: params[2] }] };
+      }
+      throw new Error(`Unexpected query: ${sql}`);
+    }
+  };
+  const binding = await createProviderIntegrationBindingService({ pool: {} }).ensureCwaBinding({
+    spaceId: 7,
+    actorId: 9,
+    endpointUrl: 'https://cwa.example/opds/'
+  }, client);
+  assert.deepEqual(binding, {
+    spaceId: 7,
+    integrationKey: CWA_INTEGRATION_KEY,
+    providerConnectionId: 'cwa-connection',
+    providerType: 'cwa',
+    status: 'active',
+    endpointUrl: 'https://cwa.example/opds'
+  });
+});
+
 test('Metron adapter owns numeric issue identity and bounded canonical projections', () => {
   const registry = createMetronAdapterRegistry();
   assert.equal(registry.normalizeExternalId('metron', 'issue', '00042').normalizedExternalId, '42');
@@ -166,6 +201,33 @@ test('Metron adapter owns numeric issue identity and bounded canonical projectio
     'type_details.issue_number': '11'
   });
   assert.equal(Object.values(canonical).includes('42'), false);
+});
+
+test('CWA adapter preserves exact OPDS entry identity and bounded canonical projections', () => {
+  const registry = createCwaAdapterRegistry();
+  assert.equal(registry.normalizeExternalId('cwa', 'book', ' urn:uuid:Book-42 ').normalizedExternalId, 'urn:uuid:Book-42');
+  assert.deepEqual(buildCwaCompatibility('urn:uuid:Book-42'), {
+    typeDetails: {
+      provider_name: 'cwa_opds',
+      provider_item_id: 'urn:uuid:Book-42',
+      calibre_entry_id: 'urn:uuid:Book-42'
+    },
+    metadata: {
+      provider_item_id: 'urn:uuid:Book-42',
+      calibre_entry_id: 'urn:uuid:Book-42'
+    }
+  });
+  assert.deepEqual(buildCwaCanonicalFields({
+    title: 'Example Book',
+    media_type: 'book',
+    year: 2026,
+    type_details: { author: 'Example Author', isbn: '9781234567890', provider_item_id: 'urn:uuid:Book-42' }
+  }), {
+    'media.title': 'Example Book',
+    'media.year': 2026,
+    'type_details.author': 'Example Author',
+    'type_details.isbn': '9781234567890'
+  });
 });
 
 test('public external identity projection preserves raw identity and omits comparison internals', () => {

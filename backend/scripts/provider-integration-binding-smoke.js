@@ -48,6 +48,18 @@ async function main() {
       }, client);
       assert.equal(second.providerConnectionId, first.providerConnectionId);
       assert.equal(second.endpointUrl, 'https://metron.invalid/v2');
+      const cwaFirst = await service.ensureCwaBinding({
+        spaceId,
+        actorId,
+        endpointUrl: 'https://cwa.invalid/opds'
+      }, client);
+      const cwaSecond = await service.ensureCwaBinding({
+        spaceId,
+        actorId,
+        endpointUrl: 'https://cwa.invalid/opds/v2/'
+      }, client);
+      assert.equal(cwaSecond.providerConnectionId, cwaFirst.providerConnectionId);
+      assert.equal(cwaSecond.endpointUrl, 'https://cwa.invalid/opds/v2');
       const rows = await client.query(
         `SELECT b.provider_connection_id, c.provider_type, c.endpoint_url
            FROM provider_integration_bindings b
@@ -59,6 +71,17 @@ async function main() {
       assert.equal(rows.rowCount, 1);
       assert.equal(rows.rows[0].provider_type, 'metron');
       assert.equal(rows.rows[0].endpoint_url, 'https://metron.invalid/v2');
+      const cwaRows = await client.query(
+        `SELECT b.provider_connection_id, c.provider_type, c.endpoint_url
+           FROM provider_integration_bindings b
+           JOIN provider_connections c
+             ON c.space_id = b.space_id AND c.id = b.provider_connection_id
+          WHERE b.space_id = $1 AND b.integration_key = 'books.cwa_opds'`,
+        [spaceId]
+      );
+      assert.equal(cwaRows.rowCount, 1);
+      assert.equal(cwaRows.rows[0].provider_type, 'cwa');
+      assert.equal(cwaRows.rows[0].endpoint_url, 'https://cwa.invalid/opds/v2');
       throw new Error(ROLLBACK_PROBE);
     }),
     (error) => error.message === ROLLBACK_PROBE
