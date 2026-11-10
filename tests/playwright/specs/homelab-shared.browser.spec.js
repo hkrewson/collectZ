@@ -98,7 +98,7 @@ test.describe('homelab shared workflow regressions', () => {
       await barcodeApiUrlInput.fill(barcodeUrl);
 
       const saveIntegrationPromise = page.waitForResponse(
-        (response) => response.url().includes('/api/admin/settings/integrations') && response.request().method() === 'PUT'
+        (response) => /\/api\/spaces\/\d+\/integrations(?:\?|$)/.test(response.url()) && response.request().method() === 'PUT'
       );
       await page.getByRole('button', { name: 'Save BARCODE' }).click();
       const saveIntegrationResponse = await saveIntegrationPromise;

@@ -3210,7 +3210,7 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(openApiSource.includes('collectz.portability.csv.v1'));
   assert.ok(openApiSource.includes('text/csv'));
   assert.ok(openApiSource.includes('PortabilityStatusResponse'));
-  assert.ok(homelabSharedBrowserSpecSource.includes('/api/admin/settings/integrations'));
+  assert.ok(homelabSharedBrowserSpecSource.includes('spaces\\/\\d+\\/integrations'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/auth/config'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/auth/me'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('single_library_household'));
