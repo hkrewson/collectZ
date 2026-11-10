@@ -1,6 +1,7 @@
 'use strict';
 
 const http = require('http');
+const crypto = require('node:crypto');
 const bcrypt = require('bcrypt');
 const pool = require('../db/pool');
 const { encryptSecret } = require('../services/crypto');
@@ -122,7 +123,20 @@ async function cleanupTemporaryState({ userId, libraryId, spaceId }) {
     await pool.query('DELETE FROM spaces WHERE id = $1', [spaceId]).catch(() => {});
   }
   if (userId) {
-    await pool.query('DELETE FROM users WHERE id = $1', [userId]).catch(() => {});
+    try {
+      await pool.query('DELETE FROM users WHERE id = $1', [userId]);
+    } catch {
+      const retiredPasswordHash = await bcrypt.hash(crypto.randomBytes(48).toString('hex'), 12);
+      await pool.query(
+        `UPDATE users
+            SET email = $2,
+                password = $3,
+                name = 'Retired provider-family identity smoke actor',
+                role = 'user'
+          WHERE id = $1`,
+        [userId, `retired-provider-family-smoke-${userId}@example.invalid`, retiredPasswordHash]
+      ).catch(() => {});
+    }
   }
 }
 
@@ -215,7 +229,7 @@ async function fetchScopeContext(client) {
 async function main() {
   const suffix = Date.now();
   const email = `provider-family-cross-source-${suffix}@example.com`;
-  const password = 'Passw0rd!123';
+  const password = `Plex!${crypto.randomBytes(18).toString('base64url')}`;
   const client = new HttpClient('provider-family-cross-source-canonical-reuse-smoke');
   let userId = null;
   let libraryId = null;
@@ -225,7 +239,8 @@ async function main() {
   const canonicalTitle = 'Provider Family Cross Source Movie CSV Variant';
   const plexTitle = 'Provider Family Cross Source Movie';
   const year = 2022;
-  const tmdbId = 930001;
+  const tmdbId = crypto.randomInt(800000, 990000);
+  const ratingKey = String(crypto.randomInt(100000, 999999));
 
   try {
     fakePlex = await startFakePlexServer({
@@ -234,7 +249,8 @@ async function main() {
       year,
       tmdbId,
       runtimeMs: 7500000,
-      token: 'provider-family-cross-source-token'
+      token: `plex-provider-family-${crypto.randomBytes(18).toString('base64url')}`,
+      ratingKey
     });
 
     userId = await createDirectUser({
@@ -301,9 +317,9 @@ async function main() {
     assert(Number(canonicalRow?.id || 0) === canonicalId, 'Expected Plex sync to reuse the original canonical row');
     assert(String(canonicalRow?.title || '') === canonicalTitle, 'Expected canonical title variant to remain unchanged, proving TMDB-based reuse instead of title fallback');
     assert(Number(canonicalRow?.tmdb_id || 0) === tmdbId, 'Expected canonical TMDB id to remain stable');
-    assert(Number(canonicalRow?.runtime || 0) === 125, 'Expected canonical runtime to update from Plex payload');
+    assert(Number(canonicalRow?.runtime || 0) === 111, 'Expected uncontrolled existing runtime to survive Plex reconciliation');
     assert(String(canonicalRow?.import_source || '') === 'plex', 'Expected canonical import_source to update to plex');
-    assert(String(canonicalRow?.notes || '') === 'Imported from Plex section 1', 'Expected canonical notes to reflect Plex sync');
+    assert(String(canonicalRow?.notes || '') === 'Imported from CSV generic source', 'Expected existing canonical notes to survive Plex reconciliation');
     assert(String(canonicalRow?.network || '') === 'Provider Family Cross Source Studio', 'Expected canonical network to reflect Plex sync');
 
     const metadataRows = await pool.query(
@@ -314,6 +330,16 @@ async function main() {
       [canonicalId]
     );
     assert(metadataRows.rows.length === 2, 'Expected canonical row to store live Plex metadata after TMDB-based reuse');
+    const identityRows = await pool.query(
+      `SELECT emi.identity_kind, emi.media_id, pc.provider_type
+         FROM external_media_identities emi
+         JOIN provider_connections pc ON pc.id = emi.provider_connection_id AND pc.space_id = emi.space_id
+        WHERE emi.space_id = $1 AND emi.media_id = $2 AND emi.active`,
+      [spaceId, canonicalId]
+    );
+    assert(identityRows.rows.length === 1, `Expected one authoritative Plex identity: ${JSON.stringify(identityRows.rows)}`);
+    assert(identityRows.rows[0]?.identity_kind === 'guid', 'Expected Plex GUID to be authoritative when available');
+    assert(identityRows.rows[0]?.provider_type === 'plex', 'Expected authoritative identity to belong to Plex');
 
     console.log(JSON.stringify({
       canonicalId,
@@ -321,7 +347,7 @@ async function main() {
       updated: Number(summary.updated || 0),
       imported: Number(importResponse?.data?.imported || 0),
       matchedBy: 'provider_tmdb',
-      stableIdentity: 'tmdb_id',
+      stableIdentity: 'plex_guid',
       canonicalTitle: canonicalRow?.title || null,
       canonicalImportSource: canonicalRow?.import_source || null,
       scopedMovieCount: rows.length

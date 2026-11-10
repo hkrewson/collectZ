@@ -476,6 +476,9 @@ const metronAuthoritativeSyncSmokeSource = fs.readFileSync(require.resolve('../s
 const metronImportIdentitySource = fs.readFileSync(require.resolve('../services/metronImportIdentity'), 'utf8');
 const cwaAuthoritativeSyncSmokeSource = fs.readFileSync(require.resolve('../scripts/cwa-authoritative-sync-smoke'), 'utf8');
 const cwaImportIdentitySource = fs.readFileSync(require.resolve('../services/cwaImportIdentity'), 'utf8');
+const plexAuthoritativeSyncSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-authoritative-sync-smoke'), 'utf8');
+const plexImportIdentitySource = fs.readFileSync(require.resolve('../services/plexImportIdentity'), 'utf8');
+const plexIdentitySource = fs.readFileSync(require.resolve('../services/plexIdentity'), 'utf8');
 const providerIntegrationBindingsSource = fs.readFileSync(require.resolve('../services/providerIntegrationBindings'), 'utf8');
 const libraryLoanReminderWorkflowSmokeSource = fs.readFileSync(require.resolve('../scripts/library-loan-reminder-workflow-smoke'), 'utf8');
 const automaticLoanRemindersSmokeSource = fs.readFileSync(require.resolve('../scripts/automatic-loan-reminders-smoke'), 'utf8');
@@ -1706,10 +1709,11 @@ results.push(run('plex audio section import skips artist rows and keeps albums',
 }));
 
 results.push(run('plex audio import persists album details and Library renders them', () => {
-  assert.ok(mediaRoutesSource.includes('type_details = CASE'));
-  assert.ok(mediaRoutesSource.includes('COALESCE(type_details,'));
-  assert.ok(mediaRoutesSource.includes('media.type_details ? JSON.stringify(media.type_details) : null'));
-  assert.ok(mediaRoutesSource.includes('type_details, library_id, space_id, added_by, import_source'));
+  assert.ok(mediaRoutesSource.includes('plexIdentitySession.reconcileItem'));
+  assert.ok(plexImportIdentitySource.includes('buildPlexCanonicalFields(item)'));
+  assert.ok(plexIdentitySource.includes("['type_details.artist', details.artist]"));
+  assert.ok(plexIdentitySource.includes("['type_details.album', details.album]"));
+  assert.ok(plexIdentitySource.includes("['type_details.track_count', details.track_count]"));
   assert.ok(libraryViewSource.includes('const audioDetailRows = isAudio'));
   assert.ok(libraryViewSource.includes("['Album', typeDetails.album || item.title]"));
   assert.ok(libraryViewSource.includes("['Artist', typeDetails.artist]"));
@@ -1721,11 +1725,11 @@ results.push(run('plex audio import persists album details and Library renders t
 
 results.push(run('plex audio import repairs album titles only for strong Plex identity matches', () => {
   assert.ok(mediaRoutesSource.includes('function shouldRepairPlexAudioTitle(currentRow = {}, incomingMedia = {})'));
-  assert.ok(mediaRoutesSource.includes("existingMatchedBy === 'plex_guid' || existingMatchedBy === 'plex_item_key'"));
-  assert.ok(mediaRoutesSource.includes('title = CASE WHEN $21::boolean THEN $22 ELSE title END'));
-  assert.ok(mediaRoutesSource.includes('if (canRepairAudioTitle) audioTitlesRepaired += 1;'));
+  assert.ok(mediaRoutesSource.includes("['external_identity', 'legacy_plex_guid', 'legacy_plex_item', 'plex_item_key']"));
+  assert.ok(plexImportIdentitySource.includes('value?.adoptProviderTitle === true'));
+  assert.ok(mediaRoutesSource.includes('reconciled.value?.adoptProviderTitle'));
   assert.ok(mediaRoutesSource.includes('audioTitlesRepaired: result.audioTitlesRepaired'));
-  assert.ok(!mediaRoutesSource.includes("existingMatchedBy === 'title_year' && shouldRepairPlexAudioTitle"));
+  assert.ok(!mediaRoutesSource.includes("'title_year'].includes(existingMatchedBy)"));
 }));
 
 results.push(run('workspace activity can scope import logs by sync job and explicit scope details', () => {
@@ -3674,8 +3678,10 @@ results.push(run('repo includes provider-family cross-source canonical reuse smo
   assert.ok(providerFamilyCrossSourceCanonicalReuseSmokeSource.includes('/api/media/import-plex?sync=1'));
   assert.ok(providerFamilyCrossSourceCanonicalReuseSmokeSource.includes('Expected Plex sync to reuse the original canonical row'));
   assert.ok(providerFamilyCrossSourceCanonicalReuseSmokeSource.includes('Expected canonical title variant to remain unchanged, proving TMDB-based reuse instead of title fallback'));
+  assert.ok(providerFamilyCrossSourceCanonicalReuseSmokeSource.includes('Expected uncontrolled existing runtime to survive Plex reconciliation'));
+  assert.ok(providerFamilyCrossSourceCanonicalReuseSmokeSource.includes('Expected existing canonical notes to survive Plex reconciliation'));
   assert.ok(providerFamilyCrossSourceCanonicalReuseSmokeSource.includes("matchedBy: 'provider_tmdb'"));
-  assert.ok(providerFamilyCrossSourceCanonicalReuseSmokeSource.includes("stableIdentity: 'tmdb_id'"));
+  assert.ok(providerFamilyCrossSourceCanonicalReuseSmokeSource.includes("stableIdentity: 'plex_guid'"));
   assert.ok(providerFamilyCrossSourceCanonicalReuseSmokeSource.includes('scopedMovieCount'));
 }));
 
@@ -4278,6 +4284,17 @@ results.push(run('Plex settings establish a stable provider connection before au
   assert.ok(spaceIntegrationsRoutesSource.includes('providerIntegrationBindings.ensurePlexBinding'));
   assert.ok(providerIntegrationBindingsSource.includes("const PLEX_INTEGRATION_KEY = 'media.plex'"));
   assert.ok(providerIntegrationBindingsSource.includes('ensurePlexBinding'));
+}));
+
+results.push(run('Plex production import uses authoritative provider identity reconciliation', () => {
+  assert.ok(backendPackageJson.scripts['test:plex-authoritative-sync-smoke']);
+  assert.ok(mediaRoutesSource.includes('plexImportIdentity.open'));
+  assert.ok(mediaRoutesSource.includes('plexIdentitySession.reconcileItem'));
+  assert.ok(plexImportIdentitySource.includes('createExternalMediaIdentityService'));
+  assert.ok(plexImportIdentitySource.includes("'legacy_read_plex_guid'"));
+  assert.ok(plexImportIdentitySource.includes('setCanonicalFieldControl'));
+  assert.ok(plexAuthoritativeSyncSmokeSource.includes('locked-field preservation'));
+  assert.ok(plexAuthoritativeSyncSmokeSource.includes("matchedBy, 'external_identity'"));
 }));
 
 results.push(run('repo includes dry-run historical repair plan coverage for duplicate and type-repair reporting', () => {

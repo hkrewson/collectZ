@@ -162,6 +162,7 @@ const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
 const { isFeatureEnabledForSpace } = require('../services/featureFlags');
 const { createMetronImportIdentityModule } = require('../services/metronImportIdentity');
 const { createCwaImportIdentityModule } = require('../services/cwaImportIdentity');
+const { createPlexImportIdentityModule } = require('../services/plexImportIdentity');
 const { enforceScopeAccess } = require('../middleware/scopeAccess');
 const { ensureUserDefaultScope } = require('../services/libraries');
 const { refreshMediaValuation } = require('../services/valuations');
@@ -177,6 +178,7 @@ const { runManualMediaMergeApply, runManualMediaMergeRevert } = require('../scri
 const router = express.Router();
 const metronImportIdentity = createMetronImportIdentityModule({ pool });
 const cwaImportIdentity = createCwaImportIdentityModule({ pool });
+const plexImportIdentity = createPlexImportIdentityModule({ pool });
 
 const ALLOWED_COVER_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 
@@ -6246,9 +6248,9 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
     const isDerivedSeasonVariant = Number.isInteger(Number(variant.season_number)) && Number(variant.season_number) > 0;
     return hasStreamData || isDerivedSeasonVariant;
   };
-  const upsertMediaMetadata = async (mediaId, key, value) => {
+  const upsertMediaMetadata = async (mediaId, key, value, client = pool) => {
     if (!value) return;
-    await pool.query(
+    await client.query(
       `INSERT INTO media_metadata (media_id, "key", "value")
        VALUES ($1::int, $2::varchar, $3::text)
        ON CONFLICT (media_id, "key")
@@ -6515,6 +6517,12 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
   items = Array.isArray(itemsOverride)
     ? itemsOverride
     : await fetchPlexLibraryItems(config, sectionIds);
+  const plexIdentitySession = await plexImportIdentity.open({
+    spaceId: scopeContext?.spaceId,
+    libraryId: scopeContext?.libraryId,
+    actorId: req.user.id,
+    endpointUrl: config.plexApiUrl
+  });
   await updateProgress({
     total: items.length,
     processed: 0,
@@ -6636,273 +6644,194 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
         ...media,
         plex_rating_key: plexItemKey
       }, scopeContext);
-      await withDedupLock(dedupKey, async () => {
-        let existing = null;
-        let existingMatchedBy = null;
+      const reconciled = await withDedupLock(dedupKey, async () =>
+        plexIdentitySession.reconcileItem({ plexGuid, plexItemKey, item: media }, async ({
+          client,
+          identityKind,
+          preferredMediaId,
+          matchedBy
+        }) => {
+          let existing = null;
+          let existingMatchedBy = matchedBy;
+          if (preferredMediaId) {
+            const preferredParams = [preferredMediaId];
+            const preferredScopeClause = appendScopeSql(preferredParams, scopeContext, {
+              spaceColumn: 'm.space_id',
+              libraryColumn: 'm.library_id'
+            });
+            const preferred = await client.query(
+              `SELECT m.id, m.title, m.media_type, m.import_source, m.type_details, m.upc, m.tmdb_id
+                 FROM media m
+                WHERE m.id = $1${preferredScopeClause}
+                FOR UPDATE`,
+              preferredParams
+            );
+            if (!preferred.rows[0]) {
+              const error = new Error('Authoritative Plex target was not found in the import scope');
+              error.code = 'EXTERNAL_IDENTITY_TARGET_SCOPE_CONFLICT';
+              error.status = 409;
+              throw error;
+            }
+            existing = preferred.rows[0];
+          }
 
-        if (plexGuid) {
-          const plexGuidAliasKey = buildMediaIdentityAliasKey('plexGuid', plexGuid);
-          const byPlexGuidParams = [plexGuid];
-          const plexGuidAliasClause = appendMetadataKeyMatchSql(byPlexGuidParams, plexGuidAliasKey);
-          const byPlexGuidScopeClause = appendScopeSql(byPlexGuidParams, scopeContext, {
-            spaceColumn: 'm.space_id',
-            libraryColumn: 'm.library_id'
-          });
-          const byPlexGuid = await pool.query(
-            `SELECT m.id
-             FROM media m
-             JOIN media_metadata mm ON mm.media_id = m.id
-             WHERE ((mm."key" = 'plex_guid' AND mm."value" = $1)${plexGuidAliasClause})
-               ${byPlexGuidScopeClause}
-             ORDER BY m.created_at DESC
-             LIMIT 1`,
-            byPlexGuidParams
-          );
-          existing = byPlexGuid.rows[0] || null;
-          recordProviderIdentityCompatibilityEvent(
-            'plex',
-            'legacy_read_plex_guid',
-            existing ? 'matched' : 'missed'
-          );
-          if (existing) existingMatchedBy = 'plex_guid';
-        }
+          if (!existing && identityKind === 'guid' && (plexItemKey || rawPlexItemKey)) {
+            const candidates = [...new Set([plexItemKey, rawPlexItemKey].filter(Boolean))];
+            const aliasKeys = candidates.map((value) => buildMediaIdentityAliasKey('plexItemKey', value)).filter(Boolean);
+            const params = [candidates];
+            const aliasClause = appendMetadataKeyAnySql(params, aliasKeys);
+            const scopeClause = appendScopeSql(params, scopeContext, {
+              spaceColumn: 'm.space_id',
+              libraryColumn: 'm.library_id'
+            });
+            const byItemKey = await client.query(
+              `SELECT m.id, m.title, m.media_type, m.import_source, m.type_details, m.upc, m.tmdb_id
+                 FROM media m
+                 JOIN media_metadata mm ON mm.media_id = m.id
+                WHERE ((mm."key" = 'plex_item_key' AND mm."value" = ANY($1::text[]))${aliasClause})
+                  ${scopeClause}
+                ORDER BY m.created_at DESC
+                LIMIT 1`,
+              params
+            );
+            existing = byItemKey.rows[0] || null;
+            recordProviderIdentityCompatibilityEvent('plex', 'legacy_read_plex_item', existing ? 'matched' : 'missed');
+            if (existing) existingMatchedBy = 'plex_item_key';
+          }
 
-        if (!existing && (plexItemKey || rawPlexItemKey)) {
-          const byPlexItemKeyCandidates = [...new Set([plexItemKey, rawPlexItemKey].filter(Boolean))];
-          const byPlexItemKeyAliasKeys = byPlexItemKeyCandidates
-            .map((value) => buildMediaIdentityAliasKey('plexItemKey', value))
-            .filter(Boolean);
-          const byPlexItemKeyParams = [byPlexItemKeyCandidates];
-          const byPlexItemKeyAliasClause = appendMetadataKeyAnySql(byPlexItemKeyParams, byPlexItemKeyAliasKeys);
-          const byPlexItemKeyScopeClause = appendScopeSql(byPlexItemKeyParams, scopeContext, {
-            spaceColumn: 'm.space_id',
-            libraryColumn: 'm.library_id'
-          });
-          const byPlexItemKey = await pool.query(
-            `SELECT m.id
-             FROM media m
-             JOIN media_metadata mm ON mm.media_id = m.id
-             WHERE ((mm."key" = 'plex_item_key' AND mm."value" = ANY($1::text[]))${byPlexItemKeyAliasClause})
-               ${byPlexItemKeyScopeClause}
-             ORDER BY m.created_at DESC
-             LIMIT 1`,
-            byPlexItemKeyParams
-          );
-          existing = byPlexItemKey.rows[0] || null;
-          recordProviderIdentityCompatibilityEvent(
-            'plex',
-            'legacy_read_plex_item',
-            existing ? 'matched' : 'missed'
-          );
-          if (existing) existingMatchedBy = 'plex_item_key';
-        }
+          if (!existing && media.tmdb_id) {
+            const params = [
+              media.tmdb_id,
+              media.tmdb_media_type || 'movie',
+              normalizeMediaType(media.media_type || 'movie', 'movie')
+            ];
+            const scopeClause = appendScopeSql(params, scopeContext);
+            const byTmdb = await client.query(
+              `SELECT id, title, media_type, import_source, type_details, upc, tmdb_id
+                 FROM media
+                WHERE tmdb_id = $1
+                  AND COALESCE(tmdb_media_type, 'movie') = COALESCE($2, COALESCE(tmdb_media_type, 'movie'))
+                  AND COALESCE(media_type, 'movie') = $3
+                  ${scopeClause}
+                LIMIT 1`,
+              params
+            );
+            existing = byTmdb.rows[0] || null;
+            if (existing) existingMatchedBy = 'tmdb_id';
+          }
 
-        if (!existing && media.tmdb_id) {
-          const byTmdbParams = [media.tmdb_id, media.tmdb_media_type || 'movie'];
-          const byTmdbScopeClause = appendScopeSql(byTmdbParams, scopeContext);
-          const byTmdb = await pool.query(
-            `SELECT id
-             FROM media
-             WHERE tmdb_id = $1
-               AND COALESCE(tmdb_media_type, 'movie') = COALESCE($2, COALESCE(tmdb_media_type, 'movie'))
-               ${byTmdbScopeClause}
-             LIMIT 1`,
-            byTmdbParams
-          );
-          existing = byTmdb.rows[0] || null;
-          if (existing) existingMatchedBy = 'tmdb_id';
-        }
+          if (!existing) {
+            const params = [
+              media.title,
+              media.year || null,
+              normalizeMediaType(media.media_type || 'movie', 'movie')
+            ];
+            const scopeClause = appendScopeSql(params, scopeContext);
+            const byTitleYear = await client.query(
+              `SELECT id, title, media_type, import_source, type_details, upc, tmdb_id
+                 FROM media
+                WHERE LOWER(TRIM(title)) = LOWER(TRIM($1))
+                  AND (($2::int IS NOT NULL AND year = $2::int) OR $2::int IS NULL)
+                  AND COALESCE(media_type, 'movie') = $3
+                  ${scopeClause}
+                ORDER BY created_at DESC
+                LIMIT 5`,
+              params
+            );
+            existing = (byTitleYear.rows || []).find((candidate) => {
+              const conflicts = assessTitleFallbackStrongIdentifierConflicts({
+                item: media,
+                normalizedTypeDetails: media.type_details,
+                resolvedIdentifiers: { isbn: '', eanUpc: '', asin: '' },
+                candidateRow: candidate
+              });
+              return conflicts.length === 0;
+            }) || null;
+            if (existing) existingMatchedBy = 'title_year';
+          }
 
-        if (!existing) {
-        const byTitleYearParams = [media.title, media.year || null];
-        const byTitleYearScopeClause = appendScopeSql(byTitleYearParams, scopeContext);
-        const byTitleYear = await pool.query(
-          `SELECT id, title, media_type, type_details, upc, tmdb_id
-           FROM media
-           WHERE LOWER(TRIM(title)) = LOWER(TRIM($1))
-             AND (
-               ($2::int IS NOT NULL AND year = $2::int)
-               OR ($2::int IS NULL)
+          const ownedFormatState = buildOwnedFormatsPayload(media.media_type || 'movie', media.owned_formats, media.format);
+          if (existing) {
+            const adoptProviderTitle = ['external_identity', 'legacy_plex_guid', 'legacy_plex_item', 'plex_item_key']
+              .includes(existingMatchedBy)
+              && shouldRepairPlexAudioTitle(existing, media);
+            const updateParams = [
+              ownedFormatState.ownedFormats,
+              `Imported from Plex section ${item.sectionId}`,
+              existing.id
+            ];
+            const updateScopeClause = appendScopeSql(updateParams, scopeContext);
+            const updated = await client.query(
+              `UPDATE media
+                  SET owned_formats = COALESCE($1::text[], owned_formats),
+                      notes = COALESCE(notes, $2),
+                      import_source = 'plex'
+                WHERE id = $3${updateScopeClause}
+                RETURNING id`,
+              updateParams
+            );
+            if (!updated.rows[0]) throw new Error('Plex canonical update target was not found');
+            if (identityKind !== 'guid') await upsertMediaMetadata(existing.id, 'plex_guid', plexGuid, client);
+            if (identityKind !== 'item') await upsertMediaMetadata(existing.id, 'plex_item_key', plexItemKey, client);
+            await upsertMediaMetadata(existing.id, 'plex_section_id', item.sectionId, client);
+            return { type: 'updated', mediaId: existing.id, adoptProviderTitle };
+          }
+
+          const inserted = await client.query(
+            `INSERT INTO media (
+               title, owned_formats, media_type, notes, library_id, space_id, added_by, import_source
+             ) VALUES (
+               $1,$2::text[],$3,$4,$5,$6,$7,'plex'
              )
-             ${byTitleYearScopeClause}
-           ORDER BY created_at DESC
-           LIMIT 5`,
-          byTitleYearParams
-        );
-        const titleFallbackCandidates = byTitleYear.rows || [];
-        const safeTitleFallbackCandidate = titleFallbackCandidates.find((candidate) => {
-          const conflicts = assessTitleFallbackStrongIdentifierConflicts({
-            item: media,
-            normalizedTypeDetails: media.type_details,
-            resolvedIdentifiers: { isbn: '', eanUpc: '', asin: '' },
-            candidateRow: candidate
-          });
-          return conflicts.length === 0;
-        }) || null;
-          existing = safeTitleFallbackCandidate || null;
-          if (existing) existingMatchedBy = 'title_year';
-        }
+             RETURNING id`,
+            [
+              media.title,
+              ownedFormatState.ownedFormats,
+              normalizeMediaType(media.media_type || 'movie', 'movie'),
+              `Imported from Plex section ${item.sectionId}`,
+              scopeContext.libraryId,
+              scopeContext.spaceId,
+              req.user.id
+            ]
+          );
+          const insertedId = inserted.rows[0]?.id;
+          if (!insertedId) throw new Error('Plex canonical insert did not return an id');
+          if (identityKind !== 'guid') await upsertMediaMetadata(insertedId, 'plex_guid', plexGuid, client);
+          if (identityKind !== 'item') await upsertMediaMetadata(insertedId, 'plex_item_key', plexItemKey, client);
+          await upsertMediaMetadata(insertedId, 'plex_section_id', item.sectionId, client);
+          return { type: 'created', mediaId: insertedId };
+        })
+      );
 
-        if (existing) {
-        const currentRowResult = await pool.query(
-          'SELECT title, media_type, import_source, type_details FROM media WHERE id = $1 LIMIT 1',
-          [existing.id]
-        );
-        const currentRow = currentRowResult.rows[0] || {};
-        const canRepairAudioTitle = (existingMatchedBy === 'plex_guid' || existingMatchedBy === 'plex_item_key')
-          && shouldRepairPlexAudioTitle(currentRow, media);
-        const ownedFormatState = buildOwnedFormatsPayload(media.media_type || 'movie', media.owned_formats, media.format);
-        const updateParams = [
-          media.original_title,
-          media.release_date,
-          media.year,
-          ownedFormatState.format,
-          ownedFormatState.ownedFormats,
-          media.director,
-          media.cast,
-          media.rating,
-          media.runtime,
-          media.poster_path,
-          media.backdrop_path,
-          media.overview,
-          media.tmdb_id,
-          media.tmdb_media_type || 'movie',
-          media.tmdb_url,
-          normalizeMediaType(media.media_type || 'movie', 'movie'),
-          media.network,
-          `Imported from Plex section ${item.sectionId}`,
-          existing.id,
-          media.type_details ? JSON.stringify(media.type_details) : null,
-          canRepairAudioTitle,
-          media.title || null
-        ];
-        const updateScopeClause = appendScopeSql(updateParams, scopeContext);
-        await pool.query(
-          `UPDATE media SET
-           title = CASE WHEN $21::boolean THEN $22 ELSE title END,
-           original_title = COALESCE($1, original_title),
-           release_date = COALESCE($2, release_date),
-           year = COALESCE($3, year),
-           format = COALESCE($4, format),
-           owned_formats = COALESCE($5::text[], owned_formats),
-           director = COALESCE($6, director),
-           cast_members = COALESCE($7, cast_members),
-           rating = COALESCE($8, rating),
-           runtime = COALESCE($9, runtime),
-           poster_path = COALESCE($10, poster_path),
-           backdrop_path = COALESCE($11, backdrop_path),
-           overview = COALESCE($12, overview),
-           tmdb_id = COALESCE($13, tmdb_id),
-           tmdb_media_type = COALESCE($14, tmdb_media_type),
-           tmdb_url = COALESCE($15, tmdb_url),
-           media_type = COALESCE($16, media_type),
-           network = COALESCE($17, network),
-           notes = COALESCE($18, notes),
-           type_details = CASE
-             WHEN $20::jsonb IS NULL THEN type_details
-             ELSE COALESCE(type_details, '{}'::jsonb) || $20::jsonb
-           END,
-           import_source = 'plex'
-           WHERE id = $19${updateScopeClause}
-           RETURNING id, genre, director, cast_members AS cast`,
-          updateParams
-        );
-        if (canRepairAudioTitle) audioTitlesRepaired += 1;
-        const refreshed = await pool.query('SELECT id, genre, director, cast_members AS cast FROM media WHERE id = $1', [existing.id]);
-        const updatedRow = refreshed.rows[0] || { id: existing.id, genre: null, director: media.director || null, cast: media.cast || null };
-        await syncNormalizedMetadataForMedia({
-          mediaId: updatedRow.id,
-          genre: updatedRow.genre,
-          director: updatedRow.director,
-          cast: updatedRow.cast
-        });
-        await upsertMediaMetadata(existing.id, 'plex_guid', plexGuid);
-        await upsertMediaMetadata(existing.id, 'plex_item_key', plexItemKey);
-        await upsertMediaMetadata(existing.id, 'plex_section_id', item.sectionId);
-        if (shouldPersistVariant(media.media_type, item.variant)) {
-          await upsertMediaVariant(existing.id, item.variant);
-        }
-        await upsertMediaSeason(existing.id, media, item.variant);
+      const mediaId = reconciled.mediaId;
+      if (reconciled.value?.type === 'created') {
+        createdMediaIds.push(mediaId);
+        summary.created += 1;
+      } else {
+        summary.updated += 1;
+      }
+      if (reconciled.value?.adoptProviderTitle && reconciled.canonicalFields.applied.some(({ fieldPath }) => fieldPath === 'media.title')) {
+        audioTitlesRepaired += 1;
+      }
+      try {
+        if (shouldPersistVariant(media.media_type, item.variant)) await upsertMediaVariant(mediaId, item.variant);
+        await upsertMediaSeason(mediaId, media, item.variant);
         if (String(item.raw?.type || '').toLowerCase() === 'show') {
-          await upsertPlexShowSeasons(existing.id, item.sectionId, plexRatingKey);
+          await upsertPlexShowSeasons(mediaId, item.sectionId, plexRatingKey);
         }
-        await hydrateTmdbSeasonExpectedCounts(existing.id, media.tmdb_id, {
+        await hydrateTmdbSeasonExpectedCounts(mediaId, media.tmdb_id, {
           title: media.title,
           year: media.year,
           mediaType: media.media_type,
           tmdbMediaType: media.tmdb_media_type
         });
-          recordProviderIdentityCompatibilityEvent('plex', 'legacy_write', 'updated');
-          summary.updated += 1;
-        } else {
-        const ownedFormatState = buildOwnedFormatsPayload(media.media_type || 'movie', media.owned_formats, media.format);
-        const inserted = await pool.query(
-          `INSERT INTO media (
-             title, original_title, release_date, year, format, owned_formats, director, cast_members, rating,
-             runtime, poster_path, backdrop_path, overview, tmdb_id, tmdb_media_type, tmdb_url, media_type, network, notes,
-             type_details, library_id, space_id, added_by, import_source
-           ) VALUES (
-             $1,$2,$3,$4,$5,$6::text[],$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20::jsonb,$21,$22,$23,$24
-           )
-           RETURNING id, genre, director, cast_members AS cast`,
-          [
-            media.title,
-            media.original_title,
-            media.release_date,
-            media.year,
-            ownedFormatState.format || 'Digital',
-            ownedFormatState.ownedFormats,
-            media.director,
-            media.cast,
-            media.rating,
-            media.runtime,
-            media.poster_path,
-            media.backdrop_path,
-            media.overview,
-            media.tmdb_id,
-            media.tmdb_media_type || 'movie',
-            media.tmdb_url,
-            normalizeMediaType(media.media_type || 'movie', 'movie'),
-            media.network,
-            `Imported from Plex section ${item.sectionId}`,
-            media.type_details ? JSON.stringify(media.type_details) : null,
-            scopeContext.libraryId || null,
-            scopeContext.spaceId || null,
-            req.user.id,
-            'plex'
-          ]
-        );
-          const insertedRow = inserted.rows[0] || null;
-          const insertedId = insertedRow?.id;
-          if (insertedId) {
-          createdMediaIds.push(insertedId);
-          await syncNormalizedMetadataForMedia({
-            mediaId: insertedId,
-            genre: insertedRow.genre,
-            director: insertedRow.director,
-            cast: insertedRow.cast
-          });
-          await upsertMediaMetadata(insertedId, 'plex_guid', plexGuid);
-          await upsertMediaMetadata(insertedId, 'plex_item_key', plexItemKey);
-          await upsertMediaMetadata(insertedId, 'plex_section_id', item.sectionId);
-          if (shouldPersistVariant(media.media_type, item.variant)) {
-            await upsertMediaVariant(insertedId, item.variant);
-          }
-          await upsertMediaSeason(insertedId, media, item.variant);
-          if (String(item.raw?.type || '').toLowerCase() === 'show') {
-            await upsertPlexShowSeasons(insertedId, item.sectionId, plexRatingKey);
-          }
-          await hydrateTmdbSeasonExpectedCounts(insertedId, media.tmdb_id, {
-            title: media.title,
-            year: media.year,
-            mediaType: media.media_type,
-            tmdbMediaType: media.tmdb_media_type
-          });
-          }
-          recordProviderIdentityCompatibilityEvent('plex', 'legacy_write', 'created');
-          summary.created += 1;
-        }
-      });
+      } catch (error) {
+        summary.enrichmentErrors.push({
+          title: media.title,
+          type: 'plex_ancillary_persistence',
+          detail: error.message || 'Plex ancillary persistence failed'
+        });
+      }
     } catch (error) {
       summary.errors.push({ title: media.title, detail: error.message });
     }

@@ -144,7 +144,7 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 ## 3.27.3 — Provider Identity Dual-Write, Matching, and Merge Integration
 
 **Goal:** Make the external-identity registry authoritative for repeat sync and merge behavior while preserving compatibility with existing provider fields during migration.
-**Status:** Active after the hosted `3.27.2` closeout. Identity lifecycle, authoritative reconciliation, fail-closed backfill execution, canonical field precedence, Metron/CWA production-flow adoption, and the stable Plex connection binding are implemented; remaining provider adoption, compatibility cutover diagnostics, and version closeout remain.
+**Status:** Active after the hosted `3.27.2` closeout. Identity lifecycle, authoritative reconciliation, fail-closed backfill execution, canonical field precedence, and Metron/CWA/Plex production-flow adoption are implemented; compatibility cutover diagnostics and version closeout remain.
 
 ### Scope
 
@@ -185,7 +185,7 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 - Migration `133` adds an explicit workspace integration-to-Provider Connection relation. Saving the legacy Metron comics slot now creates or updates one stable connection UUID in the same authorized transaction, refuses inactive or wrong-provider bindings, and leaves credentials in the existing encrypted store until the Metron import path adopts authoritative reconciliation.
 - Metron collection import now resolves numeric issue ids through the bound Provider Connection and authoritative workspace/connection/kind/id tuple. New and legacy-adopted rows attach the identity, canonical field decisions, normalized ownership, and compatibility projections in one transaction; repeat sync refreshes only provider-controlled fields, preserves uncontrolled/manual/reviewed/locked values, and no longer trusts unscoped `provider_issue_id` matching. The merge/re-sync regression now seeds an authoritative identity before merge and proves the HTTP import returns to the surviving canonical object without creating another comic.
 - CWA OPDS import now binds the existing workspace integration slot to one stable CWA Provider Connection and resolves its established OPDS identifier through the authoritative workspace/connection/kind/id tuple. Canonical fields, provider browse/download links, bibliographic metadata, ownership, and compatibility ids reconcile transactionally; repeat sync preserves manual/locked values and the live HTTP regression creates one canonical book across two imports. The existing CWA identifier contract remains unchanged in this slice so BookOrbit can introduce its distinct Atom entry-id contract explicitly in `3.27.4` without silently migrating CWA identities.
-- Saving Plex workspace settings now binds the legacy Plex integration slot to one stable Plex Provider Connection and updates endpoint changes on that same UUID while respecting disabled/archived lifecycle state. This is intentionally separated from Plex item reconciliation: its variants, seasons, watch-state, ratings, and webhook paths require a bounded per-item transaction interface rather than one database transaction around provider network traversal.
+- Saving Plex workspace settings binds the legacy Plex integration slot to one stable Plex Provider Connection and updates endpoint changes on that same UUID while respecting disabled/archived lifecycle state. Plex import now prefers the server-scoped GUID identity and falls back to the section/item key when no GUID exists; it resolves or adopts that identity before TMDB/title reuse and commits the canonical target, compatibility projection, and field-precedence decisions in one bounded per-item transaction. Provider traversal and ancillary variant, season, watch-state, rating, and webhook work remain outside the identity transaction. Repeat sync refreshes provider-controlled fields, preserves uncontrolled existing/manual/reviewed/locked values, and the rollback runtime proof verifies stable resolution without retaining fixture state.
 - Focused module tests and a rollback-only canonical-stack smoke prove merge, revert, conflict refusal, numeric-reference cleanup, durable public UUID evidence, and Canonical UUID restoration. Existing external-identity certification and manual merge/revert/scope-isolation smokes remain green.
 
 ---
@@ -226,14 +226,14 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 
 ## 3.27.5 — Existing Digital-Library Provider Identity Adoption
 
-**Goal:** Move CWA/Calibre and Kavita onto the authoritative provider-identity module, then extract only the shared digital-library mechanics proven by BookOrbit and the existing providers.
+**Goal:** Move Kavita onto the authoritative provider-identity module, certify the already-adopted CWA/Calibre path, then extract only the shared digital-library mechanics proven by BookOrbit and the existing providers.
 **Status:** Planned ahead; inactive until `3.27.4` closes.
 
 ### Scope
 
-- Adopt provider-connection-scoped external identities for CWA/Calibre and Kavita while retaining their provider-specific route names, settings, UI, smoke tests, links, cover behavior, reader/progress behavior, and writeback semantics.
+- Adopt provider-connection-scoped external identities for Kavita and certify the existing CWA/Calibre authoritative path while retaining provider-specific route names, settings, UI, smoke tests, links, cover behavior, reader/progress behavior, and writeback semantics.
 - Backfill stable CWA/Calibre and Kavita identities only where provider connection and identity kind are unambiguous.
-- Materialize stable provider-connection records from existing CWA/Calibre and Kavita configuration without deleting or mutating legacy configuration until migration readback, rollback, and restore evidence passes.
+- Materialize stable provider-connection records from existing Kavita configuration and certify the existing CWA/Calibre binding without deleting or mutating legacy configuration until migration readback, rollback, and restore evidence passes.
 - Preserve Kavita series/chapter distinctions and stop relying on string prefixes alone as the database uniqueness guarantee.
 - Extract the smallest proven shared helpers for identity payloads, source/download/reader links, cover references, credential redaction, repeat-sync results, and conflict diagnostics.
 - Document every intentional provider exception; do not flatten BookOrbit, CWA/Calibre, and Kavita into one generic domain model.

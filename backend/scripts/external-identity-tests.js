@@ -21,6 +21,12 @@ const {
   createCwaAdapterRegistry
 } = require('../services/cwaIdentity');
 const {
+  buildPlexCanonicalFields,
+  buildPlexCompatibility,
+  createPlexAdapterRegistry,
+  selectPlexIdentity
+} = require('../services/plexIdentity');
+const {
   createExternalMediaIdentityService,
   publicIdentity,
   reassignMediaIdentitiesForMerge,
@@ -257,6 +263,36 @@ test('CWA adapter preserves exact OPDS entry identity and bounded canonical proj
     'media.year': 2026,
     'type_details.author': 'Example Author',
     'type_details.isbn': '9781234567890'
+  });
+});
+
+test('Plex adapter prefers GUID identity and keeps compatibility projections identity-exact', () => {
+  const registry = createPlexAdapterRegistry();
+  assert.deepEqual(selectPlexIdentity({ plexGuid: ' plex://movie/42 ', plexItemKey: '1:42' }), {
+    identityKind: 'guid', externalId: 'plex://movie/42'
+  });
+  assert.deepEqual(selectPlexIdentity({ plexItemKey: '1:42' }), {
+    identityKind: 'item', externalId: '1:42'
+  });
+  assert.equal(registry.normalizeExternalId('plex', 'guid', ' plex://movie/42 ').normalizedExternalId, 'plex://movie/42');
+  assert.deepEqual(buildPlexCompatibility('guid', 'plex://movie/42'), {
+    metadata: { plex_guid: 'plex://movie/42' }
+  });
+  assert.deepEqual(buildPlexCompatibility('item', '1:42'), {
+    metadata: { plex_item_key: '1:42' }
+  });
+  assert.deepEqual(buildPlexCanonicalFields({
+    title: 'Example Album',
+    media_type: 'audio',
+    year: 2026,
+    plex_guid: 'plex://album/42',
+    type_details: { artist: 'Example Artist', album: 'Example Album', track_count: 12 }
+  }), {
+    'media.title': 'Example Album',
+    'media.year': 2026,
+    'type_details.artist': 'Example Artist',
+    'type_details.album': 'Example Album',
+    'type_details.track_count': 12
   });
 });
 
