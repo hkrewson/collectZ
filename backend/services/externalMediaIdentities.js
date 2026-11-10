@@ -3,6 +3,7 @@
 const { withAuthorizedScopeTransaction } = require('../db/scopeBroker');
 const { normalizeTrustedConnectorHttpUrl } = require('./outboundUrlPolicy');
 const { applyCompatibilityProjection } = require('./providerIdentityCompatibility');
+const { recordProviderIdentityCompatibilityEvent } = require('./metrics');
 const { applyProviderFieldUpdates } = require('./canonicalMediaFieldControls');
 
 function positiveInteger(value, label) {
@@ -26,7 +27,7 @@ function safeSourceUrl(value) {
   return normalized;
 }
 
-function publicIdentity(row) {
+function publicIdentity(row, providerType = null) {
   if (!row) return null;
   return {
     id: row.id,
@@ -39,7 +40,8 @@ function publicIdentity(row) {
     firstSeenAt: row.first_seen_at,
     lastSeenAt: row.last_seen_at,
     active: row.active,
-    deactivatedAt: row.deactivated_at
+    deactivatedAt: row.deactivated_at,
+    ...(providerType ? { providerType } : {})
   };
 }
 
@@ -240,7 +242,7 @@ function createExternalMediaIdentityService({ pool, adapterRegistry } = {}) {
           LIMIT 1`,
         [workspaceId, connectionId, identity.identityKind, identity.normalizedExternalId, Boolean(includeInactive)]
       );
-      return publicIdentity(result.rows[0]);
+      return publicIdentity(result.rows[0], identity.providerType);
     });
   }
 
@@ -268,7 +270,7 @@ function createExternalMediaIdentityService({ pool, adapterRegistry } = {}) {
           [workspaceId, active.id, normalizedSourceUrl, identity.rawExternalId, actorId]
         );
         await identityEvent(client, { spaceId: workspaceId, identityId: active.id, type: 'observed', fromMediaId: targetMediaId, toMediaId: targetMediaId, actorId });
-        return publicIdentity(observed.rows[0]);
+        return publicIdentity(observed.rows[0], identity.providerType);
       }
 
       const inactiveResult = await client.query(
@@ -291,7 +293,7 @@ function createExternalMediaIdentityService({ pool, adapterRegistry } = {}) {
             [workspaceId, inactive.id, targetMediaId, normalizedSourceUrl, identity.rawExternalId, actorId]
           );
           await identityEvent(client, { spaceId: workspaceId, identityId: inactive.id, type: 'reactivated', fromMediaId: inactive.media_id, toMediaId: targetMediaId, actorId });
-          return publicIdentity(reactivated.rows[0]);
+          return publicIdentity(reactivated.rows[0], identity.providerType);
         } catch (error) {
           if (error.code === '23505') throw conflictError();
           throw error;
@@ -312,7 +314,7 @@ function createExternalMediaIdentityService({ pool, adapterRegistry } = {}) {
         );
         if (inserted.rows[0]) {
           await identityEvent(client, { spaceId: workspaceId, identityId: inserted.rows[0].id, type: 'attached', toMediaId: targetMediaId, actorId });
-          return publicIdentity(inserted.rows[0]);
+          return publicIdentity(inserted.rows[0], identity.providerType);
         }
         const winner = await client.query(
           `SELECT * FROM external_media_identities
@@ -321,7 +323,7 @@ function createExternalMediaIdentityService({ pool, adapterRegistry } = {}) {
           [workspaceId, connectionId, identity.identityKind, identity.normalizedExternalId]
         );
         if (Number(winner.rows[0]?.media_id) !== targetMediaId) throw conflictError();
-        return publicIdentity(winner.rows[0]);
+        return publicIdentity(winner.rows[0], identity.providerType);
       } catch (error) {
         if (error.code === '23505') throw conflictError();
         throw error;
@@ -420,12 +422,29 @@ function createExternalMediaIdentityService({ pool, adapterRegistry } = {}) {
             candidates: canonicalFields
           })
         : { applied: [], observed: [], skipped: [] };
-      const projection = await applyCompatibilityProjection(client, {
-        spaceId: workspaceId,
-        mediaId,
-        externalId,
-        projection: compatibility
-      });
+      let projection;
+      try {
+        projection = await applyCompatibilityProjection(client, {
+          spaceId: workspaceId,
+          mediaId,
+          externalId,
+          projection: compatibility
+        });
+      } catch (error) {
+        if (error?.code === 'EXTERNAL_IDENTITY_COMPATIBILITY_CONFLICT') {
+          recordProviderIdentityCompatibilityEvent(
+            identity.providerType,
+            'authoritative_projection',
+            'conflict'
+          );
+        }
+        throw error;
+      }
+      recordProviderIdentityCompatibilityEvent(
+        identity.providerType,
+        'authoritative_projection',
+        projection.written > 0 ? 'written' : 'aligned'
+      );
       return {
         mediaId,
         identity,

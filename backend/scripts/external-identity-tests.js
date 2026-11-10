@@ -27,6 +27,10 @@ const {
   normalizeControl,
   decideProviderFieldUpdate
 } = require('../services/canonicalMediaFieldControls');
+const {
+  recordProviderIdentityCompatibilityEvent,
+  getMetricCounterValue
+} = require('../services/metrics');
 
 function adapter() {
   return {
@@ -129,6 +133,17 @@ test('compatibility comparison fills missing fields and reports conflicting lega
   assert.deepEqual(comparison.conflicts.map(({ storage, key }) => ({ storage, key })), [
     { storage: 'type_details', key: 'provider_item_id' }
   ]);
+});
+
+test('provider identity compatibility telemetry is bounded and contains no external ids', () => {
+  recordProviderIdentityCompatibilityEvent('metron', 'legacy_read_provider_issue', 'matched');
+  recordProviderIdentityCompatibilityEvent('untrusted-provider:book:42', 'legacy_write', 'created');
+  assert.equal(getMetricCounterValue('providerIdentityCompatibility', {
+    provider: 'metron', operation: 'legacy_read_provider_issue', outcome: 'matched'
+  }), 1);
+  assert.equal(getMetricCounterValue('providerIdentityCompatibility', {
+    provider: 'unknown', operation: 'legacy_write', outcome: 'created'
+  }), 1);
 });
 
 test('canonical field precedence preserves uncontrolled, manual, reviewed, and locked values by default', () => {

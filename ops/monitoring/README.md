@@ -115,6 +115,7 @@ Example symptoms of a stale backend image:
 
 - `collectz_import_jobs_total` shows `plex` or `metron` but not `csv_delicious`
 - `collectz_provider_requests_total` is absent even though TMDB/Plex/Metron activity occurred
+- `collectz_provider_identity_compatibility_total` is absent even though a provider-id import or authoritative reconciliation ran
 
 When that happens, rebuild and restart the backend container before tuning dashboards or alerts.
 

@@ -5892,6 +5892,7 @@ results.push(run('observability dashboard uses ratio and provider outcome panels
   const trackedRatioPanel = dashboardSpec.panels.find((panel) => panel.id === 14);
   const topProviderErrorsPanel = dashboardSpec.panels.find((panel) => panel.id === 15);
   const providerRequestPanel = dashboardSpec.panels.find((panel) => panel.id === 16);
+  const providerIdentityCompatibilityPanel = dashboardSpec.panels.find((panel) => panel.id === 18);
 
   assert.ok(importOutcomesPanel);
   assert.ok(enrichmentPanel);
@@ -5899,12 +5900,14 @@ results.push(run('observability dashboard uses ratio and provider outcome panels
   assert.ok(trackedRatioPanel);
   assert.ok(topProviderErrorsPanel);
   assert.ok(providerRequestPanel);
+  assert.ok(providerIdentityCompatibilityPanel);
   assert.strictEqual(importOutcomesPanel.targets[0].expr, 'sum by (provider, status) (increase(collectz_import_jobs_total[$__range]))');
   assert.strictEqual(enrichmentPanel.targets[0].expr, 'sum by (provider, kind, outcome) (increase(collectz_import_enrichment_total[$__range]))');
   assert.strictEqual(deliciousRatioPanel.targets[0].expr, '100 * ( sum(increase(collectz_import_enrichment_total{provider=\"csv_delicious\",kind=\"pipeline\",outcome=\"no_match\"}[$__range])) / clamp_min(sum(increase(collectz_import_enrichment_total{provider=\"csv_delicious\",kind=\"pipeline\",outcome=~\"enriched|no_match\"}[$__range])), 1) )');
   assert.strictEqual(trackedRatioPanel.targets[0].expr, '100 * ( sum(increase(collectz_import_enrichment_total{provider=\"csv_delicious\",kind=\"pipeline\",outcome=\"no_match\"}[$__range])) / clamp_min(sum(increase(collectz_import_enrichment_total{provider=\"csv_delicious\",kind=\"pipeline\",outcome=~\"enriched|no_match\"}[$__range])), 1) )');
   assert.strictEqual(topProviderErrorsPanel.targets[0].expr, 'topk(10, sum by (provider, operation, outcome) (increase(collectz_provider_requests_total{outcome!=\"success\"}[$__range])))');
   assert.strictEqual(providerRequestPanel.targets[0].expr, 'sum by (provider, operation, outcome) (increase(collectz_provider_requests_total[$__range]))');
+  assert.strictEqual(providerIdentityCompatibilityPanel.targets[0].expr, 'sum by (provider, operation, outcome) (increase(collectz_provider_identity_compatibility_total[$__range]))');
 }));
 
 results.push(run('alert rules use provider-agnostic import failure alerting', () => {

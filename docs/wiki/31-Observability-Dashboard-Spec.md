@@ -392,6 +392,31 @@ Display:
 
 - table
 
+## Row 11: Provider Identity Compatibility
+
+#### Panel 18. Provider Identity Compatibility Activity
+
+Purpose:
+
+- identify legacy provider-id readers and writers that still block compatibility cutover
+- distinguish authoritative projection writes and alignment from conflicts that require review
+
+Starter query:
+
+```promql
+sum by (provider, operation, outcome) (
+  increase(collectz_provider_identity_compatibility_total[$__range])
+)
+```
+
+Display:
+
+- table
+
+No alert is attached during the migration baseline. Operators should require a quiet observation window
+for `legacy_read_*` and `legacy_write`, plus zero `authoritative_projection` conflicts, before proposing
+a provider-specific compatibility cutover.
+
 ## Threshold Mapping
 
 Map these panels directly to the threshold doc:
@@ -416,6 +441,8 @@ Map these panels directly to the threshold doc:
   - Panel 16
 - Admin mutation failures:
   - Panel 17
+- Provider identity migration:
+  - Panel 18
 
 Reference:
 

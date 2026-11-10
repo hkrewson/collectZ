@@ -137,7 +137,11 @@ const {
 } = require('../services/mediaFormats');
 const { formatSyncJob } = require('../services/syncJobs');
 const { logError, logActivity } = require('../services/audit');
-const { recordImportJobEvent, recordImportEnrichmentEvent } = require('../services/metrics');
+const {
+  recordImportJobEvent,
+  recordImportEnrichmentEvent,
+  recordProviderIdentityCompatibilityEvent
+} = require('../services/metrics');
 const { uploadBuffer } = require('../services/storage');
 const {
   loadSignatureRecordsForOwner,
@@ -4056,7 +4060,29 @@ async function findExistingByIdentifier({ identifierType, identifierValue, norma
   };
 }
 
-async function findExistingByProviderIds({ item, normalizedMediaType, normalizedTmdbType, scopeContext = null }) {
+function providerIdentityMetricLabel(item, importSource) {
+  return item?.type_details?.provider_name || importSource || 'unknown';
+}
+
+function recordLegacyProviderIdentityWrite(item, importSource, outcome) {
+  const details = item?.type_details || {};
+  if (!details.provider_item_id && !details.calibre_entry_id && !details.provider_issue_id &&
+      !item?.plex_guid && !item?.plex_item_key && !item?.plex_rating_key) return;
+  recordProviderIdentityCompatibilityEvent(
+    providerIdentityMetricLabel(item, importSource),
+    'legacy_write',
+    outcome
+  );
+}
+
+async function findExistingByProviderIds({
+  item,
+  importSource,
+  normalizedMediaType,
+  normalizedTmdbType,
+  scopeContext = null
+}) {
+  const providerMetricLabel = providerIdentityMetricLabel(item, importSource);
   const providerItemId = String(
     item?.type_details?.provider_item_id || item?.type_details?.calibre_entry_id || item?.provider_item_id || ''
   ).trim();
@@ -4089,8 +4115,10 @@ async function findExistingByProviderIds({ item, normalizedMediaType, normalized
       params
     );
     if (byProviderItemId.rows[0]) {
+      recordProviderIdentityCompatibilityEvent(providerMetricLabel, 'legacy_read_provider_item', 'matched');
       return { row: byProviderItemId.rows[0], matchedBy: 'provider_item_id' };
     }
+    recordProviderIdentityCompatibilityEvent(providerMetricLabel, 'legacy_read_provider_item', 'missed');
   }
 
   if (normalizedMediaType === 'comic_book') {
@@ -4122,8 +4150,10 @@ async function findExistingByProviderIds({ item, normalizedMediaType, normalized
         params
       );
       if (byProviderIssueId.rows[0]) {
+        recordProviderIdentityCompatibilityEvent(providerMetricLabel, 'legacy_read_provider_issue', 'matched');
         return { row: byProviderIssueId.rows[0], matchedBy: 'provider_issue_id' };
       }
+      recordProviderIdentityCompatibilityEvent(providerMetricLabel, 'legacy_read_provider_issue', 'missed');
     }
   }
 
@@ -4163,7 +4193,11 @@ async function findExistingByProviderIds({ item, normalizedMediaType, normalized
        LIMIT 1`,
       params
     );
-    if (byPlexGuid.rows[0]) return { row: byPlexGuid.rows[0], matchedBy: 'provider_plex_guid' };
+    if (byPlexGuid.rows[0]) {
+      recordProviderIdentityCompatibilityEvent(providerMetricLabel, 'legacy_read_plex_guid', 'matched');
+      return { row: byPlexGuid.rows[0], matchedBy: 'provider_plex_guid' };
+    }
+    recordProviderIdentityCompatibilityEvent(providerMetricLabel, 'legacy_read_plex_guid', 'missed');
   }
 
   const plexRatingKey = item.plex_rating_key || null;
@@ -4185,7 +4219,11 @@ async function findExistingByProviderIds({ item, normalizedMediaType, normalized
        LIMIT 1`,
       params
     );
-    if (byPlexRatingKey.rows[0]) return { row: byPlexRatingKey.rows[0], matchedBy: 'provider_plex_item_key' };
+    if (byPlexRatingKey.rows[0]) {
+      recordProviderIdentityCompatibilityEvent(providerMetricLabel, 'legacy_read_plex_item', 'matched');
+      return { row: byPlexRatingKey.rows[0], matchedBy: 'provider_plex_item_key' };
+    }
+    recordProviderIdentityCompatibilityEvent(providerMetricLabel, 'legacy_read_plex_item', 'missed');
   }
 
   return { row: null, matchedBy: null };
@@ -4457,6 +4495,7 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
     if (!existingRow) {
       const providerMatch = await findExistingByProviderIds({
         item,
+        importSource,
         normalizedMediaType,
         normalizedTmdbType,
         scopeContext
@@ -4651,6 +4690,7 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
         director: updatedRow.director,
         cast: updatedRow.cast
       });
+      recordLegacyProviderIdentityWrite(item, importSource, 'updated');
       return {
         type: 'updated',
         mediaId: existingRow.id,
@@ -4717,6 +4757,7 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
         cast: insertedRow.cast
       });
     }
+    recordLegacyProviderIdentityWrite(item, importSource, 'created');
     return {
       type: 'created',
       mediaId: insertedRow?.id || null,
@@ -6529,6 +6570,11 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
             byPlexGuidParams
           );
           existing = byPlexGuid.rows[0] || null;
+          recordProviderIdentityCompatibilityEvent(
+            'plex',
+            'legacy_read_plex_guid',
+            existing ? 'matched' : 'missed'
+          );
           if (existing) existingMatchedBy = 'plex_guid';
         }
 
@@ -6554,6 +6600,11 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
             byPlexItemKeyParams
           );
           existing = byPlexItemKey.rows[0] || null;
+          recordProviderIdentityCompatibilityEvent(
+            'plex',
+            'legacy_read_plex_item',
+            existing ? 'matched' : 'missed'
+          );
           if (existing) existingMatchedBy = 'plex_item_key';
         }
 
@@ -6692,6 +6743,7 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
           mediaType: media.media_type,
           tmdbMediaType: media.tmdb_media_type
         });
+          recordProviderIdentityCompatibilityEvent('plex', 'legacy_write', 'updated');
           summary.updated += 1;
         } else {
         const ownedFormatState = buildOwnedFormatsPayload(media.media_type || 'movie', media.owned_formats, media.format);
@@ -6758,6 +6810,7 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
             tmdbMediaType: media.tmdb_media_type
           });
           }
+          recordProviderIdentityCompatibilityEvent('plex', 'legacy_write', 'created');
           summary.created += 1;
         }
       });
@@ -8287,6 +8340,14 @@ async function runMetronImport({ req, config, scopeContext = null, onProgress = 
     for (const row of existing.rows || []) {
       const value = String(row?.provider_issue_id || '').trim();
       if (value) existingProviderIssueIds.add(value);
+    }
+    if (existingProviderIssueIds.size > 0) {
+      recordProviderIdentityCompatibilityEvent(
+        'metron',
+        'legacy_read_provider_issue',
+        'matched',
+        existingProviderIssueIds.size
+      );
     }
   }
   const pendingIssues = issues.filter((issue) => {

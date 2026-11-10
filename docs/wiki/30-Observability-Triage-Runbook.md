@@ -16,6 +16,7 @@ Prioritize these signals:
 - `collectz_http_request_duration_ms`
 - `collectz_auth_events_total`
 - `collectz_import_jobs_total`
+- `collectz_provider_identity_compatibility_total`
 - `collectz_sync_jobs`
 - `collectz_admin_actions_total`
 
@@ -32,6 +33,12 @@ Those runtime checks reflect the running backend container and catch common drif
 - `TRUST_PROXY` and scrape-token posture that no longer match the intended reverse-proxy topology
 
 ## 2. Classify the Incident
+
+For provider-identity migration checks, compare increases over the intended observation window rather
+than treating process-local counter values as durable state. Continued `legacy_read_*` or `legacy_write`
+activity identifies a caller that is not ready for compatibility cutover. An
+`authoritative_projection{outcome="conflict"}` increase means the authoritative identity and legacy
+projection disagree; preserve both paths and resolve the row instead of deleting compatibility data.
 
 Use the metric that moved first:
 

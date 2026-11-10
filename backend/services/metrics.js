@@ -10,6 +10,7 @@ const counters = {
   importJobs: new Map(),
   importEnrichment: new Map(),
   providerRequests: new Map(),
+  providerIdentityCompatibility: new Map(),
   adminActions: new Map()
 };
 
@@ -155,6 +156,47 @@ const recordProviderRequestEvent = (provider, operation, outcome, amount = 1) =>
   }, Number(amount || 1));
 };
 
+const PROVIDER_IDENTITY_LABELS = new Map([
+  ['cwa', 'cwa'],
+  ['cwa_opds', 'cwa'],
+  ['kavita', 'kavita'],
+  ['metron', 'metron'],
+  ['plex', 'plex'],
+  ['scanner', 'scanner'],
+  ['generic', 'generic'],
+  ['bookorbit', 'bookorbit']
+]);
+const PROVIDER_IDENTITY_OPERATIONS = new Set([
+  'legacy_read_provider_item',
+  'legacy_read_provider_issue',
+  'legacy_read_plex_guid',
+  'legacy_read_plex_item',
+  'legacy_write',
+  'authoritative_projection'
+]);
+const PROVIDER_IDENTITY_OUTCOMES = new Set([
+  'matched',
+  'missed',
+  'created',
+  'updated',
+  'written',
+  'aligned',
+  'conflict'
+]);
+
+const normalizeProviderIdentityLabel = (provider) =>
+  PROVIDER_IDENTITY_LABELS.get(String(provider || '').trim().toLowerCase()) || 'unknown';
+
+const recordProviderIdentityCompatibilityEvent = (provider, operation, outcome, amount = 1) => {
+  const normalizedOperation = String(operation || '').trim().toLowerCase();
+  const normalizedOutcome = String(outcome || '').trim().toLowerCase();
+  incrementCounter(counters.providerIdentityCompatibility, {
+    provider: normalizeProviderIdentityLabel(provider),
+    operation: PROVIDER_IDENTITY_OPERATIONS.has(normalizedOperation) ? normalizedOperation : 'unknown',
+    outcome: PROVIDER_IDENTITY_OUTCOMES.has(normalizedOutcome) ? normalizedOutcome : 'unknown'
+  }, Number(amount || 1));
+};
+
 const loadSyncJobStatusSamples = async () => {
   const result = await pool.query(
     `SELECT status, COUNT(*)::int AS count
@@ -211,6 +253,11 @@ const renderMetrics = async () => {
     counters.providerRequests
   ));
   lines.push(...formatCounterLines(
+    'collectz_provider_identity_compatibility_total',
+    'Legacy provider-identity reads and writes plus authoritative compatibility projections by provider, operation, and outcome.',
+    counters.providerIdentityCompatibility
+  ));
+  lines.push(...formatCounterLines(
     'collectz_admin_actions_total',
     'Admin mutating API actions by method, normalized route, and outcome.',
     counters.adminActions
@@ -241,6 +288,7 @@ module.exports = {
   recordImportJobEvent,
   recordImportEnrichmentEvent,
   recordProviderRequestEvent,
+  recordProviderIdentityCompatibilityEvent,
   renderMetrics,
   getMetricCounterValue
 };

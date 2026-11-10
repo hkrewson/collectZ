@@ -44,6 +44,7 @@ Exposure boundary reminder:
 - `collectz_import_jobs_total`
 - `collectz_import_enrichment_total`
 - `collectz_provider_requests_total`
+- `collectz_provider_identity_compatibility_total`
 - `collectz_admin_actions_total`
 - `collectz_sync_jobs`
 
@@ -58,9 +59,16 @@ The first rollout focuses on:
 - import enrichment outcomes by provider and enrichment kind
 - import quality ratios for Delicious and future provider-specific signals
 - provider error detail for non-success TMDB, Plex, and Metron outcomes
+- provider-identity migration evidence for legacy match reads/writes and authoritative compatibility projections
 - provider request outcomes for TMDB, Plex, and Metron
 - admin mutation success/failure counts
 - live sync-job status counts from the database
+
+`collectz_provider_identity_compatibility_total` uses bounded `provider`, `operation`, and `outcome`
+labels. It never includes an external id, endpoint, title, or credential. During the provider-identity
+migration, a compatibility-read cutover is not ready while `legacy_read_*` or `legacy_write` series
+continue to increase for a provider. `authoritative_projection` should instead show `written` while
+older rows are filled, then settle on `aligned`; any `conflict` outcome requires review.
 
 ## Initial Alert Thresholds
 
