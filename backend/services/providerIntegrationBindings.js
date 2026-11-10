@@ -5,6 +5,7 @@ const { normalizeTrustedConnectorHttpUrl } = require('./outboundUrlPolicy');
 
 const METRON_INTEGRATION_KEY = 'comics.metron';
 const CWA_INTEGRATION_KEY = 'books.cwa_opds';
+const PLEX_INTEGRATION_KEY = 'media.plex';
 
 function positiveInteger(value, label) {
   const parsed = Number(value);
@@ -145,12 +146,24 @@ function createProviderIntegrationBindingService({ pool } = {}) {
     }, transactionClient);
   }
 
-  return Object.freeze({ ensureMetronBinding, ensureCwaBinding });
+  async function ensurePlexBinding(args = {}, transactionClient = null) {
+    return ensureBinding({
+      ...args,
+      integrationKey: PLEX_INTEGRATION_KEY,
+      providerType: 'plex',
+      displayName: 'Plex Media Server',
+      settings: { integrationSlot: 'plex' },
+      label: 'Plex'
+    }, transactionClient);
+  }
+
+  return Object.freeze({ ensureMetronBinding, ensureCwaBinding, ensurePlexBinding });
 }
 
 module.exports = {
   METRON_INTEGRATION_KEY,
   CWA_INTEGRATION_KEY,
+  PLEX_INTEGRATION_KEY,
   createProviderIntegrationBindingService,
   publicBinding
 };

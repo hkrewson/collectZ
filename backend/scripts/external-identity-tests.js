@@ -7,6 +7,7 @@ const { publicConnection } = require('../services/providerConnections');
 const {
   CWA_INTEGRATION_KEY,
   METRON_INTEGRATION_KEY,
+  PLEX_INTEGRATION_KEY,
   createProviderIntegrationBindingService
 } = require('../services/providerIntegrationBindings');
 const {
@@ -176,6 +177,35 @@ test('CWA integration binding creates one stable OPDS connection through the cal
     providerType: 'cwa',
     status: 'active',
     endpointUrl: 'https://cwa.example/opds'
+  });
+});
+
+test('Plex integration binding creates one stable server connection through the caller transaction', async () => {
+  const client = {
+    async query(sql, params) {
+      if (sql.includes('pg_advisory_xact_lock')) return { rows: [{}] };
+      if (sql.includes('FROM provider_integration_bindings b')) return { rows: [] };
+      if (sql.includes('INSERT INTO provider_connections')) {
+        return { rows: [{ id: 'plex-connection', provider_type: params[1], status: 'active', endpoint_url: params[3] }] };
+      }
+      if (sql.includes('INSERT INTO provider_integration_bindings')) {
+        return { rows: [{ space_id: params[0], integration_key: params[1], provider_connection_id: params[2] }] };
+      }
+      throw new Error(`Unexpected query: ${sql}`);
+    }
+  };
+  const binding = await createProviderIntegrationBindingService({ pool: {} }).ensurePlexBinding({
+    spaceId: 7,
+    actorId: 9,
+    endpointUrl: 'https://plex.example:32400/'
+  }, client);
+  assert.deepEqual(binding, {
+    spaceId: 7,
+    integrationKey: PLEX_INTEGRATION_KEY,
+    providerConnectionId: 'plex-connection',
+    providerType: 'plex',
+    status: 'active',
+    endpointUrl: 'https://plex.example:32400'
   });
 });
 

@@ -842,6 +842,13 @@ router.put('/spaces/:spaceId/integrations', authenticateToken, requireSessionAut
             endpointUrl: resolvedState.cwa_opds_url
           }, scopedClient);
         }
+        if (String(resolvedState.plex_api_url || '').trim()) {
+          await providerIntegrationBindings.ensurePlexBinding({
+            spaceId,
+            actorId: req.user.id,
+            endpointUrl: resolvedState.plex_api_url
+          }, scopedClient);
+        }
         return { persisted: saved, nextState: resolvedState };
       }
     );

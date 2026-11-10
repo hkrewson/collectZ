@@ -60,6 +60,18 @@ async function main() {
       }, client);
       assert.equal(cwaSecond.providerConnectionId, cwaFirst.providerConnectionId);
       assert.equal(cwaSecond.endpointUrl, 'https://cwa.invalid/opds/v2');
+      const plexFirst = await service.ensurePlexBinding({
+        spaceId,
+        actorId,
+        endpointUrl: 'https://plex.invalid:32400'
+      }, client);
+      const plexSecond = await service.ensurePlexBinding({
+        spaceId,
+        actorId,
+        endpointUrl: 'https://plex.invalid:32400/v2/'
+      }, client);
+      assert.equal(plexSecond.providerConnectionId, plexFirst.providerConnectionId);
+      assert.equal(plexSecond.endpointUrl, 'https://plex.invalid:32400/v2');
       const rows = await client.query(
         `SELECT b.provider_connection_id, c.provider_type, c.endpoint_url
            FROM provider_integration_bindings b
@@ -82,6 +94,17 @@ async function main() {
       assert.equal(cwaRows.rowCount, 1);
       assert.equal(cwaRows.rows[0].provider_type, 'cwa');
       assert.equal(cwaRows.rows[0].endpoint_url, 'https://cwa.invalid/opds/v2');
+      const plexRows = await client.query(
+        `SELECT b.provider_connection_id, c.provider_type, c.endpoint_url
+           FROM provider_integration_bindings b
+           JOIN provider_connections c
+             ON c.space_id = b.space_id AND c.id = b.provider_connection_id
+          WHERE b.space_id = $1 AND b.integration_key = 'media.plex'`,
+        [spaceId]
+      );
+      assert.equal(plexRows.rowCount, 1);
+      assert.equal(plexRows.rows[0].provider_type, 'plex');
+      assert.equal(plexRows.rows[0].endpoint_url, 'https://plex.invalid:32400/v2');
       throw new Error(ROLLBACK_PROBE);
     }),
     (error) => error.message === ROLLBACK_PROBE

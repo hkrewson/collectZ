@@ -476,6 +476,7 @@ const metronAuthoritativeSyncSmokeSource = fs.readFileSync(require.resolve('../s
 const metronImportIdentitySource = fs.readFileSync(require.resolve('../services/metronImportIdentity'), 'utf8');
 const cwaAuthoritativeSyncSmokeSource = fs.readFileSync(require.resolve('../scripts/cwa-authoritative-sync-smoke'), 'utf8');
 const cwaImportIdentitySource = fs.readFileSync(require.resolve('../services/cwaImportIdentity'), 'utf8');
+const providerIntegrationBindingsSource = fs.readFileSync(require.resolve('../services/providerIntegrationBindings'), 'utf8');
 const libraryLoanReminderWorkflowSmokeSource = fs.readFileSync(require.resolve('../scripts/library-loan-reminder-workflow-smoke'), 'utf8');
 const automaticLoanRemindersSmokeSource = fs.readFileSync(require.resolve('../scripts/automatic-loan-reminders-smoke'), 'utf8');
 const loanRemindersServiceSource = fs.readFileSync(require.resolve('../services/loanReminders'), 'utf8');
@@ -4271,6 +4272,12 @@ results.push(run('CWA production import uses authoritative provider identity rec
   assert.ok(cwaImportIdentitySource.includes('setCanonicalFieldControl'));
   assert.ok(cwaAuthoritativeSyncSmokeSource.includes('locked-field preservation'));
   assert.ok(cwaAuthoritativeSyncSmokeSource.includes("matchedBy, 'external_identity'"));
+}));
+
+results.push(run('Plex settings establish a stable provider connection before authoritative import adoption', () => {
+  assert.ok(spaceIntegrationsRoutesSource.includes('providerIntegrationBindings.ensurePlexBinding'));
+  assert.ok(providerIntegrationBindingsSource.includes("const PLEX_INTEGRATION_KEY = 'media.plex'"));
+  assert.ok(providerIntegrationBindingsSource.includes('ensurePlexBinding'));
 }));
 
 results.push(run('repo includes dry-run historical repair plan coverage for duplicate and type-repair reporting', () => {
