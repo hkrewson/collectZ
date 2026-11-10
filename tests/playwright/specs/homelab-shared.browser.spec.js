@@ -92,9 +92,14 @@ test.describe('homelab shared workflow regressions', () => {
       await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
       await expect(page.getByLabel('Theme', { exact: true })).toHaveValue(nextTheme);
 
+      const loadIntegrationPromise = page.waitForResponse(
+        (response) => /\/api\/spaces\/\d+\/integrations(?:\?|$)/.test(response.url()) && response.request().method() === 'GET'
+      );
       await page.goto('/dashboard?tab=admin-integrations&integration=barcode');
       await expect(page.getByRole('heading', { name: 'Integrations' })).toBeVisible();
-      const barcodeApiUrlInput = page.locator('.space-y-4.min-w-0').locator('input:visible').first();
+      const loadIntegrationResponse = await loadIntegrationPromise;
+      expect(loadIntegrationResponse.ok()).toBeTruthy();
+      const barcodeApiUrlInput = page.getByLabel('API URL', { exact: true });
       await barcodeApiUrlInput.fill(barcodeUrl);
 
       const saveIntegrationPromise = page.waitForResponse(
@@ -103,8 +108,17 @@ test.describe('homelab shared workflow regressions', () => {
       await page.getByRole('button', { name: 'Save BARCODE' }).click();
       const saveIntegrationResponse = await saveIntegrationPromise;
       expect(saveIntegrationResponse.ok()).toBeTruthy();
+      const savedIntegration = await saveIntegrationResponse.json();
+      expect(savedIntegration.barcodeApiUrl).toBe(barcodeUrl);
       await expect(page.getByText('BARCODE settings saved')).toBeVisible();
-      await expect(barcodeApiUrlInput).toHaveValue(barcodeUrl);
+
+      const reloadIntegrationPromise = page.waitForResponse(
+        (response) => /\/api\/spaces\/\d+\/integrations(?:\?|$)/.test(response.url()) && response.request().method() === 'GET'
+      );
+      await page.reload();
+      const reloadIntegrationResponse = await reloadIntegrationPromise;
+      expect(reloadIntegrationResponse.ok()).toBeTruthy();
+      await expect(page.getByLabel('API URL', { exact: true })).toHaveValue(barcodeUrl);
     } finally {
       await saveGeneralSettings(requestContext, originalSettings).catch(() => {});
       await restoreIntegrationState(requestContext, integrationSnapshot).catch(() => {});

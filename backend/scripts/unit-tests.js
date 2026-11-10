@@ -3211,6 +3211,9 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(openApiSource.includes('text/csv'));
   assert.ok(openApiSource.includes('PortabilityStatusResponse'));
   assert.ok(homelabSharedBrowserSpecSource.includes('spaces\\/\\d+\\/integrations'));
+  assert.ok(homelabSharedBrowserSpecSource.includes('loadIntegrationResponse.ok()'));
+  assert.ok(homelabSharedBrowserSpecSource.includes('savedIntegration.barcodeApiUrl'));
+  assert.ok(homelabSharedBrowserSpecSource.includes('reloadIntegrationResponse.ok()'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/auth/config'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/auth/me'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('single_library_household'));
