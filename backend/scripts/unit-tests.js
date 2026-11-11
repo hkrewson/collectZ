@@ -43,6 +43,7 @@ const { normalizeDeliciousRow } = require('../services/deliciousNormalize');
 const { normalizeIsbn, normalizeIdentifierSet } = require('../services/importIdentifiers');
 const { normalizeTypeDetails } = require('../services/typeDetails');
 const { normalizeOpdsEntry } = require('../services/cwa');
+const { normalizeBookOrbitEntry } = require('../services/bookOrbit');
 const {
   buildKavitaSeriesWebUrl,
   buildKavitaReaderWebUrl,
@@ -5224,6 +5225,45 @@ results.push(run('cwa.normalizeOpdsEntry separates browse and download links wit
   assert.strictEqual(normalized.type_details.provider_download_url, 'https://cwa.example/download/opds-entry-1.epub');
   assert.strictEqual(normalized.type_details.calibre_external_url, 'https://cwa.example/books/opds-entry-1');
   assert.strictEqual(normalized.type_details.calibre_download_url, 'https://cwa.example/download/opds-entry-1.epub');
+}));
+
+results.push(run('bookOrbit.normalizeBookOrbitEntry preserves Atom identity and modern comic MIME semantics', () => {
+  const normalized = normalizeBookOrbitEntry({
+    id: 'urn:bookorbit:book:42',
+    title: 'BookOrbit Comic',
+    updated: '2026-11-10T19:00:00.000Z',
+    author: { name: 'BookOrbit Author' },
+    identifier: 'urn:isbn:9781476735402',
+    link: [
+      { '@_rel': 'http://opds-spec.org/sort/series', '@_title': 'Orbit Series #3', '@_href': '/api/v1/opds/catalog?seriesId=9' },
+      { '@_rel': 'http://opds-spec.org/acquisition', '@_type': 'application/vnd.comicbook-rar', '@_href': '/api/v1/opds/42/download?fileId=7' }
+    ]
+  }, 'https://bookorbit.example/api/v1/opds/catalog');
+
+  assert.strictEqual(normalized.media_type, 'comic_book');
+  assert.strictEqual(normalized.type_details.provider_name, 'bookorbit');
+  assert.strictEqual(normalized.type_details.provider_item_id, 'urn:bookorbit:book:42');
+  assert.strictEqual(normalized.type_details.isbn, '9781476735402');
+  assert.strictEqual(normalized.type_details.series, 'Orbit Series');
+  assert.strictEqual(normalized.type_details.series_index, '3');
+  assert.strictEqual(normalized.type_details.provider_external_url, null);
+  assert.strictEqual(normalized.release_date, null);
+  assert.strictEqual(normalized.type_details.source_updated_at, '2026-11-10T19:00:00.000Z');
+}));
+
+results.push(run('typeDetails preserves BookOrbit series provenance for books', () => {
+  const out = normalizeTypeDetails('book', {
+    series: 'Orbit Series',
+    series_index: '3',
+    provider_name: 'bookorbit',
+    provider_item_id: 'urn:bookorbit:book:42',
+    provider_download_url: 'https://bookorbit.example/api/v1/opds/42/download',
+    provider_series_url: 'https://bookorbit.example/api/v1/opds/catalog?seriesId=9'
+  });
+  assert.deepStrictEqual(out.invalidKeys, []);
+  assert.strictEqual(out.value.series, 'Orbit Series');
+  assert.strictEqual(out.value.series_index, '3');
+  assert.strictEqual(out.value.provider_series_url, 'https://bookorbit.example/api/v1/opds/catalog?seriesId=9');
 }));
 
 results.push(run('generic import mapping keeps OPDS external urls out of tmdb_url for books and preserves download links', () => {

@@ -1,23 +1,6 @@
-const axios = require('axios');
-const { XMLParser } = require('fast-xml-parser');
+'use strict';
 
-const DEFAULT_TIMEOUT_MS = 20000;
-const MAX_PAGES_DEFAULT = 20;
-
-function toArray(value) {
-  if (!value) return [];
-  return Array.isArray(value) ? value : [value];
-}
-
-function resolveUrl(href, baseUrl = '') {
-  const raw = String(href || '').trim();
-  if (!raw) return '';
-  try {
-    return new URL(raw, baseUrl).toString();
-  } catch (_) {
-    return raw;
-  }
-}
+const { fetchOpdsCatalog, normalizeOpdsPublication } = require('./opdsTransport');
 
 function normalizeDate(raw) {
   const value = String(raw || '').trim();
@@ -29,115 +12,10 @@ function normalizeDate(raw) {
   return { year: Number(yearOnly[0]), release_date: `${yearOnly[0]}-01-01` };
 }
 
-function firstString(...values) {
-  for (const value of values) {
-    const text = String(value || '').trim();
-    if (text) return text;
-  }
-  return '';
-}
-
-function normalizeIsbn(raw) {
-  const text = String(raw || '').replace(/[^0-9Xx]/g, '').toUpperCase();
-  if (text.length === 10 || text.length === 13) return text;
-  const match = String(raw || '').match(/\b(?:97[89][\d-]{10,}|[\dXx-]{10,})\b/);
-  if (!match) return '';
-  return String(match[0]).replace(/[^0-9Xx]/g, '').toUpperCase();
-}
-
-function extractBestLink(entry) {
-  const links = toArray(entry.link);
-  const relScore = (link) => {
-    const rel = String(link?.['@_rel'] || '').toLowerCase();
-    if (rel.includes('acquisition')) return 4;
-    if (rel === 'alternate') return 3;
-    if (rel === 'http://opds-spec.org/image' || rel === 'http://opds-spec.org/image/thumbnail') return 1;
-    return 0;
-  };
-  const sorted = links
-    .filter((link) => String(link?.['@_href'] || '').trim())
-    .sort((a, b) => relScore(b) - relScore(a));
-  return sorted[0]?.['@_href'] || '';
-}
-
-function extractOpdsLinks(entry = {}, baseUrl = '') {
-  const links = toArray(entry.link).filter((link) => String(link?.['@_href'] || '').trim());
-  const findLink = (predicate) => links.find((link) => predicate({
-    rel: String(link?.['@_rel'] || '').toLowerCase(),
-    type: String(link?.['@_type'] || '').toLowerCase(),
-    href: String(link?.['@_href'] || '').trim()
-  })) || null;
-
-  const alternateLink = findLink(({ rel, type }) => (
-    rel === 'alternate'
-    && !/application\/(epub\+zip|pdf|x-cbz|x-cbr|zip|octet-stream)/.test(type)
-  ));
-  const acquisitionLink = findLink(({ rel, type }) => (
-    rel.includes('acquisition')
-    || /application\/(epub\+zip|pdf|x-cbz|x-cbr|zip|octet-stream)/.test(type)
-  ));
-  const fallbackHref = extractBestLink(entry);
-  const browseUrl = resolveUrl(alternateLink?.['@_href'] || '', baseUrl)
-    || (alternateLink ? '' : resolveUrl(fallbackHref, baseUrl));
-  const downloadUrl = resolveUrl(acquisitionLink?.['@_href'] || '', baseUrl);
-
-  return {
-    browseUrl: browseUrl || null,
-    downloadUrl: downloadUrl || null
-  };
-}
-
-function hasAcquisitionLink(entry = {}) {
-  const links = toArray(entry.link);
-  return links.some((link) => {
-    const rel = String(link?.['@_rel'] || '').toLowerCase();
-    const type = String(link?.['@_type'] || '').toLowerCase();
-    if (rel.includes('acquisition')) return true;
-    return /application\/(epub\+zip|pdf|x-cbz|x-cbr|zip|octet-stream)/.test(type);
-  });
-}
-
-function extractSubsectionLinks(entry = {}, currentUrl = '') {
-  const links = toArray(entry.link);
-  const urls = [];
-  for (const link of links) {
-    const rel = String(link?.['@_rel'] || '').toLowerCase();
-    const type = String(link?.['@_type'] || '').toLowerCase();
-    const href = String(link?.['@_href'] || '').trim();
-    if (!href) continue;
-    const isCatalog = type.includes('application/atom+xml') || type.includes('application/opds+json');
-    const isSubsection = rel.includes('subsection') || rel.includes('collection') || rel.includes('start');
-    if (isSubsection || isCatalog) {
-      const resolved = resolveUrl(href, currentUrl);
-      if (resolved) urls.push(resolved);
-    }
-  }
-  return urls;
-}
-
-function extractImageLink(entry) {
-  const links = toArray(entry.link);
-  const image = links.find((link) => String(link?.['@_rel'] || '').toLowerCase().includes('/image'));
-  return String(image?.['@_href'] || '').trim();
-}
-
-function detectComicEntry(entry) {
-  const categories = toArray(entry.category)
-    .map((c) => String(c?.['@_term'] || c?.['@_label'] || c || '').toLowerCase())
-    .filter(Boolean);
-  const links = toArray(entry.link)
-    .map((link) => `${String(link?.['@_type'] || '').toLowerCase()} ${String(link?.['@_href'] || '').toLowerCase()}`)
-    .join(' ');
-  const categoryHint = categories.some((c) => c.includes('comic') || c.includes('manga') || c.includes('graphic'));
-  const linkHint = /(\.cbz|\.cbr|application\/x-cbr|application\/x-cbz|comic)/.test(links);
-  return categoryHint || linkHint;
-}
-
 function parseComicTitleMetadata(rawTitle = '') {
   const title = String(rawTitle || '').trim();
   if (!title) return { series: null, issue_number: null, volume: null };
 
-  // Pattern: "Series #123[: subtitle]"
   const hashMatch = title.match(/^(.+?)\s+#\s*([A-Za-z0-9.-]+)(?:\s*(?::|-|–)\s*.*)?$/);
   if (hashMatch) {
     return {
@@ -147,7 +25,6 @@ function parseComicTitleMetadata(rawTitle = '') {
     };
   }
 
-  // Pattern: "Series v1 123" or "Series V2 05"
   const volIssueMatch = title.match(/^(.+?)\s+v(?:ol(?:ume)?)?\s*([0-9]+)\s+([A-Za-z0-9.-]+)(?:\s*:.*)?$/i);
   if (volIssueMatch) {
     return {
@@ -161,151 +38,55 @@ function parseComicTitleMetadata(rawTitle = '') {
 }
 
 function normalizeOpdsEntry(entry = {}, baseUrl = '') {
-  const title = firstString(entry.title, entry['dc:title']);
-  if (!title) return null;
-
-  const author = toArray(entry.author)
-    .map((a) => firstString(a?.name, a))
-    .filter(Boolean)
-    .join(', ');
-
-  const identifier = firstString(entry.identifier, entry['dc:identifier'], entry.id);
-  const isbn = normalizeIsbn(identifier);
-  const published = firstString(entry.published, entry.issued, entry.updated, entry['dc:date']);
-  const normalizedDate = normalizeDate(published);
-  const sourceUpdatedAt = firstString(entry.updated, entry.published, entry.issued, entry['dc:date']);
-  const imageRaw = extractImageLink(entry);
-  const links = extractOpdsLinks(entry, baseUrl);
-  const imageUrl = resolveUrl(imageRaw, baseUrl);
-
-  const summary = firstString(entry.summary?.['#text'], entry.summary, entry.content?.['#text'], entry.content, entry.description);
-  const publisher = firstString(entry.publisher, entry['dc:publisher']);
-  const mediaType = detectComicEntry(entry) ? 'comic_book' : 'book';
-  const parsedComic = mediaType === 'comic_book' ? parseComicTitleMetadata(title) : { series: null, issue_number: null, volume: null };
+  const publication = normalizeOpdsPublication(entry, baseUrl, { fallbackBrowseToAcquisition: true });
+  if (!publication) return null;
+  const identifier = publication.identifiers[0] || publication.entryId;
+  const normalizedDate = normalizeDate(publication.publishedAt || publication.updatedAt);
+  const parsedComic = publication.isComic
+    ? parseComicTitleMetadata(publication.title)
+    : { series: null, issue_number: null, volume: null };
 
   return {
-    title,
-    media_type: mediaType,
-    year: normalizedDate.year || null,
-    release_date: normalizedDate.release_date || null,
+    title: publication.title,
+    media_type: publication.isComic ? 'comic_book' : 'book',
+    year: normalizedDate.year,
+    release_date: normalizedDate.release_date,
     format: 'Digital',
-    overview: summary || null,
+    overview: publication.summary || null,
     tmdb_url: null,
-    external_url: links.browseUrl || links.downloadUrl || null,
-    poster_path: imageUrl || null,
+    external_url: publication.browseUrl || publication.downloadUrl || null,
+    poster_path: publication.coverUrl || null,
     type_details: {
-      author: author || null,
-      publisher: publisher || null,
-      isbn: isbn || null,
+      author: publication.authors.join(', ') || null,
+      publisher: publication.publisher || null,
+      isbn: publication.isbn || null,
       edition: null,
-      series: parsedComic.series || null,
-      issue_number: parsedComic.issue_number || null,
-      volume: parsedComic.volume || null,
+      series: parsedComic.series,
+      issue_number: parsedComic.issue_number,
+      volume: parsedComic.volume,
       provider_name: 'cwa_opds',
       provider_item_id: identifier || null,
-      provider_external_url: links.browseUrl || null,
-      provider_download_url: links.downloadUrl || null,
+      provider_external_url: publication.browseUrl || null,
+      provider_download_url: publication.downloadUrl || null,
       calibre_entry_id: identifier || null,
-      calibre_external_url: links.browseUrl || null,
-      calibre_download_url: links.downloadUrl || null,
-      source_updated_at: sourceUpdatedAt || null
+      calibre_external_url: publication.browseUrl || null,
+      calibre_download_url: publication.downloadUrl || null,
+      source_updated_at: publication.updatedAt || publication.publishedAt || null
     }
   };
-}
-
-function extractNextLink(feed = {}, currentUrl = '') {
-  const links = toArray(feed.link);
-  const next = links.find((link) => String(link?.['@_rel'] || '').toLowerCase() === 'next');
-  const href = String(next?.['@_href'] || '').trim();
-  if (!href) return '';
-  return resolveUrl(href, currentUrl);
 }
 
 async function fetchCwaOpdsItems(config = {}, options = {}) {
   const startUrl = String(config.cwaOpdsUrl || '').trim();
   if (!startUrl) throw new Error('CWA OPDS URL is not configured');
-
-  const timeoutMs = Math.max(1000, Number(config.cwaTimeoutMs || DEFAULT_TIMEOUT_MS));
-  const maxPages = Math.max(1, Math.min(Number(options.maxPages || MAX_PAGES_DEFAULT), 100));
-
-  const headers = {
-    Accept: 'application/atom+xml,application/xml,text/xml;q=0.9,*/*;q=0.1',
-    'User-Agent': 'collectZ-cwa-opds/1.0'
-  };
-
-  const auth = {};
-  const username = String(config.cwaUsername || '').trim();
-  const password = String(config.cwaPassword || '').trim();
-  if (username || password) {
-    auth.username = username;
-    auth.password = password;
-  }
-
-  const parser = new XMLParser({
-    ignoreAttributes: false,
-    attributeNamePrefix: '@_',
-    removeNSPrefix: true,
-    parseTagValue: true,
-    trimValues: true
-  });
-
-  const rows = [];
-  const seenRowIds = new Set();
-  const queue = [startUrl];
-  const visitedFeedUrls = new Set();
-  let page = 0;
-  let subsectionDiscovered = 0;
-  let navigationEntriesSkipped = 0;
-
-  while (queue.length > 0 && page < maxPages) {
-    const pageUrl = queue.shift();
-    if (!pageUrl || visitedFeedUrls.has(pageUrl)) continue;
-    visitedFeedUrls.add(pageUrl);
-    page += 1;
-
-    const response = await axios.get(pageUrl, {
-      timeout: timeoutMs,
-      headers,
-      ...(auth.username || auth.password ? { auth } : {}),
-      responseType: 'text'
-    });
-
-    const parsed = parser.parse(response.data || '');
-    const feed = parsed?.feed || parsed?.Feed || parsed || {};
-    const entries = toArray(feed.entry);
-
-    for (const entry of entries) {
-      if (hasAcquisitionLink(entry)) {
-        const normalized = normalizeOpdsEntry(entry, pageUrl);
-        const rowId = String(normalized?.type_details?.provider_item_id || '').trim();
-        if (normalized && (!rowId || !seenRowIds.has(rowId))) {
-          rows.push(normalized);
-          if (rowId) seenRowIds.add(rowId);
-        }
-      } else {
-        navigationEntriesSkipped += 1;
-        const subsectionUrls = extractSubsectionLinks(entry, pageUrl);
-        if (subsectionUrls.length) {
-          subsectionDiscovered += subsectionUrls.length;
-          for (const subsectionUrl of subsectionUrls) {
-            if (!visitedFeedUrls.has(subsectionUrl)) queue.push(subsectionUrl);
-          }
-        }
-      }
-    }
-
-    const nextUrl = extractNextLink(feed, pageUrl);
-    if (nextUrl && !visitedFeedUrls.has(nextUrl)) queue.push(nextUrl);
-  }
-
-  return {
-    rows,
-    pagesFetched: page,
-    endpoint: startUrl,
-    hasMore: queue.length > 0,
-    subsectionDiscovered,
-    navigationEntriesSkipped
-  };
+  return fetchOpdsCatalog({
+    endpointUrl: startUrl,
+    username: config.cwaUsername,
+    password: config.cwaPassword,
+    timeoutMs: config.cwaTimeoutMs,
+    userAgent: 'collectZ-cwa-opds/1.0',
+    normalizeEntry: normalizeOpdsEntry
+  }, options);
 }
 
 module.exports = {

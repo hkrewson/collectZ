@@ -5,6 +5,7 @@ const crypto = require('node:crypto');
 const bcrypt = require('bcrypt');
 const pool = require('../db/pool');
 const { encryptSecret } = require('../services/crypto');
+const { createScopedSmokeUser } = require('./helpers/scopedSmokeUser');
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 
@@ -87,14 +88,7 @@ function randomIsbn13() {
 }
 
 async function createDirectUser({ email, password, name, role = 'admin' }) {
-  const passwordHash = await bcrypt.hash(password, 12);
-  const result = await pool.query(
-    `INSERT INTO users (email, password, name, role, email_verified, email_verified_at)
-     VALUES ($1, $2, $3, $4, true, NOW())
-     RETURNING id`,
-    [email, passwordHash, name, role]
-  );
-  return Number(result.rows[0]?.id || 0) || null;
+  return createScopedSmokeUser({ pool, email, password, name, role, slugPrefix: 'cwa-repeat-smoke' });
 }
 
 async function seedScopedCwaIntegration({ spaceId, opdsUrl, username = '', password = '' }) {
@@ -139,12 +133,16 @@ async function cleanupTemporaryState({ userId, libraryId, spaceId }) {
       await pool.query('DELETE FROM users WHERE id = $1', [userId]);
     } catch {
       const retiredPasswordHash = await bcrypt.hash(crypto.randomBytes(48).toString('hex'), 12);
+      await pool.query('DELETE FROM user_sessions WHERE user_id = $1', [userId]).catch(() => {});
+      await pool.query('DELETE FROM personal_access_tokens WHERE user_id = $1', [userId]).catch(() => {});
       await pool.query(
         `UPDATE users
             SET email = $2,
                 password = $3,
                 name = 'Retired CWA identity smoke actor',
-                role = 'user'
+                role = 'user',
+                active_space_id = NULL,
+                active_library_id = NULL
           WHERE id = $1`,
         [userId, `retired-cwa-identity-smoke-${userId}@example.invalid`, retiredPasswordHash]
       ).catch(() => {});
@@ -249,7 +247,7 @@ async function main() {
       email,
       password,
       name: 'CWA OPDS Repeat Sync Smoke Admin',
-      role: 'admin'
+      role: 'user'
     });
 
     await client.request('/api/auth/login', {

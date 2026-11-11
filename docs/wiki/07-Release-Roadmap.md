@@ -144,7 +144,7 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 ## 3.27.3 — Provider Identity Dual-Write, Matching, and Merge Integration
 
 **Goal:** Make the external-identity registry authoritative for repeat sync and merge behavior while preserving compatibility with existing provider fields during migration.
-**Status:** Local `3.27.3` release closeout is complete. Hosted secret scan, secure-cookie Compose smoke, Core RBAC/browser/runtime regression, image security/SBOM, release preflight, and publication remain required after an authorized push.
+**Status:** Complete. Hosted Build and Publish Images run `42941934345` passed secret scan, secure-cookie Compose smoke, Core RBAC/browser/runtime regression, image security/SBOM, release preflight, image publication, and auto-tag; CodeQL run `42941934145` passed, and tag `v3.27.3` is published.
 
 ### Scope
 
@@ -188,16 +188,16 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 - Saving Plex workspace settings binds the legacy Plex integration slot to one stable Plex Provider Connection and updates endpoint changes on that same UUID while respecting disabled/archived lifecycle state. Plex import now prefers the server-scoped GUID identity and falls back to the section/item key when no GUID exists; it resolves or adopts that identity before TMDB/title reuse and commits the canonical target, compatibility projection, and field-precedence decisions in one bounded per-item transaction. Provider traversal and ancillary variant, season, watch-state, rating, and webhook work remain outside the identity transaction. Repeat sync refreshes provider-controlled fields, preserves uncontrolled existing/manual/reviewed/locked values, and the rollback runtime proof verifies stable resolution without retaining fixture state.
 - Focused module tests and a rollback-only canonical-stack smoke prove merge, revert, conflict refusal, numeric-reference cleanup, durable public UUID evidence, and Canonical UUID restoration. Existing external-identity certification and manual merge/revert/scope-isolation smokes remain green.
 
-### Local closeout candidate
+### Closeout
 
 - **Roadmap slice:** `3.27.3 — Provider Identity Dual-Write, Matching, and Merge Integration`.
 - **Project docs/checklists used:** `AGENTS.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/29-Metrics-and-Alerts.md`; `docs/wiki/30-Observability-Triage-Runbook.md`; `docs/wiki/31-Observability-Dashboard-Spec.md`; `docs/wiki/50-Staged-Row-Level-Security.md`; `docs/adr/0001-canonical-object-and-provider-identity.md`; `docs/releases/v3.27.3.md`.
 - **Verified runtime facts:** Rebuilt and recreated the canonical `collectz-private` backend/frontend in place on port `3201`; health reports app/frontend/backend/build `3.27.3`; retained PostgreSQL is at migration `133`; the rebuilt Node `24.22.1` backend runs `fast-xml-parser 5.12.0`; authenticated Help > Releases serves `3.27.3` first; and the stack was restored without a Playwright bypass credential after browser verification.
 - **CI/checks run:** Backend assertions (`367`) plus transaction/scope/identity tests (`43`); OpenAPI; frontend Vitest (`4`) and production build; Metron/CWA/Plex authoritative reconciliation and provider-binding proofs; merge/revert/projection-conflict and external-identity certification (`21` checks); RBAC; control-plane runtime smoke; canonical platform Playwright regression (`53` passed, six edition-inapplicable skips); migration/init parity, identity-upgrade, saved-view RLS, and runtime-role evidence through migration `133`; observability evidence (`9/9`); backend/frontend audits with zero vulnerabilities; standard local release gate (`14/14`); strict local profile (`15` passed, two locally blocked tools); local CodeQL (`5` suppressed/baseline results, `0` active); release feed/readback; diff hygiene; and generated-artifact credential inspection.
-- **Blocked/unverified:** Gitleaks and Trivy are not installed locally. Hosted CI must confirm `secret-scan`, secure-cookie `compose-smoke`, the exact Core `rbac-regression`, `browser-regression`, hosted Core `runtime-smoke`, `image-security-and-sbom`, release preflight, and publication. The canonical control-plane runtime contract passed locally; the hosted Core contract remains complementary and cannot be waived.
+- **Blocked/unverified:** None. Hosted Build and Publish Images run `42941934345` and CodeQL run `42941934145` passed; `v3.27.3` was auto-tagged.
 - **Files changed:** Provider-identity schema and migrations `128`–`133`; identity, provider-connection, integration-binding, backfill, canonical-control, merge/revert, compatibility-projection, Metron, CWA, Plex, telemetry, and cutover-diagnostics modules; runtime/unit/certification coverage; monitoring docs; version metadata and lockfiles; release note/feed; and sanitized release evidence.
 - **Risks or follow-ups:** Compatibility fields remain intentionally readable and no provider is authorized for field removal without durable seven-day cutover evidence. Plex ancillary variant/season work remains outside the per-item identity transaction by design. BookOrbit is isolated to `3.27.4`; Kavita authoritative adoption remains `3.27.5`.
-- **What remains in the milestone:** Hosted release certification and publication after an authorized push. No implementation scope remains.
+- **What remains in the milestone:** Nothing. BookOrbit OPDS adapter work is active as `3.27.4`.
 - **Recommended commit message:** `Release 3.27.3 with authoritative provider identities, compatibility diagnostics, and stable Metron CWA Plex reconciliation`.
 
 ---
@@ -205,7 +205,7 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 ## 3.27.4 — BookOrbit OPDS Adapter
 
 **Goal:** Add BookOrbit as an explicit digital-library provider adapter over shared OPDS transport, using the authoritative external-identity registry rather than presenting BookOrbit as Calibre/CWA.
-**Status:** Planned ahead; inactive until `3.27.3` closes.
+**Status:** Active after the hosted `3.27.3` closeout. Shared OPDS transport hardening and BookOrbit entry/identity normalization are implemented; multi-instance administration, authoritative import reconciliation, UI controls, and end-to-end runtime certification remain.
 
 ### Scope
 
@@ -233,6 +233,13 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 
 - No reading-progress sync, metadata writeback, embedded reader, file proxy, automatic schedule, or broad work/edition/copy migration is included.
 - Durable background scheduling remains under the separate workspace-aware job contract unless explicitly promoted later.
+
+### Current implementation progress
+
+- A shared OPDS transport module now owns Basic authentication, Atom parsing, same-origin URL resolution, root/catalog traversal, bounded timeouts, per-response and total byte limits, page limits, cycle detection, redirect refusal, and secret-free error diagnostics. It fetches and validates the complete traversal before returning rows, so a transport failure cannot turn a partial feed into a destructive partial synchronization.
+- CWA now uses the shared transport through its existing adapter without changing its provider label, identity projection, browse/download semantics, or public import route.
+- The BookOrbit adapter preserves the Atom entry id (`urn:bookorbit:book:{id}`) as provider identity, keeps ISBN as mutable bibliographic metadata, recognizes current CBZ/CBR MIME types, parses series links/indexes, separates feed `updated` from publication date, preserves acquisition and cover URLs, and leaves browse/detail URL empty when BookOrbit does not provide one.
+- BookOrbit settings, credentials, canonical fields, and compatibility projections have provider-owned validation. Focused coverage proves root/catalog pagination, modern comic classification, changed ISBN with stable Atom identity, authentication refusal, pagination cycles, unsafe cross-origin links, page and response limits, malformed feeds, timeouts, and credential-free diagnostics.
 
 ---
 

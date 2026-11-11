@@ -16,6 +16,7 @@
     "test:provider-integration-binding-smoke": "node scripts/provider-integration-binding-smoke.js",
     "test:metron-authoritative-sync-smoke": "node scripts/metron-authoritative-sync-smoke.js",
     "test:cwa-authoritative-sync-smoke": "node scripts/cwa-authoritative-sync-smoke.js",
+    "test:bookorbit-opds-transport": "node scripts/bookorbit-opds-transport-smoke.js",
     "test:plex-authoritative-sync-smoke": "node scripts/plex-authoritative-sync-smoke.js",
     "test:provider-identity-cutover-diagnostics": "node scripts/provider-identity-cutover-diagnostics-smoke.js",
     "test:external-identity-merge-revert-smoke": "node scripts/external-identity-merge-revert-smoke.js",

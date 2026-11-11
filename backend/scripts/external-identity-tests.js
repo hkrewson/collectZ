@@ -21,6 +21,11 @@ const {
   createCwaAdapterRegistry
 } = require('../services/cwaIdentity');
 const {
+  buildBookOrbitCanonicalFields,
+  buildBookOrbitCompatibility,
+  createBookOrbitAdapterRegistry
+} = require('../services/bookOrbitIdentity');
+const {
   buildPlexCanonicalFields,
   buildPlexCompatibility,
   createPlexAdapterRegistry,
@@ -269,6 +274,46 @@ test('CWA adapter preserves exact OPDS entry identity and bounded canonical proj
     'type_details.author': 'Example Author',
     'type_details.isbn': '9781234567890'
   });
+});
+
+test('BookOrbit adapter keeps Atom identity separate from mutable bibliographic metadata', () => {
+  const registry = createBookOrbitAdapterRegistry();
+  assert.deepEqual(registry.validateSettings('bookorbit', {
+    catalogPath: '/api/v1/opds', timeoutMs: 15000
+  }).settings, {
+    catalogPath: '/api/v1/opds', timeoutMs: 15000
+  });
+  assert.deepEqual(registry.validateCredentials('bookorbit', {
+    username: 'collectz', password: 'runtime-generated-at-use'
+  }).credentials, {
+    username: 'collectz', password: 'runtime-generated-at-use'
+  });
+  assert.equal(
+    registry.normalizeExternalId('bookorbit', 'book', ' urn:bookorbit:book:42 ').normalizedExternalId,
+    'urn:bookorbit:book:42'
+  );
+  assert.throws(
+    () => registry.normalizeExternalId('bookorbit', 'book', '9781476735402'),
+    /Atom entry id/
+  );
+  assert.deepEqual(buildBookOrbitCompatibility('urn:bookorbit:book:42'), {
+    typeDetails: { provider_name: 'bookorbit', provider_item_id: 'urn:bookorbit:book:42' },
+    metadata: { provider_item_id: 'urn:bookorbit:book:42' }
+  });
+  const canonical = buildBookOrbitCanonicalFields({
+    title: 'Foundation Book',
+    year: 2026,
+    type_details: {
+      isbn: '9781476735402',
+      series: 'Foundation Series',
+      series_index: '2',
+      provider_item_id: 'urn:bookorbit:book:42'
+    }
+  });
+  assert.equal(canonical['type_details.isbn'], '9781476735402');
+  assert.equal(canonical['type_details.series'], 'Foundation Series');
+  assert.equal(canonical['type_details.series_index'], '2');
+  assert.equal(Object.values(canonical).includes('urn:bookorbit:book:42'), false);
 });
 
 test('Plex adapter prefers GUID identity and keeps compatibility projections identity-exact', () => {

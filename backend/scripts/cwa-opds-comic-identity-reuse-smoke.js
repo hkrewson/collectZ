@@ -1,9 +1,11 @@
 'use strict';
 
 const http = require('http');
+const crypto = require('node:crypto');
 const bcrypt = require('bcrypt');
 const pool = require('../db/pool');
 const { encryptSecret } = require('../services/crypto');
+const { createScopedSmokeUser } = require('./helpers/scopedSmokeUser');
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 
@@ -80,14 +82,7 @@ function assert(condition, message) {
 }
 
 async function createDirectUser({ email, password, name, role = 'admin' }) {
-  const passwordHash = await bcrypt.hash(password, 12);
-  const result = await pool.query(
-    `INSERT INTO users (email, password, name, role, email_verified, email_verified_at)
-     VALUES ($1, $2, $3, $4, true, NOW())
-     RETURNING id`,
-    [email, passwordHash, name, role]
-  );
-  return Number(result.rows[0]?.id || 0) || null;
+  return createScopedSmokeUser({ pool, email, password, name, role, slugPrefix: 'cwa-comic-smoke' });
 }
 
 async function seedScopedCwaIntegration({ spaceId, opdsUrl, username = '', password = '' }) {
@@ -128,7 +123,24 @@ async function cleanupTemporaryState({ userId, libraryId, spaceId }) {
     await pool.query('DELETE FROM spaces WHERE id = $1', [spaceId]).catch(() => {});
   }
   if (userId) {
-    await pool.query('DELETE FROM users WHERE id = $1', [userId]).catch(() => {});
+    try {
+      await pool.query('DELETE FROM users WHERE id = $1', [userId]);
+    } catch {
+      const retiredPasswordHash = await bcrypt.hash(crypto.randomBytes(48).toString('hex'), 12);
+      await pool.query('DELETE FROM user_sessions WHERE user_id = $1', [userId]).catch(() => {});
+      await pool.query('DELETE FROM personal_access_tokens WHERE user_id = $1', [userId]).catch(() => {});
+      await pool.query(
+        `UPDATE users
+            SET email = $2,
+                password = $3,
+                name = 'Retired CWA comic smoke actor',
+                role = 'user',
+                active_space_id = NULL,
+                active_library_id = NULL
+          WHERE id = $1`,
+        [userId, `retired-cwa-comic-smoke-${userId}@example.invalid`, retiredPasswordHash]
+      ).catch(() => {});
+    }
   }
 }
 
@@ -216,14 +228,14 @@ async function fetchScopeContext(client) {
 async function main() {
   const suffix = Date.now();
   const email = `cwa-opds-comic-identity-${suffix}@example.com`;
-  const password = 'Passw0rd!123';
+  const password = `Cwa!${crypto.randomBytes(18).toString('base64url')}`;
   const client = new HttpClient('cwa-opds-comic-identity-reuse-smoke');
   let userId = null;
   let libraryId = null;
   let spaceId = null;
   let fakeOpds = null;
 
-  const entryId = 'urn:uuid:cwa-opds-comic-identity-entry';
+  const entryId = `urn:uuid:${crypto.randomUUID()}`;
   const author = 'Comic Sync Smoke Author';
 
   try {
@@ -233,7 +245,7 @@ async function main() {
       email,
       password,
       name: 'CWA OPDS Comic Identity Smoke Admin',
-      role: 'admin'
+      role: 'user'
     });
 
     await client.request('/api/auth/login', {
@@ -309,7 +321,7 @@ async function main() {
     assert(String(canonical.type_details?.series || '') === 'Galaxy Rangers', `Expected comic series metadata to persist, got ${JSON.stringify(canonical)}`);
     assert(String(canonical.type_details?.volume || '') === '2', `Expected comic volume metadata to persist, got ${JSON.stringify(canonical)}`);
     assert(String(canonical.type_details?.issue_number || '') === '007', `Expected comic issue metadata to persist, got ${JSON.stringify(canonical)}`);
-    assert(String(canonical.title || '') === 'Galaxy Rangers v2 007', `Expected repeated comic sync to keep one canonical comic row instead of forking a title-variant duplicate, got ${JSON.stringify(canonical)}`);
+    assert(String(canonical.title || '') === 'Galaxy Rangers v2 007: Variant Cover', `Expected repeated comic sync to refresh the provider-controlled title on the same canonical row instead of forking a duplicate, got ${JSON.stringify(canonical)}`);
 
     const scopedComicCount = await pool.query(
       `SELECT COUNT(*)::int AS count

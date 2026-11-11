@@ -1,9 +1,11 @@
 'use strict';
 
 const http = require('http');
+const crypto = require('node:crypto');
 const bcrypt = require('bcrypt');
 const pool = require('../db/pool');
 const { encryptSecret } = require('../services/crypto');
+const { createScopedSmokeUser } = require('./helpers/scopedSmokeUser');
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 
@@ -79,15 +81,14 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
+function randomIsbn13() {
+  const stem = `978${String(crypto.randomInt(0, 1000000000)).padStart(9, '0')}`;
+  const weighted = [...stem].reduce((sum, digit, index) => sum + Number(digit) * (index % 2 === 0 ? 1 : 3), 0);
+  return `${stem}${(10 - (weighted % 10)) % 10}`;
+}
+
 async function createDirectUser({ email, password, name, role = 'admin' }) {
-  const passwordHash = await bcrypt.hash(password, 12);
-  const result = await pool.query(
-    `INSERT INTO users (email, password, name, role, email_verified, email_verified_at)
-     VALUES ($1, $2, $3, $4, true, NOW())
-     RETURNING id`,
-    [email, passwordHash, name, role]
-  );
-  return Number(result.rows[0]?.id || 0) || null;
+  return createScopedSmokeUser({ pool, email, password, name, role, slugPrefix: 'cwa-link-smoke' });
 }
 
 async function seedScopedCwaIntegration({ spaceId, opdsUrl, username = '', password = '' }) {
@@ -125,7 +126,24 @@ async function cleanupTemporaryState({ userId, libraryId, spaceId }) {
     await pool.query('DELETE FROM spaces WHERE id = $1', [spaceId]).catch(() => {});
   }
   if (userId) {
-    await pool.query('DELETE FROM users WHERE id = $1', [userId]).catch(() => {});
+    try {
+      await pool.query('DELETE FROM users WHERE id = $1', [userId]);
+    } catch {
+      const retiredPasswordHash = await bcrypt.hash(crypto.randomBytes(48).toString('hex'), 12);
+      await pool.query('DELETE FROM user_sessions WHERE user_id = $1', [userId]).catch(() => {});
+      await pool.query('DELETE FROM personal_access_tokens WHERE user_id = $1', [userId]).catch(() => {});
+      await pool.query(
+        `UPDATE users
+            SET email = $2,
+                password = $3,
+                name = 'Retired CWA link smoke actor',
+                role = 'user',
+                active_space_id = NULL,
+                active_library_id = NULL
+          WHERE id = $1`,
+        [userId, `retired-cwa-link-smoke-${userId}@example.invalid`, retiredPasswordHash]
+      ).catch(() => {});
+    }
   }
 }
 
@@ -205,7 +223,7 @@ async function fetchScopeContext(client) {
 async function main() {
   const suffix = Date.now();
   const email = `cwa-opds-link-contract-${suffix}@example.com`;
-  const password = 'Passw0rd!123';
+  const password = `Cwa!${crypto.randomBytes(18).toString('base64url')}`;
   const client = new HttpClient('cwa-opds-link-contract-smoke');
   let userId = null;
   let libraryId = null;
@@ -215,7 +233,7 @@ async function main() {
   const entryId = 'urn:uuid:cwa-opds-link-contract-entry';
   const title = 'CWA OPDS Link Contract Smoke Book';
   const author = 'Link Contract Smoke Author';
-  const isbn = '9781476735402';
+  const isbn = randomIsbn13();
 
   try {
     fakeOpds = await startFakeOpdsServer({ entryId, title, author, isbn });
@@ -224,7 +242,7 @@ async function main() {
       email,
       password,
       name: 'CWA OPDS Link Contract Smoke Admin',
-      role: 'admin'
+      role: 'user'
     });
 
     await client.request('/api/auth/login', {
