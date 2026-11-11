@@ -40,6 +40,10 @@ _Avoid_: Inferred provider identity, probable match
 A per-field decision stating whose value is authoritative, whether provider refresh is permitted, and whether the current canonical value is locked.
 _Avoid_: Source observation, provider metadata
 
+**Provider Type Transition**:
+A controlled change to a Canonical Object's media type when the same External Identity is later observed with different provider semantics. The Canonical UUID stays stable; provider-owned, lossless changes may apply automatically, while locked, manually controlled, cross-provider, or lossy changes require review.
+_Avoid_: Re-import, replacement object, duplicate object
+
 **Identity Kind**:
 The provider-defined level identified by an External Identity, such as book, series, chapter, edition, or file.
 _Avoid_: Media type

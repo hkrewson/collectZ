@@ -140,11 +140,13 @@ async function main() {
   const one = { username: `one-${suffix}`, password: crypto.randomBytes(24).toString('base64url') };
   const two = { username: `two-${suffix}`, password: crypto.randomBytes(24).toString('base64url') };
   let firstIsbn = randomIsbn13();
+  let firstMime = 'application/epub+zip';
+  let firstExtension = 'epub';
   const secondIsbn = randomIsbn13();
   const comicIsbn = randomIsbn13();
   const duplicateTitleIsbn = randomIsbn13();
   one.entries = () => [
-    entry({ id: 42, title: 'BookOrbit Instance One', isbn: firstIsbn }),
+    entry({ id: 42, title: 'BookOrbit Instance One', isbn: firstIsbn, mime: firstMime, extension: firstExtension }),
     entry({ id: 43, title: 'BookOrbit Instance One Comic', isbn: comicIsbn, mime: 'application/vnd.comicbook+zip', extension: 'cbz' }),
     entry({ id: 44, title: 'BookOrbit Alternate Edition', isbn: firstIsbn }),
     entry({ id: 45, title: 'BookOrbit Audiobook', isbn: randomIsbn13(), mime: 'audio/mp4', extension: 'm4b' }),
@@ -257,6 +259,7 @@ async function main() {
     assert.equal(firstImport.summary.completedWithErrors, false);
     assert.equal(firstImport.summary.completedWithSkips, true);
     assert.equal(firstImport.summary.skippedCount, 1);
+    assert.ok(firstImport.summary.matchModes.strong_identifier_conflict_guarded >= 1);
     assert.equal(firstImport.summary.duplicateTitleReviewRows, 2);
     assert.ok(firstImport.summary.diagnosticsFlagged >= 3);
     const duplicateTitleRows = firstImport.auditRows
@@ -297,6 +300,43 @@ async function main() {
     assert.equal(repeated.summary.created, 0);
     assert.equal(repeated.summary.updated, 4);
     assert.equal(repeated.summary.skipped_invalid, 1);
+    assert.equal(repeated.summary.matchModes.matched_by_provider_identity, 4);
+    firstMime = 'application/vnd.comicbook+zip';
+    firstExtension = 'cbz';
+    const typeTransition = await importConnection(firstConnectionId);
+    assert.equal(typeTransition.summary.created, 0);
+    assert.equal(typeTransition.summary.updated, 4);
+    assert.equal(typeTransition.summary.errors.length, 0);
+    const transitionedAudit = typeTransition.auditRows.find((row) => row.provider_item_id === 'urn:bookorbit:book:42');
+    assert.equal(transitionedAudit?.provider_type_transition?.action, 'refresh');
+    assert.equal(transitionedAudit?.provider_type_transition?.from, 'book');
+    assert.equal(transitionedAudit?.provider_type_transition?.to, 'comic_book');
+    await withAuthorizedScopeTransaction(pool, { spaceId, libraryId }, userId, async (db) => {
+      await setCanonicalFieldControl(db, {
+        spaceId,
+        mediaId: firstMediaId,
+        fieldPath: 'media.media_type',
+        authority: 'manual',
+        providerWriteMode: 'preserve',
+        locked: true,
+        providerConnectionId: null,
+        actorId: userId
+      });
+    });
+    firstMime = 'application/epub+zip';
+    firstExtension = 'epub';
+    const reviewRequired = await importConnection(firstConnectionId);
+    assert.equal(reviewRequired.summary.created, 0);
+    assert.equal(reviewRequired.summary.updated, 3);
+    assert.equal(reviewRequired.summary.skipped_invalid, 2);
+    assert.equal(reviewRequired.summary.errors.length, 0);
+    assert.equal(reviewRequired.summary.typeTransitionReviewRows, 1);
+    const reviewAudit = reviewRequired.auditRows.find((row) => row.provider_item_id === 'urn:bookorbit:book:42');
+    assert.equal(reviewAudit?.status, 'review_required');
+    assert.equal(reviewAudit?.audit_outcome, 'type_transition_review');
+    assert.equal(reviewAudit?.current_media_type, 'comic_book');
+    assert.equal(reviewAudit?.proposed_media_type, 'book');
+    assert.equal(reviewAudit?.transition_reason, 'locked');
     const secondImport = await importConnection(secondConnectionId);
     assert.equal(secondImport.summary.created, 1);
 
@@ -336,8 +376,9 @@ async function main() {
 
     assert.equal(mediaRows.rowCount, 5);
     const firstBook = mediaRows.rows.find((row) => Number(row.id) === firstMediaId);
-    const comic = mediaRows.rows.find((row) => row.media_type === 'comic_book');
+    const comic = mediaRows.rows.find((row) => row.type_details?.provider_item_id === 'urn:bookorbit:book:43');
     assert.equal(firstBook?.type_details?.provider_item_id, 'urn:bookorbit:book:42');
+    assert.equal(firstBook?.media_type, 'comic_book');
     assert.equal(firstBook?.type_details?.isbn, firstIsbn);
     assert.notEqual(firstBook?.type_details?.isbn, originalIsbn);
     assert.equal(firstBook?.title, 'Manual BookOrbit Title');
@@ -349,6 +390,8 @@ async function main() {
       connections: listed.connections.length,
       firstCreated: firstImport.summary.created,
       repeatUpdated: repeated.summary.updated,
+      typeTransition: 'book-to-comic-same-canonical',
+      lockedTypeTransition: 'review-required-existing-preserved',
       secondCreated: secondImport.summary.created,
       canonicalRows: mediaRows.rowCount,
       sameIsbnDistinctProviderRows: sameIsbnRows.rowCount,

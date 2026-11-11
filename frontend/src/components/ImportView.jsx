@@ -71,6 +71,10 @@ export default function ImportView({
         'confidence_score',
         'diagnostic_flagged',
         'provider_item_id',
+        'current_media_type',
+        'proposed_media_type',
+        'transition_reason',
+        'dropped_fields',
         'review_reasons',
         'isbn',
         'ean_upc',
@@ -95,6 +99,10 @@ export default function ImportView({
           r.confidence_score ?? '',
           r.diagnostic_flagged ?? '',
           r.provider_item_id || '',
+          r.current_media_type || r.provider_type_transition?.from || '',
+          r.proposed_media_type || r.provider_type_transition?.to || '',
+          r.transition_reason || r.provider_type_transition?.reason || '',
+          Array.isArray(r.dropped_fields) ? r.dropped_fields.join('; ') : '',
           Array.isArray(r.review_reasons) ? r.review_reasons.join('; ') : '',
           r.isbn || '',
           r.ean_upc || '',
@@ -492,7 +500,10 @@ export default function ImportView({
           <p className="text-xs font-medium text-ghost">Recent jobs</p>
           <div className="space-y-2">
             {recentJobs.map((job) => {
-              const reviewCount = Number(job?.summary?.duplicateTitleReviewRows || job?.summary?.diagnosticsFlagged || 0);
+              const reviewCount = Number(
+                job?.summary?.duplicateTitleReviewRows || (job?.provider === 'bookorbit' ? 0 : job?.summary?.diagnosticsFlagged) || 0
+              );
+              const typeTransitionReviewCount = Number(job?.summary?.typeTransitionReviewRows || 0);
               return (
                 <div key={job.id} className="border-t border-edge/60 px-1 pt-2 text-xs text-dim first:border-t-0 first:px-0 first:pt-0">
                   <div className="font-mono text-[11px] text-ghost">
@@ -507,6 +518,12 @@ export default function ImportView({
                   {reviewCount > 0 ? (
                     <p className="mt-1 text-xs text-warn">
                       Review {reviewCount} provider records with duplicate or low-confidence metadata in the audit report.
+                    </p>
+                  ) : null}
+                  {typeTransitionReviewCount > 0 ? (
+                    <p className="mt-1 text-xs text-warn">
+                      Review {typeTransitionReviewCount} BookOrbit book/comic type change{typeTransitionReviewCount === 1 ? '' : 's'} in the
+                      audit report.
                     </p>
                   ) : null}
                 </div>
@@ -528,6 +545,12 @@ export default function ImportView({
       )}
       {auditRows.length > 0 && (
         <div className="space-y-2">
+          {auditRows.some((row) => row?.status === 'review_required') ? (
+            <p className="text-xs text-warn">
+              BookOrbit proposed a book/comic type change that could not be applied safely. The existing item was preserved; download the
+              audit for the reason and affected fields.
+            </p>
+          ) : null}
           {auditRows.some((row) => row?.diagnostic_flagged) ? (
             <p className="text-xs text-warn">
               The audit report identifies distinct provider records that share visible metadata; review them before merging anything.

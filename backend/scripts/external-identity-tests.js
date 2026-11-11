@@ -57,7 +57,8 @@ const {
 } = require('../services/providerIdentityBackfill');
 const {
   normalizeControl,
-  decideProviderFieldUpdate
+  decideProviderFieldUpdate,
+  decideProviderTypeTransition
 } = require('../services/canonicalMediaFieldControls');
 const {
   recordProviderIdentityCompatibilityEvent,
@@ -314,6 +315,65 @@ test('BookOrbit adapter keeps Atom identity separate from mutable bibliographic 
   assert.equal(canonical['type_details.series'], 'Foundation Series');
   assert.equal(canonical['type_details.series_index'], '2');
   assert.equal(Object.values(canonical).includes('urn:bookorbit:book:42'), false);
+});
+
+test('provider-owned BookOrbit type transitions preserve canonical identity when lossless', () => {
+  const control = {
+    authority: 'provider',
+    provider_write_mode: 'refresh',
+    locked: false,
+    source_provider_connection_id: 'bookorbit-one'
+  };
+  assert.deepEqual(decideProviderTypeTransition({
+    currentType: 'book',
+    proposedType: 'comic_book',
+    currentTypeDetails: { author: 'Author', isbn: '9781476735402' },
+    control,
+    providerConnectionId: 'bookorbit-one'
+  }), {
+    action: 'refresh',
+    reason: 'provider_refresh_allowed',
+    typeDetails: { author: 'Author', isbn: '9781476735402' },
+    droppedFields: []
+  });
+});
+
+test('provider type transitions require review when authority or type-specific facts would be lost', () => {
+  const providerControl = {
+    authority: 'provider',
+    provider_write_mode: 'refresh',
+    locked: false,
+    source_provider_connection_id: 'bookorbit-one'
+  };
+  const uncontrolled = decideProviderTypeTransition({
+    currentType: 'book',
+    proposedType: 'comic_book',
+    currentTypeDetails: { author: 'Author' },
+    providerConnectionId: 'bookorbit-one'
+  });
+  assert.equal(uncontrolled.action, 'review');
+  assert.equal(uncontrolled.reason, 'uncontrolled_existing_type');
+
+  const lossy = decideProviderTypeTransition({
+    currentType: 'comic_book',
+    proposedType: 'book',
+    currentTypeDetails: { author: 'Author', issue_number: '7', artist: 'Artist' },
+    control: providerControl,
+    providerConnectionId: 'bookorbit-one'
+  });
+  assert.equal(lossy.action, 'review');
+  assert.equal(lossy.reason, 'type_specific_fields_would_be_lost');
+  assert.deepEqual(lossy.droppedFields.sort(), ['artist', 'issue_number']);
+
+  const locked = decideProviderTypeTransition({
+    currentType: 'book',
+    proposedType: 'comic_book',
+    currentTypeDetails: { author: 'Author' },
+    control: { ...providerControl, authority: 'manual', provider_write_mode: 'preserve', locked: true },
+    providerConnectionId: 'bookorbit-one'
+  });
+  assert.equal(locked.action, 'review');
+  assert.equal(locked.reason, 'locked');
 });
 
 test('Plex adapter prefers GUID identity and keeps compatibility projections identity-exact', () => {

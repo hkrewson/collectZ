@@ -3,6 +3,7 @@
 const { TYPE_DETAILS_ALLOWED_BY_MEDIA_TYPE, normalizeTypeDetails } = require('./typeDetails');
 
 const MEDIA_FIELD_COLUMNS = Object.freeze({
+  media_type: 'media_type',
   title: 'title',
   original_title: 'original_title',
   release_date: 'release_date',
@@ -80,6 +81,53 @@ function decideProviderFieldUpdate({ currentValue, proposedValue, control, provi
   return { action: 'refresh', reason: `${control.authority}_refresh_allowed` };
 }
 
+function decideProviderTypeTransition({
+  currentType,
+  proposedType,
+  currentTypeDetails = null,
+  control = null,
+  providerConnectionId
+} = {}) {
+  const current = String(currentType || '').trim();
+  const proposed = String(proposedType || '').trim();
+  if (current === proposed) {
+    return { action: 'observe', reason: 'already_equal', typeDetails: currentTypeDetails || null, droppedFields: [] };
+  }
+  if (!['book', 'comic_book'].includes(current) || !['book', 'comic_book'].includes(proposed)) {
+    return { action: 'review', reason: 'unsupported_type_transition', typeDetails: currentTypeDetails || null, droppedFields: [] };
+  }
+  if (!control) {
+    return { action: 'review', reason: 'uncontrolled_existing_type', typeDetails: currentTypeDetails || null, droppedFields: [] };
+  }
+  if (control.locked) {
+    return { action: 'review', reason: 'locked', typeDetails: currentTypeDetails || null, droppedFields: [] };
+  }
+  if (control.source_provider_connection_id && control.source_provider_connection_id !== providerConnectionId) {
+    return { action: 'review', reason: 'different_provider_preserved', typeDetails: currentTypeDetails || null, droppedFields: [] };
+  }
+  if (control.authority === 'manual') {
+    return { action: 'review', reason: 'manual_preserved', typeDetails: currentTypeDetails || null, droppedFields: [] };
+  }
+  if (control.provider_write_mode !== 'refresh') {
+    return { action: 'review', reason: `${control.authority}_preserved`, typeDetails: currentTypeDetails || null, droppedFields: [] };
+  }
+  const normalized = normalizeTypeDetails(proposed, currentTypeDetails, { strict: false });
+  if (normalized.invalidKeys.length > 0) {
+    return {
+      action: 'review',
+      reason: 'type_specific_fields_would_be_lost',
+      typeDetails: currentTypeDetails || null,
+      droppedFields: normalized.invalidKeys
+    };
+  }
+  return {
+    action: 'refresh',
+    reason: `${control.authority}_refresh_allowed`,
+    typeDetails: normalized.value,
+    droppedFields: []
+  };
+}
+
 function normalizeControl({ authority, providerWriteMode = 'preserve', locked = false, providerConnectionId = null } = {}) {
   const normalizedAuthority = String(authority || '').trim().toLowerCase();
   const mode = String(providerWriteMode || '').trim().toLowerCase();
@@ -148,6 +196,98 @@ async function setCanonicalFieldControl(client, {
       control.locked, control.providerConnectionId, userId]
   );
   return result.rows[0];
+}
+
+async function reconcileProviderMediaType(client, {
+  spaceId,
+  mediaId,
+  proposedType,
+  providerConnectionId,
+  actorId
+} = {}) {
+  if (!client || typeof client.query !== 'function') throw new TypeError('Provider type reconciliation requires a transaction client');
+  const workspaceId = positiveInteger(spaceId, 'Workspace');
+  const canonicalId = positiveInteger(mediaId, 'Canonical object');
+  positiveInteger(actorId, 'Actor');
+  if (!providerConnectionId) throw new TypeError('Provider type reconciliation requires a Provider Connection');
+  const proposed = String(proposedType || '').trim();
+  if (!['book', 'comic_book'].includes(proposed)) throw new TypeError('Provider canonical type must be book or comic_book');
+
+  const mediaResult = await client.query(
+    'SELECT media_type, type_details FROM media WHERE id = $1 AND space_id = $2 FOR UPDATE',
+    [canonicalId, workspaceId]
+  );
+  const media = mediaResult.rows[0];
+  if (!media) {
+    const error = new Error('Canonical object was not found in the authorized workspace');
+    error.code = 'CANONICAL_OBJECT_NOT_FOUND';
+    error.status = 404;
+    throw error;
+  }
+  const controlResult = await client.query(
+    `SELECT * FROM canonical_media_field_controls
+      WHERE space_id = $1 AND media_id = $2 AND field_path = 'media.media_type'
+      FOR UPDATE`,
+    [workspaceId, canonicalId]
+  );
+  const control = controlResult.rows[0] || null;
+  const decision = decideProviderTypeTransition({
+    currentType: media.media_type,
+    proposedType: proposed,
+    currentTypeDetails: media.type_details,
+    control,
+    providerConnectionId
+  });
+
+  if (decision.action === 'review') {
+    const error = new Error(`BookOrbit type change from ${media.media_type} to ${proposed} requires review`);
+    error.code = 'PROVIDER_TYPE_TRANSITION_REVIEW_REQUIRED';
+    error.status = 409;
+    error.mediaId = canonicalId;
+    error.currentMediaType = media.media_type;
+    error.proposedMediaType = proposed;
+    error.transitionReason = decision.reason;
+    error.droppedFields = decision.droppedFields;
+    throw error;
+  }
+
+  if (decision.action === 'refresh') {
+    await client.query(
+      `UPDATE media
+          SET media_type = $3, type_details = $4::jsonb
+        WHERE id = $1 AND space_id = $2`,
+      [canonicalId, workspaceId, proposed, JSON.stringify(decision.typeDetails)]
+    );
+  }
+
+  if (control && control.source_provider_connection_id === providerConnectionId) {
+    await client.query(
+      `UPDATE canonical_media_field_controls
+          SET last_observed_at = CURRENT_TIMESTAMP
+        WHERE space_id = $1 AND media_id = $2 AND field_path = 'media.media_type'`,
+      [workspaceId, canonicalId]
+    );
+  } else if (!control && decision.action === 'observe') {
+    await setCanonicalFieldControl(client, {
+      spaceId: workspaceId,
+      mediaId: canonicalId,
+      fieldPath: 'media.media_type',
+      authority: 'provider',
+      providerWriteMode: 'refresh',
+      locked: false,
+      providerConnectionId,
+      actorId
+    });
+  }
+
+  return {
+    action: decision.action,
+    reason: decision.reason,
+    mediaId: canonicalId,
+    from: media.media_type,
+    to: proposed,
+    droppedFields: decision.droppedFields
+  };
 }
 
 async function applyProviderFieldUpdates(client, {
@@ -272,6 +412,8 @@ module.exports = {
   normalizeFieldPath,
   normalizeControl,
   decideProviderFieldUpdate,
+  decideProviderTypeTransition,
   setCanonicalFieldControl,
+  reconcileProviderMediaType,
   applyProviderFieldUpdates
 };

@@ -1,6 +1,6 @@
 'use strict';
 
-const { setCanonicalFieldControl } = require('./canonicalMediaFieldControls');
+const { reconcileProviderMediaType, setCanonicalFieldControl } = require('./canonicalMediaFieldControls');
 const { createExternalMediaIdentityService } = require('./externalMediaIdentities');
 const { buildOwnedFormatsPayload } = require('./mediaFormats');
 const { syncNormalizedMetadataForMedia } = require('./mediaTaxonomy');
@@ -67,12 +67,26 @@ function createBookOrbitImportIdentityModule({ pool } = {}) {
           canonicalFields: buildBookOrbitCanonicalFields(item)
         };
         const reconcileWork = async ({ resolvedMediaId }) => {
+          const providerTypeTransition = resolvedMediaId
+            ? await reconcileProviderMediaType(client, {
+                spaceId,
+                mediaId: resolvedMediaId,
+                proposedType: mediaType,
+                providerConnectionId: connectionId,
+                actorId
+              })
+            : null;
           const value = await upsert(Object.freeze({
             client,
             preferredMediaId: resolvedMediaId || null,
             matchedBy: resolvedMediaId ? 'external_identity' : null
           }));
-          return { mediaId: value?.mediaId, value };
+          return {
+            mediaId: value?.mediaId,
+            value: providerTypeTransition?.action === 'refresh'
+              ? { ...value, providerTypeTransition }
+              : value
+          };
         };
         const reconciled = transactionClient
           ? await identities.reconcile({ ...reconciliationArgs, spaceId, actorId }, reconcileWork, client)
@@ -82,6 +96,16 @@ function createBookOrbitImportIdentityModule({ pool } = {}) {
             spaceId,
             mediaId: reconciled.mediaId,
             fieldPath: 'media.title',
+            authority: 'provider',
+            providerWriteMode: 'refresh',
+            locked: false,
+            providerConnectionId: connectionId,
+            actorId
+          });
+          await setCanonicalFieldControl(client, {
+            spaceId,
+            mediaId: reconciled.mediaId,
+            fieldPath: 'media.media_type',
             authority: 'provider',
             providerWriteMode: 'refresh',
             locked: false,

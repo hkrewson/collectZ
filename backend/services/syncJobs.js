@@ -20,6 +20,7 @@ function buildCompactJobSummary(summary = null) {
     'completedWithErrors',
     'completedWithSkips',
     'duplicateTitleReviewRows',
+    'typeTransitionReviewRows',
     'collectionsDetected',
     'collectionsCreated',
     'collectionItemsSeeded',

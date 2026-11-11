@@ -258,12 +258,14 @@ const SORT_COLUMNS = {
   comic_issue: 'comic_issue'
 };
 const IMPORT_MATCH_MODES = [
+  'matched_by_provider_identity',
   'matched_by_identifier',
   'matched_by_normalization_high',
   'normalization_review_medium',
   'identifier_no_match_fallback_title',
   'fallback_title_only',
-  'identifier_conflict'
+  'identifier_conflict',
+  'strong_identifier_conflict_guarded'
 ];
 const IMPORT_ENRICHMENT_STATUSES = [
   'enriched',
@@ -278,6 +280,7 @@ const IMPORT_AUDIT_OUTCOMES = [
   'near_match_update',
   'created_debug_flagged',
   'skipped_invalid',
+  'type_transition_review',
   'error',
   'collection_only'
 ];
@@ -477,6 +480,7 @@ function deriveImportAuditOutcome({
       || matchMode === 'identifier_conflict'
       || matched.startsWith('identifier_')
       || matched.startsWith('provider_')
+      || matched === 'external_identity'
     ) {
       return 'duplicate_exact';
     }
@@ -8996,6 +9000,7 @@ async function runGenericCsvImport({
           normalization_review_candidate_count: Array.isArray(result.normalizationReviewCandidates) ? result.normalizationReviewCandidates.length : 0,
           review_reasons: sourceReviewReasons,
           provider_item_id: sourceProviderItemId,
+          provider_type_transition: result.providerTypeTransition || null,
           isbn: rowIdentifiers.isbn || '',
           ean_upc: rowIdentifiers.eanUpc || '',
           asin: rowIdentifiers.asin || ''
@@ -9022,6 +9027,7 @@ async function runGenericCsvImport({
           normalization_review_candidate_count: Array.isArray(result.normalizationReviewCandidates) ? result.normalizationReviewCandidates.length : 0,
           review_reasons: sourceReviewReasons,
           provider_item_id: sourceProviderItemId,
+          provider_type_transition: result.providerTypeTransition || null,
           isbn: rowIdentifiers.isbn || '',
           ean_upc: rowIdentifiers.eanUpc || '',
           asin: rowIdentifiers.asin || ''
@@ -9054,30 +9060,58 @@ async function runGenericCsvImport({
         });
       }
     } catch (error) {
-      summary.errors.push({ row: idx + 2, detail: error.message });
-      incrementImportAuditOutcomeCounter(summary.auditOutcomes, 'error');
-      auditRows.push({
-        row: idx + 2,
-        media_type: mapped.media_type || '',
-        title: mapped.title || '',
-        status: 'error',
-        detail: error.message,
-        enrichment_status: 'not_attempted',
-        lookup_path: 'none',
-        lookup_status: 'none',
-        audit_outcome: 'error',
-        review_reasons: sourceReviewReasons,
-        provider_item_id: sourceProviderItemId,
-        classification_detail: deriveImportAuditClassificationDetail({
-          upsertStatus: 'error',
-          matchMode: null,
-          matchedBy: null,
-          enrichmentStatus: 'not_attempted',
-          lookupPath: 'none',
-          mediaType: mapped.media_type || 'movie',
-          importSource
-        })
-      });
+      if (error?.code === 'PROVIDER_TYPE_TRANSITION_REVIEW_REQUIRED') {
+        summary.skipped_invalid += 1;
+        summary.diagnosticsFlagged += 1;
+        incrementImportAuditOutcomeCounter(summary.auditOutcomes, 'type_transition_review');
+        auditRows.push({
+          row: idx + 2,
+          media_id: error.mediaId || null,
+          media_type: mapped.media_type || '',
+          current_media_type: error.currentMediaType || '',
+          proposed_media_type: error.proposedMediaType || mapped.media_type || '',
+          title: mapped.title || '',
+          status: 'review_required',
+          detail: error.message,
+          transition_reason: error.transitionReason || 'review_required',
+          dropped_fields: error.droppedFields || [],
+          match_mode: 'matched_by_provider_identity',
+          matched_by: 'external_identity',
+          enrichment_status: 'not_applicable',
+          lookup_path: 'none',
+          lookup_status: 'none',
+          audit_outcome: 'type_transition_review',
+          diagnostic_flagged: true,
+          review_reasons: [...sourceReviewReasons, 'provider_type_transition'],
+          provider_item_id: sourceProviderItemId,
+          classification_detail: 'Stable provider identity proposed a canonical media-type change that requires review.'
+        });
+      } else {
+        summary.errors.push({ row: idx + 2, detail: error.message });
+        incrementImportAuditOutcomeCounter(summary.auditOutcomes, 'error');
+        auditRows.push({
+          row: idx + 2,
+          media_type: mapped.media_type || '',
+          title: mapped.title || '',
+          status: 'error',
+          detail: error.message,
+          enrichment_status: 'not_attempted',
+          lookup_path: 'none',
+          lookup_status: 'none',
+          audit_outcome: 'error',
+          review_reasons: sourceReviewReasons,
+          provider_item_id: sourceProviderItemId,
+          classification_detail: deriveImportAuditClassificationDetail({
+            upsertStatus: 'error',
+            matchMode: null,
+            matchedBy: null,
+            enrichmentStatus: 'not_attempted',
+            lookupPath: 'none',
+            mediaType: mapped.media_type || 'movie',
+            importSource
+          })
+        });
+      }
     }
 
     const processed = idx + 1;
@@ -14022,7 +14056,10 @@ router.post('/import-bookorbit', requireSessionAuth, asyncHandler(async (req, re
     const errorCount = result.summary.errors.length;
     const skippedCount = result.summary.skipped_invalid + result.summary.skipped_collection;
     const duplicateTitleReviewRows = result.auditRows.filter((row) =>
-      Array.isArray(row?.review_reasons) && row.review_reasons.length > 0).length;
+      Array.isArray(row?.review_reasons)
+      && row.review_reasons.some((reason) => String(reason).startsWith('BookOrbit exposes '))).length;
+    const typeTransitionReviewRows = result.auditRows.filter((row) =>
+      row?.audit_outcome === 'type_transition_review').length;
     return {
       runtime,
       fetched,
@@ -14033,6 +14070,7 @@ router.post('/import-bookorbit', requireSessionAuth, asyncHandler(async (req, re
         completedWithSkips: skippedCount > 0,
         skippedCount,
         duplicateTitleReviewRows,
+        typeTransitionReviewRows,
         errorsSample: result.summary.errors.slice(0, 20)
       }
     };
@@ -14085,6 +14123,7 @@ router.post('/import-bookorbit', requireSessionAuth, asyncHandler(async (req, re
             completedWithErrors: completion.completedWithErrors,
             completedWithSkips: completion.completedWithSkips,
             duplicateTitleReviewRows: completion.duplicateTitleReviewRows,
+            typeTransitionReviewRows: completion.typeTransitionReviewRows,
             errorsSample: completion.errorsSample,
             valuationRefresh,
             connectionId: runtime.connection.id,
@@ -14102,6 +14141,7 @@ router.post('/import-bookorbit', requireSessionAuth, asyncHandler(async (req, re
           created: result.summary.created,
           updated: result.summary.updated,
           skipped_invalid: result.summary.skipped_invalid,
+          typeTransitionReviewRows: completion.typeTransitionReviewRows,
           errorCount: result.summary.errors.length,
           pagesFetched: fetched.pagesFetched,
           jobId: job.id
