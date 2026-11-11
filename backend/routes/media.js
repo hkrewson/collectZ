@@ -165,6 +165,7 @@ const { createMetronImportIdentityModule } = require('../services/metronImportId
 const { createCwaImportIdentityModule } = require('../services/cwaImportIdentity');
 const { createPlexImportIdentityModule } = require('../services/plexImportIdentity');
 const { createBookOrbitImportIdentityModule } = require('../services/bookOrbitImportIdentity');
+const { createKavitaImportIdentityModule } = require('../services/kavitaImportIdentity');
 const { createBookOrbitAdapterRegistry } = require('../services/bookOrbitIdentity');
 const { createProviderConnectionService } = require('../services/providerConnections');
 const { enforceScopeAccess } = require('../middleware/scopeAccess');
@@ -184,6 +185,7 @@ const metronImportIdentity = createMetronImportIdentityModule({ pool });
 const cwaImportIdentity = createCwaImportIdentityModule({ pool });
 const plexImportIdentity = createPlexImportIdentityModule({ pool });
 const bookOrbitImportIdentity = createBookOrbitImportIdentityModule({ pool });
+const kavitaImportIdentity = createKavitaImportIdentityModule({ pool });
 const bookOrbitConnections = createProviderConnectionService({
   pool,
   adapterRegistry: createBookOrbitAdapterRegistry()
@@ -14419,6 +14421,12 @@ router.post('/import-kavita', asyncHandler(async (req, res) => {
 
   const runImport = async ({ onProgress = null, reviewContext = null } = {}) => {
     const fetched = await fetchKavitaImportItems(config, { maxPages, pageSize, includeChapterFanout });
+    const identitySession = await kavitaImportIdentity.open({
+      spaceId: Number(scopeContext?.spaceId || 0),
+      libraryId: Number(scopeContext?.libraryId || 0) || null,
+      actorId: req.user.id,
+      endpointUrl: config.kavitaBaseUrl
+    });
     const result = await runGenericCsvImport({
       rows: fetched.rows,
       userId: req.user.id,
@@ -14426,7 +14434,8 @@ router.post('/import-kavita', asyncHandler(async (req, res) => {
       onProgress,
       importSource: 'kavita',
       reviewContext,
-      enrichmentMode
+      enrichmentMode,
+      authoritativeIdentitySession: identitySession
     });
     const valuationRefresh = await queueImportedValuationRefresh({
       mediaIds: result.createdMediaIds,

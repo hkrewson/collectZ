@@ -479,6 +479,7 @@ const cwaAuthoritativeSyncSmokeSource = fs.readFileSync(require.resolve('../scri
 const cwaImportIdentitySource = fs.readFileSync(require.resolve('../services/cwaImportIdentity'), 'utf8');
 const bookOrbitAuthoritativeImportSmokeSource = fs.readFileSync(require.resolve('../scripts/bookorbit-authoritative-import-smoke'), 'utf8');
 const bookOrbitImportIdentitySource = fs.readFileSync(require.resolve('../services/bookOrbitImportIdentity'), 'utf8');
+const kavitaImportIdentitySource = fs.readFileSync(require.resolve('../services/kavitaImportIdentity'), 'utf8');
 const plexAuthoritativeSyncSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-authoritative-sync-smoke'), 'utf8');
 const plexImportIdentitySource = fs.readFileSync(require.resolve('../services/plexImportIdentity'), 'utf8');
 const plexIdentitySource = fs.readFileSync(require.resolve('../services/plexIdentity'), 'utf8');
@@ -4296,6 +4297,19 @@ results.push(run('BookOrbit production import uses connection-scoped authoritati
   assert.ok(bookOrbitImportIdentitySource.includes('setCanonicalFieldControl'));
   assert.ok(bookOrbitAuthoritativeImportSmokeSource.includes('overlappingIdentityRows'));
   assert.ok(bookOrbitAuthoritativeImportSmokeSource.includes("credentialReadback: 'redacted'"));
+}));
+
+results.push(run('Kavita production import uses series and chapter authoritative identities', () => {
+  assert.ok(mediaRoutesSource.includes('kavitaImportIdentity.open'));
+  assert.ok(mediaRoutesSource.includes('authoritativeIdentitySession: identitySession'));
+  assert.ok(spaceIntegrationsRoutesSource.includes('providerIntegrationBindings.ensureKavitaBinding'));
+  assert.ok(providerIntegrationBindingsSource.includes("const KAVITA_INTEGRATION_KEY = 'books.kavita'"));
+  assert.ok(kavitaImportIdentitySource.includes('createExternalMediaIdentityService'));
+  assert.ok(kavitaImportIdentitySource.includes("'legacy_read_provider_item'"));
+  assert.ok(kavitaImportIdentitySource.includes("'legacy_kavita_identity'"));
+  assert.ok(kavitaImportIdentitySource.includes('setCanonicalFieldControl'));
+  assert.ok(kavitaImportSyncSmokeSource.includes('Expected six active Kavita External Identities'));
+  assert.ok(kavitaImportSyncSmokeSource.includes('Expected one stable Kavita Provider Connection binding'));
 }));
 
 results.push(run('Plex settings establish a stable provider connection before authoritative import adoption', () => {

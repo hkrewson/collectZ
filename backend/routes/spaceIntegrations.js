@@ -1062,6 +1062,13 @@ router.put('/spaces/:spaceId/integrations', authenticateToken, requireSessionAut
             endpointUrl: resolvedState.plex_api_url
           }, scopedClient);
         }
+        if (String(resolvedState.kavita_base_url || '').trim()) {
+          await providerIntegrationBindings.ensureKavitaBinding({
+            spaceId,
+            actorId: req.user.id,
+            endpointUrl: resolvedState.kavita_base_url
+          }, scopedClient);
+        }
         return { persisted: saved, nextState: resolvedState };
       }
     );

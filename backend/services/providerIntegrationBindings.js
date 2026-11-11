@@ -6,6 +6,7 @@ const { normalizeTrustedConnectorHttpUrl } = require('./outboundUrlPolicy');
 const METRON_INTEGRATION_KEY = 'comics.metron';
 const CWA_INTEGRATION_KEY = 'books.cwa_opds';
 const PLEX_INTEGRATION_KEY = 'media.plex';
+const KAVITA_INTEGRATION_KEY = 'books.kavita';
 
 function positiveInteger(value, label) {
   const parsed = Number(value);
@@ -157,13 +158,25 @@ function createProviderIntegrationBindingService({ pool } = {}) {
     }, transactionClient);
   }
 
-  return Object.freeze({ ensureMetronBinding, ensureCwaBinding, ensurePlexBinding });
+  async function ensureKavitaBinding(args = {}, transactionClient = null) {
+    return ensureBinding({
+      ...args,
+      integrationKey: KAVITA_INTEGRATION_KEY,
+      providerType: 'kavita',
+      displayName: 'Kavita',
+      settings: { integrationSlot: 'kavita' },
+      label: 'Kavita'
+    }, transactionClient);
+  }
+
+  return Object.freeze({ ensureMetronBinding, ensureCwaBinding, ensurePlexBinding, ensureKavitaBinding });
 }
 
 module.exports = {
   METRON_INTEGRATION_KEY,
   CWA_INTEGRATION_KEY,
   PLEX_INTEGRATION_KEY,
+  KAVITA_INTEGRATION_KEY,
   createProviderIntegrationBindingService,
   publicBinding
 };

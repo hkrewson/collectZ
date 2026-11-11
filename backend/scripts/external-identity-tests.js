@@ -8,6 +8,7 @@ const {
   CWA_INTEGRATION_KEY,
   METRON_INTEGRATION_KEY,
   PLEX_INTEGRATION_KEY,
+  KAVITA_INTEGRATION_KEY,
   createProviderIntegrationBindingService
 } = require('../services/providerIntegrationBindings');
 const {
@@ -25,6 +26,12 @@ const {
   buildBookOrbitCompatibility,
   createBookOrbitAdapterRegistry
 } = require('../services/bookOrbitIdentity');
+const {
+  parseKavitaExternalIdentity,
+  buildKavitaCanonicalFields,
+  buildKavitaCompatibility,
+  createKavitaAdapterRegistry
+} = require('../services/kavitaIdentity');
 const {
   buildPlexCanonicalFields,
   buildPlexCompatibility,
@@ -226,6 +233,35 @@ test('Plex integration binding creates one stable server connection through the 
   });
 });
 
+test('Kavita integration binding creates one stable workspace connection through the caller transaction', async () => {
+  const client = {
+    async query(sql, params) {
+      if (sql.includes('pg_advisory_xact_lock')) return { rows: [{}] };
+      if (sql.includes('FROM provider_integration_bindings b')) return { rows: [] };
+      if (sql.includes('INSERT INTO provider_connections')) {
+        return { rows: [{ id: 'kavita-connection', provider_type: params[1], status: 'active', endpoint_url: params[3] }] };
+      }
+      if (sql.includes('INSERT INTO provider_integration_bindings')) {
+        return { rows: [{ space_id: params[0], integration_key: params[1], provider_connection_id: params[2] }] };
+      }
+      throw new Error(`Unexpected query: ${sql}`);
+    }
+  };
+  const binding = await createProviderIntegrationBindingService({ pool: {} }).ensureKavitaBinding({
+    spaceId: 7,
+    actorId: 9,
+    endpointUrl: 'https://kavita.example/root/'
+  }, client);
+  assert.deepEqual(binding, {
+    spaceId: 7,
+    integrationKey: KAVITA_INTEGRATION_KEY,
+    providerConnectionId: 'kavita-connection',
+    providerType: 'kavita',
+    status: 'active',
+    endpointUrl: 'https://kavita.example/root'
+  });
+});
+
 test('Metron adapter owns numeric issue identity and bounded canonical projections', () => {
   const registry = createMetronAdapterRegistry();
   assert.equal(registry.normalizeExternalId('metron', 'issue', '00042').normalizedExternalId, '42');
@@ -274,6 +310,51 @@ test('CWA adapter preserves exact OPDS entry identity and bounded canonical proj
     'media.year': 2026,
     'type_details.author': 'Example Author',
     'type_details.isbn': '9781234567890'
+  });
+});
+
+test('Kavita adapter separates series and chapter identity kinds from compatibility ids', () => {
+  const registry = createKavitaAdapterRegistry();
+  assert.deepEqual(parseKavitaExternalIdentity('kavita:series:00042'), {
+    identityKind: 'series',
+    providerItemId: 'kavita:series:42',
+    numericId: '42'
+  });
+  assert.equal(
+    registry.normalizeExternalId('kavita', 'chapter', 'kavita:chapter:00099').normalizedExternalId,
+    '99'
+  );
+  assert.throws(
+    () => registry.normalizeExternalId('kavita', 'series', 'kavita:chapter:99'),
+    /wrong provider prefix/
+  );
+  assert.deepEqual(buildKavitaCompatibility('kavita:chapter:99', 'chapter'), {
+    typeDetails: {
+      provider_name: 'kavita',
+      provider_item_id: 'kavita:chapter:99',
+      provider_issue_id: 'kavita:chapter:99'
+    },
+    metadata: {
+      provider_item_id: 'kavita:chapter:99',
+      provider_issue_id: 'kavita:chapter:99'
+    }
+  });
+  assert.deepEqual(buildKavitaCanonicalFields({
+    title: 'Example Series',
+    media_type: 'comic_book',
+    year: 2026,
+    type_details: {
+      series: 'Example Series',
+      issue_number: '1',
+      provider_item_id: 'kavita:chapter:99',
+      kavita_chapter_id: 99
+    }
+  }), {
+    'media.title': 'Example Series',
+    'media.year': 2026,
+    'type_details.series': 'Example Series',
+    'type_details.issue_number': '1',
+    'type_details.kavita_chapter_id': 99
   });
 });
 

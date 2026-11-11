@@ -63,7 +63,14 @@ The identity boundary is:
 - Series row: `provider_item_id = kavita:series:{seriesId}`
 - Chapter row: `provider_item_id = kavita:chapter:{chapterId}`
 
-Fan-out preserves the parent series row and keeps repeat sync idempotent. It does not call Kavita reader/progress endpoints.
+Starting in `3.27.5`, those compatibility values are no longer the database uniqueness guarantee. Saving the workspace configuration creates one stable Kavita Provider Connection, and imports attach a relational External Identity scoped by workspace, connection, identity kind, and normalized numeric id:
+
+- series: `(connection UUID, series, seriesId)`
+- chapter: `(connection UUID, chapter, chapterId)`
+
+This keeps the series/chapter distinction explicit and prevents the same local Kavita id from colliding across workspaces or provider instances. A repeat import resolves the External Identity first; an unambiguous older Kavita row may be adopted transactionally, while ambiguous legacy matches stop for review. Existing `provider_item_id` and `provider_issue_id` fields remain readable compatibility projections.
+
+Fan-out preserves the parent series row and keeps repeat sync idempotent. Identity reconciliation itself does not call Kavita reader/progress endpoints.
 
 ## Current Boundaries
 

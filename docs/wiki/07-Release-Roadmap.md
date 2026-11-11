@@ -290,6 +290,14 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 - Plex, Metron, scanner providers, Playnite, source-observation history, scheduling, reading progress, and metadata writeback do not enter this slice unless separately promoted.
 - The remaining durable job/provider-adapter and work/edition/owned-copy programs stay in backlog after this line closes.
 
+### Current implementation progress
+
+- Saving an existing workspace-owned Kavita configuration now materializes one stable `books.kavita` Provider Connection binding in the same authorized transaction. Endpoint changes update that connection without changing its UUID, while inactive lifecycle states fail closed. Existing encrypted workspace configuration remains the credential/configuration compatibility source and is not deleted or rewritten.
+- Kavita imports now reconcile through the authoritative workspace/connection/kind/id tuple. Series use identity kind `series`; chapter fan-out rows use identity kind `chapter`; the normalized external id is the numeric Kavita record id, while compatibility fields continue to expose `kavita:series:{id}` and `kavita:chapter:{id}` for existing readers.
+- High-confidence legacy Kavita rows are adopted only when the exact provider id resolves to one same-type canonical row in the authorized workspace/library scope. Ambiguous legacy matches fail closed, and repeat imports resolve through External Identities before compatibility fields.
+- The adapter-owned canonical projection preserves the established Kavita library, series, issue, volume/chapter, cover, launch, reader, progress, and writeback metadata contract while keeping provider identity fields under the External Identity compatibility projection.
+- The canonical Docker smoke proves one stable binding, six active series/chapter identities, duplicate-free repeat/fan-out imports, overlapping ids in a second workspace, existing non-Kavita title/issue reuse, preserved metadata/cover/reader/progress/writeback behavior, RLS-protected readback, and secret-free responses.
+
 ---
 
 ## 3.26.0 — Transaction-Local Workspace Scope and Saved-View RLS Pilot

@@ -4,6 +4,7 @@ const http = require('http');
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const pool = require('../db/pool');
+const { withAuthorizedScopeTransaction } = require('../db/scopeBroker');
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 const KAVITA_SMOKE_KEY = `kavita-import-smoke-${crypto.randomBytes(8).toString('hex')}`;
@@ -556,20 +557,34 @@ async function startFakeKavitaServer() {
   };
 }
 
-async function cleanupTemporaryState({ userId, libraryId, spaceId }) {
-  if (libraryId) {
-    await pool.query('DELETE FROM media_metadata WHERE media_id IN (SELECT id FROM media WHERE library_id = $1)', [libraryId]).catch(() => {});
-    await pool.query('DELETE FROM media WHERE library_id = $1', [libraryId]).catch(() => {});
-    await pool.query('DELETE FROM library_memberships WHERE library_id = $1', [libraryId]).catch(() => {});
-    await pool.query('DELETE FROM libraries WHERE id = $1', [libraryId]).catch(() => {});
-  }
-  if (spaceId) {
-    await pool.query('DELETE FROM app_integrations WHERE space_id = $1', [spaceId]).catch(() => {});
-    await pool.query('DELETE FROM space_memberships WHERE space_id = $1', [spaceId]).catch(() => {});
-    await pool.query('DELETE FROM spaces WHERE id = $1', [spaceId]).catch(() => {});
+async function cleanupTemporaryState({ userId, actorId = userId, libraryId, spaceId }) {
+  if (spaceId && actorId) {
+    await withAuthorizedScopeTransaction(pool, { spaceId, libraryId: libraryId || null }, actorId, async (client) => {
+      await client.query(
+        `UPDATE provider_connections
+            SET status = 'disabled', disabled_at = COALESCE(disabled_at, CURRENT_TIMESTAMP), archived_at = NULL
+          WHERE space_id = $1 AND status = 'active'`,
+        [spaceId]
+      );
+      if (libraryId) {
+        await client.query(
+          'UPDATE libraries SET archived_at = COALESCE(archived_at, CURRENT_TIMESTAMP) WHERE id = $1 AND space_id = $2',
+          [libraryId, spaceId]
+        );
+      }
+    });
   }
   if (userId) {
-    await pool.query('DELETE FROM users WHERE id = $1', [userId]).catch(() => {});
+    await pool.query('DELETE FROM user_sessions WHERE user_id = $1', [userId]).catch(() => {});
+    await pool.query('DELETE FROM personal_access_tokens WHERE user_id = $1', [userId]).catch(() => {});
+    const retiredPassword = await bcrypt.hash(crypto.randomBytes(48).toString('hex'), 12);
+    await pool.query(
+      `UPDATE users
+          SET email = $2, password = $3, name = 'Retired Kavita smoke actor', role = 'user',
+              active_space_id = NULL, active_library_id = NULL
+        WHERE id = $1`,
+      [userId, `retired-kavita-smoke-${userId}@example.invalid`, retiredPassword]
+    );
   }
 }
 
@@ -918,6 +933,43 @@ async function main() {
     assert(String(specialChapterDetails.kavita_chapter_special || '') === 'true', `Expected Kavita special chapter marker, got ${JSON.stringify(specialChapterDetails)}`);
     assert(!String(chapterOneDetails.kavita_launch_url || '').includes(KAVITA_SMOKE_KEY), `Kavita chapter launch URL must not include API keys, got ${JSON.stringify(chapterOneDetails)}`);
     assert(!String(chapterOneDetails.kavita_launch_url || '').includes(KAVITA_SMOKE_BEARER), `Kavita chapter launch URL must not include bearer tokens, got ${JSON.stringify(chapterOneDetails)}`);
+    const { kavitaBinding, kavitaIdentities } = await withAuthorizedScopeTransaction(
+      pool,
+      { spaceId, libraryId },
+      userId,
+      async (scopedClient) => {
+        const binding = await scopedClient.query(
+          `SELECT b.provider_connection_id, c.provider_type, c.endpoint_url, c.status
+             FROM provider_integration_bindings b
+             JOIN provider_connections c ON c.space_id = b.space_id AND c.id = b.provider_connection_id
+            WHERE b.space_id = $1 AND b.integration_key = 'books.kavita'`,
+          [spaceId]
+        );
+        const identities = binding.rows[0]
+          ? await scopedClient.query(
+              `SELECT identity_kind, external_id_raw, external_id_normalized, media_id
+                 FROM external_media_identities
+                WHERE space_id = $1 AND provider_connection_id = $2 AND active
+                ORDER BY identity_kind, external_id_normalized`,
+              [spaceId, binding.rows[0].provider_connection_id]
+            )
+          : { rows: [] };
+        return { kavitaBinding: binding, kavitaIdentities: identities };
+      }
+    );
+    assert(kavitaBinding.rows.length === 1, `Expected one stable Kavita Provider Connection binding, got ${JSON.stringify(kavitaBinding.rows)}`);
+    assert(kavitaBinding.rows[0].provider_type === 'kavita', `Expected Kavita Provider Connection type, got ${JSON.stringify(kavitaBinding.rows[0])}`);
+    assert(kavitaBinding.rows[0].endpoint_url === fake.baseUrl, `Expected Kavita Provider Connection endpoint, got ${JSON.stringify(kavitaBinding.rows[0])}`);
+    assert(kavitaBinding.rows[0].status === 'active', `Expected active Kavita Provider Connection, got ${JSON.stringify(kavitaBinding.rows[0])}`);
+    assert(kavitaIdentities.rows.length === 6, `Expected six active Kavita External Identities, got ${JSON.stringify(kavitaIdentities.rows)}`);
+    assert(
+      kavitaIdentities.rows.filter((row) => row.identity_kind === 'series').map((row) => row.external_id_normalized).join(',') === '8601,8602,8603',
+      `Expected distinct Kavita series identities, got ${JSON.stringify(kavitaIdentities.rows)}`
+    );
+    assert(
+      kavitaIdentities.rows.filter((row) => row.identity_kind === 'chapter').map((row) => row.external_id_normalized).join(',') === '9702,9703,9799',
+      `Expected distinct Kavita chapter identities, got ${JSON.stringify(kavitaIdentities.rows)}`
+    );
     const kavitaSeriesPreview = await client.request(`/api/media/${canonicalComic.id}/kavita-writeback-preview?${scopeQuery}`, {
       method: 'POST',
       withCsrf: true,
@@ -1149,7 +1201,7 @@ async function main() {
         headers: { 'Content-Type': 'application/json' }
       }).catch(() => {});
     }
-    await cleanupTemporaryState({ userId: null, libraryId: secondLibraryId, spaceId: secondSpaceId });
+    await cleanupTemporaryState({ userId: null, actorId: userId, libraryId: secondLibraryId, spaceId: secondSpaceId });
     await cleanupTemporaryState({ userId, libraryId, spaceId });
     await new Promise((resolve) => fake.server.close(resolve)).catch(() => {});
     await pool.end().catch(() => {});
