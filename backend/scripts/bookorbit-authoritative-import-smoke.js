@@ -142,9 +142,13 @@ async function main() {
   let firstIsbn = randomIsbn13();
   const secondIsbn = randomIsbn13();
   const comicIsbn = randomIsbn13();
+  const duplicateTitleIsbn = randomIsbn13();
   one.entries = () => [
     entry({ id: 42, title: 'BookOrbit Instance One', isbn: firstIsbn }),
-    entry({ id: 43, title: 'BookOrbit Instance One Comic', isbn: comicIsbn, mime: 'application/vnd.comicbook+zip', extension: 'cbz' })
+    entry({ id: 43, title: 'BookOrbit Instance One Comic', isbn: comicIsbn, mime: 'application/vnd.comicbook+zip', extension: 'cbz' }),
+    entry({ id: 44, title: 'BookOrbit Alternate Edition', isbn: firstIsbn }),
+    entry({ id: 45, title: 'BookOrbit Audiobook', isbn: randomIsbn13(), mime: 'audio/mp4', extension: 'm4b' }),
+    entry({ id: 46, title: 'BookOrbit Instance One Comic', isbn: duplicateTitleIsbn, mime: 'application/vnd.comicbook+zip', extension: 'cbz' })
   ];
   two.entries = () => [entry({ id: 42, title: 'BookOrbit Instance Two', isbn: secondIsbn })];
   const client = new HttpClient('bookorbit-authoritative-import-smoke');
@@ -205,7 +209,7 @@ async function main() {
       csrf: true
     });
     assert.equal(tested.ok, true);
-    assert.equal(tested.publications, 2);
+    assert.equal(tested.publications, 5);
 
     const rotatedPassword = crypto.randomBytes(24).toString('base64url');
     const rotated = await client.request(`/api/spaces/${spaceId}/integrations/bookorbit-connections/${firstConnectionId}/credentials`, {
@@ -247,7 +251,24 @@ async function main() {
       body: JSON.stringify({ connectionId })
     });
     const firstImport = await importConnection(firstConnectionId);
-    assert.equal(firstImport.summary.created, 2);
+    assert.equal(firstImport.summary.created, 4);
+    assert.equal(firstImport.summary.skipped_invalid, 1);
+    assert.equal(firstImport.summary.errors.length, 0);
+    assert.equal(firstImport.summary.completedWithErrors, false);
+    assert.equal(firstImport.summary.completedWithSkips, true);
+    assert.equal(firstImport.summary.skippedCount, 1);
+    assert.equal(firstImport.summary.duplicateTitleReviewRows, 2);
+    assert.ok(firstImport.summary.diagnosticsFlagged >= 3);
+    const duplicateTitleRows = firstImport.auditRows
+      .filter((row) => Array.isArray(row.review_reasons) && row.review_reasons.length > 0);
+    assert.equal(duplicateTitleRows.length, 2);
+    assert.deepEqual(
+      duplicateTitleRows.map((row) => row.provider_item_id).sort(),
+      ['urn:bookorbit:book:43', 'urn:bookorbit:book:46']
+    );
+    const audioAudit = firstImport.auditRows.find((row) => row.title === 'BookOrbit Audiobook');
+    assert.equal(audioAudit?.status, 'skipped_invalid');
+    assert.match(audioAudit?.detail || '', /audio acquisitions are not supported/i);
     const firstMediaId = await withAuthorizedScopeTransaction(pool, { spaceId, libraryId }, userId, async (db) => {
       const identity = await db.query(
         `SELECT media_id FROM external_media_identities
@@ -274,11 +295,12 @@ async function main() {
     firstIsbn = randomIsbn13();
     const repeated = await importConnection(firstConnectionId);
     assert.equal(repeated.summary.created, 0);
-    assert.equal(repeated.summary.updated, 2);
+    assert.equal(repeated.summary.updated, 4);
+    assert.equal(repeated.summary.skipped_invalid, 1);
     const secondImport = await importConnection(secondConnectionId);
     assert.equal(secondImport.summary.created, 1);
 
-    const { identityRows, mediaRows } = await withAuthorizedScopeTransaction(pool, { spaceId, libraryId }, userId, async (db) => {
+    const { identityRows, sameIsbnRows, mediaRows } = await withAuthorizedScopeTransaction(pool, { spaceId, libraryId }, userId, async (db) => {
       const scopedIdentityRows = await db.query(
         `SELECT provider_connection_id, media_id, external_id_normalized
            FROM external_media_identities
@@ -295,13 +317,24 @@ async function main() {
           ORDER BY id`,
         [spaceId, libraryId]
       );
-      return { identityRows: scopedIdentityRows, mediaRows: scopedMediaRows };
+      const scopedSameIsbnRows = await db.query(
+        `SELECT external_id_normalized, media_id
+           FROM external_media_identities
+          WHERE space_id = $1 AND provider_connection_id = $2 AND active
+            AND external_id_normalized IN ('urn:bookorbit:book:42', 'urn:bookorbit:book:44')
+          ORDER BY external_id_normalized`,
+        [spaceId, firstConnectionId]
+      );
+      return { identityRows: scopedIdentityRows, sameIsbnRows: scopedSameIsbnRows, mediaRows: scopedMediaRows };
     });
     assert.equal(identityRows.rowCount, 2);
     assert.notEqual(identityRows.rows[0].provider_connection_id, identityRows.rows[1].provider_connection_id);
     assert.notEqual(Number(identityRows.rows[0].media_id), Number(identityRows.rows[1].media_id));
 
-    assert.equal(mediaRows.rowCount, 3);
+    assert.equal(sameIsbnRows.rowCount, 2);
+    assert.notEqual(Number(sameIsbnRows.rows[0].media_id), Number(sameIsbnRows.rows[1].media_id));
+
+    assert.equal(mediaRows.rowCount, 5);
     const firstBook = mediaRows.rows.find((row) => Number(row.id) === firstMediaId);
     const comic = mediaRows.rows.find((row) => row.media_type === 'comic_book');
     assert.equal(firstBook?.type_details?.provider_item_id, 'urn:bookorbit:book:42');
@@ -309,6 +342,7 @@ async function main() {
     assert.notEqual(firstBook?.type_details?.isbn, originalIsbn);
     assert.equal(firstBook?.title, 'Manual BookOrbit Title');
     assert.equal(comic?.type_details?.provider_item_id, 'urn:bookorbit:book:43');
+    assert.equal(mediaRows.rows.some((row) => row.type_details?.provider_item_id === 'urn:bookorbit:book:45'), false);
 
     console.log(JSON.stringify({
       passed: true,
@@ -317,6 +351,9 @@ async function main() {
       repeatUpdated: repeated.summary.updated,
       secondCreated: secondImport.summary.created,
       canonicalRows: mediaRows.rowCount,
+      sameIsbnDistinctProviderRows: sameIsbnRows.rowCount,
+      unsupportedAudio: 'skipped',
+      duplicateTitleReviewRows: 2,
       overlappingIdentityRows: identityRows.rowCount,
       credentialReadback: 'redacted',
       lifecycle: 'disabled-refused-reactivated',

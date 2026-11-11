@@ -70,7 +70,7 @@ const { searchGamesByTitle } = require('../services/games');
 const { searchComicsByTitle, fetchMetronCollectionIssues, fetchMetronIssueDetails, pushMetronCollectionIssue } = require('../services/comics');
 const { parseCsvText } = require('../services/csv');
 const { fetchCwaOpdsItems } = require('../services/cwa');
-const { buildBookOrbitEndpoint, fetchBookOrbitOpdsItems } = require('../services/bookOrbit');
+const { buildBookOrbitEndpoint, fetchBookOrbitOpdsItems, prepareBookOrbitImportRows } = require('../services/bookOrbit');
 const {
   authenticateKavita,
   fetchKavitaCoverImage,
@@ -4458,6 +4458,18 @@ async function findExistingByNormalizationIdentity({
   };
 }
 
+async function canonicalHasIdentityFromConnection(client, mediaId, providerConnectionId) {
+  if (!providerConnectionId || !mediaId) return false;
+  const result = await client.query(
+    `SELECT 1
+       FROM external_media_identities
+      WHERE media_id = $1 AND provider_connection_id = $2 AND active
+      LIMIT 1`,
+    [mediaId, providerConnectionId]
+  );
+  return Boolean(result.rows[0]);
+}
+
 async function upsertImportedMedia({
   userId,
   item,
@@ -4466,6 +4478,7 @@ async function upsertImportedMedia({
   identifiers = null,
   client = pool,
   authoritativeProviderMode = false,
+  authoritativeProviderConnectionId = null,
   preferredMediaId = null,
   preferredMatchedBy = null
 }) {
@@ -4494,6 +4507,7 @@ async function upsertImportedMedia({
     let identifierConflict = false;
     let normalizationReviewCandidates = [];
     let normalizationIdentity = null;
+    let forceDistinctCanonical = false;
 
     const preferredId = Number(preferredMediaId);
     if (Number.isInteger(preferredId) && preferredId > 0) {
@@ -4539,9 +4553,26 @@ async function upsertImportedMedia({
         client
       });
       if (matchByIdentifier.row) {
-        existingRow = matchByIdentifier.row;
         matchedBy = `identifier_${identifierType}`;
         identifierConflict = matchByIdentifier.conflict;
+        let sameConnectionIdentity = false;
+        if (authoritativeProviderMode && authoritativeProviderConnectionId) {
+          // A new identity from the same provider connection is a separate provider record.
+          // ISBN alone cannot collapse it into an already-linked canonical object.
+          // eslint-disable-next-line no-await-in-loop
+          sameConnectionIdentity = await canonicalHasIdentityFromConnection(
+            client,
+            matchByIdentifier.row.id,
+            authoritativeProviderConnectionId
+          );
+        }
+        if (sameConnectionIdentity) {
+          forceDistinctCanonical = true;
+          identifierConflict = true;
+          matchMode = 'strong_identifier_conflict_guarded';
+          break;
+        }
+        existingRow = matchByIdentifier.row;
         matchMode = matchByIdentifier.conflict ? 'identifier_conflict' : 'matched_by_identifier';
       }
     }
@@ -4561,7 +4592,7 @@ async function upsertImportedMedia({
       }
     }
 
-    if (!existingRow && ['book', 'comic_book'].includes(normalizedMediaType)) {
+    if (!existingRow && !forceDistinctCanonical && ['book', 'comic_book'].includes(normalizedMediaType)) {
       const identityTypeDetails = authoritativeProviderMode
         ? {
             ...normalizedTypeDetails,
@@ -4591,7 +4622,7 @@ async function upsertImportedMedia({
       }
     }
 
-    if (!existingRow && normalizationIdentity?.confidence === 'medium') {
+    if (!existingRow && !forceDistinctCanonical && normalizationIdentity?.confidence === 'medium') {
       normalizationReviewCandidates = await findNormalizationReviewCandidates({
         normalizedMediaType,
         normalizationIdentity,
@@ -4604,7 +4635,7 @@ async function upsertImportedMedia({
       }
     }
 
-    if (!existingRow) {
+    if (!existingRow && !forceDistinctCanonical) {
       const comicProviderIssueId = normalizedMediaType === 'comic_book'
         ? String(normalizedTypeDetails?.provider_issue_id || '').trim()
         : '';
@@ -8570,6 +8601,12 @@ async function runGenericCsvImport({
   for (let idx = 0; idx < rows.length; idx += 1) {
     const row = rows[idx];
     const rowTypeDetails = row?.type_details || {};
+    const sourceProviderItemId = String(
+      rowTypeDetails.provider_item_id || rowTypeDetails.calibre_entry_id || ''
+    ).trim();
+    const sourceReviewReasons = Array.isArray(row?.import_review_reasons)
+      ? row.import_review_reasons.map((reason) => String(reason || '').trim()).filter(Boolean)
+      : [];
     const value = (name) => getRowValue(row, name);
     const mappedMediaType = normalizeMediaType(
       value('media_type') || value('media type') || value('type') || value('item type') || 'movie',
@@ -8681,6 +8718,48 @@ async function runGenericCsvImport({
         source_updated_at: value('source_updated_at') || rowTypeDetails.source_updated_at || null
       }
     };
+    const importValidationError = String(row?.import_validation_error || '').trim();
+    if (importValidationError) {
+      summary.skipped_invalid += 1;
+      incrementImportAuditOutcomeCounter(summary.auditOutcomes, 'skipped_invalid');
+      auditRows.push({
+        row: idx + 2,
+        media_type: mapped.media_type || '',
+        title: mapped.title || '',
+        status: 'skipped_invalid',
+        detail: importValidationError,
+        match_mode: null,
+        matched_by: null,
+        enrichment_status: 'not_applicable',
+        lookup_path: 'none',
+        lookup_status: 'none',
+        audit_outcome: 'skipped_invalid',
+        classification_detail: deriveImportAuditClassificationDetail({
+          upsertStatus: 'skipped_invalid',
+          matchMode: null,
+          matchedBy: null,
+          enrichmentStatus: 'not_applicable',
+          lookupPath: 'none',
+          mediaType: mapped.media_type || 'movie',
+          importSource
+        }),
+        diagnostic_flagged: false,
+        review_reasons: sourceReviewReasons,
+        provider_item_id: sourceProviderItemId
+      });
+      const processed = idx + 1;
+      if (processed === rows.length || processed % CSV_JOB_PROGRESS_BATCH_SIZE === 0) {
+        await updateProgress({
+          total: rows.length,
+          processed,
+          created: summary.created,
+          updated: summary.updated,
+          skipped: summary.skipped_invalid + summary.skipped_collection,
+          errorCount: summary.errors.length
+        });
+      }
+      continue;
+    }
     let collectionId = null;
     const boxedSet = detectBoxedSetCandidate(mapped.title, mapped.notes);
     const collectionOnly = boxedSet.isCandidate;
@@ -8727,6 +8806,8 @@ async function runGenericCsvImport({
         detail: 'Collection source title handled in collections-only mode',
         enrichment_status: 'not_applicable',
         audit_outcome: 'collection_only',
+        review_reasons: sourceReviewReasons,
+        provider_item_id: sourceProviderItemId,
         classification_detail: deriveImportAuditClassificationDetail({
           upsertStatus: 'skipped_collection',
           matchMode: null,
@@ -8799,6 +8880,9 @@ async function runGenericCsvImport({
             identifiers: rowIdentifiers,
             client,
             authoritativeProviderMode: true,
+            authoritativeProviderConnectionId: importSource === 'bookorbit'
+              ? authoritativeIdentitySession.connectionId
+              : null,
             preferredMediaId,
             preferredMatchedBy: matchedBy
           });
@@ -8839,7 +8923,7 @@ async function runGenericCsvImport({
         importSource,
         lookupStatus: enrichmentResult.lookupStatus
       });
-      const diagnosticFlagged = shouldFlagImportDiagnostic({
+      const diagnosticFlagged = sourceReviewReasons.length > 0 || shouldFlagImportDiagnostic({
         matchMode: result.matchMode,
         enrichmentStatus: enrichmentResult.enrichmentStatus,
         confidenceScore,
@@ -8910,6 +8994,8 @@ async function runGenericCsvImport({
           diagnostic_flagged: diagnosticFlagged,
           normalization_review_candidates: result.normalizationReviewCandidates || [],
           normalization_review_candidate_count: Array.isArray(result.normalizationReviewCandidates) ? result.normalizationReviewCandidates.length : 0,
+          review_reasons: sourceReviewReasons,
+          provider_item_id: sourceProviderItemId,
           isbn: rowIdentifiers.isbn || '',
           ean_upc: rowIdentifiers.eanUpc || '',
           asin: rowIdentifiers.asin || ''
@@ -8934,6 +9020,8 @@ async function runGenericCsvImport({
           diagnostic_flagged: diagnosticFlagged,
           normalization_review_candidates: result.normalizationReviewCandidates || [],
           normalization_review_candidate_count: Array.isArray(result.normalizationReviewCandidates) ? result.normalizationReviewCandidates.length : 0,
+          review_reasons: sourceReviewReasons,
+          provider_item_id: sourceProviderItemId,
           isbn: rowIdentifiers.isbn || '',
           ean_upc: rowIdentifiers.eanUpc || '',
           asin: rowIdentifiers.asin || ''
@@ -8958,6 +9046,8 @@ async function runGenericCsvImport({
           diagnostic_flagged: diagnosticFlagged,
           normalization_review_candidates: result.normalizationReviewCandidates || [],
           normalization_review_candidate_count: Array.isArray(result.normalizationReviewCandidates) ? result.normalizationReviewCandidates.length : 0,
+          review_reasons: sourceReviewReasons,
+          provider_item_id: sourceProviderItemId,
           isbn: rowIdentifiers.isbn || '',
           ean_upc: rowIdentifiers.eanUpc || '',
           asin: rowIdentifiers.asin || ''
@@ -8976,6 +9066,8 @@ async function runGenericCsvImport({
         lookup_path: 'none',
         lookup_status: 'none',
         audit_outcome: 'error',
+        review_reasons: sourceReviewReasons,
+        provider_item_id: sourceProviderItemId,
         classification_detail: deriveImportAuditClassificationDetail({
           upsertStatus: 'error',
           matchMode: null,
@@ -13901,6 +13993,7 @@ router.post('/import-bookorbit', requireSessionAuth, asyncHandler(async (req, re
       password: runtime.credentials.password,
       timeoutMs: runtime.settings.timeoutMs
     }, { maxPages });
+    const importRows = prepareBookOrbitImportRows(fetched.rows);
     const identitySession = await bookOrbitImportIdentity.open({
       spaceId,
       libraryId: Number(scopeContext?.libraryId || 0) || null,
@@ -13909,7 +14002,7 @@ router.post('/import-bookorbit', requireSessionAuth, asyncHandler(async (req, re
       sourceUrl: endpointUrl
     });
     const result = await runGenericCsvImport({
-      rows: fetched.rows,
+      rows: importRows,
       userId: req.user.id,
       scopeContext,
       onProgress,
@@ -13926,7 +14019,23 @@ router.post('/import-bookorbit', requireSessionAuth, asyncHandler(async (req, re
       auditReq: reviewContext?.auditReq || req,
       importSource: 'bookorbit'
     });
-    return { runtime, fetched, result, valuationRefresh };
+    const errorCount = result.summary.errors.length;
+    const skippedCount = result.summary.skipped_invalid + result.summary.skipped_collection;
+    const duplicateTitleReviewRows = result.auditRows.filter((row) =>
+      Array.isArray(row?.review_reasons) && row.review_reasons.length > 0).length;
+    return {
+      runtime,
+      fetched,
+      result,
+      valuationRefresh,
+      completion: {
+        completedWithErrors: errorCount > 0,
+        completedWithSkips: skippedCount > 0,
+        skippedCount,
+        duplicateTitleReviewRows,
+        errorsSample: result.summary.errors.slice(0, 20)
+      }
+    };
   };
 
   if (asyncMode) {
@@ -13949,7 +14058,7 @@ router.post('/import-bookorbit', requireSessionAuth, asyncHandler(async (req, re
     setImmediate(async () => {
       try {
         await updateSyncJob(job.id, { status: 'running', started_at: new Date() });
-        const { runtime, fetched, result, valuationRefresh } = await runImport({
+        const { runtime, fetched, result, valuationRefresh, completion } = await runImport({
           onProgress: async (progress) => updateSyncJob(job.id, { progress }),
           reviewContext: { jobId: job.id, provider: 'bookorbit', auditReq }
         });
@@ -13960,7 +14069,7 @@ router.post('/import-bookorbit', requireSessionAuth, asyncHandler(async (req, re
             processed: result.rows,
             created: result.summary.created,
             updated: result.summary.updated,
-            skipped: result.summary.skipped_invalid + result.summary.skipped_collection,
+            skipped: completion.skippedCount,
             errorCount: result.summary.errors.length
           },
           summary: {
@@ -13973,6 +14082,10 @@ router.post('/import-bookorbit', requireSessionAuth, asyncHandler(async (req, re
             matchModes: result.summary.matchModes,
             enrichment: result.summary.enrichment,
             diagnosticsFlagged: result.summary.diagnosticsFlagged,
+            completedWithErrors: completion.completedWithErrors,
+            completedWithSkips: completion.completedWithSkips,
+            duplicateTitleReviewRows: completion.duplicateTitleReviewRows,
+            errorsSample: completion.errorsSample,
             valuationRefresh,
             connectionId: runtime.connection.id,
             pagesFetched: fetched.pagesFetched,
@@ -14011,7 +14124,7 @@ router.post('/import-bookorbit', requireSessionAuth, asyncHandler(async (req, re
     return res.status(202).json(buildQueuedJobResponse(job, 'bookorbit'));
   }
 
-  const { runtime, fetched, result, valuationRefresh } = await runImport({
+  const { runtime, fetched, result, valuationRefresh, completion } = await runImport({
     reviewContext: { provider: 'bookorbit', auditReq: req }
   });
   recordImportJobEvent('bookorbit', 'succeeded');
@@ -14031,6 +14144,7 @@ router.post('/import-bookorbit', requireSessionAuth, asyncHandler(async (req, re
     rows: result.rows,
     summary: {
       ...result.summary,
+      ...completion,
       pagesFetched: fetched.pagesFetched,
       publications: fetched.rows.length
     },

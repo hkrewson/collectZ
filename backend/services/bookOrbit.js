@@ -37,9 +37,10 @@ function normalizeBookOrbitEntry(entry = {}, baseUrl = '') {
     throw error;
   }
   const published = normalizeDate(publication.publishedAt);
+  const isUnsupportedAudio = String(publication.acquisitionType || '').toLowerCase().startsWith('audio/');
   return {
     title: publication.title,
-    media_type: publication.isComic ? 'comic_book' : 'book',
+    media_type: isUnsupportedAudio ? 'audio' : (publication.isComic ? 'comic_book' : 'book'),
     year: published.year,
     release_date: published.releaseDate,
     format: 'Digital',
@@ -60,8 +61,33 @@ function normalizeBookOrbitEntry(entry = {}, baseUrl = '') {
       provider_download_url: publication.downloadUrl || null,
       provider_series_url: publication.series.url,
       source_updated_at: publication.updatedAt || null
-    }
+    },
+    ...(isUnsupportedAudio
+      ? { import_validation_error: 'BookOrbit audio acquisitions are not supported by this import yet' }
+      : {})
   };
+}
+
+function prepareBookOrbitImportRows(rows = []) {
+  const values = Array.isArray(rows) ? rows : [];
+  const titleCounts = new Map();
+  for (const row of values) {
+    if (row?.import_validation_error) continue;
+    const titleKey = String(row?.title || '').trim().toLowerCase();
+    if (!titleKey) continue;
+    titleCounts.set(titleKey, (titleCounts.get(titleKey) || 0) + 1);
+  }
+  return values.map((row) => {
+    const titleKey = String(row?.title || '').trim().toLowerCase();
+    const duplicateCount = titleCounts.get(titleKey) || 0;
+    if (duplicateCount < 2) return row;
+    return {
+      ...row,
+      import_review_reasons: [
+        `BookOrbit exposes ${duplicateCount} distinct provider records with this visible title`
+      ]
+    };
+  });
 }
 
 function buildBookOrbitEndpoint(baseUrl, catalogPath = '/api/v1/opds') {
@@ -106,5 +132,6 @@ module.exports = {
   BOOKORBIT_ALL_BOOKS_ID,
   buildBookOrbitEndpoint,
   normalizeBookOrbitEntry,
+  prepareBookOrbitImportRows,
   fetchBookOrbitOpdsItems
 };

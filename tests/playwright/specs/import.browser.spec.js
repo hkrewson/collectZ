@@ -11,6 +11,21 @@ test.describe('import browser regressions', () => {
     const credentials = await createFreshUserCredentials();
 
     await signInThroughUi(page, credentials);
+    await page.evaluate(() => {
+      localStorage.setItem(
+        'collectz_import_jobs',
+        JSON.stringify([
+          {
+            id: 999999,
+            provider: 'bookorbit',
+            status: 'succeeded',
+            progress: { total: 12, processed: 12, created: 9, updated: 0, skipped: 2, errorCount: 1 },
+            summary: { completedWithErrors: true, completedWithSkips: true, duplicateTitleReviewRows: 3 }
+          }
+        ])
+      );
+    });
+    await page.reload();
     await page.goto('/dashboard?tab=library-import');
 
     await expect(page.getByRole('heading', { name: 'Import Media' })).toBeVisible();
@@ -22,6 +37,8 @@ test.describe('import browser regressions', () => {
     await expect(page.getByRole('tab', { name: 'Delicious', exact: true })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'Capture Inbox', exact: true })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'Barcode', exact: true })).toHaveCount(0);
+    await expect(page.getByText('Job #999999 · bookorbit · completed with errors')).toBeVisible();
+    await expect(page.getByText('Review 3 provider records with duplicate or low-confidence metadata')).toBeVisible();
 
     await page.getByRole('tab', { name: 'CSV', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Choose CSV File', exact: true })).toBeVisible();

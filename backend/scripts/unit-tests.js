@@ -43,7 +43,7 @@ const { normalizeDeliciousRow } = require('../services/deliciousNormalize');
 const { normalizeIsbn, normalizeIdentifierSet } = require('../services/importIdentifiers');
 const { normalizeTypeDetails } = require('../services/typeDetails');
 const { normalizeOpdsEntry } = require('../services/cwa');
-const { buildBookOrbitEndpoint, normalizeBookOrbitEntry } = require('../services/bookOrbit');
+const { buildBookOrbitEndpoint, normalizeBookOrbitEntry, prepareBookOrbitImportRows } = require('../services/bookOrbit');
 const {
   buildKavitaSeriesWebUrl,
   buildKavitaReaderWebUrl,
@@ -5265,6 +5265,25 @@ results.push(run('bookOrbit.normalizeBookOrbitEntry preserves Atom identity and 
   assert.strictEqual(normalized.type_details.source_updated_at, '2026-11-10T19:00:00.000Z');
 }));
 
+results.push(run('bookOrbit import preparation skips audio and flags duplicate visible titles without merging identities', () => {
+  const audio = normalizeBookOrbitEntry({
+    id: 'urn:bookorbit:book:45',
+    title: 'BookOrbit Audiobook',
+    link: [{ '@_rel': 'http://opds-spec.org/acquisition', '@_type': 'audio/mp4', '@_href': '/download/45.m4b' }]
+  }, 'https://bookorbit.example/api/v1/opds/catalog');
+  assert.strictEqual(audio.media_type, 'audio');
+  assert.match(audio.import_validation_error, /audio acquisitions are not supported/i);
+
+  const prepared = prepareBookOrbitImportRows([
+    { title: 'Shared Title', type_details: { provider_item_id: 'urn:bookorbit:book:1' } },
+    { title: 'shared title', type_details: { provider_item_id: 'urn:bookorbit:book:2' } },
+    audio
+  ]);
+  assert.strictEqual(prepared[0].import_review_reasons.length, 1);
+  assert.strictEqual(prepared[1].import_review_reasons.length, 1);
+  assert.strictEqual(prepared[2].import_review_reasons, undefined);
+}));
+
 results.push(run('bookOrbit connection and import routes use the multi-instance provider registry', () => {
   assert.strictEqual(
     buildBookOrbitEndpoint('https://bookorbit.example/subpath', '/api/v1/opds'),
@@ -5858,6 +5877,9 @@ results.push(run('syncJobs.buildCompactJobSummary keeps status-relevant counters
     skipped: 0,
     errorCount: 0,
     diagnosticsFlagged: 7,
+    completedWithErrors: true,
+    completedWithSkips: true,
+    duplicateTitleReviewRows: 3,
     tmdbPosterEnriched: 1618,
     tmdbPosterLookupMisses: 44,
     tmdbPosterLookupNoMatch: 31,
@@ -5877,6 +5899,9 @@ results.push(run('syncJobs.buildCompactJobSummary keeps status-relevant counters
     skipped: 0,
     errorCount: 0,
     diagnosticsFlagged: 7,
+    completedWithErrors: true,
+    completedWithSkips: true,
+    duplicateTitleReviewRows: 3,
     tmdbPosterEnriched: 1618,
     tmdbPosterLookupMisses: 44,
     tmdbPosterLookupNoMatch: 31,

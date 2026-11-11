@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { DetailDrawerShell, Icons } from './app/AppPrimitives';
 
 function formatDateTime(value) {
@@ -21,6 +21,18 @@ function statusClass(status) {
   return 'border-edge bg-raised/30 text-dim';
 }
 
+function statusLabel(job) {
+  const status = String(job?.status || 'unknown');
+  if (status !== 'succeeded') return status;
+  if (Number(job?.summary?.errorCount || job?.progress?.errorCount || 0) > 0 || job?.summary?.completedWithErrors) {
+    return 'completed with errors';
+  }
+  if (Number(job?.progress?.skipped || 0) > 0 || job?.summary?.completedWithSkips) {
+    return 'completed with skips';
+  }
+  return status;
+}
+
 function readableKey(key) {
   return String(key || '')
     .replace(/_/g, ' ')
@@ -39,10 +51,28 @@ function compactValue(value) {
 function pickSummaryStats(summary) {
   if (!summary || typeof summary !== 'object') return [];
   const preferredKeys = [
-    'total', 'rows', 'rowCount', 'totalRows', 'processed', 'created', 'createdCount',
-    'updated', 'updatedCount', 'imported', 'importedCount', 'matched', 'linked',
-    'skipped', 'skippedCount', 'deleted', 'deletedCount', 'conflicts',
-    'errorCount', 'errors', 'coverErrors', 'missingCovers'
+    'total',
+    'rows',
+    'rowCount',
+    'totalRows',
+    'processed',
+    'created',
+    'createdCount',
+    'updated',
+    'updatedCount',
+    'imported',
+    'importedCount',
+    'matched',
+    'linked',
+    'skipped',
+    'skippedCount',
+    'deleted',
+    'deletedCount',
+    'conflicts',
+    'errorCount',
+    'errors',
+    'coverErrors',
+    'missingCovers'
   ];
   const stats = [];
   for (const key of preferredKeys) {
@@ -78,6 +108,8 @@ export default function SyncJobDetailDrawer({ apiCall, jobId, initialJob = null,
   useEffect(() => {
     let mounted = true;
     if (!jobId) return () => {};
+    // The drawer can stay mounted while the selected job changes, so reset its request state here.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     setError('');
     apiCall('get', `/media/sync-jobs/${jobId}/result`)
@@ -100,6 +132,8 @@ export default function SyncJobDetailDrawer({ apiCall, jobId, initialJob = null,
   const summaryStats = useMemo(() => pickSummaryStats(job?.summary), [job?.summary]);
   const progressStats = useMemo(() => pickProgressStats(job?.progress), [job?.progress]);
   const status = job?.status || initialJob?.status || 'unknown';
+  const displayedStatus = statusLabel(job || initialJob);
+  const partialCompletion = status === 'succeeded' && displayedStatus !== 'succeeded';
   const failureText = job?.error || job?.summary?.error || job?.summary?.message || '';
 
   return (
@@ -124,9 +158,17 @@ export default function SyncJobDetailDrawer({ apiCall, jobId, initialJob = null,
           <div className="rounded-lg border border-err/40 bg-err/10 p-3 text-sm text-err">{error}</div>
         ) : (
           <div className="space-y-5">
-            <div className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${statusClass(status)}`}>
-              {status}
+            <div
+              className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${partialCompletion ? 'border-warn/40 bg-warn/10 text-warn' : statusClass(status)}`}
+            >
+              {displayedStatus}
             </div>
+
+            {partialCompletion ? (
+              <div className="rounded-lg border border-warn/40 bg-warn/10 p-3 text-sm text-ink">
+                The job finished, but one or more provider records were skipped or rejected. Review the result counts and audit details.
+              </div>
+            ) : null}
 
             {failureText ? (
               <div className="rounded-lg border border-err/40 bg-err/10 p-3">

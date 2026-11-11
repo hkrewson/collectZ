@@ -1,6 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FixedPageShell, SectionTabPanel, SectionTabs, UtilityPageHeader } from './app/AppPrimitives';
 
+function importJobStatusLabel(job) {
+  const status = String(job?.status || 'unknown');
+  if (status !== 'succeeded') return status;
+  if (Number(job?.progress?.errorCount || job?.summary?.errorCount || 0) > 0 || job?.summary?.completedWithErrors) {
+    return 'completed with errors';
+  }
+  if (Number(job?.progress?.skipped || 0) > 0 || job?.summary?.completedWithSkips) {
+    return 'completed with skips';
+  }
+  return 'succeeded';
+}
+
 export default function ImportView({
   apiCall,
   onToast,
@@ -58,6 +70,8 @@ export default function ImportView({
         'lookup_status',
         'confidence_score',
         'diagnostic_flagged',
+        'provider_item_id',
+        'review_reasons',
         'isbn',
         'ean_upc',
         'asin'
@@ -80,6 +94,8 @@ export default function ImportView({
           r.lookup_status || '',
           r.confidence_score ?? '',
           r.diagnostic_flagged ?? '',
+          r.provider_item_id || '',
+          Array.isArray(r.review_reasons) ? r.review_reasons.join('; ') : '',
           r.isbn || '',
           r.ean_upc || '',
           r.asin || ''
@@ -233,21 +249,30 @@ export default function ImportView({
   );
 
   useEffect(() => {
-    for (const job of recentJobs) {
-      if (job.status !== 'succeeded') continue;
+    const newlyCompleted = recentJobs.filter((job) => {
+      if (job.status !== 'succeeded') return false;
       const id = Number(job.id);
-      if (completedJobIdsRef.current.has(id)) continue;
-      completedJobIdsRef.current.add(id);
-      const rows = Array.isArray(job?.summary?.auditRows) ? job.summary.auditRows : [];
-      if (rows.length > 0) {
-        // Completed async jobs hydrate the downloadable audit state once per job.
-        // eslint-disable-next-line react-hooks/set-state-in-effect
+      return id > 0 && !completedJobIdsRef.current.has(id);
+    });
+    if (newlyCompleted.length === 0) return () => {};
+    for (const job of newlyCompleted) completedJobIdsRef.current.add(Number(job.id));
+    onImported?.();
+
+    let active = true;
+    const newest = newlyCompleted[0];
+    apiCall('get', `/media/sync-jobs/${newest.id}/result`)
+      .then((fullJob) => {
+        if (!active) return;
+        const rows = Array.isArray(fullJob?.summary?.auditRows) ? fullJob.summary.auditRows : [];
+        if (rows.length === 0) return;
         setAuditRows(rows);
-        setAuditName(job.provider || 'import');
-      }
-      onImported?.();
-    }
-  }, [recentJobs, onImported]);
+        setAuditName(newest.provider || 'import');
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [apiCall, recentJobs, onImported]);
 
   const [headerCompact, setHeaderCompact] = useState(false);
   const handleBodyScroll = useCallback((event) => {
@@ -310,26 +335,6 @@ export default function ImportView({
               )}
             </button>
           </div>
-          {recentJobs.length > 0 && (
-            <div className="space-y-2 border-t border-edge/60 pt-4">
-              <p className="text-xs text-ghost">Recent jobs</p>
-              <div className="space-y-2">
-                {recentJobs.map((job) => (
-                  <div key={job.id} className="border-t border-edge/60 px-1 pt-2 text-xs text-dim first:border-t-0 first:px-0 first:pt-0">
-                    <div className="font-mono text-[11px] text-ghost">
-                      Job #{job.id} · {job.provider} · {job.status}
-                    </div>
-                    {job.progress ? (
-                      <div className="mt-1 text-xs text-dim">
-                        Processed {job.progress.processed || 0} / {job.progress.total || 0} · Created {job.progress.created || 0} · Updated{' '}
-                        {job.progress.updated || 0} · Skipped {job.progress.skipped || 0} · Errors {job.progress.errorCount || 0}
-                      </div>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </SectionTabPanel>
 
         <SectionTabPanel activeId={tab} tabKey="csv" idBase="import-source-tabs" className="space-y-4">
@@ -482,6 +487,35 @@ export default function ImportView({
         </SectionTabPanel>
       </div>
 
+      {recentJobs.length > 0 && (
+        <section className="space-y-2 border-t border-edge/60 pt-4" aria-label="Recent import jobs">
+          <p className="text-xs font-medium text-ghost">Recent jobs</p>
+          <div className="space-y-2">
+            {recentJobs.map((job) => {
+              const reviewCount = Number(job?.summary?.duplicateTitleReviewRows || job?.summary?.diagnosticsFlagged || 0);
+              return (
+                <div key={job.id} className="border-t border-edge/60 px-1 pt-2 text-xs text-dim first:border-t-0 first:px-0 first:pt-0">
+                  <div className="font-mono text-[11px] text-ghost">
+                    Job #{job.id} · {job.provider} · {importJobStatusLabel(job)}
+                  </div>
+                  {job.progress ? (
+                    <div className="mt-1 text-xs text-dim">
+                      Processed {job.progress.processed || 0} / {job.progress.total || 0} · Created {job.progress.created || 0} · Updated{' '}
+                      {job.progress.updated || 0} · Skipped {job.progress.skipped || 0} · Errors {job.progress.errorCount || 0}
+                    </div>
+                  ) : null}
+                  {reviewCount > 0 ? (
+                    <p className="mt-1 text-xs text-warn">
+                      Review {reviewCount} provider records with duplicate or low-confidence metadata in the audit report.
+                    </p>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       <div className="space-y-1 border-t border-edge/60 pt-4 text-xs text-ghost">
         <p>Imports match identifier-first, then provider IDs, then title and year fallback.</p>
         <p>Audit downloads include normalized identifiers, match mode, and duplicate-vs-near-match outcomes.</p>
@@ -493,7 +527,12 @@ export default function ImportView({
         </pre>
       )}
       {auditRows.length > 0 && (
-        <div className="flex">
+        <div className="space-y-2">
+          {auditRows.some((row) => row?.diagnostic_flagged) ? (
+            <p className="text-xs text-warn">
+              The audit report identifies distinct provider records that share visible metadata; review them before merging anything.
+            </p>
+          ) : null}
           <button onClick={downloadAudit} className="btn-secondary">
             <Icons.Download />
             Download Audit CSV
