@@ -1,6 +1,10 @@
 'use strict';
 
 const { createProviderAdapterRegistry } = require('./providerAdapterRegistry');
+const {
+  buildDigitalLibraryCanonicalFields,
+  buildDigitalLibraryCompatibility
+} = require('./digitalLibraryIdentityPayload');
 
 const KAVITA_SERIES_IDENTITY_KIND = 'series';
 const KAVITA_CHAPTER_IDENTITY_KIND = 'chapter';
@@ -40,10 +44,6 @@ const kavitaAdapter = Object.freeze({
   }
 });
 
-function compact(entries) {
-  return Object.fromEntries(entries.filter(([, value]) => value !== null && value !== undefined && value !== ''));
-}
-
 const KAVITA_CANONICAL_DETAIL_KEYS = Object.freeze([
   'author', 'isbn', 'publisher', 'edition',
   'series', 'issue_number', 'volume', 'writer', 'artist', 'inker', 'colorist', 'cover_date',
@@ -63,31 +63,24 @@ const KAVITA_CANONICAL_DETAIL_KEYS = Object.freeze([
 ]);
 
 function buildKavitaCanonicalFields(item = {}) {
-  const details = item.type_details && typeof item.type_details === 'object' ? item.type_details : {};
-  const common = [
-    ['media.title', item.title],
-    ['media.original_title', item.original_title],
-    ['media.release_date', item.release_date],
-    ['media.year', item.year],
-    ['media.format', item.format],
-    ['media.genre', item.genre],
-    ['media.overview', item.overview],
-    ['media.poster_path', item.poster_path]
-  ];
-  for (const key of KAVITA_CANONICAL_DETAIL_KEYS) common.push([`type_details.${key}`, details[key]]);
-  return compact(common);
+  return buildDigitalLibraryCanonicalFields(item, {
+    mediaKeys: ['title', 'original_title', 'release_date', 'year', 'format', 'genre', 'overview', 'poster_path'],
+    typeDetailKeys: KAVITA_CANONICAL_DETAIL_KEYS
+  });
 }
 
 function buildKavitaCompatibility(providerItemId, identityKind) {
   const parsed = parseKavitaExternalIdentity(providerItemId);
   if (parsed.identityKind !== identityKind) throw new TypeError('Kavita compatibility identity kind does not match its provider id');
-  const typeDetails = { provider_name: 'kavita', provider_item_id: parsed.providerItemId };
-  const metadata = { provider_item_id: parsed.providerItemId };
-  if (identityKind === KAVITA_CHAPTER_IDENTITY_KIND) {
-    typeDetails.provider_issue_id = parsed.providerItemId;
-    metadata.provider_issue_id = parsed.providerItemId;
-  }
-  return { typeDetails, metadata };
+  const keys = identityKind === KAVITA_CHAPTER_IDENTITY_KIND
+    ? ['provider_item_id', 'provider_issue_id']
+    : ['provider_item_id'];
+  return buildDigitalLibraryCompatibility({
+    providerName: 'kavita',
+    externalId: parsed.providerItemId,
+    typeDetailKeys: keys,
+    metadataKeys: keys
+  });
 }
 
 function createKavitaAdapterRegistry() {

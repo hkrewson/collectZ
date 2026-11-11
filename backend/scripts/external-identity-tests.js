@@ -3,6 +3,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createProviderAdapterRegistry, identityNormalizers } = require('../services/providerAdapterRegistry');
+const {
+  buildDigitalLibraryCanonicalFields,
+  buildDigitalLibraryCompatibility
+} = require('../services/digitalLibraryIdentityPayload');
 const { publicConnection } = require('../services/providerConnections');
 const {
   CWA_INTEGRATION_KEY,
@@ -104,6 +108,34 @@ test('provider adapters own settings, credentials, and identity normalization', 
   assert.equal(registry.normalizeExternalId('fixture', 'book', ' 00042 ').normalizedExternalId, '42');
   assert.equal(registry.normalizeExternalId('fixture', 'slug', ' Mixed-Case ').normalizedExternalId, 'mixed-case');
   assert.equal(registry.normalizeExternalId('fixture', 'record', ' Mixed-Case ').normalizedExternalId, 'Mixed-Case');
+});
+
+test('digital-library identity payload interface stays bounded and provider-configured', () => {
+  assert.deepEqual(buildDigitalLibraryCanonicalFields({
+    title: 'Shared title',
+    overview: '',
+    type_details: { provider_download_url: 'https://books.invalid/file', ignored: 'not projected' }
+  }, {
+    mediaKeys: ['title', 'overview'],
+    typeDetailKeys: ['provider_download_url']
+  }), {
+    'media.title': 'Shared title',
+    'type_details.provider_download_url': 'https://books.invalid/file'
+  });
+  assert.deepEqual(buildDigitalLibraryCompatibility({
+    providerName: 'fixture',
+    externalId: 'fixture:42',
+    typeDetailKeys: ['provider_item_id', 'provider_issue_id'],
+    metadataKeys: ['provider_item_id']
+  }), {
+    typeDetails: {
+      provider_name: 'fixture',
+      provider_item_id: 'fixture:42',
+      provider_issue_id: 'fixture:42'
+    },
+    metadata: { provider_item_id: 'fixture:42' }
+  });
+  assert.throws(() => buildDigitalLibraryCompatibility({ providerName: 'fixture', externalId: '' }), /identity is required/);
 });
 
 test('URI identity normalization preserves provider semantics while removing unsafe variation', () => {

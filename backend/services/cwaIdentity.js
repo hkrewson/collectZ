@@ -1,6 +1,10 @@
 'use strict';
 
 const { createProviderAdapterRegistry } = require('./providerAdapterRegistry');
+const {
+  buildDigitalLibraryCanonicalFields,
+  buildDigitalLibraryCompatibility
+} = require('./digitalLibraryIdentityPayload');
 
 const CWA_IDENTITY_KIND = 'book';
 
@@ -22,52 +26,28 @@ const cwaAdapter = Object.freeze({
   }
 });
 
-function compact(entries) {
-  return Object.fromEntries(entries.filter(([, value]) => value !== null && value !== undefined && value !== ''));
-}
-
 function buildCwaCanonicalFields(item = {}) {
-  const details = item.type_details && typeof item.type_details === 'object' ? item.type_details : {};
-  const common = [
-    ['media.title', item.title],
-    ['media.original_title', item.original_title],
-    ['media.release_date', item.release_date],
-    ['media.year', item.year],
-    ['media.format', item.format],
-    ['media.genre', item.genre],
-    ['media.overview', item.overview],
-    ['media.poster_path', item.poster_path],
-    ['type_details.author', details.author],
-    ['type_details.isbn', details.isbn],
-    ['type_details.publisher', details.publisher],
-    ['type_details.edition', details.edition],
-    ['type_details.provider_external_url', details.provider_external_url],
-    ['type_details.provider_download_url', details.provider_download_url],
-    ['type_details.calibre_external_url', details.calibre_external_url],
-    ['type_details.calibre_download_url', details.calibre_download_url],
-    ['type_details.source_updated_at', details.source_updated_at]
+  const typeDetailKeys = [
+    'author', 'isbn', 'publisher', 'edition',
+    'provider_external_url', 'provider_download_url',
+    'calibre_external_url', 'calibre_download_url', 'source_updated_at'
   ];
   if (item.media_type === 'comic_book') {
-    common.push(
-      ['type_details.series', details.series],
-      ['type_details.issue_number', details.issue_number],
-      ['type_details.volume', details.volume]
-    );
+    typeDetailKeys.push('series', 'issue_number', 'volume');
   }
-  return compact(common);
+  return buildDigitalLibraryCanonicalFields(item, {
+    mediaKeys: ['title', 'original_title', 'release_date', 'year', 'format', 'genre', 'overview', 'poster_path'],
+    typeDetailKeys
+  });
 }
 
 function buildCwaCompatibility(externalId) {
-  const value = String(externalId || '').trim();
-  if (!value) throw new TypeError('CWA compatibility projection requires an entry id');
-  return {
-    typeDetails: {
-      provider_name: 'cwa_opds',
-      provider_item_id: value,
-      calibre_entry_id: value
-    },
-    metadata: { provider_item_id: value, calibre_entry_id: value }
-  };
+  return buildDigitalLibraryCompatibility({
+    providerName: 'cwa_opds',
+    externalId,
+    typeDetailKeys: ['provider_item_id', 'calibre_entry_id'],
+    metadataKeys: ['provider_item_id', 'calibre_entry_id']
+  });
 }
 
 function createCwaAdapterRegistry() {
