@@ -4327,7 +4327,21 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/import-cwa':71",
+      "id": "media.js:router:POST:'/import-bookorbit':71",
+      "module": "media.js",
+      "router": "router",
+      "method": "POST",
+      "routeExpression": "'/import-bookorbit'",
+      "ownership": "workspace",
+      "permission": "workspace.content.manage",
+      "scopeSource": "active_workspace_library",
+      "authentication": "required",
+      "csrf": "global_cookie_policy",
+      "reauthentication": "session_credential_required",
+      "locality": "core_local"
+    },
+    {
+      "id": "media.js:router:POST:'/import-cwa':72",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4341,7 +4355,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/import-kavita':72",
+      "id": "media.js:router:POST:'/import-kavita':73",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4355,7 +4369,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/import-csv/delicious':73",
+      "id": "media.js:router:POST:'/import-csv/delicious':74",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4369,7 +4383,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/import-plex':74",
+      "id": "media.js:router:POST:'/import-plex':75",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4383,7 +4397,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/plex-reconciliation-preview':75",
+      "id": "media.js:router:POST:'/plex-reconciliation-preview':76",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4397,7 +4411,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/plex-reconciliation-preview/run':76",
+      "id": "media.js:router:POST:'/plex-reconciliation-preview/run':77",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4411,7 +4425,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/plex-reconciliation-sync/run':77",
+      "id": "media.js:router:POST:'/plex-reconciliation-sync/run':78",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4425,7 +4439,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/plex-reconciliation-conflicts':78",
+      "id": "media.js:router:GET:'/plex-reconciliation-conflicts':79",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -4439,7 +4453,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/plex-reconciliation-conflicts/:id/resolve':79",
+      "id": "media.js:router:POST:'/plex-reconciliation-conflicts/:id/resolve':80",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4453,7 +4467,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/plex-reconciliation-sync/scheduler':80",
+      "id": "media.js:router:GET:'/plex-reconciliation-sync/scheduler':81",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -4467,7 +4481,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/plex-reconciliation-sync/scheduler/run':81",
+      "id": "media.js:router:POST:'/plex-reconciliation-sync/scheduler/run':82",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4481,7 +4495,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/process-plex-webhook-import-hints':82",
+      "id": "media.js:router:POST:'/process-plex-webhook-import-hints':83",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4495,7 +4509,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/apply-plex-watch-state':83",
+      "id": "media.js:router:POST:'/apply-plex-watch-state':84",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4509,7 +4523,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/write-plex-watch-state':84",
+      "id": "media.js:router:POST:'/write-plex-watch-state':85",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4523,7 +4537,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/write-plex-rating':85",
+      "id": "media.js:router:POST:'/write-plex-rating':86",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4537,7 +4551,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/apply-plex-ratings':86",
+      "id": "media.js:router:POST:'/apply-plex-ratings':87",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4551,7 +4565,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/plex-watch-state/refresh-scheduler':87",
+      "id": "media.js:router:GET:'/plex-watch-state/refresh-scheduler':88",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -4565,7 +4579,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/plex-watch-state/refresh-scheduler/run':88",
+      "id": "media.js:router:POST:'/plex-watch-state/refresh-scheduler/run':89",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4579,7 +4593,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/plex-webhook-import-hints/auto-processor':89",
+      "id": "media.js:router:GET:'/plex-webhook-import-hints/auto-processor':90",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -4593,7 +4607,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/plex-webhook-import-hints/auto-processor/run':90",
+      "id": "media.js:router:POST:'/plex-webhook-import-hints/auto-processor/run':91",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4607,7 +4621,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/import-comics':91",
+      "id": "media.js:router:POST:'/import-comics':92",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4621,7 +4635,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/sync-jobs':92",
+      "id": "media.js:router:GET:'/sync-jobs':93",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -4635,7 +4649,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/sync-jobs/:id':93",
+      "id": "media.js:router:GET:'/sync-jobs/:id':94",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -4649,7 +4663,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/sync-jobs/:id/result':94",
+      "id": "media.js:router:GET:'/sync-jobs/:id/result':95",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -4663,7 +4677,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/collections':95",
+      "id": "media.js:router:GET:'/collections':96",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -4677,7 +4691,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/collections/:id':96",
+      "id": "media.js:router:GET:'/collections/:id':97",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -4691,7 +4705,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:PATCH:'/collections/:id':97",
+      "id": "media.js:router:PATCH:'/collections/:id':98",
       "module": "media.js",
       "router": "router",
       "method": "PATCH",
@@ -4705,7 +4719,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/collections/:id/items':98",
+      "id": "media.js:router:POST:'/collections/:id/items':99",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4719,7 +4733,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:PATCH:'/collections/:id/items/:itemId':99",
+      "id": "media.js:router:PATCH:'/collections/:id/items/:itemId':100",
       "module": "media.js",
       "router": "router",
       "method": "PATCH",
@@ -4733,7 +4747,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:DELETE:'/collections/:id/items/:itemId':100",
+      "id": "media.js:router:DELETE:'/collections/:id/items/:itemId':101",
       "module": "media.js",
       "router": "router",
       "method": "DELETE",
@@ -4747,7 +4761,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/:id/convert-to-collection':101",
+      "id": "media.js:router:POST:'/:id/convert-to-collection':102",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4761,7 +4775,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/collections/:id/convert-to-individual':102",
+      "id": "media.js:router:POST:'/collections/:id/convert-to-individual':103",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4775,7 +4789,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/':103",
+      "id": "media.js:router:POST:'/':104",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4789,7 +4803,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:PATCH:'/:id':104",
+      "id": "media.js:router:PATCH:'/:id':105",
       "module": "media.js",
       "router": "router",
       "method": "PATCH",
@@ -4803,7 +4817,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/bulk-delete':105",
+      "id": "media.js:router:POST:'/bulk-delete':106",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4817,7 +4831,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:DELETE:'/:id':106",
+      "id": "media.js:router:DELETE:'/:id':107",
       "module": "media.js",
       "router": "router",
       "method": "DELETE",
@@ -4957,7 +4971,91 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:GET:'/spaces/:spaceId/portability':2",
+      "id": "spaceIntegrations.js:router:GET:'/spaces/:spaceId/integrations/bookorbit-connections':2",
+      "module": "spaceIntegrations.js",
+      "router": "router",
+      "method": "GET",
+      "routeExpression": "'/spaces/:spaceId/integrations/bookorbit-connections'",
+      "ownership": "workspace",
+      "permission": "workspace.integrations.read",
+      "scopeSource": "explicit_workspace",
+      "authentication": "required",
+      "csrf": "not_applicable",
+      "reauthentication": "session_credential_required",
+      "locality": "core_local"
+    },
+    {
+      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/bookorbit-connections':3",
+      "module": "spaceIntegrations.js",
+      "router": "router",
+      "method": "POST",
+      "routeExpression": "'/spaces/:spaceId/integrations/bookorbit-connections'",
+      "ownership": "workspace",
+      "permission": "workspace.integrations.manage",
+      "scopeSource": "explicit_workspace",
+      "authentication": "required",
+      "csrf": "global_cookie_policy",
+      "reauthentication": "session_credential_required",
+      "locality": "core_local"
+    },
+    {
+      "id": "spaceIntegrations.js:router:PATCH:'/spaces/:spaceId/integrations/bookorbit-connections/:connectionId':4",
+      "module": "spaceIntegrations.js",
+      "router": "router",
+      "method": "PATCH",
+      "routeExpression": "'/spaces/:spaceId/integrations/bookorbit-connections/:connectionId'",
+      "ownership": "workspace",
+      "permission": "workspace.integrations.manage",
+      "scopeSource": "explicit_workspace",
+      "authentication": "required",
+      "csrf": "global_cookie_policy",
+      "reauthentication": "session_credential_required",
+      "locality": "core_local"
+    },
+    {
+      "id": "spaceIntegrations.js:router:PUT:'/spaces/:spaceId/integrations/bookorbit-connections/:connectionId/credentials':5",
+      "module": "spaceIntegrations.js",
+      "router": "router",
+      "method": "PUT",
+      "routeExpression": "'/spaces/:spaceId/integrations/bookorbit-connections/:connectionId/credentials'",
+      "ownership": "workspace",
+      "permission": "workspace.integrations.manage",
+      "scopeSource": "explicit_workspace",
+      "authentication": "required",
+      "csrf": "global_cookie_policy",
+      "reauthentication": "session_credential_required",
+      "locality": "core_local"
+    },
+    {
+      "id": "spaceIntegrations.js:router:PUT:'/spaces/:spaceId/integrations/bookorbit-connections/:connectionId/status':6",
+      "module": "spaceIntegrations.js",
+      "router": "router",
+      "method": "PUT",
+      "routeExpression": "'/spaces/:spaceId/integrations/bookorbit-connections/:connectionId/status'",
+      "ownership": "workspace",
+      "permission": "workspace.integrations.manage",
+      "scopeSource": "explicit_workspace",
+      "authentication": "required",
+      "csrf": "global_cookie_policy",
+      "reauthentication": "session_credential_required",
+      "locality": "core_local"
+    },
+    {
+      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/bookorbit-connections/:connectionId/test':7",
+      "module": "spaceIntegrations.js",
+      "router": "router",
+      "method": "POST",
+      "routeExpression": "'/spaces/:spaceId/integrations/bookorbit-connections/:connectionId/test'",
+      "ownership": "workspace",
+      "permission": "workspace.integrations.manage",
+      "scopeSource": "explicit_workspace",
+      "authentication": "required",
+      "csrf": "global_cookie_policy",
+      "reauthentication": "session_credential_required",
+      "locality": "core_local"
+    },
+    {
+      "id": "spaceIntegrations.js:router:GET:'/spaces/:spaceId/portability':8",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "GET",
@@ -4971,7 +5069,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/portability/export':3",
+      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/portability/export':9",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "POST",
@@ -4985,7 +5083,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:PUT:'/spaces/:spaceId/integrations':4",
+      "id": "spaceIntegrations.js:router:PUT:'/spaces/:spaceId/integrations':10",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "PUT",
@@ -4999,7 +5097,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/plex-now-playing-display-token':5",
+      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/plex-now-playing-display-token':11",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "POST",
@@ -5013,7 +5111,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:DELETE:'/spaces/:spaceId/integrations/plex-now-playing-display-token':6",
+      "id": "spaceIntegrations.js:router:DELETE:'/spaces/:spaceId/integrations/plex-now-playing-display-token':12",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "DELETE",
@@ -5027,7 +5125,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:PUT:'/spaces/:spaceId/integrations/plex-now-playing-display-preferences':7",
+      "id": "spaceIntegrations.js:router:PUT:'/spaces/:spaceId/integrations/plex-now-playing-display-preferences':13",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "PUT",
@@ -5041,7 +5139,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/plex-webhook-receiver-token':8",
+      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/plex-webhook-receiver-token':14",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "POST",
@@ -5055,7 +5153,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:DELETE:'/spaces/:spaceId/integrations/plex-webhook-receiver-token':9",
+      "id": "spaceIntegrations.js:router:DELETE:'/spaces/:spaceId/integrations/plex-webhook-receiver-token':15",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "DELETE",
@@ -5069,7 +5167,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/plex-webhook-receiver-validate':10",
+      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/plex-webhook-receiver-validate':16",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "POST",
@@ -5083,7 +5181,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-barcode':11",
+      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-barcode':17",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "POST",
@@ -5097,7 +5195,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-tmdb':12",
+      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-tmdb':18",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "POST",
@@ -5111,7 +5209,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-plex':13",
+      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-plex':19",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "POST",
@@ -5125,7 +5223,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-plex-providers':14",
+      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-plex-providers':20",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "POST",
@@ -5139,7 +5237,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-plex-now-playing':15",
+      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-plex-now-playing':21",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "POST",
@@ -5153,7 +5251,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-books':16",
+      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-books':22",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "POST",
@@ -5167,7 +5265,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-audio':17",
+      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-audio':23",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "POST",
@@ -5181,7 +5279,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-games':18",
+      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-games':24",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "POST",
@@ -5195,7 +5293,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-comics':19",
+      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-comics':25",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "POST",
@@ -5209,7 +5307,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-cwa':20",
+      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-cwa':26",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "POST",
@@ -5223,7 +5321,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-kavita':21",
+      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-kavita':27",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "POST",

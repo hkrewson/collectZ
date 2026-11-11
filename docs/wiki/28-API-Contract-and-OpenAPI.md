@@ -47,6 +47,23 @@ The current goal is to lock down the highest-value surfaces first:
 - async Plex import launch
 - media list reads
 - async import job status
+- workspace-managed, multi-instance BookOrbit connection administration
+- BookOrbit connection testing and authoritative import launch
+
+### BookOrbit connection contract
+
+BookOrbit connections are workspace-owned Provider Connections rather than fields in the singleton integration record. Public responses include stable connection UUID, provider label, endpoint, validated non-secret settings, lifecycle state, and a `credentialsConfigured` boolean. They never return usernames, passwords, encrypted payloads, or credential masks.
+
+The maintained routes are:
+
+- `GET|POST /api/spaces/{id}/integrations/bookorbit-connections`
+- `PATCH /api/spaces/{id}/integrations/bookorbit-connections/{connectionId}`
+- `PUT /api/spaces/{id}/integrations/bookorbit-connections/{connectionId}/credentials`
+- `PUT /api/spaces/{id}/integrations/bookorbit-connections/{connectionId}/status`
+- `POST /api/spaces/{id}/integrations/bookorbit-connections/{connectionId}/test`
+- `POST /api/media/import-bookorbit`
+
+Connection mutations and tests require a session with recent reauthentication. Import requires a session and explicit active workspace/library scope. The import request selects one connection UUID, and authoritative identity matching remains scoped by workspace plus that connection UUID plus identity kind plus BookOrbit Atom entry id.
 
 ## Planned Follow-Up
 

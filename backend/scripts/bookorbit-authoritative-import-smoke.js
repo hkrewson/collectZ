@@ -1,0 +1,330 @@
+#!/usr/bin/env node
+
+'use strict';
+
+const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
+const http = require('node:http');
+const bcrypt = require('bcrypt');
+const pool = require('../db/pool');
+const { withAuthorizedScopeTransaction } = require('../db/scopeBroker');
+const { setCanonicalFieldControl } = require('../services/canonicalMediaFieldControls');
+const { createScopedSmokeUser } = require('./helpers/scopedSmokeUser');
+
+const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
+
+class HttpClient {
+  constructor(name) {
+    this.name = name;
+    this.cookies = new Map();
+    this.csrfToken = '';
+  }
+
+  applySetCookies(headers) {
+    const raw = typeof headers.getSetCookie === 'function' ? headers.getSetCookie() : [];
+    for (const cookieLine of raw) {
+      const firstPart = String(cookieLine).split(';')[0] || '';
+      const index = firstPart.indexOf('=');
+      if (index > 0) this.cookies.set(firstPart.slice(0, index).trim(), firstPart.slice(index + 1).trim());
+    }
+  }
+
+  cookieHeader() {
+    return Array.from(this.cookies.entries()).map(([key, value]) => `${key}=${value}`).join('; ');
+  }
+
+  async request(path, { method = 'GET', body, status = 200, csrf = false } = {}) {
+    const headers = { Accept: 'application/json' };
+    if (body !== undefined) headers['Content-Type'] = 'application/json';
+    if (csrf) {
+      if (!this.csrfToken) await this.fetchCsrf();
+      headers['x-csrf-token'] = this.csrfToken;
+    }
+    const cookie = this.cookieHeader();
+    if (cookie) headers.Cookie = cookie;
+    if (path.includes('/import-bookorbit')) headers['x-valuation-refresh-mode'] = 'fixture';
+    const response = await fetch(`${BASE_URL}${path}`, { method, headers, body });
+    this.applySetCookies(response.headers);
+    const text = await response.text();
+    let data;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = text;
+    }
+    assert.equal(response.status, status, `${this.name} ${method} ${path} returned ${response.status}: ${JSON.stringify(data)}`);
+    return data;
+  }
+
+  async fetchCsrf() {
+    const data = await this.request('/api/auth/csrf-token');
+    assert.ok(data?.csrfToken, 'BookOrbit smoke did not receive a CSRF token');
+    this.csrfToken = data.csrfToken;
+  }
+}
+
+function randomIsbn13() {
+  const stem = `978${String(crypto.randomInt(0, 1000000000)).padStart(9, '0')}`;
+  const weighted = [...stem].reduce((sum, digit, index) => sum + Number(digit) * (index % 2 === 0 ? 1 : 3), 0);
+  return `${stem}${(10 - (weighted % 10)) % 10}`;
+}
+
+function entry({ id, title, isbn, mime = 'application/epub+zip', extension = 'epub' }) {
+  return [
+    '<entry>',
+    `<id>urn:bookorbit:book:${id}</id>`,
+    `<title>${title}</title>`,
+    '<updated>2026-11-10T20:00:00.000Z</updated>',
+    '<author><name>BookOrbit Smoke Author</name></author>',
+    `<dc:identifier>urn:isbn:${isbn}</dc:identifier>`,
+    `<link rel="http://opds-spec.org/acquisition" type="${mime}" href="/download/${id}.${extension}"/>`,
+    '</entry>'
+  ].join('');
+}
+
+function feed(entries) {
+  return `<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/terms/"><id>urn:bookorbit:smoke</id><title>BookOrbit Smoke</title><updated>2026-11-10T20:00:00.000Z</updated>${entries.join('')}</feed>`;
+}
+
+async function startBookOrbitServer(instances) {
+  const server = http.createServer((req, res) => {
+    const key = String(req.url || '').split('/')[1];
+    const instance = instances[key];
+    if (!instance || req.url !== `/${key}/api/v1/opds`) {
+      res.writeHead(404, { 'content-type': 'text/plain' });
+      return res.end('not found');
+    }
+    const expected = `Basic ${Buffer.from(`${instance.username}:${instance.password}`).toString('base64')}`;
+    if (req.headers.authorization !== expected) {
+      res.writeHead(401, { 'content-type': 'application/atom+xml' });
+      return res.end(feed([]));
+    }
+    res.writeHead(200, { 'content-type': 'application/atom+xml; charset=utf-8' });
+    return res.end(feed(instance.entries()));
+  });
+  await new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', resolve);
+  });
+  const address = server.address();
+  assert.ok(address && typeof address !== 'string', 'BookOrbit smoke server did not start');
+  return { server, baseUrl: `http://127.0.0.1:${address.port}` };
+}
+
+async function scopeContext(client) {
+  const scope = await client.request('/api/auth/scope');
+  const libraryId = Number(scope?.active_library_id || 0);
+  const spaceId = Number(scope?.active_space_id || 0);
+  assert.ok(spaceId && libraryId, `BookOrbit smoke scope bootstrap failed: ${JSON.stringify(scope)}`);
+  return { spaceId, libraryId };
+}
+
+async function retireActor(userId) {
+  if (!userId) return;
+  await pool.query('DELETE FROM user_sessions WHERE user_id = $1', [userId]).catch(() => {});
+  await pool.query('DELETE FROM personal_access_tokens WHERE user_id = $1', [userId]).catch(() => {});
+  const passwordHash = await bcrypt.hash(crypto.randomBytes(48).toString('hex'), 12);
+  await pool.query(
+    `UPDATE users
+        SET email = $2, password = $3, name = 'Retired BookOrbit smoke actor', role = 'user',
+            active_space_id = NULL, active_library_id = NULL
+      WHERE id = $1`,
+    [userId, `retired-bookorbit-smoke-${userId}@example.invalid`, passwordHash]
+  ).catch(() => {});
+}
+
+async function main() {
+  const suffix = `${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
+  const email = `bookorbit-import-${suffix}@example.com`;
+  const password = `Orbit!${crypto.randomBytes(18).toString('base64url')}`;
+  const one = { username: `one-${suffix}`, password: crypto.randomBytes(24).toString('base64url') };
+  const two = { username: `two-${suffix}`, password: crypto.randomBytes(24).toString('base64url') };
+  let firstIsbn = randomIsbn13();
+  const secondIsbn = randomIsbn13();
+  const comicIsbn = randomIsbn13();
+  one.entries = () => [
+    entry({ id: 42, title: 'BookOrbit Instance One', isbn: firstIsbn }),
+    entry({ id: 43, title: 'BookOrbit Instance One Comic', isbn: comicIsbn, mime: 'application/vnd.comicbook+zip', extension: 'cbz' })
+  ];
+  two.entries = () => [entry({ id: 42, title: 'BookOrbit Instance Two', isbn: secondIsbn })];
+  const client = new HttpClient('bookorbit-authoritative-import-smoke');
+  let userId = null;
+  let fake = null;
+
+  try {
+    fake = await startBookOrbitServer({ one, two });
+    userId = await createScopedSmokeUser({
+      pool,
+      email,
+      password,
+      name: 'BookOrbit Authoritative Import Smoke',
+      role: 'user',
+      slugPrefix: 'bookorbit-import-smoke'
+    });
+    await client.request('/api/auth/login', {
+      method: 'POST',
+      csrf: true,
+      body: JSON.stringify({ email, password })
+    });
+    await client.fetchCsrf();
+    const { spaceId, libraryId } = await scopeContext(client);
+
+    const createConnection = async (key, instance) => {
+      const response = await client.request(`/api/spaces/${spaceId}/integrations/bookorbit-connections`, {
+        method: 'POST',
+        status: 201,
+        csrf: true,
+        body: JSON.stringify({
+          name: `BookOrbit ${key}`,
+          baseUrl: fake.baseUrl,
+          settings: { catalogPath: `/${key}/api/v1/opds`, timeoutMs: 5000, maxPages: 5 },
+          credentials: { username: instance.username, password: instance.password }
+        })
+      });
+      assert.equal(response?.connection?.providerType, 'bookorbit');
+      assert.equal(response?.connection?.credentialsConfigured, true);
+      assert.equal(JSON.stringify(response).includes(instance.password), false);
+      assert.equal(JSON.stringify(response).includes(instance.username), false);
+      return response.connection.id;
+    };
+
+    const firstConnectionId = await createConnection('one', one);
+    const secondConnectionId = await createConnection('two', two);
+    const listed = await client.request(`/api/spaces/${spaceId}/integrations/bookorbit-connections`);
+    assert.equal(listed.connections.length, 2);
+    assert.equal(JSON.stringify(listed).includes(one.password), false);
+    assert.equal(JSON.stringify(listed).includes(two.username), false);
+
+    const tested = await client.request(`/api/spaces/${spaceId}/integrations/bookorbit-connections/${firstConnectionId}/test`, {
+      method: 'POST',
+      csrf: true
+    });
+    assert.equal(tested.ok, true);
+    assert.equal(tested.publications, 2);
+
+    const rotatedPassword = crypto.randomBytes(24).toString('base64url');
+    const rotated = await client.request(`/api/spaces/${spaceId}/integrations/bookorbit-connections/${firstConnectionId}/credentials`, {
+      method: 'PUT',
+      csrf: true,
+      body: JSON.stringify({ credentials: { username: one.username, password: rotatedPassword } })
+    });
+    assert.equal(rotated.credentialsConfigured, true);
+    assert.equal(JSON.stringify(rotated).includes(rotatedPassword), false);
+    one.password = rotatedPassword;
+    const retested = await client.request(`/api/spaces/${spaceId}/integrations/bookorbit-connections/${firstConnectionId}/test`, {
+      method: 'POST',
+      csrf: true
+    });
+    assert.equal(retested.ok, true);
+
+    const disabled = await client.request(`/api/spaces/${spaceId}/integrations/bookorbit-connections/${firstConnectionId}/status`, {
+      method: 'PUT',
+      csrf: true,
+      body: JSON.stringify({ status: 'disabled' })
+    });
+    assert.equal(disabled.connection.status, 'disabled');
+    const refused = await client.request(`/api/spaces/${spaceId}/integrations/bookorbit-connections/${firstConnectionId}/test`, {
+      method: 'POST',
+      status: 409,
+      csrf: true
+    });
+    assert.equal(refused.code, 'PROVIDER_CONNECTION_INACTIVE');
+    const reactivated = await client.request(`/api/spaces/${spaceId}/integrations/bookorbit-connections/${firstConnectionId}/status`, {
+      method: 'PUT',
+      csrf: true,
+      body: JSON.stringify({ status: 'active' })
+    });
+    assert.equal(reactivated.connection.status, 'active');
+
+    const importConnection = (connectionId) => client.request('/api/media/import-bookorbit?sync=1', {
+      method: 'POST',
+      csrf: true,
+      body: JSON.stringify({ connectionId })
+    });
+    const firstImport = await importConnection(firstConnectionId);
+    assert.equal(firstImport.summary.created, 2);
+    const firstMediaId = await withAuthorizedScopeTransaction(pool, { spaceId, libraryId }, userId, async (db) => {
+      const identity = await db.query(
+        `SELECT media_id FROM external_media_identities
+          WHERE space_id = $1 AND provider_connection_id = $2
+            AND identity_kind = 'book' AND external_id_normalized = 'urn:bookorbit:book:42' AND active`,
+        [spaceId, firstConnectionId]
+      );
+      const mediaId = Number(identity.rows[0]?.media_id || 0);
+      assert.ok(mediaId, 'BookOrbit smoke could not resolve the first canonical row');
+      await db.query('UPDATE media SET title = $3 WHERE id = $1 AND space_id = $2', [mediaId, spaceId, 'Manual BookOrbit Title']);
+      await setCanonicalFieldControl(db, {
+        spaceId,
+        mediaId,
+        fieldPath: 'media.title',
+        authority: 'manual',
+        providerWriteMode: 'preserve',
+        locked: true,
+        providerConnectionId: null,
+        actorId: userId
+      });
+      return mediaId;
+    });
+    const originalIsbn = firstIsbn;
+    firstIsbn = randomIsbn13();
+    const repeated = await importConnection(firstConnectionId);
+    assert.equal(repeated.summary.created, 0);
+    assert.equal(repeated.summary.updated, 2);
+    const secondImport = await importConnection(secondConnectionId);
+    assert.equal(secondImport.summary.created, 1);
+
+    const { identityRows, mediaRows } = await withAuthorizedScopeTransaction(pool, { spaceId, libraryId }, userId, async (db) => {
+      const scopedIdentityRows = await db.query(
+        `SELECT provider_connection_id, media_id, external_id_normalized
+           FROM external_media_identities
+          WHERE space_id = $1 AND identity_kind = 'book'
+            AND external_id_normalized = 'urn:bookorbit:book:42' AND active
+          ORDER BY provider_connection_id`,
+        [spaceId]
+      );
+      const scopedMediaRows = await db.query(
+        `SELECT id, title, media_type, type_details
+           FROM media
+          WHERE space_id = $1 AND library_id = $2
+            AND import_source = 'bookorbit'
+          ORDER BY id`,
+        [spaceId, libraryId]
+      );
+      return { identityRows: scopedIdentityRows, mediaRows: scopedMediaRows };
+    });
+    assert.equal(identityRows.rowCount, 2);
+    assert.notEqual(identityRows.rows[0].provider_connection_id, identityRows.rows[1].provider_connection_id);
+    assert.notEqual(Number(identityRows.rows[0].media_id), Number(identityRows.rows[1].media_id));
+
+    assert.equal(mediaRows.rowCount, 3);
+    const firstBook = mediaRows.rows.find((row) => Number(row.id) === firstMediaId);
+    const comic = mediaRows.rows.find((row) => row.media_type === 'comic_book');
+    assert.equal(firstBook?.type_details?.provider_item_id, 'urn:bookorbit:book:42');
+    assert.equal(firstBook?.type_details?.isbn, firstIsbn);
+    assert.notEqual(firstBook?.type_details?.isbn, originalIsbn);
+    assert.equal(firstBook?.title, 'Manual BookOrbit Title');
+    assert.equal(comic?.type_details?.provider_item_id, 'urn:bookorbit:book:43');
+
+    console.log(JSON.stringify({
+      passed: true,
+      connections: listed.connections.length,
+      firstCreated: firstImport.summary.created,
+      repeatUpdated: repeated.summary.updated,
+      secondCreated: secondImport.summary.created,
+      canonicalRows: mediaRows.rowCount,
+      overlappingIdentityRows: identityRows.rowCount,
+      credentialReadback: 'redacted',
+      lifecycle: 'disabled-refused-reactivated',
+      lockedTitle: 'preserved'
+    }));
+  } finally {
+    if (fake?.server) await new Promise((resolve) => fake.server.close(resolve));
+    await retireActor(userId);
+    await pool.end().catch(() => {});
+  }
+}
+
+main().catch((error) => {
+  console.error(error?.stack || error?.message || String(error));
+  process.exitCode = 1;
+});

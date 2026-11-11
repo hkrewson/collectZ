@@ -281,7 +281,7 @@ test('BookOrbit adapter keeps Atom identity separate from mutable bibliographic 
   assert.deepEqual(registry.validateSettings('bookorbit', {
     catalogPath: '/api/v1/opds', timeoutMs: 15000
   }).settings, {
-    catalogPath: '/api/v1/opds', timeoutMs: 15000
+    catalogPath: '/api/v1/opds', timeoutMs: 15000, maxPages: 20
   });
   assert.deepEqual(registry.validateCredentials('bookorbit', {
     username: 'collectz', password: 'runtime-generated-at-use'

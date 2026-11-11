@@ -43,7 +43,7 @@ const { normalizeDeliciousRow } = require('../services/deliciousNormalize');
 const { normalizeIsbn, normalizeIdentifierSet } = require('../services/importIdentifiers');
 const { normalizeTypeDetails } = require('../services/typeDetails');
 const { normalizeOpdsEntry } = require('../services/cwa');
-const { normalizeBookOrbitEntry } = require('../services/bookOrbit');
+const { buildBookOrbitEndpoint, normalizeBookOrbitEntry } = require('../services/bookOrbit');
 const {
   buildKavitaSeriesWebUrl,
   buildKavitaReaderWebUrl,
@@ -477,6 +477,8 @@ const metronAuthoritativeSyncSmokeSource = fs.readFileSync(require.resolve('../s
 const metronImportIdentitySource = fs.readFileSync(require.resolve('../services/metronImportIdentity'), 'utf8');
 const cwaAuthoritativeSyncSmokeSource = fs.readFileSync(require.resolve('../scripts/cwa-authoritative-sync-smoke'), 'utf8');
 const cwaImportIdentitySource = fs.readFileSync(require.resolve('../services/cwaImportIdentity'), 'utf8');
+const bookOrbitAuthoritativeImportSmokeSource = fs.readFileSync(require.resolve('../scripts/bookorbit-authoritative-import-smoke'), 'utf8');
+const bookOrbitImportIdentitySource = fs.readFileSync(require.resolve('../services/bookOrbitImportIdentity'), 'utf8');
 const plexAuthoritativeSyncSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-authoritative-sync-smoke'), 'utf8');
 const plexImportIdentitySource = fs.readFileSync(require.resolve('../services/plexImportIdentity'), 'utf8');
 const plexIdentitySource = fs.readFileSync(require.resolve('../services/plexIdentity'), 'utf8');
@@ -4281,6 +4283,17 @@ results.push(run('CWA production import uses authoritative provider identity rec
   assert.ok(cwaAuthoritativeSyncSmokeSource.includes("matchedBy, 'external_identity'"));
 }));
 
+results.push(run('BookOrbit production import uses connection-scoped authoritative identity reconciliation', () => {
+  assert.ok(backendPackageJson.scripts['test:bookorbit-authoritative-import']);
+  assert.ok(mediaRoutesSource.includes('bookOrbitImportIdentity.open'));
+  assert.ok(mediaRoutesSource.includes("providerType: 'bookorbit'"));
+  assert.ok(bookOrbitImportIdentitySource.includes('createExternalMediaIdentityService'));
+  assert.ok(bookOrbitImportIdentitySource.includes('buildBookOrbitCompatibility'));
+  assert.ok(bookOrbitImportIdentitySource.includes('setCanonicalFieldControl'));
+  assert.ok(bookOrbitAuthoritativeImportSmokeSource.includes('overlappingIdentityRows'));
+  assert.ok(bookOrbitAuthoritativeImportSmokeSource.includes("credentialReadback: 'redacted'"));
+}));
+
 results.push(run('Plex settings establish a stable provider connection before authoritative import adoption', () => {
   assert.ok(spaceIntegrationsRoutesSource.includes('providerIntegrationBindings.ensurePlexBinding'));
   assert.ok(providerIntegrationBindingsSource.includes("const PLEX_INTEGRATION_KEY = 'media.plex'"));
@@ -5249,6 +5262,20 @@ results.push(run('bookOrbit.normalizeBookOrbitEntry preserves Atom identity and 
   assert.strictEqual(normalized.type_details.provider_external_url, null);
   assert.strictEqual(normalized.release_date, null);
   assert.strictEqual(normalized.type_details.source_updated_at, '2026-11-10T19:00:00.000Z');
+}));
+
+results.push(run('bookOrbit connection and import routes use the multi-instance provider registry', () => {
+  assert.strictEqual(
+    buildBookOrbitEndpoint('https://bookorbit.example/subpath', '/api/v1/opds'),
+    'https://bookorbit.example/api/v1/opds'
+  );
+  assert.throws(() => buildBookOrbitEndpoint('https://user:secret@bookorbit.example', '/api/v1/opds'));
+  assert.ok(spaceIntegrationsRoutesSource.includes("router.get('/spaces/:spaceId/integrations/bookorbit-connections'"));
+  assert.ok(spaceIntegrationsRoutesSource.includes("router.post('/spaces/:spaceId/integrations/bookorbit-connections/:connectionId/test'"));
+  assert.ok(spaceIntegrationsRoutesSource.includes('bookOrbitConnections.loadRuntime'));
+  assert.ok(mediaRoutesSource.includes("router.post('/import-bookorbit'"));
+  assert.ok(mediaRoutesSource.includes('bookOrbitImportIdentity.open'));
+  assert.ok(mediaRoutesSource.includes("importSource: 'bookorbit'"));
 }));
 
 results.push(run('typeDetails preserves BookOrbit series provenance for books', () => {

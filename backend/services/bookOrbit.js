@@ -1,6 +1,7 @@
 'use strict';
 
 const { fetchOpdsCatalog, normalizeOpdsPublication } = require('./opdsTransport');
+const { parseHttpUrl } = require('./outboundUrlPolicy');
 
 const BOOKORBIT_ENTRY_ID = /^urn:bookorbit:book:\d+$/i;
 
@@ -49,6 +50,24 @@ function normalizeBookOrbitEntry(entry = {}, baseUrl = '') {
   };
 }
 
+function buildBookOrbitEndpoint(baseUrl, catalogPath = '/api/v1/opds') {
+  const endpoint = parseHttpUrl(baseUrl);
+  if (!endpoint) {
+    const error = new Error('BookOrbit server URL must use HTTP without embedded credentials');
+    error.code = 'BOOKORBIT_ENDPOINT_INVALID';
+    error.status = 400;
+    throw error;
+  }
+  const path = String(catalogPath || '').trim();
+  if (!path.startsWith('/') || path.length > 512) {
+    const error = new Error('BookOrbit catalog path is invalid');
+    error.code = 'BOOKORBIT_ENDPOINT_INVALID';
+    error.status = 400;
+    throw error;
+  }
+  return new URL(path, `${endpoint.origin}/`).toString();
+}
+
 async function fetchBookOrbitOpdsItems(config = {}, options = {}) {
   return fetchOpdsCatalog({
     endpointUrl: config.endpointUrl,
@@ -62,6 +81,7 @@ async function fetchBookOrbitOpdsItems(config = {}, options = {}) {
 
 module.exports = {
   BOOKORBIT_ENTRY_ID,
+  buildBookOrbitEndpoint,
   normalizeBookOrbitEntry,
   fetchBookOrbitOpdsItems
 };

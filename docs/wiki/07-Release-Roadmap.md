@@ -205,7 +205,7 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 ## 3.27.4 — BookOrbit OPDS Adapter
 
 **Goal:** Add BookOrbit as an explicit digital-library provider adapter over shared OPDS transport, using the authoritative external-identity registry rather than presenting BookOrbit as Calibre/CWA.
-**Status:** Active after the hosted `3.27.3` closeout. Shared OPDS transport hardening and BookOrbit entry/identity normalization are implemented; multi-instance administration, authoritative import reconciliation, UI controls, and end-to-end runtime certification remain.
+**Status:** Active after the hosted `3.27.3` closeout. Shared OPDS transport, multi-instance backend administration, and authoritative import reconciliation are implemented; UI controls, real-server verification, and release closeout remain.
 
 ### Scope
 
@@ -240,6 +240,9 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 - CWA now uses the shared transport through its existing adapter without changing its provider label, identity projection, browse/download semantics, or public import route.
 - The BookOrbit adapter preserves the Atom entry id (`urn:bookorbit:book:{id}`) as provider identity, keeps ISBN as mutable bibliographic metadata, recognizes current CBZ/CBR MIME types, parses series links/indexes, separates feed `updated` from publication date, preserves acquisition and cover URLs, and leaves browse/detail URL empty when BookOrbit does not provide one.
 - BookOrbit settings, credentials, canonical fields, and compatibility projections have provider-owned validation. Focused coverage proves root/catalog pagination, modern comic classification, changed ISBN with stable Atom identity, authentication refusal, pagination cycles, unsafe cross-origin links, page and response limits, malformed feeds, timeouts, and credential-free diagnostics.
+- Workspace administrators can create, list, update, rotate credentials for, test, disable, reactivate, and archive multiple BookOrbit Provider Connections. Credentials are encrypted in the existing connection credential relation; public readback exposes only `credentialsConfigured`, and execution refuses inactive, incomplete, wrong-provider, or undecryptable connections.
+- BookOrbit import now selects one connection UUID, loads its validated runtime configuration, fetches the complete bounded feed before mutation, and reconciles each Atom id through the authoritative workspace/connection/kind/id tuple. It skips unrelated catalog enrichment, refreshes only provider-controlled canonical fields, preserves manual/reviewed/locked values, and keeps compatibility projections transactionally aligned.
+- A canonical-stack HTTP smoke proves credential rotation and redacted readback, lifecycle refusal/reactivation, book and modern-CBZ import, changed ISBN with stable identity, locked-title preservation, repeat-sync idempotency, and two BookOrbit connections with the same local book id resolving to distinct canonical objects.
 
 ---
 

@@ -7186,6 +7186,113 @@
         }
       }
     },
+    "/api/spaces/{id}/integrations/bookorbit-connections": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "List redacted BookOrbit connections for a managed workspace",
+        "security": [{ "cookieSession": [] }],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } },
+          { "in": "query", "name": "includeArchived", "required": false, "schema": { "type": "boolean" } }
+        ],
+        "responses": {
+          "200": { "description": "BookOrbit connection list without credential values", "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } },
+          "403": { "description": "Workspace management denied" }
+        }
+      },
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Create a BookOrbit provider connection",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "name": { "type": "string", "minLength": 1, "maxLength": 255 },
+              "baseUrl": { "type": "string", "format": "uri" },
+              "settings": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "catalogPath": { "type": "string", "default": "/api/v1/opds" },
+                  "timeoutMs": { "type": "integer", "minimum": 1000, "maximum": 120000 },
+                  "maxPages": { "type": "integer", "minimum": 1, "maximum": 100 }
+                }
+              },
+              "credentials": {
+                "type": "object",
+                "writeOnly": true,
+                "additionalProperties": false,
+                "properties": {
+                  "username": { "type": "string", "minLength": 1, "maxLength": 255 },
+                  "password": { "type": "string", "minLength": 1, "maxLength": 2048 }
+                },
+                "required": ["username", "password"]
+              }
+            },
+            "required": ["name", "baseUrl", "credentials"]
+          } } }
+        },
+        "responses": {
+          "201": { "description": "Created redacted BookOrbit connection", "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } },
+          "400": { "description": "Invalid BookOrbit connection", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/spaces/{id}/integrations/bookorbit-connections/{connectionId}": {
+      "patch": {
+        "tags": ["Auth"],
+        "summary": "Update non-secret BookOrbit connection settings",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } },
+          { "in": "path", "name": "connectionId", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } },
+        "responses": { "200": { "description": "Updated redacted BookOrbit connection" }, "404": { "description": "Connection not found" } }
+      }
+    },
+    "/api/spaces/{id}/integrations/bookorbit-connections/{connectionId}/credentials": {
+      "put": {
+        "tags": ["Auth"],
+        "summary": "Replace encrypted BookOrbit credentials",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } },
+          { "in": "path", "name": "connectionId", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "additionalProperties": false, "properties": { "credentials": { "type": "object", "writeOnly": true, "additionalProperties": false, "properties": { "username": { "type": "string" }, "password": { "type": "string" } }, "required": ["username", "password"] } }, "required": ["credentials"] } } } },
+        "responses": { "200": { "description": "Credentials replaced without readback" }, "404": { "description": "Connection not found" } }
+      }
+    },
+    "/api/spaces/{id}/integrations/bookorbit-connections/{connectionId}/status": {
+      "put": {
+        "tags": ["Auth"],
+        "summary": "Change BookOrbit connection lifecycle status",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } },
+          { "in": "path", "name": "connectionId", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "additionalProperties": false, "properties": { "status": { "type": "string", "enum": ["active", "disabled", "archived"] } }, "required": ["status"] } } } },
+        "responses": { "200": { "description": "Updated lifecycle state" }, "404": { "description": "Connection not found" } }
+      }
+    },
+    "/api/spaces/{id}/integrations/bookorbit-connections/{connectionId}/test": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Test a stored BookOrbit connection",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } },
+          { "in": "path", "name": "connectionId", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": { "200": { "description": "Secret-free BookOrbit connection diagnostic" }, "401": { "description": "BookOrbit rejected stored credentials" }, "404": { "description": "Connection not found" } }
+      }
+    },
     "/api/spaces/{id}/integrations/plex-webhook-receiver-token": {
       "post": {
         "tags": ["Auth"],
@@ -13255,6 +13362,37 @@
               }
             }
           }
+        }
+      }
+    },
+    "/api/media/import-bookorbit": {
+      "post": {
+        "tags": ["Media"],
+        "summary": "Import books and comics from one BookOrbit provider connection",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [
+          { "name": "async", "in": "query", "required": false, "schema": { "type": "boolean" } },
+          { "name": "sync", "in": "query", "required": false, "schema": { "type": "boolean" } },
+          { "name": "connectionId", "in": "query", "required": false, "schema": { "type": "string", "format": "uuid" } },
+          { "name": "maxPages", "in": "query", "required": false, "schema": { "type": "integer", "minimum": 1, "maximum": 100 } }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": { "application/json": { "schema": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "connectionId": { "type": "string", "format": "uuid" },
+              "maxPages": { "type": "integer", "minimum": 1, "maximum": 100 }
+            }
+          } } }
+        },
+        "responses": {
+          "200": { "description": "BookOrbit import completed synchronously", "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } },
+          "202": { "description": "BookOrbit import queued", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/QueuedJobResponse" } } } },
+          "400": { "description": "Connection or workspace input error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "404": { "description": "BookOrbit connection not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "409": { "description": "BookOrbit connection inactive or incomplete", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
         }
       }
     },
