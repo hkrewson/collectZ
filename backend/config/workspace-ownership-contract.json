@@ -93,6 +93,16 @@
           "column": "media_id",
           "referencesTable": "media",
           "expectation": "same_workspace"
+        },
+        {
+          "column": "space_id",
+          "referencesTable": "provider_connections",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "source_provider_connection_id",
+          "referencesTable": "provider_connections",
+          "expectation": "same_workspace"
         }
       ]
     },
@@ -460,6 +470,16 @@
           "column": "media_id",
           "referencesTable": "media",
           "expectation": "same_workspace"
+        },
+        {
+          "column": "space_id",
+          "referencesTable": "provider_connections",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "provider_connection_id",
+          "referencesTable": "provider_connections",
+          "expectation": "same_workspace"
         }
       ]
     },
@@ -482,6 +502,16 @@
         {
           "column": "to_media_id",
           "referencesTable": "media",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "space_id",
+          "referencesTable": "external_media_identities",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "identity_id",
+          "referencesTable": "external_media_identities",
           "expectation": "same_workspace"
         }
       ]
@@ -770,7 +800,18 @@
       "category": "workspace_owned",
       "ownershipKey": "space_id",
       "rationale": "Encrypted provider credentials inherit the owning connection workspace and are never ordinary readback.",
-      "sameWorkspaceForeignKeys": []
+      "sameWorkspaceForeignKeys": [
+        {
+          "column": "space_id",
+          "referencesTable": "provider_connections",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "provider_connection_id",
+          "referencesTable": "provider_connections",
+          "expectation": "same_workspace"
+        }
+      ]
     },
     {
       "name": "provider_connections",
@@ -794,6 +835,16 @@
         {
           "column": "space_id",
           "referencesTable": "spaces",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "space_id",
+          "referencesTable": "provider_connections",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "provider_connection_id",
+          "referencesTable": "provider_connections",
           "expectation": "same_workspace"
         }
       ]
@@ -899,9 +950,25 @@
     {
       "name": "sync_jobs",
       "category": "workspace_owned",
-      "ownershipKey": "scope.spaceId",
-      "rationale": "Durable jobs must persist workspace and library ownership in the structured scope payload.",
-      "sameWorkspaceForeignKeys": []
+      "ownershipKey": "space_id",
+      "rationale": "Durable jobs persist relational workspace, optional library, and optional provider-connection ownership while retaining the structured scope payload for compatibility.",
+      "sameWorkspaceForeignKeys": [
+        {
+          "column": "space_id",
+          "referencesTable": "spaces",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "space_id",
+          "referencesTable": "libraries",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "library_id",
+          "referencesTable": "libraries",
+          "expectation": "same_workspace"
+        }
+      ]
     },
     {
       "name": "tv_device_authorizations",
@@ -5870,7 +5937,7 @@
   "executionPaths": [
     {
       "id": "sync_jobs",
-      "path": "routes/media.js",
+      "path": "services/durableJobs.js",
       "scopeSource": "target_record_or_enqueued_scope",
       "status": "certified"
     },

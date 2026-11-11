@@ -52,6 +52,7 @@ const objectRelationshipsRouter = require('./routes/objectRelationships');
 const { supportSharedRouter } = require('./routes/support');
 const { cleanupExpiredSessions, SESSION_MAX_PER_USER, SESSION_TTL_DAYS } = require('./services/sessions');
 const { startAutomaticLoanReminderScheduler, getAutomaticLoanReminderRuntimeConfig } = require('./services/loanReminders');
+const { createDurableJobStore } = require('./services/durableJobs');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -63,6 +64,7 @@ const BACKEND_VERSION = appMeta.backend || appMeta.version || APP_VERSION;
 const BUILD_LABEL = `v${APP_VERSION || 'unknown'}`;
 const HOMELAB_EDITION = isHomelabEdition();
 const SESSION_CLEANUP_INTERVAL_MINUTES = Math.max(1, Number(process.env.SESSION_CLEANUP_INTERVAL_MINUTES || 60));
+const DURABLE_JOB_RECOVERY_INTERVAL_SECONDS = Math.max(15, Number(process.env.DURABLE_JOB_RECOVERY_INTERVAL_SECONDS || 30));
 const RATE_LIMIT_WINDOW_MINUTES = Math.max(1, Number(process.env.RATE_LIMIT_WINDOW_MINUTES || 15));
 const RATE_LIMIT_WINDOW_MS = RATE_LIMIT_WINDOW_MINUTES * 60 * 1000;
 const RATE_LIMIT_GLOBAL_MAX = Math.max(50, Number(process.env.RATE_LIMIT_GLOBAL_MAX || (IS_PRODUCTION ? 600 : 5000)));
@@ -77,6 +79,7 @@ const RATE_LIMIT_EXTERNAL_API_MAX = Math.max(5, Number(process.env.RATE_LIMIT_EX
 const PLAYWRIGHT_E2E_BYPASS_TOKEN = String(process.env.PLAYWRIGHT_E2E_BYPASS_TOKEN || '').trim();
 const PLAYWRIGHT_E2E_BYPASS_COOKIE = 'playwright_e2e_bypass';
 const AUTO_LOAN_REMINDER_RUNTIME = getAutomaticLoanReminderRuntimeConfig();
+const durableJobStore = createDurableJobStore(pool);
 const PLEX_WEBHOOK_IMPORT_RUNTIME = typeof mediaRouter.getPlexWebhookImportAutoProcessorRuntimeConfig === 'function'
   ? mediaRouter.getPlexWebhookImportAutoProcessorRuntimeConfig()
   : { enabled: false };
@@ -427,8 +430,11 @@ const startServer = async () => {
        SET status = 'failed',
            error = COALESCE(error, 'Process restarted before job completion'),
            finished_at = COALESCE(finished_at, NOW())
-       WHERE status = 'running'
-          OR (status = 'queued' AND job_type NOT IN ('plex_webhook_import_hint', 'plex_webhook_state_hint'))
+       WHERE COALESCE(scope->>'durableLifecycle', 'false') <> 'true'
+         AND (
+           status = 'running'
+           OR (status = 'queued' AND job_type NOT IN ('plex_webhook_import_hint', 'plex_webhook_state_hint'))
+         )
        RETURNING id`
     );
     if (staleJobs.rowCount > 0) {
@@ -450,6 +456,19 @@ const startServer = async () => {
       }
     }, SESSION_CLEANUP_INTERVAL_MINUTES * 60 * 1000);
     cleanupTimer.unref();
+    const recoverDurableJobs = async () => {
+      try {
+        await durableJobStore.recoverExpiredLeases({ limit: 100 });
+      } catch (error) {
+        console.error('Durable job lease recovery failed:', error.message);
+      }
+    };
+    await recoverDurableJobs();
+    const durableJobRecoveryTimer = setInterval(
+      recoverDurableJobs,
+      DURABLE_JOB_RECOVERY_INTERVAL_SECONDS * 1000
+    );
+    durableJobRecoveryTimer.unref();
     startAutomaticLoanReminderScheduler();
     if (typeof mediaRouter.startPlexWebhookImportHintAutoProcessor === 'function') {
       mediaRouter.startPlexWebhookImportHintAutoProcessor();

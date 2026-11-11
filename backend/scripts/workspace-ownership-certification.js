@@ -54,7 +54,7 @@ const TABLE_OVERRIDES = Object.freeze({
   external_media_identities: ['workspace_owned', 'space_id', 'Provider-instance identity attached to a canonical media target in the same workspace.'],
   external_media_identity_events: ['workspace_owned', 'space_id', 'Append-only identity lifecycle evidence inherits the external identity workspace.'],
   canonical_media_field_controls: ['workspace_owned', 'space_id', 'Per-field canonical authority and provider-refresh policy inherit the media workspace.'],
-  sync_jobs: ['workspace_owned', 'scope.spaceId', 'Durable jobs must persist workspace and library ownership in the structured scope payload.']
+  sync_jobs: ['workspace_owned', 'space_id', 'Durable jobs persist relational workspace, optional library, and optional provider-connection ownership while retaining the structured scope payload for compatibility.']
 });
 
 const ROUTE_MODULE_POLICIES = Object.freeze({
@@ -85,7 +85,7 @@ const GLOBALLY_AUTHENTICATED_MODULES = new Set([
 ]);
 
 const EXECUTION_PATHS = Object.freeze([
-  ['sync_jobs', 'routes/media.js', /space_id|spaceId/, 'target_record_or_enqueued_scope'],
+  ['sync_jobs', 'services/durableJobs.js', /space_id|spaceId/, 'target_record_or_enqueued_scope'],
   ['plex_webhook', 'services/plexWebhookReceiver.js', /space_id|spaceId/, 'receiver_token_workspace'],
   ['plex_reconciliation', 'routes/media.js', /plex_reconciliation[\s\S]{0,5000}(spaceId|space_id)/, 'configured_workspace'],
   ['plex_readback', 'routes/media.js', /watch_state[\s\S]{0,5000}(spaceId|space_id)/, 'configured_workspace'],
@@ -105,10 +105,20 @@ function extractTables(sql) {
     const name = match[1].replace(/^public\./, '');
     const body = match[2];
     const columns = Array.from(body.matchAll(/^\s*([a-z][a-z0-9_]*)\s+[A-Z]/gm), (item) => item[1]);
-    const foreignKeys = Array.from(
-      body.matchAll(/^\s*([a-z][a-z0-9_]*)\s+[^\n]*REFERENCES\s+(?:public\.)?([a-z0-9_]+)\s*\(/gim),
+    const inlineForeignKeys = Array.from(
+      body.matchAll(/^\s*(?!FOREIGN\b|CONSTRAINT\b)([a-z][a-z0-9_]*)\s+[^\n]*REFERENCES\s+(?:public\.)?([a-z0-9_]+)\s*\(/gim),
       (item) => ({ column: item[1], referencesTable: item[2] })
     );
+    const tableForeignKeys = Array.from(
+      body.matchAll(/FOREIGN\s+KEY\s*\(([^)]+)\)\s*REFERENCES\s+(?:public\.)?([a-z0-9_]+)\s*\(/gim),
+      (item) => item[1]
+        .split(',')
+        .map((column) => ({ column: column.trim().replace(/"/g, ''), referencesTable: item[2] }))
+    ).flat();
+    const foreignKeys = [...inlineForeignKeys, ...tableForeignKeys]
+      .filter((entry, index, entries) => entries.findIndex((candidate) => (
+        candidate.column === entry.column && candidate.referencesTable === entry.referencesTable
+      )) === index);
     const references = foreignKeys.map((entry) => entry.referencesTable);
     entries.push({ name, body, columns, foreignKeys, references });
   }

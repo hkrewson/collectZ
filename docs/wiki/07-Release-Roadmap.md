@@ -4,7 +4,57 @@ This roadmap converts product direction into implementation milestones with acce
 
 Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file stays focused on numbered milestones and the work that has already been selected for release planning.
 
-The `3.27.x` line below is intentionally planned ahead under an explicit maintainer exception to the normal one-active-slice convention. `3.27.5` is the active milestone. Later numbered entries remain ordered milestone boundaries, not authorization to implement them early; each must still begin only after the preceding milestone closes or the roadmap is deliberately revised.
+The `3.27.x` architecture line is complete. `3.28.0` is the active milestone; later work remains versionless in the backlog until a selected slice is deliberately promoted.
+
+---
+
+## 3.28.0 — Durable Provider Job Foundation
+
+**Goal:** Put workspace-owned provider automation behind one durable PostgreSQL job lifecycle, prove it with existing Plex reconciliation and new scheduled BookOrbit synchronization, and preserve provider-specific import behavior behind explicit adapters.
+**Status:** In progress. The selected foundation slice adds the relational job envelope and lifecycle module before either provider scheduler is migrated.
+
+### Selected scope
+
+- Extend `sync_jobs` additively with a stable public UUID, job contract version, relational workspace/library/provider-connection ownership, correlation and idempotency keys, target reference, attempts, availability, lease/heartbeat, cancellation, and terminal timestamps.
+- Preserve the existing numeric job id and structured scope/progress/summary fields as compatibility projections while new durable callers use the relational ownership fields.
+- Introduce one deep job-lifecycle module whose interface owns idempotent enqueue, `SKIP LOCKED` claim, lease renewal, progress, retry/final settlement, cancellation, expired-lease recovery, and workspace-scoped readback.
+- Reject secret-bearing job targets, progress, and summaries; store provider connection references and resolve credentials only inside the provider adapter at execution time.
+- Migrate Plex full-library reconciliation as the existing automatic adopter and add BookOrbit scheduled synchronization as the second, materially different adopter.
+- Add consistent operator readback for current state, attempt count, next eligible run, cancellation, safe failure reason, and resulting provider-specific summary.
+
+### Acceptance criteria
+
+- Duplicate or concurrent enqueue with one documented idempotency identity resolves to one job.
+- Two workers cannot claim the same job; a lease can be renewed only by its owner, and an expired lease deterministically retries or fails at the attempt limit.
+- Every new durable job has database-enforced workspace ownership and any library or provider connection belongs to that same workspace.
+- Process restart, transient provider failure, cancellation, and terminal failure have tested, sanitized outcomes without retaining credentials or raw provider payloads.
+- Existing Plex reconciliation and BookOrbit synchronization both execute through the same lifecycle interface while retaining their separate matching, field-control, and result contracts.
+- The canonical stack, migration/init parity, retained-job migration, provider smokes, RBAC, browser/runtime regression, release metadata, and Help > Releases readback pass before version closeout.
+
+### Milestone boundary
+
+- No generic provider payload, broker service, Kafka/RabbitMQ dependency, source-observation schema, work/edition/copy remodeling, or broad migration of unrelated synchronous imports belongs in `3.28.0`.
+- Plex webhook hints and watched/rating refresh are follow-up adopters after reconciliation and BookOrbit prove the lifecycle.
+- Wider RLS activation for `sync_jobs` remains part of the staged table-family program and is not implicitly enabled by the relational ownership migration.
+
+### Current implementation progress
+
+- Migration `134` and fresh-install schema parity define the additive durable envelope while leaving historical compatibility payloads readable.
+- `services/durableJobs.js` provides the first lifecycle implementation with idempotent enqueue, concurrent-safe claim, owner-bound lease renewal, progress, bounded retry/final settlement, cancellation, expired-lease recovery, and workspace-scoped readback.
+- The interface rejects secret-bearing structured payload fields and persists only provider-connection references for later adapter resolution.
+- A rollback-safe canonical-database smoke covers stable public identity, relational scope, idempotency, secret refusal, concurrent claims, leases, progress, retry, cancellation, expired-lease terminal behavior, and readback.
+
+### Foundation slice checkpoint
+
+- **Roadmap slice:** `3.28.0 — Durable Provider Job Foundation`, relational envelope and lifecycle module checkpoint.
+- **Project docs/checklists used:** `AGENTS.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/50-Staged-Row-Level-Security.md`; `docs/wiki/54-Durable-Workspace-Job-Contract.md`.
+- **Verified runtime facts:** Rebuilt and recreated the canonical `collectz-private` backend in place on port `3201`; migration `134` applied to all retained jobs, every retained job has a distinct public UUID and relational workspace ownership, all resolvable retained libraries were backfilled, post-migration Plex jobs write relational workspace/library ownership through the compatibility adapter, the backend remains healthy at released version `3.27.5`, and the lifecycle smoke removes all of its fixture jobs.
+- **CI/checks run:** Backend unit assertions (`373`) plus transaction/scope/identity tests (`50`); workspace ownership certification (`75` tables, `349` routes, `11` execution paths); durable lifecycle canonical-database smoke (`39` checks); init parity through migration `134`; `133 -> 134 -> 133` migration/restore rehearsal; runtime-role certification (`30/30`); identity upgrade/restore certification through `134`; external-identity certification (`21` checks); RBAC regression; Node syntax; and diff hygiene.
+- **Blocked/unverified:** The milestone is intentionally not release-ready at this checkpoint. Plex reconciliation and BookOrbit have not yet adopted the lifecycle, and the browser, both runtime-edition, observability, dependency, secret, image/SBOM, and full local/hosted release gates remain required before `3.28.0` closeout.
+- **Files changed:** Migration `134` and fresh-install parity; durable job lifecycle module and canonical-database smoke; legacy sync-job relational ownership adapter; startup lease recovery; workspace ownership parser/snapshot; durable job contract; roadmap/backlog promotion.
+- **Risks or follow-ups:** Existing provider execution still uses legacy process-local runners until the two selected adapters migrate. `sync_jobs` RLS is deliberately deferred. One historical job whose deleted library no longer exists retains its compatibility scope with a null relational library rather than receiving invented ownership.
+- **What remains in the milestone:** Adopt Plex reconciliation, add scheduled BookOrbit synchronization, expose consistent safe job/cadence readback and cancellation, run full provider/browser/runtime/release certification, then complete the `3.28.0` version closeout.
+- **Recommended commit message:** `Establish 3.28.0 durable workspace job lifecycle and migration foundation`.
 
 ---
 

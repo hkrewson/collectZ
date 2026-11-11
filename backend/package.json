@@ -15,6 +15,7 @@
     "test:external-identity-certification": "node scripts/external-identity-certification.js",
     "test:digital-library-identity-backfill-smoke": "node scripts/digital-library-identity-backfill-smoke.js",
     "test:provider-integration-binding-smoke": "node scripts/provider-integration-binding-smoke.js",
+    "test:durable-job-foundation-smoke": "node scripts/durable-job-foundation-smoke.js",
     "test:metron-authoritative-sync-smoke": "node scripts/metron-authoritative-sync-smoke.js",
     "test:cwa-authoritative-sync-smoke": "node scripts/cwa-authoritative-sync-smoke.js",
     "test:bookorbit-opds-transport": "node scripts/bookorbit-opds-transport-smoke.js",

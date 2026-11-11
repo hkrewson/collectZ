@@ -5849,16 +5849,36 @@ async function withDedupLock(lockKey, fn) {
 }
 
 async function createSyncJob({ userId, jobType, provider, scope, progress }) {
+  const normalizedScope = scope && typeof scope === 'object' && !Array.isArray(scope) ? scope : {};
+  const spaceId = Number(normalizedScope.spaceId || 0);
+  const libraryId = Number(normalizedScope.libraryId || 0);
+  const connectionId = String(normalizedScope.connectionId || '').trim();
+  const providerConnectionId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(connectionId)
+    ? connectionId
+    : null;
+  if (!Number.isInteger(spaceId) || spaceId <= 0) {
+    const error = new Error('Sync jobs require an explicit workspace');
+    error.code = 'workspace_scope_required';
+    throw error;
+  }
   const result = await pool.query(
-    `INSERT INTO sync_jobs (job_type, provider, status, created_by, scope, progress)
-     VALUES ($1, $2, 'queued', $3, $4::jsonb, $5::jsonb)
-     RETURNING id, job_type, provider, status, created_by, scope, progress, summary, error,
+    `INSERT INTO sync_jobs (
+       job_type, provider, status, created_by, space_id, library_id,
+       provider_connection_id, scope, progress
+     )
+     VALUES ($1, $2, 'queued', $3, $4, $5, $6, $7::jsonb, $8::jsonb)
+     RETURNING id, public_id, job_type, job_version, provider, status, created_by,
+               space_id, library_id, provider_connection_id, correlation_id,
+               scope, progress, summary, error, attempt_count, max_attempts, available_at,
                started_at, finished_at, created_at, updated_at`,
     [
       jobType,
       provider,
       userId || null,
-      JSON.stringify(scope || {}),
+      spaceId,
+      Number.isInteger(libraryId) && libraryId > 0 ? libraryId : null,
+      providerConnectionId,
+      JSON.stringify(normalizedScope),
       JSON.stringify(progress || {})
     ]
   );

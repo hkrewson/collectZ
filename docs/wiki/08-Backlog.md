@@ -110,7 +110,7 @@ Explicit non-goals for this program:
 **Type:** Runtime reliability architecture
 **Tags:** `jobs`, `integrations`, `providers`, `webhooks`, `imports`, `idempotency`, `workspace`
 **Priority:** `P1`
-**Status:** Active architectural backlog; several durable processors and provider-specific smokes exist, but shared ownership, observation, retry, and outcome mechanics remain inconsistent.
+**Status:** The relational job envelope, shared lifecycle module, Plex reconciliation adoption, and BookOrbit scheduled-sync adoption moved to `3.28.0`. Remaining scope covers transactional outbox use where enqueue must be atomic with another mutation, immutable source observations, additional provider/workflow adopters, and later standardization after the first two adopters are certified.
 
 **Goal:** Standardize the safe mechanics of asynchronous and provider-driven work while preserving provider-specific matching and domain behavior.
 
@@ -120,13 +120,10 @@ Explicit non-goals for this program:
 - A generic provider domain model would erase important differences; the useful shared layer is job mechanics, provenance, security, and outcome reporting.
 
 **Scope**
-- Define a common job envelope with stable ID, job type/version, workspace, optional library, initiating actor or system principal, correlation ID, idempotency key, target reference, state, attempt count, scheduling timestamps, and sanitized result/error summary.
 - Use a transactional outbox or equivalent atomic enqueue pattern where a committed database mutation must cause background work.
-- Define bounded retry, cancellation, lease/heartbeat, stale-job recovery, terminal failure/dead-letter, and operator retry behavior.
-- Store secret references rather than credential values; resolve workspace-owned provider configuration at execution time under documented inheritance rules.
 - Preserve an immutable or append-only source observation for external facts where provenance and later rematching matter, then let provider-specific adapters normalize, match, propose review, and apply.
 - Require every adapter to declare supported source identities, idempotency rules, workspace ownership, rate-limit behavior, redacted diagnostics, and contract fixtures.
-- Provide consistent API/UI readback for state, attempts, next action, safe failure reason, and resulting object links.
+- Migrate Plex webhook hints, watched/rating refresh, and additional provider/import workflows only after `3.28.0` proves the lifecycle with Plex reconciliation and BookOrbit.
 
 **Relationship to existing backlog**
 - `Draft-First Async Scan Queue` should become one consumer of this contract, not a separate queue architecture.

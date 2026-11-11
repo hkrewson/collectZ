@@ -7,6 +7,8 @@
 -- DO NOT add seed users here. The first user to register becomes admin automatically
 -- when the user table is empty.
 
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 -- Users table
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
@@ -416,7 +418,8 @@ CREATE TABLE IF NOT EXISTS libraries (
     created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    archived_at TIMESTAMP
+    archived_at TIMESTAMP,
+    CONSTRAINT libraries_space_id_id_key UNIQUE (space_id, id)
 );
 
 CREATE TABLE IF NOT EXISTS space_memberships (
@@ -774,18 +777,38 @@ CREATE TABLE IF NOT EXISTS feature_flags (
 -- Async sync jobs (long-running imports)
 CREATE TABLE IF NOT EXISTS sync_jobs (
     id SERIAL PRIMARY KEY,
+    public_id UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
     job_type VARCHAR(50) NOT NULL,
+    job_version INTEGER NOT NULL DEFAULT 1,
     provider VARCHAR(50) NOT NULL,
-    status VARCHAR(20) NOT NULL CHECK (status IN ('queued', 'running', 'failed', 'succeeded')),
+    status VARCHAR(20) NOT NULL CHECK (status IN ('queued', 'running', 'retry_wait', 'cancelled', 'failed', 'succeeded')),
     created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    space_id INTEGER REFERENCES spaces(id) ON DELETE RESTRICT,
+    library_id INTEGER,
+    provider_connection_id UUID,
+    correlation_id UUID NOT NULL DEFAULT gen_random_uuid(),
+    idempotency_key TEXT,
+    target_ref JSONB NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(target_ref) = 'object'),
     scope JSONB,
     progress JSONB,
     summary JSONB,
     error TEXT,
+    attempt_count INTEGER NOT NULL DEFAULT 0,
+    max_attempts INTEGER NOT NULL DEFAULT 3,
+    available_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    lease_owner TEXT,
+    lease_expires_at TIMESTAMPTZ,
+    heartbeat_at TIMESTAMPTZ,
+    cancel_requested_at TIMESTAMPTZ,
+    cancelled_at TIMESTAMPTZ,
     started_at TIMESTAMP,
     finished_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT sync_jobs_attempt_count_check
+      CHECK (attempt_count >= 0 AND max_attempts >= 1 AND attempt_count <= max_attempts),
+    CONSTRAINT sync_jobs_library_scope_fk
+      FOREIGN KEY (space_id, library_id) REFERENCES libraries(space_id, id) ON DELETE RESTRICT
 );
 
 CREATE TABLE IF NOT EXISTS plex_reconciliation_reviews (
@@ -1430,6 +1453,10 @@ CREATE INDEX IF NOT EXISTS idx_library_memberships_user_id ON library_membership
 CREATE INDEX IF NOT EXISTS idx_library_memberships_library_id ON library_memberships(library_id);
 CREATE INDEX IF NOT EXISTS idx_sync_jobs_status_created_at ON sync_jobs(status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sync_jobs_created_by_created_at ON sync_jobs(created_by, created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS sync_jobs_durable_idempotency_key ON sync_jobs(space_id, job_type, provider, idempotency_key) WHERE idempotency_key IS NOT NULL;
+CREATE INDEX IF NOT EXISTS sync_jobs_durable_claim ON sync_jobs(status, available_at, created_at) WHERE status IN ('queued', 'retry_wait');
+CREATE INDEX IF NOT EXISTS sync_jobs_expired_lease ON sync_jobs(lease_expires_at) WHERE status = 'running';
+CREATE INDEX IF NOT EXISTS sync_jobs_workspace_recent ON sync_jobs(space_id, created_at DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_plex_reconciliation_reviews_source ON plex_reconciliation_reviews(provider, library_id, source_key);
 CREATE INDEX IF NOT EXISTS idx_plex_reconciliation_reviews_status_library ON plex_reconciliation_reviews(status, library_id, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_collections_library_created_at ON collections(library_id, created_at DESC);
@@ -1939,7 +1966,8 @@ INSERT INTO schema_migrations (version, description) VALUES
     (130, 'Harden durable external identity event media references'),
     (131, 'Permit immutable identity event numeric reference cleanup'),
     (132, 'Add canonical media field authority controls'),
-    (133, 'Bind legacy integration slots to stable provider connections')
+    (133, 'Bind legacy integration slots to stable provider connections'),
+    (134, 'Add durable workspace-aware job lifecycle foundation')
 ON CONFLICT (version) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS tv_device_authorizations (
@@ -2111,6 +2139,36 @@ CREATE TABLE IF NOT EXISTS public.provider_connections (
   ),
   CONSTRAINT provider_connections_space_id_id_key UNIQUE (space_id, id)
 );
+
+ALTER TABLE public.sync_jobs
+  ADD CONSTRAINT sync_jobs_connection_scope_fk
+  FOREIGN KEY (space_id, provider_connection_id)
+  REFERENCES public.provider_connections(space_id, id) ON DELETE RESTRICT;
+
+CREATE OR REPLACE FUNCTION public.prevent_sync_job_identity_mutation()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NEW.public_id IS DISTINCT FROM OLD.public_id
+     OR NEW.job_type IS DISTINCT FROM OLD.job_type
+     OR NEW.job_version IS DISTINCT FROM OLD.job_version
+     OR NEW.provider IS DISTINCT FROM OLD.provider
+     OR NEW.space_id IS DISTINCT FROM OLD.space_id
+     OR NEW.library_id IS DISTINCT FROM OLD.library_id
+     OR NEW.provider_connection_id IS DISTINCT FROM OLD.provider_connection_id
+     OR NEW.correlation_id IS DISTINCT FROM OLD.correlation_id
+     OR NEW.idempotency_key IS DISTINCT FROM OLD.idempotency_key THEN
+    RAISE EXCEPTION 'durable job identity and ownership are immutable'
+      USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER sync_jobs_immutable_identity
+  BEFORE UPDATE ON public.sync_jobs
+  FOR EACH ROW EXECUTE FUNCTION public.prevent_sync_job_identity_mutation();
 
 CREATE TABLE IF NOT EXISTS public.provider_connection_credentials (
   provider_connection_id UUID PRIMARY KEY,
