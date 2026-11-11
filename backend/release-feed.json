@@ -1,6 +1,27 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.27.5",
+      "version": "3.27.5",
+      "date": "2026-11-11",
+      "status": null,
+      "summary": "Moves Kavita series and chapter imports onto the authoritative Provider Connection and External Identity model, certifies historical CWA/Calibre and Kavita identity adoption, and introduces one deliberately small identity-payload contract shared by BookOrbit, CWA, and Kavita without flattening their provider-specific behavior.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added a stable workspace binding for the existing Kavita configuration and retained its encrypted configuration as the compatibility source while migration evidence is gathered.",
+            "Reconciled Kavita series and chapter rows by workspace, Provider Connection, Identity Kind, and normalized numeric record id while keeping existing `kavita:series:{id}` and `kavita:chapter:{id}` compatibility values readable.",
+            "Preserved Kavita library, series, issue, volume/chapter, cover, launch, reader, progress, metadata-writeback, and Canonical Field precedence behavior through authoritative identity adoption.",
+            "Made historical CWA and Kavita adoption prefer their explicit integration binding when multiple same-provider connections exist; missing, inactive, conflicting, or ambiguous ownership remains unchanged for review.",
+            "Added rollback-only live-database certification for exact CWA book and Kavita series/chapter adoption, redacted diagnostics, idempotent reruns, ambiguity refusal, and retained-state restoration.",
+            "Extracted a two-operation digital-library identity-payload module used by BookOrbit, CWA, and Kavita for allowlisted Canonical Field construction and exact Compatibility Projection construction.",
+            "Documented intentional differences in provider identity syntax, connection models, link/cover handling, credential sources, BookOrbit type transitions, and Kavita reader/writeback behavior."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.27.4",
       "version": "3.27.4",
       "date": "2026-11-11",
@@ -176,25 +197,6 @@
             "Replace `nodemon server.js` with `node --watch server.js` and remove Nodemon from backend development dependencies. This removes the backend watcher chain that included vulnerable `braces` and `brace-expansion` packages.",
             "Keep backend and frontend production dependencies on the previously patched `follow-redirects@1.16.1`.",
             "Synchronize app metadata and Help > Releases to `3.25.2`."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.25.1",
-      "version": "3.25.1",
-      "date": "2026-10-21",
-      "status": null,
-      "summary": "Moves CollectZ's Node 24 runtime, build, CI, and operational helper environments to Node `24.22.1`, the security-fixed Node 24 maintenance-LTS release. The previous canonical backend container was running Node `24.21.0`, which predates the October 21 security release.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Pin backend and frontend build images, syslog and sizing helper images, and the local dependency-audit image to `node:24.22.1-alpine`.",
-            "Pin active Node-based GitHub Actions workflows to Node `24.22.1` and add `.nvmrc` for maintainers.",
-            "Raise the declared minimum backend engine to `>=24.22.1 <25` and add source-contract coverage for all maintained runtime and CI selectors.",
-            "Update the backend and frontend `follow-redirects` override from `1.16.0` to `1.16.1` to resolve two newly reported high-severity advisories found during release preflight.",
-            "Document that `npm audit` covers package dependencies, not the Node runtime and its bundled OpenSSL, c-ares, CA certificates, and Undici components."
           ]
         }
       ]
