@@ -4,7 +4,7 @@ This roadmap converts product direction into implementation milestones with acce
 
 Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file stays focused on numbered milestones and the work that has already been selected for release planning.
 
-The `3.27.x` line below is intentionally planned ahead under an explicit maintainer exception to the normal one-active-slice convention. `3.27.3` is the active milestone. Later `3.27.x` entries are ordered milestone boundaries, not authorization to implement them early; each must still begin only after the preceding milestone closes or the roadmap is deliberately revised.
+The `3.27.x` line below is intentionally planned ahead under an explicit maintainer exception to the normal one-active-slice convention. `3.27.5` is the active milestone. Later numbered entries remain ordered milestone boundaries, not authorization to implement them early; each must still begin only after the preceding milestone closes or the roadmap is deliberately revised.
 
 ---
 
@@ -205,7 +205,7 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 ## 3.27.4 — BookOrbit OPDS Adapter
 
 **Goal:** Add BookOrbit as an explicit digital-library provider adapter over shared OPDS transport, using the authoritative external-identity registry rather than presenting BookOrbit as Calibre/CWA.
-**Status:** Local release closeout complete; an authorized push and hosted release certification remain before final publication.
+**Status:** Complete. Hosted Build and Publish Images run `43052996797` and CodeQL run `43052996700` passed, and annotated tag `v3.27.4` identifies the certified release commit.
 
 ### Scope
 
@@ -253,11 +253,11 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 - **Roadmap slice:** `3.27.4 — BookOrbit OPDS Adapter`.
 - **Project docs/checklists used:** `AGENTS.md`; `GLOSSARY.md`; `docs/adr/0001-canonical-object-and-provider-identity.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/releases/v3.27.4.md`.
 - **Verified runtime facts:** Rebuilt and recreated the canonical `collectz-private` backend/frontend in place on port `3201`; health reports app/frontend/backend/build `3.27.4`; authenticated Help > Releases serves `3.27.4` first; BookOrbit authoritative import smoke retains five canonical rows across repeat sync, same-connection ISBN collision, overlapping ids across two connections, a lossless book-to-comic transition, and a locked reverse transition that remains unchanged for review; and the canonical platform control-plane runtime contract passes.
-- **CI/checks run:** Backend unit assertions (`372`) plus transaction/scope/identity tests (`46`); OpenAPI; RBAC regression; external-identity certification (`21` checks); BookOrbit authoritative import smoke; frontend tests and production build; maintained Core browser regression against the canonical platform stack (`54` passed, six edition-inapplicable skips); control-plane runtime smoke; observability evidence (`9/9`); backend/frontend dependency audits with zero vulnerabilities; standard local release gate (`14/14`); local CodeQL (`5` suppressed/baseline results, `0` active); release feed/readback; diff hygiene; and generated-artifact credential inspection.
-- **Blocked/unverified:** Direct init-parity execution is blocked in the canonical backend because its enforced non-owner runtime role cannot create the required scratch database; existing evidence through migration `133` is present and this release adds no migration, but hosted `migration-check` must rerun init parity and migration rehearsal. Secure-cookie `compose-smoke` is blocked by the intentional development-cookie settings of the retained stack. Hosted Core `runtime-smoke` remains required because the canonical stack is the platform edition and repo policy forbids starting the full local gate's separate CollectZ project. Local `secret-scan` and `image-security-and-sbom` are blocked because Gitleaks and Trivy are not installed. Hosted CI must rerun those gates, generate the CycloneDX SBOMs, publish images, and complete release preflight after push.
-- **Files changed:** Root/backend/frontend version metadata and lockfiles; `docs/releases/v3.27.4.md`; generated Help > Releases feed; preflight and observability release evidence; and this roadmap closeout.
-- **Risks or follow-ups:** BookOrbit audiobook acquisitions remain intentionally unsupported. Existing legacy BookOrbit rows establish provider control of media type on an unchanged repeat observation; an earlier type change fails closed for review. Reading progress, metadata writeback, embedded reading, file proxying, scheduling, and broader work/edition/copy modeling remain outside this milestone.
-- **What remains in the milestone:** Authorized push plus hosted migration/init parity, secret scan, secure-cookie Compose smoke, Core RBAC/browser/runtime confirmation, image security/SBOM, release preflight, publication, and auto-tag evidence. `3.27.5` remains inactive until those gates pass.
+- **CI/checks run:** Backend unit assertions (`372`) plus transaction/scope/identity tests (`46`); OpenAPI; RBAC regression; external-identity certification (`21` checks); BookOrbit authoritative import smoke; frontend tests and production build; maintained Core browser regression against the canonical platform stack (`54` passed, six edition-inapplicable skips); control-plane runtime smoke; observability evidence (`9/9`); backend/frontend dependency audits with zero vulnerabilities; standard local release gate (`14/14`); local CodeQL (`5` suppressed/baseline results, `0` active); release feed/readback; diff hygiene; and generated-artifact credential inspection. Hosted Build and Publish Images run `43052996797` passed prepare/version/release validation, frontend quality, dependency and secret scans, migration/init parity and certification, secure-cookie Compose smoke, Core RBAC/browser/runtime regression, backend/frontend image publication, Trivy image scans, CycloneDX SBOM generation, release preflight, and auto-tag. Hosted CodeQL run `43052996700` passed JavaScript/TypeScript analysis.
+- **Blocked/unverified:** None for `3.27.4` release closeout. The initial hosted run and one retry were blocked before browser execution by GitHub runner DNS failures while Playwright attempted to download optional Ubuntu font packages. The certified workflow now installs only lockfile-pinned Chromium and uses the hosted runner's existing browser libraries; the replacement hosted browser gate passed.
+- **Files changed:** Shared OPDS transport and provider adapters; BookOrbit connection, import, identity, classification-transition, UI, and diagnostic paths; runtime/unit/browser certification coverage; root/backend/frontend version metadata and lockfiles; `docs/releases/v3.27.4.md`; generated Help > Releases feed; preflight and observability release evidence; hosted browser workflow reliability and its contract test/documentation; and this roadmap closeout.
+- **Risks or follow-ups:** BookOrbit audiobook acquisitions remain intentionally unsupported. Existing legacy BookOrbit rows establish provider control of media type on an unchanged repeat observation; an earlier type change fails closed for review. Reading progress, metadata writeback, embedded reading, file proxying, scheduling, and broader work/edition/copy modeling remain outside this milestone. Hosted browser jobs depend on the documented `ubuntu-latest` browser-library baseline and fail visibly if that assumption changes.
+- **What remains in the milestone:** Nothing. Existing digital-library provider identity adoption is active as `3.27.5`.
 - **Recommended commit message:** `Release 3.27.4 with BookOrbit OPDS identities, comic classification, and safe canonical type transitions`.
 
 ---
@@ -265,7 +265,7 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 ## 3.27.5 — Existing Digital-Library Provider Identity Adoption
 
 **Goal:** Move Kavita onto the authoritative provider-identity module, certify the already-adopted CWA/Calibre path, then extract only the shared digital-library mechanics proven by BookOrbit and the existing providers.
-**Status:** Planned ahead; inactive until `3.27.4` closes.
+**Status:** Active after hosted `3.27.4` release certification and tag publication.
 
 ### Scope
 
