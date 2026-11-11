@@ -205,7 +205,7 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 ## 3.27.4 — BookOrbit OPDS Adapter
 
 **Goal:** Add BookOrbit as an explicit digital-library provider adapter over shared OPDS transport, using the authoritative external-identity registry rather than presenting BookOrbit as Calibre/CWA.
-**Status:** Active after the hosted `3.27.3` closeout. Shared OPDS transport, multi-instance backend administration, and authoritative import reconciliation are implemented; UI controls, real-server verification, and release closeout remain.
+**Status:** Active after the hosted `3.27.3` closeout. Shared OPDS transport, multi-instance administration UI, and authoritative import reconciliation are implemented; real-server verification and release closeout remain.
 
 ### Scope
 
@@ -243,6 +243,7 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 - Workspace administrators can create, list, update, rotate credentials for, test, disable, reactivate, and archive multiple BookOrbit Provider Connections. Credentials are encrypted in the existing connection credential relation; public readback exposes only `credentialsConfigured`, and execution refuses inactive, incomplete, wrong-provider, or undecryptable connections.
 - BookOrbit import now selects one connection UUID, loads its validated runtime configuration, fetches the complete bounded feed before mutation, and reconciles each Atom id through the authoritative workspace/connection/kind/id tuple. It skips unrelated catalog enrichment, refreshes only provider-controlled canonical fields, preserves manual/reviewed/locked values, and keeps compatibility projections transactionally aligned.
 - A canonical-stack HTTP smoke proves credential rotation and redacted readback, lifecycle refusal/reactivation, book and modern-CBZ import, changed ISBN with stable identity, locked-title preservation, repeat-sync idempotency, and two BookOrbit connections with the same local book id resolving to distinct canonical objects.
+- Workspace Integrations now exposes multi-instance BookOrbit connection creation, non-secret editing, credential replacement, testing, lifecycle controls, and redacted status. The Library Import surface lists only active connection UUIDs and display names before queueing a selected BookOrbit sync, keeping endpoints, settings, lifecycle history, and credential state out of member-facing responses.
 
 ---
 

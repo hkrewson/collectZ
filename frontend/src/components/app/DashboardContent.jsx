@@ -112,7 +112,9 @@ function SavedLibraryViewsView({ apiCall, onToast, onOpenView, Spinner }) {
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
         {loading ? (
-          <div className="flex h-40 items-center justify-center text-ghost"><Spinner size={18} /></div>
+          <div className="flex h-40 items-center justify-center text-ghost">
+            <Spinner size={18} />
+          </div>
         ) : error ? (
           <div className="rounded-lg border border-err/30 bg-err/10 p-4 text-sm text-err">{error}</div>
         ) : groupedViews.length === 0 ? (
@@ -135,7 +137,9 @@ function SavedLibraryViewsView({ apiCall, onToast, onOpenView, Spinner }) {
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium text-ink">{view.name}</p>
                         <p className="mt-1 text-xs text-ghost">
-                          {view.updated_at || view.updatedAt ? `Updated ${new Date(view.updated_at || view.updatedAt).toLocaleDateString()}` : 'Saved view'}
+                          {view.updated_at || view.updatedAt
+                            ? `Updated ${new Date(view.updated_at || view.updatedAt).toLocaleDateString()}`
+                            : 'Saved view'}
                         </p>
                       </div>
                       <span className="shrink-0 text-xs font-medium text-accent">Open</span>
@@ -202,14 +206,13 @@ export default function DashboardContent({
   const localRuntime = isLocalProductEdition(productEdition);
   const coreRuntime = localRuntime || !platformBridgeEnabled;
   const integrationSpaceId = Number(activeSpaceId || activeLibrary?.space_id || 0) || null;
-  const supportAdminAllowedTabs = new Set([
-    'help',
-    'profile'
-  ]);
+  const supportAdminAllowedTabs = new Set(['help', 'profile']);
 
   React.useEffect(() => {
     let active = true;
     if (user?.role !== 'admin') {
+      // Role changes revoke the admin-only Plex writeback projection immediately.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPlexWritebackSettings({ ratingEnabled: false, watchStateEnabled: false });
       return () => {
         active = false;
@@ -242,7 +245,9 @@ export default function DashboardContent({
   }
 
   if (user?.role === SUPPORT_STAFF_ROLE && !supportAdminAllowedTabs.has(String(activeTab || ''))) {
-    return <ForbiddenView detail="Support admins stay in the support surface by default and cannot browse tenant library data without a later approved support workflow." />;
+    return (
+      <ForbiddenView detail="Support admins stay in the support surface by default and cannot browse tenant library data without a later approved support workflow." />
+    );
   }
 
   const handleTimelineNavigate = (target = {}) => {
@@ -273,15 +278,7 @@ export default function DashboardContent({
         />
       );
     case 'help':
-      return (
-        <HelpView
-          apiCall={apiCall}
-          onToast={showToast}
-          Spinner={Spinner}
-          Icons={Icons}
-          initialTab="guidance"
-        />
-      );
+      return <HelpView apiCall={apiCall} onToast={showToast} Spinner={Spinner} Icons={Icons} initialTab="guidance" />;
     case 'library':
     case 'library-movies':
     case 'library-tv':
@@ -303,13 +300,35 @@ export default function DashboardContent({
         return <ForbiddenView detail="Events is currently disabled by feature flag." />;
       }
       if (activeTab === 'library-art') {
-        return <ArtView key={`art:${scopeKey}`} apiCall={apiCall} onToast={showToast} focusTarget={timelineFocus?.entityType === 'art' ? timelineFocus : null} />;
+        return (
+          <ArtView
+            key={`art:${scopeKey}`}
+            apiCall={apiCall}
+            onToast={showToast}
+            focusTarget={timelineFocus?.entityType === 'art' ? timelineFocus : null}
+          />
+        );
       }
       if (activeTab === 'library-collectibles') {
-        return <CollectiblesView key={`collectibles:${scopeKey}`} apiCall={apiCall} onToast={showToast} focusTarget={timelineFocus?.entityType === 'collectible' ? timelineFocus : null} />;
+        return (
+          <CollectiblesView
+            key={`collectibles:${scopeKey}`}
+            apiCall={apiCall}
+            onToast={showToast}
+            focusTarget={timelineFocus?.entityType === 'collectible' ? timelineFocus : null}
+          />
+        );
       }
       if (activeTab === 'library-events') {
-        return <EventsView key={`events:${scopeKey}`} apiCall={apiCall} onToast={showToast} currentUser={user} focusTarget={timelineFocus?.entityType === 'event' ? timelineFocus : null} />;
+        return (
+          <EventsView
+            key={`events:${scopeKey}`}
+            apiCall={apiCall}
+            onToast={showToast}
+            currentUser={user}
+            focusTarget={timelineFocus?.entityType === 'event' ? timelineFocus : null}
+          />
+        );
       }
       if (activeTab === 'library-loans') {
         return (
@@ -384,15 +403,17 @@ export default function DashboardContent({
           focusTarget={timelineFocus?.entityType === 'media' ? timelineFocus : null}
           initialSavedViewId={pendingLibrarySavedViewId}
           onSavedViewApplied={() => setPendingLibrarySavedViewId('')}
-          onFindPossibleDuplicates={user?.role === 'admin'
-            ? (item) => {
-                setMergeReviewSeed({
-                  mediaId: Number(item?.id || 0) || null,
-                  title: item?.title || 'Selected record'
-                });
-                setActiveTab('admin-merges');
-              }
-            : null}
+          onFindPossibleDuplicates={
+            user?.role === 'admin'
+              ? (item) => {
+                  setMergeReviewSeed({
+                    mediaId: Number(item?.id || 0) || null,
+                    title: item?.title || 'Selected record'
+                  });
+                  setActiveTab('admin-merges');
+                }
+              : null
+          }
           canWritePlex={user?.role === 'admin' ? plexWritebackSettings : false}
         />
       );
@@ -437,7 +458,9 @@ export default function DashboardContent({
       return <ProfileViewComponent user={user} apiCall={apiCall} onToast={showToast} Spinner={Spinner} onUserUpdate={onUserUpdate} />;
     case 'space-manage':
       if (!activeMembershipRole && !canManageActiveSpace) {
-        return <ForbiddenView detail="An active workspace membership or approved support session is required to open this workspace surface." />;
+        return (
+          <ForbiddenView detail="An active workspace membership or approved support session is required to open this workspace surface." />
+        );
       }
       return (
         <SpaceManagerView
@@ -504,9 +527,25 @@ export default function DashboardContent({
           title="Integrations"
           includeRuntimeSections={!coreRuntime}
           includeValuationSections={coreRuntime}
-          visibleSections={coreRuntime
-            ? ['audio', 'barcode', 'books', 'cwa', 'comics', 'ebay', 'games', 'kavita', 'plex', 'pricecharting', 'tmdb', 'vision']
-            : ['logs', 'metrics']}
+          visibleSections={
+            coreRuntime
+              ? [
+                  'audio',
+                  'barcode',
+                  'bookorbit',
+                  'books',
+                  'cwa',
+                  'comics',
+                  'ebay',
+                  'games',
+                  'kavita',
+                  'plex',
+                  'pricecharting',
+                  'tmdb',
+                  'vision'
+                ]
+              : ['logs', 'metrics']
+          }
         />
       );
     default:

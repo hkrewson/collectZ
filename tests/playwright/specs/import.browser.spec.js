@@ -16,6 +16,7 @@ test.describe('import browser regressions', () => {
     await expect(page.getByRole('heading', { name: 'Import Media' })).toBeVisible();
     await expect(page.getByRole('tablist', { name: 'Import sources' })).toBeVisible();
 
+    await expect(page.getByRole('tab', { name: 'BookOrbit', exact: true })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'Calibre', exact: true })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'CSV', exact: true })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'Delicious', exact: true })).toBeVisible();
@@ -27,6 +28,9 @@ test.describe('import browser regressions', () => {
 
     await page.getByRole('tab', { name: 'Delicious', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Choose Delicious CSV', exact: true })).toBeVisible();
+
+    await page.getByRole('tab', { name: 'BookOrbit', exact: true }).click();
+    await expect(page.getByText('No active BookOrbit connection is available.')).toBeVisible();
 
     await page.getByRole('tab', { name: 'Capture Inbox', exact: true }).click();
     await expect(page).toHaveURL(/\/library\/capture$/);

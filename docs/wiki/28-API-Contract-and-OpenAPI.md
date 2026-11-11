@@ -61,9 +61,10 @@ The maintained routes are:
 - `PUT /api/spaces/{id}/integrations/bookorbit-connections/{connectionId}/credentials`
 - `PUT /api/spaces/{id}/integrations/bookorbit-connections/{connectionId}/status`
 - `POST /api/spaces/{id}/integrations/bookorbit-connections/{connectionId}/test`
+- `GET /api/media/bookorbit-connections`
 - `POST /api/media/import-bookorbit`
 
-Connection mutations and tests require a session with recent reauthentication. Import requires a session and explicit active workspace/library scope. The import request selects one connection UUID, and authoritative identity matching remains scoped by workspace plus that connection UUID plus identity kind plus BookOrbit Atom entry id.
+Connection mutations and tests require a session with recent reauthentication. The media-facing connection list is available to workspace members but returns only active connection UUIDs and display names; it never exposes endpoints, settings, lifecycle history, or credential state. Import requires a session and explicit active workspace/library scope. The import request selects one connection UUID, and authoritative identity matching remains scoped by workspace plus that connection UUID plus identity kind plus BookOrbit Atom entry id.
 
 ## Planned Follow-Up
 

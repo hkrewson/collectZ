@@ -66,6 +66,21 @@ async function saveSection(page, sectionLabel) {
 }
 
 test.describe('integrations browser regressions', () => {
+  test('workspace managers can configure multi-instance BookOrbit connections', async ({ page }) => {
+    const adminCredentials = await ensureSavedAdminCredentials();
+    await signInThroughUi(page, adminCredentials);
+    await page.goto('/workspace/settings');
+
+    await page.getByRole('button', { name: 'Integrations', exact: true }).click();
+    const tabs = page.getByRole('tablist', { name: 'Integration sections' });
+    await tabs.getByRole('tab', { name: 'BookOrbit', exact: true }).click();
+
+    await expect(page.getByText('BookOrbit connections', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'New connection', exact: true })).toBeVisible();
+    await expect(page.getByLabel('OPDS catalog path')).toHaveValue('/api/v1/opds');
+    await expect(page.getByLabel('Password')).toHaveAttribute('type', 'password');
+  });
+
   test('platform admin runtime integrations expose observability sections and log settings persist after reload', async ({ page }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
     const requestContext = await createAuthenticatedRequestContext(adminCredentials);
@@ -348,6 +363,7 @@ test.describe('integrations browser regressions', () => {
 
       const tabs = page.getByRole('tablist', { name: 'Integration sections' });
       await expect(tabs.getByRole('tab', { name: 'Image OCR', exact: true })).toBeVisible();
+      await expect(tabs.getByRole('tab', { name: 'BookOrbit', exact: true })).toBeVisible();
       await expect(tabs.getByRole('tab', { name: 'PriceCharting', exact: true })).toBeVisible();
       await expect(tabs.getByRole('tab', { name: 'eBay Browse', exact: true })).toBeVisible();
 
@@ -362,6 +378,11 @@ test.describe('integrations browser regressions', () => {
       await openIntegrationsSection(page, 'eBay Browse');
       await expect(page.getByText('Enable eBay Browse', { exact: true })).toBeVisible();
       await expect(activeSectionRoot(page).getByLabel(/Client Secret/)).toBeVisible();
+
+      await openIntegrationsSection(page, 'BookOrbit');
+      await expect(page.getByText('BookOrbit connections', { exact: true })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'New connection', exact: true })).toBeVisible();
+      await expect(page.getByLabel('OPDS catalog path')).toHaveValue('/api/v1/opds');
     } finally {
       await requestContext.dispose();
     }

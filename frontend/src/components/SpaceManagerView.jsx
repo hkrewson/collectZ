@@ -166,15 +166,18 @@ export default function SpaceManagerView({
     loadInvites();
   }, [loadInvites]);
 
-  const copy = useCallback(async (text) => {
-    if (!text) return;
-    try {
-      await navigator.clipboard.writeText(text);
-      onToast('Copied');
-    } catch (_) {
-      onToast('Copy failed', 'error');
-    }
-  }, [onToast]);
+  const copy = useCallback(
+    async (text) => {
+      if (!text) return;
+      try {
+        await navigator.clipboard.writeText(text);
+        onToast('Copied');
+      } catch (_) {
+        onToast('Copy failed', 'error');
+      }
+    },
+    [onToast]
+  );
 
   const saveSpace = async (event) => {
     event.preventDefault();
@@ -198,9 +201,8 @@ export default function SpaceManagerView({
     setCreatingInvite(true);
     try {
       const payload = await apiCall('post', `/spaces/${activeSpaceId}/invites`, inviteForm);
-      const url = payload?.invite_url || (payload?.token
-        ? `${window.location.origin}/register#invite=${encodeURIComponent(payload.token)}`
-        : '');
+      const url =
+        payload?.invite_url || (payload?.token ? `${window.location.origin}/register#invite=${encodeURIComponent(payload.token)}` : '');
       setInviteUrl(url);
       setInvites((prev) => [payload, ...prev]);
       setInviteForm({ email: '', role: 'member', expose_token: true });
@@ -294,16 +296,21 @@ export default function SpaceManagerView({
     }
   };
 
-  const managerTabs = useMemo(() => ([
-    ...(canManage ? [
-      { id: 'settings', label: 'Settings' },
-      { id: 'backup', label: 'Backup' },
-      { id: 'export', label: 'Export' },
-      { id: 'integrations', label: 'Integrations' },
-      { id: 'people', label: 'People' }
-    ] : []),
-    { id: 'activity', label: 'Activity' }
-  ]), [canManage]);
+  const managerTabs = useMemo(
+    () => [
+      ...(canManage
+        ? [
+            { id: 'settings', label: 'Settings' },
+            { id: 'backup', label: 'Backup' },
+            { id: 'export', label: 'Export' },
+            { id: 'integrations', label: 'Integrations' },
+            { id: 'people', label: 'People' }
+          ]
+        : []),
+      { id: 'activity', label: 'Activity' }
+    ],
+    [canManage]
+  );
 
   const visibleInvites = useMemo(() => {
     if (showInviteHistory) return invites;
@@ -421,285 +428,309 @@ export default function SpaceManagerView({
             />
 
             {peopleTab === 'members' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-xl font-medium text-ink">Members</h2>
-                  <p className="text-sm text-ghost mt-1">Change roles or remove members.</p>
-                </div>
-                {loading ? <Spinner size={16} /> : <span className="badge badge-dim">{members.length} member{members.length === 1 ? '' : 's'}</span>}
-              </div>
-              <div className="space-y-1">
-                {!loading && members.length === 0 ? <p className="py-8 text-sm text-ghost text-center">No members found for this workspace.</p> : null}
-                {memberResetLink ? (
-                  <div className="p-3 mb-4 flex items-center gap-3 bg-raised rounded-lg border border-edge">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-ghost">{memberResetLabel}</p>
-                      <code className="mt-2 block text-xs text-gold font-mono truncate">{memberResetLink}</code>
-                    </div>
-                    <button type="button" className="btn-icon btn-sm shrink-0" onClick={() => copy(memberResetLink)}><Icons.Copy /></button>
-                    <button
-                      type="button"
-                      className="btn-secondary btn-sm shrink-0"
-                      onClick={() => {
-                        setMemberResetLink('');
-                        setMemberResetLabel('Workspace password reset link');
-                      }}
-                    >
-                      Dismiss
-                    </button>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-xl font-medium text-ink">Members</h2>
+                    <p className="text-sm text-ghost mt-1">Change roles or remove members.</p>
                   </div>
-                ) : null}
-                {members.length > 0 ? (
-                  <div className="overflow-x-auto pb-2">
-                    <div className="min-w-full w-max">
-                      <div className="grid min-w-full grid-cols-[minmax(140px,1.7fr)_minmax(160px,1.8fr)_minmax(140px,1fr)_minmax(88px,0.8fr)] gap-4 px-1 pb-2 text-[11px] font-medium uppercase tracking-[0.18em] text-ghost">
-                        <div>Member</div>
-                        <div>Email</div>
-                        <div>Role</div>
-                        <div>Actions</div>
+                  {loading ? (
+                    <Spinner size={16} />
+                  ) : (
+                    <span className="badge badge-dim">
+                      {members.length} member{members.length === 1 ? '' : 's'}
+                    </span>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  {!loading && members.length === 0 ? (
+                    <p className="py-8 text-sm text-ghost text-center">No members found for this workspace.</p>
+                  ) : null}
+                  {memberResetLink ? (
+                    <div className="p-3 mb-4 flex items-center gap-3 bg-raised rounded-lg border border-edge">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-ghost">{memberResetLabel}</p>
+                        <code className="mt-2 block text-xs text-gold font-mono truncate">{memberResetLink}</code>
                       </div>
-                      {members.map((member) => (
-                        <div
-                          key={member.id}
-                          className="py-4 border-t border-edge/60 first:border-t-0"
-                        >
-                          <div className="grid min-w-full grid-cols-[minmax(140px,1.7fr)_minmax(160px,1.8fr)_minmax(140px,1fr)_minmax(88px,0.8fr)] gap-4 items-start">
-                            <div className="min-w-0 flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-lg bg-raised border border-edge flex items-center justify-center text-dim font-display shrink-0">
-                                {member.name?.[0]?.toUpperCase() || member.email?.[0]?.toUpperCase() || '?'}
-                              </div>
-                              <div className="min-w-0">
-                                <p className="text-sm font-medium text-ink">{member.name || 'Unnamed user'}</p>
-                              </div>
-                            </div>
-
-                            <div className="min-w-0">
-                              <p className="text-sm text-ghost truncate">{member.email}</p>
-                            </div>
-
-                            <div>
-                              <p className="text-sm text-ink">
-                                {member.role}{member.user_role ? ` (${member.user_role})` : ''}
-                              </p>
-                              {member.suspended_at ? (
-                                <p className="mt-1 text-xs text-amber-300">Suspended</p>
-                              ) : null}
-                            </div>
-
-                            <div className="relative inline-flex items-center">
-                              <button
-                                type="button"
-                                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-ghost transition hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-edge"
-                                aria-label="Member actions"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  setOpenMemberMenuId((prev) => (Number(prev) === Number(member.id) ? null : member.id));
-                                }}
-                              >
-                                <KebabIcon />
-                              </button>
-                              {Number(openMemberMenuId) === Number(member.id) ? (
-                                <div
-                                  className="absolute right-[calc(100%+4px)] top-1/2 z-10 min-w-[190px] -translate-y-1/2 rounded-xl border border-edge bg-abyss p-2 shadow-lg"
-                                >
-                                  <p className="px-3 py-2 text-[11px] font-medium uppercase tracking-[0.18em] text-ghost">Change Role</p>
-                                  <div className="space-y-1">
-                                    {(member.role === 'owner' ? ['owner'] : assignableRoles).map((role) => (
-                                      <button
-                                        key={role}
-                                        type="button"
-                                        className="w-full rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-raised disabled:opacity-60"
-                                        disabled={memberBusyId === member.id || role === member.role}
-                                        onClick={(event) => {
-                                          event.stopPropagation();
-                                          updateMemberRole(member.id, role);
-                                        }}
-                                      >
-                                        {role}
-                                      </button>
-                                    ))}
-                                  </div>
-                                  <div className="mt-2 border-t border-edge pt-2">
-                                    {member.role !== 'owner' ? (
-                                      <>
-                                        <button
-                                          type="button"
-                                          className="w-full rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-raised disabled:opacity-60"
-                                          disabled={memberBusyId === member.id}
-                                          onClick={(event) => {
-                                            event.stopPropagation();
-                                            updateMemberSuspension(member.id, !member.suspended_at);
-                                          }}
-                                        >
-                                          {member.suspended_at ? 'Restore access' : 'Suspend access'}
-                                        </button>
-                                        <button
-                                          type="button"
-                                          className="w-full rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-raised disabled:opacity-60"
-                                          disabled={memberBusyId === member.id}
-                                          onClick={(event) => {
-                                            event.stopPropagation();
-                                            createMemberPasswordReset(member, false);
-                                          }}
-                                        >
-                                          Email reset link
-                                        </button>
-                                        <button
-                                          type="button"
-                                          className="w-full rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-raised disabled:opacity-60"
-                                          disabled={memberBusyId === member.id}
-                                          onClick={(event) => {
-                                            event.stopPropagation();
-                                            createMemberPasswordReset(member, true);
-                                          }}
-                                        >
-                                          Create copy link
-                                        </button>
-                                      </>
-                                    ) : null}
-                                    <button
-                                    type="button"
-                                    className="w-full rounded-lg px-3 py-2 text-left text-sm text-err hover:bg-err/10 disabled:opacity-60"
-                                    disabled={memberBusyId === member.id}
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      removeMember(member.id);
-                                    }}
-                                  >
-                                    Remove
-                                  </button>
-                                  </div>
-                                </div>
-                              ) : null}
-                            </div>
-                          </div>
+                      <button type="button" className="btn-icon btn-sm shrink-0" onClick={() => copy(memberResetLink)}>
+                        <Icons.Copy />
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-secondary btn-sm shrink-0"
+                        onClick={() => {
+                          setMemberResetLink('');
+                          setMemberResetLabel('Workspace password reset link');
+                        }}
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  ) : null}
+                  {members.length > 0 ? (
+                    <div className="overflow-x-auto pb-2">
+                      <div className="min-w-full w-max">
+                        <div className="grid min-w-full grid-cols-[minmax(140px,1.7fr)_minmax(160px,1.8fr)_minmax(140px,1fr)_minmax(88px,0.8fr)] gap-4 px-1 pb-2 text-[11px] font-medium uppercase tracking-[0.18em] text-ghost">
+                          <div>Member</div>
+                          <div>Email</div>
+                          <div>Role</div>
+                          <div>Actions</div>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-            )}
-
-            {peopleTab === 'invitations' && (
-            <div className="space-y-4">
-              <div>
-                <h2 className="text-xl font-medium text-ink">Invitations</h2>
-                  <p className="text-sm text-ghost mt-1">Review live and historical invites scoped to this workspace.</p>
-              </div>
-              <form className="space-y-4" onSubmit={createInvite}>
-                <div className="flex flex-wrap items-end gap-3">
-                  <label className="field min-w-[220px] flex-1">
-                    <span className="label">Email</span>
-                    <input className="input" type="email" value={inviteForm.email} onChange={(e) => setInviteForm((prev) => ({ ...prev, email: e.target.value }))} required />
-                  </label>
-                  <label className="field w-[150px] shrink-0">
-                    <span className="label">Role</span>
-                    <select className="select" value={inviteForm.role} onChange={(e) => setInviteForm((prev) => ({ ...prev, role: e.target.value }))}>
-                      {assignableRoles.map((role) => <option key={role} value={role}>{role}</option>)}
-                    </select>
-                  </label>
-                  <div className="flex items-end gap-2 shrink-0">
-                    <button
-                      type="button"
-                      className={cx(
-                        'btn-icon btn-sm',
-                        inviteForm.expose_token && 'bg-raised border-muted text-ink'
-                      )}
-                      aria-pressed={Boolean(inviteForm.expose_token)}
-                      title={inviteForm.expose_token ? 'Copy-link enabled' : 'Copy-link disabled'}
-                      onClick={() => setInviteForm((prev) => ({ ...prev, expose_token: !prev.expose_token }))}
-                    >
-                      <Icons.Link />
-                    </button>
-                    <button type="submit" className="btn-primary min-w-[120px]" disabled={creatingInvite}>
-                      {creatingInvite ? <Spinner size={14} /> : 'Create Invite'}
-                    </button>
-                  </div>
-                </div>
-                {inviteUrl ? (
-                  <div className="p-3 flex items-center gap-3 bg-raised rounded-lg border border-edge">
-                    <code className="flex-1 text-xs text-gold font-mono truncate">{inviteUrl}</code>
-                    <button type="button" className="btn-icon btn-sm shrink-0" onClick={() => copy(inviteUrl)}><Icons.Copy /></button>
-                  </div>
-                ) : null}
-                <div className="flex justify-between items-center gap-3">
-                  <CheckboxControl
-                    id="space-show-invite-history"
-                    checked={showInviteHistory}
-                    labelClassName="min-h-0 text-xs text-ghost"
-                    onChange={(e) => {
-                      setInviteStatusNow(Date.now());
-                      setShowInviteHistory(e.target.checked);
-                    }}
-                  >
-                    Show invite history
-                  </CheckboxControl>
-                  <span className="text-xs text-ghost">{inviteForm.expose_token ? 'Copy-link enabled' : 'Email-only invite'}</span>
-                </div>
-              </form>
-              <div className="space-y-1">
-                {!loading && visibleInvites.length === 0 ? <p className="py-8 text-sm text-ghost text-center">No invites to show.</p> : null}
-                {visibleInvites.length > 0 ? (
-                  <div className="overflow-x-auto pb-2">
-                    <div className="min-w-full w-max">
-                      <div className="grid min-w-full grid-cols-[minmax(180px,2fr)_minmax(88px,0.8fr)_minmax(140px,1fr)_minmax(104px,0.8fr)_minmax(88px,0.7fr)] gap-4 px-1 pb-2 text-[11px] font-medium uppercase tracking-[0.18em] text-ghost">
-                        <div>Invite</div>
-                        <div>Role</div>
-                        <div>Expires</div>
-                        <div>Status</div>
-                        <div>Actions</div>
-                      </div>
-                      {visibleInvites.map((invite) => {
-                        const expired = new Date(invite.expires_at).getTime() <= inviteStatusNow;
-                        return (
-                          <div key={invite.id} className="py-4 border-t border-edge/60 first:border-t-0">
-                            <div className="grid min-w-full grid-cols-[minmax(180px,2fr)_minmax(88px,0.8fr)_minmax(140px,1fr)_minmax(104px,0.8fr)_minmax(88px,0.7fr)] gap-4 items-start">
+                        {members.map((member) => (
+                          <div key={member.id} className="py-4 border-t border-edge/60 first:border-t-0">
+                            <div className="grid min-w-full grid-cols-[minmax(140px,1.7fr)_minmax(160px,1.8fr)_minmax(140px,1fr)_minmax(88px,0.8fr)] gap-4 items-start">
                               <div className="min-w-0 flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-lg bg-raised border border-edge flex items-center justify-center text-dim font-display shrink-0">
-                                  {invite.email?.[0]?.toUpperCase() || '?'}
+                                  {member.name?.[0]?.toUpperCase() || member.email?.[0]?.toUpperCase() || '?'}
                                 </div>
                                 <div className="min-w-0">
-                                  <p className="text-sm font-medium text-ink">{invite.email}</p>
+                                  <p className="text-sm font-medium text-ink">{member.name || 'Unnamed user'}</p>
                                 </div>
                               </div>
 
-                              <div>
-                                <p className="text-sm text-ink">{invite.space_role || 'member'}</p>
+                              <div className="min-w-0">
+                                <p className="text-sm text-ghost truncate">{member.email}</p>
                               </div>
 
                               <div>
-                                <p className="text-sm text-ink">{formatDateTime(invite.expires_at)}</p>
+                                <p className="text-sm text-ink">
+                                  {member.role}
+                                  {member.user_role ? ` (${member.user_role})` : ''}
+                                </p>
+                                {member.suspended_at ? <p className="mt-1 text-xs text-amber-300">Suspended</p> : null}
                               </div>
 
-                              <div>
-                                <span className={cx('badge text-[10px]', invite.used ? 'badge-dim' : invite.revoked ? 'badge-err' : expired ? 'badge-warn' : 'badge-ok')}>
-                                  {invite.used ? 'Used' : invite.revoked ? 'Revoked' : expired ? 'Expired' : 'Active'}
-                                </span>
-                              </div>
-
-                              <div className="flex flex-wrap items-center gap-2">
-                                {!invite.used && !invite.revoked && !expired ? (
-                                  <button
-                                    type="button"
-                                    className="btn-ghost btn-sm text-err hover:bg-err/10"
-                                    onClick={() => revokeInvite(invite.id)}
-                                  >
-                                    Revoke
-                                  </button>
+                              <div className="relative inline-flex items-center">
+                                <button
+                                  type="button"
+                                  className="inline-flex h-8 w-8 items-center justify-center rounded-md text-ghost transition hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-edge"
+                                  aria-label="Member actions"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    setOpenMemberMenuId((prev) => (Number(prev) === Number(member.id) ? null : member.id));
+                                  }}
+                                >
+                                  <KebabIcon />
+                                </button>
+                                {Number(openMemberMenuId) === Number(member.id) ? (
+                                  <div className="absolute right-[calc(100%+4px)] top-1/2 z-10 min-w-[190px] -translate-y-1/2 rounded-xl border border-edge bg-abyss p-2 shadow-lg">
+                                    <p className="px-3 py-2 text-[11px] font-medium uppercase tracking-[0.18em] text-ghost">Change Role</p>
+                                    <div className="space-y-1">
+                                      {(member.role === 'owner' ? ['owner'] : assignableRoles).map((role) => (
+                                        <button
+                                          key={role}
+                                          type="button"
+                                          className="w-full rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-raised disabled:opacity-60"
+                                          disabled={memberBusyId === member.id || role === member.role}
+                                          onClick={(event) => {
+                                            event.stopPropagation();
+                                            updateMemberRole(member.id, role);
+                                          }}
+                                        >
+                                          {role}
+                                        </button>
+                                      ))}
+                                    </div>
+                                    <div className="mt-2 border-t border-edge pt-2">
+                                      {member.role !== 'owner' ? (
+                                        <>
+                                          <button
+                                            type="button"
+                                            className="w-full rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-raised disabled:opacity-60"
+                                            disabled={memberBusyId === member.id}
+                                            onClick={(event) => {
+                                              event.stopPropagation();
+                                              updateMemberSuspension(member.id, !member.suspended_at);
+                                            }}
+                                          >
+                                            {member.suspended_at ? 'Restore access' : 'Suspend access'}
+                                          </button>
+                                          <button
+                                            type="button"
+                                            className="w-full rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-raised disabled:opacity-60"
+                                            disabled={memberBusyId === member.id}
+                                            onClick={(event) => {
+                                              event.stopPropagation();
+                                              createMemberPasswordReset(member, false);
+                                            }}
+                                          >
+                                            Email reset link
+                                          </button>
+                                          <button
+                                            type="button"
+                                            className="w-full rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-raised disabled:opacity-60"
+                                            disabled={memberBusyId === member.id}
+                                            onClick={(event) => {
+                                              event.stopPropagation();
+                                              createMemberPasswordReset(member, true);
+                                            }}
+                                          >
+                                            Create copy link
+                                          </button>
+                                        </>
+                                      ) : null}
+                                      <button
+                                        type="button"
+                                        className="w-full rounded-lg px-3 py-2 text-left text-sm text-err hover:bg-err/10 disabled:opacity-60"
+                                        disabled={memberBusyId === member.id}
+                                        onClick={(event) => {
+                                          event.stopPropagation();
+                                          removeMember(member.id);
+                                        }}
+                                      >
+                                        Remove
+                                      </button>
+                                    </div>
+                                  </div>
                                 ) : null}
                               </div>
                             </div>
                           </div>
-                        );
-                      })}
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            )}
+
+            {peopleTab === 'invitations' && (
+              <div className="space-y-4">
+                <div>
+                  <h2 className="text-xl font-medium text-ink">Invitations</h2>
+                  <p className="text-sm text-ghost mt-1">Review live and historical invites scoped to this workspace.</p>
+                </div>
+                <form className="space-y-4" onSubmit={createInvite}>
+                  <div className="flex flex-wrap items-end gap-3">
+                    <label className="field min-w-[220px] flex-1">
+                      <span className="label">Email</span>
+                      <input
+                        className="input"
+                        type="email"
+                        value={inviteForm.email}
+                        onChange={(e) => setInviteForm((prev) => ({ ...prev, email: e.target.value }))}
+                        required
+                      />
+                    </label>
+                    <label className="field w-[150px] shrink-0">
+                      <span className="label">Role</span>
+                      <select
+                        className="select"
+                        value={inviteForm.role}
+                        onChange={(e) => setInviteForm((prev) => ({ ...prev, role: e.target.value }))}
+                      >
+                        {assignableRoles.map((role) => (
+                          <option key={role} value={role}>
+                            {role}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <div className="flex items-end gap-2 shrink-0">
+                      <button
+                        type="button"
+                        className={cx('btn-icon btn-sm', inviteForm.expose_token && 'bg-raised border-muted text-ink')}
+                        aria-pressed={Boolean(inviteForm.expose_token)}
+                        title={inviteForm.expose_token ? 'Copy-link enabled' : 'Copy-link disabled'}
+                        onClick={() => setInviteForm((prev) => ({ ...prev, expose_token: !prev.expose_token }))}
+                      >
+                        <Icons.Link />
+                      </button>
+                      <button type="submit" className="btn-primary min-w-[120px]" disabled={creatingInvite}>
+                        {creatingInvite ? <Spinner size={14} /> : 'Create Invite'}
+                      </button>
                     </div>
                   </div>
-                ) : null}
+                  {inviteUrl ? (
+                    <div className="p-3 flex items-center gap-3 bg-raised rounded-lg border border-edge">
+                      <code className="flex-1 text-xs text-gold font-mono truncate">{inviteUrl}</code>
+                      <button type="button" className="btn-icon btn-sm shrink-0" onClick={() => copy(inviteUrl)}>
+                        <Icons.Copy />
+                      </button>
+                    </div>
+                  ) : null}
+                  <div className="flex justify-between items-center gap-3">
+                    <CheckboxControl
+                      id="space-show-invite-history"
+                      checked={showInviteHistory}
+                      labelClassName="min-h-0 text-xs text-ghost"
+                      onChange={(e) => {
+                        setInviteStatusNow(Date.now());
+                        setShowInviteHistory(e.target.checked);
+                      }}
+                    >
+                      Show invite history
+                    </CheckboxControl>
+                    <span className="text-xs text-ghost">{inviteForm.expose_token ? 'Copy-link enabled' : 'Email-only invite'}</span>
+                  </div>
+                </form>
+                <div className="space-y-1">
+                  {!loading && visibleInvites.length === 0 ? (
+                    <p className="py-8 text-sm text-ghost text-center">No invites to show.</p>
+                  ) : null}
+                  {visibleInvites.length > 0 ? (
+                    <div className="overflow-x-auto pb-2">
+                      <div className="min-w-full w-max">
+                        <div className="grid min-w-full grid-cols-[minmax(180px,2fr)_minmax(88px,0.8fr)_minmax(140px,1fr)_minmax(104px,0.8fr)_minmax(88px,0.7fr)] gap-4 px-1 pb-2 text-[11px] font-medium uppercase tracking-[0.18em] text-ghost">
+                          <div>Invite</div>
+                          <div>Role</div>
+                          <div>Expires</div>
+                          <div>Status</div>
+                          <div>Actions</div>
+                        </div>
+                        {visibleInvites.map((invite) => {
+                          const expired = new Date(invite.expires_at).getTime() <= inviteStatusNow;
+                          return (
+                            <div key={invite.id} className="py-4 border-t border-edge/60 first:border-t-0">
+                              <div className="grid min-w-full grid-cols-[minmax(180px,2fr)_minmax(88px,0.8fr)_minmax(140px,1fr)_minmax(104px,0.8fr)_minmax(88px,0.7fr)] gap-4 items-start">
+                                <div className="min-w-0 flex items-center gap-3">
+                                  <div className="w-10 h-10 rounded-lg bg-raised border border-edge flex items-center justify-center text-dim font-display shrink-0">
+                                    {invite.email?.[0]?.toUpperCase() || '?'}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-medium text-ink">{invite.email}</p>
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <p className="text-sm text-ink">{invite.space_role || 'member'}</p>
+                                </div>
+
+                                <div>
+                                  <p className="text-sm text-ink">{formatDateTime(invite.expires_at)}</p>
+                                </div>
+
+                                <div>
+                                  <span
+                                    className={cx(
+                                      'badge text-[10px]',
+                                      invite.used ? 'badge-dim' : invite.revoked ? 'badge-err' : expired ? 'badge-warn' : 'badge-ok'
+                                    )}
+                                  >
+                                    {invite.used ? 'Used' : invite.revoked ? 'Revoked' : expired ? 'Expired' : 'Active'}
+                                  </span>
+                                </div>
+
+                                <div className="flex flex-wrap items-center gap-2">
+                                  {!invite.used && !invite.revoked && !expired ? (
+                                    <button
+                                      type="button"
+                                      className="btn-ghost btn-sm text-err hover:bg-err/10"
+                                      onClick={() => revokeInvite(invite.id)}
+                                    >
+                                      Revoke
+                                    </button>
+                                  ) : null}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
               </div>
-            </div>
             )}
           </div>
         )}
@@ -715,7 +746,21 @@ export default function SpaceManagerView({
             includeRuntimeSections={false}
             includeValuationSections
             allowImports
-            visibleSections={['audio', 'barcode', 'books', 'cwa', 'comics', 'ebay', 'games', 'kavita', 'plex', 'pricecharting', 'tmdb', 'vision']}
+            visibleSections={[
+              'audio',
+              'barcode',
+              'bookorbit',
+              'books',
+              'cwa',
+              'comics',
+              'ebay',
+              'games',
+              'kavita',
+              'plex',
+              'pricecharting',
+              'tmdb',
+              'vision'
+            ]}
           />
         ) : null}
 

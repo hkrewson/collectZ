@@ -194,6 +194,11 @@ async function main() {
     assert.equal(listed.connections.length, 2);
     assert.equal(JSON.stringify(listed).includes(one.password), false);
     assert.equal(JSON.stringify(listed).includes(two.username), false);
+    const importChoices = await client.request('/api/media/bookorbit-connections');
+    assert.equal(importChoices.connections.length, 2);
+    assert.deepEqual(Object.keys(importChoices.connections[0]).sort(), ['displayName', 'id']);
+    assert.equal(JSON.stringify(importChoices).includes(fake.baseUrl), false);
+    assert.equal(JSON.stringify(importChoices).includes(one.username), false);
 
     const tested = await client.request(`/api/spaces/${spaceId}/integrations/bookorbit-connections/${firstConnectionId}/test`, {
       method: 'POST',

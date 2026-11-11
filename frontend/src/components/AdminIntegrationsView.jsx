@@ -1,14 +1,24 @@
 import { cloneElement, isValidElement, useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { CheckboxControl, FixedPageShell, SectionTabPanel, SectionTabs, UtilityPageHeader } from './app/AppPrimitives';
+import BookOrbitConnectionsPanel from './BookOrbitConnectionsPanel';
 
 const BARCODE_PRESETS = {
   upcitemdb: { barcodePreset: 'upcitemdb', barcodeProvider: 'upcitemdb', barcodeApiUrl: 'https://api.upcitemdb.com/prod/trial/lookup' },
-  barcodelookup: { barcodePreset: 'barcodelookup', barcodeProvider: 'barcodelookup', barcodeApiUrl: 'https://api.barcodelookup.com/v3/products' }
+  barcodelookup: {
+    barcodePreset: 'barcodelookup',
+    barcodeProvider: 'barcodelookup',
+    barcodeApiUrl: 'https://api.barcodelookup.com/v3/products'
+  }
 };
 const COMICS_PRESETS = {
   metron: { comicsPreset: 'metron', comicsProvider: 'metron', comicsApiUrl: 'https://metron.cloud/api/issue/', comicsUsername: '' },
   gcd: { comicsPreset: 'gcd', comicsProvider: 'gcd', comicsApiUrl: 'https://www.comics.org/api/series/name/', comicsUsername: '' },
-  comicvine: { comicsPreset: 'comicvine', comicsProvider: 'comicvine', comicsApiUrl: 'https://comicvine.gamespot.com/api/search/', comicsUsername: '' }
+  comicvine: {
+    comicsPreset: 'comicvine',
+    comicsProvider: 'comicvine',
+    comicsApiUrl: 'https://comicvine.gamespot.com/api/search/',
+    comicsUsername: ''
+  }
 };
 const INTEGRATION_FEATURE_LABELS = {
   metrics_enabled: 'Metrics Export',
@@ -59,34 +69,42 @@ const SETTINGS_SECTION_FEATURES = {
 };
 function LabeledField({ label, className = '', children, cx }) {
   const generatedId = useId();
-  const controlId = isValidElement(children) ? (children.props.id || generatedId) : generatedId;
+  const controlId = isValidElement(children) ? children.props.id || generatedId : generatedId;
   return (
     <div className={cx('field', className)}>
-      <label className="label" htmlFor={controlId}>{label}</label>
+      <label className="label" htmlFor={controlId}>
+        {label}
+      </label>
       {isValidElement(children) ? cloneElement(children, { id: controlId }) : children}
     </div>
   );
 }
 
 function StatusBadge({ status, cx }) {
-  const map = { ok: 'badge-ok', configured: 'badge-ok', auth_failed: 'badge-err', error: 'badge-err', missing: 'badge-warn', unknown: 'badge-dim' };
-  const labels = { ok: 'Connected', configured: 'Configured', auth_failed: 'Auth Failed', error: 'Error', missing: 'Missing Key', unknown: 'Unknown' };
+  const map = {
+    ok: 'badge-ok',
+    configured: 'badge-ok',
+    auth_failed: 'badge-err',
+    error: 'badge-err',
+    missing: 'badge-warn',
+    unknown: 'badge-dim'
+  };
+  const labels = {
+    ok: 'Connected',
+    configured: 'Configured',
+    auth_failed: 'Auth Failed',
+    error: 'Error',
+    missing: 'Missing Key',
+    unknown: 'Unknown'
+  };
   return <span className={cx('badge', map[status] || 'badge-dim')}>{labels[status] || 'Unknown'}</span>;
 }
 
 function IntegrationSourceBadge({ source, cx }) {
   if (!source) return null;
   const effectiveSource = source.effective_source || 'default';
-  const label = effectiveSource === 'workspace'
-    ? 'Workspace'
-    : effectiveSource === 'default'
-      ? 'Default'
-      : 'Not configured';
-  const tone = effectiveSource === 'workspace'
-    ? 'badge-ok'
-    : effectiveSource === 'default'
-      ? 'badge-dim'
-      : 'badge-warn';
+  const label = effectiveSource === 'workspace' ? 'Workspace' : effectiveSource === 'default' ? 'Default' : 'Not configured';
+  const tone = effectiveSource === 'workspace' ? 'badge-ok' : effectiveSource === 'default' ? 'badge-dim' : 'badge-warn';
   return <span className={cx('badge', tone)}>{label}</span>;
 }
 
@@ -95,12 +113,8 @@ function IntegrationFeatureToggle({ feature, disabled, saving, onToggle }) {
   return (
     <div className="flex items-start justify-between gap-4 py-4">
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-ink">
-          {INTEGRATION_FEATURE_LABELS[feature.key] || feature.key}
-        </p>
-        <p className="mt-1 text-sm text-ghost">
-          {feature.description || 'No description'}
-        </p>
+        <p className="text-sm font-medium text-ink">{INTEGRATION_FEATURE_LABELS[feature.key] || feature.key}</p>
+        <p className="mt-1 text-sm text-ghost">{feature.description || 'No description'}</p>
       </div>
       <button
         type="button"
@@ -113,7 +127,7 @@ function IntegrationFeatureToggle({ feature, disabled, saving, onToggle }) {
           'relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-all duration-150',
           'focus:outline-none focus:ring-2 focus:ring-gold/30 focus:ring-offset-2 focus:ring-offset-surface',
           enabled ? 'border-gold/30 bg-gold/15' : 'border-edge bg-raised/80',
-          (disabled || saving) ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:border-muted'
+          disabled || saving ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:border-muted'
         ].join(' ')}
       >
         <span
@@ -145,11 +159,7 @@ function InlineFeatureFlagState({ loading, error, readOnly, feature }) {
 }
 
 function RuntimeCheckRow({ check }) {
-  const toneClass = check?.level === 'ok'
-    ? 'text-ok'
-    : check?.level === 'warn'
-      ? 'text-warn'
-      : 'text-dim';
+  const toneClass = check?.level === 'ok' ? 'text-ok' : check?.level === 'warn' ? 'text-warn' : 'text-dim';
 
   return (
     <li className="grid gap-1 py-3 sm:grid-cols-[9rem_minmax(0,1fr)] sm:gap-4">
@@ -168,9 +178,7 @@ function RuntimeKeyValueList({ rows = [] }) {
       {rows.map((row) => (
         <div key={row.label} className="grid gap-1 px-4 py-3 sm:grid-cols-[9rem_minmax(0,1fr)] sm:gap-4">
           <dt className="text-sm text-ghost">{row.label}</dt>
-          <dd className="text-sm text-ink">
-            {row.mono ? <span className="font-mono text-[13px]">{row.value}</span> : row.value}
-          </dd>
+          <dd className="text-sm text-ink">{row.mono ? <span className="font-mono text-[13px]">{row.value}</span> : row.value}</dd>
         </div>
       ))}
     </dl>
@@ -184,9 +192,7 @@ function DisclosureSection({ title, summary, children, defaultOpen = false }) {
         <span className="font-medium text-ink">{title}</span>
         <span className="min-w-0 text-right text-dim">{summary}</span>
       </summary>
-      <div className="border-t border-edge/60 px-4 py-4 space-y-3">
-        {children}
-      </div>
+      <div className="border-t border-edge/60 px-4 py-4 space-y-3">{children}</div>
     </details>
   );
 }
@@ -194,7 +200,7 @@ function DisclosureSection({ title, summary, children, defaultOpen = false }) {
 function PlainSettingsSection({ title, detail, actions, children }) {
   return (
     <section className="border-t border-edge/70 pt-4 space-y-3">
-      {(title || detail || actions) ? (
+      {title || detail || actions ? (
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             {title ? <p className="text-sm font-medium text-ink">{title}</p> : null}
@@ -243,11 +249,11 @@ function PlexReconciliationRow({ row, children }) {
   ].filter(Boolean);
   const existingBits = existing
     ? [
-      existing.title,
-      existing.year,
-      existing.import_source ? `Source ${existing.import_source}` : null,
-      existing.id ? `collectZ #${existing.id}` : null
-    ].filter(Boolean)
+        existing.title,
+        existing.year,
+        existing.import_source ? `Source ${existing.import_source}` : null,
+        existing.id ? `collectZ #${existing.id}` : null
+      ].filter(Boolean)
     : [];
 
   return (
@@ -288,10 +294,7 @@ function PlexConflictReviewQueue({
     }
     const values = new Set();
     reviews.forEach((review) => values.add(String(review?.matchedBy || 'unknown')));
-    return [
-      { value: 'all', label: 'All reasons' },
-      ...[...values].sort().map((value) => ({ value, label: value }))
-    ];
+    return [{ value: 'all', label: 'All reasons' }, ...[...values].sort().map((value) => ({ value, label: value }))];
   }, [matchFilters, reviews, totalCount]);
   const reviewLimit = 25;
   const visibleReviews = reviews.slice(0, reviewLimit);
@@ -305,7 +308,10 @@ function PlexConflictReviewQueue({
           <p className="text-sm font-medium text-ink">Conflict review</p>
           <p className="text-xs text-ghost">Resolve rows that automatic Plex sync could not safely attach.</p>
         </div>
-        <span className="text-sm text-dim">{reviews.length}{visibleCount && reviews.length !== visibleCount ? ` / ${visibleCount}` : ''}</span>
+        <span className="text-sm text-dim">
+          {reviews.length}
+          {visibleCount && reviews.length !== visibleCount ? ` / ${visibleCount}` : ''}
+        </span>
       </div>
       <div className="flex flex-wrap items-center gap-2 border-b border-edge/70 px-3 py-2">
         {PLEX_CONFLICT_STATUS_FILTERS.map((filter) => (
@@ -325,53 +331,75 @@ function PlexConflictReviewQueue({
           aria-label="Filter Plex conflicts by match reason"
         >
           {matchOptions.map((option) => (
-            <option key={option.value} value={option.value}>{option.label}</option>
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
           ))}
         </select>
       </div>
       <div className="space-y-2 p-3">
         {reviews.length === 0 ? (
-          <p className="text-sm text-dim">{isResolved ? 'No resolved Plex conflicts match this view.' : 'No open Plex conflicts match this view.'}</p>
-        ) : visibleReviews.map((review) => (
-          <PlexReconciliationRow key={review.id} row={review}>
-            {isResolved ? (
-              <p className="mt-2 text-xs text-ghost">
-                Resolution: <span className="text-dim">{review.resolution || 'resolved'}</span>
-                {review.resolvedAt ? ` · ${new Date(review.resolvedAt).toLocaleString()}` : ''}
-              </p>
-            ) : (
-              <div className="mt-2 flex flex-wrap gap-2">
-                {review.existingMediaId && (
+          <p className="text-sm text-dim">
+            {isResolved ? 'No resolved Plex conflicts match this view.' : 'No open Plex conflicts match this view.'}
+          </p>
+        ) : (
+          visibleReviews.map((review) => (
+            <PlexReconciliationRow key={review.id} row={review}>
+              {isResolved ? (
+                <p className="mt-2 text-xs text-ghost">
+                  Resolution: <span className="text-dim">{review.resolution || 'resolved'}</span>
+                  {review.resolvedAt ? ` · ${new Date(review.resolvedAt).toLocaleString()}` : ''}
+                </p>
+              ) : (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {review.existingMediaId && (
+                    <button
+                      type="button"
+                      className="btn-secondary btn-sm"
+                      disabled={
+                        loading === `plex-conflict-attach-${review.id}` ||
+                        loading === `plex-conflict-create-${review.id}` ||
+                        loading === `plex-conflict-dismiss-${review.id}`
+                      }
+                      onClick={() => onResolve?.(review.id, 'attach_existing', review.existingMediaId)}
+                    >
+                      Attach to existing
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="btn-secondary btn-sm"
-                    disabled={loading === `plex-conflict-attach-${review.id}` || loading === `plex-conflict-create-${review.id}` || loading === `plex-conflict-dismiss-${review.id}`}
-                    onClick={() => onResolve?.(review.id, 'attach_existing', review.existingMediaId)}
+                    disabled={
+                      loading === `plex-conflict-attach-${review.id}` ||
+                      loading === `plex-conflict-create-${review.id}` ||
+                      loading === `plex-conflict-dismiss-${review.id}`
+                    }
+                    onClick={() => onResolve?.(review.id, 'create_separate')}
                   >
-                    Attach to existing
+                    Create separate title
                   </button>
-                )}
-                <button
-                  type="button"
-                  className="btn-secondary btn-sm"
-                  disabled={loading === `plex-conflict-attach-${review.id}` || loading === `plex-conflict-create-${review.id}` || loading === `plex-conflict-dismiss-${review.id}`}
-                  onClick={() => onResolve?.(review.id, 'create_separate')}
-                >
-                  Create separate title
-                </button>
-                <button
-                  type="button"
-                  className="btn-secondary btn-sm"
-                  disabled={loading === `plex-conflict-attach-${review.id}` || loading === `plex-conflict-create-${review.id}` || loading === `plex-conflict-dismiss-${review.id}`}
-                  onClick={() => onResolve?.(review.id, 'dismiss')}
-                >
-                  Dismiss
-                </button>
-              </div>
-            )}
-          </PlexReconciliationRow>
-        ))}
-        {reviews.length > reviewLimit && <p className="text-xs text-ghost">Showing {reviewLimit} of {reviews.length} rows.</p>}
+                  <button
+                    type="button"
+                    className="btn-secondary btn-sm"
+                    disabled={
+                      loading === `plex-conflict-attach-${review.id}` ||
+                      loading === `plex-conflict-create-${review.id}` ||
+                      loading === `plex-conflict-dismiss-${review.id}`
+                    }
+                    onClick={() => onResolve?.(review.id, 'dismiss')}
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              )}
+            </PlexReconciliationRow>
+          ))
+        )}
+        {reviews.length > reviewLimit && (
+          <p className="text-xs text-ghost">
+            Showing {reviewLimit} of {reviews.length} rows.
+          </p>
+        )}
       </div>
     </div>
   );
@@ -382,7 +410,8 @@ function PlexReconciliationReadback({ result }) {
   if (!normalized) return null;
   const summary = normalized.summary || {};
   const autoApplied = summary.autoApplied || {};
-  const isSyncResult = summary.processingMode === 'full_library_reconciliation_sync' || normalized.processingMode === 'full_library_reconciliation_sync';
+  const isSyncResult =
+    summary.processingMode === 'full_library_reconciliation_sync' || normalized.processingMode === 'full_library_reconciliation_sync';
 
   return (
     <div className="space-y-3">
@@ -415,13 +444,14 @@ function PlexReconciliationReadback({ result }) {
         ))}
       </div>
       <div className="space-y-2">
-        {(isSyncResult
-          ? [['conflictReview', 'Sync issues']]
-          : PLEX_RECONCILIATION_BUCKETS
-        ).map(([key, label]) => {
-          const rows = key === 'conflictReview' ? (summary.conflictReview || []) : (normalized.buckets[key] || []);
+        {(isSyncResult ? [['conflictReview', 'Sync issues']] : PLEX_RECONCILIATION_BUCKETS).map(([key, label]) => {
+          const rows = key === 'conflictReview' ? summary.conflictReview || [] : normalized.buckets[key] || [];
           return (
-            <details key={key} className="rounded-md border border-edge/70" open={(key === 'conflict' || key === 'conflictReview') && rows.length > 0}>
+            <details
+              key={key}
+              className="rounded-md border border-edge/70"
+              open={(key === 'conflict' || key === 'conflictReview') && rows.length > 0}
+            >
               <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-3 py-2 text-sm">
                 <span className="font-medium text-ink">{label}</span>
                 <span className="text-dim">{rows.length}</span>
@@ -429,9 +459,13 @@ function PlexReconciliationReadback({ result }) {
               <div className="space-y-2 border-t border-edge/70 p-3">
                 {rows.length === 0 ? (
                   <p className="text-sm text-dim">No rows to show.</p>
-                ) : rows.slice(0, 25).map((row, index) => (
-                  <PlexReconciliationRow key={`${key}-${row?.item?.plex_item_key || row?.existing?.id || index}`} row={row} />
-                ))}
+                ) : (
+                  rows
+                    .slice(0, 25)
+                    .map((row, index) => (
+                      <PlexReconciliationRow key={`${key}-${row?.item?.plex_item_key || row?.existing?.id || index}`} row={row} />
+                    ))
+                )}
                 {rows.length > 25 && <p className="text-xs text-ghost">Showing 25 of {rows.length} rows.</p>}
               </div>
             </details>
@@ -459,26 +493,31 @@ export default function AdminIntegrationsView({
   visibleSections = null
 }) {
   const allIntegrationSections = useMemo(
-    () => ([
+    () => [
       { id: 'audio', label: 'Audio' },
       { id: 'barcode', label: 'Barcode' },
+      { id: 'bookorbit', label: 'BookOrbit' },
       { id: 'books', label: 'Books' },
       { id: 'cwa', label: 'CWA OPDS' },
       { id: 'comics', label: 'Comics' },
-      ...(includeValuationSections ? [
-        { id: 'pricecharting', label: 'PriceCharting' },
-        { id: 'ebay', label: 'eBay Browse' }
-      ] : []),
+      ...(includeValuationSections
+        ? [
+            { id: 'pricecharting', label: 'PriceCharting' },
+            { id: 'ebay', label: 'eBay Browse' }
+          ]
+        : []),
       { id: 'vision', label: 'Image OCR' },
       { id: 'games', label: 'Games' },
       { id: 'kavita', label: 'Kavita' },
-      ...(includeRuntimeSections ? [
-        { id: 'logs', label: 'External Logs' },
-        { id: 'metrics', label: 'Metrics' }
-      ] : []),
+      ...(includeRuntimeSections
+        ? [
+            { id: 'logs', label: 'External Logs' },
+            { id: 'metrics', label: 'Metrics' }
+          ]
+        : []),
       { id: 'plex', label: 'Plex' },
       { id: 'tmdb', label: 'TMDB' }
-    ]),
+    ],
     [includeRuntimeSections, includeValuationSections]
   );
   const integrationSections = useMemo(() => {
@@ -489,46 +528,130 @@ export default function AdminIntegrationsView({
   const [section, setSection] = useState(externalSection || integrationSections[0]?.id || 'logs');
   const [plexPanel, setPlexPanel] = useState('setup');
   const [form, setForm] = useState({
-    barcodePreset: 'upcitemdb', barcodeProvider: 'upcitemdb', barcodeApiUrl: '', barcodeApiKey: '', clearBarcodeApiKey: false,
-    tmdbPreset: 'tmdb', tmdbProvider: 'tmdb', tmdbApiUrl: 'https://api.themoviedb.org/3/search/movie',
-    tmdbApiKey: '', clearTmdbApiKey: false,
-    plexPreset: 'plex', plexProvider: 'plex', plexApiUrl: '',
-    plexApiKey: '', plexLibrarySections: '', clearPlexApiKey: false,
-    plexReconciliationSyncEnabled: false, plexReconciliationSyncIntervalMinutes: '360', plexReconciliationSyncLimit: '',
-    plexReadbackRefreshEnabled: false, plexReadbackRefreshIntervalMinutes: '60', plexReadbackRefreshMaxItems: '100',
-    plexRatingWritebackEnabled: false, plexWatchStateWritebackEnabled: false,
-    booksPreset: 'googlebooks', booksProvider: 'googlebooks', booksApiUrl: 'https://www.googleapis.com/books/v1/volumes',
-    booksApiKey: '', clearBooksApiKey: false,
-    audioPreset: 'discogs', audioProvider: 'discogs', audioApiUrl: 'https://api.discogs.com/database/search',
-    audioApiKey: '', clearAudioApiKey: false,
-    gamesPreset: 'igdb', gamesProvider: 'igdb', gamesApiUrl: 'https://api.igdb.com/v4/games',
-    gamesApiKey: '', gamesClientId: '', gamesClientSecret: '', clearGamesApiKey: false, clearGamesClientSecret: false,
-    comicsPreset: 'metron', comicsProvider: 'metron', comicsApiUrl: 'https://metron.cloud/api/issue/',
-    comicsApiKey: '', comicsUsername: '', clearComicsApiKey: false,
-    kavitaBaseUrl: '', kavitaApiKey: '', clearKavitaApiKey: false, kavitaTimeoutMs: '20000',
-    visionEnabled: false, visionPreset: 'ocrspace', visionProvider: 'ocrspace', visionApiUrl: 'https://api.ocr.space/parse/image', visionApiKey: '', clearVisionApiKey: false, visionApiKeyHeader: 'apikey',
-    priceChartingEnabled: false, priceChartingApiUrl: 'https://www.pricecharting.com/api', priceChartingApiKey: '', clearPriceChartingApiKey: false, priceChartingRateLimitMs: '1100',
-    eBayBrowseEnabled: false, eBayBrowseApiUrl: 'https://api.ebay.com/buy/browse/v1/item_summary/search', eBayBrowseClientId: '', eBayBrowseClientSecret: '', clearEBayBrowseClientSecret: false, eBayBrowseMarketplaceId: 'EBAY_US',
-    cwaOpdsUrl: '', cwaUsername: '', cwaPassword: '', clearCwaPassword: false,
-    logExportBackend: '', logExportHost: '', logExportPort: '', logExportHostLabel: '', logExportService: '', logExportDebug: false
+    barcodePreset: 'upcitemdb',
+    barcodeProvider: 'upcitemdb',
+    barcodeApiUrl: '',
+    barcodeApiKey: '',
+    clearBarcodeApiKey: false,
+    tmdbPreset: 'tmdb',
+    tmdbProvider: 'tmdb',
+    tmdbApiUrl: 'https://api.themoviedb.org/3/search/movie',
+    tmdbApiKey: '',
+    clearTmdbApiKey: false,
+    plexPreset: 'plex',
+    plexProvider: 'plex',
+    plexApiUrl: '',
+    plexApiKey: '',
+    plexLibrarySections: '',
+    clearPlexApiKey: false,
+    plexReconciliationSyncEnabled: false,
+    plexReconciliationSyncIntervalMinutes: '360',
+    plexReconciliationSyncLimit: '',
+    plexReadbackRefreshEnabled: false,
+    plexReadbackRefreshIntervalMinutes: '60',
+    plexReadbackRefreshMaxItems: '100',
+    plexRatingWritebackEnabled: false,
+    plexWatchStateWritebackEnabled: false,
+    booksPreset: 'googlebooks',
+    booksProvider: 'googlebooks',
+    booksApiUrl: 'https://www.googleapis.com/books/v1/volumes',
+    booksApiKey: '',
+    clearBooksApiKey: false,
+    audioPreset: 'discogs',
+    audioProvider: 'discogs',
+    audioApiUrl: 'https://api.discogs.com/database/search',
+    audioApiKey: '',
+    clearAudioApiKey: false,
+    gamesPreset: 'igdb',
+    gamesProvider: 'igdb',
+    gamesApiUrl: 'https://api.igdb.com/v4/games',
+    gamesApiKey: '',
+    gamesClientId: '',
+    gamesClientSecret: '',
+    clearGamesApiKey: false,
+    clearGamesClientSecret: false,
+    comicsPreset: 'metron',
+    comicsProvider: 'metron',
+    comicsApiUrl: 'https://metron.cloud/api/issue/',
+    comicsApiKey: '',
+    comicsUsername: '',
+    clearComicsApiKey: false,
+    kavitaBaseUrl: '',
+    kavitaApiKey: '',
+    clearKavitaApiKey: false,
+    kavitaTimeoutMs: '20000',
+    visionEnabled: false,
+    visionPreset: 'ocrspace',
+    visionProvider: 'ocrspace',
+    visionApiUrl: 'https://api.ocr.space/parse/image',
+    visionApiKey: '',
+    clearVisionApiKey: false,
+    visionApiKeyHeader: 'apikey',
+    priceChartingEnabled: false,
+    priceChartingApiUrl: 'https://www.pricecharting.com/api',
+    priceChartingApiKey: '',
+    clearPriceChartingApiKey: false,
+    priceChartingRateLimitMs: '1100',
+    eBayBrowseEnabled: false,
+    eBayBrowseApiUrl: 'https://api.ebay.com/buy/browse/v1/item_summary/search',
+    eBayBrowseClientId: '',
+    eBayBrowseClientSecret: '',
+    clearEBayBrowseClientSecret: false,
+    eBayBrowseMarketplaceId: 'EBAY_US',
+    cwaOpdsUrl: '',
+    cwaUsername: '',
+    cwaPassword: '',
+    clearCwaPassword: false,
+    logExportBackend: '',
+    logExportHost: '',
+    logExportPort: '',
+    logExportHostLabel: '',
+    logExportService: '',
+    logExportDebug: false
   });
   const [meta, setMeta] = useState({
-    barcodeApiKeySet: false, barcodeApiKeyMasked: '',
-    tmdbApiKeySet: false, tmdbApiKeyMasked: '',
-    plexApiKeySet: false, plexApiKeyMasked: '',
-    booksApiKeySet: false, booksApiKeyMasked: '',
-    audioApiKeySet: false, audioApiKeyMasked: '',
-    gamesApiKeySet: false, gamesApiKeyMasked: '',
-    gamesClientSecretSet: false, gamesClientSecretMasked: '',
-    comicsApiKeySet: false, comicsApiKeyMasked: '',
-    visionApiKeySet: false, visionApiKeyMasked: '',
-    priceChartingApiKeySet: false, priceChartingApiKeyMasked: '',
-    eBayBrowseClientSecretSet: false, eBayBrowseClientSecretMasked: '',
-    cwaPasswordSet: false, cwaPasswordMasked: '',
-    kavitaApiKeySet: false, kavitaApiKeyMasked: '',
+    barcodeApiKeySet: false,
+    barcodeApiKeyMasked: '',
+    tmdbApiKeySet: false,
+    tmdbApiKeyMasked: '',
+    plexApiKeySet: false,
+    plexApiKeyMasked: '',
+    booksApiKeySet: false,
+    booksApiKeyMasked: '',
+    audioApiKeySet: false,
+    audioApiKeyMasked: '',
+    gamesApiKeySet: false,
+    gamesApiKeyMasked: '',
+    gamesClientSecretSet: false,
+    gamesClientSecretMasked: '',
+    comicsApiKeySet: false,
+    comicsApiKeyMasked: '',
+    visionApiKeySet: false,
+    visionApiKeyMasked: '',
+    priceChartingApiKeySet: false,
+    priceChartingApiKeyMasked: '',
+    eBayBrowseClientSecretSet: false,
+    eBayBrowseClientSecretMasked: '',
+    cwaPasswordSet: false,
+    cwaPasswordMasked: '',
+    kavitaApiKeySet: false,
+    kavitaApiKeyMasked: '',
     decryptHealth: { hasWarnings: false, warnings: [], remediation: '' }
   });
-  const [status, setStatus] = useState({ barcode: 'unknown', tmdb: 'unknown', plex: 'unknown', books: 'unknown', audio: 'unknown', games: 'unknown', comics: 'unknown', cwa: 'unknown', kavita: 'unknown', vision: 'unknown', pricecharting: 'unknown', ebay: 'unknown' });
+  const [status, setStatus] = useState({
+    barcode: 'unknown',
+    tmdb: 'unknown',
+    plex: 'unknown',
+    books: 'unknown',
+    audio: 'unknown',
+    games: 'unknown',
+    comics: 'unknown',
+    cwa: 'unknown',
+    kavita: 'unknown',
+    vision: 'unknown',
+    pricecharting: 'unknown',
+    ebay: 'unknown'
+  });
   const [testLoading, setTestLoading] = useState('');
   const [testMsg, setTestMsg] = useState('');
   const [saving, setSaving] = useState(false);
@@ -543,7 +666,13 @@ export default function AdminIntegrationsView({
   const [plexDisplayLink, setPlexDisplayLink] = useState('');
   const [plexDisplayPreferences, setPlexDisplayPreferences] = useState(DEFAULT_PLEX_DISPLAY_PREFERENCES);
   const [savingPlexDisplayPreferences, setSavingPlexDisplayPreferences] = useState(false);
-  const [plexWebhookReceiver, setPlexWebhookReceiver] = useState({ enabled: false, lastReceivedAt: null, lastEvent: null, delivery: {}, receiverPath: '/api/plex/webhooks/[token]' });
+  const [plexWebhookReceiver, setPlexWebhookReceiver] = useState({
+    enabled: false,
+    lastReceivedAt: null,
+    lastEvent: null,
+    delivery: {},
+    receiverPath: '/api/plex/webhooks/[token]'
+  });
   const [plexWebhookReceiverLink, setPlexWebhookReceiverLink] = useState('');
   const [plexReconciliationLimit, setPlexReconciliationLimit] = useState('');
   const [plexReconciliationResult, setPlexReconciliationResult] = useState(null);
@@ -594,84 +723,133 @@ export default function AdminIntegrationsView({
   };
 
   useEffect(() => {
-    apiCall('get', endpointBase).then((data) => {
-      setForm((f) => ({
-        ...f,
-        barcodePreset: data.barcodePreset || 'upcitemdb', barcodeProvider: data.barcodeProvider || '', barcodeApiUrl: data.barcodeApiUrl || '',
-        tmdbPreset: data.tmdbPreset || 'tmdb', tmdbProvider: data.tmdbProvider || '', tmdbApiUrl: data.tmdbApiUrl || '',
-        plexPreset: data.plexPreset || 'plex', plexProvider: data.plexProvider || 'plex', plexApiUrl: data.plexApiUrl || '',
-        plexLibrarySections: Array.isArray(data.plexLibrarySections) ? data.plexLibrarySections.join(',') : '',
-        plexReconciliationSyncEnabled: Boolean(data.plexReconciliationSyncSettings?.enabled),
-        plexReconciliationSyncIntervalMinutes: String(data.plexReconciliationSyncSettings?.intervalMinutes || '360'),
-        plexReconciliationSyncLimit: data.plexReconciliationSyncSettings?.limit ? String(data.plexReconciliationSyncSettings.limit) : '',
-        plexReadbackRefreshEnabled: Boolean(data.plexReadbackRefreshSettings?.enabled),
-        plexReadbackRefreshIntervalMinutes: String(data.plexReadbackRefreshSettings?.intervalMinutes || '60'),
-        plexReadbackRefreshMaxItems: String(data.plexReadbackRefreshSettings?.maxItems || '100'),
-        plexRatingWritebackEnabled: Boolean(data.plexWritebackSettings?.ratingEnabled),
-        plexWatchStateWritebackEnabled: Boolean(data.plexWritebackSettings?.watchStateEnabled),
-        booksPreset: data.booksPreset || 'googlebooks', booksProvider: data.booksProvider || 'googlebooks', booksApiUrl: data.booksApiUrl || 'https://www.googleapis.com/books/v1/volumes',
-        audioPreset: data.audioPreset || 'discogs', audioProvider: data.audioProvider || 'discogs', audioApiUrl: data.audioApiUrl || 'https://api.discogs.com/database/search',
-        gamesPreset: data.gamesPreset || 'igdb', gamesProvider: data.gamesProvider || 'igdb', gamesApiUrl: data.gamesApiUrl || 'https://api.igdb.com/v4/games', gamesClientId: data.gamesClientId || '',
-        comicsPreset: data.comicsPreset || 'metron', comicsProvider: data.comicsProvider || 'metron', comicsApiUrl: data.comicsApiUrl || 'https://metron.cloud/api/issue/', comicsUsername: data.comicsUsername || '',
-        visionEnabled: Boolean(data.visionEnabled), visionPreset: data.visionPreset || 'ocrspace', visionProvider: data.visionProvider || 'ocrspace', visionApiUrl: data.visionApiUrl || 'https://api.ocr.space/parse/image', visionApiKeyHeader: data.visionApiKeyHeader || 'apikey',
-        priceChartingEnabled: Boolean(data.valuationProviders?.pricecharting?.enabled),
-        priceChartingApiUrl: data.valuationProviders?.pricecharting?.apiUrl || 'https://www.pricecharting.com/api',
-        priceChartingRateLimitMs: String(data.valuationProviders?.pricecharting?.rateLimitMs || '1100'),
-        eBayBrowseEnabled: Boolean(data.valuationProviders?.ebayBrowse?.enabled),
-        eBayBrowseApiUrl: data.valuationProviders?.ebayBrowse?.apiUrl || 'https://api.ebay.com/buy/browse/v1/item_summary/search',
-        eBayBrowseClientId: data.valuationProviders?.ebayBrowse?.clientId || '',
-        eBayBrowseMarketplaceId: data.valuationProviders?.ebayBrowse?.marketplaceId || 'EBAY_US',
-        cwaOpdsUrl: data.cwaOpdsUrl || '', cwaUsername: data.cwaUsername || '',
-        kavitaBaseUrl: data.kavitaBaseUrl || '', kavitaTimeoutMs: String(data.kavitaTimeoutMs || '20000'),
-        logExportBackend: data.logExportControl?.stored?.backend || data.logExportControl?.effective?.backend || '',
-        logExportHost: data.logExportControl?.stored?.host || data.logExportControl?.effective?.host || '',
-        logExportPort: String(data.logExportControl?.stored?.port || data.logExportControl?.effective?.port || ''),
-        logExportHostLabel: data.logExportControl?.stored?.hostLabel || data.logExportControl?.effective?.hostLabel || '',
-        logExportService: data.logExportControl?.stored?.service || data.logExportControl?.effective?.service || '',
-        logExportDebug: Boolean(
-          data.logExportControl?.stored?.debugEnabled ?? data.logExportControl?.effective?.debugEnabled ?? false
-        )
-      }));
-      setMeta({
-        barcodeApiKeySet: Boolean(data.barcodeApiKeySet), barcodeApiKeyMasked: data.barcodeApiKeyMasked || '',
-        tmdbApiKeySet: Boolean(data.tmdbApiKeySet), tmdbApiKeyMasked: data.tmdbApiKeyMasked || '',
-        plexApiKeySet: Boolean(data.plexApiKeySet), plexApiKeyMasked: data.plexApiKeyMasked || '',
-        booksApiKeySet: Boolean(data.booksApiKeySet), booksApiKeyMasked: data.booksApiKeyMasked || '',
-        audioApiKeySet: Boolean(data.audioApiKeySet), audioApiKeyMasked: data.audioApiKeyMasked || '',
-        gamesApiKeySet: Boolean(data.gamesApiKeySet), gamesApiKeyMasked: data.gamesApiKeyMasked || '',
-        gamesClientSecretSet: Boolean(data.gamesClientSecretSet), gamesClientSecretMasked: data.gamesClientSecretMasked || '',
-        comicsApiKeySet: Boolean(data.comicsApiKeySet), comicsApiKeyMasked: data.comicsApiKeyMasked || '',
-        visionApiKeySet: Boolean(data.visionApiKeySet), visionApiKeyMasked: data.visionApiKeyMasked || '',
-        priceChartingApiKeySet: Boolean(data.valuationProviders?.pricecharting?.apiKeySet), priceChartingApiKeyMasked: data.valuationProviders?.pricecharting?.apiKeyMasked || '',
-        eBayBrowseClientSecretSet: Boolean(data.valuationProviders?.ebayBrowse?.clientSecretSet), eBayBrowseClientSecretMasked: data.valuationProviders?.ebayBrowse?.clientSecretMasked || '',
-        cwaPasswordSet: Boolean(data.cwaPasswordSet), cwaPasswordMasked: data.cwaPasswordMasked || '',
-        kavitaApiKeySet: Boolean(data.kavitaApiKeySet), kavitaApiKeyMasked: data.kavitaApiKeyMasked || '',
-        decryptHealth: data.decryptHealth || { hasWarnings: false, warnings: [], remediation: '' }
-      });
-      setObservabilityRuntime(data.observabilityRuntime || { logs: null, metrics: null });
-      setLogExportControl(data.logExportControl || null);
-      setIntegrationScope(data.integrationScope || null);
-      setPlexDisplayToken(data.plexNowPlayingDisplayToken || { enabled: false, createdAt: null, lastUsedAt: null });
-      setPlexWebhookReceiver(data.plexWebhookReceiver || { enabled: false, lastReceivedAt: null, lastEvent: null, delivery: {}, receiverPath: '/api/plex/webhooks/[token]' });
-      setPlexDisplayPreferences({
-        ...DEFAULT_PLEX_DISPLAY_PREFERENCES,
-        ...(data.plexNowPlayingDisplayPreferences || {})
-      });
-      setStatus({
-        barcode: data.barcodeApiKeySet ? 'configured' : 'missing',
-        tmdb: data.tmdbApiKeySet ? 'configured' : 'missing',
-        plex: data.plexApiKeySet ? 'configured' : 'missing',
-        books: data.booksApiKeySet ? 'configured' : 'missing',
-        audio: data.audioApiKeySet ? 'configured' : 'missing',
-        games: (data.gamesApiKeySet || (data.gamesClientId && data.gamesClientSecretSet)) ? 'configured' : 'missing',
-        comics: data.comicsApiKeySet ? 'configured' : 'missing',
-        vision: data.visionEnabled ? 'configured' : 'missing',
-        pricecharting: (data.valuationProviders?.pricecharting?.enabled && data.valuationProviders?.pricecharting?.apiKeySet) ? 'configured' : 'missing',
-        ebay: (data.valuationProviders?.ebayBrowse?.enabled && data.valuationProviders?.ebayBrowse?.clientSecretSet && data.valuationProviders?.ebayBrowse?.clientId) ? 'configured' : 'missing',
-        cwa: data.cwaOpdsUrl ? 'configured' : 'missing',
-        kavita: (data.kavitaBaseUrl && data.kavitaApiKeySet) ? 'configured' : 'missing'
-      });
-    }).catch(() => {});
+    apiCall('get', endpointBase)
+      .then((data) => {
+        setForm((f) => ({
+          ...f,
+          barcodePreset: data.barcodePreset || 'upcitemdb',
+          barcodeProvider: data.barcodeProvider || '',
+          barcodeApiUrl: data.barcodeApiUrl || '',
+          tmdbPreset: data.tmdbPreset || 'tmdb',
+          tmdbProvider: data.tmdbProvider || '',
+          tmdbApiUrl: data.tmdbApiUrl || '',
+          plexPreset: data.plexPreset || 'plex',
+          plexProvider: data.plexProvider || 'plex',
+          plexApiUrl: data.plexApiUrl || '',
+          plexLibrarySections: Array.isArray(data.plexLibrarySections) ? data.plexLibrarySections.join(',') : '',
+          plexReconciliationSyncEnabled: Boolean(data.plexReconciliationSyncSettings?.enabled),
+          plexReconciliationSyncIntervalMinutes: String(data.plexReconciliationSyncSettings?.intervalMinutes || '360'),
+          plexReconciliationSyncLimit: data.plexReconciliationSyncSettings?.limit ? String(data.plexReconciliationSyncSettings.limit) : '',
+          plexReadbackRefreshEnabled: Boolean(data.plexReadbackRefreshSettings?.enabled),
+          plexReadbackRefreshIntervalMinutes: String(data.plexReadbackRefreshSettings?.intervalMinutes || '60'),
+          plexReadbackRefreshMaxItems: String(data.plexReadbackRefreshSettings?.maxItems || '100'),
+          plexRatingWritebackEnabled: Boolean(data.plexWritebackSettings?.ratingEnabled),
+          plexWatchStateWritebackEnabled: Boolean(data.plexWritebackSettings?.watchStateEnabled),
+          booksPreset: data.booksPreset || 'googlebooks',
+          booksProvider: data.booksProvider || 'googlebooks',
+          booksApiUrl: data.booksApiUrl || 'https://www.googleapis.com/books/v1/volumes',
+          audioPreset: data.audioPreset || 'discogs',
+          audioProvider: data.audioProvider || 'discogs',
+          audioApiUrl: data.audioApiUrl || 'https://api.discogs.com/database/search',
+          gamesPreset: data.gamesPreset || 'igdb',
+          gamesProvider: data.gamesProvider || 'igdb',
+          gamesApiUrl: data.gamesApiUrl || 'https://api.igdb.com/v4/games',
+          gamesClientId: data.gamesClientId || '',
+          comicsPreset: data.comicsPreset || 'metron',
+          comicsProvider: data.comicsProvider || 'metron',
+          comicsApiUrl: data.comicsApiUrl || 'https://metron.cloud/api/issue/',
+          comicsUsername: data.comicsUsername || '',
+          visionEnabled: Boolean(data.visionEnabled),
+          visionPreset: data.visionPreset || 'ocrspace',
+          visionProvider: data.visionProvider || 'ocrspace',
+          visionApiUrl: data.visionApiUrl || 'https://api.ocr.space/parse/image',
+          visionApiKeyHeader: data.visionApiKeyHeader || 'apikey',
+          priceChartingEnabled: Boolean(data.valuationProviders?.pricecharting?.enabled),
+          priceChartingApiUrl: data.valuationProviders?.pricecharting?.apiUrl || 'https://www.pricecharting.com/api',
+          priceChartingRateLimitMs: String(data.valuationProviders?.pricecharting?.rateLimitMs || '1100'),
+          eBayBrowseEnabled: Boolean(data.valuationProviders?.ebayBrowse?.enabled),
+          eBayBrowseApiUrl: data.valuationProviders?.ebayBrowse?.apiUrl || 'https://api.ebay.com/buy/browse/v1/item_summary/search',
+          eBayBrowseClientId: data.valuationProviders?.ebayBrowse?.clientId || '',
+          eBayBrowseMarketplaceId: data.valuationProviders?.ebayBrowse?.marketplaceId || 'EBAY_US',
+          cwaOpdsUrl: data.cwaOpdsUrl || '',
+          cwaUsername: data.cwaUsername || '',
+          kavitaBaseUrl: data.kavitaBaseUrl || '',
+          kavitaTimeoutMs: String(data.kavitaTimeoutMs || '20000'),
+          logExportBackend: data.logExportControl?.stored?.backend || data.logExportControl?.effective?.backend || '',
+          logExportHost: data.logExportControl?.stored?.host || data.logExportControl?.effective?.host || '',
+          logExportPort: String(data.logExportControl?.stored?.port || data.logExportControl?.effective?.port || ''),
+          logExportHostLabel: data.logExportControl?.stored?.hostLabel || data.logExportControl?.effective?.hostLabel || '',
+          logExportService: data.logExportControl?.stored?.service || data.logExportControl?.effective?.service || '',
+          logExportDebug: Boolean(data.logExportControl?.stored?.debugEnabled ?? data.logExportControl?.effective?.debugEnabled ?? false)
+        }));
+        setMeta({
+          barcodeApiKeySet: Boolean(data.barcodeApiKeySet),
+          barcodeApiKeyMasked: data.barcodeApiKeyMasked || '',
+          tmdbApiKeySet: Boolean(data.tmdbApiKeySet),
+          tmdbApiKeyMasked: data.tmdbApiKeyMasked || '',
+          plexApiKeySet: Boolean(data.plexApiKeySet),
+          plexApiKeyMasked: data.plexApiKeyMasked || '',
+          booksApiKeySet: Boolean(data.booksApiKeySet),
+          booksApiKeyMasked: data.booksApiKeyMasked || '',
+          audioApiKeySet: Boolean(data.audioApiKeySet),
+          audioApiKeyMasked: data.audioApiKeyMasked || '',
+          gamesApiKeySet: Boolean(data.gamesApiKeySet),
+          gamesApiKeyMasked: data.gamesApiKeyMasked || '',
+          gamesClientSecretSet: Boolean(data.gamesClientSecretSet),
+          gamesClientSecretMasked: data.gamesClientSecretMasked || '',
+          comicsApiKeySet: Boolean(data.comicsApiKeySet),
+          comicsApiKeyMasked: data.comicsApiKeyMasked || '',
+          visionApiKeySet: Boolean(data.visionApiKeySet),
+          visionApiKeyMasked: data.visionApiKeyMasked || '',
+          priceChartingApiKeySet: Boolean(data.valuationProviders?.pricecharting?.apiKeySet),
+          priceChartingApiKeyMasked: data.valuationProviders?.pricecharting?.apiKeyMasked || '',
+          eBayBrowseClientSecretSet: Boolean(data.valuationProviders?.ebayBrowse?.clientSecretSet),
+          eBayBrowseClientSecretMasked: data.valuationProviders?.ebayBrowse?.clientSecretMasked || '',
+          cwaPasswordSet: Boolean(data.cwaPasswordSet),
+          cwaPasswordMasked: data.cwaPasswordMasked || '',
+          kavitaApiKeySet: Boolean(data.kavitaApiKeySet),
+          kavitaApiKeyMasked: data.kavitaApiKeyMasked || '',
+          decryptHealth: data.decryptHealth || { hasWarnings: false, warnings: [], remediation: '' }
+        });
+        setObservabilityRuntime(data.observabilityRuntime || { logs: null, metrics: null });
+        setLogExportControl(data.logExportControl || null);
+        setIntegrationScope(data.integrationScope || null);
+        setPlexDisplayToken(data.plexNowPlayingDisplayToken || { enabled: false, createdAt: null, lastUsedAt: null });
+        setPlexWebhookReceiver(
+          data.plexWebhookReceiver || {
+            enabled: false,
+            lastReceivedAt: null,
+            lastEvent: null,
+            delivery: {},
+            receiverPath: '/api/plex/webhooks/[token]'
+          }
+        );
+        setPlexDisplayPreferences({
+          ...DEFAULT_PLEX_DISPLAY_PREFERENCES,
+          ...(data.plexNowPlayingDisplayPreferences || {})
+        });
+        setStatus({
+          barcode: data.barcodeApiKeySet ? 'configured' : 'missing',
+          tmdb: data.tmdbApiKeySet ? 'configured' : 'missing',
+          plex: data.plexApiKeySet ? 'configured' : 'missing',
+          books: data.booksApiKeySet ? 'configured' : 'missing',
+          audio: data.audioApiKeySet ? 'configured' : 'missing',
+          games: data.gamesApiKeySet || (data.gamesClientId && data.gamesClientSecretSet) ? 'configured' : 'missing',
+          comics: data.comicsApiKeySet ? 'configured' : 'missing',
+          vision: data.visionEnabled ? 'configured' : 'missing',
+          pricecharting:
+            data.valuationProviders?.pricecharting?.enabled && data.valuationProviders?.pricecharting?.apiKeySet ? 'configured' : 'missing',
+          ebay:
+            data.valuationProviders?.ebayBrowse?.enabled &&
+            data.valuationProviders?.ebayBrowse?.clientSecretSet &&
+            data.valuationProviders?.ebayBrowse?.clientId
+              ? 'configured'
+              : 'missing',
+          cwa: data.cwaOpdsUrl ? 'configured' : 'missing',
+          kavita: data.kavitaBaseUrl && data.kavitaApiKeySet ? 'configured' : 'missing'
+        });
+      })
+      .catch(() => {});
   }, [apiCall, endpointBase]);
 
   useEffect(() => {
@@ -687,20 +865,19 @@ export default function AdminIntegrationsView({
     let active = true;
     setFeatureFlagsLoading(true);
     setFeatureFlagsError('');
-    apiCall('get', featureFlagsEndpoint).then((payload) => {
-      if (!active) return;
-      setFeatureFlags(
-        Array.isArray(payload?.flags)
-          ? payload.flags.filter((flag) => INTEGRATION_VISIBLE_FLAGS.has(flag?.key))
-          : []
-      );
-      setFeatureFlagsReadOnly(Boolean(payload?.readOnly));
-    }).catch((error) => {
-      if (!active) return;
-      setFeatureFlagsError(error?.response?.data?.error || 'Failed to load integration feature settings');
-    }).finally(() => {
-      if (active) setFeatureFlagsLoading(false);
-    });
+    apiCall('get', featureFlagsEndpoint)
+      .then((payload) => {
+        if (!active) return;
+        setFeatureFlags(Array.isArray(payload?.flags) ? payload.flags.filter((flag) => INTEGRATION_VISIBLE_FLAGS.has(flag?.key)) : []);
+        setFeatureFlagsReadOnly(Boolean(payload?.readOnly));
+      })
+      .catch((error) => {
+        if (!active) return;
+        setFeatureFlagsError(error?.response?.data?.error || 'Failed to load integration feature settings');
+      })
+      .finally(() => {
+        if (active) setFeatureFlagsLoading(false);
+      });
     return () => {
       active = false;
     };
@@ -751,7 +928,11 @@ export default function AdminIntegrationsView({
   const applyBarcodePreset = (p) => setForm((f) => ({ ...f, ...(BARCODE_PRESETS[p] || {}) }));
   const applyComicsPreset = (p) => setForm((f) => ({ ...f, ...(COMICS_PRESETS[p] || {}) }));
   const plexSectionIds = useMemo(
-    () => form.plexLibrarySections.split(',').map((v) => v.trim()).filter(Boolean),
+    () =>
+      form.plexLibrarySections
+        .split(',')
+        .map((v) => v.trim())
+        .filter(Boolean),
     [form.plexLibrarySections]
   );
   const plexImportPlan = useMemo(() => {
@@ -774,10 +955,7 @@ export default function AdminIntegrationsView({
       count: plexSectionIds.length
     };
   }, [plexAvailableSections, plexSectionIds]);
-  const featureFlagMap = useMemo(
-    () => new Map(featureFlags.map((feature) => [feature.key, feature])),
-    [featureFlags]
-  );
+  const featureFlagMap = useMemo(() => new Map(featureFlags.map((feature) => [feature.key, feature])), [featureFlags]);
   const getSectionStatus = (sectionId) => {
     const featureKey = SETTINGS_SECTION_FEATURES[sectionId];
     if (featureKey) {
@@ -810,107 +988,163 @@ export default function AdminIntegrationsView({
   const saveSection = async (sec) => {
     setSaving(true);
     const payload = {};
-    if (sec === 'barcode') Object.assign(payload, { barcodePreset: form.barcodePreset, barcodeProvider: form.barcodeProvider, barcodeApiUrl: form.barcodeApiUrl, clearBarcodeApiKey: form.clearBarcodeApiKey, ...(form.barcodeApiKey && { barcodeApiKey: form.barcodeApiKey }) });
-    else if (sec === 'tmdb') Object.assign(payload, { tmdbPreset: form.tmdbPreset, tmdbProvider: form.tmdbProvider, tmdbApiUrl: form.tmdbApiUrl, clearTmdbApiKey: form.clearTmdbApiKey, ...(form.tmdbApiKey && { tmdbApiKey: form.tmdbApiKey }) });
-    else if (sec === 'plex') Object.assign(payload, {
-      plexPreset: form.plexPreset, plexProvider: form.plexProvider, plexApiUrl: form.plexApiUrl,
-      clearPlexApiKey: form.clearPlexApiKey,
-      plexLibrarySections: form.plexLibrarySections.split(',').map((v) => v.trim()).filter(Boolean),
-      plexReconciliationSyncSettings: {
-        enabled: form.plexReconciliationSyncEnabled,
-        intervalMinutes: form.plexReconciliationSyncIntervalMinutes,
-        limit: form.plexReconciliationSyncLimit
-      },
-      plexReadbackRefreshSettings: {
-        enabled: form.plexReadbackRefreshEnabled,
-        intervalMinutes: form.plexReadbackRefreshIntervalMinutes,
-        maxItems: form.plexReadbackRefreshMaxItems
-      },
-      plexWritebackSettings: {
-        ratingEnabled: form.plexRatingWritebackEnabled,
-        watchStateEnabled: form.plexWatchStateWritebackEnabled
-      },
-      ...(form.plexApiKey && { plexApiKey: form.plexApiKey })
-    });
-    else if (sec === 'books') Object.assign(payload, {
-      booksPreset: form.booksPreset, booksProvider: form.booksProvider, booksApiUrl: form.booksApiUrl,
-      clearBooksApiKey: form.clearBooksApiKey, ...(form.booksApiKey && { booksApiKey: form.booksApiKey })
-    });
-    else if (sec === 'audio') Object.assign(payload, {
-      audioPreset: form.audioPreset, audioProvider: form.audioProvider, audioApiUrl: form.audioApiUrl,
-      clearAudioApiKey: form.clearAudioApiKey, ...(form.audioApiKey && { audioApiKey: form.audioApiKey })
-    });
-    else if (sec === 'games') Object.assign(payload, {
-      gamesPreset: form.gamesPreset, gamesProvider: form.gamesProvider, gamesApiUrl: form.gamesApiUrl,
-      gamesClientId: form.gamesClientId, clearGamesApiKey: form.clearGamesApiKey, clearGamesClientSecret: form.clearGamesClientSecret,
-      ...(form.gamesApiKey && { gamesApiKey: form.gamesApiKey }),
-      ...(form.gamesClientSecret && { gamesClientSecret: form.gamesClientSecret })
-    });
-    else if (sec === 'vision') Object.assign(payload, {
-      visionEnabled: form.visionEnabled,
-      visionPreset: form.visionPreset,
-      visionProvider: form.visionProvider,
-      visionApiUrl: form.visionApiUrl,
-      visionApiKeyHeader: form.visionApiKeyHeader,
-      clearVisionApiKey: form.clearVisionApiKey,
-      ...(form.visionApiKey && { visionApiKey: form.visionApiKey })
-    });
-    else if (sec === 'pricecharting') Object.assign(payload, {
-      priceChartingEnabled: form.priceChartingEnabled,
-      priceChartingApiUrl: form.priceChartingApiUrl,
-      priceChartingRateLimitMs: form.priceChartingRateLimitMs,
-      clearPriceChartingApiKey: form.clearPriceChartingApiKey,
-      ...(form.priceChartingApiKey && { priceChartingApiKey: form.priceChartingApiKey })
-    });
-    else if (sec === 'ebay') Object.assign(payload, {
-      eBayBrowseEnabled: form.eBayBrowseEnabled,
-      eBayBrowseApiUrl: form.eBayBrowseApiUrl,
-      eBayBrowseClientId: form.eBayBrowseClientId,
-      eBayBrowseMarketplaceId: form.eBayBrowseMarketplaceId,
-      clearEBayBrowseClientSecret: form.clearEBayBrowseClientSecret,
-      ...(form.eBayBrowseClientSecret && { eBayBrowseClientSecret: form.eBayBrowseClientSecret })
-    });
-    else if (sec === 'comics') Object.assign(payload, {
-      comicsPreset: form.comicsPreset, comicsProvider: form.comicsProvider, comicsApiUrl: form.comicsApiUrl,
-      comicsUsername: form.comicsUsername, clearComicsApiKey: form.clearComicsApiKey,
-      ...(form.comicsApiKey && { comicsApiKey: form.comicsApiKey })
-    });
-    else if (sec === 'cwa') Object.assign(payload, {
-      cwaOpdsUrl: form.cwaOpdsUrl,
-      cwaUsername: form.cwaUsername,
-      clearCwaPassword: form.clearCwaPassword,
-      ...(form.cwaPassword && { cwaPassword: form.cwaPassword })
-    });
-    else if (sec === 'kavita') Object.assign(payload, {
-      kavitaBaseUrl: form.kavitaBaseUrl,
-      kavitaTimeoutMs: form.kavitaTimeoutMs,
-      clearKavitaApiKey: form.clearKavitaApiKey,
-      ...(form.kavitaApiKey && { kavitaApiKey: form.kavitaApiKey })
-    });
-    else if (sec === 'logs') Object.assign(payload, {
-      logExportBackend: form.logExportBackend,
-      logExportHost: form.logExportHost,
-      logExportPort: form.logExportPort,
-      logExportHostLabel: form.logExportHostLabel,
-      logExportService: form.logExportService,
-      logExportDebug: form.logExportDebug
-    });
+    if (sec === 'barcode')
+      Object.assign(payload, {
+        barcodePreset: form.barcodePreset,
+        barcodeProvider: form.barcodeProvider,
+        barcodeApiUrl: form.barcodeApiUrl,
+        clearBarcodeApiKey: form.clearBarcodeApiKey,
+        ...(form.barcodeApiKey && { barcodeApiKey: form.barcodeApiKey })
+      });
+    else if (sec === 'tmdb')
+      Object.assign(payload, {
+        tmdbPreset: form.tmdbPreset,
+        tmdbProvider: form.tmdbProvider,
+        tmdbApiUrl: form.tmdbApiUrl,
+        clearTmdbApiKey: form.clearTmdbApiKey,
+        ...(form.tmdbApiKey && { tmdbApiKey: form.tmdbApiKey })
+      });
+    else if (sec === 'plex')
+      Object.assign(payload, {
+        plexPreset: form.plexPreset,
+        plexProvider: form.plexProvider,
+        plexApiUrl: form.plexApiUrl,
+        clearPlexApiKey: form.clearPlexApiKey,
+        plexLibrarySections: form.plexLibrarySections
+          .split(',')
+          .map((v) => v.trim())
+          .filter(Boolean),
+        plexReconciliationSyncSettings: {
+          enabled: form.plexReconciliationSyncEnabled,
+          intervalMinutes: form.plexReconciliationSyncIntervalMinutes,
+          limit: form.plexReconciliationSyncLimit
+        },
+        plexReadbackRefreshSettings: {
+          enabled: form.plexReadbackRefreshEnabled,
+          intervalMinutes: form.plexReadbackRefreshIntervalMinutes,
+          maxItems: form.plexReadbackRefreshMaxItems
+        },
+        plexWritebackSettings: {
+          ratingEnabled: form.plexRatingWritebackEnabled,
+          watchStateEnabled: form.plexWatchStateWritebackEnabled
+        },
+        ...(form.plexApiKey && { plexApiKey: form.plexApiKey })
+      });
+    else if (sec === 'books')
+      Object.assign(payload, {
+        booksPreset: form.booksPreset,
+        booksProvider: form.booksProvider,
+        booksApiUrl: form.booksApiUrl,
+        clearBooksApiKey: form.clearBooksApiKey,
+        ...(form.booksApiKey && { booksApiKey: form.booksApiKey })
+      });
+    else if (sec === 'audio')
+      Object.assign(payload, {
+        audioPreset: form.audioPreset,
+        audioProvider: form.audioProvider,
+        audioApiUrl: form.audioApiUrl,
+        clearAudioApiKey: form.clearAudioApiKey,
+        ...(form.audioApiKey && { audioApiKey: form.audioApiKey })
+      });
+    else if (sec === 'games')
+      Object.assign(payload, {
+        gamesPreset: form.gamesPreset,
+        gamesProvider: form.gamesProvider,
+        gamesApiUrl: form.gamesApiUrl,
+        gamesClientId: form.gamesClientId,
+        clearGamesApiKey: form.clearGamesApiKey,
+        clearGamesClientSecret: form.clearGamesClientSecret,
+        ...(form.gamesApiKey && { gamesApiKey: form.gamesApiKey }),
+        ...(form.gamesClientSecret && { gamesClientSecret: form.gamesClientSecret })
+      });
+    else if (sec === 'vision')
+      Object.assign(payload, {
+        visionEnabled: form.visionEnabled,
+        visionPreset: form.visionPreset,
+        visionProvider: form.visionProvider,
+        visionApiUrl: form.visionApiUrl,
+        visionApiKeyHeader: form.visionApiKeyHeader,
+        clearVisionApiKey: form.clearVisionApiKey,
+        ...(form.visionApiKey && { visionApiKey: form.visionApiKey })
+      });
+    else if (sec === 'pricecharting')
+      Object.assign(payload, {
+        priceChartingEnabled: form.priceChartingEnabled,
+        priceChartingApiUrl: form.priceChartingApiUrl,
+        priceChartingRateLimitMs: form.priceChartingRateLimitMs,
+        clearPriceChartingApiKey: form.clearPriceChartingApiKey,
+        ...(form.priceChartingApiKey && { priceChartingApiKey: form.priceChartingApiKey })
+      });
+    else if (sec === 'ebay')
+      Object.assign(payload, {
+        eBayBrowseEnabled: form.eBayBrowseEnabled,
+        eBayBrowseApiUrl: form.eBayBrowseApiUrl,
+        eBayBrowseClientId: form.eBayBrowseClientId,
+        eBayBrowseMarketplaceId: form.eBayBrowseMarketplaceId,
+        clearEBayBrowseClientSecret: form.clearEBayBrowseClientSecret,
+        ...(form.eBayBrowseClientSecret && { eBayBrowseClientSecret: form.eBayBrowseClientSecret })
+      });
+    else if (sec === 'comics')
+      Object.assign(payload, {
+        comicsPreset: form.comicsPreset,
+        comicsProvider: form.comicsProvider,
+        comicsApiUrl: form.comicsApiUrl,
+        comicsUsername: form.comicsUsername,
+        clearComicsApiKey: form.clearComicsApiKey,
+        ...(form.comicsApiKey && { comicsApiKey: form.comicsApiKey })
+      });
+    else if (sec === 'cwa')
+      Object.assign(payload, {
+        cwaOpdsUrl: form.cwaOpdsUrl,
+        cwaUsername: form.cwaUsername,
+        clearCwaPassword: form.clearCwaPassword,
+        ...(form.cwaPassword && { cwaPassword: form.cwaPassword })
+      });
+    else if (sec === 'kavita')
+      Object.assign(payload, {
+        kavitaBaseUrl: form.kavitaBaseUrl,
+        kavitaTimeoutMs: form.kavitaTimeoutMs,
+        clearKavitaApiKey: form.clearKavitaApiKey,
+        ...(form.kavitaApiKey && { kavitaApiKey: form.kavitaApiKey })
+      });
+    else if (sec === 'logs')
+      Object.assign(payload, {
+        logExportBackend: form.logExportBackend,
+        logExportHost: form.logExportHost,
+        logExportPort: form.logExportPort,
+        logExportHostLabel: form.logExportHostLabel,
+        logExportService: form.logExportService,
+        logExportDebug: form.logExportDebug
+      });
     try {
       const updated = await apiCall('put', endpointBase, payload, sensitiveOperationConfig);
       setMeta({
-        barcodeApiKeySet: Boolean(updated.barcodeApiKeySet), barcodeApiKeyMasked: updated.barcodeApiKeyMasked || '',
-        tmdbApiKeySet: Boolean(updated.tmdbApiKeySet), tmdbApiKeyMasked: updated.tmdbApiKeyMasked || '',
-        plexApiKeySet: Boolean(updated.plexApiKeySet), plexApiKeyMasked: updated.plexApiKeyMasked || '',
-        booksApiKeySet: Boolean(updated.booksApiKeySet), booksApiKeyMasked: updated.booksApiKeyMasked || '',
-        audioApiKeySet: Boolean(updated.audioApiKeySet), audioApiKeyMasked: updated.audioApiKeyMasked || '',
-        gamesApiKeySet: Boolean(updated.gamesApiKeySet), gamesApiKeyMasked: updated.gamesApiKeyMasked || '',
-        gamesClientSecretSet: Boolean(updated.gamesClientSecretSet), gamesClientSecretMasked: updated.gamesClientSecretMasked || '',
-        comicsApiKeySet: Boolean(updated.comicsApiKeySet), comicsApiKeyMasked: updated.comicsApiKeyMasked || '',
-        visionApiKeySet: Boolean(updated.visionApiKeySet), visionApiKeyMasked: updated.visionApiKeyMasked || '',
-        priceChartingApiKeySet: Boolean(updated.valuationProviders?.pricecharting?.apiKeySet), priceChartingApiKeyMasked: updated.valuationProviders?.pricecharting?.apiKeyMasked || '',
-        eBayBrowseClientSecretSet: Boolean(updated.valuationProviders?.ebayBrowse?.clientSecretSet), eBayBrowseClientSecretMasked: updated.valuationProviders?.ebayBrowse?.clientSecretMasked || '',
-        cwaPasswordSet: Boolean(updated.cwaPasswordSet), cwaPasswordMasked: updated.cwaPasswordMasked || '',
-        kavitaApiKeySet: Boolean(updated.kavitaApiKeySet), kavitaApiKeyMasked: updated.kavitaApiKeyMasked || '',
+        barcodeApiKeySet: Boolean(updated.barcodeApiKeySet),
+        barcodeApiKeyMasked: updated.barcodeApiKeyMasked || '',
+        tmdbApiKeySet: Boolean(updated.tmdbApiKeySet),
+        tmdbApiKeyMasked: updated.tmdbApiKeyMasked || '',
+        plexApiKeySet: Boolean(updated.plexApiKeySet),
+        plexApiKeyMasked: updated.plexApiKeyMasked || '',
+        booksApiKeySet: Boolean(updated.booksApiKeySet),
+        booksApiKeyMasked: updated.booksApiKeyMasked || '',
+        audioApiKeySet: Boolean(updated.audioApiKeySet),
+        audioApiKeyMasked: updated.audioApiKeyMasked || '',
+        gamesApiKeySet: Boolean(updated.gamesApiKeySet),
+        gamesApiKeyMasked: updated.gamesApiKeyMasked || '',
+        gamesClientSecretSet: Boolean(updated.gamesClientSecretSet),
+        gamesClientSecretMasked: updated.gamesClientSecretMasked || '',
+        comicsApiKeySet: Boolean(updated.comicsApiKeySet),
+        comicsApiKeyMasked: updated.comicsApiKeyMasked || '',
+        visionApiKeySet: Boolean(updated.visionApiKeySet),
+        visionApiKeyMasked: updated.visionApiKeyMasked || '',
+        priceChartingApiKeySet: Boolean(updated.valuationProviders?.pricecharting?.apiKeySet),
+        priceChartingApiKeyMasked: updated.valuationProviders?.pricecharting?.apiKeyMasked || '',
+        eBayBrowseClientSecretSet: Boolean(updated.valuationProviders?.ebayBrowse?.clientSecretSet),
+        eBayBrowseClientSecretMasked: updated.valuationProviders?.ebayBrowse?.clientSecretMasked || '',
+        cwaPasswordSet: Boolean(updated.cwaPasswordSet),
+        cwaPasswordMasked: updated.cwaPasswordMasked || '',
+        kavitaApiKeySet: Boolean(updated.kavitaApiKeySet),
+        kavitaApiKeyMasked: updated.kavitaApiKeyMasked || '',
         decryptHealth: updated.decryptHealth || { hasWarnings: false, warnings: [], remediation: '' }
       });
       setObservabilityRuntime(updated.observabilityRuntime || { logs: null, metrics: null });
@@ -923,7 +1157,9 @@ export default function AdminIntegrationsView({
           ...f,
           plexReconciliationSyncEnabled: Boolean(updated.plexReconciliationSyncSettings.enabled),
           plexReconciliationSyncIntervalMinutes: String(updated.plexReconciliationSyncSettings.intervalMinutes || '360'),
-          plexReconciliationSyncLimit: updated.plexReconciliationSyncSettings.limit ? String(updated.plexReconciliationSyncSettings.limit) : '',
+          plexReconciliationSyncLimit: updated.plexReconciliationSyncSettings.limit
+            ? String(updated.plexReconciliationSyncSettings.limit)
+            : '',
           plexReadbackRefreshEnabled: Boolean(updated.plexReadbackRefreshSettings?.enabled),
           plexReadbackRefreshIntervalMinutes: String(updated.plexReadbackRefreshSettings?.intervalMinutes || '60'),
           plexReadbackRefreshMaxItems: String(updated.plexReadbackRefreshSettings?.maxItems || '100'),
@@ -941,25 +1177,65 @@ export default function AdminIntegrationsView({
       }
       setStatus((s) => ({
         ...s,
-        [sec]: sec === 'games'
-          ? ((updated.gamesApiKeySet || (updated.gamesClientId && updated.gamesClientSecretSet)) ? 'configured' : 'missing')
-          : sec === 'pricecharting'
-            ? ((updated.valuationProviders?.pricecharting?.enabled && updated.valuationProviders?.pricecharting?.apiKeySet) ? 'configured' : 'missing')
-          : sec === 'ebay'
-            ? ((updated.valuationProviders?.ebayBrowse?.enabled && updated.valuationProviders?.ebayBrowse?.clientId && updated.valuationProviders?.ebayBrowse?.clientSecretSet) ? 'configured' : 'missing')
-          : sec === 'cwa'
-            ? (updated.cwaOpdsUrl ? 'configured' : 'missing')
-          : sec === 'kavita'
-            ? ((updated.kavitaBaseUrl && updated.kavitaApiKeySet) ? 'configured' : 'missing')
-          : sec === 'vision'
-            ? (updated.visionEnabled ? 'configured' : 'missing')
-          : (updated[`${sec}ApiKeySet`] ? 'configured' : 'missing')
+        [sec]:
+          sec === 'games'
+            ? updated.gamesApiKeySet || (updated.gamesClientId && updated.gamesClientSecretSet)
+              ? 'configured'
+              : 'missing'
+            : sec === 'pricecharting'
+              ? updated.valuationProviders?.pricecharting?.enabled && updated.valuationProviders?.pricecharting?.apiKeySet
+                ? 'configured'
+                : 'missing'
+              : sec === 'ebay'
+                ? updated.valuationProviders?.ebayBrowse?.enabled &&
+                  updated.valuationProviders?.ebayBrowse?.clientId &&
+                  updated.valuationProviders?.ebayBrowse?.clientSecretSet
+                  ? 'configured'
+                  : 'missing'
+                : sec === 'cwa'
+                  ? updated.cwaOpdsUrl
+                    ? 'configured'
+                    : 'missing'
+                  : sec === 'kavita'
+                    ? updated.kavitaBaseUrl && updated.kavitaApiKeySet
+                      ? 'configured'
+                      : 'missing'
+                    : sec === 'vision'
+                      ? updated.visionEnabled
+                        ? 'configured'
+                        : 'missing'
+                      : updated[`${sec}ApiKeySet`]
+                        ? 'configured'
+                        : 'missing'
       }));
       setForm((f) => ({
         ...f,
-        barcodeApiKey: '', tmdbApiKey: '', plexApiKey: '', booksApiKey: '', audioApiKey: '', gamesApiKey: '', gamesClientSecret: '', comicsApiKey: '', cwaPassword: '', kavitaApiKey: '', visionApiKey: '', priceChartingApiKey: '', eBayBrowseClientSecret: '',
-        clearBarcodeApiKey: false, clearTmdbApiKey: false, clearPlexApiKey: false,
-        clearBooksApiKey: false, clearAudioApiKey: false, clearGamesApiKey: false, clearGamesClientSecret: false, clearComicsApiKey: false, clearCwaPassword: false, clearKavitaApiKey: false, clearVisionApiKey: false, clearPriceChartingApiKey: false, clearEBayBrowseClientSecret: false
+        barcodeApiKey: '',
+        tmdbApiKey: '',
+        plexApiKey: '',
+        booksApiKey: '',
+        audioApiKey: '',
+        gamesApiKey: '',
+        gamesClientSecret: '',
+        comicsApiKey: '',
+        cwaPassword: '',
+        kavitaApiKey: '',
+        visionApiKey: '',
+        priceChartingApiKey: '',
+        eBayBrowseClientSecret: '',
+        clearBarcodeApiKey: false,
+        clearTmdbApiKey: false,
+        clearPlexApiKey: false,
+        clearBooksApiKey: false,
+        clearAudioApiKey: false,
+        clearGamesApiKey: false,
+        clearGamesClientSecret: false,
+        clearComicsApiKey: false,
+        clearCwaPassword: false,
+        clearKavitaApiKey: false,
+        clearVisionApiKey: false,
+        clearPriceChartingApiKey: false,
+        clearEBayBrowseClientSecret: false
       }));
       if (updated.kavitaBaseUrl !== undefined) {
         setForm((f) => ({
@@ -1005,11 +1281,11 @@ export default function AdminIntegrationsView({
       }
       onToast(`${sec.toUpperCase()} settings saved`);
       if (
-        allowImports
-        && typeof onQueueJob === 'function'
-        && sec === 'comics'
-        && String(updated.comicsProvider || form.comicsProvider || '').toLowerCase() === 'metron'
-        && Boolean(updated.comicsApiKeySet)
+        allowImports &&
+        typeof onQueueJob === 'function' &&
+        sec === 'comics' &&
+        String(updated.comicsProvider || form.comicsProvider || '').toLowerCase() === 'metron' &&
+        Boolean(updated.comicsApiKeySet)
       ) {
         try {
           const enqueue = await apiCall('post', '/media/import-comics?async=true', {});
@@ -1039,38 +1315,39 @@ export default function AdminIntegrationsView({
     setTestLoading(sec);
     setTestMsg('');
     try {
-      const payload = sec === 'tmdb'
-        ? { title: 'The Matrix', year: '1999' }
-        : sec === 'books'
-          ? { title: 'Dust', author: 'Hugh Howey' }
-          : sec === 'audio'
-            ? { title: 'Kind of Blue', artist: 'Miles Davis' }
-            : sec === 'games'
-              ? { title: 'Halo' }
-              : sec === 'pricecharting'
-                ? { title: 'Halo', media_type: 'game', upc: '885370541981' }
-                : sec === 'ebay'
+      const payload =
+        sec === 'tmdb'
+          ? { title: 'The Matrix', year: '1999' }
+          : sec === 'books'
+            ? { title: 'Dust', author: 'Hugh Howey' }
+            : sec === 'audio'
+              ? { title: 'Kind of Blue', artist: 'Miles Davis' }
+              : sec === 'games'
+                ? { title: 'Halo' }
+                : sec === 'pricecharting'
                   ? { title: 'Halo', media_type: 'game', upc: '885370541981' }
-              : sec === 'comics'
-                ? { title: 'Batman' }
-                : sec === 'logs'
-                  ? {
-                    logExportBackend: form.logExportBackend,
-                    logExportHost: form.logExportHost,
-                    logExportPort: form.logExportPort,
-                    logExportHostLabel: form.logExportHostLabel,
-                    logExportService: form.logExportService,
-                    logExportDebug: form.logExportDebug
-                  }
-                : sec === 'cwa'
-                  ? {}
-                : sec === 'kavita'
-                  ? {
-                    kavitaBaseUrl: form.kavitaBaseUrl,
-                    kavitaTimeoutMs: form.kavitaTimeoutMs,
-                    ...(form.kavitaApiKey && { kavitaApiKey: form.kavitaApiKey })
-                  }
-              : {};
+                  : sec === 'ebay'
+                    ? { title: 'Halo', media_type: 'game', upc: '885370541981' }
+                    : sec === 'comics'
+                      ? { title: 'Batman' }
+                      : sec === 'logs'
+                        ? {
+                            logExportBackend: form.logExportBackend,
+                            logExportHost: form.logExportHost,
+                            logExportPort: form.logExportPort,
+                            logExportHostLabel: form.logExportHostLabel,
+                            logExportService: form.logExportService,
+                            logExportDebug: form.logExportDebug
+                          }
+                        : sec === 'cwa'
+                          ? {}
+                          : sec === 'kavita'
+                            ? {
+                                kavitaBaseUrl: form.kavitaBaseUrl,
+                                kavitaTimeoutMs: form.kavitaTimeoutMs,
+                                ...(form.kavitaApiKey && { kavitaApiKey: form.kavitaApiKey })
+                              }
+                            : {};
       const result = await apiCall('post', `${endpointBase}/test-${sec}`, payload, sensitiveOperationConfig);
       if (sec === 'logs') {
         setLogExportControl(result.logExportControl || result.config?.logExportControl || null);
@@ -1179,7 +1456,15 @@ export default function AdminIntegrationsView({
     setTestMsg('');
     try {
       const result = await apiCall('delete', `${endpointBase}/plex-webhook-receiver-token`, undefined, sensitiveOperationConfig);
-      setPlexWebhookReceiver(result.plexWebhookReceiver || { enabled: false, lastReceivedAt: null, lastEvent: null, delivery: {}, receiverPath: '/api/plex/webhooks/[token]' });
+      setPlexWebhookReceiver(
+        result.plexWebhookReceiver || {
+          enabled: false,
+          lastReceivedAt: null,
+          lastEvent: null,
+          delivery: {},
+          receiverPath: '/api/plex/webhooks/[token]'
+        }
+      );
       setPlexWebhookReceiverLink('');
       setTestMsg('PLEX WEBHOOKS: Receiver URL revoked.');
       onToast('Plex webhook receiver URL revoked');
@@ -1275,7 +1560,9 @@ export default function AdminIntegrationsView({
       setPlexReadbackRefreshResult(result?.summary || null);
       await refreshPlexReadbackRefreshScheduler();
       const summary = result?.summary || {};
-      setTestMsg(`PLEX READBACK: watched ${Number(summary.mediaMetadataUpdated || 0) + Number(summary.seasonsCreated || 0) + Number(summary.seasonsUpdated || 0)}, ratings ${Number(summary.ratingsUpdated || 0)}.`);
+      setTestMsg(
+        `PLEX READBACK: watched ${Number(summary.mediaMetadataUpdated || 0) + Number(summary.seasonsCreated || 0) + Number(summary.seasonsUpdated || 0)}, ratings ${Number(summary.ratingsUpdated || 0)}.`
+      );
     } catch (err) {
       setTestMsg(err.response?.data?.error || 'Plex readback refresh failed');
     } finally {
@@ -1284,11 +1571,12 @@ export default function AdminIntegrationsView({
   };
 
   const resolvePlexConflictReview = async (reviewId, action, targetMediaId = null) => {
-    const loadingKey = action === 'create_separate'
-      ? `plex-conflict-create-${reviewId}`
-      : action === 'attach_existing'
-        ? `plex-conflict-attach-${reviewId}`
-        : `plex-conflict-dismiss-${reviewId}`;
+    const loadingKey =
+      action === 'create_separate'
+        ? `plex-conflict-create-${reviewId}`
+        : action === 'attach_existing'
+          ? `plex-conflict-attach-${reviewId}`
+          : `plex-conflict-dismiss-${reviewId}`;
     setTestLoading(loadingKey);
     setTestMsg('');
     try {
@@ -1296,11 +1584,12 @@ export default function AdminIntegrationsView({
       const result = await apiCall('post', `/media/plex-reconciliation-conflicts/${reviewId}/resolve`, payload);
       await refreshPlexConflictReviews();
       setPlexConflictMatchFilter('all');
-      const label = action === 'create_separate'
-        ? 'created a separate title'
-        : action === 'attach_existing'
-          ? 'attached the Plex identity to the existing title'
-          : 'dismissed the conflict';
+      const label =
+        action === 'create_separate'
+          ? 'created a separate title'
+          : action === 'attach_existing'
+            ? 'attached the Plex identity to the existing title'
+            : 'dismissed the conflict';
       setTestMsg(`PLEX CONFLICT: ${label}.`);
       onToast(result?.review?.item?.title ? `Plex conflict resolved for ${result.review.item.title}` : 'Plex conflict resolved');
     } catch (err) {
@@ -1390,7 +1679,9 @@ export default function AdminIntegrationsView({
       if (latest?.status === 'succeeded') {
         setPlexReconciliationResult(normalizePlexReconciliationResult(latest));
         const summary = latest?.summary || {};
-        setTestMsg(`PLEX SYNC: job #${jobId} created ${Number(summary?.autoApplied?.created || 0)}, updated ${Number(summary?.autoApplied?.updated || 0)}, review ${Number(summary?.conflictReviewCount || 0)}.`);
+        setTestMsg(
+          `PLEX SYNC: job #${jobId} created ${Number(summary?.autoApplied?.created || 0)}, updated ${Number(summary?.autoApplied?.updated || 0)}, review ${Number(summary?.conflictReviewCount || 0)}.`
+        );
         refreshPlexReconciliationScheduler();
         refreshPlexConflictReviews();
       } else if (latest?.status === 'failed') {
@@ -1436,11 +1727,12 @@ export default function AdminIntegrationsView({
   const logsRuntime = observabilityRuntime.logs;
   const metricsRuntime = observabilityRuntime.metrics;
   const logLastValidation = logExportControl?.lastValidation || null;
-  const logControlSourceLabel = logExportControl?.source === 'stored'
-    ? 'Saved in Platform'
-    : logExportControl?.source === 'env_override'
-      ? 'Locked by runtime env'
-      : 'Using runtime env defaults';
+  const logControlSourceLabel =
+    logExportControl?.source === 'stored'
+      ? 'Saved in Platform'
+      : logExportControl?.source === 'env_override'
+        ? 'Locked by runtime env'
+        : 'Using runtime env defaults';
   const logValidationSummary = logLastValidation
     ? `${logLastValidation.status === 'passed' ? 'Passed' : logLastValidation.status === 'warning' ? 'Warning' : 'Failed'} · ${logLastValidation.backend || 'off'}`
     : 'Not yet run';
@@ -1454,7 +1746,9 @@ export default function AdminIntegrationsView({
 
   const mobileSectionPicker = (
     <div className="md:hidden">
-      <label className="sr-only" htmlFor="integration-section-mobile">Integration</label>
+      <label className="sr-only" htmlFor="integration-section-mobile">
+        Integration
+      </label>
       <select
         id="integration-section-mobile"
         className="select h-9 w-full"
@@ -1470,13 +1764,7 @@ export default function AdminIntegrationsView({
     </div>
   );
 
-  const header = title ? (
-    <UtilityPageHeader
-      title={title}
-      compact={headerCompact}
-      controls={mobileSectionPicker}
-    />
-  ) : null;
+  const header = title ? <UtilityPageHeader title={title} compact={headerCompact} controls={mobileSectionPicker} /> : null;
 
   return (
     <FixedPageShell
@@ -1514,964 +1802,1491 @@ export default function AdminIntegrationsView({
         </div>
 
         <SectionTabPanel activeId={section} tabKey={section} idBase="integration-sections" className="min-w-0">
-        <div className="space-y-4 min-w-0">
-        <div className="flex items-center justify-end gap-3 pb-1">
-          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-            <IntegrationSourceBadge source={activeSectionSource} cx={cx} />
-            <StatusBadge status={activeSectionStatus} cx={cx} />
-          </div>
-        </div>
-        {section === 'barcode' && <>
-          <LabeledField label="Preset" cx={cx}><select className="select" value={form.barcodePreset} onChange={(e) => applyBarcodePreset(e.target.value)}>
-            <option value="upcitemdb">UPCItemDB</option><option value="barcodelookup">BarcodeLookup</option>
-          </select></LabeledField>
-          <LabeledField label="API URL" cx={cx}><input className="input" value={form.barcodeApiUrl} onChange={(e) => setForm((f) => ({ ...f, barcodeApiUrl: e.target.value }))} /></LabeledField>
-          <LabeledField label={`API Key ${meta.barcodeApiKeySet ? `(set: ${meta.barcodeApiKeyMasked})` : '(not set)'}`} cx={cx}>
-            <input className="input font-mono" type="password" placeholder="Enter new key to update" value={form.barcodeApiKey} onChange={(e) => setForm((f) => ({ ...f, barcodeApiKey: e.target.value }))} />
-          </LabeledField>
-          <CheckboxControl id="clear-barcode-api-key" checked={form.clearBarcodeApiKey} onChange={(e) => setForm((f) => ({ ...f, clearBarcodeApiKey: e.target.checked }))}>
-            Clear saved key
-          </CheckboxControl>
-        </>}
-
-        {section === 'logs' && <>
-          <InlineFeatureFlagState
-            loading={featureFlagsLoading}
-            error={featureFlagsError}
-            readOnly={featureFlagsReadOnly}
-            feature={sectionFeature}
-          />
-          {sectionFeature && (
-            <IntegrationFeatureToggle
-              feature={sectionFeature}
-              disabled={featureFlagsReadOnly}
-              saving={savingFeatureKey === sectionFeature.key}
-              onToggle={toggleIntegrationFeature}
-            />
-          )}
-          <div className="space-y-4">
-            <div className="flex items-start justify-between gap-4 py-1">
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-ink">Debug Mode</p>
-                <p className="mt-1 text-sm text-dim">Write extra backend logs while you diagnose export behavior.</p>
+          <div className="space-y-4 min-w-0">
+            <div className="flex items-center justify-end gap-3 pb-1">
+              <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                <IntegrationSourceBadge source={activeSectionSource} cx={cx} />
+                <StatusBadge status={activeSectionStatus} cx={cx} />
               </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={form.logExportDebug ? true : false}
-                aria-label={`${form.logExportDebug ? 'Disable' : 'Enable'} debug mode`}
-                disabled={Boolean(logExportControl?.readOnly)}
-                onClick={() => setForm((f) => ({ ...f, logExportDebug: !f.logExportDebug }))}
-                className={[
-                  'relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-colors duration-150',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/30 focus-visible:ring-offset-2 focus-visible:ring-offset-surface',
-                  form.logExportDebug ? 'border-gold/30 bg-gold/15' : 'border-edge bg-raised/80',
-                  logExportControl?.readOnly ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:border-muted'
-                ].join(' ')}
-              >
-                <span
-                  className={[
-                    'inline-block h-5 w-5 rounded-full shadow-sm transition-transform duration-150',
-                    form.logExportDebug ? 'translate-x-6 bg-gold' : 'translate-x-1 bg-dim'
-                  ].join(' ')}
-                />
-              </button>
             </div>
-            <div className="border-t border-edge pt-4 space-y-3">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-medium text-ink">Settings</p>
-                <p className="text-sm text-dim">{logControlSourceLabel}</p>
-              </div>
-            {logExportControl?.readOnly && (
-              <p className="text-sm text-warn">External log endpoint settings are read-only in this environment (`LOG_EXPORT_SETTINGS_READ_ONLY=true`).</p>
-            )}
-            <div className="grid gap-3 md:grid-cols-3">
-              <LabeledField label="Backend / Transport" cx={cx}>
-                <select
-                  className="select"
-                  name="log_export_backend"
-                  autoComplete="off"
-                  value={form.logExportBackend}
-                  disabled={Boolean(logExportControl?.readOnly)}
-                  onChange={(e) => setForm((f) => ({ ...f, logExportBackend: e.target.value }))}
+            {section === 'barcode' && (
+              <>
+                <LabeledField label="Preset" cx={cx}>
+                  <select className="select" value={form.barcodePreset} onChange={(e) => applyBarcodePreset(e.target.value)}>
+                    <option value="upcitemdb">UPCItemDB</option>
+                    <option value="barcodelookup">BarcodeLookup</option>
+                  </select>
+                </LabeledField>
+                <LabeledField label="API URL" cx={cx}>
+                  <input
+                    className="input"
+                    value={form.barcodeApiUrl}
+                    onChange={(e) => setForm((f) => ({ ...f, barcodeApiUrl: e.target.value }))}
+                  />
+                </LabeledField>
+                <LabeledField label={`API Key ${meta.barcodeApiKeySet ? `(set: ${meta.barcodeApiKeyMasked})` : '(not set)'}`} cx={cx}>
+                  <input
+                    className="input font-mono"
+                    type="password"
+                    placeholder="Enter new key to update"
+                    value={form.barcodeApiKey}
+                    onChange={(e) => setForm((f) => ({ ...f, barcodeApiKey: e.target.value }))}
+                  />
+                </LabeledField>
+                <CheckboxControl
+                  id="clear-barcode-api-key"
+                  checked={form.clearBarcodeApiKey}
+                  onChange={(e) => setForm((f) => ({ ...f, clearBarcodeApiKey: e.target.checked }))}
                 >
-                  {LOG_EXPORT_BACKEND_OPTIONS.map((option) => (
-                    <option key={option.value || 'runtime-default'} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
-              </LabeledField>
-              <LabeledField label="Collector Host" cx={cx}>
-                <input
-                  className="input font-mono"
-                  name="log_export_host"
-                  autoComplete="off"
-                  spellCheck={false}
-                  placeholder="graylog"
-                  value={form.logExportHost}
-                  disabled={Boolean(logExportControl?.readOnly) || !form.logExportBackend}
-                  onChange={(e) => setForm((f) => ({ ...f, logExportHost: e.target.value }))}
-                />
-              </LabeledField>
-              <LabeledField label="Collector Port" cx={cx}>
-                <input
-                  className="input font-mono"
-                  name="log_export_port"
-                  autoComplete="off"
-                  inputMode="numeric"
-                  placeholder="12201"
-                  value={form.logExportPort}
-                  disabled={Boolean(logExportControl?.readOnly) || !form.logExportBackend}
-                  onChange={(e) => setForm((f) => ({ ...f, logExportPort: e.target.value.replace(/[^\d]/g, '') }))}
-                />
-              </LabeledField>
-            </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              <LabeledField label="Service Label" cx={cx}>
-                <input
-                  className="input font-mono"
-                  name="log_export_service"
-                  autoComplete="off"
-                  spellCheck={false}
-                  placeholder="backend"
-                  value={form.logExportService}
-                  disabled={Boolean(logExportControl?.readOnly)}
-                  onChange={(e) => setForm((f) => ({ ...f, logExportService: e.target.value }))}
-                />
-              </LabeledField>
-              <LabeledField label="Host Label" cx={cx}>
-                <input
-                  className="input font-mono"
-                  name="log_export_host_label"
-                  autoComplete="off"
-                  spellCheck={false}
-                  placeholder="collectz-backend"
-                  value={form.logExportHostLabel}
-                  disabled={Boolean(logExportControl?.readOnly)}
-                  onChange={(e) => setForm((f) => ({ ...f, logExportHostLabel: e.target.value }))}
-                />
-              </LabeledField>
-            </div>
-          </div>
-          <div className="border-t border-edge pt-4">
-            <DisclosureSection title="Last Validation" summary={logValidationSummary}>
-              {logLastValidation ? (
-                <>
-                  <RuntimeKeyValueList rows={[
-                    {
-                      label: 'Status',
-                      value: logLastValidation.status === 'passed'
-                        ? 'Passed'
-                        : logLastValidation.status === 'warning'
-                          ? 'Warning'
-                          : 'Failed'
-                    },
-                    {
-                      label: 'Validated endpoint',
-                      value: `${logLastValidation.backend || 'off'} @ ${logLastValidation.host || 'n/a'}:${logLastValidation.port || 'n/a'}`,
-                      mono: true
-                    },
-                    {
-                      label: 'Validated at',
-                      value: logLastValidation.validatedAt ? new Date(logLastValidation.validatedAt).toLocaleString() : 'Unknown'
-                    }
-                  ]} />
-                  <p className="text-sm text-dim">{logLastValidation.detail}</p>
-                </>
-              ) : (
-                <p className="text-sm text-dim">No validation has been recorded yet for this external log endpoint.</p>
-              )}
-            </DisclosureSection>
-          </div>
-          {logsRuntime && (
-            <div className="border-t border-edge pt-4">
-              <DisclosureSection title="Runtime Checks" summary={logsRuntimeSummary}>
-                <RuntimeKeyValueList rows={[
-                  { label: 'State', value: logsRuntime.effectiveState === 'ready' ? 'Ready' : logsRuntime.effectiveState === 'attention' ? 'Needs attention' : 'Disabled' },
-                  { label: 'Config source', value: logsRuntime.configSource === 'stored' ? 'Saved in Platform' : logsRuntime.configSource === 'env_override' ? 'Locked by runtime env' : 'Using runtime env defaults' },
-                  { label: 'Backend', value: logsRuntime.backend, mono: true },
-                  { label: 'Collector', value: `${logsRuntime.host}:${logsRuntime.port}`, mono: true },
-                  { label: 'Service', value: logsRuntime.service, mono: true },
-                  { label: 'Host label', value: logsRuntime.hostLabel, mono: true },
-                  { label: 'Debug mode', value: logsRuntime.debugEnabled ? 'On' : 'Off' }
-                ]} />
-                {(logsRuntime.checks || []).length > 0 ? (
-                  <ul className="divide-y divide-edge/60 rounded-md border border-edge/60 px-4">
-                    {(logsRuntime.checks || []).map((check) => (
-                      <RuntimeCheckRow key={`${check.level}-${check.title}`} check={check} />
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-sm text-dim">No active runtime warnings right now.</p>
-                )}
-              </DisclosureSection>
-            </div>
-          )}
-          </div>
-        </>}
-
-        {section === 'metrics' && <>
-          <InlineFeatureFlagState
-            loading={featureFlagsLoading}
-            error={featureFlagsError}
-            readOnly={featureFlagsReadOnly}
-            feature={sectionFeature}
-          />
-          {sectionFeature && (
-            <IntegrationFeatureToggle
-              feature={sectionFeature}
-              disabled={featureFlagsReadOnly}
-              saving={savingFeatureKey === sectionFeature.key}
-              onToggle={toggleIntegrationFeature}
-            />
-          )}
-          <div className="border-t border-edge pt-4 space-y-2">
-            <p className="text-sm font-medium text-ink">Available settings</p>
-            <ul className="space-y-2 text-sm text-dim">
-              <li>Enable or disable admin-facing Prometheus-style metrics export here.</li>
-              <li>Metrics still require `DEBUG&gt;=1` at runtime, and `METRICS_SCRAPE_TOKEN` remains the optional infrastructure credential for trusted scrapers.</li>
-              <li>This page now owns whether metrics export is active. Environment feature-flag overrides no longer supersede this setting.</li>
-            </ul>
-          </div>
-          {metricsRuntime && (
-            <div className="border-t border-edge pt-4 space-y-3">
-              <div>
-                <h3 className="text-sm font-medium text-ink">Runtime checks</h3>
-                <p className="mt-1 text-sm text-ghost">This reads from the running backend container, not just saved settings.</p>
-              </div>
-              <RuntimeKeyValueList rows={[
-                { label: 'State', value: metricsRuntime.effectiveState === 'ready' ? 'Ready' : metricsRuntime.effectiveState === 'attention' ? 'Needs attention' : 'Disabled' },
-                { label: 'Endpoint', value: metricsRuntime.endpointPath, mono: true },
-                { label: 'DEBUG level', value: String(metricsRuntime.debugLevel), mono: true },
-                { label: 'Scrape token', value: metricsRuntime.scrapeTokenConfigured ? 'Configured' : 'Not configured' },
-                { label: 'Trust proxy', value: String(metricsRuntime.trustProxy ?? 'unknown'), mono: true }
-              ]} />
-              <ul className="divide-y divide-edge/60 rounded-md border border-edge/60 px-4">
-                {(metricsRuntime.checks || []).map((check) => (
-                  <RuntimeCheckRow key={`${check.level}-${check.title}`} check={check} />
-                ))}
-              </ul>
-            </div>
-          )}
-        </>}
-
-        {section === 'tmdb' && <>
-          <LabeledField label="API URL" cx={cx}><input className="input" value={form.tmdbApiUrl} onChange={(e) => setForm((f) => ({ ...f, tmdbApiUrl: e.target.value }))} /></LabeledField>
-          <LabeledField label={`API Key ${meta.tmdbApiKeySet ? `(set: ${meta.tmdbApiKeyMasked})` : '(not set)'}`} cx={cx}>
-            <input className="input font-mono" type="password" placeholder="Enter new key to update" value={form.tmdbApiKey} onChange={(e) => setForm((f) => ({ ...f, tmdbApiKey: e.target.value }))} />
-          </LabeledField>
-          <CheckboxControl id="clear-tmdb-api-key" checked={form.clearTmdbApiKey} onChange={(e) => setForm((f) => ({ ...f, clearTmdbApiKey: e.target.checked }))}>
-            Clear saved key
-          </CheckboxControl>
-        </>}
-
-        {section === 'plex' && <>
-          <SectionTabs
-            tabs={PLEX_PANELS}
-            activeId={plexPanel}
-            onChange={setPlexPanel}
-            ariaLabel="Plex settings sections"
-            idBase="plex-settings-sections"
-          />
-
-          <SectionTabPanel activeId={plexPanel} tabKey="setup" idBase="plex-settings-sections" className="min-w-0 space-y-4">
-            <div className="grid gap-3 md:grid-cols-2">
-              <LabeledField label="Plex API URL" cx={cx}>
-                <input className="input" placeholder="https://plex-host:32400" value={form.plexApiUrl} onChange={(e) => setForm((f) => ({ ...f, plexApiUrl: e.target.value }))} />
-              </LabeledField>
-              <LabeledField label="Library Section IDs" cx={cx}>
-                <input className="input font-mono" placeholder="1,2,5" value={form.plexLibrarySections} onChange={(e) => setForm((f) => ({ ...f, plexLibrarySections: e.target.value }))} />
-              </LabeledField>
-            </div>
-            <div className="text-xs text-ghost">
-              Import will use section IDs: <span className="font-mono text-dim">{plexSectionIds.length ? plexSectionIds.join(',') : '(none selected)'}</span>
-            </div>
-            {plexAvailableSections.length > 0 && (
-              <PlainSettingsSection title="Detected Plex libraries">
-                <div className="space-y-1.5">
-                  {plexAvailableSections.map((sec) => (
-                    <CheckboxControl key={sec.id} id={`plex-section-${sec.id}`} checked={plexSectionIds.includes(String(sec.id))} labelClassName="flex w-full" onChange={() => togglePlexSection(String(sec.id))}>
-                      <span className="font-medium text-ink">{sec.title || `Section ${sec.id}`}</span>
-                      <span className="text-ghost">({sec.type || 'unknown'})</span>
-                      <span className="ml-auto font-mono text-xs text-ghost">#{sec.id}</span>
-                    </CheckboxControl>
-                  ))}
-                </div>
-              </PlainSettingsSection>
+                  Clear saved key
+                </CheckboxControl>
+              </>
             )}
-            <PlainSettingsSection title="Credentials">
-              <LabeledField label={`Plex API Key ${meta.plexApiKeySet ? `(set: ${meta.plexApiKeyMasked})` : '(not set)'}`} cx={cx}>
-                <input className="input font-mono" type="password" placeholder="Enter new key to update" value={form.plexApiKey} onChange={(e) => setForm((f) => ({ ...f, plexApiKey: e.target.value }))} />
-              </LabeledField>
-              <CheckboxControl id="clear-plex-api-key" checked={form.clearPlexApiKey} onChange={(e) => setForm((f) => ({ ...f, clearPlexApiKey: e.target.checked }))}>
-                Clear saved key
-              </CheckboxControl>
-            </PlainSettingsSection>
-          </SectionTabPanel>
 
-          <SectionTabPanel activeId={plexPanel} tabKey="sync" idBase="plex-settings-sections" className="min-w-0 space-y-4">
-            {allowImports && (
-              <PlainSettingsSection
-                title="Initial import"
-                actions={(
-                  <button type="button" onClick={runPlexImport} disabled={importingPlex || plexSectionIds.length === 0} className="btn-primary btn-sm">
-                    {importingPlex ? <Spinner size={14} /> : 'Start import'}
-                  </button>
+            {section === 'logs' && (
+              <>
+                <InlineFeatureFlagState
+                  loading={featureFlagsLoading}
+                  error={featureFlagsError}
+                  readOnly={featureFlagsReadOnly}
+                  feature={sectionFeature}
+                />
+                {sectionFeature && (
+                  <IntegrationFeatureToggle
+                    feature={sectionFeature}
+                    disabled={featureFlagsReadOnly}
+                    saving={savingFeatureKey === sectionFeature.key}
+                    onToggle={toggleIntegrationFeature}
+                  />
                 )}
-              >
-                <div className="space-y-3">
-                  <div className="flex flex-wrap gap-2 text-xs">
-                    <span className="badge badge-dim">{plexImportPlan.count ? `${plexImportPlan.count} selected` : 'No libraries selected'}</span>
-                    {(plexImportPlan.mediaTypes.length ? plexImportPlan.mediaTypes : ['No media types']).map((type) => (
-                      <span key={type} className="badge badge-dim">{type}</span>
-                    ))}
-                  </div>
-                  {plexImportPlan.targetSections.length > 0 ? (
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      {plexImportPlan.targetSections.map((sec) => (
-                        <div key={sec.id} className="flex items-center gap-2 text-sm text-dim">
-                          <span className="min-w-0 flex-1 truncate text-ink">{sec.title}</span>
-                          <span className="font-mono text-xs text-ghost">#{sec.id}</span>
-                          <span className="text-xs text-ghost">{sec.mediaType}</span>
-                        </div>
-                      ))}
+                <div className="space-y-4">
+                  <div className="flex items-start justify-between gap-4 py-1">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-ink">Debug Mode</p>
+                      <p className="mt-1 text-sm text-dim">Write extra backend logs while you diagnose export behavior.</p>
                     </div>
-                  ) : (
-                    <p className="text-sm text-ghost">Select Plex libraries in Setup before starting an import.</p>
-                  )}
-                  {plexImportPlan.unmatchedIds.length > 0 && (
-                    <p className="text-xs text-ghost">
-                      Saved section IDs not currently detected: <span className="font-mono text-dim">{plexImportPlan.unmatchedIds.join(',')}</span>
-                    </p>
-                  )}
-                </div>
-              </PlainSettingsSection>
-            )}
-            <PlainSettingsSection title="Automatic sync">
-              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_10rem_10rem]">
-                <CheckboxControl
-                  id="plex-reconciliation-sync-enabled"
-                  checked={Boolean(form.plexReconciliationSyncEnabled)}
-                  onChange={(event) => setForm((f) => ({ ...f, plexReconciliationSyncEnabled: event.target.checked }))}
-                >
-                  Run scheduled Plex library sync
-                </CheckboxControl>
-                <LabeledField label="Every (min)" cx={cx}>
-                  <input
-                    className="input font-mono"
-                    inputMode="numeric"
-                    min="60"
-                    value={form.plexReconciliationSyncIntervalMinutes}
-                    onChange={(event) => setForm((f) => ({ ...f, plexReconciliationSyncIntervalMinutes: event.target.value.replace(/[^\d]/g, '').slice(0, 5) }))}
-                  />
-                </LabeledField>
-                <LabeledField label="Default Limit" cx={cx}>
-                  <input
-                    className="input font-mono"
-                    inputMode="numeric"
-                    placeholder="All"
-                    value={form.plexReconciliationSyncLimit}
-                    onChange={(event) => setForm((f) => ({ ...f, plexReconciliationSyncLimit: event.target.value.replace(/[^\d]/g, '').slice(0, 5) }))}
-                  />
-                </LabeledField>
-              </div>
-              {plexReconciliationScheduler?.runtime?.source && (
-                <p className="text-xs text-ghost">
-                  Source: <span className="font-mono text-dim">{plexReconciliationScheduler.runtime.source}</span>
-                </p>
-              )}
-            </PlainSettingsSection>
-            <PlainSettingsSection title="Explicit writeback">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <CheckboxControl
-                  id="plex-rating-writeback-enabled"
-                  checked={Boolean(form.plexRatingWritebackEnabled)}
-                  onChange={(event) => setForm((f) => ({ ...f, plexRatingWritebackEnabled: event.target.checked }))}
-                >
-                  Allow rating writeback to Plex
-                </CheckboxControl>
-                <CheckboxControl
-                  id="plex-watch-state-writeback-enabled"
-                  checked={Boolean(form.plexWatchStateWritebackEnabled)}
-                  onChange={(event) => setForm((f) => ({ ...f, plexWatchStateWritebackEnabled: event.target.checked }))}
-                >
-                  Allow watched-state writeback to Plex
-                </CheckboxControl>
-              </div>
-            </PlainSettingsSection>
-            <PlainSettingsSection
-              title="Plex readback refresh"
-              actions={(
-                <button type="button" onClick={runPlexReadbackRefresh} disabled={testLoading === 'plex-readback-refresh'} className="btn-secondary btn-sm">
-                  {testLoading === 'plex-readback-refresh' ? <Spinner size={14} /> : 'Refresh readback'}
-                </button>
-              )}
-            >
-              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_10rem_10rem]">
-                <CheckboxControl
-                  id="plex-readback-refresh-enabled"
-                  checked={Boolean(form.plexReadbackRefreshEnabled)}
-                  onChange={(event) => setForm((f) => ({ ...f, plexReadbackRefreshEnabled: event.target.checked }))}
-                >
-                  Run scheduled readback refresh
-                </CheckboxControl>
-                <LabeledField label="Every (min)" cx={cx}>
-                  <input
-                    className="input font-mono"
-                    inputMode="numeric"
-                    min="15"
-                    value={form.plexReadbackRefreshIntervalMinutes}
-                    onChange={(event) => setForm((f) => ({ ...f, plexReadbackRefreshIntervalMinutes: event.target.value.replace(/[^\d]/g, '').slice(0, 5) }))}
-                  />
-                </LabeledField>
-                <LabeledField label="Max items" cx={cx}>
-                  <input
-                    className="input font-mono"
-                    inputMode="numeric"
-                    min="1"
-                    value={form.plexReadbackRefreshMaxItems}
-                    onChange={(event) => setForm((f) => ({ ...f, plexReadbackRefreshMaxItems: event.target.value.replace(/[^\d]/g, '').slice(0, 3) }))}
-                  />
-                </LabeledField>
-              </div>
-              <div className="flex flex-wrap gap-2 text-xs text-ghost">
-                <span>
-                  Automatic: <span className="font-mono text-dim">
-                    {plexReadbackRefreshScheduler?.runtime?.enabled
-                      ? `on/${plexReadbackRefreshScheduler.runtime.intervalMinutes}m`
-                      : 'off'}
-                  </span>
-                </span>
-                {plexReadbackRefreshScheduler?.runtime?.source && (
-                  <span>Source: <span className="font-mono text-dim">{plexReadbackRefreshScheduler.runtime.source}</span></span>
-                )}
-                {plexReadbackRefreshScheduler?.state?.lastFinishedAt && (
-                  <span>Last auto: {new Date(plexReadbackRefreshScheduler.state.lastFinishedAt).toLocaleString()}</span>
-                )}
-                {plexReadbackRefreshScheduler?.state?.lastReadEntries ? (
-                  <span>Watched rows: {Number(plexReadbackRefreshScheduler.state.lastReadEntries || 0)}</span>
-                ) : null}
-                {plexReadbackRefreshScheduler?.state?.lastRatingReadEntries ? (
-                  <span>Rating rows: {Number(plexReadbackRefreshScheduler.state.lastRatingReadEntries || 0)}</span>
-                ) : null}
-                {plexReadbackRefreshResult ? (
-                  <span>
-                    Last manual: watched {Number(plexReadbackRefreshResult.mediaMetadataUpdated || 0) + Number(plexReadbackRefreshResult.seasonsCreated || 0) + Number(plexReadbackRefreshResult.seasonsUpdated || 0)}, ratings {Number(plexReadbackRefreshResult.ratingsUpdated || 0)}
-                  </span>
-                ) : null}
-              </div>
-            </PlainSettingsSection>
-            <PlainSettingsSection
-              title="Plex library sync"
-              detail="Manual and scheduled sync create safe missing rows, update strong matches, and leave ambiguous rows in conflict review. Plex writeback stays manual."
-              actions={(
-                <>
-                  <button type="button" onClick={runPlexReconciliationPreview} disabled={testLoading === 'plex-reconciliation-preview' || testLoading === 'plex-reconciliation-job' || testLoading === 'plex-reconciliation-sync'} className="btn-secondary btn-sm">
-                    {testLoading === 'plex-reconciliation-preview' ? <Spinner size={14} /> : 'Check now'}
-                  </button>
-                  <button type="button" onClick={runPlexReconciliationSyncJob} disabled={testLoading === 'plex-reconciliation-preview' || testLoading === 'plex-reconciliation-job' || testLoading === 'plex-reconciliation-sync'} className="btn-primary btn-sm">
-                    {testLoading === 'plex-reconciliation-sync' ? <Spinner size={14} /> : 'Sync Plex Library'}
-                  </button>
-                  <button type="button" onClick={runPlexReconciliationPreviewJob} disabled={testLoading === 'plex-reconciliation-preview' || testLoading === 'plex-reconciliation-job' || testLoading === 'plex-reconciliation-sync'} className="btn-secondary btn-sm">
-                    {testLoading === 'plex-reconciliation-job' ? <Spinner size={14} /> : 'Queue check'}
-                  </button>
-                </>
-              )}
-            >
-              <div className="grid gap-3 sm:grid-cols-[10rem_minmax(0,1fr)]">
-                <LabeledField label="Scan Limit" cx={cx}>
-                  <input
-                    className="input font-mono"
-                    inputMode="numeric"
-                    placeholder="All"
-                    value={plexReconciliationLimit}
-                    onChange={(event) => setPlexReconciliationLimit(event.target.value.replace(/[^\d]/g, '').slice(0, 5))}
-                  />
-                </LabeledField>
-                <div className="flex flex-wrap items-end gap-2 pb-1 text-xs text-ghost">
-                  <span>Sections: <span className="font-mono text-dim">{plexSectionIds.length ? plexSectionIds.join(',') : 'saved defaults'}</span></span>
-                  <span>
-                    Automatic: <span className="font-mono text-dim">
-                      {plexReconciliationScheduler?.runtime?.enabled
-                        ? `on/${plexReconciliationScheduler.runtime.intervalMinutes}m`
-                        : 'off'}
-                    </span>
-                  </span>
-                  {plexReconciliationScheduler?.state?.lastFinishedAt && (
-                    <span>Last auto: {new Date(plexReconciliationScheduler.state.lastFinishedAt).toLocaleString()}</span>
-                  )}
-                  {plexReconciliationJob?.id && <span>Job #{plexReconciliationJob.id}: {plexReconciliationJob.status}</span>}
-                </div>
-              </div>
-              <PlexReconciliationReadback result={plexReconciliationResult} />
-              <PlexConflictReviewQueue
-                reviews={plexConflictReviews}
-                totalCount={plexConflictReviewTotalCount}
-                matchFilters={plexConflictReviewMatchFilters}
-                loading={testLoading}
-                statusFilter={plexConflictStatusFilter}
-                matchFilter={plexConflictMatchFilter}
-                onStatusFilterChange={(next) => {
-                  setPlexConflictStatusFilter(next);
-                  setPlexConflictMatchFilter('all');
-                }}
-                onMatchFilterChange={setPlexConflictMatchFilter}
-                onResolve={resolvePlexConflictReview}
-              />
-            </PlainSettingsSection>
-          </SectionTabPanel>
-
-          <SectionTabPanel activeId={plexPanel} tabKey="webhook" idBase="plex-settings-sections" className="min-w-0 space-y-4">
-            <PlainSettingsSection
-              title="Webhook receiver"
-              detail={plexWebhookReceiver.enabled
-                ? `Enabled${plexWebhookReceiver.lastReceivedAt ? ` · last received ${new Date(plexWebhookReceiver.lastReceivedAt).toLocaleString()}` : ''}`
-                : 'No active receiver URL'}
-              actions={(
-                <>
-                  <button type="button" onClick={generatePlexWebhookReceiverToken} disabled={testLoading === 'plex-webhook-receiver-token'} className="btn-secondary btn-sm">
-                    {testLoading === 'plex-webhook-receiver-token' ? <Spinner size={14} /> : (plexWebhookReceiver.enabled ? 'Regenerate' : 'Generate')}
-                  </button>
-                  {plexWebhookReceiver.enabled && (
-                    <button type="button" onClick={revokePlexWebhookReceiverToken} disabled={testLoading === 'plex-webhook-receiver-token'} className="btn-secondary btn-sm">
-                      Revoke
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={form.logExportDebug ? true : false}
+                      aria-label={`${form.logExportDebug ? 'Disable' : 'Enable'} debug mode`}
+                      disabled={Boolean(logExportControl?.readOnly)}
+                      onClick={() => setForm((f) => ({ ...f, logExportDebug: !f.logExportDebug }))}
+                      className={[
+                        'relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-colors duration-150',
+                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/30 focus-visible:ring-offset-2 focus-visible:ring-offset-surface',
+                        form.logExportDebug ? 'border-gold/30 bg-gold/15' : 'border-edge bg-raised/80',
+                        logExportControl?.readOnly ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:border-muted'
+                      ].join(' ')}
+                    >
+                      <span
+                        className={[
+                          'inline-block h-5 w-5 rounded-full shadow-sm transition-transform duration-150',
+                          form.logExportDebug ? 'translate-x-6 bg-gold' : 'translate-x-1 bg-dim'
+                        ].join(' ')}
+                      />
                     </button>
+                  </div>
+                  <div className="border-t border-edge pt-4 space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-medium text-ink">Settings</p>
+                      <p className="text-sm text-dim">{logControlSourceLabel}</p>
+                    </div>
+                    {logExportControl?.readOnly && (
+                      <p className="text-sm text-warn">
+                        External log endpoint settings are read-only in this environment (`LOG_EXPORT_SETTINGS_READ_ONLY=true`).
+                      </p>
+                    )}
+                    <div className="grid gap-3 md:grid-cols-3">
+                      <LabeledField label="Backend / Transport" cx={cx}>
+                        <select
+                          className="select"
+                          name="log_export_backend"
+                          autoComplete="off"
+                          value={form.logExportBackend}
+                          disabled={Boolean(logExportControl?.readOnly)}
+                          onChange={(e) => setForm((f) => ({ ...f, logExportBackend: e.target.value }))}
+                        >
+                          {LOG_EXPORT_BACKEND_OPTIONS.map((option) => (
+                            <option key={option.value || 'runtime-default'} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </LabeledField>
+                      <LabeledField label="Collector Host" cx={cx}>
+                        <input
+                          className="input font-mono"
+                          name="log_export_host"
+                          autoComplete="off"
+                          spellCheck={false}
+                          placeholder="graylog"
+                          value={form.logExportHost}
+                          disabled={Boolean(logExportControl?.readOnly) || !form.logExportBackend}
+                          onChange={(e) => setForm((f) => ({ ...f, logExportHost: e.target.value }))}
+                        />
+                      </LabeledField>
+                      <LabeledField label="Collector Port" cx={cx}>
+                        <input
+                          className="input font-mono"
+                          name="log_export_port"
+                          autoComplete="off"
+                          inputMode="numeric"
+                          placeholder="12201"
+                          value={form.logExportPort}
+                          disabled={Boolean(logExportControl?.readOnly) || !form.logExportBackend}
+                          onChange={(e) => setForm((f) => ({ ...f, logExportPort: e.target.value.replace(/[^\d]/g, '') }))}
+                        />
+                      </LabeledField>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <LabeledField label="Service Label" cx={cx}>
+                        <input
+                          className="input font-mono"
+                          name="log_export_service"
+                          autoComplete="off"
+                          spellCheck={false}
+                          placeholder="backend"
+                          value={form.logExportService}
+                          disabled={Boolean(logExportControl?.readOnly)}
+                          onChange={(e) => setForm((f) => ({ ...f, logExportService: e.target.value }))}
+                        />
+                      </LabeledField>
+                      <LabeledField label="Host Label" cx={cx}>
+                        <input
+                          className="input font-mono"
+                          name="log_export_host_label"
+                          autoComplete="off"
+                          spellCheck={false}
+                          placeholder="collectz-backend"
+                          value={form.logExportHostLabel}
+                          disabled={Boolean(logExportControl?.readOnly)}
+                          onChange={(e) => setForm((f) => ({ ...f, logExportHostLabel: e.target.value }))}
+                        />
+                      </LabeledField>
+                    </div>
+                  </div>
+                  <div className="border-t border-edge pt-4">
+                    <DisclosureSection title="Last Validation" summary={logValidationSummary}>
+                      {logLastValidation ? (
+                        <>
+                          <RuntimeKeyValueList
+                            rows={[
+                              {
+                                label: 'Status',
+                                value:
+                                  logLastValidation.status === 'passed'
+                                    ? 'Passed'
+                                    : logLastValidation.status === 'warning'
+                                      ? 'Warning'
+                                      : 'Failed'
+                              },
+                              {
+                                label: 'Validated endpoint',
+                                value: `${logLastValidation.backend || 'off'} @ ${logLastValidation.host || 'n/a'}:${logLastValidation.port || 'n/a'}`,
+                                mono: true
+                              },
+                              {
+                                label: 'Validated at',
+                                value: logLastValidation.validatedAt ? new Date(logLastValidation.validatedAt).toLocaleString() : 'Unknown'
+                              }
+                            ]}
+                          />
+                          <p className="text-sm text-dim">{logLastValidation.detail}</p>
+                        </>
+                      ) : (
+                        <p className="text-sm text-dim">No validation has been recorded yet for this external log endpoint.</p>
+                      )}
+                    </DisclosureSection>
+                  </div>
+                  {logsRuntime && (
+                    <div className="border-t border-edge pt-4">
+                      <DisclosureSection title="Runtime Checks" summary={logsRuntimeSummary}>
+                        <RuntimeKeyValueList
+                          rows={[
+                            {
+                              label: 'State',
+                              value:
+                                logsRuntime.effectiveState === 'ready'
+                                  ? 'Ready'
+                                  : logsRuntime.effectiveState === 'attention'
+                                    ? 'Needs attention'
+                                    : 'Disabled'
+                            },
+                            {
+                              label: 'Config source',
+                              value:
+                                logsRuntime.configSource === 'stored'
+                                  ? 'Saved in Platform'
+                                  : logsRuntime.configSource === 'env_override'
+                                    ? 'Locked by runtime env'
+                                    : 'Using runtime env defaults'
+                            },
+                            { label: 'Backend', value: logsRuntime.backend, mono: true },
+                            { label: 'Collector', value: `${logsRuntime.host}:${logsRuntime.port}`, mono: true },
+                            { label: 'Service', value: logsRuntime.service, mono: true },
+                            { label: 'Host label', value: logsRuntime.hostLabel, mono: true },
+                            { label: 'Debug mode', value: logsRuntime.debugEnabled ? 'On' : 'Off' }
+                          ]}
+                        />
+                        {(logsRuntime.checks || []).length > 0 ? (
+                          <ul className="divide-y divide-edge/60 rounded-md border border-edge/60 px-4">
+                            {(logsRuntime.checks || []).map((check) => (
+                              <RuntimeCheckRow key={`${check.level}-${check.title}`} check={check} />
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="text-sm text-dim">No active runtime warnings right now.</p>
+                        )}
+                      </DisclosureSection>
+                    </div>
                   )}
-                  <button type="button" onClick={validatePlexWebhookReceiver} disabled={testLoading === 'plex-webhook-receiver-validate'} className="btn-secondary btn-sm">
-                    {testLoading === 'plex-webhook-receiver-validate' ? <Spinner size={14} /> : 'Check setup'}
-                  </button>
-                </>
-              )}
-            >
-              <div className="grid gap-2 text-xs text-ghost sm:grid-cols-2">
-                <span>Mode: {plexWebhookReceiver.processingMode === 'contract_only' ? 'Contract only' : (plexWebhookReceiver.processingMode || 'Read-only')}</span>
-                <span>Last event: {plexWebhookReceiver.lastEvent || 'None yet'}</span>
-                <span>Last delivery: {plexWebhookReceiver.delivery?.status || 'None yet'}</span>
-                <span>Delivery time: {plexWebhookReceiver.delivery?.lastAttemptAt ? new Date(plexWebhookReceiver.delivery.lastAttemptAt).toLocaleString() : 'Never'}</span>
-                <span>Validation: {plexWebhookReceiver.validation?.status || 'Not checked'}</span>
-                <span>Checked: {plexWebhookReceiver.validation?.validatedAt ? new Date(plexWebhookReceiver.validation.validatedAt).toLocaleString() : 'Never'}</span>
-                {plexWebhookReceiver.enabled && (
-                  <>
-                    <span>Token fingerprint: {plexWebhookReceiver.tokenFingerprint || 'Unavailable'}</span>
-                    <span>Rotated: {plexWebhookReceiver.lastRotatedAt ? new Date(plexWebhookReceiver.lastRotatedAt).toLocaleString() : 'Never'}</span>
-                  </>
-                )}
-              </div>
-              {plexWebhookReceiverLink ? (
-                <input className="input font-mono text-xs" readOnly value={plexWebhookReceiverLink} onFocus={(event) => event.target.select()} />
-              ) : plexWebhookReceiver.enabled && (plexWebhookReceiver.receiverUrlMasked || plexWebhookReceiver.receiverPathMasked) ? (
-                <input className="input font-mono text-xs" readOnly value={plexWebhookReceiver.receiverUrlMasked || plexWebhookReceiver.receiverPathMasked} onFocus={(event) => event.target.select()} />
-              ) : (
-                <input className="input font-mono text-xs" readOnly value={plexWebhookReceiver.receiverUrlTemplate || plexWebhookReceiver.receiverPath || '/api/plex/webhooks/[token]'} onFocus={(event) => event.target.select()} />
-              )}
-              <p className="text-xs text-ghost">
-                {plexWebhookReceiver.enabled && !plexWebhookReceiverLink
-                  ? 'Existing receiver shown with a masked token. Regenerate if Plex needs the full URL again.'
-                  : 'Accepts Plex multipart webhooks for newly added media, watched state, and ratings. Actionable events are queued and verified against Plex before CollectZ applies them.'}
-              </p>
-              {plexWebhookReceiver.delivery?.status === 'rejected' && plexWebhookReceiver.delivery?.detail && (
-                <p className="text-xs text-danger">Last delivery rejected: {plexWebhookReceiver.delivery.detail}</p>
-              )}
-            </PlainSettingsSection>
-          </SectionTabPanel>
+                </div>
+              </>
+            )}
 
-          <SectionTabPanel activeId={plexPanel} tabKey="advanced" idBase="plex-settings-sections" className="min-w-0 space-y-4">
-            {plexProviders.length > 0 && (
-              <PlainSettingsSection title="Detected Plex providers">
-                <div className="divide-y divide-edge/60 border-y border-edge/60">
-                  {plexProviders.map((provider) => (
-                    <div key={`${provider.key || provider.title}-${provider.type || 'provider'}`} className="py-2">
-                      <div className="flex flex-wrap items-center gap-2 text-sm">
-                        <span className="font-medium text-ink">{provider.title || provider.key || 'Plex provider'}</span>
-                        {provider.type && <span className="text-xs text-ghost">{provider.type}</span>}
-                        {provider.protocol && <span className="text-xs text-ghost">{provider.protocol}</span>}
+            {section === 'metrics' && (
+              <>
+                <InlineFeatureFlagState
+                  loading={featureFlagsLoading}
+                  error={featureFlagsError}
+                  readOnly={featureFlagsReadOnly}
+                  feature={sectionFeature}
+                />
+                {sectionFeature && (
+                  <IntegrationFeatureToggle
+                    feature={sectionFeature}
+                    disabled={featureFlagsReadOnly}
+                    saving={savingFeatureKey === sectionFeature.key}
+                    onToggle={toggleIntegrationFeature}
+                  />
+                )}
+                <div className="border-t border-edge pt-4 space-y-2">
+                  <p className="text-sm font-medium text-ink">Available settings</p>
+                  <ul className="space-y-2 text-sm text-dim">
+                    <li>Enable or disable admin-facing Prometheus-style metrics export here.</li>
+                    <li>
+                      Metrics still require `DEBUG&gt;=1` at runtime, and `METRICS_SCRAPE_TOKEN` remains the optional infrastructure
+                      credential for trusted scrapers.
+                    </li>
+                    <li>
+                      This page now owns whether metrics export is active. Environment feature-flag overrides no longer supersede this
+                      setting.
+                    </li>
+                  </ul>
+                </div>
+                {metricsRuntime && (
+                  <div className="border-t border-edge pt-4 space-y-3">
+                    <div>
+                      <h3 className="text-sm font-medium text-ink">Runtime checks</h3>
+                      <p className="mt-1 text-sm text-ghost">This reads from the running backend container, not just saved settings.</p>
+                    </div>
+                    <RuntimeKeyValueList
+                      rows={[
+                        {
+                          label: 'State',
+                          value:
+                            metricsRuntime.effectiveState === 'ready'
+                              ? 'Ready'
+                              : metricsRuntime.effectiveState === 'attention'
+                                ? 'Needs attention'
+                                : 'Disabled'
+                        },
+                        { label: 'Endpoint', value: metricsRuntime.endpointPath, mono: true },
+                        { label: 'DEBUG level', value: String(metricsRuntime.debugLevel), mono: true },
+                        { label: 'Scrape token', value: metricsRuntime.scrapeTokenConfigured ? 'Configured' : 'Not configured' },
+                        { label: 'Trust proxy', value: String(metricsRuntime.trustProxy ?? 'unknown'), mono: true }
+                      ]}
+                    />
+                    <ul className="divide-y divide-edge/60 rounded-md border border-edge/60 px-4">
+                      {(metricsRuntime.checks || []).map((check) => (
+                        <RuntimeCheckRow key={`${check.level}-${check.title}`} check={check} />
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </>
+            )}
+
+            {section === 'tmdb' && (
+              <>
+                <LabeledField label="API URL" cx={cx}>
+                  <input
+                    className="input"
+                    value={form.tmdbApiUrl}
+                    onChange={(e) => setForm((f) => ({ ...f, tmdbApiUrl: e.target.value }))}
+                  />
+                </LabeledField>
+                <LabeledField label={`API Key ${meta.tmdbApiKeySet ? `(set: ${meta.tmdbApiKeyMasked})` : '(not set)'}`} cx={cx}>
+                  <input
+                    className="input font-mono"
+                    type="password"
+                    placeholder="Enter new key to update"
+                    value={form.tmdbApiKey}
+                    onChange={(e) => setForm((f) => ({ ...f, tmdbApiKey: e.target.value }))}
+                  />
+                </LabeledField>
+                <CheckboxControl
+                  id="clear-tmdb-api-key"
+                  checked={form.clearTmdbApiKey}
+                  onChange={(e) => setForm((f) => ({ ...f, clearTmdbApiKey: e.target.checked }))}
+                >
+                  Clear saved key
+                </CheckboxControl>
+              </>
+            )}
+
+            {section === 'plex' && (
+              <>
+                <SectionTabs
+                  tabs={PLEX_PANELS}
+                  activeId={plexPanel}
+                  onChange={setPlexPanel}
+                  ariaLabel="Plex settings sections"
+                  idBase="plex-settings-sections"
+                />
+
+                <SectionTabPanel activeId={plexPanel} tabKey="setup" idBase="plex-settings-sections" className="min-w-0 space-y-4">
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <LabeledField label="Plex API URL" cx={cx}>
+                      <input
+                        className="input"
+                        placeholder="https://plex-host:32400"
+                        value={form.plexApiUrl}
+                        onChange={(e) => setForm((f) => ({ ...f, plexApiUrl: e.target.value }))}
+                      />
+                    </LabeledField>
+                    <LabeledField label="Library Section IDs" cx={cx}>
+                      <input
+                        className="input font-mono"
+                        placeholder="1,2,5"
+                        value={form.plexLibrarySections}
+                        onChange={(e) => setForm((f) => ({ ...f, plexLibrarySections: e.target.value }))}
+                      />
+                    </LabeledField>
+                  </div>
+                  <div className="text-xs text-ghost">
+                    Import will use section IDs:{' '}
+                    <span className="font-mono text-dim">{plexSectionIds.length ? plexSectionIds.join(',') : '(none selected)'}</span>
+                  </div>
+                  {plexAvailableSections.length > 0 && (
+                    <PlainSettingsSection title="Detected Plex libraries">
+                      <div className="space-y-1.5">
+                        {plexAvailableSections.map((sec) => (
+                          <CheckboxControl
+                            key={sec.id}
+                            id={`plex-section-${sec.id}`}
+                            checked={plexSectionIds.includes(String(sec.id))}
+                            labelClassName="flex w-full"
+                            onChange={() => togglePlexSection(String(sec.id))}
+                          >
+                            <span className="font-medium text-ink">{sec.title || `Section ${sec.id}`}</span>
+                            <span className="text-ghost">({sec.type || 'unknown'})</span>
+                            <span className="ml-auto font-mono text-xs text-ghost">#{sec.id}</span>
+                          </CheckboxControl>
+                        ))}
                       </div>
-                      <div className="mt-1 font-mono text-xs text-ghost">{provider.key || provider.identifier || 'no key'}</div>
-                      {Array.isArray(provider.featureKeys) && provider.featureKeys.length > 0 && (
-                        <div className="mt-2 flex flex-wrap gap-1">
-                          {provider.featureKeys.map((feature) => (
-                            <span key={feature} className="rounded border border-edge/70 px-1.5 py-0.5 text-[11px] text-dim">{feature}</span>
+                    </PlainSettingsSection>
+                  )}
+                  <PlainSettingsSection title="Credentials">
+                    <LabeledField label={`Plex API Key ${meta.plexApiKeySet ? `(set: ${meta.plexApiKeyMasked})` : '(not set)'}`} cx={cx}>
+                      <input
+                        className="input font-mono"
+                        type="password"
+                        placeholder="Enter new key to update"
+                        value={form.plexApiKey}
+                        onChange={(e) => setForm((f) => ({ ...f, plexApiKey: e.target.value }))}
+                      />
+                    </LabeledField>
+                    <CheckboxControl
+                      id="clear-plex-api-key"
+                      checked={form.clearPlexApiKey}
+                      onChange={(e) => setForm((f) => ({ ...f, clearPlexApiKey: e.target.checked }))}
+                    >
+                      Clear saved key
+                    </CheckboxControl>
+                  </PlainSettingsSection>
+                </SectionTabPanel>
+
+                <SectionTabPanel activeId={plexPanel} tabKey="sync" idBase="plex-settings-sections" className="min-w-0 space-y-4">
+                  {allowImports && (
+                    <PlainSettingsSection
+                      title="Initial import"
+                      actions={
+                        <button
+                          type="button"
+                          onClick={runPlexImport}
+                          disabled={importingPlex || plexSectionIds.length === 0}
+                          className="btn-primary btn-sm"
+                        >
+                          {importingPlex ? <Spinner size={14} /> : 'Start import'}
+                        </button>
+                      }
+                    >
+                      <div className="space-y-3">
+                        <div className="flex flex-wrap gap-2 text-xs">
+                          <span className="badge badge-dim">
+                            {plexImportPlan.count ? `${plexImportPlan.count} selected` : 'No libraries selected'}
+                          </span>
+                          {(plexImportPlan.mediaTypes.length ? plexImportPlan.mediaTypes : ['No media types']).map((type) => (
+                            <span key={type} className="badge badge-dim">
+                              {type}
+                            </span>
                           ))}
                         </div>
+                        {plexImportPlan.targetSections.length > 0 ? (
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            {plexImportPlan.targetSections.map((sec) => (
+                              <div key={sec.id} className="flex items-center gap-2 text-sm text-dim">
+                                <span className="min-w-0 flex-1 truncate text-ink">{sec.title}</span>
+                                <span className="font-mono text-xs text-ghost">#{sec.id}</span>
+                                <span className="text-xs text-ghost">{sec.mediaType}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-ghost">Select Plex libraries in Setup before starting an import.</p>
+                        )}
+                        {plexImportPlan.unmatchedIds.length > 0 && (
+                          <p className="text-xs text-ghost">
+                            Saved section IDs not currently detected:{' '}
+                            <span className="font-mono text-dim">{plexImportPlan.unmatchedIds.join(',')}</span>
+                          </p>
+                        )}
+                      </div>
+                    </PlainSettingsSection>
+                  )}
+                  <PlainSettingsSection title="Automatic sync">
+                    <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_10rem_10rem]">
+                      <CheckboxControl
+                        id="plex-reconciliation-sync-enabled"
+                        checked={Boolean(form.plexReconciliationSyncEnabled)}
+                        onChange={(event) => setForm((f) => ({ ...f, plexReconciliationSyncEnabled: event.target.checked }))}
+                      >
+                        Run scheduled Plex library sync
+                      </CheckboxControl>
+                      <LabeledField label="Every (min)" cx={cx}>
+                        <input
+                          className="input font-mono"
+                          inputMode="numeric"
+                          min="60"
+                          value={form.plexReconciliationSyncIntervalMinutes}
+                          onChange={(event) =>
+                            setForm((f) => ({
+                              ...f,
+                              plexReconciliationSyncIntervalMinutes: event.target.value.replace(/[^\d]/g, '').slice(0, 5)
+                            }))
+                          }
+                        />
+                      </LabeledField>
+                      <LabeledField label="Default Limit" cx={cx}>
+                        <input
+                          className="input font-mono"
+                          inputMode="numeric"
+                          placeholder="All"
+                          value={form.plexReconciliationSyncLimit}
+                          onChange={(event) =>
+                            setForm((f) => ({ ...f, plexReconciliationSyncLimit: event.target.value.replace(/[^\d]/g, '').slice(0, 5) }))
+                          }
+                        />
+                      </LabeledField>
+                    </div>
+                    {plexReconciliationScheduler?.runtime?.source && (
+                      <p className="text-xs text-ghost">
+                        Source: <span className="font-mono text-dim">{plexReconciliationScheduler.runtime.source}</span>
+                      </p>
+                    )}
+                  </PlainSettingsSection>
+                  <PlainSettingsSection title="Explicit writeback">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <CheckboxControl
+                        id="plex-rating-writeback-enabled"
+                        checked={Boolean(form.plexRatingWritebackEnabled)}
+                        onChange={(event) => setForm((f) => ({ ...f, plexRatingWritebackEnabled: event.target.checked }))}
+                      >
+                        Allow rating writeback to Plex
+                      </CheckboxControl>
+                      <CheckboxControl
+                        id="plex-watch-state-writeback-enabled"
+                        checked={Boolean(form.plexWatchStateWritebackEnabled)}
+                        onChange={(event) => setForm((f) => ({ ...f, plexWatchStateWritebackEnabled: event.target.checked }))}
+                      >
+                        Allow watched-state writeback to Plex
+                      </CheckboxControl>
+                    </div>
+                  </PlainSettingsSection>
+                  <PlainSettingsSection
+                    title="Plex readback refresh"
+                    actions={
+                      <button
+                        type="button"
+                        onClick={runPlexReadbackRefresh}
+                        disabled={testLoading === 'plex-readback-refresh'}
+                        className="btn-secondary btn-sm"
+                      >
+                        {testLoading === 'plex-readback-refresh' ? <Spinner size={14} /> : 'Refresh readback'}
+                      </button>
+                    }
+                  >
+                    <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_10rem_10rem]">
+                      <CheckboxControl
+                        id="plex-readback-refresh-enabled"
+                        checked={Boolean(form.plexReadbackRefreshEnabled)}
+                        onChange={(event) => setForm((f) => ({ ...f, plexReadbackRefreshEnabled: event.target.checked }))}
+                      >
+                        Run scheduled readback refresh
+                      </CheckboxControl>
+                      <LabeledField label="Every (min)" cx={cx}>
+                        <input
+                          className="input font-mono"
+                          inputMode="numeric"
+                          min="15"
+                          value={form.plexReadbackRefreshIntervalMinutes}
+                          onChange={(event) =>
+                            setForm((f) => ({
+                              ...f,
+                              plexReadbackRefreshIntervalMinutes: event.target.value.replace(/[^\d]/g, '').slice(0, 5)
+                            }))
+                          }
+                        />
+                      </LabeledField>
+                      <LabeledField label="Max items" cx={cx}>
+                        <input
+                          className="input font-mono"
+                          inputMode="numeric"
+                          min="1"
+                          value={form.plexReadbackRefreshMaxItems}
+                          onChange={(event) =>
+                            setForm((f) => ({ ...f, plexReadbackRefreshMaxItems: event.target.value.replace(/[^\d]/g, '').slice(0, 3) }))
+                          }
+                        />
+                      </LabeledField>
+                    </div>
+                    <div className="flex flex-wrap gap-2 text-xs text-ghost">
+                      <span>
+                        Automatic:{' '}
+                        <span className="font-mono text-dim">
+                          {plexReadbackRefreshScheduler?.runtime?.enabled
+                            ? `on/${plexReadbackRefreshScheduler.runtime.intervalMinutes}m`
+                            : 'off'}
+                        </span>
+                      </span>
+                      {plexReadbackRefreshScheduler?.runtime?.source && (
+                        <span>
+                          Source: <span className="font-mono text-dim">{plexReadbackRefreshScheduler.runtime.source}</span>
+                        </span>
+                      )}
+                      {plexReadbackRefreshScheduler?.state?.lastFinishedAt && (
+                        <span>Last auto: {new Date(plexReadbackRefreshScheduler.state.lastFinishedAt).toLocaleString()}</span>
+                      )}
+                      {plexReadbackRefreshScheduler?.state?.lastReadEntries ? (
+                        <span>Watched rows: {Number(plexReadbackRefreshScheduler.state.lastReadEntries || 0)}</span>
+                      ) : null}
+                      {plexReadbackRefreshScheduler?.state?.lastRatingReadEntries ? (
+                        <span>Rating rows: {Number(plexReadbackRefreshScheduler.state.lastRatingReadEntries || 0)}</span>
+                      ) : null}
+                      {plexReadbackRefreshResult ? (
+                        <span>
+                          Last manual: watched{' '}
+                          {Number(plexReadbackRefreshResult.mediaMetadataUpdated || 0) +
+                            Number(plexReadbackRefreshResult.seasonsCreated || 0) +
+                            Number(plexReadbackRefreshResult.seasonsUpdated || 0)}
+                          , ratings {Number(plexReadbackRefreshResult.ratingsUpdated || 0)}
+                        </span>
+                      ) : null}
+                    </div>
+                  </PlainSettingsSection>
+                  <PlainSettingsSection
+                    title="Plex library sync"
+                    detail="Manual and scheduled sync create safe missing rows, update strong matches, and leave ambiguous rows in conflict review. Plex writeback stays manual."
+                    actions={
+                      <>
+                        <button
+                          type="button"
+                          onClick={runPlexReconciliationPreview}
+                          disabled={
+                            testLoading === 'plex-reconciliation-preview' ||
+                            testLoading === 'plex-reconciliation-job' ||
+                            testLoading === 'plex-reconciliation-sync'
+                          }
+                          className="btn-secondary btn-sm"
+                        >
+                          {testLoading === 'plex-reconciliation-preview' ? <Spinner size={14} /> : 'Check now'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={runPlexReconciliationSyncJob}
+                          disabled={
+                            testLoading === 'plex-reconciliation-preview' ||
+                            testLoading === 'plex-reconciliation-job' ||
+                            testLoading === 'plex-reconciliation-sync'
+                          }
+                          className="btn-primary btn-sm"
+                        >
+                          {testLoading === 'plex-reconciliation-sync' ? <Spinner size={14} /> : 'Sync Plex Library'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={runPlexReconciliationPreviewJob}
+                          disabled={
+                            testLoading === 'plex-reconciliation-preview' ||
+                            testLoading === 'plex-reconciliation-job' ||
+                            testLoading === 'plex-reconciliation-sync'
+                          }
+                          className="btn-secondary btn-sm"
+                        >
+                          {testLoading === 'plex-reconciliation-job' ? <Spinner size={14} /> : 'Queue check'}
+                        </button>
+                      </>
+                    }
+                  >
+                    <div className="grid gap-3 sm:grid-cols-[10rem_minmax(0,1fr)]">
+                      <LabeledField label="Scan Limit" cx={cx}>
+                        <input
+                          className="input font-mono"
+                          inputMode="numeric"
+                          placeholder="All"
+                          value={plexReconciliationLimit}
+                          onChange={(event) => setPlexReconciliationLimit(event.target.value.replace(/[^\d]/g, '').slice(0, 5))}
+                        />
+                      </LabeledField>
+                      <div className="flex flex-wrap items-end gap-2 pb-1 text-xs text-ghost">
+                        <span>
+                          Sections:{' '}
+                          <span className="font-mono text-dim">{plexSectionIds.length ? plexSectionIds.join(',') : 'saved defaults'}</span>
+                        </span>
+                        <span>
+                          Automatic:{' '}
+                          <span className="font-mono text-dim">
+                            {plexReconciliationScheduler?.runtime?.enabled
+                              ? `on/${plexReconciliationScheduler.runtime.intervalMinutes}m`
+                              : 'off'}
+                          </span>
+                        </span>
+                        {plexReconciliationScheduler?.state?.lastFinishedAt && (
+                          <span>Last auto: {new Date(plexReconciliationScheduler.state.lastFinishedAt).toLocaleString()}</span>
+                        )}
+                        {plexReconciliationJob?.id && (
+                          <span>
+                            Job #{plexReconciliationJob.id}: {plexReconciliationJob.status}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <PlexReconciliationReadback result={plexReconciliationResult} />
+                    <PlexConflictReviewQueue
+                      reviews={plexConflictReviews}
+                      totalCount={plexConflictReviewTotalCount}
+                      matchFilters={plexConflictReviewMatchFilters}
+                      loading={testLoading}
+                      statusFilter={plexConflictStatusFilter}
+                      matchFilter={plexConflictMatchFilter}
+                      onStatusFilterChange={(next) => {
+                        setPlexConflictStatusFilter(next);
+                        setPlexConflictMatchFilter('all');
+                      }}
+                      onMatchFilterChange={setPlexConflictMatchFilter}
+                      onResolve={resolvePlexConflictReview}
+                    />
+                  </PlainSettingsSection>
+                </SectionTabPanel>
+
+                <SectionTabPanel activeId={plexPanel} tabKey="webhook" idBase="plex-settings-sections" className="min-w-0 space-y-4">
+                  <PlainSettingsSection
+                    title="Webhook receiver"
+                    detail={
+                      plexWebhookReceiver.enabled
+                        ? `Enabled${plexWebhookReceiver.lastReceivedAt ? ` · last received ${new Date(plexWebhookReceiver.lastReceivedAt).toLocaleString()}` : ''}`
+                        : 'No active receiver URL'
+                    }
+                    actions={
+                      <>
+                        <button
+                          type="button"
+                          onClick={generatePlexWebhookReceiverToken}
+                          disabled={testLoading === 'plex-webhook-receiver-token'}
+                          className="btn-secondary btn-sm"
+                        >
+                          {testLoading === 'plex-webhook-receiver-token' ? (
+                            <Spinner size={14} />
+                          ) : plexWebhookReceiver.enabled ? (
+                            'Regenerate'
+                          ) : (
+                            'Generate'
+                          )}
+                        </button>
+                        {plexWebhookReceiver.enabled && (
+                          <button
+                            type="button"
+                            onClick={revokePlexWebhookReceiverToken}
+                            disabled={testLoading === 'plex-webhook-receiver-token'}
+                            className="btn-secondary btn-sm"
+                          >
+                            Revoke
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={validatePlexWebhookReceiver}
+                          disabled={testLoading === 'plex-webhook-receiver-validate'}
+                          className="btn-secondary btn-sm"
+                        >
+                          {testLoading === 'plex-webhook-receiver-validate' ? <Spinner size={14} /> : 'Check setup'}
+                        </button>
+                      </>
+                    }
+                  >
+                    <div className="grid gap-2 text-xs text-ghost sm:grid-cols-2">
+                      <span>
+                        Mode:{' '}
+                        {plexWebhookReceiver.processingMode === 'contract_only'
+                          ? 'Contract only'
+                          : plexWebhookReceiver.processingMode || 'Read-only'}
+                      </span>
+                      <span>Last event: {plexWebhookReceiver.lastEvent || 'None yet'}</span>
+                      <span>Last delivery: {plexWebhookReceiver.delivery?.status || 'None yet'}</span>
+                      <span>
+                        Delivery time:{' '}
+                        {plexWebhookReceiver.delivery?.lastAttemptAt
+                          ? new Date(plexWebhookReceiver.delivery.lastAttemptAt).toLocaleString()
+                          : 'Never'}
+                      </span>
+                      <span>Validation: {plexWebhookReceiver.validation?.status || 'Not checked'}</span>
+                      <span>
+                        Checked:{' '}
+                        {plexWebhookReceiver.validation?.validatedAt
+                          ? new Date(plexWebhookReceiver.validation.validatedAt).toLocaleString()
+                          : 'Never'}
+                      </span>
+                      {plexWebhookReceiver.enabled && (
+                        <>
+                          <span>Token fingerprint: {plexWebhookReceiver.tokenFingerprint || 'Unavailable'}</span>
+                          <span>
+                            Rotated:{' '}
+                            {plexWebhookReceiver.lastRotatedAt ? new Date(plexWebhookReceiver.lastRotatedAt).toLocaleString() : 'Never'}
+                          </span>
+                        </>
                       )}
                     </div>
-                  ))}
-                </div>
-              </PlainSettingsSection>
-            )}
-            {plexNowPlayingChecked && (
-              <PlainSettingsSection title="Active Plex sessions">
-                {plexNowPlayingSessions.length === 0 ? (
-                  <p className="text-sm text-dim">No active Plex sessions.</p>
-                ) : (
-                  <div className="divide-y divide-edge/60 border-y border-edge/60">
-                    {plexNowPlayingSessions.map((session) => {
-                      const key = session.sessionKey || session.ratingKey || `${session.title}-${session.player?.title || 'player'}`;
-                      const progress = Number.isFinite(Number(session.progressPercent)) ? Number(session.progressPercent) : null;
-                      const playerBits = [
-                        session.player?.state,
-                        session.player?.platform,
-                        session.player?.title
-                      ].filter(Boolean);
-                      return (
-                        <div key={key} className="py-2">
-                          <div className="flex flex-wrap items-center gap-2 text-sm">
-                            <span className="font-medium text-ink">{session.title || 'Unknown title'}</span>
-                            {session.type && <span className="text-xs text-ghost">{session.type}</span>}
-                            {progress !== null && <span className="text-xs text-ghost">{progress}%</span>}
+                    {plexWebhookReceiverLink ? (
+                      <input
+                        className="input font-mono text-xs"
+                        readOnly
+                        value={plexWebhookReceiverLink}
+                        onFocus={(event) => event.target.select()}
+                      />
+                    ) : plexWebhookReceiver.enabled && (plexWebhookReceiver.receiverUrlMasked || plexWebhookReceiver.receiverPathMasked) ? (
+                      <input
+                        className="input font-mono text-xs"
+                        readOnly
+                        value={plexWebhookReceiver.receiverUrlMasked || plexWebhookReceiver.receiverPathMasked}
+                        onFocus={(event) => event.target.select()}
+                      />
+                    ) : (
+                      <input
+                        className="input font-mono text-xs"
+                        readOnly
+                        value={plexWebhookReceiver.receiverUrlTemplate || plexWebhookReceiver.receiverPath || '/api/plex/webhooks/[token]'}
+                        onFocus={(event) => event.target.select()}
+                      />
+                    )}
+                    <p className="text-xs text-ghost">
+                      {plexWebhookReceiver.enabled && !plexWebhookReceiverLink
+                        ? 'Existing receiver shown with a masked token. Regenerate if Plex needs the full URL again.'
+                        : 'Accepts Plex multipart webhooks for newly added media, watched state, and ratings. Actionable events are queued and verified against Plex before CollectZ applies them.'}
+                    </p>
+                    {plexWebhookReceiver.delivery?.status === 'rejected' && plexWebhookReceiver.delivery?.detail && (
+                      <p className="text-xs text-danger">Last delivery rejected: {plexWebhookReceiver.delivery.detail}</p>
+                    )}
+                  </PlainSettingsSection>
+                </SectionTabPanel>
+
+                <SectionTabPanel activeId={plexPanel} tabKey="advanced" idBase="plex-settings-sections" className="min-w-0 space-y-4">
+                  {plexProviders.length > 0 && (
+                    <PlainSettingsSection title="Detected Plex providers">
+                      <div className="divide-y divide-edge/60 border-y border-edge/60">
+                        {plexProviders.map((provider) => (
+                          <div key={`${provider.key || provider.title}-${provider.type || 'provider'}`} className="py-2">
+                            <div className="flex flex-wrap items-center gap-2 text-sm">
+                              <span className="font-medium text-ink">{provider.title || provider.key || 'Plex provider'}</span>
+                              {provider.type && <span className="text-xs text-ghost">{provider.type}</span>}
+                              {provider.protocol && <span className="text-xs text-ghost">{provider.protocol}</span>}
+                            </div>
+                            <div className="mt-1 font-mono text-xs text-ghost">{provider.key || provider.identifier || 'no key'}</div>
+                            {Array.isArray(provider.featureKeys) && provider.featureKeys.length > 0 && (
+                              <div className="mt-2 flex flex-wrap gap-1">
+                                {provider.featureKeys.map((feature) => (
+                                  <span key={feature} className="rounded border border-edge/70 px-1.5 py-0.5 text-[11px] text-dim">
+                                    {feature}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </div>
-                          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-ghost">
-                            {session.grandparentTitle && <span>{session.grandparentTitle}</span>}
-                            {session.user?.title && <span>{session.user.title}</span>}
-                            {playerBits.length > 0 && <span>{playerBits.join(' · ')}</span>}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </PlainSettingsSection>
-            )}
-            <PlainSettingsSection
-              title="Now Playing display link"
-              detail={plexDisplayToken.enabled
-                ? `Enabled${plexDisplayToken.lastUsedAt ? ` · last used ${new Date(plexDisplayToken.lastUsedAt).toLocaleString()}` : ''}`
-                : 'No active display link'}
-              actions={(
-                <>
-                  <button type="button" onClick={generatePlexDisplayToken} disabled={testLoading === 'plex-display-token'} className="btn-secondary btn-sm">
-                    {testLoading === 'plex-display-token' ? <Spinner size={14} /> : (plexDisplayToken.enabled ? 'Regenerate' : 'Generate')}
-                  </button>
-                  {plexDisplayToken.enabled && (
-                    <button type="button" onClick={revokePlexDisplayToken} disabled={testLoading === 'plex-display-token'} className="btn-secondary btn-sm">
-                      Revoke
-                    </button>
+                        ))}
+                      </div>
+                    </PlainSettingsSection>
                   )}
-                </>
-              )}
-            >
-              {plexDisplayLink && (
-                <input className="input font-mono text-xs" readOnly value={plexDisplayLink} onFocus={(event) => event.target.select()} />
-              )}
-            </PlainSettingsSection>
-            <PlainSettingsSection
-              title="Now Playing display preferences"
-              detail="Controls what the admin view and display link show on the passive Plex screen."
-              actions={(
-                <button type="button" onClick={savePlexDisplayPreferences} disabled={savingPlexDisplayPreferences} className="btn-secondary btn-sm">
-                  {savingPlexDisplayPreferences ? <Spinner size={14} /> : 'Save display'}
-                </button>
-              )}
-            >
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {[
-                  ['showPoster', 'Poster'],
-                  ['showBackdrop', 'Backdrop'],
-                  ['showContext', 'Series / context'],
-                  ['showPlayer', 'Player'],
-                  ['showProgress', 'Progress'],
-                  ['showUpdatedAt', 'Refresh time'],
-                  ['showPausedSessions', 'Paused sessions'],
-                  ['showSessionList', 'Other sessions']
-                ].map(([key, label]) => (
-                  <CheckboxControl
-                    key={key}
-                    id={`plex-display-${key}`}
-                    checked={Boolean(plexDisplayPreferences[key])}
-                    onChange={(event) => updatePlexDisplayPreference(key, event.target.checked)}
+                  {plexNowPlayingChecked && (
+                    <PlainSettingsSection title="Active Plex sessions">
+                      {plexNowPlayingSessions.length === 0 ? (
+                        <p className="text-sm text-dim">No active Plex sessions.</p>
+                      ) : (
+                        <div className="divide-y divide-edge/60 border-y border-edge/60">
+                          {plexNowPlayingSessions.map((session) => {
+                            const key = session.sessionKey || session.ratingKey || `${session.title}-${session.player?.title || 'player'}`;
+                            const progress = Number.isFinite(Number(session.progressPercent)) ? Number(session.progressPercent) : null;
+                            const playerBits = [session.player?.state, session.player?.platform, session.player?.title].filter(Boolean);
+                            return (
+                              <div key={key} className="py-2">
+                                <div className="flex flex-wrap items-center gap-2 text-sm">
+                                  <span className="font-medium text-ink">{session.title || 'Unknown title'}</span>
+                                  {session.type && <span className="text-xs text-ghost">{session.type}</span>}
+                                  {progress !== null && <span className="text-xs text-ghost">{progress}%</span>}
+                                </div>
+                                <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-ghost">
+                                  {session.grandparentTitle && <span>{session.grandparentTitle}</span>}
+                                  {session.user?.title && <span>{session.user.title}</span>}
+                                  {playerBits.length > 0 && <span>{playerBits.join(' · ')}</span>}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </PlainSettingsSection>
+                  )}
+                  <PlainSettingsSection
+                    title="Now Playing display link"
+                    detail={
+                      plexDisplayToken.enabled
+                        ? `Enabled${plexDisplayToken.lastUsedAt ? ` · last used ${new Date(plexDisplayToken.lastUsedAt).toLocaleString()}` : ''}`
+                        : 'No active display link'
+                    }
+                    actions={
+                      <>
+                        <button
+                          type="button"
+                          onClick={generatePlexDisplayToken}
+                          disabled={testLoading === 'plex-display-token'}
+                          className="btn-secondary btn-sm"
+                        >
+                          {testLoading === 'plex-display-token' ? (
+                            <Spinner size={14} />
+                          ) : plexDisplayToken.enabled ? (
+                            'Regenerate'
+                          ) : (
+                            'Generate'
+                          )}
+                        </button>
+                        {plexDisplayToken.enabled && (
+                          <button
+                            type="button"
+                            onClick={revokePlexDisplayToken}
+                            disabled={testLoading === 'plex-display-token'}
+                            className="btn-secondary btn-sm"
+                          >
+                            Revoke
+                          </button>
+                        )}
+                      </>
+                    }
                   >
-                    {label}
-                  </CheckboxControl>
-                ))}
+                    {plexDisplayLink && (
+                      <input
+                        className="input font-mono text-xs"
+                        readOnly
+                        value={plexDisplayLink}
+                        onFocus={(event) => event.target.select()}
+                      />
+                    )}
+                  </PlainSettingsSection>
+                  <PlainSettingsSection
+                    title="Now Playing display preferences"
+                    detail="Controls what the admin view and display link show on the passive Plex screen."
+                    actions={
+                      <button
+                        type="button"
+                        onClick={savePlexDisplayPreferences}
+                        disabled={savingPlexDisplayPreferences}
+                        className="btn-secondary btn-sm"
+                      >
+                        {savingPlexDisplayPreferences ? <Spinner size={14} /> : 'Save display'}
+                      </button>
+                    }
+                  >
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                      {[
+                        ['showPoster', 'Poster'],
+                        ['showBackdrop', 'Backdrop'],
+                        ['showContext', 'Series / context'],
+                        ['showPlayer', 'Player'],
+                        ['showProgress', 'Progress'],
+                        ['showUpdatedAt', 'Refresh time'],
+                        ['showPausedSessions', 'Paused sessions'],
+                        ['showSessionList', 'Other sessions']
+                      ].map(([key, label]) => (
+                        <CheckboxControl
+                          key={key}
+                          id={`plex-display-${key}`}
+                          checked={Boolean(plexDisplayPreferences[key])}
+                          onChange={(event) => updatePlexDisplayPreference(key, event.target.checked)}
+                        >
+                          {label}
+                        </CheckboxControl>
+                      ))}
+                    </div>
+                    <LabeledField label="Text Scale" cx={cx}>
+                      <select
+                        className="select"
+                        value={plexDisplayPreferences.textScale || 'standard'}
+                        onChange={(event) => updatePlexDisplayPreference('textScale', event.target.value)}
+                      >
+                        <option value="compact">Compact</option>
+                        <option value="standard">Standard</option>
+                        <option value="large">Large</option>
+                      </select>
+                    </LabeledField>
+                    <LabeledField label="Display Layout" cx={cx}>
+                      <select
+                        className="select"
+                        value={plexDisplayPreferences.layoutMode || 'standard'}
+                        onChange={(event) => updatePlexDisplayPreference('layoutMode', event.target.value)}
+                      >
+                        <option value="standard">Standard</option>
+                        <option value="poster_only">Vertical poster only</option>
+                      </select>
+                    </LabeledField>
+                  </PlainSettingsSection>
+                </SectionTabPanel>
+              </>
+            )}
+
+            {section === 'books' && (
+              <>
+                <LabeledField label="Books API URL" cx={cx}>
+                  <input
+                    className="input"
+                    value={form.booksApiUrl}
+                    onChange={(e) => setForm((f) => ({ ...f, booksApiUrl: e.target.value }))}
+                  />
+                </LabeledField>
+                <LabeledField label={`Books API Key ${meta.booksApiKeySet ? `(set: ${meta.booksApiKeyMasked})` : '(not set)'}`} cx={cx}>
+                  <input
+                    className="input font-mono"
+                    type="password"
+                    placeholder="Enter new key to update"
+                    value={form.booksApiKey}
+                    onChange={(e) => setForm((f) => ({ ...f, booksApiKey: e.target.value }))}
+                  />
+                </LabeledField>
+                <CheckboxControl
+                  id="clear-books-api-key"
+                  checked={form.clearBooksApiKey}
+                  onChange={(e) => setForm((f) => ({ ...f, clearBooksApiKey: e.target.checked }))}
+                >
+                  Clear saved key
+                </CheckboxControl>
+              </>
+            )}
+
+            {section === 'audio' && (
+              <>
+                <LabeledField label="Audio API URL" cx={cx}>
+                  <input
+                    className="input"
+                    value={form.audioApiUrl}
+                    onChange={(e) => setForm((f) => ({ ...f, audioApiUrl: e.target.value }))}
+                  />
+                </LabeledField>
+                <LabeledField label={`Discogs Token ${meta.audioApiKeySet ? `(set: ${meta.audioApiKeyMasked})` : '(not set)'}`} cx={cx}>
+                  <input
+                    className="input font-mono"
+                    type="password"
+                    placeholder="Enter new key to update"
+                    value={form.audioApiKey}
+                    onChange={(e) => setForm((f) => ({ ...f, audioApiKey: e.target.value }))}
+                  />
+                </LabeledField>
+                <CheckboxControl
+                  id="clear-audio-api-key"
+                  checked={form.clearAudioApiKey}
+                  onChange={(e) => setForm((f) => ({ ...f, clearAudioApiKey: e.target.checked }))}
+                >
+                  Clear saved key
+                </CheckboxControl>
+              </>
+            )}
+
+            {section === 'games' && (
+              <>
+                <LabeledField label="Games API URL" cx={cx}>
+                  <input
+                    className="input"
+                    value={form.gamesApiUrl}
+                    onChange={(e) => setForm((f) => ({ ...f, gamesApiUrl: e.target.value }))}
+                  />
+                </LabeledField>
+                <LabeledField label="Games Client ID (IGDB)" cx={cx}>
+                  <input
+                    className="input"
+                    value={form.gamesClientId}
+                    onChange={(e) => setForm((f) => ({ ...f, gamesClientId: e.target.value }))}
+                  />
+                </LabeledField>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <LabeledField
+                    label={`Games Client Secret (IGDB) ${meta.gamesClientSecretSet ? `(set: ${meta.gamesClientSecretMasked})` : '(not set)'}`}
+                    cx={cx}
+                  >
+                    <input
+                      className="input font-mono"
+                      type="password"
+                      placeholder="Enter client secret to update"
+                      value={form.gamesClientSecret}
+                      onChange={(e) => setForm((f) => ({ ...f, gamesClientSecret: e.target.value }))}
+                    />
+                  </LabeledField>
+                  <LabeledField label={`Games API Key ${meta.gamesApiKeySet ? `(set: ${meta.gamesApiKeyMasked})` : '(not set)'}`} cx={cx}>
+                    <input
+                      className="input font-mono"
+                      type="password"
+                      placeholder="Enter new key to update"
+                      value={form.gamesApiKey}
+                      onChange={(e) => setForm((f) => ({ ...f, gamesApiKey: e.target.value }))}
+                    />
+                  </LabeledField>
+                </div>
+              </>
+            )}
+
+            {section === 'vision' && (
+              <>
+                <div className="flex items-start justify-between gap-4 py-1">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-ink">Enable workspace image OCR</p>
+                    <p className="mt-1 text-sm text-dim">
+                      OCR runs only with this workspace&apos;s provider settings. Credentials are never inherited from the installation or
+                      another workspace.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={Boolean(form.visionEnabled)}
+                    aria-label={`${form.visionEnabled ? 'Disable' : 'Enable'} workspace image OCR`}
+                    onClick={() => setForm((f) => ({ ...f, visionEnabled: !f.visionEnabled }))}
+                    className={[
+                      'relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-colors duration-150',
+                      form.visionEnabled ? 'border-gold/30 bg-gold/15' : 'border-edge bg-raised/80'
+                    ].join(' ')}
+                  >
+                    <span
+                      className={[
+                        'inline-block h-5 w-5 rounded-full shadow-sm transition-transform duration-150',
+                        form.visionEnabled ? 'translate-x-6 bg-gold' : 'translate-x-1 bg-dim'
+                      ].join(' ')}
+                    />
+                  </button>
+                </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <LabeledField label="Provider preset" cx={cx}>
+                    <select
+                      className="select"
+                      value={form.visionPreset}
+                      onChange={(e) => setForm((f) => ({ ...f, visionPreset: e.target.value, visionProvider: e.target.value }))}
+                    >
+                      <option value="ocrspace">OCR.Space</option>
+                    </select>
+                  </LabeledField>
+                  <LabeledField label="API key header" cx={cx}>
+                    <input
+                      className="input font-mono"
+                      value={form.visionApiKeyHeader}
+                      onChange={(e) => setForm((f) => ({ ...f, visionApiKeyHeader: e.target.value }))}
+                    />
+                  </LabeledField>
+                </div>
+                <LabeledField label="OCR API URL" cx={cx}>
+                  <input
+                    className="input"
+                    value={form.visionApiUrl}
+                    onChange={(e) => setForm((f) => ({ ...f, visionApiUrl: e.target.value }))}
+                  />
+                </LabeledField>
+                <LabeledField label={`OCR API Key ${meta.visionApiKeySet ? `(set: ${meta.visionApiKeyMasked})` : '(not set)'}`} cx={cx}>
+                  <input
+                    className="input font-mono"
+                    type="password"
+                    placeholder="Enter new key to update"
+                    value={form.visionApiKey}
+                    onChange={(e) => setForm((f) => ({ ...f, visionApiKey: e.target.value }))}
+                  />
+                </LabeledField>
+                <CheckboxControl
+                  id="clear-vision-api-key"
+                  checked={form.clearVisionApiKey}
+                  onChange={(e) => setForm((f) => ({ ...f, clearVisionApiKey: e.target.checked }))}
+                >
+                  Clear saved key
+                </CheckboxControl>
+              </>
+            )}
+
+            {section === 'pricecharting' && (
+              <>
+                <div className="flex items-start justify-between gap-4 py-1">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-ink">Enable PriceCharting</p>
+                    <p className="mt-1 text-sm text-dim">
+                      Optional workspace-owned valuation. Requests stay queued, serialized, and identifier-first.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={Boolean(form.priceChartingEnabled)}
+                    aria-label={`${form.priceChartingEnabled ? 'Disable' : 'Enable'} PriceCharting`}
+                    onClick={() => setForm((f) => ({ ...f, priceChartingEnabled: !f.priceChartingEnabled }))}
+                    className={[
+                      'relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-colors duration-150',
+                      form.priceChartingEnabled ? 'border-gold/30 bg-gold/15' : 'border-edge bg-raised/80'
+                    ].join(' ')}
+                  >
+                    <span
+                      className={[
+                        'inline-block h-5 w-5 rounded-full shadow-sm transition-transform duration-150',
+                        form.priceChartingEnabled ? 'translate-x-6 bg-gold' : 'translate-x-1 bg-dim'
+                      ].join(' ')}
+                    />
+                  </button>
+                </div>
+                <LabeledField label="PriceCharting API URL" cx={cx}>
+                  <input
+                    className="input"
+                    value={form.priceChartingApiUrl}
+                    onChange={(e) => setForm((f) => ({ ...f, priceChartingApiUrl: e.target.value }))}
+                  />
+                </LabeledField>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <LabeledField
+                    label={`API Key ${meta.priceChartingApiKeySet ? `(set: ${meta.priceChartingApiKeyMasked})` : '(not set)'}`}
+                    cx={cx}
+                  >
+                    <input
+                      className="input font-mono"
+                      type="password"
+                      placeholder="Enter new key to update"
+                      value={form.priceChartingApiKey}
+                      onChange={(e) => setForm((f) => ({ ...f, priceChartingApiKey: e.target.value }))}
+                    />
+                  </LabeledField>
+                  <LabeledField label="Rate Limit Interval (ms)" cx={cx}>
+                    <input
+                      className="input font-mono"
+                      inputMode="numeric"
+                      value={form.priceChartingRateLimitMs}
+                      onChange={(e) => setForm((f) => ({ ...f, priceChartingRateLimitMs: e.target.value.replace(/[^\d]/g, '') }))}
+                    />
+                  </LabeledField>
+                </div>
+                <CheckboxControl
+                  id="clear-pricecharting-api-key"
+                  checked={form.clearPriceChartingApiKey}
+                  onChange={(e) => setForm((f) => ({ ...f, clearPriceChartingApiKey: e.target.checked }))}
+                >
+                  Clear saved key
+                </CheckboxControl>
+                <div className="rounded-xl border border-edge bg-raised/60 px-4 py-3 text-sm text-dim">
+                  Automated tests stay on fixtures in this milestone. The live provider should only be smoke-tested manually after the
+                  queued execution slice is in place.
+                </div>
+              </>
+            )}
+
+            {section === 'ebay' && (
+              <>
+                <div className="flex items-start justify-between gap-4 py-1">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-ink">Enable eBay Browse</p>
+                    <p className="mt-1 text-sm text-dim">
+                      Use eBay Browse as a live-market fallback signal once valuation execution is enabled.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={Boolean(form.eBayBrowseEnabled)}
+                    aria-label={`${form.eBayBrowseEnabled ? 'Disable' : 'Enable'} eBay Browse`}
+                    onClick={() => setForm((f) => ({ ...f, eBayBrowseEnabled: !f.eBayBrowseEnabled }))}
+                    className={[
+                      'relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-colors duration-150',
+                      form.eBayBrowseEnabled ? 'border-gold/30 bg-gold/15' : 'border-edge bg-raised/80'
+                    ].join(' ')}
+                  >
+                    <span
+                      className={[
+                        'inline-block h-5 w-5 rounded-full shadow-sm transition-transform duration-150',
+                        form.eBayBrowseEnabled ? 'translate-x-6 bg-gold' : 'translate-x-1 bg-dim'
+                      ].join(' ')}
+                    />
+                  </button>
+                </div>
+                <LabeledField label="eBay Browse API URL" cx={cx}>
+                  <input
+                    className="input"
+                    value={form.eBayBrowseApiUrl}
+                    onChange={(e) => setForm((f) => ({ ...f, eBayBrowseApiUrl: e.target.value }))}
+                  />
+                </LabeledField>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <LabeledField label="Client ID" cx={cx}>
+                    <input
+                      className="input"
+                      value={form.eBayBrowseClientId}
+                      onChange={(e) => setForm((f) => ({ ...f, eBayBrowseClientId: e.target.value }))}
+                    />
+                  </LabeledField>
+                  <LabeledField label="Marketplace ID" cx={cx}>
+                    <input
+                      className="input font-mono"
+                      value={form.eBayBrowseMarketplaceId}
+                      onChange={(e) => setForm((f) => ({ ...f, eBayBrowseMarketplaceId: e.target.value }))}
+                    />
+                  </LabeledField>
+                </div>
+                <LabeledField
+                  label={`Client Secret ${meta.eBayBrowseClientSecretSet ? `(set: ${meta.eBayBrowseClientSecretMasked})` : '(not set)'}`}
+                  cx={cx}
+                >
+                  <input
+                    className="input font-mono"
+                    type="password"
+                    placeholder="Enter new client secret to update"
+                    value={form.eBayBrowseClientSecret}
+                    onChange={(e) => setForm((f) => ({ ...f, eBayBrowseClientSecret: e.target.value }))}
+                  />
+                </LabeledField>
+                <CheckboxControl
+                  id="clear-ebay-browse-client-secret"
+                  checked={form.clearEBayBrowseClientSecret}
+                  onChange={(e) => setForm((f) => ({ ...f, clearEBayBrowseClientSecret: e.target.checked }))}
+                >
+                  Clear saved client secret
+                </CheckboxControl>
+              </>
+            )}
+
+            {section === 'comics' && (
+              <>
+                <LabeledField label="Preset" cx={cx}>
+                  <select className="select" value={form.comicsPreset} onChange={(e) => applyComicsPreset(e.target.value)}>
+                    <option value="metron">Metron (Basic Auth)</option>
+                    <option value="gcd">GCD</option>
+                    <option value="comicvine">ComicVine</option>
+                  </select>
+                </LabeledField>
+                <LabeledField label={form.comicsPreset === 'metron' ? 'Metron API URL' : 'Comics API URL'} cx={cx}>
+                  <input
+                    className="input"
+                    value={form.comicsApiUrl}
+                    onChange={(e) => setForm((f) => ({ ...f, comicsApiUrl: e.target.value }))}
+                  />
+                </LabeledField>
+                {form.comicsPreset === 'metron' ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    <LabeledField label="Metron Username" cx={cx}>
+                      <input
+                        className="input"
+                        value={form.comicsUsername}
+                        onChange={(e) => setForm((f) => ({ ...f, comicsUsername: e.target.value }))}
+                      />
+                    </LabeledField>
+                    <LabeledField
+                      label={`Metron Password ${meta.comicsApiKeySet ? `(set: ${meta.comicsApiKeyMasked})` : '(not set)'}`}
+                      cx={cx}
+                    >
+                      <input
+                        className="input font-mono"
+                        type="password"
+                        placeholder="Enter Metron password"
+                        value={form.comicsApiKey}
+                        onChange={(e) => setForm((f) => ({ ...f, comicsApiKey: e.target.value }))}
+                      />
+                    </LabeledField>
+                  </div>
+                ) : (
+                  <>
+                    <LabeledField label="Username (optional)" cx={cx}>
+                      <input
+                        className="input"
+                        value={form.comicsUsername}
+                        onChange={(e) => setForm((f) => ({ ...f, comicsUsername: e.target.value }))}
+                      />
+                    </LabeledField>
+                    <LabeledField
+                      label={`Comics API Key ${meta.comicsApiKeySet ? `(set: ${meta.comicsApiKeyMasked})` : '(not set)'}`}
+                      cx={cx}
+                    >
+                      <input
+                        className="input font-mono"
+                        type="password"
+                        placeholder="Enter new key to update"
+                        value={form.comicsApiKey}
+                        onChange={(e) => setForm((f) => ({ ...f, comicsApiKey: e.target.value }))}
+                      />
+                    </LabeledField>
+                  </>
+                )}
+                <CheckboxControl
+                  id="clear-comics-api-key"
+                  checked={form.clearComicsApiKey}
+                  onChange={(e) => setForm((f) => ({ ...f, clearComicsApiKey: e.target.checked }))}
+                >
+                  {form.comicsPreset === 'metron' ? 'Clear saved password' : 'Clear saved key'}
+                </CheckboxControl>
+              </>
+            )}
+
+            {section === 'cwa' && (
+              <>
+                <LabeledField label="OPDS Feed URL" cx={cx}>
+                  <input
+                    className="input"
+                    placeholder="https://cwa-host/opds/books"
+                    value={form.cwaOpdsUrl}
+                    onChange={(e) => setForm((f) => ({ ...f, cwaOpdsUrl: e.target.value }))}
+                  />
+                </LabeledField>
+                <p className="text-xs text-ghost">
+                  Deep links use the OPDS feed host automatically, so there is no separate base URL to maintain here.
+                </p>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <LabeledField label="Username" cx={cx}>
+                    <input
+                      className="input"
+                      value={form.cwaUsername}
+                      onChange={(e) => setForm((f) => ({ ...f, cwaUsername: e.target.value }))}
+                    />
+                  </LabeledField>
+                  <LabeledField label={`Password ${meta.cwaPasswordSet ? `(set: ${meta.cwaPasswordMasked})` : '(not set)'}`} cx={cx}>
+                    <input
+                      className="input font-mono"
+                      type="password"
+                      placeholder="Enter password to update"
+                      value={form.cwaPassword}
+                      onChange={(e) => setForm((f) => ({ ...f, cwaPassword: e.target.value }))}
+                    />
+                  </LabeledField>
+                </div>
+                <CheckboxControl
+                  id="clear-cwa-password"
+                  checked={form.clearCwaPassword}
+                  onChange={(e) => setForm((f) => ({ ...f, clearCwaPassword: e.target.checked }))}
+                >
+                  Clear saved password
+                </CheckboxControl>
+              </>
+            )}
+
+            {section === 'bookorbit' && (
+              <BookOrbitConnectionsPanel apiCall={apiCall} endpointBase={endpointBase} onToast={onToast} Spinner={Spinner} />
+            )}
+
+            {section === 'kavita' && (
+              <>
+                <LabeledField label="Kavita URL" cx={cx}>
+                  <input
+                    className="input"
+                    placeholder="https://kavita.example"
+                    value={form.kavitaBaseUrl}
+                    onChange={(e) => setForm((f) => ({ ...f, kavitaBaseUrl: e.target.value }))}
+                  />
+                </LabeledField>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <LabeledField label={`API Key ${meta.kavitaApiKeySet ? `(set: ${meta.kavitaApiKeyMasked})` : '(not set)'}`} cx={cx}>
+                    <input
+                      className="input font-mono"
+                      type="password"
+                      placeholder="Enter API key to update"
+                      value={form.kavitaApiKey}
+                      onChange={(e) => setForm((f) => ({ ...f, kavitaApiKey: e.target.value }))}
+                    />
+                  </LabeledField>
+                  <LabeledField label="Timeout (ms)" cx={cx}>
+                    <input
+                      className="input"
+                      inputMode="numeric"
+                      value={form.kavitaTimeoutMs}
+                      onChange={(e) => setForm((f) => ({ ...f, kavitaTimeoutMs: e.target.value }))}
+                    />
+                  </LabeledField>
+                </div>
+                <CheckboxControl
+                  id="clear-kavita-api-key"
+                  checked={form.clearKavitaApiKey}
+                  onChange={(e) => setForm((f) => ({ ...f, clearKavitaApiKey: e.target.checked }))}
+                >
+                  Clear saved API key
+                </CheckboxControl>
+                <CheckboxControl
+                  id="kavita-chapter-fanout"
+                  checked={kavitaChapterFanout}
+                  onChange={(e) => setKavitaChapterFanout(e.target.checked)}
+                >
+                  Import comic chapters as issue rows
+                </CheckboxControl>
+                {form.kavitaBaseUrl && (
+                  <a className="btn-secondary btn-sm inline-flex w-fit" href={form.kavitaBaseUrl} target="_blank" rel="noreferrer">
+                    Open Kavita
+                  </a>
+                )}
+              </>
+            )}
+
+            {!['bookorbit', 'metrics'].includes(section) && (
+              <div className="flex gap-3 pt-2 border-t border-edge">
+                {section !== 'logs' && (
+                  <button onClick={() => test(section)} disabled={testLoading === section} className="btn-secondary btn-sm">
+                    {testLoading === section ? <Spinner size={14} /> : 'Test'}
+                  </button>
+                )}
+                {section === 'logs' && (
+                  <button onClick={() => test(section)} disabled={testLoading === section} className="btn-secondary btn-sm">
+                    {testLoading === section ? <Spinner size={14} /> : 'Validate'}
+                  </button>
+                )}
+                <button
+                  onClick={() => saveSection(section)}
+                  disabled={saving || (section === 'logs' && Boolean(logExportControl?.readOnly))}
+                  className="btn-primary btn-sm"
+                >
+                  {saving ? <Spinner size={14} /> : `Save ${section.toUpperCase()}`}
+                </button>
+                {section === 'plex' && (
+                  <button onClick={testPlexProviders} disabled={testLoading === 'plex-providers'} className="btn-secondary btn-sm">
+                    {testLoading === 'plex-providers' ? <Spinner size={14} /> : 'Probe Providers'}
+                  </button>
+                )}
+                {section === 'plex' && (
+                  <button onClick={testPlexNowPlaying} disabled={testLoading === 'plex-now-playing'} className="btn-secondary btn-sm">
+                    {testLoading === 'plex-now-playing' ? <Spinner size={14} /> : 'Active Sessions'}
+                  </button>
+                )}
+                {allowImports && section === 'kavita' && (
+                  <button onClick={runKavitaImport} disabled={importingKavita} className="btn-secondary btn-sm">
+                    {importingKavita ? <Spinner size={14} /> : 'Import from Kavita'}
+                  </button>
+                )}
               </div>
-              <LabeledField label="Text Scale" cx={cx}>
-                <select
-                  className="select"
-                  value={plexDisplayPreferences.textScale || 'standard'}
-                  onChange={(event) => updatePlexDisplayPreference('textScale', event.target.value)}
-                >
-                  <option value="compact">Compact</option>
-                  <option value="standard">Standard</option>
-                  <option value="large">Large</option>
-                </select>
-              </LabeledField>
-              <LabeledField label="Display Layout" cx={cx}>
-                <select
-                  className="select"
-                  value={plexDisplayPreferences.layoutMode || 'standard'}
-                  onChange={(event) => updatePlexDisplayPreference('layoutMode', event.target.value)}
-                >
-                  <option value="standard">Standard</option>
-                  <option value="poster_only">Vertical poster only</option>
-                </select>
-              </LabeledField>
-            </PlainSettingsSection>
-          </SectionTabPanel>
-        </>}
-
-        {section === 'books' && <>
-          <LabeledField label="Books API URL" cx={cx}><input className="input" value={form.booksApiUrl} onChange={(e) => setForm((f) => ({ ...f, booksApiUrl: e.target.value }))} /></LabeledField>
-          <LabeledField label={`Books API Key ${meta.booksApiKeySet ? `(set: ${meta.booksApiKeyMasked})` : '(not set)'}`} cx={cx}>
-            <input className="input font-mono" type="password" placeholder="Enter new key to update" value={form.booksApiKey} onChange={(e) => setForm((f) => ({ ...f, booksApiKey: e.target.value }))} />
-          </LabeledField>
-          <CheckboxControl id="clear-books-api-key" checked={form.clearBooksApiKey} onChange={(e) => setForm((f) => ({ ...f, clearBooksApiKey: e.target.checked }))}>
-            Clear saved key
-          </CheckboxControl>
-        </>}
-
-        {section === 'audio' && <>
-          <LabeledField label="Audio API URL" cx={cx}><input className="input" value={form.audioApiUrl} onChange={(e) => setForm((f) => ({ ...f, audioApiUrl: e.target.value }))} /></LabeledField>
-          <LabeledField label={`Discogs Token ${meta.audioApiKeySet ? `(set: ${meta.audioApiKeyMasked})` : '(not set)'}`} cx={cx}>
-            <input className="input font-mono" type="password" placeholder="Enter new key to update" value={form.audioApiKey} onChange={(e) => setForm((f) => ({ ...f, audioApiKey: e.target.value }))} />
-          </LabeledField>
-          <CheckboxControl id="clear-audio-api-key" checked={form.clearAudioApiKey} onChange={(e) => setForm((f) => ({ ...f, clearAudioApiKey: e.target.checked }))}>
-            Clear saved key
-          </CheckboxControl>
-        </>}
-
-        {section === 'games' && <>
-          <LabeledField label="Games API URL" cx={cx}><input className="input" value={form.gamesApiUrl} onChange={(e) => setForm((f) => ({ ...f, gamesApiUrl: e.target.value }))} /></LabeledField>
-          <LabeledField label="Games Client ID (IGDB)" cx={cx}><input className="input" value={form.gamesClientId} onChange={(e) => setForm((f) => ({ ...f, gamesClientId: e.target.value }))} /></LabeledField>
-          <div className="grid gap-3 md:grid-cols-2">
-            <LabeledField label={`Games Client Secret (IGDB) ${meta.gamesClientSecretSet ? `(set: ${meta.gamesClientSecretMasked})` : '(not set)'}`} cx={cx}>
-              <input className="input font-mono" type="password" placeholder="Enter client secret to update" value={form.gamesClientSecret} onChange={(e) => setForm((f) => ({ ...f, gamesClientSecret: e.target.value }))} />
-            </LabeledField>
-            <LabeledField label={`Games API Key ${meta.gamesApiKeySet ? `(set: ${meta.gamesApiKeyMasked})` : '(not set)'}`} cx={cx}>
-              <input className="input font-mono" type="password" placeholder="Enter new key to update" value={form.gamesApiKey} onChange={(e) => setForm((f) => ({ ...f, gamesApiKey: e.target.value }))} />
-            </LabeledField>
-          </div>
-        </>}
-
-        {section === 'vision' && <>
-          <div className="flex items-start justify-between gap-4 py-1">
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-ink">Enable workspace image OCR</p>
-              <p className="mt-1 text-sm text-dim">OCR runs only with this workspace&apos;s provider settings. Credentials are never inherited from the installation or another workspace.</p>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={Boolean(form.visionEnabled)}
-              aria-label={`${form.visionEnabled ? 'Disable' : 'Enable'} workspace image OCR`}
-              onClick={() => setForm((f) => ({ ...f, visionEnabled: !f.visionEnabled }))}
-              className={[
-                'relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-colors duration-150',
-                form.visionEnabled ? 'border-gold/30 bg-gold/15' : 'border-edge bg-raised/80'
-              ].join(' ')}
-            >
-              <span className={[
-                'inline-block h-5 w-5 rounded-full shadow-sm transition-transform duration-150',
-                form.visionEnabled ? 'translate-x-6 bg-gold' : 'translate-x-1 bg-dim'
-              ].join(' ')} />
-            </button>
-          </div>
-          <div className="grid gap-3 md:grid-cols-2">
-            <LabeledField label="Provider preset" cx={cx}>
-              <select className="select" value={form.visionPreset} onChange={(e) => setForm((f) => ({ ...f, visionPreset: e.target.value, visionProvider: e.target.value }))}>
-                <option value="ocrspace">OCR.Space</option>
-              </select>
-            </LabeledField>
-            <LabeledField label="API key header" cx={cx}><input className="input font-mono" value={form.visionApiKeyHeader} onChange={(e) => setForm((f) => ({ ...f, visionApiKeyHeader: e.target.value }))} /></LabeledField>
-          </div>
-          <LabeledField label="OCR API URL" cx={cx}><input className="input" value={form.visionApiUrl} onChange={(e) => setForm((f) => ({ ...f, visionApiUrl: e.target.value }))} /></LabeledField>
-          <LabeledField label={`OCR API Key ${meta.visionApiKeySet ? `(set: ${meta.visionApiKeyMasked})` : '(not set)'}`} cx={cx}>
-            <input className="input font-mono" type="password" placeholder="Enter new key to update" value={form.visionApiKey} onChange={(e) => setForm((f) => ({ ...f, visionApiKey: e.target.value }))} />
-          </LabeledField>
-          <CheckboxControl id="clear-vision-api-key" checked={form.clearVisionApiKey} onChange={(e) => setForm((f) => ({ ...f, clearVisionApiKey: e.target.checked }))}>
-            Clear saved key
-          </CheckboxControl>
-        </>}
-
-        {section === 'pricecharting' && <>
-          <div className="flex items-start justify-between gap-4 py-1">
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-ink">Enable PriceCharting</p>
-              <p className="mt-1 text-sm text-dim">Optional workspace-owned valuation. Requests stay queued, serialized, and identifier-first.</p>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={Boolean(form.priceChartingEnabled)}
-              aria-label={`${form.priceChartingEnabled ? 'Disable' : 'Enable'} PriceCharting`}
-              onClick={() => setForm((f) => ({ ...f, priceChartingEnabled: !f.priceChartingEnabled }))}
-              className={[
-                'relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-colors duration-150',
-                form.priceChartingEnabled ? 'border-gold/30 bg-gold/15' : 'border-edge bg-raised/80'
-              ].join(' ')}
-            >
-              <span className={[
-                'inline-block h-5 w-5 rounded-full shadow-sm transition-transform duration-150',
-                form.priceChartingEnabled ? 'translate-x-6 bg-gold' : 'translate-x-1 bg-dim'
-              ].join(' ')} />
-            </button>
-          </div>
-          <LabeledField label="PriceCharting API URL" cx={cx}><input className="input" value={form.priceChartingApiUrl} onChange={(e) => setForm((f) => ({ ...f, priceChartingApiUrl: e.target.value }))} /></LabeledField>
-          <div className="grid gap-3 md:grid-cols-2">
-            <LabeledField label={`API Key ${meta.priceChartingApiKeySet ? `(set: ${meta.priceChartingApiKeyMasked})` : '(not set)'}`} cx={cx}>
-              <input className="input font-mono" type="password" placeholder="Enter new key to update" value={form.priceChartingApiKey} onChange={(e) => setForm((f) => ({ ...f, priceChartingApiKey: e.target.value }))} />
-            </LabeledField>
-            <LabeledField label="Rate Limit Interval (ms)" cx={cx}>
-              <input className="input font-mono" inputMode="numeric" value={form.priceChartingRateLimitMs} onChange={(e) => setForm((f) => ({ ...f, priceChartingRateLimitMs: e.target.value.replace(/[^\d]/g, '') }))} />
-            </LabeledField>
-          </div>
-          <CheckboxControl id="clear-pricecharting-api-key" checked={form.clearPriceChartingApiKey} onChange={(e) => setForm((f) => ({ ...f, clearPriceChartingApiKey: e.target.checked }))}>
-            Clear saved key
-          </CheckboxControl>
-          <div className="rounded-xl border border-edge bg-raised/60 px-4 py-3 text-sm text-dim">
-            Automated tests stay on fixtures in this milestone. The live provider should only be smoke-tested manually after the queued execution slice is in place.
-          </div>
-        </>}
-
-        {section === 'ebay' && <>
-          <div className="flex items-start justify-between gap-4 py-1">
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-ink">Enable eBay Browse</p>
-              <p className="mt-1 text-sm text-dim">Use eBay Browse as a live-market fallback signal once valuation execution is enabled.</p>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={Boolean(form.eBayBrowseEnabled)}
-              aria-label={`${form.eBayBrowseEnabled ? 'Disable' : 'Enable'} eBay Browse`}
-              onClick={() => setForm((f) => ({ ...f, eBayBrowseEnabled: !f.eBayBrowseEnabled }))}
-              className={[
-                'relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-colors duration-150',
-                form.eBayBrowseEnabled ? 'border-gold/30 bg-gold/15' : 'border-edge bg-raised/80'
-              ].join(' ')}
-            >
-              <span className={[
-                'inline-block h-5 w-5 rounded-full shadow-sm transition-transform duration-150',
-                form.eBayBrowseEnabled ? 'translate-x-6 bg-gold' : 'translate-x-1 bg-dim'
-              ].join(' ')} />
-            </button>
-          </div>
-          <LabeledField label="eBay Browse API URL" cx={cx}><input className="input" value={form.eBayBrowseApiUrl} onChange={(e) => setForm((f) => ({ ...f, eBayBrowseApiUrl: e.target.value }))} /></LabeledField>
-          <div className="grid gap-3 md:grid-cols-2">
-            <LabeledField label="Client ID" cx={cx}><input className="input" value={form.eBayBrowseClientId} onChange={(e) => setForm((f) => ({ ...f, eBayBrowseClientId: e.target.value }))} /></LabeledField>
-            <LabeledField label="Marketplace ID" cx={cx}><input className="input font-mono" value={form.eBayBrowseMarketplaceId} onChange={(e) => setForm((f) => ({ ...f, eBayBrowseMarketplaceId: e.target.value }))} /></LabeledField>
-          </div>
-          <LabeledField label={`Client Secret ${meta.eBayBrowseClientSecretSet ? `(set: ${meta.eBayBrowseClientSecretMasked})` : '(not set)'}`} cx={cx}>
-            <input className="input font-mono" type="password" placeholder="Enter new client secret to update" value={form.eBayBrowseClientSecret} onChange={(e) => setForm((f) => ({ ...f, eBayBrowseClientSecret: e.target.value }))} />
-          </LabeledField>
-          <CheckboxControl id="clear-ebay-browse-client-secret" checked={form.clearEBayBrowseClientSecret} onChange={(e) => setForm((f) => ({ ...f, clearEBayBrowseClientSecret: e.target.checked }))}>
-            Clear saved client secret
-          </CheckboxControl>
-        </>}
-
-        {section === 'comics' && <>
-          <LabeledField label="Preset" cx={cx}><select className="select" value={form.comicsPreset} onChange={(e) => applyComicsPreset(e.target.value)}>
-            <option value="metron">Metron (Basic Auth)</option><option value="gcd">GCD</option><option value="comicvine">ComicVine</option>
-          </select></LabeledField>
-          <LabeledField label={form.comicsPreset === 'metron' ? 'Metron API URL' : 'Comics API URL'} cx={cx}>
-            <input className="input" value={form.comicsApiUrl} onChange={(e) => setForm((f) => ({ ...f, comicsApiUrl: e.target.value }))} />
-          </LabeledField>
-          {form.comicsPreset === 'metron' ? (
-            <div className="grid grid-cols-2 gap-3">
-              <LabeledField label="Metron Username" cx={cx}>
-                <input className="input" value={form.comicsUsername} onChange={(e) => setForm((f) => ({ ...f, comicsUsername: e.target.value }))} />
-              </LabeledField>
-              <LabeledField label={`Metron Password ${meta.comicsApiKeySet ? `(set: ${meta.comicsApiKeyMasked})` : '(not set)'}`} cx={cx}>
-                <input className="input font-mono" type="password" placeholder="Enter Metron password" value={form.comicsApiKey} onChange={(e) => setForm((f) => ({ ...f, comicsApiKey: e.target.value }))} />
-              </LabeledField>
-            </div>
-          ) : (
-            <>
-              <LabeledField label="Username (optional)" cx={cx}>
-                <input className="input" value={form.comicsUsername} onChange={(e) => setForm((f) => ({ ...f, comicsUsername: e.target.value }))} />
-              </LabeledField>
-              <LabeledField label={`Comics API Key ${meta.comicsApiKeySet ? `(set: ${meta.comicsApiKeyMasked})` : '(not set)'}`} cx={cx}>
-                <input className="input font-mono" type="password" placeholder="Enter new key to update" value={form.comicsApiKey} onChange={(e) => setForm((f) => ({ ...f, comicsApiKey: e.target.value }))} />
-              </LabeledField>
-            </>
-          )}
-          <CheckboxControl id="clear-comics-api-key" checked={form.clearComicsApiKey} onChange={(e) => setForm((f) => ({ ...f, clearComicsApiKey: e.target.checked }))}>
-            {form.comicsPreset === 'metron' ? 'Clear saved password' : 'Clear saved key'}
-          </CheckboxControl>
-        </>}
-
-        {section === 'cwa' && <>
-          <LabeledField label="OPDS Feed URL" cx={cx}>
-            <input className="input" placeholder="https://cwa-host/opds/books" value={form.cwaOpdsUrl} onChange={(e) => setForm((f) => ({ ...f, cwaOpdsUrl: e.target.value }))} />
-          </LabeledField>
-          <p className="text-xs text-ghost">
-            Deep links use the OPDS feed host automatically, so there is no separate base URL to maintain here.
-          </p>
-          <div className="grid gap-3 md:grid-cols-2">
-            <LabeledField label="Username" cx={cx}>
-              <input className="input" value={form.cwaUsername} onChange={(e) => setForm((f) => ({ ...f, cwaUsername: e.target.value }))} />
-            </LabeledField>
-            <LabeledField label={`Password ${meta.cwaPasswordSet ? `(set: ${meta.cwaPasswordMasked})` : '(not set)'}`} cx={cx}>
-              <input className="input font-mono" type="password" placeholder="Enter password to update" value={form.cwaPassword} onChange={(e) => setForm((f) => ({ ...f, cwaPassword: e.target.value }))} />
-            </LabeledField>
-          </div>
-          <CheckboxControl id="clear-cwa-password" checked={form.clearCwaPassword} onChange={(e) => setForm((f) => ({ ...f, clearCwaPassword: e.target.checked }))}>
-            Clear saved password
-          </CheckboxControl>
-        </>}
-
-        {section === 'kavita' && <>
-          <LabeledField label="Kavita URL" cx={cx}>
-            <input className="input" placeholder="https://kavita.example" value={form.kavitaBaseUrl} onChange={(e) => setForm((f) => ({ ...f, kavitaBaseUrl: e.target.value }))} />
-          </LabeledField>
-          <div className="grid gap-3 md:grid-cols-2">
-            <LabeledField label={`API Key ${meta.kavitaApiKeySet ? `(set: ${meta.kavitaApiKeyMasked})` : '(not set)'}`} cx={cx}>
-              <input className="input font-mono" type="password" placeholder="Enter API key to update" value={form.kavitaApiKey} onChange={(e) => setForm((f) => ({ ...f, kavitaApiKey: e.target.value }))} />
-            </LabeledField>
-            <LabeledField label="Timeout (ms)" cx={cx}>
-              <input className="input" inputMode="numeric" value={form.kavitaTimeoutMs} onChange={(e) => setForm((f) => ({ ...f, kavitaTimeoutMs: e.target.value }))} />
-            </LabeledField>
-          </div>
-          <CheckboxControl id="clear-kavita-api-key" checked={form.clearKavitaApiKey} onChange={(e) => setForm((f) => ({ ...f, clearKavitaApiKey: e.target.checked }))}>
-            Clear saved API key
-          </CheckboxControl>
-          <CheckboxControl id="kavita-chapter-fanout" checked={kavitaChapterFanout} onChange={(e) => setKavitaChapterFanout(e.target.checked)}>
-            Import comic chapters as issue rows
-          </CheckboxControl>
-          {form.kavitaBaseUrl && (
-            <a className="btn-secondary btn-sm inline-flex w-fit" href={form.kavitaBaseUrl} target="_blank" rel="noreferrer">
-              Open Kavita
-            </a>
-          )}
-        </>}
-
-        {!['metrics'].includes(section) && (
-          <div className="flex gap-3 pt-2 border-t border-edge">
-            {section !== 'logs' && (
-              <button onClick={() => test(section)} disabled={testLoading === section} className="btn-secondary btn-sm">
-                {testLoading === section ? <Spinner size={14} /> : 'Test'}
-              </button>
             )}
-            {section === 'logs' && (
-              <button onClick={() => test(section)} disabled={testLoading === section} className="btn-secondary btn-sm">
-                {testLoading === section ? <Spinner size={14} /> : 'Validate'}
-              </button>
-            )}
-            <button
-              onClick={() => saveSection(section)}
-              disabled={saving || (section === 'logs' && Boolean(logExportControl?.readOnly))}
-              className="btn-primary btn-sm"
-            >
-              {saving ? <Spinner size={14} /> : `Save ${section.toUpperCase()}`}
-            </button>
-            {section === 'plex' && (
-              <button onClick={testPlexProviders} disabled={testLoading === 'plex-providers'} className="btn-secondary btn-sm">
-                {testLoading === 'plex-providers' ? <Spinner size={14} /> : 'Probe Providers'}
-              </button>
-            )}
-            {section === 'plex' && (
-              <button onClick={testPlexNowPlaying} disabled={testLoading === 'plex-now-playing'} className="btn-secondary btn-sm">
-                {testLoading === 'plex-now-playing' ? <Spinner size={14} /> : 'Active Sessions'}
-              </button>
-            )}
-            {allowImports && section === 'kavita' && (
-              <button onClick={runKavitaImport} disabled={importingKavita} className="btn-secondary btn-sm">
-                {importingKavita ? <Spinner size={14} /> : 'Import from Kavita'}
-              </button>
+            {testMsg && (
+              <p aria-live="polite" className="text-xs text-dim font-mono bg-raised/70 rounded-lg px-3 py-2">
+                {testMsg}
+              </p>
             )}
           </div>
-        )}
-        {testMsg && <p aria-live="polite" className="text-xs text-dim font-mono bg-raised/70 rounded-lg px-3 py-2">{testMsg}</p>}
-      </div>
-      </SectionTabPanel>
+        </SectionTabPanel>
       </div>
     </FixedPageShell>
   );

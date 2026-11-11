@@ -10974,6 +10974,27 @@ router.get('/comic-series/issues', asyncHandler(async (req, res) => {
   });
 }));
 
+router.get('/bookorbit-connections', requireSessionAuth, asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const spaceId = Number(scopeContext?.spaceId || 0);
+  if (!Number.isInteger(spaceId) || spaceId <= 0) {
+    return res.status(400).json({ error: 'BookOrbit connections require an explicit workspace' });
+  }
+  const connections = await bookOrbitConnections.list({
+    spaceId,
+    actorId: req.user.id,
+    providerType: 'bookorbit'
+  });
+  return res.json({
+    connections: connections
+      .filter((connection) => connection.status === 'active' && connection.credentialsConfigured)
+      .map((connection) => ({
+        id: connection.id,
+        displayName: connection.displayName
+      }))
+  });
+}));
+
 router.get('/:id', asyncHandler(async (req, res, next) => {
   const scopeContext = resolveScopeContext(req);
   if (!/^\d+$/.test(String(req.params.id || ''))) {

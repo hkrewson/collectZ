@@ -13365,6 +13365,38 @@
         }
       }
     },
+    "/api/media/bookorbit-connections": {
+      "get": {
+        "tags": ["Media"],
+        "summary": "List active BookOrbit connections available to the current workspace member",
+        "security": [{ "cookieSession": [] }],
+        "responses": {
+          "200": {
+            "description": "Minimal connection choices without endpoint, settings, or credentials",
+            "content": { "application/json": { "schema": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "connections": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": { "type": "string", "format": "uuid" },
+                      "displayName": { "type": "string" }
+                    },
+                    "required": ["id", "displayName"]
+                  }
+                }
+              },
+              "required": ["connections"]
+            } } }
+          },
+          "400": { "description": "Workspace scope required", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
     "/api/media/import-bookorbit": {
       "post": {
         "tags": ["Media"],

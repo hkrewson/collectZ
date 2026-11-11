@@ -4093,7 +4093,8 @@ results.push(run('kavita workspace-owned administration implementation is wired 
   assert.ok(spaceManagerViewSource.includes("'kavita'"));
   assert.ok(adminIntegrationsViewSource.includes('IntegrationSourceBadge'));
   assert.ok(adminIntegrationsViewSource.includes('integrationScope?.sections?.[section]'));
-  assert.ok(dashboardContentSource.includes("['audio', 'barcode', 'books', 'cwa', 'comics', 'ebay', 'games', 'kavita', 'plex', 'pricecharting', 'tmdb', 'vision']"));
+  ['audio', 'barcode', 'bookorbit', 'books', 'cwa', 'comics', 'ebay', 'games', 'kavita', 'plex', 'pricecharting', 'tmdb', 'vision']
+    .forEach((section) => assert.ok(dashboardContentSource.includes(`'${section}'`)));
   assert.ok(dashboardContentSource.includes("['logs', 'metrics']"));
   assert.ok(spaceManagerViewSource.includes('title=""'));
   assert.ok(!spaceManagerViewSource.includes('title="Workspace Integrations"'));
@@ -5273,6 +5274,7 @@ results.push(run('bookOrbit connection and import routes use the multi-instance 
   assert.ok(spaceIntegrationsRoutesSource.includes("router.get('/spaces/:spaceId/integrations/bookorbit-connections'"));
   assert.ok(spaceIntegrationsRoutesSource.includes("router.post('/spaces/:spaceId/integrations/bookorbit-connections/:connectionId/test'"));
   assert.ok(spaceIntegrationsRoutesSource.includes('bookOrbitConnections.loadRuntime'));
+  assert.ok(mediaRoutesSource.includes("router.get('/bookorbit-connections'"));
   assert.ok(mediaRoutesSource.includes("router.post('/import-bookorbit'"));
   assert.ok(mediaRoutesSource.includes('bookOrbitImportIdentity.open'));
   assert.ok(mediaRoutesSource.includes("importSource: 'bookorbit'"));

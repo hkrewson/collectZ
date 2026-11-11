@@ -1,10 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  FixedPageShell,
-  SectionTabPanel,
-  SectionTabs,
-  UtilityPageHeader
-} from './app/AppPrimitives';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FixedPageShell, SectionTabPanel, SectionTabs, UtilityPageHeader } from './app/AppPrimitives';
 
 export default function ImportView({
   apiCall,
@@ -20,13 +15,14 @@ export default function ImportView({
   onOpenCaptureInbox
 }) {
   const importSections = useMemo(
-    () => ([
+    () => [
       { id: 'capture', label: 'Capture Inbox', enabled: true },
+      { id: 'bookorbit', label: 'BookOrbit', enabled: true },
       { id: 'calibre', label: 'Calibre', enabled: true },
       { id: 'csv', label: 'CSV', enabled: true },
       { id: 'delicious', label: 'Delicious', enabled: true },
       { id: 'plex', label: 'Plex', enabled: canImportPlex }
-    ]),
+    ],
     [canImportPlex]
   );
   const firstEnabledSection = importSections.find((section) => section.enabled && section.id !== 'capture')?.id || 'csv';
@@ -35,6 +31,9 @@ export default function ImportView({
   const [result, setResult] = useState('');
   const [auditRows, setAuditRows] = useState([]);
   const [auditName, setAuditName] = useState('');
+  const [bookOrbitConnections, setBookOrbitConnections] = useState([]);
+  const [bookOrbitConnectionId, setBookOrbitConnectionId] = useState('');
+  const [bookOrbitLoading, setBookOrbitLoading] = useState(() => Boolean(activeLibrary?.space_id));
   const csvInputRef = useRef(null);
   const calibreInputRef = useRef(null);
   const deliciousInputRef = useRef(null);
@@ -44,26 +43,50 @@ export default function ImportView({
     if (!auditRows.length) return;
     const esc = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
     const lines = [
-      ['row', 'media_type', 'status', 'audit_outcome', 'classification_detail', 'title', 'detail', 'match_mode', 'matched_by', 'enrichment_status', 'lookup_path', 'lookup_status', 'confidence_score', 'diagnostic_flagged', 'isbn', 'ean_upc', 'asin'].map(esc).join(','),
-      ...auditRows.map((r) => [
-        r.row,
-        r.media_type || '',
-        r.status,
-        r.audit_outcome || '',
-        r.classification_detail || '',
-        r.title,
-        r.detail,
-        r.match_mode || '',
-        r.matched_by || '',
-        r.enrichment_status || '',
-        r.lookup_path || '',
-        r.lookup_status || '',
-        r.confidence_score ?? '',
-        r.diagnostic_flagged ?? '',
-        r.isbn || '',
-        r.ean_upc || '',
-        r.asin || ''
-      ].map(esc).join(','))
+      [
+        'row',
+        'media_type',
+        'status',
+        'audit_outcome',
+        'classification_detail',
+        'title',
+        'detail',
+        'match_mode',
+        'matched_by',
+        'enrichment_status',
+        'lookup_path',
+        'lookup_status',
+        'confidence_score',
+        'diagnostic_flagged',
+        'isbn',
+        'ean_upc',
+        'asin'
+      ]
+        .map(esc)
+        .join(','),
+      ...auditRows.map((r) =>
+        [
+          r.row,
+          r.media_type || '',
+          r.status,
+          r.audit_outcome || '',
+          r.classification_detail || '',
+          r.title,
+          r.detail,
+          r.match_mode || '',
+          r.matched_by || '',
+          r.enrichment_status || '',
+          r.lookup_path || '',
+          r.lookup_status || '',
+          r.confidence_score ?? '',
+          r.diagnostic_flagged ?? '',
+          r.isbn || '',
+          r.ean_upc || '',
+          r.asin || ''
+        ]
+          .map(esc)
+          .join(',')
+      )
     ];
     const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -104,6 +127,35 @@ export default function ImportView({
     }
   };
 
+  const runBookOrbitImport = async () => {
+    if (!bookOrbitConnectionId) return;
+    setBusy('bookorbit');
+    setResult('');
+    setAuditRows([]);
+    setAuditName('');
+    try {
+      const response = await apiCall('post', '/media/import-bookorbit?async=true', {
+        connectionId: bookOrbitConnectionId
+      });
+      const jobId = response?.job?.id;
+      if (!jobId) throw new Error('Missing import job id');
+      onQueueJob?.({
+        id: jobId,
+        provider: 'bookorbit',
+        status: response?.job?.status || 'queued',
+        progress: response?.job?.progress || null
+      });
+      setResult(`BookOrbit import queued (job #${jobId})`);
+      onToast('BookOrbit import started');
+    } catch (error) {
+      const message = error?.response?.data?.error || 'BookOrbit import failed';
+      setResult(message);
+      onToast(message, 'error');
+    } finally {
+      setBusy('');
+    }
+  };
+
   const runCsvImport = async (file, endpoint, label) => {
     if (!file) return;
     setBusy(label);
@@ -118,11 +170,7 @@ export default function ImportView({
       });
       const jobId = res?.job?.id;
       if (!jobId) throw new Error('Missing import job id');
-      const provider = label === 'Delicious'
-        ? 'csv_delicious'
-        : label === 'Calibre'
-          ? 'csv_calibre'
-          : 'csv_generic';
+      const provider = label === 'Delicious' ? 'csv_delicious' : label === 'Calibre' ? 'csv_calibre' : 'csv_generic';
       onQueueJob?.({
         id: jobId,
         provider,
@@ -142,15 +190,45 @@ export default function ImportView({
 
   useEffect(() => {
     if (importSections.some((section) => section.id === tab && section.enabled)) return;
+    // Provider availability can invalidate the selected import source after render.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTab(firstEnabledSection);
   }, [firstEnabledSection, importSections, tab]);
 
   const hasActiveLibrary = Boolean(activeLibrary?.id);
+  const activeSpaceId = Number(activeLibrary?.space_id || 0) || null;
+
+  useEffect(() => {
+    if (!activeSpaceId) return () => {};
+    let active = true;
+    apiCall('get', '/media/bookorbit-connections')
+      .then((payload) => {
+        if (!active) return;
+        const connections = Array.isArray(payload?.connections) ? payload.connections : [];
+        setBookOrbitConnections(connections);
+        setBookOrbitConnectionId((current) =>
+          connections.some((connection) => connection.id === current) ? current : connections[0]?.id || ''
+        );
+      })
+      .catch(() => {
+        if (!active) return;
+        setBookOrbitConnections([]);
+        setBookOrbitConnectionId('');
+      })
+      .finally(() => {
+        if (active) setBookOrbitLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [activeSpaceId, apiCall]);
+
   const recentJobs = useMemo(
-    () => importJobs
-      .filter((job) => ['plex', 'csv_generic', 'csv_calibre', 'csv_delicious'].includes(job.provider))
-      .sort((a, b) => Number(b?.id || 0) - Number(a?.id || 0))
-      .slice(0, 5),
+    () =>
+      importJobs
+        .filter((job) => ['bookorbit', 'plex', 'csv_generic', 'csv_calibre', 'csv_delicious'].includes(job.provider))
+        .sort((a, b) => Number(b?.id || 0) - Number(a?.id || 0))
+        .slice(0, 5),
     [importJobs]
   );
 
@@ -162,6 +240,8 @@ export default function ImportView({
       completedJobIdsRef.current.add(id);
       const rows = Array.isArray(job?.summary?.auditRows) ? job.summary.auditRows : [];
       if (rows.length > 0) {
+        // Completed async jobs hydrate the downloadable audit state once per job.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setAuditRows(rows);
         setAuditName(job.provider || 'import');
       }
@@ -174,29 +254,32 @@ export default function ImportView({
     setHeaderCompact(event.currentTarget.scrollTop > 24);
   }, []);
   const enabledImportSections = importSections.filter((section) => section.enabled);
-  const handleImportSectionChange = useCallback((nextTab) => {
-    if (nextTab === 'capture') {
-      onOpenCaptureInbox?.();
-      return;
-    }
-    setTab(nextTab);
-  }, [onOpenCaptureInbox]);
+  const handleImportSectionChange = useCallback(
+    (nextTab) => {
+      if (nextTab === 'capture') {
+        onOpenCaptureInbox?.();
+        return;
+      }
+      setTab(nextTab);
+    },
+    [onOpenCaptureInbox]
+  );
 
   const header = (
     <UtilityPageHeader
       title="Import Media"
       compact={headerCompact}
-      controls={(
-          <SectionTabs
-            tabs={enabledImportSections}
-            activeId={tab}
-            onChange={handleImportSectionChange}
-            ariaLabel="Import sources"
+      controls={
+        <SectionTabs
+          tabs={enabledImportSections}
+          activeId={tab}
+          onChange={handleImportSectionChange}
+          ariaLabel="Import sources"
           showDivider={false}
           listClassName="gap-5"
           buttonClassName="py-1.5 text-xs sm:text-sm"
         />
-      )}
+      }
     />
   );
 
@@ -217,7 +300,14 @@ export default function ImportView({
           </div>
           <div className="flex flex-wrap gap-3">
             <button onClick={runPlexImport} className="btn-primary" disabled={busy === 'plex' || !hasActiveLibrary}>
-              {busy === 'plex' ? <Spinner size={14} /> : <><Icons.Upload />Start Plex Import</>}
+              {busy === 'plex' ? (
+                <Spinner size={14} />
+              ) : (
+                <>
+                  <Icons.Upload />
+                  Start Plex Import
+                </>
+              )}
             </button>
           </div>
           {recentJobs.length > 0 && (
@@ -226,10 +316,13 @@ export default function ImportView({
               <div className="space-y-2">
                 {recentJobs.map((job) => (
                   <div key={job.id} className="border-t border-edge/60 px-1 pt-2 text-xs text-dim first:border-t-0 first:px-0 first:pt-0">
-                    <div className="font-mono text-[11px] text-ghost">Job #{job.id} · {job.provider} · {job.status}</div>
+                    <div className="font-mono text-[11px] text-ghost">
+                      Job #{job.id} · {job.provider} · {job.status}
+                    </div>
                     {job.progress ? (
                       <div className="mt-1 text-xs text-dim">
-                        Processed {job.progress.processed || 0} / {job.progress.total || 0} · Created {job.progress.created || 0} · Updated {job.progress.updated || 0} · Skipped {job.progress.skipped || 0} · Errors {job.progress.errorCount || 0}
+                        Processed {job.progress.processed || 0} / {job.progress.total || 0} · Created {job.progress.created || 0} · Updated{' '}
+                        {job.progress.updated || 0} · Skipped {job.progress.skipped || 0} · Errors {job.progress.errorCount || 0}
                       </div>
                     ) : null}
                   </div>
@@ -246,9 +339,19 @@ export default function ImportView({
           </div>
           <div className="flex flex-wrap gap-3">
             <button onClick={() => csvInputRef.current?.click()} className="btn-primary" disabled={busy === 'CSV' || !hasActiveLibrary}>
-              {busy === 'CSV' ? <Spinner size={14} /> : <><Icons.Upload />Choose CSV File</>}
+              {busy === 'CSV' ? (
+                <Spinner size={14} />
+              ) : (
+                <>
+                  <Icons.Upload />
+                  Choose CSV File
+                </>
+              )}
             </button>
-            <a href={`${apiUrl}/media/import/template-csv`} className="btn-secondary"><Icons.Download />Download Template</a>
+            <a href={`${apiUrl}/media/import/template-csv`} className="btn-secondary">
+              <Icons.Download />
+              Download Template
+            </a>
           </div>
           <input
             ref={csvInputRef}
@@ -263,13 +366,73 @@ export default function ImportView({
           />
         </SectionTabPanel>
 
+        <SectionTabPanel activeId={tab} tabKey="bookorbit" idBase="import-source-tabs" className="space-y-4">
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-ink">BookOrbit</p>
+            <p className="text-sm text-ghost">
+              Import books and comics from one configured BookOrbit server using its stable provider identities.
+            </p>
+          </div>
+          {bookOrbitLoading ? (
+            <div className="flex items-center gap-2 text-sm text-ghost">
+              <Spinner size={14} />
+              Loading BookOrbit connections…
+            </div>
+          ) : bookOrbitConnections.length > 0 ? (
+            <div className="space-y-4">
+              <div className="field">
+                <label className="label" htmlFor="bookorbit-import-connection">
+                  BookOrbit server
+                </label>
+                <select
+                  id="bookorbit-import-connection"
+                  className="select"
+                  value={bookOrbitConnectionId}
+                  onChange={(event) => setBookOrbitConnectionId(event.target.value)}
+                >
+                  {bookOrbitConnections.map((connection) => (
+                    <option key={connection.id} value={connection.id}>
+                      {connection.displayName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <button
+                type="button"
+                onClick={runBookOrbitImport}
+                className="btn-primary"
+                disabled={busy === 'bookorbit' || !hasActiveLibrary || !bookOrbitConnectionId}
+              >
+                {busy === 'bookorbit' ? <Spinner size={14} /> : <Icons.Upload />}Start BookOrbit Import
+              </button>
+            </div>
+          ) : (
+            <p className="rounded-lg border border-edge/70 bg-raised/40 p-3 text-sm text-ghost">
+              No active BookOrbit connection is available. A workspace administrator can add one under Integrations.
+            </p>
+          )}
+        </SectionTabPanel>
+
         <SectionTabPanel activeId={tab} tabKey="calibre" idBase="import-source-tabs" className="space-y-4">
           <div className="space-y-1">
             <p className="text-sm font-medium text-ink">Calibre</p>
-            <p className="text-sm text-ghost">Import a Calibre CSV export for books and comics using the normal dedupe and enrichment path.</p>
+            <p className="text-sm text-ghost">
+              Import a Calibre CSV export for books and comics using the normal dedupe and enrichment path.
+            </p>
           </div>
-          <button onClick={() => calibreInputRef.current?.click()} className="btn-primary" disabled={busy === 'Calibre' || !hasActiveLibrary}>
-            {busy === 'Calibre' ? <Spinner size={14} /> : <><Icons.Upload />Choose Calibre CSV</>}
+          <button
+            onClick={() => calibreInputRef.current?.click()}
+            className="btn-primary"
+            disabled={busy === 'Calibre' || !hasActiveLibrary}
+          >
+            {busy === 'Calibre' ? (
+              <Spinner size={14} />
+            ) : (
+              <>
+                <Icons.Upload />
+                Choose Calibre CSV
+              </>
+            )}
           </button>
           <input
             ref={calibreInputRef}
@@ -287,10 +450,23 @@ export default function ImportView({
         <SectionTabPanel activeId={tab} tabKey="delicious" idBase="import-source-tabs" className="space-y-4">
           <div className="space-y-1">
             <p className="text-sm font-medium text-ink">Delicious</p>
-            <p className="text-sm text-ghost">Import a Delicious export with mixed media rows and identifier-first matching where possible.</p>
+            <p className="text-sm text-ghost">
+              Import a Delicious export with mixed media rows and identifier-first matching where possible.
+            </p>
           </div>
-          <button onClick={() => deliciousInputRef.current?.click()} className="btn-primary" disabled={busy === 'Delicious' || !hasActiveLibrary}>
-            {busy === 'Delicious' ? <Spinner size={14} /> : <><Icons.Upload />Choose Delicious CSV</>}
+          <button
+            onClick={() => deliciousInputRef.current?.click()}
+            className="btn-primary"
+            disabled={busy === 'Delicious' || !hasActiveLibrary}
+          >
+            {busy === 'Delicious' ? (
+              <Spinner size={14} />
+            ) : (
+              <>
+                <Icons.Upload />
+                Choose Delicious CSV
+              </>
+            )}
           </button>
           <input
             ref={deliciousInputRef}
@@ -311,10 +487,17 @@ export default function ImportView({
         <p>Audit downloads include normalized identifiers, match mode, and duplicate-vs-near-match outcomes.</p>
       </div>
 
-      {result && <pre aria-live="polite" className="border-t border-edge/60 pt-4 text-xs text-dim whitespace-pre-wrap">{result}</pre>}
+      {result && (
+        <pre aria-live="polite" className="border-t border-edge/60 pt-4 text-xs text-dim whitespace-pre-wrap">
+          {result}
+        </pre>
+      )}
       {auditRows.length > 0 && (
         <div className="flex">
-          <button onClick={downloadAudit} className="btn-secondary"><Icons.Download />Download Audit CSV</button>
+          <button onClick={downloadAudit} className="btn-secondary">
+            <Icons.Download />
+            Download Audit CSV
+          </button>
         </div>
       )}
     </FixedPageShell>

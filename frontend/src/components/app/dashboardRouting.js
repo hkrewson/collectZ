@@ -28,15 +28,19 @@ export const VALID_DASHBOARD_TABS = new Set([
 export const VALID_INTEGRATION_SECTIONS = new Set([
   'audio',
   'barcode',
+  'bookorbit',
   'books',
+  'cwa',
   'comics',
   'ebay',
   'games',
+  'kavita',
   'logs',
   'metrics',
   'plex',
   'pricecharting',
-  'tmdb'
+  'tmdb',
+  'vision'
 ]);
 export const DEFAULT_TAB = 'dashboard';
 export const DEFAULT_INTEGRATION_SECTION = 'audio';
@@ -79,30 +83,37 @@ const LOCAL_ADMIN_TAB_ROUTES = {
   'admin-integrations': '/integrations'
 };
 
-const DIRECT_TAB_ROUTES = new Map(Object.entries({
-  '/dashboard': 'dashboard',
-  '/help': 'help',
-  '/library': 'library',
-  '/profile': 'profile',
-  '/workspace': 'space-manage',
-  '/workspace/settings': 'space-manage',
-  '/workspace/review': 'admin-merges',
-  '/review': 'admin-merges',
-  '/platform/settings': 'admin-settings',
-  '/platform/feature-flags': 'admin-flags',
-  '/settings': 'admin-settings'
-}));
+const DIRECT_TAB_ROUTES = new Map(
+  Object.entries({
+    '/dashboard': 'dashboard',
+    '/help': 'help',
+    '/library': 'library',
+    '/profile': 'profile',
+    '/workspace': 'space-manage',
+    '/workspace/settings': 'space-manage',
+    '/workspace/review': 'admin-merges',
+    '/review': 'admin-merges',
+    '/platform/settings': 'admin-settings',
+    '/platform/feature-flags': 'admin-flags',
+    '/settings': 'admin-settings'
+  })
+);
 
-const RETIRED_PLATFORM_ROUTES = new Map(Object.entries({
-  '/platform/support': 'help',
-  '/support': 'help',
-  '/platform/workspaces': DEFAULT_TAB,
-  '/platform/users': DEFAULT_TAB,
-  '/platform/activity': DEFAULT_TAB
-}));
+const RETIRED_PLATFORM_ROUTES = new Map(
+  Object.entries({
+    '/platform/support': 'help',
+    '/support': 'help',
+    '/platform/workspaces': DEFAULT_TAB,
+    '/platform/users': DEFAULT_TAB,
+    '/platform/activity': DEFAULT_TAB
+  })
+);
 
 function normalizePathname(pathname) {
-  const rawPath = String(pathname || '/').split('?')[0].split('#')[0] || '/';
+  const rawPath =
+    String(pathname || '/')
+      .split('?')[0]
+      .split('#')[0] || '/';
   if (rawPath.length > 1 && rawPath.endsWith('/')) return rawPath.slice(0, -1);
   return rawPath;
 }
@@ -122,9 +133,7 @@ function routeForTab(tab, options = {}) {
 export function readDashboardStateFromLocation(pathname, search = '') {
   const path = normalizePathname(pathname);
   const params = new URLSearchParams(search);
-  const hasLegacyDashboardState = path === '/dashboard' && (
-    params.has('tab') || params.has('integration')
-  );
+  const hasLegacyDashboardState = path === '/dashboard' && (params.has('tab') || params.has('integration'));
   const directTab = DIRECT_TAB_ROUTES.get(path);
   if (directTab && !hasLegacyDashboardState) {
     return {
@@ -140,17 +149,20 @@ export function readDashboardStateFromLocation(pathname, search = '') {
     };
   }
 
-  const libMatch = path.match(/^\/library\/(movies|tv|books|audio|art|games|comics|saved-views|wishlist|capture|loans|collectibles|events|other|import|import-review)$/);
+  const libMatch = path.match(
+    /^\/library\/(movies|tv|books|audio|art|games|comics|saved-views|wishlist|capture|loans|collectibles|events|other|import|import-review)$/
+  );
   if (libMatch) {
     const slug = libMatch[1];
     return {
-      tab: slug === 'import'
-        ? 'library-import'
-        : slug === 'import-review'
+      tab:
+        slug === 'import'
           ? 'library-import'
-          : slug === 'other'
-            ? 'library-comics'
-            : `library-${slug}`,
+          : slug === 'import-review'
+            ? 'library-import'
+            : slug === 'other'
+              ? 'library-comics'
+              : `library-${slug}`,
       integrationSection: DEFAULT_INTEGRATION_SECTION
     };
   }
@@ -182,7 +194,12 @@ export function isDashboardRoutePath(pathname) {
   if (DIRECT_TAB_ROUTES.has(path)) return true;
   if (RETIRED_PLATFORM_ROUTES.has(path)) return true;
   if (path.startsWith('/dashboard/')) return true;
-  if (/^\/library\/(movies|tv|books|audio|art|games|comics|saved-views|wishlist|capture|loans|collectibles|events|other|import|import-review)$/.test(path)) return true;
+  if (
+    /^\/library\/(movies|tv|books|audio|art|games|comics|saved-views|wishlist|capture|loans|collectibles|events|other|import|import-review)$/.test(
+      path
+    )
+  )
+    return true;
   if (/^\/(?:admin\/integrations|integrations|platform\/runtime)\/?([^/]+)?$/.test(path)) return true;
   return false;
 }
@@ -215,21 +232,16 @@ export function legacyDashboardUrl(tab, integrationSection) {
   return `/dashboard${query ? `?${query}` : ''}`;
 }
 
-export function selectDashboardTabValue(nextValue, {
-  activeIntegrationSection,
-  dashboardRouteOptions,
-  setActiveTab,
-  setActiveIntegrationSection,
-  setRoute
-}) {
+export function selectDashboardTabValue(
+  nextValue,
+  { activeIntegrationSection, dashboardRouteOptions, setActiveTab, setActiveIntegrationSection, setRoute }
+) {
   if (typeof nextValue === 'function') {
     setActiveTab(nextValue);
     return;
   }
   const nextTab = String(nextValue || DEFAULT_TAB);
-  const nextIntegrationSection = nextTab === 'admin-integrations'
-    ? activeIntegrationSection
-    : DEFAULT_INTEGRATION_SECTION;
+  const nextIntegrationSection = nextTab === 'admin-integrations' ? activeIntegrationSection : DEFAULT_INTEGRATION_SECTION;
   setActiveTab(nextTab);
   if (nextTab !== 'admin-integrations') setActiveIntegrationSection(DEFAULT_INTEGRATION_SECTION);
   const nextUrl = dashboardUrl(nextTab, nextIntegrationSection, dashboardRouteOptions);
