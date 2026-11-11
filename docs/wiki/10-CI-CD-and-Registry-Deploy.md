@@ -112,6 +112,7 @@ Source code scanning:
 Playwright packaging boundary:
 
 - The root-level Playwright package is tracked in git as test infrastructure and installed in CI for browser-regression jobs.
+- Hosted Ubuntu runners provide the required browser system libraries; the workflows install the lockfile-pinned Chromium browser without `--with-deps` so an optional APT/font-package mirror outage cannot prevent the browser suite from starting. A browser launch failure still fails the gate and must be treated as evidence that the runner-library assumption needs review.
 - It is not part of the production runtime images.
 - Saved Playwright auth/session bootstrap state must stay outside uploaded CI artifact paths.
 - CI should use per-run random browser-regression bypass credentials, not fixed shared token strings.
