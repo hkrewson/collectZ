@@ -17,6 +17,7 @@ const {
   createMetronAdapterRegistry
 } = require('../services/metronIdentity');
 const {
+  cwaAdapter,
   buildCwaCanonicalFields,
   buildCwaCompatibility,
   createCwaAdapterRegistry
@@ -27,6 +28,7 @@ const {
   createBookOrbitAdapterRegistry
 } = require('../services/bookOrbitIdentity');
 const {
+  kavitaAdapter,
   parseKavitaExternalIdentity,
   buildKavitaCanonicalFields,
   buildKavitaCompatibility,
@@ -725,6 +727,58 @@ test('backfill planner only emits actions for one exact active provider connecti
   assert.equal(eligible.actions[0].identityKind, 'book');
 });
 
+test('backfill planner uses a stable digital-library binding when multiple provider connections are active', () => {
+  const registry = createProviderAdapterRegistry({ cwa: cwaAdapter, kavita: kavitaAdapter });
+  const planner = createProviderIdentityBackfillPlanner({ adapterRegistry: registry });
+  const connections = [
+    { id: 'cwa-bound', space_id: 7, provider_type: 'cwa', status: 'active' },
+    { id: 'cwa-other', space_id: 7, provider_type: 'cwa', status: 'active' },
+    { id: 'kavita-bound', space_id: 7, provider_type: 'kavita', status: 'active' },
+    { id: 'kavita-other', space_id: 7, provider_type: 'kavita', status: 'active' }
+  ];
+  const integrationBindings = [
+    { space_id: 7, integration_key: 'books.cwa_opds', provider_connection_id: 'cwa-bound' },
+    { space_id: 7, integration_key: 'books.kavita', provider_connection_id: 'kavita-bound' }
+  ];
+  const result = planner.plan({
+    mediaRows: [{
+      id: 10,
+      space_id: 7,
+      type_details: { provider_name: 'cwa_opds', provider_item_id: 'book:42', calibre_entry_id: 'book:42' }
+    }, {
+      id: 11,
+      space_id: 7,
+      type_details: {
+        provider_name: 'kavita',
+        provider_item_id: 'kavita:chapter:42',
+        provider_issue_id: 'kavita:chapter:42',
+        kavita_chapter_provider_item_id: 'kavita:chapter:42'
+      }
+    }],
+    connections,
+    integrationBindings
+  });
+  assert.equal(result.summary.eligible, 2);
+  assert.deepEqual(result.actions.map(({ providerConnectionId }) => providerConnectionId), ['cwa-bound', 'kavita-bound']);
+  assert.deepEqual(result.actions.map(({ normalizedExternalId }) => normalizedExternalId), ['book:42', '42']);
+
+  const conflict = planner.plan({
+    mediaRows: [{
+      id: 10,
+      space_id: 7,
+      type_details: { provider_name: 'cwa_opds', provider_item_id: 'book:42', calibre_entry_id: 'book:42' }
+    }],
+    connections,
+    integrationBindings: [{
+      space_id: 7,
+      integration_key: 'books.cwa_opds',
+      provider_connection_id: 'kavita-bound'
+    }]
+  });
+  assert.equal(conflict.summary.eligible, 0);
+  assert.equal(conflict.diagnostics[0].code, 'provider_integration_binding_conflict');
+});
+
 test('backfill planner reports duplicate candidates, target conflicts, and idempotent alignment', () => {
   const exactAdapter = {
     validateSettings: (value) => value,
@@ -794,12 +848,13 @@ test('backfill planner loads legacy evidence through one authorized workspace cl
         id: 'cwa-a', space_id: 7, provider_type: 'cwa', status: 'active'
       }] };
       if (sql.includes('FROM external_media_identities')) return { rows: [] };
+      if (sql.includes('FROM provider_integration_bindings')) return { rows: [] };
       throw new Error(`Unexpected query: ${sql}`);
     }
   };
   const result = await planner.planWorkspace(client, 7);
   assert.equal(result.summary.eligible, 1);
-  assert.equal(calls.length, 3);
+  assert.equal(calls.length, 4);
   assert.ok(calls.every(({ params }) => params[0] === 7));
 });
 

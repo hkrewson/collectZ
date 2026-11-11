@@ -1,6 +1,15 @@
 'use strict';
 
 const crypto = require('node:crypto');
+const {
+  CWA_INTEGRATION_KEY,
+  KAVITA_INTEGRATION_KEY
+} = require('./providerIntegrationBindings');
+
+const PROVIDER_INTEGRATION_KEYS = Object.freeze({
+  cwa: CWA_INTEGRATION_KEY,
+  kavita: KAVITA_INTEGRATION_KEY
+});
 
 const LEGACY_IDENTITY_KEYS = new Set([
   'provider_item_id',
@@ -142,12 +151,49 @@ function valueOf(row, camel, snake) {
   return row[camel] ?? row[snake];
 }
 
+function selectProviderConnection(claim, connections, integrationBindings) {
+  const matching = connections.filter((connection) =>
+    Number(valueOf(connection, 'spaceId', 'space_id')) === claim.spaceId &&
+    text(valueOf(connection, 'providerType', 'provider_type'))?.toLowerCase() === claim.providerType);
+  const integrationKey = PROVIDER_INTEGRATION_KEYS[claim.providerType];
+  const bindings = integrationKey
+    ? integrationBindings.filter((binding) =>
+        Number(valueOf(binding, 'spaceId', 'space_id')) === claim.spaceId &&
+        text(valueOf(binding, 'integrationKey', 'integration_key')) === integrationKey)
+    : [];
+
+  if (bindings.length > 1) {
+    return { code: 'provider_integration_binding_ambiguous' };
+  }
+  if (bindings.length === 1) {
+    const connectionId = valueOf(bindings[0], 'providerConnectionId', 'provider_connection_id');
+    const bound = matching.filter((connection) => connection.id === connectionId);
+    if (bound.length !== 1) return { code: 'provider_integration_binding_conflict' };
+    if (text(bound[0].status)?.toLowerCase() !== 'active') {
+      return { code: 'provider_connection_inactive' };
+    }
+    return { connection: bound[0] };
+  }
+
+  const active = matching.filter((connection) => text(connection.status)?.toLowerCase() === 'active');
+  if (active.length === 0) {
+    return { code: matching.length > 0 ? 'provider_connection_inactive' : 'provider_connection_missing' };
+  }
+  if (active.length > 1) {
+    return {
+      code: 'provider_connection_ambiguous',
+      connectionIds: active.map((connection) => connection.id).sort()
+    };
+  }
+  return { connection: active[0] };
+}
+
 function createProviderIdentityBackfillPlanner({ adapterRegistry } = {}) {
   if (!adapterRegistry || typeof adapterRegistry.normalizeExternalId !== 'function') {
     throw new TypeError('Provider identity backfill planner requires an adapter registry');
   }
 
-  function plan({ mediaRows = [], connections = [], existingIdentities = [] } = {}) {
+  function plan({ mediaRows = [], connections = [], integrationBindings = [], existingIdentities = [] } = {}) {
     const diagnostics = [];
     const normalizedClaims = [];
 
@@ -155,24 +201,13 @@ function createProviderIdentityBackfillPlanner({ adapterRegistry } = {}) {
       const extracted = extractLegacyClaims(row);
       diagnostics.push(...extracted.diagnostics);
       for (const claim of extracted.claims) {
-        const matching = connections.filter((connection) =>
-          Number(valueOf(connection, 'spaceId', 'space_id')) === claim.spaceId &&
-          text(valueOf(connection, 'providerType', 'provider_type'))?.toLowerCase() === claim.providerType);
-        const active = matching.filter((connection) => text(connection.status)?.toLowerCase() === 'active');
-        if (active.length === 0) {
+        const selection = selectProviderConnection(claim, connections, integrationBindings);
+        if (!selection.connection) {
           diagnostics.push({
             ...claim,
             externalId: undefined,
-            code: matching.length > 0 ? 'provider_connection_inactive' : 'provider_connection_missing'
-          });
-          continue;
-        }
-        if (active.length > 1) {
-          diagnostics.push({
-            ...claim,
-            externalId: undefined,
-            code: 'provider_connection_ambiguous',
-            connectionIds: active.map((connection) => connection.id).sort()
+            code: selection.code,
+            ...(selection.connectionIds ? { connectionIds: selection.connectionIds } : {})
           });
           continue;
         }
@@ -191,7 +226,7 @@ function createProviderIdentityBackfillPlanner({ adapterRegistry } = {}) {
         }
         normalizedClaims.push({
           ...claim,
-          providerConnectionId: active[0].id,
+          providerConnectionId: selection.connection.id,
           normalizedExternalId: normalized.normalizedExternalId
         });
       }
@@ -303,9 +338,18 @@ function createProviderIdentityBackfillPlanner({ adapterRegistry } = {}) {
         ORDER BY provider_connection_id, identity_kind, external_id_normalized`,
       [spaceId]
     );
+    const bindingResult = await client.query(
+      `SELECT space_id, integration_key, provider_connection_id
+         FROM provider_integration_bindings
+        WHERE space_id = $1
+          AND integration_key = ANY($2::varchar[])
+        ORDER BY integration_key`,
+      [spaceId, Object.values(PROVIDER_INTEGRATION_KEYS)]
+    );
     return plan({
       mediaRows: mediaResult.rows,
       connections: connectionResult.rows,
+      integrationBindings: bindingResult.rows,
       existingIdentities: identityResult.rows
     });
   }
@@ -315,6 +359,8 @@ function createProviderIdentityBackfillPlanner({ adapterRegistry } = {}) {
 
 module.exports = {
   LEGACY_IDENTITY_KEYS,
+  PROVIDER_INTEGRATION_KEYS,
   extractLegacyClaims,
+  selectProviderConnection,
   createProviderIdentityBackfillPlanner
 };

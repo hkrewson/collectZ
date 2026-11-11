@@ -42,11 +42,14 @@ function createProviderIdentityBackfill({ identityService, planner } = {}) {
     throw new TypeError('Provider identity backfill requires a planner');
   }
 
-  async function run({ spaceId, actorId, mode = 'plan' } = {}) {
+  async function run({ spaceId, actorId, mode = 'plan', transactionClient = null } = {}) {
     const normalizedMode = String(mode || '').trim().toLowerCase();
     if (!MODES.has(normalizedMode)) throw new TypeError('Provider identity backfill mode must be plan or apply');
+    if (transactionClient && typeof transactionClient.query !== 'function') {
+      throw new TypeError('Provider identity backfill transaction client must provide query()');
+    }
 
-    return identityService.transaction({ spaceId, actorId }, async ({ client, identities }) => {
+    const work = async (client, identities) => {
       const plan = await planner.planWorkspace(client, spaceId);
       const applied = [];
       if (normalizedMode === 'apply') {
@@ -73,7 +76,15 @@ function createProviderIdentityBackfill({ identityService, planner } = {}) {
         aligned: plan.aligned.map(publicClaim),
         diagnostics: plan.diagnostics.map(publicDiagnostic)
       };
-    });
+    };
+
+    if (transactionClient) {
+      const identities = Object.freeze({
+        attach: (args = {}) => identityService.attach({ ...args, spaceId, actorId }, transactionClient)
+      });
+      return work(transactionClient, identities);
+    }
+    return identityService.transaction({ spaceId, actorId }, ({ client, identities }) => work(client, identities));
   }
 
   return Object.freeze({ run });

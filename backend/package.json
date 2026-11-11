@@ -13,6 +13,7 @@
     "test:saved-view-rls-http-smoke": "node scripts/saved-view-rls-http-smoke.js",
     "test:saved-view-rls-certification": "node scripts/saved-view-rls-certification.js",
     "test:external-identity-certification": "node scripts/external-identity-certification.js",
+    "test:digital-library-identity-backfill-smoke": "node scripts/digital-library-identity-backfill-smoke.js",
     "test:provider-integration-binding-smoke": "node scripts/provider-integration-binding-smoke.js",
     "test:metron-authoritative-sync-smoke": "node scripts/metron-authoritative-sync-smoke.js",
     "test:cwa-authoritative-sync-smoke": "node scripts/cwa-authoritative-sync-smoke.js",
