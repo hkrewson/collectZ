@@ -4,6 +4,20 @@ const { fetchOpdsCatalog, normalizeOpdsPublication } = require('./opdsTransport'
 const { parseHttpUrl } = require('./outboundUrlPolicy');
 
 const BOOKORBIT_ENTRY_ID = /^urn:bookorbit:book:\d+$/i;
+const BOOKORBIT_ALL_BOOKS_ID = 'urn:bookorbit:all';
+
+function atomText(value) {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'object') return String(value['#text'] ?? '').trim();
+  return String(value).trim();
+}
+
+function selectBookOrbitNavigationLinks({ navigationEntries }) {
+  const allBooks = navigationEntries.find(({ entry }) => atomText(entry?.id).toLowerCase() === BOOKORBIT_ALL_BOOKS_ID);
+  return allBooks
+    ? allBooks.links
+    : navigationEntries.flatMap(({ links }) => links);
+}
 
 function normalizeDate(raw) {
   const value = String(raw || '').trim();
@@ -69,18 +83,27 @@ function buildBookOrbitEndpoint(baseUrl, catalogPath = '/api/v1/opds') {
 }
 
 async function fetchBookOrbitOpdsItems(config = {}, options = {}) {
-  return fetchOpdsCatalog({
-    endpointUrl: config.endpointUrl,
-    username: config.username,
-    password: config.password,
-    timeoutMs: config.timeoutMs,
-    userAgent: 'collectZ-bookorbit-opds/1.0',
-    normalizeEntry: normalizeBookOrbitEntry
-  }, options);
+  try {
+    return await fetchOpdsCatalog({
+      endpointUrl: config.endpointUrl,
+      username: config.username,
+      password: config.password,
+      timeoutMs: config.timeoutMs,
+      userAgent: 'collectZ-bookorbit-opds/1.0',
+      normalizeEntry: normalizeBookOrbitEntry,
+      selectNavigationLinks: selectBookOrbitNavigationLinks
+    }, options);
+  } catch (error) {
+    if (error?.code === 'OPDS_PAGE_LIMIT_EXCEEDED') {
+      error.message = 'BookOrbit catalog needs more pages than this connection allows. Increase Maximum pages under Integrations.';
+    }
+    throw error;
+  }
 }
 
 module.exports = {
   BOOKORBIT_ENTRY_ID,
+  BOOKORBIT_ALL_BOOKS_ID,
   buildBookOrbitEndpoint,
   normalizeBookOrbitEntry,
   fetchBookOrbitOpdsItems

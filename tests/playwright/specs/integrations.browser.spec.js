@@ -78,7 +78,10 @@ test.describe('integrations browser regressions', () => {
     await expect(page.getByText('BookOrbit connections', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'New connection', exact: true })).toBeVisible();
     await expect(page.getByLabel('OPDS catalog path')).toHaveValue('/api/v1/opds');
-    await expect(page.getByLabel('Password')).toHaveAttribute('type', 'password');
+    await expect(page.getByLabel('Maximum pages')).toHaveValue('100');
+    await expect(page.getByLabel('OPDS account username')).toBeVisible();
+    await expect(page.getByLabel('OPDS account password')).toHaveAttribute('type', 'password');
+    await expect(page.getByText('Use the separate OPDS account configured in BookOrbit')).toBeVisible();
   });
 
   test('platform admin runtime integrations expose observability sections and log settings persist after reload', async ({ page }) => {

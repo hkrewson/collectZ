@@ -5,7 +5,7 @@ const EMPTY_FORM = Object.freeze({
   baseUrl: '',
   catalogPath: '/api/v1/opds',
   timeoutMs: '20000',
-  maxPages: '20',
+  maxPages: '100',
   username: '',
   password: ''
 });
@@ -22,7 +22,7 @@ function formFromConnection(connection) {
     baseUrl: connection?.endpointUrl || '',
     catalogPath: connection?.settings?.catalogPath || '/api/v1/opds',
     timeoutMs: String(connection?.settings?.timeoutMs || 20000),
-    maxPages: String(connection?.settings?.maxPages || 20)
+    maxPages: String(connection?.settings?.maxPages || 100)
   };
 }
 
@@ -301,12 +301,13 @@ export default function BookOrbitConnectionsPanel({ apiCall, endpointBase, onToa
                 value={form.maxPages}
                 onChange={(event) => updateField('maxPages', event.target.value)}
               />
+              <p className="text-xs text-ghost">The full catalog may need dozens of pages; 100 is the recommended safety limit.</p>
             </div>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="field">
               <label className="label" htmlFor="bookorbit-username">
-                Username
+                OPDS account username
               </label>
               <input
                 id="bookorbit-username"
@@ -314,12 +315,12 @@ export default function BookOrbitConnectionsPanel({ apiCall, endpointBase, onToa
                 autoComplete="off"
                 value={form.username}
                 onChange={(event) => updateField('username', event.target.value)}
-                placeholder={editingId ? 'Enter to replace credentials' : 'BookOrbit username'}
+                placeholder={editingId ? 'Enter to replace OPDS credentials' : 'OPDS account username'}
               />
             </div>
             <div className="field">
               <label className="label" htmlFor="bookorbit-password">
-                Password
+                OPDS account password
               </label>
               <input
                 id="bookorbit-password"
@@ -328,10 +329,11 @@ export default function BookOrbitConnectionsPanel({ apiCall, endpointBase, onToa
                 autoComplete="new-password"
                 value={form.password}
                 onChange={(event) => updateField('password', event.target.value)}
-                placeholder={editingId ? 'Enter to replace credentials' : 'BookOrbit password'}
+                placeholder={editingId ? 'Enter to replace OPDS credentials' : 'OPDS account password'}
               />
             </div>
           </div>
+          <p className="text-xs text-ghost">Use the separate OPDS account configured in BookOrbit, not your normal BookOrbit sign-in.</p>
           <div className="flex flex-wrap gap-2 border-t border-edge/70 pt-4">
             <button type="button" className="btn-primary btn-sm" onClick={saveConnection} disabled={Boolean(working)}>
               {working === 'save' ? <Spinner size={14} /> : null}

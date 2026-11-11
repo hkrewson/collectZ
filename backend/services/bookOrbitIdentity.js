@@ -14,7 +14,7 @@ const bookOrbitAdapter = Object.freeze({
     if (!Number.isInteger(timeoutMs) || timeoutMs < 1000 || timeoutMs > 120000) {
       throw new TypeError('BookOrbit timeout is invalid');
     }
-    const maxPages = Number(settings?.maxPages ?? 20);
+    const maxPages = Number(settings?.maxPages ?? 100);
     if (!Number.isInteger(maxPages) || maxPages < 1 || maxPages > 100) {
       throw new TypeError('BookOrbit page limit is invalid');
     }

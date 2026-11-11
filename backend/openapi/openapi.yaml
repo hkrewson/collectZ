@@ -7219,7 +7219,7 @@
                 "properties": {
                   "catalogPath": { "type": "string", "default": "/api/v1/opds" },
                   "timeoutMs": { "type": "integer", "minimum": 1000, "maximum": 120000 },
-                  "maxPages": { "type": "integer", "minimum": 1, "maximum": 100 }
+                  "maxPages": { "type": "integer", "minimum": 1, "maximum": 100, "default": 100 }
                 }
               },
               "credentials": {

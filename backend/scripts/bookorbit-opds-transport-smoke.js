@@ -59,7 +59,9 @@ async function main() {
   const password = crypto.randomBytes(32).toString('base64url');
   const authorization = `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`;
   let currentIsbn = '9781476735402';
+  const requestedPaths = [];
   const server = http.createServer((req, res) => {
+    requestedPaths.push(req.url);
     if (req.headers.authorization !== authorization) {
       res.writeHead(401, { 'content-type': 'application/atom+xml' });
       return res.end(feed({ id: 'urn:bookorbit:unauthorized', title: 'Unauthorized' }));
@@ -70,7 +72,8 @@ async function main() {
         id: 'urn:bookorbit:root',
         title: 'BookOrbit',
         entries: [
-          '  <entry><id>urn:bookorbit:all</id><title>All Books</title><updated>2026-11-10T20:00:00.000Z</updated><link rel="subsection" type="application/atom+xml;profile=opds-catalog" href="/api/v1/opds/catalog?page=1"/></entry>'
+          '  <entry><id>urn:bookorbit:all</id><title>All Books</title><updated>2026-11-10T20:00:00.000Z</updated><link rel="subsection" type="application/atom+xml;profile=opds-catalog" href="/api/v1/opds/catalog?page=1"/></entry>',
+          '  <entry><id>urn:bookorbit:recent</id><title>Recent</title><updated>2026-11-10T20:00:00.000Z</updated><link rel="subsection" type="application/atom+xml;profile=opds-catalog" href="/api/v1/opds/recent"/></entry>'
         ]
       }));
     }
@@ -93,6 +96,13 @@ async function main() {
           mime: 'application/vnd.comicbook+zip',
           extension: 'cbz'
         })]
+      }));
+    }
+    if (req.url === '/api/v1/opds/recent') {
+      return res.end(feed({
+        id: 'urn:bookorbit:recent',
+        title: 'Recent',
+        entries: [bookEntry({ id: 42, isbn: currentIsbn })]
       }));
     }
     if (req.url === '/api/v1/opds/cycle') {
@@ -129,9 +139,14 @@ async function main() {
   const baseUrl = await listen(server);
   const config = { endpointUrl: `${baseUrl}/api/v1/opds`, username, password, timeoutMs: 5000 };
   try {
-    const first = await fetchBookOrbitOpdsItems(config, { maxPages: 4 });
+    const first = await fetchBookOrbitOpdsItems(config, { maxPages: 3 });
     assert.equal(first.pagesFetched, 3);
     assert.equal(first.rows.length, 2);
+    assert.deepEqual(requestedPaths.splice(0), [
+      '/api/v1/opds',
+      '/api/v1/opds/catalog?page=1',
+      '/api/v1/opds/catalog?page=2'
+    ]);
     assert.equal(first.rows[0].type_details.provider_item_id, 'urn:bookorbit:book:42');
     assert.equal(first.rows[0].type_details.isbn, '9781476735402');
     assert.equal(first.rows[0].type_details.series, 'Foundation Series');
@@ -143,7 +158,7 @@ async function main() {
     assert.equal(first.rows[1].media_type, 'comic_book');
 
     currentIsbn = '9780306406157';
-    const repeated = await fetchBookOrbitOpdsItems(config, { maxPages: 4 });
+    const repeated = await fetchBookOrbitOpdsItems(config, { maxPages: 3 });
     assert.equal(repeated.rows[0].type_details.provider_item_id, first.rows[0].type_details.provider_item_id);
     assert.equal(repeated.rows[0].type_details.isbn, '9780306406157');
 

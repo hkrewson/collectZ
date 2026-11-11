@@ -192,6 +192,9 @@ async function fetchOpdsCatalog(config = {}, options = {}) {
   if (!endpoint) throw opdsError('OPDS_ENDPOINT_INVALID', 'OPDS endpoint must be an HTTP URL without credentials');
   const normalizeEntry = config.normalizeEntry;
   if (typeof normalizeEntry !== 'function') throw new TypeError('OPDS transport requires an entry normalizer');
+  const selectNavigationLinks = typeof config.selectNavigationLinks === 'function'
+    ? config.selectNavigationLinks
+    : ({ navigationEntries }) => navigationEntries.flatMap(({ links }) => links);
   const timeoutMs = boundedInteger(config.timeoutMs, DEFAULT_TIMEOUT_MS, 1000, 120000, 'OPDS timeout');
   const maxPages = boundedInteger(options.maxPages, DEFAULT_MAX_PAGES, 1, 100, 'OPDS page limit');
   const maxResponseBytes = boundedInteger(options.maxResponseBytes, DEFAULT_MAX_RESPONSE_BYTES, 1024, 16 * 1024 * 1024, 'OPDS response limit');
@@ -277,6 +280,7 @@ async function fetchOpdsCatalog(config = {}, options = {}) {
     const feed = parseFeed(body);
     pagesFetched += 1;
 
+    const navigationEntries = [];
     for (const entry of toArray(feed.entry)) {
       if (hasAcquisitionLink(entry)) {
         const normalized = normalizeEntry(entry, page.url);
@@ -290,9 +294,18 @@ async function fetchOpdsCatalog(config = {}, options = {}) {
         navigationEntriesSkipped += 1;
         const links = navigationLinks(entry);
         subsectionDiscovered += links.length;
-        for (const link of links) enqueue(link.href, page);
+        navigationEntries.push(Object.freeze({ entry, links: Object.freeze(links) }));
       }
     }
+    const selectedNavigationLinks = selectNavigationLinks(Object.freeze({
+      navigationEntries: Object.freeze(navigationEntries),
+      pageUrl: page.url,
+      startUrl
+    }));
+    if (!Array.isArray(selectedNavigationLinks)) {
+      throw new TypeError('OPDS navigation selector must return an array');
+    }
+    for (const link of selectedNavigationLinks) enqueue(link.href, page);
     const next = linkRecords(feed).find((link) => link.rel === 'next');
     if (next) enqueue(next.href, page);
   }
