@@ -39,6 +39,11 @@ than treating process-local counter values as durable state. Continued `legacy_r
 activity identifies a caller that is not ready for compatibility cutover. An
 `authoritative_projection{outcome="conflict"}` increase means the authoritative identity and legacy
 projection disagree; preserve both paths and resolve the row instead of deleting compatibility data.
+The formal threshold is a continuous seven-day window containing at least two successful syncs, no
+legacy activity, no projection conflicts, positive authoritative and repeat-alignment evidence, and a
+clean legacy/backfill inventory. Use the bounded diagnostic contract in
+`backend/services/providerIdentityCompatibilityDiagnostics.js` to classify the collected counts. A
+`ready` result permits a cutover proposal; it does not authorize field deletion.
 
 Use the metric that moved first:
 

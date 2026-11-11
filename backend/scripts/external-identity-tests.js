@@ -27,6 +27,11 @@ const {
   selectPlexIdentity
 } = require('../services/plexIdentity');
 const {
+  MINIMUM_OBSERVATION_HOURS,
+  evaluateProviderIdentityCutover,
+  normalizeProviderIdentityLabel
+} = require('../services/providerIdentityCompatibilityDiagnostics');
+const {
   createExternalMediaIdentityService,
   publicIdentity,
   reassignMediaIdentitiesForMerge,
@@ -359,6 +364,53 @@ test('provider identity compatibility telemetry is bounded and contains no exter
   assert.equal(getMetricCounterValue('providerIdentityCompatibility', {
     provider: 'unknown', operation: 'legacy_write', outcome: 'created'
   }), 1);
+  recordProviderIdentityCompatibilityEvent('csv_generic', 'legacy_write', 'updated');
+  recordProviderIdentityCompatibilityEvent('barcode_scanner', 'legacy_read_provider_item', 'missed');
+  assert.equal(getMetricCounterValue('providerIdentityCompatibility', {
+    provider: 'generic', operation: 'legacy_write', outcome: 'updated'
+  }), 1);
+  assert.equal(getMetricCounterValue('providerIdentityCompatibility', {
+    provider: 'scanner', operation: 'legacy_read_provider_item', outcome: 'missed'
+  }), 1);
+});
+
+test('provider identity cutover diagnostics require durable quiet-window, repeat-sync, and inventory evidence', () => {
+  assert.equal(MINIMUM_OBSERVATION_HOURS, 168);
+  assert.equal(normalizeProviderIdentityLabel('plex_webhook'), 'plex');
+  const ready = evaluateProviderIdentityCutover({
+    provider: 'metron',
+    observationWindowHours: 168,
+    completedSuccessfulSyncs: 2,
+    samples: [
+      { operation: 'authoritative_projection', outcome: 'written', increase: 4 },
+      { operation: 'authoritative_projection', outcome: 'aligned', increase: 8 }
+    ],
+    inventory: { legacyOnly: 0, ambiguous: 0, conflicts: 0, unboundConnections: 0 }
+  });
+  assert.equal(ready.ready, true);
+  assert.deepEqual(ready.blockers, []);
+
+  const blocked = evaluateProviderIdentityCutover({
+    provider: 'plex',
+    observationWindowHours: 167,
+    completedSuccessfulSyncs: 1,
+    samples: [
+      { operation: 'legacy_read_plex_guid', outcome: 'missed', increase: 3 },
+      { operation: 'authoritative_projection', outcome: 'conflict', increase: 1 }
+    ],
+    inventory: { legacyOnly: 2, ambiguous: 1, conflicts: 0, unboundConnections: 0 }
+  });
+  assert.equal(blocked.ready, false);
+  assert.deepEqual(blocked.blockers, [
+    'observation_window_short',
+    'successful_sync_evidence_insufficient',
+    'legacy_reads_observed',
+    'projection_conflicts_observed',
+    'authoritative_projection_unobserved',
+    'repeat_alignment_unobserved',
+    'legacy_only_inventory_remaining',
+    'ambiguous_inventory_remaining'
+  ]);
 });
 
 test('canonical field precedence preserves uncontrolled, manual, reviewed, and locked values by default', () => {

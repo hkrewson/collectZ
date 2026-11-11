@@ -1,6 +1,7 @@
 'use strict';
 
 const pool = require('../db/pool');
+const { normalizeProviderIdentityLabel } = require('./providerIdentityCompatibilityDiagnostics');
 const appMeta = require('../app-meta.json');
 
 const counters = {
@@ -156,16 +157,6 @@ const recordProviderRequestEvent = (provider, operation, outcome, amount = 1) =>
   }, Number(amount || 1));
 };
 
-const PROVIDER_IDENTITY_LABELS = new Map([
-  ['cwa', 'cwa'],
-  ['cwa_opds', 'cwa'],
-  ['kavita', 'kavita'],
-  ['metron', 'metron'],
-  ['plex', 'plex'],
-  ['scanner', 'scanner'],
-  ['generic', 'generic'],
-  ['bookorbit', 'bookorbit']
-]);
 const PROVIDER_IDENTITY_OPERATIONS = new Set([
   'legacy_read_provider_item',
   'legacy_read_provider_issue',
@@ -183,9 +174,6 @@ const PROVIDER_IDENTITY_OUTCOMES = new Set([
   'aligned',
   'conflict'
 ]);
-
-const normalizeProviderIdentityLabel = (provider) =>
-  PROVIDER_IDENTITY_LABELS.get(String(provider || '').trim().toLowerCase()) || 'unknown';
 
 const recordProviderIdentityCompatibilityEvent = (provider, operation, outcome, amount = 1) => {
   const normalizedOperation = String(operation || '').trim().toLowerCase();

@@ -413,9 +413,12 @@ Display:
 
 - table
 
-No alert is attached during the migration baseline. Operators should require a quiet observation window
-for `legacy_read_*` and `legacy_write`, plus zero `authoritative_projection` conflicts, before proposing
-a provider-specific compatibility cutover.
+No alert is attached during the migration baseline. A provider-specific compatibility cutover proposal
+requires a continuous seven-day window with at least two successful syncs, no `legacy_read_*` or
+`legacy_write` increase, zero `authoritative_projection` conflicts, positive authoritative and repeat
+alignment evidence, and zero legacy-only, ambiguous, conflicting, or unbound-connection inventory rows.
+Evaluate those bounded counts through `providerIdentityCompatibilityDiagnostics`; do not infer readiness
+from a visually quiet panel alone.
 
 ## Threshold Mapping
 

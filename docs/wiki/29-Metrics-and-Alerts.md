@@ -70,6 +70,21 @@ migration, a compatibility-read cutover is not ready while `legacy_read_*` or `l
 continue to increase for a provider. `authoritative_projection` should instead show `written` while
 older rows are filled, then settle on `aligned`; any `conflict` outcome requires review.
 
+A provider-specific cutover proposal requires all of the following evidence from the durable metrics
+store and the legacy-identity inventory:
+
+- a continuous observation window of at least seven days
+- at least two successful provider syncs during that window
+- zero increases for every `legacy_read_*` and `legacy_write` series
+- zero `authoritative_projection{outcome="conflict"}` increases
+- at least one authoritative projection and at least one repeat `aligned` projection
+- zero legacy-only, ambiguous, conflicting, or unbound-connection inventory rows
+
+Run `npm --prefix backend run test:provider-identity-cutover-diagnostics` to verify the deterministic
+decision contract. The evaluator consumes only bounded counts; it never accepts or returns external ids,
+titles, endpoints, or credentials. Passing this diagnostic makes a provider eligible for a separately
+reviewed cutover proposal. It does not remove compatibility fields.
+
 ## Initial Alert Thresholds
 
 These are starting thresholds, not final SLOs.

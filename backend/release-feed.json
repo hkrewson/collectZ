@@ -1,6 +1,28 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.27.3",
+      "version": "3.27.3",
+      "date": "2026-11-10",
+      "status": null,
+      "summary": "Makes the provider-connection-scoped external identity registry authoritative for adopted sync paths while preserving existing provider fields as compatibility projections. The release establishes stable canonical UUIDs, lifecycle-safe provider identities, conflict-safe merge and revert behavior, canonical field precedence, and explicit cutover diagnostics without removing legacy fields.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added immutable canonical object UUIDs, multi-instance Provider Connections, scoped external identities, append-only lifecycle evidence, and explicit workspace integration bindings.",
+            "Added authorized transaction composition for identity attach, resolve, deactivate, reassign, merge, revert, compatibility projection, and canonical field decisions.",
+            "Added plan-first, fail-closed legacy identity backfill that attaches only unambiguous evidence and reports duplicate, conflicting, or unbound rows without guessing.",
+            "Added Canonical Field Controls so provider refreshes preserve uncontrolled existing, manual, reviewed, locked, and differently sourced values unless an explicit reviewed refresh policy permits replacement.",
+            "Adopted authoritative reconciliation in Metron, CWA/Calibre OPDS, and Plex imports. Plex prefers GUID identity and falls back to its section/item key when a GUID is absent.",
+            "Added bounded compatibility telemetry and deterministic cutover diagnostics. A provider requires at least seven continuous observation days, two successful syncs, no legacy activity or projection conflicts, repeat-alignment evidence, and a clean legacy inventory before a separate cutover proposal.",
+            "Updated `fast-xml-parser` to `5.12.0` after the release audit identified the stop-node CPU-consumption advisory affecting `5.11.2`; the rebuilt backend now reports zero dependency vulnerabilities.",
+            "Preserved compatibility fields and existing provider behavior; BookOrbit remains scoped to `3.27.4`, and Kavita authoritative adoption remains scoped to `3.27.5`."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.27.2",
       "version": "3.27.2",
       "date": "2026-11-08",
@@ -175,26 +197,6 @@
             "TV responses expose safe metadata and authorized artwork paths rather than raw integration payloads or source URLs. Collection joins check linked media ownership.",
             "Native tvOS 18+ screens use CollectZ's colors, logo, bundled fonts, cards, and badges, with remote focus, accessible labels, stale states, and Keychain credentials.",
             "Updated compatible axios and proxy-addr lockfile resolutions to remove production dependency advisories identified during release validation."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.24.14",
-      "version": "3.24.14",
-      "date": "2026-10-10",
-      "status": "complete locally against PostgreSQL 16; canonical Docker stack and hosted release gates pending",
-      "summary": "The backend no longer runs as the PostgreSQL owner/superuser. A one-shot `migrate` service applies migrations and provisions a least-privilege `collectz_app` role with the owner credential, then exits. The backend connects only as that role, and it refuses to start if its database credential is a superuser, owns application tables, or could bypass future row-level security.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added a one-shot `migrate` Compose service built from the backend image. It runs `scripts/migrate-and-provision.js`, which applies pending migrations, creates or updates the runtime role, then connects as that role to verify it before exiting. The backend waits for it to complete successfully.",
-            "The runtime role is created with `NOSUPERUSER`, `NOCREATEDB`, `NOCREATEROLE`, `NOREPLICATION`, and `NOBYPASSRLS`. It gets `SELECT/INSERT/UPDATE/DELETE` on application tables and `USAGE/SELECT/UPDATE` on sequences. It cannot create schemas or objects, cannot truncate, index, or disable triggers, and has read-only access to `schema_migrations`. Owner default privileges give tables from future migrations the same grants.",
-            "The role password is sent to PostgreSQL as a SCRAM-SHA-256 verifier computed by the job, so the plaintext never appears in SQL text or server statement logs. Each run removes any stray role membership that would let the runtime role inherit owner rights.",
-            "Added a backend startup privilege guard (`DATABASE_RUNTIME_ROLE_POLICY`, `enforce` in Compose). It fails closed on superuser, `CREATEROLE`, `CREATEDB`, `REPLICATION`, or `BYPASSRLS`; on owned or inherited table ownership; on privileged role membership; and on schema or database `CREATE`.",
-            "With `DATABASE_MIGRATIONS_MODE=external` (Compose), the backend checks that the schema is current and will not start against an un-migrated database. The legacy in-process runner remains available as `startup` mode for ad-hoc runs and logs a warning.",
-            "Added the `runtime-role-certification` CI step and evidence artifact, a local preflight gate for that evidence, and unit coverage for the role, verifier, guard, and Compose contract."
           ]
         }
       ]
