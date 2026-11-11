@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.27.4",
+      "version": "3.27.4",
+      "date": "2026-11-11",
+      "status": null,
+      "summary": "Adds BookOrbit as a first-class, multi-instance OPDS provider backed by the authoritative external-identity registry. BookOrbit books and comics retain stable provider identity across repeat imports, ISBN corrections, visible-title collisions, and provider-owned book/comic classification changes without being presented as Calibre/CWA records.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added bounded BookOrbit OPDS discovery and catalog traversal over the shared transport, including Basic authentication, safe same-origin URL resolution, response/page/time limits, cycle detection, and complete-feed validation before mutation.",
+            "Added explicit BookOrbit connection administration with encrypted credentials, redacted readback, credential rotation, test, disable, reactivate, archive, and active-connection import selection.",
+            "Preserved Atom entry ids such as `urn:bookorbit:book:{id}` as connection-scoped External Identities while keeping ISBN and other bibliographic facts mutable and non-identifying.",
+            "Recognized current CBZ and CBR acquisition MIME types, preserved series/index, cover, acquisition, and source-update facts, and skipped unsupported audiobook acquisitions instead of misclassifying them as books.",
+            "Kept distinct provider records separate when ISBN or visible titles collide and added audit diagnostics for duplicates, partial outcomes, provider-identity matches, and guarded strong-identifier conflicts.",
+            "Added controlled Provider Type Transitions: lossless provider-owned book/comic changes retain the Canonical Object, while locked, manual, cross-provider, uncontrolled, or lossy changes preserve the existing object and require review."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.27.3",
       "version": "3.27.3",
       "date": "2026-11-10",
@@ -175,28 +195,6 @@
             "Raise the declared minimum backend engine to `>=24.22.1 <25` and add source-contract coverage for all maintained runtime and CI selectors.",
             "Update the backend and frontend `follow-redirects` override from `1.16.0` to `1.16.1` to resolve two newly reported high-severity advisories found during release preflight.",
             "Document that `npm audit` covers package dependencies, not the Node runtime and its bundled OpenSSL, c-ares, CA certificates, and Undici components."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.25.0",
-      "version": "3.25.0",
-      "date": "2026-10-16",
-      "status": null,
-      "summary": "Adds a native Apple TV companion for CollectZ with browser-approved sign-in, read-only collection browsing, and the existing CollectZ visual identity. The SwiftUI client is maintained in the sibling `collectZ-tvos` repository.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "TV pairing and browsing work in both deployment modes, including installations with Cairn. Every read still requires current library/workspace membership; archived workspaces are excluded.",
-            "Native screens use only the CollectZ name. Debug simulator builds recognize bare localhost and private IPv4 LAN addresses as HTTP; public connections and Release builds still require HTTPS.",
-            "Browser `/activate` approval uses short-lived device codes, existing cookie authentication, and CSRF protection. Device credentials/codes are hashed; polling is limited and redemption is atomic.",
-            "Dedicated TV permissions reuse mobile access/refresh sessions. Existing scanner permissions are unchanged. TV sessions cannot edit data, trigger imports, or use capture APIs.",
-            "Explicit library selection checks current membership on every read, including administrator accounts, without changing the web application's active library.",
-            "TV responses expose safe metadata and authorized artwork paths rather than raw integration payloads or source URLs. Collection joins check linked media ownership.",
-            "Native tvOS 18+ screens use CollectZ's colors, logo, bundled fonts, cards, and badges, with remote focus, accessible labels, stale states, and Keychain credentials.",
-            "Updated compatible axios and proxy-addr lockfile resolutions to remove production dependency advisories identified during release validation."
           ]
         }
       ]

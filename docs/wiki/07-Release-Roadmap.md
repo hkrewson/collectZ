@@ -205,7 +205,7 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 ## 3.27.4 — BookOrbit OPDS Adapter
 
 **Goal:** Add BookOrbit as an explicit digital-library provider adapter over shared OPDS transport, using the authoritative external-identity registry rather than presenting BookOrbit as Calibre/CWA.
-**Status:** Active after the hosted `3.27.3` closeout. Shared OPDS transport, multi-instance administration UI, and authoritative import reconciliation are implemented; real-server verification and release closeout remain.
+**Status:** Local release closeout complete; an authorized push and hosted release certification remain before final publication.
 
 ### Scope
 
@@ -247,6 +247,18 @@ The `3.27.x` line below is intentionally planned ahead under an explicit maintai
 - Real-server correction now selects BookOrbit's stable `urn:bookorbit:all` root entry instead of traversing every discovery branch, then follows only the catalog's feed-level pagination. The default bounded page budget is 100, page-limit failures direct administrators to the matching connection setting, and the Integrations form distinguishes BookOrbit's separate OPDS account from the normal sign-in credentials.
 - Real-import review keeps distinct same-connection Atom ids lossless when ISBN collides instead of letting a legacy single-id compatibility projection reject the later record. Unsupported audiobook acquisitions are explicitly skipped rather than mislabeled as books; completed jobs expose errors/skips and duplicate-title review counts, and the import audit identifies distinct provider records that share visible titles without merging them automatically.
 - Stable BookOrbit identities now retain one Canonical Object when provider classification changes between book and comic. Lossless changes apply only under provider-owned type control; manual, locked, cross-provider, legacy-uncontrolled, or type-detail-losing changes preserve the existing object and surface a review-required audit result instead of failing the job or creating a duplicate.
+
+### Closeout
+
+- **Roadmap slice:** `3.27.4 — BookOrbit OPDS Adapter`.
+- **Project docs/checklists used:** `AGENTS.md`; `GLOSSARY.md`; `docs/adr/0001-canonical-object-and-provider-identity.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/releases/v3.27.4.md`.
+- **Verified runtime facts:** Rebuilt and recreated the canonical `collectz-private` backend/frontend in place on port `3201`; health reports app/frontend/backend/build `3.27.4`; authenticated Help > Releases serves `3.27.4` first; BookOrbit authoritative import smoke retains five canonical rows across repeat sync, same-connection ISBN collision, overlapping ids across two connections, a lossless book-to-comic transition, and a locked reverse transition that remains unchanged for review; and the canonical platform control-plane runtime contract passes.
+- **CI/checks run:** Backend unit assertions (`372`) plus transaction/scope/identity tests (`46`); OpenAPI; RBAC regression; external-identity certification (`21` checks); BookOrbit authoritative import smoke; frontend tests and production build; maintained Core browser regression against the canonical platform stack (`54` passed, six edition-inapplicable skips); control-plane runtime smoke; observability evidence (`9/9`); backend/frontend dependency audits with zero vulnerabilities; standard local release gate (`14/14`); local CodeQL (`5` suppressed/baseline results, `0` active); release feed/readback; diff hygiene; and generated-artifact credential inspection.
+- **Blocked/unverified:** Direct init-parity execution is blocked in the canonical backend because its enforced non-owner runtime role cannot create the required scratch database; existing evidence through migration `133` is present and this release adds no migration, but hosted `migration-check` must rerun init parity and migration rehearsal. Secure-cookie `compose-smoke` is blocked by the intentional development-cookie settings of the retained stack. Hosted Core `runtime-smoke` remains required because the canonical stack is the platform edition and repo policy forbids starting the full local gate's separate CollectZ project. Local `secret-scan` and `image-security-and-sbom` are blocked because Gitleaks and Trivy are not installed. Hosted CI must rerun those gates, generate the CycloneDX SBOMs, publish images, and complete release preflight after push.
+- **Files changed:** Root/backend/frontend version metadata and lockfiles; `docs/releases/v3.27.4.md`; generated Help > Releases feed; preflight and observability release evidence; and this roadmap closeout.
+- **Risks or follow-ups:** BookOrbit audiobook acquisitions remain intentionally unsupported. Existing legacy BookOrbit rows establish provider control of media type on an unchanged repeat observation; an earlier type change fails closed for review. Reading progress, metadata writeback, embedded reading, file proxying, scheduling, and broader work/edition/copy modeling remain outside this milestone.
+- **What remains in the milestone:** Authorized push plus hosted migration/init parity, secret scan, secure-cookie Compose smoke, Core RBAC/browser/runtime confirmation, image security/SBOM, release preflight, publication, and auto-tag evidence. `3.27.5` remains inactive until those gates pass.
+- **Recommended commit message:** `Release 3.27.4 with BookOrbit OPDS identities, comic classification, and safe canonical type transitions`.
 
 ---
 
