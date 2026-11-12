@@ -1884,7 +1884,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 **Type:** Deferred infrastructure milestone
 **Tags:** `public-repo`, `open-source`, `platform-extraction`, `cairn`, `ci`, `security`, `docs`, `subscription-readiness`
 **Priority:** `P1`; continue through bounded API-contract and dead-surface cleanup slices after P0 security/ownership work where dependencies overlap.
-**Status:** Active 3.x closeout line. The canonical public-source repository transition is complete; remaining work is the narrower Core/`cairn` platform-surface split and compatibility cleanup.
+**Status:** The canonical public-source transition and Core-side platform extraction are complete. Cairn recovery, security, and its standalone UI are owned by the Cairn repository. Any future Core compatibility work must be a bounded patch-level revision within the active Core minor line; the exact version remains unscheduled until a concrete Cairn slice is promoted.
 
 **Goal:** Make collectZ the canonical public open-source Core repository again, retire the generated mirror workflow, and extract SaaS/platform behavior into a separate service named `cairn`.
 
@@ -1927,12 +1927,15 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - Continue using documented Core APIs only for `cairn`; do not share collectZ internals or database access.
 - Keep paired-service compose examples and Core/`cairn` network configuration out of the public Core repository; document those in `cairn` only.
 - Keep Core runtime, homelab smoke, public-source CI, and `cairn` platform contracts aligned after each remaining extraction slice.
+- If Cairn needs a Core change, promote only the smallest compatibility interface as a patch-level Core revision: a non-secret Cairn navigation URL, a documented Core operation, or a narrowly reviewed handoff adapter. Select its exact semver only when scheduled rather than assigning one from backlog.
 
 **Out of scope**
 - Do not rewrite repository history unless a separate secret-exposure review requires it.
 - Do not implement billing or subscription enforcement in this transition.
 - Do not make `cairn` required for self-hosted collectZ Core.
 - Do not let `cairn` patch collectZ source or write directly to the collectZ database in v1.
+- Do not move Cairn UI, authentication, sessions, roles, directory state, deployment topology, or platform workflows back into Core.
+- Do not expand an active Core feature milestone to carry the Cairn recovery program; Core participation remains revision-sized and independently releasable.
 
 **Acceptance Criteria**
 - collectZ remains public as the canonical source repository.
@@ -1943,6 +1946,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - `cairn` can model one configured Core instance and route users by email.
 - Core users authenticate in Core; platform admins authenticate in `cairn`.
 - Support access is explicit, audited, and time-bound.
+- Any required Core compatibility change ships as a bounded patch-level revision and leaves the Cairn product implementation in Cairn.
 - Remaining work is tracked as concrete Core/`cairn` extraction slices, not as a broad public-repository transition.
 
 ### Backlog Item: Personal Workspace Offboarding, Archive Retention, and Recovery
