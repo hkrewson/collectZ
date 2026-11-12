@@ -11,7 +11,7 @@ The `3.27.x` architecture line is complete. `3.28.0` is the active milestone. By
 ## 3.28.0 — Durable Provider Job Foundation
 
 **Goal:** Put workspace-owned provider automation behind one durable PostgreSQL job lifecycle, prove it with existing Plex reconciliation and new scheduled BookOrbit synchronization, and preserve provider-specific import behavior behind explicit adapters.
-**Status:** In progress. The relational foundation and Plex reconciliation adopter are complete; scheduled BookOrbit synchronization is the next provider slice.
+**Status:** In progress. The relational foundation, Plex reconciliation adopter, and scheduled BookOrbit synchronization are complete; consistent operator readback/cancellation and final release certification remain.
 
 ### Selected scope
 
@@ -45,8 +45,23 @@ The `3.27.x` architecture line is complete. `3.28.0` is the active milestone. By
 - `services/durableJobs.js` provides the first lifecycle implementation with idempotent enqueue, concurrent-safe claim, owner-bound lease renewal, progress, bounded retry/final settlement, cancellation, expired-lease recovery, and workspace-scoped readback.
 - `services/durableJobWorker.js` provides the leased execution loop with cancellation checkpoints, heartbeat renewal, bounded exponential retry, and permanent-failure classification.
 - Plex full-library reconciliation now enqueues a secret-free durable target, resolves workspace credentials only during execution, and runs through one leased worker attempt while preserving its existing safe-update and conflict-review behavior.
+- Migration `135` and fresh-install parity add workspace-owned Provider Connection/library sync targets with same-workspace foreign keys, an explicit enabled cadence, scoped access, and last-enqueue state.
+- BookOrbit manual asynchronous imports and persisted automatic cadence now enqueue `bookorbit_sync` work through the shared lifecycle. The worker resolves current connection credentials only while executing, and scheduled cadence identities suppress duplicate work.
+- The BookOrbit adapter retains OPDS comic series and series index, does not fabricate an issue number, and preserves one canonical identity through a lossless book-to-comic classification move; manual/locked unsafe moves remain review-required.
 - The interface rejects secret-bearing structured payload fields and persists only provider-connection references for later adapter resolution.
 - A rollback-safe canonical-database smoke covers stable public identity, relational scope, idempotency, secret refusal, concurrent claims, leases, progress, retry, cancellation, expired-lease terminal behavior, and readback.
+
+### BookOrbit scheduled-sync adopter checkpoint
+
+- **Roadmap slice:** `3.28.0 — Durable Provider Job Foundation`, scheduled BookOrbit durable-worker adopter and OPDS series/classification fidelity.
+- **Project docs/checklists used:** `AGENTS.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/53-Digital-Library-Provider-Identity-Contract.md`; `docs/wiki/54-Durable-Workspace-Job-Contract.md`.
+- **Verified runtime facts:** Rebuilt and recreated the canonical `collectz-private` backend/frontend in place on port `3201`; the retained database applied migration `135` and exposes `provider_sync_targets` with RLS enabled. A workspace-scoped scheduled BookOrbit run completed in one leased attempt, a repeated cadence reused the same durable job, credentials stayed out of its target, and five canonical rows remained stable across repeat sync, an ISBN collision, two provider instances, and a book-to-comic classification move. Comic series `Orbit Saga` retained provider order `2` without fabricating an issue number; a locked reverse transition remained unchanged for review.
+- **CI/checks run:** Backend unit assertions (`373`) plus transaction/scope/identity/durable-worker tests (`55`); frontend unit tests (`4`) and production build; OpenAPI; BookOrbit OPDS transport protections; authoritative scheduled BookOrbit smoke; workspace ownership certification (`76` tables, `351` routes, `12` execution paths); migration `134 -> 135 -> 134` rehearsal; init parity through `135`; runtime-role certification (`30/30`); identity upgrade/restore certification through `135`; external-identity certification (`21`); RBAC regression; canonical control-plane runtime smoke; Node syntax and diff hygiene.
+- **Blocked/unverified:** This checkpoint is not the `3.28.0` version closeout. Consistent public operator job/cadence readback and cancellation remain, followed by Core runtime, maintained browser regression, dependency/secret/image/SBOM gates, release metadata, Help > Releases readback, full local release gate, and hosted release certification.
+- **Files changed:** Provider sync-target migration and fresh-install schema; scoped sync-target service; BookOrbit durable enqueue, worker, cadence scheduler, audit/failure handling, and server startup; workspace integration APIs and OpenAPI; administrator automatic-sync controls; authoritative scheduled-sync/series/classification smoke; ownership and migration certifications; durable contract, roadmap, and backlog documentation.
+- **Risks or follow-ups:** The five-minute scheduler sweep is intentionally process-local while PostgreSQL idempotency prevents duplicate cadence work across instances. Operators do not yet have the milestone’s unified safe state/cancellation surface. Rich multi-series, volume, issue, story-arc, and credit modeling remains `3.28.1` rather than entering job payloads.
+- **What remains in the milestone:** Add consistent safe durable-job and cadence readback/cancellation, run the remaining full browser/Core-runtime/security/image/release gates, then align version metadata, `docs/releases/v3.28.0.md`, generated release-feed data, and running Help > Releases for version closeout.
+- **Recommended commit message:** `Adopt durable scheduled BookOrbit sync with relational cadence targets and comic series fidelity`.
 
 ### Plex reconciliation adopter checkpoint
 

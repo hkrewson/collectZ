@@ -4986,7 +4986,9 @@ CREATE INDEX IF NOT EXISTS idx_tv_device_expiry ON tv_device_authorizations(expi
   { version: 133, description: 'Bind legacy integration slots to stable provider connections',
     up: require('fs').readFileSync(require('path').join(__dirname, 'providerIntegrationBindings.sql'), 'utf8') },
   { version: 134, description: 'Add durable workspace-aware job lifecycle foundation',
-    up: require('fs').readFileSync(require('path').join(__dirname, 'durableJobFoundation.sql'), 'utf8') }
+    up: require('fs').readFileSync(require('path').join(__dirname, 'durableJobFoundation.sql'), 'utf8') },
+  { version: 135, description: 'Add relational provider sync targets',
+    up: require('fs').readFileSync(require('path').join(__dirname, 'providerSyncTargets.sql'), 'utf8') }
 ];
 
 async function runMigrationsForClient(client, options = {}) {

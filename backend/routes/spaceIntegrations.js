@@ -56,6 +56,7 @@ const { withAuthorizedScopeTransaction } = require('../db/scopeBroker');
 const { createProviderIntegrationBindingService } = require('../services/providerIntegrationBindings');
 const { createProviderConnectionService } = require('../services/providerConnections');
 const { createBookOrbitAdapterRegistry } = require('../services/bookOrbitIdentity');
+const { createProviderSyncTargetStore } = require('../services/providerSyncTargets');
 const { buildBookOrbitEndpoint, fetchBookOrbitOpdsItems } = require('../services/bookOrbit');
 const {
   getAccessibleSpaceForUser,
@@ -70,6 +71,7 @@ const bookOrbitConnections = createProviderConnectionService({
   pool,
   adapterRegistry: createBookOrbitAdapterRegistry()
 });
+const providerSyncTargets = createProviderSyncTargetStore({ pool });
 
 const SPACE_READ_ONLY_FIELDS = [
   'logExportBackend',
@@ -784,6 +786,57 @@ router.get('/spaces/:spaceId/integrations/bookorbit-connections', authenticateTo
     includeArchived: String(req.query?.includeArchived || '').toLowerCase() === 'true'
   });
   res.json({ connections });
+}));
+
+router.get('/spaces/:spaceId/integrations/bookorbit-connections/:connectionId/sync-targets', authenticateToken, requireSessionAuth, asyncHandler(async (req, res) => {
+  const managed = await requireBookOrbitManager(req, res);
+  if (!managed) return;
+  const connection = await bookOrbitConnections.get({
+    spaceId: managed.spaceId,
+    actorId: req.user.id,
+    connectionId: req.params.connectionId
+  });
+  if (!connection || connection.providerType !== 'bookorbit') return res.status(404).json({ error: 'BookOrbit connection not found' });
+  const targets = await providerSyncTargets.list({
+    spaceId: managed.spaceId,
+    actorId: req.user.id,
+    connectionId: connection.id
+  });
+  return res.json({ targets });
+}));
+
+router.put('/spaces/:spaceId/integrations/bookorbit-connections/:connectionId/sync-target', authenticateToken, requireSessionAuth, requireRecentReauthentication, asyncHandler(async (req, res) => {
+  const managed = await requireBookOrbitManager(req, res);
+  if (!managed) return;
+  const connection = await bookOrbitConnections.get({
+    spaceId: managed.spaceId,
+    actorId: req.user.id,
+    connectionId: req.params.connectionId
+  });
+  if (!connection || connection.providerType !== 'bookorbit') return res.status(404).json({ error: 'BookOrbit connection not found' });
+  const libraryId = Number(req.body?.libraryId || 0);
+  const library = await pool.query(
+    'SELECT id, name FROM libraries WHERE id = $1 AND space_id = $2 AND archived_at IS NULL',
+    [libraryId, managed.spaceId]
+  );
+  if (!library.rows[0]) return res.status(400).json({ error: 'Choose an active library in this workspace' });
+  const target = await providerSyncTargets.configureSingle({
+    spaceId: managed.spaceId,
+    actorId: req.user.id,
+    connectionId: connection.id,
+    libraryId,
+    enabled: req.body?.enabled === true,
+    syncIntervalMinutes: req.body?.intervalMinutes
+  });
+  await logActivity(req, 'space.settings.integrations.bookorbit.sync_target', 'provider_sync_target', null, {
+    provider: 'bookorbit',
+    connectionId: connection.id,
+    libraryId,
+    enabled: target.enabled,
+    intervalMinutes: target.intervalMinutes,
+    spaceId: managed.spaceId
+  });
+  return res.json({ target: { ...target, libraryName: library.rows[0].name } });
 }));
 
 router.post('/spaces/:spaceId/integrations/bookorbit-connections', authenticateToken, requireSessionAuth, requireRecentReauthentication, asyncHandler(async (req, res) => {

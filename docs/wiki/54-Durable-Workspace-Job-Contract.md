@@ -48,6 +48,14 @@ The BookOrbit adopter must also retain OPDS series names and indexes for comics,
 
 The lifecycle does not interpret Plex sections, BookOrbit Atom ids, metadata precedence, conflicts, covers, links, or import summaries. Those remain inside their provider adapters.
 
+## Persisted provider cadence
+
+`provider_sync_targets` stores the automatic BookOrbit connection/library pairing separately from both the Provider Connection and the durable job history. Each target has one generated UUID, explicit workspace, relational Provider Connection and library ownership, enabled state, bounded interval, and last-enqueue time. Composite foreign keys prevent either referenced object from crossing the target workspace, and scoped transactions protect reads and writes.
+
+The scheduler scans due targets on a five-minute process-local sweep. Its cadence-bucket idempotency key makes concurrent application instances converge on one durable job; the database job lifecycle, rather than the timer, is the reliability boundary. Disabling a target stops future enqueue without deleting its job history or Provider Connection. The scheduler never changes BookOrbit data.
+
+The certified BookOrbit result contract records bounded counts and audit rows, including series coverage, while keeping credentials and raw feeds out of targets, progress, summaries, logs, and readback. OPDS series order remains `series_index`; an absent provider issue number remains absent.
+
 ## Deferred work
 
 - transactional outbox use where enqueue must commit atomically with another domain mutation;

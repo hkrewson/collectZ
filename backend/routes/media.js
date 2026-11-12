@@ -182,6 +182,7 @@ const {
 const { runManualMediaMergeApply, runManualMediaMergeRevert } = require('../scripts/repair-book-comic-duplicates');
 const { createDurableJobStore } = require('../services/durableJobs');
 const { createDurableJobWorker } = require('../services/durableJobWorker');
+const { createProviderSyncTargetStore } = require('../services/providerSyncTargets');
 
 const router = express.Router();
 const metronImportIdentity = createMetronImportIdentityModule({ pool });
@@ -194,7 +195,9 @@ const bookOrbitConnections = createProviderConnectionService({
   adapterRegistry: createBookOrbitAdapterRegistry()
 });
 const durableJobStore = createDurableJobStore(pool);
+const providerSyncTargets = createProviderSyncTargetStore({ pool });
 let plexReconciliationDurableWorker = null;
+let bookOrbitDurableWorker = null;
 
 const ALLOWED_COVER_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 
@@ -14060,202 +14063,322 @@ router.post('/import-csv/calibre', tempUpload.single('file'), asyncHandler(async
   res.json({ ok: true, rows: result.rows, summary: result.summary, auditRows: result.auditRows, valuationRefresh });
 }));
 
-router.post('/import-bookorbit', requireSessionAuth, asyncHandler(async (req, res) => {
-  const scopeContext = resolveScopeContext(req);
-  const valuationMode = resolveValuationExecutionMode(req);
-  const connectionId = String(req.body?.connectionId || req.query?.connectionId || '').trim();
-  if (!connectionId) return res.status(400).json({ error: 'BookOrbit connection id is required' });
-  const asyncMode = shouldQueueImportByDefault(req);
-  const auditReq = {
-    user: req.user,
-    headers: req.headers,
-    ip: req.ip,
-    socket: req.socket
-  };
+function bookOrbitJobProgress() {
+  return { total: 0, processed: 0, created: 0, updated: 0, skipped: 0, errorCount: 0 };
+}
 
-  const runImport = async ({ onProgress = null, reviewContext = null } = {}) => {
-    const spaceId = Number(scopeContext?.spaceId || 0);
-    if (!Number.isInteger(spaceId) || spaceId <= 0) {
-      const error = new Error('BookOrbit import requires an explicit workspace');
-      error.code = 'workspace_scope_required';
-      error.status = 400;
-      throw error;
-    }
-    const runtime = await bookOrbitConnections.loadRuntime({
-      spaceId,
-      actorId: req.user.id,
-      connectionId,
-      providerType: 'bookorbit'
-    });
-    const endpointUrl = buildBookOrbitEndpoint(runtime.connection.endpointUrl, runtime.settings.catalogPath);
-    const requestedMaxPages = Number(req.body?.maxPages ?? req.query?.maxPages);
-    const maxPages = Number.isInteger(requestedMaxPages) && requestedMaxPages > 0
-      ? Math.min(requestedMaxPages, runtime.settings.maxPages)
-      : runtime.settings.maxPages;
-    const fetched = await fetchBookOrbitOpdsItems({
-      endpointUrl,
-      username: runtime.credentials.username,
-      password: runtime.credentials.password,
-      timeoutMs: runtime.settings.timeoutMs
-    }, { maxPages });
-    const importRows = prepareBookOrbitImportRows(fetched.rows);
-    const identitySession = await bookOrbitImportIdentity.open({
-      spaceId,
-      libraryId: Number(scopeContext?.libraryId || 0) || null,
-      actorId: req.user.id,
-      connectionId: runtime.connection.id,
-      sourceUrl: endpointUrl
-    });
-    const result = await runGenericCsvImport({
-      rows: importRows,
-      userId: req.user.id,
-      scopeContext,
-      onProgress,
-      importSource: 'bookorbit',
-      reviewContext,
-      enrichmentMode: 'skip',
-      authoritativeIdentitySession: identitySession
-    });
-    const valuationRefresh = await queueImportedValuationRefresh({
-      mediaIds: result.createdMediaIds,
-      userId: req.user.id,
-      scopeContext,
-      mode: valuationMode,
-      auditReq: reviewContext?.auditReq || req,
-      importSource: 'bookorbit'
-    });
-    const errorCount = result.summary.errors.length;
-    const skippedCount = result.summary.skipped_invalid + result.summary.skipped_collection;
-    const duplicateTitleReviewRows = result.auditRows.filter((row) =>
-      Array.isArray(row?.review_reasons)
-      && row.review_reasons.some((reason) => String(reason).startsWith('BookOrbit exposes '))).length;
-    const typeTransitionReviewRows = result.auditRows.filter((row) =>
-      row?.audit_outcome === 'type_transition_review').length;
-    return {
-      runtime,
-      fetched,
-      result,
-      valuationRefresh,
-      completion: {
-        completedWithErrors: errorCount > 0,
-        completedWithSkips: skippedCount > 0,
-        skippedCount,
-        duplicateTitleReviewRows,
-        typeTransitionReviewRows,
-        errorsSample: result.summary.errors.slice(0, 20)
-      }
-    };
-  };
-
-  if (asyncMode) {
-    const job = await createSyncJob({
-      userId: req.user.id,
-      jobType: 'media_import',
-      provider: 'bookorbit',
-      scope: { ...jobScopePayload(scopeContext), connectionId },
-      progress: {
-        total: 0,
-        processed: 0,
-        created: 0,
-        updated: 0,
-        skipped: 0,
-        errorCount: 0
-      }
-    });
-    recordImportJobEvent('bookorbit', 'queued');
-
-    setImmediate(async () => {
-      try {
-        await updateSyncJob(job.id, { status: 'running', started_at: new Date() });
-        const { runtime, fetched, result, valuationRefresh, completion } = await runImport({
-          onProgress: async (progress) => updateSyncJob(job.id, { progress }),
-          reviewContext: { jobId: job.id, provider: 'bookorbit', auditReq }
-        });
-        await updateSyncJob(job.id, {
-          status: 'succeeded',
-          progress: {
-            total: result.rows,
-            processed: result.rows,
-            created: result.summary.created,
-            updated: result.summary.updated,
-            skipped: completion.skippedCount,
-            errorCount: result.summary.errors.length
-          },
-          summary: {
-            rows: result.rows,
-            created: result.summary.created,
-            updated: result.summary.updated,
-            skipped_invalid: result.summary.skipped_invalid,
-            skipped_collection: result.summary.skipped_collection,
-            errorCount: result.summary.errors.length,
-            matchModes: result.summary.matchModes,
-            enrichment: result.summary.enrichment,
-            diagnosticsFlagged: result.summary.diagnosticsFlagged,
-            completedWithErrors: completion.completedWithErrors,
-            completedWithSkips: completion.completedWithSkips,
-            duplicateTitleReviewRows: completion.duplicateTitleReviewRows,
-            typeTransitionReviewRows: completion.typeTransitionReviewRows,
-            errorsSample: completion.errorsSample,
-            valuationRefresh,
-            connectionId: runtime.connection.id,
-            pagesFetched: fetched.pagesFetched,
-            publications: fetched.rows.length,
-            auditRows: result.auditRows
-          },
-          finished_at: new Date()
-        });
-        recordImportJobEvent('bookorbit', 'succeeded');
-        recordImportEnrichmentSummaryMetrics('bookorbit', result.summary.enrichment);
-        await logActivity(auditReq, 'media.import.bookorbit', 'media', null, {
-          connectionId: runtime.connection.id,
-          rows: result.rows,
-          created: result.summary.created,
-          updated: result.summary.updated,
-          skipped_invalid: result.summary.skipped_invalid,
-          typeTransitionReviewRows: completion.typeTransitionReviewRows,
-          errorCount: result.summary.errors.length,
-          pagesFetched: fetched.pagesFetched,
-          jobId: job.id
-        });
-      } catch (error) {
-        recordImportJobEvent('bookorbit', 'failed');
-        await updateSyncJob(job.id, {
-          status: 'failed',
-          error: error.message || 'BookOrbit import failed',
-          finished_at: new Date()
-        });
-        await logActivity(auditReq, 'media.import.bookorbit.failed', 'media', null, {
-          connectionId,
-          detail: error.message || 'BookOrbit import failed',
-          jobId: job.id
-        });
-      }
-    });
-
-    return res.status(202).json(buildQueuedJobResponse(job, 'bookorbit'));
+async function performBookOrbitImport({
+  actor,
+  scopeContext,
+  connectionId,
+  maxPages: requestedMaxPages = null,
+  valuationMode = 'live',
+  jobId = null,
+  onProgress = null,
+  auditReq = null
+}) {
+  const spaceId = Number(scopeContext?.spaceId || 0);
+  const libraryId = Number(scopeContext?.libraryId || 0);
+  if (!Number.isInteger(spaceId) || spaceId <= 0 || !Number.isInteger(libraryId) || libraryId <= 0) {
+    const error = new Error('BookOrbit import requires an explicit workspace and library');
+    error.code = 'BOOKORBIT_CONFIGURATION_INVALID';
+    throw error;
   }
-
-  const { runtime, fetched, result, valuationRefresh, completion } = await runImport({
-    reviewContext: { provider: 'bookorbit', auditReq: req }
+  const runtime = await bookOrbitConnections.loadRuntime({
+    spaceId,
+    actorId: actor.id,
+    connectionId,
+    providerType: 'bookorbit'
   });
+  const endpointUrl = buildBookOrbitEndpoint(runtime.connection.endpointUrl, runtime.settings.catalogPath);
+  const parsedMaxPages = Number(requestedMaxPages);
+  const maxPages = Number.isInteger(parsedMaxPages) && parsedMaxPages > 0
+    ? Math.min(parsedMaxPages, runtime.settings.maxPages)
+    : runtime.settings.maxPages;
+  const fetched = await fetchBookOrbitOpdsItems({
+    endpointUrl,
+    username: runtime.credentials.username,
+    password: runtime.credentials.password,
+    timeoutMs: runtime.settings.timeoutMs
+  }, { maxPages });
+  const importRows = prepareBookOrbitImportRows(fetched.rows);
+  const identitySession = await bookOrbitImportIdentity.open({
+    spaceId,
+    libraryId,
+    actorId: actor.id,
+    connectionId: runtime.connection.id,
+    sourceUrl: endpointUrl
+  });
+  const effectiveAuditReq = auditReq || { user: actor, headers: {}, ip: 'system', socket: null };
+  const result = await runGenericCsvImport({
+    rows: importRows,
+    userId: actor.id,
+    scopeContext,
+    onProgress,
+    importSource: 'bookorbit',
+    reviewContext: { jobId, provider: 'bookorbit', auditReq: effectiveAuditReq },
+    enrichmentMode: 'skip',
+    authoritativeIdentitySession: identitySession
+  });
+  const valuationRefresh = await queueImportedValuationRefresh({
+    mediaIds: result.createdMediaIds,
+    userId: actor.id,
+    scopeContext,
+    mode: valuationMode,
+    auditReq: effectiveAuditReq,
+    importSource: 'bookorbit'
+  });
+  const skippedCount = result.summary.skipped_invalid + result.summary.skipped_collection;
+  const duplicateTitleReviewRows = result.auditRows.filter((row) =>
+    Array.isArray(row?.review_reasons)
+    && row.review_reasons.some((reason) => String(reason).startsWith('BookOrbit exposes '))).length;
+  const typeTransitionReviewRows = result.auditRows.filter((row) => row?.audit_outcome === 'type_transition_review').length;
+  const seriesRows = importRows.filter((row) => row?.media_type === 'comic_book' && row?.type_details?.series).length;
+  const orderedSeriesRows = importRows.filter((row) => row?.media_type === 'comic_book' && row?.type_details?.series_index).length;
+  const summary = {
+    rows: result.rows,
+    created: result.summary.created,
+    updated: result.summary.updated,
+    skipped_invalid: result.summary.skipped_invalid,
+    skipped_collection: result.summary.skipped_collection,
+    errorCount: result.summary.errors.length,
+    matchModes: result.summary.matchModes,
+    enrichment: result.summary.enrichment,
+    diagnosticsFlagged: result.summary.diagnosticsFlagged,
+    completedWithErrors: result.summary.errors.length > 0,
+    completedWithSkips: skippedCount > 0,
+    skippedCount,
+    duplicateTitleReviewRows,
+    typeTransitionReviewRows,
+    valuationRefresh,
+    connectionId: runtime.connection.id,
+    pagesFetched: fetched.pagesFetched,
+    publications: fetched.rows.length,
+    comicSeriesRows: seriesRows,
+    comicSeriesOrderedRows: orderedSeriesRows,
+    auditRows: result.auditRows.slice(0, 250)
+  };
   recordImportJobEvent('bookorbit', 'succeeded');
   recordImportEnrichmentSummaryMetrics('bookorbit', result.summary.enrichment);
-  await logActivity(req, 'media.import.bookorbit', 'media', null, {
+  await logActivity(effectiveAuditReq, 'media.import.bookorbit', 'media', null, {
     connectionId: runtime.connection.id,
     rows: result.rows,
     created: result.summary.created,
     updated: result.summary.updated,
     skipped_invalid: result.summary.skipped_invalid,
+    typeTransitionReviewRows,
     errorCount: result.summary.errors.length,
-    pagesFetched: fetched.pagesFetched
+    pagesFetched: fetched.pagesFetched,
+    jobId
   });
+  return { runtime, fetched, result, valuationRefresh, summary };
+}
+
+function bookOrbitIdempotencyKey({ reason, targetId, intervalMinutes = 360 } = {}) {
+  if (reason !== 'scheduled') return `bookorbit-sync:request:${crypto.randomUUID()}`;
+  const cadenceMs = Math.max(60, Number(intervalMinutes || 360)) * 60 * 1000;
+  return `bookorbit-sync:scheduled:${targetId}:${Math.floor(Date.now() / cadenceMs)}`;
+}
+
+async function enqueueBookOrbitDurableJob({
+  actorId,
+  scopeContext,
+  connectionId,
+  maxPages = null,
+  valuationMode = 'live',
+  reason = 'manual',
+  targetId = null,
+  intervalMinutes = 360
+}) {
+  return durableJobStore.enqueue({
+    jobType: 'bookorbit_sync',
+    provider: 'bookorbit',
+    createdBy: actorId,
+    spaceId: scopeContext.spaceId,
+    libraryId: scopeContext.libraryId,
+    providerConnectionId: connectionId,
+    maxAttempts: 3,
+    idempotencyKey: bookOrbitIdempotencyKey({ reason, targetId, intervalMinutes }),
+    targetRef: { maxPages: Number(maxPages) || null, valuationMode, reason, targetId },
+    progress: bookOrbitJobProgress()
+  });
+}
+
+async function executeBookOrbitDurableJob(job, context) {
+  const actor = await loadPlexReconciliationJobActor(job);
+  if (!actor) {
+    const error = new Error('BookOrbit synchronization has no workspace automation actor');
+    error.code = 'BOOKORBIT_CONFIGURATION_INVALID';
+    throw error;
+  }
+  const target = job.targetRef || {};
+  const auditReq = { user: actor, headers: {}, ip: 'system', socket: null };
+  try {
+    const completed = await performBookOrbitImport({
+      actor,
+      scopeContext: { spaceId: job.spaceId, libraryId: job.libraryId },
+      connectionId: job.providerConnectionId,
+      maxPages: target.maxPages,
+      valuationMode: target.valuationMode || 'live',
+      jobId: job.id,
+      onProgress: context.reportProgress,
+      auditReq
+    });
+    return { summary: completed.summary };
+  } catch (error) {
+    recordImportJobEvent('bookorbit', 'failed');
+    await logActivity(auditReq, 'media.import.bookorbit.failed', 'sync_jobs', job.id, {
+      connectionId: job.providerConnectionId,
+      detail: error.message || 'BookOrbit synchronization failed'
+    });
+    throw error;
+  }
+}
+
+function startBookOrbitDurableWorker() {
+  if (bookOrbitDurableWorker) return bookOrbitDurableWorker;
+  bookOrbitDurableWorker = createDurableJobWorker({
+    store: durableJobStore,
+    workerId: `bookorbit:${process.pid}:${crypto.randomUUID()}`,
+    jobTypes: ['bookorbit_sync'],
+    leaseSeconds: 300,
+    pollIntervalMs: 1000,
+    classifyError: (error) => new Set([
+      'BOOKORBIT_CONFIGURATION_INVALID',
+      'PROVIDER_CONNECTION_NOT_FOUND',
+      'PROVIDER_CONNECTION_INACTIVE',
+      'PROVIDER_CONNECTION_INCOMPLETE'
+    ]).has(error?.code) ? 'failed' : 'retry',
+    execute: executeBookOrbitDurableJob
+  });
+  bookOrbitDurableWorker.start({ initialDelayMs: 250 });
+  return bookOrbitDurableWorker;
+}
+
+const bookOrbitSyncSchedulerState = {
+  running: false,
+  lastStartedAt: null,
+  lastFinishedAt: null,
+  lastTargetCount: 0,
+  lastJobsQueued: 0,
+  lastJobsReused: 0,
+  lastError: null
+};
+
+async function runBookOrbitSyncSchedulerOnce({ reason = 'scheduled', spaceId: requestedSpaceId = null } = {}) {
+  const normalizedSpaceId = Number(requestedSpaceId || 0) || null;
+  const spaces = await pool.query(
+    `SELECT id FROM spaces WHERE ($1::int IS NULL OR id = $1) ORDER BY id`,
+    [normalizedSpaceId]
+  );
+  const summary = { reason, targetCount: 0, jobsQueued: 0, jobsReused: 0, errors: 0 };
+  for (const row of spaces.rows) {
+    const spaceId = Number(row.id);
+    const actor = await findSpaceAutomationUser(spaceId);
+    if (!actor) continue;
+    const targets = await providerSyncTargets.listDue({
+      spaceId,
+      actorId: actor.id,
+      providerType: 'bookorbit'
+    });
+    for (const target of targets) {
+      summary.targetCount += 1;
+      try {
+        const job = await enqueueBookOrbitDurableJob({
+          actorId: actor.id,
+          scopeContext: { spaceId, libraryId: target.libraryId },
+          connectionId: target.providerConnectionId,
+          reason: 'scheduled',
+          targetId: target.id,
+          intervalMinutes: target.intervalMinutes
+        });
+        if (job.created) summary.jobsQueued += 1;
+        else summary.jobsReused += 1;
+        await providerSyncTargets.markEnqueued({
+          spaceId,
+          actorId: actor.id,
+          targetId: target.id
+        });
+      } catch (error) {
+        summary.errors += 1;
+        logError('BookOrbit scheduled sync enqueue failed', error);
+      }
+    }
+  }
+  return summary;
+}
+
+function startBookOrbitSyncScheduler() {
+  const runSweep = async () => {
+    if (bookOrbitSyncSchedulerState.running) return;
+    bookOrbitSyncSchedulerState.running = true;
+    bookOrbitSyncSchedulerState.lastStartedAt = new Date().toISOString();
+    bookOrbitSyncSchedulerState.lastError = null;
+    try {
+      const summary = await runBookOrbitSyncSchedulerOnce();
+      bookOrbitSyncSchedulerState.lastTargetCount = summary.targetCount;
+      bookOrbitSyncSchedulerState.lastJobsQueued = summary.jobsQueued;
+      bookOrbitSyncSchedulerState.lastJobsReused = summary.jobsReused;
+      if (summary.errors > 0) bookOrbitSyncSchedulerState.lastError = `${summary.errors} target enqueue(s) failed`;
+    } catch (error) {
+      bookOrbitSyncSchedulerState.lastError = error.message || 'BookOrbit scheduled sync failed';
+      logError('BookOrbit scheduled sync failed', error);
+    } finally {
+      bookOrbitSyncSchedulerState.running = false;
+      bookOrbitSyncSchedulerState.lastFinishedAt = new Date().toISOString();
+    }
+  };
+  const timer = setInterval(runSweep, 5 * 60 * 1000);
+  timer.unref();
+  setTimeout(runSweep, 5000).unref();
+  return timer;
+}
+
+router.post('/import-bookorbit', requireSessionAuth, asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const valuationMode = resolveValuationExecutionMode(req);
+  const connectionId = String(req.body?.connectionId || req.query?.connectionId || '').trim();
+  if (!connectionId) return res.status(400).json({ error: 'BookOrbit connection id is required' });
+  const requestedMaxPages = Number(req.body?.maxPages ?? req.query?.maxPages);
+  if (shouldQueueImportByDefault(req)) {
+    const connection = await bookOrbitConnections.get({
+      spaceId: scopeContext.spaceId,
+      actorId: req.user.id,
+      connectionId
+    });
+    if (!connection || connection.providerType !== 'bookorbit') return res.status(404).json({ error: 'BookOrbit connection not found' });
+    const job = await enqueueBookOrbitDurableJob({
+      actorId: req.user.id,
+      scopeContext,
+      connectionId,
+      maxPages: requestedMaxPages,
+      valuationMode,
+      reason: 'manual'
+    });
+    recordImportJobEvent('bookorbit', 'queued');
+    return res.status(202).json(buildQueuedJobResponse(job, 'bookorbit'));
+  }
+
+  const completed = await performBookOrbitImport({
+    actor: req.user,
+    scopeContext,
+    connectionId,
+    maxPages: requestedMaxPages,
+    valuationMode,
+    auditReq: req
+  });
+  const { runtime, fetched, result, valuationRefresh, summary } = completed;
   return res.json({
     ok: true,
     connectionId: runtime.connection.id,
     rows: result.rows,
     summary: {
       ...result.summary,
-      ...completion,
+      completedWithErrors: summary.completedWithErrors,
+      completedWithSkips: summary.completedWithSkips,
+      skippedCount: summary.skippedCount,
+      duplicateTitleReviewRows: summary.duplicateTitleReviewRows,
+      typeTransitionReviewRows: summary.typeTransitionReviewRows,
       pagesFetched: fetched.pagesFetched,
       publications: fetched.rows.length
     },
@@ -16999,6 +17122,10 @@ router.getPlexWatchStateRefreshRuntimeConfig = getPlexWatchStateRefreshRuntimeCo
 router.getEffectivePlexWatchStateRefreshRuntimeConfig = getEffectivePlexWatchStateRefreshRuntimeConfig;
 router.runPlexWatchStateRefreshOnce = runPlexWatchStateRefreshOnce;
 router.startPlexReconciliationSyncScheduler = startPlexReconciliationSyncScheduler;
+router.startBookOrbitDurableWorker = startBookOrbitDurableWorker;
+router.startBookOrbitSyncScheduler = startBookOrbitSyncScheduler;
+router.runBookOrbitSyncSchedulerOnce = runBookOrbitSyncSchedulerOnce;
+router.getBookOrbitSyncSchedulerState = () => ({ ...bookOrbitSyncSchedulerState });
 router.startPlexReconciliationDurableWorker = startPlexReconciliationDurableWorker;
 router.runPlexReconciliationDurableWorkerOnce = async () => {
   const worker = startPlexReconciliationDurableWorker();

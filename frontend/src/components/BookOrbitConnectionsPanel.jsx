@@ -6,6 +6,9 @@ const EMPTY_FORM = Object.freeze({
   catalogPath: '/api/v1/opds',
   timeoutMs: '20000',
   maxPages: '100',
+  automaticSync: false,
+  syncIntervalMinutes: '360',
+  libraryId: '',
   username: '',
   password: ''
 });
@@ -28,12 +31,14 @@ function formFromConnection(connection) {
 
 export default function BookOrbitConnectionsPanel({ apiCall, endpointBase, onToast, Spinner }) {
   const [connections, setConnections] = useState([]);
+  const [libraries, setLibraries] = useState([]);
   const [editingId, setEditingId] = useState('');
   const [form, setForm] = useState(() => ({ ...EMPTY_FORM }));
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState('');
   const [message, setMessage] = useState('');
   const connectionEndpoint = `${endpointBase}/bookorbit-connections`;
+  const workspaceId = Number(endpointBase.match(/\/spaces\/(\d+)/)?.[1] || 0);
 
   const selected = useMemo(() => connections.find((connection) => connection.id === editingId) || null, [connections, editingId]);
 
@@ -41,9 +46,13 @@ export default function BookOrbitConnectionsPanel({ apiCall, endpointBase, onToa
     async ({ preserveSelection = true } = {}) => {
       setLoading(true);
       try {
-        const payload = await apiCall('get', `${connectionEndpoint}?includeArchived=true`);
+        const [payload, libraryPayload] = await Promise.all([
+          apiCall('get', `${connectionEndpoint}?includeArchived=true`),
+          apiCall('get', '/libraries')
+        ]);
         const next = Array.isArray(payload?.connections) ? payload.connections : [];
         setConnections(next);
+        setLibraries(Array.isArray(libraryPayload?.libraries) ? libraryPayload.libraries : []);
         if (!preserveSelection || (editingId && !next.some((connection) => connection.id === editingId))) {
           setEditingId('');
           setForm({ ...EMPTY_FORM });
@@ -63,10 +72,24 @@ export default function BookOrbitConnectionsPanel({ apiCall, endpointBase, onToa
     loadConnections();
   }, [loadConnections]);
 
-  const chooseConnection = (connection) => {
+  const chooseConnection = async (connection) => {
     setEditingId(connection.id);
     setForm(formFromConnection(connection));
     setMessage('');
+    try {
+      const payload = await apiCall('get', `${connectionEndpoint}/${connection.id}/sync-targets`);
+      const target = Array.isArray(payload?.targets) ? payload.targets.find((entry) => entry.enabled) || payload.targets[0] : null;
+      if (target) {
+        setForm((current) => ({
+          ...current,
+          automaticSync: Boolean(target.enabled),
+          syncIntervalMinutes: String(target.intervalMinutes || 360),
+          libraryId: String(target.libraryId || '')
+        }));
+      }
+    } catch (error) {
+      setMessage(error?.response?.data?.error || 'Automatic sync settings could not be loaded.');
+    }
   };
 
   const beginNew = () => {
@@ -86,6 +109,10 @@ export default function BookOrbitConnectionsPanel({ apiCall, endpointBase, onToa
     }
     if (!editingId && (!hasUsername || !hasPassword)) {
       setMessage('A username and password are required for a new BookOrbit connection.');
+      return;
+    }
+    if (form.automaticSync && !form.libraryId) {
+      setMessage('Choose the library that should receive automatic BookOrbit updates.');
       return;
     }
 
@@ -127,10 +154,29 @@ export default function BookOrbitConnectionsPanel({ apiCall, endpointBase, onToa
         );
         saved = response?.connection;
       }
+      if (saved?.id && form.libraryId) {
+        await apiCall(
+          'put',
+          `${connectionEndpoint}/${saved.id}/sync-target`,
+          {
+            libraryId: Number(form.libraryId),
+            enabled: Boolean(form.automaticSync),
+            intervalMinutes: Number(form.syncIntervalMinutes)
+          },
+          SENSITIVE_OPERATION
+        );
+      }
       await loadConnections({ preserveSelection: true });
       if (saved?.id) {
         setEditingId(saved.id);
-        setForm({ ...formFromConnection(saved), username: '', password: '' });
+        setForm({
+          ...formFromConnection(saved),
+          automaticSync: form.automaticSync,
+          syncIntervalMinutes: form.syncIntervalMinutes,
+          libraryId: form.libraryId,
+          username: '',
+          password: ''
+        });
       }
       setMessage(editingId ? 'BookOrbit connection updated.' : 'BookOrbit connection created.');
       onToast(editingId ? 'BookOrbit connection updated' : 'BookOrbit connection created');
@@ -334,6 +380,49 @@ export default function BookOrbitConnectionsPanel({ apiCall, endpointBase, onToa
             </div>
           </div>
           <p className="text-xs text-ghost">Use the separate OPDS account configured in BookOrbit, not your normal BookOrbit sign-in.</p>
+          <div className="space-y-3 rounded-lg border border-edge/70 bg-raised/40 p-3">
+            <label className="flex items-center gap-2 text-sm text-ink" htmlFor="bookorbit-automatic-sync">
+              <input
+                id="bookorbit-automatic-sync"
+                type="checkbox"
+                checked={form.automaticSync}
+                onChange={(event) => updateField('automaticSync', event.target.checked)}
+              />
+              Keep this BookOrbit server synchronized automatically
+            </label>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="field">
+                <label className="label" htmlFor="bookorbit-sync-library">Destination library</label>
+                <select
+                  id="bookorbit-sync-library"
+                  className="input"
+                  value={form.libraryId}
+                  onChange={(event) => updateField('libraryId', event.target.value)}
+                >
+                  <option value="">Choose a library</option>
+                  {libraries
+                    .filter((library) => !workspaceId || Number(library.space_id) === workspaceId)
+                    .map((library) => <option key={library.id} value={library.id}>{library.name}</option>)}
+                </select>
+              </div>
+              <div className="field">
+                <label className="label" htmlFor="bookorbit-sync-interval">Sync interval</label>
+                <select
+                  id="bookorbit-sync-interval"
+                  className="input"
+                  value={form.syncIntervalMinutes}
+                  onChange={(event) => updateField('syncIntervalMinutes', event.target.value)}
+                >
+                  <option value="60">Every hour</option>
+                  <option value="360">Every 6 hours</option>
+                  <option value="720">Every 12 hours</option>
+                  <option value="1440">Every day</option>
+                  <option value="10080">Every week</option>
+                </select>
+              </div>
+            </div>
+            <p className="text-xs text-ghost">Changes are pulled into CollectZ. BookOrbit files and metadata are never modified.</p>
+          </div>
           <div className="flex flex-wrap gap-2 border-t border-edge/70 pt-4">
             <button type="button" className="btn-primary btn-sm" onClick={saveConnection} disabled={Boolean(working)}>
               {working === 'save' ? <Spinner size={14} /> : null}

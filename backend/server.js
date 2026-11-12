@@ -479,6 +479,12 @@ const startServer = async () => {
     if (typeof mediaRouter.startPlexReconciliationDurableWorker === 'function') {
       mediaRouter.startPlexReconciliationDurableWorker();
     }
+    if (typeof mediaRouter.startBookOrbitDurableWorker === 'function') {
+      mediaRouter.startBookOrbitDurableWorker();
+    }
+    if (typeof mediaRouter.startBookOrbitSyncScheduler === 'function') {
+      mediaRouter.startBookOrbitSyncScheduler();
+    }
     if (typeof mediaRouter.startPlexReconciliationSyncScheduler === 'function') {
       await mediaRouter.startPlexReconciliationSyncScheduler();
     }

@@ -7255,6 +7255,47 @@
         "responses": { "200": { "description": "Updated redacted BookOrbit connection" }, "404": { "description": "Connection not found" } }
       }
     },
+    "/api/spaces/{id}/integrations/bookorbit-connections/{connectionId}/sync-targets": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "List relational BookOrbit automatic-sync targets",
+        "security": [{ "cookieSession": [] }],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } },
+          { "in": "path", "name": "connectionId", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Secret-free BookOrbit sync target list", "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } },
+          "404": { "description": "Connection not found" }
+        }
+      }
+    },
+    "/api/spaces/{id}/integrations/bookorbit-connections/{connectionId}/sync-target": {
+      "put": {
+        "tags": ["Auth"],
+        "summary": "Configure one BookOrbit destination library and automatic-sync cadence",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } },
+          { "in": "path", "name": "connectionId", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["libraryId", "enabled", "intervalMinutes"],
+          "properties": {
+            "libraryId": { "type": "integer", "minimum": 1 },
+            "enabled": { "type": "boolean" },
+            "intervalMinutes": { "type": "integer", "minimum": 60, "maximum": 10080 }
+          }
+        } } } },
+        "responses": {
+          "200": { "description": "Updated relational BookOrbit sync target", "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } },
+          "400": { "description": "Invalid library or cadence", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "404": { "description": "Connection not found" }
+        }
+      }
+    },
     "/api/spaces/{id}/integrations/bookorbit-connections/{connectionId}/credentials": {
       "put": {
         "tags": ["Auth"],

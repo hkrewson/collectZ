@@ -712,7 +712,7 @@ results.push(run('workspace ownership contract classifies every schema table, ro
   const contract = buildWorkspaceOwnershipContract();
   const snapshot = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'config', 'workspace-ownership-contract.json'), 'utf8'));
   assert.deepStrictEqual(contract, snapshot);
-  assert.strictEqual(contract.tables.length, 75);
+  assert.strictEqual(contract.tables.length, 76);
   assert.ok(contract.tables.filter(t => t.name.startsWith('collectz_scope.')).every(t => t.category === 'authorization_control_plane'));
   assert.ok(contract.routes.length >= 300);
   assert.ok(contract.routes.filter((route) => route.authentication === 'required').length >= 300);
@@ -723,6 +723,7 @@ results.push(run('workspace ownership contract classifies every schema table, ro
     'provider_connections',
     'provider_integration_bindings',
     'provider_connection_credentials',
+    'provider_sync_targets',
     'external_media_identities',
     'external_media_identity_events',
     'canonical_media_field_controls'
@@ -5316,6 +5317,10 @@ results.push(run('bookOrbit connection and import routes use the multi-instance 
   assert.ok(mediaRoutesSource.includes("router.post('/import-bookorbit'"));
   assert.ok(mediaRoutesSource.includes('bookOrbitImportIdentity.open'));
   assert.ok(mediaRoutesSource.includes("importSource: 'bookorbit'"));
+  assert.ok(mediaRoutesSource.includes("jobType: 'bookorbit_sync'"));
+  assert.ok(mediaRoutesSource.includes('startBookOrbitDurableWorker'));
+  assert.ok(mediaRoutesSource.includes('runBookOrbitSyncSchedulerOnce'));
+  assert.ok(bookOrbitAuthoritativeImportSmokeSource.includes('comicSeriesOrderingPreserved'));
 }));
 
 results.push(run('typeDetails preserves BookOrbit series provenance for books', () => {

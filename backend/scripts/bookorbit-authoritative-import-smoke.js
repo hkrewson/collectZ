@@ -10,6 +10,7 @@ const pool = require('../db/pool');
 const { withAuthorizedScopeTransaction } = require('../db/scopeBroker');
 const { setCanonicalFieldControl } = require('../services/canonicalMediaFieldControls');
 const { createScopedSmokeUser } = require('./helpers/scopedSmokeUser');
+const mediaRouter = require('../routes/media');
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 
@@ -69,7 +70,7 @@ function randomIsbn13() {
   return `${stem}${(10 - (weighted % 10)) % 10}`;
 }
 
-function entry({ id, title, isbn, mime = 'application/epub+zip', extension = 'epub' }) {
+function entry({ id, title, isbn, mime = 'application/epub+zip', extension = 'epub', series = null, seriesIndex = null }) {
   return [
     '<entry>',
     `<id>urn:bookorbit:book:${id}</id>`,
@@ -77,9 +78,29 @@ function entry({ id, title, isbn, mime = 'application/epub+zip', extension = 'ep
     '<updated>2026-11-10T20:00:00.000Z</updated>',
     '<author><name>BookOrbit Smoke Author</name></author>',
     `<dc:identifier>urn:isbn:${isbn}</dc:identifier>`,
+    ...(series ? [`<link rel="http://opds-spec.org/sort/series" href="/series/${id}" title="${series}${seriesIndex ? ` #${seriesIndex}` : ''}"/>`] : []),
     `<link rel="http://opds-spec.org/acquisition" type="${mime}" href="/download/${id}.${extension}"/>`,
     '</entry>'
   ].join('');
+}
+
+async function waitForDurableBookOrbitJob(connectionId) {
+  const deadline = Date.now() + 30000;
+  let row = null;
+  while (Date.now() < deadline) {
+    const result = await pool.query(
+      `SELECT id, public_id, status, attempt_count, max_attempts, space_id, library_id,
+              provider_connection_id, target_ref, summary, error, lease_owner, lease_expires_at
+         FROM sync_jobs
+        WHERE job_type = 'bookorbit_sync' AND provider_connection_id = $1
+        ORDER BY id DESC LIMIT 1`,
+      [connectionId]
+    );
+    row = result.rows[0] || null;
+    if (row && ['succeeded', 'failed', 'cancelled'].includes(row.status)) return row;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  throw new Error(`Timed out waiting for durable BookOrbit job: ${JSON.stringify(row)}`);
 }
 
 function feed(entries) {
@@ -146,8 +167,8 @@ async function main() {
   const comicIsbn = randomIsbn13();
   const duplicateTitleIsbn = randomIsbn13();
   one.entries = () => [
-    entry({ id: 42, title: 'BookOrbit Instance One', isbn: firstIsbn, mime: firstMime, extension: firstExtension }),
-    entry({ id: 43, title: 'BookOrbit Instance One Comic', isbn: comicIsbn, mime: 'application/vnd.comicbook+zip', extension: 'cbz' }),
+    entry({ id: 42, title: 'BookOrbit Instance One', isbn: firstIsbn, mime: firstMime, extension: firstExtension, series: 'Orbit Saga', seriesIndex: '2' }),
+    entry({ id: 43, title: 'BookOrbit Instance One Comic', isbn: comicIsbn, mime: 'application/vnd.comicbook+zip', extension: 'cbz', series: 'Orbit Saga', seriesIndex: '3' }),
     entry({ id: 44, title: 'BookOrbit Alternate Edition', isbn: firstIsbn }),
     entry({ id: 45, title: 'BookOrbit Audiobook', isbn: randomIsbn13(), mime: 'audio/mp4', extension: 'm4b' }),
     entry({ id: 46, title: 'BookOrbit Instance One Comic', isbn: duplicateTitleIsbn, mime: 'application/vnd.comicbook+zip', extension: 'cbz' })
@@ -196,6 +217,28 @@ async function main() {
 
     const firstConnectionId = await createConnection('one', one);
     const secondConnectionId = await createConnection('two', two);
+    const scheduledTarget = await client.request(`/api/spaces/${spaceId}/integrations/bookorbit-connections/${firstConnectionId}/sync-target`, {
+      method: 'PUT',
+      csrf: true,
+      body: JSON.stringify({ libraryId, enabled: true, intervalMinutes: 360 })
+    });
+    assert.equal(scheduledTarget.target.enabled, true);
+    assert.equal(scheduledTarget.target.libraryId, libraryId);
+    const rescheduledTarget = await client.request(`/api/spaces/${spaceId}/integrations/bookorbit-connections/${firstConnectionId}/sync-target`, {
+      method: 'PUT',
+      csrf: true,
+      body: JSON.stringify({ libraryId, enabled: true, intervalMinutes: 720 })
+    });
+    assert.equal(rescheduledTarget.target.id, scheduledTarget.target.id);
+    assert.equal(rescheduledTarget.target.intervalMinutes, 720);
+    const restoredTarget = await client.request(`/api/spaces/${spaceId}/integrations/bookorbit-connections/${firstConnectionId}/sync-target`, {
+      method: 'PUT',
+      csrf: true,
+      body: JSON.stringify({ libraryId, enabled: true, intervalMinutes: 360 })
+    });
+    assert.equal(restoredTarget.target.id, scheduledTarget.target.id);
+    const syncTargets = await client.request(`/api/spaces/${spaceId}/integrations/bookorbit-connections/${firstConnectionId}/sync-targets`);
+    assert.equal(syncTargets.targets.length, 1);
     const listed = await client.request(`/api/spaces/${spaceId}/integrations/bookorbit-connections`);
     assert.equal(listed.connections.length, 2);
     assert.equal(JSON.stringify(listed).includes(one.password), false);
@@ -311,6 +354,28 @@ async function main() {
     assert.equal(transitionedAudit?.provider_type_transition?.action, 'refresh');
     assert.equal(transitionedAudit?.provider_type_transition?.from, 'book');
     assert.equal(transitionedAudit?.provider_type_transition?.to, 'comic_book');
+    const scheduled = await mediaRouter.runBookOrbitSyncSchedulerOnce({ spaceId });
+    assert.equal(scheduled.targetCount, 1);
+    assert.equal(scheduled.jobsQueued, 1);
+    const durableJob = await waitForDurableBookOrbitJob(firstConnectionId);
+    assert.equal(durableJob.status, 'succeeded');
+    assert.equal(durableJob.attempt_count, 1);
+    assert.equal(durableJob.max_attempts, 3);
+    assert.equal(durableJob.space_id, spaceId);
+    assert.equal(durableJob.library_id, libraryId);
+    assert.equal(durableJob.provider_connection_id, firstConnectionId);
+    assert.equal(durableJob.summary?.comicSeriesRows, 2);
+    assert.equal(durableJob.summary?.comicSeriesOrderedRows, 2);
+    assert.equal(durableJob.lease_owner, null);
+    assert.equal(durableJob.lease_expires_at, null);
+    assert.equal(JSON.stringify(durableJob.target_ref).includes(one.password), false);
+    await withAuthorizedScopeTransaction(pool, { spaceId, libraryId }, userId, (db) => db.query(
+      'UPDATE provider_sync_targets SET last_enqueued_at = NULL WHERE space_id = $1 AND provider_connection_id = $2',
+      [spaceId, firstConnectionId]
+    ));
+    const duplicateCadence = await mediaRouter.runBookOrbitSyncSchedulerOnce({ spaceId });
+    assert.equal(duplicateCadence.jobsQueued, 0);
+    assert.equal(duplicateCadence.jobsReused, 1);
     await withAuthorizedScopeTransaction(pool, { spaceId, libraryId }, userId, async (db) => {
       await setCanonicalFieldControl(db, {
         spaceId,
@@ -382,6 +447,9 @@ async function main() {
     assert.equal(firstBook?.type_details?.isbn, firstIsbn);
     assert.notEqual(firstBook?.type_details?.isbn, originalIsbn);
     assert.equal(firstBook?.title, 'Manual BookOrbit Title');
+    assert.equal(firstBook?.type_details?.series, 'Orbit Saga');
+    assert.equal(firstBook?.type_details?.series_index, '2');
+    assert.equal(firstBook?.type_details?.issue_number || null, null);
     assert.equal(comic?.type_details?.provider_item_id, 'urn:bookorbit:book:43');
     assert.equal(mediaRows.rows.some((row) => row.type_details?.provider_item_id === 'urn:bookorbit:book:45'), false);
 
@@ -391,6 +459,10 @@ async function main() {
       firstCreated: firstImport.summary.created,
       repeatUpdated: repeated.summary.updated,
       typeTransition: 'book-to-comic-same-canonical',
+      durableScheduledSync: 'one-leased-attempt',
+      stableRelationalSyncTarget: true,
+      scheduledCadenceDeduplicated: true,
+      comicSeriesOrderingPreserved: true,
       lockedTypeTransition: 'review-required-existing-preserved',
       secondCreated: secondImport.summary.created,
       canonicalRows: mediaRows.rowCount,
