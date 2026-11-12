@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import DurableJobStatusPanel from './DurableJobStatusPanel';
 
 const EMPTY_FORM = Object.freeze({
   name: '',
@@ -37,6 +38,7 @@ export default function BookOrbitConnectionsPanel({ apiCall, endpointBase, onToa
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState('');
   const [message, setMessage] = useState('');
+  const [syncTarget, setSyncTarget] = useState(null);
   const connectionEndpoint = `${endpointBase}/bookorbit-connections`;
   const workspaceId = Number(endpointBase.match(/\/spaces\/(\d+)/)?.[1] || 0);
 
@@ -75,11 +77,13 @@ export default function BookOrbitConnectionsPanel({ apiCall, endpointBase, onToa
   const chooseConnection = async (connection) => {
     setEditingId(connection.id);
     setForm(formFromConnection(connection));
+    setSyncTarget(null);
     setMessage('');
     try {
       const payload = await apiCall('get', `${connectionEndpoint}/${connection.id}/sync-targets`);
       const target = Array.isArray(payload?.targets) ? payload.targets.find((entry) => entry.enabled) || payload.targets[0] : null;
       if (target) {
+        setSyncTarget(target);
         setForm((current) => ({
           ...current,
           automaticSync: Boolean(target.enabled),
@@ -95,6 +99,7 @@ export default function BookOrbitConnectionsPanel({ apiCall, endpointBase, onToa
   const beginNew = () => {
     setEditingId('');
     setForm({ ...EMPTY_FORM });
+    setSyncTarget(null);
     setMessage('');
   };
 
@@ -129,6 +134,7 @@ export default function BookOrbitConnectionsPanel({ apiCall, endpointBase, onToa
         }
       };
       let saved;
+      let savedTarget = null;
       if (editingId) {
         const response = await apiCall('patch', `${connectionEndpoint}/${editingId}`, details, SENSITIVE_OPERATION);
         saved = response?.connection;
@@ -155,7 +161,7 @@ export default function BookOrbitConnectionsPanel({ apiCall, endpointBase, onToa
         saved = response?.connection;
       }
       if (saved?.id && form.libraryId) {
-        await apiCall(
+        const targetResponse = await apiCall(
           'put',
           `${connectionEndpoint}/${saved.id}/sync-target`,
           {
@@ -165,10 +171,12 @@ export default function BookOrbitConnectionsPanel({ apiCall, endpointBase, onToa
           },
           SENSITIVE_OPERATION
         );
+        savedTarget = targetResponse?.target || null;
       }
       await loadConnections({ preserveSelection: true });
       if (saved?.id) {
         setEditingId(saved.id);
+        setSyncTarget(savedTarget);
         setForm({
           ...formFromConnection(saved),
           automaticSync: form.automaticSync,
@@ -392,7 +400,9 @@ export default function BookOrbitConnectionsPanel({ apiCall, endpointBase, onToa
             </label>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="field">
-                <label className="label" htmlFor="bookorbit-sync-library">Destination library</label>
+                <label className="label" htmlFor="bookorbit-sync-library">
+                  Destination library
+                </label>
                 <select
                   id="bookorbit-sync-library"
                   className="input"
@@ -402,11 +412,17 @@ export default function BookOrbitConnectionsPanel({ apiCall, endpointBase, onToa
                   <option value="">Choose a library</option>
                   {libraries
                     .filter((library) => !workspaceId || Number(library.space_id) === workspaceId)
-                    .map((library) => <option key={library.id} value={library.id}>{library.name}</option>)}
+                    .map((library) => (
+                      <option key={library.id} value={library.id}>
+                        {library.name}
+                      </option>
+                    ))}
                 </select>
               </div>
               <div className="field">
-                <label className="label" htmlFor="bookorbit-sync-interval">Sync interval</label>
+                <label className="label" htmlFor="bookorbit-sync-interval">
+                  Sync interval
+                </label>
                 <select
                   id="bookorbit-sync-interval"
                   className="input"
@@ -423,6 +439,19 @@ export default function BookOrbitConnectionsPanel({ apiCall, endpointBase, onToa
             </div>
             <p className="text-xs text-ghost">Changes are pulled into CollectZ. BookOrbit files and metadata are never modified.</p>
           </div>
+          {editingId ? (
+            <DurableJobStatusPanel
+              apiCall={apiCall}
+              endpointBase={endpointBase}
+              provider="bookorbit"
+              jobType="bookorbit_sync"
+              providerConnectionId={editingId}
+              cadence={syncTarget}
+              onToast={onToast}
+              Spinner={Spinner}
+              title="BookOrbit sync activity"
+            />
+          ) : null}
           <div className="flex flex-wrap gap-2 border-t border-edge/70 pt-4">
             <button type="button" className="btn-primary btn-sm" onClick={saveConnection} disabled={Boolean(working)}>
               {working === 'save' ? <Spinner size={14} /> : null}

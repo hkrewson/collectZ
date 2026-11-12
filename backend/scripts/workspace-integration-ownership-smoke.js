@@ -7,6 +7,7 @@ const {
   loadWorkspaceValuationIntegrationConfig,
   loadWorkspaceOcrIntegrationConfig
 } = require('../services/integrations');
+const { createDurableJobStore } = require('../services/durableJobs');
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 
@@ -155,9 +156,67 @@ async function main() {
     assert(valuationA.priceChartingApiKey !== valuationB.priceChartingApiKey, 'PriceCharting credentials crossed workspace boundaries');
     assert(ocrA.visionApiKey !== ocrB.visionApiKey, 'OCR credentials crossed workspace boundaries');
 
+    const durableJobs = createDurableJobStore(pool);
+    const jobA = await durableJobs.enqueue({
+      jobType: 'bookorbit_sync',
+      provider: 'bookorbit',
+      createdBy: userId,
+      spaceId: spaceIds[0],
+      maxAttempts: 3,
+      targetRef: { smoke: true },
+      progress: { completed: 0 }
+    });
+    const jobB = await durableJobs.enqueue({
+      jobType: 'bookorbit_sync',
+      provider: 'bookorbit',
+      createdBy: userId,
+      spaceId: spaceIds[1],
+      maxAttempts: 3,
+      targetRef: { smoke: true },
+      progress: { completed: 0 }
+    });
+    await pool.query(
+      `UPDATE sync_jobs
+          SET error = $2,
+              summary = jsonb_build_object('processed', 0, 'api_key', $3::text)
+        WHERE public_id = $1`,
+      [jobA.publicId, `Bearer ${secrets.priceA}`, secrets.priceA]
+    );
+
+    const listA = await client.request(
+      `/api/spaces/${spaceIds[0]}/integrations/jobs?provider=bookorbit&jobType=bookorbit_sync&limit=10`
+    );
+    assert(Array.isArray(listA.data?.jobs) && listA.data.jobs.length === 1, 'Workspace A durable-job list was not isolated');
+    const readbackA = listA.data.jobs[0];
+    assert(readbackA.publicId === jobA.publicId, 'Workspace A durable-job list returned the wrong job');
+    assert(readbackA.failureReason === '[REDACTED]', 'Durable-job failure readback was not sanitized');
+    assert(readbackA.summary?.api_key === '[REDACTED]', 'Durable-job summary readback was not sanitized');
+    for (const internalField of ['id', 'spaceId', 'createdBy', 'targetRef', 'leaseOwner', 'idempotencyKey']) {
+      assert(!Object.prototype.hasOwnProperty.call(readbackA, internalField), `Durable-job readback exposed ${internalField}`);
+    }
+
+    const detailA = await client.request(`/api/spaces/${spaceIds[0]}/integrations/jobs/${jobA.publicId}`);
+    assert(detailA.data?.job?.publicId === jobA.publicId, 'Workspace A durable-job detail did not resolve');
+    await client.request(`/api/spaces/${spaceIds[1]}/integrations/jobs/${jobA.publicId}`, { expectStatus: 404 });
+
+    const cancelledA = await client.request(`/api/spaces/${spaceIds[0]}/integrations/jobs/${jobA.publicId}/cancel`, {
+      method: 'POST',
+      withCsrf: true,
+      body: {}
+    });
+    assert(cancelledA.data?.job?.status === 'cancelled', 'Queued durable job did not cancel immediately');
+    assert(cancelledA.data?.job?.canCancel === false, 'Cancelled durable job remained cancellable');
+    await client.request(`/api/spaces/${spaceIds[0]}/integrations/jobs/${jobA.publicId}/cancel`, {
+      method: 'POST',
+      withCsrf: true,
+      body: {},
+      expectStatus: 409
+    });
+
     console.log('Workspace integration ownership smoke passed');
   } finally {
     if (spaceIds.length) {
+      await pool.query('DELETE FROM sync_jobs WHERE space_id = ANY($1::int[])', [spaceIds]).catch(() => {});
       await pool.query('DELETE FROM app_integrations WHERE space_id = ANY($1::int[])', [spaceIds]).catch(() => {});
       await pool.query('DELETE FROM space_memberships WHERE space_id = ANY($1::int[])', [spaceIds]).catch(() => {});
       await pool.query('DELETE FROM spaces WHERE id = ANY($1::int[])', [spaceIds]).catch(() => {});

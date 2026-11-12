@@ -101,6 +101,8 @@ const {
 } = require('../services/browserCaptureMapping');
 const { compareReleaseVersions, parseReleaseMarkdown } = require('../services/releaseNotes');
 const { buildCoreInstanceContract } = require('../services/coreInstance');
+const { shapeOperatorJob } = require('../services/durableJobs');
+const { shape: shapeProviderSyncTarget } = require('../services/providerSyncTargets');
 const {
   buildMediaHealthReview,
   buildMissingIdentifierReviewClues,
@@ -316,6 +318,8 @@ const wishlistViewSource = readFrontendSource(path.join('components', 'WishlistV
 const importViewSource = readFrontendSource(path.join('components', 'ImportView'));
 const captureInboxViewSource = readFrontendSource(path.join('components', 'CaptureInboxView'));
 const adminIntegrationsViewSource = readFrontendSource(path.join('components', 'AdminIntegrationsView'));
+const bookOrbitConnectionsPanelSource = readFrontendSource(path.join('components', 'BookOrbitConnectionsPanel'));
+const durableJobStatusPanelSource = readFrontendSource(path.join('components', 'DurableJobStatusPanel'));
 const profileViewSource = readFrontendSource(path.join('components', 'ProfileView'));
 const spaceManagerViewSource = readFrontendSource(path.join('components', 'SpaceManagerView'));
 const libraryLoansViewSource = readFrontendSource(path.join('components', 'LibraryLoansView'));
@@ -5323,6 +5327,87 @@ results.push(run('bookOrbit connection and import routes use the multi-instance 
   assert.ok(bookOrbitAuthoritativeImportSmokeSource.includes('comicSeriesOrderingPreserved'));
 }));
 
+results.push(run('durable operator readback exposes only sanitized workspace-safe lifecycle fields', () => {
+  const shaped = shapeOperatorJob({
+    id: 91,
+    public_id: '0f4c8b4e-6e07-43bd-a5a7-2ea61ef60943',
+    job_type: 'bookorbit_sync',
+    job_version: 1,
+    provider: 'bookorbit',
+    status: 'retry_wait',
+    created_by: 42,
+    space_id: 7,
+    library_id: 8,
+    provider_connection_id: '53444c15-3aad-40f9-af7d-b7cb6cb4589a',
+    correlation_id: '590d27ed-8993-4d00-b35d-4e4a09bdc612',
+    idempotency_key: 'internal-cadence-key',
+    target_ref: { password: 'must-not-appear' },
+    progress: { completed: 2, access_token: 'must-not-appear' },
+    summary: { imported: 2, api_key: 'must-not-appear' },
+    error: 'Bearer must-not-appear',
+    attempt_count: 2,
+    max_attempts: 3,
+    available_at: '2026-11-12T18:00:00.000Z',
+    lease_owner: 'internal-worker',
+    cancel_requested_at: null,
+    cancelled_at: null,
+    started_at: '2026-11-12T17:00:00.000Z',
+    finished_at: null,
+    created_at: '2026-11-12T16:55:00.000Z',
+    updated_at: '2026-11-12T17:05:00.000Z'
+  });
+  assert.strictEqual(shaped.publicId, '0f4c8b4e-6e07-43bd-a5a7-2ea61ef60943');
+  assert.strictEqual(shaped.nextEligibleAt, '2026-11-12T18:00:00.000Z');
+  assert.strictEqual(shaped.canCancel, true);
+  assert.strictEqual(shaped.progress.access_token, '[REDACTED]');
+  assert.strictEqual(shaped.summary.api_key, '[REDACTED]');
+  assert.strictEqual(shaped.failureReason, '[REDACTED]');
+  for (const internalField of ['id', 'createdBy', 'spaceId', 'correlationId', 'idempotencyKey', 'targetRef', 'leaseOwner']) {
+    assert.strictEqual(Object.prototype.hasOwnProperty.call(shaped, internalField), false);
+  }
+}));
+
+results.push(run('provider cadence readback reports the next eligible time without changing disabled targets', () => {
+  const due = shapeProviderSyncTarget({
+    id: '3b11202c-c803-4901-a5ee-d5bd996305e4',
+    space_id: 7,
+    provider_connection_id: '53444c15-3aad-40f9-af7d-b7cb6cb4589a',
+    library_id: 8,
+    library_name: 'Comics',
+    provider_type: 'bookorbit',
+    enabled: true,
+    interval_minutes: 60,
+    last_enqueued_at: '2026-11-12T16:00:00.000Z',
+    created_at: '2026-11-12T15:00:00.000Z',
+    updated_at: '2026-11-12T16:00:00.000Z'
+  }, { now: new Date('2026-11-12T17:01:00.000Z') });
+  assert.strictEqual(due.nextEligibleAt, '2026-11-12T17:00:00.000Z');
+  assert.strictEqual(due.dueNow, true);
+
+  const disabled = shapeProviderSyncTarget({
+    id: due.id,
+    space_id: due.spaceId,
+    provider_connection_id: due.providerConnectionId,
+    library_id: due.libraryId,
+    enabled: false,
+    interval_minutes: due.intervalMinutes,
+    last_enqueued_at: due.lastEnqueuedAt
+  }, { now: new Date('2026-11-12T17:01:00.000Z') });
+  assert.strictEqual(disabled.nextEligibleAt, null);
+  assert.strictEqual(disabled.dueNow, false);
+}));
+
+results.push(run('workspace integration UI and API expose durable job readback and confirmed cancellation', () => {
+  assert.ok(spaceIntegrationsRoutesSource.includes("router.get('/spaces/:spaceId/integrations/jobs'"));
+  assert.ok(spaceIntegrationsRoutesSource.includes("router.get('/spaces/:spaceId/integrations/jobs/:publicId'"));
+  assert.ok(spaceIntegrationsRoutesSource.includes("router.post('/spaces/:spaceId/integrations/jobs/:publicId/cancel'"));
+  assert.ok(spaceIntegrationsRoutesSource.includes('requestOperatorCancellation'));
+  assert.ok(durableJobStatusPanelSource.includes('Confirm cancel'));
+  assert.ok(durableJobStatusPanelSource.includes('providerConnectionId'));
+  assert.ok(bookOrbitConnectionsPanelSource.includes('title="BookOrbit sync activity"'));
+  assert.ok(adminIntegrationsViewSource.includes('title="Plex reconciliation activity"'));
+}));
+
 results.push(run('typeDetails preserves BookOrbit series provenance for books', () => {
   const out = normalizeTypeDetails('book', {
     series: 'Orbit Series',
@@ -6261,6 +6346,9 @@ results.push(run('openapi baseline documents key auth admin and media endpoints'
   assert.ok(spec.paths['/api/media/sync-jobs']);
   assert.ok(spec.paths['/api/media/sync-jobs/{id}']);
   assert.ok(spec.paths['/api/media/sync-jobs/{id}/result']);
+  assert.ok(spec.paths['/api/spaces/{id}/integrations/jobs']);
+  assert.ok(spec.paths['/api/spaces/{id}/integrations/jobs/{publicId}']);
+  assert.ok(spec.paths['/api/spaces/{id}/integrations/jobs/{publicId}/cancel']);
   assert.ok(spec.components.securitySchemes.cookieSession);
   assert.ok(spec.components.securitySchemes.bearerAuth);
   assert.ok(spec.components.schemas.PersonalAccessTokenRecord);

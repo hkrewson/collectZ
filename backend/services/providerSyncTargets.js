@@ -24,8 +24,16 @@ function intervalMinutes(value) {
   return parsed;
 }
 
-function shape(row) {
+function shape(row, { now = new Date() } = {}) {
   if (!row) return null;
+  const interval = Number(row.interval_minutes);
+  const lastEnqueuedAt = row.last_enqueued_at || null;
+  const lastEnqueuedMs = lastEnqueuedAt ? new Date(lastEnqueuedAt).getTime() : Number.NaN;
+  const nextEligibleAt = Number.isFinite(lastEnqueuedMs)
+    ? new Date(lastEnqueuedMs + interval * 60 * 1000).toISOString()
+    : null;
+  const nowMs = now instanceof Date ? now.getTime() : new Date(now).getTime();
+  const enabled = Boolean(row.enabled);
   return Object.freeze({
     id: row.id,
     spaceId: Number(row.space_id),
@@ -33,9 +41,11 @@ function shape(row) {
     libraryId: Number(row.library_id),
     libraryName: row.library_name || null,
     providerType: row.provider_type || null,
-    enabled: Boolean(row.enabled),
-    intervalMinutes: Number(row.interval_minutes),
-    lastEnqueuedAt: row.last_enqueued_at || null,
+    enabled,
+    intervalMinutes: interval,
+    lastEnqueuedAt,
+    nextEligibleAt: enabled ? nextEligibleAt : null,
+    dueNow: enabled && (!nextEligibleAt || (Number.isFinite(nowMs) && new Date(nextEligibleAt).getTime() <= nowMs)),
     createdAt: row.created_at,
     updatedAt: row.updated_at
   });

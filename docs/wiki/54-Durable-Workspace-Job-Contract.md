@@ -56,6 +56,20 @@ The scheduler scans due targets on a five-minute process-local sweep. Its cadenc
 
 The certified BookOrbit result contract records bounded counts and audit rows, including series coverage, while keeping credentials and raw feeds out of targets, progress, summaries, logs, and readback. OPDS series order remains `series_index`; an absent provider issue number remains absent.
 
+## Operator readback and cancellation
+
+Workspace integration managers use one provider-neutral surface for recent durable work:
+
+- `GET /api/spaces/{spaceId}/integrations/jobs` lists workspace-owned jobs and may filter by job type, provider, or Provider Connection.
+- `GET /api/spaces/{spaceId}/integrations/jobs/{publicId}` reads one job only when its public UUID belongs to that workspace.
+- `POST /api/spaces/{spaceId}/integrations/jobs/{publicId}/cancel` requests cancellation through the same lifecycle interface and requires the normal session and CSRF protections for a workspace mutation.
+
+The operator projection includes only public identity, declared job/provider contract, optional library and Provider Connection references, status, bounded progress/summary, sanitized failure reason, attempt limits, next eligibility, lifecycle timestamps, and whether cancellation remains available. It deliberately omits the numeric database id, workspace implementation id, initiating-user id, correlation/idempotency values, target reference, lease owner, lease expiry, and heartbeat. Structured progress and summaries are re-sanitized on read so older or manually repaired rows cannot bypass the current redaction policy.
+
+Queued and retry-wait jobs cancel immediately. Running jobs record a request and remain running until their adapter reaches a safe checkpoint; the UI therefore says cancellation was requested rather than claiming the process was interrupted. Terminal jobs return a conflict and are never rewritten. Every lookup and mutation includes the explicit workspace predicate, so knowing another workspace's public job UUID does not grant read or cancellation access.
+
+The shared integration panel refreshes recent jobs, shows safe attempt/failure/summary facts, and uses a two-step cancellation confirmation. BookOrbit displays persisted target cadence, last enqueue, and computed next eligibility for the selected Provider Connection. Plex reconciliation presents the equivalent cadence projection from its existing scheduler state. Cadence is operational readback only; the durable job table remains the execution-history authority.
+
 ## Deferred work
 
 - transactional outbox use where enqueue must commit atomically with another domain mutation;

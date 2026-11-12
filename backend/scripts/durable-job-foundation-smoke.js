@@ -37,7 +37,7 @@ async function main() {
   const store = createDurableJobStore(pool);
   const fixture = await loadFixtureScope();
   const mismatchResult = await pool.query(
-    `SELECT id
+    `SELECT id, space_id
        FROM libraries
       WHERE space_id <> $1
         AND archived_at IS NULL
@@ -47,6 +47,7 @@ async function main() {
   );
   if (!mismatchResult.rows[0]) throw new Error('Durable job smoke requires a second workspace library for scope-FK proof');
   const mismatchedLibraryId = Number(mismatchResult.rows[0].id);
+  const mismatchedSpaceId = Number(mismatchResult.rows[0].space_id);
   const runId = crypto.randomUUID();
   const jobType = 'durable_job_contract_smoke';
   const provider = 'contract_smoke';
@@ -153,7 +154,7 @@ async function main() {
     checks += 4;
 
     const cancellable = await enqueue('cancel');
-    const cancelled = await store.requestCancellation({
+    const cancelled = await store.requestOperatorCancellation({
       publicId: cancellable.publicId,
       spaceId: fixture.spaceId
     });
@@ -214,7 +215,29 @@ async function main() {
     const readback = await store.getByPublicId({ publicId: first.publicId, spaceId: fixture.spaceId });
     assert.equal(readback.status, 'succeeded');
     assert.equal(readback.attemptCount, 2);
-    checks += 2;
+    const operatorJobs = await store.listOperatorJobs({
+      spaceId: fixture.spaceId,
+      jobType,
+      provider,
+      limit: 100
+    });
+    const operatorReadback = operatorJobs.find((job) => job.publicId === first.publicId);
+    assert.equal(operatorReadback.status, 'succeeded');
+    assert.equal(operatorReadback.attemptCount, 2);
+    assert.equal(operatorReadback.canCancel, false);
+    assert.equal(Object.hasOwn(operatorReadback, 'id'), false);
+    assert.equal(Object.hasOwn(operatorReadback, 'targetRef'), false);
+    assert.equal(Object.hasOwn(operatorReadback, 'leaseOwner'), false);
+    assert.equal(Object.hasOwn(operatorReadback, 'idempotencyKey'), false);
+    const operatorFailure = operatorJobs.find((job) => job.publicId === redactionJob.publicId);
+    assert.ok(operatorFailure.failureReason.includes('[REDACTED]'));
+    assert.ok(!operatorFailure.failureReason.includes(runtimeSecret));
+    const crossWorkspaceReadback = await store.getOperatorJob({
+      publicId: first.publicId,
+      spaceId: mismatchedSpaceId
+    });
+    assert.equal(crossWorkspaceReadback, null);
+    checks += 12;
 
     console.log(JSON.stringify({
       ok: true,
@@ -235,7 +258,9 @@ async function main() {
         'cancellation',
         'expired-lease-cancellation',
         'expired-lease-terminal-failure',
-        'workspace-scoped-readback'
+        'workspace-scoped-readback',
+        'secret-free-operator-readback',
+        'cross-workspace-operator-denial'
       ]
     }, null, 2));
   } finally {

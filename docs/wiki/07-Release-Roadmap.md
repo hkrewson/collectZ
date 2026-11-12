@@ -11,7 +11,7 @@ The `3.27.x` architecture line is complete. `3.28.0` is the active milestone. By
 ## 3.28.0 — Durable Provider Job Foundation
 
 **Goal:** Put workspace-owned provider automation behind one durable PostgreSQL job lifecycle, prove it with existing Plex reconciliation and new scheduled BookOrbit synchronization, and preserve provider-specific import behavior behind explicit adapters.
-**Status:** In progress. The relational foundation, Plex reconciliation adopter, and scheduled BookOrbit synchronization are complete; consistent operator readback/cancellation and final release certification remain.
+**Status:** In progress. The relational foundation, Plex reconciliation adopter, scheduled BookOrbit synchronization, and safe operator readback/cancellation are complete; final release certification and version closeout remain.
 
 ### Selected scope
 
@@ -50,6 +50,19 @@ The `3.27.x` architecture line is complete. `3.28.0` is the active milestone. By
 - The BookOrbit adapter retains OPDS comic series and series index, does not fabricate an issue number, and preserves one canonical identity through a lossless book-to-comic classification move; manual/locked unsafe moves remain review-required.
 - The interface rejects secret-bearing structured payload fields and persists only provider-connection references for later adapter resolution.
 - A rollback-safe canonical-database smoke covers stable public identity, relational scope, idempotency, secret refusal, concurrent claims, leases, progress, retry, cancellation, expired-lease terminal behavior, and readback.
+- Workspace integration managers now have provider-neutral, workspace-scoped list/detail/cancel APIs and a shared UI readback for Plex reconciliation and BookOrbit sync. The public projection excludes internal ids, target/idempotency data, and lease internals; cadence readback includes last enqueue and next eligibility.
+
+### Operator readback and cancellation checkpoint
+
+- **Roadmap slice:** `3.28.0 — Durable Provider Job Foundation`, safe operator job/cadence readback and cancellation.
+- **Project docs/checklists used:** `AGENTS.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/54-Durable-Workspace-Job-Contract.md`.
+- **Verified runtime facts:** Rebuilt and recreated the canonical `collectz-private` backend/frontend in place on port `3201`; the stack remained healthy at released baseline `3.27.5` with schema `135`. Live authenticated HTTP proof created jobs in two workspaces, returned only the owning workspace's job, denied a known cross-workspace public UUID, redacted legacy secret-like failure/summary values, cancelled queued work immediately, and rejected repeat cancellation. The lifecycle database smoke passed all `49` checks and removed its fixtures.
+- **CI/checks run:** Backend unit assertions (`376`) plus transaction/scope/identity/durable-worker tests (`55`); frontend unit tests (`4`), changed-file ESLint/Prettier, and production build; OpenAPI; workspace integration ownership HTTP smoke; durable lifecycle smoke (`49`); workspace ownership certification (`76` tables, `354` routes, `12` execution paths); RBAC regression; canonical control-plane runtime smoke; integration browser regression (`4` passed, `2` edition-specific skipped); the standard local release gate; Node syntax and diff hygiene.
+- **Blocked/unverified:** This checkpoint is not the `3.28.0` version closeout. Core/homelab runtime smoke requires its dedicated local-mode runtime and was not valid against the canonical platform-configured stack; the attempted run correctly failed at platform registration policy. Full maintained browser regression, dependency/secret/image/SBOM gates, release metadata, Help > Releases readback, full local release gate, and hosted release certification remain. Full frontend lint also retains the pre-existing `LibraryView.jsx` `jsx-a11y/no-autofocus` error; all files changed by this slice pass ESLint.
+- **Files changed:** Durable lifecycle safe projection/list/detail/cancel interface; workspace integration routes and OpenAPI; cadence shaping; shared durable-job status/cancellation panel; Plex and BookOrbit integration surfaces; durable and ownership regression tests/snapshot; durable contract, roadmap, and backlog documentation.
+- **Risks or follow-ups:** Running cancellation remains cooperative by design and is visible as requested until the adapter reaches a checkpoint. Readback polling is five seconds and intentionally bounded to ten recent jobs per panel. Plex cadence remains a projection of its existing scheduler state while BookOrbit cadence is relational; the durable job lifecycle is the shared history authority.
+- **What remains in the milestone:** Run the full release checklist in its required runtime editions, resolve or explicitly account for all release gates, align semver/app metadata, add `docs/releases/v3.28.0.md`, regenerate release-feed data, and verify running Help > Releases before closing `3.28.0`.
+- **Recommended commit message:** `Complete 3.28.0 operator job readback, cadence visibility, and safe cancellation`.
 
 ### BookOrbit scheduled-sync adopter checkpoint
 
@@ -60,7 +73,7 @@ The `3.27.x` architecture line is complete. `3.28.0` is the active milestone. By
 - **Blocked/unverified:** This checkpoint is not the `3.28.0` version closeout. Consistent public operator job/cadence readback and cancellation remain, followed by Core runtime, maintained browser regression, dependency/secret/image/SBOM gates, release metadata, Help > Releases readback, full local release gate, and hosted release certification.
 - **Files changed:** Provider sync-target migration and fresh-install schema; scoped sync-target service; BookOrbit durable enqueue, worker, cadence scheduler, audit/failure handling, and server startup; workspace integration APIs and OpenAPI; administrator automatic-sync controls; authoritative scheduled-sync/series/classification smoke; ownership and migration certifications; durable contract, roadmap, and backlog documentation.
 - **Risks or follow-ups:** The five-minute scheduler sweep is intentionally process-local while PostgreSQL idempotency prevents duplicate cadence work across instances. Operators do not yet have the milestone’s unified safe state/cancellation surface. Rich multi-series, volume, issue, story-arc, and credit modeling remains `3.28.1` rather than entering job payloads.
-- **What remains in the milestone:** Add consistent safe durable-job and cadence readback/cancellation, run the remaining full browser/Core-runtime/security/image/release gates, then align version metadata, `docs/releases/v3.28.0.md`, generated release-feed data, and running Help > Releases for version closeout.
+- **What remains in the milestone:** Safe durable-job and cadence readback/cancellation completed in the following checkpoint; run the remaining full browser/Core-runtime/security/image/release gates, then align version metadata, `docs/releases/v3.28.0.md`, generated release-feed data, and running Help > Releases for version closeout.
 - **Recommended commit message:** `Adopt durable scheduled BookOrbit sync with relational cadence targets and comic series fidelity`.
 
 ### Plex reconciliation adopter checkpoint

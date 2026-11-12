@@ -57,6 +57,7 @@ const { createProviderIntegrationBindingService } = require('../services/provide
 const { createProviderConnectionService } = require('../services/providerConnections');
 const { createBookOrbitAdapterRegistry } = require('../services/bookOrbitIdentity');
 const { createProviderSyncTargetStore } = require('../services/providerSyncTargets');
+const { createDurableJobStore } = require('../services/durableJobs');
 const { buildBookOrbitEndpoint, fetchBookOrbitOpdsItems } = require('../services/bookOrbit');
 const {
   getAccessibleSpaceForUser,
@@ -72,6 +73,7 @@ const bookOrbitConnections = createProviderConnectionService({
   adapterRegistry: createBookOrbitAdapterRegistry()
 });
 const providerSyncTargets = createProviderSyncTargetStore({ pool });
+const durableJobStore = createDurableJobStore(pool);
 
 const SPACE_READ_ONLY_FIELDS = [
   'logExportBackend',
@@ -113,7 +115,7 @@ async function requireManageableSpace(client, req, spaceId) {
   };
 }
 
-async function requireBookOrbitManager(req, res) {
+async function requireIntegrationManager(req, res) {
   const spaceId = parseSpaceId(req.params.spaceId);
   if (!spaceId) {
     res.status(400).json({ error: 'Invalid space id' });
@@ -776,8 +778,79 @@ router.get('/spaces/:spaceId/integrations', authenticateToken, requireSessionAut
   }
 }));
 
+router.get('/spaces/:spaceId/integrations/jobs', authenticateToken, requireSessionAuth, asyncHandler(async (req, res) => {
+  const managed = await requireIntegrationManager(req, res);
+  if (!managed) return;
+  try {
+    const jobs = await durableJobStore.listOperatorJobs({
+      spaceId: managed.spaceId,
+      jobType: req.query?.jobType || null,
+      provider: req.query?.provider || null,
+      providerConnectionId: req.query?.providerConnectionId || null,
+      limit: req.query?.limit || 20
+    });
+    return res.json({ jobs });
+  } catch (error) {
+    if (error?.code === 'durable_job_invalid_input') error.status = 400;
+    throw error;
+  }
+}));
+
+router.get('/spaces/:spaceId/integrations/jobs/:publicId', authenticateToken, requireSessionAuth, asyncHandler(async (req, res) => {
+  const managed = await requireIntegrationManager(req, res);
+  if (!managed) return;
+  try {
+    const job = await durableJobStore.getOperatorJob({
+      publicId: req.params.publicId,
+      spaceId: managed.spaceId
+    });
+    if (!job) return res.status(404).json({ error: 'Durable job not found' });
+    return res.json({ job });
+  } catch (error) {
+    if (error?.code === 'durable_job_invalid_input') error.status = 400;
+    throw error;
+  }
+}));
+
+router.post('/spaces/:spaceId/integrations/jobs/:publicId/cancel', authenticateToken, requireSessionAuth, asyncHandler(async (req, res) => {
+  const managed = await requireIntegrationManager(req, res);
+  if (!managed) return;
+  try {
+    const existing = await durableJobStore.getOperatorJob({
+      publicId: req.params.publicId,
+      spaceId: managed.spaceId
+    });
+    if (!existing) return res.status(404).json({ error: 'Durable job not found' });
+    if (!existing.canCancel) {
+      return res.status(409).json({ error: 'Durable job can no longer be cancelled', job: existing });
+    }
+    const job = await durableJobStore.requestOperatorCancellation({
+      publicId: req.params.publicId,
+      spaceId: managed.spaceId
+    });
+    if (!job) {
+      const current = await durableJobStore.getOperatorJob({
+        publicId: req.params.publicId,
+        spaceId: managed.spaceId
+      });
+      return res.status(409).json({ error: 'Durable job can no longer be cancelled', job: current });
+    }
+    await logActivity(req, 'space.settings.integrations.durable_job.cancel', 'sync_jobs', null, {
+      publicId: job.publicId,
+      provider: job.provider,
+      jobType: job.jobType,
+      status: job.status,
+      spaceId: managed.spaceId
+    });
+    return res.json({ job });
+  } catch (error) {
+    if (error?.code === 'durable_job_invalid_input') error.status = 400;
+    throw error;
+  }
+}));
+
 router.get('/spaces/:spaceId/integrations/bookorbit-connections', authenticateToken, requireSessionAuth, asyncHandler(async (req, res) => {
-  const managed = await requireBookOrbitManager(req, res);
+  const managed = await requireIntegrationManager(req, res);
   if (!managed) return;
   const connections = await bookOrbitConnections.list({
     spaceId: managed.spaceId,
@@ -789,7 +862,7 @@ router.get('/spaces/:spaceId/integrations/bookorbit-connections', authenticateTo
 }));
 
 router.get('/spaces/:spaceId/integrations/bookorbit-connections/:connectionId/sync-targets', authenticateToken, requireSessionAuth, asyncHandler(async (req, res) => {
-  const managed = await requireBookOrbitManager(req, res);
+  const managed = await requireIntegrationManager(req, res);
   if (!managed) return;
   const connection = await bookOrbitConnections.get({
     spaceId: managed.spaceId,
@@ -806,7 +879,7 @@ router.get('/spaces/:spaceId/integrations/bookorbit-connections/:connectionId/sy
 }));
 
 router.put('/spaces/:spaceId/integrations/bookorbit-connections/:connectionId/sync-target', authenticateToken, requireSessionAuth, requireRecentReauthentication, asyncHandler(async (req, res) => {
-  const managed = await requireBookOrbitManager(req, res);
+  const managed = await requireIntegrationManager(req, res);
   if (!managed) return;
   const connection = await bookOrbitConnections.get({
     spaceId: managed.spaceId,
@@ -840,7 +913,7 @@ router.put('/spaces/:spaceId/integrations/bookorbit-connections/:connectionId/sy
 }));
 
 router.post('/spaces/:spaceId/integrations/bookorbit-connections', authenticateToken, requireSessionAuth, requireRecentReauthentication, asyncHandler(async (req, res) => {
-  const managed = await requireBookOrbitManager(req, res);
+  const managed = await requireIntegrationManager(req, res);
   if (!managed) return;
   try {
     const baseUrl = req.body?.baseUrl ?? req.body?.endpointUrl;
@@ -866,7 +939,7 @@ router.post('/spaces/:spaceId/integrations/bookorbit-connections', authenticateT
 }));
 
 router.patch('/spaces/:spaceId/integrations/bookorbit-connections/:connectionId', authenticateToken, requireSessionAuth, requireRecentReauthentication, asyncHandler(async (req, res) => {
-  const managed = await requireBookOrbitManager(req, res);
+  const managed = await requireIntegrationManager(req, res);
   if (!managed) return;
   try {
     const existing = await bookOrbitConnections.get({
@@ -900,7 +973,7 @@ router.patch('/spaces/:spaceId/integrations/bookorbit-connections/:connectionId'
 }));
 
 router.put('/spaces/:spaceId/integrations/bookorbit-connections/:connectionId/credentials', authenticateToken, requireSessionAuth, requireRecentReauthentication, asyncHandler(async (req, res) => {
-  const managed = await requireBookOrbitManager(req, res);
+  const managed = await requireIntegrationManager(req, res);
   if (!managed) return;
   try {
     const existing = await bookOrbitConnections.get({
@@ -929,7 +1002,7 @@ router.put('/spaces/:spaceId/integrations/bookorbit-connections/:connectionId/cr
 }));
 
 router.put('/spaces/:spaceId/integrations/bookorbit-connections/:connectionId/status', authenticateToken, requireSessionAuth, requireRecentReauthentication, asyncHandler(async (req, res) => {
-  const managed = await requireBookOrbitManager(req, res);
+  const managed = await requireIntegrationManager(req, res);
   if (!managed) return;
   try {
     const existing = await bookOrbitConnections.get({
@@ -959,7 +1032,7 @@ router.put('/spaces/:spaceId/integrations/bookorbit-connections/:connectionId/st
 }));
 
 router.post('/spaces/:spaceId/integrations/bookorbit-connections/:connectionId/test', authenticateToken, requireSessionAuth, requireRecentReauthentication, asyncHandler(async (req, res) => {
-  const managed = await requireBookOrbitManager(req, res);
+  const managed = await requireIntegrationManager(req, res);
   if (!managed) return;
   try {
     const runtime = await bookOrbitConnections.loadRuntime({

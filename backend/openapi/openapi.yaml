@@ -7186,6 +7186,56 @@
         }
       }
     },
+    "/api/spaces/{id}/integrations/jobs": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "List safe workspace-scoped durable job status",
+        "security": [{ "cookieSession": [] }],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } },
+          { "in": "query", "name": "jobType", "schema": { "type": "string" } },
+          { "in": "query", "name": "provider", "schema": { "type": "string" } },
+          { "in": "query", "name": "providerConnectionId", "schema": { "type": "string", "format": "uuid" } },
+          { "in": "query", "name": "limit", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 } }
+        ],
+        "responses": {
+          "200": { "description": "Secret-free durable job list", "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } },
+          "400": { "description": "Invalid job filter", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "403": { "description": "Workspace management denied" }
+        }
+      }
+    },
+    "/api/spaces/{id}/integrations/jobs/{publicId}": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "Read one safe workspace-scoped durable job",
+        "security": [{ "cookieSession": [] }],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } },
+          { "in": "path", "name": "publicId", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Secret-free durable job readback", "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } },
+          "404": { "description": "Job not found in this workspace" }
+        }
+      }
+    },
+    "/api/spaces/{id}/integrations/jobs/{publicId}/cancel": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Request cancellation of one workspace-scoped durable job",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } },
+          { "in": "path", "name": "publicId", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Cancellation accepted or completed", "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } },
+          "404": { "description": "Job not found in this workspace" },
+          "409": { "description": "Job is already terminal or cancellation won the race" }
+        }
+      }
+    },
     "/api/spaces/{id}/integrations/bookorbit-connections": {
       "get": {
         "tags": ["Auth"],

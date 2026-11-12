@@ -1,6 +1,7 @@
 import { cloneElement, isValidElement, useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { CheckboxControl, FixedPageShell, SectionTabPanel, SectionTabs, UtilityPageHeader } from './app/AppPrimitives';
 import BookOrbitConnectionsPanel from './BookOrbitConnectionsPanel';
+import DurableJobStatusPanel from './DurableJobStatusPanel';
 
 const BARCODE_PRESETS = {
   upcitemdb: { barcodePreset: 'upcitemdb', barcodeProvider: 'upcitemdb', barcodeApiUrl: 'https://api.upcitemdb.com/prod/trial/lookup' },
@@ -693,6 +694,22 @@ export default function AdminIntegrationsView({
   const [observabilityRuntime, setObservabilityRuntime] = useState({ logs: null, metrics: null });
   const [logExportControl, setLogExportControl] = useState(null);
   const [integrationScope, setIntegrationScope] = useState(null);
+  const workspaceJobReadbackAvailable = /^\/spaces\/\d+\/integrations$/.test(endpointBase);
+  const plexSyncCadence = useMemo(() => {
+    const enabled = Boolean(plexReconciliationScheduler?.runtime?.enabled);
+    const intervalMinutes = Number(plexReconciliationScheduler?.runtime?.intervalMinutes || 0);
+    const lastEnqueuedAt = plexReconciliationScheduler?.state?.lastStartedAt || null;
+    const lastMs = lastEnqueuedAt ? new Date(lastEnqueuedAt).getTime() : Number.NaN;
+    const nextEligibleAt =
+      enabled && Number.isFinite(lastMs) && intervalMinutes > 0 ? new Date(lastMs + intervalMinutes * 60 * 1000).toISOString() : null;
+    return {
+      enabled,
+      intervalMinutes,
+      lastEnqueuedAt,
+      nextEligibleAt,
+      dueNow: enabled && !nextEligibleAt
+    };
+  }, [plexReconciliationScheduler]);
   const sensitiveOperationConfig = {
     requireRecentReauthentication: true,
     reauthenticationReason: 'Confirm your password before using or changing stored integration credentials.'
@@ -2296,6 +2313,18 @@ export default function AdminIntegrationsView({
                         Source: <span className="font-mono text-dim">{plexReconciliationScheduler.runtime.source}</span>
                       </p>
                     )}
+                    {workspaceJobReadbackAvailable ? (
+                      <DurableJobStatusPanel
+                        apiCall={apiCall}
+                        endpointBase={endpointBase}
+                        provider="plex"
+                        jobType="plex_reconciliation_sync"
+                        cadence={plexSyncCadence}
+                        onToast={onToast}
+                        Spinner={Spinner}
+                        title="Plex reconciliation activity"
+                      />
+                    ) : null}
                   </PlainSettingsSection>
                   <PlainSettingsSection title="Explicit writeback">
                     <div className="grid gap-3 sm:grid-cols-2">

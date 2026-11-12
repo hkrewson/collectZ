@@ -5085,7 +5085,49 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:GET:'/spaces/:spaceId/integrations/bookorbit-connections':2",
+      "id": "spaceIntegrations.js:router:GET:'/spaces/:spaceId/integrations/jobs':2",
+      "module": "spaceIntegrations.js",
+      "router": "router",
+      "method": "GET",
+      "routeExpression": "'/spaces/:spaceId/integrations/jobs'",
+      "ownership": "workspace",
+      "permission": "workspace.integrations.read",
+      "scopeSource": "explicit_workspace",
+      "authentication": "required",
+      "csrf": "not_applicable",
+      "reauthentication": "session_credential_required",
+      "locality": "core_local"
+    },
+    {
+      "id": "spaceIntegrations.js:router:GET:'/spaces/:spaceId/integrations/jobs/:publicId':3",
+      "module": "spaceIntegrations.js",
+      "router": "router",
+      "method": "GET",
+      "routeExpression": "'/spaces/:spaceId/integrations/jobs/:publicId'",
+      "ownership": "workspace",
+      "permission": "workspace.integrations.read",
+      "scopeSource": "explicit_workspace",
+      "authentication": "required",
+      "csrf": "not_applicable",
+      "reauthentication": "session_credential_required",
+      "locality": "core_local"
+    },
+    {
+      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/jobs/:publicId/cancel':4",
+      "module": "spaceIntegrations.js",
+      "router": "router",
+      "method": "POST",
+      "routeExpression": "'/spaces/:spaceId/integrations/jobs/:publicId/cancel'",
+      "ownership": "workspace",
+      "permission": "workspace.integrations.manage",
+      "scopeSource": "explicit_workspace",
+      "authentication": "required",
+      "csrf": "global_cookie_policy",
+      "reauthentication": "session_credential_required",
+      "locality": "core_local"
+    },
+    {
+      "id": "spaceIntegrations.js:router:GET:'/spaces/:spaceId/integrations/bookorbit-connections':5",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "GET",
@@ -5099,7 +5141,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:GET:'/spaces/:spaceId/integrations/bookorbit-connections/:connectionId/sync-targets':3",
+      "id": "spaceIntegrations.js:router:GET:'/spaces/:spaceId/integrations/bookorbit-connections/:connectionId/sync-targets':6",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "GET",
@@ -5113,7 +5155,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:PUT:'/spaces/:spaceId/integrations/bookorbit-connections/:connectionId/sync-target':4",
+      "id": "spaceIntegrations.js:router:PUT:'/spaces/:spaceId/integrations/bookorbit-connections/:connectionId/sync-target':7",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "PUT",
@@ -5127,7 +5169,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/bookorbit-connections':5",
+      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/bookorbit-connections':8",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "POST",
@@ -5141,7 +5183,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:PATCH:'/spaces/:spaceId/integrations/bookorbit-connections/:connectionId':6",
+      "id": "spaceIntegrations.js:router:PATCH:'/spaces/:spaceId/integrations/bookorbit-connections/:connectionId':9",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "PATCH",
@@ -5155,7 +5197,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:PUT:'/spaces/:spaceId/integrations/bookorbit-connections/:connectionId/credentials':7",
+      "id": "spaceIntegrations.js:router:PUT:'/spaces/:spaceId/integrations/bookorbit-connections/:connectionId/credentials':10",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "PUT",
@@ -5169,7 +5211,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:PUT:'/spaces/:spaceId/integrations/bookorbit-connections/:connectionId/status':8",
+      "id": "spaceIntegrations.js:router:PUT:'/spaces/:spaceId/integrations/bookorbit-connections/:connectionId/status':11",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "PUT",
@@ -5183,7 +5225,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/bookorbit-connections/:connectionId/test':9",
+      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/bookorbit-connections/:connectionId/test':12",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "POST",
@@ -5197,7 +5239,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:GET:'/spaces/:spaceId/portability':10",
+      "id": "spaceIntegrations.js:router:GET:'/spaces/:spaceId/portability':13",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "GET",
@@ -5211,7 +5253,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/portability/export':11",
+      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/portability/export':14",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "POST",
@@ -5225,7 +5267,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:PUT:'/spaces/:spaceId/integrations':12",
+      "id": "spaceIntegrations.js:router:PUT:'/spaces/:spaceId/integrations':15",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "PUT",
@@ -5239,7 +5281,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/plex-now-playing-display-token':13",
+      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/plex-now-playing-display-token':16",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "POST",
@@ -5253,7 +5295,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:DELETE:'/spaces/:spaceId/integrations/plex-now-playing-display-token':14",
+      "id": "spaceIntegrations.js:router:DELETE:'/spaces/:spaceId/integrations/plex-now-playing-display-token':17",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "DELETE",
@@ -5267,7 +5309,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:PUT:'/spaces/:spaceId/integrations/plex-now-playing-display-preferences':15",
+      "id": "spaceIntegrations.js:router:PUT:'/spaces/:spaceId/integrations/plex-now-playing-display-preferences':18",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "PUT",
@@ -5281,7 +5323,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/plex-webhook-receiver-token':16",
+      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/plex-webhook-receiver-token':19",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "POST",
@@ -5295,7 +5337,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:DELETE:'/spaces/:spaceId/integrations/plex-webhook-receiver-token':17",
+      "id": "spaceIntegrations.js:router:DELETE:'/spaces/:spaceId/integrations/plex-webhook-receiver-token':20",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "DELETE",
@@ -5309,7 +5351,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/plex-webhook-receiver-validate':18",
+      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/plex-webhook-receiver-validate':21",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "POST",
@@ -5323,7 +5365,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-barcode':19",
+      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-barcode':22",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "POST",
@@ -5337,7 +5379,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-tmdb':20",
+      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-tmdb':23",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "POST",
@@ -5351,7 +5393,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-plex':21",
+      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-plex':24",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "POST",
@@ -5365,7 +5407,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-plex-providers':22",
+      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-plex-providers':25",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "POST",
@@ -5379,7 +5421,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-plex-now-playing':23",
+      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-plex-now-playing':26",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "POST",
@@ -5393,7 +5435,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-books':24",
+      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-books':27",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "POST",
@@ -5407,7 +5449,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-audio':25",
+      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-audio':28",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "POST",
@@ -5421,7 +5463,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-games':26",
+      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-games':29",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "POST",
@@ -5435,7 +5477,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-comics':27",
+      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-comics':30",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "POST",
@@ -5449,7 +5491,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-cwa':28",
+      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-cwa':31",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "POST",
@@ -5463,7 +5505,7 @@
       "locality": "core_local"
     },
     {
-      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-kavita':29",
+      "id": "spaceIntegrations.js:router:POST:'/spaces/:spaceId/integrations/test-kavita':32",
       "module": "spaceIntegrations.js",
       "router": "router",
       "method": "POST",

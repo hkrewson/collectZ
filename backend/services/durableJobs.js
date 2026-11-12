@@ -130,6 +130,33 @@ function shapeJob(row, created = undefined) {
   return result;
 }
 
+function shapeOperatorJob(row) {
+  if (!row) return null;
+  const status = String(row.status || '').trim().toLowerCase();
+  return Object.freeze({
+    publicId: row.public_id,
+    jobType: row.job_type,
+    jobVersion: row.job_version,
+    provider: row.provider,
+    status,
+    libraryId: row.library_id,
+    providerConnectionId: row.provider_connection_id,
+    progress: sanitizeAuditDetails(row.progress || {}),
+    summary: row.summary ? sanitizeAuditDetails(row.summary) : null,
+    failureReason: row.error ? sanitizeErrorMessage(row.error) : null,
+    attemptCount: Number(row.attempt_count || 0),
+    maxAttempts: Number(row.max_attempts || 0),
+    nextEligibleAt: ['queued', 'retry_wait'].includes(status) ? row.available_at : null,
+    cancelRequestedAt: row.cancel_requested_at,
+    cancelledAt: row.cancelled_at,
+    startedAt: row.started_at,
+    finishedAt: row.finished_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    canCancel: !FINAL_STATUSES.has(status) && !row.cancel_requested_at
+  });
+}
+
 const RETURNING_COLUMNS = `
   id, public_id, job_type, job_version, provider, status, created_by,
   space_id, library_id, provider_connection_id, correlation_id, idempotency_key,
@@ -340,10 +367,10 @@ function createDurableJobStore(queryAdapter) {
     return shapeJob(result.rows[0]);
   }
 
-  async function requestCancellation({ publicId, spaceId } = {}) {
+  async function requestCancellationRow({ publicId, spaceId } = {}) {
     const id = requireUuid(publicId, 'publicId');
     const workspace = requirePositiveInteger(spaceId, 'spaceId');
-    const result = await queryAdapter.query(
+    return queryAdapter.query(
       `UPDATE sync_jobs
           SET cancel_requested_at = COALESCE(cancel_requested_at, CURRENT_TIMESTAMP),
               status = CASE WHEN status IN ('queued', 'retry_wait') THEN 'cancelled' ELSE status END,
@@ -355,7 +382,16 @@ function createDurableJobStore(queryAdapter) {
        RETURNING ${RETURNING_COLUMNS}`,
       [id, workspace]
     );
+  }
+
+  async function requestCancellation(options = {}) {
+    const result = await requestCancellationRow(options);
     return shapeJob(result.rows[0]);
+  }
+
+  async function requestOperatorCancellation(options = {}) {
+    const result = await requestCancellationRow(options);
+    return shapeOperatorJob(result.rows[0]);
   }
 
   async function recoverExpiredLeases({ limit = 100 } = {}) {
@@ -417,6 +453,48 @@ function createDurableJobStore(queryAdapter) {
     return shapeJob(result.rows[0]);
   }
 
+  async function listOperatorJobs({
+    spaceId,
+    jobType = null,
+    provider = null,
+    providerConnectionId = null,
+    limit = 20
+  } = {}) {
+    const workspace = requirePositiveInteger(spaceId, 'spaceId');
+    const normalizedJobType = jobType ? requireSafeName(jobType, 'jobType') : null;
+    const normalizedProvider = provider ? requireSafeName(provider, 'provider') : null;
+    const normalizedConnectionId = providerConnectionId
+      ? requireUuid(providerConnectionId, 'providerConnectionId')
+      : null;
+    const rowLimit = Math.min(requirePositiveInteger(limit, 'limit'), 100);
+    const result = await queryAdapter.query(
+      `SELECT ${RETURNING_COLUMNS}
+         FROM sync_jobs
+        WHERE space_id = $1
+          AND ($2::text IS NULL OR job_type = $2)
+          AND ($3::text IS NULL OR provider = $3)
+          AND ($4::uuid IS NULL OR provider_connection_id = $4)
+        ORDER BY created_at DESC, id DESC
+        LIMIT $5`,
+      [workspace, normalizedJobType, normalizedProvider, normalizedConnectionId, rowLimit]
+    );
+    return result.rows.map(shapeOperatorJob);
+  }
+
+  async function getOperatorJob({ publicId, spaceId } = {}) {
+    const id = requireUuid(publicId, 'publicId');
+    const workspace = requirePositiveInteger(spaceId, 'spaceId');
+    const result = await queryAdapter.query(
+      `SELECT ${RETURNING_COLUMNS}
+         FROM sync_jobs
+        WHERE public_id = $1
+          AND space_id = $2
+        LIMIT 1`,
+      [id, workspace]
+    );
+    return shapeOperatorJob(result.rows[0]);
+  }
+
   return Object.freeze({
     enqueue,
     claimNext,
@@ -424,8 +502,11 @@ function createDurableJobStore(queryAdapter) {
     reportProgress,
     settle,
     requestCancellation,
+    requestOperatorCancellation,
     recoverExpiredLeases,
-    getByPublicId
+    getByPublicId,
+    listOperatorJobs,
+    getOperatorJob
   });
 }
 
@@ -433,5 +514,6 @@ module.exports = {
   FINAL_STATUSES,
   assertSecretFree,
   createDurableJobStore,
-  shapeJob
+  shapeJob,
+  shapeOperatorJob
 };
