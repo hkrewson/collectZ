@@ -2243,7 +2243,9 @@ results.push(run('plex full-library reconciliation preview stays read-only and c
   assert.ok(mediaRoutesSource.includes('persistPlexReconciliationConflictReviews'));
   assert.ok(mediaRoutesSource.includes('buildPlexFullLibraryReconciliationPreview'));
   assert.ok(mediaRoutesSource.includes('runPlexReconciliationPreviewJob'));
-  assert.ok(mediaRoutesSource.includes('runPlexReconciliationSyncJob'));
+  assert.ok(mediaRoutesSource.includes('performPlexReconciliationSync'));
+  assert.ok(mediaRoutesSource.includes('enqueuePlexReconciliationDurableJob'));
+  assert.ok(mediaRoutesSource.includes('startPlexReconciliationDurableWorker'));
   assert.ok(mediaRoutesSource.includes('getPlexReconciliationSyncRuntimeConfig'));
   assert.ok(mediaRoutesSource.includes('getEffectivePlexReconciliationSyncRuntimeConfig'));
   assert.ok(mediaRoutesSource.includes('hasPlexReconciliationSyncEnvOverride'));

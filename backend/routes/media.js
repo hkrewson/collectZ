@@ -1,6 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
+const crypto = require('crypto');
 const axios = require('axios');
 const pool = require('../db/pool');
 const { asyncHandler } = require('../middleware/errors');
@@ -179,6 +180,8 @@ const {
   runAutomaticLoanReminderSweep
 } = require('../services/loanReminders');
 const { runManualMediaMergeApply, runManualMediaMergeRevert } = require('../scripts/repair-book-comic-duplicates');
+const { createDurableJobStore } = require('../services/durableJobs');
+const { createDurableJobWorker } = require('../services/durableJobWorker');
 
 const router = express.Router();
 const metronImportIdentity = createMetronImportIdentityModule({ pool });
@@ -190,6 +193,8 @@ const bookOrbitConnections = createProviderConnectionService({
   pool,
   adapterRegistry: createBookOrbitAdapterRegistry()
 });
+const durableJobStore = createDurableJobStore(pool);
+let plexReconciliationDurableWorker = null;
 
 const ALLOWED_COVER_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 
@@ -7477,121 +7482,79 @@ async function runPlexReconciliationPreviewJob({
   }
 }
 
-async function runPlexReconciliationSyncJob({
+async function performPlexReconciliationSync({
   jobId,
   req,
   config,
   sectionIds = [],
   scopeContext = null,
-  limit = null
+  limit = null,
+  onProgress = null
 }) {
-  await updateSyncJob(jobId, {
-    status: 'running',
-    started_at: new Date(),
-    progress: {
-      total: 0,
-      processed: 0,
-      created: 0,
-      updated: 0,
-      conflictReview: 0,
-      errorCount: 0
-    }
+  const reportProgress = typeof onProgress === 'function' ? onProgress : async () => {};
+  const preview = await buildPlexFullLibraryReconciliationPreview({
+    config,
+    sectionIds,
+    scopeContext,
+    limit,
+    includeSourceItem: true
+  });
+  const plan = buildPlexReconciliationSyncPlan(preview);
+  await reportProgress({
+    total: Number(preview.summary?.scanned || 0),
+    processed: Number(preview.summary?.scanned || 0),
+    created: 0,
+    updated: 0,
+    conflictReview: plan.conflictReview.length,
+    errorCount: 0
   });
 
-  try {
-    const preview = await buildPlexFullLibraryReconciliationPreview({
+  const importResult = plan.applyItems.length > 0
+    ? await runPlexImport({
+      req,
       config,
       sectionIds,
       scopeContext,
-      limit,
-      includeSourceItem: true
-    });
-    const plan = buildPlexReconciliationSyncPlan(preview);
-    await updateSyncJob(jobId, {
-      progress: {
-        total: Number(preview.summary?.scanned || 0),
-        processed: Number(preview.summary?.scanned || 0),
-        created: 0,
-        updated: 0,
-        conflictReview: plan.conflictReview.length,
-        errorCount: 0
-      }
-    });
-
-    const importResult = plan.applyItems.length > 0
-      ? await runPlexImport({
-        req,
-        config,
-        sectionIds,
-        scopeContext,
-        itemsOverride: plan.applyItems,
-        onProgress: async (progress) => updateSyncJob(jobId, {
-          progress: {
-            ...progress,
-            total: Number(preview.summary?.scanned || progress.total || 0),
-            conflictReview: plan.conflictReview.length
-          }
-        })
+      itemsOverride: plan.applyItems,
+      onProgress: async (progress) => reportProgress({
+        ...progress,
+        total: Number(preview.summary?.scanned || progress.total || 0),
+        conflictReview: plan.conflictReview.length
       })
-      : {
-        imported: 0,
-        createdMediaIds: [],
-        summary: { created: 0, updated: 0, skipped: 0, errors: [] }
-      };
+    })
+    : {
+      imported: 0,
+      createdMediaIds: [],
+      summary: { created: 0, updated: 0, skipped: 0, errors: [] }
+    };
 
-    const summary = buildPlexReconciliationSyncSummary({ preview, plan, importResult });
-    await persistPlexReconciliationConflictReviews({
-      jobId,
-      entries: plan.conflictReview,
-      scopeContext,
-      createdBy: req?.user?.id || null
-    });
-    await updateSyncJob(jobId, {
-      status: 'succeeded',
-      summary,
-      progress: {
-        total: summary.scanned,
-        processed: summary.scanned,
-        created: summary.autoApplied.created,
-        updated: summary.autoApplied.updated,
-        conflictReview: summary.conflictReviewCount,
-        errorCount: summary.importSummary.errorCount
-      },
-      finished_at: new Date()
-    });
-    await logActivity(req, 'media.plex.reconciliation.sync_job', 'sync_jobs', jobId, {
-      sectionIds: summary.sectionIds,
-      scanned: summary.scanned,
-      created: summary.autoApplied.created,
-      updated: summary.autoApplied.updated,
-      skippedAlreadyLinked: summary.autoApplied.skippedAlreadyLinked,
-      conflictReviewCount: summary.conflictReviewCount,
-      plexWriteback: false,
-      importMutation: true,
-      limited: summary.limited
-    });
-    return { ok: true, summary };
-  } catch (error) {
-    logError('Plex reconciliation sync job failed', error);
-    await updateSyncJob(jobId, {
-      status: 'failed',
-      error: error.message || 'Plex reconciliation sync job failed',
-      progress: {
-        total: 0,
-        processed: 0,
-        created: 0,
-        updated: 0,
-        conflictReview: 0,
-        errorCount: 1
-      },
-      finished_at: new Date()
-    });
-    await logActivity(req, 'media.plex.reconciliation.sync_job.failed', 'sync_jobs', jobId, {
-      sectionIds,
-      detail: error.message || 'Plex reconciliation sync job failed'
-    });
-    return { ok: false, error: error.message || 'Plex reconciliation sync job failed' };
-  }
+  const summary = buildPlexReconciliationSyncSummary({ preview, plan, importResult });
+  await persistPlexReconciliationConflictReviews({
+    jobId,
+    entries: plan.conflictReview,
+    scopeContext,
+    createdBy: req?.user?.id || null
+  });
+  await reportProgress({
+    total: summary.scanned,
+    processed: summary.scanned,
+    created: summary.autoApplied.created,
+    updated: summary.autoApplied.updated,
+    conflictReview: summary.conflictReviewCount,
+    errorCount: summary.importSummary.errorCount
+  });
+  await logActivity(req, 'media.plex.reconciliation.sync_job', 'sync_jobs', jobId, {
+    sectionIds: summary.sectionIds,
+    scanned: summary.scanned,
+    created: summary.autoApplied.created,
+    updated: summary.autoApplied.updated,
+    skippedAlreadyLinked: summary.autoApplied.skippedAlreadyLinked,
+    conflictReviewCount: summary.conflictReviewCount,
+    plexWriteback: false,
+    importMutation: true,
+    limited: summary.limited
+  });
+  return summary;
 }
 
 async function claimQueuedPlexWebhookImportHint({ jobId = null, ratingKey = null } = {}) {
@@ -8058,6 +8021,7 @@ const plexReconciliationSyncState = {
   lastFinishedAt: null,
   lastTargetCount: 0,
   lastJobsQueued: 0,
+  lastJobsReused: 0,
   lastJobsSucceeded: 0,
   lastJobsFailed: 0,
   lastScanned: 0,
@@ -8146,6 +8110,136 @@ async function collectPlexReconciliationSyncTargets({ enabledOnly = false } = {}
   return targets;
 }
 
+function plexReconciliationProgress() {
+  return {
+    total: 0,
+    processed: 0,
+    created: 0,
+    updated: 0,
+    conflictReview: 0,
+    errorCount: 0
+  };
+}
+
+function buildPlexReconciliationIdempotencyKey({
+  spaceId,
+  libraryId,
+  reason = 'manual',
+  intervalMinutes = 360,
+  now = Date.now()
+} = {}) {
+  if (reason !== 'scheduled') return `plex-reconciliation:request:${crypto.randomUUID()}`;
+  const cadenceMs = Math.max(60, Number(intervalMinutes || 360)) * 60 * 1000;
+  const cadenceBucket = Math.floor(Number(now) / cadenceMs);
+  return `plex-reconciliation:scheduled:${spaceId}:${libraryId}:${cadenceBucket}`;
+}
+
+async function enqueuePlexReconciliationDurableJob({
+  userId,
+  scopeContext,
+  sectionIds = [],
+  limit = null,
+  reason = 'manual',
+  intervalMinutes = 360
+}) {
+  const requestedSections = [...new Set((sectionIds || []).map(String).filter(Boolean))];
+  return durableJobStore.enqueue({
+    jobType: 'plex_reconciliation_sync',
+    provider: 'plex',
+    createdBy: userId || null,
+    spaceId: scopeContext?.spaceId,
+    libraryId: scopeContext?.libraryId,
+    maxAttempts: 3,
+    idempotencyKey: buildPlexReconciliationIdempotencyKey({
+      spaceId: scopeContext?.spaceId,
+      libraryId: scopeContext?.libraryId,
+      reason,
+      intervalMinutes
+    }),
+    targetRef: {
+      sectionIds: requestedSections,
+      processingMode: 'full_library_reconciliation_sync',
+      readOnly: false,
+      plexWriteback: false,
+      importMutation: true,
+      automation: reason !== 'manual',
+      reason,
+      limit: parsePlexReconciliationLimit(limit)
+    },
+    progress: plexReconciliationProgress()
+  });
+}
+
+async function loadPlexReconciliationJobActor(job) {
+  if (job.createdBy) {
+    const result = await pool.query(
+      `SELECT id, role, email, name
+         FROM users
+        WHERE id = $1
+        LIMIT 1`,
+      [job.createdBy]
+    );
+    if (result.rows[0]) return result.rows[0];
+  }
+  return (await findSpaceAutomationUser(job.spaceId)) || findFirstAdminUser();
+}
+
+async function executePlexReconciliationDurableJob(job, context) {
+  const scopeContext = { spaceId: job.spaceId, libraryId: job.libraryId };
+  const actor = await loadPlexReconciliationJobActor(job);
+  if (!actor) {
+    const error = new Error('Plex reconciliation has no workspace automation actor');
+    error.code = 'PLEX_RECONCILIATION_CONFIGURATION_INVALID';
+    throw error;
+  }
+  const config = await loadPlexWebhookImportConfig(scopeContext);
+  if (!config.plexApiUrl || !config.plexApiKey) {
+    const error = new Error('Plex reconciliation configuration is incomplete');
+    error.code = 'PLEX_RECONCILIATION_CONFIGURATION_INVALID';
+    throw error;
+  }
+  const target = job.targetRef || {};
+  const sectionIds = Array.isArray(target.sectionIds) && target.sectionIds.length > 0
+    ? target.sectionIds.map(String).filter(Boolean)
+    : (config.plexLibrarySections || []).map(String).filter(Boolean);
+  const auditReq = { user: actor, headers: {}, ip: 'system', socket: null };
+  try {
+    const summary = await performPlexReconciliationSync({
+      jobId: job.id,
+      req: auditReq,
+      config,
+      sectionIds,
+      scopeContext,
+      limit: parsePlexReconciliationLimit(target.limit),
+      onProgress: context.reportProgress
+    });
+    return { summary };
+  } catch (error) {
+    await logActivity(auditReq, 'media.plex.reconciliation.sync_job.failed', 'sync_jobs', job.id, {
+      sectionIds,
+      detail: error.message || 'Plex reconciliation sync job failed'
+    });
+    throw error;
+  }
+}
+
+function startPlexReconciliationDurableWorker() {
+  if (plexReconciliationDurableWorker) return plexReconciliationDurableWorker;
+  plexReconciliationDurableWorker = createDurableJobWorker({
+    store: durableJobStore,
+    workerId: `plex-reconciliation:${process.pid}:${crypto.randomUUID()}`,
+    jobTypes: ['plex_reconciliation_sync'],
+    leaseSeconds: 300,
+    pollIntervalMs: 1000,
+    classifyError: (error) => (
+      error?.code === 'PLEX_RECONCILIATION_CONFIGURATION_INVALID' ? 'failed' : 'retry'
+    ),
+    execute: executePlexReconciliationDurableJob
+  });
+  plexReconciliationDurableWorker.start({ initialDelayMs: 250 });
+  return plexReconciliationDurableWorker;
+}
+
 async function runPlexReconciliationSyncSchedulerOnce({ reason = 'manual', limit = null } = {}) {
   const runtimeConfig = await getEffectivePlexReconciliationSyncRuntimeConfig();
   const effectiveLimit = parsePlexReconciliationLimit(limit) || runtimeConfig.limit || null;
@@ -8158,6 +8252,7 @@ async function runPlexReconciliationSyncSchedulerOnce({ reason = 'manual', limit
     limit: effectiveLimit,
     targetCount: targets.length,
     jobsQueued: 0,
+    jobsReused: 0,
     jobsSucceeded: 0,
     jobsFailed: 0,
     scanned: 0,
@@ -8169,64 +8264,16 @@ async function runPlexReconciliationSyncSchedulerOnce({ reason = 'manual', limit
 
   for (const target of targets) {
     const sectionIds = Array.isArray(target.config.plexLibrarySections) ? target.config.plexLibrarySections : [];
-    const requestedSections = [...new Set(sectionIds.map(String).filter(Boolean))];
-    const job = await createSyncJob({
+    const job = await enqueuePlexReconciliationDurableJob({
       userId: target.user.id,
-      jobType: 'plex_reconciliation_sync',
-      provider: 'plex',
-      scope: {
-        ...jobScopePayload(target.scopeContext, requestedSections),
-        processingMode: 'full_library_reconciliation_sync',
-        readOnly: false,
-        plexWriteback: false,
-        importMutation: true,
-        automation: true,
-        reason,
-        limit: effectiveLimit
-      },
-      progress: {
-        total: 0,
-        processed: 0,
-        created: 0,
-        updated: 0,
-        conflictReview: 0,
-        errorCount: 0
-      }
-    });
-    summary.jobsQueued += 1;
-    const auditReq = {
-      user: target.user,
-      headers: {},
-      ip: 'system',
-      socket: null
-    };
-    const result = await runPlexReconciliationSyncJob({
-      jobId: job.id,
-      req: auditReq,
-      config: target.config,
-      sectionIds,
       scopeContext: target.scopeContext,
-      limit: effectiveLimit
+      sectionIds,
+      limit: effectiveLimit,
+      reason,
+      intervalMinutes: runtimeConfig.intervalMinutes
     });
-    if (result.ok) {
-      summary.jobsSucceeded += 1;
-      summary.scanned += Number(result.summary?.scanned || 0);
-      summary.created += Number(result.summary?.autoApplied?.created || 0);
-      summary.updated += Number(result.summary?.autoApplied?.updated || 0);
-      summary.conflictReviewCount += Number(result.summary?.conflictReviewCount || 0);
-    } else {
-      summary.jobsFailed += 1;
-      if (summary.errorsSample.length < 10) {
-        summary.errorsSample.push({
-          jobId: job.id,
-          scope: {
-            spaceId: target.scopeContext.spaceId || null,
-            libraryId: target.scopeContext.libraryId || null
-          },
-          error: result.error || 'Plex reconciliation sync failed'
-        });
-      }
-    }
+    if (job.created) summary.jobsQueued += 1;
+    else summary.jobsReused += 1;
   }
 
   if (summary.jobsQueued > 0 || reason !== 'scheduled') {
@@ -8239,6 +8286,7 @@ async function runPlexReconciliationSyncSchedulerOnce({ reason = 'manual', limit
       reason,
       targetCount: summary.targetCount,
       jobsQueued: summary.jobsQueued,
+      jobsReused: summary.jobsReused,
       jobsSucceeded: summary.jobsSucceeded,
       jobsFailed: summary.jobsFailed,
       scanned: summary.scanned,
@@ -8273,6 +8321,7 @@ async function startPlexReconciliationSyncScheduler() {
       });
       plexReconciliationSyncState.lastTargetCount = summary.targetCount;
       plexReconciliationSyncState.lastJobsQueued = summary.jobsQueued;
+      plexReconciliationSyncState.lastJobsReused = summary.jobsReused;
       plexReconciliationSyncState.lastJobsSucceeded = summary.jobsSucceeded;
       plexReconciliationSyncState.lastJobsFailed = summary.jobsFailed;
       plexReconciliationSyncState.lastScanned = summary.scanned;
@@ -15157,46 +15206,12 @@ router.post('/plex-reconciliation-sync/run', asyncHandler(async (req, res) => {
   }
 
   const requestedSections = [...new Set((sectionIds.length > 0 ? sectionIds : config.plexLibrarySections || []).map(String).filter(Boolean))];
-  const job = await createSyncJob({
+  const job = await enqueuePlexReconciliationDurableJob({
     userId: req.user.id,
-    jobType: 'plex_reconciliation_sync',
-    provider: 'plex',
-    scope: {
-      ...jobScopePayload(effectiveScopeContext, requestedSections),
-      processingMode: 'full_library_reconciliation_sync',
-      readOnly: false,
-      plexWriteback: false,
-      importMutation: true,
-      limit
-    },
-    progress: {
-      total: 0,
-      processed: 0,
-      created: 0,
-      updated: 0,
-      conflictReview: 0,
-      errorCount: 0
-    }
-  });
-
-  const auditReq = {
-    user: req.user,
-    headers: req.headers,
-    ip: req.ip,
-    socket: req.socket
-  };
-
-  setImmediate(() => {
-    runPlexReconciliationSyncJob({
-      jobId: job.id,
-      req: auditReq,
-      config,
-      sectionIds,
-      scopeContext: effectiveScopeContext,
-      limit
-    }).catch((error) => {
-      logError('Unhandled Plex reconciliation sync job failure', error);
-    });
+    scopeContext: effectiveScopeContext,
+    sectionIds: requestedSections,
+    limit,
+    reason: 'manual'
   });
 
   return res.status(202).json({
@@ -16984,6 +16999,14 @@ router.getPlexWatchStateRefreshRuntimeConfig = getPlexWatchStateRefreshRuntimeCo
 router.getEffectivePlexWatchStateRefreshRuntimeConfig = getEffectivePlexWatchStateRefreshRuntimeConfig;
 router.runPlexWatchStateRefreshOnce = runPlexWatchStateRefreshOnce;
 router.startPlexReconciliationSyncScheduler = startPlexReconciliationSyncScheduler;
+router.startPlexReconciliationDurableWorker = startPlexReconciliationDurableWorker;
+router.runPlexReconciliationDurableWorkerOnce = async () => {
+  const worker = startPlexReconciliationDurableWorker();
+  return worker.runOnce();
+};
+router.getPlexReconciliationDurableWorkerState = () => (
+  plexReconciliationDurableWorker?.getState() || null
+);
 router.getPlexReconciliationSyncRuntimeConfig = getPlexReconciliationSyncRuntimeConfig;
 router.getEffectivePlexReconciliationSyncRuntimeConfig = getEffectivePlexReconciliationSyncRuntimeConfig;
 router.runPlexReconciliationSyncSchedulerOnce = runPlexReconciliationSyncSchedulerOnce;

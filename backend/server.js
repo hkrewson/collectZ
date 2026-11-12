@@ -476,6 +476,9 @@ const startServer = async () => {
     if (typeof mediaRouter.startPlexWatchStateRefreshScheduler === 'function') {
       await mediaRouter.startPlexWatchStateRefreshScheduler();
     }
+    if (typeof mediaRouter.startPlexReconciliationDurableWorker === 'function') {
+      mediaRouter.startPlexReconciliationDurableWorker();
+    }
     if (typeof mediaRouter.startPlexReconciliationSyncScheduler === 'function') {
       await mediaRouter.startPlexReconciliationSyncScheduler();
     }

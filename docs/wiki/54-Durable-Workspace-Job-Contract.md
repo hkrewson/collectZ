@@ -4,7 +4,7 @@
 
 CollectZ uses PostgreSQL-backed durable jobs for provider work that must survive request completion and process restart. The job lifecycle owns execution mechanics; provider adapters continue to own transport, identity, matching, field precedence, and provider-specific outcomes.
 
-The lifecycle seam is `backend/services/durableJobs.js`. Its interface is deliberately small: enqueue work, claim the next eligible job, renew its lease, report progress, settle it, request cancellation, recover expired leases, and read it back by workspace-scoped public id.
+The lifecycle seam is `backend/services/durableJobs.js`. Its interface is deliberately small: enqueue work, claim the next eligible job, renew its lease, report progress, settle it, request cancellation, recover expired leases, and read it back by workspace-scoped public id. `backend/services/durableJobWorker.js` composes that interface into a leased execution loop; it does not own provider transport or matching policy.
 
 ## Durable envelope
 
@@ -41,8 +41,10 @@ The database enforces that an attached library or Provider Connection belongs to
 
 The first two adapters are intentionally different:
 
-- Plex reconciliation is an existing automatic full-library workflow and proves migration from process-local scheduling plus recovery of long-running work.
+- Plex reconciliation is the first adopted automatic full-library workflow. Manual and scheduled requests enqueue secret-free targets, scheduled cadence buckets provide duplicate suppression, and the worker resolves current workspace credentials only when it holds the lease.
 - BookOrbit is a multi-instance OPDS workflow and proves scheduled enqueue, connection-scoped credentials, bounded remote traversal, stable external identity, and repeat-sync idempotency.
+
+The BookOrbit adopter must also retain OPDS series names and indexes for comics, prove movement between book and comic classifications without duplicate canonical rows, and keep series index distinct from an absent issue number. Rich native multi-series, story-arc, credit, volume, and issue enrichment is the follow-on `3.28.1` model rather than an unstructured addition to the durable job envelope.
 
 The lifecycle does not interpret Plex sections, BookOrbit Atom ids, metadata precedence, conflicts, covers, links, or import summaries. Those remain inside their provider adapters.
 

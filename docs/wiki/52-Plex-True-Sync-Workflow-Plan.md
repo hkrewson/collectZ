@@ -19,7 +19,7 @@ The UI should teach the operating model through the workflow itself:
 - Plex import and reconciliation remain on maintained Plex library paths; provider discovery is still capability readback.
 - Plex webhook delivery uses the documented multipart form contract: JSON in `payload`, with an optional thumbnail that CollectZ does not retain.
 - Plex connection, webhook receiver, and Now Playing display-token state are workspace-owned. Their management uses `/api/spaces/{id}/integrations`, public tokens resolve the owning `app_integrations.space_id`, and actionable webhook jobs retain that workspace and library scope. Corrected in `3.24.4`.
-- Plex reconciliation, watched/rating readback, and opted-in rating/watch-state writeback controls are also workspace-owned. Scheduler startup and scheduled target selection resolve enabled workspace rows unless an explicit environment override is configured; workspace execution no longer inherits a missing Plex URL or credential from the installation row. Corrected in `3.24.5`.
+- Plex reconciliation, watched/rating readback, and opted-in rating/watch-state writeback controls are also workspace-owned. Scheduler startup and scheduled target selection resolve enabled workspace rows unless an explicit environment override is configured; workspace execution no longer inherits a missing Plex URL or credential from the installation row. Corrected in `3.24.5`. In active milestone `3.28.0`, full-library reconciliation additionally enqueues into the shared PostgreSQL durable lifecycle and resolves the current workspace credential only during leased execution; webhook and watched/rating runners remain explicitly outside that adopter slice.
 
 ## First Slice
 

@@ -110,7 +110,7 @@ Explicit non-goals for this program:
 **Type:** Runtime reliability architecture
 **Tags:** `jobs`, `integrations`, `providers`, `webhooks`, `imports`, `idempotency`, `workspace`
 **Priority:** `P1`
-**Status:** The relational job envelope, shared lifecycle module, Plex reconciliation adoption, and BookOrbit scheduled-sync adoption moved to `3.28.0`. Remaining scope covers transactional outbox use where enqueue must be atomic with another mutation, immutable source observations, additional provider/workflow adopters, and later standardization after the first two adopters are certified.
+**Status:** The relational job envelope, shared lifecycle module, and Plex reconciliation adoption are implemented in active milestone `3.28.0`; BookOrbit scheduled-sync adoption, OPDS comic-series/index fidelity, and classification-move proof are the remaining provider slice there. Rich normalized BookOrbit comic-series metadata is deliberately queued as `3.28.1`. Remaining backlog scope covers transactional outbox use where enqueue must be atomic with another mutation, immutable source observations, additional provider/workflow adopters, and later standardization after the first two adopters are certified.
 
 **Goal:** Standardize the safe mechanics of asynchronous and provider-driven work while preserving provider-specific matching and domain behavior.
 

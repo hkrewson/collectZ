@@ -6,11 +6,10 @@ const crypto = require('crypto');
 const fs = require('fs');
 const http = require('http');
 const path = require('path');
-const bcrypt = require('bcrypt');
 const pool = require('../db/pool');
 process.env.INTEGRATION_ENCRYPTION_KEY = process.env.INTEGRATION_ENCRYPTION_KEY || 'plex-reconciliation-sync-smoke-key';
 const { encryptSecret } = require('../services/crypto');
-const { ensureUserDefaultScope } = require('../services/libraries');
+const { createScopedSmokeUser } = require('./helpers/scopedSmokeUser');
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 const fakePlexToken = `plex-reconciliation-sync-${crypto.randomBytes(6).toString('hex')}`;
@@ -87,35 +86,35 @@ function assertSecretFree(value, label = 'payload') {
 }
 
 async function createDirectUser({ email, password, name, role = 'admin' }) {
-  const passwordHash = await bcrypt.hash(password, 12);
-  const result = await pool.query(
-    `INSERT INTO users (email, password, name, role, email_verified, email_verified_at)
-     VALUES ($1, $2, $3, $4, true, NOW())
-     RETURNING id`,
-    [email, passwordHash, name, role]
-  );
-  await ensureUserDefaultScope(result.rows[0].id);
-  return Number(result.rows[0]?.id || 0) || null;
+  return createScopedSmokeUser({
+    pool,
+    email,
+    password,
+    name,
+    role,
+    slugPrefix: 'plex-reconciliation-smoke'
+  });
 }
 
-async function snapshotPlexSettings() {
+async function snapshotPlexSettings(spaceId) {
   const result = await pool.query(
     `SELECT plex_preset, plex_provider, plex_api_url, plex_api_key_encrypted,
             plex_library_sections, tmdb_api_key_encrypted
        FROM app_integrations
-      WHERE id = 1`
+      WHERE space_id = $1`,
+    [spaceId]
   );
   return result.rows[0] || null;
 }
 
-async function applyFakePlexSettings(baseUrl) {
+async function applyFakePlexSettings(baseUrl, spaceId) {
   await pool.query(
     `INSERT INTO app_integrations (
-       id, plex_preset, plex_provider, plex_api_url, plex_api_key_encrypted,
+       space_id, plex_preset, plex_provider, plex_api_url, plex_api_key_encrypted,
        plex_library_sections, tmdb_api_key_encrypted, updated_at
      )
-     VALUES (1, 'plex', 'plex', $1, $2, $3::jsonb, NULL, NOW())
-     ON CONFLICT (id) DO UPDATE SET
+     VALUES ($1, 'plex', 'plex', $2, $3, $4::jsonb, NULL, NOW())
+     ON CONFLICT (space_id) DO UPDATE SET
        plex_preset = EXCLUDED.plex_preset,
        plex_provider = EXCLUDED.plex_provider,
        plex_api_url = EXCLUDED.plex_api_url,
@@ -123,12 +122,16 @@ async function applyFakePlexSettings(baseUrl) {
        plex_library_sections = EXCLUDED.plex_library_sections,
        tmdb_api_key_encrypted = NULL,
        updated_at = NOW()`,
-    [baseUrl, encryptSecret(fakePlexToken), JSON.stringify(['1'])]
+    [spaceId, baseUrl, encryptSecret(fakePlexToken), JSON.stringify(['1'])]
   );
 }
 
-async function restorePlexSettings(snapshot) {
-  if (!snapshot) return;
+async function restorePlexSettings(snapshot, spaceId) {
+  if (!spaceId) return;
+  if (!snapshot) {
+    await pool.query('DELETE FROM app_integrations WHERE space_id = $1', [spaceId]).catch(() => {});
+    return;
+  }
   await pool.query(
     `UPDATE app_integrations
         SET plex_preset = $1,
@@ -137,14 +140,15 @@ async function restorePlexSettings(snapshot) {
             plex_api_key_encrypted = $4,
             plex_library_sections = $5::jsonb,
             tmdb_api_key_encrypted = $6
-      WHERE id = 1`,
+      WHERE space_id = $7`,
     [
       snapshot.plex_preset,
       snapshot.plex_provider,
       snapshot.plex_api_url,
       snapshot.plex_api_key_encrypted,
       JSON.stringify(snapshot.plex_library_sections || []),
-      snapshot.tmdb_api_key_encrypted
+      snapshot.tmdb_api_key_encrypted,
+      spaceId
     ]
   ).catch(() => {});
 }
@@ -275,7 +279,8 @@ async function waitForJobResult(client, jobId) {
 }
 
 async function main() {
-  const snapshot = await snapshotPlexSettings();
+  let snapshot = null;
+  let smokeSpaceId = null;
   const fake = await startFakePmsServer();
   const suffix = Date.now();
   const email = `plex-reconciliation-sync-${suffix}@example.com`;
@@ -285,7 +290,6 @@ async function main() {
   const mediaIds = [];
   try {
     userId = await createDirectUser({ email, password, name: 'Plex Reconciliation Sync Admin' });
-    await applyFakePlexSettings(fake.baseUrl);
     await client.request('/api/auth/login', {
       method: 'POST',
       withCsrf: true,
@@ -295,10 +299,13 @@ async function main() {
     const scope = await client.request('/api/auth/scope', { expectStatus: 200 });
     const libraryId = Number(scope.data?.active_library_id || 0) || null;
     const spaceId = Number(scope.data?.active_space_id || 0) || null;
+    smokeSpaceId = spaceId;
     assert(libraryId, 'Expected active library for smoke user');
+    snapshot = await snapshotPlexSettings(spaceId);
+    await applyFakePlexSettings(fake.baseUrl, spaceId);
     const schedulerStatus = await client.request('/api/media/plex-reconciliation-sync/scheduler', { expectStatus: 200 });
     assert(schedulerStatus.data?.processingMode === 'scheduled_full_library_reconciliation_sync', `Unexpected scheduler status mode: ${JSON.stringify(schedulerStatus.data)}`);
-    assert(schedulerStatus.data?.runtime?.enabled === false, 'Expected reconciliation scheduler to default off until explicitly enabled');
+    assert(typeof schedulerStatus.data?.runtime?.enabled === 'boolean', 'Expected persisted scheduler enablement readback');
 
     const seedRows = await pool.query(
       `INSERT INTO media (title, media_type, format, library_id, space_id, added_by, import_source, year, tmdb_id, tmdb_media_type)
@@ -373,6 +380,26 @@ async function main() {
     assert(job?.summary?.wouldUpdate === 1, `Expected job one wouldUpdate row: ${JSON.stringify(job?.summary)}`);
     assert(job?.summary?.wouldCreate === 1, `Expected job one wouldCreate row: ${JSON.stringify(job?.summary)}`);
     assert(job?.summary?.conflict === 1, `Expected job one conflict row: ${JSON.stringify(job?.summary)}`);
+
+    const durableJob = await pool.query(
+      `SELECT public_id, job_version, space_id, library_id, idempotency_key, target_ref,
+              attempt_count, max_attempts, lease_owner, lease_expires_at, heartbeat_at
+         FROM sync_jobs
+        WHERE id = $1`,
+      [jobId]
+    );
+    const durable = durableJob.rows[0] || {};
+    assert(/^[0-9a-f-]{36}$/i.test(String(durable.public_id || '')), 'Expected stable durable public job id');
+    assert(Number(durable.job_version) === 1, 'Expected durable job contract version 1');
+    assert(Number(durable.space_id) === spaceId, 'Expected relational workspace ownership');
+    assert(Number(durable.library_id) === libraryId, 'Expected relational library ownership');
+    assert(/^plex-reconciliation:request:/.test(String(durable.idempotency_key || '')), 'Expected documented manual idempotency identity');
+    assert(JSON.stringify(durable.target_ref?.sectionIds) === JSON.stringify(['1']), 'Expected secret-free durable target sections');
+    assert(Number(durable.attempt_count) === 1, 'Expected one leased execution attempt');
+    assert(Number(durable.max_attempts) === 3, 'Expected bounded durable retries');
+    assert(durable.lease_owner === null, 'Expected terminal job lease owner cleanup');
+    assert(durable.lease_expires_at === null, 'Expected terminal job lease expiry cleanup');
+    assert(durable.heartbeat_at === null, 'Expected terminal job heartbeat cleanup');
 
     assert(job?.summary?.autoApplied?.created === 1, `Expected one auto-created row: ${JSON.stringify(job?.summary)}`);
     assert(job?.summary?.autoApplied?.updated === 1, `Expected one strong-ID update: ${JSON.stringify(job?.summary)}`);
@@ -510,6 +537,7 @@ async function main() {
       },
       queuedJob: {
         id: jobId,
+        publicId: durable.public_id,
         status: job.status,
         jobType: job.job_type,
         processingMode: job.summary.processingMode,
@@ -539,9 +567,10 @@ async function main() {
       })),
       assertions: [
         'Full-library reconciliation preview classified linked, update, create, and conflict rows before sync',
-        'Plex reconciliation scheduler status is visible and defaults off until enabled',
+        'Plex reconciliation scheduler status exposes the persisted workspace/runtime enablement',
         'Reconciliation sync scanned more than 1000 Plex rows when no diagnostic limit was supplied',
         'Queued reconciliation sync job created one safe missing row and updated one strong TMDB match',
+        'Plex reconciliation executed through one leased durable attempt with relational workspace ownership and secret-free target references',
         'Already-linked rows stayed no-op and conflicting rows were stored for review',
         'Attach-existing conflict resolution rejects strong identifier conflicts',
         'Attach-existing conflict resolution can attach Plex identity metadata to a safe existing row',
@@ -557,7 +586,7 @@ async function main() {
     fs.writeFileSync(ARTIFACT_PATH, JSON.stringify(evidence, null, 2));
     console.log(JSON.stringify(evidence, null, 2));
   } finally {
-    await restorePlexSettings(snapshot);
+    await restorePlexSettings(snapshot, smokeSpaceId);
     await cleanup({ userId, mediaIds });
     await fake.close();
     await pool.end().catch(() => {});

@@ -4,14 +4,14 @@ This roadmap converts product direction into implementation milestones with acce
 
 Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file stays focused on numbered milestones and the work that has already been selected for release planning.
 
-The `3.27.x` architecture line is complete. `3.28.0` is the active milestone; later work remains versionless in the backlog until a selected slice is deliberately promoted.
+The `3.27.x` architecture line is complete. `3.28.0` is the active milestone. By explicit planning exception, `3.28.1` is also defined below so BookOrbit comic-series fidelity cannot fall out of the current provider line; other later work remains versionless in the backlog until deliberately promoted.
 
 ---
 
 ## 3.28.0 — Durable Provider Job Foundation
 
 **Goal:** Put workspace-owned provider automation behind one durable PostgreSQL job lifecycle, prove it with existing Plex reconciliation and new scheduled BookOrbit synchronization, and preserve provider-specific import behavior behind explicit adapters.
-**Status:** In progress. The selected foundation slice adds the relational job envelope and lifecycle module before either provider scheduler is migrated.
+**Status:** In progress. The relational foundation and Plex reconciliation adopter are complete; scheduled BookOrbit synchronization is the next provider slice.
 
 ### Selected scope
 
@@ -20,6 +20,7 @@ The `3.27.x` architecture line is complete. `3.28.0` is the active milestone; la
 - Introduce one deep job-lifecycle module whose interface owns idempotent enqueue, `SKIP LOCKED` claim, lease renewal, progress, retry/final settlement, cancellation, expired-lease recovery, and workspace-scoped readback.
 - Reject secret-bearing job targets, progress, and summaries; store provider connection references and resolve credentials only inside the provider adapter at execution time.
 - Migrate Plex full-library reconciliation as the existing automatic adopter and add BookOrbit scheduled synchronization as the second, materially different adopter.
+- Preserve BookOrbit OPDS series names, series indexes, and stable entry/link identity during scheduled synchronization. Project series/index data into the existing comic model without treating a series index as an issue number when the provider has not supplied one.
 - Add consistent operator readback for current state, attempt count, next eligible run, cancellation, safe failure reason, and resulting provider-specific summary.
 
 ### Acceptance criteria
@@ -29,6 +30,7 @@ The `3.27.x` architecture line is complete. `3.28.0` is the active milestone; la
 - Every new durable job has database-enforced workspace ownership and any library or provider connection belongs to that same workspace.
 - Process restart, transient provider failure, cancellation, and terminal failure have tested, sanitized outcomes without retaining credentials or raw provider payloads.
 - Existing Plex reconciliation and BookOrbit synchronization both execute through the same lifecycle interface while retaining their separate matching, field-control, and result contracts.
+- BookOrbit comic repeat-sync proof covers series grouping, series order, provider moves between book/comic classifications, and no duplicate canonical row or identity overwrite.
 - The canonical stack, migration/init parity, retained-job migration, provider smokes, RBAC, browser/runtime regression, release metadata, and Help > Releases readback pass before version closeout.
 
 ### Milestone boundary
@@ -41,8 +43,22 @@ The `3.27.x` architecture line is complete. `3.28.0` is the active milestone; la
 
 - Migration `134` and fresh-install schema parity define the additive durable envelope while leaving historical compatibility payloads readable.
 - `services/durableJobs.js` provides the first lifecycle implementation with idempotent enqueue, concurrent-safe claim, owner-bound lease renewal, progress, bounded retry/final settlement, cancellation, expired-lease recovery, and workspace-scoped readback.
+- `services/durableJobWorker.js` provides the leased execution loop with cancellation checkpoints, heartbeat renewal, bounded exponential retry, and permanent-failure classification.
+- Plex full-library reconciliation now enqueues a secret-free durable target, resolves workspace credentials only during execution, and runs through one leased worker attempt while preserving its existing safe-update and conflict-review behavior.
 - The interface rejects secret-bearing structured payload fields and persists only provider-connection references for later adapter resolution.
 - A rollback-safe canonical-database smoke covers stable public identity, relational scope, idempotency, secret refusal, concurrent claims, leases, progress, retry, cancellation, expired-lease terminal behavior, and readback.
+
+### Plex reconciliation adopter checkpoint
+
+- **Roadmap slice:** `3.28.0 — Durable Provider Job Foundation`, Plex reconciliation durable-worker adopter.
+- **Project docs/checklists used:** `AGENTS.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/52-Plex-True-Sync-Workflow-Plan.md`; `docs/wiki/54-Durable-Workspace-Job-Contract.md`.
+- **Verified runtime facts:** Rebuilt and recreated the canonical `collectz-private` backend in place. A workspace-isolated Plex smoke queued a durable reconciliation job, scanned 1,005 provider rows, kept 1,002 linked rows unchanged, updated one strong-identifier match, created one missing title, and retained one unsafe match for review. The job completed in one leased attempt with relational workspace/library ownership, bounded retries, terminal lease cleanup, and a secret-free target reference.
+- **CI/checks run:** Durable worker interface tests (`5`); full backend unit suite (`373` assertions plus `55` Node tests); canonical Plex full-library reconciliation/scheduler/conflict smoke; OpenAPI validation; workspace ownership certification (`75` tables, `349` routes, `11` execution paths); RBAC regression; canonical control-plane runtime smoke; Node syntax and diff hygiene. The remaining milestone gates are listed below and are not claimed by this checkpoint.
+- **Blocked/unverified:** BookOrbit has not yet adopted scheduled durable execution. Safe public job readback/cancellation and the full browser, runtime-edition, dependency, secret, image/SBOM, release-metadata, Help > Releases, and hosted release gates remain required before `3.28.0` closeout.
+- **Files changed:** Generic leased durable worker and tests; Plex reconciliation enqueue/execution/scheduler adoption; server worker startup; workspace-isolated Plex reconciliation smoke; durable contract, roadmap, backlog, and Plex workflow documentation.
+- **Risks or follow-ups:** The scheduler now reports queued/reused work rather than synchronous success totals. Other Plex webhook and watched/rating jobs intentionally remain on their existing runners. BookOrbit must prove classification moves and comic series/index preservation before this milestone can close.
+- **What remains in the milestone:** Add scheduled BookOrbit synchronization, series-fidelity and classification-move proof, consistent safe readback/cancellation, full regression and release certification, then complete the `3.28.0` version closeout.
+- **Recommended commit message:** `Adopt the 3.28.0 durable job worker for Plex reconciliation and plan BookOrbit series fidelity`.
 
 ### Foundation slice checkpoint
 
@@ -55,6 +71,32 @@ The `3.27.x` architecture line is complete. `3.28.0` is the active milestone; la
 - **Risks or follow-ups:** Existing provider execution still uses legacy process-local runners until the two selected adapters migrate. `sync_jobs` RLS is deliberately deferred. One historical job whose deleted library no longer exists retains its compatibility scope with a null relational library rather than receiving invented ownership.
 - **What remains in the milestone:** Adopt Plex reconciliation, add scheduled BookOrbit synchronization, expose consistent safe job/cadence readback and cancellation, run full provider/browser/runtime/release certification, then complete the `3.28.0` version closeout.
 - **Recommended commit message:** `Establish 3.28.0 durable workspace job lifecycle and migration foundation`.
+
+---
+
+## 3.28.1 — BookOrbit Rich Comic Series Metadata
+
+**Goal:** Build on the scheduled OPDS sync proof with a normalized comic-series model that can represent BookOrbit's richer native metadata without overloading canonical issue fields or provider payload JSON.
+**Status:** Queued behind the `3.28.0` durable BookOrbit adopter.
+
+### Selected scope
+
+- Confirm BookOrbit's native authenticated capability surface and use it for enrichment only where the configured instance advertises and authorizes that capability; OPDS remains the compatibility baseline.
+- Add normalized, canonical-media-linked series membership capable of representing multiple series/collections, provider ordering, volume, issue number, and source provenance without changing the canonical media UUID.
+- Preserve provider-native story arcs, credits, and additional comic identifiers when supplied, with compatibility projections for existing comic reads during migration.
+- Keep provider identity scoped to the configured BookOrbit Provider Connection, and keep scheduled refresh idempotent across metadata edits, series moves, and connection endpoint changes.
+
+### Acceptance criteria
+
+- A BookOrbit comic can belong to one or more series with stable ordering, and repeat synchronization updates those memberships without duplicate media or stale active memberships.
+- Series index, volume, and issue number remain distinct concepts; missing issue numbers are not fabricated from OPDS ordering.
+- Native enrichment is capability-gated, secret-free in jobs/logs/readback, and degrades to the certified OPDS representation when unavailable.
+- Existing BookOrbit books, comics, covers, acquisition links, canonical identity, and manual field controls remain compatible.
+
+### Milestone boundary
+
+- No work/edition/copy remodel, broad taxonomy rewrite, BookOrbit writeback, or provider-file mutation belongs in `3.28.1`.
+- Basic OPDS series/index preservation and book-to-comic classification moves remain `3.28.0` acceptance work; this version owns the richer normalized multi-series model.
 
 ---
 

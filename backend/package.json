@@ -9,7 +9,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "test:unit": "node scripts/unit-tests.js && node --test scripts/transaction-executor-tests.js scripts/scoped-transaction-tests.js scripts/external-identity-tests.js",
+    "test:unit": "node scripts/unit-tests.js && node --test scripts/transaction-executor-tests.js scripts/scoped-transaction-tests.js scripts/external-identity-tests.js scripts/durable-job-worker-tests.js",
     "test:saved-view-rls-http-smoke": "node scripts/saved-view-rls-http-smoke.js",
     "test:saved-view-rls-certification": "node scripts/saved-view-rls-certification.js",
     "test:external-identity-certification": "node scripts/external-identity-certification.js",
