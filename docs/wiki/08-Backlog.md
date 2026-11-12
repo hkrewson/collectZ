@@ -1929,6 +1929,12 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - Keep Core runtime, homelab smoke, public-source CI, and `cairn` platform contracts aligned after each remaining extraction slice.
 - If Cairn needs a Core change, promote only the smallest compatibility interface as a patch-level Core revision: a non-secret Cairn navigation URL, a documented Core operation, or a narrowly reviewed handoff adapter. Select its exact semver only when scheduled rather than assigning one from backlog.
 
+**Related Cairn-owned hosted workspace program**
+- The Cairn repository's `docs/backlog.md` is the single source of truth for the unified hosted workspace lifecycle, passwordless customer portal, per-workspace Core fleet, infrastructure/envelope encryption, deployment orchestration, and legacy production split-migration program.
+- That program is unscheduled behind active `3.28.0` and already-queued `3.28.1`; it is not part of either milestone. Cairn P0 containment remains an immediate security prerequisite while broader product work waits.
+- Core participation is limited to separately promoted patch-revision interfaces that may include instance identity/readiness, public-base or reserved-path compatibility, owner activation/recovery, support grants, workspace-scoped export/import, entitlement readback, and migration validation.
+- The current production deployment contains two independently owned, mutually isolated workspaces plus test/incidental accounts requiring a read-only ownership inventory before any split or cleanup. Do not infer database separation from container-volume layout and do not delete test-looking accounts without evidence and explicit approval.
+
 **Out of scope**
 - Do not rewrite repository history unless a separate secret-exposure review requires it.
 - Do not implement billing or subscription enforcement in this transition.
@@ -1947,6 +1953,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - Core users authenticate in Core; platform admins authenticate in `cairn`.
 - Support access is explicit, audited, and time-bound.
 - Any required Core compatibility change ships as a bounded patch-level revision and leaves the Cairn product implementation in Cairn.
+- Core compatibility preserves self-hosted operation, current workspace isolation, scheduled jobs without interactive login, and independently verifiable workspace export/restore.
 - Remaining work is tracked as concrete Core/`cairn` extraction slices, not as a broad public-repository transition.
 
 ### Backlog Item: Personal Workspace Offboarding, Archive Retention, and Recovery
@@ -1954,6 +1961,12 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 **Tags:** `workspace`, `lifecycle`, `retention`, `recovery`
 
 **Goal:** Define the SaaS account and workspace offboarding path for personal workspaces.
+
+**Ownership note:** Cairn owns hosted customer cancellation, subscription state,
+provisioning/deployment lifecycle, and the retention clock. Core owns the
+workspace-scoped export, archive, restore, anonymization, and erasure operations
+that Cairn invokes through documented, revision-sized interfaces. Self-hosted
+Core retains a complete local offboarding path without Cairn.
 
 **Scope**
 - Separate workspace membership removal from account/workspace offboarding.
@@ -1999,10 +2012,15 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 
 ### Backlog Item: Subscription Entitlement Contract and Tier Model
 **Type:** Deferred milestone
-**Tags:** `subscriptions`, `entitlements`, `billing`, `license`, `hosted`, `stripe`
-**Status:** Active backlog; not yet promoted or versioned.
+**Tags:** `subscriptions`, `entitlements`, `billing`, `license`, `hosted`
+**Status:** Active backlog; not yet promoted or versioned. Hosted customer,
+payment, subscription, invoice, and plan-assignment ownership has moved to the
+Cairn-owned unified hosted workspace program. Core retains only local
+entitlement projection, enforcement, usage readback, and self-hosted behavior.
 
-**Goal:** Define the first hosted-product subscription contract before payment processing is implemented.
+**Goal:** Define the Core entitlement contract that a future Cairn-owned hosted
+subscription can project into one workspace without making Core dependent on
+Cairn for startup or ordinary self-hosted use.
 
 **Why this work exists**
 - collectZ needs a free tier that remains useful forever and at least one paid tier that unlocks heavier capabilities.
@@ -2016,9 +2034,9 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - Future paid tiers may add collaboration/team features, but collaboration should not be the first paid boundary.
 
 **Intended first implementation slice**
-- Add a license/entitlement model owned by the user's personal workspace and billing email.
-- Automatically grant every user a default `free` license.
-- Reserve Stripe identifiers for a later payment slice: customer id, subscription id, current period, and subscription status.
+- Add a local license/entitlement projection keyed to the canonical workspace UUID; Cairn remains authoritative for hosted customer, billing email, payment, subscription, and plan assignment.
+- Give every workspace a default `free` entitlement projection when no hosted plan is attached.
+- Keep payment-provider customer, subscription, invoice, current-period, and payment-status identifiers in Cairn rather than copying them into Core.
 - Add a backend entitlement registry with named capabilities such as:
   - `automation.provider_sync`
   - `automation.price_watch`
@@ -2027,7 +2045,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
   - `review.advanced_queue`
   - `limits.storage.soft`
   - `limits.provider_calls.soft`
-- Add authenticated license readback through an account-level endpoint such as `GET /api/account/license`.
+- Add authenticated license readback through a workspace-level endpoint such as `GET /api/workspace/license`.
 - Return plan key, status, billing email, entitlements, soft-limit usage, and upgrade-readable reasons.
 - Add enforcement helpers so paid automation endpoints can return a clear `upgrade_required` response when blocked.
 - Keep manual features available on Free.
@@ -2035,10 +2053,10 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - Add Account/Settings UI readback for current plan, included automation, and locked automation.
 - Ensure subscription state never exposes platform/admin menus, labels, or controls.
 
-**Stripe follow-up**
-- Use Stripe Billing as the intended future payment processor.
-- Implement Checkout Sessions, customer portal, and webhook-driven subscription status only after the entitlement contract exists.
-- Do not add live checkout, customer portal, or Stripe webhooks in the first entitlement-contract slice.
+**Payment-provider follow-up**
+- Keep the payment provider selection open until the Cairn program is promoted.
+- Implement checkout, customer billing portal, invoices/receipts, and webhook-driven subscription status in Cairn only after the Core entitlement contract exists.
+- Do not add live checkout, payment-provider customer records, a billing portal, or payment webhooks to Core.
 
 **Related work**
 - `Optional Build: Cost Model and Billing Readiness` should remain related but separate. Cost modeling can use entitlement/usage data later, but it is not required before the entitlement contract is defined.
@@ -2049,7 +2067,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - A future implementation can add Free and Paid readback without exposing platform/admin surfaces.
 - Free remains a useful personal collection tier rather than a short trial.
 - Paid is defined around automation and cost-bearing work first.
-- Stripe is documented as the likely payment provider, but payment collection remains a later milestone.
+- Payment-provider selection and collection remain Cairn-owned later work.
 
 ### Backlog Item: Plex True Sync Workflow
 **Type:** UI/UX and sync workflow refinement
