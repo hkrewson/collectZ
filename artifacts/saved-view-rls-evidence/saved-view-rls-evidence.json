@@ -1,0 +1,74 @@
+{
+  "status": "passed",
+  "migration": 124,
+  "checks": [
+    {
+      "label": "legacy ownership backfill and migration activation",
+      "pass": true
+    },
+    {
+      "label": "startup rejects an overprivileged scope broker",
+      "pass": true
+    },
+    {
+      "label": "broker grant remains visible under a non-default session isolation setting",
+      "pass": true
+    },
+    {
+      "label": "missing scope denies reads and writes",
+      "pass": true
+    },
+    {
+      "label": "runtime cannot mint grants, read grants, or assume broker role",
+      "pass": true
+    },
+    {
+      "label": "unscoped parent deletion cannot bypass RLS through cascades",
+      "pass": true
+    },
+    {
+      "label": "broker cannot read application rows",
+      "pass": true
+    },
+    {
+      "label": "same-scope CRUD works without application SQL predicates",
+      "pass": true
+    },
+    {
+      "label": "sibling workspace library and actor cannot read existing rows",
+      "pass": true
+    },
+    {
+      "label": "WITH CHECK denies cross-workspace cross-library and cross-actor inserts",
+      "pass": true
+    },
+    {
+      "label": "ownership fields cannot be mutated even in workspace-wide scope",
+      "pass": true
+    },
+    {
+      "label": "spoofed or malformed GUCs cannot create unrestricted scope",
+      "pass": true
+    },
+    {
+      "label": "grant cannot be replayed from a second connection",
+      "pass": true
+    },
+    {
+      "label": "commit rollback and concurrent scopes remain isolated",
+      "pass": true
+    },
+    {
+      "label": "expired authorization fails closed",
+      "pass": true
+    },
+    {
+      "label": "unresolved legacy ownership rolls activation back",
+      "pass": true
+    },
+    {
+      "label": "database snapshot restore retains policy and data without active grants",
+      "pass": true
+    }
+  ]
+}

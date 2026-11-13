@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-11-10T03:50:55.598Z",
+  "generatedAt": "2026-11-13T03:18:46.995Z",
   "initSqlPath": "/init.sql",
-  "initDb": "collectz_init_parity_init_mwa5kcre",
-  "migDb": "collectz_init_parity_mig_mwa5kcre",
+  "initDb": "collectz_init_parity_init_mweeqkew",
+  "migDb": "collectz_init_parity_mig_mweeqkew",
   "checks": [
     {
       "label": "columns",

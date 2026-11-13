@@ -1,15 +1,15 @@
 {
-  "generated_at": "2026-11-10T03:49:32.073Z",
+  "generated_at": "2026-11-13T03:18:48.836Z",
   "certification": "runtime-role",
-  "latest_migration": 133,
-  "legacy_baseline": 132,
+  "latest_migration": 135,
+  "legacy_baseline": 134,
   "runtime_role": "ephemeral (redacted)",
   "checks": [
     {
       "label": "legacy baseline migrated with seeded row",
       "pass": true,
       "detail": {
-        "baseline": 132
+        "baseline": 134
       }
     },
     {
@@ -20,7 +20,7 @@
       "label": "runtime role verifies schema current",
       "pass": true,
       "detail": {
-        "version": 133
+        "version": 135
       }
     },
     {
@@ -166,13 +166,11 @@
       "detail": {
         "violations": [
           "role is a superuser",
-          "role has BYPASSRLS",
           "role has CREATEROLE",
           "role has CREATEDB",
-          "role has REPLICATION",
           "role can create schemas in the database",
           "role can create objects in the application schema",
-          "role owns or inherits ownership of 134 application relation(s)"
+          "role owns or inherits ownership of 135 application relation(s)"
         ]
       }
     },
@@ -187,7 +185,7 @@
         "violations": [
           "role can create schemas in the database",
           "role can create objects in the application schema",
-          "role owns or inherits ownership of 134 application relation(s)",
+          "role owns or inherits ownership of 135 application relation(s)",
           "role is a member of a privileged role"
         ]
       }

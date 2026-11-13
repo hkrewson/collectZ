@@ -166,7 +166,7 @@ async function main() {
       targetRef: { smoke: true },
       progress: { completed: 0 }
     });
-    const jobB = await durableJobs.enqueue({
+    await durableJobs.enqueue({
       jobType: 'bookorbit_sync',
       provider: 'bookorbit',
       createdBy: userId,

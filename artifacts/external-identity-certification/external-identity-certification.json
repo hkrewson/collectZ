@@ -1,0 +1,102 @@
+{
+  "generatedAt": "2026-11-13T03:18:57.469Z",
+  "migrationVersion": 135,
+  "passed": true,
+  "checks": [
+    {
+      "label": "canonical UUID generated and unique",
+      "passed": true
+    },
+    {
+      "label": "canonical UUID is write-once",
+      "passed": true,
+      "code": "23514"
+    },
+    {
+      "label": "media cannot reference sibling workspace library",
+      "passed": true,
+      "code": "23503"
+    },
+    {
+      "label": "connection identity survives rename and endpoint change",
+      "passed": true
+    },
+    {
+      "label": "connection workspace is immutable",
+      "passed": true,
+      "code": "23514"
+    },
+    {
+      "label": "RLS blocks sibling workspace connection insert",
+      "passed": true,
+      "code": "42501"
+    },
+    {
+      "label": "credentials stored in separate scoped relation",
+      "passed": true
+    },
+    {
+      "label": "legacy integration slot binds one stable provider connection",
+      "passed": true
+    },
+    {
+      "label": "integration slot cannot bind two provider connections",
+      "passed": true,
+      "code": "23505"
+    },
+    {
+      "label": "same external id remains isolated across provider instances",
+      "passed": true
+    },
+    {
+      "label": "provider field authority is scoped to one canonical target and connection",
+      "passed": true
+    },
+    {
+      "label": "field control cannot target sibling workspace media",
+      "passed": true,
+      "code": "23503"
+    },
+    {
+      "label": "manual field authority cannot silently permit provider refresh",
+      "passed": true,
+      "code": "23514"
+    },
+    {
+      "label": "active identity cannot bind two media targets",
+      "passed": true,
+      "code": "23505"
+    },
+    {
+      "label": "identity cannot target sibling workspace media",
+      "passed": true,
+      "code": "23503"
+    },
+    {
+      "label": "external identity key is immutable",
+      "passed": true,
+      "code": "23514"
+    },
+    {
+      "label": "identity lifecycle events are append-only",
+      "passed": true,
+      "code": "42501"
+    },
+    {
+      "label": "deactivation retains history and supports transactional restoration/reassignment",
+      "passed": true
+    },
+    {
+      "label": "connection archive/reactivation preserves identity history",
+      "passed": true
+    },
+    {
+      "label": "unscoped runtime SQL cannot read provider connections",
+      "passed": true
+    },
+    {
+      "label": "unscoped runtime SQL cannot read provider integration bindings",
+      "passed": true
+    }
+  ]
+}

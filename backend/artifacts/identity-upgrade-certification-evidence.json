@@ -1,16 +1,18 @@
 {
-  "generatedAt": "2026-11-10T03:49:13.450Z",
+  "generatedAt": "2026-11-13T03:18:49.879Z",
   "status": "passed",
   "manifestSchemaVersion": 1,
   "baselineVersion": 127,
-  "latestVersion": 133,
+  "latestVersion": 135,
   "certifiedMigrationVersions": [
     128,
     129,
     130,
     131,
     132,
-    133
+    133,
+    134,
+    135
   ],
   "selectorMatches": [
     {
@@ -20,6 +22,14 @@
     {
       "version": 133,
       "description": "Bind legacy integration slots to stable provider connections"
+    },
+    {
+      "version": 134,
+      "description": "Add durable workspace-aware job lifecycle foundation"
+    },
+    {
+      "version": 135,
+      "description": "Add relational provider sync targets"
     }
   ],
   "fixturePolicy": {
@@ -96,13 +106,13 @@
       {
         "id": 1,
         "user_id": 1,
-        "expires_at": "2026-11-17T03:49:14.288Z",
+        "expires_at": "2026-11-20T03:18:50.769Z",
         "storedCredentialPresent": true
       },
       {
         "id": 2,
         "user_id": 1,
-        "expires_at": "2026-11-17T03:49:14.289Z",
+        "expires_at": "2026-11-20T03:18:50.769Z",
         "storedCredentialPresent": true
       }
     ],
@@ -158,7 +168,7 @@
             "libraries:read"
           ],
           "revoked_at": null,
-          "expires_at": "2026-11-17T03:49:14.293Z",
+          "expires_at": "2026-11-20T03:18:50.773Z",
           "storedCredentialPresent": true
         }
       ],
@@ -174,7 +184,7 @@
             "/api/libraries"
           ],
           "revoked_at": null,
-          "expires_at": "2026-11-17T03:49:14.294Z",
+          "expires_at": "2026-11-20T03:18:50.774Z",
           "storedCredentialPresent": true
         }
       ]

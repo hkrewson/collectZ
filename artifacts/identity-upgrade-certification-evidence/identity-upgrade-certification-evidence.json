@@ -1,0 +1,240 @@
+{
+  "generatedAt": "2026-11-13T03:18:49.879Z",
+  "status": "passed",
+  "manifestSchemaVersion": 1,
+  "baselineVersion": 127,
+  "latestVersion": 135,
+  "certifiedMigrationVersions": [
+    128,
+    129,
+    130,
+    131,
+    132,
+    133,
+    134,
+    135
+  ],
+  "selectorMatches": [
+    {
+      "version": 132,
+      "description": "Add canonical media field authority controls"
+    },
+    {
+      "version": 133,
+      "description": "Bind legacy integration slots to stable provider connections"
+    },
+    {
+      "version": 134,
+      "description": "Add durable workspace-aware job lifecycle foundation"
+    },
+    {
+      "version": 135,
+      "description": "Add relational provider sync targets"
+    }
+  ],
+  "fixturePolicy": {
+    "source": "runtime_generated_synthetic",
+    "productionDataUsed": false
+  },
+  "manifest": {
+    "schemaVersion": 1,
+    "policy": {
+      "existingSessions": "survive",
+      "activeScope": "preserve",
+      "apiCredentials": "remainValid"
+    },
+    "features": {
+      "mfaRecovery": "notImplemented",
+      "encryptedIdentityMaterial": "notImplemented"
+    },
+    "users": [
+      {
+        "id": 1,
+        "role": "user",
+        "email_verified": true,
+        "active_space_id": 2,
+        "active_library_id": 1,
+        "emailIdentityPresent": true
+      },
+      {
+        "id": 2,
+        "role": "viewer",
+        "email_verified": true,
+        "active_space_id": 3,
+        "active_library_id": 2,
+        "emailIdentityPresent": true
+      }
+    ],
+    "spaceMemberships": [
+      {
+        "space_id": 2,
+        "user_id": 1,
+        "role": "owner",
+        "suspended_at": null
+      },
+      {
+        "space_id": 3,
+        "user_id": 1,
+        "role": "viewer",
+        "suspended_at": null
+      },
+      {
+        "space_id": 3,
+        "user_id": 2,
+        "role": "owner",
+        "suspended_at": null
+      }
+    ],
+    "libraryMemberships": [
+      {
+        "library_id": 1,
+        "user_id": 1,
+        "role": "owner"
+      },
+      {
+        "library_id": 2,
+        "user_id": 1,
+        "role": "viewer"
+      },
+      {
+        "library_id": 2,
+        "user_id": 2,
+        "role": "owner"
+      }
+    ],
+    "sessions": [
+      {
+        "id": 1,
+        "user_id": 1,
+        "expires_at": "2026-11-20T03:18:50.769Z",
+        "storedCredentialPresent": true
+      },
+      {
+        "id": 2,
+        "user_id": 1,
+        "expires_at": "2026-11-20T03:18:50.769Z",
+        "storedCredentialPresent": true
+      }
+    ],
+    "lifecycle": [
+      {
+        "kind": "invite",
+        "id": 1,
+        "user_id": 1,
+        "space_id": 2,
+        "used": false,
+        "revoked": false,
+        "storedCredentialPresent": true
+      },
+      {
+        "kind": "reset",
+        "id": 1,
+        "user_id": 1,
+        "space_id": null,
+        "used": false,
+        "revoked": false,
+        "storedCredentialPresent": true
+      },
+      {
+        "kind": "verification",
+        "id": 1,
+        "user_id": 1,
+        "space_id": null,
+        "used": true,
+        "revoked": false,
+        "storedCredentialPresent": true
+      }
+    ],
+    "audit": [
+      {
+        "id": 1,
+        "user_id": 1,
+        "action": "identity.certification.baseline",
+        "entity_type": "user",
+        "entity_id": 1,
+        "details": {
+          "scope": "upgrade_restore",
+          "fixture": true
+        }
+      }
+    ],
+    "apiCredentials": {
+      "personal": [
+        {
+          "id": 1,
+          "user_id": 1,
+          "scopes": [
+            "profile:read",
+            "libraries:read"
+          ],
+          "revoked_at": null,
+          "expires_at": "2026-11-20T03:18:50.773Z",
+          "storedCredentialPresent": true
+        }
+      ],
+      "service": [
+        {
+          "id": 1,
+          "owner_user_id": 1,
+          "created_by_user_id": 1,
+          "scopes": [
+            "libraries:read"
+          ],
+          "allowed_prefixes": [
+            "/api/libraries"
+          ],
+          "revoked_at": null,
+          "expires_at": "2026-11-20T03:18:50.774Z",
+          "storedCredentialPresent": true
+        }
+      ]
+    }
+  },
+  "phases": {
+    "baseline": {
+      "passwordLogin": "passed",
+      "verifiedEmail": "preserved",
+      "concurrentSessions": {
+        "expected": "survive",
+        "observedValid": 2
+      },
+      "activeScope": "preserved",
+      "workspaceRoles": "preserved",
+      "personalApiCredential": "valid",
+      "serviceApiCredential": "valid"
+    },
+    "upgrade": {
+      "passwordLogin": "passed",
+      "verifiedEmail": "preserved",
+      "concurrentSessions": {
+        "expected": "survive",
+        "observedValid": 2
+      },
+      "activeScope": "preserved",
+      "workspaceRoles": "preserved",
+      "personalApiCredential": "valid",
+      "serviceApiCredential": "valid"
+    },
+    "restore": {
+      "passwordLogin": "passed",
+      "verifiedEmail": "preserved",
+      "concurrentSessions": {
+        "expected": "survive",
+        "observedValid": 2
+      },
+      "activeScope": "preserved",
+      "workspaceRoles": "preserved",
+      "personalApiCredential": "valid",
+      "serviceApiCredential": "valid"
+    }
+  },
+  "identityContinuity": {
+    "emailIdentity": "certified_in_memory",
+    "storedCredentials": "certified_in_memory",
+    "fingerprintsRetained": false
+  },
+  "evidenceHygiene": {
+    "runtimeSecretsRetained": false,
+    "credentialBearingCommandsRetained": false
+  }
+}

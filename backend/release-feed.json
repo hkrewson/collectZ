@@ -1,6 +1,27 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.28.0",
+      "version": "3.28.0",
+      "date": "2026-11-12",
+      "status": null,
+      "summary": "Introduces a workspace-owned durable PostgreSQL job lifecycle, adopts it for Plex reconciliation and scheduled BookOrbit synchronization, and gives integration operators safe job history, cadence visibility, and cancellation without exposing credentials or provider payloads.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added stable public job UUIDs, relational workspace/library/provider-connection ownership, idempotency identities, bounded attempts, availability, leases, heartbeats, cancellation, and terminal timestamps while retaining compatibility with existing numeric job IDs.",
+            "Added one shared durable lifecycle for idempotent enqueue, concurrent-safe claim, owner-bound lease renewal, progress, bounded retry/final settlement, cancellation, expired-lease recovery, and workspace-scoped readback.",
+            "Migrated Plex full-library reconciliation to the leased worker lifecycle while preserving its existing safe-update, strong-identifier, and conflict-review behavior.",
+            "Added relational BookOrbit sync targets with enabled cadence, last-enqueue state, scheduled durable execution, current credential resolution at execution time, and duplicate cadence suppression.",
+            "Preserved BookOrbit OPDS series names and ordering, stable provider identity, acquisition and cover links, and lossless provider-owned book/comic classification changes without fabricating issue numbers.",
+            "Added provider-neutral operator APIs and integration panels for recent job state, attempt counts, next eligibility, safe failure summaries, cadence status, and cooperative cancellation.",
+            "Added canonical database, provider, ownership, migration, runtime-role, external-identity, RBAC, browser, and runtime-contract evidence for the durable lifecycle and its first two materially different adopters."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.27.5",
       "version": "3.27.5",
       "date": "2026-11-11",
@@ -179,24 +200,6 @@
             "Update frontend `vitest` and `@vitest/mocker` to `4.1.12`.",
             "Preserve the established Node `24.22.1` baseline and avoid unrelated major-version changes; `express@5.2.1` was already present before this release.",
             "Synchronize application metadata and Help > Releases to `3.25.3`."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.25.2",
-      "version": "3.25.2",
-      "date": "2026-10-21",
-      "status": null,
-      "summary": "Remediates reported vulnerabilities in CollectZ's development and build tooling. Vite and its source-map dependency are upgraded to fixed releases, and the backend development command now uses Node's built-in watch mode instead of Nodemon and its affected watcher tree.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Upgrade frontend Vite from affected `8.0.16` to `8.3.5` and lock `source-map-js` to `1.2.2`, addressing the reported Vite/launch-editor and source-map-js advisories.",
-            "Replace `nodemon server.js` with `node --watch server.js` and remove Nodemon from backend development dependencies. This removes the backend watcher chain that included vulnerable `braces` and `brace-expansion` packages.",
-            "Keep backend and frontend production dependencies on the previously patched `follow-redirects@1.16.1`.",
-            "Synchronize app metadata and Help > Releases to `3.25.2`."
           ]
         }
       ]

@@ -11,7 +11,7 @@ The `3.27.x` architecture line is complete. `3.28.0` is the active milestone. By
 ## 3.28.0 — Durable Provider Job Foundation
 
 **Goal:** Put workspace-owned provider automation behind one durable PostgreSQL job lifecycle, prove it with existing Plex reconciliation and new scheduled BookOrbit synchronization, and preserve provider-specific import behavior behind explicit adapters.
-**Status:** In progress. The relational foundation, Plex reconciliation adopter, scheduled BookOrbit synchronization, and safe operator readback/cancellation are complete; final release certification and version closeout remain.
+**Status:** Local version closeout complete and committed as a release candidate; hosted certification remains required after an authorized push before the milestone is marked released.
 
 ### Selected scope
 
@@ -51,6 +51,18 @@ The `3.27.x` architecture line is complete. `3.28.0` is the active milestone. By
 - The interface rejects secret-bearing structured payload fields and persists only provider-connection references for later adapter resolution.
 - A rollback-safe canonical-database smoke covers stable public identity, relational scope, idempotency, secret refusal, concurrent claims, leases, progress, retry, cancellation, expired-lease terminal behavior, and readback.
 - Workspace integration managers now have provider-neutral, workspace-scoped list/detail/cancel APIs and a shared UI readback for Plex reconciliation and BookOrbit sync. The public projection excludes internal ids, target/idempotency data, and lease internals; cadence readback includes last enqueue and next eligibility.
+
+### Version closeout checkpoint
+
+- **Roadmap slice:** `3.28.0 — Durable Provider Job Foundation`, local release-candidate certification and version closeout.
+- **Project docs/checklists used:** `AGENTS.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/54-Durable-Workspace-Job-Contract.md`.
+- **Verified runtime facts:** Rebuilt and recreated the canonical `collectz-private` backend/frontend in place on port `3201`, removed the temporary browser-test bypass, and verified healthy `3.28.0` readback. The control-plane runtime contract passed against Cairn. Help > Releases served `3.28.0` first, followed by `3.27.5` through `3.27.2`. Init parity, migration/restore rehearsal, identity-upgrade certification, runtime-role certification (`30/30`), saved-view RLS certification, and external-identity certification (`21` checks) all passed through migration `135`. Scheduled BookOrbit synchronization, Plex reconciliation, durable lifecycle (`49` checks), RBAC, workspace authorization/isolation, sensitive-operation, and API integration smokes passed against the running stack.
+- **CI/checks run:** Standard local release gate (`14/14`); full local gate (`16` passed, `0` failed, `2` blocked, with isolated Core runtime deliberately excluded by local-stack policy); backend and frontend unit tests; OpenAPI; changed-file frontend quality; frontend production build; backend/frontend production dependency audits; CodeQL (`5` reviewed, `0` active after removing one unused fixture binding); maintained Core browser regression (`54` passed, `6` edition-specific skipped); canonical control-plane runtime smoke; observability release evidence (`9/9`); migration/init/identity/runtime-role/RLS evidence; provider, authorization, and release-feed runtime smokes; diff hygiene.
+- **Blocked/unverified:** Hosted `compose-smoke`, gitleaks `secret-scan`, hosted Core `runtime-smoke`, Trivy `image-security-and-sbom`, CycloneDX SBOM artifacts, hosted release preflight, image publication, and tag creation require a pushed release commit and remain mandatory. The local full gate reported gitleaks and Trivy unavailable; the Core runtime helper was not run because it creates a separate Compose project and data volume, which local policy forbids without explicit authorization. The canonical control-plane proof and local browser/RBAC/provider evidence do not waive those hosted gates.
+- **Files changed:** Version metadata across root/backend/frontend; `docs/releases/v3.28.0.md`; generated Help > Releases feed; refreshed init-parity, migration-rehearsal, identity-upgrade, runtime-role, saved-view RLS, external-identity, observability, and preflight evidence; one CodeQL-only unused fixture-binding cleanup; this roadmap closeout.
+- **Risks or follow-ups:** Publication remains no-go until every hosted mandatory gate passes. Running cancellation remains cooperative, and process-local scheduler sweeps continue to rely on PostgreSQL idempotency. Rich BookOrbit native identifiers, multi-series membership, volume/issue separation, credits, provenance, and cover enrichment remain scoped to `3.28.1`.
+- **What remains in the milestone:** Obtain explicit push authorization, push `main`, confirm all hosted mandatory gates and required artifacts, then mark `3.28.0` released and create/promote release tags only through the documented workflow. No `3.28.1` implementation starts before that hosted closeout unless the user explicitly changes the milestone boundary.
+- **Recommended commit message:** `Release 3.28.0 with durable provider jobs, Plex reconciliation, scheduled BookOrbit sync, and safe operator controls`.
 
 ### Operator readback and cancellation checkpoint
 
