@@ -722,7 +722,7 @@ results.push(run('workspace ownership contract classifies every schema table, ro
   const contract = buildWorkspaceOwnershipContract();
   const snapshot = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'config', 'workspace-ownership-contract.json'), 'utf8'));
   assert.deepStrictEqual(contract, snapshot);
-  assert.strictEqual(contract.tables.length, 76);
+  assert.strictEqual(contract.tables.length, 78);
   assert.ok(contract.tables.filter(t => t.name.startsWith('collectz_scope.')).every(t => t.category === 'authorization_control_plane'));
   assert.ok(contract.routes.length >= 300);
   assert.ok(contract.routes.filter((route) => route.authentication === 'required').length >= 300);
@@ -5328,14 +5328,22 @@ results.push(run('bookOrbit native metadata preserves canonical identity and pro
     id: 1264,
     seriesName: 'Groo: Death & Taxes',
     seriesIndex: '3',
+    seriesMemberships: [
+      { seriesId: 262, seriesName: 'Groo: Death & Taxes', seriesIndex: '3', displayOrder: 0, expectedBookCount: 4 },
+      { seriesId: 263, seriesName: 'Groo Crossover', seriesIndex: '1', displayOrder: 1, expectedBookCount: 2 }
+    ],
     providerIds: { comicvine: 315507, goodreads: '123777928' },
     comicMetadata: {
       issueNumber: '3',
       pencillers: ['Sergio Aragonés'],
       letterers: ['Stan Sakai'],
       storyArcs: ['Death & Taxes']
-    }
-  });
+    },
+    coverMedia: ['ebook'],
+    coverVersion: 'ebook:smoke:1264',
+    covers: { ebook: { source: 'custom', updatedAt: '2026-11-13T00:43:41.757Z', width: 986, height: 1503 } },
+    updatedAt: '2026-11-13T00:43:41.757Z'
+  }, { connectionId: '123e4567-e89b-12d3-a456-426614174000' });
   assert.equal(merged.type_details.provider_name, 'bookorbit');
   assert.equal(merged.type_details.provider_item_id, 'urn:bookorbit:book:1264');
   assert.equal(merged.type_details.bookorbit_book_id, '1264');
@@ -5344,6 +5352,11 @@ results.push(run('bookOrbit native metadata preserves canonical identity and pro
   assert.equal(merged.type_details.issue_number, '3');
   assert.equal(merged.type_details.artist, 'Sergio Aragonés');
   assert.equal(merged.type_details.bookorbit_story_arcs, 'Death & Taxes');
+  assert.equal(merged.bookorbit_series_memberships.length, 2);
+  assert.equal(merged.bookorbit_series_memberships[0].providerSeriesId, '262');
+  assert.equal(merged.bookorbit_series_memberships[0].expectedItemCount, 4);
+  assert.match(merged.poster_path, /^\/api\/media\/bookorbit-cover\//);
+  assert.equal(merged.type_details.bookorbit_cover_width, '986');
   assert.throws(
     () => mergeBookOrbitNativeDetail({ type_details: { provider_item_id: 'urn:bookorbit:book:1264' } }, { id: 1277 }),
     { code: 'BOOKORBIT_NATIVE_IDENTITY_MISMATCH' }
@@ -5366,6 +5379,14 @@ results.push(run('bookOrbit connection and import routes use the multi-instance 
   assert.ok(mediaRoutesSource.includes("jobType: 'bookorbit_sync'"));
   assert.ok(mediaRoutesSource.includes('startBookOrbitDurableWorker'));
   assert.ok(mediaRoutesSource.includes('runBookOrbitSyncSchedulerOnce'));
+  assert.ok(mediaRoutesSource.includes("router.get('/bookorbit-cover/:connectionId/:bookId'"));
+  assert.ok(mediaRoutesSource.includes("COALESCE(series_stats.series_memberships, '[]'::jsonb) AS series_memberships"));
+  assert.ok(mediaRoutesSource.includes("external_id_normalized = $3"));
+  assert.ok(bookOrbitImportIdentitySource.includes('syncBookOrbitSeriesMemberships'));
+  assert.ok(libraryViewSource.includes('Series memberships'));
+  assert.ok(libraryViewSource.includes('BookOrbit native metadata'));
+  assert.ok(migrationsSource.includes('Add provider series records and media memberships'));
+  assert.ok(initSqlSource.includes("(136, 'Add provider series records and media memberships')"));
   assert.ok(bookOrbitAuthoritativeImportSmokeSource.includes('comicSeriesOrderingPreserved'));
 }));
 

@@ -4,6 +4,7 @@ const { reconcileProviderMediaType, setCanonicalFieldControl } = require('./cano
 const { createExternalMediaIdentityService } = require('./externalMediaIdentities');
 const { buildOwnedFormatsPayload } = require('./mediaFormats');
 const { syncNormalizedMetadataForMedia } = require('./mediaTaxonomy');
+const { syncBookOrbitSeriesMemberships } = require('./bookOrbitSeriesMemberships');
 const {
   BOOKORBIT_IDENTITY_KIND,
   buildBookOrbitCanonicalFields,
@@ -133,7 +134,18 @@ function createBookOrbitImportIdentityModule({ pool } = {}) {
             client
           });
         }
-        return reconciled;
+        const membershipSync = Array.isArray(item?.bookorbit_series_memberships)
+          ? await syncBookOrbitSeriesMemberships(client, {
+              spaceId,
+              mediaId: reconciled.mediaId,
+              providerConnectionId: connectionId,
+              actorId,
+              memberships: item.bookorbit_series_memberships
+            })
+          : null;
+        return membershipSync
+          ? { ...reconciled, value: { ...reconciled.value, bookOrbitSeriesMemberships: membershipSync } }
+          : reconciled;
       });
     }
 

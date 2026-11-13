@@ -55,7 +55,9 @@ function buildBookOrbitCanonicalFields(item = {}) {
       'bookorbit_comicvine_id', 'bookorbit_ranobedb_id',
       'bookorbit_lubimyczytac_id', 'bookorbit_aladin_id',
       'bookorbit_letterer', 'bookorbit_cover_artist', 'bookorbit_characters',
-      'bookorbit_teams', 'bookorbit_locations', 'bookorbit_story_arcs'
+      'bookorbit_teams', 'bookorbit_locations', 'bookorbit_story_arcs',
+      'bookorbit_cover_version', 'bookorbit_cover_source', 'bookorbit_cover_updated_at',
+      'bookorbit_cover_width', 'bookorbit_cover_height'
     ]
   });
 }

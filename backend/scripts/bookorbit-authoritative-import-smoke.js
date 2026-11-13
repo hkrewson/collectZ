@@ -109,6 +109,20 @@ function feed(entries) {
 
 async function startBookOrbitServer(instances) {
   const server = http.createServer((req, res) => {
+    const nativeCoverMatch = String(req.url || '').match(/^\/api\/v1\/books\/(\d+)\/cover$/);
+    if (nativeCoverMatch) {
+      const instance = Object.values(instances).find((candidate) => candidate.apiKey === req.headers['x-api-key']);
+      if (!instance) {
+        res.writeHead(401, { 'content-type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'unauthorized' }));
+      }
+      res.writeHead(200, {
+        'content-type': 'image/png',
+        etag: `"bookorbit-cover-${nativeCoverMatch[1]}"`,
+        'cache-control': 'private, max-age=60'
+      });
+      return res.end(Buffer.from('89504e470d0a1a0a', 'hex'));
+    }
     const nativeMatch = String(req.url || '').match(/^\/api\/v1\/books\/(\d+)$/);
     if (nativeMatch) {
       const instance = Object.values(instances).find((candidate) => candidate.apiKey === req.headers['x-api-key']);
@@ -117,15 +131,41 @@ async function startBookOrbitServer(instances) {
         return res.end(JSON.stringify({ error: 'unauthorized' }));
       }
       const id = Number(nativeMatch[1]);
+      const primarySeriesId = id === 43 ? 90043 : 90000 + id;
+      const seriesMemberships = [{
+        seriesId: primarySeriesId,
+        seriesName: id === 43 ? 'Orbit Native Comics' : 'Orbit Saga',
+        seriesIndex: id === 43 ? '3' : '2',
+        displayOrder: 0,
+        expectedBookCount: 6
+      }];
+      if (id === 43 && instance.includeCrossover !== false) {
+        seriesMemberships.push({
+          seriesId: 91043,
+          seriesName: 'Orbit Crossover',
+          seriesIndex: '1',
+          displayOrder: 1,
+          expectedBookCount: 2
+        });
+      }
       res.writeHead(200, { 'content-type': 'application/json' });
       return res.end(JSON.stringify({
         id,
         seriesName: id === 43 ? 'Orbit Native Comics' : 'Orbit Saga',
         seriesIndex: id === 43 ? '3' : '2',
+        seriesMemberships,
         providerIds: id === 43 ? { comicvine: '315507', goodreads: '123777928' } : {},
         comicMetadata: id === 43
           ? { issueNumber: '3', pencillers: ['Native Pencil Artist'], letterers: ['Native Letterer'] }
-          : {}
+          : {},
+        coverMedia: ['ebook'],
+        coverSource: 'custom',
+        coverVersion: `ebook:smoke:${id}`,
+        covers: {
+          ebook: { source: 'custom', updatedAt: '2026-11-13T00:43:41.757Z', width: 986, height: 1503 },
+          audio: null
+        },
+        updatedAt: '2026-11-13T00:43:41.757Z'
       }));
     }
     const key = String(req.url || '').split('/')[1];
@@ -339,7 +379,9 @@ async function main() {
       attempted: 4,
       enriched: 4,
       fallback: 0,
-      providerIdentifierRows: 1
+      providerIdentifierRows: 1,
+      membershipRows: 5,
+      coverRows: 4
     });
     assert.ok(firstImport.summary.matchModes.strong_identifier_conflict_guarded >= 1);
     assert.equal(firstImport.summary.duplicateTitleReviewRows, 2);
@@ -378,6 +420,7 @@ async function main() {
     });
     const originalIsbn = firstIsbn;
     firstIsbn = randomIsbn13();
+    one.includeCrossover = false;
     const repeated = await importConnection(firstConnectionId);
     assert.equal(repeated.summary.created, 0);
     assert.equal(repeated.summary.updated, 4);
@@ -444,7 +487,7 @@ async function main() {
     const secondImport = await importConnection(secondConnectionId);
     assert.equal(secondImport.summary.created, 1);
 
-    const { identityRows, sameIsbnRows, mediaRows } = await withAuthorizedScopeTransaction(pool, { spaceId, libraryId }, userId, async (db) => {
+    const { identityRows, sameIsbnRows, mediaRows, seriesMembershipRows } = await withAuthorizedScopeTransaction(pool, { spaceId, libraryId }, userId, async (db) => {
       const scopedIdentityRows = await db.query(
         `SELECT provider_connection_id, media_id, external_id_normalized
            FROM external_media_identities
@@ -454,7 +497,7 @@ async function main() {
         [spaceId]
       );
       const scopedMediaRows = await db.query(
-        `SELECT id, title, media_type, type_details
+        `SELECT id, title, media_type, poster_path, type_details
            FROM media
           WHERE space_id = $1 AND library_id = $2
             AND import_source = 'bookorbit'
@@ -469,7 +512,27 @@ async function main() {
           ORDER BY external_id_normalized`,
         [spaceId, firstConnectionId]
       );
-      return { identityRows: scopedIdentityRows, sameIsbnRows: scopedSameIsbnRows, mediaRows: scopedMediaRows };
+      const scopedSeriesMembershipRows = await db.query(
+        `SELECT msm.media_id, msm.series_index, msm.volume, msm.issue_number,
+                msm.display_order, msm.expected_item_count, msm.source_kind,
+                msm.source_updated_at, msm.first_seen_at, msm.last_seen_at,
+                msm.active, msm.deactivated_at,
+                psr.provider_series_id, psr.name AS series_name, psr.active AS series_active
+           FROM media_series_memberships msm
+           JOIN provider_series_records psr
+             ON psr.space_id = msm.space_id
+            AND psr.provider_connection_id = msm.provider_connection_id
+            AND psr.id = msm.provider_series_record_id
+          WHERE msm.space_id = $1 AND msm.provider_connection_id = $2
+          ORDER BY msm.media_id, msm.display_order, psr.provider_series_id`,
+        [spaceId, firstConnectionId]
+      );
+      return {
+        identityRows: scopedIdentityRows,
+        sameIsbnRows: scopedSameIsbnRows,
+        mediaRows: scopedMediaRows,
+        seriesMembershipRows: scopedSeriesMembershipRows
+      };
     });
     assert.equal(identityRows.rowCount, 2);
     assert.notEqual(identityRows.rows[0].provider_connection_id, identityRows.rows[1].provider_connection_id);
@@ -497,6 +560,34 @@ async function main() {
     assert.equal(comic?.type_details?.issue_number, '3');
     assert.equal(comic?.type_details?.artist, 'Native Pencil Artist');
     assert.equal(comic?.type_details?.bookorbit_letterer, 'Native Letterer');
+    assert.match(comic?.poster_path || '', /^\/api\/media\/bookorbit-cover\//);
+    assert.equal(comic?.type_details?.bookorbit_cover_version, 'ebook:smoke:43');
+    assert.equal(comic?.type_details?.bookorbit_cover_source, 'custom');
+    assert.equal(comic?.type_details?.bookorbit_cover_width, '986');
+    const comicMemberships = seriesMembershipRows.rows.filter((row) => Number(row.media_id) === Number(comic.id));
+    assert.equal(comicMemberships.length, 2);
+    assert.equal(comicMemberships.filter((row) => row.active).length, 1);
+    assert.equal(comicMemberships.filter((row) => !row.active).length, 1);
+    assert.equal(comicMemberships.find((row) => row.active)?.series_name, 'Orbit Native Comics');
+    assert.equal(comicMemberships.find((row) => row.active)?.series_index, '3');
+    assert.equal(comicMemberships.find((row) => row.active)?.issue_number, '3');
+    assert.equal(comicMemberships.find((row) => row.active)?.source_kind, 'bookorbit_native');
+    assert.equal(comicMemberships.find((row) => row.active)?.series_active, true);
+    assert.ok(comicMemberships.find((row) => !row.active)?.deactivated_at);
+    assert.equal(comicMemberships.find((row) => !row.active)?.series_active, false);
+    const mediaDetail = await client.request(`/api/media/${comic.id}`);
+    assert.equal(mediaDetail.id, comic.id);
+    assert.equal(mediaDetail.series_memberships.length, 1);
+    assert.equal(mediaDetail.series_memberships[0].name, 'Orbit Native Comics');
+    assert.equal(mediaDetail.series_memberships[0].series_index, '3');
+    assert.equal(mediaDetail.series_memberships[0].issue_number, '3');
+    assert.equal(mediaDetail.series_memberships[0].source_kind, 'bookorbit_native');
+    const coverResponse = await fetch(`${BASE_URL}${comic.poster_path}`, {
+      headers: { Cookie: client.cookieHeader(), Accept: 'image/png' }
+    });
+    assert.equal(coverResponse.status, 200);
+    assert.equal(coverResponse.headers.get('content-type'), 'image/png');
+    assert.equal((await coverResponse.arrayBuffer()).byteLength, 8);
     assert.equal(mediaRows.rows.some((row) => row.type_details?.provider_item_id === 'urn:bookorbit:book:45'), false);
 
     console.log(JSON.stringify({
@@ -510,6 +601,8 @@ async function main() {
       scheduledCadenceDeduplicated: true,
       comicSeriesOrderingPreserved: true,
       nativeMetadataEnrichment: 'provider-ids-preserved',
+      normalizedSeriesMemberships: 'multi-series-retirement-proven',
+      nativeCoverProxy: 'authenticated-and-versioned',
       lockedTypeTransition: 'review-required-existing-preserved',
       secondCreated: secondImport.summary.created,
       canonicalRows: mediaRows.rowCount,

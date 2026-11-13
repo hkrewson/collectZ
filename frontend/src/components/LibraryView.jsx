@@ -850,6 +850,28 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
         ['Track artists', typeDetails.track_artists]
       ].filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== '')
     : [];
+  const seriesMemberships = Array.isArray(item?.series_memberships)
+    ? item.series_memberships.filter((membership) => membership && typeof membership === 'object')
+    : [];
+  const formatSeriesMembershipPosition = (membership) => {
+    const values = [
+      membership.volume ? `Volume ${membership.volume}` : null,
+      membership.issue_number ? `Issue ${membership.issue_number}` : null,
+      membership.series_index ? `Series index ${membership.series_index}` : null
+    ].filter(Boolean);
+    return values.length > 0 ? values.join(' · ') : 'No position supplied';
+  };
+  const formatSeriesMembershipProvenance = (membership) => {
+    const source = String(membership.source_kind || '').trim() === 'bookorbit_native'
+      ? 'BookOrbit native metadata'
+      : String(membership.source_kind || '').trim().replace(/_/g, ' ');
+    const values = [
+      source || null,
+      membership.expected_item_count ? `${membership.expected_item_count} expected items` : null,
+      membership.source_updated_at ? `Updated ${new Date(membership.source_updated_at).toLocaleString()}` : null
+    ].filter(Boolean);
+    return values.join(' · ');
+  };
   const hiddenTypeDetailKeys = new Set(
     isBook
       ? ['author', 'publisher', 'edition', 'isbn', 'calibre_external_url', 'provider_external_url', 'calibre_download_url', 'provider_download_url', 'kavita_cover_url', 'kavita_cover_proxy_url', 'kavita_cover_source', 'kavita_cover_status', 'kavita_series_url', 'kavita_launch_url', 'kavita_launch_label', 'kavita_launch_target']
@@ -1973,6 +1995,28 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                   <div key={label} className="border-b border-edge/60 pb-3 last:border-b-0">
                     <p className="text-[11px] font-medium text-ghost">{label}</p>
                     <p className="mt-1 text-sm text-ink">{String(value)}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {seriesMemberships.length > 0 && (
+            <div>
+              <p className="label mb-2">Series memberships</p>
+              <div className="space-y-2">
+                {seriesMemberships.map((membership, index) => (
+                  <div
+                    key={`${membership.provider_series_id || membership.name || 'series'}:${index}`}
+                    className="rounded-lg border border-edge/70 bg-panel px-3 py-3"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <p className="text-sm font-medium text-ink">{membership.name || 'Unnamed series'}</p>
+                      <span className="badge badge-dim">{formatSeriesMembershipPosition(membership)}</span>
+                    </div>
+                    {formatSeriesMembershipProvenance(membership) ? (
+                      <p className="mt-1 text-xs text-ghost">{formatSeriesMembershipProvenance(membership)}</p>
+                    ) : null}
                   </div>
                 ))}
               </div>
@@ -5746,7 +5790,6 @@ export default function LibraryView({
                 <input
                   className="input w-full"
                   value={savedViewNameDraft}
-                  autoFocus
                   onChange={(event) => setSavedViewNameDraft(event.target.value)}
                 />
               </label>

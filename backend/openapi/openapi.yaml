@@ -13456,6 +13456,32 @@
         }
       }
     },
+    "/api/media/bookorbit-cover/{connectionId}/{bookId}": {
+      "get": {
+        "tags": ["Media"],
+        "summary": "Read a credential-safe proxied native BookOrbit cover for the active workspace",
+        "security": [{ "cookieSession": [] }],
+        "parameters": [
+          { "name": "connectionId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+          { "name": "bookId", "in": "path", "required": true, "schema": { "type": "integer", "minimum": 1 } },
+          { "name": "v", "in": "query", "required": false, "schema": { "type": "string", "maxLength": 512 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "BookOrbit native cover image",
+            "content": {
+              "image/jpeg": { "schema": { "type": "string", "format": "binary" } },
+              "image/png": { "schema": { "type": "string", "format": "binary" } },
+              "image/webp": { "schema": { "type": "string", "format": "binary" } },
+              "image/gif": { "schema": { "type": "string", "format": "binary" } }
+            }
+          },
+          "304": { "description": "Cover has not changed" },
+          "400": { "description": "Invalid workspace or book id", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "404": { "description": "Native BookOrbit cover access is not configured or the book is not actively linked to the connection", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
     "/api/media/bookorbit-connections": {
       "get": {
         "tags": ["Media"],

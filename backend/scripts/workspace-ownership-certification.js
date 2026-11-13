@@ -52,6 +52,8 @@ const TABLE_OVERRIDES = Object.freeze({
   provider_sync_targets: ['workspace_owned', 'space_id', 'Relational provider-to-library scheduling targets with same-workspace foreign keys.'],
   provider_integration_bindings: ['workspace_owned', 'space_id', 'Legacy integration slots select one stable provider connection without collapsing the multi-instance registry.'],
   provider_connection_credentials: ['workspace_owned', 'space_id', 'Encrypted provider credentials inherit the owning connection workspace and are never ordinary readback.'],
+  provider_series_records: ['workspace_owned', 'space_id', 'Provider-scoped series identity and provenance owned by one workspace and provider connection.'],
+  media_series_memberships: ['workspace_owned', 'space_id', 'Canonical-media series membership with provider-scoped provenance and lifecycle in the same workspace.'],
   external_media_identities: ['workspace_owned', 'space_id', 'Provider-instance identity attached to a canonical media target in the same workspace.'],
   external_media_identity_events: ['workspace_owned', 'space_id', 'Append-only identity lifecycle evidence inherits the external identity workspace.'],
   canonical_media_field_controls: ['workspace_owned', 'space_id', 'Per-field canonical authority and provider-refresh policy inherit the media workspace.'],

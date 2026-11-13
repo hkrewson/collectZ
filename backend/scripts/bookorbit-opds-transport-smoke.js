@@ -5,7 +5,11 @@
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const http = require('node:http');
-const { fetchBookOrbitOpdsItems, enrichBookOrbitRowsWithNativeMetadata } = require('../services/bookOrbit');
+const {
+  fetchBookOrbitOpdsItems,
+  fetchBookOrbitNativeCover,
+  enrichBookOrbitRowsWithNativeMetadata
+} = require('../services/bookOrbit');
 
 function feed({ id, title, links = [], entries = [] }) {
   return [
@@ -59,10 +63,27 @@ async function main() {
   const password = crypto.randomBytes(32).toString('base64url');
   const authorization = `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`;
   const apiKey = `bok_${crypto.randomBytes(24).toString('hex')}`;
+  const connectionId = crypto.randomUUID();
   let currentIsbn = '9781476735402';
   const requestedPaths = [];
   const server = http.createServer((req, res) => {
     requestedPaths.push(req.url);
+    if (req.url === '/api/v1/books/42/cover') {
+      if (req.headers['x-api-key'] !== apiKey) {
+        res.writeHead(401, { 'content-type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'unauthorized' }));
+      }
+      res.writeHead(200, { 'content-type': 'image/png', etag: '"cover-42"' });
+      return res.end(Buffer.from('89504e470d0a1a0a', 'hex'));
+    }
+    if (req.url === '/api/v1/books/44/cover') {
+      res.writeHead(200, { 'content-type': 'text/html' });
+      return res.end('<html>not an image</html>');
+    }
+    if (req.url === '/api/v1/books/45/cover') {
+      res.writeHead(200, { 'content-type': 'image/png' });
+      return res.end(Buffer.alloc(2048, 1));
+    }
     if (req.url === '/api/v1/books/42') {
       if (req.headers['x-api-key'] !== apiKey) {
         res.writeHead(401, { 'content-type': 'application/json' });
@@ -73,8 +94,17 @@ async function main() {
         id: 42,
         seriesName: 'Foundation Series',
         seriesIndex: '2',
+        seriesMemberships: [
+          { seriesId: 420, seriesName: 'Foundation Series', seriesIndex: '2', displayOrder: 0, expectedBookCount: 5 },
+          { seriesId: 421, seriesName: 'Foundation Crossover', seriesIndex: '1', displayOrder: 1, expectedBookCount: 2 }
+        ],
         providerIds: { comicvine: '90042', goodreads: '80042' },
-        comicMetadata: { issueNumber: '2', pencillers: ['Native Artist'] }
+        comicMetadata: { issueNumber: '2', volumeName: 'Volume One', pencillers: ['Native Artist'] },
+        coverMedia: ['ebook'],
+        coverSource: 'custom',
+        coverVersion: 'ebook:smoke:42',
+        covers: { ebook: { source: 'custom', updatedAt: '2026-11-13T00:43:41.757Z', width: 986, height: 1503 } },
+        updatedAt: '2026-11-13T00:43:41.757Z'
       }));
     }
     if (req.url === '/api/v1/books/43') {
@@ -178,6 +208,7 @@ async function main() {
 
     const native = await enrichBookOrbitRowsWithNativeMetadata(first.rows, {
       baseUrl,
+      connectionId,
       apiKey,
       timeoutMs: 5000
     }, { concurrency: 2 });
@@ -186,10 +217,31 @@ async function main() {
     assert.equal(native.enriched, 1);
     assert.equal(native.fallback, 1);
     assert.equal(native.providerIdentifierRows, 1);
+    assert.equal(native.membershipRows, 2);
+    assert.equal(native.coverRows, 1);
     assert.equal(native.rows[0].type_details.bookorbit_book_id, '42');
     assert.equal(native.rows[0].type_details.bookorbit_comicvine_id, '90042');
     assert.equal(native.rows[0].type_details.provider_name, 'bookorbit');
+    assert.equal(native.rows[0].bookorbit_series_memberships.length, 2);
+    assert.equal(native.rows[0].bookorbit_series_memberships[1].providerSeriesId, '421');
+    assert.equal(native.rows[0].bookorbit_series_memberships[0].volume, 'Volume One');
+    assert.equal(native.rows[0].bookorbit_series_memberships[0].issueNumber, '2');
+    assert.match(native.rows[0].poster_path, new RegExp(`/api/media/bookorbit-cover/${connectionId}/42\\?v=`));
+    assert.equal(native.rows[0].type_details.bookorbit_cover_version, 'ebook:smoke:42');
     assert.equal(native.rows[1].type_details.bookorbit_native_metadata, undefined);
+
+    const cover = await fetchBookOrbitNativeCover({ baseUrl, apiKey, timeoutMs: 5000 }, 42);
+    assert.equal(cover.contentType, 'image/png');
+    assert.equal(cover.etag, '"cover-42"');
+    assert.equal(cover.body.length, 8);
+    await expectCode(
+      () => fetchBookOrbitNativeCover({ baseUrl, apiKey, timeoutMs: 5000 }, 44),
+      'BOOKORBIT_NATIVE_COVER_INVALID'
+    );
+    await expectCode(
+      () => fetchBookOrbitNativeCover({ baseUrl, apiKey, timeoutMs: 5000 }, 45, { maxBytes: 1024 }),
+      'BOOKORBIT_NATIVE_COVER_TOO_LARGE'
+    );
 
     currentIsbn = '9780306406157';
     const repeated = await fetchBookOrbitOpdsItems(config, { maxPages: 3 });
@@ -229,7 +281,7 @@ async function main() {
     passed: true,
     pages: 3,
     publications: 2,
-    protections: ['authentication', 'cycle', 'origin', 'page_limit', 'response_limit', 'malformed_feed', 'timeout', 'native_fallback']
+    protections: ['authentication', 'cycle', 'origin', 'page_limit', 'response_limit', 'malformed_feed', 'timeout', 'native_fallback', 'cover_proxy']
   }));
 }
 

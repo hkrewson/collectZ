@@ -19,7 +19,12 @@ const BOOKORBIT_NATIVE_TYPE_DETAIL_KEYS = [
   'bookorbit_characters',
   'bookorbit_teams',
   'bookorbit_locations',
-  'bookorbit_story_arcs'
+  'bookorbit_story_arcs',
+  'bookorbit_cover_version',
+  'bookorbit_cover_source',
+  'bookorbit_cover_updated_at',
+  'bookorbit_cover_width',
+  'bookorbit_cover_height'
 ];
 
 const TYPE_DETAILS_ALLOWED_BY_MEDIA_TYPE = {

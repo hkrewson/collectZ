@@ -4,6 +4,7 @@ const path = require('path');
 const crypto = require('crypto');
 const axios = require('axios');
 const pool = require('../db/pool');
+const { withAuthorizedScopeTransaction } = require('../db/scopeBroker');
 const { asyncHandler } = require('../middleware/errors');
 const { authenticateToken, requireRole, requireSessionAuth } = require('../middleware/auth');
 const {
@@ -75,7 +76,8 @@ const {
   buildBookOrbitEndpoint,
   fetchBookOrbitOpdsItems,
   prepareBookOrbitImportRows,
-  enrichBookOrbitRowsWithNativeMetadata
+  enrichBookOrbitRowsWithNativeMetadata,
+  fetchBookOrbitNativeCover
 } = require('../services/bookOrbit');
 const BOOKORBIT_NATIVE_IMPORT_FIELDS = Object.freeze([
   'bookorbit_book_id', 'bookorbit_native_metadata', 'bookorbit_google_id',
@@ -84,7 +86,9 @@ const BOOKORBIT_NATIVE_IMPORT_FIELDS = Object.freeze([
   'bookorbit_librofm_id', 'bookorbit_kobo_id', 'bookorbit_comicvine_id',
   'bookorbit_ranobedb_id', 'bookorbit_lubimyczytac_id', 'bookorbit_aladin_id',
   'bookorbit_letterer', 'bookorbit_cover_artist', 'bookorbit_characters',
-  'bookorbit_teams', 'bookorbit_locations', 'bookorbit_story_arcs'
+  'bookorbit_teams', 'bookorbit_locations', 'bookorbit_story_arcs',
+  'bookorbit_cover_version', 'bookorbit_cover_source', 'bookorbit_cover_updated_at',
+  'bookorbit_cover_width', 'bookorbit_cover_height'
 ]);
 const {
   authenticateKavita,
@@ -3031,10 +3035,10 @@ async function loadScopedMergeDetails(mediaId, scopeContext = null) {
   };
 }
 
-async function loadScopedMediaItem(mediaId, scopeContext = null) {
+async function loadScopedMediaItem(mediaId, scopeContext = null, queryClient = pool) {
   const params = [mediaId];
   const scopeClause = appendScopeSql(params, scopeContext);
-  const result = await pool.query(
+  const result = await queryClient.query(
     `SELECT media.*,
             EXISTS (
               SELECT 1
@@ -3051,7 +3055,8 @@ async function loadScopedMediaItem(mediaId, scopeContext = null) {
                AND COALESCE(season_stats.season_count, 0) = COALESCE(season_stats.completed_count, 0)
                 THEN TRUE
               ELSE FALSE
-            END AS tv_all_seasons_completed
+            END AS tv_all_seasons_completed,
+            COALESCE(series_stats.series_memberships, '[]'::jsonb) AS series_memberships
      FROM media
      LEFT JOIN LATERAL (
        SELECT COUNT(*)::int AS season_count,
@@ -3059,6 +3064,32 @@ async function loadScopedMediaItem(mediaId, scopeContext = null) {
        FROM media_seasons ms
        WHERE ms.media_id = media.id
      ) season_stats ON TRUE
+     LEFT JOIN LATERAL (
+       SELECT jsonb_agg(
+                jsonb_build_object(
+                  'provider_series_id', psr.provider_series_id,
+                  'name', psr.name,
+                  'series_index', msm.series_index,
+                  'volume', msm.volume,
+                  'issue_number', msm.issue_number,
+                  'display_order', msm.display_order,
+                  'expected_item_count', msm.expected_item_count,
+                  'source_kind', msm.source_kind,
+                  'source_updated_at', msm.source_updated_at,
+                  'first_seen_at', msm.first_seen_at,
+                  'last_seen_at', msm.last_seen_at
+                )
+                ORDER BY msm.display_order ASC, psr.name ASC
+              ) AS series_memberships
+       FROM media_series_memberships msm
+       JOIN provider_series_records psr
+         ON psr.id = msm.provider_series_record_id
+        AND psr.space_id = msm.space_id
+        AND psr.active = TRUE
+       WHERE msm.media_id = media.id
+         AND msm.space_id = media.space_id
+         AND msm.active = TRUE
+     ) series_stats ON TRUE
      WHERE media.id = $1${scopeClause}
      LIMIT 1`,
     params
@@ -8734,6 +8765,9 @@ async function runGenericCsvImport({
       signed_at: value('signed_at') || value('signed at'),
       location: value('location'),
       notes: value('notes'),
+      bookorbit_series_memberships: Array.isArray(row?.bookorbit_series_memberships)
+        ? row.bookorbit_series_memberships
+        : undefined,
       type_details: {
         author: value('author') || rowTypeDetails.author || null,
         isbn: value('isbn') || value('isbn13') || rowTypeDetails.isbn || null,
@@ -9657,6 +9691,54 @@ router.get('/feature-flags', asyncHandler(async (req, res) => {
       collectibles_enabled: Boolean(collectiblesEnabled)
     }
   });
+}));
+
+router.get('/bookorbit-cover/:connectionId/:bookId', requireSessionAuth, asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const spaceId = Number(scopeContext?.spaceId || 0);
+  const bookId = Number(req.params.bookId || 0);
+  if (!Number.isInteger(spaceId) || spaceId <= 0 || !Number.isSafeInteger(bookId) || bookId <= 0) {
+    return res.status(400).json({ error: 'Valid BookOrbit cover scope and book id are required' });
+  }
+  const runtime = await bookOrbitConnections.loadRuntime({
+    spaceId,
+    actorId: req.user.id,
+    connectionId: req.params.connectionId,
+    providerType: 'bookorbit'
+  });
+  if (!runtime.credentials.apiKey) {
+    return res.status(404).json({ error: 'BookOrbit native cover access is not configured' });
+  }
+  const importedIdentity = await withAuthorizedScopeTransaction(
+    pool,
+    { spaceId, libraryId: scopeContext?.libraryId || null },
+    req.user.id,
+    (client) => client.query(
+      `SELECT 1
+         FROM external_media_identities
+        WHERE space_id = $1
+          AND provider_connection_id = $2
+          AND identity_kind = 'book'
+          AND external_id_normalized = $3
+          AND active
+        LIMIT 1`,
+      [spaceId, runtime.connection.id, `urn:bookorbit:book:${bookId}`]
+    )
+  );
+  if (importedIdentity.rows.length === 0) {
+    return res.status(404).json({ error: 'BookOrbit cover is not linked to an imported item' });
+  }
+  const cover = await fetchBookOrbitNativeCover({
+    baseUrl: runtime.connection.endpointUrl,
+    apiKey: runtime.credentials.apiKey,
+    timeoutMs: runtime.settings.timeoutMs
+  }, bookId, { ifNoneMatch: req.get('if-none-match') || '' });
+  if (cover.notModified) return res.status(304).end();
+  res.setHeader('Content-Type', cover.contentType);
+  res.setHeader('Cache-Control', 'private, max-age=300');
+  if (cover.etag) res.setHeader('ETag', cover.etag);
+  if (cover.lastModified) res.setHeader('Last-Modified', cover.lastModified);
+  return res.send(cover.body);
 }));
 
 async function canManageWorkspaceIntegration(req, spaceId) {
@@ -11221,7 +11303,12 @@ router.get('/:id', asyncHandler(async (req, res, next) => {
   if (!Number.isFinite(mediaId) || mediaId <= 0) {
     return res.status(400).json({ error: 'Invalid media id' });
   }
-  const media = await loadScopedMediaItem(mediaId, scopeContext);
+  const media = await withAuthorizedScopeTransaction(
+    pool,
+    { spaceId: scopeContext.spaceId, libraryId: scopeContext.libraryId || null },
+    req.user.id,
+    (client) => loadScopedMediaItem(mediaId, scopeContext, client)
+  );
   if (!media) {
     return res.status(404).json({ error: 'Media item not found' });
   }
@@ -14120,6 +14207,7 @@ async function performBookOrbitImport({
   }, { maxPages });
   const native = await enrichBookOrbitRowsWithNativeMetadata(fetched.rows, {
     baseUrl: runtime.connection.endpointUrl,
+    connectionId: runtime.connection.id,
     apiKey: runtime.credentials.apiKey,
     timeoutMs: runtime.settings.timeoutMs
   });
@@ -14183,7 +14271,9 @@ async function performBookOrbitImport({
       attempted: native.attempted,
       enriched: native.enriched,
       fallback: native.fallback,
-      providerIdentifierRows: native.providerIdentifierRows
+      providerIdentifierRows: native.providerIdentifierRows,
+      membershipRows: native.membershipRows,
+      coverRows: native.coverRows
     },
     auditRows: result.auditRows.slice(0, 250)
   };
@@ -14203,6 +14293,8 @@ async function performBookOrbitImport({
     nativeMetadataEnriched: native.enriched,
     nativeMetadataFallback: native.fallback,
     nativeProviderIdentifierRows: native.providerIdentifierRows,
+    nativeMembershipRows: native.membershipRows,
+    nativeCoverRows: native.coverRows,
     jobId
   });
   return { runtime, fetched, result, valuationRefresh, summary };

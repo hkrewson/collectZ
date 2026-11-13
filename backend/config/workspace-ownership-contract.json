@@ -727,6 +727,44 @@
       ]
     },
     {
+      "name": "media_series_memberships",
+      "category": "workspace_owned",
+      "ownershipKey": "space_id",
+      "rationale": "Canonical-media series membership with provider-scoped provenance and lifecycle in the same workspace.",
+      "sameWorkspaceForeignKeys": [
+        {
+          "column": "space_id",
+          "referencesTable": "spaces",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "media_id",
+          "referencesTable": "media",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "space_id",
+          "referencesTable": "media",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "space_id",
+          "referencesTable": "provider_series_records",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "provider_connection_id",
+          "referencesTable": "provider_series_records",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "provider_series_record_id",
+          "referencesTable": "provider_series_records",
+          "expectation": "same_workspace"
+        }
+      ]
+    },
+    {
       "name": "media_variants",
       "category": "library_owned",
       "ownershipKey": "media.library_id",
@@ -831,6 +869,29 @@
       "category": "workspace_owned",
       "ownershipKey": "space_id",
       "rationale": "Legacy integration slots select one stable provider connection without collapsing the multi-instance registry.",
+      "sameWorkspaceForeignKeys": [
+        {
+          "column": "space_id",
+          "referencesTable": "spaces",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "space_id",
+          "referencesTable": "provider_connections",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "provider_connection_id",
+          "referencesTable": "provider_connections",
+          "expectation": "same_workspace"
+        }
+      ]
+    },
+    {
+      "name": "provider_series_records",
+      "category": "workspace_owned",
+      "ownershipKey": "space_id",
+      "rationale": "Provider-scoped series identity and provenance owned by one workspace and provider connection.",
       "sameWorkspaceForeignKeys": [
         {
           "column": "space_id",
@@ -3475,7 +3536,21 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/kavita-cover/:seriesId':3",
+      "id": "media.js:router:GET:'/bookorbit-cover/:connectionId/:bookId':3",
+      "module": "media.js",
+      "router": "router",
+      "method": "GET",
+      "routeExpression": "'/bookorbit-cover/:connectionId/:bookId'",
+      "ownership": "workspace",
+      "permission": "workspace.content.read",
+      "scopeSource": "active_workspace_library",
+      "authentication": "required",
+      "csrf": "not_applicable",
+      "reauthentication": "session_credential_required",
+      "locality": "core_local"
+    },
+    {
+      "id": "media.js:router:GET:'/kavita-cover/:seriesId':4",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -3489,7 +3564,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/kavita-chapter-cover/:chapterId':4",
+      "id": "media.js:router:GET:'/kavita-chapter-cover/:chapterId':5",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -3503,7 +3578,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/:id/kavita-writeback-preview':5",
+      "id": "media.js:router:POST:'/:id/kavita-writeback-preview':6",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -3517,7 +3592,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/:id/kavita-writeback-apply':6",
+      "id": "media.js:router:POST:'/:id/kavita-writeback-apply':7",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -3531,7 +3606,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/:id/kavita-progress':7",
+      "id": "media.js:router:GET:'/:id/kavita-progress':8",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -3545,7 +3620,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/:id/kavita-progress':8",
+      "id": "media.js:router:POST:'/:id/kavita-progress':9",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -3559,7 +3634,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/:id/kavita-reset-progress':9",
+      "id": "media.js:router:POST:'/:id/kavita-reset-progress':10",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -3573,7 +3648,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/:id/kavita-read-state':10",
+      "id": "media.js:router:POST:'/:id/kavita-read-state':11",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -3587,7 +3662,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/:id/kavita-reader-info':11",
+      "id": "media.js:router:GET:'/:id/kavita-reader-info':12",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -3601,7 +3676,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/:id/kavita-reader-page':12",
+      "id": "media.js:router:GET:'/:id/kavita-reader-page':13",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -3615,7 +3690,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/':13",
+      "id": "media.js:router:GET:'/':14",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -3629,7 +3704,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/comic-series':14",
+      "id": "media.js:router:GET:'/comic-series':15",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -3643,7 +3718,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/comic-series/issues':15",
+      "id": "media.js:router:GET:'/comic-series/issues':16",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -3657,7 +3732,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/bookorbit-connections':16",
+      "id": "media.js:router:GET:'/bookorbit-connections':17",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -3671,7 +3746,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/:id':17",
+      "id": "media.js:router:GET:'/:id':18",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -3685,7 +3760,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/:id/merge-details':18",
+      "id": "media.js:router:GET:'/:id/merge-details':19",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -3699,7 +3774,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/merge-recommendations':19",
+      "id": "media.js:router:GET:'/merge-recommendations':20",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -3713,7 +3788,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/discovery-candidates':20",
+      "id": "media.js:router:GET:'/discovery-candidates':21",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -3727,7 +3802,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/comics/duplicate-candidates':21",
+      "id": "media.js:router:GET:'/comics/duplicate-candidates':22",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -3741,7 +3816,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/collections/duplicates':22",
+      "id": "media.js:router:GET:'/collections/duplicates':23",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -3755,7 +3830,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/collections/duplicate-preview':23",
+      "id": "media.js:router:GET:'/collections/duplicate-preview':24",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -3769,7 +3844,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/collections/:id/merge-details':24",
+      "id": "media.js:router:GET:'/collections/:id/merge-details':25",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -3783,7 +3858,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/loans':25",
+      "id": "media.js:router:GET:'/loans':26",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -3797,7 +3872,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/:id/loans':26",
+      "id": "media.js:router:GET:'/:id/loans':27",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -3811,7 +3886,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/:id/loans':27",
+      "id": "media.js:router:POST:'/:id/loans':28",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -3825,7 +3900,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:PATCH:'/loans/:loanId':28",
+      "id": "media.js:router:PATCH:'/loans/:loanId':29",
       "module": "media.js",
       "router": "router",
       "method": "PATCH",
@@ -3839,7 +3914,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:PATCH:'/loans/:loanId/return':29",
+      "id": "media.js:router:PATCH:'/loans/:loanId/return':30",
       "module": "media.js",
       "router": "router",
       "method": "PATCH",
@@ -3853,7 +3928,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/loans/:loanId/reminder':30",
+      "id": "media.js:router:POST:'/loans/:loanId/reminder':31",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -3867,7 +3942,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/loan-reminders/run-auto':31",
+      "id": "media.js:router:POST:'/loan-reminders/run-auto':32",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -3881,7 +3956,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/collections/merge-apply':32",
+      "id": "media.js:router:POST:'/collections/merge-apply':33",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -3895,7 +3970,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/collections/merge-revert':33",
+      "id": "media.js:router:POST:'/collections/merge-revert':34",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -3909,7 +3984,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/merge-recommendations/history':34",
+      "id": "media.js:router:GET:'/merge-recommendations/history':35",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -3923,7 +3998,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/merge-recommendations/reject':35",
+      "id": "media.js:router:POST:'/merge-recommendations/reject':36",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -3937,7 +4012,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/merge-recommendations/defer':36",
+      "id": "media.js:router:POST:'/merge-recommendations/defer':37",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -3951,7 +4026,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/merge-recommendations/restore':37",
+      "id": "media.js:router:POST:'/merge-recommendations/restore':38",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -3965,7 +4040,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/merge-preview':38",
+      "id": "media.js:router:POST:'/merge-preview':39",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -3979,7 +4054,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/merge-apply':39",
+      "id": "media.js:router:POST:'/merge-apply':40",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -3993,7 +4068,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/merge-revert':40",
+      "id": "media.js:router:POST:'/merge-revert':41",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4007,7 +4082,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/:id/valuation-refresh':41",
+      "id": "media.js:router:POST:'/:id/valuation-refresh':42",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4021,7 +4096,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/:id/variants':42",
+      "id": "media.js:router:GET:'/:id/variants':43",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -4035,7 +4110,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/:id/tv-seasons':43",
+      "id": "media.js:router:GET:'/:id/tv-seasons':44",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -4049,7 +4124,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/:id/tv-seasons/:seasonNumber':44",
+      "id": "media.js:router:GET:'/:id/tv-seasons/:seasonNumber':45",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -4063,7 +4138,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:PUT:'/:id/tv-seasons':45",
+      "id": "media.js:router:PUT:'/:id/tv-seasons':46",
       "module": "media.js",
       "router": "router",
       "method": "PUT",
@@ -4077,7 +4152,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:PATCH:'/:id/tv-seasons/:seasonNumber':46",
+      "id": "media.js:router:PATCH:'/:id/tv-seasons/:seasonNumber':47",
       "module": "media.js",
       "router": "router",
       "method": "PATCH",
@@ -4091,7 +4166,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/search-tmdb':47",
+      "id": "media.js:router:POST:'/search-tmdb':48",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4105,7 +4180,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/tmdb/trace-match':48",
+      "id": "media.js:router:POST:'/tmdb/trace-match':49",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4119,7 +4194,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/tmdb/:id/details':49",
+      "id": "media.js:router:GET:'/tmdb/:id/details':50",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -4133,7 +4208,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/tmdb/:id/trace':50",
+      "id": "media.js:router:GET:'/tmdb/:id/trace':51",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -4147,7 +4222,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/enrich/book/search':51",
+      "id": "media.js:router:POST:'/enrich/book/search':52",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4161,7 +4236,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/enrich/audio/search':52",
+      "id": "media.js:router:POST:'/enrich/audio/search':53",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4175,7 +4250,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/enrich/game/search':53",
+      "id": "media.js:router:POST:'/enrich/game/search':54",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4189,7 +4264,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/enrich/comic/search':54",
+      "id": "media.js:router:POST:'/enrich/comic/search':55",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4203,7 +4278,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/lookup-upc':55",
+      "id": "media.js:router:POST:'/lookup-upc':56",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4217,7 +4292,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/upload-cover':56",
+      "id": "media.js:router:POST:'/upload-cover':57",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4231,7 +4306,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/:id/signatures':57",
+      "id": "media.js:router:GET:'/:id/signatures':58",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -4245,7 +4320,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/:id/signatures':58",
+      "id": "media.js:router:POST:'/:id/signatures':59",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4259,7 +4334,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:PATCH:'/:id/signatures/:signatureId':59",
+      "id": "media.js:router:PATCH:'/:id/signatures/:signatureId':60",
       "module": "media.js",
       "router": "router",
       "method": "PATCH",
@@ -4273,7 +4348,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/:id/signatures/:signatureId/proof':60",
+      "id": "media.js:router:POST:'/:id/signatures/:signatureId/proof':61",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4287,7 +4362,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:PATCH:'/:id/signatures/:signatureId/proofs/:proofId':61",
+      "id": "media.js:router:PATCH:'/:id/signatures/:signatureId/proofs/:proofId':62",
       "module": "media.js",
       "router": "router",
       "method": "PATCH",
@@ -4301,7 +4376,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:DELETE:'/:id/signatures/:signatureId/proofs/:proofId':62",
+      "id": "media.js:router:DELETE:'/:id/signatures/:signatureId/proofs/:proofId':63",
       "module": "media.js",
       "router": "router",
       "method": "DELETE",
@@ -4315,7 +4390,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:DELETE:'/:id/signatures/:signatureId/proof':63",
+      "id": "media.js:router:DELETE:'/:id/signatures/:signatureId/proof':64",
       "module": "media.js",
       "router": "router",
       "method": "DELETE",
@@ -4329,7 +4404,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/:id/signatures/:signatureId/primary':64",
+      "id": "media.js:router:POST:'/:id/signatures/:signatureId/primary':65",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4343,7 +4418,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:DELETE:'/:id/signatures/:signatureId':65",
+      "id": "media.js:router:DELETE:'/:id/signatures/:signatureId':66",
       "module": "media.js",
       "router": "router",
       "method": "DELETE",
@@ -4357,7 +4432,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/:id/upload-signing-proof':66",
+      "id": "media.js:router:POST:'/:id/upload-signing-proof':67",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4371,7 +4446,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:DELETE:'/:id/signing-proof':67",
+      "id": "media.js:router:DELETE:'/:id/signing-proof':68",
       "module": "media.js",
       "router": "router",
       "method": "DELETE",
@@ -4385,7 +4460,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/import-barcode':68",
+      "id": "media.js:router:POST:'/import-barcode':69",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4399,7 +4474,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/import/template-csv':69",
+      "id": "media.js:router:GET:'/import/template-csv':70",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -4413,7 +4488,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/import-csv':70",
+      "id": "media.js:router:POST:'/import-csv':71",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4427,7 +4502,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/import-csv/calibre':71",
+      "id": "media.js:router:POST:'/import-csv/calibre':72",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4441,7 +4516,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/import-bookorbit':72",
+      "id": "media.js:router:POST:'/import-bookorbit':73",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4455,7 +4530,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/import-cwa':73",
+      "id": "media.js:router:POST:'/import-cwa':74",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4469,7 +4544,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/import-kavita':74",
+      "id": "media.js:router:POST:'/import-kavita':75",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4483,7 +4558,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/import-csv/delicious':75",
+      "id": "media.js:router:POST:'/import-csv/delicious':76",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4497,7 +4572,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/import-plex':76",
+      "id": "media.js:router:POST:'/import-plex':77",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4511,7 +4586,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/plex-reconciliation-preview':77",
+      "id": "media.js:router:POST:'/plex-reconciliation-preview':78",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4525,7 +4600,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/plex-reconciliation-preview/run':78",
+      "id": "media.js:router:POST:'/plex-reconciliation-preview/run':79",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4539,7 +4614,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/plex-reconciliation-sync/run':79",
+      "id": "media.js:router:POST:'/plex-reconciliation-sync/run':80",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4553,7 +4628,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/plex-reconciliation-conflicts':80",
+      "id": "media.js:router:GET:'/plex-reconciliation-conflicts':81",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -4567,7 +4642,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/plex-reconciliation-conflicts/:id/resolve':81",
+      "id": "media.js:router:POST:'/plex-reconciliation-conflicts/:id/resolve':82",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4581,7 +4656,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/plex-reconciliation-sync/scheduler':82",
+      "id": "media.js:router:GET:'/plex-reconciliation-sync/scheduler':83",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -4595,7 +4670,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/plex-reconciliation-sync/scheduler/run':83",
+      "id": "media.js:router:POST:'/plex-reconciliation-sync/scheduler/run':84",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4609,7 +4684,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/process-plex-webhook-import-hints':84",
+      "id": "media.js:router:POST:'/process-plex-webhook-import-hints':85",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4623,7 +4698,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/apply-plex-watch-state':85",
+      "id": "media.js:router:POST:'/apply-plex-watch-state':86",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4637,7 +4712,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/write-plex-watch-state':86",
+      "id": "media.js:router:POST:'/write-plex-watch-state':87",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4651,7 +4726,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/write-plex-rating':87",
+      "id": "media.js:router:POST:'/write-plex-rating':88",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4665,7 +4740,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/apply-plex-ratings':88",
+      "id": "media.js:router:POST:'/apply-plex-ratings':89",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4679,7 +4754,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/plex-watch-state/refresh-scheduler':89",
+      "id": "media.js:router:GET:'/plex-watch-state/refresh-scheduler':90",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -4693,7 +4768,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/plex-watch-state/refresh-scheduler/run':90",
+      "id": "media.js:router:POST:'/plex-watch-state/refresh-scheduler/run':91",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4707,7 +4782,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/plex-webhook-import-hints/auto-processor':91",
+      "id": "media.js:router:GET:'/plex-webhook-import-hints/auto-processor':92",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -4721,7 +4796,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/plex-webhook-import-hints/auto-processor/run':92",
+      "id": "media.js:router:POST:'/plex-webhook-import-hints/auto-processor/run':93",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4735,7 +4810,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/import-comics':93",
+      "id": "media.js:router:POST:'/import-comics':94",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4749,7 +4824,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/sync-jobs':94",
+      "id": "media.js:router:GET:'/sync-jobs':95",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -4763,7 +4838,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/sync-jobs/:id':95",
+      "id": "media.js:router:GET:'/sync-jobs/:id':96",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -4777,7 +4852,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/sync-jobs/:id/result':96",
+      "id": "media.js:router:GET:'/sync-jobs/:id/result':97",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -4791,7 +4866,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/collections':97",
+      "id": "media.js:router:GET:'/collections':98",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -4805,7 +4880,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:GET:'/collections/:id':98",
+      "id": "media.js:router:GET:'/collections/:id':99",
       "module": "media.js",
       "router": "router",
       "method": "GET",
@@ -4819,7 +4894,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:PATCH:'/collections/:id':99",
+      "id": "media.js:router:PATCH:'/collections/:id':100",
       "module": "media.js",
       "router": "router",
       "method": "PATCH",
@@ -4833,7 +4908,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/collections/:id/items':100",
+      "id": "media.js:router:POST:'/collections/:id/items':101",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4847,7 +4922,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:PATCH:'/collections/:id/items/:itemId':101",
+      "id": "media.js:router:PATCH:'/collections/:id/items/:itemId':102",
       "module": "media.js",
       "router": "router",
       "method": "PATCH",
@@ -4861,7 +4936,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:DELETE:'/collections/:id/items/:itemId':102",
+      "id": "media.js:router:DELETE:'/collections/:id/items/:itemId':103",
       "module": "media.js",
       "router": "router",
       "method": "DELETE",
@@ -4875,7 +4950,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/:id/convert-to-collection':103",
+      "id": "media.js:router:POST:'/:id/convert-to-collection':104",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4889,7 +4964,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/collections/:id/convert-to-individual':104",
+      "id": "media.js:router:POST:'/collections/:id/convert-to-individual':105",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4903,7 +4978,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/':105",
+      "id": "media.js:router:POST:'/':106",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4917,7 +4992,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:PATCH:'/:id':106",
+      "id": "media.js:router:PATCH:'/:id':107",
       "module": "media.js",
       "router": "router",
       "method": "PATCH",
@@ -4931,7 +5006,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:POST:'/bulk-delete':107",
+      "id": "media.js:router:POST:'/bulk-delete':108",
       "module": "media.js",
       "router": "router",
       "method": "POST",
@@ -4945,7 +5020,7 @@
       "locality": "core_local"
     },
     {
-      "id": "media.js:router:DELETE:'/:id':108",
+      "id": "media.js:router:DELETE:'/:id':109",
       "module": "media.js",
       "router": "router",
       "method": "DELETE",
