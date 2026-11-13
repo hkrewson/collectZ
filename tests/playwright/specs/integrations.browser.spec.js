@@ -81,6 +81,8 @@ test.describe('integrations browser regressions', () => {
     await expect(page.getByLabel('Maximum pages')).toHaveValue('100');
     await expect(page.getByLabel('OPDS account username')).toBeVisible();
     await expect(page.getByLabel('OPDS account password')).toHaveAttribute('type', 'password');
+    await expect(page.getByLabel('Native API key (optional)')).toHaveAttribute('type', 'password');
+    await expect(page.getByText('upstream provider IDs')).toBeVisible();
     await expect(page.getByText('Use the separate OPDS account configured in BookOrbit')).toBeVisible();
   });
 

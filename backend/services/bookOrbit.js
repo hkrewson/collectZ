@@ -5,6 +5,10 @@ const { parseHttpUrl } = require('./outboundUrlPolicy');
 
 const BOOKORBIT_ENTRY_ID = /^urn:bookorbit:book:\d+$/i;
 const BOOKORBIT_ALL_BOOKS_ID = 'urn:bookorbit:all';
+const BOOKORBIT_NATIVE_PROVIDER_KEYS = Object.freeze([
+  'google', 'goodreads', 'amazon', 'hardcover', 'openLibrary', 'itunes',
+  'audible', 'librofm', 'kobo', 'comicvine', 'ranobedb', 'lubimyczytac', 'aladin'
+]);
 
 function atomText(value) {
   if (value === null || value === undefined) return '';
@@ -108,6 +112,192 @@ function buildBookOrbitEndpoint(baseUrl, catalogPath = '/api/v1/opds') {
   return new URL(path, `${endpoint.origin}/`).toString();
 }
 
+function bookOrbitBookId(value) {
+  const match = String(value || '').trim().match(/^urn:bookorbit:book:(\d+)$/i);
+  const id = match ? Number(match[1]) : 0;
+  return Number.isSafeInteger(id) && id > 0 ? id : null;
+}
+
+function buildBookOrbitNativeBookEndpoint(baseUrl, bookIdValue) {
+  const endpoint = parseHttpUrl(baseUrl);
+  const bookId = Number(bookIdValue);
+  if (!endpoint || !Number.isSafeInteger(bookId) || bookId <= 0) {
+    const error = new Error('BookOrbit native book endpoint is invalid');
+    error.code = 'BOOKORBIT_NATIVE_ENDPOINT_INVALID';
+    throw error;
+  }
+  return new URL(`/api/v1/books/${bookId}`, `${endpoint.origin}/`).toString();
+}
+
+function boundedText(value, maxLength = 512) {
+  const normalized = String(value ?? '').trim();
+  return normalized && normalized.length <= maxLength ? normalized : null;
+}
+
+function joinedText(value) {
+  if (!Array.isArray(value)) return null;
+  const entries = value.map((entry) => boundedText(entry, 255)).filter(Boolean);
+  return entries.length > 0 ? entries.join(', ') : null;
+}
+
+function normalizeBookOrbitProviderIds(value) {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  return Object.fromEntries(BOOKORBIT_NATIVE_PROVIDER_KEYS.map((key) => {
+    const externalId = boundedText(source[key], 512);
+    return [key, externalId];
+  }).filter(([, externalId]) => externalId));
+}
+
+function mergeBookOrbitNativeDetail(row = {}, detail = {}) {
+  const expectedId = bookOrbitBookId(row?.type_details?.provider_item_id);
+  const detailId = Number(detail?.id || 0);
+  if (!expectedId || !Number.isSafeInteger(detailId) || detailId !== expectedId) {
+    const error = new Error('BookOrbit native response did not match the OPDS publication identity');
+    error.code = 'BOOKORBIT_NATIVE_IDENTITY_MISMATCH';
+    throw error;
+  }
+  const memberships = Array.isArray(detail.seriesMemberships)
+    ? detail.seriesMemberships
+      .map((membership) => ({
+        name: boundedText(membership?.seriesName),
+        index: boundedText(membership?.seriesIndex, 80),
+        order: Number(membership?.displayOrder || 0)
+      }))
+      .filter((membership) => membership.name)
+      .sort((left, right) => left.order - right.order)
+    : [];
+  const primarySeries = memberships[0] || null;
+  const providerIds = normalizeBookOrbitProviderIds(detail.providerIds);
+  const comic = detail.comicMetadata && typeof detail.comicMetadata === 'object'
+    ? detail.comicMetadata
+    : {};
+  const providerFields = Object.fromEntries(Object.entries(providerIds).map(([key, externalId]) => [
+    `bookorbit_${key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`)}_id`,
+    externalId
+  ]));
+  return {
+    ...row,
+    type_details: {
+      ...(row.type_details || {}),
+      series: primarySeries?.name || boundedText(detail.seriesName) || row?.type_details?.series || null,
+      series_index: primarySeries?.index || boundedText(detail.seriesIndex, 80) || row?.type_details?.series_index || null,
+      issue_number: boundedText(comic.issueNumber, 80) || row?.type_details?.issue_number || null,
+      volume: boundedText(comic.volumeName) || row?.type_details?.volume || null,
+      artist: joinedText(comic.pencillers) || row?.type_details?.artist || null,
+      inker: joinedText(comic.inkers) || row?.type_details?.inker || null,
+      colorist: joinedText(comic.colorists) || row?.type_details?.colorist || null,
+      bookorbit_letterer: joinedText(comic.letterers),
+      bookorbit_cover_artist: joinedText(comic.coverArtists),
+      bookorbit_characters: joinedText(comic.characters),
+      bookorbit_teams: joinedText(comic.teams),
+      bookorbit_locations: joinedText(comic.locations),
+      bookorbit_story_arcs: joinedText(comic.storyArcs),
+      bookorbit_book_id: String(detailId),
+      bookorbit_native_metadata: 'available',
+      ...providerFields,
+      source_updated_at: boundedText(detail.updatedAt, 80) || row?.type_details?.source_updated_at || null
+    }
+  };
+}
+
+async function fetchBookOrbitNativeBookDetail(config = {}, bookIdValue) {
+  const apiKey = String(config.apiKey || '').trim();
+  if (!apiKey || apiKey.length > 4096) {
+    const error = new Error('BookOrbit native API key is not configured');
+    error.code = 'BOOKORBIT_NATIVE_NOT_CONFIGURED';
+    throw error;
+  }
+  const endpointUrl = buildBookOrbitNativeBookEndpoint(config.baseUrl || config.endpointUrl, bookIdValue);
+  const timeoutMs = Math.max(1000, Math.min(120000, Number(config.timeoutMs || 20000)));
+  let response;
+  try {
+    response = await fetch(endpointUrl, {
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'collectZ-bookorbit-native/1.0',
+        'X-Api-Key': apiKey
+      },
+      redirect: 'error',
+      signal: AbortSignal.timeout(timeoutMs)
+    });
+  } catch (cause) {
+    const error = new Error('BookOrbit native metadata request failed');
+    error.code = 'BOOKORBIT_NATIVE_UNAVAILABLE';
+    error.cause = cause;
+    throw error;
+  }
+  if (response.status === 401 || response.status === 403) {
+    const error = new Error('BookOrbit native API authentication failed');
+    error.code = 'BOOKORBIT_NATIVE_AUTHENTICATION_FAILED';
+    throw error;
+  }
+  if (!response.ok) {
+    const error = new Error(`BookOrbit native metadata request returned HTTP ${response.status}`);
+    error.code = 'BOOKORBIT_NATIVE_UNAVAILABLE';
+    throw error;
+  }
+  const contentLength = Number(response.headers.get('content-length') || 0);
+  if (contentLength > 2 * 1024 * 1024) {
+    const error = new Error('BookOrbit native metadata response exceeded the safety limit');
+    error.code = 'BOOKORBIT_NATIVE_RESPONSE_TOO_LARGE';
+    throw error;
+  }
+  const body = await response.text();
+  if (Buffer.byteLength(body) > 2 * 1024 * 1024) {
+    const error = new Error('BookOrbit native metadata response exceeded the safety limit');
+    error.code = 'BOOKORBIT_NATIVE_RESPONSE_TOO_LARGE';
+    throw error;
+  }
+  try {
+    const detail = JSON.parse(body);
+    if (!detail || typeof detail !== 'object' || Array.isArray(detail)) throw new TypeError('invalid payload');
+    return detail;
+  } catch (cause) {
+    const error = new Error('BookOrbit native metadata response was invalid');
+    error.code = 'BOOKORBIT_NATIVE_RESPONSE_INVALID';
+    error.cause = cause;
+    throw error;
+  }
+}
+
+async function enrichBookOrbitRowsWithNativeMetadata(rows = [], config = {}, options = {}) {
+  const values = Array.isArray(rows) ? rows : [];
+  const apiKey = String(config.apiKey || '').trim();
+  const result = {
+    rows: [...values],
+    configured: Boolean(apiKey),
+    attempted: 0,
+    enriched: 0,
+    fallback: 0,
+    providerIdentifierRows: 0
+  };
+  if (!apiKey || values.length === 0) return result;
+  const concurrency = Math.max(1, Math.min(8, Number(options.concurrency || 4)));
+  let cursor = 0;
+  async function worker() {
+    while (cursor < values.length) {
+      const index = cursor;
+      cursor += 1;
+      const row = values[index];
+      const bookId = bookOrbitBookId(row?.type_details?.provider_item_id);
+      if (!bookId || row?.import_validation_error) continue;
+      result.attempted += 1;
+      try {
+        const detail = await fetchBookOrbitNativeBookDetail(config, bookId);
+        result.rows[index] = mergeBookOrbitNativeDetail(row, detail);
+        result.enriched += 1;
+        if (Object.keys(normalizeBookOrbitProviderIds(detail.providerIds)).length > 0) {
+          result.providerIdentifierRows += 1;
+        }
+      } catch {
+        result.fallback += 1;
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, values.length) }, () => worker()));
+  return result;
+}
+
 async function fetchBookOrbitOpdsItems(config = {}, options = {}) {
   try {
     return await fetchOpdsCatalog({
@@ -130,8 +320,15 @@ async function fetchBookOrbitOpdsItems(config = {}, options = {}) {
 module.exports = {
   BOOKORBIT_ENTRY_ID,
   BOOKORBIT_ALL_BOOKS_ID,
+  BOOKORBIT_NATIVE_PROVIDER_KEYS,
   buildBookOrbitEndpoint,
+  buildBookOrbitNativeBookEndpoint,
+  bookOrbitBookId,
   normalizeBookOrbitEntry,
+  normalizeBookOrbitProviderIds,
+  mergeBookOrbitNativeDetail,
   prepareBookOrbitImportRows,
-  fetchBookOrbitOpdsItems
+  fetchBookOrbitOpdsItems,
+  fetchBookOrbitNativeBookDetail,
+  enrichBookOrbitRowsWithNativeMetadata
 };

@@ -109,6 +109,25 @@ function feed(entries) {
 
 async function startBookOrbitServer(instances) {
   const server = http.createServer((req, res) => {
+    const nativeMatch = String(req.url || '').match(/^\/api\/v1\/books\/(\d+)$/);
+    if (nativeMatch) {
+      const instance = Object.values(instances).find((candidate) => candidate.apiKey === req.headers['x-api-key']);
+      if (!instance) {
+        res.writeHead(401, { 'content-type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'unauthorized' }));
+      }
+      const id = Number(nativeMatch[1]);
+      res.writeHead(200, { 'content-type': 'application/json' });
+      return res.end(JSON.stringify({
+        id,
+        seriesName: id === 43 ? 'Orbit Native Comics' : 'Orbit Saga',
+        seriesIndex: id === 43 ? '3' : '2',
+        providerIds: id === 43 ? { comicvine: '315507', goodreads: '123777928' } : {},
+        comicMetadata: id === 43
+          ? { issueNumber: '3', pencillers: ['Native Pencil Artist'], letterers: ['Native Letterer'] }
+          : {}
+      }));
+    }
     const key = String(req.url || '').split('/')[1];
     const instance = instances[key];
     if (!instance || req.url !== `/${key}/api/v1/opds`) {
@@ -158,8 +177,16 @@ async function main() {
   const suffix = `${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
   const email = `bookorbit-import-${suffix}@example.com`;
   const password = `Orbit!${crypto.randomBytes(18).toString('base64url')}`;
-  const one = { username: `one-${suffix}`, password: crypto.randomBytes(24).toString('base64url') };
-  const two = { username: `two-${suffix}`, password: crypto.randomBytes(24).toString('base64url') };
+  const one = {
+    username: `one-${suffix}`,
+    password: crypto.randomBytes(24).toString('base64url'),
+    apiKey: `bok_${crypto.randomBytes(24).toString('hex')}`
+  };
+  const two = {
+    username: `two-${suffix}`,
+    password: crypto.randomBytes(24).toString('base64url'),
+    apiKey: `bok_${crypto.randomBytes(24).toString('hex')}`
+  };
   let firstIsbn = randomIsbn13();
   let firstMime = 'application/epub+zip';
   let firstExtension = 'epub';
@@ -205,7 +232,7 @@ async function main() {
           name: `BookOrbit ${key}`,
           baseUrl: fake.baseUrl,
           settings: { catalogPath: `/${key}/api/v1/opds`, timeoutMs: 5000, maxPages: 5 },
-          credentials: { username: instance.username, password: instance.password }
+          credentials: { username: instance.username, password: instance.password, apiKey: instance.apiKey }
         })
       });
       assert.equal(response?.connection?.providerType, 'bookorbit');
@@ -255,12 +282,17 @@ async function main() {
     });
     assert.equal(tested.ok, true);
     assert.equal(tested.publications, 5);
+    assert.deepEqual(tested.nativeMetadata, {
+      configured: true,
+      available: true,
+      providerIdentifiers: false
+    });
 
     const rotatedPassword = crypto.randomBytes(24).toString('base64url');
     const rotated = await client.request(`/api/spaces/${spaceId}/integrations/bookorbit-connections/${firstConnectionId}/credentials`, {
       method: 'PUT',
       csrf: true,
-      body: JSON.stringify({ credentials: { username: one.username, password: rotatedPassword } })
+      body: JSON.stringify({ credentials: { username: one.username, password: rotatedPassword, apiKey: one.apiKey } })
     });
     assert.equal(rotated.credentialsConfigured, true);
     assert.equal(JSON.stringify(rotated).includes(rotatedPassword), false);
@@ -302,6 +334,13 @@ async function main() {
     assert.equal(firstImport.summary.completedWithErrors, false);
     assert.equal(firstImport.summary.completedWithSkips, true);
     assert.equal(firstImport.summary.skippedCount, 1);
+    assert.deepEqual(firstImport.summary.nativeMetadata, {
+      configured: true,
+      attempted: 4,
+      enriched: 4,
+      fallback: 0,
+      providerIdentifierRows: 1
+    });
     assert.ok(firstImport.summary.matchModes.strong_identifier_conflict_guarded >= 1);
     assert.equal(firstImport.summary.duplicateTitleReviewRows, 2);
     assert.ok(firstImport.summary.diagnosticsFlagged >= 3);
@@ -364,8 +403,8 @@ async function main() {
     assert.equal(durableJob.space_id, spaceId);
     assert.equal(durableJob.library_id, libraryId);
     assert.equal(durableJob.provider_connection_id, firstConnectionId);
-    assert.equal(durableJob.summary?.comicSeriesRows, 2);
-    assert.equal(durableJob.summary?.comicSeriesOrderedRows, 2);
+    assert.equal(durableJob.summary?.comicSeriesRows, 3);
+    assert.equal(durableJob.summary?.comicSeriesOrderedRows, 3);
     assert.equal(durableJob.lease_owner, null);
     assert.equal(durableJob.lease_expires_at, null);
     assert.equal(JSON.stringify(durableJob.target_ref).includes(one.password), false);
@@ -451,6 +490,13 @@ async function main() {
     assert.equal(firstBook?.type_details?.series_index, '2');
     assert.equal(firstBook?.type_details?.issue_number || null, null);
     assert.equal(comic?.type_details?.provider_item_id, 'urn:bookorbit:book:43');
+    assert.equal(comic?.type_details?.provider_name, 'bookorbit');
+    assert.equal(comic?.type_details?.bookorbit_book_id, '43');
+    assert.equal(comic?.type_details?.bookorbit_comicvine_id, '315507');
+    assert.equal(comic?.type_details?.bookorbit_goodreads_id, '123777928');
+    assert.equal(comic?.type_details?.issue_number, '3');
+    assert.equal(comic?.type_details?.artist, 'Native Pencil Artist');
+    assert.equal(comic?.type_details?.bookorbit_letterer, 'Native Letterer');
     assert.equal(mediaRows.rows.some((row) => row.type_details?.provider_item_id === 'urn:bookorbit:book:45'), false);
 
     console.log(JSON.stringify({
@@ -463,6 +509,7 @@ async function main() {
       stableRelationalSyncTarget: true,
       scheduledCadenceDeduplicated: true,
       comicSeriesOrderingPreserved: true,
+      nativeMetadataEnrichment: 'provider-ids-preserved',
       lockedTypeTransition: 'review-required-existing-preserved',
       secondCreated: secondImport.summary.created,
       canonicalRows: mediaRows.rowCount,

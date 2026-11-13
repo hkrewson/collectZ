@@ -58,7 +58,11 @@ const { createProviderConnectionService } = require('../services/providerConnect
 const { createBookOrbitAdapterRegistry } = require('../services/bookOrbitIdentity');
 const { createProviderSyncTargetStore } = require('../services/providerSyncTargets');
 const { createDurableJobStore } = require('../services/durableJobs');
-const { buildBookOrbitEndpoint, fetchBookOrbitOpdsItems } = require('../services/bookOrbit');
+const {
+  buildBookOrbitEndpoint,
+  fetchBookOrbitOpdsItems,
+  enrichBookOrbitRowsWithNativeMetadata
+} = require('../services/bookOrbit');
 const {
   getAccessibleSpaceForUser,
   getSpaceMembershipForUser,
@@ -1048,11 +1052,18 @@ router.post('/spaces/:spaceId/integrations/bookorbit-connections/:connectionId/t
       password: runtime.credentials.password,
       timeoutMs: runtime.settings.timeoutMs
     }, { maxPages: runtime.settings.maxPages });
+    const native = await enrichBookOrbitRowsWithNativeMetadata(fetched.rows.slice(0, 1), {
+      baseUrl: runtime.connection.endpointUrl,
+      apiKey: runtime.credentials.apiKey,
+      timeoutMs: runtime.settings.timeoutMs
+    }, { concurrency: 1 });
     await logActivity(req, 'space.settings.integrations.bookorbit.test', 'provider_connection', null, {
       provider: 'bookorbit',
       connectionId: runtime.connection.id,
       pagesFetched: fetched.pagesFetched,
       publications: fetched.rows.length,
+      nativeMetadataConfigured: native.configured,
+      nativeMetadataAvailable: native.enriched > 0,
       spaceId: managed.spaceId
     });
     return res.json({
@@ -1061,7 +1072,12 @@ router.post('/spaces/:spaceId/integrations/bookorbit-connections/:connectionId/t
       provider: 'bookorbit',
       connectionId: runtime.connection.id,
       pagesFetched: fetched.pagesFetched,
-      publications: fetched.rows.length
+      publications: fetched.rows.length,
+      nativeMetadata: {
+        configured: native.configured,
+        available: native.enriched > 0,
+        providerIdentifiers: native.providerIdentifierRows > 0
+      }
     });
   } catch (error) {
     const normalized = normalizeBookOrbitRouteError(error);

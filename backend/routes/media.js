@@ -71,7 +71,21 @@ const { searchGamesByTitle } = require('../services/games');
 const { searchComicsByTitle, fetchMetronCollectionIssues, fetchMetronIssueDetails, pushMetronCollectionIssue } = require('../services/comics');
 const { parseCsvText } = require('../services/csv');
 const { fetchCwaOpdsItems } = require('../services/cwa');
-const { buildBookOrbitEndpoint, fetchBookOrbitOpdsItems, prepareBookOrbitImportRows } = require('../services/bookOrbit');
+const {
+  buildBookOrbitEndpoint,
+  fetchBookOrbitOpdsItems,
+  prepareBookOrbitImportRows,
+  enrichBookOrbitRowsWithNativeMetadata
+} = require('../services/bookOrbit');
+const BOOKORBIT_NATIVE_IMPORT_FIELDS = Object.freeze([
+  'bookorbit_book_id', 'bookorbit_native_metadata', 'bookorbit_google_id',
+  'bookorbit_goodreads_id', 'bookorbit_amazon_id', 'bookorbit_hardcover_id',
+  'bookorbit_open_library_id', 'bookorbit_itunes_id', 'bookorbit_audible_id',
+  'bookorbit_librofm_id', 'bookorbit_kobo_id', 'bookorbit_comicvine_id',
+  'bookorbit_ranobedb_id', 'bookorbit_lubimyczytac_id', 'bookorbit_aladin_id',
+  'bookorbit_letterer', 'bookorbit_cover_artist', 'bookorbit_characters',
+  'bookorbit_teams', 'bookorbit_locations', 'bookorbit_story_arcs'
+]);
 const {
   authenticateKavita,
   fetchKavitaCoverImage,
@@ -8796,6 +8810,9 @@ async function runGenericCsvImport({
         source_updated_at: value('source_updated_at') || rowTypeDetails.source_updated_at || null
       }
     };
+    for (const field of BOOKORBIT_NATIVE_IMPORT_FIELDS) {
+      mapped.type_details[field] = value(field) || rowTypeDetails[field] || null;
+    }
     const importValidationError = String(row?.import_validation_error || '').trim();
     if (importValidationError) {
       summary.skipped_invalid += 1;
@@ -14101,7 +14118,12 @@ async function performBookOrbitImport({
     password: runtime.credentials.password,
     timeoutMs: runtime.settings.timeoutMs
   }, { maxPages });
-  const importRows = prepareBookOrbitImportRows(fetched.rows);
+  const native = await enrichBookOrbitRowsWithNativeMetadata(fetched.rows, {
+    baseUrl: runtime.connection.endpointUrl,
+    apiKey: runtime.credentials.apiKey,
+    timeoutMs: runtime.settings.timeoutMs
+  });
+  const importRows = prepareBookOrbitImportRows(native.rows);
   const identitySession = await bookOrbitImportIdentity.open({
     spaceId,
     libraryId,
@@ -14156,6 +14178,13 @@ async function performBookOrbitImport({
     publications: fetched.rows.length,
     comicSeriesRows: seriesRows,
     comicSeriesOrderedRows: orderedSeriesRows,
+    nativeMetadata: {
+      configured: native.configured,
+      attempted: native.attempted,
+      enriched: native.enriched,
+      fallback: native.fallback,
+      providerIdentifierRows: native.providerIdentifierRows
+    },
     auditRows: result.auditRows.slice(0, 250)
   };
   recordImportJobEvent('bookorbit', 'succeeded');
@@ -14169,6 +14198,11 @@ async function performBookOrbitImport({
     typeTransitionReviewRows,
     errorCount: result.summary.errors.length,
     pagesFetched: fetched.pagesFetched,
+    nativeMetadataConfigured: native.configured,
+    nativeMetadataAttempted: native.attempted,
+    nativeMetadataEnriched: native.enriched,
+    nativeMetadataFallback: native.fallback,
+    nativeProviderIdentifierRows: native.providerIdentifierRows,
     jobId
   });
   return { runtime, fetched, result, valuationRefresh, summary };
@@ -14380,7 +14414,8 @@ router.post('/import-bookorbit', requireSessionAuth, asyncHandler(async (req, re
       duplicateTitleReviewRows: summary.duplicateTitleReviewRows,
       typeTransitionReviewRows: summary.typeTransitionReviewRows,
       pagesFetched: fetched.pagesFetched,
-      publications: fetched.rows.length
+      publications: fetched.rows.length,
+      nativeMetadata: summary.nativeMetadata
     },
     auditRows: result.auditRows,
     valuationRefresh

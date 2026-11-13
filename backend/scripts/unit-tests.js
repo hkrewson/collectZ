@@ -43,7 +43,13 @@ const { normalizeDeliciousRow } = require('../services/deliciousNormalize');
 const { normalizeIsbn, normalizeIdentifierSet } = require('../services/importIdentifiers');
 const { normalizeTypeDetails } = require('../services/typeDetails');
 const { normalizeOpdsEntry } = require('../services/cwa');
-const { buildBookOrbitEndpoint, normalizeBookOrbitEntry, prepareBookOrbitImportRows } = require('../services/bookOrbit');
+const {
+  buildBookOrbitEndpoint,
+  bookOrbitBookId,
+  normalizeBookOrbitEntry,
+  mergeBookOrbitNativeDetail,
+  prepareBookOrbitImportRows
+} = require('../services/bookOrbit');
 const {
   buildKavitaSeriesWebUrl,
   buildKavitaReaderWebUrl,
@@ -5306,6 +5312,42 @@ results.push(run('bookOrbit import preparation skips audio and flags duplicate v
   assert.strictEqual(prepared[0].import_review_reasons.length, 1);
   assert.strictEqual(prepared[1].import_review_reasons.length, 1);
   assert.strictEqual(prepared[2].import_review_reasons, undefined);
+}));
+
+results.push(run('bookOrbit native metadata preserves canonical identity and projects upstream provider ids', () => {
+  assert.equal(bookOrbitBookId('urn:bookorbit:book:1264'), 1264);
+  assert.equal(bookOrbitBookId('comicvine:1264'), null);
+  const merged = mergeBookOrbitNativeDetail({
+    media_type: 'comic_book',
+    type_details: {
+      provider_name: 'bookorbit',
+      provider_item_id: 'urn:bookorbit:book:1264',
+      series: 'OPDS Series'
+    }
+  }, {
+    id: 1264,
+    seriesName: 'Groo: Death & Taxes',
+    seriesIndex: '3',
+    providerIds: { comicvine: 315507, goodreads: '123777928' },
+    comicMetadata: {
+      issueNumber: '3',
+      pencillers: ['Sergio Aragonés'],
+      letterers: ['Stan Sakai'],
+      storyArcs: ['Death & Taxes']
+    }
+  });
+  assert.equal(merged.type_details.provider_name, 'bookorbit');
+  assert.equal(merged.type_details.provider_item_id, 'urn:bookorbit:book:1264');
+  assert.equal(merged.type_details.bookorbit_book_id, '1264');
+  assert.equal(merged.type_details.bookorbit_comicvine_id, '315507');
+  assert.equal(merged.type_details.bookorbit_goodreads_id, '123777928');
+  assert.equal(merged.type_details.issue_number, '3');
+  assert.equal(merged.type_details.artist, 'Sergio Aragonés');
+  assert.equal(merged.type_details.bookorbit_story_arcs, 'Death & Taxes');
+  assert.throws(
+    () => mergeBookOrbitNativeDetail({ type_details: { provider_item_id: 'urn:bookorbit:book:1264' } }, { id: 1277 }),
+    { code: 'BOOKORBIT_NATIVE_IDENTITY_MISMATCH' }
+  );
 }));
 
 results.push(run('bookOrbit connection and import routes use the multi-instance provider registry', () => {

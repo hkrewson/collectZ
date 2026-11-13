@@ -11,7 +11,8 @@ const EMPTY_FORM = Object.freeze({
   syncIntervalMinutes: '360',
   libraryId: '',
   username: '',
-  password: ''
+  password: '',
+  apiKey: ''
 });
 
 const SENSITIVE_OPERATION = {
@@ -108,8 +109,9 @@ export default function BookOrbitConnectionsPanel({ apiCall, endpointBase, onToa
   const saveConnection = async () => {
     const hasUsername = Boolean(form.username.trim());
     const hasPassword = Boolean(form.password);
-    if (hasUsername !== hasPassword) {
-      setMessage('Enter both username and password when changing BookOrbit credentials.');
+    const hasApiKey = Boolean(form.apiKey.trim());
+    if (hasUsername !== hasPassword || (editingId && hasApiKey && (!hasUsername || !hasPassword))) {
+      setMessage('Enter the OPDS username and password together when changing credentials or adding a native API key.');
       return;
     }
     if (!editingId && (!hasUsername || !hasPassword)) {
@@ -143,7 +145,11 @@ export default function BookOrbitConnectionsPanel({ apiCall, endpointBase, onToa
             'put',
             `${connectionEndpoint}/${editingId}/credentials`,
             {
-              credentials: { username: form.username.trim(), password: form.password }
+              credentials: {
+                username: form.username.trim(),
+                password: form.password,
+                ...(hasApiKey ? { apiKey: form.apiKey.trim() } : {})
+              }
             },
             SENSITIVE_OPERATION
           );
@@ -154,7 +160,11 @@ export default function BookOrbitConnectionsPanel({ apiCall, endpointBase, onToa
           connectionEndpoint,
           {
             ...details,
-            credentials: { username: form.username.trim(), password: form.password }
+            credentials: {
+              username: form.username.trim(),
+              password: form.password,
+              ...(hasApiKey ? { apiKey: form.apiKey.trim() } : {})
+            }
           },
           SENSITIVE_OPERATION
         );
@@ -183,7 +193,8 @@ export default function BookOrbitConnectionsPanel({ apiCall, endpointBase, onToa
           syncIntervalMinutes: form.syncIntervalMinutes,
           libraryId: form.libraryId,
           username: '',
-          password: ''
+          password: '',
+          apiKey: ''
         });
       }
       setMessage(editingId ? 'BookOrbit connection updated.' : 'BookOrbit connection created.');
@@ -205,7 +216,7 @@ export default function BookOrbitConnectionsPanel({ apiCall, endpointBase, onToa
       const result = await apiCall('post', `${connectionEndpoint}/${editingId}/test`, {}, SENSITIVE_OPERATION);
       if (!result?.ok) throw new Error(result?.detail || 'BookOrbit connection test failed.');
       setMessage(
-        `Connected. Found ${Number(result.publications || 0)} publication${Number(result.publications || 0) === 1 ? '' : 's'} across ${Number(result.pagesFetched || 0)} page${Number(result.pagesFetched || 0) === 1 ? '' : 's'}.`
+        `Connected. Found ${Number(result.publications || 0)} publication${Number(result.publications || 0) === 1 ? '' : 's'} across ${Number(result.pagesFetched || 0)} page${Number(result.pagesFetched || 0) === 1 ? '' : 's'}. ${result.nativeMetadata?.configured ? (result.nativeMetadata.available ? 'Native metadata is available.' : 'Native metadata is configured but unavailable; imports will use OPDS fallback.') : 'Native metadata is not configured; imports will use OPDS.'}`
       );
       onToast('BookOrbit connection succeeded');
     } catch (error) {
@@ -388,6 +399,24 @@ export default function BookOrbitConnectionsPanel({ apiCall, endpointBase, onToa
             </div>
           </div>
           <p className="text-xs text-ghost">Use the separate OPDS account configured in BookOrbit, not your normal BookOrbit sign-in.</p>
+          <div className="field">
+            <label className="label" htmlFor="bookorbit-api-key">
+              Native API key (optional)
+            </label>
+            <input
+              id="bookorbit-api-key"
+              className="input font-mono"
+              type="password"
+              autoComplete="new-password"
+              value={form.apiKey}
+              onChange={(event) => updateField('apiKey', event.target.value)}
+              placeholder={editingId ? 'Enter with OPDS credentials to enable or replace' : 'BookOrbit API key'}
+            />
+            <p className="text-xs text-ghost">
+              Enables richer series, comic credits, and upstream provider IDs. When replacing credentials, re-enter this key to keep native
+              enrichment enabled. OPDS remains the fallback if the native API is unavailable.
+            </p>
+          </div>
           <div className="space-y-3 rounded-lg border border-edge/70 bg-raised/40 p-3">
             <label className="flex items-center gap-2 text-sm text-ink" htmlFor="bookorbit-automatic-sync">
               <input

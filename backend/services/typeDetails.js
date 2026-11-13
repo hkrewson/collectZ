@@ -1,3 +1,27 @@
+const BOOKORBIT_NATIVE_TYPE_DETAIL_KEYS = [
+  'bookorbit_book_id',
+  'bookorbit_native_metadata',
+  'bookorbit_google_id',
+  'bookorbit_goodreads_id',
+  'bookorbit_amazon_id',
+  'bookorbit_hardcover_id',
+  'bookorbit_open_library_id',
+  'bookorbit_itunes_id',
+  'bookorbit_audible_id',
+  'bookorbit_librofm_id',
+  'bookorbit_kobo_id',
+  'bookorbit_comicvine_id',
+  'bookorbit_ranobedb_id',
+  'bookorbit_lubimyczytac_id',
+  'bookorbit_aladin_id',
+  'bookorbit_letterer',
+  'bookorbit_cover_artist',
+  'bookorbit_characters',
+  'bookorbit_teams',
+  'bookorbit_locations',
+  'bookorbit_story_arcs'
+];
+
 const TYPE_DETAILS_ALLOWED_BY_MEDIA_TYPE = {
   movie: ['edition', 'provider_name', 'provider_item_id', 'provider_external_url'],
   tv_series: [],
@@ -64,7 +88,8 @@ const TYPE_DETAILS_ALLOWED_BY_MEDIA_TYPE = {
     'calibre_entry_id',
     'calibre_external_url',
     'calibre_download_url',
-    'source_updated_at'
+    'source_updated_at',
+    ...BOOKORBIT_NATIVE_TYPE_DETAIL_KEYS
   ],
   audio: ['artist', 'album', 'track_count', 'compilation', 'track_artists'],
   game: ['platform', 'developer', 'region', 'provider_name', 'provider_item_id', 'provider_external_url'],
@@ -138,7 +163,8 @@ const TYPE_DETAILS_ALLOWED_BY_MEDIA_TYPE = {
     'calibre_entry_id',
     'calibre_external_url',
     'calibre_download_url',
-    'source_updated_at'
+    'source_updated_at',
+    ...BOOKORBIT_NATIVE_TYPE_DETAIL_KEYS
   ]
 };
 

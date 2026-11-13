@@ -27,9 +27,11 @@ const bookOrbitAdapter = Object.freeze({
   validateCredentials(credentials) {
     const username = String(credentials?.username || '').trim();
     const password = String(credentials?.password || '');
+    const apiKey = String(credentials?.apiKey || '').trim();
     if (!username || username.length > 255) throw new TypeError('BookOrbit OPDS username is invalid');
     if (!password || password.length > 2048) throw new TypeError('BookOrbit OPDS password is invalid');
-    return { username, password };
+    if (apiKey.length > 4096) throw new TypeError('BookOrbit native API key is invalid');
+    return { username, password, ...(apiKey ? { apiKey } : {}) };
   },
   normalizeExternalId(kind, raw, normalizers) {
     if (kind !== BOOKORBIT_IDENTITY_KIND) throw new TypeError(`BookOrbit identity kind ${kind} is not supported`);
@@ -44,7 +46,16 @@ function buildBookOrbitCanonicalFields(item = {}) {
     mediaKeys: ['title', 'release_date', 'year', 'format', 'overview', 'poster_path'],
     typeDetailKeys: [
       'author', 'isbn', 'publisher', 'series', 'series_index',
-      'provider_download_url', 'provider_series_url', 'source_updated_at'
+      'issue_number', 'volume', 'artist', 'inker', 'colorist',
+      'provider_download_url', 'provider_series_url', 'source_updated_at',
+      'bookorbit_book_id', 'bookorbit_native_metadata',
+      'bookorbit_google_id', 'bookorbit_goodreads_id', 'bookorbit_amazon_id',
+      'bookorbit_hardcover_id', 'bookorbit_open_library_id', 'bookorbit_itunes_id',
+      'bookorbit_audible_id', 'bookorbit_librofm_id', 'bookorbit_kobo_id',
+      'bookorbit_comicvine_id', 'bookorbit_ranobedb_id',
+      'bookorbit_lubimyczytac_id', 'bookorbit_aladin_id',
+      'bookorbit_letterer', 'bookorbit_cover_artist', 'bookorbit_characters',
+      'bookorbit_teams', 'bookorbit_locations', 'bookorbit_story_arcs'
     ]
   });
 }
