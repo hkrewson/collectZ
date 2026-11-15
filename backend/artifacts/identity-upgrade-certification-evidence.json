@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-11-13T03:18:49.879Z",
+  "generatedAt": "2026-11-15T17:34:19.035Z",
   "status": "passed",
   "manifestSchemaVersion": 1,
   "baselineVersion": 127,
-  "latestVersion": 135,
+  "latestVersion": 136,
   "certifiedMigrationVersions": [
     128,
     129,
@@ -12,7 +12,8 @@
     132,
     133,
     134,
-    135
+    135,
+    136
   ],
   "selectorMatches": [
     {
@@ -30,6 +31,10 @@
     {
       "version": 135,
       "description": "Add relational provider sync targets"
+    },
+    {
+      "version": 136,
+      "description": "Add provider series records and media memberships"
     }
   ],
   "fixturePolicy": {
@@ -106,13 +111,13 @@
       {
         "id": 1,
         "user_id": 1,
-        "expires_at": "2026-11-20T03:18:50.769Z",
+        "expires_at": "2026-11-22T17:34:19.663Z",
         "storedCredentialPresent": true
       },
       {
         "id": 2,
         "user_id": 1,
-        "expires_at": "2026-11-20T03:18:50.769Z",
+        "expires_at": "2026-11-22T17:34:19.664Z",
         "storedCredentialPresent": true
       }
     ],
@@ -168,7 +173,7 @@
             "libraries:read"
           ],
           "revoked_at": null,
-          "expires_at": "2026-11-20T03:18:50.773Z",
+          "expires_at": "2026-11-22T17:34:19.667Z",
           "storedCredentialPresent": true
         }
       ],
@@ -184,7 +189,7 @@
             "/api/libraries"
           ],
           "revoked_at": null,
-          "expires_at": "2026-11-20T03:18:50.774Z",
+          "expires_at": "2026-11-22T17:34:19.667Z",
           "storedCredentialPresent": true
         }
       ]

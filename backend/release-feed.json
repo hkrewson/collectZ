@@ -1,6 +1,28 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.28.1",
+      "version": "3.28.1",
+      "date": "2026-11-15",
+      "status": null,
+      "summary": "Extends the BookOrbit adapter with capability-gated native metadata, upstream comic identifiers, normalized multi-series membership and provenance, stable membership retirement/reactivation, and credential-safe native cover enrichment while retaining OPDS fallback and canonical BookOrbit identity.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added optional encrypted BookOrbit native API authentication and read-only `/api/v1/books/{id}` enrichment derived only from validated BookOrbit Atom identities.",
+            "Preserved BookOrbit-scoped ComicVine, Goodreads, and other upstream identifiers as compatibility metadata without treating them as alternate canonical identities or inferring an unavailable selected-provider field.",
+            "Added normalized provider-series records and canonical-media memberships capable of representing multiple ordered series, series index, volume, issue number, expected item count, source timestamps, provenance, and active/deactivated lifecycle.",
+            "Added repeat-sync refresh semantics that update or reactivate observed memberships, retire missing memberships and orphaned provider-series observations, and leave prior native observations unchanged when a per-publication native request falls back to OPDS.",
+            "Kept the first ordered membership projected into existing scalar series fields during compatibility migration without fabricating issue numbers from OPDS ordering.",
+            "Added native cover provenance and a versioned, session-only CollectZ cover proxy that resolves encrypted credentials at request time, verifies the imported BookOrbit identity, bounds response type and size, and never exposes the upstream API key.",
+            "Added active multi-series and provenance readback to media detail plus a Library drawer presentation for series position, expected item count, source, and update time.",
+            "Added migration, RLS, ownership, transport, authoritative import, OpenAPI, frontend, and release certification coverage for the new relational and cover paths."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.28.0",
       "version": "3.28.0",
       "date": "2026-11-12",
@@ -182,24 +204,6 @@
             "Keep `@zxing/browser` and `@zxing/library` together for a focused compatibility check; `@zxing/browser@0.2.1` requires `@zxing/library@^0.23.0`.",
             "Keep GitHub Actions major upgrades under separate workflow compatibility review.",
             "Synchronize application metadata and Help > Releases to `3.25.4`."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.25.3",
-      "version": "3.25.3",
-      "date": "2026-10-24",
-      "status": null,
-      "summary": "Updates vulnerable backend runtime dependencies and frontend test tooling to patched compatible releases following fresh full dependency audits.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Update affected backend packages and transitive dependencies: `body-parser@2.4.0`, `multer@2.5.0`, `nodemailer@10.2.1`, `ip-address@10.7.4`, and `zod@4.6.7`.",
-            "Update frontend `vitest` and `@vitest/mocker` to `4.1.12`.",
-            "Preserve the established Node `24.22.1` baseline and avoid unrelated major-version changes; `express@5.2.1` was already present before this release.",
-            "Synchronize application metadata and Help > Releases to `3.25.3`."
           ]
         }
       ]
