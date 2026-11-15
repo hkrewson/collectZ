@@ -1,7 +1,7 @@
 # Local Release Go/No-Go Preflight
 
 - Version: `3.28.1`
-- Generated: `2026-11-15T19:06:00.918Z`
+- Generated: `2026-11-15T19:58:13.613Z`
 - Base URL: `http://localhost:3201`
 
 ## Gate Results
@@ -11,10 +11,10 @@
 - Backend dependency audit: PASS — low=0 moderate=0 high=0 critical=0
 - Frontend dependency audit: PASS — low=0 moderate=0 high=0 critical=0
 - Migration evidence presence: PASS — init parity and migration rehearsal evidence are present
-- Identity upgrade certification evidence: PASS — passed for migration chain through 136
+- Identity upgrade certification evidence: PASS — passed for migration chain through 137
 - Saved-view RLS certification evidence: PASS — passed 17 live isolation and restore checks
-- External identity registry certification evidence: PASS — passed 21 UUID, scope, lifecycle, and RLS checks through migration 136
-- Runtime role certification evidence: PASS — passed 30/30 checks for migration chain through 136
+- External identity registry certification evidence: PASS — passed 21 UUID, scope, lifecycle, and RLS checks through migration 137
+- Runtime role certification evidence: PASS — passed 30/30 checks for migration chain through 137
 - Observability release evidence: PASS — observability artifact present for 3.28.1 with 9/9 checks passed
 - Compose smoke basics: BLOCKED — current local stack is not running with CI secure-cookie settings (SESSION_COOKIE_SECURE=false, NODE_ENV=development)
 - Secret scan: BLOCKED — CI-only gitleaks gate

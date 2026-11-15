@@ -245,6 +245,7 @@ const {
 } = require('../scripts/identity-upgrade-certification');
 const coreRoutesSource = fs.readFileSync(require.resolve('../routes/core'), 'utf8');
 const migrationsSource = fs.readFileSync(require.resolve('../db/migrations'), 'utf8');
+const mediaReviewDecisionRlsSource = fs.readFileSync(path.resolve(__dirname, '..', 'db', 'mediaReviewDecisionRls.sql'), 'utf8');
 const initSqlSource = fs.readFileSync(path.resolve(__dirname, '..', '..', 'init.sql'), 'utf8');
 const libraryServiceSource = fs.readFileSync(require.resolve('../services/libraries'), 'utf8');
 const personalAccessTokenSource = fs.readFileSync(require.resolve('../services/personalAccessTokens'), 'utf8');
@@ -8361,8 +8362,18 @@ results.push(run('dashboard command center is authenticated scoped dashboard def
   assert.ok(dashboardRoutesSource.includes('shapeReviewDecisionRow'));
   assert.ok(validateMiddlewareSource.includes('dashboardReviewDecisionSchema'));
   assert.ok(migrationsSource.includes('version: 106'));
+  assert.ok(migrationsSource.includes('version: 137'));
+  assert.ok(migrationsSource.includes('mediaReviewDecisionRls.sql'));
   assert.ok(migrationsSource.includes('CREATE TABLE IF NOT EXISTS media_review_decisions'));
   assert.ok(initSqlSource.includes('CREATE TABLE IF NOT EXISTS media_review_decisions'));
+  assert.ok(initSqlSource.includes("(137, 'Protect dashboard review decisions with workspace RLS')"));
+  assert.ok(mediaReviewDecisionRlsSource.includes('ALTER TABLE public.media_review_decisions ENABLE ROW LEVEL SECURITY'));
+  assert.ok(mediaReviewDecisionRlsSource.includes('CREATE POLICY media_review_decisions_scope'));
+  assert.ok(mediaReviewDecisionRlsSource.includes('media_review_decisions_media_scope_fk'));
+  assert.ok(mediaReviewDecisionRlsSource.includes('media_review_decisions_library_scope_fk'));
+  assert.ok(mediaReviewDecisionRlsSource.includes('immutable_media_review_decision_owner'));
+  assert.ok(mediaReviewDecisionRlsSource.includes('guard_media_review_decision_delete'));
+  assert.ok(dashboardRoutesSource.includes('withAuthorizedScopeTransaction'));
   assert.ok(mediaRoutesSource.includes('applyMediaReviewClues'));
   assert.ok(mediaRoutesSource.includes('normalizedReviewFilter'));
   assert.ok(mediaRoutesSource.includes("media.poster_path"));

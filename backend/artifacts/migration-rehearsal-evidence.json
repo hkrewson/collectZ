@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-11-15T17:34:17.928Z",
-  "baselineVersion": 135,
-  "latestVersion": 136,
+  "generatedAt": "2026-11-15T19:57:38.347Z",
+  "baselineVersion": 136,
+  "latestVersion": 137,
   "databases": {
-    "legacyDb": "collectz_rehearsal_legacy_mwi46i4e",
-    "snapshotDb": "collectz_rehearsal_snapshot_mwi46i4e",
-    "rollbackDb": "collectz_rehearsal_rollback_mwi46i4e"
+    "legacyDb": "collectz_rehearsal_legacy_mwi9au8v",
+    "snapshotDb": "collectz_rehearsal_snapshot_mwi9au8v",
+    "rollbackDb": "collectz_rehearsal_rollback_mwi9au8v"
   },
   "preUpgradeCounts": {
     "users": 1,
@@ -29,21 +29,22 @@
     "feature_flags": 8
   },
   "checks": {
-    "preUpgradeVersion": 135,
+    "preUpgradeVersion": 136,
     "preUpgradeInvitationState": {
       "tokenColumnPresent": false,
       "tokenHashRequired": true,
       "missingHashCount": 0,
       "plaintextValueCount": 0
     },
-    "postUpgradeVersion": 136,
+    "postUpgradeVersion": 137,
     "postUpgradeInvitationState": {
       "tokenColumnPresent": false,
       "tokenHashRequired": true,
       "missingHashCount": 0,
       "plaintextValueCount": 0
     },
-    "rollbackVersion": 135,
+    "reviewDecisionOwnershipBackfilled": true,
+    "rollbackVersion": 136,
     "rollbackInvitationState": {
       "tokenColumnPresent": false,
       "tokenHashRequired": true,

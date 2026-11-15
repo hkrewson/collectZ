@@ -176,10 +176,40 @@ async function seedLegacyFixture(client) {
     throw new Error('Invitation fixture requires token or token_hash identity');
   }
 
+  const space = await client.query(
+    `INSERT INTO spaces (name, slug, created_by, is_personal)
+     VALUES ($1, $2, $3, true)
+     RETURNING id`,
+    ['Migration Rehearsal', `migration-rehearsal-${fixtureSuffix}`, userId]
+  );
+  const spaceId = Number(space.rows[0].id);
   await client.query(
-    `INSERT INTO media (title, year, format, added_by, notes)
-     VALUES ($1, $2, $3, $4, $5)`,
-    ['The Matrix', 1999, 'Blu-ray', userId, 'Migration rehearsal fixture']
+    `INSERT INTO space_memberships (space_id, user_id, role, created_by)
+     VALUES ($1, $2, 'owner', $2)`,
+    [spaceId, userId]
+  );
+  const library = await client.query(
+    `INSERT INTO libraries (name, created_by, space_id)
+     VALUES ('Migration Rehearsal Movies', $1, $2)
+     RETURNING id`,
+    [userId, spaceId]
+  );
+  const libraryId = Number(library.rows[0].id);
+  await client.query(
+    `UPDATE users SET active_space_id = $2, active_library_id = $3 WHERE id = $1`,
+    [userId, spaceId, libraryId]
+  );
+  const media = await client.query(
+    `INSERT INTO media (title, year, format, added_by, notes, library_id, space_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     RETURNING id`,
+    ['The Matrix', 1999, 'Blu-ray', userId, 'Migration rehearsal fixture', libraryId, spaceId]
+  );
+  await client.query(
+    `INSERT INTO media_review_decisions
+       (media_id, finding_type, action, note, library_id, space_id, created_by)
+     VALUES ($1, 'missing_covers', 'dismissed', 'Migration 137 ownership backfill fixture', NULL, NULL, $2)`,
+    [Number(media.rows[0].id), userId]
   );
 }
 
@@ -242,6 +272,18 @@ async function main() {
       evidence.postUpgradeCounts = await collectCounts(upgradeClient);
       evidence.checks.postUpgradeVersion = await maxMigrationVersion(upgradeClient);
       evidence.checks.postUpgradeInvitationState = await collectInvitationTokenState(upgradeClient);
+      const reviewDecision = await upgradeClient.query(
+        `SELECT d.space_id, d.library_id,
+                d.space_id = m.space_id AND d.library_id = m.library_id AS ownership_matches,
+                c.relrowsecurity AS rls_enabled
+           FROM media_review_decisions d
+           JOIN media m ON m.id = d.media_id
+           JOIN pg_class c ON c.oid = 'public.media_review_decisions'::regclass
+          WHERE d.note = 'Migration 137 ownership backfill fixture'`
+      );
+      evidence.checks.reviewDecisionOwnershipBackfilled = reviewDecision.rows.length === 1
+        && reviewDecision.rows[0].ownership_matches === true
+        && reviewDecision.rows[0].rls_enabled === true;
     } finally {
       await upgradeClient.end();
     }
@@ -265,6 +307,9 @@ async function main() {
     }
     if (!evidence.checks.rollbackVersionMatchesBaseline) {
       throw new Error(`Rollback version mismatch: expected ${baselineVersion}, got ${evidence.checks.rollbackVersion}`);
+    }
+    if (!evidence.checks.reviewDecisionOwnershipBackfilled) {
+      throw new Error('Dashboard review decision ownership backfill or RLS activation failed');
     }
     const postInvite = evidence.checks.postUpgradeInvitationState;
     if (postInvite.tokenColumnPresent || !postInvite.tokenHashRequired || postInvite.missingHashCount !== 0 || postInvite.plaintextValueCount !== 0) {

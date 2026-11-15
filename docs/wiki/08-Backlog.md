@@ -42,39 +42,6 @@ Explicit non-goals for this program:
 - Do not perform a big-bang RLS activation, frontend TypeScript conversion, route rewrite, or collection-schema replacement.
 - Do not let Cairn share or mutate the CollectZ database.
 
-### Backlog Item: Non-Owner Runtime Database Role and Staged Row-Level Security
-**Type:** Database security program
-**Tags:** `postgresql`, `rls`, `workspace`, `security`, `database-role`, `isolation`
-**Priority:** `P1`
-**Status:** Dependencies satisfied by `3.24.8` and `3.24.10`. The non-owner runtime role and credential split shipped in `3.24.14`; transaction-local settings and the first saved-view RLS pilot shipped in `3.26.0`. The reusable transaction foundation has moved to `3.27.0` in [07-Release-Roadmap.md](07-Release-Roadmap.md). Remaining backlog scope is expansion to other table families and scope binding for their requests, jobs, and maintenance commands.
-
-**Goal:** Add PostgreSQL defense-in-depth so an omitted application predicate cannot read or write another workspace's domain rows, while keeping application policy as the primary authorization decision.
-
-**Dependencies**
-- `Workspace Ownership and Authorization Certification` must classify the target tables and executable paths.
-- `Identity-Preserving Upgrade Certification` must cover database-role and policy activation migrations.
-- Pre-auth token redemption, bootstrap, workers, maintenance commands, and migrations must have deliberately constrained database execution paths before broad activation.
-
-**Scope**
-- Separate migration-owner and runtime database credentials; ensure the runtime role is not a table owner and has neither `SUPERUSER` nor `BYPASSRLS`.
-- Expand both `USING` and `WITH CHECK` policies by certified table family after the first pilot in `3.26.0` passes.
-- Keep authorization/bootstrap control-plane tables outside RLS until their pre-scope access contract is explicitly designed and tested.
-- Bind scope for authenticated HTTP requests, background jobs, webhooks, imports, exports, and maintenance commands; missing scope must fail closed.
-- Add raw-SQL tests proving the runtime role cannot cross workspace boundaries, spoof an unrestricted scope, mutate ownership, or retain scope after transaction completion.
-- Add startup/release checks that reject owner or `BYPASSRLS` runtime credentials after activation.
-
-**Out of scope**
-- Do not treat RLS as a replacement for application authorization or permission checks.
-- Do not activate every policy in one migration.
-- Do not give pre-authentication token flows a general runtime-role bypass.
-- Do not introduce hosted multi-tenant claims beyond the certified CollectZ installation/workspace model.
-
-**Acceptance Criteria**
-- The runtime database role cannot access another workspace's protected rows even through direct SQL.
-- Missing, invalid, or stale transaction scope denies access, and committed scope cannot leak through the connection pool.
-- Application permission failures and database scope failures remain distinguishable in tests and sanitized diagnostics.
-- Each activated table family has migration, rollback/restore, request, worker, raw-SQL, and cross-workspace evidence before the next family is enabled.
-
 ### Backlog Item: Migration-Chain Fresh Installation Authority
 **Type:** Database and deployment simplification
 **Tags:** `migrations`, `init`, `postgresql`, `docker`, `deployment`, `parity`

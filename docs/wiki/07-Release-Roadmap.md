@@ -4,7 +4,50 @@ This roadmap converts product direction into implementation milestones with acce
 
 Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file stays focused on numbered milestones and the work that has already been selected for release planning.
 
-The `3.27.x` architecture line and `3.28.0` durable provider job foundation are complete. `3.28.1` is the active milestone so BookOrbit comic-series fidelity and native provider identifiers stay in the current provider line; other later work remains versionless in the backlog until deliberately promoted.
+The `3.27.x` architecture line and `3.28.0` durable provider job foundation are complete. `3.28.1` remains a release candidate pending its authorized hosted rerun. `3.28.2` is the active implementation milestone and expands row-level security one certified workspace-owned table family at a time.
+
+---
+
+## 3.28.2 — Staged Workspace Row-Level Security Expansion
+
+**Goal:** Extend PostgreSQL defense-in-depth beyond the saved-view and provider-identity pilots without weakening application authorization or introducing a big-bang policy rollout.
+**Status:** Active. The first selected family is Dashboard review decisions; broader families remain staged behind family-specific evidence.
+
+### Selected scope
+
+- Backfill and harden `media_review_decisions` ownership from its authoritative media relationship, rejecting unresolved rows rather than guessing scope.
+- Bind Dashboard review-decision create, restore, summary, and history reads to the existing authorized transaction broker.
+- Add workspace RLS, same-workspace media/library foreign keys, immutable ownership, and guarded cascade deletion.
+- Prove authorized CRUD, unscoped runtime denial, sibling-workspace isolation, cross-workspace write denial, migration/init parity, and retained-data compatibility before choosing the next family.
+- Keep `sync_jobs` deferred until its cross-workspace claim/recovery, webhook, dashboard, metrics, and operator paths have a separately designed worker authorization contract.
+
+### Acceptance criteria
+
+- Runtime SQL without a valid transaction grant cannot read or mutate Dashboard review decisions.
+- Authorized Dashboard requests retain their existing create, defer/dismiss, restore, hidden-count, and history behavior.
+- A decision cannot reference media or a library in another workspace, and its media/workspace/library ownership cannot be changed after creation.
+- Parent cascades cannot bypass the transaction grant, while owner-run migrations and restore remain operable.
+- Fresh initialization, retained upgrade, raw-SQL/runtime smoke, workspace authorization, browser behavior, and release gates pass before the numbered milestone closes.
+
+### Dashboard review-decision RLS checkpoint
+
+- **Roadmap slice:** `3.28.2 — Staged Workspace Row-Level Security Expansion`, Dashboard review-decision family activation.
+- **Project docs/checklists used:** `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, and `docs/wiki/50-Staged-Row-Level-Security.md`.
+- **Verified facts:** The retained canonical database applied migration `137`; `media_review_decisions` has RLS enabled, non-null media/library/workspace ownership, same-workspace composite foreign keys, immutable ownership, and a scoped cascade guard. The retained table had no rows before activation. The migration rehearsal created a baseline-136 decision with null compatibility scope and proved migration 137 derived the exact media workspace/library, enabled RLS, and restored the baseline snapshot. The family has authenticated Dashboard request paths and no worker, webhook, export, or maintenance writer.
+- **Runtime verification used:** Rebuilt and recreated the canonical `collectz-private` backend in place on port `3201`; the backend and database remained healthy at app version `3.28.1` with schema `137`. The in-container non-owner smoke created marker decisions in two retained workspaces, denied unscoped reads and sibling writes, protected immutable ownership, and removed all fixtures through authorized transactions. RBAC and workspace authorization/isolation smokes passed against the running stack.
+- **CI/checks run:** Backend unit suite (`377` assertions plus `55` Node tests); OpenAPI; frontend unit suite (`4` tests); changed-file quality; fresh-install/init parity through `137`; retained `136 -> 137` migration/rollback rehearsal with ownership-backfill proof; identity-upgrade certification through `137`; runtime-role certification (`30/30`); external-identity certification (`21`); Dashboard decision RLS smoke (`5` labels); RBAC; workspace authorization/isolation; focused Dashboard browser verification (`2` passed including setup); standard local release gate (`14/14` after evidence refresh); Node syntax; and diff hygiene.
+- **Files changed:** Migration `137` and fresh-install parity; scoped Dashboard review-decision route transactions; runtime isolation smoke and hosted RBAC wiring; migration-rehearsal backfill proof; unit contract assertions; refreshed init, migration, identity, runtime-role, external-identity, and preflight evidence; staged-RLS/release policy docs; roadmap/backlog promotion.
+- **Blocked/unverified:** Hosted CodeQL, dependency/secret scans, compose smoke, Core browser/RBAC/runtime suites, image security/SBOM, publication, and release tagging remain deferred to the later `3.28.2` release closeout. The pending `3.28.1` runner repair is still unpushed and uncertified; this slice does not authorize or perform that push.
+- **Risks or follow-ups:** Workspace RLS deliberately permits all authorized libraries inside the workspace; existing explicit library predicates still narrow Dashboard results. `sync_jobs` is not a safe next activation until cross-workspace worker claim/recovery receives a bounded authorization contract. The milestone remains at application version `3.28.1` until its required `3.28.2` version closeout.
+- **What remains in the milestone:** Select and certify the next low-risk workspace-owned family, design the separate worker/maintenance scope boundary before `sync_jobs`, run browser and full release certification, align semver and `docs/releases/v3.28.2.md`, regenerate Help > Releases data, and complete the hosted version closeout.
+- **Recommended commit message:** `Start 3.28.2 staged RLS expansion with protected Dashboard review decisions`.
+
+### Milestone boundary
+
+- This milestone activates one classified table family at a time; it does not enable RLS across all legacy domain tables.
+- Authentication/bootstrap and control-plane tables remain outside RLS until their pre-scope access contracts are designed.
+- `sync_jobs` requires a bounded worker/maintenance authorization contract and is not implicitly included in the Dashboard decision slice.
+- RLS remains defense-in-depth. Existing membership, permission, route-scope, and explicit SQL predicates remain required.
 
 ---
 

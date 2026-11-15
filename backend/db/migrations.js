@@ -4990,7 +4990,9 @@ CREATE INDEX IF NOT EXISTS idx_tv_device_expiry ON tv_device_authorizations(expi
   { version: 135, description: 'Add relational provider sync targets',
     up: require('fs').readFileSync(require('path').join(__dirname, 'providerSyncTargets.sql'), 'utf8') },
   { version: 136, description: 'Add provider series records and media memberships',
-    up: require('fs').readFileSync(require('path').join(__dirname, 'bookOrbitSeriesMemberships.sql'), 'utf8') }
+    up: require('fs').readFileSync(require('path').join(__dirname, 'bookOrbitSeriesMemberships.sql'), 'utf8') },
+  { version: 137, description: 'Protect dashboard review decisions with workspace RLS',
+    up: require('fs').readFileSync(require('path').join(__dirname, 'mediaReviewDecisionRls.sql'), 'utf8') }
 ];
 
 async function runMigrationsForClient(client, options = {}) {

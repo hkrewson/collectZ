@@ -1,15 +1,15 @@
 {
-  "generated_at": "2026-11-15T17:34:24.696Z",
+  "generated_at": "2026-11-15T19:53:45.428Z",
   "certification": "runtime-role",
-  "latest_migration": 136,
-  "legacy_baseline": 135,
+  "latest_migration": 137,
+  "legacy_baseline": 136,
   "runtime_role": "ephemeral (redacted)",
   "checks": [
     {
       "label": "legacy baseline migrated with seeded row",
       "pass": true,
       "detail": {
-        "baseline": 135
+        "baseline": 136
       }
     },
     {
@@ -20,7 +20,7 @@
       "label": "runtime role verifies schema current",
       "pass": true,
       "detail": {
-        "version": 136
+        "version": 137
       }
     },
     {

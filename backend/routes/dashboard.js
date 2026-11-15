@@ -5,6 +5,7 @@ const { authenticateToken } = require('../middleware/auth');
 const { enforceScopeAccess } = require('../middleware/scopeAccess');
 const { validate, dashboardReviewDecisionSchema } = require('../middleware/validate');
 const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
+const { withAuthorizedScopeTransaction } = require('../db/scopeBroker');
 const { logActivity } = require('../services/audit');
 const {
   buildMissingIdentifierReviewClues,
@@ -252,47 +253,54 @@ router.post('/dashboard/review-decisions', validate(dashboardReviewDecisionSchem
     spaceColumn: 'm.space_id',
     libraryColumn: 'm.library_id'
   });
-  const mediaResult = await pool.query(
-    `SELECT m.id, m.title, m.updated_at, m.space_id, m.library_id
-     FROM media m
-     WHERE m.id = $1${mediaScopeClause}
-     LIMIT 1`,
-    mediaParams
+  const created = await withAuthorizedScopeTransaction(
+    pool,
+    scopeContext,
+    req.user.id,
+    async (client) => {
+      const mediaResult = await client.query(
+        `SELECT m.id, m.title, m.updated_at, m.space_id, m.library_id
+         FROM media m
+         WHERE m.id = $1${mediaScopeClause}
+         LIMIT 1`,
+        mediaParams
+      );
+      const media = mediaResult.rows[0];
+      if (!media) return null;
+      const insertResult = await client.query(
+        `INSERT INTO media_review_decisions (
+           media_id, finding_type, action, media_updated_at, deferred_until,
+           note, library_id, space_id, created_by
+         )
+         VALUES (
+           $1, $2, $3, $4,
+           CASE WHEN $3 = 'deferred' THEN CURRENT_TIMESTAMP + INTERVAL '7 days' ELSE NULL END,
+           $5, $6, $7, $8
+         )
+         RETURNING id, media_id, finding_type, action, deferred_until, created_at`,
+        [
+          media.id,
+          findingType,
+          action,
+          media.updated_at || null,
+          req.body.note || null,
+          media.library_id,
+          media.space_id,
+          req.user.id
+        ]
+      );
+      return { decision: insertResult.rows[0], media };
+    }
   );
-  const media = mediaResult.rows[0];
-  if (!media) return res.status(404).json({ error: 'Review item not found' });
-
-  const insertResult = await pool.query(
-    `INSERT INTO media_review_decisions (
-       media_id, finding_type, action, media_updated_at, deferred_until,
-       note, library_id, space_id, created_by
-     )
-     VALUES (
-       $1, $2, $3, $4,
-       CASE WHEN $3 = 'deferred' THEN CURRENT_TIMESTAMP + INTERVAL '7 days' ELSE NULL END,
-       $5, $6, $7, $8
-     )
-     RETURNING id, media_id, finding_type, action, deferred_until, created_at`,
-    [
-      media.id,
-      findingType,
-      action,
-      media.updated_at || null,
-      req.body.note || null,
-      media.library_id || null,
-      media.space_id || null,
-      req.user?.id || null
-    ]
-  );
-
-  const decision = insertResult.rows[0];
-  await logActivity(req, `dashboard.review.${action}`, 'media', media.id, {
+  if (!created) return res.status(404).json({ error: 'Review item not found' });
+  const { decision, media } = created;
+  await logActivity(req, `dashboard.review.${action}`, 'media', decision.media_id, {
     title: media.title || null,
     finding_type: findingType,
     decision_id: decision.id,
     deferred_until: decision.deferred_until || null,
-    spaceId: media.space_id || null,
-    libraryId: media.library_id || null
+    spaceId: media.space_id,
+    libraryId: media.library_id
   });
 
   res.status(201).json({
@@ -313,7 +321,7 @@ router.delete('/dashboard/review-decisions/:id', asyncHandler(async (req, res) =
     spaceColumn: 'm.space_id',
     libraryColumn: 'm.library_id'
   });
-  const result = await pool.query(
+  const result = await withAuthorizedScopeTransaction(pool, scopeContext, req.user.id, (client) => client.query(
     `DELETE FROM media_review_decisions mrd
      USING media m
      WHERE mrd.id = $1
@@ -322,7 +330,7 @@ router.delete('/dashboard/review-decisions/:id', asyncHandler(async (req, res) =
        mrd.id, mrd.media_id, mrd.finding_type, mrd.action, mrd.deferred_until, mrd.created_at,
        m.title, m.media_type, m.year, m.format, m.space_id, m.library_id`,
     params
-  );
+  ));
   const row = result.rows[0];
   if (!row) return res.status(404).json({ error: 'Review decision not found' });
 
@@ -423,8 +431,8 @@ router.get('/dashboard/summary', asyncHandler(async (req, res) => {
     recentActivity,
     integrationResult,
     hiddenReviewDecisions
-  ] = await Promise.all([
-    pool.query(
+  ] = await withAuthorizedScopeTransaction(pool, scopeContext, req.user.id, (client) => Promise.all([
+    client.query(
       `SELECT
          COUNT(*)::int AS total,
          COUNT(*) FILTER (WHERE ${MISSING_COVER_ACTIVE_SQL})::int AS missing_covers,
@@ -434,7 +442,7 @@ router.get('/dashboard/summary', asyncHandler(async (req, res) => {
        WHERE 1=1${mediaScopeClause}`,
       mediaParams
     ),
-    pool.query(
+    client.query(
       `SELECT
          m.id, m.title, m.media_type, m.year, m.format, m.poster_path, m.type_details, m.import_source, m.owned_formats, m.updated_at, m.created_at,
          ${reviewDecisionHistorySql('m', 'missing_covers')}
@@ -444,7 +452,7 @@ router.get('/dashboard/summary', asyncHandler(async (req, res) => {
        LIMIT 8`,
       mediaParams
     ),
-    pool.query(
+    client.query(
       `SELECT
          m.id, m.title, m.media_type, m.year, m.format, m.poster_path, m.upc, m.tmdb_id, m.type_details, m.import_source, m.owned_formats, m.updated_at, m.created_at,
          ${reviewDecisionHistorySql('m', 'missing_identifiers')}
@@ -454,7 +462,7 @@ router.get('/dashboard/summary', asyncHandler(async (req, res) => {
        LIMIT 8`,
       mediaParams
     ),
-    pool.query(
+    client.query(
       `SELECT
          m.id, m.title, m.media_type, m.year, m.format, m.poster_path, m.upc, m.tmdb_id, m.type_details, m.import_source, m.owned_formats, m.updated_at, m.created_at,
          ${reviewDecisionHistorySql('m', 'sparse_metadata')}
@@ -464,7 +472,7 @@ router.get('/dashboard/summary', asyncHandler(async (req, res) => {
        LIMIT 8`,
       mediaParams
     ),
-    pool.query(
+    client.query(
       `SELECT id, job_type, provider, status, error, summary, updated_at, created_at
        FROM sync_jobs
        WHERE status = 'failed'${syncFailureScopeClause}
@@ -472,7 +480,7 @@ router.get('/dashboard/summary', asyncHandler(async (req, res) => {
        LIMIT 5`,
       syncFailureParams
     ),
-    pool.query(
+    client.query(
       `SELECT id, job_type, provider, status, error, summary, updated_at, created_at
        FROM sync_jobs
        WHERE 1=1${syncRecentScopeClause}
@@ -480,13 +488,13 @@ router.get('/dashboard/summary', asyncHandler(async (req, res) => {
        LIMIT 6`,
       syncRecentParams
     ),
-    pool.query(
+    client.query(
       `SELECT COUNT(*)::int AS open_count
        FROM plex_reconciliation_reviews
        WHERE status = 'open'${reviewScopeClause}`,
       reviewParams
     ),
-    pool.query(
+    client.query(
       `SELECT e.id, e.title, e.location, e.date_start, e.date_end, e.host, e.image_path
        FROM events e
        WHERE e.archived_at IS NULL
@@ -495,7 +503,7 @@ router.get('/dashboard/summary', asyncHandler(async (req, res) => {
        LIMIT 5`,
       eventParams
     ),
-    pool.query(
+    client.query(
       `SELECT al.id, al.action, al.entity_type, al.entity_id, al.details, al.created_at, u.email AS user_email
        FROM activity_log al
        LEFT JOIN users u ON u.id = al.user_id
@@ -504,7 +512,7 @@ router.get('/dashboard/summary', asyncHandler(async (req, res) => {
        LIMIT 8`,
       activityParams
     ),
-    pool.query(
+    client.query(
       `SELECT *
        FROM app_integrations
        ${integrationWhere}
@@ -512,7 +520,7 @@ router.get('/dashboard/summary', asyncHandler(async (req, res) => {
        LIMIT 1`,
       integrationParams
     ),
-    pool.query(
+    client.query(
       `SELECT DISTINCT ON (mrd.media_id, mrd.finding_type)
          mrd.id, mrd.media_id, mrd.finding_type, mrd.action, mrd.deferred_until, mrd.created_at,
          m.title, m.media_type, m.year, m.format
@@ -523,7 +531,7 @@ router.get('/dashboard/summary', asyncHandler(async (req, res) => {
        LIMIT 20`,
       mediaParams
     )
-  ]);
+  ]));
 
   const mediaRow = mediaCounts.rows[0] || {};
   const openReviewCount = toCount(openReviews.rows[0]?.open_count);
