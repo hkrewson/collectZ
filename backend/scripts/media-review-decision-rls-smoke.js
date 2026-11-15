@@ -27,34 +27,60 @@ async function expectDenied(label, work) {
   throw new Error(`${label} unexpectedly succeeded`);
 }
 
-async function main() {
-  const candidates = await pool.query(`
-    SELECT DISTINCT ON (m.space_id)
-           m.id AS media_id,
-           m.space_id,
-           m.library_id,
-           COALESCE(sm.user_id, s.created_by) AS actor_id
-      FROM media m
-      JOIN spaces s ON s.id = m.space_id AND s.archived_at IS NULL
-      LEFT JOIN space_memberships sm
-        ON sm.space_id = m.space_id
-       AND sm.suspended_at IS NULL
-     WHERE m.space_id IS NOT NULL
-       AND m.library_id IS NOT NULL
-       AND COALESCE(sm.user_id, s.created_by) IS NOT NULL
-     ORDER BY m.space_id, sm.role = 'owner' DESC, m.id
-  `);
-  const fixtures = candidates.rows.slice(0, 2).map((row) => ({
-    mediaId: Number(row.media_id),
-    spaceId: Number(row.space_id),
-    libraryId: Number(row.library_id),
-    actorId: Number(row.actor_id)
-  }));
-  assert(fixtures.length === 2, 'Two workspace fixtures are required for review-decision RLS smoke');
+async function createFixture(fixture, suffix, index) {
+  fixture.actorId = Number((await pool.query(
+    `INSERT INTO users (email, password, name, role, email_verified)
+     VALUES ($1, $2, $3, 'user', true)
+     RETURNING id`,
+    [
+      `review-decision-rls-${index}-${suffix}@example.invalid`,
+      crypto.randomBytes(48).toString('hex'),
+      `Review decision RLS ${index}`
+    ]
+  )).rows[0].id);
+  fixture.spaceId = Number((await pool.query(
+    `INSERT INTO spaces (name, slug, created_by, is_personal)
+     VALUES ($1, $2, $3, false)
+     RETURNING id`,
+    [`Review decision RLS ${index}`, `review-decision-rls-${index}-${suffix}`, fixture.actorId]
+  )).rows[0].id);
+  await pool.query(
+    `INSERT INTO space_memberships (space_id, user_id, role, created_by)
+     VALUES ($1, $2, 'owner', $2)`,
+    [fixture.spaceId, fixture.actorId]
+  );
+  fixture.libraryId = Number((await pool.query(
+    `INSERT INTO libraries (space_id, name, created_by)
+     VALUES ($1, $2, $3)
+     RETURNING id`,
+    [fixture.spaceId, `Review decision RLS library ${index}`, fixture.actorId]
+  )).rows[0].id);
+  await pool.query(
+    `INSERT INTO library_memberships (user_id, library_id, role)
+     VALUES ($1, $2, 'owner')`,
+    [fixture.actorId, fixture.libraryId]
+  );
+  fixture.mediaId = Number((await pool.query(
+    `INSERT INTO media (title, media_type, space_id, library_id, added_by, import_source)
+     VALUES ($1, 'book', $2, $3, $4, 'rls_smoke')
+     RETURNING id`,
+    [`Review decision RLS media ${index}`, fixture.spaceId, fixture.libraryId, fixture.actorId]
+  )).rows[0].id);
+  return fixture;
+}
 
+async function main() {
+  const suffix = crypto.randomBytes(8).toString('hex');
   const marker = `rls-smoke-${crypto.randomUUID()}`;
+  const fixtures = [];
   const created = [];
   try {
+    for (const index of [1, 2]) {
+      const fixture = {};
+      fixtures.push(fixture);
+      await createFixture(fixture, suffix, index);
+    }
+
     for (const fixture of fixtures) {
       const result = await scopedQuery(
         fixture,
@@ -108,14 +134,45 @@ async function main() {
       ]
     }, null, 2));
   } finally {
+    const cleanupFailures = [];
+    const cleanup = async (label, work) => {
+      try {
+        await work();
+      } catch {
+        cleanupFailures.push(label);
+      }
+    };
     for (const fixture of created) {
-      await scopedQuery(
+      await cleanup('scoped decision cleanup', () => scopedQuery(
         fixture,
         'DELETE FROM media_review_decisions WHERE id = $1 AND note = $2',
         [fixture.decisionId, marker]
-      ).catch(() => {});
+      ));
     }
+    const mediaIds = fixtures.map((fixture) => fixture.mediaId).filter(Number.isInteger);
+    const libraryIds = fixtures.map((fixture) => fixture.libraryId).filter(Number.isInteger);
+    const spaceIds = fixtures.map((fixture) => fixture.spaceId).filter(Number.isInteger);
+    const actorIds = fixtures.map((fixture) => fixture.actorId).filter(Number.isInteger);
+    if (mediaIds.length) await cleanup('media cleanup', () =>
+      pool.query('DELETE FROM media WHERE id = ANY($1::int[])', [mediaIds]));
+    if (libraryIds.length) {
+      await cleanup('library membership cleanup', () =>
+        pool.query('DELETE FROM library_memberships WHERE library_id = ANY($1::int[])', [libraryIds]));
+      await cleanup('library cleanup', () =>
+        pool.query('DELETE FROM libraries WHERE id = ANY($1::int[])', [libraryIds]));
+    }
+    if (spaceIds.length) {
+      await cleanup('space membership cleanup', () =>
+        pool.query('DELETE FROM space_memberships WHERE space_id = ANY($1::int[])', [spaceIds]));
+      await cleanup('space cleanup', () =>
+        pool.query('DELETE FROM spaces WHERE id = ANY($1::int[])', [spaceIds]));
+    }
+    if (actorIds.length) await cleanup('user cleanup', () =>
+      pool.query('DELETE FROM users WHERE id = ANY($1::int[])', [actorIds]));
     await pool.end().catch(() => {});
+    if (cleanupFailures.length) {
+      throw new Error(`Fixture cleanup failed: ${cleanupFailures.join(', ')}`);
+    }
   }
 }
 

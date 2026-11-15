@@ -246,6 +246,7 @@ const {
 const coreRoutesSource = fs.readFileSync(require.resolve('../routes/core'), 'utf8');
 const migrationsSource = fs.readFileSync(require.resolve('../db/migrations'), 'utf8');
 const mediaReviewDecisionRlsSource = fs.readFileSync(path.resolve(__dirname, '..', 'db', 'mediaReviewDecisionRls.sql'), 'utf8');
+const mediaReviewDecisionRlsSmokeSource = fs.readFileSync(require.resolve('../scripts/media-review-decision-rls-smoke'), 'utf8');
 const initSqlSource = fs.readFileSync(path.resolve(__dirname, '..', '..', 'init.sql'), 'utf8');
 const libraryServiceSource = fs.readFileSync(require.resolve('../services/libraries'), 'utf8');
 const personalAccessTokenSource = fs.readFileSync(require.resolve('../services/personalAccessTokens'), 'utf8');
@@ -8373,6 +8374,11 @@ results.push(run('dashboard command center is authenticated scoped dashboard def
   assert.ok(mediaReviewDecisionRlsSource.includes('media_review_decisions_library_scope_fk'));
   assert.ok(mediaReviewDecisionRlsSource.includes('immutable_media_review_decision_owner'));
   assert.ok(mediaReviewDecisionRlsSource.includes('guard_media_review_decision_delete'));
+  assert.ok(mediaReviewDecisionRlsSmokeSource.includes('INSERT INTO users'));
+  assert.ok(mediaReviewDecisionRlsSmokeSource.includes('INSERT INTO spaces'));
+  assert.ok(mediaReviewDecisionRlsSmokeSource.includes('INSERT INTO libraries'));
+  assert.ok(mediaReviewDecisionRlsSmokeSource.includes('INSERT INTO media'));
+  assert.ok(mediaReviewDecisionRlsSmokeSource.includes('Fixture cleanup failed'));
   assert.ok(dashboardRoutesSource.includes('withAuthorizedScopeTransaction'));
   assert.ok(mediaRoutesSource.includes('applyMediaReviewClues'));
   assert.ok(mediaRoutesSource.includes('normalizedReviewFilter'));
