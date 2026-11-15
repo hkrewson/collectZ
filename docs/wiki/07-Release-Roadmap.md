@@ -4,7 +4,7 @@ This roadmap converts product direction into implementation milestones with acce
 
 Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file stays focused on numbered milestones and the work that has already been selected for release planning.
 
-The `3.27.x` architecture line and `3.28.0` durable provider job foundation are complete. `3.28.1` remains a release candidate pending its authorized hosted rerun. `3.28.2` is the active implementation milestone and expands row-level security one certified workspace-owned table family at a time.
+The `3.27.x` architecture line, `3.28.0` durable provider job foundation, and `3.28.1` BookOrbit rich metadata release are complete. `3.28.2` is the active implementation milestone and expands row-level security one certified workspace-owned table family at a time.
 
 ---
 
@@ -37,7 +37,7 @@ The `3.27.x` architecture line and `3.28.0` durable provider job foundation are 
 - **Runtime verification used:** Rebuilt and recreated the canonical `collectz-private` backend in place on port `3201`; the backend and database remained healthy at app version `3.28.1` with schema `137`. The in-container non-owner smoke created marker decisions in two retained workspaces, denied unscoped reads and sibling writes, protected immutable ownership, and removed all fixtures through authorized transactions. RBAC and workspace authorization/isolation smokes passed against the running stack.
 - **CI/checks run:** Backend unit suite (`377` assertions plus `55` Node tests); OpenAPI; frontend unit suite (`4` tests); changed-file quality; fresh-install/init parity through `137`; retained `136 -> 137` migration/rollback rehearsal with ownership-backfill proof; identity-upgrade certification through `137`; runtime-role certification (`30/30`); external-identity certification (`21`); Dashboard decision RLS smoke (`5` labels); RBAC; workspace authorization/isolation; focused Dashboard browser verification (`2` passed including setup); standard local release gate (`14/14` after evidence refresh); Node syntax; and diff hygiene.
 - **Files changed:** Migration `137` and fresh-install parity; scoped Dashboard review-decision route transactions; runtime isolation smoke and hosted RBAC wiring; migration-rehearsal backfill proof; unit contract assertions; refreshed init, migration, identity, runtime-role, external-identity, and preflight evidence; staged-RLS/release policy docs; roadmap/backlog promotion.
-- **Blocked/unverified:** Hosted CodeQL, dependency/secret scans, compose smoke, Core browser/RBAC/runtime suites, image security/SBOM, publication, and release tagging remain deferred to the later `3.28.2` release closeout. The pending `3.28.1` runner repair is still unpushed and uncertified; this slice does not authorize or perform that push.
+- **Blocked/unverified:** Hosted CodeQL, dependency/secret scans, compose smoke, Core browser/RBAC/runtime suites, image security/SBOM, publication, and release tagging remain deferred to the later `3.28.2` release closeout. `3.28.1` is separately certified and tagged; no earlier release blocker remains attached to this slice.
 - **Risks or follow-ups:** Workspace RLS deliberately permits all authorized libraries inside the workspace; existing explicit library predicates still narrow Dashboard results. `sync_jobs` is not a safe next activation until cross-workspace worker claim/recovery receives a bounded authorization contract. The milestone remains at application version `3.28.1` until its required `3.28.2` version closeout.
 - **What remains in the milestone:** Select and certify the next low-risk workspace-owned family, design the separate worker/maintenance scope boundary before `sync_jobs`, run browser and full release certification, align semver and `docs/releases/v3.28.2.md`, regenerate Help > Releases data, and complete the hosted version closeout.
 - **Recommended commit message:** `Start 3.28.2 staged RLS expansion with protected Dashboard review decisions`.
@@ -160,7 +160,7 @@ The `3.27.x` architecture line and `3.28.0` durable provider job foundation are 
 ## 3.28.1 — BookOrbit Rich Comic Series Metadata
 
 **Goal:** Build on the scheduled OPDS sync proof with a normalized comic-series model that can represent BookOrbit's richer native metadata without overloading canonical issue fields or provider payload JSON.
-**Status:** Release candidate. Native capability/provider identifiers and normalized multi-series/native-cover enrichment are implemented and locally certified as `3.28.1`; hosted publication gates and the annotated release tag remain.
+**Status:** Complete. Local and hosted release certification passed, versioned backend/frontend images were published, and annotated tag `v3.28.1` identifies certified commit `6dc8845f`.
 
 ### Selected scope
 
@@ -227,6 +227,19 @@ The `3.27.x` architecture line and `3.28.0` durable provider job foundation are 
 - **Risks or follow-ups:** The explicit Ubuntu 24.04 pin must be revisited when the lockfile-pinned Playwright toolchain supports the next hosted runner image. A green local browser toolchain cannot substitute for the pending hosted browser job.
 - **What remains in the milestone:** With user authorization, push `main`, verify every remaining hosted gate on the repair commit, record the successful run identifiers, confirm automatic tag creation, and only then mark `3.28.1` complete.
 - **Recommended commit message:** `Repair 3.28.1 hosted browser certification by pinning Playwright jobs to Ubuntu 24.04`.
+
+### 3.28.1 hosted certification closeout
+
+- **Roadmap slice:** `3.28.1 — BookOrbit Rich Comic Series Metadata`, hosted release certification and version closeout.
+- **Project docs/checklists used:** `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/53-Digital-Library-Provider-Identity-Contract.md`, and `docs/releases/v3.28.1.md`.
+- **Verified runtime facts:** Hosted Build and Publish Images run `43750828049` passed on repair commit `6dc8845f`, including the Ubuntu 24.04 Playwright browser job. Backend and frontend `3.28.1` images were published, release preflight passed, and annotated tag `v3.28.1` resolves to the certified commit. The separately required local control-plane/platform boundary proof and Help > Releases readback were already green in the release-candidate checkpoint.
+- **Runtime verification used:** Hosted production-shaped Compose smoke, Core runtime, Core RBAC, and Core browser regression; local canonical `collectz-private` control-plane boundary, provider smokes, retained PostgreSQL state, and authenticated Help release-feed readback.
+- **CI/checks run:** Hosted prepare, frontend quality, migration/init parity/rehearsal, identity/runtime-role/saved-view RLS certifications, dependency scan, secret scan, compose smoke, Core runtime, Core RBAC, Core browser regression, backend/frontend publication, Trivy image scans, CycloneDX SBOM generation, release preflight, and auto-tag all passed in run `43750828049`. Hosted CodeQL run `43750828016` also passed.
+- **Files changed:** The certified release content is commit `6dc8845f`; this checkpoint and the matching release-note status correction record the completed hosted outcome after tag creation.
+- **Blocked/unverified:** None for the `3.28.1` release. Stable-channel promotion, if desired, remains a separate operational choice after the documented soak period.
+- **Risks or follow-ups:** Browser jobs remain pinned to Ubuntu 24.04 until a lockfile-pinned Playwright upgrade certifies a newer hosted runner. BookOrbit still exposes no reliable selected-provider field, so upstream ids remain provenance metadata while BookOrbit remains canonical.
+- **What remains in the milestone:** Nothing. `3.28.1` is complete and `3.28.2` is the active implementation milestone.
+- **Recommended commit message:** `Close 3.28.1 after hosted BookOrbit metadata certification and activate 3.28.2 staged RLS work`.
 
 ### Milestone boundary
 
