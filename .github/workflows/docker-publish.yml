@@ -668,7 +668,10 @@ jobs:
 
   browser-regression:
     name: core-browser-regression
-    runs-on: ubuntu-latest
+    # Playwright 1.59.1 does not support Chromium on the Ubuntu 26.04 runner
+    # currently selected by ubuntu-latest. Keep this explicit until the
+    # lockfile-pinned browser toolchain certifies a newer runner image.
+    runs-on: ubuntu-24.04
     needs: [prepare, migration-check, compose-smoke]
     steps:
       - name: Checkout

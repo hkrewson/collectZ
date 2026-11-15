@@ -112,7 +112,7 @@ Source code scanning:
 Playwright packaging boundary:
 
 - The root-level Playwright package is tracked in git as test infrastructure and installed in CI for browser-regression jobs.
-- Hosted Ubuntu runners provide the required browser system libraries; the workflows install the lockfile-pinned Chromium browser without `--with-deps` so an optional APT/font-package mirror outage cannot prevent the browser suite from starting. A browser launch failure still fails the gate and must be treated as evidence that the runner-library assumption needs review.
+- Browser workflows pin `ubuntu-24.04`, which is supported by the lockfile-pinned Playwright `1.59.1` browser toolchain. Do not move these jobs back to `ubuntu-latest` while it resolves to Ubuntu 26.04: Playwright refuses the Chromium install before application tests start. The workflows install Chromium without `--with-deps` because the pinned hosted image provides the required system libraries and this avoids making the gate depend on optional APT/font-package mirrors. An install or launch failure still fails the gate and must be treated as evidence that the runner/toolchain assumption needs review; preserve the install log when no Playwright artifact bundle is produced.
 - It is not part of the production runtime images.
 - Saved Playwright auth/session bootstrap state must stay outside uploaded CI artifact paths.
 - CI should use per-run random browser-regression bypass credentials, not fixed shared token strings.

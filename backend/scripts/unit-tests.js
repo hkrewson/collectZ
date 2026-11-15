@@ -3435,6 +3435,10 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
   assert.ok(playwrightAdminSetupSource.includes("updateFeatureFlag(requestContext, 'events_enabled', true)"));
   assert.ok(dockerPublishWorkflowSource.includes('browser-regression:'));
   assert.ok(dockerPublishWorkflowSource.includes('name: core-browser-regression'));
+  assert.match(
+    dockerPublishWorkflowSource,
+    /browser-regression:[\s\S]*?name: core-browser-regression[\s\S]*?runs-on: ubuntu-24\.04/
+  );
   assert.ok(dockerPublishWorkflowSource.includes('npx playwright install chromium'));
   assert.ok(!dockerPublishWorkflowSource.includes('playwright install --with-deps'));
   assert.ok(dockerPublishWorkflowSource.includes('npm run test:browser:core-regression'));
@@ -3451,6 +3455,7 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
   assert.ok(!dockerPublishWorkflowSource.includes('npm run test:control-plane-runtime-smoke'));
   assert.ok(dockerPublishWorkflowSource.includes('- Core runtime smoke: PASS'));
   assert.ok(browserCapturesWorkflowSource.includes('workflow_dispatch:'));
+  assert.match(browserCapturesWorkflowSource, /browser-captures:[\s\S]*?runs-on: ubuntu-24\.04/);
   assert.ok(browserCapturesWorkflowSource.includes('npx playwright install chromium'));
   assert.ok(!browserCapturesWorkflowSource.includes('playwright install --with-deps'));
   assert.ok(browserCapturesWorkflowSource.includes('npm run test:browser:capture'));

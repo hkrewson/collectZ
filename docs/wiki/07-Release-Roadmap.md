@@ -172,6 +172,19 @@ The `3.27.x` architecture line and `3.28.0` durable provider job foundation are 
 - **What remains in the milestone:** With user authorization, push `main`; verify hosted `compose-smoke`, `rbac-regression`, `browser-regression`, Core and control-plane `runtime-smoke`, `dependency-scan`, `secret-scan`, `image-security-and-sbom`, image publication, release preflight, and automatic tag creation; then record hosted run identifiers and mark `3.28.1` complete.
 - **Recommended commit message:** `Prepare 3.28.1 release candidate with BookOrbit native metadata, normalized series provenance, and cover enrichment`.
 
+### 3.28.1 hosted browser-runner repair checkpoint
+
+- **Roadmap slice:** `3.28.1 — BookOrbit Rich Comic Series Metadata`, hosted release-candidate browser certification repair.
+- **Project docs/checklists used:** `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, and `docs/releases/v3.28.1.md`.
+- **Verified facts:** Hosted CodeQL run `43742556768` passed. Hosted Build and Publish Images run `43742556793` passed prepare, secret scan, dependency scan, frontend quality, migration/init-parity/rehearsal checks, compose smoke, Core runtime smoke, and Core RBAC regression. Its browser job failed before application tests because `ubuntu-latest` resolved to Ubuntu 26.04 and Playwright 1.59.1 rejected Chromium installation on that image. Both maintained browser workflows now pin the supported Ubuntu 24.04 runner, with regression assertions protecting the runner contract.
+- **Runtime verification used:** The local release preflight verified the existing canonical `collectz-private` stack at `http://localhost:3201`; `/api/health` reported app/frontend/backend/build `3.28.1`, and the authenticated in-container Help > Releases smoke served `3.28.1` as the latest entry.
+- **CI/checks run:** `npm run ci:prepare`; backend unit suite (377 assertions plus 55 Node tests); frontend unit suite (4 tests); changed-file frontend quality; `git diff --check`; and `npm run release:local-gate` (14/14 local gates passed, including OpenAPI, production frontend build, dependency audits, running-stack preflight, version sync, release note, and release feed).
+- **Files changed:** `.github/workflows/docker-publish.yml`, `.github/workflows/browser-captures.yml`, `backend/scripts/unit-tests.js`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/releases/v3.28.1.md`, refreshed local preflight evidence, and this roadmap checkpoint.
+- **Blocked/unverified:** The repair commit has not been pushed because push authorization was not provided. Therefore hosted browser regression, image security/SBOM, image publication, release preflight, and automatic `v3.28.1` tagging have not rerun on the repaired runner contract.
+- **Risks or follow-ups:** The explicit Ubuntu 24.04 pin must be revisited when the lockfile-pinned Playwright toolchain supports the next hosted runner image. A green local browser toolchain cannot substitute for the pending hosted browser job.
+- **What remains in the milestone:** With user authorization, push `main`, verify every remaining hosted gate on the repair commit, record the successful run identifiers, confirm automatic tag creation, and only then mark `3.28.1` complete.
+- **Recommended commit message:** `Repair 3.28.1 hosted browser certification by pinning Playwright jobs to Ubuntu 24.04`.
+
 ### Milestone boundary
 
 - No work/edition/copy remodel, broad taxonomy rewrite, BookOrbit writeback, or provider-file mutation belongs in `3.28.1`.
