@@ -4994,7 +4994,9 @@ CREATE INDEX IF NOT EXISTS idx_tv_device_expiry ON tv_device_authorizations(expi
   { version: 137, description: 'Protect dashboard review decisions with workspace RLS',
     up: require('fs').readFileSync(require('path').join(__dirname, 'mediaReviewDecisionRls.sql'), 'utf8') },
   { version: 138, description: 'Protect merge recommendation feedback with library RLS',
-    up: require('fs').readFileSync(require('path').join(__dirname, 'mediaMergeRecommendationFeedbackRls.sql'), 'utf8') }
+    up: require('fs').readFileSync(require('path').join(__dirname, 'mediaMergeRecommendationFeedbackRls.sql'), 'utf8') },
+  { version: 139, description: 'Protect event exclusive sources with library RLS',
+    up: require('fs').readFileSync(require('path').join(__dirname, 'eventExclusiveSourcesRls.sql'), 'utf8') }
 ];
 
 async function runMigrationsForClient(client, options = {}) {

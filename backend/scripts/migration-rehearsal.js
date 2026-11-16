@@ -58,7 +58,7 @@ async function createDatabase(adminClient, dbName, template = null) {
 }
 
 async function collectCounts(client) {
-  const tables = ['users', 'media', 'media_merge_recommendation_feedback', 'invites', 'app_integrations', 'feature_flags'];
+  const tables = ['users', 'media', 'media_merge_recommendation_feedback', 'event_exclusive_sources', 'invites', 'app_integrations', 'feature_flags'];
   const counts = {};
   for (const table of tables) {
     const result = await client.query(`SELECT COUNT(*)::int AS count FROM ${quoteIdent(table)}`);
@@ -219,13 +219,28 @@ async function seedLegacyFixture(client, baselineVersion) {
     [Number(media.rows[0].id), reviewScope[0], reviewScope[1], userId]
   );
   const mediaIds = [Number(media.rows[0].id), Number(duplicateMedia.rows[0].id)].sort((left, right) => left - right);
+  const feedbackScope = baselineVersion >= 138 ? [spaceId, libraryId] : [null, null];
   await client.query(
     `INSERT INTO media_merge_recommendation_feedback
        (pair_low_media_id, pair_high_media_id, canonical_media_id, duplicate_media_id,
         media_type, outcome, reason, context, space_id, library_id, created_by)
      VALUES ($1, $2, $3, $4, 'movie', 'rejected', 'Migration 138 ownership fixture',
-             '{"source":"migration-rehearsal"}'::jsonb, NULL, NULL, $5)`,
-    [mediaIds[0], mediaIds[1], Number(media.rows[0].id), Number(duplicateMedia.rows[0].id), userId]
+             '{"source":"migration-rehearsal"}'::jsonb, $5, $6, $7)`,
+    [mediaIds[0], mediaIds[1], Number(media.rows[0].id), Number(duplicateMedia.rows[0].id), feedbackScope[0], feedbackScope[1], userId]
+  );
+  const event = await client.query(
+    `INSERT INTO events (library_id, space_id, created_by, title, url, location, date_start)
+     VALUES ($1, $2, $3, 'Migration 139 event', 'https://example.invalid/migration-139', 'Migration rehearsal', CURRENT_DATE)
+     RETURNING id`,
+    [libraryId, spaceId, userId]
+  );
+  await client.query(
+    `INSERT INTO event_exclusive_sources
+       (event_id, provider, provider_key, source_url, source_title, metadata,
+        library_id, space_id, created_by)
+     VALUES ($1, 'migration-rehearsal', 'migration-139', 'https://example.invalid/migration-139/source',
+             'Migration 139 ownership fixture', '{}'::jsonb, NULL, NULL, $2)`,
+    [Number(event.rows[0].id), userId]
   );
 }
 
@@ -312,6 +327,18 @@ async function main() {
       evidence.checks.mergeFeedbackOwnershipBackfilled = mergeFeedback.rows.length === 1
         && mergeFeedback.rows[0].ownership_matches === true
         && mergeFeedback.rows[0].rls_enabled === true;
+      const exclusiveSource = await upgradeClient.query(
+        `SELECT s.space_id, s.library_id,
+                s.space_id = e.space_id AND s.library_id = e.library_id AS ownership_matches,
+                c.relrowsecurity AS rls_enabled
+           FROM event_exclusive_sources s
+           JOIN events e ON e.id = s.event_id
+           JOIN pg_class c ON c.oid = 'public.event_exclusive_sources'::regclass
+          WHERE s.source_title = 'Migration 139 ownership fixture'`
+      );
+      evidence.checks.eventExclusiveSourceOwnershipBackfilled = exclusiveSource.rows.length === 1
+        && exclusiveSource.rows[0].ownership_matches === true
+        && exclusiveSource.rows[0].rls_enabled === true;
     } finally {
       await upgradeClient.end();
     }
@@ -341,6 +368,9 @@ async function main() {
     }
     if (!evidence.checks.mergeFeedbackOwnershipBackfilled) {
       throw new Error('Merge recommendation feedback ownership backfill or RLS activation failed');
+    }
+    if (!evidence.checks.eventExclusiveSourceOwnershipBackfilled) {
+      throw new Error('Event exclusive source ownership backfill or RLS activation failed');
     }
     const postInvite = evidence.checks.postUpgradeInvitationState;
     if (postInvite.tokenColumnPresent || !postInvite.tokenHashRequired || postInvite.missingHashCount !== 0 || postInvite.plaintextValueCount !== 0) {

@@ -249,6 +249,8 @@ const mediaReviewDecisionRlsSource = fs.readFileSync(path.resolve(__dirname, '..
 const mediaReviewDecisionRlsSmokeSource = fs.readFileSync(require.resolve('../scripts/media-review-decision-rls-smoke'), 'utf8');
 const mediaMergeFeedbackRlsSource = fs.readFileSync(path.resolve(__dirname, '..', 'db', 'mediaMergeRecommendationFeedbackRls.sql'), 'utf8');
 const mediaMergeFeedbackRlsSmokeSource = fs.readFileSync(require.resolve('../scripts/media-merge-feedback-rls-smoke'), 'utf8');
+const eventExclusiveSourcesRlsSource = fs.readFileSync(path.resolve(__dirname, '..', 'db', 'eventExclusiveSourcesRls.sql'), 'utf8');
+const eventExclusiveSourcesRlsSmokeSource = fs.readFileSync(require.resolve('../scripts/event-exclusive-sources-rls-smoke'), 'utf8');
 const initSqlSource = fs.readFileSync(path.resolve(__dirname, '..', '..', 'init.sql'), 'utf8');
 const libraryServiceSource = fs.readFileSync(require.resolve('../services/libraries'), 'utf8');
 const personalAccessTokenSource = fs.readFileSync(require.resolve('../services/personalAccessTokens'), 'utf8');
@@ -3682,6 +3684,27 @@ results.push(run('media route source exposes operator-only manual merge preview 
   assert.ok(mediaRoutesSource.includes('loadScopedComicDuplicateCandidates'));
   assert.ok(mediaRoutesSource.includes('assessComicRecommendationSuppression'));
   assert.ok(mediaRoutesSource.includes('title_issue_mismatch'));
+}));
+
+results.push(run('event exclusive sources use exact-library RLS and authorized request transactions', () => {
+  assert.ok(migrationsSource.includes('version: 139'));
+  assert.ok(migrationsSource.includes('eventExclusiveSourcesRls.sql'));
+  assert.ok(initSqlSource.includes("(139, 'Protect event exclusive sources with library RLS')"));
+  assert.ok(eventExclusiveSourcesRlsSource.includes('ALTER TABLE public.event_exclusive_sources ENABLE ROW LEVEL SECURITY'));
+  assert.ok(eventExclusiveSourcesRlsSource.includes('CREATE POLICY event_exclusive_sources_scope'));
+  assert.ok(eventExclusiveSourcesRlsSource.includes('event_exclusive_sources_event_scope_fk'));
+  assert.ok(eventExclusiveSourcesRlsSource.includes('event_exclusive_sources_library_scope_fk'));
+  assert.ok(eventExclusiveSourcesRlsSource.includes('event_exclusive_sources_wanted_scope_fk'));
+  assert.ok(eventExclusiveSourcesRlsSource.includes('event_exclusive_sources_collectible_scope_fk'));
+  assert.ok(eventExclusiveSourcesRlsSource.includes('ON DELETE SET NULL (promoted_wanted_item_id)'));
+  assert.ok(eventExclusiveSourcesRlsSource.includes('enforce_event_exclusive_source_scope'));
+  assert.ok(eventExclusiveSourcesRlsSource.includes('guard_event_exclusive_source_delete'));
+  assert.ok(eventsRoutesSource.includes('withEventExclusiveSourceScope'));
+  assert.ok(eventsRoutesSource.includes('upsertExclusiveSource(currentEvent, candidate, req.user?.id || null, client)'));
+  assert.ok(eventExclusiveSourcesRlsSmokeSource.includes('workspace-only grant denial'));
+  assert.ok(eventExclusiveSourcesRlsSmokeSource.includes('cross-library promotion denial'));
+  assert.ok(eventExclusiveSourcesRlsSmokeSource.includes('linked target move denial'));
+  assert.ok(eventExclusiveSourcesRlsSmokeSource.includes('guarded parent cascade'));
 }));
 
 results.push(run('repo includes import normalization smoke coverage for high-confidence auto-attach', () => {

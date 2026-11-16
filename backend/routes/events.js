@@ -30,6 +30,7 @@ const {
   eventPersonalIcsSourceSchema
 } = require('../middleware/validate');
 const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
+const { withAuthorizedScopeTransaction } = require('../db/scopeBroker');
 const { logActivity } = require('../services/audit');
 const { uploadBuffer } = require('../services/storage');
 const { isFeatureEnabledForSpace } = require('../services/featureFlags');
@@ -300,10 +301,10 @@ async function syncEventArtifactSignature({ artifact, event, payload = {}, userI
   return signature;
 }
 
-async function ensureScopedEvent(scopeContext, eventId) {
+async function ensureScopedEvent(scopeContext, eventId, db = pool) {
   const eventParams = [eventId];
   const eventScopeClause = appendScopeSql(eventParams, scopeContext);
-  const eventResult = await pool.query(
+  const eventResult = await db.query(
     `SELECT id, library_id, space_id, date_start, location
      FROM events
      WHERE id = $1
@@ -315,10 +316,10 @@ async function ensureScopedEvent(scopeContext, eventId) {
   return eventResult.rows[0] || null;
 }
 
-async function loadExclusiveSourcesForEvent(eventId, scopeContext) {
+async function loadExclusiveSourcesForEvent(eventId, scopeContext, db = pool) {
   const params = [eventId];
   const scopeClause = appendScopeSql(params, scopeContext);
-  const result = await pool.query(
+  const result = await db.query(
     `SELECT *
        FROM event_exclusive_sources
       WHERE event_id = $1
@@ -334,10 +335,10 @@ async function loadExclusiveSourcesForEvent(eventId, scopeContext) {
   return result.rows.map(serializeExclusiveSourceRow);
 }
 
-async function loadExclusiveSource(scopeContext, eventId, sourceId) {
+async function loadExclusiveSource(scopeContext, eventId, sourceId, db = pool) {
   const params = [sourceId, eventId];
   const scopeClause = appendScopeSql(params, scopeContext);
-  const result = await pool.query(
+  const result = await db.query(
     `SELECT *
        FROM event_exclusive_sources
       WHERE id = $1
@@ -350,13 +351,13 @@ async function loadExclusiveSource(scopeContext, eventId, sourceId) {
   return result.rows[0] || null;
 }
 
-async function upsertExclusiveSource(eventRow, candidate, userId) {
+async function upsertExclusiveSource(eventRow, candidate, userId, db = pool) {
   const provider = candidate.provider || SDCC_BLOG_PROVIDER;
   const sourceUrl = normalizeSourceUrl(candidate.source_url);
   const providerKey = candidate.provider_key || providerKeyForUrl(sourceUrl);
   const sourceTitle = String(candidate.source_title || '').trim();
   if (!sourceUrl || !providerKey || !sourceTitle) return null;
-  const result = await pool.query(
+  const result = await db.query(
     `INSERT INTO event_exclusive_sources (
        event_id,
        provider,
@@ -398,6 +399,17 @@ async function upsertExclusiveSource(eventRow, candidate, userId) {
     ]
   );
   return result.rows[0] || null;
+}
+
+async function withEventExclusiveSourceScope(req, scopeContext, work) {
+  const spaceId = Number(scopeContext?.spaceId || 0);
+  const libraryId = Number(scopeContext?.libraryId || 0);
+  if (!Number.isFinite(spaceId) || spaceId <= 0 || !Number.isFinite(libraryId) || libraryId <= 0) {
+    const error = new Error('Active workspace and library are required for event exclusive sources');
+    error.status = 400;
+    throw error;
+  }
+  return withAuthorizedScopeTransaction(pool, { spaceId, libraryId }, req.user.id, work);
 }
 
 async function promoteExclusiveSourceToWishlist(client, eventRow, source, userId) {
@@ -3078,12 +3090,13 @@ router.get('/events/:id/exclusive-sources', asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'Invalid event id' });
   }
 
-  const eventRow = await ensureScopedEvent(scopeContext, eventId);
-  if (!eventRow) {
-    return res.status(404).json({ error: 'Event not found' });
-  }
-
-  const items = await loadExclusiveSourcesForEvent(eventId, scopeContext);
+  const result = await withEventExclusiveSourceScope(req, scopeContext, async (client) => {
+    const eventRow = await ensureScopedEvent(scopeContext, eventId, client);
+    if (!eventRow) return null;
+    return loadExclusiveSourcesForEvent(eventId, scopeContext, client);
+  });
+  if (!result) return res.status(404).json({ error: 'Event not found' });
+  const items = result;
   res.json({ items });
 }));
 
@@ -3094,7 +3107,11 @@ router.post('/events/:id/exclusive-sources/refresh', asyncHandler(async (req, re
     return res.status(400).json({ error: 'Invalid event id' });
   }
 
-  const eventRow = await ensureScopedEvent(scopeContext, eventId);
+  const eventRow = await withEventExclusiveSourceScope(
+    req,
+    scopeContext,
+    (client) => ensureScopedEvent(scopeContext, eventId, client)
+  );
   if (!eventRow) {
     return res.status(404).json({ error: 'Event not found' });
   }
@@ -3110,27 +3127,40 @@ router.post('/events/:id/exclusive-sources/refresh', asyncHandler(async (req, re
     return res.status(502).json({
       error: err?.message || 'Could not refresh SDCC Blog exclusives.',
       provider: SDCC_BLOG_PROVIDER,
-      items: await loadExclusiveSourcesForEvent(eventId, scopeContext)
+      items: await withEventExclusiveSourceScope(
+        req,
+        scopeContext,
+        (client) => loadExclusiveSourcesForEvent(eventId, scopeContext, client)
+      )
     });
   }
 
-  const rows = [];
-  for (const candidate of candidates) {
-    const row = await upsertExclusiveSource(eventRow, candidate, req.user?.id || null);
-    if (row) rows.push(row);
-  }
+  const refreshed = await withEventExclusiveSourceScope(req, scopeContext, async (client) => {
+    const currentEvent = await ensureScopedEvent(scopeContext, eventId, client);
+    if (!currentEvent) return null;
+    const rows = [];
+    for (const candidate of candidates) {
+      const row = await upsertExclusiveSource(currentEvent, candidate, req.user?.id || null, client);
+      if (row) rows.push(row);
+    }
+    return {
+      rows,
+      items: await loadExclusiveSourcesForEvent(eventId, scopeContext, client)
+    };
+  });
+  if (!refreshed) return res.status(404).json({ error: 'Event not found' });
 
   await logActivity(req, 'events.exclusive_sources.refresh', 'event', eventId, {
     provider: SDCC_BLOG_PROVIDER,
     discovered: candidates.length,
-    saved: rows.length
+    saved: refreshed.rows.length
   });
 
   res.json({
     provider: SDCC_BLOG_PROVIDER,
     discovered: candidates.length,
-    saved: rows.length,
-    items: await loadExclusiveSourcesForEvent(eventId, scopeContext)
+    saved: refreshed.rows.length,
+    items: refreshed.items
   });
 }));
 
@@ -3145,7 +3175,11 @@ router.post('/events/:id/exclusive-sources/import-url', asyncHandler(async (req,
     return res.status(400).json({ error: 'Only SDCC Blog article URLs are supported.' });
   }
 
-  const eventRow = await ensureScopedEvent(scopeContext, eventId);
+  const eventRow = await withEventExclusiveSourceScope(
+    req,
+    scopeContext,
+    (client) => ensureScopedEvent(scopeContext, eventId, client)
+  );
   if (!eventRow) {
     return res.status(404).json({ error: 'Event not found' });
   }
@@ -3165,7 +3199,11 @@ router.post('/events/:id/exclusive-sources/import-url', asyncHandler(async (req,
     });
   }
 
-  const row = await upsertExclusiveSource(eventRow, candidate, req.user?.id || null);
+  const row = await withEventExclusiveSourceScope(req, scopeContext, async (client) => {
+    const currentEvent = await ensureScopedEvent(scopeContext, eventId, client);
+    if (!currentEvent) return null;
+    return upsertExclusiveSource(currentEvent, candidate, req.user?.id || null, client);
+  });
   await logActivity(req, 'events.exclusive_sources.import_url', 'event', eventId, {
     provider: SDCC_BLOG_PROVIDER,
     sourceId: row?.id || null,
@@ -3186,28 +3224,32 @@ router.patch('/events/:id/exclusive-sources/:sourceId', asyncHandler(async (req,
     return res.status(400).json({ error: 'Invalid exclusive source status.' });
   }
 
-  const eventRow = await ensureScopedEvent(scopeContext, eventId);
-  if (!eventRow) return res.status(404).json({ error: 'Event not found' });
-  const source = await loadExclusiveSource(scopeContext, eventId, sourceId);
-  if (!source) return res.status(404).json({ error: 'Exclusive source not found' });
-
-  const params = [sourceId, eventId, status];
-  const scopeClause = appendScopeSql(params, scopeContext);
-  const result = await pool.query(
-    `UPDATE event_exclusive_sources
-        SET status = $3
-      WHERE id = $1
-        AND event_id = $2
-        AND archived_at IS NULL
-        ${scopeClause}
-      RETURNING *`,
-    params
-  );
+  const result = await withEventExclusiveSourceScope(req, scopeContext, async (client) => {
+    const eventRow = await ensureScopedEvent(scopeContext, eventId, client);
+    if (!eventRow) return { missing: 'event' };
+    const source = await loadExclusiveSource(scopeContext, eventId, sourceId, client);
+    if (!source) return { missing: 'source' };
+    const params = [sourceId, eventId, status];
+    const scopeClause = appendScopeSql(params, scopeContext);
+    const updated = await client.query(
+      `UPDATE event_exclusive_sources
+          SET status = $3
+        WHERE id = $1
+          AND event_id = $2
+          AND archived_at IS NULL
+          ${scopeClause}
+        RETURNING *`,
+      params
+    );
+    return { row: updated.rows[0] || null };
+  });
+  if (result.missing === 'event') return res.status(404).json({ error: 'Event not found' });
+  if (result.missing === 'source' || !result.row) return res.status(404).json({ error: 'Exclusive source not found' });
   await logActivity(req, 'events.exclusive_sources.update', 'event', eventId, {
     sourceId,
     status
   });
-  res.json({ item: serializeExclusiveSourceRow(result.rows[0]) });
+  res.json({ item: serializeExclusiveSourceRow(result.row) });
 }));
 
 router.post('/events/:id/exclusive-sources/:sourceId/promote', asyncHandler(async (req, res) => {
@@ -3222,14 +3264,11 @@ router.post('/events/:id/exclusive-sources/:sourceId/promote', asyncHandler(asyn
     return res.status(400).json({ error: 'Invalid promotion target.' });
   }
 
-  const eventRow = await ensureScopedEvent(scopeContext, eventId);
-  if (!eventRow) return res.status(404).json({ error: 'Event not found' });
-  const source = await loadExclusiveSource(scopeContext, eventId, sourceId);
-  if (!source) return res.status(404).json({ error: 'Exclusive source not found' });
-
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
+  const promotion = await withEventExclusiveSourceScope(req, scopeContext, async (client) => {
+    const eventRow = await ensureScopedEvent(scopeContext, eventId, client);
+    if (!eventRow) return { missing: 'event' };
+    const source = await loadExclusiveSource(scopeContext, eventId, sourceId, client);
+    if (!source) return { missing: 'source' };
     const promoted = target === 'collectible'
       ? await promoteExclusiveSourceToCollectible(client, eventRow, source, req.user?.id || null)
       : await promoteExclusiveSourceToWishlist(client, eventRow, source, req.user?.id || null);
@@ -3246,26 +3285,23 @@ router.post('/events/:id/exclusive-sources/:sourceId/promote', asyncHandler(asyn
         RETURNING *`,
       [sourceId, eventId, promotedWantedItemId || null, promotedCollectibleId || null]
     );
-    await client.query('COMMIT');
-    await logActivity(req, 'events.exclusive_sources.promote', 'event', eventId, {
-      sourceId,
+    return { source: updated.rows[0], promoted };
+  });
+  if (promotion.missing === 'event') return res.status(404).json({ error: 'Event not found' });
+  if (promotion.missing === 'source') return res.status(404).json({ error: 'Exclusive source not found' });
+  await logActivity(req, 'events.exclusive_sources.promote', 'event', eventId, {
+    sourceId,
+    target,
+    promotedId: promotion.promoted.id
+  });
+  res.status(201).json({
+    item: serializeExclusiveSourceRow(promotion.source),
+    promoted: {
       target,
-      promotedId: promoted.id
-    });
-    res.status(201).json({
-      item: serializeExclusiveSourceRow(updated.rows[0]),
-      promoted: {
-        target,
-        id: promoted.id,
-        title: promoted.title
-      }
-    });
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
-  }
+      id: promotion.promoted.id,
+      title: promotion.promoted.title
+    }
+  });
 }));
 
 router.get('/events/:id/purchased-items', asyncHandler(async (req, res) => {

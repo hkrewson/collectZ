@@ -11,7 +11,7 @@ The `3.27.x` architecture line, `3.28.0` durable provider job foundation, and `3
 ## 3.28.2 — Staged Workspace Row-Level Security Expansion
 
 **Goal:** Extend PostgreSQL defense-in-depth beyond the saved-view and provider-identity pilots without weakening application authorization or introducing a big-bang policy rollout.
-**Status:** Active. Dashboard review decisions and merge-recommendation feedback are the first two certified request-only families; broader families remain staged behind family-specific evidence.
+**Status:** Active. Dashboard review decisions, merge-recommendation feedback, and event exclusive sources are the first three certified request-only families; broader families remain staged behind family-specific evidence.
 
 ### Selected scope
 
@@ -20,6 +20,7 @@ The `3.27.x` architecture line, `3.28.0` durable provider job foundation, and `3
 - Add workspace RLS, same-workspace media/library foreign keys, immutable ownership, and guarded cascade deletion.
 - Prove authorized CRUD, unscoped runtime denial, sibling-workspace isolation, cross-workspace write denial, migration/init parity, and retained-data compatibility before choosing the next family.
 - Protect `media_merge_recommendation_feedback` at exact library scope, route every feedback read and write through the authorized transaction client, and reject any retained row whose four media references do not share that ownership.
+- Protect `event_exclusive_sources` at exact library scope, derive ownership from the parent event, keep provider fetches outside database transactions, and bind cached-source list/import/update/promotion persistence to one authorized client.
 - Keep `sync_jobs` deferred until its cross-workspace claim/recovery, webhook, dashboard, metrics, and operator paths have a separately designed worker authorization contract.
 
 ### Acceptance criteria
@@ -30,6 +31,7 @@ The `3.27.x` architecture line, `3.28.0` durable provider job foundation, and `3
 - Parent cascades cannot bypass the transaction grant, while owner-run migrations and restore remain operable.
 - Fresh initialization, retained upgrade, raw-SQL/runtime smoke, workspace authorization, browser behavior, and release gates pass before the numbered milestone closes.
 - Merge-recommendation feedback cannot be read from a sibling library even when the caller has a workspace-wide grant, and its media/library ownership cannot be forged or changed.
+- Event exclusive sources cannot cross their parent event or promoted target scope, and parent cascades cannot delete protected observations without the exact library grant.
 
 ### Dashboard review-decision RLS checkpoint
 
@@ -69,6 +71,19 @@ The `3.27.x` architecture line, `3.28.0` durable provider job foundation, and `3
 - **Risks or follow-ups:** Exact-library policy is intentionally narrower than the preceding workspace-wide decision policy. A workspace grant without a library does not admit feedback rows; callers must retain the active library when entering the transaction. Any future background or maintenance writer must adopt an explicit authorized-library contract before touching this family.
 - **What remains in the milestone:** Select and certify another low-risk request-only family or design the separate worker/maintenance boundary for `sync_jobs`; then run the full browser/runtime/security release gates, align semver and `docs/releases/v3.28.2.md`, regenerate Help > Releases data, verify its running-stack readback, and complete hosted version closeout.
 - **Recommended commit message:** `Expand 3.28.2 staged RLS with protected merge-recommendation feedback`.
+
+### Event exclusive-source RLS checkpoint
+
+- **Roadmap slice:** `3.28.2 — Staged Workspace Row-Level Security Expansion`, event exclusive-source family activation.
+- **Project docs/checklists used:** `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, and `docs/wiki/50-Staged-Row-Level-Security.md`.
+- **Verified facts:** The retained canonical database applied migration `139`; all `32` retained `event_exclusive_sources` rows matched their parent event's exact workspace/library, with zero missing parents, invalid libraries, or cross-scope promoted wishlist/collectible targets before activation. The table now has non-null ownership, composite same-scope foreign keys for its parent and both promotion targets, immutable ownership, exact-library RLS, promoted-target scope validation, and a guarded parent cascade. The family has authenticated request paths and no worker, webhook, export, or maintenance writer.
+- **Runtime verification used:** Rebuilt and recreated the canonical `collectz-private` backend in place on port `3201`; health reports app version `3.28.1` with schema `139` under the non-owner runtime role. The ten-label raw-SQL smoke proved authorized insert, unscoped and workspace-only denial, sibling-library/workspace isolation, cross-library write and promotion denial, immutable ownership, linked-target move denial, and guarded parent cascade. The authenticated HTTP smoke proved scoped list, status update, atomic wishlist promotion, and committed protected readback. All fixtures were removed.
+- **CI/checks run:** Backend unit suite (`378` assertions plus `55` Node tests); OpenAPI; Node syntax and diff hygiene; fresh-install/init parity through `139`; retained `138 -> 139` migration/rollback rehearsal with ownership-backfill proof; identity-upgrade and runtime-role certification through `139` (`30/30` runtime checks); external-identity certification (`21`); all three staged-family RLS smokes; event exclusive-source HTTP smoke (`4` labels); RBAC; workspace ownership (`78` tables, `355` routes, `12` execution paths); workspace authorization/isolation; sensitive-operation certification/smoke; and the standard local release gate (`14/14`).
+- **Files changed:** Migration `139` and fresh-install parity; exact-library source/target constraints and cascade guard; transaction-bound event exclusive-source route persistence with provider I/O kept outside transactions; self-contained database and authenticated HTTP smokes with hosted RBAC wiring; migration-rehearsal backfill proof; unit contract assertions; refreshed certification evidence; and staged-RLS/release policy documentation.
+- **Blocked/unverified:** Hosted CodeQL, dependency/secret scans, secure-cookie Compose smoke, Core browser/RBAC/runtime suites, image security/SBOM, publication, and release tagging require an authorized push and remain deferred to the `3.28.2` version closeout. This family slice does not complete the numbered milestone, so semver and release-feed artifacts remain at `3.28.1`.
+- **Risks or follow-ups:** External SDCC Blog fetches deliberately occur before the short authorized persistence transaction; the event is revalidated after the fetch so a moved or deleted parent cannot receive stale data. `sync_jobs`, Plex reconciliation reviews, loan reminders, capture portability, and other background/export families remain deferred until their non-request authorization contracts are explicit.
+- **What remains in the milestone:** Select another request-only family or design bounded worker/export authorization for the deferred families; then run the full browser/runtime/security release gates, align semver and `docs/releases/v3.28.2.md`, regenerate Help > Releases data, verify running-stack release readback, and complete hosted version closeout.
+- **Recommended commit message:** `Expand 3.28.2 staged RLS with protected event exclusive sources`.
 
 ### Milestone boundary
 

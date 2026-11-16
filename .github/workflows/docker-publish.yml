@@ -648,6 +648,8 @@ jobs:
           docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T -e BASE_URL=http://frontend:3000 backend node scripts/saved-view-rls-http-smoke.js
           docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T backend node scripts/media-review-decision-rls-smoke.js
           docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T backend node scripts/media-merge-feedback-rls-smoke.js
+          docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T backend node scripts/event-exclusive-sources-rls-smoke.js
+          docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T -e BASE_URL=http://frontend:3000 backend node scripts/event-exclusive-sources-http-smoke.js
           docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T -e EXTERNAL_IDENTITY_CERTIFICATION_OUTPUT=/tmp/external-identity-certification.json backend node scripts/external-identity-certification.js
           mkdir -p artifacts/external-identity-certification
           docker cp "${BACKEND_CID}:/tmp/external-identity-certification.json" artifacts/external-identity-certification/external-identity-certification.json
