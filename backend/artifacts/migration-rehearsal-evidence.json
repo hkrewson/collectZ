@@ -1,17 +1,18 @@
 {
-  "generatedAt": "2026-11-16T04:30:30.528Z",
-  "baselineVersion": 138,
-  "latestVersion": 139,
+  "generatedAt": "2026-11-16T05:43:04.486Z",
+  "baselineVersion": 139,
+  "latestVersion": 140,
   "databases": {
-    "legacyDb": "collectz_rehearsal_legacy_mwirme7o",
-    "snapshotDb": "collectz_rehearsal_snapshot_mwirme7o",
-    "rollbackDb": "collectz_rehearsal_rollback_mwirme7o"
+    "legacyDb": "collectz_rehearsal_legacy_mwiu7pqu",
+    "snapshotDb": "collectz_rehearsal_snapshot_mwiu7pqu",
+    "rollbackDb": "collectz_rehearsal_rollback_mwiu7pqu"
   },
   "preUpgradeCounts": {
     "users": 1,
     "media": 2,
     "media_merge_recommendation_feedback": 1,
     "event_exclusive_sources": 1,
+    "object_relationships": 1,
     "invites": 1,
     "app_integrations": 1,
     "feature_flags": 8
@@ -21,6 +22,7 @@
     "media": 2,
     "media_merge_recommendation_feedback": 1,
     "event_exclusive_sources": 1,
+    "object_relationships": 1,
     "invites": 1,
     "app_integrations": 1,
     "feature_flags": 8
@@ -30,19 +32,20 @@
     "media": 2,
     "media_merge_recommendation_feedback": 1,
     "event_exclusive_sources": 1,
+    "object_relationships": 1,
     "invites": 1,
     "app_integrations": 1,
     "feature_flags": 8
   },
   "checks": {
-    "preUpgradeVersion": 138,
+    "preUpgradeVersion": 139,
     "preUpgradeInvitationState": {
       "tokenColumnPresent": false,
       "tokenHashRequired": true,
       "missingHashCount": 0,
       "plaintextValueCount": 0
     },
-    "postUpgradeVersion": 139,
+    "postUpgradeVersion": 140,
     "postUpgradeInvitationState": {
       "tokenColumnPresent": false,
       "tokenHashRequired": true,
@@ -52,7 +55,8 @@
     "reviewDecisionOwnershipBackfilled": true,
     "mergeFeedbackOwnershipBackfilled": true,
     "eventExclusiveSourceOwnershipBackfilled": true,
-    "rollbackVersion": 138,
+    "objectRelationshipOwnershipBackfilled": true,
+    "rollbackVersion": 139,
     "rollbackInvitationState": {
       "tokenColumnPresent": false,
       "tokenHashRequired": true,

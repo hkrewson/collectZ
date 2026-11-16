@@ -251,6 +251,9 @@ const mediaMergeFeedbackRlsSource = fs.readFileSync(path.resolve(__dirname, '..'
 const mediaMergeFeedbackRlsSmokeSource = fs.readFileSync(require.resolve('../scripts/media-merge-feedback-rls-smoke'), 'utf8');
 const eventExclusiveSourcesRlsSource = fs.readFileSync(path.resolve(__dirname, '..', 'db', 'eventExclusiveSourcesRls.sql'), 'utf8');
 const eventExclusiveSourcesRlsSmokeSource = fs.readFileSync(require.resolve('../scripts/event-exclusive-sources-rls-smoke'), 'utf8');
+const objectRelationshipsRlsSource = fs.readFileSync(path.resolve(__dirname, '..', 'db', 'objectRelationshipsRls.sql'), 'utf8');
+const objectRelationshipsRlsSmokeSource = fs.readFileSync(require.resolve('../scripts/object-relationships-rls-smoke'), 'utf8');
+const objectRelationshipsHttpSmokeSource = fs.readFileSync(require.resolve('../scripts/object-relationships-http-smoke'), 'utf8');
 const initSqlSource = fs.readFileSync(path.resolve(__dirname, '..', '..', 'init.sql'), 'utf8');
 const libraryServiceSource = fs.readFileSync(require.resolve('../services/libraries'), 'utf8');
 const personalAccessTokenSource = fs.readFileSync(require.resolve('../services/personalAccessTokens'), 'utf8');
@@ -261,6 +264,7 @@ const librariesRoutesSource = fs.readFileSync(require.resolve('../routes/librari
 const spacesRoutesSource = fs.readFileSync(require.resolve('../routes/spaces'), 'utf8');
 const adminRoutesSource = fs.readFileSync(require.resolve('../routes/admin'), 'utf8');
 const eventsRoutesSource = fs.readFileSync(require.resolve('../routes/events'), 'utf8');
+const objectRelationshipsRoutesSource = fs.readFileSync(require.resolve('../routes/objectRelationships'), 'utf8');
 const collectiblesRoutesSource = fs.readFileSync(require.resolve('../routes/collectibles'), 'utf8');
 const collectibleTraitsRoutesSource = fs.readFileSync(require.resolve('../routes/collectibleTraits'), 'utf8');
 const integrationsRoutesSource = fs.readFileSync(require.resolve('../routes/integrations'), 'utf8');
@@ -3705,6 +3709,29 @@ results.push(run('event exclusive sources use exact-library RLS and authorized r
   assert.ok(eventExclusiveSourcesRlsSmokeSource.includes('cross-library promotion denial'));
   assert.ok(eventExclusiveSourcesRlsSmokeSource.includes('linked target move denial'));
   assert.ok(eventExclusiveSourcesRlsSmokeSource.includes('guarded parent cascade'));
+}));
+
+results.push(run('object relationships use workspace RLS and authorized request transactions', () => {
+  assert.ok(migrationsSource.includes('version: 140'));
+  assert.ok(migrationsSource.includes('objectRelationshipsRls.sql'));
+  assert.ok(initSqlSource.includes("(140, 'Protect object relationships with workspace RLS')"));
+  assert.ok(objectRelationshipsRlsSource.includes('ALTER TABLE public.object_relationships ENABLE ROW LEVEL SECURITY'));
+  assert.ok(objectRelationshipsRlsSource.includes('CREATE POLICY object_relationships_scope'));
+  assert.ok(objectRelationshipsRlsSource.includes('collectz_scope.allows_workspace'));
+  assert.ok(objectRelationshipsRlsSource.includes('object_relationships_library_scope_fk'));
+  assert.ok(objectRelationshipsRlsSource.includes('enforce_object_relationship_scope'));
+  assert.ok(objectRelationshipsRlsSource.includes('guard_active_object_relationship_owner'));
+  assert.ok(objectRelationshipsRoutesSource.includes('withObjectRelationshipScope'));
+  assert.ok(objectRelationshipsRoutesSource.includes('resolveOwnerFromRequest(req, client)'));
+  assert.ok(objectRelationshipsRoutesSource.includes('loadRelationshipsForOwner(client'));
+  assert.ok(objectRelationshipsRoutesSource.includes('createRelationship(client'));
+  assert.ok(objectRelationshipsRoutesSource.includes('archiveRelationship(client'));
+  assert.ok(objectRelationshipsRlsSmokeSource.includes('same-workspace cross-library visibility'));
+  assert.ok(objectRelationshipsRlsSmokeSource.includes('cross-workspace write denial'));
+  assert.ok(objectRelationshipsRlsSmokeSource.includes('active owner delete denial'));
+  assert.ok(objectRelationshipsHttpSmokeSource.includes('authenticated cross-library create'));
+  assert.ok(backendPackageJson.scripts['test:object-relationships-rls-smoke']);
+  assert.ok(backendPackageJson.scripts['test:object-relationships-http-smoke']);
 }));
 
 results.push(run('repo includes import normalization smoke coverage for high-confidence auto-attach', () => {

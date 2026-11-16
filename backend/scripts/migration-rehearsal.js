@@ -58,7 +58,7 @@ async function createDatabase(adminClient, dbName, template = null) {
 }
 
 async function collectCounts(client) {
-  const tables = ['users', 'media', 'media_merge_recommendation_feedback', 'event_exclusive_sources', 'invites', 'app_integrations', 'feature_flags'];
+  const tables = ['users', 'media', 'media_merge_recommendation_feedback', 'event_exclusive_sources', 'object_relationships', 'invites', 'app_integrations', 'feature_flags'];
   const counts = {};
   for (const table of tables) {
     const result = await client.query(`SELECT COUNT(*)::int AS count FROM ${quoteIdent(table)}`);
@@ -234,13 +234,22 @@ async function seedLegacyFixture(client, baselineVersion) {
      RETURNING id`,
     [libraryId, spaceId, userId]
   );
+  const exclusiveSourceScope = baselineVersion >= 139 ? [libraryId, spaceId] : [null, null];
   await client.query(
     `INSERT INTO event_exclusive_sources
        (event_id, provider, provider_key, source_url, source_title, metadata,
         library_id, space_id, created_by)
      VALUES ($1, 'migration-rehearsal', 'migration-139', 'https://example.invalid/migration-139/source',
-             'Migration 139 ownership fixture', '{}'::jsonb, NULL, NULL, $2)`,
-    [Number(event.rows[0].id), userId]
+             'Migration 139 ownership fixture', '{}'::jsonb, $2, $3, $4)`,
+    [Number(event.rows[0].id), exclusiveSourceScope[0], exclusiveSourceScope[1], userId]
+  );
+  await client.query(
+    `INSERT INTO object_relationships
+       (source_type, source_id, target_type, target_id, relationship_type, label,
+        library_id, space_id, created_by)
+     VALUES ('media', $1, 'media', $2, 'companion_to', 'Migration 140 ownership fixture',
+             NULL, NULL, $3)`,
+    [Number(media.rows[0].id), Number(duplicateMedia.rows[0].id), userId]
   );
 }
 
@@ -339,6 +348,18 @@ async function main() {
       evidence.checks.eventExclusiveSourceOwnershipBackfilled = exclusiveSource.rows.length === 1
         && exclusiveSource.rows[0].ownership_matches === true
         && exclusiveSource.rows[0].rls_enabled === true;
+      const objectRelationship = await upgradeClient.query(
+        `SELECT r.space_id, r.library_id,
+                r.space_id = m.space_id AND r.library_id = m.library_id AS ownership_matches,
+                c.relrowsecurity AS rls_enabled
+           FROM object_relationships r
+           JOIN media m ON m.id = r.source_id AND r.source_type = 'media'
+           JOIN pg_class c ON c.oid = 'public.object_relationships'::regclass
+          WHERE r.label = 'Migration 140 ownership fixture'`
+      );
+      evidence.checks.objectRelationshipOwnershipBackfilled = objectRelationship.rows.length === 1
+        && objectRelationship.rows[0].ownership_matches === true
+        && objectRelationship.rows[0].rls_enabled === true;
     } finally {
       await upgradeClient.end();
     }
@@ -371,6 +392,9 @@ async function main() {
     }
     if (!evidence.checks.eventExclusiveSourceOwnershipBackfilled) {
       throw new Error('Event exclusive source ownership backfill or RLS activation failed');
+    }
+    if (!evidence.checks.objectRelationshipOwnershipBackfilled) {
+      throw new Error('Object relationship ownership backfill or RLS activation failed');
     }
     const postInvite = evidence.checks.postUpgradeInvitationState;
     if (postInvite.tokenColumnPresent || !postInvite.tokenHashRequired || postInvite.missingHashCount !== 0 || postInvite.plaintextValueCount !== 0) {
