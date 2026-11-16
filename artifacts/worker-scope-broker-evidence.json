@@ -1,0 +1,35 @@
+{
+  "generated_at": "2026-11-16T22:42:10.245Z",
+  "certification": "durable-worker-scope-broker",
+  "status": "passed",
+  "checks": [
+    {
+      "label": "broker retains bounded grant-only privileges",
+      "pass": true
+    },
+    {
+      "label": "runtime cannot read private worker grants",
+      "pass": true
+    },
+    {
+      "label": "unscoped runtime has no worker authority",
+      "pass": true
+    },
+    {
+      "label": "claim grant is action and job-type bounded",
+      "pass": true
+    },
+    {
+      "label": "recovery grant is distinct from claim",
+      "pass": true
+    },
+    {
+      "label": "lifecycle grant binds worker workspace library and job type",
+      "pass": true
+    },
+    {
+      "label": "worker grant cannot be replayed after commit",
+      "pass": true
+    }
+  ]
+}

@@ -188,6 +188,17 @@ async function provisionRuntimeRole(client, options = {}) {
       }
       await client.query(`GRANT EXECUTE ON FUNCTION collectz_scope.authorize(integer,text,integer,integer,integer), collectz_scope.revoke(integer,text) TO ${broker}`);
       await client.query(`GRANT EXECUTE ON FUNCTION collectz_scope.allows(integer,integer,integer) TO ${role}`);
+      const workerScopeFunction = await client.query(
+        "SELECT to_regprocedure('collectz_scope.authorize_worker(integer,text,text,text,text[],integer,integer)') IS NOT NULL AS present"
+      );
+      if (workerScopeFunction.rows[0].present) {
+        await client.query(`GRANT EXECUTE ON FUNCTION
+          collectz_scope.authorize_worker(integer,text,text,text,text[],integer,integer),
+          collectz_scope.revoke_worker(integer,text) TO ${broker}`);
+        await client.query(`GRANT EXECUTE ON FUNCTION
+          collectz_scope.worker_allows_global(text,text),
+          collectz_scope.worker_allows_lifecycle(integer,integer,text,text) TO ${role}`);
+      }
       const workspaceScopeFunction = await client.query(
         "SELECT to_regprocedure('collectz_scope.allows_workspace(integer)') IS NOT NULL AS present"
       );

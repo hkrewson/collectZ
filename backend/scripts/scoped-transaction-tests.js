@@ -72,3 +72,29 @@ test('scope broker credentials are independent and bounded PostgreSQL identifier
   assert.notEqual(a.role, brokerCredentials('b'.repeat(63), secret).role);
   assert.notEqual(a.password, brokerCredentials('b'.repeat(63), secret).password);
 });
+
+test('durable worker authorization is normalized and bounded before database access', () => {
+  const { normalizeWorkerAuthorization } = require('../db/scopeBroker');
+  assert.deepEqual(normalizeWorkerAuthorization({
+    action: 'CLAIM',
+    workerId: 'worker:one',
+    jobTypes: ['plex_reconciliation', 'bookorbit_sync', 'bookorbit_sync']
+  }), {
+    action: 'claim',
+    workerId: 'worker:one',
+    jobTypes: ['bookorbit_sync', 'plex_reconciliation'],
+    spaceId: null,
+    libraryId: null
+  });
+  assert.deepEqual(normalizeWorkerAuthorization({
+    action: 'lifecycle',
+    workerId: 'worker:two',
+    jobTypes: ['bookorbit_sync'],
+    spaceId: 7,
+    libraryId: 9
+  }).libraryId, 9);
+  assert.throws(() => normalizeWorkerAuthorization({ action: 'claim', workerId: 'worker:one', jobTypes: [] }), /job types/);
+  assert.throws(() => normalizeWorkerAuthorization({ action: 'claim', workerId: 'worker one', jobTypes: ['bookorbit_sync'] }), /worker ID/);
+  assert.throws(() => normalizeWorkerAuthorization({ action: 'claim', workerId: 'worker:one', jobTypes: ['bookorbit_sync'], spaceId: 7 }), /cannot include workspace/);
+  assert.throws(() => normalizeWorkerAuthorization({ action: 'lifecycle', workerId: 'worker:one', jobTypes: ['bookorbit_sync'] }), /requires a workspace/);
+});

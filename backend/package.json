@@ -17,6 +17,7 @@
     "test:event-exclusive-sources-http-smoke": "node scripts/event-exclusive-sources-http-smoke.js",
     "test:object-relationships-rls-smoke": "node scripts/object-relationships-rls-smoke.js",
     "test:object-relationships-http-smoke": "node scripts/object-relationships-http-smoke.js",
+    "test:worker-scope-broker-smoke": "node scripts/worker-scope-broker-smoke.js",
     "test:saved-view-rls-certification": "node scripts/saved-view-rls-certification.js",
     "test:external-identity-certification": "node scripts/external-identity-certification.js",
     "test:digital-library-identity-backfill-smoke": "node scripts/digital-library-identity-backfill-smoke.js",

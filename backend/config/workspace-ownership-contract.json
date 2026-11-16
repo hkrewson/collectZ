@@ -215,6 +215,13 @@
       "sameWorkspaceForeignKeys": []
     },
     {
+      "name": "collectz_scope.worker_transactions",
+      "category": "authorization_control_plane",
+      "ownershipKey": "backend_pid,transaction_id",
+      "rationale": "Short-lived owner-only durable-worker grants bounded by action, job type, and optional workspace scope.",
+      "sameWorkspaceForeignKeys": []
+    },
+    {
       "name": "directors",
       "category": "shared_reference",
       "ownershipKey": "id",

@@ -243,13 +243,14 @@ async function seedLegacyFixture(client, baselineVersion) {
              'Migration 139 ownership fixture', '{}'::jsonb, $2, $3, $4)`,
     [Number(event.rows[0].id), exclusiveSourceScope[0], exclusiveSourceScope[1], userId]
   );
+  const relationshipScope = baselineVersion >= 140 ? [libraryId, spaceId] : [null, null];
   await client.query(
     `INSERT INTO object_relationships
        (source_type, source_id, target_type, target_id, relationship_type, label,
         library_id, space_id, created_by)
      VALUES ('media', $1, 'media', $2, 'companion_to', 'Migration 140 ownership fixture',
-             NULL, NULL, $3)`,
-    [Number(media.rows[0].id), Number(duplicateMedia.rows[0].id), userId]
+             $3, $4, $5)`,
+    [Number(media.rows[0].id), Number(duplicateMedia.rows[0].id), relationshipScope[0], relationshipScope[1], userId]
   );
 }
 

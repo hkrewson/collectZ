@@ -607,6 +607,7 @@ results.push(run('runtime database role is non-owner, verifier-provisioned, and 
   assert.ok(!/PASSWORD \$\{quoteLiteral\(password\)\}/.test(runtimeRoleSource));
   assert.ok(runtimeRoleSource.includes('REVOKE INSERT, UPDATE, DELETE ON ${schemaIdent}.schema_migrations'));
   assert.ok(runtimeRoleSource.includes('collectz_scope.allows_library(integer,integer)'));
+  assert.ok(runtimeRoleSource.includes('collectz_scope.authorize_worker(integer,text,text,text,text[],integer,integer)'));
 
   const composeSource = fs.readFileSync(require.resolve('../../docker-compose.yml'), 'utf8');
   const serviceBlock = (name) => {
@@ -733,7 +734,7 @@ results.push(run('workspace ownership contract classifies every schema table, ro
   const contract = buildWorkspaceOwnershipContract();
   const snapshot = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'config', 'workspace-ownership-contract.json'), 'utf8'));
   assert.deepStrictEqual(contract, snapshot);
-  assert.strictEqual(contract.tables.length, 78);
+  assert.strictEqual(contract.tables.length, 79);
   assert.ok(contract.tables.filter(t => t.name.startsWith('collectz_scope.')).every(t => t.category === 'authorization_control_plane'));
   assert.ok(contract.routes.length >= 300);
   assert.ok(contract.routes.filter((route) => route.authentication === 'required').length >= 300);
@@ -3713,8 +3714,10 @@ results.push(run('event exclusive sources use exact-library RLS and authorized r
 
 results.push(run('object relationships use workspace RLS and authorized request transactions', () => {
   assert.ok(migrationsSource.includes('version: 140'));
+  assert.ok(migrationsSource.includes('version: 141'));
   assert.ok(migrationsSource.includes('objectRelationshipsRls.sql'));
   assert.ok(initSqlSource.includes("(140, 'Protect object relationships with workspace RLS')"));
+  assert.ok(initSqlSource.includes("(141, 'Add bounded durable worker transaction grants')"));
   assert.ok(objectRelationshipsRlsSource.includes('ALTER TABLE public.object_relationships ENABLE ROW LEVEL SECURITY'));
   assert.ok(objectRelationshipsRlsSource.includes('CREATE POLICY object_relationships_scope'));
   assert.ok(objectRelationshipsRlsSource.includes('collectz_scope.allows_workspace'));
