@@ -11,7 +11,7 @@ The `3.27.x` architecture line, `3.28.0` durable provider job foundation, and `3
 ## 3.28.2 — Staged Workspace Row-Level Security Expansion
 
 **Goal:** Extend PostgreSQL defense-in-depth beyond the saved-view and provider-identity pilots without weakening application authorization or introducing a big-bang policy rollout.
-**Status:** Active. The first selected family is Dashboard review decisions; broader families remain staged behind family-specific evidence.
+**Status:** Active. Dashboard review decisions and merge-recommendation feedback are the first two certified request-only families; broader families remain staged behind family-specific evidence.
 
 ### Selected scope
 
@@ -19,6 +19,7 @@ The `3.27.x` architecture line, `3.28.0` durable provider job foundation, and `3
 - Bind Dashboard review-decision create, restore, summary, and history reads to the existing authorized transaction broker.
 - Add workspace RLS, same-workspace media/library foreign keys, immutable ownership, and guarded cascade deletion.
 - Prove authorized CRUD, unscoped runtime denial, sibling-workspace isolation, cross-workspace write denial, migration/init parity, and retained-data compatibility before choosing the next family.
+- Protect `media_merge_recommendation_feedback` at exact library scope, route every feedback read and write through the authorized transaction client, and reject any retained row whose four media references do not share that ownership.
 - Keep `sync_jobs` deferred until its cross-workspace claim/recovery, webhook, dashboard, metrics, and operator paths have a separately designed worker authorization contract.
 
 ### Acceptance criteria
@@ -28,6 +29,7 @@ The `3.27.x` architecture line, `3.28.0` durable provider job foundation, and `3
 - A decision cannot reference media or a library in another workspace, and its media/workspace/library ownership cannot be changed after creation.
 - Parent cascades cannot bypass the transaction grant, while owner-run migrations and restore remain operable.
 - Fresh initialization, retained upgrade, raw-SQL/runtime smoke, workspace authorization, browser behavior, and release gates pass before the numbered milestone closes.
+- Merge-recommendation feedback cannot be read from a sibling library even when the caller has a workspace-wide grant, and its media/library ownership cannot be forged or changed.
 
 ### Dashboard review-decision RLS checkpoint
 
@@ -54,6 +56,19 @@ The `3.27.x` architecture line, `3.28.0` durable provider job foundation, and `3
 - **Risks or follow-ups:** Fixture creation uses only the existing non-owner runtime credential and unprotected parent families; if any parent family later gains RLS, this smoke must adopt that family's authorized fixture contract in the same slice. The smoke emits no generated identifiers, passwords, or connection details.
 - **What remains in the milestone:** Rerun hosted `core-rbac-regression` after an authorized push, then continue selecting and certifying one low-risk workspace-owned family at a time. The `sync_jobs` worker/maintenance boundary and the required `3.28.2` version/release closeout remain outstanding.
 - **Recommended commit message:** `Repair 3.28.2 hosted RLS certification with self-contained workspace fixtures`.
+
+### Merge-recommendation feedback RLS checkpoint
+
+- **Roadmap slice:** `3.28.2 — Staged Workspace Row-Level Security Expansion`, merge-recommendation feedback family activation.
+- **Project docs/checklists used:** `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, and `docs/wiki/50-Staged-Row-Level-Security.md`.
+- **Verified facts:** The retained canonical database applied migration `138`; all `39` retained feedback rows resolved to one exact media/library/workspace owner with zero null, missing-media, or cross-scope records before activation. `media_merge_recommendation_feedback` now has non-null ownership, five composite ownership foreign keys, immutable media/scope ownership, exact-library RLS, and a scoped parent-cascade guard. The family is written only by authenticated request routes and has no worker, webhook, export, or maintenance writer. `sync_jobs` remains outside this slice because its worker claim/recovery contract is not yet bounded.
+- **Runtime verification used:** Rebuilt and recreated the canonical `collectz-private` backend in place on port `3201`; the retained database is healthy at schema `138`, the backend uses the non-owner runtime role, and health still reports app version `3.28.1`. The in-container smoke passed authorized insert, unscoped denial, workspace-only grant denial, sibling-library isolation, sibling-workspace isolation, cross-library write denial, immutable ownership, and guarded parent cascade. Existing reject, defer, restore, discovery, recommendation, and comic-candidate workflows all passed against retained state; post-smoke readback found no fixture users or media.
+- **CI/checks run:** Backend unit suite (`377` assertions plus `55` Node tests); OpenAPI; Node syntax and diff hygiene; fresh-install/init parity through `138`; retained `137 -> 138` migration/rollback rehearsal with ownership-backfill proof; identity-upgrade and runtime-role certification through `138` (`30/30` runtime checks); external-identity certification (`21`); review-decision RLS regression (`5` labels); merge-feedback RLS smoke (`8` labels); RBAC; workspace ownership (`78` tables, `355` routes, `12` execution paths); workspace authorization/isolation; sensitive-operation certification/smoke; and the standard local release gate (`14/14`).
+- **Files changed:** Migration `138` and fresh-install parity; exact-library scope predicate and runtime grant; authorized merge-feedback route transactions; self-contained RLS smoke and hosted RBAC wiring; retained migration-rehearsal fixture/backfill proof; existing workflow smoke cleanup; unit contract assertions; refreshed certification evidence; and staged-RLS/release policy documentation.
+- **Blocked/unverified:** Hosted CodeQL, dependency/secret scans, secure-cookie Compose smoke, Core browser/RBAC/runtime suites, image security/SBOM, publication, and release tagging require an authorized push and remain deferred to the `3.28.2` version closeout. This request-only route-contract slice does not complete the numbered milestone, so semver and release-feed artifacts remain at `3.28.1` by design.
+- **Risks or follow-ups:** Exact-library policy is intentionally narrower than the preceding workspace-wide decision policy. A workspace grant without a library does not admit feedback rows; callers must retain the active library when entering the transaction. Any future background or maintenance writer must adopt an explicit authorized-library contract before touching this family.
+- **What remains in the milestone:** Select and certify another low-risk request-only family or design the separate worker/maintenance boundary for `sync_jobs`; then run the full browser/runtime/security release gates, align semver and `docs/releases/v3.28.2.md`, regenerate Help > Releases data, verify its running-stack readback, and complete hosted version closeout.
+- **Recommended commit message:** `Expand 3.28.2 staged RLS with protected merge-recommendation feedback`.
 
 ### Milestone boundary
 

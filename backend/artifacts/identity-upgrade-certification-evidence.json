@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-11-15T19:53:39.257Z",
+  "generatedAt": "2026-11-16T03:22:33.130Z",
   "status": "passed",
   "manifestSchemaVersion": 1,
   "baselineVersion": 127,
-  "latestVersion": 137,
+  "latestVersion": 138,
   "certifiedMigrationVersions": [
     128,
     129,
@@ -14,7 +14,8 @@
     134,
     135,
     136,
-    137
+    137,
+    138
   ],
   "selectorMatches": [
     {
@@ -40,6 +41,10 @@
     {
       "version": 137,
       "description": "Protect dashboard review decisions with workspace RLS"
+    },
+    {
+      "version": 138,
+      "description": "Protect merge recommendation feedback with library RLS"
     }
   ],
   "fixturePolicy": {
@@ -116,13 +121,13 @@
       {
         "id": 1,
         "user_id": 1,
-        "expires_at": "2026-11-22T19:53:39.983Z",
+        "expires_at": "2026-11-23T03:22:33.746Z",
         "storedCredentialPresent": true
       },
       {
         "id": 2,
         "user_id": 1,
-        "expires_at": "2026-11-22T19:53:39.984Z",
+        "expires_at": "2026-11-23T03:22:33.747Z",
         "storedCredentialPresent": true
       }
     ],
@@ -178,7 +183,7 @@
             "libraries:read"
           ],
           "revoked_at": null,
-          "expires_at": "2026-11-22T19:53:39.986Z",
+          "expires_at": "2026-11-23T03:22:33.749Z",
           "storedCredentialPresent": true
         }
       ],
@@ -194,7 +199,7 @@
             "/api/libraries"
           ],
           "revoked_at": null,
-          "expires_at": "2026-11-22T19:53:39.987Z",
+          "expires_at": "2026-11-23T03:22:33.749Z",
           "storedCredentialPresent": true
         }
       ]

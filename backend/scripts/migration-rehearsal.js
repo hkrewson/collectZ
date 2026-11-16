@@ -58,7 +58,7 @@ async function createDatabase(adminClient, dbName, template = null) {
 }
 
 async function collectCounts(client) {
-  const tables = ['users', 'media', 'invites', 'app_integrations', 'feature_flags'];
+  const tables = ['users', 'media', 'media_merge_recommendation_feedback', 'invites', 'app_integrations', 'feature_flags'];
   const counts = {};
   for (const table of tables) {
     const result = await client.query(`SELECT COUNT(*)::int AS count FROM ${quoteIdent(table)}`);
@@ -126,7 +126,7 @@ async function collectInvitationTokenState(client) {
   };
 }
 
-async function seedLegacyFixture(client) {
+async function seedLegacyFixture(client, baselineVersion) {
   const fixtureSuffix = crypto.randomBytes(8).toString('hex');
   const fixtureEmail = `migration-rehearsal-${fixtureSuffix}@example.invalid`;
   const fixturePassword = crypto.randomBytes(32).toString('hex');
@@ -205,11 +205,27 @@ async function seedLegacyFixture(client) {
      RETURNING id`,
     ['The Matrix', 1999, 'Blu-ray', userId, 'Migration rehearsal fixture', libraryId, spaceId]
   );
+  const duplicateMedia = await client.query(
+    `INSERT INTO media (title, year, format, added_by, notes, library_id, space_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     RETURNING id`,
+    ['The Matrix duplicate', 1999, 'Blu-ray', userId, 'Migration 138 feedback fixture', libraryId, spaceId]
+  );
+  const reviewScope = baselineVersion >= 137 ? [libraryId, spaceId] : [null, null];
   await client.query(
     `INSERT INTO media_review_decisions
        (media_id, finding_type, action, note, library_id, space_id, created_by)
-     VALUES ($1, 'missing_covers', 'dismissed', 'Migration 137 ownership backfill fixture', NULL, NULL, $2)`,
-    [Number(media.rows[0].id), userId]
+     VALUES ($1, 'missing_covers', 'dismissed', 'Migration 137 ownership backfill fixture', $2, $3, $4)`,
+    [Number(media.rows[0].id), reviewScope[0], reviewScope[1], userId]
+  );
+  const mediaIds = [Number(media.rows[0].id), Number(duplicateMedia.rows[0].id)].sort((left, right) => left - right);
+  await client.query(
+    `INSERT INTO media_merge_recommendation_feedback
+       (pair_low_media_id, pair_high_media_id, canonical_media_id, duplicate_media_id,
+        media_type, outcome, reason, context, space_id, library_id, created_by)
+     VALUES ($1, $2, $3, $4, 'movie', 'rejected', 'Migration 138 ownership fixture',
+             '{"source":"migration-rehearsal"}'::jsonb, NULL, NULL, $5)`,
+    [mediaIds[0], mediaIds[1], Number(media.rows[0].id), Number(duplicateMedia.rows[0].id), userId]
   );
 }
 
@@ -255,7 +271,7 @@ async function main() {
     const legacyClient = await connect(withDb(adminUrl, legacyDb));
     try {
       await runMigrationsForClient(legacyClient, { maxVersion: baselineVersion });
-      await seedLegacyFixture(legacyClient);
+      await seedLegacyFixture(legacyClient, baselineVersion);
       evidence.preUpgradeCounts = await collectCounts(legacyClient);
       evidence.checks.preUpgradeVersion = await maxMigrationVersion(legacyClient);
       evidence.checks.preUpgradeInvitationState = await collectInvitationTokenState(legacyClient);
@@ -284,6 +300,18 @@ async function main() {
       evidence.checks.reviewDecisionOwnershipBackfilled = reviewDecision.rows.length === 1
         && reviewDecision.rows[0].ownership_matches === true
         && reviewDecision.rows[0].rls_enabled === true;
+      const mergeFeedback = await upgradeClient.query(
+        `SELECT f.space_id, f.library_id,
+                f.space_id = canonical.space_id AND f.library_id = canonical.library_id AS ownership_matches,
+                c.relrowsecurity AS rls_enabled
+           FROM media_merge_recommendation_feedback f
+           JOIN media canonical ON canonical.id = f.canonical_media_id
+           JOIN pg_class c ON c.oid = 'public.media_merge_recommendation_feedback'::regclass
+          WHERE f.reason = 'Migration 138 ownership fixture'`
+      );
+      evidence.checks.mergeFeedbackOwnershipBackfilled = mergeFeedback.rows.length === 1
+        && mergeFeedback.rows[0].ownership_matches === true
+        && mergeFeedback.rows[0].rls_enabled === true;
     } finally {
       await upgradeClient.end();
     }
@@ -310,6 +338,9 @@ async function main() {
     }
     if (!evidence.checks.reviewDecisionOwnershipBackfilled) {
       throw new Error('Dashboard review decision ownership backfill or RLS activation failed');
+    }
+    if (!evidence.checks.mergeFeedbackOwnershipBackfilled) {
+      throw new Error('Merge recommendation feedback ownership backfill or RLS activation failed');
     }
     const postInvite = evidence.checks.postUpgradeInvitationState;
     if (postInvite.tokenColumnPresent || !postInvite.tokenHashRequired || postInvite.missingHashCount !== 0 || postInvite.plaintextValueCount !== 0) {

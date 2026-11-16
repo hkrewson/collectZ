@@ -194,6 +194,12 @@ async function provisionRuntimeRole(client, options = {}) {
       if (workspaceScopeFunction.rows[0].present) {
         await client.query(`GRANT EXECUTE ON FUNCTION collectz_scope.allows_workspace(integer) TO ${role}`);
       }
+      const libraryScopeFunction = await client.query(
+        "SELECT to_regprocedure('collectz_scope.allows_library(integer,integer)') IS NOT NULL AS present"
+      );
+      if (libraryScopeFunction.rows[0].present) {
+        await client.query(`GRANT EXECUTE ON FUNCTION collectz_scope.allows_library(integer,integer) TO ${role}`);
+      }
       await client.query('INSERT INTO collectz_scope.brokers(broker_role,runtime_role) VALUES ($1,$2) ON CONFLICT (broker_role) DO UPDATE SET runtime_role=EXCLUDED.runtime_role', [credential.role, roleName]);
     }
     await client.query('COMMIT');

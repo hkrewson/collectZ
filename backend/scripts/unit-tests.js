@@ -247,6 +247,8 @@ const coreRoutesSource = fs.readFileSync(require.resolve('../routes/core'), 'utf
 const migrationsSource = fs.readFileSync(require.resolve('../db/migrations'), 'utf8');
 const mediaReviewDecisionRlsSource = fs.readFileSync(path.resolve(__dirname, '..', 'db', 'mediaReviewDecisionRls.sql'), 'utf8');
 const mediaReviewDecisionRlsSmokeSource = fs.readFileSync(require.resolve('../scripts/media-review-decision-rls-smoke'), 'utf8');
+const mediaMergeFeedbackRlsSource = fs.readFileSync(path.resolve(__dirname, '..', 'db', 'mediaMergeRecommendationFeedbackRls.sql'), 'utf8');
+const mediaMergeFeedbackRlsSmokeSource = fs.readFileSync(require.resolve('../scripts/media-merge-feedback-rls-smoke'), 'utf8');
 const initSqlSource = fs.readFileSync(path.resolve(__dirname, '..', '..', 'init.sql'), 'utf8');
 const libraryServiceSource = fs.readFileSync(require.resolve('../services/libraries'), 'utf8');
 const personalAccessTokenSource = fs.readFileSync(require.resolve('../services/personalAccessTokens'), 'utf8');
@@ -598,6 +600,7 @@ results.push(run('runtime database role is non-owner, verifier-provisioned, and 
   assert.ok(/PASSWORD \$\{quoteLiteral\(verifier\)\}/.test(runtimeRoleSource), 'role password must be sent as a SCRAM verifier');
   assert.ok(!/PASSWORD \$\{quoteLiteral\(password\)\}/.test(runtimeRoleSource));
   assert.ok(runtimeRoleSource.includes('REVOKE INSERT, UPDATE, DELETE ON ${schemaIdent}.schema_migrations'));
+  assert.ok(runtimeRoleSource.includes('collectz_scope.allows_library(integer,integer)'));
 
   const composeSource = fs.readFileSync(require.resolve('../../docker-compose.yml'), 'utf8');
   const serviceBlock = (name) => {
@@ -3646,6 +3649,23 @@ results.push(run('media route source exposes operator-only manual merge preview 
   assert.ok(mediaRoutesSource.includes('buildManualMergeRecommendationIdentity'));
   assert.ok(mediaRoutesSource.includes('recordManualMergeRecommendationFeedback'));
   assert.ok(mediaRoutesSource.includes('media_merge_recommendation_feedback'));
+  assert.ok(mediaRoutesSource.includes('db: client'));
+  assert.ok(migrationsSource.includes('version: 138'));
+  assert.ok(migrationsSource.includes('mediaMergeRecommendationFeedbackRls.sql'));
+  assert.ok(initSqlSource.includes("(138, 'Protect merge recommendation feedback with library RLS')"));
+  assert.ok(mediaMergeFeedbackRlsSource.includes('ALTER TABLE public.media_merge_recommendation_feedback ENABLE ROW LEVEL SECURITY'));
+  assert.ok(mediaMergeFeedbackRlsSource.includes('CREATE POLICY media_merge_recommendation_feedback_scope'));
+  assert.ok(mediaMergeFeedbackRlsSource.includes('collectz_scope.allows_library'));
+  assert.ok(mediaMergeFeedbackRlsSource.includes('AND s.library_id = p_library'));
+  assert.ok(mediaMergeFeedbackRlsSource.includes('merge_feedback_pair_low_scope_fk'));
+  assert.ok(mediaMergeFeedbackRlsSource.includes('merge_feedback_pair_high_scope_fk'));
+  assert.ok(mediaMergeFeedbackRlsSource.includes('merge_feedback_canonical_scope_fk'));
+  assert.ok(mediaMergeFeedbackRlsSource.includes('merge_feedback_duplicate_scope_fk'));
+  assert.ok(mediaMergeFeedbackRlsSource.includes('immutable_merge_feedback_owner'));
+  assert.ok(mediaMergeFeedbackRlsSource.includes('guard_merge_feedback_delete'));
+  assert.ok(mediaMergeFeedbackRlsSmokeSource.includes('sibling library isolation'));
+  assert.ok(mediaMergeFeedbackRlsSmokeSource.includes('workspace-only grant denial'));
+  assert.ok(mediaMergeFeedbackRlsSmokeSource.includes('guarded parent cascade'));
   assert.ok(mediaRoutesSource.includes('runManualMediaMergeApply'));
   assert.ok(mediaRoutesSource.includes("requireRole('admin', 'support_admin')"));
   assert.ok(mediaRoutesSource.includes('requireSessionAuth'));

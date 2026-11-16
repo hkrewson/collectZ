@@ -926,14 +926,14 @@ function buildComicDuplicateGroupSummary(bucket = {}) {
   };
 }
 
-async function loadScopedSuppressedMergeRecommendationPairs({ scopeContext = null, outcomes = ['rejected'] } = {}) {
+async function loadScopedSuppressedMergeRecommendationPairs({ scopeContext = null, outcomes = ['rejected'], db = pool } = {}) {
   const normalizedOutcomes = Array.from(new Set((outcomes || [])
     .map((value) => String(value || '').trim().toLowerCase())
     .filter(Boolean)));
   if (normalizedOutcomes.length === 0) return new Set();
   const params = [normalizedOutcomes];
   const suppressedScopeClause = appendScopeSql(params, scopeContext);
-  const suppressedResult = await pool.query(
+  const suppressedResult = await db.query(
     `SELECT pair_low_media_id, pair_high_media_id
        FROM media_merge_recommendation_feedback
       WHERE outcome = ANY($1::text[])${suppressedScopeClause}`,
@@ -944,7 +944,7 @@ async function loadScopedSuppressedMergeRecommendationPairs({ scopeContext = nul
   );
 }
 
-async function loadScopedManualMergeRecommendations({ scopeContext = null, limit = 12, mediaType = null } = {}) {
+async function loadScopedManualMergeRecommendations({ scopeContext = null, limit = 12, mediaType = null, db = pool } = {}) {
   const cappedLimit = Math.max(1, Math.min(50, Number(limit || 12) || 12));
   const params = [];
   let where = 'WHERE 1=1';
@@ -954,7 +954,7 @@ async function loadScopedManualMergeRecommendations({ scopeContext = null, limit
     where += ` AND media_type = $${params.length}`;
   }
   where += appendScopeSql(params, scopeContext);
-  const result = await pool.query(
+  const result = await db.query(
     `SELECT id, title, media_type, import_source, type_details, year, upc, tmdb_id, tmdb_media_type
        FROM media
        ${where}
@@ -964,7 +964,8 @@ async function loadScopedManualMergeRecommendations({ scopeContext = null, limit
 
   const suppressedPairs = await loadScopedSuppressedMergeRecommendationPairs({
     scopeContext,
-    outcomes: ['rejected', 'deferred']
+    outcomes: ['rejected', 'deferred'],
+    db
   });
 
   const buckets = new Map();
@@ -1038,7 +1039,7 @@ async function loadScopedManualMergeRecommendations({ scopeContext = null, limit
   };
 }
 
-async function loadScopedComicDuplicateCandidates({ scopeContext = null, limit = 12, search = '', mediaType = null } = {}) {
+async function loadScopedComicDuplicateCandidates({ scopeContext = null, limit = 12, search = '', mediaType = null, db = pool } = {}) {
   const cappedLimit = Math.max(1, Math.min(50, Number(limit || 12) || 12));
   const normalizedMediaType = normalizeMergeReviewMediaTypeFilter(mediaType);
   if (normalizedMediaType && normalizedMediaType !== 'comic_book') {
@@ -1059,7 +1060,7 @@ async function loadScopedComicDuplicateCandidates({ scopeContext = null, limit =
     AND COALESCE(m.type_details->>'series','') <> ''
     AND COALESCE(m.type_details->>'issue_number','') <> ''
     ${appendScopeSql(params, scopeContext, { spaceColumn: 'm.space_id', libraryColumn: 'm.library_id' })}`;
-  const result = await pool.query(
+  const result = await db.query(
     `SELECT id, title, media_type, import_source, type_details, year, upc, tmdb_id, tmdb_media_type
        FROM media m
        ${where}
@@ -1068,7 +1069,8 @@ async function loadScopedComicDuplicateCandidates({ scopeContext = null, limit =
   );
   const suppressedPairs = await loadScopedSuppressedMergeRecommendationPairs({
     scopeContext,
-    outcomes: ['rejected', 'deferred']
+    outcomes: ['rejected', 'deferred'],
+    db
   });
 
   const buckets = new Map();
@@ -1129,7 +1131,7 @@ async function loadScopedComicDuplicateCandidates({ scopeContext = null, limit =
   };
 }
 
-async function loadScopedDuplicateDiscoveryCandidates({ scopeContext = null, limit = 12, search = '', mediaId = null, mediaType = null } = {}) {
+async function loadScopedDuplicateDiscoveryCandidates({ scopeContext = null, limit = 12, search = '', mediaId = null, mediaType = null, db = pool } = {}) {
   const cappedLimit = Math.max(1, Math.min(50, Number(limit || 12) || 12));
   const focusedMediaId = Number(mediaId || 0) || null;
   const normalizedSearch = normalizeText(search || '');
@@ -1141,7 +1143,7 @@ async function loadScopedDuplicateDiscoveryCandidates({ scopeContext = null, lim
     where += ` AND media_type = $${params.length}`;
   }
   where += appendScopeSql(params, scopeContext);
-  const result = await pool.query(
+  const result = await db.query(
     `SELECT id, title, media_type, import_source, type_details, year, upc, tmdb_id, tmdb_media_type, poster_path,
             original_title, director, cast_members AS cast, runtime
        FROM media
@@ -1152,13 +1154,14 @@ async function loadScopedDuplicateDiscoveryCandidates({ scopeContext = null, lim
 
   const suppressedPairs = await loadScopedSuppressedMergeRecommendationPairs({
     scopeContext,
-    outcomes: ['rejected', 'deferred']
+    outcomes: ['rejected', 'deferred'],
+    db
   });
   const strictRecommendationPairs = new Set(
-    (await loadScopedManualMergeRecommendations({ scopeContext, limit: 500, mediaType: normalizedMediaType })).items.map((item) => item.pair_key).filter(Boolean)
+    (await loadScopedManualMergeRecommendations({ scopeContext, limit: 500, mediaType: normalizedMediaType, db })).items.map((item) => item.pair_key).filter(Boolean)
   );
   const comicCandidatePairs = new Set();
-  const comicDuplicateGroups = await loadScopedComicDuplicateCandidates({ scopeContext, limit: 500, search: '', mediaType: normalizedMediaType });
+  const comicDuplicateGroups = await loadScopedComicDuplicateCandidates({ scopeContext, limit: 500, search: '', mediaType: normalizedMediaType, db });
   for (const group of comicDuplicateGroups.items || []) {
     for (const duplicate of group.duplicates || []) {
       const pairKey = buildRecommendationPairKey(group?.canonical?.id, duplicate?.id);
@@ -2138,7 +2141,8 @@ async function recordManualMergeRecommendationFeedback({
   userId = null,
   reasonCode = null,
   reason = null,
-  preview = null
+  preview = null,
+  db = pool
 } = {}) {
   const pairKey = buildRecommendationPairKey(canonicalMediaId, duplicateMediaId);
   if (!pairKey) {
@@ -2177,7 +2181,7 @@ async function recordManualMergeRecommendationFeedback({
     scopeContext?.libraryId || null,
     userId || null
   ];
-  const existing = await pool.query(
+  const existing = await db.query(
     `SELECT id
        FROM media_merge_recommendation_feedback
       WHERE pair_low_media_id = $1
@@ -2189,7 +2193,7 @@ async function recordManualMergeRecommendationFeedback({
     [pairKey.pairLowId, pairKey.pairHighId, scopeContext?.spaceId || null, scopeContext?.libraryId || null, normalizedOutcome]
   );
   const result = existing.rows?.[0]?.id
-    ? await pool.query(
+    ? await db.query(
       `UPDATE media_merge_recommendation_feedback
           SET canonical_media_id = $3,
               duplicate_media_id = $4,
@@ -2202,7 +2206,7 @@ async function recordManualMergeRecommendationFeedback({
         RETURNING id, created_at`,
       [...values, Number(existing.rows[0].id)]
     )
-    : await pool.query(
+    : await db.query(
       `INSERT INTO media_merge_recommendation_feedback (
          pair_low_media_id,
          pair_high_media_id,
@@ -2235,7 +2239,8 @@ async function loadScopedMergeRecommendationFeedbackHistory({
   limit = 12,
   search = '',
   mediaType = null,
-  outcome = null
+  outcome = null,
+  db = pool
 } = {}) {
   const cappedLimit = Math.max(1, Math.min(50, Number(limit || 12) || 12));
   const normalizedSearch = String(search || '').trim();
@@ -2264,7 +2269,7 @@ async function loadScopedMergeRecommendationFeedbackHistory({
     libraryColumn: 'f.library_id'
   });
 
-  const result = await pool.query(
+  const result = await db.query(
     `SELECT
        f.id,
        f.outcome,
@@ -2326,7 +2331,7 @@ async function loadScopedMergeRecommendationFeedbackHistory({
   };
 }
 
-async function restoreScopedMergeRecommendationFeedback({ feedbackId, scopeContext = null } = {}) {
+async function restoreScopedMergeRecommendationFeedback({ feedbackId, scopeContext = null, db = pool } = {}) {
   const id = Number(feedbackId || 0);
   if (!id) return null;
   const params = [id];
@@ -2334,7 +2339,7 @@ async function restoreScopedMergeRecommendationFeedback({ feedbackId, scopeConte
     spaceColumn: 'space_id',
     libraryColumn: 'library_id'
   });
-  const existing = await pool.query(
+  const existing = await db.query(
     `SELECT id, outcome, reason, context, media_type, canonical_media_id, duplicate_media_id
        FROM media_merge_recommendation_feedback
       WHERE id = $1${scopedClause}
@@ -2343,7 +2348,7 @@ async function restoreScopedMergeRecommendationFeedback({ feedbackId, scopeConte
   );
   const row = existing.rows?.[0] || null;
   if (!row) return null;
-  await pool.query('DELETE FROM media_merge_recommendation_feedback WHERE id = $1', [id]);
+  await db.query('DELETE FROM media_merge_recommendation_feedback WHERE id = $1', [id]);
   return {
     feedback_id: Number(row.id || 0) || null,
     outcome: String(row.outcome || '').trim() || null,
@@ -11332,11 +11337,12 @@ router.get('/merge-recommendations', requireSessionAuth, requireRole('admin', 's
   const scopeContext = resolveScopeContext(req);
   const limit = Math.max(1, Math.min(50, Number(req.query?.limit || 12) || 12));
   const mediaType = normalizeMergeReviewMediaTypeFilter(req.query?.media_type);
-  const recommendations = await loadScopedManualMergeRecommendations({
-    scopeContext,
-    limit,
-    mediaType
-  });
+  const recommendations = await withAuthorizedScopeTransaction(
+    pool,
+    { spaceId: scopeContext.spaceId, libraryId: scopeContext.libraryId || null },
+    req.user.id,
+    (client) => loadScopedManualMergeRecommendations({ scopeContext, limit, mediaType, db: client })
+  );
   res.json(recommendations);
 }));
 
@@ -11346,13 +11352,12 @@ router.get('/discovery-candidates', requireSessionAuth, requireRole('admin', 'su
   const search = String(req.query?.search || '').trim();
   const mediaId = Number(req.query?.media_id || 0) || null;
   const mediaType = normalizeMergeReviewMediaTypeFilter(req.query?.media_type);
-  const discovery = await loadScopedDuplicateDiscoveryCandidates({
-    scopeContext,
-    limit,
-    search,
-    mediaId,
-    mediaType
-  });
+  const discovery = await withAuthorizedScopeTransaction(
+    pool,
+    { spaceId: scopeContext.spaceId, libraryId: scopeContext.libraryId || null },
+    req.user.id,
+    (client) => loadScopedDuplicateDiscoveryCandidates({ scopeContext, limit, search, mediaId, mediaType, db: client })
+  );
   res.json(discovery);
 }));
 
@@ -11361,12 +11366,12 @@ router.get('/comics/duplicate-candidates', requireSessionAuth, requireRole('admi
   const limit = Math.max(1, Math.min(50, Number(req.query?.limit || 12) || 12));
   const search = String(req.query?.search || '').trim();
   const mediaType = normalizeMergeReviewMediaTypeFilter(req.query?.media_type);
-  const candidates = await loadScopedComicDuplicateCandidates({
-    scopeContext,
-    limit,
-    search,
-    mediaType
-  });
+  const candidates = await withAuthorizedScopeTransaction(
+    pool,
+    { spaceId: scopeContext.spaceId, libraryId: scopeContext.libraryId || null },
+    req.user.id,
+    (client) => loadScopedComicDuplicateCandidates({ scopeContext, limit, search, mediaType, db: client })
+  );
   res.json(candidates);
 }));
 
@@ -11849,13 +11854,12 @@ router.get('/merge-recommendations/history', requireSessionAuth, requireRole('ad
   const search = String(req.query?.search || '').trim();
   const mediaType = normalizeMergeReviewMediaTypeFilter(req.query?.media_type);
   const outcome = normalizeRecommendationFeedbackOutcomeFilter(req.query?.outcome);
-  const history = await loadScopedMergeRecommendationFeedbackHistory({
-    scopeContext,
-    limit,
-    search,
-    mediaType,
-    outcome
-  });
+  const history = await withAuthorizedScopeTransaction(
+    pool,
+    { spaceId: scopeContext.spaceId, libraryId: scopeContext.libraryId || null },
+    req.user.id,
+    (client) => loadScopedMergeRecommendationFeedbackHistory({ scopeContext, limit, search, mediaType, outcome, db: client })
+  );
   res.json(history);
 }));
 
@@ -11884,16 +11888,29 @@ router.post('/merge-recommendations/reject', requireSessionAuth, requireRole('ad
     });
   }
 
-  const feedback = await recordManualMergeRecommendationFeedback({
-    canonicalMediaId,
-    duplicateMediaId,
-    outcome: 'rejected',
-    scopeContext,
-    userId: req.user?.id || null,
-    reasonCode,
-    reason,
-    preview
-  });
+  const { feedback, recommendations } = await withAuthorizedScopeTransaction(
+    pool,
+    { spaceId: scopeContext.spaceId, libraryId: scopeContext.libraryId || null },
+    req.user.id,
+    async (client) => ({
+      feedback: await recordManualMergeRecommendationFeedback({
+        canonicalMediaId,
+        duplicateMediaId,
+        outcome: 'rejected',
+        scopeContext,
+        userId: req.user?.id || null,
+        reasonCode,
+        reason,
+        preview,
+        db: client
+      }),
+      recommendations: await loadScopedManualMergeRecommendations({
+        scopeContext,
+        limit: Math.max(1, Math.min(50, Number(req.query?.limit || 12) || 12)),
+        db: client
+      })
+    })
+  );
   await logActivity(req, 'media.merge_recommendation.reject', 'media', canonicalMediaId, {
     canonical_id: canonicalMediaId,
     duplicate_id: duplicateMediaId,
@@ -11901,10 +11918,6 @@ router.post('/merge-recommendations/reject', requireSessionAuth, requireRole('ad
     reason_code: reasonCode,
     reason,
     media_type: preview.preview?.media_type || preview.canonical?.media_type || null
-  });
-  const recommendations = await loadScopedManualMergeRecommendations({
-    scopeContext,
-    limit: Math.max(1, Math.min(50, Number(req.query?.limit || 12) || 12))
   });
   res.json({
     rejected: true,
@@ -11940,16 +11953,29 @@ router.post('/merge-recommendations/defer', requireSessionAuth, requireRole('adm
     });
   }
 
-  const feedback = await recordManualMergeRecommendationFeedback({
-    canonicalMediaId,
-    duplicateMediaId,
-    outcome: 'deferred',
-    scopeContext,
-    userId: req.user?.id || null,
-    reasonCode,
-    reason,
-    preview
-  });
+  const { feedback, recommendations } = await withAuthorizedScopeTransaction(
+    pool,
+    { spaceId: scopeContext.spaceId, libraryId: scopeContext.libraryId || null },
+    req.user.id,
+    async (client) => ({
+      feedback: await recordManualMergeRecommendationFeedback({
+        canonicalMediaId,
+        duplicateMediaId,
+        outcome: 'deferred',
+        scopeContext,
+        userId: req.user?.id || null,
+        reasonCode,
+        reason,
+        preview,
+        db: client
+      }),
+      recommendations: await loadScopedManualMergeRecommendations({
+        scopeContext,
+        limit: Math.max(1, Math.min(50, Number(req.query?.limit || 12) || 12)),
+        db: client
+      })
+    })
+  );
   await logActivity(req, 'media.merge_recommendation.defer', 'media', canonicalMediaId, {
     canonical_id: canonicalMediaId,
     duplicate_id: duplicateMediaId,
@@ -11957,10 +11983,6 @@ router.post('/merge-recommendations/defer', requireSessionAuth, requireRole('adm
     reason_code: reasonCode,
     reason,
     media_type: preview.preview?.media_type || preview.canonical?.media_type || null
-  });
-  const recommendations = await loadScopedManualMergeRecommendations({
-    scopeContext,
-    limit: Math.max(1, Math.min(50, Number(req.query?.limit || 12) || 12))
   });
   res.json({
     deferred: true,
@@ -11973,10 +11995,37 @@ router.post('/merge-recommendations/defer', requireSessionAuth, requireRole('adm
 
 router.post('/merge-recommendations/restore', requireSessionAuth, requireRole('admin', 'support_admin'), validate(mediaMergeRecommendationRestoreSchema), asyncHandler(async (req, res) => {
   const scopeContext = resolveScopeContext(req);
-  const restored = await restoreScopedMergeRecommendationFeedback({
-    feedbackId: Number(req.body?.feedback_id || 0),
-    scopeContext
-  });
+  const restoredBundle = await withAuthorizedScopeTransaction(
+    pool,
+    { spaceId: scopeContext.spaceId, libraryId: scopeContext.libraryId || null },
+    req.user.id,
+    async (client) => {
+      const restored = await restoreScopedMergeRecommendationFeedback({
+        feedbackId: Number(req.body?.feedback_id || 0),
+        scopeContext,
+        db: client
+      });
+      if (!restored) return { restored: null };
+      return {
+        restored,
+        recommendations: await loadScopedManualMergeRecommendations({
+          scopeContext,
+          limit: Math.max(1, Math.min(50, Number(req.query?.limit || 12) || 12)),
+          mediaType: normalizeMergeReviewMediaTypeFilter(req.query?.media_type),
+          db: client
+        }),
+        history: await loadScopedMergeRecommendationFeedbackHistory({
+          scopeContext,
+          limit: Math.max(1, Math.min(50, Number(req.query?.history_limit || 12) || 12)),
+          search: String(req.query?.search || '').trim(),
+          mediaType: normalizeMergeReviewMediaTypeFilter(req.query?.media_type),
+          outcome: normalizeRecommendationFeedbackOutcomeFilter(req.query?.outcome),
+          db: client
+        })
+      };
+    }
+  );
+  const restored = restoredBundle.restored;
   if (!restored) {
     return res.status(404).json({ error: 'Suppressed pair entry was not found in the active scope' });
   }
@@ -11987,23 +12036,11 @@ router.post('/merge-recommendations/restore', requireSessionAuth, requireRole('a
     restored_outcome: restored.outcome,
     media_type: restored.media_type || null
   });
-  const recommendations = await loadScopedManualMergeRecommendations({
-    scopeContext,
-    limit: Math.max(1, Math.min(50, Number(req.query?.limit || 12) || 12)),
-    mediaType: normalizeMergeReviewMediaTypeFilter(req.query?.media_type)
-  });
-  const history = await loadScopedMergeRecommendationFeedbackHistory({
-    scopeContext,
-    limit: Math.max(1, Math.min(50, Number(req.query?.history_limit || 12) || 12)),
-    search: String(req.query?.search || '').trim(),
-    mediaType: normalizeMergeReviewMediaTypeFilter(req.query?.media_type),
-    outcome: normalizeRecommendationFeedbackOutcomeFilter(req.query?.outcome)
-  });
   res.json({
     restored: true,
     feedback: restored,
-    recommendations,
-    history
+    recommendations: restoredBundle.recommendations,
+    history: restoredBundle.history
   });
 }));
 

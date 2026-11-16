@@ -2,6 +2,7 @@
 
 const bcrypt = require('bcrypt');
 const pool = require('../db/pool');
+const { withAuthorizedScopeTransaction } = require('../db/scopeBroker');
 const { ensureUserDefaultScope } = require('../services/libraries');
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
@@ -72,6 +73,10 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
+async function scopedFeedbackQuery({ userId, spaceId, libraryId }, text, params = []) {
+  return withAuthorizedScopeTransaction(pool, { spaceId, libraryId }, userId, (client) => client.query(text, params));
+}
+
 async function createDirectUser({ email, password, name, role = 'admin' }) {
   const passwordHash = await bcrypt.hash(password, 12);
   const result = await pool.query(
@@ -85,7 +90,8 @@ async function createDirectUser({ email, password, name, role = 'admin' }) {
 
 async function cleanupTemporaryState({ userId, libraryId, spaceId }) {
   if (libraryId) {
-    await pool.query('DELETE FROM media_merge_recommendation_feedback WHERE library_id = $1', [libraryId]).catch(() => {});
+    await scopedFeedbackQuery({ userId, spaceId, libraryId },
+      'DELETE FROM media_merge_recommendation_feedback WHERE library_id = $1', [libraryId]).catch(() => {});
     await pool.query('DELETE FROM media_repair_history WHERE canonical_media_id IN (SELECT id FROM media WHERE library_id = $1) OR duplicate_media_id IN (SELECT id FROM media WHERE library_id = $1)', [libraryId]).catch(() => {});
     await pool.query('DELETE FROM media_metadata WHERE media_id IN (SELECT id FROM media WHERE library_id = $1)', [libraryId]).catch(() => {});
     await pool.query('DELETE FROM media_variants WHERE media_id IN (SELECT id FROM media WHERE library_id = $1)', [libraryId]).catch(() => {});
@@ -229,7 +235,7 @@ async function main() {
     assert(remainingMovieRecommendation, 'Expected unrelated movie recommendation to remain in queue');
     assert(Number(rejectResponse.data?.recommendations?.summary?.total_candidates || 0) === 1, 'Expected recommendation summary to drop after rejection');
 
-    const feedbackRow = await pool.query(
+    const feedbackRow = await scopedFeedbackQuery({ userId, spaceId, libraryId },
       `SELECT outcome, reason, context->>'reason_code' AS reason_code
          FROM media_merge_recommendation_feedback
         WHERE pair_low_media_id = $1
