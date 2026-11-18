@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-18T04:26:45.751Z",
+  "generated_at": "2026-11-18T05:47:23.100Z",
   "certification": "durable-worker-scope-broker",
   "status": "passed",
   "checks": [
@@ -21,6 +21,10 @@
     },
     {
       "label": "recovery grant is distinct from claim",
+      "pass": true
+    },
+    {
+      "label": "observation and maintenance grants are action separated",
       "pass": true
     },
     {
@@ -49,6 +53,10 @@
     },
     {
       "label": "authorized request store rejects jobs outside its allowlist",
+      "pass": true
+    },
+    {
+      "label": "authorized service store observes and repairs only allowlisted legacy jobs",
       "pass": true
     }
   ]

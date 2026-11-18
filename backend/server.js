@@ -52,7 +52,10 @@ const objectRelationshipsRouter = require('./routes/objectRelationships');
 const { supportSharedRouter } = require('./routes/support');
 const { cleanupExpiredSessions, SESSION_MAX_PER_USER, SESSION_TTL_DAYS } = require('./services/sessions');
 const { startAutomaticLoanReminderScheduler, getAutomaticLoanReminderRuntimeConfig } = require('./services/loanReminders');
-const { createAuthorizedDurableWorkerStore, createDurableJobStore } = require('./services/durableJobs');
+const {
+  createAuthorizedDurableWorkerStore,
+  createAuthorizedSyncJobServiceStore
+} = require('./services/durableJobs');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -79,8 +82,8 @@ const RATE_LIMIT_EXTERNAL_API_MAX = Math.max(5, Number(process.env.RATE_LIMIT_EX
 const PLAYWRIGHT_E2E_BYPASS_TOKEN = String(process.env.PLAYWRIGHT_E2E_BYPASS_TOKEN || '').trim();
 const PLAYWRIGHT_E2E_BYPASS_COOKIE = 'playwright_e2e_bypass';
 const AUTO_LOAN_REMINDER_RUNTIME = getAutomaticLoanReminderRuntimeConfig();
-const durableJobStore = createDurableJobStore(pool);
 const durableWorkerStore = createAuthorizedDurableWorkerStore({ pool });
+const syncJobServiceStore = createAuthorizedSyncJobServiceStore({ pool });
 const PLEX_WEBHOOK_IMPORT_RUNTIME = typeof mediaRouter.getPlexWebhookImportAutoProcessorRuntimeConfig === 'function'
   ? mediaRouter.getPlexWebhookImportAutoProcessorRuntimeConfig()
   : { enabled: false };
@@ -426,20 +429,9 @@ const startServer = async () => {
   try {
     validateStartupSecurityConfig();
     await prepareDatabaseForStartup();
-    const staleJobs = await pool.query(
-      `UPDATE sync_jobs
-       SET status = 'failed',
-           error = COALESCE(error, 'Process restarted before job completion'),
-           finished_at = COALESCE(finished_at, NOW())
-       WHERE COALESCE(scope->>'durableLifecycle', 'false') <> 'true'
-         AND (
-           status = 'running'
-           OR (status = 'queued' AND job_type NOT IN ('plex_webhook_import_hint', 'plex_webhook_state_hint'))
-         )
-       RETURNING id`
-    );
-    if (staleJobs.rowCount > 0) {
-      console.warn(`Recovered ${staleJobs.rowCount} stale sync job(s) after restart`);
+    const staleJobCount = await syncJobServiceStore.recoverStaleLegacyJobs();
+    if (staleJobCount > 0) {
+      console.warn(`Recovered ${staleJobCount} stale sync job(s) after restart`);
     }
     const effectivePlexWatchRefreshRuntime = typeof mediaRouter.getEffectivePlexWatchStateRefreshRuntimeConfig === 'function'
       ? await mediaRouter.getEffectivePlexWatchStateRefreshRuntimeConfig()

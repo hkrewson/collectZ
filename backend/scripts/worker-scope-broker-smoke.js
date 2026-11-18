@@ -13,6 +13,7 @@ const {
 } = require('../db/scopeBroker');
 const {
   createAuthorizedDurableRequestStore,
+  createAuthorizedSyncJobServiceStore,
   createAuthorizedDurableWorkerStore,
   createDurableJobStore
 } = require('../services/durableJobs');
@@ -57,6 +58,11 @@ async function main() {
     const requestStore = createAuthorizedDurableRequestStore({
       pool,
       allowedJobTypes: ['worker_scope_smoke']
+    });
+    const serviceStore = createAuthorizedSyncJobServiceStore({
+      pool,
+      observedJobTypes: ['worker_scope_legacy'],
+      maintainedJobTypes: ['worker_scope_legacy']
     });
     const workerStore = createAuthorizedDurableWorkerStore({
       pool,
@@ -123,6 +129,22 @@ async function main() {
                   collectz_scope.worker_allows_global('claim','bookorbit_sync') AS claim_allowed`
         );
         assert.equal(result.rows[0].allowed, true);
+        assert.equal(result.rows[0].claim_allowed, false);
+      });
+    });
+    await check('observation and maintenance grants are action separated', async () => {
+      await withAuthorizedWorkerTransaction(pool, {
+        action: 'observe',
+        workerId: 'service:observer',
+        jobTypes: ['worker_scope_legacy']
+      }, async (client) => {
+        const result = await client.query(
+          `SELECT collectz_scope.worker_allows_global('observe','worker_scope_legacy') AS observe_allowed,
+                  collectz_scope.worker_allows_global('maintain','worker_scope_legacy') AS maintain_allowed,
+                  collectz_scope.worker_allows_global('claim','worker_scope_legacy') AS claim_allowed`
+        );
+        assert.equal(result.rows[0].observe_allowed, true);
+        assert.equal(result.rows[0].maintain_allowed, false);
         assert.equal(result.rows[0].claim_allowed, false);
       });
     });
@@ -278,6 +300,25 @@ async function main() {
         actorId
       });
       assert.equal(cancelled, null);
+    });
+    await check('authorized service store observes and repairs only allowlisted legacy jobs', async () => {
+      const inserted = await pool.query(
+        `INSERT INTO sync_jobs (
+           job_type, provider, status, created_by, space_id, library_id, scope, progress
+         ) VALUES (
+           'worker_scope_legacy', 'worker_scope_smoke', 'running', $1, $2, $3, $4::jsonb, '{}'::jsonb
+         )
+         RETURNING id`,
+        [actorId, spaceId, libraryId, JSON.stringify({ spaceId, ...(libraryId ? { libraryId } : {}) })]
+      );
+      fixtureJobIds.push(inserted.rows[0].id);
+      const counts = await serviceStore.observeStatusCounts();
+      assert.equal(counts.find((row) => row.status === 'running')?.count, 1);
+      const recovered = await serviceStore.recoverStaleLegacyJobs();
+      assert.equal(recovered, 1);
+      const row = await pool.query('SELECT status, error FROM sync_jobs WHERE id = $1', [inserted.rows[0].id]);
+      assert.equal(row.rows[0].status, 'failed');
+      assert.equal(row.rows[0].error, 'Process restarted before job completion');
     });
 
     const evidence = {

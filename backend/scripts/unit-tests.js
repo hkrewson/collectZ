@@ -2443,7 +2443,9 @@ results.push(run('plex webhook receiver accepts documented multipart events and 
   assert.ok(mediaRoutesSource.includes("'single_rating_key_rating_refresh'"));
   assert.ok(mediaRoutesSource.includes('fetchPlexMetadataItem'));
   assert.ok(mediaRoutesSource.includes("processingMode: 'single_rating_key_import'"));
-  assert.ok(serverSource.includes("job_type NOT IN ('plex_webhook_import_hint', 'plex_webhook_state_hint')"));
+  assert.ok(serverSource.includes('syncJobServiceStore.recoverStaleLegacyJobs()'));
+  assert.ok(fs.readFileSync(require.resolve('../services/durableJobs'), 'utf8')
+    .includes("['plex_webhook_import_hint', 'plex_webhook_state_hint']"));
   assert.ok(serverSource.includes('startPlexWebhookImportHintAutoProcessor'));
   assert.ok(integrationsServiceSource.includes('plexWebhookReceiverTokenHash'));
   assert.ok(integrationsServiceSource.includes('plexWebhookReceiverLastValidationStatus'));
@@ -5540,6 +5542,23 @@ results.push(run('durable request and operator paths use actor-authorized scoped
   assert.ok(spaceIntegrationsRoutesSource.includes('durableRequestStore.listOperatorJobs'));
   assert.ok(spaceIntegrationsRoutesSource.includes('durableRequestStore.requestOperatorCancellation'));
   assert.ok(spaceIntegrationsRoutesSource.includes('actorId: req.user.id'));
+}));
+
+results.push(run('sync job metrics and startup maintenance use distinct allowlisted service grants', () => {
+  const durableJobsSource = fs.readFileSync(require.resolve('../services/durableJobs'), 'utf8');
+  const metricsSource = fs.readFileSync(require.resolve('../services/metrics'), 'utf8');
+  const serviceScopeMigration = fs.readFileSync(path.resolve(__dirname, '../db/syncJobServiceScope.sql'), 'utf8');
+  assert.ok(migrationsSource.includes('version: 142'));
+  assert.ok(initSqlSource.includes("(142, 'Add bounded sync job service transaction grants')"));
+  assert.ok(serviceScopeMigration.includes("'observe', 'maintain'"));
+  assert.ok(serviceScopeMigration.includes("p_action NOT IN ('claim', 'recover', 'lifecycle', 'observe', 'maintain')"));
+  assert.ok(durableJobsSource.includes('createAuthorizedSyncJobServiceStore'));
+  assert.ok(durableJobsSource.includes("action: 'observe'"));
+  assert.ok(durableJobsSource.includes("action: 'maintain'"));
+  assert.ok(durableJobsSource.includes('WHERE job_type = ANY($1::text[])'));
+  assert.ok(metricsSource.includes('syncJobServiceStore.observeStatusCounts()'));
+  assert.ok(serverSource.includes('syncJobServiceStore.recoverStaleLegacyJobs()'));
+  assert.ok(!serverSource.includes('const staleJobs = await pool.query'));
 }));
 
 results.push(run('provider cadence readback reports the next eligible time without changing disabled targets', () => {

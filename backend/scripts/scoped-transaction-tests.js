@@ -93,6 +93,16 @@ test('durable worker authorization is normalized and bounded before database acc
     spaceId: 7,
     libraryId: 9
   }).libraryId, 9);
+  assert.equal(normalizeWorkerAuthorization({
+    action: 'observe',
+    workerId: 'metrics:one',
+    jobTypes: ['media_import']
+  }).action, 'observe');
+  assert.equal(normalizeWorkerAuthorization({
+    action: 'maintain',
+    workerId: 'startup:one',
+    jobTypes: ['media_import']
+  }).action, 'maintain');
   assert.throws(() => normalizeWorkerAuthorization({ action: 'claim', workerId: 'worker:one', jobTypes: [] }), /job types/);
   assert.throws(() => normalizeWorkerAuthorization({ action: 'claim', workerId: 'worker one', jobTypes: ['bookorbit_sync'] }), /worker ID/);
   assert.throws(() => normalizeWorkerAuthorization({ action: 'claim', workerId: 'worker:one', jobTypes: ['bookorbit_sync'], spaceId: 7 }), /cannot include workspace/);

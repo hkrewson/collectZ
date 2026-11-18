@@ -1974,7 +1974,8 @@ INSERT INTO schema_migrations (version, description) VALUES
     (138, 'Protect merge recommendation feedback with library RLS'),
     (139, 'Protect event exclusive sources with library RLS'),
     (140, 'Protect object relationships with workspace RLS'),
-    (141, 'Add bounded durable worker transaction grants')
+    (141, 'Add bounded durable worker transaction grants'),
+    (142, 'Add bounded sync job service transaction grants')
 ON CONFLICT (version) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS tv_device_authorizations (
@@ -3167,7 +3168,7 @@ CREATE TABLE IF NOT EXISTS collectz_scope.worker_transactions (
   backend_pid INTEGER NOT NULL,
   transaction_id TEXT NOT NULL,
   runtime_role NAME NOT NULL,
-  action TEXT NOT NULL CHECK (action IN ('claim', 'recover', 'lifecycle')),
+  action TEXT NOT NULL CHECK (action IN ('claim', 'recover', 'lifecycle', 'observe', 'maintain')),
   worker_id TEXT NOT NULL CHECK (
     char_length(worker_id) BETWEEN 1 AND 160
     AND worker_id ~ '^[A-Za-z0-9][A-Za-z0-9_.:-]*$'
@@ -3182,7 +3183,7 @@ CREATE TABLE IF NOT EXISTS collectz_scope.worker_transactions (
   expires_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp() + interval '5 minutes',
   PRIMARY KEY (backend_pid, transaction_id),
   CHECK (
-    (action IN ('claim', 'recover') AND space_id IS NULL AND library_id IS NULL)
+    (action IN ('claim', 'recover', 'observe', 'maintain') AND space_id IS NULL AND library_id IS NULL)
     OR (action = 'lifecycle' AND space_id IS NOT NULL)
   )
 );
@@ -3212,7 +3213,7 @@ BEGIN
     FROM unnest(p_job_types) AS value;
   IF target_role IS NULL
      OR p_xid IS NULL OR p_xid !~ '^[0-9]+$'
-     OR p_action NOT IN ('claim', 'recover', 'lifecycle')
+     OR p_action NOT IN ('claim', 'recover', 'lifecycle', 'observe', 'maintain')
      OR p_worker IS NULL OR char_length(p_worker) NOT BETWEEN 1 AND 160
      OR p_worker !~ '^[A-Za-z0-9][A-Za-z0-9_.:-]*$'
      OR normalized_job_types IS NULL OR cardinality(normalized_job_types) NOT BETWEEN 1 AND 16
@@ -3220,7 +3221,7 @@ BEGIN
        SELECT 1 FROM unnest(normalized_job_types) AS job_type
         WHERE job_type !~ '^[a-z][a-z0-9_.:-]{1,79}$'
      )
-     OR (p_action IN ('claim', 'recover') AND (p_space IS NOT NULL OR p_library IS NOT NULL))
+     OR (p_action IN ('claim', 'recover', 'observe', 'maintain') AND (p_space IS NOT NULL OR p_library IS NOT NULL))
      OR (p_action = 'lifecycle' AND (p_space IS NULL OR p_space <= 0))
      OR (p_library IS NOT NULL AND p_library <= 0) THEN
     RAISE EXCEPTION 'Invalid worker database scope grant' USING ERRCODE = '42501';

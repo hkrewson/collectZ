@@ -152,6 +152,19 @@ The `3.27.x` architecture line, `3.28.0` durable provider job foundation, and `3
 - **What remains in the milestone:** Classify and migrate or separate legacy webhook/import, global metrics, startup-cleanup, certification, and maintenance access; design and certify final `sync_jobs` policies; then complete the `3.28.2` version and hosted release closeout.
 - **Recommended commit message:** `Adopt 3.28.2 actor-authorized sync job readback`.
 
+### Sync-job service authorization checkpoint
+
+- **Roadmap slice:** `3.28.2 — Staged Workspace Row-Level Security Expansion`, bounded global metrics observation and startup-maintenance authorization.
+- **Project docs/checklists used:** `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, and `docs/wiki/50-Staged-Row-Level-Security.md`.
+- **Verified facts:** Migration `142` adds distinct global `observe` and `maintain` background grants without enabling `sync_jobs` RLS or broadening table privileges. Both actions require an explicit job-type allowlist and reject workspace/library scope. Metrics observation covers the eight known durable and legacy job types and executes only grouped status readback. Startup maintenance covers the six legacy types, repairs stale running and non-webhook queued work, and preserves queued webhook hints. Observation cannot satisfy maintenance or claim, maintenance cannot satisfy observation, and neither can satisfy lifecycle or recovery.
+- **Runtime verification used:** Rebuilt and recreated the canonical `collectz-private` backend in place on port `3201`; startup completed under the non-owner runtime role at schema `142`. The fourteen-label broker smoke proved action separation and observed then repaired a real allowlisted legacy fixture, removed the fixture, and left no transaction grant behind. Direct metrics rendering still emitted `collectz_sync_jobs`, and `sync_jobs` RLS remained deliberately disabled.
+- **CI/checks run:** Backend unit suite (`382` source assertions plus `56` Node tests), OpenAPI, Node syntax/diff hygiene, canonical worker broker smoke (`14/14`), authenticated RBAC regression, workspace ownership (`79` tables, `355` routes, `12` maintained paths), init parity through migration `142`, retained `141 -> 142` migration/rollback rehearsal, and the standard local release gate (`14/14`).
+- **Files changed:** Migration `142` and fresh-install parity; background authorization normalization; allowlisted metrics-observation and startup-maintenance service store; server and metrics adoption; expanded unit/runtime certification and refreshed broker evidence; and staged-RLS/release policy documentation.
+- **Blocked/unverified:** Hosted CodeQL, dependency/secret scans, secure-cookie Compose smoke, Core browser/RBAC/runtime suites, image security/SBOM, publication, and release tagging require an authorized push and remain deferred to the `3.28.2` version closeout. This service-adoption slice does not complete the numbered milestone, so semver and release-feed artifacts remain at `3.28.1`.
+- **Risks or follow-ups:** New production job types require an explicit service allowlist decision. Legacy webhook/import processing still performs direct mutation outside these grants, and enabling table-wide RLS before those paths and certification utilities adopt a compatible contract would break valid behavior.
+- **What remains in the milestone:** Migrate or separate legacy webhook/import mutation and remaining certification access, design and certify final `sync_jobs` policies, then complete the `3.28.2` version and hosted release closeout.
+- **Recommended commit message:** `Add 3.28.2 bounded sync job service authorization`.
+
 ### Milestone boundary
 
 - This milestone activates one classified table family at a time; it does not enable RLS across all legacy domain tables.

@@ -1,37 +1,68 @@
 {
-  "generatedAt": "2026-04-21T02:15:14.085Z",
-  "baselineVersion": 68,
-  "latestVersion": 69,
+  "generatedAt": "2026-11-18T05:50:03.376Z",
+  "baselineVersion": 141,
+  "latestVersion": 142,
   "databases": {
-    "legacyDb": "collectz_rehearsal_legacy_mo7zre6t",
-    "snapshotDb": "collectz_rehearsal_snapshot_mo7zre6t",
-    "rollbackDb": "collectz_rehearsal_rollback_mo7zre6t"
+    "legacyDb": "collectz_rehearsal_legacy_mwlpcear",
+    "snapshotDb": "collectz_rehearsal_snapshot_mwlpcear",
+    "rollbackDb": "collectz_rehearsal_rollback_mwlpcear"
   },
   "preUpgradeCounts": {
     "users": 1,
-    "media": 1,
+    "media": 2,
+    "media_merge_recommendation_feedback": 1,
+    "event_exclusive_sources": 1,
+    "object_relationships": 1,
     "invites": 1,
     "app_integrations": 1,
     "feature_flags": 8
   },
   "postUpgradeCounts": {
     "users": 1,
-    "media": 1,
+    "media": 2,
+    "media_merge_recommendation_feedback": 1,
+    "event_exclusive_sources": 1,
+    "object_relationships": 1,
     "invites": 1,
     "app_integrations": 1,
     "feature_flags": 8
   },
   "rollbackCounts": {
     "users": 1,
-    "media": 1,
+    "media": 2,
+    "media_merge_recommendation_feedback": 1,
+    "event_exclusive_sources": 1,
+    "object_relationships": 1,
     "invites": 1,
     "app_integrations": 1,
     "feature_flags": 8
   },
   "checks": {
-    "preUpgradeVersion": 68,
-    "postUpgradeVersion": 69,
-    "rollbackVersion": 68,
+    "preUpgradeVersion": 141,
+    "preUpgradeInvitationState": {
+      "tokenColumnPresent": false,
+      "tokenHashRequired": true,
+      "missingHashCount": 0,
+      "plaintextValueCount": 0
+    },
+    "postUpgradeVersion": 142,
+    "postUpgradeInvitationState": {
+      "tokenColumnPresent": false,
+      "tokenHashRequired": true,
+      "missingHashCount": 0,
+      "plaintextValueCount": 0
+    },
+    "reviewDecisionOwnershipBackfilled": true,
+    "mergeFeedbackOwnershipBackfilled": true,
+    "eventExclusiveSourceOwnershipBackfilled": true,
+    "objectRelationshipOwnershipBackfilled": true,
+    "rollbackVersion": 141,
+    "rollbackInvitationState": {
+      "tokenColumnPresent": false,
+      "tokenHashRequired": true,
+      "missingHashCount": 0,
+      "plaintextValueCount": 0
+    },
     "rollbackCountsMatchPreUpgrade": true,
     "rollbackVersionMatchesBaseline": true
   }

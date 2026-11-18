@@ -5,7 +5,7 @@ const { Pool } = require('pg');
 const { withScopedTransaction } = require('./scopedTransaction');
 const { executeTransaction } = require('./transactionExecutor');
 
-const WORKER_ACTIONS = new Set(['claim', 'recover', 'lifecycle']);
+const WORKER_ACTIONS = new Set(['claim', 'recover', 'lifecycle', 'observe', 'maintain']);
 const SAFE_WORKER_ID = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,159}$/;
 const SAFE_JOB_TYPE = /^[a-z][a-z0-9_.:-]{1,79}$/;
 
@@ -54,7 +54,9 @@ function normalizeWorkerAuthorization(value = {}) {
   const action = String(value.action || '').trim().toLowerCase();
   const workerId = String(value.workerId || '').trim();
   const jobTypes = [...new Set((value.jobTypes || []).map((entry) => String(entry || '').trim().toLowerCase()))].sort();
-  if (!WORKER_ACTIONS.has(action)) throw new TypeError('Durable worker action must be claim, recover, or lifecycle');
+  if (!WORKER_ACTIONS.has(action)) {
+    throw new TypeError('Background database action must be claim, recover, lifecycle, observe, or maintain');
+  }
   if (!SAFE_WORKER_ID.test(workerId)) throw new TypeError('Durable worker ID is invalid');
   if (jobTypes.length < 1 || jobTypes.length > 16 || jobTypes.some((entry) => !SAFE_JOB_TYPE.test(entry))) {
     throw new TypeError('Durable worker job types are invalid');

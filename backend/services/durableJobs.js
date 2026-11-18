@@ -9,6 +9,15 @@ const SENSITIVE_KEY_PATTERN = /(authorization|cookie|credential|password|secret|
 const FINAL_STATUSES = new Set(['succeeded', 'failed', 'cancelled']);
 const SETTLEMENT_STATUSES = new Set(['succeeded', 'failed', 'retry_wait', 'cancelled']);
 const DURABLE_WORKER_JOB_TYPES = Object.freeze(['bookorbit_sync', 'plex_reconciliation_sync']);
+const LEGACY_SYNC_JOB_TYPES = Object.freeze([
+  'import',
+  'media_import',
+  'plex_reconciliation_preview',
+  'plex_webhook_import_hint',
+  'plex_webhook_state_hint',
+  'valuation_refresh'
+]);
+const SYNC_JOB_SERVICE_TYPES = Object.freeze([...DURABLE_WORKER_JOB_TYPES, ...LEGACY_SYNC_JOB_TYPES]);
 
 function durableJobError(message, code) {
   const error = new Error(message);
@@ -645,6 +654,67 @@ function createAuthorizedDurableRequestStore({ pool, allowedJobTypes = DURABLE_W
   });
 }
 
+function createAuthorizedSyncJobServiceStore({
+  pool,
+  observedJobTypes = SYNC_JOB_SERVICE_TYPES,
+  maintainedJobTypes = LEGACY_SYNC_JOB_TYPES
+} = {}) {
+  if (!pool || typeof pool.connect !== 'function') {
+    throw durableJobError('A PostgreSQL transaction pool is required', 'durable_job_invalid_adapter');
+  }
+  const normalizeTypes = (values, label) => {
+    const normalized = [...new Set((values || []).map((value) => requireSafeName(value, 'jobType')))];
+    if (normalized.length < 1 || normalized.length > 16) {
+      throw durableJobError(`${label} job types are required`, 'durable_job_invalid_input');
+    }
+    return normalized;
+  };
+  const observeTypes = normalizeTypes(observedJobTypes, 'Observed sync job');
+  const maintainTypes = normalizeTypes(maintainedJobTypes, 'Maintained sync job');
+  if (maintainTypes.some((value) => !observeTypes.includes(value))) {
+    throw durableJobError('Maintained sync job types must be observable', 'durable_job_invalid_input');
+  }
+
+  return Object.freeze({
+    observeStatusCounts: () => withAuthorizedWorkerTransaction(pool, {
+      action: 'observe',
+      workerId: `sync-job-observer:${process.pid}`,
+      jobTypes: observeTypes
+    }, async (client) => {
+      const result = await client.query(
+        `SELECT status, COUNT(*)::int AS count
+           FROM sync_jobs
+          WHERE job_type = ANY($1::text[])
+          GROUP BY status
+          ORDER BY status ASC`,
+        [observeTypes]
+      );
+      return result.rows;
+    }),
+    recoverStaleLegacyJobs: () => withAuthorizedWorkerTransaction(pool, {
+      action: 'maintain',
+      workerId: `sync-job-maintenance:${process.pid}`,
+      jobTypes: maintainTypes
+    }, async (client) => {
+      const result = await client.query(
+        `UPDATE sync_jobs
+            SET status = 'failed',
+                error = COALESCE(error, 'Process restarted before job completion'),
+                finished_at = COALESCE(finished_at, NOW())
+          WHERE job_type = ANY($1::text[])
+            AND COALESCE(scope->>'durableLifecycle', 'false') <> 'true'
+            AND (
+              status = 'running'
+              OR (status = 'queued' AND job_type <> ALL($2::text[]))
+            )
+          RETURNING id`,
+        [maintainTypes, ['plex_webhook_import_hint', 'plex_webhook_state_hint']]
+      );
+      return result.rows.length;
+    })
+  });
+}
+
 function createAuthorizedDurableWorkerStore({ pool, allowedJobTypes = DURABLE_WORKER_JOB_TYPES } = {}) {
   if (!pool || typeof pool.connect !== 'function') {
     throw durableJobError('A PostgreSQL transaction pool is required', 'durable_job_invalid_adapter');
@@ -700,8 +770,11 @@ function createAuthorizedDurableWorkerStore({ pool, allowedJobTypes = DURABLE_WO
 module.exports = {
   FINAL_STATUSES,
   DURABLE_WORKER_JOB_TYPES,
+  LEGACY_SYNC_JOB_TYPES,
+  SYNC_JOB_SERVICE_TYPES,
   assertSecretFree,
   createAuthorizedDurableRequestStore,
+  createAuthorizedSyncJobServiceStore,
   createAuthorizedDurableWorkerStore,
   createDurableJobStore,
   shapeJob,

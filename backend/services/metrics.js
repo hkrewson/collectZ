@@ -2,7 +2,9 @@
 
 const pool = require('../db/pool');
 const { normalizeProviderIdentityLabel } = require('./providerIdentityCompatibilityDiagnostics');
+const { createAuthorizedSyncJobServiceStore } = require('./durableJobs');
 const appMeta = require('../app-meta.json');
+const syncJobServiceStore = createAuthorizedSyncJobServiceStore({ pool });
 
 const counters = {
   httpRequests: new Map(),
@@ -186,13 +188,8 @@ const recordProviderIdentityCompatibilityEvent = (provider, operation, outcome, 
 };
 
 const loadSyncJobStatusSamples = async () => {
-  const result = await pool.query(
-    `SELECT status, COUNT(*)::int AS count
-     FROM sync_jobs
-     GROUP BY status
-     ORDER BY status ASC`
-  );
-  return result.rows.map((row) => ({
+  const rows = await syncJobServiceStore.observeStatusCounts();
+  return rows.map((row) => ({
     labels: { status: row.status || 'unknown' },
     value: Number(row.count || 0)
   }));
