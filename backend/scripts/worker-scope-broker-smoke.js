@@ -3,6 +3,7 @@
 'use strict';
 
 const assert = require('assert/strict');
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { Pool } = require('pg');
@@ -10,6 +11,11 @@ const {
   assertScopeBrokerPolicy,
   withAuthorizedWorkerTransaction
 } = require('../db/scopeBroker');
+const {
+  createAuthorizedDurableWorkerStore,
+  createDurableJobStore
+} = require('../services/durableJobs');
+const { createDurableJobWorker } = require('../services/durableJobWorker');
 
 const outputPath = path.resolve(
   __dirname,
@@ -23,6 +29,7 @@ const ssl = ['true', '1'].includes(process.env.DATABASE_SSL)
 async function main() {
   if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required');
   const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl, max: 2 });
+  const fixtureJobIds = [];
   const labels = [];
   const check = async (label, work) => {
     await work();
@@ -43,6 +50,25 @@ async function main() {
     const libraryId = scopeResult.rows[0].library_id === null
       ? null
       : Number(scopeResult.rows[0].library_id);
+    const rawStore = createDurableJobStore(pool);
+    const workerStore = createAuthorizedDurableWorkerStore({
+      pool,
+      allowedJobTypes: ['worker_scope_smoke', 'worker_scope_other']
+    });
+    const enqueueFixture = async (suffix, maxAttempts = 2) => {
+      const job = await rawStore.enqueue({
+        jobType: 'worker_scope_smoke',
+        provider: 'worker_scope_smoke',
+        spaceId,
+        libraryId,
+        maxAttempts,
+        idempotencyKey: `worker-scope-smoke:${suffix}:${crypto.randomUUID()}`,
+        targetRef: { fixture: true },
+        progress: { processed: 0 }
+      });
+      fixtureJobIds.push(job.id);
+      return job;
+    };
 
     await check('broker retains bounded grant-only privileges', async () => {
       await assertScopeBrokerPolicy(process.env.DATABASE_URL, { ssl });
@@ -123,6 +149,76 @@ async function main() {
       assert.equal(result.rows[0].allowed, false);
       assert.equal(result.rows[0].lifecycle_allowed, false);
     });
+    await check('authorized worker store executes the complete lifecycle', async () => {
+      const queued = await enqueueFixture('lifecycle');
+      const worker = createDurableJobWorker({
+        store: workerStore,
+        workerId: 'worker:smoke-store',
+        jobTypes: ['worker_scope_smoke'],
+        execute: async (job, context) => {
+          assert.equal(job.id, queued.id);
+          await context.reportProgress({ processed: 1 });
+          return { summary: { processed: 1 } };
+        }
+      });
+      const result = await worker.runOnce();
+      assert.equal(result.claimed, true);
+      assert.equal(result.job.status, 'succeeded');
+      assert.deepEqual(result.job.summary, { processed: 1 });
+    });
+    await check('lifecycle SQL rejects mismatched job scope', async () => {
+      const queued = await enqueueFixture('scope-mismatch');
+      const workerId = 'worker:scope-mismatch';
+      const claimed = await workerStore.claimNext({
+        workerId,
+        jobTypes: ['worker_scope_smoke'],
+        leaseSeconds: 30
+      });
+      assert.equal(claimed.id, queued.id);
+      const mismatched = await workerStore.renewLease({
+        jobId: claimed.id,
+        workerId,
+        leaseSeconds: 30,
+        jobType: 'worker_scope_other',
+        spaceId,
+        libraryId
+      });
+      assert.equal(mismatched, null);
+      const settled = await workerStore.settle({
+        jobId: claimed.id,
+        workerId,
+        status: 'succeeded',
+        summary: { verified: true },
+        jobType: claimed.jobType,
+        spaceId,
+        libraryId
+      });
+      assert.equal(settled.status, 'succeeded');
+    });
+    await check('authorized recovery is job-type bounded', async () => {
+      const queued = await enqueueFixture('recovery', 1);
+      const workerId = 'worker:recovery-store';
+      const claimed = await workerStore.claimNext({
+        workerId,
+        jobTypes: ['worker_scope_smoke'],
+        leaseSeconds: 30
+      });
+      assert.equal(claimed.id, queued.id);
+      await pool.query(
+        `UPDATE sync_jobs
+            SET lease_expires_at = CURRENT_TIMESTAMP - INTERVAL '1 second'
+          WHERE id = $1`,
+        [claimed.id]
+      );
+      const recovered = await workerStore.recoverExpiredLeases({
+        workerId: 'worker:smoke-recovery',
+        jobTypes: ['worker_scope_smoke'],
+        limit: 10
+      });
+      const recoveredFixture = recovered.find((job) => job.id === claimed.id);
+      assert.equal(recoveredFixture.status, 'failed');
+      assert.equal(recoveredFixture.error, 'Worker lease expired before completion');
+    });
 
     const evidence = {
       generated_at: new Date().toISOString(),
@@ -134,6 +230,9 @@ async function main() {
     fs.writeFileSync(outputPath, `${JSON.stringify(evidence, null, 2)}\n`);
     console.log(`Durable worker scope broker smoke passed (${labels.length}/${labels.length}).`);
   } finally {
+    if (fixtureJobIds.length > 0) {
+      await pool.query('DELETE FROM sync_jobs WHERE id = ANY($1::int[])', [fixtureJobIds]).catch(() => {});
+    }
     await pool.end();
   }
 }

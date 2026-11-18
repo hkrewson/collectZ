@@ -52,7 +52,7 @@ const objectRelationshipsRouter = require('./routes/objectRelationships');
 const { supportSharedRouter } = require('./routes/support');
 const { cleanupExpiredSessions, SESSION_MAX_PER_USER, SESSION_TTL_DAYS } = require('./services/sessions');
 const { startAutomaticLoanReminderScheduler, getAutomaticLoanReminderRuntimeConfig } = require('./services/loanReminders');
-const { createDurableJobStore } = require('./services/durableJobs');
+const { createAuthorizedDurableWorkerStore, createDurableJobStore } = require('./services/durableJobs');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -80,6 +80,7 @@ const PLAYWRIGHT_E2E_BYPASS_TOKEN = String(process.env.PLAYWRIGHT_E2E_BYPASS_TOK
 const PLAYWRIGHT_E2E_BYPASS_COOKIE = 'playwright_e2e_bypass';
 const AUTO_LOAN_REMINDER_RUNTIME = getAutomaticLoanReminderRuntimeConfig();
 const durableJobStore = createDurableJobStore(pool);
+const durableWorkerStore = createAuthorizedDurableWorkerStore({ pool });
 const PLEX_WEBHOOK_IMPORT_RUNTIME = typeof mediaRouter.getPlexWebhookImportAutoProcessorRuntimeConfig === 'function'
   ? mediaRouter.getPlexWebhookImportAutoProcessorRuntimeConfig()
   : { enabled: false };
@@ -458,7 +459,7 @@ const startServer = async () => {
     cleanupTimer.unref();
     const recoverDurableJobs = async () => {
       try {
-        await durableJobStore.recoverExpiredLeases({ limit: 100 });
+        await durableWorkerStore.recoverExpiredLeases({ limit: 100 });
       } catch (error) {
         console.error('Durable job lease recovery failed:', error.message);
       }

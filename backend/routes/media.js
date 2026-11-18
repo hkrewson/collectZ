@@ -198,7 +198,7 @@ const {
   runAutomaticLoanReminderSweep
 } = require('../services/loanReminders');
 const { runManualMediaMergeApply, runManualMediaMergeRevert } = require('../scripts/repair-book-comic-duplicates');
-const { createDurableJobStore } = require('../services/durableJobs');
+const { createAuthorizedDurableWorkerStore, createDurableJobStore } = require('../services/durableJobs');
 const { createDurableJobWorker } = require('../services/durableJobWorker');
 const { createProviderSyncTargetStore } = require('../services/providerSyncTargets');
 
@@ -213,6 +213,7 @@ const bookOrbitConnections = createProviderConnectionService({
   adapterRegistry: createBookOrbitAdapterRegistry()
 });
 const durableJobStore = createDurableJobStore(pool);
+const durableWorkerStore = createAuthorizedDurableWorkerStore({ pool });
 const providerSyncTargets = createProviderSyncTargetStore({ pool });
 let plexReconciliationDurableWorker = null;
 let bookOrbitDurableWorker = null;
@@ -8279,7 +8280,7 @@ async function executePlexReconciliationDurableJob(job, context) {
 function startPlexReconciliationDurableWorker() {
   if (plexReconciliationDurableWorker) return plexReconciliationDurableWorker;
   plexReconciliationDurableWorker = createDurableJobWorker({
-    store: durableJobStore,
+    store: durableWorkerStore,
     workerId: `plex-reconciliation:${process.pid}:${crypto.randomUUID()}`,
     jobTypes: ['plex_reconciliation_sync'],
     leaseSeconds: 300,
@@ -14401,7 +14402,7 @@ async function executeBookOrbitDurableJob(job, context) {
 function startBookOrbitDurableWorker() {
   if (bookOrbitDurableWorker) return bookOrbitDurableWorker;
   bookOrbitDurableWorker = createDurableJobWorker({
-    store: durableJobStore,
+    store: durableWorkerStore,
     workerId: `bookorbit:${process.pid}:${crypto.randomUUID()}`,
     jobTypes: ['bookorbit_sync'],
     leaseSeconds: 300,

@@ -1,12 +1,14 @@
 'use strict';
 
 const { sanitizeAuditDetails, sanitizeLogField } = require('./audit');
+const { withAuthorizedWorkerTransaction } = require('../db/scopeBroker');
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SAFE_NAME_PATTERN = /^[a-z][a-z0-9_.:-]{1,79}$/;
 const SENSITIVE_KEY_PATTERN = /(authorization|cookie|credential|password|secret|session.?token|csrf.?token|api.?key|access.?token|refresh.?token)$/i;
 const FINAL_STATUSES = new Set(['succeeded', 'failed', 'cancelled']);
 const SETTLEMENT_STATUSES = new Set(['succeeded', 'failed', 'retry_wait', 'cancelled']);
+const DURABLE_WORKER_JOB_TYPES = Object.freeze(['bookorbit_sync', 'plex_reconciliation_sync']);
 
 function durableJobError(message, code) {
   const error = new Error(message);
@@ -286,10 +288,13 @@ function createDurableJobStore(queryAdapter) {
     return shapeJob(result.rows[0]);
   }
 
-  async function renewLease({ jobId, workerId, leaseSeconds = 300 } = {}) {
+  async function renewLease({ jobId, workerId, leaseSeconds = 300, jobType = null, spaceId = null, libraryId = null } = {}) {
     const id = requirePositiveInteger(jobId, 'jobId');
     const owner = normalizeWorkerId(workerId);
     const seconds = normalizeLeaseSeconds(leaseSeconds);
+    const type = jobType ? requireSafeName(jobType, 'jobType') : null;
+    const workspace = spaceId ? requirePositiveInteger(spaceId, 'spaceId') : null;
+    const library = requirePositiveInteger(libraryId, 'libraryId', { nullable: true });
     const result = await queryAdapter.query(
       `UPDATE sync_jobs
           SET heartbeat_at = CURRENT_TIMESTAMP,
@@ -299,16 +304,22 @@ function createDurableJobStore(queryAdapter) {
           AND lease_owner = $2
           AND lease_expires_at > CURRENT_TIMESTAMP
           AND cancel_requested_at IS NULL
+          AND ($4::text IS NULL OR job_type = $4)
+          AND ($5::int IS NULL OR space_id = $5)
+          AND ($4::text IS NULL OR library_id IS NOT DISTINCT FROM $6::int)
        RETURNING ${RETURNING_COLUMNS}`,
-      [id, owner, seconds]
+      [id, owner, seconds, type, workspace, library]
     );
     return shapeJob(result.rows[0]);
   }
 
-  async function reportProgress({ jobId, workerId, progress } = {}) {
+  async function reportProgress({ jobId, workerId, progress, jobType = null, spaceId = null, libraryId = null } = {}) {
     const id = requirePositiveInteger(jobId, 'jobId');
     const owner = normalizeWorkerId(workerId);
     const safeProgress = sanitizeStructuredValue(progress || {}, 'progress');
+    const type = jobType ? requireSafeName(jobType, 'jobType') : null;
+    const workspace = spaceId ? requirePositiveInteger(spaceId, 'spaceId') : null;
+    const library = requirePositiveInteger(libraryId, 'libraryId', { nullable: true });
     const result = await queryAdapter.query(
       `UPDATE sync_jobs
           SET progress = $3::jsonb
@@ -316,13 +327,26 @@ function createDurableJobStore(queryAdapter) {
           AND status = 'running'
           AND lease_owner = $2
           AND lease_expires_at > CURRENT_TIMESTAMP
+          AND ($4::text IS NULL OR job_type = $4)
+          AND ($5::int IS NULL OR space_id = $5)
+          AND ($4::text IS NULL OR library_id IS NOT DISTINCT FROM $6::int)
        RETURNING ${RETURNING_COLUMNS}`,
-      [id, owner, JSON.stringify(safeProgress)]
+      [id, owner, JSON.stringify(safeProgress), type, workspace, library]
     );
     return shapeJob(result.rows[0]);
   }
 
-  async function settle({ jobId, workerId, status, summary = {}, error = null, retryAt = null } = {}) {
+  async function settle({
+    jobId,
+    workerId,
+    status,
+    summary = {},
+    error = null,
+    retryAt = null,
+    jobType = null,
+    spaceId = null,
+    libraryId = null
+  } = {}) {
     const id = requirePositiveInteger(jobId, 'jobId');
     const owner = normalizeWorkerId(workerId);
     const requestedStatus = String(status || '').trim().toLowerCase();
@@ -334,6 +358,9 @@ function createDurableJobStore(queryAdapter) {
     if (requestedStatus === 'retry_wait' && !retryAt) {
       throw durableJobError('retryAt is required for retry settlement', 'durable_job_invalid_input');
     }
+    const type = jobType ? requireSafeName(jobType, 'jobType') : null;
+    const workspace = spaceId ? requirePositiveInteger(spaceId, 'spaceId') : null;
+    const library = requirePositiveInteger(libraryId, 'libraryId', { nullable: true });
     const result = await queryAdapter.query(
       `UPDATE sync_jobs
           SET status = CASE
@@ -361,8 +388,11 @@ function createDurableJobStore(queryAdapter) {
         WHERE id = $1
           AND status = 'running'
           AND lease_owner = $2
+          AND ($7::text IS NULL OR job_type = $7)
+          AND ($8::int IS NULL OR space_id = $8)
+          AND ($7::text IS NULL OR library_id IS NOT DISTINCT FROM $9::int)
        RETURNING ${RETURNING_COLUMNS}`,
-      [id, owner, requestedStatus, JSON.stringify(safeSummary), safeError, retryAt]
+      [id, owner, requestedStatus, JSON.stringify(safeSummary), safeError, retryAt, type, workspace, library]
     );
     return shapeJob(result.rows[0]);
   }
@@ -394,17 +424,22 @@ function createDurableJobStore(queryAdapter) {
     return shapeOperatorJob(result.rows[0]);
   }
 
-  async function recoverExpiredLeases({ limit = 100 } = {}) {
+  async function recoverExpiredLeases({ limit = 100, jobTypes = null } = {}) {
     const rowLimit = Math.min(requirePositiveInteger(limit, 'limit'), 1000);
+    const types = jobTypes === null || jobTypes === undefined
+      ? null
+      : [...new Set(jobTypes.map((value) => requireSafeName(value, 'jobType')))];
+    if (types && types.length === 0) return [];
     const result = await queryAdapter.query(
       `WITH expired AS (
          SELECT id
            FROM sync_jobs
           WHERE status = 'running'
             AND lease_expires_at <= CURRENT_TIMESTAMP
+            AND ($1::text[] IS NULL OR job_type = ANY($1::text[]))
           ORDER BY lease_expires_at ASC, id ASC
           FOR UPDATE SKIP LOCKED
-          LIMIT $1
+          LIMIT $2
        )
        UPDATE sync_jobs j
           SET status = CASE
@@ -434,7 +469,7 @@ function createDurableJobStore(queryAdapter) {
          FROM expired
         WHERE j.id = expired.id
        RETURNING ${QUALIFIED_RETURNING_COLUMNS}`,
-      [rowLimit]
+      [types, rowLimit]
     );
     return result.rows.map((row) => shapeJob(row));
   }
@@ -449,6 +484,27 @@ function createDurableJobStore(queryAdapter) {
           AND space_id = $2
         LIMIT 1`,
       [id, workspace]
+    );
+    return shapeJob(result.rows[0]);
+  }
+
+  async function getWorkerJob({ publicId, spaceId, libraryId = null, jobType, workerId } = {}) {
+    const id = requireUuid(publicId, 'publicId');
+    const workspace = requirePositiveInteger(spaceId, 'spaceId');
+    const library = requirePositiveInteger(libraryId, 'libraryId', { nullable: true });
+    const type = requireSafeName(jobType, 'jobType');
+    const owner = normalizeWorkerId(workerId);
+    const result = await queryAdapter.query(
+      `SELECT ${RETURNING_COLUMNS}
+         FROM sync_jobs
+        WHERE public_id = $1
+          AND space_id = $2
+          AND library_id IS NOT DISTINCT FROM $3::int
+          AND job_type = $4
+          AND status = 'running'
+          AND lease_owner = $5
+        LIMIT 1`,
+      [id, workspace, library, type, owner]
     );
     return shapeJob(result.rows[0]);
   }
@@ -505,14 +561,69 @@ function createDurableJobStore(queryAdapter) {
     requestOperatorCancellation,
     recoverExpiredLeases,
     getByPublicId,
+    getWorkerJob,
     listOperatorJobs,
     getOperatorJob
   });
 }
 
+function createAuthorizedDurableWorkerStore({ pool, allowedJobTypes = DURABLE_WORKER_JOB_TYPES } = {}) {
+  if (!pool || typeof pool.connect !== 'function') {
+    throw durableJobError('A PostgreSQL transaction pool is required', 'durable_job_invalid_adapter');
+  }
+  const configuredTypes = [...new Set((allowedJobTypes || []).map((value) => requireSafeName(value, 'jobType')))];
+  if (configuredTypes.length < 1 || configuredTypes.length > 16) {
+    throw durableJobError('Durable worker job types are required', 'durable_job_invalid_input');
+  }
+
+  const boundedJobTypes = (values) => {
+    const requested = [...new Set((values || []).map((value) => requireSafeName(value, 'jobType')))];
+    if (requested.length < 1 || requested.some((value) => !configuredTypes.includes(value))) {
+      throw durableJobError('Durable worker job type is not authorized', 'durable_job_invalid_input');
+    }
+    return requested;
+  };
+
+  const lifecycle = (options, operation) => {
+    const jobTypes = boundedJobTypes([options?.jobType]);
+    return withAuthorizedWorkerTransaction(pool, {
+      action: 'lifecycle',
+      workerId: options?.workerId,
+      jobTypes,
+      spaceId: options?.spaceId,
+      ...(options?.libraryId === null || options?.libraryId === undefined ? {} : { libraryId: options.libraryId })
+    }, (client) => operation(createDurableJobStore(client)));
+  };
+
+  return Object.freeze({
+    claimNext: (options = {}) => {
+      const jobTypes = boundedJobTypes(options.jobTypes);
+      return withAuthorizedWorkerTransaction(pool, {
+        action: 'claim',
+        workerId: options.workerId,
+        jobTypes
+      }, (client) => createDurableJobStore(client).claimNext({ ...options, jobTypes }));
+    },
+    renewLease: (options = {}) => lifecycle(options, (store) => store.renewLease(options)),
+    reportProgress: (options = {}) => lifecycle(options, (store) => store.reportProgress(options)),
+    settle: (options = {}) => lifecycle(options, (store) => store.settle(options)),
+    getByPublicId: (options = {}) => lifecycle(options, (store) => store.getWorkerJob(options)),
+    recoverExpiredLeases: (options = {}) => {
+      const jobTypes = boundedJobTypes(options.jobTypes || configuredTypes);
+      return withAuthorizedWorkerTransaction(pool, {
+        action: 'recover',
+        workerId: options.workerId || `durable-recovery:${process.pid}`,
+        jobTypes
+      }, (client) => createDurableJobStore(client).recoverExpiredLeases({ ...options, jobTypes }));
+    }
+  });
+}
+
 module.exports = {
   FINAL_STATUSES,
+  DURABLE_WORKER_JOB_TYPES,
   assertSecretFree,
+  createAuthorizedDurableWorkerStore,
   createDurableJobStore,
   shapeJob,
   shapeOperatorJob

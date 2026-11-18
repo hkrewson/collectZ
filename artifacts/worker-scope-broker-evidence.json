@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-16T22:42:10.245Z",
+  "generated_at": "2026-11-18T03:12:24.119Z",
   "certification": "durable-worker-scope-broker",
   "status": "passed",
   "checks": [
@@ -29,6 +29,18 @@
     },
     {
       "label": "worker grant cannot be replayed after commit",
+      "pass": true
+    },
+    {
+      "label": "authorized worker store executes the complete lifecycle",
+      "pass": true
+    },
+    {
+      "label": "lifecycle SQL rejects mismatched job scope",
+      "pass": true
+    },
+    {
+      "label": "authorized recovery is job-type bounded",
       "pass": true
     }
   ]

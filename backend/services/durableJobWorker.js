@@ -71,6 +71,7 @@ function createDurableJobWorker(options = {}) {
     let heartbeat = null;
     let cancellationRequested = false;
     let leaseLost = false;
+    let lifecycleScope = null;
     try {
       job = await store.claimNext({ workerId, leaseSeconds, jobTypes });
       if (!job) return { claimed: false, reason: 'empty' };
@@ -78,12 +79,17 @@ function createDurableJobWorker(options = {}) {
       state.lastJobPublicId = job.publicId;
       state.lastStatus = 'running';
       state.lastError = null;
+      lifecycleScope = {
+        jobType: job.jobType,
+        spaceId: job.spaceId,
+        libraryId: job.libraryId
+      };
 
       heartbeat = setInterval(async () => {
         try {
-          const renewed = await store.renewLease({ jobId: job.id, workerId, leaseSeconds });
+          const renewed = await store.renewLease({ jobId: job.id, workerId, leaseSeconds, ...lifecycleScope });
           if (!renewed) {
-            const current = await store.getByPublicId({ publicId: job.publicId, spaceId: job.spaceId });
+            const current = await store.getByPublicId({ publicId: job.publicId, workerId, ...lifecycleScope });
             cancellationRequested = Boolean(current?.cancelRequestedAt);
             leaseLost = !cancellationRequested;
             return;
@@ -98,7 +104,7 @@ function createDurableJobWorker(options = {}) {
 
       const checkpoint = async () => {
         if (leaseLost) throw workerError('Durable job lease was lost', LOST_LEASE_CODE);
-        const current = await store.getByPublicId({ publicId: job.publicId, spaceId: job.spaceId });
+        const current = await store.getByPublicId({ publicId: job.publicId, workerId, ...lifecycleScope });
         if (!current || current.leaseOwner !== workerId || current.status !== 'running') {
           throw workerError('Durable job lease was lost', LOST_LEASE_CODE);
         }
@@ -108,7 +114,7 @@ function createDurableJobWorker(options = {}) {
       };
       const reportProgress = async (progress) => {
         if (leaseLost) throw workerError('Durable job lease was lost', LOST_LEASE_CODE);
-        const current = await store.reportProgress({ jobId: job.id, workerId, progress });
+        const current = await store.reportProgress({ jobId: job.id, workerId, progress, ...lifecycleScope });
         if (!current) throw workerError('Durable job lease was lost', LOST_LEASE_CODE);
         cancellationRequested = Boolean(current.cancelRequestedAt);
         if (cancellationRequested) throw workerError('Durable job was cancelled', CANCELLED_CODE);
@@ -122,7 +128,8 @@ function createDurableJobWorker(options = {}) {
         jobId: job.id,
         workerId,
         status: cancellationRequested ? 'cancelled' : 'succeeded',
-        summary: result?.summary || result || {}
+        summary: result?.summary || result || {},
+        ...lifecycleScope
       });
       if (!settled) throw workerError('Durable job lease was lost before settlement', LOST_LEASE_CODE);
       state.lastStatus = settled.status;
@@ -145,7 +152,8 @@ function createDurableJobWorker(options = {}) {
           status,
           summary: {},
           error: error.message || 'Durable job execution failed',
-          retryAt: status === 'retry_wait' ? new Date(Date.now() + delay) : null
+          retryAt: status === 'retry_wait' ? new Date(Date.now() + delay) : null,
+          ...lifecycleScope
         });
       } catch (settlementError) {
         state.lastError = settlementError.message || 'Durable job settlement failed';

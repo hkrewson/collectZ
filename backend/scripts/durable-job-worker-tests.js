@@ -61,6 +61,12 @@ test('durable worker claims, checkpoints, reports progress, and succeeds through
   assert.equal(result.job.status, 'succeeded');
   assert.deepEqual(calls.at(-1)[1].summary, { scanned: 1 });
   assert.deepEqual(calls.map(([name]) => name), ['claimNext', 'getByPublicId', 'reportProgress', 'settle']);
+  for (const [, args] of calls.slice(1)) {
+    assert.equal(args.jobType, baseJob.jobType);
+    assert.equal(args.spaceId, baseJob.spaceId);
+    assert.equal(args.libraryId, baseJob.libraryId);
+    assert.equal(args.workerId, 'test-worker');
+  }
 });
 
 test('durable worker turns a cancellation request into cancelled settlement', async () => {

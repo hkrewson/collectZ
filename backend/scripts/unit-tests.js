@@ -5510,6 +5510,20 @@ results.push(run('durable operator readback exposes only sanitized workspace-saf
   }
 }));
 
+results.push(run('durable background workers use broker-authorized lifecycle transactions', () => {
+  const durableJobsSource = fs.readFileSync(require.resolve('../services/durableJobs'), 'utf8');
+  const durableWorkerSource = fs.readFileSync(require.resolve('../services/durableJobWorker'), 'utf8');
+  assert.ok(durableJobsSource.includes('createAuthorizedDurableWorkerStore'));
+  assert.ok(durableJobsSource.includes("action: 'claim'"));
+  assert.ok(durableJobsSource.includes("action: 'recover'"));
+  assert.ok(durableJobsSource.includes("action: 'lifecycle'"));
+  assert.ok(durableJobsSource.includes("DURABLE_WORKER_JOB_TYPES = Object.freeze(['bookorbit_sync', 'plex_reconciliation_sync'])"));
+  assert.ok(durableJobsSource.includes('library_id IS NOT DISTINCT FROM'));
+  assert.ok(durableWorkerSource.includes('...lifecycleScope'));
+  assert.ok(mediaRoutesSource.includes('store: durableWorkerStore'));
+  assert.ok(serverSource.includes('durableWorkerStore.recoverExpiredLeases'));
+}));
+
 results.push(run('provider cadence readback reports the next eligible time without changing disabled targets', () => {
   const due = shapeProviderSyncTarget({
     id: '3b11202c-c803-4901-a5ee-d5bd996305e4',
