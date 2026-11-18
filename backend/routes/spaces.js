@@ -38,6 +38,7 @@ const {
   invalidateUserSpaceAccess
 } = require('../services/spaces');
 const { loadGeneralSettings, updateScopedGeneralSettings } = require('../services/integrations');
+const { withAuthorizedScopeTransaction } = require('../db/scopeBroker');
 const {
   listSpaceFeatureFlags,
   getSpaceFeatureFlag,
@@ -425,27 +426,31 @@ router.get('/spaces/:id/activity', asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'Invalid space id' });
   }
 
-  const client = await pool.connect();
+  const accessClient = await pool.connect();
+  let accessibleSpace;
   try {
-    const accessibleSpace = await requireAccessibleSpace(client, req, spaceId);
-    if (!accessibleSpace) {
-      return res.status(404).json({ error: 'Space not found' });
-    }
+    accessibleSpace = await requireAccessibleSpace(accessClient, req, spaceId);
+  } finally {
+    accessClient.release();
+  }
+  if (!accessibleSpace) {
+    return res.status(404).json({ error: 'Space not found' });
+  }
 
-    const requestedLimit = Number(req.query.limit || 50);
-    const requestedOffset = Number(req.query.offset || 0);
-    const limit = Number.isFinite(requestedLimit)
-      ? Math.min(Math.max(Math.trunc(requestedLimit), 1), 100)
-      : 50;
-    const offset = Number.isFinite(requestedOffset)
-      ? Math.max(Math.trunc(requestedOffset), 0)
-      : 0;
+  const requestedLimit = Number(req.query.limit || 50);
+  const requestedOffset = Number(req.query.offset || 0);
+  const limit = Number.isFinite(requestedLimit)
+    ? Math.min(Math.max(Math.trunc(requestedLimit), 1), 100)
+    : 50;
+  const offset = Number.isFinite(requestedOffset)
+    ? Math.max(Math.trunc(requestedOffset), 0)
+    : 0;
 
-    const params = [spaceId];
-    const conditions = [
-      `al.action NOT LIKE 'request.%'`,
-      `COALESCE(al.entity_type, '') <> 'http_request'`,
-      `(
+  const params = [spaceId];
+  const conditions = [
+    `al.action NOT LIKE 'request.%'`,
+    `COALESCE(al.entity_type, '') <> 'http_request'`,
+    `(
         (al.entity_type = 'space' AND al.entity_id = $1)
         OR COALESCE(al.details->>'spaceId', '') = $1::text
         OR COALESCE(al.details->>'targetSpaceId', '') = $1::text
@@ -455,7 +460,7 @@ router.get('/spaces/:id/activity', asyncHandler(async (req, res) => {
           SELECT 1
             FROM sync_jobs sj
            WHERE sj.id::text = COALESCE(al.details->>'jobId', '')
-             AND COALESCE(sj.scope->>'spaceId', sj.scope->>'space_id', '') = $1::text
+             AND COALESCE(sj.space_id::text, sj.scope->>'spaceId', sj.scope->>'space_id', '') = $1::text
         )
         OR (al.entity_type = 'library' AND EXISTS (
           SELECT 1 FROM libraries l WHERE l.id = al.entity_id AND l.space_id = $1
@@ -475,30 +480,34 @@ router.get('/spaces/:id/activity', asyncHandler(async (req, res) => {
         OR (al.entity_type = 'invite' AND EXISTS (
           SELECT 1 FROM invites i WHERE i.id = al.entity_id AND i.space_id = $1
         ))
-      )`
-    ];
+    )`
+  ];
 
-    if (req.query.search) {
-      const searchValue = String(req.query.search).trim();
-      if (searchValue) {
-        params.push(`%${searchValue}%`);
-        const token = `$${params.length}`;
-        conditions.push(`(
-          al.action ILIKE ${token}
-          OR COALESCE(al.entity_type, '') ILIKE ${token}
-          OR COALESCE(al.details->>'reason', '') ILIKE ${token}
-          OR COALESCE(al.details->>'status', '') ILIKE ${token}
-          OR al.details::text ILIKE ${token}
-          OR EXISTS (SELECT 1 FROM users u3 WHERE u3.id = al.user_id AND u3.email ILIKE ${token})
-        )`);
-      }
+  if (req.query.search) {
+    const searchValue = String(req.query.search).trim();
+    if (searchValue) {
+      params.push(`%${searchValue}%`);
+      const token = `$${params.length}`;
+      conditions.push(`(
+        al.action ILIKE ${token}
+        OR COALESCE(al.entity_type, '') ILIKE ${token}
+        OR COALESCE(al.details->>'reason', '') ILIKE ${token}
+        OR COALESCE(al.details->>'status', '') ILIKE ${token}
+        OR al.details::text ILIKE ${token}
+        OR EXISTS (SELECT 1 FROM users u3 WHERE u3.id = al.user_id AND u3.email ILIKE ${token})
+      )`);
     }
+  }
 
-    const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-    params.push(limit);
-    params.push(offset);
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  params.push(limit);
+  params.push(offset);
 
-    const result = await client.query(
+  const result = await withAuthorizedScopeTransaction(
+    pool,
+    { spaceId },
+    Number(req.user.id),
+    (client) => client.query(
       `SELECT al.id, al.user_id, al.action, al.entity_type, al.entity_id, al.details,
               al.details->>'reason' AS details_reason,
               al.details->>'status' AS details_status,
@@ -511,12 +520,10 @@ router.get('/spaces/:id/activity', asyncHandler(async (req, res) => {
        LIMIT $${params.length - 1}
        OFFSET $${params.length}`,
       params
-    );
+    )
+  );
 
-    res.json(result.rows);
-  } finally {
-    client.release();
-  }
+  res.json(result.rows);
 }));
 
 router.post('/spaces/select', requireSessionAuth, asyncHandler(async (req, res) => {

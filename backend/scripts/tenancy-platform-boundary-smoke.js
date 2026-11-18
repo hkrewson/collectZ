@@ -238,6 +238,17 @@ async function main() {
     const ownerMembers = await owner.request(`/api/spaces/${spaceId}/members`, { expectStatus: 200 });
     assert(Number(ownerMembers?.data?.space?.id || 0) === spaceId, 'Owner member list should resolve the created space');
 
+    await owner.request('/api/spaces/select', {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 200,
+      body: { space_id: spaceId }
+    });
+
+    const dashboardSummary = await owner.request('/api/dashboard/summary', { expectStatus: 200 });
+    assert(Number(dashboardSummary?.data?.scope?.space_id || 0) === spaceId, 'Dashboard summary must retain actor workspace scope');
+    assert(Array.isArray(dashboardSummary?.data?.recent_sync_jobs), 'Dashboard sync readback must be an array');
+
     const inviteResponse = await owner.request(`/api/spaces/${spaceId}/invites`, {
       method: 'POST',
       withCsrf: true,

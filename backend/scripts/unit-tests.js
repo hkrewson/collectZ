@@ -1759,13 +1759,17 @@ results.push(run('plex audio import repairs album titles only for strong Plex id
   assert.ok(!mediaRoutesSource.includes("'title_year'].includes(existingMatchedBy)"));
 }));
 
-results.push(run('workspace activity can scope import logs by sync job and explicit scope details', () => {
+results.push(run('dashboard and workspace activity authorize relational-first sync job readback', () => {
   assert.ok(mediaRoutesSource.includes('function scopedActivityDetails(scopeContext, details = {})'));
   assert.ok(mediaRoutesSource.includes("scopedActivityDetails(effectiveScopeContext, {"));
   assert.ok(spacesRoutesSource.includes("FROM sync_jobs sj"));
   assert.ok(spacesRoutesSource.includes("sj.id::text = COALESCE(al.details->>'jobId', '')"));
-  assert.ok(dashboardRoutesSource.includes("COALESCE(sj.scope->>'spaceId', sj.scope->>'space_id', '')"));
-  assert.ok(dashboardRoutesSource.includes("COALESCE(sj.scope->>'libraryId', sj.scope->>'library_id', '')"));
+  assert.ok(spacesRoutesSource.includes("withAuthorizedScopeTransaction(\n    pool,\n    { spaceId },"));
+  assert.ok(spacesRoutesSource.includes("COALESCE(sj.space_id::text, sj.scope->>'spaceId', sj.scope->>'space_id', '')"));
+  assert.ok(dashboardRoutesSource.includes("COALESCE(space_id::text, scope->>'spaceId', scope->>'space_id')"));
+  assert.ok(dashboardRoutesSource.includes("COALESCE(library_id::text, scope->>'libraryId', scope->>'library_id')"));
+  assert.ok(dashboardRoutesSource.includes("COALESCE(sj.space_id::text, sj.scope->>'spaceId', sj.scope->>'space_id', '')"));
+  assert.ok(dashboardRoutesSource.includes("COALESCE(sj.library_id::text, sj.scope->>'libraryId', sj.scope->>'library_id', '')"));
 }));
 
 results.push(run('plex.normalizePlexVariant derives season edition + key', () => {

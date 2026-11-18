@@ -47,11 +47,11 @@ function buildSyncScopeClause(params, scopeContext) {
   const conditions = [];
   if (scopeContext?.spaceId !== null && scopeContext?.spaceId !== undefined) {
     params.push(String(scopeContext.spaceId));
-    conditions.push(`(scope->>'spaceId') = $${params.length}`);
+    conditions.push(`COALESCE(space_id::text, scope->>'spaceId', scope->>'space_id') = $${params.length}`);
   }
   if (scopeContext?.libraryId !== null && scopeContext?.libraryId !== undefined) {
     params.push(String(scopeContext.libraryId));
-    conditions.push(`(scope->>'libraryId') = $${params.length}`);
+    conditions.push(`COALESCE(library_id::text, scope->>'libraryId', scope->>'library_id') = $${params.length}`);
   }
   return conditions.length > 0 ? ` AND ${conditions.join(' AND ')}` : '';
 }
@@ -387,7 +387,7 @@ router.get('/dashboard/summary', asyncHandler(async (req, res) => {
         SELECT 1
           FROM sync_jobs sj
          WHERE sj.id::text = COALESCE(al.details->>'jobId', '')
-           AND COALESCE(sj.scope->>'spaceId', sj.scope->>'space_id', '') = $${activityParams.length}
+           AND COALESCE(sj.space_id::text, sj.scope->>'spaceId', sj.scope->>'space_id', '') = $${activityParams.length}
       )
     )`);
   }
@@ -401,7 +401,7 @@ router.get('/dashboard/summary', asyncHandler(async (req, res) => {
         SELECT 1
           FROM sync_jobs sj
          WHERE sj.id::text = COALESCE(al.details->>'jobId', '')
-           AND COALESCE(sj.scope->>'libraryId', sj.scope->>'library_id', '') = $${activityParams.length}
+           AND COALESCE(sj.library_id::text, sj.scope->>'libraryId', sj.scope->>'library_id', '') = $${activityParams.length}
       )
     )`);
   }

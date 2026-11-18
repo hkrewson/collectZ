@@ -139,6 +139,19 @@ The `3.27.x` architecture line, `3.28.0` durable provider job foundation, and `3
 - **What remains in the milestone:** Classify and migrate or separate legacy webhook/import, dashboard/metrics, startup-cleanup, certification, and maintenance access; design and certify final `sync_jobs` policies; then complete the `3.28.2` version and hosted release closeout.
 - **Recommended commit message:** `Adopt 3.28.2 actor-authorized durable job requests`.
 
+### Authenticated sync-job readback checkpoint
+
+- **Roadmap slice:** `3.28.2 — Staged Workspace Row-Level Security Expansion`, authenticated dashboard and workspace-activity job readback adoption.
+- **Project docs/checklists used:** `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, and `docs/wiki/50-Staged-Row-Level-Security.md`.
+- **Verified facts:** Dashboard summary job lists and job-backed activity joins already share the dashboard's actor-authorized transaction and now prefer relational workspace/library ownership with structured-scope fallback only for legacy rows. Workspace activity releases its membership-check connection, then performs the activity query and job-backed scope join inside a separate short actor-authorized workspace transaction. This slice authorizes authenticated readback only; global metrics and service/maintenance access remain separate.
+- **Runtime verification used:** Rebuilt and recreated the canonical `collectz-private` migrate/backend services in place on port `3201`; startup completed at schema `141` under the non-owner runtime role and health remained green at app version `3.28.1`. The canonical tenancy platform-boundary smoke created an ephemeral owner/workspace, selected that workspace, proved `/api/dashboard/summary` returned the exact actor scope and a sync-job array, proved `/api/spaces/:id/activity` remained available, then removed the fixture scope.
+- **CI/checks run:** Backend unit suite (`381` source assertions plus `56` Node tests), OpenAPI, Node syntax/diff hygiene, authenticated tenancy-platform boundary smoke, authenticated RBAC regression, workspace ownership (`79` tables, `355` routes, `12` maintained paths), init parity through migration `141`, and the standard local release gate (`14/14`).
+- **Files changed:** Relational-first dashboard/activity job scoping; actor-authorized workspace activity transaction; expanded authenticated tenancy smoke; source contract assertion; and staged-RLS/release policy documentation.
+- **Blocked/unverified:** Hosted CodeQL, dependency/secret scans, secure-cookie Compose smoke, Core browser/RBAC/runtime suites, image security/SBOM, publication, and release tagging require an authorized push and remain deferred to the `3.28.2` version closeout. This read-adoption slice does not complete the numbered milestone, so semver and release-feed artifacts remain at `3.28.1`.
+- **Risks or follow-ups:** Structured-scope fallback remains necessary for legacy job rows until their relational ownership is backfilled and enforced. Metrics aggregation is intentionally global and cannot use an actor grant. Webhook/import processing, startup cleanup, certification, and maintenance callers still require explicit service contracts or separation before table-wide RLS.
+- **What remains in the milestone:** Classify and migrate or separate legacy webhook/import, global metrics, startup-cleanup, certification, and maintenance access; design and certify final `sync_jobs` policies; then complete the `3.28.2` version and hosted release closeout.
+- **Recommended commit message:** `Adopt 3.28.2 actor-authorized sync job readback`.
+
 ### Milestone boundary
 
 - This milestone activates one classified table family at a time; it does not enable RLS across all legacy domain tables.
