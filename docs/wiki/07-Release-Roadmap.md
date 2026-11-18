@@ -165,6 +165,19 @@ The `3.27.x` architecture line, `3.28.0` durable provider job foundation, and `3
 - **What remains in the milestone:** Migrate or separate legacy webhook/import mutation and remaining certification access, design and certify final `sync_jobs` policies, then complete the `3.28.2` version and hosted release closeout.
 - **Recommended commit message:** `Add 3.28.2 bounded sync job service authorization`.
 
+### Hosted identity-baseline certification repair checkpoint
+
+- **Roadmap slice:** `3.28.2 — Staged Workspace Row-Level Security Expansion`, migration-check historical identity-baseline compatibility repair.
+- **Project docs/checklists used:** `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, and `docs/wiki/50-Staged-Row-Level-Security.md`.
+- **Verified facts:** Hosted Build and Publish Images run `44248332129` passed migrations, schema checks, init parity, and the `141 -> 142` migration/restore rehearsal. It failed only when identity-upgrade certification intentionally booted schema `127` with later migrations disabled and normal startup attempted migration-142 broker-backed maintenance. The startup guard now skips that post-baseline maintenance only under the existing explicit test-only identity-certification mode; normal startup remains broker-authorized.
+- **Runtime verification used:** The canonical `collectz-private` stack remains the normal-startup proof at schema `142`. The identity-upgrade certification recreates its temporary baseline, upgrade, and restore databases inside the existing database service and exercises baseline API behavior without applying post-baseline startup contracts.
+- **CI/checks run:** Hosted backend unit, OpenAPI, migration, init-parity, and retained `141 -> 142` rehearsal steps passed before the baseline failure. After repair, the backend unit suite (`382`), exact identity-upgrade certification from maintained baseline `127`, canonical broker smoke (`14/14`), canonical stack health, syntax/diff hygiene, and the standard local release gate (`14/14`) passed.
+- **Files changed:** Historical certification startup guard; source contract assertion; CI/release policy documentation; and this roadmap checkpoint.
+- **Blocked/unverified:** The repaired hosted `migration-check` and downstream jobs require an authorized push. CodeQL passed for the failed commit, while the dependent Compose, RBAC, runtime, browser, build, image/SBOM, and release-preflight jobs were skipped after migration-check failed. This repair does not complete the numbered milestone, so version and release-feed artifacts remain at `3.28.1`.
+- **Risks or follow-ups:** The bypass is available only when `NODE_ENV=test` and both identity-certification flags are enabled. Any future startup behavior that depends on a newer schema must use the same historical-baseline boundary or be explicitly provisioned by the certification harness.
+- **What remains in the milestone:** Rerun hosted migration and downstream release gates, then continue legacy webhook/import authorization, final `sync_jobs` policy certification, and the `3.28.2` version closeout.
+- **Recommended commit message:** `Repair 3.28.2 historical identity certification after service authorization`.
+
 ### Milestone boundary
 
 - This milestone activates one classified table family at a time; it does not enable RLS across all legacy domain tables.

@@ -5558,6 +5558,7 @@ results.push(run('sync job metrics and startup maintenance use distinct allowlis
   assert.ok(durableJobsSource.includes('WHERE job_type = ANY($1::text[])'));
   assert.ok(metricsSource.includes('syncJobServiceStore.observeStatusCounts()'));
   assert.ok(serverSource.includes('syncJobServiceStore.recoverStaleLegacyJobs()'));
+  assert.ok(serverSource.includes('if (!skipStartupMigrationsForIdentityCertification())'));
   assert.ok(!serverSource.includes('const staleJobs = await pool.query'));
 }));
 

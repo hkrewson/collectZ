@@ -429,9 +429,14 @@ const startServer = async () => {
   try {
     validateStartupSecurityConfig();
     await prepareDatabaseForStartup();
-    const staleJobCount = await syncJobServiceStore.recoverStaleLegacyJobs();
-    if (staleJobCount > 0) {
-      console.warn(`Recovered ${staleJobCount} stale sync job(s) after restart`);
+    // Identity certification intentionally boots historical schemas without
+    // applying newer migrations. Do not invoke the migration-142 service
+    // contract while verifying a pre-broker baseline.
+    if (!skipStartupMigrationsForIdentityCertification()) {
+      const staleJobCount = await syncJobServiceStore.recoverStaleLegacyJobs();
+      if (staleJobCount > 0) {
+        console.warn(`Recovered ${staleJobCount} stale sync job(s) after restart`);
+      }
     }
     const effectivePlexWatchRefreshRuntime = typeof mediaRouter.getEffectivePlexWatchStateRefreshRuntimeConfig === 'function'
       ? await mediaRouter.getEffectivePlexWatchStateRefreshRuntimeConfig()
