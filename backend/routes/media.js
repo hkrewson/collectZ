@@ -198,7 +198,10 @@ const {
   runAutomaticLoanReminderSweep
 } = require('../services/loanReminders');
 const { runManualMediaMergeApply, runManualMediaMergeRevert } = require('../scripts/repair-book-comic-duplicates');
-const { createAuthorizedDurableWorkerStore, createDurableJobStore } = require('../services/durableJobs');
+const {
+  createAuthorizedDurableRequestStore,
+  createAuthorizedDurableWorkerStore
+} = require('../services/durableJobs');
 const { createDurableJobWorker } = require('../services/durableJobWorker');
 const { createProviderSyncTargetStore } = require('../services/providerSyncTargets');
 
@@ -212,7 +215,7 @@ const bookOrbitConnections = createProviderConnectionService({
   pool,
   adapterRegistry: createBookOrbitAdapterRegistry()
 });
-const durableJobStore = createDurableJobStore(pool);
+const durableRequestStore = createAuthorizedDurableRequestStore({ pool });
 const durableWorkerStore = createAuthorizedDurableWorkerStore({ pool });
 const providerSyncTargets = createProviderSyncTargetStore({ pool });
 let plexReconciliationDurableWorker = null;
@@ -8197,10 +8200,11 @@ async function enqueuePlexReconciliationDurableJob({
   intervalMinutes = 360
 }) {
   const requestedSections = [...new Set((sectionIds || []).map(String).filter(Boolean))];
-  return durableJobStore.enqueue({
+  return durableRequestStore.enqueue({
     jobType: 'plex_reconciliation_sync',
     provider: 'plex',
-    createdBy: userId || null,
+    actorId: userId,
+    createdBy: userId,
     spaceId: scopeContext?.spaceId,
     libraryId: scopeContext?.libraryId,
     maxAttempts: 3,
@@ -14354,9 +14358,10 @@ async function enqueueBookOrbitDurableJob({
   targetId = null,
   intervalMinutes = 360
 }) {
-  return durableJobStore.enqueue({
+  return durableRequestStore.enqueue({
     jobType: 'bookorbit_sync',
     provider: 'bookorbit',
+    actorId,
     createdBy: actorId,
     spaceId: scopeContext.spaceId,
     libraryId: scopeContext.libraryId,

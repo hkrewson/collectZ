@@ -12,6 +12,7 @@ const {
   withAuthorizedWorkerTransaction
 } = require('../db/scopeBroker');
 const {
+  createAuthorizedDurableRequestStore,
   createAuthorizedDurableWorkerStore,
   createDurableJobStore
 } = require('../services/durableJobs');
@@ -38,11 +39,12 @@ async function main() {
 
   try {
     const scopeResult = await pool.query(
-      `SELECT s.id AS space_id, l.id AS library_id
+      `SELECT s.id AS space_id, l.id AS library_id, sm.user_id AS actor_id
          FROM spaces s
+         JOIN space_memberships sm ON sm.space_id = s.id
          LEFT JOIN libraries l ON l.space_id = s.id AND l.archived_at IS NULL
         WHERE s.archived_at IS NULL
-        ORDER BY (l.id IS NULL), s.id, l.id
+        ORDER BY (l.id IS NULL), s.id, l.id, sm.user_id
         LIMIT 1`
     );
     assert.ok(scopeResult.rows[0], 'An active workspace is required for worker-scope certification');
@@ -50,7 +52,12 @@ async function main() {
     const libraryId = scopeResult.rows[0].library_id === null
       ? null
       : Number(scopeResult.rows[0].library_id);
+    const actorId = Number(scopeResult.rows[0].actor_id);
     const rawStore = createDurableJobStore(pool);
+    const requestStore = createAuthorizedDurableRequestStore({
+      pool,
+      allowedJobTypes: ['worker_scope_smoke']
+    });
     const workerStore = createAuthorizedDurableWorkerStore({
       pool,
       allowedJobTypes: ['worker_scope_smoke', 'worker_scope_other']
@@ -218,6 +225,59 @@ async function main() {
       const recoveredFixture = recovered.find((job) => job.id === claimed.id);
       assert.equal(recoveredFixture.status, 'failed');
       assert.equal(recoveredFixture.error, 'Worker lease expired before completion');
+    });
+    await check('authorized request store enqueues reads and cancels within workspace', async () => {
+      const queued = await requestStore.enqueue({
+        actorId,
+        jobType: 'worker_scope_smoke',
+        provider: 'worker_scope_smoke',
+        spaceId,
+        libraryId,
+        idempotencyKey: `worker-scope-request:${crypto.randomUUID()}`,
+        targetRef: { fixture: true },
+        progress: { processed: 0 }
+      });
+      fixtureJobIds.push(queued.id);
+      assert.equal(queued.createdBy, actorId);
+      const listed = await requestStore.listOperatorJobs({ spaceId, actorId, limit: 10 });
+      assert.ok(listed.some((job) => job.publicId === queued.publicId));
+      const detail = await requestStore.getOperatorJob({ publicId: queued.publicId, spaceId, actorId });
+      assert.equal(detail.publicId, queued.publicId);
+      const cancelled = await requestStore.requestOperatorCancellation({
+        publicId: queued.publicId,
+        spaceId,
+        actorId
+      });
+      assert.equal(cancelled.status, 'cancelled');
+    });
+    await check('authorized request store rejects jobs outside its allowlist', async () => {
+      await assert.rejects(
+        async () => requestStore.enqueue({
+          actorId,
+          jobType: 'worker_scope_other',
+          provider: 'worker_scope_smoke',
+          spaceId,
+          libraryId,
+          idempotencyKey: `worker-scope-disallowed:${crypto.randomUUID()}`
+        }),
+        (error) => error.code === 'durable_job_invalid_input'
+      );
+      const hidden = await rawStore.enqueue({
+        jobType: 'worker_scope_other',
+        provider: 'worker_scope_smoke',
+        spaceId,
+        libraryId,
+        idempotencyKey: `worker-scope-hidden:${crypto.randomUUID()}`
+      });
+      fixtureJobIds.push(hidden.id);
+      const detail = await requestStore.getOperatorJob({ publicId: hidden.publicId, spaceId, actorId });
+      assert.equal(detail, null);
+      const cancelled = await requestStore.requestOperatorCancellation({
+        publicId: hidden.publicId,
+        spaceId,
+        actorId
+      });
+      assert.equal(cancelled, null);
     });
 
     const evidence = {

@@ -1,7 +1,7 @@
 'use strict';
 
 const { sanitizeAuditDetails, sanitizeLogField } = require('./audit');
-const { withAuthorizedWorkerTransaction } = require('../db/scopeBroker');
+const { withAuthorizedScopeTransaction, withAuthorizedWorkerTransaction } = require('../db/scopeBroker');
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SAFE_NAME_PATTERN = /^[a-z][a-z0-9_.:-]{1,79}$/;
@@ -397,9 +397,13 @@ function createDurableJobStore(queryAdapter) {
     return shapeJob(result.rows[0]);
   }
 
-  async function requestCancellationRow({ publicId, spaceId } = {}) {
+  async function requestCancellationRow({ publicId, spaceId, jobTypes = null } = {}) {
     const id = requireUuid(publicId, 'publicId');
     const workspace = requirePositiveInteger(spaceId, 'spaceId');
+    const types = jobTypes === null || jobTypes === undefined
+      ? null
+      : [...new Set(jobTypes.map((value) => requireSafeName(value, 'jobType')))];
+    if (types && types.length === 0) return { rows: [] };
     return queryAdapter.query(
       `UPDATE sync_jobs
           SET cancel_requested_at = COALESCE(cancel_requested_at, CURRENT_TIMESTAMP),
@@ -408,9 +412,10 @@ function createDurableJobStore(queryAdapter) {
               finished_at = CASE WHEN status IN ('queued', 'retry_wait') THEN CURRENT_TIMESTAMP ELSE finished_at END
         WHERE public_id = $1
           AND space_id = $2
+          AND ($3::text[] IS NULL OR job_type = ANY($3::text[]))
           AND status NOT IN ('succeeded', 'failed', 'cancelled')
        RETURNING ${RETURNING_COLUMNS}`,
-      [id, workspace]
+      [id, workspace, types]
     );
   }
 
@@ -512,12 +517,17 @@ function createDurableJobStore(queryAdapter) {
   async function listOperatorJobs({
     spaceId,
     jobType = null,
+    jobTypes = null,
     provider = null,
     providerConnectionId = null,
     limit = 20
   } = {}) {
     const workspace = requirePositiveInteger(spaceId, 'spaceId');
     const normalizedJobType = jobType ? requireSafeName(jobType, 'jobType') : null;
+    const normalizedJobTypes = jobTypes === null || jobTypes === undefined
+      ? null
+      : [...new Set(jobTypes.map((value) => requireSafeName(value, 'jobType')))];
+    if (normalizedJobTypes && normalizedJobTypes.length === 0) return [];
     const normalizedProvider = provider ? requireSafeName(provider, 'provider') : null;
     const normalizedConnectionId = providerConnectionId
       ? requireUuid(providerConnectionId, 'providerConnectionId')
@@ -530,23 +540,29 @@ function createDurableJobStore(queryAdapter) {
           AND ($2::text IS NULL OR job_type = $2)
           AND ($3::text IS NULL OR provider = $3)
           AND ($4::uuid IS NULL OR provider_connection_id = $4)
+          AND ($5::text[] IS NULL OR job_type = ANY($5::text[]))
         ORDER BY created_at DESC, id DESC
-        LIMIT $5`,
-      [workspace, normalizedJobType, normalizedProvider, normalizedConnectionId, rowLimit]
+        LIMIT $6`,
+      [workspace, normalizedJobType, normalizedProvider, normalizedConnectionId, normalizedJobTypes, rowLimit]
     );
     return result.rows.map(shapeOperatorJob);
   }
 
-  async function getOperatorJob({ publicId, spaceId } = {}) {
+  async function getOperatorJob({ publicId, spaceId, jobTypes = null } = {}) {
     const id = requireUuid(publicId, 'publicId');
     const workspace = requirePositiveInteger(spaceId, 'spaceId');
+    const types = jobTypes === null || jobTypes === undefined
+      ? null
+      : [...new Set(jobTypes.map((value) => requireSafeName(value, 'jobType')))];
+    if (types && types.length === 0) return null;
     const result = await queryAdapter.query(
       `SELECT ${RETURNING_COLUMNS}
          FROM sync_jobs
         WHERE public_id = $1
           AND space_id = $2
+          AND ($3::text[] IS NULL OR job_type = ANY($3::text[]))
         LIMIT 1`,
-      [id, workspace]
+      [id, workspace, types]
     );
     return shapeOperatorJob(result.rows[0]);
   }
@@ -564,6 +580,68 @@ function createDurableJobStore(queryAdapter) {
     getWorkerJob,
     listOperatorJobs,
     getOperatorJob
+  });
+}
+
+function createAuthorizedDurableRequestStore({ pool, allowedJobTypes = DURABLE_WORKER_JOB_TYPES } = {}) {
+  if (!pool || typeof pool.connect !== 'function') {
+    throw durableJobError('A PostgreSQL transaction pool is required', 'durable_job_invalid_adapter');
+  }
+  const configuredTypes = [...new Set((allowedJobTypes || []).map((value) => requireSafeName(value, 'jobType')))];
+  if (configuredTypes.length < 1 || configuredTypes.length > 16) {
+    throw durableJobError('Durable request job types are required', 'durable_job_invalid_input');
+  }
+
+  const boundedJobType = (value) => {
+    const requested = requireSafeName(value, 'jobType');
+    if (!configuredTypes.includes(requested)) {
+      throw durableJobError('Durable request job type is not authorized', 'durable_job_invalid_input');
+    }
+    return requested;
+  };
+  const authorized = (options, operation, { exactLibrary = false } = {}) => {
+    const spaceId = requirePositiveInteger(options?.spaceId, 'spaceId');
+    const actorId = requirePositiveInteger(options?.actorId, 'actorId');
+    const libraryId = exactLibrary
+      ? requirePositiveInteger(options?.libraryId, 'libraryId', { nullable: true })
+      : null;
+    return withAuthorizedScopeTransaction(
+      pool,
+      { spaceId, ...(exactLibrary && libraryId ? { libraryId } : {}) },
+      actorId,
+      (client) => operation(createDurableJobStore(client), { spaceId, libraryId, actorId })
+    );
+  };
+
+  return Object.freeze({
+    enqueue: (options = {}) => {
+      const jobType = boundedJobType(options.jobType);
+      const actorId = requirePositiveInteger(options.actorId ?? options.createdBy, 'actorId');
+      if (options.createdBy !== null && options.createdBy !== undefined && Number(options.createdBy) !== actorId) {
+        throw durableJobError('Durable request actor must match createdBy', 'durable_job_invalid_input');
+      }
+      return authorized(
+        { ...options, actorId },
+        (store, scope) => store.enqueue({ ...options, jobType, createdBy: scope.actorId }),
+        { exactLibrary: true }
+      );
+    },
+    listOperatorJobs: (options = {}) => {
+      const jobType = options.jobType ? boundedJobType(options.jobType) : null;
+      return authorized(options, (store) => store.listOperatorJobs({
+        ...options,
+        jobType,
+        jobTypes: configuredTypes
+      }));
+    },
+    getOperatorJob: (options = {}) => authorized(options, (store) => store.getOperatorJob({
+      ...options,
+      jobTypes: configuredTypes
+    })),
+    requestOperatorCancellation: (options = {}) => authorized(
+      options,
+      (store) => store.requestOperatorCancellation({ ...options, jobTypes: configuredTypes })
+    )
   });
 }
 
@@ -623,6 +701,7 @@ module.exports = {
   FINAL_STATUSES,
   DURABLE_WORKER_JOB_TYPES,
   assertSecretFree,
+  createAuthorizedDurableRequestStore,
   createAuthorizedDurableWorkerStore,
   createDurableJobStore,
   shapeJob,

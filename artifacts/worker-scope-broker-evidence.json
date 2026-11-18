@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-18T03:12:24.119Z",
+  "generated_at": "2026-11-18T04:26:45.751Z",
   "certification": "durable-worker-scope-broker",
   "status": "passed",
   "checks": [
@@ -41,6 +41,14 @@
     },
     {
       "label": "authorized recovery is job-type bounded",
+      "pass": true
+    },
+    {
+      "label": "authorized request store enqueues reads and cancels within workspace",
+      "pass": true
+    },
+    {
+      "label": "authorized request store rejects jobs outside its allowlist",
       "pass": true
     }
   ]

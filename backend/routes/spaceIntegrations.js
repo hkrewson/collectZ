@@ -57,7 +57,7 @@ const { createProviderIntegrationBindingService } = require('../services/provide
 const { createProviderConnectionService } = require('../services/providerConnections');
 const { createBookOrbitAdapterRegistry } = require('../services/bookOrbitIdentity');
 const { createProviderSyncTargetStore } = require('../services/providerSyncTargets');
-const { createDurableJobStore } = require('../services/durableJobs');
+const { createAuthorizedDurableRequestStore } = require('../services/durableJobs');
 const {
   buildBookOrbitEndpoint,
   fetchBookOrbitOpdsItems,
@@ -77,7 +77,7 @@ const bookOrbitConnections = createProviderConnectionService({
   adapterRegistry: createBookOrbitAdapterRegistry()
 });
 const providerSyncTargets = createProviderSyncTargetStore({ pool });
-const durableJobStore = createDurableJobStore(pool);
+const durableRequestStore = createAuthorizedDurableRequestStore({ pool });
 
 const SPACE_READ_ONLY_FIELDS = [
   'logExportBackend',
@@ -786,8 +786,9 @@ router.get('/spaces/:spaceId/integrations/jobs', authenticateToken, requireSessi
   const managed = await requireIntegrationManager(req, res);
   if (!managed) return;
   try {
-    const jobs = await durableJobStore.listOperatorJobs({
+    const jobs = await durableRequestStore.listOperatorJobs({
       spaceId: managed.spaceId,
+      actorId: req.user.id,
       jobType: req.query?.jobType || null,
       provider: req.query?.provider || null,
       providerConnectionId: req.query?.providerConnectionId || null,
@@ -804,9 +805,10 @@ router.get('/spaces/:spaceId/integrations/jobs/:publicId', authenticateToken, re
   const managed = await requireIntegrationManager(req, res);
   if (!managed) return;
   try {
-    const job = await durableJobStore.getOperatorJob({
+    const job = await durableRequestStore.getOperatorJob({
       publicId: req.params.publicId,
-      spaceId: managed.spaceId
+      spaceId: managed.spaceId,
+      actorId: req.user.id
     });
     if (!job) return res.status(404).json({ error: 'Durable job not found' });
     return res.json({ job });
@@ -820,22 +822,25 @@ router.post('/spaces/:spaceId/integrations/jobs/:publicId/cancel', authenticateT
   const managed = await requireIntegrationManager(req, res);
   if (!managed) return;
   try {
-    const existing = await durableJobStore.getOperatorJob({
+    const existing = await durableRequestStore.getOperatorJob({
       publicId: req.params.publicId,
-      spaceId: managed.spaceId
+      spaceId: managed.spaceId,
+      actorId: req.user.id
     });
     if (!existing) return res.status(404).json({ error: 'Durable job not found' });
     if (!existing.canCancel) {
       return res.status(409).json({ error: 'Durable job can no longer be cancelled', job: existing });
     }
-    const job = await durableJobStore.requestOperatorCancellation({
+    const job = await durableRequestStore.requestOperatorCancellation({
       publicId: req.params.publicId,
-      spaceId: managed.spaceId
+      spaceId: managed.spaceId,
+      actorId: req.user.id
     });
     if (!job) {
-      const current = await durableJobStore.getOperatorJob({
+      const current = await durableRequestStore.getOperatorJob({
         publicId: req.params.publicId,
-        spaceId: managed.spaceId
+        spaceId: managed.spaceId,
+        actorId: req.user.id
       });
       return res.status(409).json({ error: 'Durable job can no longer be cancelled', job: current });
     }

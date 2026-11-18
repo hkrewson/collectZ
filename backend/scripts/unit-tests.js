@@ -5524,6 +5524,20 @@ results.push(run('durable background workers use broker-authorized lifecycle tra
   assert.ok(serverSource.includes('durableWorkerStore.recoverExpiredLeases'));
 }));
 
+results.push(run('durable request and operator paths use actor-authorized scoped transactions', () => {
+  const durableJobsSource = fs.readFileSync(require.resolve('../services/durableJobs'), 'utf8');
+  assert.ok(durableJobsSource.includes('createAuthorizedDurableRequestStore'));
+  assert.ok(durableJobsSource.includes('withAuthorizedScopeTransaction'));
+  assert.ok(durableJobsSource.includes('Durable request actor must match createdBy'));
+  assert.ok(durableJobsSource.includes('job_type = ANY($3::text[])'));
+  assert.ok(durableJobsSource.includes('job_type = ANY($5::text[])'));
+  assert.ok(mediaRoutesSource.includes('durableRequestStore.enqueue'));
+  assert.ok(spaceIntegrationsRoutesSource.includes('createAuthorizedDurableRequestStore'));
+  assert.ok(spaceIntegrationsRoutesSource.includes('durableRequestStore.listOperatorJobs'));
+  assert.ok(spaceIntegrationsRoutesSource.includes('durableRequestStore.requestOperatorCancellation'));
+  assert.ok(spaceIntegrationsRoutesSource.includes('actorId: req.user.id'));
+}));
+
 results.push(run('provider cadence readback reports the next eligible time without changing disabled targets', () => {
   const due = shapeProviderSyncTarget({
     id: '3b11202c-c803-4901-a5ee-d5bd996305e4',
