@@ -13,6 +13,7 @@ const {
 } = require('../db/scopeBroker');
 const {
   createAuthorizedDurableRequestStore,
+  createAuthorizedPlexWebhookRequestStore,
   createAuthorizedSyncJobServiceStore,
   createAuthorizedDurableWorkerStore,
   createDurableJobStore
@@ -54,6 +55,7 @@ async function main() {
       ? null
       : Number(scopeResult.rows[0].library_id);
     const actorId = Number(scopeResult.rows[0].actor_id);
+    assert.ok(libraryId, 'An active library is required for webhook-ingestion certification');
     const rawStore = createDurableJobStore(pool);
     const requestStore = createAuthorizedDurableRequestStore({
       pool,
@@ -63,6 +65,10 @@ async function main() {
       pool,
       observedJobTypes: ['worker_scope_legacy'],
       maintainedJobTypes: ['worker_scope_legacy']
+    });
+    const webhookStore = createAuthorizedPlexWebhookRequestStore({
+      pool,
+      allowedJobTypes: ['worker_scope_webhook']
     });
     const workerStore = createAuthorizedDurableWorkerStore({
       pool,
@@ -145,6 +151,27 @@ async function main() {
         );
         assert.equal(result.rows[0].observe_allowed, true);
         assert.equal(result.rows[0].maintain_allowed, false);
+        assert.equal(result.rows[0].claim_allowed, false);
+      });
+    });
+    await check('webhook ingest grant is exact-scope and action bounded', async () => {
+      await withAuthorizedWorkerTransaction(pool, {
+        action: 'ingest',
+        workerId: 'service:webhook-ingest',
+        jobTypes: ['worker_scope_webhook'],
+        spaceId,
+        libraryId
+      }, async (client) => {
+        const result = await client.query(
+          `SELECT collectz_scope.worker_allows_ingest($1,$2,'worker_scope_webhook') AS allowed,
+                  collectz_scope.worker_allows_ingest($1,$3,'worker_scope_webhook') AS wrong_library,
+                  collectz_scope.worker_allows_ingest($1,$2,'worker_scope_other') AS wrong_type,
+                  collectz_scope.worker_allows_global('claim','worker_scope_webhook') AS claim_allowed`,
+          [spaceId, libraryId, 2147483647]
+        );
+        assert.equal(result.rows[0].allowed, true);
+        assert.equal(result.rows[0].wrong_library, false);
+        assert.equal(result.rows[0].wrong_type, false);
         assert.equal(result.rows[0].claim_allowed, false);
       });
     });
@@ -319,6 +346,25 @@ async function main() {
       const row = await pool.query('SELECT status, error FROM sync_jobs WHERE id = $1', [inserted.rows[0].id]);
       assert.equal(row.rows[0].status, 'failed');
       assert.equal(row.rows[0].error, 'Process restarted before job completion');
+    });
+    await check('authorized webhook store deduplicates exact relational ownership', async () => {
+      const ratingKey = `worker-scope-${crypto.randomUUID()}`;
+      const options = {
+        jobType: 'worker_scope_webhook',
+        spaceId,
+        libraryId,
+        scope: { trigger: 'plex_webhook', event: 'library.new', ratingKey },
+        progress: { total: 1, processed: 0 },
+        summary: { fixture: true }
+      };
+      const inserted = await webhookStore.enqueue(options);
+      assert.equal(inserted.existing, false);
+      assert.equal(Number(inserted.job.space_id), spaceId);
+      assert.equal(Number(inserted.job.library_id), libraryId);
+      fixtureJobIds.push(inserted.job.id);
+      const repeated = await webhookStore.enqueue(options);
+      assert.equal(repeated.existing, true);
+      assert.equal(repeated.job.id, inserted.job.id);
     });
 
     const evidence = {

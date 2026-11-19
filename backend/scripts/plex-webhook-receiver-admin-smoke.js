@@ -111,37 +111,46 @@ async function createDirectUser({ email, password, name, role = 'admin' }) {
   return Number(result.rows[0]?.id || 0) || null;
 }
 
-async function snapshotPlexWebhookSettings() {
-  const result = await pool.query(
-    `SELECT plex_webhook_receiver_token_hash,
-            plex_webhook_receiver_token_created_at,
-            plex_webhook_receiver_token_last_rotated_at,
-            plex_webhook_receiver_last_received_at,
-            plex_webhook_receiver_last_event,
-            plex_webhook_receiver_last_attempt_at,
-            plex_webhook_receiver_last_attempt_status,
-            plex_webhook_receiver_last_attempt_error,
-            plex_webhook_receiver_last_content_type,
-            plex_preset,
-            plex_provider,
-            plex_api_url,
-            plex_api_key_encrypted,
-            plex_library_sections,
-            tmdb_api_key_encrypted
-       FROM app_integrations
-      WHERE id = 1`
+async function createIsolatedScope({ userId, suffix }) {
+  const space = await pool.query(
+    `INSERT INTO spaces (name, slug, created_by, is_personal)
+     VALUES ($1, $2, $3, false)
+     RETURNING id`,
+    [`Plex Webhook Admin Smoke ${suffix}`, `plex-webhook-admin-${suffix}`, userId]
   );
-  return result.rows[0] || null;
+  const spaceId = Number(space.rows[0]?.id || 0) || null;
+  await pool.query(
+    `INSERT INTO space_memberships (space_id, user_id, role, created_by)
+     VALUES ($1, $2, 'owner', $2)`,
+    [spaceId, userId]
+  );
+  const library = await pool.query(
+    `INSERT INTO libraries (space_id, name, created_by)
+     VALUES ($1, $2, $3)
+     RETURNING id`,
+    [spaceId, `Plex Webhook Admin Library ${suffix}`, userId]
+  );
+  const libraryId = Number(library.rows[0]?.id || 0) || null;
+  await pool.query(
+    `INSERT INTO library_memberships (user_id, library_id, role)
+     VALUES ($1, $2, 'owner')`,
+    [userId, libraryId]
+  );
+  await pool.query(
+    'UPDATE users SET active_space_id = $2, active_library_id = $3 WHERE id = $1',
+    [userId, spaceId, libraryId]
+  );
+  return { spaceId, libraryId };
 }
 
-async function applyFakePlexSettings(baseUrl) {
+async function applyFakePlexSettings({ baseUrl, spaceId }) {
   await pool.query(
     `INSERT INTO app_integrations (
-       id, plex_preset, plex_provider, plex_api_url, plex_api_key_encrypted,
+       space_id, plex_preset, plex_provider, plex_api_url, plex_api_key_encrypted,
        plex_library_sections, tmdb_api_key_encrypted, updated_at
      )
-     VALUES (1, 'plex', 'plex', $1, $2, $3::jsonb, NULL, NOW())
-     ON CONFLICT (id) DO UPDATE SET
+     VALUES ($1, 'plex', 'plex', $2, $3, $4::jsonb, NULL, NOW())
+     ON CONFLICT (space_id) DO UPDATE SET
        plex_preset = EXCLUDED.plex_preset,
        plex_provider = EXCLUDED.plex_provider,
        plex_api_url = EXCLUDED.plex_api_url,
@@ -149,74 +158,21 @@ async function applyFakePlexSettings(baseUrl) {
        plex_library_sections = EXCLUDED.plex_library_sections,
        tmdb_api_key_encrypted = NULL,
        updated_at = NOW()`,
-    [baseUrl, encryptSecret(fakePlexToken), JSON.stringify(['1'])]
+    [spaceId, baseUrl, encryptSecret(fakePlexToken), JSON.stringify(['1'])]
   );
 }
 
-async function restorePlexWebhookSettings(snapshot) {
-  if (!snapshot) {
-    await pool.query(
-      `UPDATE app_integrations
-          SET plex_webhook_receiver_token_hash = NULL,
-              plex_webhook_receiver_token_created_at = NULL,
-              plex_webhook_receiver_token_last_rotated_at = NULL,
-              plex_webhook_receiver_last_received_at = NULL,
-              plex_webhook_receiver_last_event = NULL,
-              plex_webhook_receiver_last_attempt_at = NULL,
-              plex_webhook_receiver_last_attempt_status = NULL,
-              plex_webhook_receiver_last_attempt_error = NULL,
-              plex_webhook_receiver_last_content_type = NULL,
-              plex_preset = 'plex',
-              plex_provider = 'plex',
-              plex_api_url = NULL,
-              plex_api_key_encrypted = NULL,
-              plex_library_sections = '[]'::jsonb,
-              tmdb_api_key_encrypted = NULL
-        WHERE id = 1`
-    ).catch(() => {});
-    return;
+async function cleanupTemporaryState({ userId, spaceId, libraryId }) {
+  if (spaceId) await pool.query('DELETE FROM app_integrations WHERE space_id = $1', [spaceId]).catch(() => {});
+  if (libraryId) {
+    await pool.query('DELETE FROM library_memberships WHERE library_id = $1', [libraryId]).catch(() => {});
+    await pool.query('DELETE FROM libraries WHERE id = $1', [libraryId]).catch(() => {});
   }
-  await pool.query(
-    `UPDATE app_integrations
-        SET plex_webhook_receiver_token_hash = $1,
-            plex_webhook_receiver_token_created_at = $2,
-            plex_webhook_receiver_token_last_rotated_at = $3,
-            plex_webhook_receiver_last_received_at = $4,
-            plex_webhook_receiver_last_event = $5,
-            plex_webhook_receiver_last_attempt_at = $6,
-            plex_webhook_receiver_last_attempt_status = $7,
-            plex_webhook_receiver_last_attempt_error = $8,
-            plex_webhook_receiver_last_content_type = $9,
-            plex_preset = $10,
-            plex_provider = $11,
-            plex_api_url = $12,
-            plex_api_key_encrypted = $13,
-            plex_library_sections = $14::jsonb,
-            tmdb_api_key_encrypted = $15
-      WHERE id = 1`,
-    [
-      snapshot.plex_webhook_receiver_token_hash,
-      snapshot.plex_webhook_receiver_token_created_at,
-      snapshot.plex_webhook_receiver_token_last_rotated_at,
-      snapshot.plex_webhook_receiver_last_received_at,
-      snapshot.plex_webhook_receiver_last_event,
-      snapshot.plex_webhook_receiver_last_attempt_at,
-      snapshot.plex_webhook_receiver_last_attempt_status,
-      snapshot.plex_webhook_receiver_last_attempt_error,
-      snapshot.plex_webhook_receiver_last_content_type,
-      snapshot.plex_preset,
-      snapshot.plex_provider,
-      snapshot.plex_api_url,
-      snapshot.plex_api_key_encrypted,
-      JSON.stringify(snapshot.plex_library_sections || []),
-      snapshot.tmdb_api_key_encrypted
-    ]
-  ).catch(() => {});
-}
-
-async function cleanupUser(userId) {
-  if (!Number.isFinite(Number(userId)) || Number(userId) <= 0) return;
-  await pool.query('DELETE FROM users WHERE id = $1', [Number(userId)]).catch(() => {});
+  if (spaceId) {
+    await pool.query('DELETE FROM space_memberships WHERE space_id = $1', [spaceId]).catch(() => {});
+    await pool.query('DELETE FROM spaces WHERE id = $1', [spaceId]).catch(() => {});
+  }
+  if (userId) await pool.query('DELETE FROM users WHERE id = $1', [userId]).catch(() => {});
 }
 
 async function cleanupWebhookJobs(ratingKey) {
@@ -347,15 +303,20 @@ async function main() {
   const ratingKey = `receiver-admin-${suffix}`;
   const importedTitle = `Receiver Admin New Movie ${suffix}`;
   const admin = new HttpClient('plex-webhook-admin-smoke');
-  const snapshot = await snapshotPlexWebhookSettings();
   let userId = null;
+  let spaceId = null;
+  let libraryId = null;
   let rawToken = '';
   let fakePms = null;
 
   try {
     fakePms = await startFakePmsServer(ratingKey, importedTitle);
-    await applyFakePlexSettings(fakePms.baseUrl);
     userId = await createDirectUser({ email, password, name: 'Plex Webhook Admin Smoke', role: 'admin' });
+    const scope = await createIsolatedScope({ userId, suffix });
+    spaceId = scope.spaceId;
+    libraryId = scope.libraryId;
+    assert(spaceId && libraryId, 'Expected isolated workspace and library for Plex webhook smoke');
+    await applyFakePlexSettings({ baseUrl: fakePms.baseUrl, spaceId });
     await admin.fetchCsrfToken();
     await admin.request('/api/auth/login', {
       method: 'POST',
@@ -366,7 +327,8 @@ async function main() {
     admin.csrfToken = '';
     await admin.fetchCsrfToken();
 
-    const generated = await admin.request('/api/admin/settings/integrations/plex-webhook-receiver-token', {
+    const integrationEndpoint = `/api/spaces/${spaceId}/integrations`;
+    const generated = await admin.request(`${integrationEndpoint}/plex-webhook-receiver-token`, {
       method: 'POST',
       withCsrf: true,
       expectStatus: 200
@@ -378,7 +340,7 @@ async function main() {
     assert(generated.data?.plexWebhookReceiver?.enabled === true, `Expected receiver enabled readback: ${JSON.stringify(generated.data)}`);
     assert(!JSON.stringify(generated.data?.plexWebhookReceiver || {}).includes(rawToken), 'Status readback must not include raw token');
 
-    const settings = await admin.request('/api/admin/settings/integrations', { expectStatus: 200 });
+    const settings = await admin.request(integrationEndpoint, { expectStatus: 200 });
     assert(settings.data?.plexWebhookReceiver?.enabled === true, `Expected settings receiver enabled: ${JSON.stringify(settings.data?.plexWebhookReceiver)}`);
     assert(settings.data?.plexWebhookReceiver?.receiverPath === '/api/plex/webhooks/[token]', 'Expected redacted receiver path template');
     assert(String(settings.data?.plexWebhookReceiver?.receiverPathMasked || '').includes('/api/plex/webhooks/czpw_'), 'Expected masked receiver path for existing receiver');
@@ -406,7 +368,8 @@ async function main() {
               plex_webhook_receiver_last_attempt_error,
               plex_webhook_receiver_last_content_type
          FROM app_integrations
-        WHERE id = 1`
+        WHERE space_id = $1`,
+      [spaceId]
     );
     assert(rejectedDelivery.rows[0]?.plex_webhook_receiver_last_attempt_status === 'rejected', 'Expected malformed multipart delivery to be recorded as rejected');
     assert(String(rejectedDelivery.rows[0]?.plex_webhook_receiver_last_attempt_error || '').includes('not recognized'), 'Expected rejected delivery diagnostic to explain the unrecognized payload');
@@ -473,7 +436,8 @@ async function main() {
               plex_webhook_receiver_last_attempt_at, plex_webhook_receiver_last_attempt_status,
               plex_webhook_receiver_last_attempt_error, plex_webhook_receiver_last_content_type
          FROM app_integrations
-        WHERE id = 1`
+        WHERE space_id = $1`,
+      [spaceId]
     );
     assert(dbReadback.rows[0]?.plex_webhook_receiver_last_received_at, 'Expected last received timestamp');
     assert(dbReadback.rows[0]?.plex_webhook_receiver_last_event === 'media.rate', 'Expected last received event readback');
@@ -482,7 +446,7 @@ async function main() {
     assert(String(dbReadback.rows[0]?.plex_webhook_receiver_last_content_type || '').startsWith('multipart/form-data'), 'Expected multipart content-type readback');
 
     const queuedJobs = await pool.query(
-      `SELECT id, job_type, provider, status, scope, progress, summary
+      `SELECT id, job_type, provider, status, space_id, library_id, scope, progress, summary
          FROM sync_jobs
         WHERE provider = 'plex'
           AND job_type = 'plex_webhook_import_hint'
@@ -492,6 +456,10 @@ async function main() {
     );
     assert(queuedJobs.rowCount === 1, `Expected one deduped webhook import hint job, got ${queuedJobs.rowCount}`);
     assert(queuedJobs.rows[0]?.status === 'queued', `Expected queued webhook import hint job: ${JSON.stringify(queuedJobs.rows[0])}`);
+    assert(Number(queuedJobs.rows[0]?.space_id) > 0, `Expected relational webhook workspace ownership: ${JSON.stringify(queuedJobs.rows[0])}`);
+    assert(Number(queuedJobs.rows[0]?.library_id) > 0, `Expected relational webhook library ownership: ${JSON.stringify(queuedJobs.rows[0])}`);
+    assert(Number(queuedJobs.rows[0]?.scope?.spaceId) === Number(queuedJobs.rows[0]?.space_id), `Expected webhook workspace projection parity: ${JSON.stringify(queuedJobs.rows[0])}`);
+    assert(Number(queuedJobs.rows[0]?.scope?.libraryId) === Number(queuedJobs.rows[0]?.library_id), `Expected webhook library projection parity: ${JSON.stringify(queuedJobs.rows[0])}`);
     assert(queuedJobs.rows[0]?.scope?.processingMode === 'queued_import_hint', `Expected queued import hint scope: ${JSON.stringify(queuedJobs.rows[0])}`);
     assert(queuedJobs.rows[0]?.summary?.processor === 'active_webhook_event_processor', `Expected active webhook processor claim: ${JSON.stringify(queuedJobs.rows[0])}`);
 
@@ -529,7 +497,7 @@ async function main() {
     assert(imported.rows[0]?.title === importedTitle, `Expected imported title readback: ${JSON.stringify(imported.rows[0])}`);
     assert(imported.rows[0]?.import_source === 'plex', `Expected Plex import source: ${JSON.stringify(imported.rows[0])}`);
 
-    const revoked = await admin.request('/api/admin/settings/integrations/plex-webhook-receiver-token', {
+    const revoked = await admin.request(`${integrationEndpoint}/plex-webhook-receiver-token`, {
       method: 'DELETE',
       withCsrf: true,
       expectStatus: 200
@@ -563,6 +531,7 @@ async function main() {
         processingMode: accepted.data.processingMode,
         importEnqueue: {
           queued: accepted.data.importEnqueue.queued,
+          relationalOwnership: true,
           jobType: accepted.data.importEnqueue.job.jobType,
           provider: accepted.data.importEnqueue.job.provider,
           status: accepted.data.importEnqueue.job.status,
@@ -591,8 +560,7 @@ async function main() {
     await cleanupImportedMedia(ratingKey, importedTitle);
     await cleanupWebhookJobs(ratingKey);
     if (fakePms) await fakePms.close().catch(() => {});
-    await restorePlexWebhookSettings(snapshot);
-    await cleanupUser(userId);
+    await cleanupTemporaryState({ userId, spaceId, libraryId });
     await pool.end().catch(() => {});
   }
 }

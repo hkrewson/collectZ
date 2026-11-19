@@ -5002,7 +5002,9 @@ CREATE INDEX IF NOT EXISTS idx_tv_device_expiry ON tv_device_authorizations(expi
   { version: 141, description: 'Add bounded durable worker transaction grants',
     up: require('fs').readFileSync(require('path').join(__dirname, 'workerScopeBroker.sql'), 'utf8') },
   { version: 142, description: 'Add bounded sync job service transaction grants',
-    up: require('fs').readFileSync(require('path').join(__dirname, 'syncJobServiceScope.sql'), 'utf8') }
+    up: require('fs').readFileSync(require('path').join(__dirname, 'syncJobServiceScope.sql'), 'utf8') },
+  { version: 143, description: 'Authorize workspace-scoped webhook job ingestion',
+    up: require('fs').readFileSync(require('path').join(__dirname, 'syncJobWebhookIngestScope.sql'), 'utf8') }
 ];
 
 async function runMigrationsForClient(client, options = {}) {

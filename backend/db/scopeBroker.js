@@ -5,7 +5,8 @@ const { Pool } = require('pg');
 const { withScopedTransaction } = require('./scopedTransaction');
 const { executeTransaction } = require('./transactionExecutor');
 
-const WORKER_ACTIONS = new Set(['claim', 'recover', 'lifecycle', 'observe', 'maintain']);
+const WORKER_ACTIONS = new Set(['claim', 'recover', 'lifecycle', 'observe', 'maintain', 'ingest']);
+const SCOPED_WORKER_ACTIONS = new Set(['lifecycle', 'ingest']);
 const SAFE_WORKER_ID = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,159}$/;
 const SAFE_JOB_TYPE = /^[a-z][a-z0-9_.:-]{1,79}$/;
 
@@ -55,17 +56,20 @@ function normalizeWorkerAuthorization(value = {}) {
   const workerId = String(value.workerId || '').trim();
   const jobTypes = [...new Set((value.jobTypes || []).map((entry) => String(entry || '').trim().toLowerCase()))].sort();
   if (!WORKER_ACTIONS.has(action)) {
-    throw new TypeError('Background database action must be claim, recover, lifecycle, observe, or maintain');
+    throw new TypeError('Background database action must be claim, recover, lifecycle, observe, maintain, or ingest');
   }
   if (!SAFE_WORKER_ID.test(workerId)) throw new TypeError('Durable worker ID is invalid');
   if (jobTypes.length < 1 || jobTypes.length > 16 || jobTypes.some((entry) => !SAFE_JOB_TYPE.test(entry))) {
     throw new TypeError('Durable worker job types are invalid');
   }
-  if (action !== 'lifecycle' && (value.spaceId !== undefined || value.libraryId !== undefined)) {
+  if (!SCOPED_WORKER_ACTIONS.has(action) && (value.spaceId !== undefined || value.libraryId !== undefined)) {
     throw new TypeError('Global durable worker grants cannot include workspace scope');
   }
-  if (action === 'lifecycle' && (!Number.isInteger(value.spaceId) || value.spaceId <= 0)) {
-    throw new TypeError('Durable worker lifecycle scope requires a workspace');
+  if (SCOPED_WORKER_ACTIONS.has(action) && (!Number.isInteger(value.spaceId) || value.spaceId <= 0)) {
+    throw new TypeError('Scoped background database access requires a workspace');
+  }
+  if (action === 'ingest' && (!Number.isInteger(value.libraryId) || value.libraryId <= 0)) {
+    throw new TypeError('Webhook ingestion requires an exact library');
   }
   if (value.libraryId !== undefined && value.libraryId !== null &&
       (!Number.isInteger(value.libraryId) || value.libraryId <= 0)) {
@@ -75,8 +79,8 @@ function normalizeWorkerAuthorization(value = {}) {
     action,
     workerId,
     jobTypes,
-    spaceId: action === 'lifecycle' ? value.spaceId : null,
-    libraryId: action === 'lifecycle' ? (value.libraryId ?? null) : null
+    spaceId: SCOPED_WORKER_ACTIONS.has(action) ? value.spaceId : null,
+    libraryId: SCOPED_WORKER_ACTIONS.has(action) ? (value.libraryId ?? null) : null
   };
 }
 
@@ -84,7 +88,7 @@ async function withAuthorizedWorkerTransaction(pool, authorization, work) {
   if (typeof work !== 'function') throw new TypeError('Transaction work must be a function');
   const grant = normalizeWorkerAuthorization(authorization);
   let transaction;
-  const run = grant.action === 'lifecycle'
+  const run = SCOPED_WORKER_ACTIONS.has(grant.action)
     ? (callback) => withScopedTransaction(pool, { spaceId: grant.spaceId, libraryId: grant.libraryId }, callback)
     : (callback) => executeTransaction(pool, callback);
   try {

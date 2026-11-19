@@ -39,6 +39,7 @@ const { normalizeKavitaBaseUrl, testKavitaConnection } = require('../services/ka
 const { logActivity, logError } = require('../services/audit');
 const { DECRYPT_REMEDIATION } = require('../services/integrationResponse');
 const { resolveScopeContext } = require('../db/scopeContext');
+const { createAuthorizedPlexWebhookRequestStore } = require('../services/durableJobs');
 const {
   generatePlexWebhookReceiverToken,
   hashPlexWebhookReceiverToken,
@@ -59,6 +60,7 @@ const {
 
 const sharedRouter = express.Router();
 const HOMELAB_EDITION = isHomelabEdition();
+const plexWebhookRequestStore = createAuthorizedPlexWebhookRequestStore({ pool });
 const plexWebhookMultipartUpload = multer({
   storage: multer.memoryStorage(),
   limits: {
@@ -157,24 +159,8 @@ async function enqueuePlexWebhookEvent(normalizedEvent, config = null) {
     );
     libraryId = Number(library.rows[0]?.id || 0) || null;
   }
-
-  const existing = await pool.query(
-    `SELECT id, job_type, provider, status, created_by, scope, progress, summary, error,
-            started_at, finished_at, created_at, updated_at
-       FROM sync_jobs
-      WHERE job_type = $1
-        AND provider = 'plex'
-        AND status IN ('queued', 'running')
-        AND scope->>'trigger' = 'plex_webhook'
-        AND scope->>'event' = $2
-        AND scope->>'ratingKey' = $3
-        AND COALESCE(scope->>'spaceId', '') = $4
-      ORDER BY created_at DESC
-      LIMIT 1`,
-    [jobType, normalizedEvent.event, normalizedEvent.ratingKey, spaceId ? String(spaceId) : '']
-  );
-  if (existing.rows[0]) {
-    return { queued: true, existing: true, job: existing.rows[0] };
+  if (!spaceId || !libraryId) {
+    return { queued: false, reason: 'workspace_scope_required', job: null };
   }
 
   const scope = {
@@ -209,14 +195,15 @@ async function enqueuePlexWebhookEvent(normalizedEvent, config = null) {
     processingMode,
     processor: 'active_webhook_event_processor'
   };
-  const result = await pool.query(
-    `INSERT INTO sync_jobs (job_type, provider, status, created_by, scope, progress, summary)
-     VALUES ($1, 'plex', 'queued', NULL, $2::jsonb, $3::jsonb, $4::jsonb)
-     RETURNING id, job_type, provider, status, created_by, scope, progress, summary, error,
-               started_at, finished_at, created_at, updated_at`,
-    [jobType, JSON.stringify(scope), JSON.stringify(progress), JSON.stringify(summary)]
-  );
-  return { queued: true, existing: false, job: result.rows[0] || null };
+  const result = await plexWebhookRequestStore.enqueue({
+    jobType,
+    spaceId,
+    libraryId,
+    scope,
+    progress,
+    summary
+  });
+  return { queued: true, existing: result.existing, job: result.job };
 }
 
 async function buildSharedIntegrationPayload(config, req = null) {

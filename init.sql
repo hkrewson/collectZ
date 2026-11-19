@@ -1975,7 +1975,8 @@ INSERT INTO schema_migrations (version, description) VALUES
     (139, 'Protect event exclusive sources with library RLS'),
     (140, 'Protect object relationships with workspace RLS'),
     (141, 'Add bounded durable worker transaction grants'),
-    (142, 'Add bounded sync job service transaction grants')
+    (142, 'Add bounded sync job service transaction grants'),
+    (143, 'Authorize workspace-scoped webhook job ingestion')
 ON CONFLICT (version) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS tv_device_authorizations (
@@ -3168,7 +3169,7 @@ CREATE TABLE IF NOT EXISTS collectz_scope.worker_transactions (
   backend_pid INTEGER NOT NULL,
   transaction_id TEXT NOT NULL,
   runtime_role NAME NOT NULL,
-  action TEXT NOT NULL CHECK (action IN ('claim', 'recover', 'lifecycle', 'observe', 'maintain')),
+  action TEXT NOT NULL CHECK (action IN ('claim', 'recover', 'lifecycle', 'observe', 'maintain', 'ingest')),
   worker_id TEXT NOT NULL CHECK (
     char_length(worker_id) BETWEEN 1 AND 160
     AND worker_id ~ '^[A-Za-z0-9][A-Za-z0-9_.:-]*$'
@@ -3185,6 +3186,7 @@ CREATE TABLE IF NOT EXISTS collectz_scope.worker_transactions (
   CHECK (
     (action IN ('claim', 'recover', 'observe', 'maintain') AND space_id IS NULL AND library_id IS NULL)
     OR (action = 'lifecycle' AND space_id IS NOT NULL)
+    OR (action = 'ingest' AND space_id IS NOT NULL AND library_id IS NOT NULL)
   )
 );
 CREATE INDEX IF NOT EXISTS worker_scope_transactions_expiry
@@ -3213,7 +3215,7 @@ BEGIN
     FROM unnest(p_job_types) AS value;
   IF target_role IS NULL
      OR p_xid IS NULL OR p_xid !~ '^[0-9]+$'
-     OR p_action NOT IN ('claim', 'recover', 'lifecycle', 'observe', 'maintain')
+     OR p_action NOT IN ('claim', 'recover', 'lifecycle', 'observe', 'maintain', 'ingest')
      OR p_worker IS NULL OR char_length(p_worker) NOT BETWEEN 1 AND 160
      OR p_worker !~ '^[A-Za-z0-9][A-Za-z0-9_.:-]*$'
      OR normalized_job_types IS NULL OR cardinality(normalized_job_types) NOT BETWEEN 1 AND 16
@@ -3223,6 +3225,9 @@ BEGIN
      )
      OR (p_action IN ('claim', 'recover', 'observe', 'maintain') AND (p_space IS NOT NULL OR p_library IS NOT NULL))
      OR (p_action = 'lifecycle' AND (p_space IS NULL OR p_space <= 0))
+     OR (p_action = 'ingest' AND (
+       p_space IS NULL OR p_space <= 0 OR p_library IS NULL OR p_library <= 0
+     ))
      OR (p_library IS NOT NULL AND p_library <= 0) THEN
     RAISE EXCEPTION 'Invalid worker database scope grant' USING ERRCODE = '42501';
   END IF;
@@ -3235,7 +3240,7 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'Database transaction is unavailable' USING ERRCODE = '42501';
   END IF;
-  IF p_action = 'lifecycle' AND (
+  IF p_action IN ('lifecycle', 'ingest') AND (
     NOT EXISTS (SELECT 1 FROM public.spaces WHERE id = p_space AND archived_at IS NULL)
     OR (p_library IS NOT NULL AND NOT EXISTS (
       SELECT 1 FROM public.libraries
@@ -3309,7 +3314,34 @@ RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalo
   );
 $$;
 
+CREATE OR REPLACE FUNCTION collectz_scope.worker_allows_ingest(
+  p_space INTEGER,
+  p_library INTEGER,
+  p_job_type TEXT
+)
+RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM collectz_scope.worker_transactions grant_row
+     WHERE grant_row.backend_pid = pg_backend_pid()
+       AND grant_row.transaction_id = pg_current_xact_id()::text
+       AND grant_row.runtime_role = session_user
+       AND grant_row.server_started = pg_postmaster_start_time()
+       AND grant_row.expires_at > statement_timestamp()
+       AND grant_row.action = 'ingest'
+       AND lower(p_job_type) = ANY(grant_row.job_types)
+       AND grant_row.space_id = p_space
+       AND grant_row.library_id = p_library
+       AND EXISTS (
+         SELECT 1 FROM public.libraries library_row
+          WHERE library_row.id = p_library
+            AND library_row.space_id = p_space
+            AND library_row.archived_at IS NULL
+       )
+  );
+$$;
+
 REVOKE ALL ON FUNCTION collectz_scope.authorize_worker(integer,text,text,text,text[],integer,integer) FROM PUBLIC;
 REVOKE ALL ON FUNCTION collectz_scope.revoke_worker(integer,text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION collectz_scope.worker_allows_global(text,text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION collectz_scope.worker_allows_lifecycle(integer,integer,text,text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION collectz_scope.worker_allows_ingest(integer,integer,text) FROM PUBLIC;

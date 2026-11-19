@@ -9,6 +9,7 @@ const SENSITIVE_KEY_PATTERN = /(authorization|cookie|credential|password|secret|
 const FINAL_STATUSES = new Set(['succeeded', 'failed', 'cancelled']);
 const SETTLEMENT_STATUSES = new Set(['succeeded', 'failed', 'retry_wait', 'cancelled']);
 const DURABLE_WORKER_JOB_TYPES = Object.freeze(['bookorbit_sync', 'plex_reconciliation_sync']);
+const PLEX_WEBHOOK_JOB_TYPES = Object.freeze(['plex_webhook_import_hint', 'plex_webhook_state_hint']);
 const LEGACY_SYNC_JOB_TYPES = Object.freeze([
   'import',
   'media_import',
@@ -715,6 +716,89 @@ function createAuthorizedSyncJobServiceStore({
   });
 }
 
+function createAuthorizedPlexWebhookRequestStore({
+  pool,
+  allowedJobTypes = PLEX_WEBHOOK_JOB_TYPES
+} = {}) {
+  if (!pool || typeof pool.connect !== 'function') {
+    throw durableJobError('A PostgreSQL transaction pool is required', 'durable_job_invalid_adapter');
+  }
+  const configuredTypes = [...new Set((allowedJobTypes || []).map((value) => requireSafeName(value, 'jobType')))];
+  if (configuredTypes.length < 1 || configuredTypes.length > 16) {
+    throw durableJobError('Plex webhook job types are required', 'durable_job_invalid_input');
+  }
+
+  return Object.freeze({
+    enqueue: (options = {}) => {
+      const jobType = requireSafeName(options.jobType, 'jobType');
+      if (!configuredTypes.includes(jobType)) {
+        throw durableJobError('Plex webhook job type is not authorized', 'durable_job_invalid_input');
+      }
+      const spaceId = requirePositiveInteger(options.spaceId, 'spaceId');
+      const libraryId = requirePositiveInteger(options.libraryId, 'libraryId');
+      const scope = sanitizeStructuredValue(options.scope, 'scope');
+      const progress = sanitizeStructuredValue(options.progress, 'progress');
+      const summary = sanitizeStructuredValue(options.summary, 'summary');
+      const event = String(scope.event || '').trim().slice(0, 120);
+      const ratingKey = String(scope.ratingKey || '').trim().slice(0, 160);
+      if (!event || !ratingKey) {
+        throw durableJobError('Plex webhook event and rating key are required', 'durable_job_invalid_input');
+      }
+      const boundedScope = { ...scope, spaceId, libraryId };
+
+      return withAuthorizedWorkerTransaction(pool, {
+        action: 'ingest',
+        workerId: `plex-webhook-ingest:${process.pid}`,
+        jobTypes: [jobType],
+        spaceId,
+        libraryId
+      }, async (client) => {
+        await client.query(
+          'SELECT pg_advisory_xact_lock(hashtext($1))',
+          [`plex-webhook:${spaceId}:${libraryId}:${jobType}:${event}:${ratingKey}`]
+        );
+        const existing = await client.query(
+          `SELECT id, public_id, job_type, job_version, provider, status, created_by,
+                  space_id, library_id, scope, progress, summary, error,
+                  started_at, finished_at, created_at, updated_at
+             FROM sync_jobs
+            WHERE job_type = $1
+              AND provider = 'plex'
+              AND status IN ('queued', 'running')
+              AND space_id = $2
+              AND library_id = $3
+              AND scope->>'trigger' = 'plex_webhook'
+              AND scope->>'event' = $4
+              AND scope->>'ratingKey' = $5
+            ORDER BY created_at DESC
+            LIMIT 1`,
+          [jobType, spaceId, libraryId, event, ratingKey]
+        );
+        if (existing.rows[0]) return { existing: true, job: existing.rows[0] };
+
+        const inserted = await client.query(
+          `INSERT INTO sync_jobs (
+             job_type, provider, status, created_by, space_id, library_id,
+             scope, progress, summary
+           ) VALUES ($1, 'plex', 'queued', NULL, $2, $3, $4::jsonb, $5::jsonb, $6::jsonb)
+           RETURNING id, public_id, job_type, job_version, provider, status, created_by,
+                     space_id, library_id, scope, progress, summary, error,
+                     started_at, finished_at, created_at, updated_at`,
+          [
+            jobType,
+            spaceId,
+            libraryId,
+            JSON.stringify(boundedScope),
+            JSON.stringify(progress),
+            JSON.stringify(summary)
+          ]
+        );
+        return { existing: false, job: inserted.rows[0] || null };
+      });
+    }
+  });
+}
+
 function createAuthorizedDurableWorkerStore({ pool, allowedJobTypes = DURABLE_WORKER_JOB_TYPES } = {}) {
   if (!pool || typeof pool.connect !== 'function') {
     throw durableJobError('A PostgreSQL transaction pool is required', 'durable_job_invalid_adapter');
@@ -771,9 +855,11 @@ module.exports = {
   FINAL_STATUSES,
   DURABLE_WORKER_JOB_TYPES,
   LEGACY_SYNC_JOB_TYPES,
+  PLEX_WEBHOOK_JOB_TYPES,
   SYNC_JOB_SERVICE_TYPES,
   assertSecretFree,
   createAuthorizedDurableRequestStore,
+  createAuthorizedPlexWebhookRequestStore,
   createAuthorizedSyncJobServiceStore,
   createAuthorizedDurableWorkerStore,
   createDurableJobStore,

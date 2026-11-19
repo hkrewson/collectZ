@@ -103,8 +103,22 @@ test('durable worker authorization is normalized and bounded before database acc
     workerId: 'startup:one',
     jobTypes: ['media_import']
   }).action, 'maintain');
+  assert.deepEqual(normalizeWorkerAuthorization({
+    action: 'ingest',
+    workerId: 'webhook:one',
+    jobTypes: ['plex_webhook_import_hint'],
+    spaceId: 7,
+    libraryId: 9
+  }), {
+    action: 'ingest',
+    workerId: 'webhook:one',
+    jobTypes: ['plex_webhook_import_hint'],
+    spaceId: 7,
+    libraryId: 9
+  });
   assert.throws(() => normalizeWorkerAuthorization({ action: 'claim', workerId: 'worker:one', jobTypes: [] }), /job types/);
   assert.throws(() => normalizeWorkerAuthorization({ action: 'claim', workerId: 'worker one', jobTypes: ['bookorbit_sync'] }), /worker ID/);
   assert.throws(() => normalizeWorkerAuthorization({ action: 'claim', workerId: 'worker:one', jobTypes: ['bookorbit_sync'], spaceId: 7 }), /cannot include workspace/);
   assert.throws(() => normalizeWorkerAuthorization({ action: 'lifecycle', workerId: 'worker:one', jobTypes: ['bookorbit_sync'] }), /requires a workspace/);
+  assert.throws(() => normalizeWorkerAuthorization({ action: 'ingest', workerId: 'webhook:one', jobTypes: ['plex_webhook_import_hint'], spaceId: 7 }), /exact library/);
 });

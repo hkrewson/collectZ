@@ -608,6 +608,7 @@ results.push(run('runtime database role is non-owner, verifier-provisioned, and 
   assert.ok(runtimeRoleSource.includes('REVOKE INSERT, UPDATE, DELETE ON ${schemaIdent}.schema_migrations'));
   assert.ok(runtimeRoleSource.includes('collectz_scope.allows_library(integer,integer)'));
   assert.ok(runtimeRoleSource.includes('collectz_scope.authorize_worker(integer,text,text,text,text[],integer,integer)'));
+  assert.ok(runtimeRoleSource.includes('collectz_scope.worker_allows_ingest(integer,integer,text)'));
 
   const composeSource = fs.readFileSync(require.resolve('../../docker-compose.yml'), 'utf8');
   const serviceBlock = (name) => {
@@ -5560,6 +5561,22 @@ results.push(run('sync job metrics and startup maintenance use distinct allowlis
   assert.ok(serverSource.includes('syncJobServiceStore.recoverStaleLegacyJobs()'));
   assert.ok(serverSource.includes('if (!skipStartupMigrationsForIdentityCertification())'));
   assert.ok(!serverSource.includes('const staleJobs = await pool.query'));
+}));
+
+results.push(run('plex webhook ingestion uses an exact-workspace service grant and relational ownership', () => {
+  const durableJobsSource = fs.readFileSync(require.resolve('../services/durableJobs'), 'utf8');
+  const integrationsSource = fs.readFileSync(require.resolve('../routes/integrations'), 'utf8');
+  const webhookScopeMigration = fs.readFileSync(path.resolve(__dirname, '../db/syncJobWebhookIngestScope.sql'), 'utf8');
+  assert.ok(migrationsSource.includes('version: 143'));
+  assert.ok(initSqlSource.includes("(143, 'Authorize workspace-scoped webhook job ingestion')"));
+  assert.ok(webhookScopeMigration.includes("action = 'ingest'"));
+  assert.ok(webhookScopeMigration.includes('worker_allows_ingest'));
+  assert.ok(durableJobsSource.includes('createAuthorizedPlexWebhookRequestStore'));
+  assert.ok(durableJobsSource.includes("action: 'ingest'"));
+  assert.ok(durableJobsSource.includes('space_id = $2'));
+  assert.ok(durableJobsSource.includes('library_id = $3'));
+  assert.ok(integrationsSource.includes('plexWebhookRequestStore.enqueue'));
+  assert.ok(!integrationsSource.includes('INSERT INTO sync_jobs'));
 }));
 
 results.push(run('provider cadence readback reports the next eligible time without changing disabled targets', () => {

@@ -32,6 +32,7 @@ The database enforces that an attached library or Provider Connection belongs to
 ## Security and ownership
 
 - New durable callers must provide an explicit workspace. Library and Provider Connection identifiers are optional, but database foreign keys enforce same-workspace ownership when present.
+- Plex webhook ingestion is a stricter legacy adopter: it requires both an active workspace and active same-workspace library, uses a dedicated ingest grant, and fails closed rather than creating an installation-scoped job.
 - Jobs store Provider Connection ids, never provider usernames, passwords, tokens, encrypted credential payloads, authorization headers, or raw provider responses.
 - Structured targets, progress, and summaries reject secret-bearing keys and pass through the audit redaction policy before persistence.
 - Provider credentials are resolved at execution time by the owning adapter after workspace and connection lifecycle checks.
@@ -73,7 +74,7 @@ The shared integration panel refreshes recent jobs, shows safe attempt/failure/s
 ## Deferred work
 
 - transactional outbox use where enqueue must commit atomically with another domain mutation;
-- Plex webhook-hint and watched/rating refresh adoption;
+- Plex webhook-hint and watched/rating processing/lifecycle adoption after their enqueue path's exact-workspace ingestion authorization;
 - CWA, Kavita, Metron, scanner, OCR, valuation, notification, and price-watch adoption;
 - append-only external source observations;
 - broader work/edition/owned-copy modeling;
