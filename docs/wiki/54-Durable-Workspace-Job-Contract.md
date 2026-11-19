@@ -34,6 +34,7 @@ The database enforces that an attached library or Provider Connection belongs to
 - New durable callers must provide an explicit workspace. Library and Provider Connection identifiers are optional, but database foreign keys enforce same-workspace ownership when present.
 - Plex webhook ingestion is a stricter legacy adopter: it requires both an active workspace and active same-workspace library, uses a dedicated ingest grant, and fails closed rather than creating an installation-scoped job.
 - Plex webhook processing uses the same claim/lease/progress/settlement interface through an adapter that admits only `plex`, the two webhook job types, and jobs whose active relational workspace/library exactly match their compatibility projection. Expired webhook leases recover through that adapter rather than startup's legacy direct-maintenance path.
+- Valuation refresh requests require an authenticated actor and relational workspace ownership. Manual single-item and post-import batches persist only media ids, execution mode, and import source in the secret-free target, then a dedicated allowlisted worker claims that exact job, resolves current workspace valuation configuration at execution time, checkpoints progress, and can resume after process restart.
 - Jobs store Provider Connection ids, never provider usernames, passwords, tokens, encrypted credential payloads, authorization headers, or raw provider responses.
 - Structured targets, progress, and summaries reject secret-bearing keys and pass through the audit redaction policy before persistence.
 - Provider credentials are resolved at execution time by the owning adapter after workspace and connection lifecycle checks.
@@ -75,7 +76,7 @@ The shared integration panel refreshes recent jobs, shows safe attempt/failure/s
 ## Deferred work
 
 - transactional outbox use where enqueue must commit atomically with another domain mutation;
-- CWA, Kavita, Metron, scanner, OCR, valuation, notification, and price-watch adoption;
+- CWA, Kavita, Metron, scanner, OCR, notification, and price-watch adoption;
 - append-only external source observations;
 - broader work/edition/owned-copy modeling;
 - `sync_jobs` RLS activation and multi-process worker deployment.

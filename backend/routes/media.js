@@ -218,11 +218,20 @@ const bookOrbitConnections = createProviderConnectionService({
 });
 const durableRequestStore = createAuthorizedDurableRequestStore({ pool });
 const durableWorkerStore = createAuthorizedDurableWorkerStore({ pool });
+const valuationRefreshRequestStore = createAuthorizedDurableRequestStore({
+  pool,
+  allowedJobTypes: ['valuation_refresh']
+});
+const valuationRefreshWorkerStore = createAuthorizedDurableWorkerStore({
+  pool,
+  allowedJobTypes: ['valuation_refresh']
+});
 const plexWebhookWorkerStore = createAuthorizedPlexWebhookWorkerStore({ pool });
 const plexWebhookWorkerId = `plex-webhook:${process.pid}:${crypto.randomUUID()}`;
 const providerSyncTargets = createProviderSyncTargetStore({ pool });
 let plexReconciliationDurableWorker = null;
 let bookOrbitDurableWorker = null;
+let valuationRefreshDurableWorker = null;
 
 const ALLOWED_COVER_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 
@@ -6016,6 +6025,10 @@ async function queueImportedValuationRefresh({
   if (uniqueMediaIds.length === 0) {
     return { queued: false, count: 0, jobId: null, provider: null };
   }
+  const actorId = Number(userId || 0);
+  if (!Number.isSafeInteger(actorId) || actorId <= 0) {
+    return { queued: false, count: 0, jobId: null, provider: null, reason: 'actor_required' };
+  }
 
   const ownershipResult = await pool.query(
     `SELECT DISTINCT space_id
@@ -6041,14 +6054,16 @@ async function queueImportedValuationRefresh({
   }
 
   const provider = resolveValuationProviderForConfig(config, mode);
-  const job = await createSyncJob({
-    userId,
+  const job = await valuationRefreshRequestStore.enqueue({
+    actorId,
     jobType: 'valuation_refresh',
     provider,
-    scope: {
-      ...jobScopePayload(effectiveScopeContext),
+    spaceId: ownedSpaceId,
+    libraryId: effectiveScopeContext.libraryId || null,
+    targetRef: {
       importSource: importSource || null,
-      mediaCount: uniqueMediaIds.length
+      mediaIds: uniqueMediaIds,
+      mode
     },
     progress: {
       total: uniqueMediaIds.length,
@@ -6058,91 +6073,10 @@ async function queueImportedValuationRefresh({
       errorCount: 0
     }
   });
-
-  setImmediate(async () => {
-    const summary = {
-      importSource: importSource || null,
-      total: uniqueMediaIds.length,
-      matched: 0,
-      skipped: 0,
-      errorCount: 0,
-      providerCounts: {},
-      errorsSample: []
-    };
-    try {
-      await updateSyncJob(job.id, { status: 'running', started_at: new Date() });
-      for (let index = 0; index < uniqueMediaIds.length; index += 1) {
-        const mediaId = uniqueMediaIds[index];
-        try {
-          const media = await loadScopedMediaItem(mediaId, effectiveScopeContext);
-          if (!media) {
-            summary.skipped += 1;
-          } else {
-            const result = await refreshMediaValuation(media, config, { mode, httpClient: axios });
-            if (result?.matched && result?.valuation) {
-              await persistMediaValuation(mediaId, result.valuation);
-              summary.matched += 1;
-            } else {
-              summary.skipped += 1;
-            }
-            const providerKey = String(result?.provider || provider || 'unknown');
-            summary.providerCounts[providerKey] = (summary.providerCounts[providerKey] || 0) + 1;
-          }
-        } catch (error) {
-          summary.errorCount += 1;
-          if (summary.errorsSample.length < 20) {
-            summary.errorsSample.push({
-              mediaId,
-              detail: error.message || 'Valuation refresh failed'
-            });
-          }
-        }
-
-        await updateSyncJob(job.id, {
-          progress: {
-            total: uniqueMediaIds.length,
-            processed: index + 1,
-            matched: summary.matched,
-            skipped: summary.skipped,
-            errorCount: summary.errorCount
-          }
-        });
-      }
-
-      await updateSyncJob(job.id, {
-        status: 'succeeded',
-        summary,
-        finished_at: new Date()
-      });
-      await logActivity(auditReq, 'media.valuation.import_refresh', 'media', null, {
-        importSource: importSource || null,
-        provider,
-        mode,
-        mediaCount: uniqueMediaIds.length,
-        matched: summary.matched,
-        skipped: summary.skipped,
-        errorCount: summary.errorCount,
-        jobId: job.id,
-        spaceId: ownedSpaceId
-      });
-    } catch (error) {
-      await updateSyncJob(job.id, {
-        status: 'failed',
-        error: error.message || 'Import valuation refresh failed',
-        finished_at: new Date(),
-        summary
-      });
-      await logActivity(auditReq, 'media.valuation.import_refresh.failed', 'media', null, {
-        importSource: importSource || null,
-        provider,
-        mode,
-        mediaCount: uniqueMediaIds.length,
-        detail: error.message || 'Import valuation refresh failed',
-        jobId: job.id,
-        spaceId: ownedSpaceId
-      });
-    }
-  });
+  const worker = startValuationRefreshDurableWorker();
+  setImmediate(() => worker.runOnce({ jobId: job.id }).catch((error) => {
+    console.error('Valuation refresh worker dispatch failed:', error.message);
+  }));
 
   return {
     queued: true,
@@ -6150,6 +6084,115 @@ async function queueImportedValuationRefresh({
     jobId: job.id,
     provider
   };
+}
+
+async function executeValuationRefreshDurableJob(job, context) {
+  const target = job.targetRef || {};
+  const mediaIds = [...new Set(
+    (Array.isArray(target.mediaIds) ? target.mediaIds : [])
+      .map((value) => Number(value))
+      .filter((value) => Number.isSafeInteger(value) && value > 0)
+  )];
+  const mode = new Set(['fixture', 'preview']).has(target.mode) ? target.mode : 'live';
+  const importSource = target.importSource || null;
+  const scopeContext = { spaceId: job.spaceId, libraryId: job.libraryId };
+  const actor = await loadPlexReconciliationJobActor(job);
+  if (!actor || mediaIds.length === 0) {
+    const error = new Error('Valuation refresh target or workspace actor is unavailable');
+    error.code = 'VALUATION_REFRESH_CONFIGURATION_INVALID';
+    throw error;
+  }
+  const auditReq = { user: actor, headers: {}, ip: 'system', socket: null };
+  const config = await loadWorkspaceValuationIntegrationConfig(job.spaceId);
+  if (!canExecuteValuationForConfig(config, mode)) {
+    const error = new Error('Valuation refresh integration is unavailable');
+    error.code = 'VALUATION_REFRESH_CONFIGURATION_INVALID';
+    throw error;
+  }
+  const provider = resolveValuationProviderForConfig(config, mode);
+  const summary = {
+    importSource,
+    total: mediaIds.length,
+    matched: 0,
+    skipped: 0,
+    errorCount: 0,
+    providerCounts: {},
+    errorsSample: []
+  };
+
+  try {
+    for (let index = 0; index < mediaIds.length; index += 1) {
+      const mediaId = mediaIds[index];
+      try {
+        const media = await loadScopedMediaItem(mediaId, scopeContext);
+        if (!media) {
+          summary.skipped += 1;
+        } else {
+          const result = await refreshMediaValuation(media, config, { mode, httpClient: axios });
+          if (result?.matched && result?.valuation) {
+            await persistMediaValuation(mediaId, result.valuation);
+            summary.matched += 1;
+          } else {
+            summary.skipped += 1;
+          }
+          const providerKey = String(result?.provider || provider || 'unknown');
+          summary.providerCounts[providerKey] = (summary.providerCounts[providerKey] || 0) + 1;
+        }
+      } catch (error) {
+        summary.errorCount += 1;
+        if (summary.errorsSample.length < 20) {
+          summary.errorsSample.push({ mediaId, detail: error.message || 'Valuation refresh failed' });
+        }
+      }
+      await context.reportProgress({
+        total: mediaIds.length,
+        processed: index + 1,
+        matched: summary.matched,
+        skipped: summary.skipped,
+        errorCount: summary.errorCount
+      });
+    }
+    await logActivity(auditReq, 'media.valuation.import_refresh', 'media', null, {
+      importSource,
+      provider,
+      mode,
+      mediaCount: mediaIds.length,
+      matched: summary.matched,
+      skipped: summary.skipped,
+      errorCount: summary.errorCount,
+      jobId: job.id,
+      spaceId: job.spaceId
+    });
+    return { summary };
+  } catch (error) {
+    await logActivity(auditReq, 'media.valuation.import_refresh.failed', 'media', null, {
+      importSource,
+      provider,
+      mode,
+      mediaCount: mediaIds.length,
+      detail: error.message || 'Import valuation refresh failed',
+      jobId: job.id,
+      spaceId: job.spaceId
+    });
+    throw error;
+  }
+}
+
+function startValuationRefreshDurableWorker() {
+  if (valuationRefreshDurableWorker) return valuationRefreshDurableWorker;
+  valuationRefreshDurableWorker = createDurableJobWorker({
+    store: valuationRefreshWorkerStore,
+    workerId: `valuation-refresh:${process.pid}:${crypto.randomUUID()}`,
+    jobTypes: ['valuation_refresh'],
+    leaseSeconds: 300,
+    pollIntervalMs: 1000,
+    classifyError: (error) => (
+      error?.code === 'VALUATION_REFRESH_CONFIGURATION_INVALID' ? 'failed' : 'retry'
+    ),
+    execute: executeValuationRefreshDurableJob
+  });
+  valuationRefreshDurableWorker.start({ initialDelayMs: 250 });
+  return valuationRefreshDurableWorker;
 }
 
 async function emitImportDiagnosticFlag({
@@ -12193,12 +12236,6 @@ router.post('/:id/valuation-refresh', validate(mediaValuationRefreshSchema), asy
 
   const config = await loadWorkspaceValuationIntegrationConfig(media.space_id || scopeContext?.spaceId || null);
   const asyncMode = shouldQueueImportByDefault(req);
-  const auditReq = {
-    user: req.user,
-    headers: req.headers,
-    ip: req.ip,
-    socket: req.socket
-  };
 
   const runRefresh = async () => {
     const outcome = await refreshMediaValuation(media, config, { mode, httpClient: axios });
@@ -12216,11 +12253,13 @@ router.post('/:id/valuation-refresh', validate(mediaValuationRefreshSchema), asy
     const provider = mode === 'fixture'
       ? (config.priceChartingEnabled ? 'pricecharting' : (config.eBayBrowseEnabled ? 'ebay_browse' : 'pricecharting'))
       : (config.priceChartingEnabled ? 'pricecharting' : (config.eBayBrowseEnabled ? 'ebay_browse' : 'unknown'));
-    const job = await createSyncJob({
-      userId: req.user.id,
+    const job = await valuationRefreshRequestStore.enqueue({
+      actorId: req.user.id,
       jobType: 'valuation_refresh',
       provider,
-      scope: { ...jobScopePayload(scopeContext), mediaId },
+      spaceId: media.space_id || scopeContext.spaceId,
+      libraryId: media.library_id || scopeContext.libraryId || null,
+      targetRef: { mediaIds: [mediaId], mode, importSource: 'manual' },
       progress: {
         total: 1,
         processed: 0,
@@ -12228,59 +12267,10 @@ router.post('/:id/valuation-refresh', validate(mediaValuationRefreshSchema), asy
         errorCount: 0
       }
     });
-
-    setImmediate(async () => {
-      try {
-        await updateSyncJob(job.id, { status: 'running', started_at: new Date() });
-        const result = await runRefresh();
-        await updateSyncJob(job.id, {
-          status: 'succeeded',
-          progress: {
-            total: 1,
-            processed: 1,
-            matched: result.matched ? 1 : 0,
-            errorCount: 0
-          },
-          summary: {
-            mediaId,
-            matched: Boolean(result.matched),
-            provider: result.provider,
-            liveNetwork: Boolean(result.liveNetwork),
-            fixture: Boolean(result.fixture),
-            valuation: result.valuation || null,
-            lookupPlan: result.lookupPlan || null
-          },
-          finished_at: new Date()
-        });
-        await logActivity(auditReq, 'media.valuation.refresh', 'media', mediaId, {
-          title: media.title || null,
-          provider: result.provider || null,
-          matched: Boolean(result.matched),
-          liveNetwork: Boolean(result.liveNetwork),
-          fixture: Boolean(result.fixture),
-          mode,
-          jobId: job.id
-        });
-      } catch (error) {
-        await updateSyncJob(job.id, {
-          status: 'failed',
-          error: error.message || 'Valuation refresh failed',
-          finished_at: new Date(),
-          progress: {
-            total: 1,
-            processed: 1,
-            matched: 0,
-            errorCount: 1
-          }
-        });
-        await logActivity(auditReq, 'media.valuation.refresh.failed', 'media', mediaId, {
-          title: media.title || null,
-          detail: error.message || 'Valuation refresh failed',
-          mode,
-          jobId: job.id
-        });
-      }
-    });
+    const worker = startValuationRefreshDurableWorker();
+    setImmediate(() => worker.runOnce({ jobId: job.id }).catch((error) => {
+      console.error('Valuation refresh worker dispatch failed:', error.message);
+    }));
 
     return res.status(202).json(buildQueuedJobResponse(job, provider));
   }
@@ -17291,6 +17281,7 @@ router.getEffectivePlexWatchStateRefreshRuntimeConfig = getEffectivePlexWatchSta
 router.runPlexWatchStateRefreshOnce = runPlexWatchStateRefreshOnce;
 router.startPlexReconciliationSyncScheduler = startPlexReconciliationSyncScheduler;
 router.startBookOrbitDurableWorker = startBookOrbitDurableWorker;
+router.startValuationRefreshDurableWorker = startValuationRefreshDurableWorker;
 router.startBookOrbitSyncScheduler = startBookOrbitSyncScheduler;
 router.runBookOrbitSyncSchedulerOnce = runBookOrbitSyncSchedulerOnce;
 router.getBookOrbitSyncSchedulerState = () => ({ ...bookOrbitSyncSchedulerState });

@@ -1480,6 +1480,13 @@ results.push(run('media route source includes valuation refresh + media detail e
   assert.ok(mediaRoutesSource.includes('async function queueImportedValuationRefresh('));
   assert.ok(mediaRoutesSource.includes("req.get('x-valuation-refresh-mode')"));
   assert.ok(mediaRoutesSource.includes('valuationRefresh'));
+  assert.ok(mediaRoutesSource.includes('const valuationRefreshRequestStore = createAuthorizedDurableRequestStore({'));
+  assert.ok(mediaRoutesSource.includes('const valuationRefreshWorkerStore = createAuthorizedDurableWorkerStore({'));
+  assert.ok(mediaRoutesSource.includes('async function executeValuationRefreshDurableJob(job, context)'));
+  assert.ok(mediaRoutesSource.includes('worker.runOnce({ jobId: job.id })'));
+  assert.ok(mediaRoutesSource.includes('router.startValuationRefreshDurableWorker = startValuationRefreshDurableWorker'));
+  assert.ok(!mediaRoutesSource.includes("createSyncJob({\n    userId,\n    jobType: 'valuation_refresh'"));
+  assert.ok(!mediaRoutesSource.includes("createSyncJob({\n      userId: req.user.id,\n      jobType: 'valuation_refresh'"));
 }));
 
 results.push(run('media bulk delete uses one scoped endpoint instead of per-row delete requests', () => {
@@ -5524,7 +5531,10 @@ results.push(run('durable background workers use broker-authorized lifecycle tra
   assert.ok(durableJobsSource.includes("action: 'claim'"));
   assert.ok(durableJobsSource.includes("action: 'recover'"));
   assert.ok(durableJobsSource.includes("action: 'lifecycle'"));
-  assert.ok(durableJobsSource.includes("DURABLE_WORKER_JOB_TYPES = Object.freeze(['bookorbit_sync', 'plex_reconciliation_sync'])"));
+  assert.ok(durableJobsSource.includes('const DURABLE_WORKER_JOB_TYPES = Object.freeze(['));
+  assert.ok(durableJobsSource.includes("'bookorbit_sync'"));
+  assert.ok(durableJobsSource.includes("'plex_reconciliation_sync'"));
+  assert.ok(durableJobsSource.includes("'valuation_refresh'"));
   assert.ok(durableJobsSource.includes('library_id IS NOT DISTINCT FROM'));
   assert.ok(durableWorkerSource.includes('...lifecycleScope'));
   assert.ok(mediaRoutesSource.includes('store: durableWorkerStore'));

@@ -64,7 +64,7 @@ function createDurableJobWorker(options = {}) {
   let timer = null;
   let stopped = false;
 
-  async function runOnce() {
+  async function runOnce(claimOptions = {}) {
     if (state.running) return { claimed: false, reason: 'already_running' };
     state.running = true;
     let job = null;
@@ -73,7 +73,7 @@ function createDurableJobWorker(options = {}) {
     let leaseLost = false;
     let lifecycleScope = null;
     try {
-      job = await store.claimNext({ workerId, leaseSeconds, jobTypes });
+      job = await store.claimNext({ ...claimOptions, workerId, leaseSeconds, jobTypes });
       if (!job) return { claimed: false, reason: 'empty' };
       state.lastClaimedAt = new Date().toISOString();
       state.lastJobPublicId = job.publicId;

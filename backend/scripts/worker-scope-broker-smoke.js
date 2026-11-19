@@ -79,6 +79,14 @@ async function main() {
       pool,
       allowedJobTypes: ['worker_scope_smoke', 'worker_scope_other']
     });
+    const valuationRequestStore = createAuthorizedDurableRequestStore({
+      pool,
+      allowedJobTypes: ['valuation_refresh']
+    });
+    const valuationWorkerStore = createAuthorizedDurableWorkerStore({
+      pool,
+      allowedJobTypes: ['valuation_refresh']
+    });
     const enqueueFixture = async (suffix, maxAttempts = 2) => {
       const job = await rawStore.enqueue({
         jobType: 'worker_scope_smoke',
@@ -223,6 +231,33 @@ async function main() {
         }
       });
       const result = await worker.runOnce();
+      assert.equal(result.claimed, true);
+      assert.equal(result.job.status, 'succeeded');
+      assert.deepEqual(result.job.summary, { processed: 1 });
+    });
+    await check('valuation refresh uses actor enqueue and targeted worker lifecycle', async () => {
+      const queued = await valuationRequestStore.enqueue({
+        actorId,
+        jobType: 'valuation_refresh',
+        provider: 'worker_scope_smoke',
+        spaceId,
+        libraryId,
+        targetRef: { mediaIds: [1], mode: 'preview', fixture: true },
+        progress: { total: 1, processed: 0 }
+      });
+      fixtureJobIds.push(queued.id);
+      const worker = createDurableJobWorker({
+        store: valuationWorkerStore,
+        workerId: 'worker:valuation-refresh',
+        jobTypes: ['valuation_refresh'],
+        execute: async (job, context) => {
+          assert.equal(job.id, queued.id);
+          assert.equal(job.createdBy, actorId);
+          await context.reportProgress({ total: 1, processed: 1 });
+          return { summary: { processed: 1 } };
+        }
+      });
+      const result = await worker.runOnce({ jobId: queued.id });
       assert.equal(result.claimed, true);
       assert.equal(result.job.status, 'succeeded');
       assert.deepEqual(result.job.summary, { processed: 1 });

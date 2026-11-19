@@ -69,6 +69,29 @@ test('durable worker claims, checkpoints, reports progress, and succeeds through
   }
 });
 
+test('durable worker forwards a targeted claim without allowing lifecycle authority overrides', async () => {
+  const { store, calls } = createStore(baseJob);
+  const worker = createDurableJobWorker({
+    store,
+    workerId: 'test-worker',
+    jobTypes: ['plex_reconciliation_sync'],
+    leaseSeconds: 45,
+    execute: async () => ({ summary: { targeted: true } })
+  });
+  await worker.runOnce({
+    jobId: baseJob.id,
+    workerId: 'untrusted-worker',
+    leaseSeconds: 5,
+    jobTypes: ['untrusted_type']
+  });
+  assert.deepEqual(calls[0], ['claimNext', {
+    jobId: baseJob.id,
+    workerId: 'test-worker',
+    leaseSeconds: 45,
+    jobTypes: ['plex_reconciliation_sync']
+  }]);
+});
+
 test('durable worker turns a cancellation request into cancelled settlement', async () => {
   const cancelled = { ...baseJob, cancelRequestedAt: new Date().toISOString() };
   const { store, calls } = createStore(cancelled);

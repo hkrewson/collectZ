@@ -8,13 +8,16 @@ const SAFE_NAME_PATTERN = /^[a-z][a-z0-9_.:-]{1,79}$/;
 const SENSITIVE_KEY_PATTERN = /(authorization|cookie|credential|password|secret|session.?token|csrf.?token|api.?key|access.?token|refresh.?token)$/i;
 const FINAL_STATUSES = new Set(['succeeded', 'failed', 'cancelled']);
 const SETTLEMENT_STATUSES = new Set(['succeeded', 'failed', 'retry_wait', 'cancelled']);
-const DURABLE_WORKER_JOB_TYPES = Object.freeze(['bookorbit_sync', 'plex_reconciliation_sync']);
+const DURABLE_WORKER_JOB_TYPES = Object.freeze([
+  'bookorbit_sync',
+  'plex_reconciliation_sync',
+  'valuation_refresh'
+]);
 const PLEX_WEBHOOK_JOB_TYPES = Object.freeze(['plex_webhook_import_hint', 'plex_webhook_state_hint']);
 const LEGACY_SYNC_JOB_TYPES = Object.freeze([
   'import',
   'media_import',
-  'plex_reconciliation_preview',
-  'valuation_refresh'
+  'plex_reconciliation_preview'
 ]);
 const SYNC_JOB_SERVICE_TYPES = Object.freeze([
   ...DURABLE_WORKER_JOB_TYPES,

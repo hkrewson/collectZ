@@ -480,6 +480,9 @@ const startServer = async () => {
     if (typeof mediaRouter.startBookOrbitDurableWorker === 'function') {
       mediaRouter.startBookOrbitDurableWorker();
     }
+    if (typeof mediaRouter.startValuationRefreshDurableWorker === 'function') {
+      mediaRouter.startValuationRefreshDurableWorker();
+    }
     if (typeof mediaRouter.startBookOrbitSyncScheduler === 'function') {
       mediaRouter.startBookOrbitSyncScheduler();
     }

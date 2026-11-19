@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-19T04:47:32.590Z",
+  "generated_at": "2026-11-19T06:18:29.552Z",
   "certification": "durable-worker-scope-broker",
   "status": "passed",
   "checks": [
@@ -41,6 +41,10 @@
     },
     {
       "label": "authorized worker store executes the complete lifecycle",
+      "pass": true
+    },
+    {
+      "label": "valuation refresh uses actor enqueue and targeted worker lifecycle",
       "pass": true
     },
     {
