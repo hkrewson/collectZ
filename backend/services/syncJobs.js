@@ -74,20 +74,21 @@ function buildCompactJobSummary(summary = null) {
 function formatSyncJob(job, options = {}) {
   const includeFullSummary = options.includeFullSummary === true;
   if (!job || typeof job !== 'object') return job;
+  const summary = job.summary || null;
   return {
     id: job.id,
-    job_type: job.job_type,
+    job_type: job.job_type ?? job.jobType,
     provider: job.provider,
     status: job.status,
-    created_by: job.created_by,
-    scope: job.scope,
-    progress: job.progress,
-    summary: includeFullSummary ? (job.summary || null) : buildCompactJobSummary(job.summary),
+    created_by: job.created_by ?? job.createdBy,
+    scope: job.scope ?? job.compatibilityScope,
+    progress: job.progress || {},
+    summary: includeFullSummary ? summary : buildCompactJobSummary(summary),
     error: job.error,
-    started_at: job.started_at,
-    finished_at: job.finished_at,
-    created_at: job.created_at,
-    updated_at: job.updated_at
+    started_at: job.started_at ?? job.startedAt,
+    finished_at: job.finished_at ?? job.finishedAt,
+    created_at: job.created_at ?? job.createdAt,
+    updated_at: job.updated_at ?? job.updatedAt
   };
 }
 

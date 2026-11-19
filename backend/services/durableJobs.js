@@ -14,11 +14,13 @@ const LEGACY_SYNC_JOB_TYPES = Object.freeze([
   'import',
   'media_import',
   'plex_reconciliation_preview',
-  'plex_webhook_import_hint',
-  'plex_webhook_state_hint',
   'valuation_refresh'
 ]);
-const SYNC_JOB_SERVICE_TYPES = Object.freeze([...DURABLE_WORKER_JOB_TYPES, ...LEGACY_SYNC_JOB_TYPES]);
+const SYNC_JOB_SERVICE_TYPES = Object.freeze([
+  ...DURABLE_WORKER_JOB_TYPES,
+  ...PLEX_WEBHOOK_JOB_TYPES,
+  ...LEGACY_SYNC_JOB_TYPES
+]);
 
 function durableJobError(message, code) {
   const error = new Error(message);
@@ -122,6 +124,7 @@ function shapeJob(row, created = undefined) {
     correlationId: row.correlation_id,
     idempotencyKey: row.idempotency_key,
     targetRef: row.target_ref || {},
+    compatibilityScope: row.scope || {},
     progress: row.progress || {},
     summary: row.summary || null,
     error: row.error || null,
@@ -172,7 +175,7 @@ function shapeOperatorJob(row) {
 const RETURNING_COLUMNS = `
   id, public_id, job_type, job_version, provider, status, created_by,
   space_id, library_id, provider_connection_id, correlation_id, idempotency_key,
-  target_ref, progress, summary, error, attempt_count, max_attempts, available_at,
+  target_ref, scope, progress, summary, error, attempt_count, max_attempts, available_at,
   lease_owner, lease_expires_at, heartbeat_at, cancel_requested_at, cancelled_at,
   started_at, finished_at, created_at, updated_at`;
 const QUALIFIED_RETURNING_COLUMNS = RETURNING_COLUMNS
@@ -268,6 +271,17 @@ function createDurableJobStore(queryAdapter) {
       ? null
       : [...new Set(options.jobTypes.map((value) => requireSafeName(value, 'jobType')))];
     if (jobTypes && jobTypes.length === 0) return null;
+    const provider = options.provider ? requireSafeName(options.provider, 'provider') : null;
+    const jobId = options.jobId === undefined || options.jobId === null || options.jobId === ''
+      ? null
+      : requirePositiveInteger(options.jobId, 'jobId');
+    const ratingKey = options.ratingKey === undefined || options.ratingKey === null || options.ratingKey === ''
+      ? null
+      : sanitizeLogField(options.ratingKey).slice(0, 160);
+    const requireExactLibraryScope = options.requireExactLibraryScope === true;
+    if (options.ratingKey && !ratingKey) {
+      throw durableJobError('ratingKey is invalid', 'durable_job_invalid_input');
+    }
     const result = await queryAdapter.query(
       `WITH candidate AS (
          SELECT id
@@ -277,6 +291,28 @@ function createDurableJobStore(queryAdapter) {
             AND cancel_requested_at IS NULL
             AND attempt_count < max_attempts
             AND ($1::text[] IS NULL OR job_type = ANY($1::text[]))
+            AND ($4::text IS NULL OR provider = $4)
+            AND ($5::int IS NULL OR id = $5)
+            AND ($6::text IS NULL OR scope->>'ratingKey' = $6)
+            AND (
+              NOT $7::boolean
+              OR (
+                space_id IS NOT NULL
+                AND library_id IS NOT NULL
+                AND scope->>'spaceId' = space_id::text
+                AND scope->>'libraryId' = library_id::text
+                AND EXISTS (
+                  SELECT 1 FROM spaces s
+                   WHERE s.id = sync_jobs.space_id AND s.archived_at IS NULL
+                )
+                AND EXISTS (
+                  SELECT 1 FROM libraries l
+                   WHERE l.id = sync_jobs.library_id
+                     AND l.space_id = sync_jobs.space_id
+                     AND l.archived_at IS NULL
+                )
+              )
+            )
           ORDER BY available_at ASC, created_at ASC, id ASC
           FOR UPDATE SKIP LOCKED
           LIMIT 1
@@ -293,7 +329,7 @@ function createDurableJobStore(queryAdapter) {
          FROM candidate
         WHERE j.id = candidate.id
        RETURNING ${QUALIFIED_RETURNING_COLUMNS}`,
-      [jobTypes, workerId, leaseSeconds]
+      [jobTypes, workerId, leaseSeconds, provider, jobId, ratingKey, requireExactLibraryScope]
     );
     return shapeJob(result.rows[0]);
   }
@@ -439,12 +475,19 @@ function createDurableJobStore(queryAdapter) {
     return shapeOperatorJob(result.rows[0]);
   }
 
-  async function recoverExpiredLeases({ limit = 100, jobTypes = null } = {}) {
+  async function recoverExpiredLeases({
+    limit = 100,
+    jobTypes = null,
+    provider = null,
+    requireExactLibraryScope = false
+  } = {}) {
     const rowLimit = Math.min(requirePositiveInteger(limit, 'limit'), 1000);
     const types = jobTypes === null || jobTypes === undefined
       ? null
       : [...new Set(jobTypes.map((value) => requireSafeName(value, 'jobType')))];
     if (types && types.length === 0) return [];
+    const normalizedProvider = provider ? requireSafeName(provider, 'provider') : null;
+    const exactLibraryScope = requireExactLibraryScope === true;
     const result = await queryAdapter.query(
       `WITH expired AS (
          SELECT id
@@ -452,6 +495,16 @@ function createDurableJobStore(queryAdapter) {
           WHERE status = 'running'
             AND lease_expires_at <= CURRENT_TIMESTAMP
             AND ($1::text[] IS NULL OR job_type = ANY($1::text[]))
+            AND ($3::text IS NULL OR provider = $3)
+            AND (
+              NOT $4::boolean
+              OR (
+                space_id IS NOT NULL
+                AND library_id IS NOT NULL
+                AND scope->>'spaceId' = space_id::text
+                AND scope->>'libraryId' = library_id::text
+              )
+            )
           ORDER BY lease_expires_at ASC, id ASC
           FOR UPDATE SKIP LOCKED
           LIMIT $2
@@ -484,7 +537,7 @@ function createDurableJobStore(queryAdapter) {
          FROM expired
         WHERE j.id = expired.id
        RETURNING ${QUALIFIED_RETURNING_COLUMNS}`,
-      [types, rowLimit]
+      [types, rowLimit, normalizedProvider, exactLibraryScope]
     );
     return result.rows.map((row) => shapeJob(row));
   }
@@ -706,10 +759,10 @@ function createAuthorizedSyncJobServiceStore({
             AND COALESCE(scope->>'durableLifecycle', 'false') <> 'true'
             AND (
               status = 'running'
-              OR (status = 'queued' AND job_type <> ALL($2::text[]))
+              OR status = 'queued'
             )
           RETURNING id`,
-        [maintainTypes, ['plex_webhook_import_hint', 'plex_webhook_state_hint']]
+        [maintainTypes]
       );
       return result.rows.length;
     })
@@ -851,6 +904,45 @@ function createAuthorizedDurableWorkerStore({ pool, allowedJobTypes = DURABLE_WO
   });
 }
 
+function createAuthorizedPlexWebhookWorkerStore({
+  pool,
+  allowedJobTypes = PLEX_WEBHOOK_JOB_TYPES
+} = {}) {
+  const configuredTypes = [...new Set((allowedJobTypes || []).map((value) => requireSafeName(value, 'jobType')))];
+  if (configuredTypes.length < 1 || configuredTypes.length > 16) {
+    throw durableJobError('Plex webhook worker job types are required', 'durable_job_invalid_input');
+  }
+  const workerStore = createAuthorizedDurableWorkerStore({ pool, allowedJobTypes: configuredTypes });
+  const exactLifecycle = (method, options = {}) => {
+    const jobType = requireSafeName(options.jobType, 'jobType');
+    if (!configuredTypes.includes(jobType)) {
+      throw durableJobError('Plex webhook worker job type is not authorized', 'durable_job_invalid_input');
+    }
+    const spaceId = requirePositiveInteger(options.spaceId, 'spaceId');
+    const libraryId = requirePositiveInteger(options.libraryId, 'libraryId');
+    return workerStore[method]({ ...options, jobType, spaceId, libraryId });
+  };
+
+  return Object.freeze({
+    claimNext: (options = {}) => workerStore.claimNext({
+      ...options,
+      jobTypes: configuredTypes,
+      provider: 'plex',
+      requireExactLibraryScope: true
+    }),
+    renewLease: (options = {}) => exactLifecycle('renewLease', options),
+    reportProgress: (options = {}) => exactLifecycle('reportProgress', options),
+    settle: (options = {}) => exactLifecycle('settle', options),
+    getByPublicId: (options = {}) => exactLifecycle('getByPublicId', options),
+    recoverExpiredLeases: (options = {}) => workerStore.recoverExpiredLeases({
+      ...options,
+      jobTypes: configuredTypes,
+      provider: 'plex',
+      requireExactLibraryScope: true
+    })
+  });
+}
+
 module.exports = {
   FINAL_STATUSES,
   DURABLE_WORKER_JOB_TYPES,
@@ -860,6 +952,7 @@ module.exports = {
   assertSecretFree,
   createAuthorizedDurableRequestStore,
   createAuthorizedPlexWebhookRequestStore,
+  createAuthorizedPlexWebhookWorkerStore,
   createAuthorizedSyncJobServiceStore,
   createAuthorizedDurableWorkerStore,
   createDurableJobStore,

@@ -14,6 +14,7 @@ const {
 const {
   createAuthorizedDurableRequestStore,
   createAuthorizedPlexWebhookRequestStore,
+  createAuthorizedPlexWebhookWorkerStore,
   createAuthorizedSyncJobServiceStore,
   createAuthorizedDurableWorkerStore,
   createDurableJobStore
@@ -67,6 +68,10 @@ async function main() {
       maintainedJobTypes: ['worker_scope_legacy']
     });
     const webhookStore = createAuthorizedPlexWebhookRequestStore({
+      pool,
+      allowedJobTypes: ['worker_scope_webhook']
+    });
+    const webhookWorkerStore = createAuthorizedPlexWebhookWorkerStore({
       pool,
       allowedJobTypes: ['worker_scope_webhook']
     });
@@ -365,6 +370,73 @@ async function main() {
       const repeated = await webhookStore.enqueue(options);
       assert.equal(repeated.existing, true);
       assert.equal(repeated.job.id, inserted.job.id);
+    });
+    await check('authorized webhook worker claims and settles only exact relational ownership', async () => {
+      const ratingKey = `worker-process-${crypto.randomUUID()}`;
+      const inserted = await webhookStore.enqueue({
+        jobType: 'worker_scope_webhook',
+        spaceId,
+        libraryId,
+        scope: { trigger: 'plex_webhook', event: 'library.new', ratingKey },
+        progress: { total: 1, processed: 0 },
+        summary: { fixture: true }
+      });
+      fixtureJobIds.push(inserted.job.id);
+      const workerId = 'worker:webhook-process';
+      const claimed = await webhookWorkerStore.claimNext({
+        workerId,
+        jobId: inserted.job.id,
+        ratingKey,
+        leaseSeconds: 30
+      });
+      assert.equal(claimed.id, inserted.job.id);
+      assert.equal(claimed.spaceId, spaceId);
+      assert.equal(claimed.libraryId, libraryId);
+      assert.equal(claimed.compatibilityScope.ratingKey, ratingKey);
+      const progressed = await webhookWorkerStore.reportProgress({
+        jobId: claimed.id,
+        workerId,
+        jobType: claimed.jobType,
+        spaceId,
+        libraryId,
+        progress: { total: 1, processed: 1 }
+      });
+      assert.equal(progressed.progress.processed, 1);
+      const settled = await webhookWorkerStore.settle({
+        jobId: claimed.id,
+        workerId,
+        jobType: claimed.jobType,
+        spaceId,
+        libraryId,
+        status: 'succeeded',
+        summary: { processed: 1 }
+      });
+      assert.equal(settled.status, 'succeeded');
+    });
+    await check('authorized webhook recovery excludes unscoped legacy rows', async () => {
+      const ratingKey = `worker-recovery-${crypto.randomUUID()}`;
+      const inserted = await webhookStore.enqueue({
+        jobType: 'worker_scope_webhook',
+        spaceId,
+        libraryId,
+        scope: { trigger: 'plex_webhook', event: 'library.on.deck', ratingKey },
+        progress: { total: 1, processed: 0 },
+        summary: { fixture: true }
+      });
+      fixtureJobIds.push(inserted.job.id);
+      const workerId = 'worker:webhook-recovery-claim';
+      const claimed = await webhookWorkerStore.claimNext({ workerId, jobId: inserted.job.id, leaseSeconds: 30 });
+      assert.equal(claimed.id, inserted.job.id);
+      await pool.query(
+        `UPDATE sync_jobs SET lease_expires_at = CURRENT_TIMESTAMP - INTERVAL '1 second' WHERE id = $1`,
+        [claimed.id]
+      );
+      const recovered = await webhookWorkerStore.recoverExpiredLeases({
+        workerId: 'worker:webhook-recovery',
+        limit: 10
+      });
+      const recoveredFixture = recovered.find((job) => job.id === claimed.id);
+      assert.equal(recoveredFixture.status, 'retry_wait');
     });
 
     const evidence = {

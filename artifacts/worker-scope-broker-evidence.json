@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-19T03:36:14.500Z",
+  "generated_at": "2026-11-19T04:47:32.590Z",
   "certification": "durable-worker-scope-broker",
   "status": "passed",
   "checks": [
@@ -65,6 +65,14 @@
     },
     {
       "label": "authorized webhook store deduplicates exact relational ownership",
+      "pass": true
+    },
+    {
+      "label": "authorized webhook worker claims and settles only exact relational ownership",
+      "pass": true
+    },
+    {
+      "label": "authorized webhook recovery excludes unscoped legacy rows",
       "pass": true
     }
   ]

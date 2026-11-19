@@ -5579,6 +5579,19 @@ results.push(run('plex webhook ingestion uses an exact-workspace service grant a
   assert.ok(!integrationsSource.includes('INSERT INTO sync_jobs'));
 }));
 
+results.push(run('plex webhook processing uses exact-scope worker lifecycle authorization', () => {
+  const durableJobsSource = fs.readFileSync(require.resolve('../services/durableJobs'), 'utf8');
+  assert.ok(durableJobsSource.includes('createAuthorizedPlexWebhookWorkerStore'));
+  assert.ok(durableJobsSource.includes('requireExactLibraryScope: true'));
+  assert.ok(durableJobsSource.includes("provider: 'plex'"));
+  assert.ok(durableJobsSource.includes("compatibilityScope: row.scope || {}"));
+  assert.ok(mediaRoutesSource.includes('plexWebhookWorkerStore.claimNext'));
+  assert.ok(mediaRoutesSource.includes('plexWebhookWorkerStore.reportProgress'));
+  assert.ok(mediaRoutesSource.includes('plexWebhookWorkerStore.settle'));
+  assert.ok(mediaRoutesSource.includes('plexWebhookWorkerStore.recoverExpiredLeases'));
+  assert.ok(!mediaRoutesSource.includes("job_type IN ('plex_webhook_import_hint', 'plex_webhook_state_hint')"));
+}));
+
 results.push(run('provider cadence readback reports the next eligible time without changing disabled targets', () => {
   const due = shapeProviderSyncTarget({
     id: '3b11202c-c803-4901-a5ee-d5bd996305e4',
@@ -6273,6 +6286,25 @@ results.push(run('syncJobs.formatSyncJob returns compact summary by default and 
 
   const detailed = formatSyncJob(job, { includeFullSummary: true });
   assert.deepStrictEqual(detailed.summary, job.summary);
+
+  const workerProjection = formatSyncJob({
+    id: 15,
+    jobType: 'plex_webhook_import_hint',
+    provider: 'plex',
+    status: 'succeeded',
+    createdBy: 2,
+    compatibilityScope: { spaceId: 3, libraryId: 4, ratingKey: '5' },
+    progress: { total: 1, processed: 1 },
+    summary: { imported: 1 },
+    startedAt: '2026-11-18T10:00:00.000Z',
+    finishedAt: '2026-11-18T10:00:01.000Z',
+    createdAt: '2026-11-18T09:59:00.000Z',
+    updatedAt: '2026-11-18T10:00:01.000Z'
+  }, { includeFullSummary: true });
+  assert.strictEqual(workerProjection.job_type, 'plex_webhook_import_hint');
+  assert.strictEqual(workerProjection.created_by, 2);
+  assert.strictEqual(workerProjection.scope.libraryId, 4);
+  assert.strictEqual(workerProjection.finished_at, '2026-11-18T10:00:01.000Z');
 }));
 
 results.push(run('metrics service records normalized http and auth/import counters', () => {
