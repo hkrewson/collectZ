@@ -2278,6 +2278,11 @@ results.push(run('plex full-library reconciliation preview stays read-only and c
   assert.ok(mediaRoutesSource.includes('persistPlexReconciliationConflictReviews'));
   assert.ok(mediaRoutesSource.includes('buildPlexFullLibraryReconciliationPreview'));
   assert.ok(mediaRoutesSource.includes('runPlexReconciliationPreviewJob'));
+  assert.ok(mediaRoutesSource.includes('const plexReconciliationPreviewRequestStore = createAuthorizedDurableRequestStore({'));
+  assert.ok(mediaRoutesSource.includes('const plexReconciliationPreviewWorkerStore = createAuthorizedDurableWorkerStore({'));
+  assert.ok(mediaRoutesSource.includes('startPlexReconciliationPreviewDurableWorker'));
+  assert.ok(serverSource.includes('startPlexReconciliationPreviewDurableWorker'));
+  assert.ok(!mediaRoutesSource.includes("createSyncJob({\n    userId: req.user.id,\n    jobType: 'plex_reconciliation_preview'"));
   assert.ok(mediaRoutesSource.includes('performPlexReconciliationSync'));
   assert.ok(mediaRoutesSource.includes('enqueuePlexReconciliationDurableJob'));
   assert.ok(mediaRoutesSource.includes('startPlexReconciliationDurableWorker'));

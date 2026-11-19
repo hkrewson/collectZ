@@ -45,6 +45,7 @@ The database enforces that an attached library or Provider Connection belongs to
 The first two adapters are intentionally different:
 
 - Plex reconciliation is the first adopted automatic full-library workflow. Manual and scheduled requests enqueue secret-free targets, scheduled cadence buckets provide duplicate suppression, and the worker resolves current workspace credentials only when it holds the lease.
+- Plex reconciliation preview uses a separate read-only job type and dedicated request/worker allowlists. Its target persists section ids and an optional limit, the worker resolves current workspace Plex credentials after claim, and the summary explicitly records that Plex writeback and collectZ import mutation remained disabled.
 - BookOrbit is a multi-instance OPDS workflow and proves scheduled enqueue, connection-scoped credentials, bounded remote traversal, stable external identity, and repeat-sync idempotency.
 
 The BookOrbit adopter must also retain OPDS series names and indexes for comics, prove movement between book and comic classifications without duplicate canonical rows, and keep series index distinct from an absent issue number. Rich native multi-series, story-arc, credit, volume, and issue enrichment is the follow-on `3.28.1` model rather than an unstructured addition to the durable job envelope.

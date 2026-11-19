@@ -218,6 +218,14 @@ const bookOrbitConnections = createProviderConnectionService({
 });
 const durableRequestStore = createAuthorizedDurableRequestStore({ pool });
 const durableWorkerStore = createAuthorizedDurableWorkerStore({ pool });
+const plexReconciliationPreviewRequestStore = createAuthorizedDurableRequestStore({
+  pool,
+  allowedJobTypes: ['plex_reconciliation_preview']
+});
+const plexReconciliationPreviewWorkerStore = createAuthorizedDurableWorkerStore({
+  pool,
+  allowedJobTypes: ['plex_reconciliation_preview']
+});
 const valuationRefreshRequestStore = createAuthorizedDurableRequestStore({
   pool,
   allowedJobTypes: ['valuation_refresh']
@@ -230,6 +238,7 @@ const plexWebhookWorkerStore = createAuthorizedPlexWebhookWorkerStore({ pool });
 const plexWebhookWorkerId = `plex-webhook:${process.pid}:${crypto.randomUUID()}`;
 const providerSyncTargets = createProviderSyncTargetStore({ pool });
 let plexReconciliationDurableWorker = null;
+let plexReconciliationPreviewDurableWorker = null;
 let bookOrbitDurableWorker = null;
 let valuationRefreshDurableWorker = null;
 
@@ -7507,18 +7516,26 @@ function buildPlexReconciliationSyncSummary({ preview = {}, plan = {}, importRes
   };
 }
 
-async function runPlexReconciliationPreviewJob({
-  jobId,
-  req,
-  config,
-  sectionIds = [],
-  scopeContext = null,
-  limit = null
-}) {
-  await updateSyncJob(jobId, {
-    status: 'running',
-    started_at: new Date(),
-    progress: {
+async function runPlexReconciliationPreviewJob(job, context) {
+  const target = job.targetRef || {};
+  const sectionIds = Array.isArray(target.sectionIds) ? target.sectionIds.map(String).filter(Boolean) : [];
+  const limit = parsePlexReconciliationLimit(target.limit);
+  const scopeContext = { spaceId: job.spaceId, libraryId: job.libraryId };
+  const actor = await loadPlexReconciliationJobActor(job);
+  if (!actor) {
+    const error = new Error('Plex reconciliation preview has no workspace automation actor');
+    error.code = 'PLEX_RECONCILIATION_PREVIEW_CONFIGURATION_INVALID';
+    throw error;
+  }
+  const req = { user: actor, headers: {}, ip: 'system', socket: null };
+  const config = await loadPlexWebhookImportConfig(scopeContext);
+  if (!config.plexApiUrl || !config.plexApiKey) {
+    const error = new Error('Plex reconciliation preview configuration is incomplete');
+    error.code = 'PLEX_RECONCILIATION_PREVIEW_CONFIGURATION_INVALID';
+    throw error;
+  }
+  try {
+    await context.reportProgress({
       total: 0,
       processed: 0,
       alreadyLinked: 0,
@@ -7526,10 +7543,7 @@ async function runPlexReconciliationPreviewJob({
       wouldCreate: 0,
       conflict: 0,
       errorCount: 0
-    }
-  });
-
-  try {
+    });
     const preview = await buildPlexFullLibraryReconciliationPreview({
       config,
       sectionIds,
@@ -7537,21 +7551,16 @@ async function runPlexReconciliationPreviewJob({
       limit
     });
     const summary = buildPlexReconciliationJobSummary(preview);
-    await updateSyncJob(jobId, {
-      status: 'succeeded',
-      summary,
-      progress: {
-        total: summary.scanned,
-        processed: summary.scanned,
-        alreadyLinked: summary.alreadyLinked,
-        wouldUpdate: summary.wouldUpdate,
-        wouldCreate: summary.wouldCreate,
-        conflict: summary.conflict,
-        errorCount: 0
-      },
-      finished_at: new Date()
+    await context.reportProgress({
+      total: summary.scanned,
+      processed: summary.scanned,
+      alreadyLinked: summary.alreadyLinked,
+      wouldUpdate: summary.wouldUpdate,
+      wouldCreate: summary.wouldCreate,
+      conflict: summary.conflict,
+      errorCount: 0
     });
-    await logActivity(req, 'media.plex.reconciliation.preview_job', 'sync_jobs', jobId, {
+    await logActivity(req, 'media.plex.reconciliation.preview_job', 'sync_jobs', job.id, {
       sectionIds: summary.sectionIds,
       scanned: summary.scanned,
       alreadyLinked: summary.alreadyLinked,
@@ -7560,29 +7569,32 @@ async function runPlexReconciliationPreviewJob({
       conflict: summary.conflict,
       limited: summary.limited
     });
-    return { ok: true, summary };
+    return { summary };
   } catch (error) {
     logError('Plex reconciliation preview job failed', error);
-    await updateSyncJob(jobId, {
-      status: 'failed',
-      error: error.message || 'Plex reconciliation preview job failed',
-      progress: {
-        total: 0,
-        processed: 0,
-        alreadyLinked: 0,
-        wouldUpdate: 0,
-        wouldCreate: 0,
-        conflict: 0,
-        errorCount: 1
-      },
-      finished_at: new Date()
-    });
-    await logActivity(req, 'media.plex.reconciliation.preview_job.failed', 'sync_jobs', jobId, {
+    await logActivity(req, 'media.plex.reconciliation.preview_job.failed', 'sync_jobs', job.id, {
       sectionIds,
       detail: error.message || 'Plex reconciliation preview job failed'
     });
-    return { ok: false, error: error.message || 'Plex reconciliation preview job failed' };
+    throw error;
   }
+}
+
+function startPlexReconciliationPreviewDurableWorker() {
+  if (plexReconciliationPreviewDurableWorker) return plexReconciliationPreviewDurableWorker;
+  plexReconciliationPreviewDurableWorker = createDurableJobWorker({
+    store: plexReconciliationPreviewWorkerStore,
+    workerId: `plex-reconciliation-preview:${process.pid}:${crypto.randomUUID()}`,
+    jobTypes: ['plex_reconciliation_preview'],
+    leaseSeconds: 300,
+    pollIntervalMs: 1000,
+    classifyError: (error) => (
+      error?.code === 'PLEX_RECONCILIATION_PREVIEW_CONFIGURATION_INVALID' ? 'failed' : 'retry'
+    ),
+    execute: runPlexReconciliationPreviewJob
+  });
+  plexReconciliationPreviewDurableWorker.start({ initialDelayMs: 250 });
+  return plexReconciliationPreviewDurableWorker;
 }
 
 async function performPlexReconciliationSync({
@@ -15407,16 +15419,14 @@ router.post('/plex-reconciliation-preview/run', asyncHandler(async (req, res) =>
   }
 
   const requestedSections = [...new Set((sectionIds.length > 0 ? sectionIds : config.plexLibrarySections || []).map(String).filter(Boolean))];
-  const job = await createSyncJob({
-    userId: req.user.id,
+  const job = await plexReconciliationPreviewRequestStore.enqueue({
+    actorId: req.user.id,
     jobType: 'plex_reconciliation_preview',
     provider: 'plex',
-    scope: {
-      ...jobScopePayload(effectiveScopeContext, requestedSections),
-      processingMode: 'full_library_reconciliation_preview',
-      readOnly: true,
-      plexWriteback: false,
-      importMutation: false,
+    spaceId: effectiveScopeContext.spaceId,
+    libraryId: effectiveScopeContext.libraryId,
+    targetRef: {
+      sectionIds: requestedSections,
       limit
     },
     progress: {
@@ -15429,26 +15439,10 @@ router.post('/plex-reconciliation-preview/run', asyncHandler(async (req, res) =>
       errorCount: 0
     }
   });
-
-  const auditReq = {
-    user: req.user,
-    headers: req.headers,
-    ip: req.ip,
-    socket: req.socket
-  };
-
-  setImmediate(() => {
-    runPlexReconciliationPreviewJob({
-      jobId: job.id,
-      req: auditReq,
-      config,
-      sectionIds,
-      scopeContext: effectiveScopeContext,
-      limit
-    }).catch((error) => {
-      logError('Unhandled Plex reconciliation preview job failure', error);
-    });
-  });
+  const worker = startPlexReconciliationPreviewDurableWorker();
+  setImmediate(() => worker.runOnce({ jobId: job.id }).catch((error) => {
+    logError('Unhandled Plex reconciliation preview job failure', error);
+  }));
 
   return res.status(202).json({
     ...buildQueuedJobResponse(job, 'plex'),
@@ -17280,6 +17274,7 @@ router.getPlexWatchStateRefreshRuntimeConfig = getPlexWatchStateRefreshRuntimeCo
 router.getEffectivePlexWatchStateRefreshRuntimeConfig = getEffectivePlexWatchStateRefreshRuntimeConfig;
 router.runPlexWatchStateRefreshOnce = runPlexWatchStateRefreshOnce;
 router.startPlexReconciliationSyncScheduler = startPlexReconciliationSyncScheduler;
+router.startPlexReconciliationPreviewDurableWorker = startPlexReconciliationPreviewDurableWorker;
 router.startBookOrbitDurableWorker = startBookOrbitDurableWorker;
 router.startValuationRefreshDurableWorker = startValuationRefreshDurableWorker;
 router.startBookOrbitSyncScheduler = startBookOrbitSyncScheduler;

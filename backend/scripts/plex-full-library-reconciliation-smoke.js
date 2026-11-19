@@ -98,24 +98,25 @@ async function createDirectUser({ email, password, name, role = 'admin' }) {
   return Number(result.rows[0]?.id || 0) || null;
 }
 
-async function snapshotPlexSettings() {
+async function snapshotPlexSettings(spaceId) {
   const result = await pool.query(
     `SELECT plex_preset, plex_provider, plex_api_url, plex_api_key_encrypted,
             plex_library_sections, tmdb_api_key_encrypted
        FROM app_integrations
-      WHERE id = 1`
+      WHERE space_id = $1`,
+    [spaceId]
   );
   return result.rows[0] || null;
 }
 
-async function applyFakePlexSettings(baseUrl) {
+async function applyFakePlexSettings(baseUrl, spaceId) {
   await pool.query(
     `INSERT INTO app_integrations (
-       id, plex_preset, plex_provider, plex_api_url, plex_api_key_encrypted,
+       space_id, plex_preset, plex_provider, plex_api_url, plex_api_key_encrypted,
        plex_library_sections, tmdb_api_key_encrypted, updated_at
      )
-     VALUES (1, 'plex', 'plex', $1, $2, $3::jsonb, NULL, NOW())
-     ON CONFLICT (id) DO UPDATE SET
+     VALUES ($1, 'plex', 'plex', $2, $3, $4::jsonb, NULL, NOW())
+     ON CONFLICT (space_id) DO UPDATE SET
        plex_preset = EXCLUDED.plex_preset,
        plex_provider = EXCLUDED.plex_provider,
        plex_api_url = EXCLUDED.plex_api_url,
@@ -123,12 +124,16 @@ async function applyFakePlexSettings(baseUrl) {
        plex_library_sections = EXCLUDED.plex_library_sections,
        tmdb_api_key_encrypted = NULL,
        updated_at = NOW()`,
-    [baseUrl, encryptSecret(fakePlexToken), JSON.stringify(['1'])]
+    [spaceId, baseUrl, encryptSecret(fakePlexToken), JSON.stringify(['1'])]
   );
 }
 
-async function restorePlexSettings(snapshot) {
-  if (!snapshot) return;
+async function restorePlexSettings(snapshot, spaceId) {
+  if (!spaceId) return;
+  if (!snapshot) {
+    await pool.query('DELETE FROM app_integrations WHERE space_id = $1', [spaceId]).catch(() => {});
+    return;
+  }
   await pool.query(
     `UPDATE app_integrations
         SET plex_preset = $1,
@@ -137,19 +142,23 @@ async function restorePlexSettings(snapshot) {
             plex_api_key_encrypted = $4,
             plex_library_sections = $5::jsonb,
             tmdb_api_key_encrypted = $6
-      WHERE id = 1`,
+      WHERE space_id = $7`,
     [
       snapshot.plex_preset,
       snapshot.plex_provider,
       snapshot.plex_api_url,
       snapshot.plex_api_key_encrypted,
       JSON.stringify(snapshot.plex_library_sections || []),
-      snapshot.tmdb_api_key_encrypted
+      snapshot.tmdb_api_key_encrypted,
+      spaceId
     ]
   ).catch(() => {});
 }
 
-async function cleanup({ userId, mediaIds = [] } = {}) {
+async function cleanup({ userId, mediaIds = [], jobIds = [] } = {}) {
+  if (jobIds.length > 0) {
+    await pool.query('DELETE FROM sync_jobs WHERE id = ANY($1::int[])', [jobIds]).catch(() => {});
+  }
   for (const mediaId of mediaIds.filter(Boolean)) {
     await pool.query('DELETE FROM media WHERE id = $1', [mediaId]).catch(() => {});
   }
@@ -157,8 +166,8 @@ async function cleanup({ userId, mediaIds = [] } = {}) {
     await pool.query('DELETE FROM media WHERE added_by = $1', [userId]).catch(() => {});
     await pool.query('DELETE FROM library_memberships WHERE user_id = $1', [userId]).catch(() => {});
     await pool.query('DELETE FROM space_memberships WHERE user_id = $1', [userId]).catch(() => {});
-    await pool.query("DELETE FROM spaces WHERE created_by = $1 AND lower(COALESCE(slug, '')) <> 'default'", [userId]).catch(() => {});
     await pool.query('DELETE FROM libraries WHERE created_by = $1', [userId]).catch(() => {});
+    await pool.query("DELETE FROM spaces WHERE created_by = $1 AND lower(COALESCE(slug, '')) <> 'default'", [userId]).catch(() => {});
     await pool.query('DELETE FROM users WHERE id = $1', [userId]).catch(() => {});
   }
 }
@@ -263,17 +272,18 @@ async function waitForJobResult(client, jobId) {
 }
 
 async function main() {
-  const snapshot = await snapshotPlexSettings();
   const fake = await startFakePmsServer();
   const suffix = Date.now();
   const email = `plex-reconciliation-${suffix}@example.com`;
   const password = `Passw0rd!${crypto.randomBytes(4).toString('hex')}`;
   const client = new HttpClient('plex-reconciliation');
   let userId = null;
+  let spaceId = null;
+  let snapshot = null;
   const mediaIds = [];
+  const jobIds = [];
   try {
     userId = await createDirectUser({ email, password, name: 'Plex Reconciliation Admin' });
-    await applyFakePlexSettings(fake.baseUrl);
     await client.request('/api/auth/login', {
       method: 'POST',
       withCsrf: true,
@@ -282,8 +292,11 @@ async function main() {
     });
     const scope = await client.request('/api/auth/scope', { expectStatus: 200 });
     const libraryId = Number(scope.data?.active_library_id || 0) || null;
-    const spaceId = Number(scope.data?.active_space_id || 0) || null;
+    spaceId = Number(scope.data?.active_space_id || 0) || null;
     assert(libraryId, 'Expected active library for smoke user');
+    assert(spaceId, 'Expected active workspace for smoke user');
+    snapshot = await snapshotPlexSettings(spaceId);
+    await applyFakePlexSettings(fake.baseUrl, spaceId);
 
     const seedRows = await pool.query(
       `INSERT INTO media (title, media_type, format, library_id, space_id, added_by, import_source, year, tmdb_id, tmdb_media_type)
@@ -328,6 +341,7 @@ async function main() {
     });
     const jobId = Number(queued.data?.job?.id || queued.data?.id || 0);
     assert(Number.isFinite(jobId) && jobId > 0, `Expected queued reconciliation preview job id: ${JSON.stringify(queued.data)}`);
+    jobIds.push(jobId);
     assert(queued.data?.processingMode === 'full_library_reconciliation_preview', `Unexpected queued processing mode: ${JSON.stringify(queued.data)}`);
     assert(queued.data?.readOnly === true, 'Expected queued reconciliation preview to be read-only');
     assert(queued.data?.plexWriteback === false, 'Expected queued reconciliation preview to keep Plex writeback disabled');
@@ -405,8 +419,8 @@ async function main() {
     fs.writeFileSync(ARTIFACT_PATH, JSON.stringify(evidence, null, 2));
     console.log(JSON.stringify(evidence, null, 2));
   } finally {
-    await restorePlexSettings(snapshot);
-    await cleanup({ userId, mediaIds });
+    await restorePlexSettings(snapshot, spaceId);
+    await cleanup({ userId, mediaIds, jobIds });
     await fake.close();
     await pool.end().catch(() => {});
   }

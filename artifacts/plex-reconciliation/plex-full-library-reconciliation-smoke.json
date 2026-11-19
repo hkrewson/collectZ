@@ -14,6 +14,22 @@
     "wouldCreate": 1,
     "conflict": 1
   },
+  "queuedJob": {
+    "id": 1312,
+    "status": "succeeded",
+    "jobType": "plex_reconciliation_preview",
+    "processingMode": "full_library_reconciliation_preview",
+    "readOnly": true,
+    "plexWriteback": false,
+    "importMutation": false,
+    "summary": {
+      "scanned": 4,
+      "alreadyLinked": 1,
+      "wouldUpdate": 1,
+      "wouldCreate": 1,
+      "conflict": 1
+    }
+  },
   "bucketSamples": {
     "alreadyLinked": [
       "plex_item_key"
@@ -31,6 +47,30 @@
   "requests": [
     {
       "method": "GET",
+      "pathname": "/media/providers",
+      "hasToken": true,
+      "tokenMatched": true
+    },
+    {
+      "method": "GET",
+      "pathname": "/library/sections",
+      "hasToken": true,
+      "tokenMatched": true
+    },
+    {
+      "method": "GET",
+      "pathname": "/library/sections/1/all",
+      "hasToken": true,
+      "tokenMatched": true
+    },
+    {
+      "method": "GET",
+      "pathname": "/media/providers",
+      "hasToken": true,
+      "tokenMatched": true
+    },
+    {
+      "method": "GET",
       "pathname": "/library/sections",
       "hasToken": true,
       "tokenMatched": true
@@ -44,6 +84,7 @@
   ],
   "assertions": [
     "Full-library reconciliation preview classified linked, update, create, and conflict rows",
+    "Queued reconciliation preview job stored the same read-only bucket summary in sync job history",
     "No collectZ media rows were created or updated by the preview",
     "Preview evidence did not surface Plex tokens, token query strings, private IPs, or media file paths"
   ]

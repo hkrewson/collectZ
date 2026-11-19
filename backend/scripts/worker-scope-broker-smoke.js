@@ -87,6 +87,14 @@ async function main() {
       pool,
       allowedJobTypes: ['valuation_refresh']
     });
+    const previewRequestStore = createAuthorizedDurableRequestStore({
+      pool,
+      allowedJobTypes: ['plex_reconciliation_preview']
+    });
+    const previewWorkerStore = createAuthorizedDurableWorkerStore({
+      pool,
+      allowedJobTypes: ['plex_reconciliation_preview']
+    });
     const enqueueFixture = async (suffix, maxAttempts = 2) => {
       const job = await rawStore.enqueue({
         jobType: 'worker_scope_smoke',
@@ -261,6 +269,33 @@ async function main() {
       assert.equal(result.claimed, true);
       assert.equal(result.job.status, 'succeeded');
       assert.deepEqual(result.job.summary, { processed: 1 });
+    });
+    await check('plex preview uses actor enqueue and targeted read-only lifecycle', async () => {
+      const queued = await previewRequestStore.enqueue({
+        actorId,
+        jobType: 'plex_reconciliation_preview',
+        provider: 'plex',
+        spaceId,
+        libraryId,
+        targetRef: { sectionIds: ['1'], limit: 5, fixture: true },
+        progress: { total: 0, processed: 0 }
+      });
+      fixtureJobIds.push(queued.id);
+      const worker = createDurableJobWorker({
+        store: previewWorkerStore,
+        workerId: 'worker:plex-preview',
+        jobTypes: ['plex_reconciliation_preview'],
+        execute: async (job, context) => {
+          assert.equal(job.id, queued.id);
+          assert.equal(job.createdBy, actorId);
+          await context.reportProgress({ total: 1, processed: 1 });
+          return { summary: { readOnly: true, processed: 1 } };
+        }
+      });
+      const result = await worker.runOnce({ jobId: queued.id });
+      assert.equal(result.claimed, true);
+      assert.equal(result.job.status, 'succeeded');
+      assert.deepEqual(result.job.summary, { readOnly: true, processed: 1 });
     });
     await check('lifecycle SQL rejects mismatched job scope', async () => {
       const queued = await enqueueFixture('scope-mismatch');
