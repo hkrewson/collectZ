@@ -202,6 +202,7 @@ const {
   createAuthorizedDurableRequestStore,
   createAuthorizedDurableWorkerStore,
   createAuthorizedInlineImportJobStore,
+  createAuthorizedSyncJobReadStore,
   createAuthorizedPlexWebhookWorkerStore
 } = require('../services/durableJobs');
 const { createDurableJobWorker } = require('../services/durableJobWorker');
@@ -231,6 +232,17 @@ const inlineImportJobStore = createAuthorizedInlineImportJobStore({
     metron: 'import'
   }
 });
+const syncJobReadStore = createAuthorizedSyncJobReadStore({ pool });
+
+function bindSyncJobReader(req) {
+  const scopeContext = resolveScopeContext(req);
+  return syncJobReadStore.bind({
+    actorId: req.user.id,
+    spaceId: scopeContext.spaceId,
+    creatorOnly: req.user.role !== 'admin'
+  });
+}
+
 const plexReconciliationPreviewRequestStore = createAuthorizedDurableRequestStore({
   pool,
   allowedJobTypes: ['plex_reconciliation_preview']
@@ -5943,24 +5955,6 @@ async function withDedupLock(lockKey, fn) {
   } finally {
     await pool.query('SELECT pg_advisory_unlock(hashtext($1))', [lockKey]);
   }
-}
-
-async function getSyncJob(jobId, reqUser) {
-  const params = [jobId];
-  let where = 'WHERE id = $1';
-  if (reqUser?.role !== 'admin') {
-    params.push(reqUser?.id || null);
-    where += ` AND created_by = $${params.length}`;
-  }
-  const result = await pool.query(
-    `SELECT id, job_type, provider, status, created_by, scope, progress, summary, error,
-            started_at, finished_at, created_at, updated_at
-     FROM sync_jobs
-     ${where}
-     LIMIT 1`,
-    params
-  );
-  return result.rows[0] || null;
 }
 
 async function queueImportedValuationRefresh({
@@ -16099,35 +16093,23 @@ router.post('/import-comics', asyncHandler(async (req, res) => {
 
 router.get('/sync-jobs', asyncHandler(async (req, res) => {
   const limitRaw = Number(req.query?.limit);
-  const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(200, limitRaw)) : 50;
-  const params = [limit];
-  let where = '';
-  if (req.user.role !== 'admin') {
-    params.push(req.user.id);
-    where = `WHERE created_by = $${params.length}`;
-  } else if (Number.isFinite(Number(req.query?.created_by))) {
-    params.push(Number(req.query.created_by));
-    where = `WHERE created_by = $${params.length}`;
-  }
-
-  const result = await pool.query(
-    `SELECT id, job_type, provider, status, created_by, scope, progress, summary, error,
-            started_at, finished_at, created_at, updated_at
-     FROM sync_jobs
-     ${where}
-     ORDER BY created_at DESC
-     LIMIT $1`,
-    params
-  );
-  res.json(result.rows.map((job) => formatSyncJob(job)));
+  const limit = Number.isSafeInteger(limitRaw) ? Math.max(1, Math.min(200, limitRaw)) : 50;
+  const requestedCreator = Number(req.query?.created_by);
+  const createdBy = Number.isSafeInteger(requestedCreator) && requestedCreator > 0
+    ? requestedCreator
+    : null;
+  const reader = bindSyncJobReader(req);
+  const jobs = await reader.list({ limit, createdBy });
+  res.json(jobs.map((job) => formatSyncJob(job)));
 }));
 
 router.get('/sync-jobs/:id', asyncHandler(async (req, res) => {
   const jobId = Number(req.params.id);
-  if (!Number.isFinite(jobId) || jobId <= 0) {
+  if (!Number.isSafeInteger(jobId) || jobId <= 0) {
     return res.status(400).json({ error: 'Invalid job id' });
   }
-  const job = await getSyncJob(jobId, req.user);
+  const reader = bindSyncJobReader(req);
+  const job = await reader.get({ jobId });
   if (!job) {
     return res.status(404).json({ error: 'Job not found' });
   }
@@ -16136,10 +16118,11 @@ router.get('/sync-jobs/:id', asyncHandler(async (req, res) => {
 
 router.get('/sync-jobs/:id/result', asyncHandler(async (req, res) => {
   const jobId = Number(req.params.id);
-  if (!Number.isFinite(jobId) || jobId <= 0) {
+  if (!Number.isSafeInteger(jobId) || jobId <= 0) {
     return res.status(400).json({ error: 'Invalid job id' });
   }
-  const job = await getSyncJob(jobId, req.user);
+  const reader = bindSyncJobReader(req);
+  const job = await reader.get({ jobId });
   if (!job) {
     return res.status(404).json({ error: 'Job not found' });
   }

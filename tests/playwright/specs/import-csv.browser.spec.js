@@ -50,6 +50,17 @@ test.describe('csv import browser regressions', () => {
       const completedJob = await waitForSyncJob(requestContext, jobId, { timeoutMs: 30000, pollIntervalMs: 500 });
       expect(completedJob.status).toBe('succeeded');
 
+      const jobListResponse = await requestContext.get('/api/media/sync-jobs?limit=50');
+      expect(jobListResponse.status()).toBe(200);
+      const jobs = await jobListResponse.json();
+      expect(jobs.some((job) => Number(job?.id) === jobId)).toBe(true);
+
+      const resultResponse = await requestContext.get(`/api/media/sync-jobs/${jobId}/result`);
+      expect(resultResponse.status()).toBe(200);
+      const completedResult = await resultResponse.json();
+      expect(Number(completedResult?.id)).toBe(jobId);
+      expect(completedResult?.status).toBe('succeeded');
+
       await page.goto('/dashboard?tab=library-movies');
       const searchInput = page.getByPlaceholder(LIBRARY_SEARCH_PLACEHOLDER);
       await searchInput.fill(title);

@@ -14,6 +14,7 @@ const {
 const {
   createAuthorizedDurableRequestStore,
   createAuthorizedInlineImportJobStore,
+  createAuthorizedSyncJobReadStore,
   createAuthorizedPlexWebhookRequestStore,
   createAuthorizedPlexWebhookWorkerStore,
   createAuthorizedSyncJobServiceStore,
@@ -99,6 +100,10 @@ async function main() {
     const inlineImportStore = createAuthorizedInlineImportJobStore({
       pool,
       allowedJobsByProvider: { worker_scope_inline: 'media_import' }
+    });
+    const syncJobReadStore = createAuthorizedSyncJobReadStore({
+      pool,
+      allowedJobTypes: ['worker_scope_read']
     });
     const enqueueFixture = async (suffix, maxAttempts = 2) => {
       const job = await rawStore.enqueue({
@@ -336,6 +341,42 @@ async function main() {
       });
       assert.equal(settled.status, 'succeeded');
       assert.deepEqual(settled.summary, { imported: 1 });
+    });
+    await check('authenticated job readback preserves creator and workspace history rules', async () => {
+      const inserted = await pool.query(
+        `INSERT INTO sync_jobs (
+           job_type, provider, status, created_by, space_id, library_id, scope, progress, summary,
+           started_at, finished_at
+         ) VALUES
+           ('worker_scope_read', 'worker_scope_smoke', 'succeeded', $1, $2, $3, $4::jsonb, '{}'::jsonb, '{}'::jsonb, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+           ('worker_scope_read', 'worker_scope_smoke', 'succeeded', NULL, $2, NULL, $5::jsonb, '{}'::jsonb, '{}'::jsonb, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+         RETURNING id, created_by, library_id`,
+        [
+          actorId,
+          spaceId,
+          libraryId,
+          JSON.stringify({ spaceId, libraryId, fixture: true }),
+          JSON.stringify({ spaceId, libraryId: 2147483000, terminalTombstone: true, fixture: true })
+        ]
+      );
+      const ownedId = Number(inserted.rows.find((row) => row.created_by !== null).id);
+      const tombstoneId = Number(inserted.rows.find((row) => row.created_by === null).id);
+      fixtureJobIds.push(ownedId, tombstoneId);
+
+      const creatorReader = syncJobReadStore.bind({ actorId, spaceId, creatorOnly: true });
+      const creatorRows = await creatorReader.list({ limit: 20 });
+      assert.equal(creatorRows.some((row) => Number(row.id) === ownedId), true);
+      assert.equal(creatorRows.some((row) => Number(row.id) === tombstoneId), false);
+      assert.equal(await creatorReader.get({ jobId: tombstoneId }), null);
+
+      const workspaceReader = syncJobReadStore.bind({ actorId, spaceId, creatorOnly: false });
+      const workspaceRows = await workspaceReader.list({ limit: 20 });
+      assert.equal(workspaceRows.some((row) => Number(row.id) === ownedId), true);
+      assert.equal(workspaceRows.some((row) => Number(row.id) === tombstoneId), true);
+      const tombstone = await workspaceReader.get({ jobId: tombstoneId });
+      assert.equal(tombstone.created_by, null);
+      assert.equal(tombstone.library_id, null);
+      assert.equal(tombstone.scope.terminalTombstone, true);
     });
     await check('lifecycle SQL rejects mismatched job scope', async () => {
       const queued = await enqueueFixture('scope-mismatch');

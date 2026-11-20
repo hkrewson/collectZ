@@ -880,6 +880,67 @@ function createAuthorizedInlineImportJobStore({ pool, allowedJobsByProvider = {}
   return Object.freeze({ bind });
 }
 
+function createAuthorizedSyncJobReadStore({ pool, allowedJobTypes = SYNC_JOB_SERVICE_TYPES } = {}) {
+  if (!pool || typeof pool.connect !== 'function') {
+    throw durableJobError('A PostgreSQL transaction pool is required', 'durable_job_invalid_adapter');
+  }
+  const configuredTypes = [...new Set((allowedJobTypes || []).map((value) => requireSafeName(value, 'jobType')))];
+  if (configuredTypes.length < 1 || configuredTypes.length > 16) {
+    throw durableJobError('Sync job read types are required', 'durable_job_invalid_input');
+  }
+  const readColumns = `
+    id, job_type, provider, status, created_by, space_id, library_id, scope, progress, summary, error,
+    started_at, finished_at, created_at, updated_at`;
+
+  const bind = (options = {}) => {
+    const actorId = requirePositiveInteger(options.actorId, 'actorId');
+    const spaceId = requirePositiveInteger(options.spaceId, 'spaceId');
+    const creatorOnly = options.creatorOnly === true;
+    const authorized = (operation) => withAuthorizedScopeTransaction(
+      pool,
+      { spaceId },
+      actorId,
+      operation
+    );
+
+    return Object.freeze({
+      list: ({ limit = 50, createdBy = null } = {}) => authorized(async (client) => {
+        const rowLimit = Math.min(requirePositiveInteger(limit, 'limit'), 200);
+        const requestedCreator = creatorOnly
+          ? actorId
+          : requirePositiveInteger(createdBy, 'createdBy', { nullable: true });
+        const result = await client.query(
+          `SELECT ${readColumns}
+             FROM sync_jobs
+            WHERE space_id = $1
+              AND job_type = ANY($2::text[])
+              AND ($3::int IS NULL OR created_by = $3)
+            ORDER BY created_at DESC, id DESC
+            LIMIT $4`,
+          [spaceId, configuredTypes, requestedCreator, rowLimit]
+        );
+        return result.rows;
+      }),
+      get: ({ jobId } = {}) => authorized(async (client) => {
+        const id = requirePositiveInteger(jobId, 'jobId');
+        const result = await client.query(
+          `SELECT ${readColumns}
+             FROM sync_jobs
+            WHERE id = $1
+              AND space_id = $2
+              AND job_type = ANY($3::text[])
+              AND ($4::boolean = false OR created_by = $5)
+            LIMIT 1`,
+          [id, spaceId, configuredTypes, creatorOnly, actorId]
+        );
+        return result.rows[0] || null;
+      })
+    });
+  };
+
+  return Object.freeze({ bind });
+}
+
 function createAuthorizedSyncJobServiceStore({
   pool,
   observedJobTypes = SYNC_JOB_SERVICE_TYPES,
@@ -1125,6 +1186,7 @@ module.exports = {
   assertSecretFree,
   createAuthorizedDurableRequestStore,
   createAuthorizedInlineImportJobStore,
+  createAuthorizedSyncJobReadStore,
   createAuthorizedPlexWebhookRequestStore,
   createAuthorizedPlexWebhookWorkerStore,
   createAuthorizedSyncJobServiceStore,

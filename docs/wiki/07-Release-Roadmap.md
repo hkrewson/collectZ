@@ -245,6 +245,19 @@ The `3.27.x` architecture line, `3.28.0` durable provider job foundation, and `3
 - **What remains in the milestone:** Migrate or separate authenticated legacy sync-job readback, design and certify final `sync_jobs` policies including retained terminal tombstones, activate the table family, then complete the `3.28.2` version and hosted release closeout.
 - **Recommended commit message:** `Authorize 3.28.2 legacy inline import job lifecycles`.
 
+### Authenticated legacy job-readback checkpoint
+
+- **Roadmap slice:** `3.28.2 — Staged Workspace Row-Level Security Expansion`, authenticated legacy sync-job list, detail, and result readback.
+- **Project docs/checklists used:** `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/50-Staged-Row-Level-Security.md`, and `docs/wiki/54-Durable-Workspace-Job-Contract.md`.
+- **Verified facts:** The legacy `/api/media/sync-jobs` list, detail, and result routes no longer contain direct `sync_jobs` SQL. One read module binds the authenticated actor and selected workspace, restricts every query to the production job-type allowlist, keeps normal users creator-only, and permits admins to inspect or filter all allowlisted jobs only inside that workspace. The live broker certification proves an actor cannot read a peer job and that an admin can still inspect same-workspace terminal history after actor/library deletion nulls those foreign keys while relational workspace ownership remains.
+- **Runtime verification used:** Rebuilt and recreated the canonical `collectz-private` backend in place on port `3201` under the non-owner runtime role at schema `143`; health remained green at app version `3.28.1`. The twenty-two-label broker smoke exercised real creator-only and selected-workspace admin readers, terminal tombstone readback, and fixture cleanup. The focused CSV browser regression exercised the real queued-import list, detail polling, and full-result HTTP paths.
+- **CI/checks run:** Backend unit suite locally and inside the rebuilt container (`386` source assertions plus `57` Node tests); OpenAPI; Node syntax and diff hygiene; focused CSV browser regression; canonical broker smoke (`22/22`); authenticated RBAC regression; workspace ownership; tenancy platform boundary; init parity through migration `143`; running-stack health and live database/grant cleanup readback; secret review of refreshed evidence; and the standard local release gate.
+- **Files changed:** Actor/workspace-authorized sync-job read store; legacy list/detail/result route adoption; broker and unit certification; focused browser readback coverage; refreshed broker evidence; durable-job, staged-RLS, CI, release-checklist, and roadmap documentation.
+- **Blocked/unverified:** Hosted CodeQL, dependency/secret scans, secure-cookie Compose smoke, full Core browser/runtime suites, image security/SBOM, publication, and release tagging require an authorized push. This slice does not close the numbered milestone, so semver and Help > Releases remain at `3.28.1`.
+- **Risks or follow-ups:** Admin access is intentionally workspace-wide but never installation-wide. Normal users cannot recover tombstones whose initiating actor was deleted because creator identity no longer exists; workspace admins retain that operational history. `sync_jobs` RLS remains disabled until the final table policy and certification-only SQL paths are designed and proven together.
+- **What remains in the milestone:** Design and certify the final `sync_jobs` table policies, activate the table family with migration/init parity, then complete the `3.28.2` version and hosted release closeout.
+- **Recommended commit message:** `Authorize 3.28.2 workspace-scoped legacy sync job readback`.
+
 ### Milestone boundary
 
 - This milestone activates one classified table family at a time; it does not enable RLS across all legacy domain tables.

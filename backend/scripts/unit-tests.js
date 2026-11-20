@@ -5581,6 +5581,22 @@ results.push(run('inline imports use one actor-authorized exact-scope lifecycle 
   assert.strictEqual((mediaRoutesSource.match(/await importJob\.fail\(job\.id/g) || []).length, 7);
 }));
 
+results.push(run('authenticated sync job readback is actor and workspace authorized', () => {
+  const durableJobsSource = fs.readFileSync(require.resolve('../services/durableJobs'), 'utf8');
+  assert.ok(durableJobsSource.includes('createAuthorizedSyncJobReadStore'));
+  assert.ok(durableJobsSource.includes('AND job_type = ANY($2::text[])'));
+  assert.ok(durableJobsSource.includes('AND ($4::boolean = false OR created_by = $5)'));
+  assert.ok(mediaRoutesSource.includes('const syncJobReadStore = createAuthorizedSyncJobReadStore({ pool });'));
+  assert.strictEqual((mediaRoutesSource.match(/syncJobReadStore\.bind\(/g) || []).length, 1);
+  assert.strictEqual((mediaRoutesSource.match(/const reader = bindSyncJobReader\(req\);/g) || []).length, 3);
+  assert.ok(mediaRoutesSource.includes('creatorOnly: req.user.role !== \'admin\''));
+  assert.ok(!mediaRoutesSource.includes('async function getSyncJob('));
+  assert.ok(!mediaRoutesSource.slice(
+    mediaRoutesSource.indexOf("router.get('/sync-jobs'"),
+    mediaRoutesSource.indexOf("router.get('/collections'")
+  ).includes('FROM sync_jobs'));
+}));
+
 results.push(run('sync job metrics and startup maintenance use distinct allowlisted service grants', () => {
   const durableJobsSource = fs.readFileSync(require.resolve('../services/durableJobs'), 'utf8');
   const metricsSource = fs.readFileSync(require.resolve('../services/metrics'), 'utf8');

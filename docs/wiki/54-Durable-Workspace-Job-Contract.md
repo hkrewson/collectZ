@@ -77,10 +77,12 @@ Queued and retry-wait jobs cancel immediately. Running jobs record a request and
 
 The shared integration panel refreshes recent jobs, shows safe attempt/failure/summary facts, and uses a two-step cancellation confirmation. BookOrbit displays persisted target cadence, last enqueue, and computed next eligibility for the selected Provider Connection. Plex reconciliation presents the equivalent cadence projection from its existing scheduler state. Cadence is operational readback only; the durable job table remains the execution-history authority.
 
+The older numeric-id `/api/media/sync-jobs` list, detail, and result endpoints use a separate authenticated read module over the same ownership model. Every lookup is bound to the selected workspace and a fixed production job-type allowlist. Normal users are additionally restricted to jobs they initiated; admins may list or inspect any allowlisted job in that selected workspace and may optionally filter the list by initiator. Terminal history keeps relational workspace ownership when deletion nulls the actor or library foreign key, so an admin can still inspect a same-workspace tombstone without broadening access to another workspace. Route code does not query the table directly.
+
 ## Deferred work
 
 - transactional outbox use where enqueue must commit atomically with another domain mutation;
 - restart-capable durable-worker adoption for legacy CWA, Kavita, Metron, CSV, and Plex import execution where payload durability can be designed without persisting uploads or credentials;
 - append-only external source observations;
 - broader work/edition/owned-copy modeling;
-- `sync_jobs` RLS activation and multi-process worker deployment.
+- final `sync_jobs` RLS policy activation/certification and multi-process worker deployment.

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-20T02:26:27.522Z",
+  "generated_at": "2026-11-20T03:53:07.774Z",
   "certification": "durable-worker-scope-broker",
   "status": "passed",
   "checks": [
@@ -53,6 +53,10 @@
     },
     {
       "label": "inline import lifecycle is actor and exact-scope bounded",
+      "pass": true
+    },
+    {
+      "label": "authenticated job readback preserves creator and workspace history rules",
       "pass": true
     },
     {
