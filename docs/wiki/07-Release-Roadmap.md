@@ -4,14 +4,14 @@ This roadmap converts product direction into implementation milestones with acce
 
 Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file stays focused on numbered milestones and the work that has already been selected for release planning.
 
-The `3.27.x` architecture line, `3.28.0` durable provider job foundation, and `3.28.1` BookOrbit rich metadata release are complete. `3.28.2` is the active implementation milestone and expands row-level security one certified workspace-owned table family at a time.
+The `3.27.x` architecture line, `3.28.0` durable provider job foundation, and `3.28.1` BookOrbit rich metadata release are complete. `3.28.2` is a release candidate: its five-family staged row-level security implementation, version artifacts, observability evidence, and standard local release gate are complete, while hosted certification and publication remain pending.
 
 ---
 
 ## 3.28.2 — Staged Workspace Row-Level Security Expansion
 
 **Goal:** Extend PostgreSQL defense-in-depth beyond the saved-view and provider-identity pilots without weakening application authorization or introducing a big-bang policy rollout.
-**Status:** Active. Dashboard review decisions, merge-recommendation feedback, event exclusive sources, and object relationships are the first four certified request-only families; broader families remain staged behind family-specific evidence.
+**Status:** Release candidate. Dashboard review decisions, merge-recommendation feedback, event exclusive sources, object relationships, and durable sync jobs are protected and locally exercised. Local version closeout passed; publication remains pending hosted certification of the version commit.
 
 ### Selected scope
 
@@ -23,7 +23,7 @@ The `3.27.x` architecture line, `3.28.0` durable provider job foundation, and `3
 - Protect `event_exclusive_sources` at exact library scope, derive ownership from the parent event, keep provider fetches outside database transactions, and bind cached-source list/import/update/promotion persistence to one authorized client.
 - Protect `object_relationships` at workspace scope, derive stored ownership from the source object, preserve intentional cross-library links inside one workspace, and reject missing or cross-workspace polymorphic endpoints.
 - Authorize Plex webhook job ingestion only after the receiver resolves to one active workspace and library, and persist that relational ownership on every new webhook job.
-- Keep `sync_jobs` deferred until its cross-workspace claim/recovery, webhook, dashboard, metrics, and operator paths have a separately designed worker authorization contract.
+- Protect `sync_jobs` only after its cross-workspace claim/recovery, webhook, dashboard, metrics, and operator paths have a separately designed and certified worker authorization contract.
 
 ### Acceptance criteria
 
@@ -36,6 +36,7 @@ The `3.27.x` architecture line, `3.28.0` durable provider job foundation, and `3
 - Event exclusive sources cannot cross their parent event or promoted target scope, and parent cascades cannot delete protected observations without the exact library grant.
 - Object relationships cannot cross workspaces, cannot change endpoints or stored ownership, and active owners cannot move out of scope or be deleted while linked.
 - Plex webhook ingestion fails closed without exact active ownership, cannot borrow claim/lifecycle/service authority, and deduplicates only within the same relational workspace/library boundary.
+- Durable sync jobs remain invisible to unscoped runtime SQL, expose no worker delete policy, and separate actor, claim, recovery, lifecycle, observation, maintenance, and exact-scope ingestion authority.
 
 ### Dashboard review-decision RLS checkpoint
 
@@ -309,6 +310,19 @@ The `3.27.x` architecture line, `3.28.0` durable provider job foundation, and `3
 - **Risks or follow-ups:** Certification smokes that require workspace data must remain self-contained because preceding smoke cleanup and fresh-install ordering are intentionally allowed to leave no retained actors.
 - **What remains in the milestone:** Rerun hosted CI, then complete the `3.28.2` version/release closeout.
 - **Recommended commit message:** `Repair 3.28.2 fresh-database worker broker certification with isolated scope fixtures`.
+
+### Version closeout checkpoint
+
+- **Roadmap slice:** `3.28.2 — Staged Workspace Row-Level Security Expansion`, version and release-candidate closeout.
+- **Project docs/checklists used:** `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/50-Staged-Row-Level-Security.md`, and `docs/wiki/54-Durable-Workspace-Job-Contract.md`.
+- **Verified facts:** Root, backend, and frontend app/package metadata are synchronized on `3.28.2`; `docs/releases/v3.28.2.md` contains the required release and security sections; the regenerated release feed places `3.28.2` first. The immediately preceding implementation commit `57b2a308` passed hosted Build and Publish Images run `44687487618` and CodeQL run `44687487623`, including migration `144`, dependency and secret scans, secure-cookie Compose, Core RBAC/browser/runtime regression, image security/SBOM, publication, preflight, and automatic tagging.
+- **Runtime verification used:** Rebuilt and recreated the canonical `collectz-private` backend/frontend in place on port `3201` at `3.28.2`. Both services remained healthy under the platform edition and enforced runtime-role policy; `/api/health` reported backend, frontend, and build version `3.28.2`. In-stack Help > Releases readback returned `3.28.2` first, the platform-edition boundary smoke passed, and the platform browser suite passed all eight applicable checks with two prerequisite-gated cases skipped.
+- **CI/checks run:** Version/feed generation; canonical-stack health, environment, release-feed, control-plane runtime, and platform browser checks; the authorized observability rehearsal (`9/9`); standard local release gate (`14/14`) covering metadata, release note/feed, prepare, backend/frontend unit tests, OpenAPI, changed-file quality, frontend build, production dependency audits, preflight, and diff hygiene; and a containerized gitleaks scan of the current working diff with zero findings. The local preflight records the development stack's expected secure-cookie block. An additional local CodeQL attempt was blocked by an incompatible downloaded query-pack cache rather than a source finding, while the immediately preceding hosted CodeQL run passed.
+- **Files changed:** Root/backend/frontend version metadata, regenerated `backend/release-feed.json`, `docs/releases/v3.28.2.md`, refreshed `artifacts/observability-evidence/observability-release-evidence.json`, `preflight-go-no-go.md`, and this roadmap closeout.
+- **Blocked/unverified:** Hosted CodeQL, dependency/secret scans, `compose-smoke`, `rbac-regression`, `browser-regression`, Core `runtime-smoke`, image security/SBOM, publication, and tagging for the `3.28.2` version commit require an authorized push. Local full-profile CodeQL could not analyze because its cached `javascript-queries` model files were incompatible with the installed CLI; host gitleaks is absent, and the local image/SBOM gate is intentionally CI-owned. The preceding implementation commit passed those hosted gates, and the current diff-specific container scan found no secrets, but neither substitutes for hosted confirmation of this commit.
+- **Risks or follow-ups:** After the commit is pushed, confirm the full hosted workflow and CodeQL rather than relying on the preceding implementation run. RLS remains deliberately staged; later workspace-owned families still require their own request/worker/export contracts. The committed preflight remains explicit that secure-cookie Compose, Core browser, secret scan, and image/SBOM confirmation are CI follow-through items.
+- **What remains in the milestone:** Obtain hosted confirmation for the version commit, verify publication and annotated tag `v3.28.2`, then mark the milestone complete.
+- **Recommended commit message:** `Close 3.28.2 release candidate with staged RLS and durable sync-job protection`.
 
 ### Milestone boundary
 

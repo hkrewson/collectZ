@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.28.2",
+      "version": "3.28.2",
+      "date": "2026-11-20",
+      "status": null,
+      "summary": "Expands PostgreSQL row-level security across five workspace-owned operational families, including durable sync jobs, while preserving application authorization through explicit actor and narrowly bounded worker transaction grants.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Protected Dashboard review decisions, merge-recommendation feedback, event exclusive sources, and object relationships with ownership backfills, same-scope constraints, immutable ownership, guarded cascades, and command-appropriate policies.",
+            "Added a private transaction-scope broker for short-lived actor grants and bounded worker grants separated by claim, recovery, lifecycle, observation, maintenance, and exact-scope ingestion actions.",
+            "Moved durable enqueue, operator readback and cancellation, dashboard/activity readback, metrics observation, startup maintenance, Plex webhook ingestion and processing, valuation refresh, Plex reconciliation preview, and legacy inline-import paths behind their respective authorization contracts.",
+            "Activated command-separated `sync_jobs` policies for actor SELECT/INSERT/UPDATE/DELETE and worker SELECT/INSERT/UPDATE while deliberately leaving worker DELETE unavailable.",
+            "Preserved terminal job history, including null-library tombstones, without inventing ownership; migration `144` aborts on missing workspaces or cross-workspace libraries rather than rewriting ambiguous retained rows.",
+            "Added fresh-database, retained-upgrade, non-owner runtime, migration/restore, RBAC, browser, workspace-isolation, worker-action, and fixture-cleanup certification for the protected families."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.28.1",
       "version": "3.28.1",
       "date": "2026-11-15",
@@ -185,25 +205,6 @@
             "Deny unscoped SQL and spoofed settings; retain existing application permission checks.",
             "Patch the existing `follow-redirects` overrides to `1.16.2` in both applications to clear the newly reported redirect credential-leak advisory without updating Axios.",
             "Certify runtime isolation, upgrade/backfill, rollback, concurrent connections, expiry, and snapshot restore in the existing PostgreSQL service locally and in hosted migration-check."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.25.4",
-      "version": "3.25.4",
-      "date": "2026-10-24",
-      "status": null,
-      "summary": "Updates compatible backend and frontend dependencies represented by ten Dependabot PRs, consolidating the changes into one tested release. Keeps the barcode package pair and GitHub Actions major updates under separate compatibility review.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Backend: update `@aws-sdk/client-s3`, `axios`, `fast-xml-parser`, `helmet`, and `pg` within their existing major-version ranges.",
-            "Frontend: update React, React DOM, `@vitejs/plugin-react`, Tailwind CSS, and its Vite plugin within their existing major-version ranges.",
-            "Keep `@zxing/browser` and `@zxing/library` together for a focused compatibility check; `@zxing/browser@0.2.1` requires `@zxing/library@^0.23.0`.",
-            "Keep GitHub Actions major upgrades under separate workflow compatibility review.",
-            "Synchronize application metadata and Help > Releases to `3.25.4`."
           ]
         }
       ]
