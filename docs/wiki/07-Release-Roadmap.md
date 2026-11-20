@@ -284,6 +284,19 @@ The `3.27.x` architecture line, `3.28.0` durable provider job foundation, and `3
 - **What remains in the milestone:** Complete the required `3.28.2` version closeout: synchronize semver/app metadata, add `docs/releases/v3.28.2.md`, regenerate Help > Releases, verify running-stack release readback, run or account for the full release/security/browser/runtime/image gates, and obtain hosted confirmation after an authorized push.
 - **Recommended commit message:** `Activate 3.28.2 durable sync-job RLS with command-separated actor and worker policies`.
 
+### Durable sync-job migration rehearsal compatibility checkpoint
+
+- **Roadmap slice:** `3.28.2 — Staged Workspace Row-Level Security Expansion`, hosted migration-rehearsal repair for the final `sync_jobs` RLS activation.
+- **Project docs/checklists used:** `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/50-Staged-Row-Level-Security.md`, and `docs/wiki/54-Durable-Workspace-Job-Contract.md`.
+- **Verified facts:** Hosted `migration-check` run `44680477468` failed because its certified baseline is migration `127`, before migration `134` added relational `sync_jobs.space_id` and `library_id` columns. The rehearsal fixture now writes workspace/library identity into legacy `scope` JSON at pre-`134` baselines and writes both relational and compatibility scope fields at baseline `134` or later. Migration `134` therefore exercises its real retained-row backfill before migration `144` validates and protects the row.
+- **Runtime verification used:** The exact baseline-`127` rehearsal reproduced the hosted missing-column failure against the canonical `collectz-private` database service before the repair and completed through migration `144` afterward. A baseline-`143` rehearsal also completed, preserving the direct final-migration path. Both rehearsals used isolated test databases within the existing database service and removed them after completion.
+- **CI/checks run:** Targeted migration-rehearsal regression at baselines `127` and `143`; backend unit suite, including a source contract for both legacy and durable fixture shapes; standard local release gate; diff and secret-pattern hygiene.
+- **Files changed:** `backend/scripts/migration-rehearsal.js`, `backend/scripts/unit-tests.js`, and this roadmap checkpoint.
+- **Blocked/unverified:** Hosted `migration-check` and the downstream jobs skipped by run `44680477468` must rerun after an authorized push.
+- **Risks or follow-ups:** The certified baseline remains policy-controlled at `127`; future rehearsal fixtures must continue to use only columns present at the selected baseline and let later migrations perform the backfill being certified.
+- **What remains in the milestone:** Rerun hosted CI, then complete the `3.28.2` version/release closeout.
+- **Recommended commit message:** `Repair 3.28.2 migration rehearsal compatibility for pre-durable sync job baselines`.
+
 ### Milestone boundary
 
 - This milestone activates one classified table family at a time; it does not enable RLS across all legacy domain tables.

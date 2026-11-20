@@ -199,15 +199,27 @@ async function seedLegacyFixture(client, baselineVersion) {
     `UPDATE users SET active_space_id = $2, active_library_id = $3 WHERE id = $1`,
     [userId, spaceId, libraryId]
   );
-  await client.query(
-    `INSERT INTO sync_jobs (
-       job_type, provider, status, created_by, space_id, library_id, scope, progress
-     ) VALUES (
-       'migration_rehearsal', 'migration_rehearsal', 'queued', $1, $2, $3,
-       jsonb_build_object('spaceId', $2::int, 'libraryId', $3::int), '{}'::jsonb
-     )`,
-    [userId, spaceId, libraryId]
-  );
+  if (baselineVersion >= 134) {
+    await client.query(
+      `INSERT INTO sync_jobs (
+         job_type, provider, status, created_by, space_id, library_id, scope, progress
+       ) VALUES (
+         'migration_rehearsal', 'migration_rehearsal', 'queued', $1, $2, $3,
+         jsonb_build_object('spaceId', $2::int, 'libraryId', $3::int), '{}'::jsonb
+       )`,
+      [userId, spaceId, libraryId]
+    );
+  } else {
+    await client.query(
+      `INSERT INTO sync_jobs (
+         job_type, provider, status, created_by, scope, progress
+       ) VALUES (
+         'migration_rehearsal', 'migration_rehearsal', 'queued', $1,
+         jsonb_build_object('spaceId', $2::int, 'libraryId', $3::int), '{}'::jsonb
+       )`,
+      [userId, spaceId, libraryId]
+    );
+  }
   const media = await client.query(
     `INSERT INTO media (title, year, format, added_by, notes, library_id, space_id)
      VALUES ($1, $2, $3, $4, $5, $6, $7)

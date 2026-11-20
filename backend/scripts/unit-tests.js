@@ -5657,6 +5657,8 @@ results.push(run('durable sync jobs activate command-separated actor and worker 
   assert.ok(!syncJobRlsMigration.includes('sync_jobs_worker_delete'));
   assert.ok(initParitySource.includes("'sync_jobs'"));
   assert.ok(migrationRehearsalSource.includes('syncJobOwnershipRetained'));
+  assert.ok(migrationRehearsalSource.includes('if (baselineVersion >= 134)'));
+  assert.ok(migrationRehearsalSource.includes('job_type, provider, status, created_by, scope, progress'));
   assert.ok(workerSmokeSource.includes("SELECT COUNT(*)::int AS count FROM sync_jobs"));
 }));
 
