@@ -297,6 +297,19 @@ The `3.27.x` architecture line, `3.28.0` durable provider job foundation, and `3
 - **What remains in the milestone:** Rerun hosted CI, then complete the `3.28.2` version/release closeout.
 - **Recommended commit message:** `Repair 3.28.2 migration rehearsal compatibility for pre-durable sync job baselines`.
 
+### Fresh-database worker broker certification checkpoint
+
+- **Roadmap slice:** `3.28.2 — Staged Workspace Row-Level Security Expansion`, hosted Core RBAC repair for fresh-database worker-scope certification.
+- **Project docs/checklists used:** `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/50-Staged-Row-Level-Security.md`, and `docs/wiki/54-Durable-Workspace-Job-Contract.md`.
+- **Verified facts:** Hosted run `44683302018` passed the RBAC matrix and all preceding staged-RLS checks, then the worker broker smoke failed because its retained-workspace lookup ran after fresh-install certification cleanup had removed the only actor/workspace. The worker broker smoke now creates an isolated actor, workspace, and library before its twenty-two checks and removes the complete fixture afterward.
+- **Runtime verification used:** A scratch database inside the canonical `collectz-private` database service reproduced the exact `An active workspace is required` failure under a provisioned non-owner runtime role. The same empty-database path passed `22/22` after the repair. The canonical retained stack also passed `22/22`, with zero fixture users, jobs, worker grants, or actor grants remaining.
+- **CI/checks run:** Empty-database worker broker reproduction and regression; canonical worker broker smoke; backend unit suite; standard local release gate; diff and secret-pattern hygiene.
+- **Files changed:** `backend/scripts/worker-scope-broker-smoke.js`, `backend/scripts/unit-tests.js`, CI/release checklist documentation, and this roadmap checkpoint.
+- **Blocked/unverified:** Hosted `core-rbac-regression` and downstream image/release jobs skipped by run `44683302018` must rerun after an authorized push.
+- **Risks or follow-ups:** Certification smokes that require workspace data must remain self-contained because preceding smoke cleanup and fresh-install ordering are intentionally allowed to leave no retained actors.
+- **What remains in the milestone:** Rerun hosted CI, then complete the `3.28.2` version/release closeout.
+- **Recommended commit message:** `Repair 3.28.2 fresh-database worker broker certification with isolated scope fixtures`.
+
 ### Milestone boundary
 
 - This milestone activates one classified table family at a time; it does not enable RLS across all legacy domain tables.

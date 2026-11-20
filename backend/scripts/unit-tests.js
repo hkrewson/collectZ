@@ -5659,6 +5659,8 @@ results.push(run('durable sync jobs activate command-separated actor and worker 
   assert.ok(migrationRehearsalSource.includes('syncJobOwnershipRetained'));
   assert.ok(migrationRehearsalSource.includes('if (baselineVersion >= 134)'));
   assert.ok(migrationRehearsalSource.includes('job_type, provider, status, created_by, scope, progress'));
+  assert.ok(workerSmokeSource.includes("require('./helpers/scopedSmokeUser')"));
+  assert.ok(workerSmokeSource.includes('sm.user_id = $1'));
   assert.ok(workerSmokeSource.includes("SELECT COUNT(*)::int AS count FROM sync_jobs"));
 }));
 

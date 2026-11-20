@@ -23,6 +23,7 @@ const {
   createDurableJobStore
 } = require('../services/durableJobs');
 const { createDurableJobWorker } = require('../services/durableJobWorker');
+const { createScopedSmokeUser } = require('./helpers/scopedSmokeUser');
 
 const outputPath = path.resolve(
   __dirname,
@@ -37,6 +38,7 @@ async function main() {
   if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required');
   const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl, max: 2 });
   const fixtureJobIds = [];
+  let fixtureActorId = null;
   let cleanupAuthorization = null;
   const labels = [];
   const check = async (label, work) => {
@@ -45,16 +47,26 @@ async function main() {
   };
 
   try {
+    const fixtureSuffix = crypto.randomUUID();
+    fixtureActorId = await createScopedSmokeUser({
+      pool,
+      email: `worker-scope-${fixtureSuffix}@example.invalid`,
+      password: crypto.randomBytes(32).toString('hex'),
+      name: 'Worker Scope Broker Smoke',
+      slugPrefix: 'worker-scope-smoke'
+    });
     const scopeResult = await pool.query(
       `SELECT s.id AS space_id, l.id AS library_id, sm.user_id AS actor_id
          FROM spaces s
          JOIN space_memberships sm ON sm.space_id = s.id
          LEFT JOIN libraries l ON l.space_id = s.id AND l.archived_at IS NULL
         WHERE s.archived_at IS NULL
+          AND sm.user_id = $1
         ORDER BY (l.id IS NULL), s.id, l.id, sm.user_id
-        LIMIT 1`
+        LIMIT 1`,
+      [fixtureActorId]
     );
-    assert.ok(scopeResult.rows[0], 'An active workspace is required for worker-scope certification');
+    assert.ok(scopeResult.rows[0], 'Worker-scope certification fixture did not create an active workspace');
     const spaceId = Number(scopeResult.rows[0].space_id);
     const libraryId = scopeResult.rows[0].library_id === null
       ? null
@@ -636,6 +648,13 @@ async function main() {
         actorId,
         (client) => client.query('DELETE FROM sync_jobs WHERE id = ANY($1::int[])', [fixtureJobIds])
       ).catch(() => {});
+    }
+    if (fixtureActorId) {
+      await pool.query('DELETE FROM library_memberships WHERE user_id = $1', [fixtureActorId]).catch(() => {});
+      await pool.query('DELETE FROM space_memberships WHERE user_id = $1', [fixtureActorId]).catch(() => {});
+      await pool.query('DELETE FROM libraries WHERE created_by = $1', [fixtureActorId]).catch(() => {});
+      await pool.query('DELETE FROM spaces WHERE created_by = $1', [fixtureActorId]).catch(() => {});
+      await pool.query('DELETE FROM users WHERE id = $1', [fixtureActorId]).catch(() => {});
     }
     await pool.end();
   }
