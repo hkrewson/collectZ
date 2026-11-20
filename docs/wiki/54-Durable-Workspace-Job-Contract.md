@@ -6,6 +6,8 @@ CollectZ uses PostgreSQL-backed durable jobs for provider work that must survive
 
 The lifecycle seam is `backend/services/durableJobs.js`. Its interface is deliberately small: enqueue work, claim the next eligible job, renew its lease, report progress, settle it, request cancellation, recover expired leases, and read it back by workspace-scoped public id. `backend/services/durableJobWorker.js` composes that interface into a leased execution loop; it does not own provider transport or matching policy.
 
+Legacy inline imports share the ownership seam without pretending to be restart-capable durable work. `createAuthorizedInlineImportJobStore` binds one authenticated actor, active workspace/library pair, allowlisted provider, and its fixed legacy job type. Its enqueue, start, progress, success, and failure transitions each run in a short actor-authorized transaction and repeat the exact relational and compatibility-scope predicates. CSV, Calibre, Delicious, CWA, Kavita, Plex import, and Metron keep their existing in-process provider execution and startup stale-job handling; only their `sync_jobs` mutation authority moved behind the module.
+
 ## Durable envelope
 
 New durable jobs persist:
@@ -35,6 +37,7 @@ The database enforces that an attached library or Provider Connection belongs to
 - Plex webhook ingestion is a stricter legacy adopter: it requires both an active workspace and active same-workspace library, uses a dedicated ingest grant, and fails closed rather than creating an installation-scoped job.
 - Plex webhook processing uses the same claim/lease/progress/settlement interface through an adapter that admits only `plex`, the two webhook job types, and jobs whose active relational workspace/library exactly match their compatibility projection. Expired webhook leases recover through that adapter rather than startup's legacy direct-maintenance path.
 - Valuation refresh requests require an authenticated actor and relational workspace ownership. Manual single-item and post-import batches persist only media ids, execution mode, and import source in the secret-free target, then a dedicated allowlisted worker claims that exact job, resolves current workspace valuation configuration at execution time, checkpoints progress, and can resume after process restart.
+- Legacy inline imports require an authenticated actor plus an active exact workspace/library pair. The allowlist fixes each provider to either `media_import` or the historical Metron `import` type, structured state remains secret-filtered, and lifecycle updates reject a different actor, owner pair, type, provider, terminal state, or durable-lifecycle row. These jobs remain explicitly non-leased and non-restartable.
 - Jobs store Provider Connection ids, never provider usernames, passwords, tokens, encrypted credential payloads, authorization headers, or raw provider responses.
 - Structured targets, progress, and summaries reject secret-bearing keys and pass through the audit redaction policy before persistence.
 - Provider credentials are resolved at execution time by the owning adapter after workspace and connection lifecycle checks.
@@ -50,7 +53,7 @@ The first two adapters are intentionally different:
 
 The BookOrbit adopter must also retain OPDS series names and indexes for comics, prove movement between book and comic classifications without duplicate canonical rows, and keep series index distinct from an absent issue number. Rich native multi-series, story-arc, credit, volume, and issue enrichment is the follow-on `3.28.1` model rather than an unstructured addition to the durable job envelope.
 
-The lifecycle does not interpret Plex sections, BookOrbit Atom ids, metadata precedence, conflicts, covers, links, or import summaries. Those remain inside their provider adapters.
+The lifecycle does not interpret Plex sections, BookOrbit Atom ids, CSV rows, metadata precedence, conflicts, covers, links, or import summaries. Those remain inside their provider adapters.
 
 ## Persisted provider cadence
 
@@ -77,7 +80,7 @@ The shared integration panel refreshes recent jobs, shows safe attempt/failure/s
 ## Deferred work
 
 - transactional outbox use where enqueue must commit atomically with another domain mutation;
-- CWA, Kavita, Metron, scanner, OCR, notification, and price-watch adoption;
+- restart-capable durable-worker adoption for legacy CWA, Kavita, Metron, CSV, and Plex import execution where payload durability can be designed without persisting uploads or credentials;
 - append-only external source observations;
 - broader work/edition/owned-copy modeling;
 - `sync_jobs` RLS activation and multi-process worker deployment.

@@ -13,6 +13,7 @@ const {
 } = require('../db/scopeBroker');
 const {
   createAuthorizedDurableRequestStore,
+  createAuthorizedInlineImportJobStore,
   createAuthorizedPlexWebhookRequestStore,
   createAuthorizedPlexWebhookWorkerStore,
   createAuthorizedSyncJobServiceStore,
@@ -94,6 +95,10 @@ async function main() {
     const previewWorkerStore = createAuthorizedDurableWorkerStore({
       pool,
       allowedJobTypes: ['plex_reconciliation_preview']
+    });
+    const inlineImportStore = createAuthorizedInlineImportJobStore({
+      pool,
+      allowedJobsByProvider: { worker_scope_inline: 'media_import' }
     });
     const enqueueFixture = async (suffix, maxAttempts = 2) => {
       const job = await rawStore.enqueue({
@@ -296,6 +301,41 @@ async function main() {
       assert.equal(result.claimed, true);
       assert.equal(result.job.status, 'succeeded');
       assert.deepEqual(result.job.summary, { readOnly: true, processed: 1 });
+    });
+    await check('inline import lifecycle is actor and exact-scope bounded', async () => {
+      assert.throws(() => inlineImportStore.bind({
+        actorId,
+        spaceId,
+        libraryId,
+        jobType: 'import',
+        provider: 'worker_scope_inline'
+      }), /not authorized/);
+      const lifecycle = inlineImportStore.bind({
+        actorId,
+        spaceId,
+        libraryId,
+        jobType: 'media_import',
+        provider: 'worker_scope_inline'
+      });
+      const queued = await lifecycle.enqueue({
+        compatibilityScope: { fixture: true },
+        progress: { total: 1, processed: 0 }
+      });
+      fixtureJobIds.push(queued.id);
+      assert.equal(queued.createdBy, actorId);
+      assert.equal(queued.spaceId, spaceId);
+      assert.equal(queued.libraryId, libraryId);
+      assert.equal(queued.compatibilityScope.durableLifecycle, undefined);
+      const running = await lifecycle.start(queued.id);
+      assert.equal(running.status, 'running');
+      const progressed = await lifecycle.reportProgress(queued.id, { total: 1, processed: 1 });
+      assert.equal(progressed.progress.processed, 1);
+      const settled = await lifecycle.succeed(queued.id, {
+        progress: { total: 1, processed: 1 },
+        summary: { imported: 1 }
+      });
+      assert.equal(settled.status, 'succeeded');
+      assert.deepEqual(settled.summary, { imported: 1 });
     });
     await check('lifecycle SQL rejects mismatched job scope', async () => {
       const queued = await enqueueFixture('scope-mismatch');

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-19T06:59:12.920Z",
+  "generated_at": "2026-11-20T02:26:27.522Z",
   "certification": "durable-worker-scope-broker",
   "status": "passed",
   "checks": [
@@ -49,6 +49,10 @@
     },
     {
       "label": "plex preview uses actor enqueue and targeted read-only lifecycle",
+      "pass": true
+    },
+    {
+      "label": "inline import lifecycle is actor and exact-scope bounded",
       "pass": true
     },
     {

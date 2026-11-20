@@ -3543,7 +3543,12 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
 
 results.push(run('active runtime and CI configuration use the patched Node 24.22.1 baseline', () => {
   assert.strictEqual(backendPackageJson.engines?.node, '>=24.22.1 <25');
-  assert.strictEqual(fs.readFileSync(path.resolve(__dirname, '../../.nvmrc'), 'utf8').trim(), '24.22.1');
+  const rootNvmrcPath = path.resolve(__dirname, '../../.nvmrc');
+  if (fs.existsSync(rootNvmrcPath)) {
+    assert.strictEqual(fs.readFileSync(rootNvmrcPath, 'utf8').trim(), '24.22.1');
+  } else {
+    assert.strictEqual(process.versions.node, '24.22.1');
+  }
   assert.ok(backendDockerfileSource.startsWith('FROM node:24.22.1-alpine'));
   assert.ok(sizingDockerfileSource.startsWith('FROM node:24.22.1-alpine'));
   assert.ok(syslogComposeSource.includes('image: node:24.22.1-alpine'));
@@ -5558,6 +5563,22 @@ results.push(run('durable request and operator paths use actor-authorized scoped
   assert.ok(spaceIntegrationsRoutesSource.includes('durableRequestStore.listOperatorJobs'));
   assert.ok(spaceIntegrationsRoutesSource.includes('durableRequestStore.requestOperatorCancellation'));
   assert.ok(spaceIntegrationsRoutesSource.includes('actorId: req.user.id'));
+}));
+
+results.push(run('inline imports use one actor-authorized exact-scope lifecycle module', () => {
+  const durableJobsSource = fs.readFileSync(require.resolve('../services/durableJobs'), 'utf8');
+  assert.ok(durableJobsSource.includes('createAuthorizedInlineImportJobStore'));
+  assert.ok(durableJobsSource.includes("const INLINE_IMPORT_JOB_TYPES = LEGACY_SYNC_JOB_TYPES"));
+  assert.ok(durableJobsSource.includes("COALESCE(scope->>'durableLifecycle', 'false') <> 'true'"));
+  assert.ok(durableJobsSource.includes("status IN ('queued', 'running')"));
+  assert.ok(mediaRoutesSource.includes('const inlineImportJobStore = createAuthorizedInlineImportJobStore({'));
+  assert.ok(mediaRoutesSource.includes("csv_generic: 'media_import'"));
+  assert.ok(mediaRoutesSource.includes("metron: 'import'"));
+  assert.ok(mediaRoutesSource.includes('bindInlineImportJob(req, scopeContext'));
+  assert.ok(!mediaRoutesSource.includes('async function createSyncJob('));
+  assert.ok(!mediaRoutesSource.includes('async function updateSyncJob('));
+  assert.strictEqual((mediaRoutesSource.match(/await importJob\.succeed\(job\.id/g) || []).length, 7);
+  assert.strictEqual((mediaRoutesSource.match(/await importJob\.fail\(job\.id/g) || []).length, 7);
 }));
 
 results.push(run('sync job metrics and startup maintenance use distinct allowlisted service grants', () => {

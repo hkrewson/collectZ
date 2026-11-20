@@ -201,6 +201,7 @@ const { runManualMediaMergeApply, runManualMediaMergeRevert } = require('../scri
 const {
   createAuthorizedDurableRequestStore,
   createAuthorizedDurableWorkerStore,
+  createAuthorizedInlineImportJobStore,
   createAuthorizedPlexWebhookWorkerStore
 } = require('../services/durableJobs');
 const { createDurableJobWorker } = require('../services/durableJobWorker');
@@ -218,6 +219,18 @@ const bookOrbitConnections = createProviderConnectionService({
 });
 const durableRequestStore = createAuthorizedDurableRequestStore({ pool });
 const durableWorkerStore = createAuthorizedDurableWorkerStore({ pool });
+const inlineImportJobStore = createAuthorizedInlineImportJobStore({
+  pool,
+  allowedJobsByProvider: {
+    csv_generic: 'media_import',
+    csv_calibre: 'media_import',
+    cwa_opds: 'media_import',
+    kavita: 'media_import',
+    csv_delicious: 'media_import',
+    plex: 'media_import',
+    metron: 'import'
+  }
+});
 const plexReconciliationPreviewRequestStore = createAuthorizedDurableRequestStore({
   pool,
   allowedJobTypes: ['plex_reconciliation_preview']
@@ -292,15 +305,6 @@ const memoryImageUpload = multer({ storage: multer.memoryStorage(), limits: SING
 const MEDIA_TYPES = ['movie', 'tv_series', 'tv_episode', 'book', 'audio', 'game', 'comic_book'];
 const MERGE_REVIEW_MEDIA_TYPES = new Set(['movie', 'tv_series', 'book', 'audio', 'game', 'comic_book']);
 const TV_WATCH_STATES = new Set(['unwatched', 'in_progress', 'completed']);
-const SYNC_JOB_ALLOWED_FIELDS = new Set([
-  'status',
-  'scope',
-  'progress',
-  'summary',
-  'error',
-  'started_at',
-  'finished_at'
-]);
 const SORT_COLUMNS = {
   title: 'title',
   year: 'year',
@@ -5841,6 +5845,16 @@ function jobScopePayload(scopeContext, sectionIds = []) {
   };
 }
 
+function bindInlineImportJob(req, scopeContext, jobType, provider) {
+  return inlineImportJobStore.bind({
+    actorId: req.user.id,
+    spaceId: scopeContext?.spaceId,
+    libraryId: scopeContext?.libraryId,
+    jobType,
+    provider
+  });
+}
+
 function scopedActivityDetails(scopeContext, details = {}) {
   return {
     spaceId: scopeContext?.spaceId ?? null,
@@ -5929,75 +5943,6 @@ async function withDedupLock(lockKey, fn) {
   } finally {
     await pool.query('SELECT pg_advisory_unlock(hashtext($1))', [lockKey]);
   }
-}
-
-async function createSyncJob({ userId, jobType, provider, scope, progress }) {
-  const normalizedScope = scope && typeof scope === 'object' && !Array.isArray(scope) ? scope : {};
-  const spaceId = Number(normalizedScope.spaceId || 0);
-  const libraryId = Number(normalizedScope.libraryId || 0);
-  const connectionId = String(normalizedScope.connectionId || '').trim();
-  const providerConnectionId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(connectionId)
-    ? connectionId
-    : null;
-  if (!Number.isInteger(spaceId) || spaceId <= 0) {
-    const error = new Error('Sync jobs require an explicit workspace');
-    error.code = 'workspace_scope_required';
-    throw error;
-  }
-  const result = await pool.query(
-    `INSERT INTO sync_jobs (
-       job_type, provider, status, created_by, space_id, library_id,
-       provider_connection_id, scope, progress
-     )
-     VALUES ($1, $2, 'queued', $3, $4, $5, $6, $7::jsonb, $8::jsonb)
-     RETURNING id, public_id, job_type, job_version, provider, status, created_by,
-               space_id, library_id, provider_connection_id, correlation_id,
-               scope, progress, summary, error, attempt_count, max_attempts, available_at,
-               started_at, finished_at, created_at, updated_at`,
-    [
-      jobType,
-      provider,
-      userId || null,
-      spaceId,
-      Number.isInteger(libraryId) && libraryId > 0 ? libraryId : null,
-      providerConnectionId,
-      JSON.stringify(normalizedScope),
-      JSON.stringify(progress || {})
-    ]
-  );
-  return result.rows[0];
-}
-
-async function updateSyncJob(jobId, patch = {}) {
-  const entries = [];
-  for (const [key, value] of Object.entries(patch)) {
-    if (value === undefined) continue;
-    if (!SYNC_JOB_ALLOWED_FIELDS.has(key)) {
-      throw new Error(`Invalid sync job update field: ${key}`);
-    }
-    entries.push([key, value]);
-  }
-  if (entries.length === 0) return null;
-  const sets = [];
-  const values = [];
-  for (const [key, value] of entries) {
-    values.push(value);
-    if (['scope', 'progress', 'summary'].includes(key)) {
-      sets.push(`${key} = $${values.length}::jsonb`);
-    } else {
-      sets.push(`${key} = $${values.length}`);
-    }
-  }
-  values.push(jobId);
-  const result = await pool.query(
-    `UPDATE sync_jobs
-     SET ${sets.join(', ')}
-     WHERE id = $${values.length}
-     RETURNING id, job_type, provider, status, created_by, scope, progress, summary, error,
-               started_at, finished_at, created_at, updated_at`,
-    values
-  );
-  return result.rows[0] || null;
 }
 
 async function getSyncJob(jobId, reqUser) {
@@ -13914,11 +13859,9 @@ router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, r
   };
 
   if (asyncMode) {
-    const job = await createSyncJob({
-      userId: req.user.id,
-      jobType: 'media_import',
-      provider: 'csv_generic',
-      scope: jobScopePayload(scopeContext),
+    const importJob = bindInlineImportJob(req, scopeContext, 'media_import', 'csv_generic');
+    const job = await importJob.enqueue({
+      compatibilityScope: jobScopePayload(scopeContext),
       progress: {
         total: rows.length,
         processed: 0,
@@ -13932,12 +13875,12 @@ router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, r
 
     setImmediate(async () => {
       try {
-        await updateSyncJob(job.id, { status: 'running', started_at: new Date() });
+        await importJob.start(job.id);
         const result = await runGenericCsvImport({
           rows,
           userId: req.user.id,
           scopeContext,
-          onProgress: async (progress) => updateSyncJob(job.id, { progress }),
+          onProgress: async (progress) => importJob.reportProgress(job.id, progress),
           reviewContext: { jobId: job.id, provider: 'csv_generic', auditReq }
         });
         const valuationRefresh = await queueImportedValuationRefresh({
@@ -13948,8 +13891,7 @@ router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, r
           auditReq,
           importSource: 'csv_generic'
         });
-        await updateSyncJob(job.id, {
-          status: 'succeeded',
+        await importJob.succeed(job.id, {
           progress: {
             total: result.rows,
             processed: result.rows,
@@ -13974,8 +13916,7 @@ router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, r
             collectionsCreated: result.summary.collectionsCreated || 0,
             collectionItemsSeeded: result.summary.collectionItemsSeeded || 0,
             auditRows: result.auditRows
-          },
-          finished_at: new Date()
+          }
         });
         recordImportJobEvent('csv_generic', 'succeeded');
         recordImportEnrichmentSummaryMetrics('csv_generic', result.summary.enrichment);
@@ -13998,11 +13939,7 @@ router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, r
         });
       } catch (error) {
         recordImportJobEvent('csv_generic', 'failed');
-        await updateSyncJob(job.id, {
-          status: 'failed',
-          error: error.message || 'CSV import failed',
-          finished_at: new Date()
-        });
+        await importJob.fail(job.id, error.message || 'CSV import failed');
         await logActivity(auditReq, 'media.import.csv.failed', 'media', null, {
           detail: error.message || 'CSV import failed',
           jobId: job.id
@@ -14073,11 +14010,9 @@ router.post('/import-csv/calibre', tempUpload.single('file'), asyncHandler(async
   };
 
   if (asyncMode) {
-    const job = await createSyncJob({
-      userId: req.user.id,
-      jobType: 'media_import',
-      provider: 'csv_calibre',
-      scope: jobScopePayload(scopeContext),
+    const importJob = bindInlineImportJob(req, scopeContext, 'media_import', 'csv_calibre');
+    const job = await importJob.enqueue({
+      compatibilityScope: jobScopePayload(scopeContext),
       progress: {
         total: mappedRows.length,
         processed: 0,
@@ -14090,12 +14025,12 @@ router.post('/import-csv/calibre', tempUpload.single('file'), asyncHandler(async
 
     setImmediate(async () => {
       try {
-        await updateSyncJob(job.id, { status: 'running', started_at: new Date() });
+        await importJob.start(job.id);
         const result = await runGenericCsvImport({
           rows: mappedRows,
           userId: req.user.id,
           scopeContext,
-          onProgress: async (progress) => updateSyncJob(job.id, { progress }),
+          onProgress: async (progress) => importJob.reportProgress(job.id, progress),
           importSource: 'csv_calibre',
           reviewContext: { jobId: job.id, provider: 'csv_calibre', auditReq }
         });
@@ -14107,8 +14042,7 @@ router.post('/import-csv/calibre', tempUpload.single('file'), asyncHandler(async
           auditReq,
           importSource: 'csv_calibre'
         });
-        await updateSyncJob(job.id, {
-          status: 'succeeded',
+        await importJob.succeed(job.id, {
           progress: {
             total: result.rows,
             processed: result.rows,
@@ -14133,8 +14067,7 @@ router.post('/import-csv/calibre', tempUpload.single('file'), asyncHandler(async
             collectionsCreated: result.summary.collectionsCreated || 0,
             collectionItemsSeeded: result.summary.collectionItemsSeeded || 0,
             auditRows: result.auditRows
-          },
-          finished_at: new Date()
+          }
         });
         recordImportJobEvent('csv_calibre', 'succeeded');
         recordImportEnrichmentSummaryMetrics('csv_calibre', result.summary.enrichment);
@@ -14157,11 +14090,7 @@ router.post('/import-csv/calibre', tempUpload.single('file'), asyncHandler(async
         });
       } catch (error) {
         recordImportJobEvent('csv_calibre', 'failed');
-        await updateSyncJob(job.id, {
-          status: 'failed',
-          error: error.message || 'Calibre import failed',
-          finished_at: new Date()
-        });
+        await importJob.fail(job.id, error.message || 'Calibre import failed');
         await logActivity(auditReq, 'media.import.calibre.failed', 'media', null, {
           detail: error.message || 'Calibre import failed',
           jobId: job.id
@@ -14607,11 +14536,9 @@ router.post('/import-cwa', asyncHandler(async (req, res) => {
   };
 
   if (asyncMode) {
-    const job = await createSyncJob({
-      userId: req.user.id,
-      jobType: 'media_import',
-      provider: 'cwa_opds',
-      scope: jobScopePayload(scopeContext),
+    const importJob = bindInlineImportJob(req, scopeContext, 'media_import', 'cwa_opds');
+    const job = await importJob.enqueue({
+      compatibilityScope: jobScopePayload(scopeContext),
       progress: {
         total: 0,
         processed: 0,
@@ -14625,13 +14552,12 @@ router.post('/import-cwa', asyncHandler(async (req, res) => {
 
     setImmediate(async () => {
       try {
-        await updateSyncJob(job.id, { status: 'running', started_at: new Date() });
+        await importJob.start(job.id);
         const { fetched, result, valuationRefresh } = await runImport({
-          onProgress: async (progress) => updateSyncJob(job.id, { progress }),
+          onProgress: async (progress) => importJob.reportProgress(job.id, progress),
           reviewContext: { jobId: job.id, provider: 'cwa_opds', auditReq }
         });
-        await updateSyncJob(job.id, {
-          status: 'succeeded',
+        await importJob.succeed(job.id, {
           progress: {
             total: result.rows,
             processed: result.rows,
@@ -14659,8 +14585,7 @@ router.post('/import-cwa', asyncHandler(async (req, res) => {
             subsectionDiscovered: fetched.subsectionDiscovered || 0,
             navigationEntriesSkipped: fetched.navigationEntriesSkipped || 0,
             auditRows: result.auditRows
-          },
-          finished_at: new Date()
+          }
         });
         recordImportJobEvent('cwa_opds', 'succeeded');
         recordImportEnrichmentSummaryMetrics('cwa_opds', result.summary.enrichment);
@@ -14686,11 +14611,7 @@ router.post('/import-cwa', asyncHandler(async (req, res) => {
         });
       } catch (error) {
         recordImportJobEvent('cwa_opds', 'failed');
-        await updateSyncJob(job.id, {
-          status: 'failed',
-          error: error.message || 'CWA OPDS import failed',
-          finished_at: new Date()
-        });
+        await importJob.fail(job.id, error.message || 'CWA OPDS import failed');
         await logActivity(auditReq, 'media.import.cwa.failed', 'media', null, {
           detail: error.message || 'CWA OPDS import failed',
           jobId: job.id
@@ -14811,11 +14732,9 @@ router.post('/import-kavita', asyncHandler(async (req, res) => {
   };
 
   if (asyncMode) {
-    const job = await createSyncJob({
-      userId: req.user.id,
-      jobType: 'media_import',
-      provider: 'kavita',
-      scope: jobScopePayload(scopeContext),
+    const importJob = bindInlineImportJob(req, scopeContext, 'media_import', 'kavita');
+    const job = await importJob.enqueue({
+      compatibilityScope: jobScopePayload(scopeContext),
       progress: {
         total: 0,
         processed: 0,
@@ -14829,13 +14748,12 @@ router.post('/import-kavita', asyncHandler(async (req, res) => {
 
     setImmediate(async () => {
       try {
-        await updateSyncJob(job.id, { status: 'running', started_at: new Date() });
+        await importJob.start(job.id);
         const { fetched, result, valuationRefresh } = await runImport({
-          onProgress: async (progress) => updateSyncJob(job.id, { progress }),
+          onProgress: async (progress) => importJob.reportProgress(job.id, progress),
           reviewContext: { jobId: job.id, provider: 'kavita', auditReq }
         });
-        await updateSyncJob(job.id, {
-          status: 'succeeded',
+        await importJob.succeed(job.id, {
           progress: {
             total: result.rows,
             processed: result.rows,
@@ -14872,8 +14790,7 @@ router.post('/import-kavita', asyncHandler(async (req, res) => {
             chapterFanoutSkippedSparseMetadata: fetched.chapterFanoutSkippedSparseMetadata || 0,
             hasMore: Boolean(fetched.hasMore),
             auditRows: result.auditRows
-          },
-          finished_at: new Date()
+          }
         });
         recordImportJobEvent('kavita', 'succeeded');
         recordImportEnrichmentSummaryMetrics('kavita', result.summary.enrichment);
@@ -14908,11 +14825,7 @@ router.post('/import-kavita', asyncHandler(async (req, res) => {
         });
       } catch (error) {
         recordImportJobEvent('kavita', 'failed');
-        await updateSyncJob(job.id, {
-          status: 'failed',
-          error: error.message || 'Kavita import failed',
-          finished_at: new Date()
-        });
+        await importJob.fail(job.id, error.message || 'Kavita import failed');
         await logActivity(auditReq, 'media.import.kavita.failed', 'media', null, {
           detail: error.message || 'Kavita import failed',
           jobId: job.id
@@ -15005,11 +14918,9 @@ router.post('/import-csv/delicious', tempUpload.single('file'), asyncHandler(asy
   };
 
   if (asyncMode) {
-    const job = await createSyncJob({
-      userId: req.user.id,
-      jobType: 'media_import',
-      provider: 'csv_delicious',
-      scope: jobScopePayload(scopeContext),
+    const importJob = bindInlineImportJob(req, scopeContext, 'media_import', 'csv_delicious');
+    const job = await importJob.enqueue({
+      compatibilityScope: jobScopePayload(scopeContext),
       progress: {
         total: rows.length,
         processed: 0,
@@ -15022,12 +14933,12 @@ router.post('/import-csv/delicious', tempUpload.single('file'), asyncHandler(asy
 
     setImmediate(async () => {
       try {
-        await updateSyncJob(job.id, { status: 'running', started_at: new Date() });
+        await importJob.start(job.id);
         const result = await runDeliciousCsvImport({
           rows,
           userId: req.user.id,
           scopeContext,
-          onProgress: async (progress) => updateSyncJob(job.id, { progress }),
+          onProgress: async (progress) => importJob.reportProgress(job.id, progress),
           reviewContext: { jobId: job.id, provider: 'csv_delicious', auditReq }
         });
         const valuationRefresh = await queueImportedValuationRefresh({
@@ -15038,8 +14949,7 @@ router.post('/import-csv/delicious', tempUpload.single('file'), asyncHandler(asy
           auditReq,
           importSource: 'csv_delicious'
         });
-        await updateSyncJob(job.id, {
-          status: 'succeeded',
+        await importJob.succeed(job.id, {
           progress: {
             total: result.rows,
             processed: result.rows,
@@ -15063,8 +14973,7 @@ router.post('/import-csv/delicious', tempUpload.single('file'), asyncHandler(asy
             collectionsCreated: result.summary.collectionsCreated || 0,
             collectionItemsSeeded: result.summary.collectionItemsSeeded || 0,
             auditRows: result.auditRows
-          },
-          finished_at: new Date()
+          }
         });
         recordImportJobEvent('csv_delicious', 'succeeded');
         recordImportEnrichmentSummaryMetrics('csv_delicious', result.summary.enrichment);
@@ -15086,11 +14995,7 @@ router.post('/import-csv/delicious', tempUpload.single('file'), asyncHandler(asy
         });
       } catch (error) {
         recordImportJobEvent('csv_delicious', 'failed');
-        await updateSyncJob(job.id, {
-          status: 'failed',
-          error: error.message || 'Delicious CSV import failed',
-          finished_at: new Date()
-        });
+        await importJob.fail(job.id, error.message || 'Delicious CSV import failed');
         await logActivity(auditReq, 'media.import.csv.delicious.failed', 'media', null, {
           detail: error.message || 'Delicious CSV import failed',
           jobId: job.id
@@ -15174,11 +15079,9 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
   };
 
   if (asyncMode) {
-    const job = await createSyncJob({
-      userId: req.user.id,
-      jobType: 'media_import',
-      provider: 'plex',
-      scope: jobScopePayload(effectiveScopeContext, sectionIds),
+    const importJob = bindInlineImportJob(req, effectiveScopeContext, 'media_import', 'plex');
+    const job = await importJob.enqueue({
+      compatibilityScope: jobScopePayload(effectiveScopeContext, sectionIds),
       progress: {
         total: 0,
         processed: 0,
@@ -15191,17 +15094,14 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
 
     setImmediate(async () => {
       try {
-        await updateSyncJob(job.id, {
-          status: 'running',
-          started_at: new Date()
-        });
+        await importJob.start(job.id);
         const result = await runPlexImport({
           req: auditReq,
           config,
           sectionIds,
           scopeContext: effectiveScopeContext,
           onProgress: async (progress) => {
-            await updateSyncJob(job.id, { progress });
+            await importJob.reportProgress(job.id, progress);
           }
         });
         const valuationRefresh = await queueImportedValuationRefresh({
@@ -15213,8 +15113,7 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
           importSource: 'plex'
         });
 
-        await updateSyncJob(job.id, {
-          status: 'succeeded',
+        await importJob.succeed(job.id, {
           summary: {
             imported: result.imported,
             created: result.summary.created,
@@ -15243,8 +15142,7 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
             updated: result.summary.updated,
             skipped: result.summary.skipped,
             errorCount: result.summary.errors.length
-          },
-          finished_at: new Date()
+          }
         });
         recordImportJobEvent('plex', 'succeeded');
         recordPlexEnrichmentMetrics(result);
@@ -15273,11 +15171,7 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
       } catch (error) {
         logError('Plex async import failed', error);
         recordImportJobEvent('plex', 'failed');
-        await updateSyncJob(job.id, {
-          status: 'failed',
-          error: error.message || 'Plex import failed',
-          finished_at: new Date()
-        });
+        await importJob.fail(job.id, error.message || 'Plex import failed');
         await logActivity(auditReq, 'media.import.plex.failed', 'media', null, scopedActivityDetails(effectiveScopeContext, {
           sectionIds,
           detail: error.message || 'Plex import failed',
@@ -16097,11 +15991,9 @@ router.post('/import-comics', asyncHandler(async (req, res) => {
   }
 
   if (useAsync) {
-    const job = await createSyncJob({
-      userId: req.user.id,
-      jobType: 'import',
-      provider: 'metron',
-      scope: jobScopePayload(scopeContext),
+    const importJob = bindInlineImportJob(req, scopeContext, 'import', 'metron');
+    const job = await importJob.enqueue({
+      compatibilityScope: jobScopePayload(scopeContext),
       progress: { total: 0, processed: 0, created: 0, updated: 0, skipped: 0, errorCount: 0 }
     });
     recordImportJobEvent('metron', 'queued');
@@ -16109,12 +16001,12 @@ router.post('/import-comics', asyncHandler(async (req, res) => {
     process.nextTick(async () => {
       const auditReq = { ...req, user: req.user };
       try {
-        await updateSyncJob(job.id, { status: 'running', started_at: new Date() });
+        await importJob.start(job.id);
         const result = await runMetronImport({
           req: auditReq,
           config,
           scopeContext,
-          onProgress: async (progress) => updateSyncJob(job.id, { progress })
+          onProgress: async (progress) => importJob.reportProgress(job.id, progress)
         });
         const valuationRefresh = await queueImportedValuationRefresh({
           mediaIds: result.createdMediaIds,
@@ -16124,9 +16016,7 @@ router.post('/import-comics', asyncHandler(async (req, res) => {
           auditReq,
           importSource: 'metron'
         });
-        await updateSyncJob(job.id, {
-          status: 'succeeded',
-          finished_at: new Date(),
+        await importJob.succeed(job.id, {
           summary: {
             imported: result.imported,
             totalAvailable: result.totalAvailable || result.imported,
@@ -16163,11 +16053,7 @@ router.post('/import-comics', asyncHandler(async (req, res) => {
       } catch (error) {
         logError('Metron import failed', error);
         recordImportJobEvent('metron', 'failed');
-        await updateSyncJob(job.id, {
-          status: 'failed',
-          finished_at: new Date(),
-          error: error.message || 'Metron import failed'
-        });
+        await importJob.fail(job.id, error.message || 'Metron import failed');
         await logActivity(auditReq, 'media.import.metron.failed', 'media', null, {
           detail: error.message || 'Metron import failed',
           jobId: job.id

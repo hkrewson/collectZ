@@ -19,6 +19,7 @@ const LEGACY_SYNC_JOB_TYPES = Object.freeze([
   'import',
   'media_import'
 ]);
+const INLINE_IMPORT_JOB_TYPES = LEGACY_SYNC_JOB_TYPES;
 const SYNC_JOB_SERVICE_TYPES = Object.freeze([
   ...DURABLE_WORKER_JOB_TYPES,
   ...PLEX_WEBHOOK_JOB_TYPES,
@@ -711,6 +712,174 @@ function createAuthorizedDurableRequestStore({ pool, allowedJobTypes = DURABLE_W
   });
 }
 
+function createAuthorizedInlineImportJobStore({ pool, allowedJobsByProvider = {} } = {}) {
+  if (!pool || typeof pool.connect !== 'function') {
+    throw durableJobError('A PostgreSQL transaction pool is required', 'durable_job_invalid_adapter');
+  }
+  const configuredProviders = new Map();
+  for (const [providerValue, jobTypeValue] of Object.entries(allowedJobsByProvider || {})) {
+    const provider = requireSafeName(providerValue, 'provider');
+    const jobType = requireSafeName(jobTypeValue, 'jobType');
+    if (!INLINE_IMPORT_JOB_TYPES.includes(jobType)) {
+      throw durableJobError('Inline import job type is not authorized', 'durable_job_invalid_input');
+    }
+    configuredProviders.set(provider, jobType);
+  }
+  if (configuredProviders.size < 1 || configuredProviders.size > 16) {
+    throw durableJobError('Inline import providers are required', 'durable_job_invalid_input');
+  }
+
+  const bind = (options = {}) => {
+    const actorId = requirePositiveInteger(options.actorId, 'actorId');
+    const spaceId = requirePositiveInteger(options.spaceId, 'spaceId');
+    const libraryId = requirePositiveInteger(options.libraryId, 'libraryId');
+    const provider = requireSafeName(options.provider, 'provider');
+    const jobType = requireSafeName(options.jobType, 'jobType');
+    if (configuredProviders.get(provider) !== jobType) {
+      throw durableJobError('Inline import provider and job type are not authorized', 'durable_job_invalid_input');
+    }
+
+    const authorized = (operation) => withAuthorizedScopeTransaction(
+      pool,
+      { spaceId, libraryId },
+      actorId,
+      operation
+    );
+    const lifecycleValues = (jobId) => [
+      requirePositiveInteger(jobId, 'jobId'),
+      actorId,
+      spaceId,
+      libraryId,
+      jobType,
+      provider
+    ];
+    const requireTransition = (row, operation) => {
+      if (!row) {
+        throw durableJobError(`Inline import ${operation} was not authorized`, 'durable_job_lifecycle_rejected');
+      }
+      return shapeJob(row);
+    };
+
+    return Object.freeze({
+      enqueue: ({ progress = {}, compatibilityScope = {} } = {}) => authorized(async (client) => {
+        const safeProgress = sanitizeStructuredValue(progress, 'progress');
+        const safeScope = sanitizeStructuredValue(compatibilityScope, 'compatibilityScope');
+        const scope = {
+          ...safeScope,
+          spaceId,
+          libraryId
+        };
+        delete scope.durableLifecycle;
+        const result = await client.query(
+          `INSERT INTO sync_jobs (
+             job_type, provider, status, created_by, space_id, library_id, scope, progress
+           ) VALUES ($1, $2, 'queued', $3, $4, $5, $6::jsonb, $7::jsonb)
+           RETURNING ${RETURNING_COLUMNS}`,
+          [jobType, provider, actorId, spaceId, libraryId, JSON.stringify(scope), JSON.stringify(safeProgress)]
+        );
+        return shapeJob(result.rows[0], true);
+      }),
+      start: (jobId) => authorized(async (client) => {
+        const result = await client.query(
+          `UPDATE sync_jobs
+              SET status = 'running',
+                  started_at = COALESCE(started_at, CURRENT_TIMESTAMP),
+                  finished_at = NULL,
+                  error = NULL
+            WHERE id = $1
+              AND created_by = $2
+              AND space_id = $3
+              AND library_id = $4
+              AND job_type = $5
+              AND provider = $6
+              AND status = 'queued'
+              AND scope->>'spaceId' = $3::text
+              AND scope->>'libraryId' = $4::text
+              AND COALESCE(scope->>'durableLifecycle', 'false') <> 'true'
+           RETURNING ${RETURNING_COLUMNS}`,
+          lifecycleValues(jobId)
+        );
+        return requireTransition(result.rows[0], 'start');
+      }),
+      reportProgress: (jobId, progress = {}) => authorized(async (client) => {
+        const safeProgress = sanitizeStructuredValue(progress, 'progress');
+        const values = lifecycleValues(jobId);
+        values.push(JSON.stringify(safeProgress));
+        const result = await client.query(
+          `UPDATE sync_jobs
+              SET progress = $7::jsonb
+            WHERE id = $1
+              AND created_by = $2
+              AND space_id = $3
+              AND library_id = $4
+              AND job_type = $5
+              AND provider = $6
+              AND status = 'running'
+              AND scope->>'spaceId' = $3::text
+              AND scope->>'libraryId' = $4::text
+              AND COALESCE(scope->>'durableLifecycle', 'false') <> 'true'
+           RETURNING ${RETURNING_COLUMNS}`,
+          values
+        );
+        return requireTransition(result.rows[0], 'progress update');
+      }),
+      succeed: (jobId, { progress = {}, summary = {} } = {}) => authorized(async (client) => {
+        const safeProgress = sanitizeStructuredValue(progress, 'progress');
+        const safeSummary = sanitizeStructuredValue(summary, 'summary');
+        const values = lifecycleValues(jobId);
+        values.push(JSON.stringify(safeProgress), JSON.stringify(safeSummary));
+        const result = await client.query(
+          `UPDATE sync_jobs
+              SET status = 'succeeded',
+                  progress = $7::jsonb,
+                  summary = $8::jsonb,
+                  error = NULL,
+                  finished_at = CURRENT_TIMESTAMP
+            WHERE id = $1
+              AND created_by = $2
+              AND space_id = $3
+              AND library_id = $4
+              AND job_type = $5
+              AND provider = $6
+              AND status = 'running'
+              AND scope->>'spaceId' = $3::text
+              AND scope->>'libraryId' = $4::text
+              AND COALESCE(scope->>'durableLifecycle', 'false') <> 'true'
+           RETURNING ${RETURNING_COLUMNS}`,
+          values
+        );
+        return requireTransition(result.rows[0], 'settlement');
+      }),
+      fail: (jobId, error) => authorized(async (client) => {
+        const safeError = sanitizeErrorMessage(error || 'Inline import failed');
+        const values = lifecycleValues(jobId);
+        values.push(safeError);
+        const result = await client.query(
+          `UPDATE sync_jobs
+              SET status = 'failed',
+                  error = $7,
+                  finished_at = CURRENT_TIMESTAMP
+            WHERE id = $1
+              AND created_by = $2
+              AND space_id = $3
+              AND library_id = $4
+              AND job_type = $5
+              AND provider = $6
+              AND status IN ('queued', 'running')
+              AND scope->>'spaceId' = $3::text
+              AND scope->>'libraryId' = $4::text
+              AND COALESCE(scope->>'durableLifecycle', 'false') <> 'true'
+           RETURNING ${RETURNING_COLUMNS}`,
+          values
+        );
+        return requireTransition(result.rows[0], 'failure settlement');
+      })
+    });
+  };
+
+  return Object.freeze({ bind });
+}
+
 function createAuthorizedSyncJobServiceStore({
   pool,
   observedJobTypes = SYNC_JOB_SERVICE_TYPES,
@@ -949,11 +1118,13 @@ function createAuthorizedPlexWebhookWorkerStore({
 module.exports = {
   FINAL_STATUSES,
   DURABLE_WORKER_JOB_TYPES,
+  INLINE_IMPORT_JOB_TYPES,
   LEGACY_SYNC_JOB_TYPES,
   PLEX_WEBHOOK_JOB_TYPES,
   SYNC_JOB_SERVICE_TYPES,
   assertSecretFree,
   createAuthorizedDurableRequestStore,
+  createAuthorizedInlineImportJobStore,
   createAuthorizedPlexWebhookRequestStore,
   createAuthorizedPlexWebhookWorkerStore,
   createAuthorizedSyncJobServiceStore,
