@@ -258,6 +258,19 @@ The `3.27.x` architecture line, `3.28.0` durable provider job foundation, and `3
 - **What remains in the milestone:** Design and certify the final `sync_jobs` table policies, activate the table family with migration/init parity, then complete the `3.28.2` version and hosted release closeout.
 - **Recommended commit message:** `Authorize 3.28.2 workspace-scoped legacy sync job readback`.
 
+### Hosted workspace-authorization fixture repair checkpoint
+
+- **Roadmap slice:** `3.28.2 — Staged Workspace Row-Level Security Expansion`, hosted workspace-authorization fixture compatibility repair for authenticated sync-job readback.
+- **Project docs/checklists used:** `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/50-Staged-Row-Level-Security.md`, and `docs/wiki/54-Durable-Workspace-Job-Contract.md`.
+- **Verified facts:** Hosted Build and Publish Images run `44671573441` passed CodeQL, prepare, dependency scan, frontend quality, migration check, secret scan, Compose smoke, browser regression, and Core runtime. `core-rbac-regression` passed RBAC, all staged-family RLS smokes, the twenty-two-label worker broker smoke, external identity certification, cross-type isolation, and workspace ownership, then failed because the workspace-authorization smoke inserted the synthetic `workspace_certification` job type without relational ownership and expected the new production-allowlisted read endpoint to return it. The fixture now uses the supported `media_import` contract and persists exact relational workspace/library ownership alongside compatibility scope.
+- **Runtime verification used:** Rebuilt and recreated the canonical `collectz-private` backend in place on port `3201` at app version `3.28.1` and schema `143`; the repaired workspace authorization certification passed against the non-owner running stack and removed its users, workspaces, library, media, and sync-job fixtures.
+- **CI/checks run:** Backend unit/source suite; OpenAPI; repaired workspace authorization certification; canonical broker smoke; RBAC; workspace ownership; focused CSV browser readback regression; standard local release gate; Node syntax; diff hygiene; and targeted artifact/docs secret review.
+- **Files changed:** Workspace authorization certification fixture, unit contract assertion, CI gate documentation, and roadmap failure/repair evidence.
+- **Blocked/unverified:** Hosted `core-rbac-regression` and its downstream image/release jobs require an authorized push before the repair can be confirmed in the same production-shaped CI environment. No other job in run `44671573441` exposed a product or migration failure.
+- **Risks or follow-ups:** Certification fixtures must stay inside the same job-type and ownership contracts as production callers; adding synthetic types to a route-facing smoke would weaken the value of the allowlist. Final `sync_jobs` RLS design and activation remain a separate milestone slice.
+- **What remains in the milestone:** Rerun hosted `core-rbac-regression`, then design and certify the final `sync_jobs` table policies, activate the table family with migration/init parity, and complete the `3.28.2` version/hosted release closeout.
+- **Recommended commit message:** `Repair 3.28.2 hosted workspace sync job authorization certification`.
+
 ### Milestone boundary
 
 - This milestone activates one classified table family at a time; it does not enable RLS across all legacy domain tables.

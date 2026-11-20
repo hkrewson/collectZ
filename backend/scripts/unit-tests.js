@@ -254,6 +254,7 @@ const eventExclusiveSourcesRlsSmokeSource = fs.readFileSync(require.resolve('../
 const objectRelationshipsRlsSource = fs.readFileSync(path.resolve(__dirname, '..', 'db', 'objectRelationshipsRls.sql'), 'utf8');
 const objectRelationshipsRlsSmokeSource = fs.readFileSync(require.resolve('../scripts/object-relationships-rls-smoke'), 'utf8');
 const objectRelationshipsHttpSmokeSource = fs.readFileSync(require.resolve('../scripts/object-relationships-http-smoke'), 'utf8');
+const workspaceAuthorizationCertificationSource = fs.readFileSync(require.resolve('../scripts/workspace-authorization-certification-smoke'), 'utf8');
 const initSqlSource = fs.readFileSync(path.resolve(__dirname, '..', '..', 'init.sql'), 'utf8');
 const libraryServiceSource = fs.readFileSync(require.resolve('../services/libraries'), 'utf8');
 const personalAccessTokenSource = fs.readFileSync(require.resolve('../services/personalAccessTokens'), 'utf8');
@@ -5595,6 +5596,9 @@ results.push(run('authenticated sync job readback is actor and workspace authori
     mediaRoutesSource.indexOf("router.get('/sync-jobs'"),
     mediaRoutesSource.indexOf("router.get('/collections'")
   ).includes('FROM sync_jobs'));
+  assert.ok(workspaceAuthorizationCertificationSource.includes("'media_import', 'workspace_certification'"));
+  assert.ok(workspaceAuthorizationCertificationSource.includes('created_by, space_id, library_id, scope, progress'));
+  assert.ok(!workspaceAuthorizationCertificationSource.includes("'workspace_certification', 'fixture'"));
 }));
 
 results.push(run('sync job metrics and startup maintenance use distinct allowlisted service grants', () => {

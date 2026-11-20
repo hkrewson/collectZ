@@ -178,10 +178,18 @@ async function main() {
     assert([403, 404].includes(outsiderIntegration.status), `Sibling workspace provider read returned ${outsiderIntegration.status}`);
 
     const job = await pool.query(
-      `INSERT INTO sync_jobs (job_type, provider, status, created_by, scope, progress)
-       VALUES ('workspace_certification', 'fixture', 'queued', $1, $2::jsonb, '{}'::jsonb)
+      `INSERT INTO sync_jobs (
+         job_type, provider, status, created_by, space_id, library_id, scope, progress
+       ) VALUES (
+         'media_import', 'workspace_certification', 'queued', $1, $2, $3, $4::jsonb, '{}'::jsonb
+       )
        RETURNING id`,
-      [ownerId, JSON.stringify({ spaceId: ownedScope.spaceId, libraryId: ownedScope.libraryId })]
+      [
+        ownerId,
+        ownedScope.spaceId,
+        ownedScope.libraryId,
+        JSON.stringify({ spaceId: ownedScope.spaceId, libraryId: ownedScope.libraryId })
+      ]
     );
     jobId = Number(job.rows[0].id);
     await owner.request(`/api/media/sync-jobs/${jobId}`, { expected: 200 });
