@@ -610,6 +610,7 @@ results.push(run('runtime database role is non-owner, verifier-provisioned, and 
   assert.ok(runtimeRoleSource.includes('collectz_scope.allows_library(integer,integer)'));
   assert.ok(runtimeRoleSource.includes('collectz_scope.authorize_worker(integer,text,text,text,text[],integer,integer)'));
   assert.ok(runtimeRoleSource.includes('collectz_scope.worker_allows_ingest(integer,integer,text)'));
+  assert.ok(runtimeRoleSource.includes('collectz_scope.worker_allows_lifecycle_scope(integer,integer,text)'));
 
   const composeSource = fs.readFileSync(require.resolve('../../docker-compose.yml'), 'utf8');
   const serviceBlock = (name) => {
@@ -5633,6 +5634,30 @@ results.push(run('plex webhook ingestion uses an exact-workspace service grant a
   assert.ok(durableJobsSource.includes('library_id = $3'));
   assert.ok(integrationsSource.includes('plexWebhookRequestStore.enqueue'));
   assert.ok(!integrationsSource.includes('INSERT INTO sync_jobs'));
+}));
+
+results.push(run('durable sync jobs activate command-separated actor and worker RLS', () => {
+  const syncJobRlsMigration = fs.readFileSync(path.resolve(__dirname, '../db/syncJobRls.sql'), 'utf8');
+  const initParitySource = fs.readFileSync(path.resolve(__dirname, 'check-init-parity.js'), 'utf8');
+  const migrationRehearsalSource = fs.readFileSync(path.resolve(__dirname, 'migration-rehearsal.js'), 'utf8');
+  const workerSmokeSource = fs.readFileSync(path.resolve(__dirname, 'worker-scope-broker-smoke.js'), 'utf8');
+  assert.ok(migrationsSource.includes('version: 144'));
+  assert.ok(initSqlSource.includes("(144, 'Protect durable sync jobs with actor and worker RLS')"));
+  assert.ok(syncJobRlsMigration.includes('ALTER TABLE public.sync_jobs ENABLE ROW LEVEL SECURITY'));
+  assert.ok(syncJobRlsMigration.includes('sync_jobs_actor_select'));
+  assert.ok(syncJobRlsMigration.includes('sync_jobs_actor_insert'));
+  assert.ok(syncJobRlsMigration.includes('sync_jobs_actor_update'));
+  assert.ok(syncJobRlsMigration.includes('sync_jobs_actor_delete'));
+  assert.ok(syncJobRlsMigration.includes('sync_jobs_worker_select'));
+  assert.ok(syncJobRlsMigration.includes('sync_jobs_worker_insert'));
+  assert.ok(syncJobRlsMigration.includes('sync_jobs_worker_update'));
+  assert.ok(syncJobRlsMigration.includes("worker_allows_global('observe', job_type)"));
+  assert.ok(syncJobRlsMigration.includes('worker_allows_lifecycle(space_id, library_id, job_type, lease_owner)'));
+  assert.ok(syncJobRlsMigration.includes('worker_allows_lifecycle_scope(space_id, library_id, job_type)'));
+  assert.ok(!syncJobRlsMigration.includes('sync_jobs_worker_delete'));
+  assert.ok(initParitySource.includes("'sync_jobs'"));
+  assert.ok(migrationRehearsalSource.includes('syncJobOwnershipRetained'));
+  assert.ok(workerSmokeSource.includes("SELECT COUNT(*)::int AS count FROM sync_jobs"));
 }));
 
 results.push(run('plex webhook processing uses exact-scope worker lifecycle authorization', () => {

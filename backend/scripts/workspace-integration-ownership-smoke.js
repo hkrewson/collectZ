@@ -3,11 +3,12 @@
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const pool = require('../db/pool');
+const { withAuthorizedScopeTransaction } = require('../db/scopeBroker');
 const {
   loadWorkspaceValuationIntegrationConfig,
   loadWorkspaceOcrIntegrationConfig
 } = require('../services/integrations');
-const { createDurableJobStore } = require('../services/durableJobs');
+const { createAuthorizedDurableRequestStore } = require('../services/durableJobs');
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 
@@ -156,8 +157,12 @@ async function main() {
     assert(valuationA.priceChartingApiKey !== valuationB.priceChartingApiKey, 'PriceCharting credentials crossed workspace boundaries');
     assert(ocrA.visionApiKey !== ocrB.visionApiKey, 'OCR credentials crossed workspace boundaries');
 
-    const durableJobs = createDurableJobStore(pool);
+    const durableJobs = createAuthorizedDurableRequestStore({
+      pool,
+      allowedJobTypes: ['bookorbit_sync']
+    });
     const jobA = await durableJobs.enqueue({
+      actorId: userId,
       jobType: 'bookorbit_sync',
       provider: 'bookorbit',
       createdBy: userId,
@@ -167,6 +172,7 @@ async function main() {
       progress: { completed: 0 }
     });
     await durableJobs.enqueue({
+      actorId: userId,
       jobType: 'bookorbit_sync',
       provider: 'bookorbit',
       createdBy: userId,
@@ -175,12 +181,17 @@ async function main() {
       targetRef: { smoke: true },
       progress: { completed: 0 }
     });
-    await pool.query(
+    await withAuthorizedScopeTransaction(
+      pool,
+      { spaceId: spaceIds[0] },
+      userId,
+      (client) => client.query(
       `UPDATE sync_jobs
           SET error = $2,
               summary = jsonb_build_object('processed', 0, 'api_key', $3::text)
         WHERE public_id = $1`,
       [jobA.publicId, `Bearer ${secrets.priceA}`, secrets.priceA]
+      )
     );
 
     const listA = await client.request(
@@ -216,7 +227,16 @@ async function main() {
     console.log('Workspace integration ownership smoke passed');
   } finally {
     if (spaceIds.length) {
-      await pool.query('DELETE FROM sync_jobs WHERE space_id = ANY($1::int[])', [spaceIds]).catch(() => {});
+      if (userId) {
+        for (const spaceId of spaceIds) {
+          await withAuthorizedScopeTransaction(
+            pool,
+            { spaceId },
+            userId,
+            (client) => client.query('DELETE FROM sync_jobs WHERE space_id = $1', [spaceId])
+          ).catch(() => {});
+        }
+      }
       await pool.query('DELETE FROM app_integrations WHERE space_id = ANY($1::int[])', [spaceIds]).catch(() => {});
       await pool.query('DELETE FROM space_memberships WHERE space_id = ANY($1::int[])', [spaceIds]).catch(() => {});
       await pool.query('DELETE FROM spaces WHERE id = ANY($1::int[])', [spaceIds]).catch(() => {});

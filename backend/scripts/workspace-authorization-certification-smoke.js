@@ -5,6 +5,7 @@
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const pool = require('../db/pool');
+const { withAuthorizedScopeTransaction } = require('../db/scopeBroker');
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 
@@ -177,7 +178,11 @@ async function main() {
     const outsiderIntegration = await outsider.request(`/api/spaces/${ownedScope.spaceId}/integrations`);
     assert([403, 404].includes(outsiderIntegration.status), `Sibling workspace provider read returned ${outsiderIntegration.status}`);
 
-    const job = await pool.query(
+    const job = await withAuthorizedScopeTransaction(
+      pool,
+      { spaceId: ownedScope.spaceId, libraryId: ownedScope.libraryId },
+      ownerId,
+      (client) => client.query(
       `INSERT INTO sync_jobs (
          job_type, provider, status, created_by, space_id, library_id, scope, progress
        ) VALUES (
@@ -190,6 +195,7 @@ async function main() {
         ownedScope.libraryId,
         JSON.stringify({ spaceId: ownedScope.spaceId, libraryId: ownedScope.libraryId })
       ]
+      )
     );
     jobId = Number(job.rows[0].id);
     await owner.request(`/api/media/sync-jobs/${jobId}`, { expected: 200 });
@@ -206,7 +212,14 @@ async function main() {
       backgroundJobIsolationDenied: true
     }));
   } finally {
-    if (jobId) await pool.query('DELETE FROM sync_jobs WHERE id = $1', [jobId]).catch(() => {});
+    if (jobId && userIds[0] && spaceIds[0]) {
+      await withAuthorizedScopeTransaction(
+        pool,
+        { spaceId: spaceIds[0] },
+        userIds[0],
+        (client) => client.query('DELETE FROM sync_jobs WHERE id = $1', [jobId])
+      ).catch(() => {});
+    }
     if (mediaId) await pool.query('DELETE FROM media WHERE id = $1', [mediaId]).catch(() => {});
     if (spaceIds.length) {
       await pool.query('DELETE FROM app_integrations WHERE space_id = ANY($1::int[])', [spaceIds]).catch(() => {});

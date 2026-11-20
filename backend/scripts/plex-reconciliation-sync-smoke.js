@@ -7,6 +7,7 @@ const fs = require('fs');
 const http = require('http');
 const path = require('path');
 const pool = require('../db/pool');
+const { withAuthorizedScopeTransaction } = require('../db/scopeBroker');
 process.env.INTEGRATION_ENCRYPTION_KEY = process.env.INTEGRATION_ENCRYPTION_KEY || 'plex-reconciliation-sync-smoke-key';
 const { encryptSecret } = require('../services/crypto');
 const { createScopedSmokeUser } = require('./helpers/scopedSmokeUser');
@@ -381,12 +382,17 @@ async function main() {
     assert(job?.summary?.wouldCreate === 1, `Expected job one wouldCreate row: ${JSON.stringify(job?.summary)}`);
     assert(job?.summary?.conflict === 1, `Expected job one conflict row: ${JSON.stringify(job?.summary)}`);
 
-    const durableJob = await pool.query(
+    const durableJob = await withAuthorizedScopeTransaction(
+      pool,
+      { spaceId, libraryId },
+      userId,
+      (client) => client.query(
       `SELECT public_id, job_version, space_id, library_id, idempotency_key, target_ref,
               attempt_count, max_attempts, lease_owner, lease_expires_at, heartbeat_at
          FROM sync_jobs
         WHERE id = $1`,
       [jobId]
+      )
     );
     const durable = durableJob.rows[0] || {};
     assert(/^[0-9a-f-]{36}$/i.test(String(durable.public_id || '')), 'Expected stable durable public job id');

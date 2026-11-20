@@ -211,6 +211,7 @@ async function main() {
   const admin = new HttpClient('admin');
   const user = new HttpClient('user');
   let tempAdminUserId = null;
+  let registeredAdminUserId = null;
   let adminUserId = null;
   let userId = null;
 
@@ -223,6 +224,14 @@ async function main() {
         withCsrf: true,
         body: { email: adminEmail, password: adminPassword, name: 'RBAC Admin' }
       });
+      if (registerAdmin.status === 200) {
+        const registered = await pool.query(
+          `UPDATE users SET role = 'admin' WHERE email = $1
+           RETURNING id`,
+          [adminEmail]
+        );
+        registeredAdminUserId = Number(registered.rows[0]?.id || 0) || null;
+      }
       if (registerAdmin.status !== 200) {
         const directAdmin = await createDirectUser({
           email: tempAdminEmail,
@@ -516,6 +525,9 @@ async function main() {
 
   console.log('RBAC regression checks passed');
   } finally {
+    if (registeredAdminUserId) {
+      await deleteDirectUser(registeredAdminUserId).catch(() => {});
+    }
     if (tempAdminUserId) {
       await deleteDirectUser(tempAdminUserId).catch(() => {});
     }

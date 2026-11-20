@@ -8,6 +8,7 @@ const http = require('http');
 const path = require('path');
 const bcrypt = require('bcrypt');
 const pool = require('../db/pool');
+const { withAuthorizedScopeTransaction } = require('../db/scopeBroker');
 process.env.INTEGRATION_ENCRYPTION_KEY = process.env.INTEGRATION_ENCRYPTION_KEY || 'plex-reconciliation-smoke-key';
 const { encryptSecret } = require('../services/crypto');
 const { ensureUserDefaultScope } = require('../services/libraries');
@@ -155,9 +156,14 @@ async function restorePlexSettings(snapshot, spaceId) {
   ).catch(() => {});
 }
 
-async function cleanup({ userId, mediaIds = [], jobIds = [] } = {}) {
-  if (jobIds.length > 0) {
-    await pool.query('DELETE FROM sync_jobs WHERE id = ANY($1::int[])', [jobIds]).catch(() => {});
+async function cleanup({ userId, spaceId = null, libraryId = null, mediaIds = [], jobIds = [] } = {}) {
+  if (jobIds.length > 0 && userId && spaceId) {
+    await withAuthorizedScopeTransaction(
+      pool,
+      { spaceId, ...(libraryId ? { libraryId } : {}) },
+      userId,
+      (client) => client.query('DELETE FROM sync_jobs WHERE id = ANY($1::int[])', [jobIds])
+    ).catch(() => {});
   }
   for (const mediaId of mediaIds.filter(Boolean)) {
     await pool.query('DELETE FROM media WHERE id = $1', [mediaId]).catch(() => {});
@@ -279,6 +285,7 @@ async function main() {
   const client = new HttpClient('plex-reconciliation');
   let userId = null;
   let spaceId = null;
+  let libraryId = null;
   let snapshot = null;
   const mediaIds = [];
   const jobIds = [];
@@ -291,7 +298,7 @@ async function main() {
       body: { email, password }
     });
     const scope = await client.request('/api/auth/scope', { expectStatus: 200 });
-    const libraryId = Number(scope.data?.active_library_id || 0) || null;
+    libraryId = Number(scope.data?.active_library_id || 0) || null;
     spaceId = Number(scope.data?.active_space_id || 0) || null;
     assert(libraryId, 'Expected active library for smoke user');
     assert(spaceId, 'Expected active workspace for smoke user');
@@ -420,7 +427,7 @@ async function main() {
     console.log(JSON.stringify(evidence, null, 2));
   } finally {
     await restorePlexSettings(snapshot, spaceId);
-    await cleanup({ userId, mediaIds, jobIds });
+    await cleanup({ userId, spaceId, libraryId, mediaIds, jobIds });
     await fake.close();
     await pool.end().catch(() => {});
   }

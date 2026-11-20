@@ -3,7 +3,11 @@
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const pool = require('../db/pool');
-const { createDurableJobStore } = require('../services/durableJobs');
+const { withAuthorizedScopeTransaction } = require('../db/scopeBroker');
+const {
+  createAuthorizedDurableRequestStore,
+  createAuthorizedDurableWorkerStore
+} = require('../services/durableJobs');
 
 async function loadFixtureScope() {
   const result = await pool.query(
@@ -34,7 +38,6 @@ async function loadFixtureScope() {
 }
 
 async function main() {
-  const store = createDurableJobStore(pool);
   const fixture = await loadFixtureScope();
   const mismatchResult = await pool.query(
     `SELECT id, space_id
@@ -53,9 +56,25 @@ async function main() {
   const provider = 'contract_smoke';
   const workerA = `smoke-a:${runId}`;
   const workerB = `smoke-b:${runId}`;
+  const requestStore = createAuthorizedDurableRequestStore({ pool, allowedJobTypes: [jobType] });
+  const workerStore = createAuthorizedDurableWorkerStore({ pool, allowedJobTypes: [jobType] });
   let checks = 0;
 
-  const enqueue = (suffix, overrides = {}) => store.enqueue({
+  const actorQuery = (work) => withAuthorizedScopeTransaction(
+    pool,
+    { spaceId: fixture.spaceId, libraryId: fixture.libraryId },
+    fixture.userId,
+    work
+  );
+  const lifecycle = (options = {}) => ({
+    ...options,
+    jobType,
+    spaceId: fixture.spaceId,
+    libraryId: fixture.libraryId
+  });
+
+  const enqueue = (suffix, overrides = {}) => requestStore.enqueue({
+    actorId: fixture.userId,
     jobType,
     jobVersion: 1,
     provider,
@@ -82,10 +101,10 @@ async function main() {
 
     await assert.rejects(
       () => enqueue('cross-workspace-library', { libraryId: mismatchedLibraryId }),
-      (error) => error.code === '23503'
+      (error) => error.status === 403
     );
     await assert.rejects(
-      () => pool.query('UPDATE sync_jobs SET public_id = gen_random_uuid() WHERE id = $1', [first.id]),
+      () => actorQuery((client) => client.query('UPDATE sync_jobs SET public_id = gen_random_uuid() WHERE id = $1', [first.id])),
       (error) => error.code === '23514'
     );
     checks += 2;
@@ -96,102 +115,104 @@ async function main() {
     );
     checks += 1;
 
-    const claimed = await store.claimNext({ workerId: workerA, jobTypes: [jobType], leaseSeconds: 30 });
+    const claimed = await workerStore.claimNext({ workerId: workerA, jobTypes: [jobType], leaseSeconds: 30 });
     assert.equal(claimed.id, first.id);
     assert.equal(claimed.attemptCount, 1);
     assert.equal(claimed.leaseOwner, workerA);
     checks += 3;
 
-    const wrongRenewal = await store.renewLease({ jobId: claimed.id, workerId: workerB, leaseSeconds: 30 });
+    const wrongRenewal = await workerStore.renewLease(lifecycle({ jobId: claimed.id, workerId: workerB, leaseSeconds: 30 }));
     assert.equal(wrongRenewal, null);
-    const renewed = await store.renewLease({ jobId: claimed.id, workerId: workerA, leaseSeconds: 30 });
+    const renewed = await workerStore.renewLease(lifecycle({ jobId: claimed.id, workerId: workerA, leaseSeconds: 30 }));
     assert.equal(renewed.id, claimed.id);
-    const progressed = await store.reportProgress({
+    const progressed = await workerStore.reportProgress(lifecycle({
       jobId: claimed.id,
       workerId: workerA,
       progress: { total: 1, processed: 1 }
-    });
+    }));
     assert.equal(progressed.progress.processed, 1);
     checks += 3;
 
-    const waiting = await store.settle({
+    const waiting = await workerStore.settle(lifecycle({
       jobId: claimed.id,
       workerId: workerA,
       status: 'retry_wait',
       error: 'transient provider failure',
       retryAt: new Date(Date.now() - 1000),
       summary: { retryable: true }
-    });
+    }));
     assert.equal(waiting.status, 'retry_wait');
     assert.equal(waiting.leaseOwner, null);
-    const reclaimed = await store.claimNext({ workerId: workerB, jobTypes: [jobType], leaseSeconds: 30 });
+    const reclaimed = await workerStore.claimNext({ workerId: workerB, jobTypes: [jobType], leaseSeconds: 30 });
     assert.equal(reclaimed.id, first.id);
     assert.equal(reclaimed.attemptCount, 2);
-    const succeeded = await store.settle({
+    const succeeded = await workerStore.settle(lifecycle({
       jobId: reclaimed.id,
       workerId: workerB,
       status: 'succeeded',
       summary: { processed: 1 }
-    });
+    }));
     assert.equal(succeeded.status, 'succeeded');
     assert.equal(succeeded.error, null);
     checks += 6;
 
     const runtimeSecret = crypto.randomBytes(18).toString('hex');
     const redactionJob = await enqueue('error-redaction', { maxAttempts: 1 });
-    const redactionClaim = await store.claimNext({ workerId: workerA, jobTypes: [jobType], leaseSeconds: 30 });
+    const redactionClaim = await workerStore.claimNext({ workerId: workerA, jobTypes: [jobType], leaseSeconds: 30 });
     assert.equal(redactionClaim.id, redactionJob.id);
-    const redactedFailure = await store.settle({
+    const redactedFailure = await workerStore.settle(lifecycle({
       jobId: redactionClaim.id,
       workerId: workerA,
       status: 'failed',
       error: `provider failed at https://fixture:${runtimeSecret}@example.invalid/catalog?token=${runtimeSecret}`,
       summary: { failed: true }
-    });
+    }));
     assert.equal(redactedFailure.status, 'failed');
     assert.ok(redactedFailure.error.includes('[REDACTED]'));
     assert.ok(!redactedFailure.error.includes(runtimeSecret));
     checks += 4;
 
     const cancellable = await enqueue('cancel');
-    const cancelled = await store.requestOperatorCancellation({
+    const cancelled = await requestStore.requestOperatorCancellation({
       publicId: cancellable.publicId,
-      spaceId: fixture.spaceId
+      spaceId: fixture.spaceId,
+      actorId: fixture.userId
     });
     assert.equal(cancelled.status, 'cancelled');
     assert.ok(cancelled.cancelledAt);
     checks += 2;
 
     const expiring = await enqueue('expired', { maxAttempts: 1 });
-    const expiringClaim = await store.claimNext({ workerId: workerA, jobTypes: [jobType], leaseSeconds: 30 });
+    const expiringClaim = await workerStore.claimNext({ workerId: workerA, jobTypes: [jobType], leaseSeconds: 30 });
     assert.equal(expiringClaim.id, expiring.id);
-    await pool.query(
+    await actorQuery((client) => client.query(
       `UPDATE sync_jobs
           SET lease_expires_at = CURRENT_TIMESTAMP - INTERVAL '1 second'
         WHERE id = $1`,
       [expiring.id]
-    );
-    const recovered = await store.recoverExpiredLeases({ limit: 10 });
+    ));
+    const recovered = await workerStore.recoverExpiredLeases({ workerId: workerA, jobTypes: [jobType], limit: 10 });
     const recoveredExpired = recovered.find((job) => job.id === expiring.id);
     assert.equal(recoveredExpired.status, 'failed');
     assert.equal(recoveredExpired.error, 'Worker lease expired before completion');
     checks += 3;
 
     const expiringCancellation = await enqueue('expired-cancellation');
-    const cancellationClaim = await store.claimNext({ workerId: workerA, jobTypes: [jobType], leaseSeconds: 30 });
+    const cancellationClaim = await workerStore.claimNext({ workerId: workerA, jobTypes: [jobType], leaseSeconds: 30 });
     assert.equal(cancellationClaim.id, expiringCancellation.id);
-    const cancellationRequested = await store.requestCancellation({
+    const cancellationRequested = await requestStore.requestOperatorCancellation({
       publicId: expiringCancellation.publicId,
-      spaceId: fixture.spaceId
+      spaceId: fixture.spaceId,
+      actorId: fixture.userId
     });
     assert.ok(cancellationRequested.cancelRequestedAt);
-    await pool.query(
+    await actorQuery((client) => client.query(
       `UPDATE sync_jobs
           SET lease_expires_at = CURRENT_TIMESTAMP - INTERVAL '1 second'
         WHERE id = $1`,
       [expiringCancellation.id]
-    );
-    const cancelledRecovery = await store.recoverExpiredLeases({ limit: 10 });
+    ));
+    const cancelledRecovery = await workerStore.recoverExpiredLeases({ workerId: workerA, jobTypes: [jobType], limit: 10 });
     const recoveredCancellation = cancelledRecovery.find((job) => job.id === expiringCancellation.id);
     assert.equal(recoveredCancellation.status, 'cancelled');
     assert.ok(recoveredCancellation.cancelledAt);
@@ -200,23 +221,24 @@ async function main() {
     const concurrentOne = await enqueue('concurrent-1');
     const concurrentTwo = await enqueue('concurrent-2');
     const [claimOne, claimTwo] = await Promise.all([
-      store.claimNext({ workerId: workerA, jobTypes: [jobType], leaseSeconds: 30 }),
-      store.claimNext({ workerId: workerB, jobTypes: [jobType], leaseSeconds: 30 })
+      workerStore.claimNext({ workerId: workerA, jobTypes: [jobType], leaseSeconds: 30 }),
+      workerStore.claimNext({ workerId: workerB, jobTypes: [jobType], leaseSeconds: 30 })
     ]);
     assert.ok(claimOne && claimTwo);
     assert.notEqual(claimOne.id, claimTwo.id);
     assert.deepEqual(new Set([claimOne.id, claimTwo.id]), new Set([concurrentOne.id, concurrentTwo.id]));
     await Promise.all([
-      store.settle({ jobId: claimOne.id, workerId: claimOne.leaseOwner, status: 'succeeded', summary: { processed: 1 } }),
-      store.settle({ jobId: claimTwo.id, workerId: claimTwo.leaseOwner, status: 'succeeded', summary: { processed: 1 } })
+      workerStore.settle(lifecycle({ jobId: claimOne.id, workerId: claimOne.leaseOwner, status: 'succeeded', summary: { processed: 1 } })),
+      workerStore.settle(lifecycle({ jobId: claimTwo.id, workerId: claimTwo.leaseOwner, status: 'succeeded', summary: { processed: 1 } }))
     ]);
     checks += 3;
 
-    const readback = await store.getByPublicId({ publicId: first.publicId, spaceId: fixture.spaceId });
+    const readback = await requestStore.getOperatorJob({ publicId: first.publicId, spaceId: fixture.spaceId, actorId: fixture.userId });
     assert.equal(readback.status, 'succeeded');
     assert.equal(readback.attemptCount, 2);
-    const operatorJobs = await store.listOperatorJobs({
+    const operatorJobs = await requestStore.listOperatorJobs({
       spaceId: fixture.spaceId,
+      actorId: fixture.userId,
       jobType,
       provider,
       limit: 100
@@ -232,10 +254,16 @@ async function main() {
     const operatorFailure = operatorJobs.find((job) => job.publicId === redactionJob.publicId);
     assert.ok(operatorFailure.failureReason.includes('[REDACTED]'));
     assert.ok(!operatorFailure.failureReason.includes(runtimeSecret));
-    const crossWorkspaceReadback = await store.getOperatorJob({
-      publicId: first.publicId,
-      spaceId: mismatchedSpaceId
-    });
+    let crossWorkspaceReadback = null;
+    try {
+      crossWorkspaceReadback = await requestStore.getOperatorJob({
+        publicId: first.publicId,
+        spaceId: mismatchedSpaceId,
+        actorId: fixture.userId
+      });
+    } catch (error) {
+      assert.equal(error.status, 403);
+    }
     assert.equal(crossWorkspaceReadback, null);
     checks += 12;
 
@@ -264,13 +292,13 @@ async function main() {
       ]
     }, null, 2));
   } finally {
-    await pool.query(
+    await actorQuery((client) => client.query(
       `DELETE FROM sync_jobs
         WHERE job_type = $1
           AND provider = $2
           AND idempotency_key LIKE $3`,
       [jobType, provider, `${runId}:%`]
-    );
+    ));
     await pool.end();
   }
 }

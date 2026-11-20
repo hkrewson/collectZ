@@ -198,6 +198,13 @@ async function provisionRuntimeRole(client, options = {}) {
         await client.query(`GRANT EXECUTE ON FUNCTION
           collectz_scope.worker_allows_global(text,text),
           collectz_scope.worker_allows_lifecycle(integer,integer,text,text) TO ${role}`);
+        const lifecycleScopeFunction = await client.query(
+          "SELECT to_regprocedure('collectz_scope.worker_allows_lifecycle_scope(integer,integer,text)') IS NOT NULL AS present"
+        );
+        if (lifecycleScopeFunction.rows[0]?.present) {
+          await client.query(`GRANT EXECUTE ON FUNCTION
+            collectz_scope.worker_allows_lifecycle_scope(integer,integer,text) TO ${role}`);
+        }
         const ingestScopeFunction = await client.query(
           "SELECT to_regprocedure('collectz_scope.worker_allows_ingest(integer,integer,text)') IS NOT NULL AS present"
         );

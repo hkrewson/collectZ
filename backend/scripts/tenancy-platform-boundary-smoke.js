@@ -81,7 +81,15 @@ async function bootstrapAdmin(client, { fallbackEmail, fallbackPassword }) {
     body: { email: bootstrapAdminEmail, password: bootstrapAdminPassword, name: 'Phase5 Boundary Admin' }
   });
   if (registerAdmin.status === 200) {
-    return { email: bootstrapAdminEmail, password: bootstrapAdminPassword, userId: null };
+    const registered = await pool.query(
+      `UPDATE users SET role = 'admin' WHERE email = $1 RETURNING id`,
+      [bootstrapAdminEmail]
+    );
+    return {
+      email: bootstrapAdminEmail,
+      password: bootstrapAdminPassword,
+      userId: Number(registered.rows[0]?.id || 0) || null
+    };
   }
 
   await client.fetchCsrfToken();

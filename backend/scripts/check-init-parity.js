@@ -112,7 +112,8 @@ async function schemaFingerprint(client) {
       'media_review_decisions',
       'media_merge_recommendation_feedback',
       'event_exclusive_sources',
-      'object_relationships'
+      'object_relationships',
+      'sync_jobs'
     ))
     UNION ALL
     SELECT 'policy', schemaname || '.' || tablename || '.' || policyname,

@@ -58,7 +58,7 @@ async function createDatabase(adminClient, dbName, template = null) {
 }
 
 async function collectCounts(client) {
-  const tables = ['users', 'media', 'media_merge_recommendation_feedback', 'event_exclusive_sources', 'object_relationships', 'invites', 'app_integrations', 'feature_flags'];
+  const tables = ['users', 'media', 'media_merge_recommendation_feedback', 'event_exclusive_sources', 'object_relationships', 'sync_jobs', 'invites', 'app_integrations', 'feature_flags'];
   const counts = {};
   for (const table of tables) {
     const result = await client.query(`SELECT COUNT(*)::int AS count FROM ${quoteIdent(table)}`);
@@ -197,6 +197,15 @@ async function seedLegacyFixture(client, baselineVersion) {
   const libraryId = Number(library.rows[0].id);
   await client.query(
     `UPDATE users SET active_space_id = $2, active_library_id = $3 WHERE id = $1`,
+    [userId, spaceId, libraryId]
+  );
+  await client.query(
+    `INSERT INTO sync_jobs (
+       job_type, provider, status, created_by, space_id, library_id, scope, progress
+     ) VALUES (
+       'migration_rehearsal', 'migration_rehearsal', 'queued', $1, $2, $3,
+       jsonb_build_object('spaceId', $2::int, 'libraryId', $3::int), '{}'::jsonb
+     )`,
     [userId, spaceId, libraryId]
   );
   const media = await client.query(
@@ -361,6 +370,23 @@ async function main() {
       evidence.checks.objectRelationshipOwnershipBackfilled = objectRelationship.rows.length === 1
         && objectRelationship.rows[0].ownership_matches === true
         && objectRelationship.rows[0].rls_enabled === true;
+      const syncJobPolicy = await upgradeClient.query(
+        `SELECT j.space_id, j.library_id,
+                j.space_id = l.space_id AS ownership_matches,
+                c.relrowsecurity AS rls_enabled,
+                COUNT(p.policyname)::int AS policy_count
+           FROM sync_jobs j
+           JOIN libraries l ON l.id = j.library_id
+           JOIN pg_class c ON c.oid = 'public.sync_jobs'::regclass
+           LEFT JOIN pg_policies p
+             ON p.schemaname = 'public' AND p.tablename = 'sync_jobs'
+          WHERE j.job_type = 'migration_rehearsal'
+          GROUP BY j.space_id, j.library_id, l.space_id, c.relrowsecurity`
+      );
+      evidence.checks.syncJobOwnershipRetained = syncJobPolicy.rows.length === 1
+        && syncJobPolicy.rows[0].ownership_matches === true
+        && syncJobPolicy.rows[0].rls_enabled === true
+        && Number(syncJobPolicy.rows[0].policy_count) === 7;
     } finally {
       await upgradeClient.end();
     }
@@ -396,6 +422,9 @@ async function main() {
     }
     if (!evidence.checks.objectRelationshipOwnershipBackfilled) {
       throw new Error('Object relationship ownership backfill or RLS activation failed');
+    }
+    if (!evidence.checks.syncJobOwnershipRetained) {
+      throw new Error('Durable job ownership retention or RLS activation failed');
     }
     const postInvite = evidence.checks.postUpgradeInvitationState;
     if (postInvite.tokenColumnPresent || !postInvite.tokenHashRequired || postInvite.missingHashCount !== 0 || postInvite.plaintextValueCount !== 0) {

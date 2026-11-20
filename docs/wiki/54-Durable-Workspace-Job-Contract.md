@@ -41,7 +41,7 @@ The database enforces that an attached library or Provider Connection belongs to
 - Jobs store Provider Connection ids, never provider usernames, passwords, tokens, encrypted credential payloads, authorization headers, or raw provider responses.
 - Structured targets, progress, and summaries reject secret-bearing keys and pass through the audit redaction policy before persistence.
 - Provider credentials are resolved at execution time by the owning adapter after workspace and connection lifecycle checks.
-- Relational ownership does not itself activate RLS for `sync_jobs`; that remains a separate staged table-family decision requiring request, worker, raw-SQL, migration, and restore certification.
+- Migration `144` activates command-separated actor and worker RLS after request, worker, service, certification, migration, fresh-init, and retained-history paths adopt the bounded transaction contracts. Relational ownership remains necessary but is not the only authorization check.
 
 ## Provider adapters
 
@@ -85,4 +85,4 @@ The older numeric-id `/api/media/sync-jobs` list, detail, and result endpoints u
 - restart-capable durable-worker adoption for legacy CWA, Kavita, Metron, CSV, and Plex import execution where payload durability can be designed without persisting uploads or credentials;
 - append-only external source observations;
 - broader work/edition/owned-copy modeling;
-- final `sync_jobs` RLS policy activation/certification and multi-process worker deployment.
+- multi-process worker deployment and transactional outbox adoption where enqueue must share another domain commit.

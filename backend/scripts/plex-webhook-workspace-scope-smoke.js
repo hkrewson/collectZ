@@ -5,6 +5,7 @@
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const pool = require('../db/pool');
+const { withAuthorizedScopeTransaction } = require('../db/scopeBroker');
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 
@@ -255,7 +256,7 @@ async function main() {
       body: actionableForm
     });
     assert(actionable.data?.importEnqueue?.queued === true, 'Actionable workspace webhook did not queue a job');
-    const queued = await pool.query(
+    const queued = await withAuthorizedScopeTransaction(pool, { spaceId, libraryId }, userId, (db) => db.query(
       `SELECT scope
          FROM sync_jobs
         WHERE provider = 'plex'
@@ -263,7 +264,7 @@ async function main() {
         ORDER BY id DESC
         LIMIT 1`,
       [`workspace-scope-action-${suffix}`]
-    );
+    ));
     assert(Number(queued.rows[0]?.scope?.spaceId || 0) === spaceId, 'Queued webhook job lost its workspace id');
     assert(Number(queued.rows[0]?.scope?.libraryId || 0) === libraryId, 'Queued webhook job lost its workspace library id');
 
@@ -301,7 +302,14 @@ async function main() {
       revoked: true
     }, null, 2));
   } finally {
-    if (spaceId) await pool.query("DELETE FROM sync_jobs WHERE provider = 'plex' AND scope->>'spaceId' = $1", [String(spaceId)]).catch(() => {});
+    if (spaceId && userId) {
+      await withAuthorizedScopeTransaction(
+        pool,
+        { spaceId, ...(libraryId ? { libraryId } : {}) },
+        userId,
+        (db) => db.query("DELETE FROM sync_jobs WHERE provider = 'plex' AND space_id = $1", [spaceId])
+      ).catch(() => {});
+    }
     if (spaceId) await pool.query('DELETE FROM app_integrations WHERE space_id = $1', [spaceId]).catch(() => {});
     if (libraryId) await pool.query('DELETE FROM library_memberships WHERE library_id = $1', [libraryId]).catch(() => {});
     if (libraryId) await pool.query('DELETE FROM libraries WHERE id = $1', [libraryId]).catch(() => {});

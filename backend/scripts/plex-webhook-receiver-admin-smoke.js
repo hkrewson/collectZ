@@ -8,6 +8,7 @@ const http = require('http');
 const path = require('path');
 const bcrypt = require('bcrypt');
 const pool = require('../db/pool');
+const { withAuthorizedScopeTransaction } = require('../db/scopeBroker');
 const { encryptSecret } = require('../services/crypto');
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
@@ -175,16 +176,16 @@ async function cleanupTemporaryState({ userId, spaceId, libraryId }) {
   if (userId) await pool.query('DELETE FROM users WHERE id = $1', [userId]).catch(() => {});
 }
 
-async function cleanupWebhookJobs(ratingKey) {
+async function cleanupWebhookJobs({ ratingKey, userId, spaceId, libraryId }) {
   const key = String(ratingKey || '').trim();
   if (!key) return;
-  await pool.query(
+  await withAuthorizedScopeTransaction(pool, { spaceId, libraryId }, userId, (client) => client.query(
     `DELETE FROM sync_jobs
       WHERE provider = 'plex'
         AND job_type IN ('plex_webhook_import_hint', 'plex_webhook_state_hint')
         AND scope->>'ratingKey' = $1`,
     [key]
-  ).catch(() => {});
+  )).catch(() => {});
 }
 
 async function cleanupImportedMedia(ratingKey, title) {
@@ -246,11 +247,11 @@ async function startFakePmsServer(ratingKey, title) {
   };
 }
 
-async function waitForProcessedWebhookJob(ratingKey, timeoutMs = 30000) {
+async function waitForProcessedWebhookJob({ ratingKey, userId, spaceId, libraryId }, timeoutMs = 30000) {
   const deadline = Date.now() + timeoutMs;
   let last = null;
   while (Date.now() < deadline) {
-    const readback = await pool.query(
+    const readback = await withAuthorizedScopeTransaction(pool, { spaceId, libraryId }, userId, (client) => client.query(
       `SELECT id, job_type, provider, status, scope, progress, summary, error
          FROM sync_jobs
         WHERE provider = 'plex'
@@ -259,7 +260,7 @@ async function waitForProcessedWebhookJob(ratingKey, timeoutMs = 30000) {
         ORDER BY updated_at DESC
         LIMIT 1`,
       [ratingKey]
-    );
+    ));
     last = readback.rows[0] || null;
     if (last && ['succeeded', 'failed'].includes(String(last.status))) return last;
     await sleep(500);
@@ -267,11 +268,11 @@ async function waitForProcessedWebhookJob(ratingKey, timeoutMs = 30000) {
   throw new Error(`Timed out waiting for Plex webhook import auto-processing: ${JSON.stringify(last)}`);
 }
 
-async function waitForProcessedStateJob(ratingKey, event, timeoutMs = 30000) {
+async function waitForProcessedStateJob({ ratingKey, event, userId, spaceId, libraryId }, timeoutMs = 30000) {
   const deadline = Date.now() + timeoutMs;
   let last = null;
   while (Date.now() < deadline) {
-    const readback = await pool.query(
+    const readback = await withAuthorizedScopeTransaction(pool, { spaceId, libraryId }, userId, (client) => client.query(
       `SELECT id, job_type, provider, status, scope, progress, summary, error
          FROM sync_jobs
         WHERE provider = 'plex'
@@ -281,7 +282,7 @@ async function waitForProcessedStateJob(ratingKey, event, timeoutMs = 30000) {
         ORDER BY updated_at DESC
         LIMIT 1`,
       [ratingKey, event]
-    );
+    ));
     last = readback.rows[0] || null;
     if (last && ['succeeded', 'failed'].includes(String(last.status))) return last;
     await sleep(500);
@@ -445,7 +446,7 @@ async function main() {
     assert(!dbReadback.rows[0]?.plex_webhook_receiver_last_attempt_error, 'Expected accepted delivery without error');
     assert(String(dbReadback.rows[0]?.plex_webhook_receiver_last_content_type || '').startsWith('multipart/form-data'), 'Expected multipart content-type readback');
 
-    const queuedJobs = await pool.query(
+    const queuedJobs = await withAuthorizedScopeTransaction(pool, { spaceId, libraryId }, userId, (client) => client.query(
       `SELECT id, job_type, provider, status, space_id, library_id, scope, progress, summary
          FROM sync_jobs
         WHERE provider = 'plex'
@@ -453,7 +454,7 @@ async function main() {
           AND scope->>'ratingKey' = $1
         ORDER BY created_at DESC`,
       [ratingKey]
-    );
+    ));
     assert(queuedJobs.rowCount === 1, `Expected one deduped webhook import hint job, got ${queuedJobs.rowCount}`);
     assert(queuedJobs.rows[0]?.status === 'queued', `Expected queued webhook import hint job: ${JSON.stringify(queuedJobs.rows[0])}`);
     assert(Number(queuedJobs.rows[0]?.space_id) > 0, `Expected relational webhook workspace ownership: ${JSON.stringify(queuedJobs.rows[0])}`);
@@ -469,7 +470,7 @@ async function main() {
     assert(autoStatus.data?.runtime?.enabled === true, `Expected webhook import auto-processor enabled: ${JSON.stringify(autoStatus.data)}`);
     assert(autoStatus.data?.processingMode === 'auto_webhook_event_processing', `Expected auto processor readback: ${JSON.stringify(autoStatus.data)}`);
 
-    const processedJob = await waitForProcessedWebhookJob(ratingKey);
+    const processedJob = await waitForProcessedWebhookJob({ ratingKey, userId, spaceId, libraryId });
     assert(processedJob?.status === 'succeeded', `Expected processed webhook import job to succeed: ${JSON.stringify(processedJob)}`);
     assert(processedJob?.summary?.processingMode === 'single_rating_key_import', `Expected single-rating-key processing mode: ${JSON.stringify(processedJob)}`);
     assert(processedJob?.summary?.imported === 1, `Expected one processed Plex metadata item: ${JSON.stringify(processedJob)}`);
@@ -477,10 +478,10 @@ async function main() {
     assert(fakePms.requests.some((request) => request.pathname === `/library/metadata/${ratingKey}` && request.tokenMatched), `Expected fake PMS metadata readback with Plex token: ${JSON.stringify(fakePms.requests)}`);
     assertSecretFree(processedJob, 'processed webhook job readback', rawToken);
 
-    const watchedJob = await waitForProcessedStateJob(ratingKey, 'media.scrobble');
+    const watchedJob = await waitForProcessedStateJob({ ratingKey, event: 'media.scrobble', userId, spaceId, libraryId });
     assert(watchedJob?.status === 'succeeded', `Expected watched-state refresh job to succeed: ${JSON.stringify(watchedJob)}`);
     assert(watchedJob?.summary?.processingMode === 'single_rating_key_watch_state_refresh', `Expected watched-state processing mode: ${JSON.stringify(watchedJob)}`);
-    const ratingJob = await waitForProcessedStateJob(ratingKey, 'media.rate');
+    const ratingJob = await waitForProcessedStateJob({ ratingKey, event: 'media.rate', userId, spaceId, libraryId });
     assert(ratingJob?.status === 'succeeded', `Expected rating refresh job to succeed: ${JSON.stringify(ratingJob)}`);
     assert(ratingJob?.summary?.processingMode === 'single_rating_key_rating_refresh', `Expected rating processing mode: ${JSON.stringify(ratingJob)}`);
 
@@ -558,7 +559,7 @@ async function main() {
     console.log(JSON.stringify(evidence, null, 2));
   } finally {
     await cleanupImportedMedia(ratingKey, importedTitle);
-    await cleanupWebhookJobs(ratingKey);
+    await cleanupWebhookJobs({ ratingKey, userId, spaceId, libraryId });
     if (fakePms) await fakePms.close().catch(() => {});
     await cleanupTemporaryState({ userId, spaceId, libraryId });
     await pool.end().catch(() => {});

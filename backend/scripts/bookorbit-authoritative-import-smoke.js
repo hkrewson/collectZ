@@ -84,18 +84,18 @@ function entry({ id, title, isbn, mime = 'application/epub+zip', extension = 'ep
   ].join('');
 }
 
-async function waitForDurableBookOrbitJob(connectionId) {
+async function waitForDurableBookOrbitJob({ connectionId, spaceId, libraryId, actorId }) {
   const deadline = Date.now() + 30000;
   let row = null;
   while (Date.now() < deadline) {
-    const result = await pool.query(
+    const result = await withAuthorizedScopeTransaction(pool, { spaceId, libraryId }, actorId, (client) => client.query(
       `SELECT id, public_id, status, attempt_count, max_attempts, space_id, library_id,
               provider_connection_id, target_ref, summary, error, lease_owner, lease_expires_at
          FROM sync_jobs
         WHERE job_type = 'bookorbit_sync' AND provider_connection_id = $1
         ORDER BY id DESC LIMIT 1`,
       [connectionId]
-    );
+    ));
     row = result.rows[0] || null;
     if (row && ['succeeded', 'failed', 'cancelled'].includes(row.status)) return row;
     await new Promise((resolve) => setTimeout(resolve, 250));
@@ -439,7 +439,12 @@ async function main() {
     const scheduled = await mediaRouter.runBookOrbitSyncSchedulerOnce({ spaceId });
     assert.equal(scheduled.targetCount, 1);
     assert.equal(scheduled.jobsQueued, 1);
-    const durableJob = await waitForDurableBookOrbitJob(firstConnectionId);
+    const durableJob = await waitForDurableBookOrbitJob({
+      connectionId: firstConnectionId,
+      spaceId,
+      libraryId,
+      actorId: userId
+    });
     assert.equal(durableJob.status, 'succeeded');
     assert.equal(durableJob.attempt_count, 1);
     assert.equal(durableJob.max_attempts, 3);

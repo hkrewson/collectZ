@@ -9,6 +9,7 @@ const path = require('path');
 const { Pool } = require('pg');
 const {
   assertScopeBrokerPolicy,
+  withAuthorizedScopeTransaction,
   withAuthorizedWorkerTransaction
 } = require('../db/scopeBroker');
 const {
@@ -36,6 +37,7 @@ async function main() {
   if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required');
   const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl, max: 2 });
   const fixtureJobIds = [];
+  let cleanupAuthorization = null;
   const labels = [];
   const check = async (label, work) => {
     await work();
@@ -59,7 +61,13 @@ async function main() {
       : Number(scopeResult.rows[0].library_id);
     const actorId = Number(scopeResult.rows[0].actor_id);
     assert.ok(libraryId, 'An active library is required for webhook-ingestion certification');
-    const rawStore = createDurableJobStore(pool);
+    cleanupAuthorization = { actorId, spaceId, libraryId };
+    const actorQuery = (work) => withAuthorizedScopeTransaction(
+      pool,
+      { spaceId, libraryId },
+      actorId,
+      work
+    );
     const requestStore = createAuthorizedDurableRequestStore({
       pool,
       allowedJobTypes: ['worker_scope_smoke']
@@ -106,16 +114,17 @@ async function main() {
       allowedJobTypes: ['worker_scope_read']
     });
     const enqueueFixture = async (suffix, maxAttempts = 2) => {
-      const job = await rawStore.enqueue({
-        jobType: 'worker_scope_smoke',
-        provider: 'worker_scope_smoke',
-        spaceId,
-        libraryId,
-        maxAttempts,
-        idempotencyKey: `worker-scope-smoke:${suffix}:${crypto.randomUUID()}`,
-        targetRef: { fixture: true },
-        progress: { processed: 0 }
-      });
+      const job = await actorQuery((client) => createDurableJobStore(client).enqueue({
+          jobType: 'worker_scope_smoke',
+          provider: 'worker_scope_smoke',
+          createdBy: actorId,
+          spaceId,
+          libraryId,
+          maxAttempts,
+          idempotencyKey: `worker-scope-smoke:${suffix}:${crypto.randomUUID()}`,
+          targetRef: { fixture: true },
+          progress: { processed: 0 }
+        }));
       fixtureJobIds.push(job.id);
       return job;
     };
@@ -137,6 +146,8 @@ async function main() {
       );
       assert.equal(result.rows[0].global_allowed, false);
       assert.equal(result.rows[0].lifecycle_allowed, false);
+      const hidden = await pool.query('SELECT COUNT(*)::int AS count FROM sync_jobs');
+      assert.equal(hidden.rows[0].count, 0);
     });
     await check('claim grant is action and job-type bounded', async () => {
       await withAuthorizedWorkerTransaction(pool, {
@@ -343,7 +354,7 @@ async function main() {
       assert.deepEqual(settled.summary, { imported: 1 });
     });
     await check('authenticated job readback preserves creator and workspace history rules', async () => {
-      const inserted = await pool.query(
+      const inserted = await actorQuery((client) => client.query(
         `INSERT INTO sync_jobs (
            job_type, provider, status, created_by, space_id, library_id, scope, progress, summary,
            started_at, finished_at
@@ -358,7 +369,7 @@ async function main() {
           JSON.stringify({ spaceId, libraryId, fixture: true }),
           JSON.stringify({ spaceId, libraryId: 2147483000, terminalTombstone: true, fixture: true })
         ]
-      );
+      ));
       const ownedId = Number(inserted.rows.find((row) => row.created_by !== null).id);
       const tombstoneId = Number(inserted.rows.find((row) => row.created_by === null).id);
       fixtureJobIds.push(ownedId, tombstoneId);
@@ -416,12 +427,12 @@ async function main() {
         leaseSeconds: 30
       });
       assert.equal(claimed.id, queued.id);
-      await pool.query(
+      await actorQuery((client) => client.query(
         `UPDATE sync_jobs
             SET lease_expires_at = CURRENT_TIMESTAMP - INTERVAL '1 second'
           WHERE id = $1`,
         [claimed.id]
-      );
+      ));
       const recovered = await workerStore.recoverExpiredLeases({
         workerId: 'worker:smoke-recovery',
         jobTypes: ['worker_scope_smoke'],
@@ -467,13 +478,14 @@ async function main() {
         }),
         (error) => error.code === 'durable_job_invalid_input'
       );
-      const hidden = await rawStore.enqueue({
-        jobType: 'worker_scope_other',
-        provider: 'worker_scope_smoke',
-        spaceId,
-        libraryId,
-        idempotencyKey: `worker-scope-hidden:${crypto.randomUUID()}`
-      });
+      const hidden = await actorQuery((client) => createDurableJobStore(client).enqueue({
+          jobType: 'worker_scope_other',
+          provider: 'worker_scope_smoke',
+          createdBy: actorId,
+          spaceId,
+          libraryId,
+          idempotencyKey: `worker-scope-hidden:${crypto.randomUUID()}`
+        }));
       fixtureJobIds.push(hidden.id);
       const detail = await requestStore.getOperatorJob({ publicId: hidden.publicId, spaceId, actorId });
       assert.equal(detail, null);
@@ -485,7 +497,7 @@ async function main() {
       assert.equal(cancelled, null);
     });
     await check('authorized service store observes and repairs only allowlisted legacy jobs', async () => {
-      const inserted = await pool.query(
+      const inserted = await actorQuery((client) => client.query(
         `INSERT INTO sync_jobs (
            job_type, provider, status, created_by, space_id, library_id, scope, progress
          ) VALUES (
@@ -493,13 +505,29 @@ async function main() {
          )
          RETURNING id`,
         [actorId, spaceId, libraryId, JSON.stringify({ spaceId, ...(libraryId ? { libraryId } : {}) })]
-      );
+      ));
       fixtureJobIds.push(inserted.rows[0].id);
+      await withAuthorizedWorkerTransaction(pool, {
+        action: 'observe',
+        workerId: 'service:observer-policy',
+        jobTypes: ['worker_scope_legacy']
+      }, async (client) => {
+        const visible = await client.query('SELECT id FROM sync_jobs WHERE id = $1', [inserted.rows[0].id]);
+        assert.equal(visible.rowCount, 1);
+        const unchanged = await client.query(
+          `UPDATE sync_jobs SET error = 'observer must not mutate' WHERE id = $1 RETURNING id`,
+          [inserted.rows[0].id]
+        );
+        assert.equal(unchanged.rowCount, 0);
+      });
       const counts = await serviceStore.observeStatusCounts();
       assert.equal(counts.find((row) => row.status === 'running')?.count, 1);
       const recovered = await serviceStore.recoverStaleLegacyJobs();
       assert.equal(recovered, 1);
-      const row = await pool.query('SELECT status, error FROM sync_jobs WHERE id = $1', [inserted.rows[0].id]);
+      const row = await actorQuery((client) => client.query(
+        'SELECT status, error FROM sync_jobs WHERE id = $1',
+        [inserted.rows[0].id]
+      ));
       assert.equal(row.rows[0].status, 'failed');
       assert.equal(row.rows[0].error, 'Process restarted before job completion');
     });
@@ -578,10 +606,10 @@ async function main() {
       const workerId = 'worker:webhook-recovery-claim';
       const claimed = await webhookWorkerStore.claimNext({ workerId, jobId: inserted.job.id, leaseSeconds: 30 });
       assert.equal(claimed.id, inserted.job.id);
-      await pool.query(
+      await actorQuery((client) => client.query(
         `UPDATE sync_jobs SET lease_expires_at = CURRENT_TIMESTAMP - INTERVAL '1 second' WHERE id = $1`,
         [claimed.id]
-      );
+      ));
       const recovered = await webhookWorkerStore.recoverExpiredLeases({
         workerId: 'worker:webhook-recovery',
         limit: 10
@@ -600,8 +628,14 @@ async function main() {
     fs.writeFileSync(outputPath, `${JSON.stringify(evidence, null, 2)}\n`);
     console.log(`Durable worker scope broker smoke passed (${labels.length}/${labels.length}).`);
   } finally {
-    if (fixtureJobIds.length > 0) {
-      await pool.query('DELETE FROM sync_jobs WHERE id = ANY($1::int[])', [fixtureJobIds]).catch(() => {});
+    if (fixtureJobIds.length > 0 && cleanupAuthorization) {
+      const { actorId, spaceId, libraryId } = cleanupAuthorization;
+      await withAuthorizedScopeTransaction(
+        pool,
+        { spaceId, libraryId },
+        actorId,
+        (client) => client.query('DELETE FROM sync_jobs WHERE id = ANY($1::int[])', [fixtureJobIds])
+      ).catch(() => {});
     }
     await pool.end();
   }
