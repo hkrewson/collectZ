@@ -1,7 +1,7 @@
 # Local Release Go/No-Go Preflight
 
 - Version: `3.28.2`
-- Generated: `2026-11-21T06:26:39.022Z`
+- Generated: `2026-11-21T06:49:13.634Z`
 - Base URL: `http://localhost:3201`
 
 ## Gate Results

@@ -670,6 +670,8 @@ results.push(run('runtime database role is non-owner, verifier-provisioned, and 
   assert.ok(workflowSource.includes('runtime database was not empty before migration service startup'));
   assert.ok(workflowSource.includes('Upload runtime migration authority evidence'));
   assert.ok(workflowSource.includes('runtime-migration-authority-evidence/runtime-migration-authority-evidence.json'));
+  assert.ok(workflowSource.includes('backend node scripts/runtime-migration-authority-smoke.js'));
+  assert.ok(!workflowSource.includes('backend npm run test:runtime-migration-authority'));
 }));
 
 results.push(run('sensitive operations require a machine-checked session-bound recent password proof', () => {

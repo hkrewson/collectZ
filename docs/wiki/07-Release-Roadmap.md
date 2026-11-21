@@ -69,6 +69,19 @@ The `3.27.x` architecture line and the `3.28.x` provider-job, BookOrbit metadata
 - **What remains in the milestone:** Add backup/restore authority evidence for migration-built databases, prove control-plane startup against a migration-built schema without violating the canonical-stack policy, decide whether `init.sql` becomes generated output or is retired, and complete the required `3.29.0` version closeout.
 - **Recommended commit message:** `Enforce 3.29.0 migration-built runtime authority in hosted Core certification`.
 
+### Hosted runtime-authority execution repair checkpoint
+
+- **Roadmap slice:** `3.29.0 — Migration-Chain Fresh Installation Authority`, hosted Core runtime-authority command repair.
+- **Project docs/checklists used:** `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, and `docs/wiki/17-Release-Go-No-Go-Checklist.md`.
+- **Verified facts:** Build and Publish Images run `44876467562` failed only `core-runtime-smoke`; migration-check, compose smoke, Core RBAC, Core browser regression, dependency scan, secret scan, frontend quality, and CodeQL all passed. The Core database was observed empty and the production images built and started successfully. The failure occurred when the new authority step invoked `npm`, which the production backend image deliberately removes after dependency installation. No runtime-authority artifact was created, so its `if-no-files-found: error` upload also failed as designed.
+- **Runtime verification used:** The canonical production-shaped backend confirms `node` is available and directly executes `scripts/runtime-migration-authority-smoke.js`; the fail-closed negative path still rejects a retained database without the explicit empty-database proof. The retained stack remained healthy and no application data was changed.
+- **CI/checks run:** Hosted failure/job log inspection for run `44876467562`; backend unit/source suite (`388` assertions plus `57` Node tests); workflow YAML parse; standard local release gate (`14/14`, including OpenAPI, frontend unit/build/quality, dependency audits, strict release preflight, and diff check); Node syntax and diff hygiene.
+- **Files changed:** Hosted Core runtime command now invokes the authority script directly with `node`; source-contract coverage prevents reintroducing the unavailable production-image `npm` path; CI documentation records the production image assumption; and this roadmap checkpoint records the hosted failure and repair.
+- **Blocked/unverified:** The repaired `core-runtime-smoke`, runtime-authority artifact upload, downstream image/SBOM jobs, release preflight, and auto-tag require this repair commit to be pushed. The previous failure produced no usable authority artifact.
+- **Risks or follow-ups:** Artifact upload remains intentionally strict: if the direct Node command fails or produces no evidence, the runtime job stays red. The repair changes only the command runner, not the authority checks or database behavior.
+- **What remains in the milestone:** Rerun hosted certification after push, then add backup/restore authority evidence, prove control-plane startup against a migration-built schema, decide whether `init.sql` becomes generated output or is retired, and complete the required `3.29.0` version closeout.
+- **Recommended commit message:** `Repair 3.29.0 hosted runtime authority execution for production images`.
+
 ### Milestone boundary
 
 - This slice changes certification authority and repairs the reference schema; it does not alter retained databases or rewrite deployed migrations.

@@ -819,7 +819,7 @@ jobs:
           docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T \
             -e RUNTIME_AUTHORITY_EMPTY_DATABASE_PROOF=true \
             -e RUNTIME_MIGRATION_AUTHORITY_OUTPUT=/tmp/runtime-migration-authority-evidence.json \
-            backend npm run test:runtime-migration-authority
+            backend node scripts/runtime-migration-authority-smoke.js
           docker cp "${BACKEND_CID}:/tmp/runtime-migration-authority-evidence.json" \
             artifacts/runtime-migration-authority/runtime-migration-authority-evidence.json
           docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T -e BASE_URL=http://frontend:3000 -e PLAYWRIGHT_E2E_BYPASS_TOKEN="${PLAYWRIGHT_E2E_BYPASS_TOKEN}" backend node scripts/homelab-edition-boundary-smoke.js
