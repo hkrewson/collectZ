@@ -2,6 +2,7 @@
 
 'use strict';
 
+const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const pool = require('../db/pool');
 const { ensureUserDefaultScope } = require('../services/libraries');
@@ -128,7 +129,7 @@ async function main() {
   const suffix = Date.now();
   const adminEmail = `platform-admin-${suffix}@example.com`;
   const userEmail = `platform-user-${suffix}@example.com`;
-  const password = 'Passw0rd!123';
+  const password = `${crypto.randomBytes(24).toString('base64url')}A1!`;
   let adminUserId = null;
   let userUserId = null;
 

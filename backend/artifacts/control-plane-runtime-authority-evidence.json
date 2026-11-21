@@ -1,0 +1,99 @@
+{
+  "generatedAt": "2026-11-21T15:04:07.776Z",
+  "status": "passed",
+  "certificationMode": "migration_built_control_plane_runtime_authority",
+  "authority": {
+    "generatedAt": "2026-11-21T15:04:08.490Z",
+    "status": "passed",
+    "certificationMode": "migration_built_runtime_authority",
+    "authority": {
+      "source": "append_only_migration_chain",
+      "databaseOrigin": "empty_database",
+      "expectedMigrationVersion": 144,
+      "appliedMigrationVersion": 144,
+      "appliedMigrationCount": 144,
+      "everyMigrationApplied": true
+    },
+    "runtime": {
+      "role": "ephemeral_or_runtime_credential_redacted",
+      "nonOwner": true,
+      "migrationsMode": "external",
+      "edition": "platform"
+    },
+    "bootstrap": {
+      "featureFlags": 8,
+      "collectibleCategories": 8,
+      "appIntegrations": 1,
+      "appSettings": 1
+    },
+    "checks": [
+      {
+        "id": "empty_database_observed_before_migrate",
+        "pass": true
+      },
+      {
+        "id": "runtime_uses_external_migration_mode",
+        "pass": true,
+        "actual": "external"
+      },
+      {
+        "id": "migration_chain_reaches_expected_version",
+        "pass": true,
+        "expected": 144,
+        "actual": 144
+      },
+      {
+        "id": "migration_chain_contains_every_version",
+        "pass": true,
+        "expected": 144,
+        "actual": 144
+      },
+      {
+        "id": "required_bootstrap_rows_present",
+        "pass": true,
+        "counts": {
+          "feature_flags": 8,
+          "collectible_categories": 8,
+          "app_integrations": 1,
+          "app_settings": 1
+        }
+      },
+      {
+        "id": "runtime_credential_is_non_owner",
+        "pass": true,
+        "violations": []
+      }
+    ]
+  },
+  "runtime": {
+    "edition": "platform",
+    "role": "ephemeral_or_runtime_credential_redacted",
+    "migrationsMode": "external",
+    "executionBoundary": "canonical_backend_container_unpublished_port"
+  },
+  "checks": [
+    {
+      "id": "empty_database_observed_before_migrate",
+      "pass": true
+    },
+    {
+      "id": "migration_authority_passed",
+      "pass": true,
+      "detail": {
+        "migrationVersion": 144
+      }
+    },
+    {
+      "id": "platform_backend_started_healthy",
+      "pass": true
+    },
+    {
+      "id": "platform_edition_contract_loaded",
+      "pass": true
+    },
+    {
+      "id": "platform_boundary_smoke_passed",
+      "pass": true
+    }
+  ]
+}

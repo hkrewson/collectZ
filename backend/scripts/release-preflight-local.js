@@ -26,6 +26,11 @@ const initParityEvidencePath = path.join(backendRoot, 'artifacts', 'init-parity-
 const migrationRehearsalEvidencePath = path.join(backendRoot, 'artifacts', 'migration-rehearsal-evidence.json');
 const identityCertificationEvidencePath = path.join(backendRoot, 'artifacts', 'identity-upgrade-certification-evidence.json');
 const runtimeRoleEvidencePath = path.join(backendRoot, 'artifacts', 'runtime-role-certification-evidence.json');
+const controlPlaneRuntimeEvidencePath = path.join(
+  backendRoot,
+  'artifacts',
+  'control-plane-runtime-authority-evidence.json'
+);
 const externalIdentityEvidencePath = path.join(
   backendRoot,
   'artifacts',
@@ -364,6 +369,7 @@ function buildMarkdownReport({ gates, noteExists, noteText }) {
   lines.push(`- \`${path.relative(repoRoot, migrationRehearsalEvidencePath)}\`: ${fs.existsSync(migrationRehearsalEvidencePath) ? 'present' : 'missing'}`);
   lines.push(`- \`${path.relative(repoRoot, identityCertificationEvidencePath)}\`: ${fs.existsSync(identityCertificationEvidencePath) ? 'present' : 'missing'}`);
   lines.push(`- \`${path.relative(repoRoot, runtimeRoleEvidencePath)}\`: ${fs.existsSync(runtimeRoleEvidencePath) ? 'present' : 'missing'}`);
+  lines.push(`- \`${path.relative(repoRoot, controlPlaneRuntimeEvidencePath)}\`: ${fs.existsSync(controlPlaneRuntimeEvidencePath) ? 'present' : 'missing'}`);
   lines.push(`- \`${path.relative(repoRoot, externalIdentityEvidencePath)}\`: ${fs.existsSync(externalIdentityEvidencePath) ? 'present' : 'missing'}`);
   lines.push(`- \`artifacts/observability-evidence/observability-release-evidence.json\`: ${fs.existsSync(observabilityEvidencePath) ? 'present' : 'missing'}`);
   lines.push(`- \`preflight-go-no-go.md\`: will be written by this helper`);
@@ -576,6 +582,42 @@ async function main() {
         : 'runtime role certification, provisioning inventory, or migration-built runtime authority evidence is missing, stale, or failed'
     )
   );
+
+  const controlPlaneRuntimeEvidence = safeReadJson(controlPlaneRuntimeEvidencePath);
+  const controlPlaneChecks = Array.isArray(controlPlaneRuntimeEvidence?.checks)
+    ? controlPlaneRuntimeEvidence.checks
+    : [];
+  const controlPlaneAuthority = controlPlaneRuntimeEvidence?.authority;
+  const controlPlaneRuntimeCertified = Boolean(
+    controlPlaneRuntimeEvidence
+    && controlPlaneRuntimeEvidence.status === 'passed'
+    && controlPlaneRuntimeEvidence.certificationMode === 'migration_built_control_plane_runtime_authority'
+    && controlPlaneRuntimeEvidence.runtime?.edition === 'platform'
+    && controlPlaneRuntimeEvidence.runtime?.role === 'ephemeral_or_runtime_credential_redacted'
+    && controlPlaneRuntimeEvidence.runtime?.migrationsMode === 'external'
+    && controlPlaneRuntimeEvidence.runtime?.executionBoundary === 'canonical_backend_container_unpublished_port'
+    && controlPlaneAuthority?.status === 'passed'
+    && controlPlaneAuthority.certificationMode === 'migration_built_runtime_authority'
+    && controlPlaneAuthority.authority?.source === 'append_only_migration_chain'
+    && controlPlaneAuthority.authority?.databaseOrigin === 'empty_database'
+    && Number(controlPlaneAuthority.authority?.appliedMigrationVersion) === Number(migrationEvidence?.latestVersion)
+    && controlPlaneAuthority.authority?.everyMigrationApplied === true
+    && controlPlaneAuthority.runtime?.edition === 'platform'
+    && controlPlaneAuthority.runtime?.nonOwner === true
+    && controlPlaneAuthority.runtime?.migrationsMode === 'external'
+    && Array.isArray(controlPlaneAuthority.checks)
+    && controlPlaneAuthority.checks.length >= 6
+    && controlPlaneAuthority.checks.every((check) => check.pass === true)
+    && controlPlaneChecks.length >= 5
+    && controlPlaneChecks.every((check) => check.pass === true)
+  );
+  gates.push(buildGate(
+    'Control-plane migration-built runtime authority evidence',
+    controlPlaneRuntimeCertified ? 'PASS' : 'FAIL',
+    controlPlaneRuntimeCertified
+      ? `passed ${controlPlaneChecks.length}/${controlPlaneChecks.length} startup and platform-boundary checks through migration ${controlPlaneAuthority.authority.appliedMigrationVersion}`
+      : 'control-plane runtime authority evidence is missing, stale, failed, over-privileged, or not migration-built'
+  ));
 
   const observabilityEvidence = safeReadJson(observabilityEvidencePath);
   const observabilityPassed =

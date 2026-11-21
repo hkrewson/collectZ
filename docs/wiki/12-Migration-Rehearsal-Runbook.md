@@ -100,6 +100,12 @@ WHERE table_name = 'app_integrations'
   - verifies the authority database reached every expected migration,
   - inventories relations, columns, indexes, constraints, triggers, functions, scope-security objects, migration rows, feature flags, and required bootstrap rows,
   - compares the authority database with the maintained `init.sql` reference and requires zero drift.
+- Canonical control-plane follow-through: `backend/artifacts/control-plane-runtime-authority-evidence.json`
+  - is produced inside the existing canonical backend/database containers, not a second stack,
+  - creates an empty scratch database and applies the same complete append-only chain,
+  - starts a production-mode Platform backend through a redacted non-owner runtime credential on an unpublished container-local port,
+  - requires the Platform workspace contract and full Platform edition boundary smoke,
+  - removes the temporary process, database, and runtime/broker roles before succeeding.
 
 ## Notes
 

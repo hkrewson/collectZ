@@ -193,6 +193,10 @@ const observabilityRuntimeSource = fs.readFileSync(require.resolve('../services/
 const releasePreflightLocalSource = fs.readFileSync(require.resolve('../scripts/release-preflight-local'), 'utf8');
 const localReleaseGateSource = fs.readFileSync(require.resolve('../../scripts/local-release-gate'), 'utf8');
 const localRuntimeSmokeSource = fs.readFileSync(require.resolve('../../scripts/local-runtime-smoke'), 'utf8');
+const controlPlaneRuntimeAuthoritySource = fs.readFileSync(
+  require.resolve('../scripts/control-plane-runtime-authority-certification'),
+  'utf8'
+);
 const localGitHooksInstallerSource = fs.readFileSync(require.resolve('../../scripts/install-local-git-hooks'), 'utf8');
 const ciComposeWriterSource = fs.readFileSync(require.resolve('../../scripts/write-ci-compose-overrides'), 'utf8');
 const artMigrationBackfillSmokeSource = fs.readFileSync(require.resolve('../scripts/art-migration-backfill-smoke'), 'utf8');
@@ -636,6 +640,14 @@ results.push(run('runtime database role is non-owner, verifier-provisioned, and 
   assert.ok(runtimeMigrationAuthoritySource.includes('RUNTIME_AUTHORITY_EMPTY_DATABASE_PROOF'));
   assert.ok(runtimeMigrationAuthoritySource.includes('RUNTIME_MIGRATION_AUTHORITY_OUTPUT'));
   assert.ok(backendPackageJson.scripts['test:runtime-migration-authority']);
+  assert.ok(backendPackageJson.scripts['test:control-plane-runtime-authority']);
+  assert.ok(controlPlaneRuntimeAuthoritySource.includes("certificationMode: 'migration_built_control_plane_runtime_authority'"));
+  assert.ok(controlPlaneRuntimeAuthoritySource.includes("executionBoundary: 'canonical_backend_container_unpublished_port'"));
+  assert.ok(controlPlaneRuntimeAuthoritySource.includes("APP_EDITION: 'platform'"));
+  assert.ok(controlPlaneRuntimeAuthoritySource.includes("DATABASE_MIGRATIONS_MODE: 'external'"));
+  assert.ok(controlPlaneRuntimeAuthoritySource.includes("DATABASE_RUNTIME_ROLE_POLICY: 'enforce'"));
+  assert.ok(controlPlaneRuntimeAuthoritySource.includes("'platform-edition-boundary-smoke.js'"));
+  assert.ok(!controlPlaneRuntimeAuthoritySource.includes('docker compose'));
 
   const composeSource = fs.readFileSync(require.resolve('../../docker-compose.yml'), 'utf8');
   const serviceBlock = (name) => {
@@ -668,6 +680,7 @@ results.push(run('runtime database role is non-owner, verifier-provisioned, and 
   assert.ok(releasePreflightSource.includes('runtimeRoleInventory?.contractVersion'));
   assert.ok(releasePreflightSource.includes("runtimeAuthority.certificationMode === 'migration_built_runtime_authority'"));
   assert.ok(releasePreflightSource.includes("restoreAuthority.certificationMode === 'restored_migration_built_runtime_authority'"));
+  assert.ok(releasePreflightSource.includes("controlPlaneRuntimeEvidence.certificationMode === 'migration_built_control_plane_runtime_authority'"));
   const workflowSource = fs.readFileSync(path.resolve(__dirname, '..', '..', '.github', 'workflows', 'docker-publish.yml'), 'utf8');
   assert.ok(workflowSource.includes('Download runtime role certification evidence artifact'));
   assert.ok(workflowSource.includes('runtime-role-certification-evidence/runtime-role-certification-evidence.json'));

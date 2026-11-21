@@ -104,6 +104,7 @@
     "test:identity-upgrade-certification": "node scripts/identity-upgrade-certification.js",
     "test:runtime-role-certification": "node scripts/runtime-role-certification.js",
     "test:runtime-migration-authority": "node scripts/runtime-migration-authority-smoke.js",
+    "test:control-plane-runtime-authority": "node scripts/control-plane-runtime-authority-certification.js",
     "db:migrate": "node scripts/migrate-and-provision.js",
     "test:workspace-ownership-certification": "node scripts/workspace-ownership-certification.js",
     "test:sensitive-operation-certification": "node scripts/sensitive-operation-certification.js",
