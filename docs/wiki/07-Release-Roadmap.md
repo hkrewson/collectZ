@@ -108,6 +108,19 @@ The `3.27.x` architecture line and the `3.28.x` provider-job, BookOrbit metadata
 - **What remains in the milestone:** Decide whether `init.sql` becomes generated output or is retired, rerun hosted certification after push, and complete the required `3.29.0` version closeout.
 - **Recommended commit message:** `Certify 3.29.0 migration-built control-plane startup inside the canonical stack`.
 
+### Hosted control-plane evidence delivery repair checkpoint
+
+- **Roadmap slice:** `3.29.0 — Migration-Chain Fresh Installation Authority`, hosted release-preflight delivery of canonical control-plane evidence.
+- **Project docs/checklists used:** `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, and `docs/wiki/17-Release-Go-No-Go-Checklist.md`.
+- **Verified facts:** Build and Publish Images run `44924712400` passed prepare, migration-check, frontend quality, secret scan, dependency scan, compose smoke, Core RBAC, Core browser regression, Core runtime authority, backend/frontend publication, and image/SBOM jobs. Release preflight alone failed. Its job intentionally has no checkout, so the new validation's repository-relative `backend/artifacts/control-plane-runtime-authority-evidence.json` did not exist even though the committed evidence itself was valid.
+- **Runtime verification used:** The previously certified canonical control-plane artifact remains passed at migration `144`; the canonical backend, frontend, database, and Cairn companion remain healthy. This repair changes artifact delivery only and does not rerun or mutate retained database state.
+- **CI/checks run:** Hosted run/job/failed-step log inspection; workflow YAML parse; backend unit/source contract; strict local preflight; standard local release gate; and diff hygiene.
+- **Files changed:** Workflow prepare upload, release-preflight download and downloaded-path validation, preflight report inventory, source-contract coverage, CI/release documentation, and this roadmap checkpoint.
+- **Blocked/unverified:** The repaired hosted release-preflight and auto-tag jobs require an authorized push. All other hosted gates passed on the failed run and the repair does not alter their code paths.
+- **Risks or follow-ups:** The control-plane evidence is deliberately generated only in the private canonical environment, then committed and transported as a named hosted artifact. A missing committed file now fails during `prepare` upload, before downstream release work, while a missing download or stale contract still fails release preflight.
+- **What remains in the milestone:** Rerun hosted release preflight after push, decide whether `init.sql` becomes generated output or is retired, and complete the required `3.29.0` version closeout.
+- **Recommended commit message:** `Repair 3.29.0 hosted delivery of canonical control-plane authority evidence`.
+
 ### Milestone boundary
 
 - This slice changes certification authority and repairs the reference schema; it does not alter retained databases or rewrite deployed migrations.

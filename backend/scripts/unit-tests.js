@@ -687,6 +687,10 @@ results.push(run('runtime database role is non-owner, verifier-provisioned, and 
   assert.ok(workflowSource.includes('runtime database was not empty before migration service startup'));
   assert.ok(workflowSource.includes('Upload runtime migration authority evidence'));
   assert.ok(workflowSource.includes('runtime-migration-authority-evidence/runtime-migration-authority-evidence.json'));
+  assert.ok(workflowSource.includes('Upload control-plane runtime authority evidence'));
+  assert.ok(workflowSource.includes('Download control-plane runtime authority evidence artifact'));
+  assert.ok(workflowSource.includes('control-plane-runtime-authority-evidence/control-plane-runtime-authority-evidence.json'));
+  assert.ok(!workflowSource.includes("require('./backend/artifacts/control-plane-runtime-authority-evidence.json')"));
   assert.ok(workflowSource.includes('backend node scripts/runtime-migration-authority-smoke.js'));
   assert.ok(!workflowSource.includes('backend npm run test:runtime-migration-authority'));
   assert.ok(workflowSource.includes("a?.certificationMode!=='restored_migration_built_runtime_authority'"));

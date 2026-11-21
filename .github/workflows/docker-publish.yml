@@ -167,6 +167,13 @@ jobs:
         run: |
           echo "owner_lc=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
 
+      - name: Upload control-plane runtime authority evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: control-plane-runtime-authority-evidence
+          path: backend/artifacts/control-plane-runtime-authority-evidence.json
+          if-no-files-found: error
+
   dependency-scan:
     runs-on: ubuntu-latest
     needs: prepare
@@ -1046,6 +1053,12 @@ jobs:
           name: runtime-migration-authority-evidence
           path: artifacts/runtime-migration-authority-evidence
 
+      - name: Download control-plane runtime authority evidence artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: control-plane-runtime-authority-evidence
+          path: artifacts/control-plane-runtime-authority-evidence
+
       - name: Download saved-view RLS evidence
         uses: actions/download-artifact@v8
         with:
@@ -1084,8 +1097,8 @@ jobs:
           node -e "const e=require('./artifacts/runtime-role-certification-evidence/runtime-role-certification-evidence.json');const m=require('./artifacts/migration-rehearsal-evidence/migration-rehearsal-evidence.json');const checks=Array.isArray(e.checks)?e.checks:[];const c=checks.find(x=>x.label==='provisioning inventory matches exact least-privilege contract');const i=e.provisioning_inventory;const a=e.runtime_authority;if(e.status!=='passed'||Number(e.latest_migration)!==Number(m.latestVersion)||e.runtime_role!=='ephemeral (redacted)'||checks.length<32||checks.some(x=>x.pass!==true)||Number(i?.contractVersion)!==1||c?.pass!==true||!Array.isArray(c?.detail?.problems)||c.detail.problems.length!==0||Number(i?.principals?.memberships)!==0||Number(i?.functions?.publicExecuteCount)!==0||Number(i?.brokerMappingCount)!==1||a?.status!=='passed'||a?.certificationMode!=='migration_built_runtime_authority'||a?.authority?.source!=='append_only_migration_chain'||Number(a?.authority?.appliedMigrationVersion)!==Number(m.latestVersion)||a?.checks?.some(x=>x.pass!==true))process.exit(1);"
           test -f artifacts/runtime-migration-authority-evidence/runtime-migration-authority-evidence.json
           node -e "const e=require('./artifacts/runtime-migration-authority-evidence/runtime-migration-authority-evidence.json');const m=require('./artifacts/migration-rehearsal-evidence/migration-rehearsal-evidence.json');if(e.status!=='passed'||e.certificationMode!=='migration_built_runtime_authority'||e.authority?.source!=='append_only_migration_chain'||e.authority?.databaseOrigin!=='empty_database'||Number(e.authority?.expectedMigrationVersion)!==Number(m.latestVersion)||Number(e.authority?.appliedMigrationVersion)!==Number(m.latestVersion)||e.authority?.everyMigrationApplied!==true||e.runtime?.role!=='ephemeral_or_runtime_credential_redacted'||e.runtime?.nonOwner!==true||e.runtime?.migrationsMode!=='external'||!Array.isArray(e.checks)||e.checks.length<6||e.checks.some(x=>x.pass!==true))process.exit(1);"
-          test -f backend/artifacts/control-plane-runtime-authority-evidence.json
-          node -e "const e=require('./backend/artifacts/control-plane-runtime-authority-evidence.json');const m=require('./artifacts/migration-rehearsal-evidence/migration-rehearsal-evidence.json');const a=e.authority;const checks=Array.isArray(e.checks)?e.checks:[];if(e.status!=='passed'||e.certificationMode!=='migration_built_control_plane_runtime_authority'||e.runtime?.edition!=='platform'||e.runtime?.role!=='ephemeral_or_runtime_credential_redacted'||e.runtime?.migrationsMode!=='external'||e.runtime?.executionBoundary!=='canonical_backend_container_unpublished_port'||a?.status!=='passed'||a?.certificationMode!=='migration_built_runtime_authority'||a?.authority?.source!=='append_only_migration_chain'||a?.authority?.databaseOrigin!=='empty_database'||Number(a?.authority?.appliedMigrationVersion)!==Number(m.latestVersion)||a?.authority?.everyMigrationApplied!==true||a?.runtime?.edition!=='platform'||a?.runtime?.nonOwner!==true||a?.runtime?.migrationsMode!=='external'||!Array.isArray(a?.checks)||a.checks.length<6||a.checks.some(x=>x.pass!==true)||checks.length<5||checks.some(x=>x.pass!==true))process.exit(1);"
+          test -f artifacts/control-plane-runtime-authority-evidence/control-plane-runtime-authority-evidence.json
+          node -e "const e=require('./artifacts/control-plane-runtime-authority-evidence/control-plane-runtime-authority-evidence.json');const m=require('./artifacts/migration-rehearsal-evidence/migration-rehearsal-evidence.json');const a=e.authority;const checks=Array.isArray(e.checks)?e.checks:[];if(e.status!=='passed'||e.certificationMode!=='migration_built_control_plane_runtime_authority'||e.runtime?.edition!=='platform'||e.runtime?.role!=='ephemeral_or_runtime_credential_redacted'||e.runtime?.migrationsMode!=='external'||e.runtime?.executionBoundary!=='canonical_backend_container_unpublished_port'||a?.status!=='passed'||a?.certificationMode!=='migration_built_runtime_authority'||a?.authority?.source!=='append_only_migration_chain'||a?.authority?.databaseOrigin!=='empty_database'||Number(a?.authority?.appliedMigrationVersion)!==Number(m.latestVersion)||a?.authority?.everyMigrationApplied!==true||a?.runtime?.edition!=='platform'||a?.runtime?.nonOwner!==true||a?.runtime?.migrationsMode!=='external'||!Array.isArray(a?.checks)||a.checks.length<6||a.checks.some(x=>x.pass!==true)||checks.length<5||checks.some(x=>x.pass!==true))process.exit(1);"
           test -f artifacts/saved-view-rls-evidence/saved-view-rls-evidence.json
           node -e "const e=require('./artifacts/saved-view-rls-evidence/saved-view-rls-evidence.json');if(e.status!=='passed'||e.migration!==124||e.checks.length<15||e.checks.some(c=>!c.pass))process.exit(1);"
           test -f artifacts/external-identity-certification-evidence/external-identity-certification.json
@@ -1124,6 +1137,7 @@ jobs:
             echo "- \`identity-upgrade-certification-evidence/identity-upgrade-certification-evidence.json\`"
             echo "- \`runtime-role-certification-evidence/runtime-role-certification-evidence.json\`"
             echo "- \`runtime-migration-authority-evidence/runtime-migration-authority-evidence.json\`"
+            echo "- \`control-plane-runtime-authority-evidence/control-plane-runtime-authority-evidence.json\`"
             echo "- \`external-identity-certification-evidence/external-identity-certification.json\`"
             echo "- \`sbom-cyclonedx/backend-sbom.cdx.json\`"
             echo "- \`sbom-cyclonedx/frontend-sbom.cdx.json\`"
