@@ -1,6 +1,27 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.29.0",
+      "version": "3.29.0",
+      "date": "2026-11-21",
+      "status": null,
+      "summary": "Makes the append-only migration chain the sole authoritative path for fresh installation, retained upgrade, restored runtime, Core startup, and Platform startup, then retires the hand-maintained duplicate schema.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Expanded fresh-install certification across relations, columns, indexes, constraints, triggers, functions, row-level security objects, migration rows, feature flags, and required bootstrap rows.",
+            "Certified exact non-owner runtime and broker role attributes, memberships, database/schema/table/sequence/function grants, default privileges, and broker mappings through a redacted provisioning inventory.",
+            "Added hosted Core evidence proving the database was empty before migration startup and that the production backend runs through a non-owner credential in external migration mode after every migration is applied.",
+            "Added restored-runtime authority evidence for database-native snapshots of migration-built databases, including exact retained counts, complete migration history, required bootstrap state, and non-owner runtime behavior.",
+            "Added contained Platform certification that starts a production-mode control-plane backend from an empty migration-built scratch database inside the canonical stack and passes the complete edition boundary.",
+            "Retired `init.sql` after the migration-built Core, Platform, retained-upgrade, restore, bootstrap, and ownership contracts were certified. The compatibility-named parity artifact now fails if that duplicate schema source reappears.",
+            "Moved workspace-ownership table discovery from duplicate-schema parsing to a direct comparison between reviewed classifications and the live migration-built PostgreSQL catalog."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.28.2",
       "version": "3.28.2",
       "date": "2026-11-20",
@@ -185,26 +206,6 @@
             "Rebuild authorized saved-view scoped transactions on the executor without moving authorization into the executor.",
             "Adopt the interface for feature-flag default persistence as the first low-risk database-only workflow.",
             "Add interface tests for success, work/query/commit failure, rollback failure, disposal, isolation, bounded retries, and diagnostic sanitization."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.26.0",
-      "version": "3.26.0",
-      "date": "2026-11-02",
-      "status": null,
-      "summary": "Saved library views now use database-enforced workspace, library, and owner isolation in addition to existing application authorization.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Bind saved-view CRUD to one authorized transaction and commit before returning an HTTP success.",
-            "A narrowly privileged, separately authenticated scope broker grants access only to a specific runtime role, backend PID, full transaction ID, actor, workspace, and optional library. Grants expire after five minutes and are removed after work finishes.",
-            "Enable SELECT/INSERT/UPDATE/DELETE policies on saved views; reject ownership changes and guard referential-action deletes that bypass RLS.",
-            "Deny unscoped SQL and spoofed settings; retain existing application permission checks.",
-            "Patch the existing `follow-redirects` overrides to `1.16.2` in both applications to clear the newly reported redirect credential-leak advisory without updating Axios.",
-            "Certify runtime isolation, upgrade/backfill, rollback, concurrent connections, expiry, and snapshot restore in the existing PostgreSQL service locally and in hosted migration-check."
           ]
         }
       ]

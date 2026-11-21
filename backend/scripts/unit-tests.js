@@ -5730,9 +5730,13 @@ results.push(run('migration authority evidence certifies fresh install after ini
   const releasePreflightSource = fs.readFileSync(path.resolve(__dirname, 'release-preflight-local.js'), 'utf8');
   const workspaceOwnershipSource = fs.readFileSync(path.resolve(__dirname, 'workspace-ownership-certification.js'), 'utf8');
   const workflowSource = fs.readFileSync(path.resolve(__dirname, '..', '..', '.github', 'workflows', 'docker-publish.yml'), 'utf8');
+  const localhostComposePath = path.resolve(__dirname, '..', '..', 'docker-compose.localhost.yml');
   assert.ok(!fs.existsSync(path.resolve(__dirname, '..', '..', 'init.sql')));
   assert.ok(backendPackageJson.scripts['test:migration-authority']);
   assert.ok(!ciComposeWriterSource.includes('./init.sql:/init.sql'));
+  if (fs.existsSync(localhostComposePath)) {
+    assert.ok(!fs.readFileSync(localhostComposePath, 'utf8').includes('./init.sql:/init.sql'));
+  }
   assert.ok(initParitySource.includes("certificationMode: 'migration_chain_authority_after_init_sql_retirement'"));
   assert.ok(initParitySource.includes("source: 'append_only_migration_chain'"));
   assert.ok(initParitySource.includes("status: 'retired'"));

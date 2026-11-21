@@ -1,13 +1,13 @@
 # Local Release Go/No-Go Preflight
 
-- Version: `3.28.2`
-- Generated: `2026-11-21T17:20:35.093Z`
-- Base URL: `http://localhost:3000`
+- Version: `3.29.0`
+- Generated: `2026-11-21T17:55:03.261Z`
+- Base URL: `http://localhost:3201`
 
 ## Gate Results
 
-- Version metadata sync: PASS — all manifests aligned on 3.28.2
-- Release note presence: PASS — docs/releases/v3.28.2.md
+- Version metadata sync: PASS — all manifests aligned on 3.29.0
+- Release note presence: PASS — docs/releases/v3.29.0.md
 - Backend dependency audit: PASS — low=0 moderate=0 high=0 critical=0
 - Frontend dependency audit: PASS — low=0 moderate=0 high=0 critical=0
 - Migration authority and rehearsal evidence: PASS — migration chain certified as fresh-install and restored-runtime authority through 144
@@ -16,8 +16,8 @@
 - External identity registry certification evidence: PASS — passed 21 UUID, scope, lifecycle, and RLS checks through migration 144
 - Runtime role certification evidence: PASS — passed 32/32 checks with provisioning contract v1 and migration-built runtime authority through migration 144
 - Control-plane migration-built runtime authority evidence: PASS — passed 5/5 startup and platform-boundary checks through migration 144
-- Observability release evidence: PASS — observability artifact present for 3.28.2 with 9/9 checks passed
-- Compose smoke basics: BLOCKED — in-stack /api/health probe failed: service "backend" is not running
+- Observability release evidence: FAIL — observability artifact missing, stale, or contains failed/blocked checks
+- Compose smoke basics: BLOCKED — current local stack is not running with CI secure-cookie settings (SESSION_COOKIE_SECURE=false, NODE_ENV=development)
 - Secret scan: BLOCKED — CI-only gitleaks gate
 - Browser regression: BLOCKED — not run by this local preflight helper
 - Image security and SBOM: BLOCKED — CI-only Trivy/SBOM gate
@@ -37,7 +37,7 @@
 
 ## Release Note
 
-- `docs/releases/v3.28.2.md`: present
+- `docs/releases/v3.29.0.md`: present
 - Security triage markers: present
 
 ## Blocking Criteria

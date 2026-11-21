@@ -4,14 +4,14 @@ This roadmap converts product direction into implementation milestones with acce
 
 Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file stays focused on numbered milestones and the work that has already been selected for release planning.
 
-The `3.27.x` architecture line and the `3.28.x` provider-job, BookOrbit metadata, and staged row-level security milestones are complete. `3.29.0` is the active migration-chain fresh-install authority milestone.
+The `3.27.x` architecture line and the `3.28.x` provider-job, BookOrbit metadata, and staged row-level security milestones are complete. The `3.29.0` migration-chain fresh-install authority implementation and version alignment are complete locally; release publication is blocked on refreshed observability evidence and hosted confirmation of the version-closeout commit.
 
 ---
 
 ## 3.29.0 — Migration-Chain Fresh Installation Authority
 
 **Goal:** Make the append-only migration chain the sole authoritative path for both fresh installation and upgrade, then retire the hand-maintained duplicate schema only after migration-built runtime, restore, and bootstrap behavior is fully certified.
-**Status:** Active. Migration-built fresh install, provisioning, Core runtime, restored runtime, and canonical control-plane startup are certified through migration `144`; the duplicate hand-maintained schema is retired. The required `3.29.0` version closeout remains.
+**Status:** Complete locally as a release candidate. Migration-built fresh install, provisioning, Core runtime, restored runtime, and canonical control-plane startup are certified through migration `144`; the duplicate hand-maintained schema is retired; and version, release-note/feed, canonical runtime, and Help > Releases alignment are complete. Publication remains blocked on refreshed observability evidence and hosted confirmation after an authorized push.
 
 ### Selected scope
 
@@ -133,6 +133,19 @@ The `3.27.x` architecture line and the `3.28.x` provider-job, BookOrbit metadata
 - **Risks or follow-ups:** The `init-parity-evidence` artifact and `test:init-parity` command remain as compatibility aliases, but both now require the retirement certification mode and do not compare a second schema. Any reintroduced `init.sql` fails the authority gate. New tables must be classified in the ownership snapshot and must appear in the live migrated catalog.
 - **What remains in the milestone:** Complete the required `3.29.0` semver, release-note/feed, running Help > Releases, and full release-gate closeout, then rerun hosted certification after the authorized push.
 - **Recommended commit message:** `Retire the duplicate schema under 3.29.0 migration-chain authority`.
+
+### 3.29.0 version closeout checkpoint
+
+- **Roadmap slice:** `3.29.0 — Migration-Chain Fresh Installation Authority`, semver, release artifacts, canonical runtime, and release-gate closeout.
+- **Project docs/checklists used:** `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/12-Migration-Rehearsal-Runbook.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, and `docs/releases/v3.29.0.md`.
+- **Verified facts:** Root, backend, and frontend application metadata and both package manifests/lockfiles are aligned at `3.29.0`; `docs/releases/v3.29.0.md` exists with the required release and security sections; the regenerated in-app feed serves `3.29.0` first; and the localhost Compose override no longer retains the retired `init.sql` mount. Hosted Build and Publish Images run `44929765881` and CodeQL run `44929765867` passed for implementation commit `c820589f` before the version-only closeout.
+- **Runtime verification used:** The canonical `collectz-private` backend and frontend were rebuilt and recreated in place on port `3201`. `/api/health` reports application, frontend, backend, and build version `3.29.0`; authenticated Help > Releases readback serves `3.29.0`, `3.28.2`, `3.28.1`, `3.28.0`, and `3.27.5`; in-container OpenAPI, live workspace ownership (`79` tables, `355` routes, `12` execution paths), and the Platform edition boundary passed. The Platform browser suite passed `8` tests with `2` intentional skips, and its ephemeral bypass token was removed before the canonical backend was restored.
+- **CI/checks run:** Backend unit/source suite locally and in the running production image (`388` assertions plus `57` Node tests); frontend unit, changed-path quality, and production build; package/app metadata parsing; version sync; release-note and feed validation; local CI prepare; backend and frontend production dependency audits with zero blocking vulnerabilities; OpenAPI; diff hygiene; canonical health and Help > Releases readback; Platform boundary and browser regression. The standard local release gate passed `13/14`; its only failing check is the stale observability artifact. A local CodeQL attempt stopped before analysis because the installed CLI could not deserialize the downloaded JavaScript query-pack format.
+- **Files changed:** Synchronized application/package versions; `docs/releases/v3.29.0.md`; regenerated `backend/release-feed.json`; source coverage preventing the retired schema mount from returning to `docker-compose.localhost.yml`; refreshed `preflight-go-no-go.md`; and this roadmap closeout.
+- **Blocked/unverified:** `artifacts/observability-evidence/observability-release-evidence.json` still certifies `3.28.2`. Its generator creates and resets separate Loki, Graylog, OpenSearch, and syslog stacks and volumes, so repository policy requires an explicit exception before it may run locally. The standalone preflight is therefore NO-GO for publication. Local secure-cookie Compose smoke is unavailable in the development-configured canonical stack; local `gitleaks` and `trivy` are unavailable; local image/SBOM wiring is intentionally CI-only; and local CodeQL has a CLI/query-pack compatibility failure. The version-closeout commit still requires hosted `compose-smoke`, `rbac-regression`, `browser-regression`, Core `runtime-smoke`, dependency scan, secret scan, image security/SBOM, release preflight, CodeQL, and auto-tag confirmation after an authorized push.
+- **Risks or follow-ups:** Do not publish or treat `v3.29.0` as certified until observability evidence is refreshed at `3.29.0` and the closeout commit's hosted gates pass. The existing green hosted implementation run proves the migration-authority code paths but does not certify these version-artifact edits.
+- **What remains in the milestone:** Obtain explicit authorization for the separate local observability rehearsal, refresh its evidence, rerun the strict release preflight/local gate, then push only with user authorization and confirm all hosted gates, image publication, and annotated `v3.29.0` creation on `main`.
+- **Recommended commit message:** `Release 3.29.0 with migration-chain authority and duplicate-schema retirement`.
 
 ### Milestone boundary
 
