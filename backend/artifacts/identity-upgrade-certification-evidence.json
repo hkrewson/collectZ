@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-11-19T03:36:26.502Z",
+  "generatedAt": "2026-11-21T05:56:25.380Z",
   "status": "passed",
   "manifestSchemaVersion": 1,
   "baselineVersion": 127,
-  "latestVersion": 143,
+  "latestVersion": 144,
   "certifiedMigrationVersions": [
     128,
     129,
@@ -20,7 +20,8 @@
     140,
     141,
     142,
-    143
+    143,
+    144
   ],
   "selectorMatches": [
     {
@@ -70,6 +71,10 @@
     {
       "version": 143,
       "description": "Authorize workspace-scoped webhook job ingestion"
+    },
+    {
+      "version": 144,
+      "description": "Protect durable sync jobs with actor and worker RLS"
     }
   ],
   "fixturePolicy": {
@@ -146,13 +151,13 @@
       {
         "id": 1,
         "user_id": 1,
-        "expires_at": "2026-11-26T03:36:27.292Z",
+        "expires_at": "2026-11-28T05:56:26.159Z",
         "storedCredentialPresent": true
       },
       {
         "id": 2,
         "user_id": 1,
-        "expires_at": "2026-11-26T03:36:27.293Z",
+        "expires_at": "2026-11-28T05:56:26.160Z",
         "storedCredentialPresent": true
       }
     ],
@@ -208,7 +213,7 @@
             "libraries:read"
           ],
           "revoked_at": null,
-          "expires_at": "2026-11-26T03:36:27.295Z",
+          "expires_at": "2026-11-28T05:56:26.162Z",
           "storedCredentialPresent": true
         }
       ],
@@ -224,7 +229,7 @@
             "/api/libraries"
           ],
           "revoked_at": null,
-          "expires_at": "2026-11-26T03:36:27.296Z",
+          "expires_at": "2026-11-28T05:56:26.162Z",
           "storedCredentialPresent": true
         }
       ]

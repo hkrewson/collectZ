@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-11-19T03:35:43.958Z",
-  "baselineVersion": 142,
-  "latestVersion": 143,
+  "generatedAt": "2026-11-21T05:55:11.812Z",
+  "baselineVersion": 143,
+  "latestVersion": 144,
   "databases": {
-    "legacyDb": "collectz_rehearsal_legacy_mwmzzia3",
-    "snapshotDb": "collectz_rehearsal_snapshot_mwmzzia3",
-    "rollbackDb": "collectz_rehearsal_rollback_mwmzzia3"
+    "legacyDb": "collectz_rehearsal_legacy_mwpzukah",
+    "snapshotDb": "collectz_rehearsal_snapshot_mwpzukah",
+    "rollbackDb": "collectz_rehearsal_rollback_mwpzukah"
   },
   "preUpgradeCounts": {
     "users": 1,
@@ -13,6 +13,7 @@
     "media_merge_recommendation_feedback": 1,
     "event_exclusive_sources": 1,
     "object_relationships": 1,
+    "sync_jobs": 1,
     "invites": 1,
     "app_integrations": 1,
     "feature_flags": 8
@@ -23,6 +24,7 @@
     "media_merge_recommendation_feedback": 1,
     "event_exclusive_sources": 1,
     "object_relationships": 1,
+    "sync_jobs": 1,
     "invites": 1,
     "app_integrations": 1,
     "feature_flags": 8
@@ -33,19 +35,20 @@
     "media_merge_recommendation_feedback": 1,
     "event_exclusive_sources": 1,
     "object_relationships": 1,
+    "sync_jobs": 1,
     "invites": 1,
     "app_integrations": 1,
     "feature_flags": 8
   },
   "checks": {
-    "preUpgradeVersion": 142,
+    "preUpgradeVersion": 143,
     "preUpgradeInvitationState": {
       "tokenColumnPresent": false,
       "tokenHashRequired": true,
       "missingHashCount": 0,
       "plaintextValueCount": 0
     },
-    "postUpgradeVersion": 143,
+    "postUpgradeVersion": 144,
     "postUpgradeInvitationState": {
       "tokenColumnPresent": false,
       "tokenHashRequired": true,
@@ -56,7 +59,8 @@
     "mergeFeedbackOwnershipBackfilled": true,
     "eventExclusiveSourceOwnershipBackfilled": true,
     "objectRelationshipOwnershipBackfilled": true,
-    "rollbackVersion": 142,
+    "syncJobOwnershipRetained": true,
+    "rollbackVersion": 143,
     "rollbackInvitationState": {
       "tokenColumnPresent": false,
       "tokenHashRequired": true,

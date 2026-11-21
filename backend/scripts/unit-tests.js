@@ -612,6 +612,14 @@ results.push(run('runtime database role is non-owner, verifier-provisioned, and 
   assert.ok(runtimeRoleSource.includes('collectz_scope.worker_allows_ingest(integer,integer,text)'));
   assert.ok(runtimeRoleSource.includes('collectz_scope.worker_allows_lifecycle_scope(integer,integer,text)'));
 
+  const runtimeRoleCertificationSource = fs.readFileSync(path.resolve(__dirname, 'runtime-role-certification.js'), 'utf8');
+  assert.ok(runtimeRoleCertificationSource.includes('collectProvisioningInventory'));
+  assert.ok(runtimeRoleCertificationSource.includes('evaluateProvisioningInventory'));
+  assert.ok(runtimeRoleCertificationSource.includes("contractVersion: 1"));
+  assert.ok(runtimeRoleCertificationSource.includes("'provisioning inventory matches exact least-privilege contract'"));
+  assert.ok(runtimeRoleCertificationSource.includes('publicExecuteCount'));
+  assert.ok(runtimeRoleCertificationSource.includes('defaultPrivileges'));
+
   const composeSource = fs.readFileSync(require.resolve('../../docker-compose.yml'), 'utf8');
   const serviceBlock = (name) => {
     const match = composeSource.match(new RegExp(`\\n  ${name}:\\n([\\s\\S]*?)(?=\\n  [a-z][a-z0-9_-]*:\\n|\\nvolumes:)`));
@@ -637,6 +645,13 @@ results.push(run('runtime database role is non-owner, verifier-provisioned, and 
 
   const ciOverrideSource = fs.readFileSync(path.resolve(__dirname, '..', '..', 'scripts', 'write-ci-compose-overrides.js'), 'utf8');
   assert.ok(/services:\n  migrate:\n    build:/.test(ciOverrideSource), 'CI build override must build the migrate job from source');
+
+  const releasePreflightSource = fs.readFileSync(path.resolve(__dirname, 'release-preflight-local.js'), 'utf8');
+  assert.ok(releasePreflightSource.includes('runtimeRoleEvidence?.provisioning_inventory'));
+  assert.ok(releasePreflightSource.includes('runtimeRoleInventory?.contractVersion'));
+  const workflowSource = fs.readFileSync(path.resolve(__dirname, '..', '..', '.github', 'workflows', 'docker-publish.yml'), 'utf8');
+  assert.ok(workflowSource.includes('Download runtime role certification evidence artifact'));
+  assert.ok(workflowSource.includes('runtime-role-certification-evidence/runtime-role-certification-evidence.json'));
 }));
 
 results.push(run('sensitive operations require a machine-checked session-bound recent password proof', () => {

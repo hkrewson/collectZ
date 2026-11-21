@@ -41,6 +41,31 @@ const useDatabaseSSL = process.env.DATABASE_SSL === 'true' || process.env.DATABA
 const ssl = useDatabaseSSL ? { rejectUnauthorized: false } : false;
 const quietLogger = { log() {}, warn() {} };
 
+const EXPECTED_RUNTIME_SCOPE_FUNCTIONS = [
+  'allows(integer, integer, integer)',
+  'allows_library(integer, integer)',
+  'allows_workspace(integer)',
+  'worker_allows_global(text, text)',
+  'worker_allows_ingest(integer, integer, text)',
+  'worker_allows_lifecycle(integer, integer, text, text)',
+  'worker_allows_lifecycle_scope(integer, integer, text)'
+];
+const EXPECTED_BROKER_SCOPE_FUNCTIONS = [
+  'authorize(integer, text, integer, integer, integer)',
+  'authorize_worker(integer, text, text, text, text[], integer, integer)',
+  'revoke(integer, text)',
+  'revoke_worker(integer, text)'
+];
+const EXPECTED_DEFAULT_PRIVILEGES = [
+  'sequence:SELECT',
+  'sequence:UPDATE',
+  'sequence:USAGE',
+  'table:DELETE',
+  'table:INSERT',
+  'table:SELECT',
+  'table:UPDATE'
+];
+
 function adminConnectionString() {
   const explicit = process.env.RUNTIME_ROLE_CERT_ADMIN_URL || process.env.MIGRATION_REHEARSAL_ADMIN_URL;
   if (explicit) return explicit;
@@ -111,6 +136,205 @@ async function expectAllowed(client, label, statements) {
   }
 }
 
+async function collectProvisioningInventory(client, { ownerRole, runtimeRole, brokerRole }) {
+  const roleResult = await client.query(
+    `SELECT rolname, rolcanlogin, rolinherit, rolsuper, rolcreaterole,
+            rolcreatedb, rolreplication, rolbypassrls
+       FROM pg_roles
+      WHERE rolname = ANY($1::text[])
+      ORDER BY rolname`,
+    [[runtimeRole, brokerRole]]
+  );
+  const roleByName = new Map(roleResult.rows.map((row) => [row.rolname, row]));
+  const sanitizeRole = (name) => {
+    const row = roleByName.get(name);
+    return row ? {
+      login: row.rolcanlogin,
+      inherit: row.rolinherit,
+      superuser: row.rolsuper,
+      createRole: row.rolcreaterole,
+      createDatabase: row.rolcreatedb,
+      replication: row.rolreplication,
+      bypassRls: row.rolbypassrls
+    } : null;
+  };
+
+  const memberships = await client.query(
+    `SELECT member.rolname AS member_role, granted.rolname AS granted_role
+       FROM pg_auth_members membership
+       JOIN pg_roles member ON member.oid = membership.member
+       JOIN pg_roles granted ON granted.oid = membership.roleid
+      WHERE member.rolname = ANY($1::text[])`,
+    [[runtimeRole, brokerRole]]
+  );
+
+  const databaseAccess = await client.query(
+    `SELECT has_database_privilege($1, current_database(), 'CONNECT') AS runtime_connect,
+            has_database_privilege($1, current_database(), 'CREATE') AS runtime_create,
+            has_database_privilege($2, current_database(), 'CONNECT') AS broker_connect,
+            has_database_privilege($2, current_database(), 'CREATE') AS broker_create`,
+    [runtimeRole, brokerRole]
+  );
+
+  const schemaAccess = await client.query(
+    `SELECT has_schema_privilege($1, 'public', 'USAGE') AS runtime_public_usage,
+            has_schema_privilege($1, 'public', 'CREATE') AS runtime_public_create,
+            has_schema_privilege($1, 'collectz_scope', 'USAGE') AS runtime_scope_usage,
+            has_schema_privilege($1, 'collectz_scope', 'CREATE') AS runtime_scope_create,
+            has_schema_privilege($2, 'public', 'USAGE') AS broker_public_usage,
+            has_schema_privilege($2, 'public', 'CREATE') AS broker_public_create,
+            has_schema_privilege($2, 'collectz_scope', 'USAGE') AS broker_scope_usage,
+            has_schema_privilege($2, 'collectz_scope', 'CREATE') AS broker_scope_create,
+            EXISTS (
+              SELECT 1
+                FROM pg_namespace n
+                CROSS JOIN LATERAL aclexplode(COALESCE(n.nspacl, acldefault('n', n.nspowner))) acl
+               WHERE n.nspname = 'public'
+                 AND acl.grantee = 0
+                 AND acl.privilege_type = 'CREATE'
+            ) AS public_public_create`,
+    [runtimeRole, brokerRole]
+  );
+
+  const relationAccess = await client.query(
+    `SELECT COUNT(*)::int AS table_count,
+            COUNT(*) FILTER (WHERE has_table_privilege($1, format('%I.%I', n.nspname, c.relname), 'SELECT'))::int AS runtime_select,
+            COUNT(*) FILTER (WHERE has_table_privilege($1, format('%I.%I', n.nspname, c.relname), 'INSERT'))::int AS runtime_insert,
+            COUNT(*) FILTER (WHERE has_table_privilege($1, format('%I.%I', n.nspname, c.relname), 'UPDATE'))::int AS runtime_update,
+            COUNT(*) FILTER (WHERE has_table_privilege($1, format('%I.%I', n.nspname, c.relname), 'DELETE'))::int AS runtime_delete,
+            COUNT(*) FILTER (WHERE has_table_privilege($2, format('%I.%I', n.nspname, c.relname), 'SELECT,INSERT,UPDATE,DELETE'))::int AS broker_any_dml
+       FROM pg_class c
+       JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p')`,
+    [runtimeRole, brokerRole]
+  );
+  const migrationTableAccess = await client.query(
+    `SELECT has_table_privilege($1, 'public.schema_migrations', 'SELECT') AS select,
+            has_table_privilege($1, 'public.schema_migrations', 'INSERT') AS insert,
+            has_table_privilege($1, 'public.schema_migrations', 'UPDATE') AS update,
+            has_table_privilege($1, 'public.schema_migrations', 'DELETE') AS delete`,
+    [runtimeRole]
+  );
+
+  const sequenceAccess = await client.query(
+    `SELECT COUNT(*)::int AS sequence_count,
+            COUNT(*) FILTER (WHERE has_sequence_privilege($1, format('%I.%I', n.nspname, c.relname), 'USAGE'))::int AS runtime_usage,
+            COUNT(*) FILTER (WHERE has_sequence_privilege($1, format('%I.%I', n.nspname, c.relname), 'SELECT'))::int AS runtime_select,
+            COUNT(*) FILTER (WHERE has_sequence_privilege($1, format('%I.%I', n.nspname, c.relname), 'UPDATE'))::int AS runtime_update,
+            COUNT(*) FILTER (WHERE has_sequence_privilege($2, format('%I.%I', n.nspname, c.relname), 'USAGE,SELECT,UPDATE'))::int AS broker_any
+       FROM pg_class c
+       JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'public' AND c.relkind = 'S'`,
+    [runtimeRole, brokerRole]
+  );
+
+  const functionAccess = await client.query(
+    `SELECT grantee.rolname,
+            p.proname || '(' || oidvectortypes(p.proargtypes) || ')' AS signature
+       FROM pg_proc p
+       JOIN pg_namespace n ON n.oid = p.pronamespace
+       CROSS JOIN LATERAL aclexplode(COALESCE(p.proacl, acldefault('f', p.proowner))) acl
+       JOIN pg_roles grantee ON grantee.oid = acl.grantee
+      WHERE n.nspname = 'collectz_scope'
+        AND grantee.rolname = ANY($1::text[])
+        AND acl.privilege_type = 'EXECUTE'
+      ORDER BY grantee.rolname, signature`,
+    [[runtimeRole, brokerRole]]
+  );
+  const publicScopeFunctionAccess = await client.query(
+    `SELECT COUNT(*)::int AS count
+       FROM pg_proc p
+       JOIN pg_namespace n ON n.oid = p.pronamespace
+       CROSS JOIN LATERAL aclexplode(COALESCE(p.proacl, acldefault('f', p.proowner))) acl
+      WHERE n.nspname = 'collectz_scope'
+        AND acl.grantee = 0
+        AND acl.privilege_type = 'EXECUTE'`
+  );
+
+  const defaultPrivileges = await client.query(
+    `SELECT CASE defaults.defaclobjtype WHEN 'r' THEN 'table' WHEN 'S' THEN 'sequence' ELSE defaults.defaclobjtype::text END AS object_type,
+            acl.privilege_type
+       FROM pg_default_acl defaults
+       JOIN pg_roles owner ON owner.oid = defaults.defaclrole
+       JOIN pg_namespace n ON n.oid = defaults.defaclnamespace
+       CROSS JOIN LATERAL aclexplode(defaults.defaclacl) acl
+       JOIN pg_roles grantee ON grantee.oid = acl.grantee
+      WHERE owner.rolname = $1
+        AND n.nspname = 'public'
+        AND grantee.rolname = $2
+      ORDER BY object_type, acl.privilege_type`,
+    [ownerRole, runtimeRole]
+  );
+  const brokerMapping = await client.query(
+    `SELECT COUNT(*)::int AS count
+       FROM collectz_scope.brokers
+      WHERE broker_role = $1 AND runtime_role = $2`,
+    [brokerRole, runtimeRole]
+  );
+
+  const functionsFor = (role) => functionAccess.rows
+    .filter((row) => row.rolname === role)
+    .map((row) => row.signature);
+
+  return {
+    contractVersion: 1,
+    principals: {
+      runtime: sanitizeRole(runtimeRole),
+      broker: sanitizeRole(brokerRole),
+      memberships: memberships.rows.length
+    },
+    database: databaseAccess.rows[0],
+    schemas: schemaAccess.rows[0],
+    tables: {
+      ...relationAccess.rows[0],
+      schemaMigrations: migrationTableAccess.rows[0]
+    },
+    sequences: sequenceAccess.rows[0],
+    functions: {
+      runtime: functionsFor(runtimeRole),
+      broker: functionsFor(brokerRole),
+      publicExecuteCount: publicScopeFunctionAccess.rows[0].count
+    },
+    defaultPrivileges: defaultPrivileges.rows.map((row) => `${row.object_type}:${row.privilege_type}`),
+    brokerMappingCount: brokerMapping.rows[0].count
+  };
+}
+
+function evaluateProvisioningInventory(inventory) {
+  const problems = [];
+  const expectedRuntime = {
+    login: true, inherit: true, superuser: false, createRole: false,
+    createDatabase: false, replication: false, bypassRls: false
+  };
+  const expectedBroker = { ...expectedRuntime, inherit: false };
+  if (JSON.stringify(inventory.principals.runtime) !== JSON.stringify(expectedRuntime)) problems.push('runtime_role_attributes');
+  if (JSON.stringify(inventory.principals.broker) !== JSON.stringify(expectedBroker)) problems.push('broker_role_attributes');
+  if (Number(inventory.principals.memberships) !== 0) problems.push('role_memberships');
+  if (!inventory.database.runtime_connect || inventory.database.runtime_create || !inventory.database.broker_connect || inventory.database.broker_create) problems.push('database_privileges');
+  if (!inventory.schemas.runtime_public_usage || inventory.schemas.runtime_public_create
+      || !inventory.schemas.runtime_scope_usage || inventory.schemas.runtime_scope_create
+      || !inventory.schemas.broker_public_usage || inventory.schemas.broker_public_create
+      || !inventory.schemas.broker_scope_usage || inventory.schemas.broker_scope_create
+      || inventory.schemas.public_public_create) problems.push('schema_privileges');
+  const appTableCount = Number(inventory.tables.table_count) - 1;
+  if (Number(inventory.tables.runtime_select) !== Number(inventory.tables.table_count)
+      || Number(inventory.tables.runtime_insert) !== appTableCount
+      || Number(inventory.tables.runtime_update) !== appTableCount
+      || Number(inventory.tables.runtime_delete) !== appTableCount
+      || Number(inventory.tables.broker_any_dml) !== 0
+      || JSON.stringify(inventory.tables.schemaMigrations) !== JSON.stringify({ select: true, insert: false, update: false, delete: false })) problems.push('table_privileges');
+  if (Number(inventory.sequences.runtime_usage) !== Number(inventory.sequences.sequence_count)
+      || Number(inventory.sequences.runtime_select) !== Number(inventory.sequences.sequence_count)
+      || Number(inventory.sequences.runtime_update) !== Number(inventory.sequences.sequence_count)
+      || Number(inventory.sequences.broker_any) !== 0) problems.push('sequence_privileges');
+  if (JSON.stringify(inventory.functions.runtime) !== JSON.stringify(EXPECTED_RUNTIME_SCOPE_FUNCTIONS)
+      || JSON.stringify(inventory.functions.broker) !== JSON.stringify(EXPECTED_BROKER_SCOPE_FUNCTIONS)
+      || Number(inventory.functions.publicExecuteCount) !== 0) problems.push('function_privileges');
+  if (JSON.stringify(inventory.defaultPrivileges) !== JSON.stringify(EXPECTED_DEFAULT_PRIVILEGES)) problems.push('default_privileges');
+  if (Number(inventory.brokerMappingCount) !== 1) problems.push('broker_mapping');
+  return { pass: problems.length === 0, problems };
+}
+
 async function main() {
   const adminUrl = adminConnectionString();
   const suffix = `${process.pid}_${crypto.randomBytes(3).toString('hex')}`;
@@ -132,6 +356,7 @@ async function main() {
     latest_migration: latest,
     legacy_baseline: legacyBaseline,
     runtime_role: 'ephemeral (redacted)',
+    provisioning_inventory: null,
     checks: [],
     status: 'failed'
   };
@@ -161,6 +386,17 @@ async function main() {
     const first = await provisionRuntimeRole(owner, { roleName, password: runtimePassword });
     const second = await provisionRuntimeRole(owner, { roleName, password: runtimePassword });
     record('runtime role created then updated idempotently', first.created === true && second.created === false);
+    const brokerRole = brokerCredentials(roleName, runtimePassword).role;
+    evidence.provisioning_inventory = await collectProvisioningInventory(owner, {
+      ownerRole: first.owner,
+      runtimeRole: roleName,
+      brokerRole
+    });
+    const provisioningContract = evaluateProvisioningInventory(evidence.provisioning_inventory);
+    record('provisioning inventory matches exact least-privilege contract', provisioningContract.pass, {
+      contractVersion: evidence.provisioning_inventory.contractVersion,
+      problems: provisioningContract.problems
+    });
 
     // 3. Runtime credential connects, sees current schema and legacy data, passes guard.
     runtime = await connect(withCredentials(ownerUrl, roleName, runtimePassword));

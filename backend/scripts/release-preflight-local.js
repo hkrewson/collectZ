@@ -511,21 +511,32 @@ async function main() {
 
   const runtimeRoleEvidence = safeReadJson(runtimeRoleEvidencePath);
   const runtimeRoleChecks = Array.isArray(runtimeRoleEvidence?.checks) ? runtimeRoleEvidence.checks : [];
+  const runtimeRoleInventory = runtimeRoleEvidence?.provisioning_inventory;
+  const runtimeRoleInventoryCheck = runtimeRoleChecks.find(
+    (check) => check.label === 'provisioning inventory matches exact least-privilege contract'
+  );
   const runtimeRoleCertified = Boolean(
     runtimeRoleEvidence
     && runtimeRoleEvidence.status === 'passed'
     && Number(runtimeRoleEvidence.latest_migration) === Number(migrationEvidence?.latestVersion)
-    && runtimeRoleChecks.length > 0
+    && runtimeRoleChecks.length >= 31
     && runtimeRoleChecks.every((check) => check.pass === true)
     && runtimeRoleEvidence.runtime_role === 'ephemeral (redacted)'
+    && Number(runtimeRoleInventory?.contractVersion) === 1
+    && runtimeRoleInventoryCheck?.pass === true
+    && Array.isArray(runtimeRoleInventoryCheck.detail?.problems)
+    && runtimeRoleInventoryCheck.detail.problems.length === 0
+    && Number(runtimeRoleInventory?.principals?.memberships) === 0
+    && Number(runtimeRoleInventory?.functions?.publicExecuteCount) === 0
+    && Number(runtimeRoleInventory?.brokerMappingCount) === 1
   );
   gates.push(
     buildGate(
       'Runtime role certification evidence',
       runtimeRoleCertified ? 'PASS' : 'FAIL',
       runtimeRoleCertified
-        ? `passed ${runtimeRoleChecks.length}/${runtimeRoleChecks.length} checks for migration chain through ${runtimeRoleEvidence.latest_migration}`
-        : 'runtime role certification is missing, stale, failed, or not redacted'
+        ? `passed ${runtimeRoleChecks.length}/${runtimeRoleChecks.length} checks with provisioning contract v${runtimeRoleInventory.contractVersion} through migration ${runtimeRoleEvidence.latest_migration}`
+        : 'runtime role certification or its redacted provisioning inventory is missing, stale, or failed'
     )
   );
 

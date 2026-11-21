@@ -1,15 +1,105 @@
 {
-  "generated_at": "2026-11-19T03:40:09.511Z",
+  "generated_at": "2026-11-21T05:54:35.943Z",
   "certification": "runtime-role",
-  "latest_migration": 143,
-  "legacy_baseline": 142,
+  "latest_migration": 144,
+  "legacy_baseline": 143,
   "runtime_role": "ephemeral (redacted)",
+  "provisioning_inventory": {
+    "contractVersion": 1,
+    "principals": {
+      "runtime": {
+        "login": true,
+        "inherit": true,
+        "superuser": false,
+        "createRole": false,
+        "createDatabase": false,
+        "replication": false,
+        "bypassRls": false
+      },
+      "broker": {
+        "login": true,
+        "inherit": false,
+        "superuser": false,
+        "createRole": false,
+        "createDatabase": false,
+        "replication": false,
+        "bypassRls": false
+      },
+      "memberships": 0
+    },
+    "database": {
+      "runtime_connect": true,
+      "runtime_create": false,
+      "broker_connect": true,
+      "broker_create": false
+    },
+    "schemas": {
+      "runtime_public_usage": true,
+      "runtime_public_create": false,
+      "runtime_scope_usage": true,
+      "runtime_scope_create": false,
+      "broker_public_usage": true,
+      "broker_public_create": false,
+      "broker_scope_usage": true,
+      "broker_scope_create": false,
+      "public_public_create": false
+    },
+    "tables": {
+      "table_count": 76,
+      "runtime_select": 76,
+      "runtime_insert": 75,
+      "runtime_update": 75,
+      "runtime_delete": 75,
+      "broker_any_dml": 0,
+      "schemaMigrations": {
+        "select": true,
+        "insert": false,
+        "update": false,
+        "delete": false
+      }
+    },
+    "sequences": {
+      "sequence_count": 59,
+      "runtime_usage": 59,
+      "runtime_select": 59,
+      "runtime_update": 59,
+      "broker_any": 0
+    },
+    "functions": {
+      "runtime": [
+        "allows(integer, integer, integer)",
+        "allows_library(integer, integer)",
+        "allows_workspace(integer)",
+        "worker_allows_global(text, text)",
+        "worker_allows_ingest(integer, integer, text)",
+        "worker_allows_lifecycle(integer, integer, text, text)",
+        "worker_allows_lifecycle_scope(integer, integer, text)"
+      ],
+      "broker": [
+        "authorize(integer, text, integer, integer, integer)",
+        "authorize_worker(integer, text, text, text, text[], integer, integer)",
+        "revoke(integer, text)",
+        "revoke_worker(integer, text)"
+      ],
+      "publicExecuteCount": 0
+    },
+    "defaultPrivileges": [
+      "sequence:SELECT",
+      "sequence:UPDATE",
+      "sequence:USAGE",
+      "table:DELETE",
+      "table:INSERT",
+      "table:SELECT",
+      "table:UPDATE"
+    ],
+    "brokerMappingCount": 1
+  },
   "checks": [
     {
       "label": "legacy baseline migrated with seeded row",
       "pass": true,
       "detail": {
-        "baseline": 142
+        "baseline": 143
       }
     },
     {
@@ -17,10 +107,18 @@
       "pass": true
     },
     {
+      "label": "provisioning inventory matches exact least-privilege contract",
+      "pass": true,
+      "detail": {
+        "contractVersion": 1,
+        "problems": []
+      }
+    },
+    {
       "label": "runtime role verifies schema current",
       "pass": true,
       "detail": {
-        "version": 143
+        "version": 144
       }
     },
     {

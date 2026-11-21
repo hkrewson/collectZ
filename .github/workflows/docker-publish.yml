@@ -1013,6 +1013,12 @@ jobs:
           name: identity-upgrade-certification-evidence
           path: artifacts/identity-upgrade-certification-evidence
 
+      - name: Download runtime role certification evidence artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: runtime-role-certification-evidence
+          path: artifacts/runtime-role-certification-evidence
+
       - name: Download saved-view RLS evidence
         uses: actions/download-artifact@v8
         with:
@@ -1046,6 +1052,8 @@ jobs:
           node -e "const e=require('./artifacts/init-parity-evidence/init-parity-evidence.json');const checks=Array.isArray(e.authorityChecks)?e.authorityChecks:[];if(e.status!=='passed'||e.certificationMode!=='migration_chain_authority_with_init_sql_reference'||e.authority?.source!=='append_only_migration_chain'||Number(e.authority?.expectedMigrationVersion)!==Number(e.authority?.appliedMigrationVersion)||Number(e.mismatchCount)!==0||checks.length<3||checks.some(c=>c.pass!==true))process.exit(1);"
           test -f artifacts/migration-rehearsal-evidence/migration-rehearsal-evidence.json
           test -f artifacts/identity-upgrade-certification-evidence/identity-upgrade-certification-evidence.json
+          test -f artifacts/runtime-role-certification-evidence/runtime-role-certification-evidence.json
+          node -e "const e=require('./artifacts/runtime-role-certification-evidence/runtime-role-certification-evidence.json');const m=require('./artifacts/migration-rehearsal-evidence/migration-rehearsal-evidence.json');const checks=Array.isArray(e.checks)?e.checks:[];const c=checks.find(x=>x.label==='provisioning inventory matches exact least-privilege contract');const i=e.provisioning_inventory;if(e.status!=='passed'||Number(e.latest_migration)!==Number(m.latestVersion)||e.runtime_role!=='ephemeral (redacted)'||checks.length<31||checks.some(x=>x.pass!==true)||Number(i?.contractVersion)!==1||c?.pass!==true||!Array.isArray(c?.detail?.problems)||c.detail.problems.length!==0||Number(i?.principals?.memberships)!==0||Number(i?.functions?.publicExecuteCount)!==0||Number(i?.brokerMappingCount)!==1)process.exit(1);"
           test -f artifacts/saved-view-rls-evidence/saved-view-rls-evidence.json
           node -e "const e=require('./artifacts/saved-view-rls-evidence/saved-view-rls-evidence.json');if(e.status!=='passed'||e.migration!==124||e.checks.length<15||e.checks.some(c=>!c.pass))process.exit(1);"
           test -f artifacts/external-identity-certification-evidence/external-identity-certification.json

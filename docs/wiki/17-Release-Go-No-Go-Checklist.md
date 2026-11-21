@@ -70,6 +70,8 @@ Tagged runs must produce:
 
 `init-parity-evidence` must identify the append-only migration chain as the fresh-install authority, prove that every expected migration was applied, inventory the maintained schema/bootstrap categories, and report zero drift against the `init.sql` reference. A missing authority check, incomplete migration chain, unchecked constraint/function/bootstrap category, or nonzero mismatch count is NO-GO. `init.sql` remains reference-only until a later milestone slice generates or retires it.
 
+`runtime-role-certification-evidence` must match the migration rehearsal's latest version, redact ephemeral principal names, pass every behavioral check, and include provisioning contract version `1`. The inventory must prove exact non-owner runtime and no-inherit broker attributes, zero role memberships, no database/schema creation authority, bounded application DML and sequence access, read-only `schema_migrations`, exact scope-function execution grants, exact owner default privileges, one broker mapping, and no public scope-function execution. Missing inventory, unexpected grants, role membership, public execution, stale migration version, or any failed contract category is NO-GO.
+
 When the browser gate fails, the release investigation should also preserve the uploaded Playwright artifact bundle (`artifacts/playwright/...`) long enough to inspect:
 
 - failing `error-context.md`
