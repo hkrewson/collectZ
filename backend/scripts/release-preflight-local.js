@@ -453,11 +453,12 @@ async function main() {
   const initParityCertified = Boolean(
     initParityEvidence
     && initParityEvidence.status === 'passed'
-    && initParityEvidence.certificationMode === 'migration_chain_authority_with_init_sql_reference'
+    && initParityEvidence.certificationMode === 'migration_chain_authority_after_init_sql_retirement'
     && initParityEvidence.authority?.source === 'append_only_migration_chain'
     && Number(initParityEvidence.authority?.expectedMigrationVersion) === Number(initParityEvidence.authority?.appliedMigrationVersion)
-    && Number(initParityEvidence.mismatchCount) === 0
-    && initAuthorityChecks.length >= 3
+    && initParityEvidence.reference?.status === 'retired'
+    && initParityEvidence.reference?.present === false
+    && initAuthorityChecks.length >= 5
     && initAuthorityChecks.every((check) => check.pass === true)
   );
   const restoredCountsMatch = JSON.stringify(migrationEvidence?.restoredCounts || null)

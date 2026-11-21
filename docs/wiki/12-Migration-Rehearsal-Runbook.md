@@ -84,7 +84,7 @@ WHERE table_name = 'app_integrations'
 ## CI Evidence
 
 - GitHub Actions job `migration-check` runs:
-  1. migration-chain fresh-install authority check against the maintained `init.sql` reference,
+  1. migration-chain fresh-install authority check from an empty database, including positive proof that the hand-maintained `init.sql` reference remains retired,
   1. forward migration check,
   2. restore-based rollback rehearsal (`npm run test:migration-rehearsal`),
   3. artifact upload.
@@ -96,10 +96,11 @@ WHERE table_name = 'app_integrations'
   - includes `restoreAuthority` identifying `postgresql_template_snapshot`, the append-only migration chain, an empty migration-built source, every migration version, required bootstrap rows, external migration mode, and a redacted non-owner runtime credential,
   - fails when restored counts differ from post-upgrade counts or any restored-runtime authority check fails.
 - Artifact: `init-parity-evidence.json`
+  - retains its legacy name for release-tool compatibility,
   - identifies the append-only migration chain as fresh-install authority,
   - verifies the authority database reached every expected migration,
   - inventories relations, columns, indexes, constraints, triggers, functions, scope-security objects, migration rows, feature flags, and required bootstrap rows,
-  - compares the authority database with the maintained `init.sql` reference and requires zero drift.
+  - records `init.sql` as retired and fails if that duplicate schema source reappears.
 - Canonical control-plane follow-through: `backend/artifacts/control-plane-runtime-authority-evidence.json`
   - is produced inside the existing canonical backend/database containers, not a second stack,
   - creates an empty scratch database and applies the same complete append-only chain,

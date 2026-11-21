@@ -8,9 +8,7 @@ const path = require('path');
 const { PERMISSIONS } = require('../services/authorizationPolicy');
 
 const backendRoot = path.resolve(__dirname, '..');
-const repoRoot = path.resolve(backendRoot, '..');
 const snapshotPath = path.join(backendRoot, 'config', 'workspace-ownership-contract.json');
-const initSqlPath = path.join(repoRoot, 'init.sql');
 
 const TABLE_CATEGORIES = Object.freeze([
   'installation_owned',
@@ -242,7 +240,9 @@ function certifyExecutionPaths({ deferPrerequisites = false } = {}) {
 }
 
 function buildContract({ deferPrerequisites = false } = {}) {
-  const tables = classifyTables(extractTables(fs.readFileSync(initSqlPath, 'utf8')));
+  assert(fs.existsSync(snapshotPath), 'Workspace ownership contract snapshot is missing');
+  const reviewedSnapshot = JSON.parse(fs.readFileSync(snapshotPath, 'utf8'));
+  const tables = reviewedSnapshot.tables;
   for (const table of tables) assert(TABLE_CATEGORIES.includes(table.category), `Invalid category for ${table.name}`);
   const routes = extractRoutes();
   assert(routes.length >= 300, `Expected the maintained route inventory to contain at least 300 declarations; found ${routes.length}`);
@@ -256,11 +256,28 @@ function buildContract({ deferPrerequisites = false } = {}) {
   };
 }
 
+async function readCurrentTableNames() {
+  const pool = require('../db/pool');
+  try {
+    const result = await pool.query(`
+      SELECT CASE WHEN n.nspname = 'public' THEN c.relname ELSE n.nspname || '.' || c.relname END AS name
+      FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname IN ('public', 'collectz_scope')
+        AND c.relkind IN ('r', 'p')
+      ORDER BY name
+    `);
+    return result.rows.map(({ name }) => name);
+  } finally {
+    await pool.end();
+  }
+}
+
 function stable(value) {
   return `${JSON.stringify(value, null, 2)}\n`;
 }
 
-function main() {
+async function main() {
   const deferPrerequisites = process.argv.includes('--defer-prerequisites');
   const actual = buildContract({ deferPrerequisites });
   if (process.argv.includes('--write')) {
@@ -271,16 +288,22 @@ function main() {
   assert(fs.existsSync(snapshotPath), 'Workspace ownership contract snapshot is missing; review and generate it with --write');
   const expected = JSON.parse(fs.readFileSync(snapshotPath, 'utf8'));
   assert.deepStrictEqual(actual, expected, 'Workspace ownership contract drifted; classify and review every changed table, route, permission, and execution path');
+  const currentTableNames = await readCurrentTableNames();
+  const reviewedTableNames = expected.tables.map(({ name }) => name).sort();
+  assert.deepStrictEqual(currentTableNames, reviewedTableNames, 'Live migration-built table inventory drifted from the reviewed ownership contract');
   console.log(`Workspace ownership certification passed: ${actual.tables.length} tables, ${actual.routes.length} routes, ${actual.executionPaths.length} execution paths`);
 }
 
 if (require.main === module) {
   try {
-    main();
+    main().catch((error) => {
+      console.error(`Workspace ownership certification failed: ${error.message}`);
+      process.exit(1);
+    });
   } catch (error) {
     console.error(`Workspace ownership certification failed: ${error.message}`);
     process.exit(1);
   }
 }
 
-module.exports = { buildContract, classifyTables, extractTables, extractRoutes };
+module.exports = { buildContract, classifyTables, extractTables, extractRoutes, readCurrentTableNames };

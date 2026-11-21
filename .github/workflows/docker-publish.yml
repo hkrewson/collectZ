@@ -378,7 +378,7 @@ jobs:
           echo "::add-mask::${MIGRATION_DB_CREDENTIAL}"
           echo "MIGRATION_DB_CONTAINER=${DB_CONTAINER}" >> "$GITHUB_ENV"
           echo "DATABASE_URL=postgresql://postgres:${MIGRATION_DB_CREDENTIAL}@localhost:5432/collectz_ci" >> "$GITHUB_ENV"
-          echo "INIT_PARITY_ADMIN_URL=postgresql://postgres:${MIGRATION_DB_CREDENTIAL}@localhost:5432/postgres" >> "$GITHUB_ENV"
+          echo "MIGRATION_AUTHORITY_ADMIN_URL=postgresql://postgres:${MIGRATION_DB_CREDENTIAL}@localhost:5432/postgres" >> "$GITHUB_ENV"
           echo "MIGRATION_REHEARSAL_ADMIN_URL=postgresql://postgres:${MIGRATION_DB_CREDENTIAL}@localhost:5432/postgres" >> "$GITHUB_ENV"
           echo "IDENTITY_CERTIFICATION_ADMIN_URL=postgresql://postgres:${MIGRATION_DB_CREDENTIAL}@localhost:5432/postgres" >> "$GITHUB_ENV"
           docker run -d --name "${DB_CONTAINER}" \
@@ -452,12 +452,12 @@ jobs:
           });
           NODE
 
-      - name: Verify init.sql parity with migrations
+      - name: Certify migration-chain fresh-install authority
         working-directory: backend
         run: |
-          INIT_PARITY_OUTPUT="artifacts/init-parity-evidence.json" npm run test:init-parity
+          MIGRATION_AUTHORITY_OUTPUT="artifacts/init-parity-evidence.json" npm run test:migration-authority
 
-      - name: Upload init parity evidence
+      - name: Upload migration authority evidence
         uses: actions/upload-artifact@v7
         with:
           name: init-parity-evidence
@@ -1023,7 +1023,7 @@ jobs:
           name: dependency-audit
           path: artifacts/dependency-audit
 
-      - name: Download init parity evidence artifact
+      - name: Download migration authority evidence artifact
         uses: actions/download-artifact@v8
         with:
           name: init-parity-evidence
@@ -1089,7 +1089,7 @@ jobs:
           test -f artifacts/dependency-audit/backend-audit.json
           test -f artifacts/dependency-audit/frontend-audit.json
           test -f artifacts/init-parity-evidence/init-parity-evidence.json
-          node -e "const e=require('./artifacts/init-parity-evidence/init-parity-evidence.json');const checks=Array.isArray(e.authorityChecks)?e.authorityChecks:[];if(e.status!=='passed'||e.certificationMode!=='migration_chain_authority_with_init_sql_reference'||e.authority?.source!=='append_only_migration_chain'||Number(e.authority?.expectedMigrationVersion)!==Number(e.authority?.appliedMigrationVersion)||Number(e.mismatchCount)!==0||checks.length<3||checks.some(c=>c.pass!==true))process.exit(1);"
+          node -e "const e=require('./artifacts/init-parity-evidence/init-parity-evidence.json');const checks=Array.isArray(e.authorityChecks)?e.authorityChecks:[];if(e.status!=='passed'||e.certificationMode!=='migration_chain_authority_after_init_sql_retirement'||e.authority?.source!=='append_only_migration_chain'||Number(e.authority?.expectedMigrationVersion)!==Number(e.authority?.appliedMigrationVersion)||e.reference?.status!=='retired'||e.reference?.present!==false||checks.length<5||checks.some(c=>c.pass!==true))process.exit(1);"
           test -f artifacts/migration-rehearsal-evidence/migration-rehearsal-evidence.json
           node -e "const e=require('./artifacts/migration-rehearsal-evidence/migration-rehearsal-evidence.json');const a=e.restoreAuthority;const checks=Array.isArray(a?.checks)?a.checks:[];if(e.status!=='passed'||e.checks?.restoredCountsMatchPostUpgrade!==true||e.checks?.restoredRuntimeAuthorityPassed!==true||JSON.stringify(e.restoredCounts)!==JSON.stringify(e.postUpgradeCounts)||a?.status!=='passed'||a?.certificationMode!=='restored_migration_built_runtime_authority'||a?.authority?.source!=='append_only_migration_chain'||a?.authority?.databaseOrigin!=='restored_migration_built_snapshot'||a?.authority?.sourceDatabaseOrigin!=='empty_database'||a?.authority?.restoreMethod!=='postgresql_template_snapshot'||Number(a?.authority?.appliedMigrationVersion)!==Number(e.latestVersion)||a?.authority?.everyMigrationApplied!==true||a?.runtime?.role!=='ephemeral_or_runtime_credential_redacted'||a?.runtime?.nonOwner!==true||a?.runtime?.migrationsMode!=='external'||checks.length<8||checks.some(x=>x.pass!==true))process.exit(1);"
           test -f artifacts/identity-upgrade-certification-evidence/identity-upgrade-certification-evidence.json

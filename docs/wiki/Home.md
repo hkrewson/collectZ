@@ -41,8 +41,6 @@ Start here for deployment and operations guidance.
 
 ## Default Admin Behavior (Important)
 
-`init.sql` does not seed a default admin user.
-
-First user registration on an empty database becomes admin automatically.
+The one-shot migration service does not seed a default admin user. First user registration on an empty migration-built database becomes admin automatically.
 
 Use invite-based registration for all additional users after bootstrap.

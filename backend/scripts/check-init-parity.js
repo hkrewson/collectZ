@@ -9,6 +9,7 @@ const { runMigrationsForClient, getExpectedMigrationVersion } = require('../db/m
 const useDatabaseSSL = process.env.DATABASE_SSL === 'true' || process.env.DATABASE_SSL === '1';
 
 function baseConnectionString() {
+  if (process.env.MIGRATION_AUTHORITY_ADMIN_URL) return process.env.MIGRATION_AUTHORITY_ADMIN_URL;
   if (process.env.INIT_PARITY_ADMIN_URL) return process.env.INIT_PARITY_ADMIN_URL;
   if (process.env.DATABASE_URL) {
     const parsed = new URL(process.env.DATABASE_URL);
@@ -239,85 +240,57 @@ function fingerprintCounts(fingerprint) {
   );
 }
 
-function diffRows(label, left = [], right = []) {
-  const leftSet = new Set(left.map((row) => JSON.stringify(row)));
-  const rightSet = new Set(right.map((row) => JSON.stringify(row)));
-  const onlyLeft = [...leftSet].filter((v) => !rightSet.has(v)).map((v) => JSON.parse(v));
-  const onlyRight = [...rightSet].filter((v) => !leftSet.has(v)).map((v) => JSON.parse(v));
-  return {
-    label,
-    onlyInitSql: onlyLeft,
-    onlyMigrations: onlyRight,
-    matches: onlyLeft.length === 0 && onlyRight.length === 0
-  };
-}
-
 async function main() {
   const runId = Date.now().toString(36);
-  const initDb = `collectz_init_parity_init_${runId}`;
-  const migDb = `collectz_init_parity_mig_${runId}`;
-  const outputPath = process.env.INIT_PARITY_OUTPUT || path.join('artifacts', 'init-parity-evidence.json');
+  const authorityDb = `collectz_migration_authority_${runId}`;
+  const outputPath = process.env.MIGRATION_AUTHORITY_OUTPUT
+    || process.env.INIT_PARITY_OUTPUT
+    || path.join('artifacts', 'init-parity-evidence.json');
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
 
   const adminUrl = baseConnectionString();
-  const initSqlPath = process.env.INIT_SQL_PATH
-    ? path.resolve(process.env.INIT_SQL_PATH)
-    : path.resolve(__dirname, '../../init.sql');
-  const initSql = fs.readFileSync(initSqlPath, 'utf8');
+  const retiredInitSqlPath = path.resolve(__dirname, '../../init.sql');
 
   const admin = await connect(adminUrl);
   try {
-    await terminateAndDropDatabase(admin, initDb);
-    await terminateAndDropDatabase(admin, migDb);
+    await terminateAndDropDatabase(admin, authorityDb);
+    await createDatabase(admin, authorityDb);
 
-    await createDatabase(admin, initDb);
-    await createDatabase(admin, migDb);
-
-    const initClient = await connect(withDb(adminUrl, initDb));
+    const migrationClient = await connect(withDb(adminUrl, authorityDb));
     try {
-      await initClient.query(initSql);
+      await runMigrationsForClient(migrationClient);
     } finally {
-      await initClient.end();
+      await migrationClient.end();
     }
 
-    const migClient = await connect(withDb(adminUrl, migDb));
+    const verifyClient = await connect(withDb(adminUrl, authorityDb));
+    let fingerprint;
     try {
-      await runMigrationsForClient(migClient);
+      fingerprint = await schemaFingerprint(verifyClient);
     } finally {
-      await migClient.end();
+      await verifyClient.end();
     }
 
-    const initVerify = await connect(withDb(adminUrl, initDb));
-    const migVerify = await connect(withDb(adminUrl, migDb));
-    let initFp;
-    let migFp;
-    try {
-      initFp = await schemaFingerprint(initVerify);
-      migFp = await schemaFingerprint(migVerify);
-    } finally {
-      await initVerify.end();
-      await migVerify.end();
-    }
-
-    const diffs = [
-      diffRows('relations', initFp.relations, migFp.relations),
-      diffRows('columns', initFp.columns, migFp.columns),
-      diffRows('indexes', initFp.indexes, migFp.indexes),
-      diffRows('constraints', initFp.constraints, migFp.constraints),
-      diffRows('triggers', initFp.triggers, migFp.triggers),
-      diffRows('functions', initFp.functions, migFp.functions),
-      diffRows('scope_security', initFp.scopeSecurity, migFp.scopeSecurity),
-      diffRows('migrations', initFp.migrations, migFp.migrations),
-      diffRows('feature_flags', initFp.featureFlags, migFp.featureFlags),
-      diffRows('bootstrap_rows', initFp.bootstrapRows, migFp.bootstrapRows)
-    ];
-
-    const mismatches = diffs.filter((d) => !d.matches);
     const expectedMigrationVersion = getExpectedMigrationVersion();
-    const appliedMigrationVersion = migFp.migrations.reduce(
+    const appliedMigrationVersion = fingerprint.migrations.reduce(
       (max, migration) => Math.max(max, Number(migration.version || 0)),
       0
     );
+    const appliedVersions = fingerprint.migrations.map(({ version }) => Number(version));
+    const expectedVersions = Array.from({ length: expectedMigrationVersion }, (_, index) => index + 1);
+    const counts = fingerprintCounts(fingerprint);
+    const inventoryCategories = [
+      'relations',
+      'columns',
+      'indexes',
+      'constraints',
+      'triggers',
+      'functions',
+      'scopeSecurity',
+      'migrations',
+      'featureFlags',
+      'bootstrapRows'
+    ];
     const authorityChecks = [
       {
         id: 'migration_chain_reaches_expected_version',
@@ -327,59 +300,59 @@ async function main() {
       },
       {
         id: 'migration_chain_contains_every_version',
-        pass: migFp.migrations.length === expectedMigrationVersion,
-        expected: expectedMigrationVersion,
-        actual: migFp.migrations.length
+        pass: JSON.stringify(appliedVersions) === JSON.stringify(expectedVersions),
+        expectedCount: expectedVersions.length,
+        actualCount: appliedVersions.length
       },
       {
-        id: 'reference_schema_matches_migration_authority',
-        pass: mismatches.length === 0,
-        mismatchCount: mismatches.length
+        id: 'migration_authority_inventory_is_complete',
+        pass: inventoryCategories.every((category) => Number(counts[category]) > 0),
+        categories: inventoryCategories,
+        counts
+      },
+      {
+        id: 'migration_authority_bootstrap_state_is_present',
+        pass: fingerprint.featureFlags.length === 8 && fingerprint.bootstrapRows.length === 10,
+        featureFlagCount: fingerprint.featureFlags.length,
+        bootstrapRowCount: fingerprint.bootstrapRows.length
+      },
+      {
+        id: 'hand_maintained_init_sql_is_retired',
+        pass: !fs.existsSync(retiredInitSqlPath),
+        retiredPath: 'init.sql'
       }
     ];
     const failedAuthorityChecks = authorityChecks.filter((check) => !check.pass);
     const evidence = {
       generatedAt: new Date().toISOString(),
       status: failedAuthorityChecks.length === 0 ? 'passed' : 'failed',
-      certificationMode: 'migration_chain_authority_with_init_sql_reference',
+      certificationMode: 'migration_chain_authority_after_init_sql_retirement',
       authority: {
         source: 'append_only_migration_chain',
-        database: migDb,
+        database: authorityDb,
         expectedMigrationVersion,
         appliedMigrationVersion,
-        fingerprintCounts: fingerprintCounts(migFp)
+        fingerprintCounts: counts
       },
       reference: {
         source: 'init.sql',
-        path: initSqlPath,
-        database: initDb,
-        fingerprintCounts: fingerprintCounts(initFp)
+        status: 'retired',
+        present: fs.existsSync(retiredInitSqlPath)
       },
-      initSqlPath,
-      initDb,
-      migDb,
-      authorityChecks,
-      checks: diffs,
-      mismatchCount: mismatches.length
+      authorityChecks
     };
 
     fs.writeFileSync(outputPath, `${JSON.stringify(evidence, null, 2)}\n`, 'utf8');
 
     if (failedAuthorityChecks.length > 0) {
       console.error('Migration-chain fresh-install authority check failed');
-      for (const mismatch of mismatches) {
-        console.error(`- ${mismatch.label}: init-only=${mismatch.onlyInitSql.length}, migration-only=${mismatch.onlyMigrations.length}`);
-      }
-      for (const check of failedAuthorityChecks.filter((check) => check.id !== 'reference_schema_matches_migration_authority')) {
-        console.error(`- ${check.id}: expected=${check.expected} actual=${check.actual}`);
-      }
+      for (const check of failedAuthorityChecks) console.error(`- ${check.id}`);
       process.exit(1);
     }
 
-    console.log(`Migration-chain authority and init.sql reference parity passed. Evidence written to ${outputPath}`);
+    console.log(`Migration-chain authority passed after init.sql retirement. Evidence written to ${outputPath}`);
   } finally {
-    try { await terminateAndDropDatabase(admin, initDb); } catch (_) {}
-    try { await terminateAndDropDatabase(admin, migDb); } catch (_) {}
+    try { await terminateAndDropDatabase(admin, authorityDb); } catch (_) {}
     await admin.end();
   }
 }

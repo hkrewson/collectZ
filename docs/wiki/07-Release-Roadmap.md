@@ -11,7 +11,7 @@ The `3.27.x` architecture line and the `3.28.x` provider-job, BookOrbit metadata
 ## 3.29.0 — Migration-Chain Fresh Installation Authority
 
 **Goal:** Make the append-only migration chain the sole authoritative path for both fresh installation and upgrade, then retire the hand-maintained duplicate schema only after migration-built runtime, restore, and bootstrap behavior is fully certified.
-**Status:** Active. The first slice names the migration-built schema as authority, expands the reference comparison to previously unchecked database objects and bootstrap rows, and repairs the resulting `init.sql` constraint drift without changing a deployed migration.
+**Status:** Active. Migration-built fresh install, provisioning, Core runtime, restored runtime, and canonical control-plane startup are certified through migration `144`; the duplicate hand-maintained schema is retired. The required `3.29.0` version closeout remains.
 
 ### Selected scope
 
@@ -121,10 +121,23 @@ The `3.27.x` architecture line and the `3.28.x` provider-job, BookOrbit metadata
 - **What remains in the milestone:** Rerun hosted release preflight after push, decide whether `init.sql` becomes generated output or is retired, and complete the required `3.29.0` version closeout.
 - **Recommended commit message:** `Repair 3.29.0 hosted delivery of canonical control-plane authority evidence`.
 
+### Duplicate schema retirement checkpoint
+
+- **Roadmap slice:** `3.29.0 — Migration-Chain Fresh Installation Authority`, retirement of the hand-maintained `init.sql` schema source.
+- **Project docs/checklists used:** `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/12-Migration-Rehearsal-Runbook.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/23-Metadata-Normalization-Cutover-Plan.md`, and `docs/wiki/50-Staged-Row-Level-Security.md`.
+- **Verified facts:** Production startup, hosted Core runtime, restored runtime, and canonical Platform startup already depend only on the append-only migrations and one-shot provisioning path. The retired file was used only by the parity comparison and as a static workspace-ownership table inventory. Fresh-install certification now creates one empty authority database, applies every migration in order, inventories all schema/bootstrap categories, and fails if `init.sql` reappears. Workspace ownership compares its reviewed classifications directly with the live migration-built PostgreSQL catalog.
+- **Runtime verification used:** The migration-authority gate created and removed one scratch database inside the existing canonical PostgreSQL service, applied all migrations `1`–`144`, and passed `5/5` authority/retirement checks with `138` relations, `1,101` columns, `308` indexes, `424` constraints, `64` triggers, `94` functions, `70` scope-security objects, `8` feature flags, and `10` required bootstrap rows. The ownership contract read the retained migration-built catalog through the canonical non-owner backend credential and matched `79` tables, `355` routes, and `12` execution paths. No retained application rows, Compose project, host port, or data volume were created or changed.
+- **CI/checks run:** Backend unit/source suite locally and inside the rebuilt production image (`388` assertions plus `57` Node tests each); workflow YAML parse; migration-chain authority from empty (`5/5`); live workspace-ownership certification; in-container OpenAPI and Platform edition-boundary smoke; standard local release gate (`14/14`, including frontend unit/build/quality, dependency audits, strict preflight, and diff hygiene); canonical stack health and migration `144` readback; and focused generated-evidence secret-pattern review.
+- **Files changed:** Retired `init.sql`; migration-authority certification and evidence contract; live ownership-table inventory; CI workflow and generated Compose mounts; local/hosted release preflight validation; source-contract coverage; and migration, RLS, metadata, Apple TV, home, release, and roadmap documentation.
+- **Blocked/unverified:** Hosted migration-check, compose smoke, Core RBAC/browser/runtime, dependency/secret scans, image security/SBOM, CodeQL, release preflight, and auto-tag require an authorized push. This slice does not change a migration, retained database, semver, or release feed.
+- **Risks or follow-ups:** The `init-parity-evidence` artifact and `test:init-parity` command remain as compatibility aliases, but both now require the retirement certification mode and do not compare a second schema. Any reintroduced `init.sql` fails the authority gate. New tables must be classified in the ownership snapshot and must appear in the live migrated catalog.
+- **What remains in the milestone:** Complete the required `3.29.0` semver, release-note/feed, running Help > Releases, and full release-gate closeout, then rerun hosted certification after the authorized push.
+- **Recommended commit message:** `Retire the duplicate schema under 3.29.0 migration-chain authority`.
+
 ### Milestone boundary
 
 - This slice changes certification authority and repairs the reference schema; it does not alter retained databases or rewrite deployed migrations.
-- `init.sql` remains a parity-checked reference until later slices prove its generation or safe retirement.
+- `init.sql` is retired; the compatibility-named parity gate now fails if that duplicate schema source reappears.
 - The long-lived runtime role remains non-owner and cannot run migrations; only the one-shot migration/provisioning service receives the owner credential.
 
 ---

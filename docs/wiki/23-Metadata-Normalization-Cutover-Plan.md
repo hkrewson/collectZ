@@ -48,7 +48,7 @@ Move metadata search/filter read paths from legacy comma-separated columns (`gen
 
 The project can move from Stage A -> B only when:
 
-1. `test:init-parity`, `test:unit`, and `test:integration-smoke` pass.
+1. `test:migration-authority`, `test:unit`, and `test:integration-smoke` pass.
 2. Benchmark evidence exists and shows no severe normalized-read regressions.
 3. UI validation confirms search/filter parity for director/genre/cast.
 
@@ -66,5 +66,5 @@ The project can move from Stage B -> D only when:
 ## Operational Notes
 
 - Keep backfill scripts idempotent.
-- Keep migration parity (`init.sql` vs `migrations.js`) enforced for each metadata-schema update.
+- Keep migration-chain authority and schema/bootstrap inventory evidence enforced for each metadata-schema update; do not restore a hand-maintained duplicate schema.
 - Include metadata-query benchmark evidence in release notes for any stage transition.

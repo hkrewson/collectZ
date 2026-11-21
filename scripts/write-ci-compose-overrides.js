@@ -33,7 +33,6 @@ const buildOverride = `services:
       LOG_EXPORT_SETTINGS_READ_ONLY: \${LOG_EXPORT_SETTINGS_READ_ONLY:-false}
       PLAYWRIGHT_E2E_BYPASS_TOKEN: \${PLAYWRIGHT_E2E_BYPASS_TOKEN:-}
     volumes:
-      - ./init.sql:/init.sql:ro
       - ./docker-compose.yml:/docker-compose.yml:ro
       - ./backend:/backend:ro
       - ./frontend:/frontend:ro

@@ -22,7 +22,7 @@ Collection refresh reads stored CollectZ data; it never triggers imports, source
 
 ## Verification
 
-Run `npm run test:tv-auth-smoke` in the backend against an **isolated disposable database in each deployment mode**. It creates fixture identities/content and intentionally suspends a fixture membership; do not run against user data. It proves polling/CSRF/one-time redemption, rotation/revocation, scanner isolation, forbidden writes, cross-library item/artwork denial, collection-join isolation, and membership revocation. Run existing mobile-auth, RBAC, integration, migration/init-parity and release gates as well.
+Run `npm run test:tv-auth-smoke` in the backend against an **isolated disposable database in each deployment mode**. It creates fixture identities/content and intentionally suspends a fixture membership; do not run against user data. It proves polling/CSRF/one-time redemption, rotation/revocation, scanner isolation, forbidden writes, cross-library item/artwork denial, collection-join isolation, and membership revocation. Run existing mobile-auth, RBAC, integration, migration-authority, and release gates as well.
 
 Native test/build instructions and TestFlight preparation are in `collectZ-tvos/README.md`. Hardware focus/VoiceOver and signed distribution checks must be recorded separately from simulator evidence.
 

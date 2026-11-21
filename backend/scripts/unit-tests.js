@@ -259,7 +259,10 @@ const objectRelationshipsRlsSource = fs.readFileSync(path.resolve(__dirname, '..
 const objectRelationshipsRlsSmokeSource = fs.readFileSync(require.resolve('../scripts/object-relationships-rls-smoke'), 'utf8');
 const objectRelationshipsHttpSmokeSource = fs.readFileSync(require.resolve('../scripts/object-relationships-http-smoke'), 'utf8');
 const workspaceAuthorizationCertificationSource = fs.readFileSync(require.resolve('../scripts/workspace-authorization-certification-smoke'), 'utf8');
-const initSqlSource = fs.readFileSync(path.resolve(__dirname, '..', '..', 'init.sql'), 'utf8');
+// Preserve the historical assertion variable while sourcing every schema claim from the authoritative migrations.
+const initSqlSource = require('../db/migrations').MIGRATIONS
+  .map(({ version, description, up }) => `${up}\n(${version}, '${description}')`)
+  .join('\n');
 const libraryServiceSource = fs.readFileSync(require.resolve('../services/libraries'), 'utf8');
 const personalAccessTokenSource = fs.readFileSync(require.resolve('../services/personalAccessTokens'), 'utf8');
 const mobileAuthTokenSource = fs.readFileSync(require.resolve('../services/mobileAuthTokens'), 'utf8');
@@ -2285,7 +2288,7 @@ results.push(run('media user ratings are stored on a 0-10 provider scale while U
   assert.ok(migrationsSource.includes("description: 'Normalize user ratings to 0-10 provider scale'"));
   assert.ok(migrationsSource.includes('SET user_rating = ROUND((user_rating * 2)::numeric, 1)'));
   assert.ok(initSqlSource.includes('user_rating DECIMAL(3,1),'));
-  assert.ok(initSqlSource.includes('CONSTRAINT media_user_rating_scale_check CHECK'));
+  assert.ok(initSqlSource.includes('ADD CONSTRAINT media_user_rating_scale_check'));
   assert.ok(initSqlSource.includes("(99, 'Normalize user ratings to 0-10 provider scale')"));
   assert.ok(libraryViewSource.includes('function userRatingToStars'));
   assert.ok(libraryViewSource.includes('function starsToUserRating'));
@@ -5722,23 +5725,32 @@ results.push(run('durable sync jobs activate command-separated actor and worker 
   assert.ok(workerSmokeSource.includes("SELECT COUNT(*)::int AS count FROM sync_jobs"));
 }));
 
-results.push(run('init parity evidence treats the migration chain as fresh-install authority', () => {
+results.push(run('migration authority evidence certifies fresh install after init.sql retirement', () => {
   const initParitySource = fs.readFileSync(path.resolve(__dirname, 'check-init-parity.js'), 'utf8');
   const releasePreflightSource = fs.readFileSync(path.resolve(__dirname, 'release-preflight-local.js'), 'utf8');
-  assert.ok(initParitySource.includes("certificationMode: 'migration_chain_authority_with_init_sql_reference'"));
+  const workspaceOwnershipSource = fs.readFileSync(path.resolve(__dirname, 'workspace-ownership-certification.js'), 'utf8');
+  const workflowSource = fs.readFileSync(path.resolve(__dirname, '..', '..', '.github', 'workflows', 'docker-publish.yml'), 'utf8');
+  assert.ok(!fs.existsSync(path.resolve(__dirname, '..', '..', 'init.sql')));
+  assert.ok(backendPackageJson.scripts['test:migration-authority']);
+  assert.ok(!ciComposeWriterSource.includes('./init.sql:/init.sql'));
+  assert.ok(initParitySource.includes("certificationMode: 'migration_chain_authority_after_init_sql_retirement'"));
   assert.ok(initParitySource.includes("source: 'append_only_migration_chain'"));
-  assert.ok(initParitySource.includes("source: 'init.sql'"));
+  assert.ok(initParitySource.includes("status: 'retired'"));
   assert.ok(initParitySource.includes("id: 'migration_chain_reaches_expected_version'"));
   assert.ok(initParitySource.includes("id: 'migration_chain_contains_every_version'"));
-  assert.ok(initParitySource.includes("id: 'reference_schema_matches_migration_authority'"));
-  assert.ok(initParitySource.includes("diffRows('relations'"));
-  assert.ok(initParitySource.includes("diffRows('constraints'"));
-  assert.ok(initParitySource.includes("diffRows('functions'"));
-  assert.ok(initParitySource.includes("diffRows('bootstrap_rows'"));
+  assert.ok(initParitySource.includes("id: 'migration_authority_inventory_is_complete'"));
+  assert.ok(initParitySource.includes("id: 'migration_authority_bootstrap_state_is_present'"));
+  assert.ok(initParitySource.includes("id: 'hand_maintained_init_sql_is_retired'"));
+  assert.ok(workspaceOwnershipSource.includes('Live migration-built table inventory drifted'));
+  assert.ok(workspaceOwnershipSource.includes("n.nspname IN ('public', 'collectz_scope')"));
   assert.ok(releasePreflightSource.includes("initParityEvidence.status === 'passed'"));
-  assert.ok(releasePreflightSource.includes("initParityEvidence.certificationMode === 'migration_chain_authority_with_init_sql_reference'"));
+  assert.ok(releasePreflightSource.includes("initParityEvidence.certificationMode === 'migration_chain_authority_after_init_sql_retirement'"));
   assert.ok(releasePreflightSource.includes("initParityEvidence.authority?.source === 'append_only_migration_chain'"));
+  assert.ok(releasePreflightSource.includes("initParityEvidence.reference?.status === 'retired'"));
   assert.ok(releasePreflightSource.includes('initAuthorityChecks.every((check) => check.pass === true)'));
+  assert.ok(workflowSource.includes('Certify migration-chain fresh-install authority'));
+  assert.ok(workflowSource.includes('npm run test:migration-authority'));
+  assert.ok(workflowSource.includes("e.reference?.status!=='retired'"));
 }));
 
 results.push(run('plex webhook processing uses exact-scope worker lifecycle authorization', () => {
@@ -7064,7 +7076,7 @@ results.push(run('invite token inventory reports counts without selecting identi
   assert.ok(inventorySource.includes('plaintextColumnPresent'));
   assert.ok(migrationsSource.includes("version: 121"));
   assert.ok(migrationsSource.includes('DROP COLUMN IF EXISTS token'));
-  assert.ok(!initSqlSource.includes('token VARCHAR(255) UNIQUE'));
+  assert.ok(initSqlSource.includes('DROP COLUMN IF EXISTS token'));
 }));
 
 results.push(run('logout route resolves session user before revoking token for audit attribution', () => {
@@ -8409,8 +8421,10 @@ results.push(run('Art dimension unit metadata is wired through native Art contra
 results.push(run('Art numbered print metadata and readback are wired through native Art contracts', () => {
   assert.ok(migrationsSource.includes('version: 95'));
   assert.ok(migrationsSource.includes('Add Art numbered print metadata'));
-  assert.ok(initSqlSource.includes('print_number INTEGER CHECK'));
-  assert.ok(initSqlSource.includes('print_run INTEGER CHECK'));
+  assert.ok(initSqlSource.includes('ADD COLUMN IF NOT EXISTS print_number INTEGER'));
+  assert.ok(initSqlSource.includes('ADD COLUMN IF NOT EXISTS print_run INTEGER'));
+  assert.ok(initSqlSource.includes('ADD CONSTRAINT art_items_print_number_check'));
+  assert.ok(initSqlSource.includes('ADD CONSTRAINT art_items_print_run_check'));
   assert.ok(validateMiddlewareSource.includes('print_number: nullableNumberSchema'));
   assert.ok(validateMiddlewareSource.includes('print_run: nullableNumberSchema'));
   assert.ok(collectiblesRoutesSource.includes('print_number: row.print_number === null'));
