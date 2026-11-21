@@ -1,11 +1,13 @@
 {
-  "generatedAt": "2026-11-21T05:55:11.812Z",
+  "generatedAt": "2026-11-21T07:55:13.585Z",
   "baselineVersion": 143,
   "latestVersion": 144,
+  "status": "passed",
   "databases": {
-    "legacyDb": "collectz_rehearsal_legacy_mwpzukah",
-    "snapshotDb": "collectz_rehearsal_snapshot_mwpzukah",
-    "rollbackDb": "collectz_rehearsal_rollback_mwpzukah"
+    "legacyDb": "collectz_rehearsal_legacy_mwq44x7o",
+    "snapshotDb": "collectz_rehearsal_snapshot_mwq44x7o",
+    "rollbackDb": "collectz_rehearsal_rollback_mwq44x7o",
+    "restoredDb": "collectz_rehearsal_restored_mwq44x7o"
   },
   "preUpgradeCounts": {
     "users": 1,
@@ -40,6 +42,92 @@
     "app_integrations": 1,
     "feature_flags": 8
   },
+  "restoredCounts": {
+    "users": 1,
+    "media": 2,
+    "media_merge_recommendation_feedback": 1,
+    "event_exclusive_sources": 1,
+    "object_relationships": 1,
+    "sync_jobs": 1,
+    "invites": 1,
+    "app_integrations": 1,
+    "feature_flags": 8
+  },
+  "restoreAuthority": {
+    "generatedAt": "2026-11-21T07:55:14.721Z",
+    "status": "passed",
+    "certificationMode": "restored_migration_built_runtime_authority",
+    "authority": {
+      "source": "append_only_migration_chain",
+      "databaseOrigin": "restored_migration_built_snapshot",
+      "sourceDatabaseOrigin": "empty_database",
+      "restoreMethod": "postgresql_template_snapshot",
+      "expectedMigrationVersion": 144,
+      "appliedMigrationVersion": 144,
+      "appliedMigrationCount": 144,
+      "everyMigrationApplied": true
+    },
+    "runtime": {
+      "role": "ephemeral_or_runtime_credential_redacted",
+      "nonOwner": true,
+      "migrationsMode": "external",
+      "edition": "platform"
+    },
+    "bootstrap": {
+      "featureFlags": 8,
+      "collectibleCategories": 8,
+      "appIntegrations": 1,
+      "appSettings": 1
+    },
+    "checks": [
+      {
+        "id": "restore_observed_from_migration_built_snapshot",
+        "pass": true
+      },
+      {
+        "id": "restore_uses_database_native_snapshot",
+        "pass": true,
+        "actual": "postgresql_template_snapshot"
+      },
+      {
+        "id": "source_database_origin_was_empty_database",
+        "pass": true,
+        "actual": "empty_database"
+      },
+      {
+        "id": "runtime_uses_external_migration_mode",
+        "pass": true,
+        "actual": "external"
+      },
+      {
+        "id": "migration_chain_reaches_expected_version",
+        "pass": true,
+        "expected": 144,
+        "actual": 144
+      },
+      {
+        "id": "migration_chain_contains_every_version",
+        "pass": true,
+        "expected": 144,
+        "actual": 144
+      },
+      {
+        "id": "required_bootstrap_rows_present",
+        "pass": true,
+        "counts": {
+          "feature_flags": 8,
+          "collectible_categories": 8,
+          "app_integrations": 1,
+          "app_settings": 1
+        }
+      },
+      {
+        "id": "runtime_credential_is_non_owner",
+        "pass": true,
+        "violations": []
+      }
+    ]
+  },
   "checks": {
     "preUpgradeVersion": 143,
     "preUpgradeInvitationState": {
@@ -68,6 +156,8 @@
       "plaintextValueCount": 0
     },
     "rollbackCountsMatchPreUpgrade": true,
-    "rollbackVersionMatchesBaseline": true
+    "rollbackVersionMatchesBaseline": true,
+    "restoredCountsMatchPostUpgrade": true,
+    "restoredRuntimeAuthorityPassed": true
   }
 }

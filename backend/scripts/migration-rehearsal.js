@@ -8,6 +8,9 @@ const { Client } = require('pg');
 
 const useDatabaseSSL = process.env.DATABASE_SSL === 'true' || process.env.DATABASE_SSL === '1';
 const { runMigrationsForClient, MIGRATIONS } = require('../db/migrations');
+const { brokerCredentials } = require('../db/scopeBroker');
+const { provisionRuntimeRole } = require('../db/runtimeRole');
+const { certifyRestoredMigrationBuiltRuntime } = require('../db/migrationAuthority');
 
 function baseConnectionString() {
   if (process.env.MIGRATION_REHEARSAL_ADMIN_URL) return process.env.MIGRATION_REHEARSAL_ADMIN_URL;
@@ -22,6 +25,13 @@ function baseConnectionString() {
 function withDb(connectionString, databaseName) {
   const parsed = new URL(connectionString);
   parsed.pathname = `/${databaseName}`;
+  return parsed.toString();
+}
+
+function withCredentials(connectionString, user, password) {
+  const parsed = new URL(connectionString);
+  parsed.username = encodeURIComponent(user);
+  parsed.password = encodeURIComponent(password);
   return parsed.toString();
 }
 
@@ -280,6 +290,11 @@ async function main() {
   const legacyDb = `collectz_rehearsal_legacy_${runId}`;
   const snapshotDb = `collectz_rehearsal_snapshot_${runId}`;
   const rollbackDb = `collectz_rehearsal_rollback_${runId}`;
+  const restoredDb = `collectz_rehearsal_restored_${runId}`;
+  const roleSuffix = crypto.randomBytes(6).toString('hex');
+  const runtimeRole = `collectz_rehearsal_app_${roleSuffix}`;
+  const runtimePassword = crypto.randomBytes(32).toString('hex');
+  const brokerRole = brokerCredentials(runtimeRole, runtimePassword).role;
 
   const baselineVersion = Number.isFinite(Number(process.env.MIGRATION_BASELINE_VERSION))
     ? Number(process.env.MIGRATION_BASELINE_VERSION)
@@ -300,14 +315,18 @@ async function main() {
     generatedAt: new Date().toISOString(),
     baselineVersion,
     latestVersion,
-    databases: { legacyDb, snapshotDb, rollbackDb },
+    status: 'failed',
+    databases: { legacyDb, snapshotDb, rollbackDb, restoredDb },
     preUpgradeCounts: null,
     postUpgradeCounts: null,
     rollbackCounts: null,
+    restoredCounts: null,
+    restoreAuthority: null,
     checks: {}
   };
 
   try {
+    await terminateAndDropDatabase(admin, restoredDb);
     await terminateAndDropDatabase(admin, rollbackDb);
     await terminateAndDropDatabase(admin, snapshotDb);
     await terminateAndDropDatabase(admin, legacyDb);
@@ -403,6 +422,26 @@ async function main() {
       await upgradeClient.end();
     }
 
+    await createDatabase(admin, restoredDb, legacyDb);
+    const restoredOwner = await connect(withDb(adminUrl, restoredDb));
+    try {
+      evidence.restoredCounts = await collectCounts(restoredOwner);
+      await provisionRuntimeRole(restoredOwner, { roleName: runtimeRole, password: runtimePassword });
+    } finally {
+      await restoredOwner.end();
+    }
+    const restoredRuntime = await connect(withCredentials(withDb(adminUrl, restoredDb), runtimeRole, runtimePassword));
+    try {
+      evidence.restoreAuthority = await certifyRestoredMigrationBuiltRuntime(restoredRuntime, {
+        migrationsMode: 'external',
+        restoreMethod: 'postgresql_template_snapshot',
+        sourceDatabaseOrigin: 'empty_database',
+        restoredFromMigrationBuiltSnapshot: true
+      });
+    } finally {
+      await restoredRuntime.end();
+    }
+
     await createDatabase(admin, rollbackDb, snapshotDb);
     const rollbackClient = await connect(withDb(adminUrl, rollbackDb));
     try {
@@ -416,12 +455,21 @@ async function main() {
     const countsMatch = JSON.stringify(evidence.preUpgradeCounts) === JSON.stringify(evidence.rollbackCounts);
     evidence.checks.rollbackCountsMatchPreUpgrade = countsMatch;
     evidence.checks.rollbackVersionMatchesBaseline = evidence.checks.rollbackVersion === baselineVersion;
+    evidence.checks.restoredCountsMatchPostUpgrade = JSON.stringify(evidence.restoredCounts) === JSON.stringify(evidence.postUpgradeCounts);
+    evidence.checks.restoredRuntimeAuthorityPassed = evidence.restoreAuthority?.status === 'passed'
+      && evidence.restoreAuthority.checks.every((check) => check.pass === true);
 
     if (!countsMatch) {
       throw new Error('Rollback rehearsal counts do not match pre-upgrade counts');
     }
     if (!evidence.checks.rollbackVersionMatchesBaseline) {
       throw new Error(`Rollback version mismatch: expected ${baselineVersion}, got ${evidence.checks.rollbackVersion}`);
+    }
+    if (!evidence.checks.restoredCountsMatchPostUpgrade) {
+      throw new Error('Restored database counts do not match post-upgrade counts');
+    }
+    if (!evidence.checks.restoredRuntimeAuthorityPassed) {
+      throw new Error('Restored database did not retain migration-built non-owner runtime authority');
     }
     if (!evidence.checks.reviewDecisionOwnershipBackfilled) {
       throw new Error('Dashboard review decision ownership backfill or RLS activation failed');
@@ -448,12 +496,17 @@ async function main() {
       throw new Error('Rollback snapshot did not restore the baseline invitation identity state');
     }
 
+    evidence.status = 'passed';
     fs.writeFileSync(outputPath, `${JSON.stringify(evidence, null, 2)}\n`, 'utf8');
     console.log(`Migration rehearsal completed. Evidence written to ${outputPath}`);
   } finally {
+    try { await terminateAndDropDatabase(admin, restoredDb); } catch (_) {}
     try { await terminateAndDropDatabase(admin, rollbackDb); } catch (_) {}
     try { await terminateAndDropDatabase(admin, snapshotDb); } catch (_) {}
     try { await terminateAndDropDatabase(admin, legacyDb); } catch (_) {}
+    for (const role of [brokerRole, runtimeRole]) {
+      try { await admin.query(`DROP ROLE IF EXISTS ${quoteIdent(role)}`); } catch (_) {}
+    }
     await admin.end();
   }
 }

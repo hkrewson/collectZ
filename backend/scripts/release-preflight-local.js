@@ -437,6 +437,10 @@ async function main() {
 
   const initParityEvidence = safeReadJson(initParityEvidencePath);
   const migrationEvidence = safeReadJson(migrationRehearsalEvidencePath);
+  const restoreAuthority = migrationEvidence?.restoreAuthority;
+  const restoreAuthorityChecks = Array.isArray(restoreAuthority?.checks)
+    ? restoreAuthority.checks
+    : [];
   const initAuthorityChecks = Array.isArray(initParityEvidence?.authorityChecks)
     ? initParityEvidence.authorityChecks
     : [];
@@ -450,13 +454,36 @@ async function main() {
     && initAuthorityChecks.length >= 3
     && initAuthorityChecks.every((check) => check.pass === true)
   );
+  const restoredCountsMatch = JSON.stringify(migrationEvidence?.restoredCounts || null)
+    === JSON.stringify(migrationEvidence?.postUpgradeCounts || null);
+  const migrationRestoreCertified = Boolean(
+    migrationEvidence
+    && migrationEvidence.status === 'passed'
+    && Number(migrationEvidence.latestVersion) === Number(initParityEvidence?.authority?.appliedMigrationVersion)
+    && migrationEvidence.checks?.restoredCountsMatchPostUpgrade === true
+    && migrationEvidence.checks?.restoredRuntimeAuthorityPassed === true
+    && restoredCountsMatch
+    && restoreAuthority?.status === 'passed'
+    && restoreAuthority.certificationMode === 'restored_migration_built_runtime_authority'
+    && restoreAuthority.authority?.source === 'append_only_migration_chain'
+    && restoreAuthority.authority?.databaseOrigin === 'restored_migration_built_snapshot'
+    && restoreAuthority.authority?.sourceDatabaseOrigin === 'empty_database'
+    && restoreAuthority.authority?.restoreMethod === 'postgresql_template_snapshot'
+    && Number(restoreAuthority.authority?.appliedMigrationVersion) === Number(migrationEvidence.latestVersion)
+    && restoreAuthority.authority?.everyMigrationApplied === true
+    && restoreAuthority.runtime?.role === 'ephemeral_or_runtime_credential_redacted'
+    && restoreAuthority.runtime?.nonOwner === true
+    && restoreAuthority.runtime?.migrationsMode === 'external'
+    && restoreAuthorityChecks.length >= 8
+    && restoreAuthorityChecks.every((check) => check.pass === true)
+  );
   gates.push(
     buildGate(
       'Migration authority and rehearsal evidence',
-      initParityCertified && migrationEvidence ? 'PASS' : 'FAIL',
-      initParityCertified && migrationEvidence
-        ? `migration chain certified as fresh-install authority through ${initParityEvidence.authority.appliedMigrationVersion}; rehearsal evidence present`
-        : 'fresh-install authority evidence is missing, stale, failed, or drifted, or migration rehearsal evidence is missing'
+      initParityCertified && migrationRestoreCertified ? 'PASS' : 'FAIL',
+      initParityCertified && migrationRestoreCertified
+        ? `migration chain certified as fresh-install and restored-runtime authority through ${initParityEvidence.authority.appliedMigrationVersion}`
+        : 'fresh-install or restored-runtime authority evidence is missing, stale, failed, or drifted'
     )
   );
 

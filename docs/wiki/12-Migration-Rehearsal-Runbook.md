@@ -23,7 +23,10 @@ This runbook is the repeatable process for testing the 2.0 schema migration safe
   - take/retain a pre-upgrade database snapshot,
   - validate forward migration on a rehearsal copy,
   - restore snapshot to recover baseline behavior.
-- CI automates this path using a synthetic legacy fixture DB + clone/restore validation.
+- CI automates this path using a synthetic legacy fixture DB plus two database-native PostgreSQL template snapshot/restore checks:
+  - a pre-upgrade snapshot restored at the selected baseline for rollback parity,
+  - a post-upgrade migration-built snapshot restored at the latest version, provisioned with an ephemeral non-owner runtime credential, and certified for complete migration history, bootstrap state, data counts, and external migration mode.
+- The database-native template snapshot is an in-cluster restore authority check. It does not replace the operator rehearsal of a portable production `.dump` or `.sql` backup described above.
 
 ## Rehearsal Steps
 
@@ -86,9 +89,12 @@ WHERE table_name = 'app_integrations'
   2. restore-based rollback rehearsal (`npm run test:migration-rehearsal`),
   3. artifact upload.
 - Artifact: `migration-rehearsal-evidence.json`
+  - has top-level `status: passed`,
   - includes baseline/latest version checks,
-  - pre-upgrade, post-upgrade, rollback row counts,
-  - rollback parity assertion.
+  - pre-upgrade, post-upgrade, rollback, and restored row counts,
+  - rollback parity assertion,
+  - includes `restoreAuthority` identifying `postgresql_template_snapshot`, the append-only migration chain, an empty migration-built source, every migration version, required bootstrap rows, external migration mode, and a redacted non-owner runtime credential,
+  - fails when restored counts differ from post-upgrade counts or any restored-runtime authority check fails.
 - Artifact: `init-parity-evidence.json`
   - identifies the append-only migration chain as fresh-install authority,
   - verifies the authority database reached every expected migration,
