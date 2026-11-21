@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { Client } = require('pg');
 
-const { runMigrationsForClient } = require('../db/migrations');
+const { runMigrationsForClient, getExpectedMigrationVersion } = require('../db/migrations');
 
 const useDatabaseSSL = process.env.DATABASE_SSL === 'true' || process.env.DATABASE_SSL === '1';
 
@@ -60,6 +60,25 @@ async function createDatabase(adminClient, dbName) {
 }
 
 async function schemaFingerprint(client) {
+  const relations = await client.query(
+    `SELECT n.nspname AS schema_name,
+            c.relname AS relation_name,
+            CASE c.relkind
+              WHEN 'r' THEN 'table'
+              WHEN 'p' THEN 'partitioned_table'
+              WHEN 'v' THEN 'view'
+              WHEN 'm' THEN 'materialized_view'
+              WHEN 'S' THEN 'sequence'
+              WHEN 'f' THEN 'foreign_table'
+              ELSE c.relkind::text
+            END AS relation_kind
+     FROM pg_class c
+     JOIN pg_namespace n ON n.oid = c.relnamespace
+     WHERE n.nspname IN ('public', 'collectz_scope')
+       AND c.relkind IN ('r', 'p', 'v', 'm', 'S', 'f')
+     ORDER BY n.nspname, c.relname`
+  );
+
   const columns = await client.query(
     `SELECT table_name, column_name, ordinal_position, data_type, udt_name, is_nullable,
             COALESCE(column_default, '') AS column_default
@@ -75,11 +94,45 @@ async function schemaFingerprint(client) {
      ORDER BY tablename, indexname`
   );
 
+  const constraints = await client.query(
+    `SELECT n.nspname AS schema_name,
+            c.relname AS table_name,
+            con.conname AS constraint_name,
+            con.contype AS constraint_type,
+            con.condeferrable AS deferrable,
+            con.condeferred AS initially_deferred,
+            con.convalidated AS validated,
+            pg_get_constraintdef(con.oid, true) AS definition
+     FROM pg_constraint con
+     JOIN pg_class c ON c.oid = con.conrelid
+     JOIN pg_namespace n ON n.oid = c.relnamespace
+     WHERE n.nspname IN ('public', 'collectz_scope')
+     ORDER BY n.nspname, c.relname, con.conname`
+  );
+
   const triggers = await client.query(
-    `SELECT event_object_table AS table_name, trigger_name
-     FROM information_schema.triggers
-     WHERE trigger_schema = 'public'
-     ORDER BY event_object_table, trigger_name`
+    `SELECT n.nspname AS schema_name,
+            c.relname AS table_name,
+            t.tgname AS trigger_name,
+            pg_get_triggerdef(t.oid, true) AS definition
+     FROM pg_trigger t
+     JOIN pg_class c ON c.oid = t.tgrelid
+     JOIN pg_namespace n ON n.oid = c.relnamespace
+     WHERE n.nspname IN ('public', 'collectz_scope')
+       AND NOT t.tgisinternal
+     ORDER BY n.nspname, c.relname, t.tgname`
+  );
+
+  const functions = await client.query(
+    `SELECT n.nspname AS schema_name,
+            p.proname AS function_name,
+            pg_get_function_identity_arguments(p.oid) AS identity_arguments,
+            pg_get_functiondef(p.oid) AS definition
+     FROM pg_proc p
+     JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname IN ('public', 'collectz_scope')
+       AND p.prokind IN ('f', 'p')
+     ORDER BY n.nspname, p.proname, pg_get_function_identity_arguments(p.oid)`
   );
 
   const migrationRows = await client.query(
@@ -92,6 +145,18 @@ async function schemaFingerprint(client) {
     `SELECT key, enabled, description
      FROM feature_flags
      ORDER BY key`
+  );
+
+  const bootstrapRows = await client.query(
+    `SELECT 'app_integrations' AS source, id::text AS key, '' AS value
+     FROM app_integrations
+     UNION ALL
+     SELECT 'app_settings', id::text, ''
+     FROM app_settings
+     UNION ALL
+     SELECT 'collectible_categories', key, concat_ws(':', label, sort_order::text)
+     FROM collectible_categories
+     ORDER BY source, key`
   );
 
   const scopeSecurity = await client.query(`
@@ -125,6 +190,7 @@ async function schemaFingerprint(client) {
     ORDER BY kind, name`);
 
   return {
+    relations: relations.rows,
     columns: columns.rows.map((r) => ({
       table: r.table_name,
       column: r.column_name,
@@ -138,14 +204,39 @@ async function schemaFingerprint(client) {
       name: r.indexname,
       def: normalizeSql(r.indexdef)
     })),
-    triggers: triggers.rows.map((r) => ({
+    constraints: constraints.rows.map((r) => ({
+      schema: r.schema_name,
       table: r.table_name,
-      name: r.trigger_name
+      name: r.constraint_name,
+      type: r.constraint_type,
+      deferrable: r.deferrable,
+      initiallyDeferred: r.initially_deferred,
+      validated: r.validated,
+      definition: normalizeSql(r.definition)
+    })),
+    triggers: triggers.rows.map((r) => ({
+      schema: r.schema_name,
+      table: r.table_name,
+      name: r.trigger_name,
+      definition: normalizeSql(r.definition)
+    })),
+    functions: functions.rows.map((r) => ({
+      schema: r.schema_name,
+      name: r.function_name,
+      arguments: normalizeSql(r.identity_arguments),
+      definition: normalizeSql(r.definition)
     })),
     scopeSecurity: scopeSecurity.rows.map(r => ({ ...r, definition: normalizeSql(r.definition) })),
     migrations: migrationRows.rows,
-    featureFlags: featureFlags.rows
+    featureFlags: featureFlags.rows,
+    bootstrapRows: bootstrapRows.rows
   };
+}
+
+function fingerprintCounts(fingerprint) {
+  return Object.fromEntries(
+    Object.entries(fingerprint).map(([key, rows]) => [key, Array.isArray(rows) ? rows.length : 0])
+  );
 }
 
 function diffRows(label, left = [], right = []) {
@@ -209,35 +300,83 @@ async function main() {
     }
 
     const diffs = [
+      diffRows('relations', initFp.relations, migFp.relations),
       diffRows('columns', initFp.columns, migFp.columns),
       diffRows('indexes', initFp.indexes, migFp.indexes),
+      diffRows('constraints', initFp.constraints, migFp.constraints),
       diffRows('triggers', initFp.triggers, migFp.triggers),
+      diffRows('functions', initFp.functions, migFp.functions),
       diffRows('scope_security', initFp.scopeSecurity, migFp.scopeSecurity),
       diffRows('migrations', initFp.migrations, migFp.migrations),
-      diffRows('feature_flags', initFp.featureFlags, migFp.featureFlags)
+      diffRows('feature_flags', initFp.featureFlags, migFp.featureFlags),
+      diffRows('bootstrap_rows', initFp.bootstrapRows, migFp.bootstrapRows)
     ];
 
     const mismatches = diffs.filter((d) => !d.matches);
+    const expectedMigrationVersion = getExpectedMigrationVersion();
+    const appliedMigrationVersion = migFp.migrations.reduce(
+      (max, migration) => Math.max(max, Number(migration.version || 0)),
+      0
+    );
+    const authorityChecks = [
+      {
+        id: 'migration_chain_reaches_expected_version',
+        pass: appliedMigrationVersion === expectedMigrationVersion,
+        expected: expectedMigrationVersion,
+        actual: appliedMigrationVersion
+      },
+      {
+        id: 'migration_chain_contains_every_version',
+        pass: migFp.migrations.length === expectedMigrationVersion,
+        expected: expectedMigrationVersion,
+        actual: migFp.migrations.length
+      },
+      {
+        id: 'reference_schema_matches_migration_authority',
+        pass: mismatches.length === 0,
+        mismatchCount: mismatches.length
+      }
+    ];
+    const failedAuthorityChecks = authorityChecks.filter((check) => !check.pass);
     const evidence = {
       generatedAt: new Date().toISOString(),
+      status: failedAuthorityChecks.length === 0 ? 'passed' : 'failed',
+      certificationMode: 'migration_chain_authority_with_init_sql_reference',
+      authority: {
+        source: 'append_only_migration_chain',
+        database: migDb,
+        expectedMigrationVersion,
+        appliedMigrationVersion,
+        fingerprintCounts: fingerprintCounts(migFp)
+      },
+      reference: {
+        source: 'init.sql',
+        path: initSqlPath,
+        database: initDb,
+        fingerprintCounts: fingerprintCounts(initFp)
+      },
       initSqlPath,
       initDb,
       migDb,
+      authorityChecks,
       checks: diffs,
       mismatchCount: mismatches.length
     };
 
     fs.writeFileSync(outputPath, `${JSON.stringify(evidence, null, 2)}\n`, 'utf8');
 
-    if (mismatches.length > 0) {
-      console.error('init.sql parity check failed: schema drift detected');
+    if (failedAuthorityChecks.length > 0) {
+      console.error('Migration-chain fresh-install authority check failed');
       for (const mismatch of mismatches) {
         console.error(`- ${mismatch.label}: init-only=${mismatch.onlyInitSql.length}, migration-only=${mismatch.onlyMigrations.length}`);
+      }
+      for (const check of failedAuthorityChecks.filter((check) => check.id !== 'reference_schema_matches_migration_authority')) {
+        console.error(`- ${check.id}: expected=${check.expected} actual=${check.actual}`);
       }
       process.exit(1);
     }
 
-    console.log(`init.sql parity check passed. Evidence written to ${outputPath}`);
+    console.log(`Migration-chain authority and init.sql reference parity passed. Evidence written to ${outputPath}`);
   } finally {
     try { await terminateAndDropDatabase(admin, initDb); } catch (_) {}
     try { await terminateAndDropDatabase(admin, migDb); } catch (_) {}
@@ -246,6 +385,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error('init.sql parity check failed:', error.message);
+  console.error('Migration-chain fresh-install authority check failed:', error.message);
   process.exit(1);
 });

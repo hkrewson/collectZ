@@ -68,6 +68,8 @@ Tagged runs must produce:
 - `sbom-cyclonedx/frontend-sbom.cdx.json`
 - `preflight-go-no-go.md`
 
+`init-parity-evidence` must identify the append-only migration chain as the fresh-install authority, prove that every expected migration was applied, inventory the maintained schema/bootstrap categories, and report zero drift against the `init.sql` reference. A missing authority check, incomplete migration chain, unchecked constraint/function/bootstrap category, or nonzero mismatch count is NO-GO. `init.sql` remains reference-only until a later milestone slice generates or retires it.
+
 When the browser gate fails, the release investigation should also preserve the uploaded Playwright artifact bundle (`artifacts/playwright/...`) long enough to inspect:
 
 - failing `error-context.md`

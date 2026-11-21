@@ -4,7 +4,50 @@ This roadmap converts product direction into implementation milestones with acce
 
 Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file stays focused on numbered milestones and the work that has already been selected for release planning.
 
-The `3.27.x` architecture line, `3.28.0` durable provider job foundation, `3.28.1` BookOrbit rich metadata release, and `3.28.2` staged workspace row-level security expansion are complete.
+The `3.27.x` architecture line and the `3.28.x` provider-job, BookOrbit metadata, and staged row-level security milestones are complete. `3.29.0` is the active migration-chain fresh-install authority milestone.
+
+---
+
+## 3.29.0 — Migration-Chain Fresh Installation Authority
+
+**Goal:** Make the append-only migration chain the sole authoritative path for both fresh installation and upgrade, then retire the hand-maintained duplicate schema only after migration-built runtime, restore, and bootstrap behavior is fully certified.
+**Status:** Active. The first slice names the migration-built schema as authority, expands the reference comparison to previously unchecked database objects and bootstrap rows, and repairs the resulting `init.sql` constraint drift without changing a deployed migration.
+
+### Selected scope
+
+- Keep the existing one-shot `migrate` Compose service as the only schema-owner process; backend and worker processes continue receiving only the non-owner runtime credential after migration/provisioning succeeds.
+- Treat a database created from an empty supported PostgreSQL instance by the append-only migration runner as the authoritative fresh-install target.
+- Inventory and compare relations, columns, indexes, constraints, triggers, functions, row-level security objects, migration rows, feature flags, and required bootstrap rows.
+- Move any missing bootstrap behavior into new forward-only migrations or explicit idempotent provisioning steps; never edit a deployed migration to repair retained installations.
+- Convert `init.sql` into generated/reference output if operators still benefit from it, then remove it only after migration-built fresh install, retained upgrade, backup/restore, Core runtime, and control-plane evidence remain stable.
+- Keep Docker startup ordering, operator documentation, migration evidence, and hosted release gates aligned throughout the transition.
+
+### Acceptance criteria
+
+- A completely empty supported PostgreSQL instance reaches the current schema and required seed/bootstrap state using only the migration/provisioning path.
+- Certification evidence identifies the migration chain as authority, reaches every expected migration, and reports zero drift in the maintained reference schema.
+- Backend, workers, and schedulers start only after the migration job succeeds and never receive schema-owner privileges.
+- Fresh-install, legacy-upgrade, backup/restore, Core runtime, and control-plane checks pass from the migration-built schema.
+- `init.sql` is generated from the authority or retired; no hand-maintained second schema source remains at milestone closeout.
+
+### Migration authority inventory checkpoint
+
+- **Roadmap slice:** `3.29.0 — Migration-Chain Fresh Installation Authority`, authoritative fresh-schema inventory and reference-drift repair.
+- **Project docs/checklists used:** `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/12-Migration-Rehearsal-Runbook.md`, and `docs/wiki/17-Release-Go-No-Go-Checklist.md`.
+- **Verified facts:** The production-shaped Compose stack already has a one-shot owner-credential migration/provisioning service and a backend that starts only after it succeeds with `DATABASE_MIGRATIONS_MODE=external`. Expanded certification found previously invisible reference drift in foreign-key actions/names, media validation constraints, and missing tenancy foreign keys. The append-only migration result was treated as authoritative; `init.sql` was repaired to match it without editing migrations `1`–`144`.
+- **Runtime verification used:** Two scratch databases inside the existing canonical `collectz-private` PostgreSQL service were created and removed by the certification harness. The authority database applied all `144` migrations from empty; the reference database applied `init.sql`. Final fingerprints matched across `138` relations, `1,101` columns, `308` indexes, `424` constraints, `64` triggers, `94` functions, `70` scope-security objects, `144` migration rows, `8` feature flags, and `10` bootstrap rows. Retained application data was not touched.
+- **CI/checks run:** Node syntax for the certification and unit harness; backend unit/source suite (`388` assertions plus `57` Node tests); migration-chain authority certification with all three authority checks passing and zero mismatches; standard local release gate (`14/14`, including OpenAPI, frontend unit/build/quality, dependency audits, release preflight, and diff check); canonical-stack health (`200`, version `3.28.2`); and the platform edition boundary smoke.
+- **Files changed:** Migration authority/reference certification, expanded schema/bootstrap fingerprints, source-contract coverage, repaired `init.sql` reference constraints, refreshed init-parity evidence, roadmap/backlog promotion, and migration/release documentation.
+- **Blocked/unverified:** Hosted migration-check, Core RBAC/browser/runtime, secret/dependency scans, image security/SBOM, and CodeQL require the completed slice commit to be pushed. The current retained migration-rehearsal evidence remains present and locally accepted, but was not regenerated because this slice adds no migration and does not touch retained data. No `init.sql` removal or deployment behavior change is included in this slice.
+- **Risks or follow-ups:** Constraint fingerprinting intentionally makes previously silent drift blocking. Later slices still need explicit role/grant inventory, migration-built runtime boot proof independent of `init.sql`, restore evidence, and a generated-reference or retirement decision.
+- **What remains in the milestone:** Add role/grant and provisioning inventory, make hosted fresh-install evidence explicitly migration-authority-first, prove Core/control-plane runtime and restore from that schema across releases, then generate or retire `init.sql` and complete the required `3.29.0` version closeout.
+- **Recommended commit message:** `Start 3.29.0 migration-chain authority with expanded fresh-schema certification`.
+
+### Milestone boundary
+
+- This slice changes certification authority and repairs the reference schema; it does not alter retained databases or rewrite deployed migrations.
+- `init.sql` remains a parity-checked reference until later slices prove its generation or safe retirement.
+- The long-lived runtime role remains non-owner and cannot run migrations; only the one-shot migration/provisioning service receives the owner credential.
 
 ---
 

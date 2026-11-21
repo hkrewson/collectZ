@@ -2227,7 +2227,8 @@ results.push(run('media user ratings are stored on a 0-10 provider scale while U
   assert.ok(migrationsSource.includes('version: 99'));
   assert.ok(migrationsSource.includes("description: 'Normalize user ratings to 0-10 provider scale'"));
   assert.ok(migrationsSource.includes('SET user_rating = ROUND((user_rating * 2)::numeric, 1)'));
-  assert.ok(initSqlSource.includes('user_rating DECIMAL(3,1) CHECK'));
+  assert.ok(initSqlSource.includes('user_rating DECIMAL(3,1),'));
+  assert.ok(initSqlSource.includes('CONSTRAINT media_user_rating_scale_check CHECK'));
   assert.ok(initSqlSource.includes("(99, 'Normalize user ratings to 0-10 provider scale')"));
   assert.ok(libraryViewSource.includes('function userRatingToStars'));
   assert.ok(libraryViewSource.includes('function starsToUserRating'));
@@ -5662,6 +5663,25 @@ results.push(run('durable sync jobs activate command-separated actor and worker 
   assert.ok(workerSmokeSource.includes("require('./helpers/scopedSmokeUser')"));
   assert.ok(workerSmokeSource.includes('sm.user_id = $1'));
   assert.ok(workerSmokeSource.includes("SELECT COUNT(*)::int AS count FROM sync_jobs"));
+}));
+
+results.push(run('init parity evidence treats the migration chain as fresh-install authority', () => {
+  const initParitySource = fs.readFileSync(path.resolve(__dirname, 'check-init-parity.js'), 'utf8');
+  const releasePreflightSource = fs.readFileSync(path.resolve(__dirname, 'release-preflight-local.js'), 'utf8');
+  assert.ok(initParitySource.includes("certificationMode: 'migration_chain_authority_with_init_sql_reference'"));
+  assert.ok(initParitySource.includes("source: 'append_only_migration_chain'"));
+  assert.ok(initParitySource.includes("source: 'init.sql'"));
+  assert.ok(initParitySource.includes("id: 'migration_chain_reaches_expected_version'"));
+  assert.ok(initParitySource.includes("id: 'migration_chain_contains_every_version'"));
+  assert.ok(initParitySource.includes("id: 'reference_schema_matches_migration_authority'"));
+  assert.ok(initParitySource.includes("diffRows('relations'"));
+  assert.ok(initParitySource.includes("diffRows('constraints'"));
+  assert.ok(initParitySource.includes("diffRows('functions'"));
+  assert.ok(initParitySource.includes("diffRows('bootstrap_rows'"));
+  assert.ok(releasePreflightSource.includes("initParityEvidence.status === 'passed'"));
+  assert.ok(releasePreflightSource.includes("initParityEvidence.certificationMode === 'migration_chain_authority_with_init_sql_reference'"));
+  assert.ok(releasePreflightSource.includes("initParityEvidence.authority?.source === 'append_only_migration_chain'"));
+  assert.ok(releasePreflightSource.includes('initAuthorityChecks.every((check) => check.pass === true)'));
 }));
 
 results.push(run('plex webhook processing uses exact-scope worker lifecycle authorization', () => {

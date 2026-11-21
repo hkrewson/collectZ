@@ -81,7 +81,7 @@ WHERE table_name = 'app_integrations'
 ## CI Evidence
 
 - GitHub Actions job `migration-check` runs:
-  1. `init.sql` parity check against migration-built schema,
+  1. migration-chain fresh-install authority check against the maintained `init.sql` reference,
   1. forward migration check,
   2. restore-based rollback rehearsal (`npm run test:migration-rehearsal`),
   3. artifact upload.
@@ -90,9 +90,10 @@ WHERE table_name = 'app_integrations'
   - pre-upgrade, post-upgrade, rollback row counts,
   - rollback parity assertion.
 - Artifact: `init-parity-evidence.json`
-  - compares columns/indexes/triggers/migration rows and seeded feature flags between:
-    - fresh DB initialized from `init.sql`,
-    - fresh DB initialized by migration runner.
+  - identifies the append-only migration chain as fresh-install authority,
+  - verifies the authority database reached every expected migration,
+  - inventories relations, columns, indexes, constraints, triggers, functions, scope-security objects, migration rows, feature flags, and required bootstrap rows,
+  - compares the authority database with the maintained `init.sql` reference and requires zero drift.
 
 ## Notes
 

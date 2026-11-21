@@ -42,37 +42,6 @@ Explicit non-goals for this program:
 - Do not perform a big-bang RLS activation, frontend TypeScript conversion, route rewrite, or collection-schema replacement.
 - Do not let Cairn share or mutate the CollectZ database.
 
-### Backlog Item: Migration-Chain Fresh Installation Authority
-**Type:** Database and deployment simplification
-**Tags:** `migrations`, `init`, `postgresql`, `docker`, `deployment`, `parity`
-**Priority:** `P1`
-**Status:** Deferred; `init.sql` and the migration chain currently remain dual schema sources with CI parity checks.
-
-**Goal:** Make the append-only migration chain the sole authoritative path for both fresh installation and upgrade, eventually retiring hand-maintained duplicate schema initialization.
-
-**Dependencies**
-- Identity-preserving upgrade and restore certification must be reliable.
-- Fresh migration-built databases must continue to pass current init-parity, runtime, seed, and release checks across multiple releases before `init.sql` is removed.
-
-**Scope**
-- Add a one-shot migration service to the production-shaped Compose startup order; application processes use only the non-owner runtime credential after migrations finish.
-- Treat a database created from an empty PostgreSQL instance by the migration runner as the authoritative fresh-install test target.
-- Inventory schema, constraints, indexes, triggers, functions, seed/reference rows, feature flags, bootstrap behavior, and database grants currently supplied by `init.sql`.
-- Move any missing bootstrap behavior into versioned migrations or explicit idempotent provisioning steps.
-- Convert `init.sql` first into generated/reference output if operators still benefit from it, then remove it only after the migration path has demonstrated stable fresh-install and upgrade behavior.
-- Update Docker health/start ordering, operator documentation, backup/restore instructions, migration evidence, and CI gates.
-
-**Out of scope**
-- Do not squash or rewrite production migration history casually.
-- Do not remove `init.sql` before every behavior it supplies is inventoried and reproducible.
-- Do not let normal backend startup run migrations with the long-lived runtime credential.
-
-**Acceptance Criteria**
-- A completely empty supported PostgreSQL instance reaches the current schema and required seed/bootstrap state using only the migration/provisioning path.
-- Backend, workers, and scheduled processes start only after the migration job succeeds and never receive schema-owner privileges.
-- Fresh-install, legacy-upgrade, backup/restore, Core runtime, and control-plane boundary checks pass from the migration-built schema.
-- `init.sql` is either generated from the authority or retired; no hand-maintained second schema source remains.
-
 ### Backlog Item: Durable Workspace-Aware Job and Provider Adapter Contract
 **Type:** Runtime reliability architecture
 **Tags:** `jobs`, `integrations`, `providers`, `webhooks`, `imports`, `idempotency`, `workspace`

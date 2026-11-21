@@ -50,20 +50,13 @@ CREATE TABLE IF NOT EXISTS media (
     original_title VARCHAR(500),
     release_date DATE,
     year INTEGER,
-    format VARCHAR(50) CHECK (format IN ('VHS', 'Beta', 'Laserdisc', 'DVD', 'Blu-ray', '4K UHD', 'Digital', 'Paperback', 'Trade Paperback', 'Hardcover', 'Paper', 'Disc', 'Card', 'Cartridge', '4 Track', '8 Track', 'Cassette', 'Vinyl', 'CD')),
-    owned_formats TEXT[] NOT NULL DEFAULT ARRAY[]::text[] CHECK (
-      (media_type = 'book' AND owned_formats <@ ARRAY['digital', 'paperback', 'trade_paperback', 'hardcover']::text[])
-      OR (media_type = 'comic_book' AND owned_formats <@ ARRAY['digital', 'paper']::text[])
-      OR (media_type = 'game' AND owned_formats <@ ARRAY['digital', 'disc', 'card', 'cartridge']::text[])
-      OR (media_type = 'audio' AND owned_formats <@ ARRAY['four_track', 'eight_track', 'cassette', 'vhs', 'vinyl', 'cd', 'digital']::text[])
-      OR (media_type = 'movie' AND owned_formats <@ ARRAY['vhs', 'beta', 'laserdisc', 'dvd', 'bluray', 'uhd', 'digital']::text[])
-      OR (media_type IN ('tv_series', 'tv_episode') AND owned_formats <@ ARRAY['vhs', 'dvd', 'bluray', 'uhd', 'digital']::text[])
-    ),
+    format VARCHAR(50),
+    owned_formats TEXT[] NOT NULL DEFAULT ARRAY[]::text[],
     genre VARCHAR(100),
     director VARCHAR(255),
     cast_members VARCHAR(1000),
     rating DECIMAL(3,1),
-    user_rating DECIMAL(3,1) CHECK (user_rating IS NULL OR (user_rating >= 0 AND user_rating <= 10)),
+    user_rating DECIMAL(3,1),
     tmdb_id INTEGER,
     tmdb_media_type VARCHAR(20),
     tmdb_url TEXT,
@@ -74,7 +67,7 @@ CREATE TABLE IF NOT EXISTS media (
     runtime INTEGER,
     upc VARCHAR(50),
     signed_by VARCHAR(255),
-    signed_role VARCHAR(20) CHECK (signed_role IN ('author', 'producer', 'cast')),
+    signed_role VARCHAR(20),
     signed_on DATE,
     signed_at VARCHAR(255),
     signed_proof_path TEXT,
@@ -97,7 +90,43 @@ CREATE TABLE IF NOT EXISTS media (
     import_source VARCHAR(50) DEFAULT 'manual',
     added_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT media_format_check CHECK (
+      format IS NULL OR format IN (
+        'VHS', 'Beta', 'Laserdisc', 'DVD', 'Blu-ray', '4K UHD', 'Digital',
+        'Paperback', 'Trade Paperback', 'Hardcover', 'Paper', 'Disc', 'Card',
+        'Cartridge', '4 Track', '8 Track', 'Cassette', 'Vinyl', 'CD'
+      )
+    ),
+    CONSTRAINT media_owned_formats_check CHECK (
+      owned_formats IS NOT NULL
+      AND (
+        (COALESCE(media_type, 'movie') = 'book' AND owned_formats <@ ARRAY['digital', 'paperback', 'trade_paperback', 'hardcover']::text[])
+        OR (COALESCE(media_type, 'movie') = 'comic_book' AND owned_formats <@ ARRAY['digital', 'paper']::text[])
+        OR (COALESCE(media_type, 'movie') = 'game' AND owned_formats <@ ARRAY['digital', 'disc', 'card', 'cartridge']::text[])
+        OR (COALESCE(media_type, 'movie') = 'audio' AND owned_formats <@ ARRAY['four_track', 'eight_track', 'cassette', 'vhs', 'vinyl', 'cd', 'digital']::text[])
+        OR (COALESCE(media_type, 'movie') = 'movie' AND owned_formats <@ ARRAY['vhs', 'beta', 'laserdisc', 'dvd', 'bluray', 'uhd', 'digital']::text[])
+        OR (COALESCE(media_type, 'movie') IN ('tv_series', 'tv_episode') AND owned_formats <@ ARRAY['vhs', 'dvd', 'bluray', 'uhd', 'digital']::text[])
+      )
+    ),
+    CONSTRAINT media_signed_role_check CHECK (
+      signed_role IS NULL OR signed_role IN ('author', 'producer', 'cast')
+    ),
+    CONSTRAINT media_user_rating_scale_check CHECK (
+      user_rating IS NULL OR (user_rating >= 0 AND user_rating <= 10)
+    ),
+    CONSTRAINT media_tv_fields_consistency_check CHECK (
+      CASE
+        WHEN media_type IN ('tv_series', 'tv_episode') THEN TRUE
+        ELSE season_number IS NULL AND episode_number IS NULL AND episode_title IS NULL AND network IS NULL
+      END
+    ),
+    CONSTRAINT media_tv_series_episode_fields_check CHECK (
+      CASE
+        WHEN media_type = 'tv_series' THEN episode_number IS NULL AND episode_title IS NULL
+        ELSE TRUE
+      END
+    )
 );
 
 CREATE TABLE IF NOT EXISTS media_loans (
@@ -783,12 +812,12 @@ CREATE TABLE IF NOT EXISTS sync_jobs (
     provider VARCHAR(50) NOT NULL,
     status VARCHAR(20) NOT NULL CHECK (status IN ('queued', 'running', 'retry_wait', 'cancelled', 'failed', 'succeeded')),
     created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
-    space_id INTEGER REFERENCES spaces(id) ON DELETE RESTRICT,
+    space_id INTEGER,
     library_id INTEGER,
     provider_connection_id UUID,
     correlation_id UUID NOT NULL DEFAULT gen_random_uuid(),
     idempotency_key TEXT,
-    target_ref JSONB NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(target_ref) = 'object'),
+    target_ref JSONB NOT NULL DEFAULT '{}'::jsonb,
     scope JSONB,
     progress JSONB,
     summary JSONB,
@@ -807,6 +836,10 @@ CREATE TABLE IF NOT EXISTS sync_jobs (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT sync_jobs_attempt_count_check
       CHECK (attempt_count >= 0 AND max_attempts >= 1 AND attempt_count <= max_attempts),
+    CONSTRAINT sync_jobs_space_fk
+      FOREIGN KEY (space_id) REFERENCES spaces(id) ON DELETE RESTRICT,
+    CONSTRAINT sync_jobs_target_ref_object_check
+      CHECK (jsonb_typeof(target_ref) = 'object'),
     CONSTRAINT sync_jobs_library_scope_fk
       FOREIGN KEY (space_id, library_id) REFERENCES libraries(space_id, id) ON DELETE RESTRICT
 );
@@ -1371,6 +1404,48 @@ $$;
 CREATE INDEX IF NOT EXISTS idx_event_artifacts_signature_record
     ON event_artifacts(signature_record_id)
     WHERE signature_record_id IS NOT NULL;
+
+-- The append-only migration chain is authoritative. These constraints mirror
+-- the post-tenancy migration result for the generated/reference fresh schema.
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'users_active_space_id_fkey') THEN
+        ALTER TABLE users
+            ADD CONSTRAINT users_active_space_id_fkey
+            FOREIGN KEY (active_space_id) REFERENCES spaces(id) ON DELETE SET NULL;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'media_space_id_fkey') THEN
+        ALTER TABLE media
+            ADD CONSTRAINT media_space_id_fkey
+            FOREIGN KEY (space_id) REFERENCES spaces(id) ON DELETE SET NULL;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'invites_space_id_fkey') THEN
+        ALTER TABLE invites
+            ADD CONSTRAINT invites_space_id_fkey
+            FOREIGN KEY (space_id) REFERENCES spaces(id) ON DELETE SET NULL;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'app_integrations_space_id_fkey') THEN
+        ALTER TABLE app_integrations
+            ADD CONSTRAINT app_integrations_space_id_fkey
+            FOREIGN KEY (space_id) REFERENCES spaces(id) ON DELETE SET NULL;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'collections_space_id_fkey') THEN
+        ALTER TABLE collections
+            ADD CONSTRAINT collections_space_id_fkey
+            FOREIGN KEY (space_id) REFERENCES spaces(id) ON DELETE SET NULL;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'events_space_id_fkey') THEN
+        ALTER TABLE events
+            ADD CONSTRAINT events_space_id_fkey
+            FOREIGN KEY (space_id) REFERENCES spaces(id) ON DELETE SET NULL;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'collectibles_space_id_fkey') THEN
+        ALTER TABLE collectibles
+            ADD CONSTRAINT collectibles_space_id_fkey
+            FOREIGN KEY (space_id) REFERENCES spaces(id) ON DELETE SET NULL;
+    END IF;
+END;
+$$;
 
 -- Migration tracking (used by db/migrations.js)
 CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -2199,7 +2274,7 @@ CREATE TABLE IF NOT EXISTS public.external_media_identities (
   identity_kind VARCHAR(80) NOT NULL CHECK (identity_kind ~ '^[a-z][a-z0-9_.:-]{0,79}$'),
   external_id_raw TEXT NOT NULL CHECK (BTRIM(external_id_raw) <> ''),
   external_id_normalized TEXT NOT NULL CHECK (BTRIM(external_id_normalized) <> ''),
-  media_id INTEGER NOT NULL REFERENCES public.media(id) ON DELETE CASCADE,
+  media_id INTEGER NOT NULL REFERENCES public.media(id) ON DELETE RESTRICT,
   source_url TEXT,
   first_seen_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   last_seen_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -2235,7 +2310,7 @@ CREATE TABLE IF NOT EXISTS public.external_media_identity_events (
 
 CREATE TABLE IF NOT EXISTS public.canonical_media_field_controls (
   space_id INTEGER NOT NULL REFERENCES public.spaces(id) ON DELETE RESTRICT,
-  media_id INTEGER NOT NULL REFERENCES public.media(id) ON DELETE RESTRICT,
+  media_id INTEGER NOT NULL REFERENCES public.media(id) ON DELETE CASCADE,
   field_path VARCHAR(160) NOT NULL
     CHECK (field_path ~ '^(media|type_details)\.[a-z][a-z0-9_]{0,79}$'),
   authority VARCHAR(16) NOT NULL

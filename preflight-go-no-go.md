@@ -1,7 +1,7 @@
 # Local Release Go/No-Go Preflight
 
 - Version: `3.28.2`
-- Generated: `2026-11-20T07:23:15.552Z`
+- Generated: `2026-11-21T00:52:18.315Z`
 - Base URL: `http://localhost:3201`
 
 ## Gate Results
@@ -10,7 +10,7 @@
 - Release note presence: PASS — docs/releases/v3.28.2.md
 - Backend dependency audit: PASS — low=0 moderate=0 high=0 critical=0
 - Frontend dependency audit: PASS — low=0 moderate=0 high=0 critical=0
-- Migration evidence presence: PASS — init parity and migration rehearsal evidence are present
+- Migration authority and rehearsal evidence: PASS — migration chain certified as fresh-install authority through 144; rehearsal evidence present
 - Identity upgrade certification evidence: PASS — passed for migration chain through 143
 - Saved-view RLS certification evidence: PASS — passed 17 live isolation and restore checks
 - External identity registry certification evidence: PASS — passed 21 UUID, scope, lifecycle, and RLS checks through migration 143

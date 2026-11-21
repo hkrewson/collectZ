@@ -437,13 +437,26 @@ async function main() {
 
   const initParityEvidence = safeReadJson(initParityEvidencePath);
   const migrationEvidence = safeReadJson(migrationRehearsalEvidencePath);
+  const initAuthorityChecks = Array.isArray(initParityEvidence?.authorityChecks)
+    ? initParityEvidence.authorityChecks
+    : [];
+  const initParityCertified = Boolean(
+    initParityEvidence
+    && initParityEvidence.status === 'passed'
+    && initParityEvidence.certificationMode === 'migration_chain_authority_with_init_sql_reference'
+    && initParityEvidence.authority?.source === 'append_only_migration_chain'
+    && Number(initParityEvidence.authority?.expectedMigrationVersion) === Number(initParityEvidence.authority?.appliedMigrationVersion)
+    && Number(initParityEvidence.mismatchCount) === 0
+    && initAuthorityChecks.length >= 3
+    && initAuthorityChecks.every((check) => check.pass === true)
+  );
   gates.push(
     buildGate(
-      'Migration evidence presence',
-      initParityEvidence && migrationEvidence ? 'PASS' : 'FAIL',
-      initParityEvidence && migrationEvidence
-        ? 'init parity and migration rehearsal evidence are present'
-        : 'missing init parity or migration rehearsal evidence'
+      'Migration authority and rehearsal evidence',
+      initParityCertified && migrationEvidence ? 'PASS' : 'FAIL',
+      initParityCertified && migrationEvidence
+        ? `migration chain certified as fresh-install authority through ${initParityEvidence.authority.appliedMigrationVersion}; rehearsal evidence present`
+        : 'fresh-install authority evidence is missing, stale, failed, or drifted, or migration rehearsal evidence is missing'
     )
   );
 

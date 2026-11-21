@@ -1043,6 +1043,7 @@ jobs:
           test -f artifacts/dependency-audit/backend-audit.json
           test -f artifacts/dependency-audit/frontend-audit.json
           test -f artifacts/init-parity-evidence/init-parity-evidence.json
+          node -e "const e=require('./artifacts/init-parity-evidence/init-parity-evidence.json');const checks=Array.isArray(e.authorityChecks)?e.authorityChecks:[];if(e.status!=='passed'||e.certificationMode!=='migration_chain_authority_with_init_sql_reference'||e.authority?.source!=='append_only_migration_chain'||Number(e.authority?.expectedMigrationVersion)!==Number(e.authority?.appliedMigrationVersion)||Number(e.mismatchCount)!==0||checks.length<3||checks.some(c=>c.pass!==true))process.exit(1);"
           test -f artifacts/migration-rehearsal-evidence/migration-rehearsal-evidence.json
           test -f artifacts/identity-upgrade-certification-evidence/identity-upgrade-certification-evidence.json
           test -f artifacts/saved-view-rls-evidence/saved-view-rls-evidence.json

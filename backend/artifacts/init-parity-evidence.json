@@ -1,9 +1,71 @@
 {
-  "generatedAt": "2026-11-19T03:35:43.699Z",
+  "generatedAt": "2026-11-21T00:48:55.230Z",
+  "status": "passed",
+  "certificationMode": "migration_chain_authority_with_init_sql_reference",
+  "authority": {
+    "source": "append_only_migration_chain",
+    "database": "collectz_init_parity_mig_mwpowmx5",
+    "expectedMigrationVersion": 144,
+    "appliedMigrationVersion": 144,
+    "fingerprintCounts": {
+      "relations": 138,
+      "columns": 1101,
+      "indexes": 308,
+      "constraints": 424,
+      "triggers": 64,
+      "functions": 94,
+      "scopeSecurity": 70,
+      "migrations": 144,
+      "featureFlags": 8,
+      "bootstrapRows": 10
+    }
+  },
+  "reference": {
+    "source": "init.sql",
+    "path": "/init.sql",
+    "database": "collectz_init_parity_init_mwpowmx5",
+    "fingerprintCounts": {
+      "relations": 138,
+      "columns": 1101,
+      "indexes": 308,
+      "constraints": 424,
+      "triggers": 64,
+      "functions": 94,
+      "scopeSecurity": 70,
+      "migrations": 144,
+      "featureFlags": 8,
+      "bootstrapRows": 10
+    }
+  },
   "initSqlPath": "/init.sql",
-  "initDb": "collectz_init_parity_init_mwmzzgwd",
-  "migDb": "collectz_init_parity_mig_mwmzzgwd",
+  "initDb": "collectz_init_parity_init_mwpowmx5",
+  "migDb": "collectz_init_parity_mig_mwpowmx5",
+  "authorityChecks": [
+    {
+      "id": "migration_chain_reaches_expected_version",
+      "pass": true,
+      "expected": 144,
+      "actual": 144
+    },
+    {
+      "id": "migration_chain_contains_every_version",
+      "pass": true,
+      "expected": 144,
+      "actual": 144
+    },
+    {
+      "id": "reference_schema_matches_migration_authority",
+      "pass": true,
+      "mismatchCount": 0
+    }
+  ],
   "checks": [
+    {
+      "label": "relations",
+      "onlyInitSql": [],
+      "onlyMigrations": [],
+      "matches": true
+    },
     {
       "label": "columns",
       "onlyInitSql": [],
@@ -17,7 +79,19 @@
       "matches": true
     },
     {
+      "label": "constraints",
+      "onlyInitSql": [],
+      "onlyMigrations": [],
+      "matches": true
+    },
+    {
       "label": "triggers",
+      "onlyInitSql": [],
+      "onlyMigrations": [],
+      "matches": true
+    },
+    {
+      "label": "functions",
       "onlyInitSql": [],
       "onlyMigrations": [],
       "matches": true
@@ -36,6 +110,12 @@
     },
     {
       "label": "feature_flags",
+      "onlyInitSql": [],
+      "onlyMigrations": [],
+      "matches": true
+    },
+    {
+      "label": "bootstrap_rows",
       "onlyInitSql": [],
       "onlyMigrations": [],
       "matches": true
