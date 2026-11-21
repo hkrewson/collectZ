@@ -39,7 +39,7 @@ Minimum closeout expectation:
 11. Review CodeQL alerts if the workflow has run for the branch or release commit.
 12. Confirm the remaining CI-only gates are green, especially gitleaks, compose smoke, RBAC, Trivy, and SBOM generation.
 13. Confirm the Playwright browser-regression gate is green and its artifacts are available when failures occur. If the browser install fails before tests start, verify that the job still uses the documented `ubuntu-24.04` runner supported by the lockfile-pinned Playwright toolchain; preserve the install log because no test artifact bundle may exist yet.
-14. Confirm the hosted `runtime-smoke` job (`core-runtime-smoke`) is green and its `Core runtime` step keeps the shared runtime surface mounted while control-plane-only APIs remain unavailable.
+14. Confirm the hosted `runtime-smoke` job (`core-runtime-smoke`) is green, its database was observed empty before the migration service started, `runtime-migration-authority-evidence.json` proves every expected migration and bootstrap row is available through the non-owner runtime credential under external migration mode, and its `Core runtime` step keeps the shared runtime surface mounted while control-plane-only APIs remain unavailable.
 15. Run `docker compose -p collectz-private --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T -e BASE_URL=http://frontend:3000 backend node scripts/platform-edition-boundary-smoke.js` against the canonical platform stack and Cairn companion; confirm invite-based registration and the tenant/admin control-plane APIs remain mounted. This private-edition certification is required release-closeout evidence and is not currently a public-workflow job.
 16. If either runtime contract fails, preserve the hosted Core job's Compose logs/step output or the local control-plane command output and relevant container logs. Repair the concrete runtime/configuration assumption and rerun the affected check; one edition's passing check does not waive the other.
 17. Confirm `latest` and moving minor tags are release-publish outputs, while `stable` remains a separate manual promotion decision.
@@ -63,6 +63,7 @@ Tagged runs must produce:
 - `migration-rehearsal-evidence/migration-rehearsal-evidence.json`
 - `identity-upgrade-certification-evidence/identity-upgrade-certification-evidence.json`
 - `runtime-role-certification-evidence/runtime-role-certification-evidence.json`
+- `runtime-migration-authority-evidence/runtime-migration-authority-evidence.json`
 - `saved-view-rls-evidence/saved-view-rls-evidence.json`
 - `sbom-cyclonedx/backend-sbom.cdx.json`
 - `sbom-cyclonedx/frontend-sbom.cdx.json`
@@ -71,6 +72,8 @@ Tagged runs must produce:
 `init-parity-evidence` must identify the append-only migration chain as the fresh-install authority, prove that every expected migration was applied, inventory the maintained schema/bootstrap categories, and report zero drift against the `init.sql` reference. A missing authority check, incomplete migration chain, unchecked constraint/function/bootstrap category, or nonzero mismatch count is NO-GO. `init.sql` remains reference-only until a later milestone slice generates or retires it.
 
 `runtime-role-certification-evidence` must match the migration rehearsal's latest version, redact ephemeral principal names, pass every behavioral check, and include provisioning contract version `1`. The inventory must prove exact non-owner runtime and no-inherit broker attributes, zero role memberships, no database/schema creation authority, bounded application DML and sequence access, read-only `schema_migrations`, exact scope-function execution grants, exact owner default privileges, one broker mapping, and no public scope-function execution. Missing inventory, unexpected grants, role membership, public execution, stale migration version, or any failed contract category is NO-GO.
+
+`runtime-migration-authority-evidence` must come from the hosted Core runtime database after that database was observed empty and before its temporary Compose project is removed. It must identify the append-only migration chain and empty database as origin, match the migration rehearsal's latest version, contain every migration version, preserve all required bootstrap rows, report external migration mode, redact the runtime credential, and prove the connected role is non-owner. Missing evidence, a preexisting schema, `init.sql`-sourced startup, a migration/version gap, owner authority, or a failed runtime-origin check is NO-GO.
 
 When the browser gate fails, the release investigation should also preserve the uploaded Playwright artifact bundle (`artifacts/playwright/...`) long enough to inspect:
 

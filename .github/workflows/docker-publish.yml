@@ -801,6 +801,12 @@ jobs:
             echo "DEBUG=${DEBUG}"
             echo "PLAYWRIGHT_E2E_BYPASS_TOKEN=${PLAYWRIGHT_E2E_BYPASS_TOKEN}"
           } >> .env.ci
+          docker compose -p "${CI_PROJECT}" --env-file .env.ci -f docker-compose.yml -f .ci/docker-compose.build.yml up -d db
+          DB_CID="$(docker compose -p "${CI_PROJECT}" --env-file .env.ci ps -q db)"
+          test -n "${DB_CID}" || { echo "database container id not found"; exit 1; }
+          timeout 120 sh -c 'until [ "$(docker inspect -f "{{.State.Health.Status}}" "'"${DB_CID}"'")" = "healthy" ]; do sleep 3; done'
+          EMPTY_DATABASE="$(docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T db sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "SELECT to_regclass('"'"'public.schema_migrations'"'"') IS NULL"')"
+          test "${EMPTY_DATABASE}" = "t" || { echo "runtime database was not empty before migration service startup"; exit 1; }
           docker compose -p "${CI_PROJECT}" --env-file .env.ci -f docker-compose.yml -f .ci/docker-compose.build.yml up -d --build
           BACKEND_CID="$(docker compose -p "${CI_PROJECT}" --env-file .env.ci ps -q backend)"
           FRONTEND_CID="$(docker compose -p "${CI_PROJECT}" --env-file .env.ci ps -q frontend)"
@@ -809,7 +815,22 @@ jobs:
           timeout 120 sh -c 'until [ "$(docker inspect -f "{{.State.Health.Status}}" "'"${BACKEND_CID}"'")" = "healthy" ]; do sleep 3; done'
           timeout 120 sh -c 'until [ "$(docker inspect -f "{{.State.Health.Status}}" "'"${FRONTEND_CID}"'")" = "healthy" ]; do sleep 3; done'
           docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T backend sh -lc 'node -e "const {getProductEdition}=require(\"./config/productEdition\"); if(getProductEdition()!==\"homelab\"){console.error(\"Expected core runtime mode\");process.exit(1)}"'
+          mkdir -p artifacts/runtime-migration-authority
+          docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T \
+            -e RUNTIME_AUTHORITY_EMPTY_DATABASE_PROOF=true \
+            -e RUNTIME_MIGRATION_AUTHORITY_OUTPUT=/tmp/runtime-migration-authority-evidence.json \
+            backend npm run test:runtime-migration-authority
+          docker cp "${BACKEND_CID}:/tmp/runtime-migration-authority-evidence.json" \
+            artifacts/runtime-migration-authority/runtime-migration-authority-evidence.json
           docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T -e BASE_URL=http://frontend:3000 -e PLAYWRIGHT_E2E_BYPASS_TOKEN="${PLAYWRIGHT_E2E_BYPASS_TOKEN}" backend node scripts/homelab-edition-boundary-smoke.js
+
+      - name: Upload runtime migration authority evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: runtime-migration-authority-evidence
+          path: artifacts/runtime-migration-authority/runtime-migration-authority-evidence.json
+          if-no-files-found: error
 
   backend:
     runs-on: ubuntu-latest
@@ -1019,6 +1040,12 @@ jobs:
           name: runtime-role-certification-evidence
           path: artifacts/runtime-role-certification-evidence
 
+      - name: Download runtime migration authority evidence artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: runtime-migration-authority-evidence
+          path: artifacts/runtime-migration-authority-evidence
+
       - name: Download saved-view RLS evidence
         uses: actions/download-artifact@v8
         with:
@@ -1053,7 +1080,9 @@ jobs:
           test -f artifacts/migration-rehearsal-evidence/migration-rehearsal-evidence.json
           test -f artifacts/identity-upgrade-certification-evidence/identity-upgrade-certification-evidence.json
           test -f artifacts/runtime-role-certification-evidence/runtime-role-certification-evidence.json
-          node -e "const e=require('./artifacts/runtime-role-certification-evidence/runtime-role-certification-evidence.json');const m=require('./artifacts/migration-rehearsal-evidence/migration-rehearsal-evidence.json');const checks=Array.isArray(e.checks)?e.checks:[];const c=checks.find(x=>x.label==='provisioning inventory matches exact least-privilege contract');const i=e.provisioning_inventory;if(e.status!=='passed'||Number(e.latest_migration)!==Number(m.latestVersion)||e.runtime_role!=='ephemeral (redacted)'||checks.length<31||checks.some(x=>x.pass!==true)||Number(i?.contractVersion)!==1||c?.pass!==true||!Array.isArray(c?.detail?.problems)||c.detail.problems.length!==0||Number(i?.principals?.memberships)!==0||Number(i?.functions?.publicExecuteCount)!==0||Number(i?.brokerMappingCount)!==1)process.exit(1);"
+          node -e "const e=require('./artifacts/runtime-role-certification-evidence/runtime-role-certification-evidence.json');const m=require('./artifacts/migration-rehearsal-evidence/migration-rehearsal-evidence.json');const checks=Array.isArray(e.checks)?e.checks:[];const c=checks.find(x=>x.label==='provisioning inventory matches exact least-privilege contract');const i=e.provisioning_inventory;const a=e.runtime_authority;if(e.status!=='passed'||Number(e.latest_migration)!==Number(m.latestVersion)||e.runtime_role!=='ephemeral (redacted)'||checks.length<32||checks.some(x=>x.pass!==true)||Number(i?.contractVersion)!==1||c?.pass!==true||!Array.isArray(c?.detail?.problems)||c.detail.problems.length!==0||Number(i?.principals?.memberships)!==0||Number(i?.functions?.publicExecuteCount)!==0||Number(i?.brokerMappingCount)!==1||a?.status!=='passed'||a?.certificationMode!=='migration_built_runtime_authority'||a?.authority?.source!=='append_only_migration_chain'||Number(a?.authority?.appliedMigrationVersion)!==Number(m.latestVersion)||a?.checks?.some(x=>x.pass!==true))process.exit(1);"
+          test -f artifacts/runtime-migration-authority-evidence/runtime-migration-authority-evidence.json
+          node -e "const e=require('./artifacts/runtime-migration-authority-evidence/runtime-migration-authority-evidence.json');const m=require('./artifacts/migration-rehearsal-evidence/migration-rehearsal-evidence.json');if(e.status!=='passed'||e.certificationMode!=='migration_built_runtime_authority'||e.authority?.source!=='append_only_migration_chain'||e.authority?.databaseOrigin!=='empty_database'||Number(e.authority?.expectedMigrationVersion)!==Number(m.latestVersion)||Number(e.authority?.appliedMigrationVersion)!==Number(m.latestVersion)||e.authority?.everyMigrationApplied!==true||e.runtime?.role!=='ephemeral_or_runtime_credential_redacted'||e.runtime?.nonOwner!==true||e.runtime?.migrationsMode!=='external'||!Array.isArray(e.checks)||e.checks.length<6||e.checks.some(x=>x.pass!==true))process.exit(1);"
           test -f artifacts/saved-view-rls-evidence/saved-view-rls-evidence.json
           node -e "const e=require('./artifacts/saved-view-rls-evidence/saved-view-rls-evidence.json');if(e.status!=='passed'||e.migration!==124||e.checks.length<15||e.checks.some(c=>!c.pass))process.exit(1);"
           test -f artifacts/external-identity-certification-evidence/external-identity-certification.json
@@ -1080,6 +1109,7 @@ jobs:
             echo "- RBAC regression: PASS"
             echo "- Browser regression: PASS"
             echo "- Core runtime smoke: PASS"
+            echo "- Core runtime migration authority: PASS"
             echo "- Image security and SBOM: PASS"
             echo
             echo "## Evidence Artifacts"
@@ -1089,6 +1119,8 @@ jobs:
             echo "- \`init-parity-evidence/init-parity-evidence.json\`"
             echo "- \`migration-rehearsal-evidence/migration-rehearsal-evidence.json\`"
             echo "- \`identity-upgrade-certification-evidence/identity-upgrade-certification-evidence.json\`"
+            echo "- \`runtime-role-certification-evidence/runtime-role-certification-evidence.json\`"
+            echo "- \`runtime-migration-authority-evidence/runtime-migration-authority-evidence.json\`"
             echo "- \`external-identity-certification-evidence/external-identity-certification.json\`"
             echo "- \`sbom-cyclonedx/backend-sbom.cdx.json\`"
             echo "- \`sbom-cyclonedx/frontend-sbom.cdx.json\`"

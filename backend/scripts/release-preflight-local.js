@@ -512,6 +512,7 @@ async function main() {
   const runtimeRoleEvidence = safeReadJson(runtimeRoleEvidencePath);
   const runtimeRoleChecks = Array.isArray(runtimeRoleEvidence?.checks) ? runtimeRoleEvidence.checks : [];
   const runtimeRoleInventory = runtimeRoleEvidence?.provisioning_inventory;
+  const runtimeAuthority = runtimeRoleEvidence?.runtime_authority;
   const runtimeRoleInventoryCheck = runtimeRoleChecks.find(
     (check) => check.label === 'provisioning inventory matches exact least-privilege contract'
   );
@@ -519,7 +520,7 @@ async function main() {
     runtimeRoleEvidence
     && runtimeRoleEvidence.status === 'passed'
     && Number(runtimeRoleEvidence.latest_migration) === Number(migrationEvidence?.latestVersion)
-    && runtimeRoleChecks.length >= 31
+    && runtimeRoleChecks.length >= 32
     && runtimeRoleChecks.every((check) => check.pass === true)
     && runtimeRoleEvidence.runtime_role === 'ephemeral (redacted)'
     && Number(runtimeRoleInventory?.contractVersion) === 1
@@ -529,14 +530,23 @@ async function main() {
     && Number(runtimeRoleInventory?.principals?.memberships) === 0
     && Number(runtimeRoleInventory?.functions?.publicExecuteCount) === 0
     && Number(runtimeRoleInventory?.brokerMappingCount) === 1
+    && runtimeAuthority?.status === 'passed'
+    && runtimeAuthority.certificationMode === 'migration_built_runtime_authority'
+    && runtimeAuthority.authority?.source === 'append_only_migration_chain'
+    && runtimeAuthority.authority?.databaseOrigin === 'empty_database'
+    && Number(runtimeAuthority.authority?.appliedMigrationVersion) === Number(migrationEvidence?.latestVersion)
+    && runtimeAuthority.authority?.everyMigrationApplied === true
+    && Array.isArray(runtimeAuthority.checks)
+    && runtimeAuthority.checks.length >= 6
+    && runtimeAuthority.checks.every((check) => check.pass === true)
   );
   gates.push(
     buildGate(
       'Runtime role certification evidence',
       runtimeRoleCertified ? 'PASS' : 'FAIL',
       runtimeRoleCertified
-        ? `passed ${runtimeRoleChecks.length}/${runtimeRoleChecks.length} checks with provisioning contract v${runtimeRoleInventory.contractVersion} through migration ${runtimeRoleEvidence.latest_migration}`
-        : 'runtime role certification or its redacted provisioning inventory is missing, stale, or failed'
+        ? `passed ${runtimeRoleChecks.length}/${runtimeRoleChecks.length} checks with provisioning contract v${runtimeRoleInventory.contractVersion} and migration-built runtime authority through migration ${runtimeRoleEvidence.latest_migration}`
+        : 'runtime role certification, provisioning inventory, or migration-built runtime authority evidence is missing, stale, or failed'
     )
   );
 

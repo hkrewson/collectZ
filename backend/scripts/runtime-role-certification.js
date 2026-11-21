@@ -29,6 +29,7 @@ const crypto = require('crypto');
 const { Client } = require('pg');
 const { brokerCredentials } = require('../db/scopeBroker');
 const { runMigrationsForClient, getExpectedMigrationVersion, assertSchemaCurrent } = require('../db/migrations');
+const { certifyMigrationBuiltRuntime } = require('../db/migrationAuthority');
 const {
   provisionRuntimeRole,
   inspectRuntimeRole,
@@ -357,6 +358,7 @@ async function main() {
     legacy_baseline: legacyBaseline,
     runtime_role: 'ephemeral (redacted)',
     provisioning_inventory: null,
+    runtime_authority: null,
     checks: [],
     status: 'failed'
   };
@@ -408,6 +410,20 @@ async function main() {
     record('runtime role reads legacy data', seeded.rows[0].count === 1);
     const guard = await assertRuntimeRolePolicy(runtime, { policy: 'enforce', logger: quietLogger });
     record('runtime role passes enforce guard', guard.ok === true, { violations: guard.violations });
+    evidence.runtime_authority = await certifyMigrationBuiltRuntime(runtime, {
+      emptyDatabaseBeforeMigrate: true,
+      migrationsMode: 'external'
+    });
+    record(
+      'migration-built runtime authority is complete and independent of init.sql',
+      evidence.runtime_authority.status === 'passed'
+        && evidence.runtime_authority.authority.source === 'append_only_migration_chain'
+        && evidence.runtime_authority.checks.every((check) => check.pass === true),
+      {
+        certificationMode: evidence.runtime_authority.certificationMode,
+        migrationVersion: evidence.runtime_authority.authority.appliedMigrationVersion
+      }
+    );
 
     // 4. Allowed DML.
     const allowed = [

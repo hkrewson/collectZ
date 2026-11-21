@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-21T05:54:35.943Z",
+  "generated_at": "2026-11-21T06:24:31.382Z",
   "certification": "runtime-role",
   "latest_migration": 144,
   "legacy_baseline": 143,
@@ -94,6 +94,69 @@
     ],
     "brokerMappingCount": 1
   },
+  "runtime_authority": {
+    "generatedAt": "2026-11-21T06:24:32.233Z",
+    "status": "passed",
+    "certificationMode": "migration_built_runtime_authority",
+    "authority": {
+      "source": "append_only_migration_chain",
+      "databaseOrigin": "empty_database",
+      "expectedMigrationVersion": 144,
+      "appliedMigrationVersion": 144,
+      "appliedMigrationCount": 144,
+      "everyMigrationApplied": true
+    },
+    "runtime": {
+      "role": "ephemeral_or_runtime_credential_redacted",
+      "nonOwner": true,
+      "migrationsMode": "external",
+      "edition": "platform"
+    },
+    "bootstrap": {
+      "featureFlags": 8,
+      "collectibleCategories": 8,
+      "appIntegrations": 1,
+      "appSettings": 1
+    },
+    "checks": [
+      {
+        "id": "empty_database_observed_before_migrate",
+        "pass": true
+      },
+      {
+        "id": "runtime_uses_external_migration_mode",
+        "pass": true,
+        "actual": "external"
+      },
+      {
+        "id": "migration_chain_reaches_expected_version",
+        "pass": true,
+        "expected": 144,
+        "actual": 144
+      },
+      {
+        "id": "migration_chain_contains_every_version",
+        "pass": true,
+        "expected": 144,
+        "actual": 144
+      },
+      {
+        "id": "required_bootstrap_rows_present",
+        "pass": true,
+        "counts": {
+          "feature_flags": 8,
+          "collectible_categories": 8,
+          "app_integrations": 1,
+          "app_settings": 1
+        }
+      },
+      {
+        "id": "runtime_credential_is_non_owner",
+        "pass": true,
+        "violations": []
+      }
+    ]
+  },
   "checks": [
     {
       "label": "legacy baseline migrated with seeded row",
@@ -130,6 +193,14 @@
       "pass": true,
       "detail": {
         "violations": []
+      }
+    },
+    {
+      "label": "migration-built runtime authority is complete and independent of init.sql",
+      "pass": true,
+      "detail": {
+        "certificationMode": "migration_built_runtime_authority",
+        "migrationVersion": 144
       }
     },
     {

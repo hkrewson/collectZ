@@ -619,6 +619,20 @@ results.push(run('runtime database role is non-owner, verifier-provisioned, and 
   assert.ok(runtimeRoleCertificationSource.includes("'provisioning inventory matches exact least-privilege contract'"));
   assert.ok(runtimeRoleCertificationSource.includes('publicExecuteCount'));
   assert.ok(runtimeRoleCertificationSource.includes('defaultPrivileges'));
+  assert.ok(runtimeRoleCertificationSource.includes('certifyMigrationBuiltRuntime'));
+  assert.ok(runtimeRoleCertificationSource.includes("'migration-built runtime authority is complete and independent of init.sql'"));
+
+  const migrationAuthoritySource = fs.readFileSync(require.resolve('../db/migrationAuthority'), 'utf8');
+  const runtimeMigrationAuthoritySource = fs.readFileSync(path.resolve(__dirname, 'runtime-migration-authority-smoke.js'), 'utf8');
+  assert.ok(migrationAuthoritySource.includes("CERTIFICATION_MODE = 'migration_built_runtime_authority'"));
+  assert.ok(migrationAuthoritySource.includes("AUTHORITY_SOURCE = 'append_only_migration_chain'"));
+  assert.ok(migrationAuthoritySource.includes("id: 'empty_database_observed_before_migrate'"));
+  assert.ok(migrationAuthoritySource.includes("id: 'migration_chain_contains_every_version'"));
+  assert.ok(migrationAuthoritySource.includes("id: 'runtime_credential_is_non_owner'"));
+  assert.ok(!migrationAuthoritySource.includes('init.sql'));
+  assert.ok(runtimeMigrationAuthoritySource.includes('RUNTIME_AUTHORITY_EMPTY_DATABASE_PROOF'));
+  assert.ok(runtimeMigrationAuthoritySource.includes('RUNTIME_MIGRATION_AUTHORITY_OUTPUT'));
+  assert.ok(backendPackageJson.scripts['test:runtime-migration-authority']);
 
   const composeSource = fs.readFileSync(require.resolve('../../docker-compose.yml'), 'utf8');
   const serviceBlock = (name) => {
@@ -649,9 +663,13 @@ results.push(run('runtime database role is non-owner, verifier-provisioned, and 
   const releasePreflightSource = fs.readFileSync(path.resolve(__dirname, 'release-preflight-local.js'), 'utf8');
   assert.ok(releasePreflightSource.includes('runtimeRoleEvidence?.provisioning_inventory'));
   assert.ok(releasePreflightSource.includes('runtimeRoleInventory?.contractVersion'));
+  assert.ok(releasePreflightSource.includes("runtimeAuthority.certificationMode === 'migration_built_runtime_authority'"));
   const workflowSource = fs.readFileSync(path.resolve(__dirname, '..', '..', '.github', 'workflows', 'docker-publish.yml'), 'utf8');
   assert.ok(workflowSource.includes('Download runtime role certification evidence artifact'));
   assert.ok(workflowSource.includes('runtime-role-certification-evidence/runtime-role-certification-evidence.json'));
+  assert.ok(workflowSource.includes('runtime database was not empty before migration service startup'));
+  assert.ok(workflowSource.includes('Upload runtime migration authority evidence'));
+  assert.ok(workflowSource.includes('runtime-migration-authority-evidence/runtime-migration-authority-evidence.json'));
 }));
 
 results.push(run('sensitive operations require a machine-checked session-bound recent password proof', () => {
