@@ -99,7 +99,9 @@ async function verifyCriticalColumns(client) {
     ['canonical_media_field_controls', 'authority'],
     ['provider_integration_bindings', 'provider_connection_id'],
     ['provider_sync_targets', 'provider_connection_id'],
-    ['provider_sync_targets', 'library_id']
+    ['provider_sync_targets', 'library_id'],
+    ['provider_source_observations', 'normalized_facts'],
+    ['provider_source_observations', 'content_hash']
   ];
   for (const [table, column] of checks) {
     const r = await client.query(

@@ -10,6 +10,7 @@ const pool = require('../db/pool');
 const { withAuthorizedScopeTransaction } = require('../db/scopeBroker');
 const { setCanonicalFieldControl } = require('../services/canonicalMediaFieldControls');
 const { createProviderSyncTargetStore } = require('../services/providerSyncTargets');
+const { appendProviderSourceObservation } = require('../services/providerSourceObservations');
 const { createScopedSmokeUser } = require('./helpers/scopedSmokeUser');
 const mediaRouter = require('../routes/media');
 
@@ -582,7 +583,7 @@ async function main() {
     const secondImport = await importConnection(secondConnectionId);
     assert.equal(secondImport.summary.created, 1);
 
-    const { identityRows, sameIsbnRows, mediaRows, seriesMembershipRows } = await withAuthorizedScopeTransaction(pool, { spaceId, libraryId }, userId, async (db) => {
+    const { identityRows, sameIsbnRows, mediaRows, seriesMembershipRows, sourceObservationRows } = await withAuthorizedScopeTransaction(pool, { spaceId, libraryId }, userId, async (db) => {
       const scopedIdentityRows = await db.query(
         `SELECT provider_connection_id, media_id, external_id_normalized
            FROM external_media_identities
@@ -592,7 +593,7 @@ async function main() {
         [spaceId]
       );
       const scopedMediaRows = await db.query(
-        `SELECT id, title, media_type, poster_path, type_details
+        `SELECT id, public_id, title, media_type, poster_path, type_details
            FROM media
           WHERE space_id = $1 AND library_id = $2
             AND import_source = 'bookorbit'
@@ -622,11 +623,23 @@ async function main() {
           ORDER BY msm.media_id, msm.display_order, psr.provider_series_id`,
         [spaceId, firstConnectionId]
       );
+      const scopedSourceObservationRows = await db.query(
+        `SELECT pso.*, emi.external_id_normalized
+           FROM provider_source_observations pso
+           JOIN external_media_identities emi
+             ON emi.space_id = pso.space_id
+            AND emi.provider_connection_id = pso.provider_connection_id
+            AND emi.id = pso.external_identity_id
+          WHERE pso.space_id = $1 AND pso.provider_connection_id = $2
+          ORDER BY pso.observed_at, pso.id`,
+        [spaceId, firstConnectionId]
+      );
       return {
         identityRows: scopedIdentityRows,
         sameIsbnRows: scopedSameIsbnRows,
         mediaRows: scopedMediaRows,
-        seriesMembershipRows: scopedSeriesMembershipRows
+        seriesMembershipRows: scopedSeriesMembershipRows,
+        sourceObservationRows: scopedSourceObservationRows
       };
     });
     assert.equal(identityRows.rowCount, 2);
@@ -659,6 +672,15 @@ async function main() {
     assert.equal(comic?.type_details?.bookorbit_cover_version, 'ebook:smoke:43');
     assert.equal(comic?.type_details?.bookorbit_cover_source, 'custom');
     assert.equal(comic?.type_details?.bookorbit_cover_width, '986');
+    const comicObservations = sourceObservationRows.rows.filter((row) => row.external_id_normalized === 'urn:bookorbit:book:43');
+    assert.ok(comicObservations.length >= 4);
+    assert.ok(comicObservations.every((row) => row.source_kind === 'bookorbit_native'));
+    assert.ok(comicObservations.every((row) => row.observed_media_public_id === comic.public_id));
+    assert.ok(comicObservations.every((row) => row.normalized_facts?.providerIdentifiers?.comicvine === '315507'));
+    assert.ok(comicObservations.every((row) => row.normalized_facts?.seriesMemberships?.[0]?.name === 'Orbit Native Comics'));
+    const serializedObservations = JSON.stringify(sourceObservationRows.rows);
+    assert.equal(serializedObservations.includes(one.password), false);
+    assert.equal(serializedObservations.includes(one.apiKey), false);
     const comicMemberships = seriesMembershipRows.rows.filter((row) => Number(row.media_id) === Number(comic.id));
     assert.equal(comicMemberships.length, 2);
     assert.equal(comicMemberships.filter((row) => row.active).length, 1);
@@ -685,6 +707,54 @@ async function main() {
     assert.equal((await coverResponse.arrayBuffer()).byteLength, 8);
     assert.equal(mediaRows.rows.some((row) => row.type_details?.provider_item_id === 'urn:bookorbit:book:45'), false);
 
+    const idempotencyProof = await withAuthorizedScopeTransaction(pool, { spaceId, libraryId }, userId, async (db) => {
+      const identity = await db.query(
+        `SELECT id FROM external_media_identities
+          WHERE space_id = $1 AND provider_connection_id = $2
+            AND external_id_normalized = 'urn:bookorbit:book:43' AND active`,
+        [spaceId, firstConnectionId]
+      );
+      const spec = {
+        spaceId,
+        providerConnectionId: firstConnectionId,
+        externalIdentityId: identity.rows[0].id,
+        actorId: userId,
+        sourceKind: 'bookorbit_native',
+        sourceUpdatedAt: '2026-11-13T00:43:41.757Z',
+        batchKey: `bookorbit-observation-smoke:${suffix}`,
+        facts: { identity: { kind: 'book', externalId: 'urn:bookorbit:book:43' }, nativeMetadata: true }
+      };
+      const created = await appendProviderSourceObservation(db, spec);
+      const reused = await appendProviderSourceObservation(db, spec);
+      assert.equal(created.created, true);
+      assert.equal(reused.created, false);
+      assert.equal(reused.id, created.id);
+      await assert.rejects(
+        appendProviderSourceObservation(db, { ...spec, batchKey: `${spec.batchKey}:forbidden`, facts: { apiKey: 'must-not-persist' } }),
+        /forbidden key/
+      );
+      return created;
+    });
+    await assert.rejects(
+      withAuthorizedScopeTransaction(pool, { spaceId, libraryId }, userId, (db) => db.query(
+        'UPDATE provider_source_observations SET source_kind = $2 WHERE id = $1',
+        [idempotencyProof.id, 'bookorbit_opds']
+      )),
+      /(append-only|scope access denied)/
+    );
+    await assert.rejects(
+      withAuthorizedScopeTransaction(pool, { spaceId, libraryId }, userId, (db) => db.query(
+        'DELETE FROM provider_source_observations WHERE id = $1',
+        [idempotencyProof.id]
+      )),
+      /(append-only|scope access denied)/
+    );
+    const unscopedObservations = await pool.query(
+      'SELECT COUNT(*)::int AS count FROM provider_source_observations WHERE space_id = $1',
+      [spaceId]
+    );
+    assert.equal(Number(unscopedObservations.rows[0]?.count || 0), 0);
+
     console.log(JSON.stringify({
       passed: true,
       connections: listed.connections.length,
@@ -697,6 +767,7 @@ async function main() {
       scheduledCadenceDeduplicated: true,
       comicSeriesOrderingPreserved: true,
       nativeMetadataEnrichment: 'provider-ids-preserved',
+      immutableSourceObservations: 'normalized-idempotent-append-only-and-rls-proven',
       normalizedSeriesMemberships: 'multi-series-retirement-proven',
       nativeCoverProxy: 'authenticated-and-versioned',
       lockedTypeTransition: 'review-required-existing-preserved',

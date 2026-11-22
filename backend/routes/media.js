@@ -14182,7 +14182,8 @@ async function performBookOrbitImport({
     libraryId,
     actorId: actor.id,
     connectionId: runtime.connection.id,
-    sourceUrl: endpointUrl
+    sourceUrl: endpointUrl,
+    observationBatchId: jobId || crypto.randomUUID()
   });
   const effectiveAuditReq = auditReq || { user: actor, headers: {}, ip: 'system', socket: null };
   const result = await runGenericCsvImport({

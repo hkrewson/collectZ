@@ -4,14 +4,50 @@ This roadmap converts product direction into implementation milestones with acce
 
 Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file stays focused on numbered milestones and the work that has already been selected for release planning.
 
-The `3.27.x` architecture line, the `3.28.x` provider-job, BookOrbit metadata, and staged row-level security milestones, and the `3.29.0` migration-chain authority milestone are complete. `3.29.2` is the active atomic provider-schedule enqueue milestone.
+The `3.27.x` architecture line, the `3.28.x` provider-job, BookOrbit metadata, and staged row-level security milestones, and the `3.29.0` through `3.29.2` reliability milestones are complete. `3.29.3` is the active immutable provider-source-observation milestone.
 
 ---
+
+## 3.29.3 — Immutable Provider Source Observations
+
+**Goal:** Preserve normalized external facts as immutable, workspace-owned evidence so later provenance, rematching, and conflict decisions do not depend only on the latest flattened canonical row.
+**Status:** Complete locally as a release candidate. Implementation, migration authority, retained-stack upgrade, runtime-role certification, version alignment, release-note/feed generation, and database-backed BookOrbit adoption are complete; hosted certification requires an authorized push.
+
+### Selected scope
+
+- Add one append-only `provider_source_observations` ledger tied to a workspace, Provider Connection, external media identity, and the canonical public UUID observed at that time.
+- Persist only normalized allowlisted facts with an explicit source kind, schema version, source timestamp, observation timestamp, content hash, actor, and derived idempotency identity.
+- Reject secret-bearing fact keys and omit raw provider payloads, credentials, authorization headers, and authenticated upstream URLs.
+- Enforce same-workspace ownership through relational constraints, hide observations behind actor-authorized RLS, and reject update/delete operations with a database trigger.
+- Make BookOrbit the first adopter by recording OPDS/native observations in the same transaction as identity reconciliation, canonical-field policy, compatibility projection, and normalized series membership.
+- Use the durable job id or immediate import batch id so exact retry content reuses its observation while later batches or changed facts append new history.
+- Keep observation API/UI readback, automated rematching, selected-provider inference, other provider adoption, and work/edition/owned-copy remodeling outside this slice.
+
+### Acceptance criteria
+
+- A BookOrbit import cannot commit its canonical mutation without the corresponding normalized observation, and an observation cannot point across workspace or Provider Connection ownership.
+- Exact retry content in one import batch is idempotent; later observations remain append-only history rather than rewriting prior facts.
+- Database updates and deletes are denied, and unscoped runtime SQL sees no observation rows.
+- Persisted facts retain BookOrbit identity, bibliographic facts, upstream provider ids, series memberships, and cover provenance without fixture credentials, secret-bearing keys, or raw provider responses.
+- Fresh migration authority, retained `144 -> 145` upgrade rehearsal, runtime-role provisioning, ownership inventory, canonical BookOrbit smoke, release metadata, and Help > Releases readback pass before closeout.
+
+### 3.29.3 implementation and version closeout checkpoint
+
+- **Roadmap slice:** `3.29.3 — Immutable Provider Source Observations`, append-only normalized observation ledger, BookOrbit transactional adoption, migration `145`, and version closeout.
+- **Project docs/checklists used:** `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/12-Migration-Rehearsal-Runbook.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/53-Digital-Library-Provider-Identity-Contract.md`, `docs/wiki/54-Durable-Workspace-Job-Contract.md`, and `docs/releases/v3.29.3.md`.
+- **Verified facts:** Migration `145` adds the workspace-owned observation table, same-workspace identity/connection constraints, content and idempotency hashes, append-only trigger, and RLS policy without rewriting retained data. BookOrbit appends normalized OPDS/native facts inside its existing authorized reconciliation transaction. The module rejects forbidden secret-bearing keys and raw-payload-shaped input is not part of its interface.
+- **Runtime verification used:** The canonical `collectz-private` database applied migration `145`; backend and frontend were rebuilt and recreated in place on port `3201`; health reports application, frontend, backend, and build `3.29.3`; authenticated Help > Releases serves `3.29.3` first. The in-container BookOrbit smoke proves normalized ComicVine/series/cover facts, canonical public-UUID linkage, exact batch/content reuse, append-only update/delete denial, unscoped invisibility, and absence of fixture password/API-key values.
+- **CI/checks run:** JavaScript syntax checks; backend unit/source suite (`389` assertions plus `57` Node tests) in the production image; OpenAPI in the production image; frontend unit tests (`7/7`) and production build; workspace ownership certification; fresh migration-chain authority; retained `144 -> 145` migration rehearsal; identity upgrade/restore certification; external-identity certification (`21/21`); runtime-role certification (`32/32`); control-plane migration-built runtime authority (`5/5`); observability rehearsal (`9/9`); package/app version sync; release-note/feed validation; dependency audits; changed-file frontend quality; diff hygiene; canonical health, Help > Releases, and BookOrbit runtime smoke. The standard local release gate passed `14/14`. The Core browser regression completed with `55` passing and `6` edition-inapplicable skipped tests against the canonical Platform stack.
+- **Files changed:** Migration and observation module; BookOrbit transactional adoption and runtime proof; migration/init/ownership/runtime-role evidence; provider identity/job contract docs; roadmap/backlog promotion; synchronized `3.29.3` metadata; release note/feed; and refreshed local preflight evidence.
+- **Blocked/unverified:** The local Core RBAC script reaches the canonical Platform-only admin route and receives its expected Platform authorization response (`403`) instead of the Core unmounted-route response (`404`), so the hosted Core `rbac-regression` must certify that edition boundary after push. CI-shaped secure-cookie `compose-smoke`, hosted Core migration-built `runtime-smoke`, gitleaks, CodeQL, image security/SBOM, hosted release preflight, publication, and auto-tag also require confirmation after an authorized push. The full local release profile was not run because its Core runtime path creates a parallel Compose project, prohibited by repository policy; the local control-plane counterpart passed in the canonical stack.
+- **Risks or follow-ups:** BookOrbit is the first and only observation adopter. Provider-specific normalized schemas must remain explicit; the ledger does not justify a generic provider domain model or automated conflict resolution. Further adoption should be a separate bounded slice with a materially different provider.
+- **What remains in the milestone:** Push only with user authorization, then confirm the complete hosted gate set, image publication, and annotated `v3.29.3` creation from `main`.
+- **Recommended commit message:** `Release 3.29.3 with immutable BookOrbit provider source observations`.
 
 ## 3.29.2 — Atomic Provider Schedule Enqueue
 
 **Goal:** Make scheduled provider target advancement and durable job creation one atomic workspace-authorized operation so a crash, concurrent scheduler sweep, or enqueue failure cannot leave cadence state and queued work inconsistent.
-**Status:** Complete locally as a release candidate. Implementation, version alignment, release-note/feed generation, canonical runtime verification, and database-backed atomic enqueue coverage are complete; hosted certification requires an authorized push.
+**Status:** Complete. Build and Publish Images run `45050016870` and CodeQL run `45050016876` passed for closeout commit `72ec8908`; annotated tag `v3.29.2` points to that commit.
 
 ### Selected scope
 
@@ -39,9 +75,10 @@ The `3.27.x` architecture line, the `3.28.x` provider-job, BookOrbit metadata, a
 - **Runtime verification used:** Backend and frontend were rebuilt and recreated in place in the canonical `collectz-private` stack on port `3201`. Health reports application, frontend, backend, and build version `3.29.2`; authenticated Help > Releases readback serves `3.29.2` first. The in-container BookOrbit authoritative import smoke proved failed-enqueue rollback, matching PostgreSQL transaction IDs for the target and job writes, concurrent sweep exclusion with exactly one job, successful worker settlement, cadence reuse, and credential-free persisted payloads.
 - **CI/checks run:** JavaScript syntax checks; backend unit/source suite locally and in the production image (`388` assertions plus `57` Node tests); frontend unit tests (`7/7`); OpenAPI locally and in the production image; frontend production build; package/app version sync; release-note/feed validation; local CI prepare; changed-file frontend quality; backend/frontend production dependency audits with zero blocking vulnerabilities; diff hygiene; canonical health and Help > Releases; and the BookOrbit authoritative import smoke. The standard local release gate passed `13/14`; only the separately authorized stale observability artifact failed release preflight.
 - **Files changed:** Provider sync target atomic enqueue module; scheduled BookOrbit route adoption; database-backed smoke and source-contract coverage; roadmap/backlog promotion; synchronized `3.29.2` metadata; release note/feed; and refreshed local preflight evidence.
-- **Blocked/unverified:** `artifacts/observability-evidence/observability-release-evidence.json` remains stale and requires separately authorized logging stacks and volumes. The canonical development stack intentionally uses non-secure local cookie settings, so CI-shaped secure-cookie Compose proof remains hosted. The full local release profile is not run because its Core runtime path creates a parallel Compose project, prohibited by repository policy. Local gitleaks, CodeQL, Trivy/SBOM, Core RBAC/browser/runtime, publication, release preflight, and auto-tag require hosted confirmation after an authorized push.
+- **Hosted certification:** Build and Publish Images run `45050016870` passed prepare, migration check, frontend quality, dependency and secret scans, Compose smoke, Core RBAC/browser/runtime regressions, backend/frontend image publication, image security/SBOM, release preflight, and auto-tag. CodeQL run `45050016876` passed. Annotated tag `v3.29.2` resolves to closeout commit `72ec8908`.
+- **Blocked/unverified:** No tagged-CI release gate remains blocked. `artifacts/observability-evidence/observability-release-evidence.json` remains a separately authorized local rehearsal rather than a tagged-CI gate.
 - **Risks or follow-ups:** Other mutation-plus-enqueue workflows remain backlog work and should use a separate outbox table only when their owning transaction cannot insert the durable job directly. The generic atomic interface is currently adopted by one scheduled provider workflow; broader standardization still requires another materially different adopter.
-- **What remains in the milestone:** Push only with user authorization, then confirm the complete hosted gate set, image publication, and annotated `v3.29.2` creation from `main`.
+- **What remains in the milestone:** Nothing. Hosted certification, image publication, release preflight, CodeQL, and annotated `v3.29.2` creation completed from `main`.
 - **Recommended commit message:** `Release 3.29.2 with atomic provider schedule enqueue`.
 
 ## 3.29.1 — Library Aggregate Count and Delete-State Consistency

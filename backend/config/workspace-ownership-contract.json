@@ -918,6 +918,44 @@
       ]
     },
     {
+      "name": "provider_source_observations",
+      "category": "workspace_owned",
+      "ownershipKey": "space_id",
+      "rationale": "Append-only normalized provider facts inherit one provider identity and workspace without retaining raw payloads.",
+      "sameWorkspaceForeignKeys": [
+        {
+          "column": "space_id",
+          "referencesTable": "spaces",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "space_id",
+          "referencesTable": "provider_connections",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "provider_connection_id",
+          "referencesTable": "provider_connections",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "space_id",
+          "referencesTable": "external_media_identities",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "provider_connection_id",
+          "referencesTable": "external_media_identities",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "external_identity_id",
+          "referencesTable": "external_media_identities",
+          "expectation": "same_workspace"
+        }
+      ]
+    },
+    {
       "name": "provider_sync_targets",
       "category": "workspace_owned",
       "ownershipKey": "space_id",

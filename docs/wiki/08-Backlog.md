@@ -46,7 +46,7 @@ Explicit non-goals for this program:
 **Type:** Runtime reliability architecture
 **Tags:** `jobs`, `integrations`, `providers`, `webhooks`, `imports`, `idempotency`, `workspace`
 **Priority:** `P1`
-**Status:** The relational job envelope, shared lifecycle module, Plex reconciliation, scheduled BookOrbit adoption, OPDS comic-series/index fidelity, classification-move proof, and unified safe operator readback/cancellation are implemented through `3.28.0`; rich normalized BookOrbit comic-series metadata shipped in `3.28.1`. Atomic scheduled BookOrbit target advancement and job creation is promoted to `3.29.2`. Remaining backlog scope covers other mutation-plus-enqueue workflows that need an atomic pattern, immutable source observations, additional provider/workflow adopters, and later standardization after the first two adopters are certified.
+**Status:** The relational job envelope, shared lifecycle module, Plex reconciliation, scheduled BookOrbit adoption, OPDS comic-series/index fidelity, classification-move proof, and unified safe operator readback/cancellation are implemented through `3.28.0`; rich normalized BookOrbit comic-series metadata shipped in `3.28.1`. Atomic scheduled BookOrbit target advancement and job creation shipped in `3.29.2`. The immutable source-observation foundation and BookOrbit adoption are promoted to `3.29.3`. Remaining backlog scope covers other mutation-plus-enqueue workflows, a materially different observation/provider adopter, additional durable workflow adopters, and later standardization after the first two adopters are certified.
 
 **Goal:** Standardize the safe mechanics of asynchronous and provider-driven work while preserving provider-specific matching and domain behavior.
 
@@ -57,7 +57,7 @@ Explicit non-goals for this program:
 
 **Scope**
 - Extend the atomic enqueue pattern proven by `3.29.2` only to other workflows where a committed database mutation must cause background work; use a separate outbox table only when the durable job row cannot be created in the owning transaction.
-- Preserve an immutable or append-only source observation for external facts where provenance and later rematching matter, then let provider-specific adapters normalize, match, propose review, and apply.
+- Extend the immutable normalized source-observation ledger proven by BookOrbit in `3.29.3` to a materially different provider where provenance and later rematching matter; keep provider-specific schemas, matching, review, and apply behavior explicit.
 - Require every adapter to declare supported source identities, idempotency rules, workspace ownership, rate-limit behavior, redacted diagnostics, and contract fixtures.
 - Migrate Plex webhook hints, watched/rating refresh, and additional provider/import workflows only after `3.28.0` proves the lifecycle with Plex reconciliation and BookOrbit.
 

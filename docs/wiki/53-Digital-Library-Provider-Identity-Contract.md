@@ -39,6 +39,14 @@ Native series identity and membership are relational rather than provider-payloa
 
 Native cover metadata is accepted only after the BookOrbit response identity matches the validated Atom identity. CollectZ stores bounded cover version, source, dimensions, and source timestamp as BookOrbit compatibility provenance, then uses a versioned `/api/media/bookorbit-cover/{connectionId}/{bookId}` path as the canonical poster. That session-only proxy resolves encrypted credentials at request time, verifies that the requested BookOrbit id is actively linked to the selected workspace connection, accepts only bounded image responses, and never exposes the upstream API key or direct authenticated cover URL. OPDS cover paths remain unchanged when native enrichment fails or does not advertise an ebook cover.
 
+### Immutable source observation boundary
+
+Migration `145` adds `provider_source_observations` as an append-only, workspace-owned history of normalized external facts. Each observation is tied to one Provider Connection and active external media identity, records the canonical media public UUID visible at observation time, and keeps an explicit source kind, source timestamp, schema version, content hash, observation timestamp, and actor. Database triggers reject updates and deletes, RLS requires the authorized workspace, and composite foreign keys prevent a connection or identity from crossing that workspace.
+
+BookOrbit is the first adopter. Its identity module records one observation in the same authorized transaction as canonical reconciliation, field-control application, compatibility projection, and series-membership synchronization. OPDS fallback creates a `bookorbit_opds` observation; successful native enrichment creates a `bookorbit_native` observation without changing BookOrbit's canonical identity. The normalized facts include allowlisted bibliographic values, upstream provider ids, ordered series memberships, and cover provenance. Raw native/OPDS payloads, credentials, authorization headers, API keys, passwords, and direct authenticated cover URLs are not retained.
+
+Observation idempotency derives from the import batch, external identity, source kind, and normalized content hash. Retrying the same durable job with unchanged facts reuses its observation, while a later batch or changed facts appends a new immutable observation. The ledger is historical evidence for later rematching and provenance decisions; it does not overwrite canonical fields, infer a selected upstream metadata provider, or introduce the broader work/edition/owned-copy model.
+
 ## Adoption and failure behavior
 
 Repeat sync resolves the authoritative relation before compatibility fields. A same-provider local id on another connection or workspace is a different identity. Manual, reviewed, locked, or differently sourced Canonical Fields remain protected by Canonical Field Controls.
@@ -49,7 +57,7 @@ Historical CWA and Kavita adoption prefers the stable integration binding. If no
 
 - `scripts/external-identity-tests.js` proves the shared Interface and each adapter projection.
 - `scripts/bookorbit-opds-transport-smoke.js` proves native authentication, identity matching, multi-series projection, cover transport limits, upstream identifier projection, and per-row OPDS fallback without storing a fixed credential.
-- `scripts/bookorbit-authoritative-import-smoke.js` proves ordered membership refresh/retirement, active-only media-detail readback, compatibility projection, authenticated cover proxying, and canonical identity stability. `scripts/cwa-authoritative-sync-smoke.js` and `scripts/kavita-import-sync-smoke.js` retain their provider-specific runtime behavior.
+- `scripts/bookorbit-authoritative-import-smoke.js` proves ordered membership refresh/retirement, active-only media-detail readback, compatibility projection, authenticated cover proxying, canonical identity stability, normalized observation persistence, retry idempotency, append-only enforcement, RLS isolation, and credential-free facts. `scripts/cwa-authoritative-sync-smoke.js` and `scripts/kavita-import-sync-smoke.js` retain their provider-specific runtime behavior.
 - `scripts/digital-library-identity-backfill-smoke.js` proves binding selection, ambiguity refusal, redaction, idempotency, and rollback restoration against live PostgreSQL and RLS.
 
-This contract does not introduce scheduling, reading-progress convergence, metadata-writeback convergence, source-observation history, or a work/edition/copy model.
+This contract does not introduce reading-progress convergence, metadata-writeback convergence, source-observation adoption for providers other than BookOrbit, or a work/edition/copy model.

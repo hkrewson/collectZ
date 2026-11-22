@@ -1,21 +1,21 @@
 {
-  "generatedAt": "2026-11-21T17:19:33.615Z",
+  "generatedAt": "2026-11-22T19:23:09.009Z",
   "status": "passed",
   "certificationMode": "migration_chain_authority_after_init_sql_retirement",
   "authority": {
     "source": "append_only_migration_chain",
-    "database": "collectz_migration_authority_mwqoan79",
-    "expectedMigrationVersion": 144,
-    "appliedMigrationVersion": 144,
+    "database": "collectz_migration_authority_mws85fi8",
+    "expectedMigrationVersion": 145,
+    "appliedMigrationVersion": 145,
     "fingerprintCounts": {
-      "relations": 138,
-      "columns": 1101,
-      "indexes": 308,
-      "constraints": 424,
-      "triggers": 64,
-      "functions": 94,
-      "scopeSecurity": 70,
-      "migrations": 144,
+      "relations": 139,
+      "columns": 1114,
+      "indexes": 313,
+      "constraints": 435,
+      "triggers": 65,
+      "functions": 95,
+      "scopeSecurity": 73,
+      "migrations": 145,
       "featureFlags": 8,
       "bootstrapRows": 10
     }
@@ -29,14 +29,14 @@
     {
       "id": "migration_chain_reaches_expected_version",
       "pass": true,
-      "expected": 144,
-      "actual": 144
+      "expected": 145,
+      "actual": 145
     },
     {
       "id": "migration_chain_contains_every_version",
       "pass": true,
-      "expectedCount": 144,
-      "actualCount": 144
+      "expectedCount": 145,
+      "actualCount": 145
     },
     {
       "id": "migration_authority_inventory_is_complete",
@@ -54,14 +54,14 @@
         "bootstrapRows"
       ],
       "counts": {
-        "relations": 138,
-        "columns": 1101,
-        "indexes": 308,
-        "constraints": 424,
-        "triggers": 64,
-        "functions": 94,
-        "scopeSecurity": 70,
-        "migrations": 144,
+        "relations": 139,
+        "columns": 1114,
+        "indexes": 313,
+        "constraints": 435,
+        "triggers": 65,
+        "functions": 95,
+        "scopeSecurity": 73,
+        "migrations": 145,
         "featureFlags": 8,
         "bootstrapRows": 10
       }

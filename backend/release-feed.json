@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.29.3",
+      "version": "3.29.3",
+      "date": "2026-11-22",
+      "status": null,
+      "summary": "Adds an append-only, workspace-owned ledger of normalized provider facts and makes BookOrbit its first transactional adopter.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added immutable provider source observations tied to one workspace, Provider Connection, external media identity, and observed canonical public UUID.",
+            "Added source kind, schema version, source and observation timestamps, content hashing, and import-batch idempotency without persisting raw provider payloads.",
+            "BookOrbit now records normalized OPDS or native bibliographic facts, upstream provider identifiers, ordered series memberships, and cover provenance in the same authorized transaction as canonical reconciliation.",
+            "Retrying the same durable job with unchanged facts reuses its observation; a later batch or changed normalized facts appends new history.",
+            "Database triggers reject observation updates and deletes, RLS hides rows without an authorized workspace transaction, and same-workspace foreign keys prevent identity/connection crossover.",
+            "The BookOrbit runtime smoke now proves normalized persistence, idempotency, immutability, RLS isolation, and credential-free observation facts alongside the existing identity, metadata, cover, scheduler, and series checks."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.29.2",
       "version": "3.29.2",
       "date": "2026-11-22",
@@ -182,25 +202,6 @@
             "Added bounded compatibility telemetry and deterministic cutover diagnostics. A provider requires at least seven continuous observation days, two successful syncs, no legacy activity or projection conflicts, repeat-alignment evidence, and a clean legacy inventory before a separate cutover proposal.",
             "Updated `fast-xml-parser` to `5.12.0` after the release audit identified the stop-node CPU-consumption advisory affecting `5.11.2`; the rebuilt backend now reports zero dependency vulnerabilities.",
             "Preserved compatibility fields and existing provider behavior; BookOrbit remains scoped to `3.27.4`, and Kavita authoritative adoption remains scoped to `3.27.5`."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.27.2",
-      "version": "3.27.2",
-      "date": "2026-11-08",
-      "status": null,
-      "summary": "Updates the application runtime, provider HTTP transport, rate limiting, mail transport, object-storage client, and frontend build tooling before provider-identity and BookOrbit implementation resumes.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Updated Express from `5.2.1` to `5.3.0` and express-rate-limit from `8.7.1` to `8.7.2`.",
-            "Updated backend Axios from `1.20.0` to `1.21.0` before BookOrbit begins using the shared provider HTTP seam.",
-            "Updated Nodemailer from `10.2.1` to `10.3.1` and AWS SDK S3 from `3.1156.0` to `3.1162.0`.",
-            "Updated frontend esbuild from `0.28.1` to `0.28.2` without changing Vite, Vitest, React, Tailwind, or ZXing.",
-            "Kept the existing security overrides until the installed graph proves they are no longer required."
           ]
         }
       ]

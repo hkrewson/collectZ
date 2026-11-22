@@ -59,7 +59,9 @@ The lifecycle does not interpret Plex sections, BookOrbit Atom ids, CSV rows, me
 
 `provider_sync_targets` stores the automatic BookOrbit connection/library pairing separately from both the Provider Connection and the durable job history. Each target has one generated UUID, explicit workspace, relational Provider Connection and library ownership, enabled state, bounded interval, and last-enqueue time. Composite foreign keys prevent either referenced object from crossing the target workspace, and scoped transactions protect reads and writes.
 
-The scheduler scans due targets on a five-minute process-local sweep. Its cadence-bucket idempotency key makes concurrent application instances converge on one durable job; the database job lifecycle, rather than the timer, is the reliability boundary. Disabling a target stops future enqueue without deleting its job history or Provider Connection. The scheduler never changes BookOrbit data.
+The scheduler scans due targets on a five-minute process-local sweep. The target module locks and rechecks each due row, creates or reuses its cadence-bucket durable job, and advances `last_enqueued_at` in one actor-authorized transaction. Concurrent application instances therefore converge on one durable job without allowing an enqueue failure to consume the target cadence. The database job lifecycle, rather than the timer, is the reliability boundary. Disabling a target stops future enqueue without deleting its job history or Provider Connection. The scheduler never changes BookOrbit data.
+
+BookOrbit job execution also supplies a stable observation batch identity. Migration `145` uses that identity with the external media identity, source kind, and normalized content hash to make immutable provider observations retry-idempotent. Observation append remains inside the provider reconciliation transaction; it is not part of the durable job envelope and never stores the job target, credentials, or raw provider response.
 
 The certified BookOrbit result contract records bounded counts and audit rows, including series coverage, while keeping credentials and raw feeds out of targets, progress, summaries, logs, and readback. OPDS series order remains `series_index`; an absent provider issue number remains absent.
 
@@ -81,8 +83,8 @@ The older numeric-id `/api/media/sync-jobs` list, detail, and result endpoints u
 
 ## Deferred work
 
-- transactional outbox use where enqueue must commit atomically with another domain mutation;
+- additional mutation-plus-enqueue workflows beyond the atomic scheduled BookOrbit target pattern;
 - restart-capable durable-worker adoption for legacy CWA, Kavita, Metron, CSV, and Plex import execution where payload durability can be designed without persisting uploads or credentials;
-- append-only external source observations;
+- append-only external source-observation adoption beyond BookOrbit;
 - broader work/edition/owned-copy modeling;
 - multi-process worker deployment and transactional outbox adoption where enqueue must share another domain commit.

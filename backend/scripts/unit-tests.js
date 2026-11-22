@@ -51,6 +51,10 @@ const {
   prepareBookOrbitImportRows
 } = require('../services/bookOrbit');
 const {
+  buildBookOrbitSourceObservation,
+  normalizeFacts: normalizeProviderObservationFacts
+} = require('../services/providerSourceObservations');
+const {
   buildKavitaSeriesWebUrl,
   buildKavitaReaderWebUrl,
   buildKavitaCoverImageUrl,
@@ -508,6 +512,8 @@ const cwaImportIdentitySource = fs.readFileSync(require.resolve('../services/cwa
 const bookOrbitAuthoritativeImportSmokeSource = fs.readFileSync(require.resolve('../scripts/bookorbit-authoritative-import-smoke'), 'utf8');
 const bookOrbitImportIdentitySource = fs.readFileSync(require.resolve('../services/bookOrbitImportIdentity'), 'utf8');
 const providerSyncTargetsSource = fs.readFileSync(require.resolve('../services/providerSyncTargets'), 'utf8');
+const providerSourceObservationsSource = fs.readFileSync(require.resolve('../services/providerSourceObservations'), 'utf8');
+const providerSourceObservationsSqlSource = fs.readFileSync(path.resolve(__dirname, '../db/providerSourceObservations.sql'), 'utf8');
 const kavitaImportIdentitySource = fs.readFileSync(require.resolve('../services/kavitaImportIdentity'), 'utf8');
 const plexAuthoritativeSyncSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-authoritative-sync-smoke'), 'utf8');
 const plexImportIdentitySource = fs.readFileSync(require.resolve('../services/plexImportIdentity'), 'utf8');
@@ -798,7 +804,7 @@ results.push(run('workspace ownership contract classifies every schema table, ro
   const contract = buildWorkspaceOwnershipContract();
   const snapshot = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'config', 'workspace-ownership-contract.json'), 'utf8'));
   assert.deepStrictEqual(contract, snapshot);
-  assert.strictEqual(contract.tables.length, 79);
+  assert.strictEqual(contract.tables.length, 80);
   assert.ok(contract.tables.filter(t => t.name.startsWith('collectz_scope.')).every(t => t.category === 'authorization_control_plane'));
   assert.ok(contract.routes.length >= 300);
   assert.ok(contract.routes.filter((route) => route.authentication === 'required').length >= 300);
@@ -810,6 +816,7 @@ results.push(run('workspace ownership contract classifies every schema table, ro
     'provider_integration_bindings',
     'provider_connection_credentials',
     'provider_sync_targets',
+    'provider_source_observations',
     'external_media_identities',
     'external_media_identity_events',
     'canonical_media_field_controls'
@@ -5565,6 +5572,10 @@ results.push(run('bookOrbit connection and import routes use the multi-instance 
   assert.ok(bookOrbitAuthoritativeImportSmokeSource.includes('comicSeriesOrderingPreserved'));
   assert.ok(bookOrbitAuthoritativeImportSmokeSource.includes('target_xid'));
   assert.ok(bookOrbitAuthoritativeImportSmokeSource.includes('job_xid'));
+  assert.ok(bookOrbitImportIdentitySource.includes('appendProviderSourceObservation'));
+  assert.ok(providerSourceObservationsSource.includes('FORBIDDEN_FACT_KEY'));
+  assert.ok(providerSourceObservationsSqlSource.includes('provider_source_observations_append_only'));
+  assert.ok(providerSourceObservationsSqlSource.includes('ENABLE ROW LEVEL SECURITY'));
 }));
 
 results.push(run('durable operator readback exposes only sanitized workspace-safe lifecycle fields', () => {
@@ -5733,6 +5744,32 @@ results.push(run('durable sync jobs activate command-separated actor and worker 
   assert.ok(workerSmokeSource.includes("require('./helpers/scopedSmokeUser')"));
   assert.ok(workerSmokeSource.includes('sm.user_id = $1'));
   assert.ok(workerSmokeSource.includes("SELECT COUNT(*)::int AS count FROM sync_jobs"));
+}));
+
+results.push(run('provider source observations are immutable, sanitized, and migration-authoritative', () => {
+  const normalized = normalizeProviderObservationFacts({ zeta: 2, alpha: { value: 'safe' } });
+  assert.deepStrictEqual(Object.keys(normalized.facts), ['alpha', 'zeta']);
+  assert.throws(() => normalizeProviderObservationFacts({ apiKey: 'must-not-persist' }), /forbidden key/);
+  const bookOrbitObservation = buildBookOrbitSourceObservation({
+    title: 'Observed Comic',
+    media_type: 'comic_book',
+    bookorbit_series_memberships: [{ providerSeriesId: 'series-1', name: 'Series One', displayOrder: 0 }],
+    type_details: {
+      provider_item_id: 'urn:bookorbit:book:43',
+      source_updated_at: '2026-11-13T00:43:41.757Z',
+      bookorbit_native_metadata: 'available',
+      bookorbit_comicvine_id: '315507'
+    }
+  });
+  assert.strictEqual(bookOrbitObservation.sourceKind, 'bookorbit_native');
+  assert.strictEqual(bookOrbitObservation.facts.providerIdentifiers.comicvine, '315507');
+  assert.ok(migrationsSource.includes('version: 145'));
+  assert.ok(initSqlSource.includes("(145, 'Add immutable provider source observations')"));
+  assert.ok(providerSourceObservationsSqlSource.includes('provider_source_observations_append_only'));
+  assert.ok(providerSourceObservationsSqlSource.includes('provider_source_observations_scope'));
+  assert.ok(providerSourceObservationsSource.includes('normalized_facts'));
+  assert.ok(providerSourceObservationsSource.includes('idempotencyKey'));
+  assert.ok(bookOrbitAuthoritativeImportSmokeSource.includes('immutableSourceObservations'));
 }));
 
 results.push(run('migration authority evidence certifies fresh install after init.sql retirement', () => {

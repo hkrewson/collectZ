@@ -1,10 +1,15 @@
 'use strict';
 
+const crypto = require('node:crypto');
 const { reconcileProviderMediaType, setCanonicalFieldControl } = require('./canonicalMediaFieldControls');
 const { createExternalMediaIdentityService } = require('./externalMediaIdentities');
 const { buildOwnedFormatsPayload } = require('./mediaFormats');
 const { syncNormalizedMetadataForMedia } = require('./mediaTaxonomy');
 const { syncBookOrbitSeriesMemberships } = require('./bookOrbitSeriesMemberships');
+const {
+  appendProviderSourceObservation,
+  buildBookOrbitSourceObservation
+} = require('./providerSourceObservations');
 const {
   BOOKORBIT_IDENTITY_KIND,
   buildBookOrbitCanonicalFields,
@@ -34,6 +39,7 @@ function createBookOrbitImportIdentityModule({ pool } = {}) {
     actorId: actorIdValue,
     connectionId,
     sourceUrl = null,
+    observationBatchId: observationBatchIdValue = null,
     transactionClient = null
   } = {}) {
     const spaceId = positiveInteger(spaceIdValue, 'Workspace');
@@ -43,6 +49,10 @@ function createBookOrbitImportIdentityModule({ pool } = {}) {
       : positiveInteger(libraryIdValue, 'Library');
     if (transactionClient && typeof transactionClient.query !== 'function') {
       throw new TypeError('BookOrbit import identity transaction client must provide query()');
+    }
+    const observationBatchId = String(observationBatchIdValue || crypto.randomUUID()).trim();
+    if (!observationBatchId || observationBatchId.length > 512) {
+      throw new TypeError('BookOrbit observation batch id is invalid');
     }
 
     async function scoped(work) {
@@ -143,9 +153,25 @@ function createBookOrbitImportIdentityModule({ pool } = {}) {
               memberships: item.bookorbit_series_memberships
             })
           : null;
-        return membershipSync
-          ? { ...reconciled, value: { ...reconciled.value, bookOrbitSeriesMemberships: membershipSync } }
-          : reconciled;
+        const observationInput = buildBookOrbitSourceObservation(item);
+        const sourceObservation = await appendProviderSourceObservation(client, {
+          spaceId,
+          providerConnectionId: connectionId,
+          externalIdentityId: reconciled.identity.id,
+          actorId,
+          sourceKind: observationInput.sourceKind,
+          sourceUpdatedAt: observationInput.sourceUpdatedAt,
+          batchKey: observationBatchId,
+          facts: observationInput.facts
+        });
+        return {
+          ...reconciled,
+          value: {
+            ...reconciled.value,
+            ...(membershipSync ? { bookOrbitSeriesMemberships: membershipSync } : {}),
+            providerSourceObservation: sourceObservation
+          }
+        };
       });
     }
 

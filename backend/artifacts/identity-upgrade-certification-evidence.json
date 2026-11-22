@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-11-21T05:56:25.380Z",
+  "generatedAt": "2026-11-22T19:30:07.195Z",
   "status": "passed",
   "manifestSchemaVersion": 1,
   "baselineVersion": 127,
-  "latestVersion": 144,
+  "latestVersion": 145,
   "certifiedMigrationVersions": [
     128,
     129,
@@ -21,7 +21,8 @@
     141,
     142,
     143,
-    144
+    144,
+    145
   ],
   "selectorMatches": [
     {
@@ -75,6 +76,10 @@
     {
       "version": 144,
       "description": "Protect durable sync jobs with actor and worker RLS"
+    },
+    {
+      "version": 145,
+      "description": "Add immutable provider source observations"
     }
   ],
   "fixturePolicy": {
@@ -151,13 +156,13 @@
       {
         "id": 1,
         "user_id": 1,
-        "expires_at": "2026-11-28T05:56:26.159Z",
+        "expires_at": "2026-11-29T19:30:08.007Z",
         "storedCredentialPresent": true
       },
       {
         "id": 2,
         "user_id": 1,
-        "expires_at": "2026-11-28T05:56:26.160Z",
+        "expires_at": "2026-11-29T19:30:08.008Z",
         "storedCredentialPresent": true
       }
     ],
@@ -213,7 +218,7 @@
             "libraries:read"
           ],
           "revoked_at": null,
-          "expires_at": "2026-11-28T05:56:26.162Z",
+          "expires_at": "2026-11-29T19:30:08.010Z",
           "storedCredentialPresent": true
         }
       ],
@@ -229,7 +234,7 @@
             "/api/libraries"
           ],
           "revoked_at": null,
-          "expires_at": "2026-11-28T05:56:26.162Z",
+          "expires_at": "2026-11-29T19:30:08.010Z",
           "storedCredentialPresent": true
         }
       ]
